@@ -110,18 +110,23 @@ router.post('/getResultPublication', async (req, res) => {
     if (viewRuleRows.length > 0) {
       const vrIds = viewRuleRows.map(r => r.id);
       const ph = vrIds.map(() => '?').join(',');
-      const [allGradeBands] = await pool.query(
-        `SELECT * FROM pub_grade_bands WHERE rule_id IN (${ph}) AND org_id = ? ORDER BY rule_id, sort_order ASC`,
-        [...vrIds, orgId]
-      );
-      allGradeBands.forEach(gb => {
-        if (!gradeBandsByRule.has(gb.rule_id)) gradeBandsByRule.set(gb.rule_id, []);
-        gradeBandsByRule.get(gb.rule_id).push({
-          id: gb.id, ruleId: gb.rule_id,
-          minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
-          gradeName: safeString(gb.grade_name), sortOrder: gb.sort_order
+      try {
+        const [allGradeBands] = await pool.query(
+          `SELECT * FROM pub_grade_bands WHERE rule_id IN (${ph}) AND org_id = ? ORDER BY rule_id, sort_order ASC`,
+          [...vrIds, orgId]
+        );
+        allGradeBands.forEach(gb => {
+          if (!gradeBandsByRule.has(gb.rule_id)) gradeBandsByRule.set(gb.rule_id, []);
+          gradeBandsByRule.get(gb.rule_id).push({
+            id: gb.id, ruleId: gb.rule_id,
+            minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
+            gradeName: safeString(gb.grade_name), sortOrder: gb.sort_order
+          });
         });
-      });
+      } catch (e) {
+        // Table may not exist yet — grade bands will be empty
+        req.logger && req.logger.warn('Failed to load grade bands', { error: e.message });
+      }
     }
 
     const enrichedViewRules = viewRuleRows.map(r => {
@@ -490,11 +495,15 @@ router.post('/getPublicResults', async (req, res) => {
     const displayMode = safeString(matchingRules[0].display_mode) || 'score';
     let gradeBands = [];
     if (displayMode === 'grade') {
-      const [gbRows] = await pool.query(
-        'SELECT * FROM pub_grade_bands WHERE rule_id = ? AND org_id = ? ORDER BY sort_order ASC',
-        [matchingRules[0].id, orgId]
-      );
-      gradeBands = gbRows;
+      try {
+        const [gbRows] = await pool.query(
+          'SELECT * FROM pub_grade_bands WHERE rule_id = ? AND org_id = ? ORDER BY sort_order ASC',
+          [matchingRules[0].id, orgId]
+        );
+        gradeBands = gbRows;
+      } catch (e) {
+        // Table may not exist yet — fall back to score display
+      }
     }
 
     // Collect all matching clauses
@@ -976,16 +985,21 @@ router.post('/savePubViewRule', async (req, res) => {
       for (let i = 0; i < dedupedClauses.length; i++) {
         await conn.query('INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, sort_order, org_id) VALUES (?,?,?,?,?,?)', [generateId(), ruleId, dedupedClauses[i].scopeType, dedupedClauses[i].targetIdentityId, i+1, orgId]);
       }
-      // Save grade bands
-      await conn.query('DELETE FROM pub_grade_bands WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
-      if (displayMode === 'grade') {
-        for (let i = 0; i < gradeBands.length; i++) {
-          const gb = gradeBands[i];
-          await conn.query(
-            'INSERT INTO pub_grade_bands (id, rule_id, min_score, max_score, grade_name, sort_order, org_id) VALUES (?,?,?,?,?,?,?)',
-            [generateId(), ruleId, Number(gb.minScore), Number(gb.maxScore), safeString(gb.gradeName || gb.grade_name), i + 1, orgId]
-          );
+      // Save grade bands (gracefully skip if table doesn't exist yet)
+      try {
+        await conn.query('DELETE FROM pub_grade_bands WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
+        if (displayMode === 'grade') {
+          for (let i = 0; i < gradeBands.length; i++) {
+            const gb = gradeBands[i];
+            await conn.query(
+              'INSERT INTO pub_grade_bands (id, rule_id, min_score, max_score, grade_name, sort_order, org_id) VALUES (?,?,?,?,?,?,?)',
+              [generateId(), ruleId, Number(gb.minScore), Number(gb.maxScore), safeString(gb.gradeName || gb.grade_name), i + 1, orgId]
+            );
+          }
         }
+      } catch (e) {
+        // Table may not exist yet — skip grade bands save
+        if (displayMode === 'grade') throw e; // If user explicitly chose grade mode, surface the error
       }
     });
     res.json({ status: 'success', id: ruleId });
@@ -1007,18 +1021,22 @@ router.post('/listPubViewRules', async (req, res) => {
     if (rules.length > 0) {
       const vrIds = rules.map(r => r.id);
       const ph = vrIds.map(() => '?').join(',');
-      const [allGradeBands] = await pool.query(
-        `SELECT * FROM pub_grade_bands WHERE rule_id IN (${ph}) AND org_id = ? ORDER BY rule_id, sort_order ASC`,
-        [...vrIds, orgId]
-      );
-      allGradeBands.forEach(gb => {
-        if (!gradeBandsByRule.has(gb.rule_id)) gradeBandsByRule.set(gb.rule_id, []);
-        gradeBandsByRule.get(gb.rule_id).push({
-          id: gb.id, ruleId: gb.rule_id,
-          minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
-          gradeName: safeString(gb.grade_name), sortOrder: gb.sort_order
+      try {
+        const [allGradeBands] = await pool.query(
+          `SELECT * FROM pub_grade_bands WHERE rule_id IN (${ph}) AND org_id = ? ORDER BY rule_id, sort_order ASC`,
+          [...vrIds, orgId]
+        );
+        allGradeBands.forEach(gb => {
+          if (!gradeBandsByRule.has(gb.rule_id)) gradeBandsByRule.set(gb.rule_id, []);
+          gradeBandsByRule.get(gb.rule_id).push({
+            id: gb.id, ruleId: gb.rule_id,
+            minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
+            gradeName: safeString(gb.grade_name), sortOrder: gb.sort_order
+          });
         });
-      });
+      } catch (e) {
+        // Table may not exist yet — grade bands will be empty
+      }
     }
 
     const lookups = await fetchOrgLookups();
