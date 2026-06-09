@@ -2,12 +2,13 @@
 set -euo pipefail
 
 echo "=========================================="
-echo "REDSU Scoring - org_id Migration"
+echo "REDSU Scoring - Full Database Migration"
 echo "=========================================="
 echo ""
-echo "WARNING: This script migrates the database"
-echo "from the old history-table architecture to"
-echo "the new org_id column architecture."
+echo "This script runs ALL migrations to bring"
+echo "the database to the latest correct state."
+echo "All migrations are idempotent — safe to"
+echo "run multiple times."
 echo ""
 echo "MAKE SURE you have backed up the database"
 echo "before proceeding!"
@@ -76,8 +77,8 @@ echo "Connecting: $DB_USER@$DB_HOST:$DB_PORT  ->  $DB_NAME"
 echo "=========================================="
 echo ""
 
-# ─── [1/5] test connection ──────────────────────────
-echo "[1/5] Testing connection..."
+# ─── [1/6] test connection ──────────────────────────
+echo "[1/6] Testing connection..."
 if ! run_mysql -e "SELECT 1 AS test;"; then
   echo ""
   echo "[ERROR] Cannot connect. Check host / port / user / password."
@@ -91,28 +92,28 @@ if ! run_mysql -e "SELECT 1 AS test;"; then
 fi
 echo "       OK."
 
-# ─── [2/5] verify database ──────────────────────────
-echo "[2/5] Verifying database exists..."
+# ─── [2/6] verify database ──────────────────────────
+echo "[2/6] Verifying database exists..."
 if ! run_mysql -e "USE \`$DB_NAME\`;"; then
   echo "[ERROR] Database '$DB_NAME' does not exist. Run setup-local.sh first."
   exit 1
 fi
 echo "       OK."
 
-# ─── [3/5] run migration ────────────────────────────
+# ─── [3/6] run main org_id migration ────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-echo "[3/5] Running main migration (migrate_org_id.sql) ..."
+echo "[3/6] Running main migration (migrate_org_id.sql) ..."
 echo "       This may take a while depending on data size."
 
 if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migrate_org_id.sql" 2>&1; then
-  echo "[ERROR] Migration failed. See errors above."
+  echo "[ERROR] Main migration failed. See errors above."
   echo "       Restore from backup and investigate before retrying."
   exit 1
 fi
 echo "       OK."
 
-# ─── [4/5] fix permission_id ─────────────────────────
-echo "[4/5] Fixing permission_id column (migrate_fix_permission_id.sql) ..."
+# ─── [4/6] fix permission_id ─────────────────────────
+echo "[4/6] Fixing permission_id column (migrate_fix_permission_id.sql) ..."
 echo "       Drops legacy FK, makes permission_id nullable."
 
 if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migrate_fix_permission_id.sql" 2>&1; then
@@ -122,25 +123,64 @@ else
   echo "       OK."
 fi
 
-# ─── [5/5] verify ───────────────────────────────────
-echo "[5/5] Verifying migration..."
-echo "       Checking org_id columns ..."
+# ─── [5/6] fix clause_id ─────────────────────────────
+echo "[5/6] Fixing clause_id column (migrate_clause_id.sql) ..."
+echo "       Adds clause_id, copies from permission_id, drops old FKs."
+
+if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migrate_clause_id.sql" 2>&1; then
+  echo "[ERROR] Clause_id fix failed. See errors above."
+  echo "       This is not fatal — you can run migrate_clause_id.sql manually."
+else
+  echo "       OK."
+fi
+
+# ─── [6/6] grade bands migration ─────────────────────
+echo "[6/6] Running grade bands migration (migration_grade_bands.sql) ..."
+echo "       Adds display_mode to pub_view_rules, creates pub_grade_bands table."
+
+if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migration_grade_bands.sql" 2>&1; then
+  echo "[ERROR] Grade bands migration failed. See errors above."
+  echo "       This is not fatal — you can run migration_grade_bands.sql manually."
+else
+  echo "       OK."
+fi
+
+# ─── verify ─────────────────────────────────────────
+echo ""
+echo "=========================================="
+echo "Verifying all migrations..."
+echo ""
+
+echo "  Checking org_id columns ..."
 run_mysql "$DB_NAME" -e "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$DB_NAME' AND COLUMN_NAME = 'org_id' ORDER BY TABLE_NAME;" 2>/dev/null || true
 echo ""
-echo "       Checking is_paused column ..."
+
+echo "  Checking is_paused column ..."
 run_mysql "$DB_NAME" -e "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$DB_NAME' AND COLUMN_NAME = 'is_paused';" 2>/dev/null || true
 echo ""
-echo "       Checking allow_self_assessment column ..."
+
+echo "  Checking allow_self_assessment column ..."
 run_mysql "$DB_NAME" -e "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$DB_NAME' AND COLUMN_NAME = 'allow_self_assessment';" 2>/dev/null || true
 echo ""
-echo "       Checking calculation_method column ..."
+
+echo "  Checking calculation_method column ..."
 run_mysql "$DB_NAME" -e "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$DB_NAME' AND COLUMN_NAME IN ('calculation_method', 'trim_high_count', 'trim_low_count') ORDER BY TABLE_NAME, COLUMN_NAME;" 2>/dev/null || true
 echo ""
-echo "       Checking history tables removed ..."
+
+echo "  Checking history tables removed ..."
 run_mysql "$DB_NAME" -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = '$DB_NAME' AND TABLE_NAME LIKE '%_history';" 2>/dev/null || true
 echo ""
-echo "       Checking permission_id nullable ..."
+
+echo "  Checking permission_id / clause_id ..."
 run_mysql "$DB_NAME" -e "SELECT TABLE_NAME, COLUMN_NAME, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$DB_NAME' AND TABLE_NAME = 'merit_list_designations' AND COLUMN_NAME IN ('permission_id', 'clause_id') ORDER BY COLUMN_NAME;" 2>/dev/null || true
+echo ""
+
+echo "  Checking display_mode column ..."
+run_mysql "$DB_NAME" -e "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$DB_NAME' AND TABLE_NAME = 'pub_view_rules' AND COLUMN_NAME = 'display_mode';" 2>/dev/null || true
+echo ""
+
+echo "  Checking pub_grade_bands table ..."
+run_mysql "$DB_NAME" -e "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = '$DB_NAME' AND TABLE_NAME = 'pub_grade_bands';" 2>/dev/null || true
 echo ""
 
 echo "=========================================="
@@ -148,17 +188,17 @@ echo "Migration complete!"
 echo "  Database: $DB_NAME"
 echo "  Host:Port: $DB_HOST:$DB_PORT"
 echo ""
-echo "New features added:"
-echo "  - rate_target_rules.allow_self_assessment (default 1)"
-echo "  - clause_template_configs.calculation_method (default weighted_average)"
-echo "  - clause_template_configs.trim_high_count / trim_low_count (default 0)"
+echo "Migrations applied (all idempotent):"
+echo "  1. migrate_org_id.sql         — org_id columns, history tables dropped"
+echo "  2. migrate_fix_permission_id.sql — permission_id nullable, FK removed"
+echo "  3. migrate_clause_id.sql      — clause_id column, old FK cleanup"
+echo "  4. migration_grade_bands.sql  — display_mode + pub_grade_bands table"
 echo ""
-echo "The 16 history tables have been dropped."
-echo "All org-scoped tables now use org_id column."
-echo "Switching organizations no longer requires"
-echo "data migration - it updates system_config only."
-echo ""
-echo "merit_list_designations:"
-echo "  - clause_id is the active reference (FK → pub_merit_rule_clauses)"
-echo "  - permission_id is now nullable (legacy, no FK)"
+echo "New features:"
+echo "  - org-scoped architecture (org_id on all tables)"
+echo "  - allow_self_assessment on rate_target_rules"
+echo "  - calculation_method / trim configs on clause_template_configs"
+echo "  - merit_list_designations uses clause_id (permission_id is legacy)"
+echo "  - pub_view_rules.display_mode (score | grade)"
+echo "  - pub_grade_bands table for customizable grade intervals"
 echo "=========================================="
