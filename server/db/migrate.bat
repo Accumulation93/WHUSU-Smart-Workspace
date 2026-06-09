@@ -134,7 +134,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 REM ─── [6/6] Grade bands migration ───────────────────
 echo [6/6] Running grade bands migration ^(migration_grade_bands.sql^) ...
-echo        Adds display_mode to pub_view_rules, creates pub_grade_bands table.
+echo        display_mode → clauses, pub_grade_bands, cascade FKs, orphan cleanup.
 %MYSQL_CMD% %DB_NAME% < "%~dp0migration_grade_bands.sql" 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [WARNING] Grade bands migration failed. See errors above.
@@ -181,6 +181,10 @@ echo   Checking pub_grade_bands table ...
 %MYSQL_CMD% %DB_NAME% -e "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = '%DB_NAME%' AND TABLE_NAME = 'pub_grade_bands';" 2>nul
 echo.
 
+echo   Checking cascade FKs (ON DELETE CASCADE) ...
+%MYSQL_CMD% %DB_NAME% -e "SELECT TABLE_NAME, CONSTRAINT_NAME, DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = '%DB_NAME%' AND TABLE_NAME IN ('pub_view_rule_clauses','pub_merit_rule_clauses','pub_grade_bands','merit_list_designations') ORDER BY TABLE_NAME, CONSTRAINT_NAME;" 2>nul
+echo.
+
 echo ==========================================
 echo Migration complete!
 echo   Database: %DB_NAME%
@@ -190,15 +194,16 @@ echo Migrations applied (all idempotent):
 echo   1. migrate_org_id.sql         - org_id columns, history tables dropped
 echo   2. migrate_fix_permission_id.sql - permission_id nullable, FK removed
 echo   3. migrate_clause_id.sql      - clause_id column, old FK cleanup
-echo   4. migration_grade_bands.sql  - display_mode + pub_grade_bands table
+echo   4. migration_grade_bands.sql  - display_mode → clauses, cascade FKs, pub_grade_bands
 echo.
 echo New features:
 echo   - org-scoped architecture (org_id on all tables)
 echo   - allow_self_assessment on rate_target_rules
 echo   - calculation_method / trim configs on clause_template_configs
 echo   - merit_list_designations uses clause_id (permission_id is legacy)
-echo   - pub_view_rules.display_mode (score ^| grade)
+echo   - pub_view_rule_clauses.display_mode (score ^| grade) per clause
 echo   - pub_grade_bands table for customizable grade intervals
+echo   - cascade FKs ensure no zombie records on category deletion
 echo ==========================================
 pause
 endlocal
