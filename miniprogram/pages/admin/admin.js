@@ -1541,9 +1541,11 @@ Page({
               'publicationForm.activityName': this.data.currentActivityName
             });
           }
-          // 先确保 publication 存在（静默创建），再加载完整数据
-          await this.savePublication(true);
-          this.loadPublicationData(currentActivityId);
+          // 先加载服务端状态，再决定是否需要静默创建（避免 savePublication 覆盖已发布状态）
+          await this.loadPublicationData(currentActivityId);
+          if (!this.data.publicationForm.id && currentActivityId) {
+            await this.savePublication(true);
+          }
         }
       });
     }
@@ -7463,10 +7465,13 @@ Page({
     const activity = this.data.activityList[idx];
     if (activity) {
       const activityId = activity.id || '';
-      this.setData({ 'publicationForm.activityId': activityId, 'publicationForm.activityName': activity.name || '', 'publicationForm.isPublished': false });
-      // 先确保 publication 存在（静默创建），再加载数据（必须 await 避免 isPublished 竞态）
-      await this.savePublication(true);
+      // 重置整个 publicationForm（含 id），避免残留上一个活动的旧数据
+      this.setData({ publicationForm: { id: '', activityId, activityName: activity.name || '', isPublished: false } });
+      // 先加载服务端状态，再决定是否需要静默创建（避免 savePublication 覆盖已发布状态）
       await this.loadPublicationData(activityId);
+      if (!this.data.publicationForm.id && activityId) {
+        await this.savePublication(true);
+      }
     }
   },
   onPublicationToggle(e) { this.setData({ 'publicationForm.isPublished': !!e.detail.value }); },

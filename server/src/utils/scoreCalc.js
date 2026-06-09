@@ -390,17 +390,23 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   const scorerCompletionMap = new Map(); // scorerKey -> Set<taskKey> for requireAllComplete
   const repairMap = new Map(); // recordId -> currentSig (for auto-repair old records)
 
+  // Diagnostic counters
+  let diag_total = 0, diag_skipped_visible = 0, diag_skipped_noHr = 0, diag_skipped_noRule = 0;
+  let diag_skipped_noScope = 0, diag_skipped_self = 0, diag_skipped_sig = 0, diag_accepted = 0;
+  const diag_sigDetails = []; // first few sig mismatches
+
   // First pass: validate and collect
   for (const record of recordRows) {
+    diag_total++;
     const targetId = safeString(record.target_id);
     const ruleId = safeString(record.rule_id);
 
     // Optionally filter by visible targets (user view)
-    if (visibleTargetIds && !visibleTargetIds.has(targetId)) continue;
+    if (visibleTargetIds && !visibleTargetIds.has(targetId)) { diag_skipped_visible++; continue; }
 
     // (a) Scorer's CURRENT hr_info must exist
     const scorerHr = hrById.get(safeString(record.scorer_id));
-    if (!scorerHr) continue; // scorer no longer exists — exclude record
+    if (!scorerHr) { diag_skipped_noHr++; continue; } // scorer no longer exists — exclude record
 
     // (b) Scorer's CURRENT (department, identity) must match a current rule
     const scorerDeptId = safeString(scorerHr.department_id);
@@ -409,7 +415,7 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
     const currentRule = ruleByKey.get(scorerRuleKey);
 
     // If scorer's identity changed and they no longer match any rule, exclude
-    if (!currentRule) continue;
+    if (!currentRule) { diag_skipped_noRule++; continue; }
 
     // If record's rule_id doesn't match the current rule (identity changed),
     // use the current rule instead of the historical one
@@ -441,10 +447,10 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
         break;
       }
     }
-    if (!matchedClause) continue; // target not in scope of current rule
+    if (!matchedClause) { diag_skipped_noScope++; continue; } // target not in scope of current rule
 
     // (d) Self-assessment check
-    if (!effectiveRule.allowSelfAssessment && safeString(record.scorer_id) === targetId) continue;
+    if (!effectiveRule.allowSelfAssessment && safeString(record.scorer_id) === targetId) { diag_skipped_self++; continue; }
 
     // (e) Template signature check — build current signature and compare structure
     const currentSig = matchedClause.signature;
@@ -454,9 +460,14 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
     // Compat: old records without signature → accept and mark for auto-repair
     // Records with matching structure → accept
     // Records with mismatched structure → exclude (template genuinely changed)
-    if (currentSig && recordSigNormalized && currentSig !== recordSigNormalized) continue;
+    if (currentSig && recordSigNormalized && currentSig !== recordSigNormalized) {
+      diag_skipped_sig++;
+      if (diag_sigDetails.length < 5) diag_sigDetails.push({ recordId: record.id, currentSig: currentSig.substring(0, 120), recordSig: recordSigNormalized.substring(0, 120) });
+      continue;
+    }
     const needsRepair = currentSig && (!recordSig || normalizeSignatureToStructure(recordSig) !== recordSig); // old format or no signature
     if (needsRepair) repairMap.set(record.id, currentSig);
+    diag_accepted++;
 
     // (f) Build template scores
     const answers = answerMap.get(record.id) || [];
@@ -576,6 +587,17 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
         .catch(() => {}) // silently ignore individual failures
     )).catch(() => {});
   }
+
+  // ── Diagnostic log ──
+  console.log('[computeValidScoreMap] diag:', JSON.stringify({
+    activityId, orgId,
+    rules: ruleRows.length, records: recordRows.length, templates: tplRows.length,
+    diag_total, diag_skipped_visible, diag_skipped_noHr, diag_skipped_noRule,
+    diag_skipped_noScope, diag_skipped_self, diag_skipped_sig, diag_accepted,
+    calcMapSize: calculationMap.size, finalScoreMapSize: finalScoreMap.size,
+    invalidClauseKeys: invalidScorerClauseKeys.size, repairMapSize: repairMap.size,
+    sigDetails: diag_sigDetails
+  }));
 
   if (options.includeCounts) {
     return { finalScoreMap, submittedByTarget, expectedByCount, scorerExpectedCount };

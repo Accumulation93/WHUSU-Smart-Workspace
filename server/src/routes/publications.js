@@ -545,6 +545,15 @@ router.post('/getPublicResults', async (req, res) => {
     const rawScoreMap = await computeValidScoreMap(activityId, orgId, { visibleTargetIds: visibleIds });
     // Defensive: ensure we always get a Map (not the includeCounts return shape)
     const scoreMap = (rawScoreMap instanceof Map) ? rawScoreMap : (rawScoreMap && rawScoreMap.finalScoreMap instanceof Map ? rawScoreMap.finalScoreMap : new Map());
+    // ── Diagnostic logging: help identify why scores may be 0 ──
+    const diag = { visibleCount: visibleIds.size, scoreMapSize: scoreMap.size, rawScoreMapType: typeof rawScoreMap, rawScoreMapIsMap: rawScoreMap instanceof Map, sampleScores: [] };
+    if (scoreMap.size > 0) {
+      const samples = [];
+      let sampled = 0;
+      for (const [id, data] of scoreMap) { if (sampled >= 5) break; samples.push({ id, finalScore: data.finalScore }); sampled++; }
+      diag.sampleScores = samples;
+    }
+    console.log('[getPublicResults] score diagnostics:', JSON.stringify(diag));
 
     const results = [];
     for (const member of allMembers) {

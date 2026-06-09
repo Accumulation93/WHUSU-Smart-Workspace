@@ -269,7 +269,6 @@ Page({
     resultWorkGroups: [],
     filteredResults: [],
     filteredStatsData: { count: 0, maxScore: '--', avgScore: '--' },
-    userTabs: USER_TABS,
     showUserDesigPopup: false,
     userDesigPerms: [],
     userDesigHrList: [],
