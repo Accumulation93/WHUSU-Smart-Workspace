@@ -829,7 +829,6 @@ router.post('/generatePubViewRules', async (req, res) => {
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     let createdCount = 0;
-    let backfilledCount = 0;
     for (const [key, cat] of categories) {
       if (existingKeys.has(key)) continue;
       const ruleId = generateId();
@@ -837,28 +836,11 @@ router.post('/generatePubViewRules', async (req, res) => {
         'INSERT INTO pub_view_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [ruleId, publicationId, cat.deptId, cat.identId, orgId, now, now]
       );
-      // Create default clause — same_department_identity for the grantee's own identity
-      await pool.query(
-        'INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, display_mode, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [generateId(), ruleId, 'same_department_identity', cat.identId, 'score', 1, orgId]
-      );
+      // No default clause — user configures rules manually
       createdCount++;
     }
 
-    // Backfill default clauses for existing rules that have none
-    const [emptyRules] = await pool.query(
-      `SELECT pvr.id, pvr.grantee_identity_id FROM pub_view_rules pvr
-       LEFT JOIN pub_view_rule_clauses pvrc ON pvrc.rule_id = pvr.id
-       WHERE pvr.publication_id = ? AND pvr.org_id = ? AND pvrc.id IS NULL`,
-      [publicationId, orgId]
-    );
-    for (const r of emptyRules) {
-      await pool.query(
-        'INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [generateId(), r.id, 'same_department_identity', r.grantee_identity_id, 1, orgId]
-      );
-      backfilledCount++;
-    }
+    const backfilledCount = 0; // No longer auto-creating clauses
 
     res.json({ status: 'success', totalCategories: categories.size, createdCount, skippedCount: categories.size - createdCount, backfilledCount });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
@@ -886,7 +868,6 @@ router.post('/generatePubMeritRules', async (req, res) => {
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     let createdCount = 0;
-    let backfilledCount = 0;
     for (const rule of viewRules) {
       const key = safeString(rule.grantee_department_id) + '::' + safeString(rule.grantee_identity_id);
       if (existingKeys.has(key)) continue;
@@ -895,28 +876,11 @@ router.post('/generatePubMeritRules', async (req, res) => {
         'INSERT INTO pub_merit_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [meritRuleId, publicationId, rule.grantee_department_id, rule.grantee_identity_id, orgId, now, now]
       );
-      // Create default clause — same_department_identity for the grantee's own identity, quota 0 = unlimited
-      await pool.query(
-        'INSERT INTO pub_merit_rule_clauses (id, rule_id, scope_type, target_identity_id, quota_limit, require_exact_quota, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [generateId(), meritRuleId, 'same_department_identity', rule.grantee_identity_id, 0, 0, 1, orgId]
-      );
+      // No default clause — user configures rules manually
       createdCount++;
     }
 
-    // Backfill default clauses for existing merit rules that have none
-    const [emptyMeritRules] = await pool.query(
-      `SELECT pmr.id, pmr.grantee_identity_id FROM pub_merit_rules pmr
-       LEFT JOIN pub_merit_rule_clauses pmrc ON pmrc.rule_id = pmr.id
-       WHERE pmr.publication_id = ? AND pmr.org_id = ? AND pmrc.id IS NULL`,
-      [publicationId, orgId]
-    );
-    for (const r of emptyMeritRules) {
-      await pool.query(
-        'INSERT INTO pub_merit_rule_clauses (id, rule_id, scope_type, target_identity_id, quota_limit, require_exact_quota, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [generateId(), r.id, 'same_department_identity', r.grantee_identity_id, 0, 0, 1, orgId]
-      );
-      backfilledCount++;
-    }
+    const backfilledCount = 0; // No longer auto-creating clauses
 
     res.json({ status: 'success', totalViewCategories: viewRules.length, createdCount, skippedCount: viewRules.length - createdCount, backfilledCount });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }

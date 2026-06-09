@@ -7845,8 +7845,7 @@ Page({
     const pubId = this.data.publicationForm.id;
     if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
     // Use the current view clauses as template
-    const templateClauses = (this.data.pubViewRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId }));
-    if (!templateClauses.length) { wx.showToast({ title: '请先在当前类别中配置至少一条查看规则条款', icon: 'none' }); return; }
+    const templateClauses = (this.data.pubViewRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] }));
     this.buildPubScorerCategoryList();
     const selected = this.data.pubBatchFilteredList.filter(item => this.data.pubBatchSelectedKeys[item.key]);
     if (!selected.length) { wx.showToast({ title: '请选择至少一个类别（需先在列表中勾选）', icon: 'none' }); return; }
@@ -7868,7 +7867,6 @@ Page({
     const pubId = this.data.publicationForm.id;
     if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
     const templateClauses = (this.data.pubMeritRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit || 0, requireExactQuota: c.requireExactQuota || false }));
-    if (!templateClauses.length) { wx.showToast({ title: '请先在当前类别中配置至少一条评优规则条款', icon: 'none' }); return; }
     this.buildPubScorerCategoryList();
     const selected = this.data.pubBatchFilteredList.filter(item => this.data.pubBatchSelectedKeys[item.key]);
     if (!selected.length) { wx.showToast({ title: '请选择至少一个类别', icon: 'none' }); return; }
