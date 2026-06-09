@@ -257,6 +257,7 @@ Page({
     userMeritClauses: [],
     userDesigCandidates: [],
     statsData: { count: 0, maxScore: '--', avgScore: '--' },
+    displayMode: 'score',
     resultFilterIdentity: '',
     resultFilterDepartment: '',
     resultFilterWorkGroup: '',
@@ -886,18 +887,29 @@ Page({
         callFunction({ name: 'getPublicResults', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
       });
       if (res.status === 'success') {
+        const displayMode = res.displayMode || 'score';
+        const isGrade = displayMode === 'grade';
         const results = (res.results || []).map(r => ({
           ...r,
-          finalScore: typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000')
+          // Keep both fields: grade for grade mode, finalScore for score mode
+          grade: r.grade || '',
+          finalScore: isGrade ? '' : (typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000'))
         }));
-        const sorted = [...results].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
+        const sorted = isGrade
+          ? [...results].sort((a, b) => String(a.grade || '').localeCompare(String(b.grade || ''), 'zh-CN'))
+          : [...results].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
         sorted.forEach((item, idx) => { item.rank = idx + 1; });
-        const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
-        const statsData = {
-          count: sorted.length,
-          maxScore: scores.length ? Math.max(...scores).toFixed(1) : '--',
-          avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '--'
-        };
+        let statsData;
+        if (isGrade) {
+          statsData = { count: sorted.length, maxScore: '--', avgScore: '--' };
+        } else {
+          const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
+          statsData = {
+            count: sorted.length,
+            maxScore: scores.length ? Math.max(...scores).toFixed(1) : '--',
+            avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '--'
+          };
+        }
         // Extract available filter options
         const idSet = new Set(); const deptSet = new Set(); const wgSet = new Set();
         sorted.forEach(r => { if (r.identity) idSet.add(r.identity); if (r.department) deptSet.add(r.department); if (r.workGroup) wgSet.add(r.workGroup); });
@@ -905,7 +917,7 @@ Page({
         const resultDepartments = Array.from(deptSet).sort();
         const resultWorkGroups = Array.from(wgSet).sort();
         this.setData({ publishedResults: sorted, hasPublication: true, hasViewPerm: true, statsData,
-          resultIdentities, resultDepartments, resultWorkGroups,
+          displayMode, resultIdentities, resultDepartments, resultWorkGroups,
           resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultSearchText: '' });
         this.applyResultFilters();
       } else if (res.status === 'no_permission') {
@@ -980,20 +992,29 @@ Page({
       (r.department || '').toLowerCase().indexOf(searchText) >= 0 ||
       (r.workGroup || '').toLowerCase().indexOf(searchText) >= 0
     );
-    // Re-rank within filtered set (ensure scores are 3-decimal strings)
-    const sorted = [...filtered].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
+    // Re-rank within filtered set
+    const isGradeFilter = this.data.displayMode === 'grade';
+    const sorted = isGradeFilter
+      ? [...filtered].sort((a, b) => String(a.grade || '').localeCompare(String(b.grade || ''), 'zh-CN'))
+      : [...filtered].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
     sorted.forEach((item, idx) => {
       item.rank = idx + 1;
-      if (typeof item.finalScore === 'number') item.finalScore = item.finalScore.toFixed(3);
+      if (!isGradeFilter && typeof item.finalScore === 'number') item.finalScore = item.finalScore.toFixed(3);
     });
-    const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
-    this.setData({
-      filteredResults: sorted,
-      filteredStatsData: {
+    let filteredStatsData;
+    if (isGradeFilter) {
+      filteredStatsData = { count: sorted.length, maxScore: '--', avgScore: '--' };
+    } else {
+      const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
+      filteredStatsData = {
         count: sorted.length,
         maxScore: scores.length ? Math.max(...scores).toFixed(1) : '--',
         avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '--'
-      }
+      };
+    }
+    this.setData({
+      filteredResults: sorted,
+      filteredStatsData
     });
   },
 

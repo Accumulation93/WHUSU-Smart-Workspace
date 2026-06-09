@@ -143,12 +143,12 @@
           <view class="stat-label">公示人数</view>
         </view>
         <view class="stat-item">
-          <view class="stat-value stat-value-gold">{{filteredStatsData.maxScore || '--'}}</view>
-          <view class="stat-label">最高分</view>
+          <view class="stat-value stat-value-gold">{{displayMode === 'grade' ? '等第' : (filteredStatsData.maxScore || '--')}}</view>
+          <view class="stat-label">{{displayMode === 'grade' ? '显示模式' : '最高分'}}</view>
         </view>
         <view class="stat-item">
-          <view class="stat-value">{{filteredStatsData.avgScore || '--'}}</view>
-          <view class="stat-label">平均分</view>
+          <view class="stat-value">{{displayMode === 'grade' ? '等第' : (filteredStatsData.avgScore || '--')}}</view>
+          <view class="stat-label">{{displayMode === 'grade' ? '显示模式' : '平均分'}}</view>
         </view>
       </view>
 
@@ -198,8 +198,8 @@
             <view class="member-detail">{{item.identity}}<text wx:if="{{item.department}}"> · {{item.department}}</text><text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
           </view>
           <view class="score-display">
-            <view class="score-value">{{item.finalScore}}</view>
-            <view class="score-label">得分</view>
+            <view class="score-value">{{displayMode === 'grade' ? item.grade : item.finalScore}}</view>
+            <view class="score-label">{{displayMode === 'grade' ? '等第' : '得分'}}</view>
           </view>
         </view>
       </view>

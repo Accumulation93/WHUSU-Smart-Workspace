@@ -60,6 +60,16 @@ router.post('/userLogin', async (req, res) => {
       return res.json({ status: 'need_bind', message: '绑定的人事信息不存在，请重新绑定' });
     }
 
+    // Resolve ID → name via JOIN (hr_info only stores IDs, not denormalized names)
+    const departmentModel = require('../models/department');
+    const identityModel = require('../models/identity');
+    const workGroupModel = require('../models/workGroup');
+    const [deptRecord, identRecord, wgRecord] = await Promise.all([
+      hrRecord.department_id ? departmentModel.getById(safeString(hrRecord.department_id)) : null,
+      hrRecord.identity_id ? identityModel.getById(safeString(hrRecord.identity_id)) : null,
+      hrRecord.work_group_id ? workGroupModel.getById(safeString(hrRecord.work_group_id)) : null
+    ]);
+
     // Build user profile matching original cloud function format
     const user = {
       id: safeString(hrRecord.id),
@@ -67,11 +77,11 @@ router.post('/userLogin', async (req, res) => {
       name: safeString(hrRecord.name),
       studentId: safeString(hrRecord.student_id),
       departmentId: safeString(hrRecord.department_id),
-      department: safeString(hrRecord.department),
+      department: deptRecord ? safeString(deptRecord.name) : '',
       identityId: safeString(hrRecord.identity_id),
-      identity: safeString(hrRecord.identity),
+      identity: identRecord ? safeString(identRecord.name) : '',
       workGroupId: safeString(hrRecord.work_group_id),
-      workGroup: safeString(hrRecord.work_group)
+      workGroup: wgRecord ? safeString(wgRecord.name) : ''
     };
 
     // Generate JWT
