@@ -1378,7 +1378,7 @@ Page({
     publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
 
     // View rule category form (mirrors ruleForm pattern)
-    pubViewRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', displayMode: 'score', gradeBands: [], isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauses: [] },
+    pubViewRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] },
     pubViewRuleList: [], pubViewRuleListView: [],
     pubViewRuleFilters: { department: '全部', identity: '全部' },
     pubViewRuleFilterOptions: { departments: ['全部'], identities: ['全部'] },
@@ -7530,13 +7530,13 @@ Page({
 
   // ─── View Rule Category CRUD ───
   startNewPubViewRule() {
-    this.setData({ pubViewRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', displayMode: 'score', gradeBands: [], isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauses: [] } });
+    this.setData({ pubViewRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] } });
   },
   editPubViewRule(e) {
     const id = e.currentTarget.dataset.id;
     const rule = this.data.pubViewRuleList.find(r => r.id === id);
     if (!rule) return;
-    this.setData({ pubViewRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, displayMode: rule.displayMode || 'score', gradeBands: (rule.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })), isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauses: (rule.clauses || []).map(c => ({ ...c })) } });
+    this.setData({ pubViewRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: (rule.clauses || []).map(c => ({ scopeType: c.scopeType, scopeLabel: c.scopeLabel || '', targetIdentityId: c.targetIdentityId || '', targetIdentity: c.targetIdentity || '', displayMode: c.displayMode || 'score', gradeBands: (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) })) } });
   },
   async savePubViewRule() {
     const f = this.data.pubViewRuleForm;
@@ -7544,7 +7544,7 @@ Page({
     if (!f.publicationId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
     this.setLoading('savePubViewRule', true);
     try {
-      const result = await this.callCloud('savePubViewRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, displayMode: f.displayMode || 'score', gradeBands: f.displayMode === 'grade' ? (f.gradeBands || []) : [], clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId })) });
+      const result = await this.callCloud('savePubViewRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] })) });
       if (result.status === 'success') { wx.showToast({ title: '已保存', icon: 'success' }); this.startNewPubViewRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
       else { wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
     } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
@@ -7558,50 +7558,39 @@ Page({
   },
 
   // ─── View Rule Clause Editor ───
-  openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': '仅查看自己的评分结果', 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '' }); },
+  openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': '仅查看自己的评分结果', 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '', 'pubViewRuleForm.clauseDisplayMode': 'score', 'pubViewRuleForm.clauseGradeBands': [] }); },
   cancelPubViewClauseEdit() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 }); },
   onPubViewClauseScopeChange(e) { const scope = this.data.viewScopeOptions[parseInt(e.detail.value, 10)]; if (scope) this.setData({ 'pubViewRuleForm.clauseScopeType': scope.value, 'pubViewRuleForm.clauseScopeLabel': scope.label }); },
   onPubViewClauseTargetIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.clauseTargetIdentityId': ident.id, 'pubViewRuleForm.clauseTargetIdentity': ident.name }); },
-  addPubViewClause() {
-    const f = this.data.pubViewRuleForm;
-    const clause = { scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity };
-    const clauses = [...f.clauses];
-    if (f.clauseEditingIndex >= 0) { clauses[f.clauseEditingIndex] = clause; } else { clauses.push(clause); }
-    this.setData({ 'pubViewRuleForm.clauses': clauses, 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 });
-  },
-  editPubViewClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const c = this.data.pubViewRuleForm.clauses[idx]; if (!c) return; this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': idx, 'pubViewRuleForm.clauseScopeType': c.scopeType, 'pubViewRuleForm.clauseScopeLabel': c.scopeLabel, 'pubViewRuleForm.clauseTargetIdentityId': c.targetIdentityId, 'pubViewRuleForm.clauseTargetIdentity': c.targetIdentity }); },
-  removePubViewClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const clauses = [...this.data.pubViewRuleForm.clauses]; clauses.splice(idx, 1); this.setData({ 'pubViewRuleForm.clauses': clauses }); },
-  onPubViewRuleDeptChange(e) { const dept = this.data.departmentList[parseInt(e.detail.value, 10)]; if (dept) this.setData({ 'pubViewRuleForm.granteeDepartmentId': dept.id, 'pubViewRuleForm.granteeDepartment': dept.name }); },
-  onPubViewRuleIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.granteeIdentityId': ident.id, 'pubViewRuleForm.granteeIdentity': ident.name }); },
 
-  // ─── Display mode & grade band handlers ───
-  onPubViewDisplayModeChange(e) {
+  // ─── Per-clause display mode & grade band handlers ───
+  onPubViewClauseDisplayModeChange(e) {
     const mode = this.data.displayModeOptions[parseInt(e.detail.value, 10)];
-    if (mode) this.setData({ 'pubViewRuleForm.displayMode': mode.value });
+    if (mode) this.setData({ 'pubViewRuleForm.clauseDisplayMode': mode.value });
   },
-  onGradeBandInput(e) {
+  onClauseGradeBandInput(e) {
     const idx = parseInt(e.currentTarget.dataset.index, 10);
     const field = e.currentTarget.dataset.field;
     const value = field === 'gradeName' ? e.detail.value : (parseFloat(e.detail.value) || 0);
-    const bands = [...this.data.pubViewRuleForm.gradeBands];
+    const bands = [...this.data.pubViewRuleForm.clauseGradeBands];
     if (bands[idx]) {
       bands[idx] = { ...bands[idx], [field]: value };
-      this.setData({ 'pubViewRuleForm.gradeBands': bands });
+      this.setData({ 'pubViewRuleForm.clauseGradeBands': bands });
     }
   },
-  addGradeBand() {
-    const bands = [...this.data.pubViewRuleForm.gradeBands];
+  addClauseGradeBand() {
+    const bands = [...this.data.pubViewRuleForm.clauseGradeBands];
     bands.push({ minScore: 0, maxScore: 100, gradeName: '' });
-    this.setData({ 'pubViewRuleForm.gradeBands': bands });
+    this.setData({ 'pubViewRuleForm.clauseGradeBands': bands });
   },
-  removeGradeBand(e) {
+  removeClauseGradeBand(e) {
     const idx = parseInt(e.currentTarget.dataset.index, 10);
-    const bands = [...this.data.pubViewRuleForm.gradeBands];
+    const bands = [...this.data.pubViewRuleForm.clauseGradeBands];
     bands.splice(idx, 1);
-    this.setData({ 'pubViewRuleForm.gradeBands': bands });
+    this.setData({ 'pubViewRuleForm.clauseGradeBands': bands });
   },
-  generateDefaultGradeBands() {
-    this.setData({ 'pubViewRuleForm.gradeBands': [
+  generateClauseDefaultGradeBands() {
+    this.setData({ 'pubViewRuleForm.clauseGradeBands': [
       { minScore: 0, maxScore: 59.99, gradeName: '不合格' },
       { minScore: 60, maxScore: 69.99, gradeName: '合格' },
       { minScore: 70, maxScore: 79.99, gradeName: '中等' },
@@ -7609,6 +7598,23 @@ Page({
       { minScore: 90, maxScore: 100, gradeName: '优秀' }
     ] });
   },
+
+  addPubViewClause() {
+    const f = this.data.pubViewRuleForm;
+    const clause = { scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity, displayMode: f.clauseDisplayMode || 'score', gradeBands: f.clauseDisplayMode === 'grade' ? (f.clauseGradeBands || []).map(gb => ({ ...gb })) : [] };
+    const clauses = [...f.clauses];
+    if (f.clauseEditingIndex >= 0) { clauses[f.clauseEditingIndex] = clause; } else { clauses.push(clause); }
+    this.setData({ 'pubViewRuleForm.clauses': clauses, 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 });
+  },
+  editPubViewClause(e) {
+    const idx = parseInt(e.currentTarget.dataset.index, 10);
+    const c = this.data.pubViewRuleForm.clauses[idx];
+    if (!c) return;
+    this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': idx, 'pubViewRuleForm.clauseScopeType': c.scopeType, 'pubViewRuleForm.clauseScopeLabel': c.scopeLabel || '', 'pubViewRuleForm.clauseTargetIdentityId': c.targetIdentityId || '', 'pubViewRuleForm.clauseTargetIdentity': c.targetIdentity || '', 'pubViewRuleForm.clauseDisplayMode': c.displayMode || 'score', 'pubViewRuleForm.clauseGradeBands': (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) });
+  },
+  removePubViewClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const clauses = [...this.data.pubViewRuleForm.clauses]; clauses.splice(idx, 1); this.setData({ 'pubViewRuleForm.clauses': clauses }); },
+  onPubViewRuleDeptChange(e) { const dept = this.data.departmentList[parseInt(e.detail.value, 10)]; if (dept) this.setData({ 'pubViewRuleForm.granteeDepartmentId': dept.id, 'pubViewRuleForm.granteeDepartment': dept.name }); },
+  onPubViewRuleIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.granteeIdentityId': ident.id, 'pubViewRuleForm.granteeIdentity': ident.name }); },
 
   // ─── View Rule Category List batch ops ───
   togglePubViewRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubViewRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubViewRuleListView.every(r => map[r.id]); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },

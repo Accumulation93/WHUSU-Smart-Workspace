@@ -105,20 +105,23 @@ router.post('/getResultPublication', async (req, res) => {
       identity_only: '指定身份成员（不限部门）'
     };
 
-    // Load grade bands for all view rules in one batch
-    const gradeBandsByRule = new Map();
-    if (viewRuleRows.length > 0) {
-      const vrIds = viewRuleRows.map(r => r.id);
-      const ph = vrIds.map(() => '?').join(',');
+    // Load grade bands for all view clauses in one batch (per-clause level)
+    const gradeBandsByClause = new Map();
+    const allClauseIds = [];
+    for (const clauses of viewClausesMap.values()) {
+      for (const c of clauses) allClauseIds.push(c.id);
+    }
+    if (allClauseIds.length > 0) {
+      const ph = allClauseIds.map(() => '?').join(',');
       try {
         const [allGradeBands] = await pool.query(
-          `SELECT * FROM pub_grade_bands WHERE rule_id IN (${ph}) AND org_id = ? ORDER BY rule_id, sort_order ASC`,
-          [...vrIds, orgId]
+          `SELECT * FROM pub_grade_bands WHERE clause_id IN (${ph}) AND org_id = ? ORDER BY clause_id, sort_order ASC`,
+          [...allClauseIds, orgId]
         );
         allGradeBands.forEach(gb => {
-          if (!gradeBandsByRule.has(gb.rule_id)) gradeBandsByRule.set(gb.rule_id, []);
-          gradeBandsByRule.get(gb.rule_id).push({
-            id: gb.id, ruleId: gb.rule_id,
+          if (!gradeBandsByClause.has(gb.clause_id)) gradeBandsByClause.set(gb.clause_id, []);
+          gradeBandsByClause.get(gb.clause_id).push({
+            id: gb.id, clauseId: gb.clause_id,
             minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
             gradeName: safeString(gb.grade_name), sortOrder: gb.sort_order
           });
@@ -135,6 +138,8 @@ router.post('/getResultPublication', async (req, res) => {
         scopeLabel: scopeLabelMap[c.scope_type] || c.scope_type,
         targetIdentityId: c.target_identity_id || '',
         targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '',
+        displayMode: safeString(c.display_mode) || 'score',
+        gradeBands: gradeBandsByClause.get(c.id) || [],
         sortOrder: c.sort_order
       }));
       return {
@@ -143,8 +148,6 @@ router.post('/getResultPublication', async (req, res) => {
         granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
         granteeIdentityId: r.grantee_identity_id,
         granteeIdentity: lookups.identitiesById.get(safeString(r.grantee_identity_id)) || '',
-        displayMode: safeString(r.display_mode) || 'score',
-        gradeBands: gradeBandsByRule.get(r.id) || [],
         clauseCount: clauses.length, clauses
       };
     });
@@ -486,33 +489,34 @@ router.post('/getPublicResults', async (req, res) => {
     const viewer = { id: viewerHr.id, departmentId: safeString(viewerHr.department_id), identityId: safeString(viewerHr.identity_id), workGroupId: safeString(viewerHr.work_group_id) };
 
     const orgId = await getCurrentOrgId();
-    // Query from new table structure (includes display_mode)
     const [viewRuleRows] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     const matchingRules = viewRuleRows.filter(r => safeString(r.grantee_department_id) === viewer.departmentId && safeString(r.grantee_identity_id) === viewer.identityId);
     if (!matchingRules.length) return res.json({ status: 'no_permission', message: '暂无查看评分结果的权限' });
 
-    // Determine display mode from the matching rule (unique per dept+identity, so first is fine)
-    const displayMode = safeString(matchingRules[0].display_mode) || 'score';
-    let gradeBands = [];
-    if (displayMode === 'grade') {
-      try {
-        const [gbRows] = await pool.query(
-          'SELECT * FROM pub_grade_bands WHERE rule_id = ? AND org_id = ? ORDER BY sort_order ASC',
-          [matchingRules[0].id, orgId]
-        );
-        gradeBands = gbRows;
-      } catch (e) {
-        // Table may not exist yet — fall back to score display
-      }
-    }
-
-    // Collect all matching clauses
+    // Collect all matching clauses (with per-clause display_mode)
     const matchingClauses = [];
     for (const rule of matchingRules) {
       const [clauses] = await pool.query('SELECT * FROM pub_view_rule_clauses WHERE rule_id = ? ORDER BY sort_order ASC', [rule.id]);
       matchingClauses.push(...clauses);
     }
     if (!matchingClauses.length) return res.json({ status: 'no_permission', message: '暂无查看评分结果的权限' });
+
+    // Determine display mode from the first matching clause (per-clause level)
+    const displayMode = safeString(matchingClauses[0].display_mode) || 'score';
+    let gradeBands = [];
+    if (displayMode === 'grade') {
+      try {
+        const clauseIds = matchingClauses.map(c => c.id);
+        const ph = clauseIds.map(() => '?').join(',');
+        const [gbRows] = await pool.query(
+          `SELECT * FROM pub_grade_bands WHERE clause_id IN (${ph}) AND org_id = ? ORDER BY clause_id, sort_order ASC`,
+          [...clauseIds, orgId]
+        );
+        gradeBands = gbRows;
+      } catch (e) {
+        // Table may not exist yet — fall back to score display
+      }
+    }
 
     const [hrRows] = await pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
     const allMembers = hrRows.map(m => ({
@@ -835,8 +839,8 @@ router.post('/generatePubViewRules', async (req, res) => {
       );
       // Create default clause — same_department_identity for the grantee's own identity
       await pool.query(
-        'INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?)',
-        [generateId(), ruleId, 'same_department_identity', cat.identId, 1, orgId]
+        'INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, display_mode, sort_order, org_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [generateId(), ruleId, 'same_department_identity', cat.identId, 'score', 1, orgId]
       );
       createdCount++;
     }
@@ -928,27 +932,11 @@ router.post('/savePubViewRule', async (req, res) => {
     const granteeDepartmentId = safeString(req.body.granteeDepartmentId);
     const granteeIdentityId = safeString(req.body.granteeIdentityId);
     const clauses = Array.isArray(req.body.clauses) ? req.body.clauses : [];
-    const displayMode = VALID_DISPLAY_MODES.includes(safeString(req.body.displayMode)) ? safeString(req.body.displayMode) : 'score';
-    const gradeBands = Array.isArray(req.body.gradeBands) ? req.body.gradeBands : [];
     if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: '请提供公示ID和授权部门、身份ID' });
 
     const orgId = await getCurrentOrgId();
     const [[pub]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
     if (!pub) return res.json({ status: 'invalid_params', message: '结果公示不存在' });
-
-    // Validate grade bands if displayMode is 'grade'
-    if (displayMode === 'grade') {
-      if (!gradeBands.length) return res.json({ status: 'invalid_params', message: '等第模式下请至少配置一个等第区间' });
-      for (let i = 0; i < gradeBands.length; i++) {
-        const gb = gradeBands[i];
-        const minScore = Number(gb.minScore);
-        const maxScore = Number(gb.maxScore);
-        const gradeName = safeString(gb.gradeName || gb.grade_name);
-        if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) return res.json({ status: 'invalid_params', message: `第${i + 1}个等第区间的分数边界无效` });
-        if (minScore > maxScore) return res.json({ status: 'invalid_params', message: `第${i + 1}个等第区间的下限不能大于上限` });
-        if (!gradeName) return res.json({ status: 'invalid_params', message: `第${i + 1}个等第区间的名称不能为空` });
-      }
-    }
 
     const VIEW_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
     const IDENTITY_REQUIRED = ['same_department_identity', 'same_work_group_identity'];
@@ -961,7 +949,23 @@ router.post('/savePubViewRule', async (req, res) => {
       if (IDENTITY_REQUIRED.includes(st) && !tid) return res.json({ status: 'invalid_params', message: '请提供目标身份ID' });
       const key = st + '::' + tid;
       if (seen.has(key)) continue; seen.add(key);
-      dedupedClauses.push({ scopeType: st, targetIdentityId: tid });
+      // Per-clause display mode and grade bands
+      const clauseDisplayMode = VALID_DISPLAY_MODES.includes(safeString(c.displayMode)) ? safeString(c.displayMode) : 'score';
+      const clauseGradeBands = Array.isArray(c.gradeBands) ? c.gradeBands : [];
+      // Validate grade bands if clause displayMode is 'grade'
+      if (clauseDisplayMode === 'grade') {
+        if (!clauseGradeBands.length) return res.json({ status: 'invalid_params', message: `等第模式下的查看条款需至少配置一个等第区间` });
+        for (let i = 0; i < clauseGradeBands.length; i++) {
+          const gb = clauseGradeBands[i];
+          const minScore = Number(gb.minScore);
+          const maxScore = Number(gb.maxScore);
+          const gradeName = safeString(gb.gradeName || gb.grade_name);
+          if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) return res.json({ status: 'invalid_params', message: `第${i + 1}个等第区间的分数边界无效` });
+          if (minScore > maxScore) return res.json({ status: 'invalid_params', message: `第${i + 1}个等第区间的下限不能大于上限` });
+          if (!gradeName) return res.json({ status: 'invalid_params', message: `第${i + 1}个等第区间的名称不能为空` });
+        }
+      }
+      dedupedClauses.push({ scopeType: st, targetIdentityId: tid, displayMode: clauseDisplayMode, gradeBands: clauseGradeBands });
     }
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -969,37 +973,43 @@ router.post('/savePubViewRule', async (req, res) => {
     const { withTransaction } = require('../config/db');
     await withTransaction(async (conn) => {
       if (id) {
-        await conn.query('UPDATE pub_view_rules SET grantee_department_id=?, grantee_identity_id=?, display_mode=?, updated_at=? WHERE id=? AND org_id=?', [granteeDepartmentId, granteeIdentityId, displayMode, now, id, orgId]);
+        await conn.query('UPDATE pub_view_rules SET grantee_department_id=?, grantee_identity_id=?, updated_at=? WHERE id=? AND org_id=?', [granteeDepartmentId, granteeIdentityId, now, id, orgId]);
         ruleId = id;
       } else {
         const [[existing]] = await conn.query('SELECT id FROM pub_view_rules WHERE publication_id=? AND grantee_department_id=? AND grantee_identity_id=? AND org_id=?', [publicationId, granteeDepartmentId, granteeIdentityId, orgId]);
         if (existing) {
           ruleId = existing.id;
-          await conn.query('UPDATE pub_view_rules SET display_mode=?, updated_at=? WHERE id=?', [displayMode, now, ruleId]);
+          await conn.query('UPDATE pub_view_rules SET updated_at=? WHERE id=?', [now, ruleId]);
         } else {
           ruleId = generateId();
-          await conn.query('INSERT INTO pub_view_rules (id, publication_id, grantee_department_id, grantee_identity_id, display_mode, org_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)', [ruleId, publicationId, granteeDepartmentId, granteeIdentityId, displayMode, orgId, now, now]);
+          await conn.query('INSERT INTO pub_view_rules (id, publication_id, grantee_department_id, grantee_identity_id, org_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?)', [ruleId, publicationId, granteeDepartmentId, granteeIdentityId, orgId, now, now]);
         }
       }
+      // Delete old clauses (cascades to grade_bands via FK)
       await conn.query('DELETE FROM pub_view_rule_clauses WHERE rule_id=?', [ruleId]);
+      // Insert clauses with per-clause display_mode and grade bands
       for (let i = 0; i < dedupedClauses.length; i++) {
-        await conn.query('INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, sort_order, org_id) VALUES (?,?,?,?,?,?)', [generateId(), ruleId, dedupedClauses[i].scopeType, dedupedClauses[i].targetIdentityId, i+1, orgId]);
-      }
-      // Save grade bands (gracefully skip if table doesn't exist yet)
-      try {
-        await conn.query('DELETE FROM pub_grade_bands WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
-        if (displayMode === 'grade') {
-          for (let i = 0; i < gradeBands.length; i++) {
-            const gb = gradeBands[i];
-            await conn.query(
-              'INSERT INTO pub_grade_bands (id, rule_id, min_score, max_score, grade_name, sort_order, org_id) VALUES (?,?,?,?,?,?,?)',
-              [generateId(), ruleId, Number(gb.minScore), Number(gb.maxScore), safeString(gb.gradeName || gb.grade_name), i + 1, orgId]
-            );
+        const dc = dedupedClauses[i];
+        const clauseId = generateId();
+        await conn.query(
+          'INSERT INTO pub_view_rule_clauses (id, rule_id, scope_type, target_identity_id, display_mode, sort_order, org_id) VALUES (?,?,?,?,?,?,?)',
+          [clauseId, ruleId, dc.scopeType, dc.targetIdentityId, dc.displayMode, i + 1, orgId]
+        );
+        // Save per-clause grade bands
+        if (dc.gradeBands.length > 0) {
+          try {
+            for (let j = 0; j < dc.gradeBands.length; j++) {
+              const gb = dc.gradeBands[j];
+              await conn.query(
+                'INSERT INTO pub_grade_bands (id, clause_id, min_score, max_score, grade_name, sort_order, org_id) VALUES (?,?,?,?,?,?,?)',
+                [generateId(), clauseId, Number(gb.minScore), Number(gb.maxScore), safeString(gb.gradeName || gb.grade_name), j + 1, orgId]
+              );
+            }
+          } catch (e) {
+            // Table may not exist yet — skip grade bands (but warn if grade mode)
+            if (dc.displayMode === 'grade') throw e;
           }
         }
-      } catch (e) {
-        // Table may not exist yet — skip grade bands save
-        if (displayMode === 'grade') throw e; // If user explicitly chose grade mode, surface the error
       }
     });
     res.json({ status: 'success', id: ruleId });
@@ -1016,20 +1026,27 @@ router.post('/listPubViewRules', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const [rules] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
 
-    // Load grade bands for all view rules in one batch
-    const gradeBandsByRule = new Map();
-    if (rules.length > 0) {
-      const vrIds = rules.map(r => r.id);
-      const ph = vrIds.map(() => '?').join(',');
+    // Collect all clauses first
+    const allClauses = [];
+    for (const r of rules) {
+      const [clauses] = await pool.query('SELECT * FROM pub_view_rule_clauses WHERE rule_id=? ORDER BY sort_order', [r.id]);
+      allClauses.push(...clauses);
+    }
+
+    // Load grade bands for all clauses in one batch (per-clause level)
+    const gradeBandsByClause = new Map();
+    if (allClauses.length > 0) {
+      const clauseIds = allClauses.map(c => c.id);
+      const ph = clauseIds.map(() => '?').join(',');
       try {
         const [allGradeBands] = await pool.query(
-          `SELECT * FROM pub_grade_bands WHERE rule_id IN (${ph}) AND org_id = ? ORDER BY rule_id, sort_order ASC`,
-          [...vrIds, orgId]
+          `SELECT * FROM pub_grade_bands WHERE clause_id IN (${ph}) AND org_id = ? ORDER BY clause_id, sort_order ASC`,
+          [...clauseIds, orgId]
         );
         allGradeBands.forEach(gb => {
-          if (!gradeBandsByRule.has(gb.rule_id)) gradeBandsByRule.set(gb.rule_id, []);
-          gradeBandsByRule.get(gb.rule_id).push({
-            id: gb.id, ruleId: gb.rule_id,
+          if (!gradeBandsByClause.has(gb.clause_id)) gradeBandsByClause.set(gb.clause_id, []);
+          gradeBandsByClause.get(gb.clause_id).push({
+            id: gb.id, clauseId: gb.clause_id,
             minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
             gradeName: safeString(gb.grade_name), sortOrder: gb.sort_order
           });
@@ -1039,18 +1056,28 @@ router.post('/listPubViewRules', async (req, res) => {
       }
     }
 
+    // Build clause map by rule_id
+    const clausesByRule = new Map();
+    for (const c of allClauses) {
+      if (!clausesByRule.has(c.rule_id)) clausesByRule.set(c.rule_id, []);
+      clausesByRule.get(c.rule_id).push(c);
+    }
+
     const lookups = await fetchOrgLookups();
     const result = [];
     for (const r of rules) {
-      const [clauses] = await pool.query('SELECT * FROM pub_view_rule_clauses WHERE rule_id=? ORDER BY sort_order', [r.id]);
+      const clauses = (clausesByRule.get(r.id) || []).map(c => ({
+        id: c.id, scopeType: c.scope_type, targetIdentityId: c.target_identity_id || '',
+        targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '',
+        displayMode: safeString(c.display_mode) || 'score',
+        gradeBands: gradeBandsByClause.get(c.id) || [],
+        sortOrder: c.sort_order
+      }));
       result.push({
         id: r.id, publicationId: r.publication_id,
         granteeDepartmentId: r.grantee_department_id, granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
         granteeIdentityId: r.grantee_identity_id, granteeIdentity: lookups.identitiesById.get(safeString(r.grantee_identity_id)) || '',
-        displayMode: safeString(r.display_mode) || 'score',
-        gradeBands: gradeBandsByRule.get(r.id) || [],
-        clauseCount: clauses.length,
-        clauses: clauses.map(c => ({ id: c.id, scopeType: c.scope_type, targetIdentityId: c.target_identity_id || '', targetIdentity: lookups.identitiesById.get(safeString(c.target_identity_id || '')) || '', sortOrder: c.sort_order }))
+        clauseCount: clauses.length, clauses
       });
     }
     res.json({ status: 'success', rules: result });

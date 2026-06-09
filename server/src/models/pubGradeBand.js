@@ -2,13 +2,13 @@ const pool = require('../config/db');
 const { getCurrentOrgId } = require('../utils/orgContext');
 
 /**
- * Get all grade bands for a given pub_view_rule, ordered by sort_order.
+ * Get all grade bands for a given clause, ordered by sort_order.
  */
-async function getByRuleId(ruleId) {
+async function getByClauseId(clauseId) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM pub_grade_bands WHERE rule_id = ? AND org_id = ? ORDER BY sort_order ASC',
-    [ruleId, orgId]
+    'SELECT * FROM pub_grade_bands WHERE clause_id = ? AND org_id = ? ORDER BY sort_order ASC',
+    [clauseId, orgId]
   );
   return rows;
 }
@@ -31,9 +31,9 @@ async function getById(id) {
 async function create(id, data) {
   const orgId = await getCurrentOrgId();
   await pool.query(
-    `INSERT INTO pub_grade_bands (id, rule_id, min_score, max_score, grade_name, sort_order, org_id)
+    `INSERT INTO pub_grade_bands (id, clause_id, min_score, max_score, grade_name, sort_order, org_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, data.ruleId, data.minScore, data.maxScore, data.gradeName, data.sortOrder || 1, orgId]
+    [id, data.clauseId, data.minScore, data.maxScore, data.gradeName, data.sortOrder || 1, orgId]
   );
 }
 
@@ -58,11 +58,15 @@ async function remove(id) {
 }
 
 /**
- * Delete all grade bands for a given rule.
+ * Delete all grade bands for a given clause.
  */
-async function removeByRuleId(ruleId) {
+async function removeByClauseId(clauseId) {
   const orgId = await getCurrentOrgId();
-  await pool.query('DELETE FROM pub_grade_bands WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
+  await pool.query('DELETE FROM pub_grade_bands WHERE clause_id = ? AND org_id = ?', [clauseId, orgId]);
 }
 
-module.exports = { getByRuleId, getById, create, update, remove, removeByRuleId };
+// Backward-compatible aliases
+const getByRuleId = getByClauseId;
+const removeByRuleId = removeByClauseId;
+
+module.exports = { getByClauseId, getByRuleId, getById, create, update, remove, removeByClauseId, removeByRuleId };

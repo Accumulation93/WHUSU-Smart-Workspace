@@ -1487,24 +1487,6 @@
           <view class="rule-panel-head"><view class="rule-panel-title">查看权限类别</view><view class="rule-panel-subtitle">选择授权部门+身份后，可在下方配置查看规则条款</view></view>
           <view class="field"><view class="field-label">授权部门</view><picker range="{{departmentList}}" range-key="name" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || '请选择部门'}}</view></picker></view>
           <view class="field"><view class="field-label">授权身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || '请选择身份'}}</view></picker></view>
-          <view class="field"><view class="field-label">显示模式</view><picker range="{{displayModeOptions}}" range-key="label" bindchange="onPubViewDisplayModeChange"><view class="picker-value">{{pubViewRuleForm.displayMode === 'grade' ? '等第模式' : '分数模式'}}</view></picker></view>
-          <!-- 等第区间编辑器（仅等第模式） -->
-          <view wx:if="{{pubViewRuleForm.displayMode === 'grade'}}">
-            <view class="list-card nested-card">
-              <view class="list-title">等第区间配置</view>
-              <view class="empty-inline" wx:if="{{!pubViewRuleForm.gradeBands.length}}">暂无等第区间，请点击下方按钮添加</view>
-              <view class="question-card" wx:for="{{pubViewRuleForm.gradeBands}}" wx:key="index">
-                <view class="question-title">等第区间 {{index + 1}}</view>
-                <view class="field field-row">
-                  <view class="field field-half"><view class="field-label">最低分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="minScore" bindinput="onGradeBandInput" value="{{item.minScore}}" placeholder="0" /></view>
-                  <view class="field field-half"><view class="field-label">最高分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="maxScore" bindinput="onGradeBandInput" value="{{item.maxScore}}" placeholder="100" /></view>
-                </view>
-                <view class="field"><view class="field-label">等第名称</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onGradeBandInput" value="{{item.gradeName}}" placeholder="例如：优秀、良好、合格" /></view>
-                <view class="button-row compact-row"><button class="secondary-btn" data-index="{{index}}" bindtap="removeGradeBand">删除此区间</button></view>
-              </view>
-              <view class="button-row"><button class="secondary-btn" bindtap="addGradeBand">新增等第区间</button><button class="secondary-btn" bindtap="generateDefaultGradeBands">生成默认等第</button></view>
-            </view>
-          </view>
           <view class="button-row"><button class="primary-btn" loading="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule">保存类别</button><button class="secondary-btn" bindtap="startNewPubViewRule">新建类别</button><button class="secondary-btn" bindtap="batchSavePubViewRules">批量应用到已选类别</button><button class="secondary-btn" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules">生成默认类别</button></view>
         </view>
 
@@ -1512,7 +1494,7 @@
           <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">当前查看规则条款</view><view class="rule-panel-subtitle">附加到此类别下的每条查看规则</view></view><button class="secondary-btn mini-action-btn" bindtap="openPubViewClauseEditor">新建查看规则条款</button></view>
           <view class="rule-empty" wx:if="{{!pubViewRuleForm.clauses.length}}">暂无查看规则，点击右上角「新建查看规则条款」添加</view>
           <view class="rule-clause-card" wx:for="{{pubViewRuleForm.clauses}}" wx:key="index" wx:for-item="c">
-            <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || '不限身份'}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel || c.scopeType}}</text><text class="rule-tag tag-target" wx:if="{{c.targetIdentity}}">{{c.targetIdentity}}</text></view></view>
+            <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || '不限身份'}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel || c.scopeType}}</text><text class="rule-tag tag-target" wx:if="{{c.targetIdentity}}">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">{{c.displayMode === 'grade' ? '等第' : '分数'}}</text></view></view>
             <view class="pill-actions rule-card-actions"><text class="pill-link" data-index="{{index}}" bindtap="editPubViewClause">编辑</text><text class="pill-close" data-index="{{index}}" bindtap="removePubViewClause">删除</text></view>
           </view>
         </view>
@@ -1522,6 +1504,24 @@
           <view class="rule-panel-head"><view class="rule-panel-title">查看规则条款编辑</view><view class="rule-panel-subtitle">{{pubViewRuleForm.clauseEditingIndex >= 0 ? '正在编辑已有条款' : '添加一条新的查看规则'}}</view></view>
           <view class="field"><view class="field-label">查看范围</view><picker range="{{viewScopeOptions}}" range-key="label" bindchange="onPubViewClauseScopeChange"><view class="picker-value">{{pubViewRuleForm.clauseScopeLabel || '请选择范围'}}</view></picker></view>
           <view class="field" wx:if="{{pubViewRuleForm.clauseScopeType === 'same_department_identity' || pubViewRuleForm.clauseScopeType === 'same_work_group_identity'}}"><view class="field-label">目标身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubViewClauseTargetIdentChange"><view class="picker-value">{{pubViewRuleForm.clauseTargetIdentity || '请选择目标身份'}}</view></picker></view>
+          <view class="field"><view class="field-label">显示模式</view><picker range="{{displayModeOptions}}" range-key="label" bindchange="onPubViewClauseDisplayModeChange"><view class="picker-value">{{pubViewRuleForm.clauseDisplayMode === 'grade' ? '等第模式' : '分数模式'}}</view></picker></view>
+          <!-- 等第区间编辑器（仅等第模式，每条条款独立配置） -->
+          <view wx:if="{{pubViewRuleForm.clauseDisplayMode === 'grade'}}">
+            <view class="list-card nested-card">
+              <view class="list-title">等第区间配置</view>
+              <view class="empty-inline" wx:if="{{!pubViewRuleForm.clauseGradeBands.length}}">暂无等第区间，请点击下方按钮添加</view>
+              <view class="question-card" wx:for="{{pubViewRuleForm.clauseGradeBands}}" wx:key="index">
+                <view class="question-title">等第区间 {{index + 1}}</view>
+                <view class="field field-row">
+                  <view class="field field-half"><view class="field-label">最低分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="0" /></view>
+                  <view class="field field-half"><view class="field-label">最高分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="100" /></view>
+                </view>
+                <view class="field"><view class="field-label">等第名称</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onClauseGradeBandInput" value="{{item.gradeName}}" placeholder="例如：优秀、良好、合格" /></view>
+                <view class="button-row compact-row"><button class="secondary-btn" data-index="{{index}}" bindtap="removeClauseGradeBand">删除此区间</button></view>
+              </view>
+              <view class="button-row"><button class="secondary-btn" bindtap="addClauseGradeBand">新增等第区间</button><button class="secondary-btn" bindtap="generateClauseDefaultGradeBands">生成默认等第</button></view>
+            </view>
+          </view>
           <view class="button-row compact-row"><button class="secondary-btn" bindtap="addPubViewClause">{{pubViewRuleForm.clauseEditingIndex >= 0 ? '保存条款' : '加入当前条款'}}</button><button class="secondary-btn" bindtap="cancelPubViewClauseEdit">取消编辑</button></view>
         </view>
 
@@ -1536,7 +1536,7 @@
                   <view class="select-chip {{pubViewRuleSelectedIds[item.id] ? 'select-chip-active' : ''}}" data-id="{{item.id}}" catchtap="togglePubViewRuleSelection">{{pubViewRuleSelectedIds[item.id] ? '已选' : '选择'}}</view>
                   <view class="inline-actions rule-list-inline-actions"><text class="link" data-id="{{item.id}}" bindtap="editPubViewRule">编辑</text><text class="link danger" data-id="{{item.id}}" bindtap="deletePubViewRule">删除</text></view>
                 </view>
-                <view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} 条查看规则</text><text class="rule-tag tag-weight">{{item.displayMode === 'grade' ? '等第模式' : '分数模式'}}</text></view></view>
+                <view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} 条查看规则</text></view></view>
               </view>
             </view>
             <view class="rule-empty small-empty" wx:if="{{!pubViewRuleListView.length}}">暂无查看权限类别</view>

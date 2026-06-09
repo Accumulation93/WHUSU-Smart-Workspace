@@ -374,7 +374,6 @@ CREATE TABLE IF NOT EXISTS pub_view_rules (
   publication_id VARCHAR(64) NOT NULL,
   grantee_department_id VARCHAR(64) NOT NULL,
   grantee_identity_id VARCHAR(64) NOT NULL,
-  display_mode VARCHAR(16) NOT NULL DEFAULT 'score',
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -387,7 +386,7 @@ CREATE TABLE IF NOT EXISTS pub_view_rules (
 
 CREATE TABLE IF NOT EXISTS pub_grade_bands (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
-  rule_id VARCHAR(64) NOT NULL,
+  clause_id VARCHAR(64) NOT NULL,
   min_score DECIMAL(10,2) NOT NULL,
   max_score DECIMAL(10,2) NOT NULL,
   grade_name VARCHAR(100) NOT NULL,
@@ -395,10 +394,10 @@ CREATE TABLE IF NOT EXISTS pub_grade_bands (
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_pgb_rule (rule_id),
+  INDEX idx_pgb_clause (clause_id),
   INDEX idx_pgb_org (org_id),
-  CONSTRAINT fk_pgb_rule FOREIGN KEY (rule_id)
-    REFERENCES pub_view_rules(id) ON DELETE CASCADE
+  CONSTRAINT fk_pgb_clause FOREIGN KEY (clause_id)
+    REFERENCES pub_view_rule_clauses(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS pub_view_rule_clauses (
@@ -406,6 +405,7 @@ CREATE TABLE IF NOT EXISTS pub_view_rule_clauses (
   rule_id VARCHAR(64) NOT NULL,
   scope_type VARCHAR(50) NOT NULL,
   target_identity_id VARCHAR(64) DEFAULT NULL,
+  display_mode VARCHAR(16) NOT NULL DEFAULT 'score',
   sort_order INT NOT NULL DEFAULT 1,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

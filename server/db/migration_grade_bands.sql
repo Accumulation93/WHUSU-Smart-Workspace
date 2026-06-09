@@ -1,52 +1,169 @@
 -- ============================================================
--- Migration: Add grade display mode and grade bands to publication view rules
--- Date: 2026-06-08
--- Description: Extends pub_view_rules with display_mode (score|grade)
---              and adds pub_grade_bands for customizable grade intervals.
--- Usage: Run against an existing redsu_scoring database.
+-- Migration: Grade display mode and grade bands (clause-level)
+-- Date: 2026-06-09
+-- Description:
+--   1. Moves display_mode from pub_view_rules to pub_view_rule_clauses
+--   2. Changes pub_grade_bands FK from rule_id → clause_id
+--   3. Each clause can have its own display mode and grade bands.
+--   Safe to run multiple times — all steps are conditional.
 -- ============================================================
-
--- Step 1: Add display_mode column to pub_view_rules (if not exists)
--- MySQL 8.0 does not support IF NOT EXISTS for columns, so use a stored procedure.
 
 DELIMITER //
 
-CREATE PROCEDURE IF NOT EXISTS add_display_mode_if_missing()
+CREATE PROCEDURE IF NOT EXISTS migrate_grade_bands_v2()
 BEGIN
   DECLARE col_count INT DEFAULT 0;
+  DECLARE row_count INT DEFAULT 0;
+  DECLARE tbl_count INT DEFAULT 0;
+  DECLARE fk_count  INT DEFAULT 0;
+  DECLARE fk_name   VARCHAR(128) DEFAULT '';
+
+  -- ────────────────────────────────────────────────────────
+  -- Step 1: Add display_mode to pub_view_rule_clauses
+  -- ────────────────────────────────────────────────────────
+  SELECT COUNT(*) INTO col_count
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'pub_view_rule_clauses'
+      AND COLUMN_NAME = 'display_mode';
+
+  IF col_count = 0 THEN
+    ALTER TABLE pub_view_rule_clauses
+      ADD COLUMN display_mode VARCHAR(16) NOT NULL DEFAULT 'score'
+      AFTER target_identity_id;
+  END IF;
+
+  -- ────────────────────────────────────────────────────────
+  -- Step 2: Copy display_mode from pub_view_rules to clauses
+  --         (one-time data migration for existing rules)
+  -- ────────────────────────────────────────────────────────
   SELECT COUNT(*) INTO col_count
     FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME = 'pub_view_rules'
       AND COLUMN_NAME = 'display_mode';
-  IF col_count = 0 THEN
-    ALTER TABLE pub_view_rules
-      ADD COLUMN display_mode VARCHAR(16) NOT NULL DEFAULT 'score'
-      AFTER grantee_identity_id;
+
+  IF col_count > 0 THEN
+    -- Copy display_mode from parent rule to each clause
+    UPDATE pub_view_rule_clauses pvrc
+      JOIN pub_view_rules pvr ON pvrc.rule_id = pvr.id
+      SET pvrc.display_mode = pvr.display_mode
+      WHERE pvr.display_mode IS NOT NULL;
+
+    -- Step 3: Drop display_mode from pub_view_rules (moved to clauses)
+    ALTER TABLE pub_view_rules DROP COLUMN display_mode;
   END IF;
+
+  -- ────────────────────────────────────────────────────────
+  -- Step 4: Handle pub_grade_bands table
+  -- ────────────────────────────────────────────────────────
+
+  -- Check if pub_grade_bands table exists
+  SELECT COUNT(*) INTO tbl_count
+    FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'pub_grade_bands';
+
+  IF tbl_count > 0 THEN
+    -- Table exists — check if it has clause_id or rule_id
+    SELECT COUNT(*) INTO col_count
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'pub_grade_bands'
+        AND COLUMN_NAME = 'clause_id';
+
+    IF col_count = 0 THEN
+      -- Old schema: has rule_id, needs migration
+
+      -- 4a. Drop old FK on rule_id
+      BEGIN
+        DECLARE done INT DEFAULT 0;
+        DECLARE fk_cursor CURSOR FOR
+          SELECT tc.CONSTRAINT_NAME
+          FROM information_schema.TABLE_CONSTRAINTS tc
+          JOIN information_schema.KEY_COLUMN_USAGE kcu
+            ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+            AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
+            AND tc.TABLE_NAME = kcu.TABLE_NAME
+          WHERE tc.CONSTRAINT_SCHEMA = DATABASE()
+            AND tc.TABLE_NAME = 'pub_grade_bands'
+            AND tc.CONSTRAINT_TYPE = 'FOREIGN KEY'
+            AND kcu.COLUMN_NAME = 'rule_id';
+        DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+        OPEN fk_cursor;
+        read_loop: LOOP
+          FETCH fk_cursor INTO fk_name;
+          IF done THEN LEAVE read_loop; END IF;
+          SET @drop_sql = CONCAT('ALTER TABLE pub_grade_bands DROP FOREIGN KEY ', fk_name);
+          PREPARE stmt FROM @drop_sql;
+          EXECUTE stmt;
+          DEALLOCATE PREPARE stmt;
+        END LOOP;
+        CLOSE fk_cursor;
+      END;
+
+      -- 4b. Drop old index on rule_id
+      SELECT COUNT(*) INTO col_count
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'pub_grade_bands'
+          AND INDEX_NAME = 'idx_pgb_rule';
+      IF col_count > 0 THEN
+        ALTER TABLE pub_grade_bands DROP INDEX idx_pgb_rule;
+      END IF;
+
+      -- 4c. Rename rule_id to clause_id
+      ALTER TABLE pub_grade_bands CHANGE COLUMN rule_id clause_id VARCHAR(64) NOT NULL;
+
+      -- 4d. Add new index on clause_id
+      SELECT COUNT(*) INTO col_count
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'pub_grade_bands'
+          AND INDEX_NAME = 'idx_pgb_clause';
+      IF col_count = 0 THEN
+        ALTER TABLE pub_grade_bands ADD INDEX idx_pgb_clause (clause_id);
+      END IF;
+
+      -- 4e. Add new FK to pub_view_rule_clauses
+      SELECT COUNT(*) INTO fk_count
+        FROM information_schema.TABLE_CONSTRAINTS
+        WHERE CONSTRAINT_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'pub_grade_bands'
+          AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+          AND CONSTRAINT_NAME = 'fk_pgb_clause';
+      IF fk_count = 0 THEN
+        ALTER TABLE pub_grade_bands
+          ADD CONSTRAINT fk_pgb_clause FOREIGN KEY (clause_id)
+            REFERENCES pub_view_rule_clauses(id) ON DELETE CASCADE;
+      END IF;
+
+    END IF; -- clause_id missing
+  ELSE
+    -- Table doesn't exist — create fresh
+    CREATE TABLE IF NOT EXISTS pub_grade_bands (
+      id VARCHAR(64) NOT NULL PRIMARY KEY,
+      clause_id VARCHAR(64) NOT NULL,
+      min_score DECIMAL(10,2) NOT NULL,
+      max_score DECIMAL(10,2) NOT NULL,
+      grade_name VARCHAR(100) NOT NULL,
+      sort_order INT NOT NULL DEFAULT 1,
+      org_id VARCHAR(64) NOT NULL DEFAULT '',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_pgb_clause (clause_id),
+      INDEX idx_pgb_org (org_id),
+      CONSTRAINT fk_pgb_clause FOREIGN KEY (clause_id)
+        REFERENCES pub_view_rule_clauses(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  END IF;
+
 END //
 
 DELIMITER ;
 
-CALL add_display_mode_if_missing();
-DROP PROCEDURE IF EXISTS add_display_mode_if_missing;
-
--- Step 2: Create pub_grade_bands table (if not exists)
-CREATE TABLE IF NOT EXISTS pub_grade_bands (
-  id VARCHAR(64) NOT NULL PRIMARY KEY,
-  rule_id VARCHAR(64) NOT NULL,
-  min_score DECIMAL(10,2) NOT NULL,
-  max_score DECIMAL(10,2) NOT NULL,
-  grade_name VARCHAR(100) NOT NULL,
-  sort_order INT NOT NULL DEFAULT 1,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_pgb_rule (rule_id),
-  INDEX idx_pgb_org (org_id),
-  CONSTRAINT fk_pgb_rule FOREIGN KEY (rule_id)
-    REFERENCES pub_view_rules(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CALL migrate_grade_bands_v2();
+DROP PROCEDURE IF EXISTS migrate_grade_bands_v2;
 
 -- Done.
-SELECT 'Migration grade_bands completed: display_mode column + pub_grade_bands table.' AS result;
+SELECT 'Migration grade_bands v2 completed: display_mode on clauses + pub_grade_bands with clause_id.' AS result;
