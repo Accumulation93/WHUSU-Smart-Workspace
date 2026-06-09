@@ -7571,7 +7571,8 @@ Page({
   onClauseGradeBandInput(e) {
     const idx = parseInt(e.currentTarget.dataset.index, 10);
     const field = e.currentTarget.dataset.field;
-    const value = field === 'gradeName' ? e.detail.value : (parseFloat(e.detail.value) || 0);
+    // Keep raw string — don't parseFloat (breaks "01"→"1") or default to 0 (breaks clearing)
+    const value = e.detail.value;
     const bands = [...this.data.pubViewRuleForm.clauseGradeBands];
     if (bands[idx]) {
       bands[idx] = { ...bands[idx], [field]: value };
