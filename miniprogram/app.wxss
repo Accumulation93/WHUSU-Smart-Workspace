@@ -53,3 +53,28 @@ textarea {
     transform: translateY(0) scale(1);
   }
 }
+
+.page-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx 30rpx 36rpx;
+  margin-top: 40rpx;
+  color: #7b8ba3;
+  font-size: 24rpx;
+  line-height: 1.8;
+  letter-spacing: 2rpx;
+}
+
+.page-footer .footer-name {
+  font-size: 20rpx;
+  color: #8b9bb5;
+  letter-spacing: 4rpx;
+}
+
+.page-footer .footer-org {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #506380;
+}

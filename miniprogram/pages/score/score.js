@@ -1,3 +1,5 @@
+const { callFunction } = require('../../utils/api');
+
 function isStepAligned(value, startValue, stepValue) {
   if (!Number.isFinite(stepValue) || stepValue <= 0) {
     return true;
@@ -124,7 +126,7 @@ function normalizeQuestion(item) {
     startValue: Number(item.startValue),
     maxValue: Number(item.maxValue),
     stepValue: Number(item.stepValue),
-    score: item.score || '',
+    score: item.score != null ? item.score : '',
     quickScores: getQuickScores(item.minValue, item.maxValue, item.startValue, item.stepValue),
     errorText: '',
     touched: false
@@ -206,6 +208,7 @@ Page({
     loadFailed: false,
     scorer: null,
     target: null,
+    showStickyTarget: false,
     currentActivity: null,
     currentActivityText: '暂无评分活动',
     questionList: [],
@@ -254,7 +257,7 @@ Page({
     if (this._physicalKeyboardEnabled) {
       updates.physicalInputFocus = !updates.keyboardCollapsed && !!q;
       if (q) {
-        var syncedScore = String(q.score || '').trim();
+        var syncedScore = String(q.score != null ? q.score : '').trim();
         this._physicalBuffer = syncedScore;
         updates.physicalInputValue = syncedScore;
       }
@@ -298,8 +301,8 @@ Page({
   },
 
   onLoad: function (options) {
-    var sysInfo = wx.getSystemInfoSync();
-    this._physicalKeyboardEnabled = sysInfo.platform === 'devtools' || sysInfo.platform === 'mac' || sysInfo.platform === 'windows';
+    var deviceInfo = wx.getDeviceInfo();
+    this._physicalKeyboardEnabled = deviceInfo.platform === 'devtools' || deviceInfo.platform === 'mac' || deviceInfo.platform === 'windows';
     this._physicalBuffer = '';
     this._shiftDown = false;
     this._keydownSupported = false;
@@ -319,17 +322,30 @@ Page({
     this.setData({ physicalInputFocus: true });
   },
 
+  _setupStickyObserver: function () {
+    if (this._stickyObserver) {
+      this._stickyObserver.disconnect();
+    }
+    var self = this;
+    this._stickyObserver = this.createIntersectionObserver({ nativeMode: true });
+    this._stickyObserver
+      .relativeToViewport({ top: 0 })
+      .observe('.target-name-anchor', function (res) {
+        self.setData({ showStickyTarget: res.intersectionRatio <= 0 });
+      });
+  },
+
   loadScoreForm: function () {
     var self = this;
     if (!self.targetId) {
-      wx.showToast({ title: '缺少被评分人信息', icon: 'none' });
+      wx.showToast({ title: '缺少评分信息', icon: 'none' });
       self.redirectHome();
       return;
     }
 
     self.setData({ loading: true, loadFailed: false });
 
-    wx.cloud.callFunction({
+    callFunction({
       name: 'getScoreFormData',
       data: { targetId: self.targetId },
       success: function (res) {
@@ -359,7 +375,7 @@ Page({
         if (questionList.length) {
           var firstEmpty = -1;
           for (var i = 0; i < questionList.length; i++) {
-            if (!questionList[i].score || String(questionList[i].score).trim() === '') {
+            if (questionList[i].score == null || String(questionList[i].score).trim() === '') {
               firstEmpty = i;
               break;
             }
@@ -383,7 +399,9 @@ Page({
           loadFailed: false
         });
         self.syncCurrentQuestion();
+        self._setupStickyObserver();
         setTimeout(function () {
+          self._checkSticky();
           self._ensureInputFocus();
           self.scrollToQuestion(initialIndex);
         }, 350);
@@ -561,7 +579,7 @@ Page({
 
     if (this._physicalBuffer.length > 15) {
       var self = this;
-      var currentScore = String((self.data.questionList[self.data.currentQuestionIndex] || {}).score || '').trim();
+    var currentScore = String(((self.data.questionList[self.data.currentQuestionIndex] || {}).score != null ? (self.data.questionList[self.data.currentQuestionIndex] || {}).score : '')).trim();
       this._physicalBuffer = currentScore;
       self.setData({ physicalInputValue: currentScore });
     }
@@ -717,7 +735,7 @@ Page({
         continue;
       }
 
-      answers.push({ questionIndex: i, score: Number(item.score) });
+      answers.push({ questionIndex: i + 1, score: Number(item.score) });
     }
 
     this.setData({ questionList: nextQuestions });
@@ -744,7 +762,7 @@ Page({
     self.setData({ submitting: true });
 
     var scorer = self.data.scorer || {};
-    wx.cloud.callFunction({
+    callFunction({
       name: 'submitScoreRecord',
       data: {
         scorerId: scorer.id || '',
@@ -768,7 +786,7 @@ Page({
       },
       fail: function () {
         setTimeout(function () {
-          wx.cloud.callFunction({
+          callFunction({
             name: 'getScoreFormData',
             data: { targetId: self.targetId },
             success: function (checkRes) {
@@ -821,13 +839,15 @@ Page({
             selector: selector,
             duration: 280,
             offsetTop: 200,
+            success: function () { self._checkSticky(); },
             fail: function () {}
           });
           return;
         }
 
-        var windowHeight = wx.getSystemInfoSync().windowHeight;
-        var windowWidth = wx.getSystemInfoSync().windowWidth;
+        var windowInfo = wx.getWindowInfo();
+        var windowHeight = windowInfo.windowHeight;
+        var windowWidth = windowInfo.windowWidth;
         var keyboardRpx = self.getKeyboardHeightRpx();
         var keyboardPx = (windowWidth / 750) * keyboardRpx;
         var visibleHeight = windowHeight - keyboardPx;
@@ -838,8 +858,22 @@ Page({
         wx.pageScrollTo({
           scrollTop: newScrollTop,
           duration: 280,
+          success: function () { self._checkSticky(); },
           fail: function () {}
         });
       });
+  },
+
+  _checkSticky: function () {
+    var self = this;
+    if (!self.data.target || !self.data.target.name) return;
+    wx.createSelectorQuery()
+      .select('.target-name-anchor')
+      .boundingClientRect(function (rect) {
+        if (rect) {
+          self.setData({ showStickyTarget: rect.top < 0 });
+        }
+      })
+      .exec();
   }
 });

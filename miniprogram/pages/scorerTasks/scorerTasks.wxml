@@ -55,10 +55,8 @@
     <view class="edit-box">
       <view class="list-title">按当前视图导出</view>
       <view class="button-row">
-        <button class="secondary-btn" loading="{{exportLoadingMap.summary_csv}}" data-report="summary" data-format="csv" bindtap="exportCurrentView">概览 CSV</button>
-        <button class="secondary-btn" loading="{{exportLoadingMap.summary_excel}}" data-report="summary" data-format="excel" bindtap="exportCurrentView">概览 Excel</button>
-        <button class="secondary-btn" loading="{{exportLoadingMap.detail_csv}}" data-report="detail" data-format="csv" bindtap="exportCurrentView">明细 CSV</button>
-        <button class="secondary-btn" loading="{{exportLoadingMap.detail_excel}}" data-report="detail" data-format="excel" bindtap="exportCurrentView">明细 Excel</button>
+        <button class="secondary-btn" loading="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified">导出概览</button>
+        <button class="secondary-btn" loading="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified">导出明细</button>
       </view>
     </view>
 
@@ -96,6 +94,11 @@
         <view class="empty-inline" wx:if="{{!scorerRows.length}}">当前筛选条件下没有未完成评分任务的评分人。</view>
       </scroll-view>
     </view>
+  </view>
+
+  <view class="page-footer">
+    <view class="footer-name">REDSU考核评分</view>
+    <view class="footer-org">武汉大学学生会</view>
   </view>
 
   <view class="popup-mask" wx:if="{{pendingPopupVisible}}" bindtap="closePendingPopup">

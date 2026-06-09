@@ -24,8 +24,13 @@
 
   <view class="card">
     <view class="section-title">微信登录</view>
-    <view class="card-desc">先完成当前身份登录；如果系统提示补充资料，再填写姓名、学号和邀请码。</view>
+    <view class="card-desc">请先点击下方按钮完成微信登录，如需补充个人信息，按页面提示填写即可。</view>
     <button class="primary-btn" loading="{{loading}}" bindtap="onLogin">{{loginButtonText}}</button>
+  </view>
+
+  <view class="page-footer">
+    <view class="footer-name">REDSU考核评分</view>
+    <view class="footer-org">武汉大学学生会</view>
   </view>
 
   <view class="{{sheetClass}}">

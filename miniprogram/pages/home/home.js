@@ -1,8 +1,11 @@
+const { callFunction } = require('../../utils/api');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
 const USER_TABS = [
   { key: 'scoring', label: '考核评分' },
+  { key: 'results', label: '结果公示' },
+  { key: 'meritList', label: '评优名单' },
   { key: 'profile', label: '人事信息' }
 ];
 
@@ -40,8 +43,9 @@ function emptyHrProfileState() {
 }
 
 function showShortToast(title, icon = 'none') {
+  const t = String(title || '');
   wx.showToast({
-    title,
+    title: t.length > 7 ? t.slice(0, 7) + '…' : t,
     icon
   });
 }
@@ -86,12 +90,12 @@ function getProfileFieldTypeLabel(type) {
 }
 
 function buildFieldHint(field = {}) {
-  if (field.type === 'text' && (field.minLength != null || field.maxLength != null)) {
+  if (field.type === 'text' && ((field.minLength != null && field.minLength !== '') || (field.maxLength != null && field.maxLength !== ''))) {
     const parts = [];
-    if (field.minLength != null) {
+    if (field.minLength != null && field.minLength !== '') {
       parts.push(`最短 ${field.minLength}`);
     }
-    if (field.maxLength != null) {
+    if (field.maxLength != null && field.maxLength !== '') {
       parts.push(`最长 ${field.maxLength}`);
     }
     return `长度限制：${parts.join('，')}`;
@@ -99,22 +103,22 @@ function buildFieldHint(field = {}) {
 
   if (field.type === 'number') {
     const decimalText = field.allowDecimal === false ? '仅整数' : '允许小数';
-    if (field.numberRule === 'length_range' && (field.minDigits != null || field.maxDigits != null)) {
+    if (field.numberRule === 'length_range' && ((field.minDigits != null && field.minDigits !== '') || (field.maxDigits != null && field.maxDigits !== ''))) {
       const parts = [];
-      if (field.minDigits != null) {
+      if (field.minDigits != null && field.minDigits !== '') {
         parts.push(`最短 ${field.minDigits}`);
       }
-      if (field.maxDigits != null) {
+      if (field.maxDigits != null && field.maxDigits !== '') {
         parts.push(`最长 ${field.maxDigits}`);
       }
       return `数字长度：${parts.join('，')}，${decimalText}`;
     }
-    if (field.minValue != null || field.maxValue != null) {
+    if ((field.minValue != null && field.minValue !== '') || (field.maxValue != null && field.maxValue !== '')) {
       const parts = [];
-      if (field.minValue != null) {
+      if (field.minValue != null && field.minValue !== '') {
         parts.push(`最小 ${field.minValue}`);
       }
-      if (field.maxValue != null) {
+      if (field.maxValue != null && field.maxValue !== '') {
         parts.push(`最大 ${field.maxValue}`);
       }
       return `数值范围：${parts.join('，')}，${decimalText}`;
@@ -139,12 +143,18 @@ function buildFieldHint(field = {}) {
 
 function normalizeDisplayField(field = {}, valueMap = {}) {
   const id = field.id || '';
-  return {
+  const rawValue = valueMap[id] || '';
+  const result = {
     ...field,
-    value: valueMap[id] || '',
+    value: rawValue,
     typeLabel: getProfileFieldTypeLabel(field.type),
     hintText: buildFieldHint(field)
   };
+  if (field.type === 'sequence' && Array.isArray(field.options)) {
+    const idx = field.options.indexOf(rawValue);
+    result.valueIndex = idx >= 0 ? idx : 0;
+  }
+  return result;
 }
 
 function validateProfileField(field = {}, rawValue) {
@@ -159,10 +169,10 @@ function validateProfileField(field = {}, rawValue) {
   }
 
   if (field.type === 'text') {
-    if (field.minLength != null && value.length < field.minLength) {
+    if (field.minLength != null && field.minLength !== '' && value.length < field.minLength) {
       return `${field.label}长度不能少于 ${field.minLength}`;
     }
-    if (field.maxLength != null && value.length > field.maxLength) {
+    if (field.maxLength != null && field.maxLength !== '' && value.length > field.maxLength) {
       return `${field.label}长度不能超过 ${field.maxLength}`;
     }
   }
@@ -177,17 +187,17 @@ function validateProfileField(field = {}, rawValue) {
     }
     if (field.numberRule === 'length_range') {
       const numericLength = getNumericLength(value);
-      if (field.minDigits != null && numericLength < field.minDigits) {
+      if (field.minDigits != null && field.minDigits !== '' && numericLength < field.minDigits) {
         return `${field.label}长度不能少于 ${field.minDigits}`;
       }
-      if (field.maxDigits != null && numericLength > field.maxDigits) {
+      if (field.maxDigits != null && field.maxDigits !== '' && numericLength > field.maxDigits) {
         return `${field.label}长度不能超过 ${field.maxDigits}`;
       }
     } else {
-      if (field.minValue != null && numberValue < field.minValue) {
+      if (field.minValue != null && field.minValue !== '' && numberValue < field.minValue) {
         return `${field.label}不能小于 ${field.minValue}`;
       }
-      if (field.maxValue != null && numberValue > field.maxValue) {
+      if (field.maxValue != null && field.maxValue !== '' && numberValue > field.maxValue) {
         return `${field.label}不能大于 ${field.maxValue}`;
       }
     }
@@ -222,57 +232,112 @@ Page({
     heroName: '欢迎使用',
     heroIdentity: '未登录',
     heroSubtitle: '请先完成登录',
+    organizationName: '',
     currentActivity: null,
-    currentActivityText: '暂无评分活动',
+    currentActivityText: '加载中...',
+    activityPaused: false,
     targetList: [],
+    targetGroups: [],
     selectedTargetId: '',
     targetsLoading: false,
-    targetsEmptyText: '暂无被评分人',
+    targetsEmptyText: '加载中...',
+    scoringStats: { total: 0, scored: 0, pending: 0 },
     showUnbindDialog: false,
     unbindLoading: false,
     userTabs: USER_TABS,
     activeTab: USER_TABS[0].key,
-    hrProfile: emptyHrProfileState()
+    hrProfile: emptyHrProfileState(),
+    publishedResults: [],
+    publishedMeritList: [],
+    publishedMeritGroups: [],
+    meritRuleGroups: [],
+    hasPublication: false,
+    hasViewPerm: false,
+    hasMeritPerm: false,
+    userMeritClauses: [],
+    userDesigCandidates: [],
+    statsData: { count: 0, maxScore: '--', avgScore: '--' },
+    resultFilterIdentity: '',
+    resultFilterDepartment: '',
+    resultFilterWorkGroup: '',
+    resultSearchText: '',
+    resultIdentities: [],
+    resultDepartments: [],
+    resultWorkGroups: [],
+    filteredResults: [],
+    filteredStatsData: { count: 0, maxScore: '--', avgScore: '--' },
+    userTabs: USER_TABS,
+    showUserDesigPopup: false,
+    userDesigPerms: [],
+    userDesigHrList: [],
+    userDesigFilteredList: [],
+    userDesigSelectedIds: [],
+    userDesigSelectedList: [],
+    userDesigGroups: [],
+    userDesigPubId: '',
+    userDesigLoading: false,
+    userDesigSaving: false,
+    userDesigFilterDept: '全部',
+    userDesigFilterIdent: '全部',
+    userDesigFilterDeptOptions: ['全部'],
+    userDesigFilterIdentOptions: ['全部'],
+    userDesigSearchKeyword: ''
   },
 
   onShow() {
     this.refreshCurrentUser();
     this.refreshUserFromCloud();
     this.loadCurrentActivity();
+    this.loadOrganizationName();
+  },
+
+  rebuildUserTabs() {
+    const tabs = [
+      { key: 'scoring', label: '考核评分' }
+    ];
+    if (this.data.hasViewPerm) {
+      tabs.push({ key: 'results', label: '结果公示' });
+    }
+    if (this.data.hasMeritPerm) {
+      tabs.push({ key: 'meritList', label: '评优名单' });
+    }
+    tabs.push({ key: 'profile', label: '人事信息' });
+    this.setData({ userTabs: tabs });
   },
 
   refreshUserFromCloud() {
     const activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
-  
+
     if (activeRole !== 'user') {
       return;
     }
-  
-    wx.cloud.callFunction({
+
+    callFunction({
       name: 'userLogin',
       success: (res) => {
         const result = res.result || {};
-  
+
         if (result.status !== 'login_success' || !result.user) {
+          // Only clean up if there's no stored user profile.
+          // If the login page already saved one, a failed cloud refresh
+          // should never destroy local state and switch to another role.
           const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-          delete roleProfiles.user;
-          wx.setStorageSync(STORAGE_KEY, roleProfiles);
-  
-          if (activeRole === 'user') {
-            const roleList = Object.keys(roleProfiles);
-            if (roleList.length) {
-              wx.setStorageSync(ACTIVE_ROLE_KEY, roleList[0]);
-            } else {
-              wx.removeStorageSync(ACTIVE_ROLE_KEY);
+          if (!roleProfiles.user) {
+            if (activeRole === 'user') {
+              const roleList = Object.keys(roleProfiles);
+              if (roleList.length) {
+                wx.setStorageSync(ACTIVE_ROLE_KEY, roleList[0]);
+              } else {
+                wx.removeStorageSync(ACTIVE_ROLE_KEY);
+              }
             }
+            this.refreshCurrentUser();
           }
-  
-          this.refreshCurrentUser();
           return;
         }
-  
+
         this.updateStoredProfile('user', result.user);
-  
+
         if (this.data.activeRole === 'user') {
           this.setData({
             user: result.user,
@@ -280,9 +345,9 @@ Page({
             showWorkGroup: shouldShowWorkGroup(result.user),
             heroName: result.user.name || '欢迎使用',
             heroIdentity: getDisplayIdentity(result.user, 'user'),
-            heroSubtitle: '当前已进入对应身份首页'
+            heroSubtitle: '欢迎使用REDSU考核评分系统'
           });
-  
+
           this.fetchRateTargets('user');
           this.loadUserHrProfile();
         }
@@ -315,13 +380,15 @@ Page({
       showWorkGroup: shouldShowWorkGroup(currentUser),
       heroName: currentUser ? currentUser.name : '欢迎使用',
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
-      heroSubtitle: currentUser ? '当前已进入对应身份首页' : '请先完成登录',
+      heroSubtitle: currentUser ? '欢迎使用REDSU考核评分系统' : '请先完成登录',
       targetList: [],
       selectedTargetId: '',
-      targetsEmptyText: '暂无被评分人',
+      targetsEmptyText: '加载中...',
       targetsLoading: false,
+      scoringStats: { total: 0, scored: 0, pending: 0 },
       activeTab: isAdminRole ? 'scoring' : this.data.activeTab,
-      hrProfile: emptyHrProfileState()
+      hrProfile: emptyHrProfileState(),
+      organizationName: ''
     });
 
     if (currentUser && activeRole === 'user') {
@@ -343,24 +410,94 @@ Page({
     if (tab === 'profile' && this.data.activeRole === 'user' && !this.data.hrProfile.loaded) {
       this.loadUserHrProfile();
     }
+    if (tab === 'results' || tab === 'meritList') {
+      this.checkPublication();
+    }
   },
 
   loadCurrentActivity() {
-    wx.cloud.callFunction({
+    callFunction({
       name: 'getCurrentScoreActivity',
       success: (res) => {
         const result = res.result || {};
         const activity = result.activity || null;
         this.setData({
           currentActivity: activity,
-          currentActivityText: activity ? activity.name : '暂无评分活动'
+          currentActivityText: activity ? activity.name : '暂无评分活动',
+          activityPaused: activity ? !!activity.isPaused : false
         });
+        this.checkPublication();
       },
       fail: () => {
         this.setData({
           currentActivity: null,
-          currentActivityText: '暂无评分活动'
+          currentActivityText: '暂无评分活动',
+          activityPaused: false
         });
+        this.checkPublication();
+      }
+    });
+  },
+
+  loadOrganizationName() {
+    callFunction({
+      name: 'getCurrentOrganization',
+      success: (res) => {
+        const result = res.result || {};
+        const org = result.organization;
+        this.setData({
+          organizationName: org && org.name ? org.name : ''
+        });
+      },
+      fail: () => {
+        this.setData({ organizationName: '' });
+      }
+    });
+  },
+
+  processRateTargetsResult(result) {
+    if (result.status !== 'success') {
+      this.setData({
+        targetList: [],
+        targetGroups: [],
+        targetsEmptyText: result.message || '暂无符合规则的被评分人',
+        scoringStats: { total: 0, scored: 0, pending: 0 }
+      });
+      return;
+    }
+
+    if (result.scorer) {
+      this.updateStoredProfile('user', result.scorer);
+    }
+
+    const currentUser = result.scorer || this.data.user;
+
+    var targets = result.targets || [];
+    var groupMap = {};
+    var scoredCount = 0;
+    for (var i = 0; i < targets.length; i++) {
+      var identity = targets[i].identity || '未分类';
+      if (!groupMap[identity]) { groupMap[identity] = []; }
+      groupMap[identity].push(targets[i]);
+      if (targets[i].scoreStatus === 'scored') scoredCount++;
+    }
+    var groupKeys = Object.keys(groupMap);
+    var targetGroups = groupKeys.map(function (identity) {
+      return { identity: identity, targets: groupMap[identity] };
+    });
+
+    this.setData({
+      user: currentUser,
+      showWorkGroup: shouldShowWorkGroup(currentUser),
+      heroName: currentUser ? currentUser.name : this.data.heroName,
+      heroIdentity: getDisplayIdentity(currentUser, 'user'),
+      targetList: targets,
+      targetGroups: targetGroups,
+      targetsEmptyText: targets.length ? '' : '暂无符合规则的被评分人',
+      scoringStats: {
+        total: targets.length,
+        scored: scoredCount,
+        pending: targets.length - scoredCount
       }
     });
   },
@@ -369,49 +506,66 @@ Page({
     this.setData({
       targetsLoading: true,
       targetList: [],
+      targetGroups: [],
       selectedTargetId: '',
-      targetsEmptyText: '正在加载被评分人'
+      targetsEmptyText: '正在加载被评分人',
+      scoringStats: { total: 0, scored: 0, pending: 0 }
     });
 
-    wx.cloud.callFunction({
+    callFunction({
       name: 'getRateTargets',
       data: { role },
       success: (res) => {
-        const result = res.result || {};
-
-        if (result.status !== 'success') {
-          this.setData({
-            targetList: [],
-            targetsEmptyText: result.message || '暂无符合规则的被评分人'
-          });
-          return;
-        }
-
-        if (result.scorer) {
-          this.updateStoredProfile(role, result.scorer);
-        }
-
-        const currentUser = result.scorer || this.data.user;
-
-        this.setData({
-          user: currentUser,
-          showWorkGroup: shouldShowWorkGroup(currentUser),
-          heroName: currentUser ? currentUser.name : this.data.heroName,
-          heroIdentity: getDisplayIdentity(currentUser, role),
-          targetList: result.targets || [],
-          targetsEmptyText: (result.targets || []).length ? '' : '暂无符合规则的被评分人'
-        });
+        this.processRateTargetsResult(res.result || {});
       },
       fail: () => {
         this.setData({
           targetList: [],
-          targetsEmptyText: '加载被评分人失败'
+          targetGroups: [],
+          targetsEmptyText: '加载被评分人失败',
+          scoringStats: { total: 0, scored: 0, pending: 0 }
         });
       },
       complete: () => {
         this.setData({
           targetsLoading: false
         });
+      }
+    });
+  },
+
+  processHrProfileResult(result) {
+    if (result.status !== 'success') {
+      this.setData({
+        hrProfile: {
+          ...emptyHrProfileState(),
+          loaded: true
+        }
+      });
+      return;
+    }
+
+    const template = result.template || null;
+    const baseValues = result.values || {};
+    const pendingValues = result.pendingValues || {};
+    const formValues = result.auditStatus === 'pending'
+      ? { ...baseValues, ...pendingValues }
+      : { ...baseValues };
+    const nextTemplate = template ? {
+      ...template,
+      fields: (template.fields || []).map((field) => normalizeDisplayField(field, formValues))
+    } : null;
+
+    this.setData({
+      hrProfile: {
+        loading: false,
+        saving: false,
+        loaded: true,
+        template: nextTemplate,
+        pendingValues,
+        auditStatus: result.auditStatus || 'none',
+        statusText: result.statusText || '尚未提交扩展资料',
+        rejectionReason: result.rejectionReason || ''
       }
     });
   },
@@ -425,47 +579,10 @@ Page({
       'hrProfile.loading': true
     });
 
-    wx.cloud.callFunction({
+    callFunction({
       name: 'getUserHrProfile',
       success: (res) => {
-        const result = res.result || {};
-        if (result.status !== 'success') {
-          this.setData({
-            hrProfile: {
-              ...emptyHrProfileState(),
-              loaded: true
-            }
-          });
-          wx.showToast({
-            title: result.message || '加载人事信息失败',
-            icon: 'none'
-          });
-          return;
-        }
-
-        const template = result.template || null;
-        const baseValues = result.values || {};
-        const pendingValues = result.pendingValues || {};
-        const formValues = result.auditStatus === 'pending'
-          ? { ...baseValues, ...pendingValues }
-          : { ...baseValues };
-        const nextTemplate = template ? {
-          ...template,
-          fields: (template.fields || []).map((field) => normalizeDisplayField(field, formValues))
-        } : null;
-
-        this.setData({
-          hrProfile: {
-            loading: false,
-            saving: false,
-            loaded: true,
-            template: nextTemplate,
-            pendingValues,
-            auditStatus: result.auditStatus || 'none',
-            statusText: result.statusText || '尚未提交扩展资料',
-            rejectionReason: result.rejectionReason || ''
-          }
-        });
+        this.processHrProfileResult(res.result || {});
       },
       fail: () => {
         this.setData({
@@ -473,10 +590,6 @@ Page({
             ...emptyHrProfileState(),
             loaded: true
           }
-        });
-        wx.showToast({
-          title: '加载人事信息失败',
-          icon: 'none'
         });
       }
     });
@@ -511,7 +624,8 @@ Page({
 
     fields[fieldIndex] = {
       ...field,
-      value: nextValue
+      value: nextValue,
+      valueIndex: optionIndex
     };
 
     this.setData({
@@ -541,7 +655,7 @@ Page({
     const template = hrProfile.template;
     if (!template || !Array.isArray(template.fields) || !template.fields.length) {
       wx.showToast({
-        title: '管理员尚未配置人事信息模板',
+        title: '暂无模板配置',
         icon: 'none'
       });
       return;
@@ -549,7 +663,7 @@ Page({
 
     if (template.editMode === 'readonly') {
       wx.showToast({
-        title: '当前不允许自行修改，请联系管理员',
+        title: '当前不可修改',
         icon: 'none'
       });
       return;
@@ -573,7 +687,7 @@ Page({
       'hrProfile.saving': true
     });
 
-    wx.cloud.callFunction({
+    callFunction({
       name: 'submitUserHrProfile',
       data: {
         values
@@ -607,13 +721,36 @@ Page({
 
   selectTarget(e) {
     const { id, name } = e.currentTarget.dataset;
+    if (this.data.activityPaused) {
+      wx.showToast({ title: '当前评分活动已暂停', icon: 'none' });
+      return;
+    }
+    var activity = this.data.currentActivity;
+    if (activity) {
+      var now = new Date();
+      var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (activity.startDate) {
+        var startDate = new Date(activity.startDate.replace(/-/g, '/'));
+        if (today < startDate) {
+          wx.showToast({ title: '当前评分活动尚未开始', icon: 'none' });
+          return;
+        }
+      }
+      if (activity.endDate) {
+        var endDate = new Date(activity.endDate.replace(/-/g, '/'));
+        if (today > endDate) {
+          wx.showToast({ title: '当前评分活动已结束', icon: 'none' });
+          return;
+        }
+      }
+    }
     this.setData({ selectedTargetId: id });
 
     wx.showLoading({
       title: '进入评分页'
     });
 
-    wx.cloud.callFunction({
+    callFunction({
       name: 'getScoreFormData',
       data: {
         targetId: id
@@ -685,7 +822,7 @@ Page({
       unbindLoading: true
     });
 
-    wx.cloud.callFunction({
+    callFunction({
       name: 'unbindRole',
       data: {
         role: this.data.activeRole
@@ -737,5 +874,288 @@ Page({
         });
       }
     });
+  },
+
+  async checkPublication() {
+    const activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
+    if (activeRole !== 'user') return;
+    const activityId = this.data.currentActivity ? this.data.currentActivity.id : '';
+    if (!activityId) return;
+    try {
+      const res = await new Promise((resolve, reject) => {
+        callFunction({ name: 'getPublicResults', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
+      });
+      if (res.status === 'success') {
+        const results = (res.results || []).map(r => ({
+          ...r,
+          finalScore: typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000')
+        }));
+        const sorted = [...results].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
+        sorted.forEach((item, idx) => { item.rank = idx + 1; });
+        const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
+        const statsData = {
+          count: sorted.length,
+          maxScore: scores.length ? Math.max(...scores).toFixed(1) : '--',
+          avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '--'
+        };
+        // Extract available filter options
+        const idSet = new Set(); const deptSet = new Set(); const wgSet = new Set();
+        sorted.forEach(r => { if (r.identity) idSet.add(r.identity); if (r.department) deptSet.add(r.department); if (r.workGroup) wgSet.add(r.workGroup); });
+        const resultIdentities = Array.from(idSet).sort();
+        const resultDepartments = Array.from(deptSet).sort();
+        const resultWorkGroups = Array.from(wgSet).sort();
+        this.setData({ publishedResults: sorted, hasPublication: true, hasViewPerm: true, statsData,
+          resultIdentities, resultDepartments, resultWorkGroups,
+          resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultSearchText: '' });
+        this.applyResultFilters();
+      } else if (res.status === 'no_permission') {
+        this.setData({ publishedResults: [], hasPublication: true, hasViewPerm: false });
+      } else {
+        this.setData({ publishedResults: [], hasPublication: false, hasViewPerm: false });
+      }
+    } catch (e) { console.error('checkPublication error:', e); }
+
+    try {
+      const mlRes = await new Promise((resolve, reject) => {
+        callFunction({ name: 'getPublicMeritList', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
+      });
+      if (mlRes.status === 'success') {
+        const canDes = mlRes.canDesignate === true;
+        const list = mlRes.meritList || [];
+        // Group by identity
+        const groupMap = new Map();
+        list.forEach(m => {
+          const key = m.identity || '未分类';
+          if (!groupMap.has(key)) groupMap.set(key, { identity: key, identityId: '', members: [] });
+          groupMap.get(key).members.push(m);
+        });
+        const deptSet = new Set(list.map(m => m.department).filter(Boolean));
+
+        // Build merit rule groups from user's clauses (per-identity display)
+        const userClauses = mlRes.clauses || [];
+        const ruleGroupMap = new Map();
+        for (const c of userClauses) {
+          const key = c.targetIdentity || '未分类';
+          if (!ruleGroupMap.has(key)) {
+            ruleGroupMap.set(key, { targetIdentity: key, targetIdentityId: c.targetIdentityId || '', clauses: [], designatedMembers: [], quotaInfo: '' });
+          }
+          ruleGroupMap.get(key).clauses.push(c);
+        }
+        for (const [key, group] of ruleGroupMap) {
+          const quotas = group.clauses.map(c => c.quotaLimit || 0).filter(q => q > 0);
+          const hasExact = group.clauses.some(c => c.requireExactQuota);
+          if (hasExact && quotas.length > 0) {
+            group.quotaInfo = `等额 ${quotas[0]} 人`;
+          } else if (quotas.length > 0) {
+            group.quotaInfo = `最多 ${Math.max(...quotas)} 人`;
+          } else {
+            group.quotaInfo = '不限人数';
+          }
+          group.designatedMembers = list.filter(m => (m.identity || '未分类') === key);
+        }
+        const meritRuleGroups = Array.from(ruleGroupMap.values());
+
+        this.setData({ publishedMeritList: list, publishedMeritGroups: Array.from(groupMap.values()), meritDeptCount: deptSet.size, hasMeritPerm: canDes, userMeritClauses: userClauses, userDesigCandidates: mlRes.designationCandidates || [], userDesigPubId: mlRes.publicationId || '', meritRuleGroups });
+      } else {
+        this.setData({ hasMeritPerm: false });
+      }
+    } catch (e) { /* getPublicMeritList failed silently */ }
+
+    this.rebuildUserTabs();
+  },
+
+  applyResultFilters() {
+    const base = this.data.publishedResults || [];
+    const idFilter = this.data.resultFilterIdentity || '';
+    const deptFilter = this.data.resultFilterDepartment || '';
+    const wgFilter = this.data.resultFilterWorkGroup || '';
+    const searchText = (this.data.resultSearchText || '').trim().toLowerCase();
+    let filtered = base;
+    if (idFilter) filtered = filtered.filter(r => r.identity === idFilter);
+    if (deptFilter) filtered = filtered.filter(r => r.department === deptFilter);
+    if (wgFilter) filtered = filtered.filter(r => r.workGroup === wgFilter);
+    if (searchText) filtered = filtered.filter(r =>
+      (r.name || '').toLowerCase().indexOf(searchText) >= 0 ||
+      (r.identity || '').toLowerCase().indexOf(searchText) >= 0 ||
+      (r.department || '').toLowerCase().indexOf(searchText) >= 0 ||
+      (r.workGroup || '').toLowerCase().indexOf(searchText) >= 0
+    );
+    // Re-rank within filtered set (ensure scores are 3-decimal strings)
+    const sorted = [...filtered].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
+    sorted.forEach((item, idx) => {
+      item.rank = idx + 1;
+      if (typeof item.finalScore === 'number') item.finalScore = item.finalScore.toFixed(3);
+    });
+    const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
+    this.setData({
+      filteredResults: sorted,
+      filteredStatsData: {
+        count: sorted.length,
+        maxScore: scores.length ? Math.max(...scores).toFixed(1) : '--',
+        avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '--'
+      }
+    });
+  },
+
+  onResultFilterClear() {
+    this.setData({ resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultSearchText: '' });
+    this.applyResultFilters();
+  },
+
+  onResultFilterIdentity(e) {
+    const val = e.currentTarget.dataset.value || '';
+    this.setData({ resultFilterIdentity: val === this.data.resultFilterIdentity ? '' : val });
+    this.applyResultFilters();
+  },
+
+  onResultFilterDepartment(e) {
+    const val = e.currentTarget.dataset.value || '';
+    this.setData({ resultFilterDepartment: val === this.data.resultFilterDepartment ? '' : val });
+    this.applyResultFilters();
+  },
+
+  onResultFilterWorkGroup(e) {
+    const val = e.currentTarget.dataset.value || '';
+    this.setData({ resultFilterWorkGroup: val === this.data.resultFilterWorkGroup ? '' : val });
+    this.applyResultFilters();
+  },
+
+  onResultSearchInput(e) {
+    this.setData({ resultSearchText: e.detail.value || '' });
+    this.applyResultFilters();
+  },
+
+  onResultSearchClear() {
+    this.setData({ resultSearchText: '' });
+    this.applyResultFilters();
+  },
+
+  async openUserDesignation(e) {
+    const filterIdentity = (e && e.currentTarget && e.currentTarget.dataset && e.currentTarget.dataset.identity) || '';
+    this.setData({ userDesigLoading: true });
+    try {
+      const user = this.data.user || {};
+      // Use stored clauses from checkPublication (no admin auth needed)
+      let meritClauses = (this.data.userMeritClauses || []).filter(c => {
+        return c.granteeDepartmentId === (user.departmentId || '') && c.granteeIdentityId === (user.identityId || '');
+      });
+      if (filterIdentity) {
+        meritClauses = meritClauses.filter(c => c.targetIdentity === filterIdentity);
+      }
+      if (!meritClauses.length) { wx.showToast({ title: '暂无指定权限', icon: 'none' }); this.setData({ userDesigLoading: false }); return; }
+
+      // Use pre-fetched designationCandidates from getPublicMeritList (no admin auth needed)
+      const allCandidates = this.data.userDesigCandidates || [];
+
+      // Filter candidates by the clause's merit clauses
+      const meritedTargetIds = new Set(meritClauses.map(c => c.targetIdentityId));
+      const hrList = allCandidates.filter(hr => meritedTargetIds.has(hr.targetIdentityId));
+
+      // Group by target identity
+      const groupMap = new Map();
+      hrList.forEach(hr => {
+        const key = hr.targetIdentityId;
+        if (!groupMap.has(key)) groupMap.set(key, { targetIdentityId: key, targetIdentity: hr.targetIdentity, members: [] });
+        groupMap.get(key).members.push(hr);
+      });
+      const desigGroups = Array.from(groupMap.values());
+
+      const depts = new Set(hrList.map(hr => hr.department).filter(Boolean));
+      const idents = new Set(hrList.map(hr => hr.identity).filter(Boolean));
+      const selectedList = hrList.filter(hr => hr.isSelected);
+      const selectedHrIds = [...new Set(selectedList.map(hr => hr.id))];
+      const pubId = this.data.publicationForm ? this.data.publicationForm.id : '';
+      this.setData({
+        showUserDesigPopup: true,
+        userDesigClauses: meritClauses,
+        userDesigHrList: hrList,
+        userDesigFilteredList: hrList,
+        userDesigSelectedIds: selectedHrIds,
+        userDesigSelectedList: selectedList,
+        userDesigGroups: desigGroups,
+        userDesigPubId: pubId || (this.data.currentActivity ? this.data.currentActivity.id : ''),
+        userDesigFilterDept: '全部', userDesigFilterIdent: '全部',
+        userDesigFilterDeptOptions: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
+        userDesigFilterIdentOptions: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
+        userDesigSearchKeyword: ''
+      });
+    } catch (e) { console.error(e); wx.showToast({ title: '加载失败', icon: 'none' }); }
+    this.setData({ userDesigLoading: false });
+  },
+
+  closeUserDesignation() { this.setData({ showUserDesigPopup: false }); },
+
+  onUserDesigToggle(e) {
+    const hrId = e.currentTarget.dataset.hrId;
+    const sel = [...this.data.userDesigSelectedIds];
+    const idx = sel.indexOf(hrId);
+    if (idx >= 0) sel.splice(idx, 1); else sel.push(hrId);
+    const hrList = this.data.userDesigHrList.map(hr => ({
+      ...hr,
+      isSelected: hr.id === hrId ? !hr.isSelected : hr.isSelected
+    }));
+    const selectedList = hrList.filter(hr => hr.isSelected);
+    const filteredList = this.applyUserDesigFilters(hrList);
+    this.setData({
+      userDesigSelectedIds: sel, userDesigHrList: hrList,
+      userDesigFilteredList: filteredList, userDesigSelectedList: selectedList
+    });
+  },
+
+  applyUserDesigFilters(list) {
+    let result = list || this.data.userDesigHrList;
+    if (this.data.userDesigFilterDept !== '全部') result = result.filter(hr => hr.department === this.data.userDesigFilterDept);
+    if (this.data.userDesigFilterIdent !== '全部') result = result.filter(hr => hr.identity === this.data.userDesigFilterIdent);
+    if (this.data.userDesigSearchKeyword) {
+      const kw = this.data.userDesigSearchKeyword.toLowerCase();
+      result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw));
+    }
+    // Rebuild groups from filtered list
+    const groupMap = new Map();
+    result.forEach(hr => {
+      const key = hr.targetIdentityId;
+      if (!groupMap.has(key)) groupMap.set(key, { targetIdentityId: key, targetIdentity: hr.targetIdentity, members: [] });
+      groupMap.get(key).members.push(hr);
+    });
+    this.setData({ userDesigGroups: Array.from(groupMap.values()) });
+    return result;
+  },
+
+  onUserDesigFilterChange(e) {
+    const field = e.currentTarget.dataset.field;
+    const options = field === 'identity' ? this.data.userDesigFilterIdentOptions : this.data.userDesigFilterDeptOptions;
+    const value = options[Number(e.detail.value)] || '全部';
+    if (field === 'department') this.setData({ userDesigFilterDept: value });
+    else this.setData({ userDesigFilterIdent: value });
+    this.setData({ userDesigFilteredList: this.applyUserDesigFilters() });
+  },
+
+  onUserDesigSearchInput(e) {
+    this.setData({ userDesigSearchKeyword: e.detail.value });
+    this.setData({ userDesigFilteredList: this.applyUserDesigFilters() });
+  },
+
+  async saveUserDesignations() {
+    const clauses = this.data.userDesigClauses || [];
+    if (!clauses.length) return;
+    const clauseIds = clauses.map(c => c.id);
+    // Dedup: ensure no duplicate HR IDs in the request
+    const uniqueHrIds = [...new Set(this.data.userDesigSelectedIds)];
+    this.setData({ userDesigSaving: true });
+    try {
+      const res = await new Promise((r, j) => callFunction({
+        name: 'submitMeritListDesignations',
+        data: { clauseIds, clauseId: clauseIds[0], publicationId: this.data.userDesigPubId, designationHrIds: uniqueHrIds },
+        success: (res) => r(res.result || {}), fail: j
+      }));
+      if (res.status === 'success') {
+        wx.showToast({ title: '已保存', icon: 'success' });
+        this.closeUserDesignation();
+        this.checkPublication();
+      } else {
+        wx.showToast({ title: res.message || '保存失败', icon: 'none' });
+      }
+    } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
+    this.setData({ userDesigSaving: false });
   }
 });

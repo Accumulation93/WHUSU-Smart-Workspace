@@ -1,5 +1,8 @@
-﻿const STORAGE_KEY = 'roleProfiles';
-const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'profile', 'hr', 'departments', 'workGroups', 'identities', 'admins', 'settings'];
+﻿const { callFunction } = require('../../utils/api');
+const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../utils/tableFile');
+
+const STORAGE_KEY = 'roleProfiles';
+const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'departments', 'workGroups', 'identities', 'admins', 'settings', 'publications'];
 const TIMEZONE_OPTIONS = [
   { value: -12, label: 'UTC-12 (国际日期变更线西)' },
   { value: -11, label: 'UTC-11 (中途岛)' },
@@ -35,6 +38,15 @@ const RULE_SCOPE_OPTIONS = [
   { value: 'identity_only', label: '全体成员中的指定身份' },
   { value: 'all_people', label: '全体成员' }
 ];
+const VIEW_SCOPE_OPTIONS = [
+  { value: 'own_results', label: '仅查看自己的评分结果' },
+  { value: 'same_work_group_identity', label: '查看同职能组内指定身份的成员结果' },
+  { value: 'same_work_group_all', label: '查看同职能组内所有成员的结果' },
+  { value: 'same_department_identity', label: '查看同部门内指定身份的成员结果' },
+  { value: 'same_department_all', label: '查看同部门内所有成员的结果' },
+  { value: 'all_people', label: '查看全部成员的结果' }
+];
+const VIEW_SCOPE_LABEL_MAP = VIEW_SCOPE_OPTIONS.reduce((map, item) => { map[item.value] = item.label; return map; }, {});
 const PROFILE_EDIT_MODE_OPTIONS = [
   { value: 'direct', label: '允许直接修改' },
   { value: 'audit', label: '需审核修改' },
@@ -63,6 +75,23 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+const TEMPLATE_CSV_FIELDS = [
+  { key: 'question',   label: '问题内容', aliases: ['问题', '问题内容', '题目', 'question'] },
+  { key: 'scoreLabel', label: '分值说明', aliases: ['分值说明', '说明', 'scoreLabel', '分值标签', '标签'] },
+  { key: 'minValue',   label: '最低分',   aliases: ['最低分', '最小值', 'minValue', 'min', '最低'] },
+  { key: 'startValue', label: '起评分',   aliases: ['起评分', '起始分', 'startValue', 'start', '起始'] },
+  { key: 'maxValue',   label: '最高分',   aliases: ['最高分', '最大值', 'maxValue', 'max', '最高'] },
+  { key: 'stepValue',  label: '步进值',   aliases: ['步进值', '步长', 'stepValue', 'step', '步进'] }
+];
+
+function _csvEscapeField(value) {
+  const s = String(value == null ? '' : value);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 function formatScoreFixed3(value) {
   return toNumber(value, 0).toFixed(3);
 }
@@ -71,33 +100,29 @@ function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function lerpNumber(a, b, t) {
-  return a + (b - a) * t;
-}
-
-function mixRgb(from, to, t) {
-  const clamped = clampNumber(t, 0, 1);
-  const r = Math.round(lerpNumber(from[0], to[0], clamped));
-  const g = Math.round(lerpNumber(from[1], to[1], clamped));
-  const b = Math.round(lerpNumber(from[2], to[2], clamped));
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
+// ── Progress bar colour: 0–100 HSL lookup (red → orange → yellow → green, always bright) ──
 function getProgressColor(ratePercent) {
-  const percent = clampNumber(toNumber(ratePercent, 0), 0, 100);
-  const low = [239, 68, 68]; // red-500
-  const mid = [249, 115, 22]; // orange-500
-  const high = [34, 197, 94]; // green-500
-  if (percent <= 50) {
-    return mixRgb(low, mid, percent / 50);
-  }
-  return mixRgb(mid, high, (percent - 50) / 50);
+  const t = clampNumber(toNumber(ratePercent, 0), 0, 100) / 100;
+
+  // Hue: 0° red → 30° orange → 55° golden-yellow → 140° green
+  let hue;
+  if (t < 0.35)       hue = (t / 0.35) * 30;               // 0–35%  red → orange
+  else if (t < 0.65)  hue = 30 + ((t - 0.35) / 0.30) * 25; // 35–65% orange → yellow
+  else                hue = 55 + ((t - 0.65) / 0.35) * 85;  // 65–100% yellow → green
+
+  // Saturation: high throughout (80–95%), peaking in the middle
+  const sat = 85 + Math.sin(t * Math.PI) * 10;
+
+  // Lightness: bright range (48–58%), peaking at golden-yellow
+  const light = 50 + Math.sin(t * Math.PI) * 8;
+
+  return `hsl(${Math.round(hue)}, ${Math.round(sat)}%, ${Math.round(light)}%)`;
 }
 
 function buildProgressFillStyle(ratePercent) {
   const percent = clampNumber(toNumber(ratePercent, 0), 0, 100);
   const color = getProgressColor(percent);
-  return `width: ${percent}%; background: linear-gradient(90deg, rgba(255,255,255,0.26), ${color});`;
+  return `width: ${percent}%; background: linear-gradient(90deg, rgba(255,255,255,0.30), ${color});`;
 }
 
 function emptyRuleForm() {
@@ -107,6 +132,7 @@ function emptyRuleForm() {
     scorerDepartment: '',
     scorerIdentityId: '',
     scorerIdentity: '',
+    allowSelfAssessment: true,
     clauseScope: RULE_SCOPE_OPTIONS[0].value,
     clauseScopeLabel: RULE_SCOPE_OPTIONS[0].label,
     clauseTargetIdentityId: '',
@@ -116,6 +142,9 @@ function emptyRuleForm() {
     clauseTemplateName: '',
     clauseTemplateWeight: '1',
     clauseTemplateOrder: '',
+    clauseCalculationMethod: 'weighted_average',
+    clauseTrimHighCount: 0,
+    clauseTrimLowCount: 0,
     clauseTemplateConfigEditingIndex: -1,
     clauseEditingIndex: -1,
     isRuleClauseEditorVisible: false,
@@ -263,7 +292,7 @@ function emptyTemplateForm() {
     id: '',
     name: '',
     description: '',
-    questions: [createEmptyQuestion()]
+    questions: []
   };
 }
 
@@ -281,7 +310,10 @@ function createTemplateConfig(config = {}) {
     templateId: config.templateId || '',
     templateName: config.templateName || '',
     weight: config.weight == null ? '1' : String(config.weight),
-    sortOrder: config.sortOrder == null ? '' : String(config.sortOrder)
+    sortOrder: config.sortOrder == null ? '' : String(config.sortOrder),
+    calculationMethod: config.calculationMethod || 'weighted_average',
+    trimHighCount: Number(config.trimHighCount || 0),
+    trimLowCount: Number(config.trimLowCount || 0)
   };
 }
 
@@ -324,7 +356,10 @@ function normalizeTemplateConfigsForSave(templateConfigs = []) {
       templateId: String(item.templateId || '').trim(),
       templateName: String(item.templateName || '').trim(),
       weight: String(item.weight == null ? '1' : item.weight).trim(),
-      sortOrder: String(item.sortOrder || '').trim()
+      sortOrder: String(item.sortOrder || '').trim(),
+      calculationMethod: item.calculationMethod || 'weighted_average',
+      trimHighCount: Number(item.trimHighCount || 0),
+      trimLowCount: Number(item.trimLowCount || 0)
     }))
     .filter((item) => item.templateId));
 }
@@ -357,7 +392,10 @@ function buildPendingTemplateConfigForSave(form = {}) {
       templateId,
       templateName: String(form.clauseTemplateName || '').trim(),
       weight: String(weight),
-      sortOrder: String(sortOrderValue)
+      sortOrder: String(sortOrderValue),
+      calculationMethod: form.clauseCalculationMethod || 'weighted_average',
+      trimHighCount: Number(form.clauseTrimHighCount || 0),
+      trimLowCount: Number(form.clauseTrimLowCount || 0)
     }
   };
 }
@@ -597,7 +635,7 @@ function emptyHrProfileFilters() {
   return {
     department: '全部部门',
     identity: '全部身份',
-    workGroup: '全部工作分工',
+    workGroup: '无',
     status: '全部状态',
     keyword: ''
   };
@@ -607,7 +645,7 @@ function emptyHrProfileFilterOptions() {
   return {
     departments: ['全部部门'],
     identities: ['全部身份'],
-    workGroups: ['全部工作分工'],
+    workGroups: ['无'],
     statuses: HR_PROFILE_STATUS_OPTIONS
   };
 }
@@ -659,7 +697,7 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
     if (filters.identity !== '全部身份' && item.identity !== filters.identity) {
       return false;
     }
-    if (filters.workGroup !== '全部工作分工' && item.workGroup !== filters.workGroup) {
+    if (filters.workGroup !== '无' && filters.workGroup !== '全部工作分工' && item.workGroup !== filters.workGroup) {
       return false;
     }
     if (filters.status !== '全部状态' && item.auditStatusText !== filters.status) {
@@ -692,6 +730,460 @@ function emptyResultFilters() {
   };
 }
 
+function isValidDateString(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return false;
+  }
+
+  const [year, month, day] = value.split('-').map((item) => Number(item));
+  return date.getFullYear() === year
+    && date.getMonth() + 1 === month
+    && date.getDate() === day;
+}
+
+function getNumericLength(value) {
+  return String(value || '').replace(/^[+-]/, '').replace('.', '').length;
+}
+
+function getProfileFieldTypeLabel(type) {
+  if (type === 'number') {
+    return '数字字段';
+  }
+  if (type === 'sequence') {
+    return '序列选择';
+  }
+  if (type === 'date') {
+    return '日期字段';
+  }
+  if (type === 'phone') {
+    return '手机号字段';
+  }
+  if (type === 'email') {
+    return '邮箱字段';
+  }
+  return '文本字段';
+}
+
+function buildFieldHint(field = {}) {
+  if (field.type === 'text' && ((field.minLength != null && field.minLength !== '') || (field.maxLength != null && field.maxLength !== ''))) {
+    const parts = [];
+    if (field.minLength != null && field.minLength !== '') {
+      parts.push(`最短 ${field.minLength}`);
+    }
+    if (field.maxLength != null && field.maxLength !== '') {
+      parts.push(`最长 ${field.maxLength}`);
+    }
+    return `长度限制：${parts.join('，')}`;
+  }
+
+  if (field.type === 'number') {
+    const decimalText = field.allowDecimal === false ? '仅整数' : '允许小数';
+    if (field.numberRule === 'length_range' && ((field.minDigits != null && field.minDigits !== '') || (field.maxDigits != null && field.maxDigits !== ''))) {
+      const parts = [];
+      if (field.minDigits != null && field.minDigits !== '') {
+        parts.push(`最短 ${field.minDigits}`);
+      }
+      if (field.maxDigits != null && field.maxDigits !== '') {
+        parts.push(`最长 ${field.maxDigits}`);
+      }
+      return `数字长度：${parts.join('，')}，${decimalText}`;
+    }
+    if ((field.minValue != null && field.minValue !== '') || (field.maxValue != null && field.maxValue !== '')) {
+      const parts = [];
+      if (field.minValue != null && field.minValue !== '') {
+        parts.push(`最小 ${field.minValue}`);
+      }
+      if (field.maxValue != null && field.maxValue !== '') {
+        parts.push(`最大 ${field.maxValue}`);
+      }
+      return `数值范围：${parts.join('，')}，${decimalText}`;
+    }
+    return decimalText;
+  }
+
+  if (field.type === 'date') {
+    return '格式：YYYY-MM-DD';
+  }
+
+  if (field.type === 'phone') {
+    return '请输入 11 位手机号';
+  }
+
+  if (field.type === 'email') {
+    return '示例：name@example.com';
+  }
+
+  return '';
+}
+
+function validateProfileField(field = {}, rawValue) {
+  const value = normalizeEmptyValue(rawValue);
+
+  if (!value) {
+    return '';
+  }
+
+  if (field.type === 'text') {
+    if (field.minLength != null && field.minLength !== '' && value.length < field.minLength) {
+      return `${field.label}长度不能少于 ${field.minLength}`;
+    }
+    if (field.maxLength != null && field.maxLength !== '' && value.length > field.maxLength) {
+      return `${field.label}长度不能超过 ${field.maxLength}`;
+    }
+  }
+
+  if (field.type === 'number') {
+    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) {
+      return `${field.label}必须是整数`;
+    }
+    const numberValue = Number(value);
+    if (!Number.isFinite(numberValue)) {
+      return `${field.label}必须是数字`;
+    }
+    if (field.numberRule === 'length_range') {
+      const numericLength = getNumericLength(value);
+      if (field.minDigits != null && field.minDigits !== '' && numericLength < field.minDigits) {
+        return `${field.label}长度不能少于 ${field.minDigits}`;
+      }
+      if (field.maxDigits != null && field.maxDigits !== '' && numericLength > field.maxDigits) {
+        return `${field.label}长度不能超过 ${field.maxDigits}`;
+      }
+    } else {
+      if (field.minValue != null && field.minValue !== '' && numberValue < field.minValue) {
+        return `${field.label}不能小于 ${field.minValue}`;
+      }
+      if (field.maxValue != null && field.maxValue !== '' && numberValue > field.maxValue) {
+        return `${field.label}不能大于 ${field.maxValue}`;
+      }
+    }
+  }
+
+  if (field.type === 'sequence' && Array.isArray(field.options) && field.options.length && field.options.indexOf(value) === -1) {
+    return `${field.label}必须从预设选项中选择`;
+  }
+
+  if (field.type === 'date' && !isValidDateString(value)) {
+    return `${field.label}必须是有效日期`;
+  }
+
+  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
+    return `${field.label}必须是有效手机号`;
+  }
+
+  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    return `${field.label}必须是有效邮箱`;
+  }
+
+  return '';
+}
+
+function tryParseDateValue(value) {
+  var v = String(value || '').trim();
+  if (!v) return null;
+
+  // YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD with optional time
+  var m1 = v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m1) {
+    var year = Number(m1[1]);
+    var month = Number(m1[2]);
+    var day = Number(m1[3]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      var dt = new Date(year, month - 1, day);
+      if (dt.getFullYear() === year && dt.getMonth() + 1 === month && dt.getDate() === day) {
+        return { year: year, month: month, day: day };
+      }
+    }
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  var m2 = v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m2) {
+    var d = Number(m2[1]);
+    var mo = Number(m2[2]);
+    var y = Number(m2[3]);
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      var dt2 = new Date(y, mo - 1, d);
+      if (dt2.getFullYear() === y && dt2.getMonth() + 1 === mo && dt2.getDate() === d) {
+        return { year: y, month: mo, day: d };
+      }
+    }
+  }
+
+  // Fallback to native Date
+  var d3 = new Date(v);
+  if (!isNaN(d3.getTime()) && d3.getFullYear() > 1900) {
+    return { year: d3.getFullYear(), month: d3.getMonth() + 1, day: d3.getDate() };
+  }
+  var d4 = new Date(v.replace(' ', 'T'));
+  if (!isNaN(d4.getTime()) && d4.getFullYear() > 1900) {
+    return { year: d4.getFullYear(), month: d4.getMonth() + 1, day: d4.getDate() };
+  }
+  return null;
+}
+
+function detectFieldTypeFromValues(values) {
+  var nonEmpty = (values || []).filter(function (v) { return String(v || '').trim() !== ''; });
+  if (!nonEmpty.length) return 'text';
+
+  var allDate = true;
+  var allPhone = true;
+  var allEmail = true;
+  var allNumber = true;
+
+  for (var i = 0; i < nonEmpty.length; i++) {
+    var v = String(nonEmpty[i]).trim();
+    if (!tryParseDateValue(v)) allDate = false;
+    if (!/^1[3-9]\d{9}$/.test(v)) allPhone = false;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) allEmail = false;
+    if (!isFinite(Number(v)) || v === '') allNumber = false;
+  }
+
+  if (allDate) return 'date';
+  if (allPhone) return 'phone';
+  if (allEmail) return 'email';
+  if (allNumber) return 'number';
+  return 'text';
+}
+
+var EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
+
+function normalizeEmptyValue(value) {
+  var v = String(value == null ? '' : value).trim();
+  if (!v) return '';
+  if (EMPTY_VALUE_ALIASES.indexOf(v) !== -1) return '';
+  return v;
+}
+
+function getFieldTypeDisplayName(fieldDef) {
+  var ft = (fieldDef && fieldDef.type) || 'text';
+  var option = PROFILE_FIELD_TYPE_OPTIONS.find(function (item) { return item.value === ft; });
+  return option ? option.label : '文本';
+}
+
+function getFieldTypeLabelForTarget(target, templateFields) {
+  if (!target || target === 'ignore') return '—';
+  if (target === 'name' || target === 'studentId' || target === 'department'
+      || target === 'identity' || target === 'workGroup') {
+    return '文本';
+  }
+  var fields = templateFields || [];
+  for (var i = 0; i < fields.length; i++) {
+    if (fields[i].id === target) return getFieldTypeDisplayName(fields[i]);
+  }
+  return '文本';
+}
+
+function validateCsvValueAgainstField(value, fieldDef) {
+  var v = normalizeEmptyValue(value);
+  var fieldType = (fieldDef && fieldDef.type) || 'text';
+  var typeLabel = getFieldTypeDisplayName(fieldDef);
+
+  if (!v) return { ok: true };
+
+  if (fieldType === 'text') {
+    if (fieldDef.minLength && v.length < Number(fieldDef.minLength)) {
+      return { ok: false, reason: '长度不能少于' + fieldDef.minLength, fieldType: typeLabel };
+    }
+    if (fieldDef.maxLength && v.length > Number(fieldDef.maxLength)) {
+      return { ok: false, reason: '长度不能超过' + fieldDef.maxLength, fieldType: typeLabel };
+    }
+    return { ok: true };
+  }
+
+  if (fieldType === 'number') {
+    if (fieldDef.allowDecimal === false && !/^[+-]?\d+$/.test(v)) {
+      return { ok: false, reason: '必须是整数', fieldType: typeLabel };
+    }
+    var num = Number(v);
+    if (!isFinite(num)) return { ok: false, reason: '不是有效数字', fieldType: typeLabel };
+    if (fieldDef.numberRule === 'length_range') {
+      var nlen = String(v).replace(/^[+-]/, '').replace('.', '').length;
+      if (fieldDef.minDigits && nlen < Number(fieldDef.minDigits)) {
+        return { ok: false, reason: '长度不能少于' + fieldDef.minDigits, fieldType: typeLabel };
+      }
+      if (fieldDef.maxDigits && nlen > Number(fieldDef.maxDigits)) {
+        return { ok: false, reason: '长度不能超过' + fieldDef.maxDigits, fieldType: typeLabel };
+      }
+    } else {
+      if (fieldDef.minValue !== '' && fieldDef.minValue != null && num < Number(fieldDef.minValue)) {
+        return { ok: false, reason: '不能小于' + fieldDef.minValue, fieldType: typeLabel };
+      }
+      if (fieldDef.maxValue !== '' && fieldDef.maxValue != null && num > Number(fieldDef.maxValue)) {
+        return { ok: false, reason: '不能大于' + fieldDef.maxValue, fieldType: typeLabel };
+      }
+    }
+    return { ok: true };
+  }
+
+  if (fieldType === 'sequence') {
+    var optionsArr = [];
+    if (Array.isArray(fieldDef.options)) {
+      optionsArr = fieldDef.options;
+    } else if (fieldDef.optionsText) {
+      optionsArr = String(fieldDef.optionsText).split(/[\n,]/).map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+    }
+    if (optionsArr.length && optionsArr.indexOf(v) === -1) {
+      return { ok: false, reason: '必须从预设选项中选择', fieldType: typeLabel };
+    }
+    return { ok: true };
+  }
+
+  if (fieldType === 'date') {
+    if (!tryParseDateValue(v)) return { ok: false, reason: '不是有效日期（支持YYYY-MM-DD、YYYY/MM/DD、日期时间等格式）', fieldType: typeLabel };
+    return { ok: true };
+  }
+
+  if (fieldType === 'phone') {
+    if (!/^1[3-9]\d{9}$/.test(v)) return { ok: false, reason: '不是有效手机号', fieldType: typeLabel };
+    return { ok: true };
+  }
+
+  if (fieldType === 'email') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { ok: false, reason: '不是有效邮箱', fieldType: typeLabel };
+    return { ok: true };
+  }
+
+  return { ok: true };
+}
+
+function jaccardCharSimilarity(a, b) {
+  var sa = String(a || '').trim().toLowerCase();
+  var sb = String(b || '').trim().toLowerCase();
+  if (!sa || !sb) return 0;
+  var setA = {}, setB = {};
+  for (var i = 0; i < sa.length; i++) { setA[sa[i]] = true; }
+  for (var i = 0; i < sb.length; i++) { setB[sb[i]] = true; }
+  var intersection = 0, union = 0;
+  var seen = {};
+  for (var k in setA) { seen[k] = true; }
+  for (var k in setB) { seen[k] = true; }
+  for (var k in seen) {
+    if (setA[k] && setB[k]) intersection++;
+    union++;
+  }
+  return union === 0 ? 0 : intersection / union;
+}
+
+function autoMapCsvColumn(headerName, templateFields) {
+  var h = String(headerName || '').trim().toLowerCase();
+  if (!h) return 'ignore';
+  var MIN_SIMILARITY = 0.4;
+
+  var basicCandidates = [
+    { target: 'name', aliases: ['姓名', 'name'] },
+    { target: 'studentId', aliases: ['学号', 'studentid', 'student id'] },
+    { target: 'department', aliases: ['所属部门', '部门', '学院', 'department'] },
+    { target: 'identity', aliases: ['身份', 'identity'] },
+    { target: 'workGroup', aliases: ['工作分工', '职能组', '职能', 'workgroup', 'work group'] }
+  ];
+
+  function scoreCandidates(candidates, source) {
+    var best = null;
+    for (var i = 0; i < candidates.length; i++) {
+      var cand = candidates[i];
+      var aliases = cand.aliases || [cand.label || ''];
+      for (var j = 0; j < aliases.length; j++) {
+        var alias = String(aliases[j] || '').trim().toLowerCase();
+        if (!alias) continue;
+        var score = 0;
+        if (h === alias) {
+          score = 1.0;
+        } else if (h.indexOf(alias) >= 0 || alias.indexOf(h) >= 0) {
+          score = 0.75;
+        } else {
+          score = jaccardCharSimilarity(h, alias);
+        }
+        if (score >= MIN_SIMILARITY) {
+          if (!best || score > best.score) {
+            best = { target: cand.target || cand.id, score: score, source: source };
+          } else if (score === best.score && source === 'ext' && best.source === 'basic') {
+            best = { target: cand.target || cand.id, score: score, source: source };
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  var bestBasic = scoreCandidates(basicCandidates, 'basic');
+
+  var extCandidates = [];
+  var fields = templateFields || [];
+  for (var i = 0; i < fields.length; i++) {
+    extCandidates.push({ target: fields[i].id, aliases: [fields[i].label] });
+  }
+  var bestExt = scoreCandidates(extCandidates, 'ext');
+
+  var winner = null;
+  if (bestBasic && bestExt) {
+    if (bestExt.score > bestBasic.score) {
+      winner = bestExt;
+    } else if (bestBasic.score > bestExt.score) {
+      winner = bestBasic;
+    } else {
+      winner = bestExt;
+    }
+  } else {
+    winner = bestBasic || bestExt;
+  }
+
+  return winner ? winner.target : 'ignore';
+}
+
+function buildCsvMappingOptions(templateFields) {
+  var labels = ['— 忽略 —', '→ 姓名（基础字段）', '→ 学号（基础字段）', '→ 所属部门（基础字段）', '→ 身份（基础字段）', '→ 工作分工（基础字段）'];
+  var values = ['ignore', 'name', 'studentId', 'department', 'identity', 'workGroup'];
+  var fields = templateFields || [];
+  for (var i = 0; i < fields.length; i++) {
+    labels.push('→ ' + fields[i].label + '（扩展字段）');
+    values.push(fields[i].id);
+  }
+  return { labels: labels, values: values };
+}
+
+function getOptionIndex(values, target) {
+  for (var i = 0; i < values.length; i++) {
+    if (values[i] === target) return i;
+  }
+  return 0;
+}
+
+function buildCsvColumnMapping(headers, samples, templateFields) {
+  var mapping = buildCsvMappingOptions(templateFields);
+  var labels = mapping.labels;
+  var values = mapping.values;
+  var rows = [];
+
+  for (var i = 0; i < headers.length; i++) {
+    var header = headers[i];
+    var sampleValues = [];
+    // samples[0] = header row, samples[1..N] = data rows, aligned by index
+    for (var r = 1; r < Math.min(samples.length, 6); r++) {
+      var dr = samples[r] || [];
+      sampleValues.push(dr[i] || '');
+    }
+
+    var target = autoMapCsvColumn(header, templateFields);
+    var fieldTypeLabel = getFieldTypeLabelForTarget(target, templateFields);
+    var optIdx = getOptionIndex(values, target);
+
+    rows.push({
+      header: header,
+      target: target,
+      fieldTypeLabel: fieldTypeLabel,
+      sampleValue: sampleValues.length > 0 ? String(sampleValues[0] || '').trim() : '',
+      optionIndex: optIdx,
+      optionLabel: labels[optIdx] || ''
+    });
+  }
+  return { rows: rows, labels: labels, values: values };
+}
+
 Page({
   data: {
     user: null,
@@ -721,6 +1213,35 @@ Page({
     templateList: [],
     ruleForm: emptyRuleForm(),
     draggingClauseTemplateIndex: -1,
+    dragActive: false,
+    draggingQuestionIndex: -1,
+    dragInsertIndex: -1,
+    dragGhostTop: 0,
+    dragGhostLeft: 0,
+    dragGhostWidth: 0,
+    dragGhostVisible: false,
+    dragTemplateInsertIndex: -1,
+    dragTemplateGhostTop: 0,
+    dragTemplateGhostLeft: 0,
+    dragTemplateGhostWidth: 0,
+    dragTemplateGhostVisible: false,
+    templateConfigScrollTop: 0,
+    clauseTemplateInlineEditIndex: -1,
+    expandedQuestionIndex: -1,
+    questionFocusIndex: -1,
+    templateQuestionScrollInto: '',
+    templateQuestionScrollTop: 0,
+    questionInputValues: {},
+    questionValidationErrors: {},
+    // Template CSV import
+    showTemplateCsvDialog: false,
+    templateCsvHeaders: [],
+    templateCsvSamples: [],
+    templateCsvMapping: {},
+    templateCsvFullRows: [],
+    templateCsvReplaceMode: true,
+    templateCsvImportRows: [],
+    templateCsvImportMappingLabels: [],
     ruleList: [],
     ruleListView: [],
     selectedRuleIds: [],
@@ -756,6 +1277,8 @@ Page({
       completion: { page: 0, pageSize: 0, hasMore: true, total: 0 },
       records: { page: 0, pageSize: 0, hasMore: true, total: 0 }
     },
+    // ── Overview result (loaded all at once, cached server‑side) ──
+
     scoreResultsRaw: {
       overviewRows: [],
       calculationRows: [],
@@ -797,6 +1320,27 @@ Page({
     hrProfileFilterOptions: emptyHrProfileFilterOptions(),
     hrProfileRawRows: [],
     hrProfileRows: [],
+    _hrInfoKeywordInput: '',
+    _hrInfoKeywordTimer: null,
+    showHrPersonDetail: false,
+    detailHrId: '',
+    detailHrProfile: null,
+    detailHrTemplate: null,
+    detailHrValues: {},
+    detailWorkGroupOptions: [],
+    detailDepartmentValue: 0,
+    detailIdentityValue: 0,
+    detailWorkGroupValue: 0,
+    detailFieldValues: {},
+    detailHrPendingValues: {},
+    detailHrAuditStatus: '',
+    detailHrAuditStatusText: '',
+    detailHrRejectionReason: '',
+    detailHrHasPending: false,
+    loadingDetailHr: false,
+    savingDetailHr: false,
+    showAddEditForm: false,
+    showTemplateConfig: false,
     hrForm: emptyHrForm(),
     hrList: [],
     adminForm: emptyAdminForm(),
@@ -804,6 +1348,19 @@ Page({
     adminList: [],
     latestInviteCode: '',
     csvName: '',
+    showCsvMappingDialog: false,
+    csvImportRows: [],
+    csvImportContent: '',
+    csvImportFileName: '',
+    csvImportSamples: [],
+    csvImportMappingLabels: [],
+    csvImportMappingValues: [],
+    csvImportLoading: false,
+    csvImportSkipInvalid: false,
+    showValidationErrors: false,
+    validationErrors: [],
+    validationErrorCards: [],
+    validationErrorSummary: '',
     departmentForm: emptyDepartmentForm(),
     departmentList: [],
     workGroupForm: emptyWorkGroupForm(),
@@ -815,7 +1372,45 @@ Page({
     workGroupOptions: [],
     timezoneOptions: TIMEZONE_OPTIONS,
     timezoneIndex: 20,
-    systemConfig: { timezone: 8 }
+    systemConfig: { timezone: 8 },
+    // ─── Publication management ───
+    publicationList: [],
+    publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
+
+    // View rule category form (mirrors ruleForm pattern)
+    pubViewRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', displayMode: 'score', gradeBands: [], isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauses: [] },
+    pubViewRuleList: [], pubViewRuleListView: [],
+    pubViewRuleFilters: { department: '全部', identity: '全部' },
+    pubViewRuleFilterOptions: { departments: ['全部'], identities: ['全部'] },
+    pubViewRuleSelectedIds: {},
+    pubViewRuleAllSelected: false,
+
+    // Merit rule category form (mirrors ruleForm pattern + quota fields)
+    pubMeritRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: '全部成员', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] },
+    pubMeritRuleList: [], pubMeritRuleListView: [],
+    pubMeritRuleFilters: { department: '全部', identity: '全部' },
+    pubMeritRuleFilterOptions: { departments: ['全部'], identities: ['全部'] },
+    pubMeritRuleSelectedIds: {},
+    pubMeritRuleAllSelected: false,
+
+    // Designation picker (now uses clauseId)
+    designationList: [],
+    showDesignationPicker: false,
+    designationPickerClauseId: '',
+    designationPickerPubId: '',
+    designationPickerHrList: [],
+    designationPickerFilteredList: [],
+    designationPickerSelectedIds: [],
+    designationPickerSelectedList: [],
+    desigFilterDept: '全部', desigFilterIdent: '全部',
+    desigFilterDeptOptions: ['全部'], desigFilterIdentOptions: ['全部'],
+    desigSearchKeyword: '',
+    viewScopeOptions: VIEW_SCOPE_OPTIONS,
+    viewScopeLabelMap: VIEW_SCOPE_LABEL_MAP,
+    displayModeOptions: [
+      { value: 'score', label: '分数模式' },
+      { value: 'grade', label: '等第模式' }
+    ]
   },
 
   onShow() {
@@ -847,11 +1442,6 @@ Page({
       isSuperAdmin,
       isRootAdmin,
       canManageAdmins,
-      resultFilterOptions: {
-        departments: ['全部'],
-        identities: ['全部'],
-        workGroups: ['全部']
-      },
       resultViewOptions: [
         { value: 'overview', label: '明细查看' },
         { value: 'completion', label: '完成率看板' }
@@ -872,8 +1462,10 @@ Page({
     await this.loadActivityList();
     this.loadTemplateList();
     this.loadRuleList();
-    this.loadHrProfileAdminData();
-    this.loadHrList();
+    if (!this._csvImportActive && !this.data.showCsvMappingDialog) {
+      this.loadHrProfileAdminData();
+      this.loadHrList();
+    }
     this.loadAdminList();
     this.loadSystemConfig();
     this.loadOrganizations();
@@ -909,8 +1501,12 @@ Page({
         this.loadScoreResults();
       }
     }
-    if (tab === 'profile') {
-      this.loadHrProfileAdminData();
+    if (tab === 'hrInfo') {
+      if (!this._csvImportActive && !this.data.showCsvMappingDialog) {
+        this.loadHrProfileAdminData();
+        this.loadHrList();
+      }
+      this.updateHrFormOptions();
     }
     if (tab === 'departments') {
       this.loadDepartmentList();
@@ -933,9 +1529,28 @@ Page({
     if (tab === 'settings') {
       this.loadSystemConfig();
     }
+    if (tab === 'publications') {
+      if (!this.data.departmentList.length) this.loadDepartmentList();
+      if (!this.data.identityList.length) this.loadIdentityList();
+      this.loadActivityList().then(async () => {
+        const currentActivityId = this.data.currentActivityId;
+        if (currentActivityId) {
+          if (!this.data.publicationForm.activityId) {
+            this.setData({
+              'publicationForm.activityId': currentActivityId,
+              'publicationForm.activityName': this.data.currentActivityName
+            });
+          }
+          // 先确保 publication 存在（静默创建），再加载完整数据
+          await this.savePublication(true);
+          this.loadPublicationData(currentActivityId);
+        }
+      });
+    }
   },
 
   async loadSystemConfig() {
+    this.setLoading('settings', true);
     try {
       const result = await this.callCloud('getSystemConfig');
       if (result.status === 'success' && result.config) {
@@ -952,6 +1567,8 @@ Page({
       }
     } catch (e) {
       console.error('loadSystemConfig error:', e);
+    } finally {
+      this.setLoading('settings', false);
     }
   },
 
@@ -1053,7 +1670,7 @@ Page({
     const confirm = await new Promise(function (resolve) {
       wx.showModal({
         title: '删除组织',
-        content: '删除后将清除该组织在所有历史数据库中的数据，不可恢复。确认删除？',
+        content: '删除后将清除该组织的所有数据，不可恢复。确认删除？',
         confirmText: '删除',
         cancelText: '取消',
         success: function (res) { resolve(res.confirm); }
@@ -1083,7 +1700,7 @@ Page({
     const confirm = await new Promise(function (resolve) {
       wx.showModal({
         title: '切换组织',
-        content: '切换组织将归档当前所有数据到历史数据库，切换到「' + name + '」。如果这是历史组织，数据将被恢复。确认切换？',
+        content: '确认切换到「' + name + '」？',
         confirmText: '切换',
         cancelText: '取消',
         success: function (res) { resolve(res.confirm); }
@@ -1092,29 +1709,10 @@ Page({
     if (!confirm) return;
 
     this.setLoading('switchOrganization', true);
+    wx.showLoading({ title: '正在切换组织...', mask: true });
 
-    // 第一步：归档当前数据
-    wx.showLoading({ title: '正在归档当前数据...', mask: true });
-    try {
-      const archiveResult = await this.callCloud('switchOrganization', { mode: 'archive' });
-      if (archiveResult.status !== 'success') {
-        wx.hideLoading();
-        wx.showToast({ title: archiveResult.message || '归档失败', icon: 'none' });
-        this.setLoading('switchOrganization', false);
-        return;
-      }
-    } catch (e) {
-      wx.hideLoading();
-      wx.showToast({ title: '归档失败，请重试', icon: 'none' });
-      this.setLoading('switchOrganization', false);
-      return;
-    }
-
-    // 第二步：恢复目标组织
-    wx.showLoading({ title: '正在恢复目标组织...', mask: true });
     try {
       const result = await this.callCloud('switchOrganization', {
-        mode: 'restore',
         organizationId: id,
         organizationName: name
       });
@@ -1132,10 +1730,10 @@ Page({
         await this.loadWorkGroupList();
         await this.loadIdentityList();
       } else {
-        wx.showToast({ title: result.message || '恢复失败，请重试', icon: 'none' });
+        wx.showToast({ title: result.message || '切换失败', icon: 'none' });
       }
     } catch (e) {
-      wx.showToast({ title: '恢复失败，当前数据已归档保存，请重试恢复步骤', icon: 'none' });
+      wx.showToast({ title: '切换组织失败', icon: 'none' });
     }
     wx.hideLoading();
     this.setLoading('switchOrganization', false);
@@ -1149,46 +1747,36 @@ Page({
     const confirm = await new Promise(function (resolve) {
       wx.showModal({
         title: '新建并切换组织',
-        content: '当前所有数据将被归档到历史数据库，切换到新组织「' + this.data.orgFormData.name + '」。确认？',
+        content: '确认创建并切换到新组织「' + this.data.orgFormData.name + '」？',
         confirmText: '确认',
         cancelText: '取消',
         success: function (res) { resolve(res.confirm); }
       });
     }.bind(this));
     if (!confirm) return;
-    const orgId = 'org_' + Date.now();
 
     this.setLoading('switchOrganization', true);
+    wx.showLoading({ title: '正在创建并切换组织...', mask: true });
 
-    // 第一步：归档当前数据
-    wx.showLoading({ title: '正在归档当前数据...', mask: true });
     try {
-      const archiveResult = await this.callCloud('switchOrganization', { mode: 'archive' });
-      if (archiveResult.status !== 'success') {
+      // Step 1: Create the organization
+      const saveResult = await this.callCloud('saveOrganization', { name: this.data.orgFormData.name });
+      if (saveResult.status !== 'success') {
         wx.hideLoading();
-        wx.showToast({ title: archiveResult.message || '归档失败', icon: 'none' });
+        wx.showToast({ title: saveResult.message || '创建组织失败', icon: 'none' });
         this.setLoading('switchOrganization', false);
         return;
       }
-    } catch (e) {
-      wx.hideLoading();
-      wx.showToast({ title: '归档失败，请重试', icon: 'none' });
-      this.setLoading('switchOrganization', false);
-      return;
-    }
 
-    // 第二步：创建并恢复（新组织无历史数据，restore 仅创建组织记录）
-    wx.showLoading({ title: '正在创建并切换组织...', mask: true });
-    try {
+      // Step 2: Switch to it
       const result = await this.callCloud('switchOrganization', {
-        mode: 'restore',
-        organizationId: orgId,
+        organizationId: saveResult.organization.id,
         organizationName: this.data.orgFormData.name
       });
       if (result.status === 'success') {
         wx.showToast({ title: result.message || '切换成功', icon: 'success' });
         this.closeOrgForm();
-        this.setData({ currentOrganizationId: orgId, currentOrganizationName: this.data.orgFormData.name });
+        this.setData({ currentOrganizationId: saveResult.organization.id, currentOrganizationName: this.data.orgFormData.name });
         await this.loadOrganizations();
         this.loadActivityList();
         this.loadTemplateList();
@@ -1203,7 +1791,7 @@ Page({
         wx.showToast({ title: result.message || '切换失败', icon: 'none' });
       }
     } catch (e) {
-      wx.showToast({ title: '切换失败，当前数据已归档保存，请重试', icon: 'none' });
+      wx.showToast({ title: '切换失败，请重试', icon: 'none' });
     }
     wx.hideLoading();
     this.setLoading('switchOrganization', false);
@@ -1211,7 +1799,7 @@ Page({
 
   callCloud(name, data = {}) {
     return new Promise((resolve, reject) => {
-      wx.cloud.callFunction({
+      callFunction({
         name,
         data,
         success: (res) => resolve(res.result || {}),
@@ -1937,21 +2525,20 @@ Page({
   updateWorkGroupOptions() {
     const { departmentId, department } = this.data.hrForm;
     if (!departmentId && !department) {
-      this.setData({ workGroupOptions: [] });
+      this.setData({ workGroupOptions: ['无'] });
       return;
     }
 
     const departmentObj = this.data.departmentList.find(d => d.id === departmentId || d.name === department);
     if (!departmentObj) {
-      this.setData({ workGroupOptions: [] });
+      this.setData({ workGroupOptions: ['无'] });
       return;
     }
 
-    const workGroupOptions = this.data.workGroupList
-      .filter(wg => (
-        wg.departmentCode === departmentObj.code || wg.departmentId === departmentObj.id
-      ))
-      .map(wg => wg.name);
+    const deptIdStr = String(departmentObj.id);
+    const workGroupOptions = ['无', ...this.data.workGroupList
+      .filter(wg => String(wg.departmentId) === deptIdStr)
+      .map(wg => wg.name)];
 
     this.setData({ workGroupOptions });
   },
@@ -1990,10 +2577,23 @@ Page({
 
   onHrWorkGroupChange(e) {
     const index = Number(e.detail.value);
+    if (index === 0) {
+      this.setData({
+        hrForm: {
+          ...this.data.hrForm,
+          workGroupId: '',
+          workGroup: ''
+        }
+      });
+      return;
+    }
+
     const workGroup = this.data.workGroupOptions[index];
     const departmentObj = this.data.departmentList.find(d => d.id === this.data.hrForm.departmentId || d.name === this.data.hrForm.department) || {};
-    const workGroupObj = this.data.workGroupList.filter(wg => wg.departmentId === departmentObj.id || wg.departmentCode === departmentObj.code)[index] || {};
-    
+    const deptIdStr = String(departmentObj.id);
+    const filteredList = this.data.workGroupList.filter(wg => String(wg.departmentId) === deptIdStr);
+    const workGroupObj = filteredList[index - 1] || {};
+
     this.setData({
       hrForm: {
         ...this.data.hrForm,
@@ -2041,21 +2641,22 @@ Page({
   },
   reloadScoreResults() {
     this.resetCurrentResultRows();
-    this.loadScoreResults();
+    this.loadScoreResults({ nocache: true });
   },
   
-  async loadScoreResults() {
+  async loadScoreResults(options) {
+    options = options || {};
     const viewMode = this.data.resultFilters.viewMode || 'overview';
     const loadToken = Date.now();
     this.resultLoadToken = loadToken;
-  
+
     if (!this.data.currentActivityId) {
       this.setLoading('results', false);
       return;
     }
-  
+
     this.setLoading('results', true);
-  
+
     const mergedRows = {
       overviewRows: [],
       calculationRows: [],
@@ -2063,20 +2664,21 @@ Page({
       recordRows: [],
       scorerCompletionRows: []
     };
-  
+
     let offset = 0;
     let hasMore = true;
     let latestResult = null;
     let requestCount = 0;
     const maxRequests = 100;
-  
+
     try {
       if (viewMode === 'overview') {
+        // Load ALL overview rows at once (like user-side "结果公示") — server caches computed result
         const result = await this.callCloud('getScoreResults', {
           activityId: this.data.currentActivityId,
           timezone: this.data.systemConfig.timezone,
           dataType: viewMode,
-          offset: 0,
+          nocache: options.nocache === true,
           filters: {
             department: this.data.resultFilters.department,
             identity: this.data.resultFilters.identity,
@@ -2084,15 +2686,11 @@ Page({
           }
         });
 
-        if (this.resultLoadToken !== loadToken) {
-          return;
-        }
+        if (this.resultLoadToken !== loadToken) return;
 
         if (result.status !== 'success') {
-          wx.showToast({
-            title: result.message || '加载评分结果失败',
-            icon: 'none'
-          });
+          wx.showToast({ title: result.message || '加载评分结果失败', icon: 'none' });
+          this.setLoading('results', false);
           return;
         }
 
@@ -2104,18 +2702,10 @@ Page({
             departments: buildResultFilterOptions((this.data.departmentList || []).map(function (item) { return item.name; })),
             identities: buildResultFilterOptions((this.data.identityList || []).map(function (item) { return item.name; })),
             workGroups: this.buildWorkGroupFilterOptions()
-          },
-          resultPagination: {
-            ...this.data.resultPagination,
-            overview: {
-              page: 1,
-              pageSize: overviewRows.length,
-              hasMore: !!(result.pagination && result.pagination.hasMore),
-              total: result.pagination ? result.pagination.total || overviewRows.length : overviewRows.length
-            }
           }
         });
         this.applyScoreResultFilters();
+        this.setLoading('results', false);
         return;
       }
 
@@ -2279,7 +2869,7 @@ Page({
   },
   
   loadMoreScoreResults() {
-    // 已改成自动连续请求，不再依赖滚动触底加载
+    // Overview results are now loaded all at once — scrolling is instant, no pagination needed
   },
 
   async openTargetScoreRecords(e) {
@@ -2539,7 +3129,7 @@ Page({
     }
     var workGroupList = this.data.workGroupList || [];
     if (!dept || dept === '全部') {
-      return ['全部'];
+      return ['请先选择所属部门'];
     }
     var deptId = '';
     var deptList = this.data.departmentList || [];
@@ -2806,6 +3396,10 @@ Page({
     const rawOptions = optionsMap[field] || [];
     const pickedLabel = rawOptions[Number(value)] || '全部';
 
+    if (field === 'workGroup' && pickedLabel === '请先选择所属部门') {
+      return;
+    }
+
     let nextValue = pickedLabel;
     if (field === 'viewMode') {
       nextValue = (this.data.resultViewOptions[Number(value)] || {}).value || 'overview';
@@ -2837,23 +3431,31 @@ Page({
     this.loadScoreResults({ append: false });
   },
 
-  async exportScoreResults(e) {
-    const { report, format } = e.currentTarget.dataset;
+  exportScoreResultsUnified(e) {
+    const report = e.currentTarget.dataset.report;
     if (!this.data.currentActivityId) {
-      wx.showToast({
-        title: '请先设置当前评分活动',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请先设置当前评分活动', icon: 'none' });
       return;
     }
 
-    this.setLoading(`export_${report}_${format}`, true);
+    const _this = this;
+    wx.showActionSheet({
+      itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
+      success: function (res) {
+        const format = res.tapIndex === 0 ? 'csv' : 'excel';
+        _this._doExportScoreResults(report, format);
+      }
+    });
+  },
+
+  async _doExportScoreResults(report, format) {
+    this.setLoading('export_' + report, true);
     try {
       const result = await this.callCloud('exportScoreResults', {
         activityId: this.data.currentActivityId,
         timezone: this.data.systemConfig.timezone,
         reportType: report,
-        format,
+        format: format,
         filters: {
           department: this.data.resultFilters.department,
           identity: this.data.resultFilters.identity,
@@ -2862,42 +3464,15 @@ Page({
       });
 
       if (result.status !== 'success' || !result.fileContent || !result.fileName) {
-        wx.showToast({
-          title: result.message || '导出失败',
-          icon: 'none'
-        });
+        wx.showToast({ title: result.message || '导出失败', icon: 'none' });
         return;
       }
 
-      const extension = result.extension || (format === 'excel' ? 'xls' : 'csv');
-      const filePath = `${wx.env.USER_DATA_PATH}/${result.fileName}.${extension}`;
-      const fs = wx.getFileSystemManager();
-      fs.writeFileSync(filePath, result.fileContent, 'utf8');
-
-      wx.openDocument({
-        filePath,
-        fileType: extension,
-        showMenu: true,
-        fail: () => {
-          wx.shareFileMessage({
-            filePath,
-            fileName: `${result.fileName}.${extension}`,
-            fail: () => {
-              wx.showToast({
-                title: '文件已保存到本地',
-                icon: 'none'
-              });
-            }
-          });
-        }
-      });
+      saveAndShareFile(result.fileContent, result.fileName, result.extension || 'csv');
     } catch (error) {
-      wx.showToast({
-        title: '导出失败',
-        icon: 'none'
-      });
+      wx.showToast({ title: '导出失败', icon: 'none' });
     } finally {
-      this.setLoading(`export_${report}_${format}`, false);
+      this.setLoading('export_' + report, false);
     }
   },
 
@@ -2986,6 +3561,17 @@ Page({
     const { field } = e.currentTarget.dataset;
     const rawValue = e.detail.value;
     const value = field === 'description' ? rawValue : rawValue.trim();
+    this.setData({
+      activityForm: {
+        ...this.data.activityForm,
+        [field]: value
+      }
+    });
+  },
+
+  onActivityDateChange(e) {
+    const { field } = e.currentTarget.dataset;
+    const value = e.detail.value;
     this.setData({
       activityForm: {
         ...this.data.activityForm,
@@ -3104,6 +3690,23 @@ Page({
     });
   },
 
+  async toggleActivityPause(e) {
+    const { id } = e.currentTarget.dataset;
+    if (!id) return;
+
+    try {
+      const result = await this.callCloud('toggleActivityPause', { id });
+      if (result.status !== 'success') {
+        wx.showToast({ title: result.message || '操作失败', icon: 'none' });
+        return;
+      }
+      await this.loadActivityList();
+      wx.showToast({ title: result.message || '操作成功', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: '操作失败', icon: 'none' });
+    }
+  },
+
   deleteActivity(e) {
     const { id } = e.currentTarget.dataset;
     wx.showModal({
@@ -3158,7 +3761,7 @@ Page({
   onTemplateQuestionInput(e) {
     const { index, field } = e.currentTarget.dataset;
     const questionIndex = Number(index);
-    const questions = [...this.data.templateForm.questions];
+    const questions = this.data.templateForm.questions;
     if (!questions[questionIndex]) {
       return;
     }
@@ -3166,43 +3769,293 @@ Page({
     const rawValue = e.detail.value;
     const value = field === 'scoreLabel' ? rawValue : rawValue.trim();
 
-    questions[questionIndex] = {
-      ...questions[questionIndex],
-      [field]: value
-    };
-
+    // Write to a separate data object to avoid re-rendering the wx:for list,
+    // which would destroy the input element and dismiss the keyboard.
     this.setData({
-      templateForm: {
-        ...this.data.templateForm,
-        questions
-      }
+      [`questionInputValues.${questionIndex}.${field}`]: value
+    });
+  },
+
+  onTemplateQuestionBlur(e) {
+    const { index, field } = e.currentTarget.dataset;
+    const questionIndex = Number(index);
+    var inputValues = this.data.questionInputValues;
+    if (!inputValues[questionIndex] || inputValues[questionIndex][field] === undefined) return;
+    var value = inputValues[questionIndex][field];
+    // Sync the cached value back to the real question data on blur
+    this.setData({
+      [`templateForm.questions[${questionIndex}].${field}`]: value
     });
   },
 
   addTemplateQuestion() {
+    var questions = [...this.data.templateForm.questions, createEmptyQuestion()];
+    var newIndex = questions.length - 1;
     this.setData({
-      templateForm: {
-        ...this.data.templateForm,
-        questions: [...this.data.templateForm.questions, createEmptyQuestion()]
-      }
+      templateForm: { ...this.data.templateForm, questions: questions },
+      expandedQuestionIndex: newIndex,
+      questionFocusIndex: newIndex,
+      templateQuestionScrollInto: 'question-' + newIndex,
+      questionValidationErrors: {}
     });
+  },
+
+  _flushQuestionInputs() {
+    var inputCache = this.data.questionInputValues;
+    if (!inputCache || !Object.keys(inputCache).length) return;
+    var updates = {};
+    for (var qi in inputCache) {
+      for (var f in inputCache[qi]) {
+        updates['templateForm.questions[' + qi + '].' + f] = inputCache[qi][f];
+      }
+    }
+    this.setData(updates);
   },
 
   removeTemplateQuestion(e) {
     const index = Number(e.currentTarget.dataset.index);
+    this._flushQuestionInputs();
     const questions = this.data.templateForm.questions.filter((_, questionIndex) => questionIndex !== index);
+    var expandedIndex = this.data.expandedQuestionIndex;
+    if (expandedIndex === index) {
+      expandedIndex = -1;
+    } else if (expandedIndex > index) {
+      expandedIndex -= 1;
+    }
     this.setData({
       templateForm: {
         ...this.data.templateForm,
-        questions: questions.length ? questions : [createEmptyQuestion()]
-      }
+        questions: questions
+      },
+      expandedQuestionIndex: expandedIndex,
+      questionInputValues: {},
+      questionValidationErrors: {}
     });
   },
 
   resetTemplateForm() {
     this.setData({
-      templateForm: emptyTemplateForm()
+      templateForm: emptyTemplateForm(),
+      questionInputValues: {},
+      questionValidationErrors: {},
+      expandedQuestionIndex: -1,
+      questionFocusIndex: -1,
+      templateQuestionScrollInto: '',
+      draggingQuestionIndex: -1
     });
+  },
+
+  moveQuestionUp(e) {
+    var index = Number(e.currentTarget.dataset.index);
+    if (Number.isNaN(index) || index <= 0) return;
+    this._flushQuestionInputs();
+    var questions = moveItem(this.data.templateForm.questions, index, index - 1);
+    var expandedIndex = this.data.expandedQuestionIndex;
+    if (expandedIndex === index) expandedIndex = index - 1;
+    else if (expandedIndex === index - 1) expandedIndex = index;
+    this.setData({
+      templateForm: { ...this.data.templateForm, questions: questions },
+      templateQuestionScrollInto: 'question-' + (index - 1),
+      expandedQuestionIndex: expandedIndex,
+      questionInputValues: {},
+      questionValidationErrors: {}
+    });
+  },
+
+  moveQuestionDown(e) {
+    var index = Number(e.currentTarget.dataset.index);
+    var questions = this.data.templateForm.questions;
+    if (Number.isNaN(index) || index >= questions.length - 1) return;
+    this._flushQuestionInputs();
+    questions = moveItem(questions, index, index + 1);
+    var expandedIndex = this.data.expandedQuestionIndex;
+    if (expandedIndex === index) expandedIndex = index + 1;
+    else if (expandedIndex === index + 1) expandedIndex = index;
+    this.setData({
+      templateForm: { ...this.data.templateForm, questions: questions },
+      templateQuestionScrollInto: 'question-' + (index + 1),
+      expandedQuestionIndex: expandedIndex,
+      questionInputValues: {},
+      questionValidationErrors: {}
+    });
+  },
+
+  startQuestionDrag(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    if (!touch || Number.isNaN(index)) return;
+    var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+    this._dragStartY = touchY;
+    this._questionDragState = { currentIndex: index };
+    this._dragLastScrollTime = 0;
+    this._dragEffectiveScrollTop = this.data.templateQuestionScrollTop || 0;
+    this.setData({ dragActive: true, draggingQuestionIndex: index, dragInsertIndex: index, questionValidationErrors: {} });
+    var self = this;
+    wx.createSelectorQuery().selectAll('.question-card').boundingClientRect(function(rects) {
+      if (rects && rects.length) {
+        self._questionCardRects = rects;
+        var cardRect = rects[index];
+        if (cardRect) {
+          self._dragCardOriginalTop = cardRect.top;
+          self._dragCardLeft = cardRect.left;
+          self._dragCardWidth = cardRect.width;
+          self._fingerOffsetInCard = touchY - cardRect.top;
+          self.setData({
+            dragGhostTop: cardRect.top,
+            dragGhostLeft: cardRect.left,
+            dragGhostWidth: cardRect.width,
+            dragGhostVisible: true
+          });
+        }
+      }
+    }).exec();
+    wx.createSelectorQuery().select('.large-scroll').boundingClientRect(function(rect) {
+      if (rect) self._questionDragScrollRect = rect;
+    }).exec();
+  },
+
+  onQuestionDragMove(e) {
+    if (!this._questionDragState || this.data.draggingQuestionIndex < 0) return;
+    var touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    if (!touch) return;
+
+    var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+    this._dragLastY = touchY;
+    var self = this;
+    var now = Date.now();
+
+    // Accumulate scroll delta every frame based on finger position relative to scroll view edges.
+    // Middle zone (between middleTop and middleBottom) = no scroll at all.
+    var sr = this._questionDragScrollRect;
+    if (sr) {
+      var viewHeight = sr.bottom - sr.top;
+      var edgeSize = Math.min(70, viewHeight * 0.22);
+      var middleTop = sr.top + edgeSize;
+      var middleBottom = sr.bottom - edgeSize;
+      var scrollDelta = 0;
+
+      if (touchY < middleTop) {
+        var distIntoEdge = middleTop - touchY;
+        var factor = Math.min(distIntoEdge / edgeSize, 3);
+        scrollDelta = -Math.round(5 * factor);
+      } else if (touchY > middleBottom) {
+        var distIntoEdge = touchY - middleBottom;
+        var factor = Math.min(distIntoEdge / edgeSize, 3);
+        scrollDelta = Math.round(5 * factor);
+      }
+
+      if (scrollDelta !== 0) {
+        self._dragEffectiveScrollTop = Math.max(0, (self._dragEffectiveScrollTop || 0) + scrollDelta);
+      }
+    }
+
+    // Throttle expensive DOM queries + setData to ~30fps.
+    // Scroll delta still accumulates every frame — setData applies the latest.
+    if (self._lastUpdateTime && now - self._lastUpdateTime < 33) return;
+    self._lastUpdateTime = now;
+
+    wx.createSelectorQuery().selectAll('.question-card').boundingClientRect(function(rects) {
+      if (!rects || !rects.length || !self._questionDragState) return;
+      self._questionCardRects = rects;
+
+      var y = self._dragLastY;
+      if (y == null) return;
+
+      var newInsertIndex = rects.length;
+      for (var i = 0; i < rects.length; i++) {
+        if (y < rects[i].top + rects[i].height / 2) {
+          newInsertIndex = i;
+          break;
+        }
+      }
+
+      var sr = self._questionDragScrollRect;
+      var ghostTop;
+      if (self._fingerOffsetInCard != null) {
+        ghostTop = y - self._fingerOffsetInCard;
+      } else if (self._dragCardOriginalTop != null && self._dragStartY != null) {
+        ghostTop = self._dragCardOriginalTop + (y - self._dragStartY);
+      }
+      if (sr) {
+        var draggedRect = rects[self._questionDragState.currentIndex];
+        var ghostHeight = draggedRect ? draggedRect.height : 80;
+        ghostTop = Math.max(sr.top, Math.min(sr.bottom - ghostHeight, ghostTop));
+      }
+
+      // Single batched setData for all visual updates
+      var update = {};
+      if (newInsertIndex !== self.data.dragInsertIndex) update.dragInsertIndex = newInsertIndex;
+      if (ghostTop !== self.data.dragGhostTop) update.dragGhostTop = ghostTop;
+      if (self._dragEffectiveScrollTop != null) update.templateQuestionScrollTop = self._dragEffectiveScrollTop;
+      if (Object.keys(update).length) self.setData(update);
+    }).exec();
+  },
+
+  endQuestionDrag() {
+    var state = this._questionDragState;
+    if (!state) return;
+    var fromIndex = state.currentIndex;
+    var insertIndex = this.data.dragInsertIndex;
+    // Adjust: if inserting after dragged item, account for its removal
+    var toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
+    if (toIndex !== fromIndex && toIndex >= 0 && toIndex < this.data.templateForm.questions.length) {
+      var questions = moveItem(this.data.templateForm.questions, fromIndex, toIndex);
+      var expandedIndex = this.data.expandedQuestionIndex;
+      if (expandedIndex === fromIndex) {
+        expandedIndex = toIndex;
+      } else if (fromIndex < toIndex) {
+        if (expandedIndex > fromIndex && expandedIndex <= toIndex) expandedIndex -= 1;
+      } else {
+        if (expandedIndex >= toIndex && expandedIndex < fromIndex) expandedIndex += 1;
+      }
+      this.setData({
+        templateForm: { ...this.data.templateForm, questions: questions },
+        expandedQuestionIndex: expandedIndex
+      });
+    }
+    this._questionDragState = null;
+    this._questionCardRects = null;
+    this._questionDragScrollRect = null;
+    this._dragLastY = null;
+    this._dragCardOriginalTop = null;
+    this._dragStartY = null;
+    this._dragCardLeft = null;
+    this._dragCardWidth = null;
+    this._dragLastScrollTime = 0;
+    this._dragEffectiveScrollTop = null;
+    this._fingerOffsetInCard = null;
+    this._lastUpdateTime = null;
+    this.setData({ dragActive: false, draggingQuestionIndex: -1, dragInsertIndex: -1, dragGhostVisible: false, questionInputValues: {} });
+  },
+
+  onQuestionDragCancel() {
+    this.endQuestionDrag();
+  },
+
+  toggleQuestionExpand(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (Number.isNaN(index)) return;
+    var isExpanded = this.data.expandedQuestionIndex === index;
+    var updates = {
+      expandedQuestionIndex: isExpanded ? -1 : index,
+      questionFocusIndex: -1
+    };
+    // When collapsing, flush any pending input values to the question data
+    if (isExpanded) {
+      var inputCache = this.data.questionInputValues;
+      if (inputCache[index]) {
+        for (var f in inputCache[index]) {
+          updates['templateForm.questions[' + index + '].' + f] = inputCache[index][f];
+        }
+      }
+    }
+    this.setData(updates);
+  },
+
+  onQuestionContentFocus() {
+    if (this.data.questionFocusIndex >= 0) {
+      this.setData({ questionFocusIndex: -1 });
+    }
   },
 
   startCreateTemplate() {
@@ -3211,38 +4064,73 @@ Page({
   },
 
   async saveTemplate() {
-    const form = this.data.templateForm || emptyTemplateForm();
-    const name = String(form.name || '').trim();
-    const description = String(form.description || '');
-    const questions = (form.questions || []).map((question) => ({
-      question: String(question.question || '').trim(),
-      scoreLabel: String(question.scoreLabel || ''),
-      minValue: String(question.minValue == null ? '0' : question.minValue).trim(),
-      startValue: String(
-        question.startValue == null || question.startValue === ''
-          ? '0'
-          : question.startValue
-      ).trim(),
-      maxValue: String(question.maxValue == null ? '' : question.maxValue).trim(),
-      stepValue: String(
-        question.stepValue == null || question.stepValue === ''
-          ? '0.5'
-          : question.stepValue
-      ).trim()
-    })).filter((question) => question.question);
+    // Flush any pending question input values before saving
+    this._flushQuestionInputs();
+
+    var form = this.data.templateForm || emptyTemplateForm();
+    var name = String(form.name || '').trim();
+    var description = String(form.description || '');
 
     if (!name) {
-      wx.showToast({
-        title: '请填写评分问题名称',
-        icon: 'none'
-      });
+      wx.showToast({ title: '请填写评分问题名称', icon: 'none' });
       return;
     }
 
+    // Validate each question
+    var validationErrors = {};
+    var firstInvalidIndex = -1;
+    var rawQuestions = form.questions || [];
+    var questions = [];
+    for (var qi = 0; qi < rawQuestions.length; qi++) {
+      var question = rawQuestions[qi];
+      var q = {
+        question: String(question.question || '').trim(),
+        scoreLabel: String(question.scoreLabel || ''),
+        minValue: String(question.minValue == null ? '0' : question.minValue).trim(),
+        startValue: String(question.startValue == null || question.startValue === '' ? '0' : question.startValue).trim(),
+        maxValue: String(question.maxValue == null ? '' : question.maxValue).trim(),
+        stepValue: String(question.stepValue == null || question.stepValue === '' ? '0.5' : question.stepValue).trim()
+      };
+
+      if (!q.question) {
+        validationErrors[qi] = { field: 'question', msg: '问题内容不能为空' };
+        if (firstInvalidIndex === -1) firstInvalidIndex = qi;
+      }
+      var min = parseFloat(q.minValue);
+      var max = parseFloat(q.maxValue);
+      var step = parseFloat(q.stepValue);
+      if (isNaN(max) || max <= 0) {
+        if (!validationErrors[qi]) {
+          validationErrors[qi] = { field: 'maxValue', msg: '最高分必须为正数' };
+          if (firstInvalidIndex === -1) firstInvalidIndex = qi;
+        }
+      } else if (isNaN(min) || min >= max) {
+        if (!validationErrors[qi]) {
+          validationErrors[qi] = { field: 'minValue', msg: '最低分必须小于最高分' };
+          if (firstInvalidIndex === -1) firstInvalidIndex = qi;
+        }
+      }
+      if (isNaN(step) || step <= 0) {
+        if (!validationErrors[qi]) {
+          validationErrors[qi] = { field: 'stepValue', msg: '步进值必须为正数' };
+          if (firstInvalidIndex === -1) firstInvalidIndex = qi;
+        }
+      }
+      if (q.question) questions.push(q);
+    }
+
     if (!questions.length) {
-      wx.showToast({
-        title: '请至少填写一道题目',
-        icon: 'none'
+      wx.showToast({ title: '请至少填写一道题目', icon: 'none' });
+      return;
+    }
+
+    if (firstInvalidIndex >= 0) {
+      var err = validationErrors[firstInvalidIndex];
+      wx.showToast({ title: '第' + (firstInvalidIndex + 1) + '题：' + err.msg, icon: 'none', duration: 2500 });
+      this.setData({
+        questionValidationErrors: validationErrors,
+        expandedQuestionIndex: firstInvalidIndex,
+        templateQuestionScrollInto: 'question-' + firstInvalidIndex
       });
       return;
     }
@@ -3257,24 +4145,15 @@ Page({
       });
 
       if (result.status !== 'success') {
-        wx.showToast({
-          title: result.message || '保存评分问题失败',
-          icon: 'none'
-        });
+        wx.showToast({ title: result.message || '保存评分问题失败', icon: 'none' });
         return;
       }
 
       this.resetTemplateForm();
       await this.loadTemplateList();
-      wx.showToast({
-        title: '评分问题已保存',
-        icon: 'success'
-      });
+      wx.showToast({ title: '评分问题已保存', icon: 'success' });
     } catch (error) {
-      wx.showToast({
-        title: '保存评分问题失败',
-        icon: 'none'
-      });
+      wx.showToast({ title: '保存评分问题失败', icon: 'none' });
     } finally {
       this.setLoading('saveTemplate', false);
     }
@@ -3298,6 +4177,8 @@ Page({
         description: item.description || '',
         questions
       },
+      expandedQuestionIndex: -1,
+      questionFocusIndex: -1,
       activeTab: 'templates'
     });
   },
@@ -3334,81 +4215,460 @@ Page({
     }
   },
 
-  startClauseTemplateDrag(e) {
+  // ========== Template Table Import / Export ==========
+
+  importTableTemplate() {
+    const _this = this;
+    chooseTableFile(_this.callCloud.bind(_this)).then(function (tableData) {
+      if (!tableData) return;
+
+      const headers = tableData.headers;
+      const dataRows = tableData.rows;
+      if (dataRows.length === 0 && headers.length <= 1) {
+        wx.showToast({ title: '表格文件为空', icon: 'none' });
+        return;
+      }
+      // Auto-fill empty template name/description from file name
+      const baseName = (tableData.fileName || '').replace(/\.(xlsx?|xls|csv)$/i, '');
+      if (baseName) {
+        const form = _this.data.templateForm;
+        const updates = {};
+        if (!(form.name || '').trim()) updates['templateForm.name'] = baseName;
+        if (!(form.description || '').trim()) updates['templateForm.description'] = baseName;
+        if (Object.keys(updates).length) _this.setData(updates);
+      }
+      // Build samples (first 5 data rows)
+      const sampleRows = dataRows.slice(0, 5);
+      // Auto-map columns
+      const mapping = _this._buildTemplateCsvMapping(headers);
+      // Build mapping rows for dialog
+      const csvImportRows = headers.map((header, idx) => {
+        const mapped = mapping[idx] || '';
+        const fieldDef = TEMPLATE_CSV_FIELDS.find(f => f.key === mapped);
+        const samples = sampleRows.map(r => (r[idx] || '').substring(0, 30)).filter(s => s);
+        return {
+          header: header,
+          fieldTypeLabel: fieldDef ? fieldDef.label : '—',
+          sampleValue: samples.slice(0, 3).join(', ') || '—',
+          optionIndex: mapped ? TEMPLATE_CSV_FIELDS.findIndex(f => f.key === mapped) + 1 : 0,
+          optionLabel: fieldDef ? fieldDef.label : '-- 忽略 --'
+        };
+      });
+      // Build picker labels
+      const mappingLabels = ['-- 忽略 --'].concat(TEMPLATE_CSV_FIELDS.map(f => f.label));
+      _this.setData({
+        showTemplateCsvDialog: true,
+        templateCsvHeaders: headers,
+        templateCsvSamples: sampleRows,
+        templateCsvMapping: mapping,
+        templateCsvFullRows: dataRows,
+        templateCsvReplaceMode: true,
+        templateCsvImportRows: csvImportRows,
+        templateCsvImportMappingLabels: mappingLabels
+      });
+    }).catch(function (err) {
+      if (err && err.errMsg && err.errMsg.indexOf('cancel') === -1) {
+        wx.showToast({ title: '选择文件失败', icon: 'none' });
+      }
+    });
+  },
+
+  _parseTemplateCsvLine(line) {
+    if (!line && line !== '') return [];
+    const s = String(line);
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (i + 1 < s.length && s[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ',') {
+          result.push(current);
+          current = '';
+        } else {
+          current += ch;
+        }
+      }
+    }
+    result.push(current);
+    // Filter out completely empty rows
+    if (result.length === 1 && result[0].trim() === '') return [];
+    if (result.every(c => c.trim() === '')) return [];
+    return result;
+  },
+
+  _buildTemplateCsvMapping(headers) {
+    const mapping = {};
+    const usedFields = new Set();
+    // First pass: exact / substring matches
+    for (let ci = 0; ci < headers.length; ci++) {
+      const hdr = headers[ci].toLowerCase().trim();
+      for (const field of TEMPLATE_CSV_FIELDS) {
+        if (usedFields.has(field.key)) continue;
+        for (const alias of field.aliases) {
+          if (hdr === alias.toLowerCase()) {
+            mapping[ci] = field.key;
+            usedFields.add(field.key);
+            break;
+          }
+        }
+        if (mapping[ci]) break;
+      }
+      if (!mapping[ci]) {
+        // Substring match
+        for (const field of TEMPLATE_CSV_FIELDS) {
+          if (usedFields.has(field.key)) continue;
+          for (const alias of field.aliases) {
+            if (hdr.indexOf(alias.toLowerCase()) !== -1) {
+              mapping[ci] = field.key;
+              usedFields.add(field.key);
+              break;
+            }
+          }
+          if (mapping[ci]) break;
+        }
+      }
+    }
+    // Second pass: Jaccard similarity for unmapped columns
+    for (let ci = 0; ci < headers.length; ci++) {
+      if (mapping[ci]) continue;
+      const hdr = headers[ci].toLowerCase().trim();
+      if (!hdr) continue;
+      let bestScore = 0;
+      let bestField = null;
+      for (const field of TEMPLATE_CSV_FIELDS) {
+        if (usedFields.has(field.key)) continue;
+        for (const alias of field.aliases) {
+          const score = _jaccardSimilarity(hdr, alias.toLowerCase());
+          if (score > bestScore && score >= 0.3) {
+            bestScore = score;
+            bestField = field.key;
+          }
+        }
+      }
+      if (bestField) {
+        mapping[ci] = bestField;
+        usedFields.add(bestField);
+      }
+    }
+    return mapping;
+
+    function _jaccardSimilarity(a, b) {
+      if (!a || !b) return 0;
+      const setA = new Set(a.split(''));
+      const setB = new Set(b.split(''));
+      const union = new Set([...setA, ...setB]);
+      let intersection = 0;
+      for (const ch of setA) { if (setB.has(ch)) intersection++; }
+      return intersection / union.size;
+    }
+  },
+
+  onTemplateCsvMappingChange(e) {
+    const idx = Number(e.currentTarget.dataset.index);
+    const selectedIndex = Number(e.detail.value);
+    const rows = this.data.templateCsvImportRows.slice();
+    const mapping = Object.assign({}, this.data.templateCsvMapping);
+    if (selectedIndex === 0) {
+      // "忽略"
+      delete mapping[idx];
+      rows[idx].optionIndex = 0;
+      rows[idx].optionLabel = '-- 忽略 --';
+      rows[idx].fieldTypeLabel = '—';
+    } else {
+      const field = TEMPLATE_CSV_FIELDS[selectedIndex - 1];
+      mapping[idx] = field.key;
+      rows[idx].optionIndex = selectedIndex;
+      rows[idx].optionLabel = field.label;
+      rows[idx].fieldTypeLabel = field.label;
+    }
+    this.setData({
+      templateCsvMapping: mapping,
+      templateCsvImportRows: rows
+    });
+  },
+
+  confirmTemplateCsvImport() {
+    const mapping = this.data.templateCsvMapping;
+    const rows = this.data.templateCsvFullRows;
+    const replaceMode = this.data.templateCsvReplaceMode;
+
+    // Resolve which CSV column maps to which field
+    const fieldToCol = {};
+    for (const ci in mapping) {
+      fieldToCol[mapping[ci]] = Number(ci);
+    }
+
+    const questionCol = fieldToCol['question'];
+    if (questionCol == null) {
+      wx.showToast({ title: '请先将一个 CSV 列映射到"问题内容"', icon: 'none' });
+      return;
+    }
+
+    const DEFAULT_VALUES = {
+      scoreLabel: '',
+      minValue: '0',
+      startValue: '0',
+      maxValue: '10',
+      stepValue: '1'
+    };
+
+    const newQuestions = [];
+    for (const row of rows) {
+      const questionText = (row[questionCol] || '').trim();
+      if (!questionText) continue; // Skip empty questions
+      const q = createEmptyQuestion();
+      q.question = questionText;
+      for (const fk of ['scoreLabel', 'minValue', 'startValue', 'maxValue', 'stepValue']) {
+        const col = fieldToCol[fk];
+        if (col != null) {
+          const rawVal = (row[col] || '').trim();
+          if (rawVal) {
+            q[fk] = rawVal;
+          } else {
+            q[fk] = DEFAULT_VALUES[fk];
+          }
+        } else {
+          q[fk] = DEFAULT_VALUES[fk];
+        }
+      }
+      newQuestions.push(q);
+    }
+
+    if (!newQuestions.length) {
+      wx.showToast({ title: '没有有效的问题条目（所有行的问题内容为空）', icon: 'none' });
+      return;
+    }
+
+    // Flush any pending question inputs
+    this._flushQuestionInputs();
+
+    let finalQuestions;
+    if (replaceMode) {
+      finalQuestions = newQuestions;
+    } else {
+      finalQuestions = (this.data.templateForm.questions || []).concat(newQuestions);
+    }
+
+    this.setData({
+      showTemplateCsvDialog: false,
+      templateCsvHeaders: [],
+      templateCsvSamples: [],
+      templateCsvMapping: {},
+      templateCsvFullRows: [],
+      templateCsvImportRows: [],
+      templateForm: Object.assign({}, this.data.templateForm, { questions: finalQuestions }),
+      expandedQuestionIndex: -1,
+      questionInputValues: {},
+      questionValidationErrors: {}
+    });
+
+    wx.showToast({ title: '已导入 ' + newQuestions.length + ' 个问题', icon: 'success' });
+  },
+
+  cancelTemplateCsvImport() {
+    this.setData({
+      showTemplateCsvDialog: false,
+      templateCsvHeaders: [],
+      templateCsvSamples: [],
+      templateCsvMapping: {},
+      templateCsvFullRows: [],
+      templateCsvImportRows: []
+    });
+  },
+
+  toggleTemplateCsvReplaceMode() {
+    this.setData({ templateCsvReplaceMode: !this.data.templateCsvReplaceMode });
+  },
+
+  exportTemplate() {
+    const questions = this.data.templateForm.questions || [];
+    if (!questions.length) {
+      wx.showToast({ title: '当前没有问题条目可导出', icon: 'none' });
+      return;
+    }
+    const _this = this;
+    wx.showActionSheet({
+      itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
+      success: (res) => {
+        const format = res.tapIndex === 0 ? 'csv' : 'excel';
+        const headers = [
+          { key: 'question', label: '问题内容' },
+          { key: 'scoreLabel', label: '分值说明' },
+          { key: 'minValue', label: '最低分' },
+          { key: 'startValue', label: '起评分' },
+          { key: 'maxValue', label: '最高分' },
+          { key: 'stepValue', label: '步进值' }
+        ];
+        const rows = questions.map(function (q) {
+          return {
+            question: q.question || '',
+            scoreLabel: q.scoreLabel || '',
+            minValue: q.minValue || '0',
+            startValue: q.startValue || '0',
+            maxValue: q.maxValue || '10',
+            stepValue: q.stepValue || '1'
+          };
+        });
+        if (format === 'excel') {
+          _this.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: '评分问题' }).then(function (result) {
+            if (result && result.status === 'success' && result.fileBase64) {
+              saveAndShareFile(result.fileBase64, '评分问题模板', 'xlsx');
+            } else {
+              wx.showToast({ title: '生成Excel失败', icon: 'none' });
+            }
+          }).catch(function () {
+            wx.showToast({ title: '生成Excel失败', icon: 'none' });
+          });
+        } else {
+          saveAndShareFile(buildCsv(headers, rows), '评分问题模板', 'csv');
+        }
+      }
+    });
+  },
+
+  startTemplateConfigDrag(e) {
     const index = Number(e.currentTarget.dataset.index);
     const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
-    if (!touch || Number.isNaN(index)) {
-      return;
-    }
-
-    this.clauseTemplateDragState = {
-      currentIndex: index,
-      lastY: touch.pageY
-    };
-
-    this.setData({
-      draggingClauseTemplateIndex: index
-    });
-  },
-
-  onClauseTemplateDragMove(e) {
-    if (!this.clauseTemplateDragState || this.data.draggingClauseTemplateIndex < 0) {
-      return;
-    }
-
-    const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
-    if (!touch) {
-      return;
-    }
-
-    const deltaY = touch.pageY - this.clauseTemplateDragState.lastY;
-    const threshold = 56;
-    if (Math.abs(deltaY) < threshold) {
-      return;
-    }
-
-    const direction = deltaY > 0 ? 1 : -1;
-    const fromIndex = this.clauseTemplateDragState.currentIndex;
-    const toIndex = fromIndex + direction;
-
-    if (toIndex < 0 || toIndex >= this.data.ruleForm.clauseTemplateConfigs.length) {
-      this.clauseTemplateDragState.lastY = touch.pageY;
-      return;
-    }
-
-    const clauseTemplateConfigs = refreshTemplateConfigSortOrder(moveItem(this.data.ruleForm.clauseTemplateConfigs, fromIndex, toIndex));
-
-    this.clauseTemplateDragState = {
-      currentIndex: toIndex,
-      lastY: touch.pageY
-    };
-
-    this.setData({
-      draggingClauseTemplateIndex: toIndex,
-      ruleForm: {
-        ...this.data.ruleForm,
-        clauseTemplateConfigs
+    if (!touch || Number.isNaN(index)) return;
+    var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+    this._templateConfigDragStartY = touchY;
+    this._templateConfigDragState = { currentIndex: index };
+    this._templateConfigEffectiveScrollTop = this.data.templateConfigScrollTop || 0;
+    this.setData({ dragActive: true, draggingClauseTemplateIndex: index, dragTemplateInsertIndex: index, dragTemplateGhostVisible: false });
+    var self = this;
+    wx.createSelectorQuery().selectAll('.template-config-card').boundingClientRect(function(rects) {
+      if (rects && rects.length) {
+        self._templateConfigCardRects = rects;
+        var cardRect = rects[index];
+        if (cardRect) {
+          self._templateConfigCardOriginalTop = cardRect.top;
+          self._templateConfigCardLeft = cardRect.left;
+          self._templateConfigCardWidth = cardRect.width;
+          self._templateConfigFingerOffsetInCard = touchY - cardRect.top;
+          self.setData({
+            dragTemplateGhostTop: cardRect.top,
+            dragTemplateGhostLeft: cardRect.left,
+            dragTemplateGhostWidth: cardRect.width,
+            dragTemplateGhostVisible: true
+          });
+        }
       }
-    });
+    }).exec();
+    wx.createSelectorQuery().select('.template-config-scroll').boundingClientRect(function(rect) {
+      if (rect) self._templateConfigDragScrollRect = rect;
+    }).exec();
   },
 
-  endClauseTemplateDrag() {
-    if (!this.clauseTemplateDragState) {
-      return;
+  onTemplateConfigDragMove(e) {
+    if (!this._templateConfigDragState || this.data.draggingClauseTemplateIndex < 0) return;
+    var touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    if (!touch) return;
+    var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+    this._templateConfigDragLastY = touchY;
+    var self = this;
+    var now = Date.now();
+
+    var sr = this._templateConfigDragScrollRect;
+    if (sr) {
+      var viewHeight = sr.bottom - sr.top;
+      var edgeSize = Math.min(70, viewHeight * 0.22);
+      var middleTop = sr.top + edgeSize;
+      var middleBottom = sr.bottom - edgeSize;
+      var scrollDelta = 0;
+      if (touchY < middleTop) {
+        var distIntoEdge = middleTop - touchY;
+        var factor = Math.min(distIntoEdge / edgeSize, 3);
+        scrollDelta = -Math.round(5 * factor);
+      } else if (touchY > middleBottom) {
+        var distIntoEdge = touchY - middleBottom;
+        var factor = Math.min(distIntoEdge / edgeSize, 3);
+        scrollDelta = Math.round(5 * factor);
+      }
+      if (scrollDelta !== 0) {
+        self._templateConfigEffectiveScrollTop = Math.max(0, (self._templateConfigEffectiveScrollTop || 0) + scrollDelta);
+      }
     }
 
-    this.clauseTemplateDragState = null;
-    this.setData({
-      draggingClauseTemplateIndex: -1,
-      ruleForm: {
-        ...this.data.ruleForm,
-        clauseTemplateConfigs: refreshTemplateConfigSortOrder(this.data.ruleForm.clauseTemplateConfigs)
+    if (self._templateConfigLastUpdateTime && now - self._templateConfigLastUpdateTime < 33) return;
+    self._templateConfigLastUpdateTime = now;
+
+    wx.createSelectorQuery().selectAll('.template-config-card').boundingClientRect(function(rects) {
+      if (!rects || !rects.length || !self._templateConfigDragState) return;
+      self._templateConfigCardRects = rects;
+      var y = self._templateConfigDragLastY;
+      if (y == null) return;
+
+      var newInsertIndex = rects.length;
+      for (var i = 0; i < rects.length; i++) {
+        if (y < rects[i].top + rects[i].height / 2) {
+          newInsertIndex = i;
+          break;
+        }
       }
-    });
+
+      var sr = self._templateConfigDragScrollRect;
+      var ghostTop;
+      if (self._templateConfigFingerOffsetInCard != null) {
+        ghostTop = y - self._templateConfigFingerOffsetInCard;
+      } else if (self._templateConfigCardOriginalTop != null && self._templateConfigDragStartY != null) {
+        ghostTop = self._templateConfigCardOriginalTop + (y - self._templateConfigDragStartY);
+      }
+      if (sr) {
+        var draggedRect = rects[self._templateConfigDragState.currentIndex];
+        var ghostHeight = draggedRect ? draggedRect.height : 60;
+        ghostTop = Math.max(sr.top, Math.min(sr.bottom - ghostHeight, ghostTop));
+      }
+
+      var update = {};
+      if (newInsertIndex !== self.data.dragTemplateInsertIndex) update.dragTemplateInsertIndex = newInsertIndex;
+      if (ghostTop !== self.data.dragTemplateGhostTop) update.dragTemplateGhostTop = ghostTop;
+      if (self._templateConfigEffectiveScrollTop != null) update.templateConfigScrollTop = self._templateConfigEffectiveScrollTop;
+      if (Object.keys(update).length) self.setData(update);
+    }).exec();
   },
 
-  onClauseTemplateDragCancel() {
-    this.endClauseTemplateDrag();
+  endTemplateConfigDrag() {
+    var state = this._templateConfigDragState;
+    if (!state) return;
+    var fromIndex = state.currentIndex;
+    var insertIndex = this.data.dragTemplateInsertIndex;
+    var toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
+    if (toIndex !== fromIndex && toIndex >= 0 && toIndex <= this.data.ruleForm.clauseTemplateConfigs.length - 1) {
+      var configs = refreshTemplateConfigSortOrder(moveItem(this.data.ruleForm.clauseTemplateConfigs, fromIndex, toIndex));
+      this.setData({
+        ruleForm: { ...this.data.ruleForm, clauseTemplateConfigs: configs }
+      });
+    }
+    this._templateConfigDragState = null;
+    this._templateConfigCardRects = null;
+    this._templateConfigDragScrollRect = null;
+    this._templateConfigDragLastY = null;
+    this._templateConfigCardOriginalTop = null;
+    this._templateConfigDragStartY = null;
+    this._templateConfigCardLeft = null;
+    this._templateConfigCardWidth = null;
+    this._templateConfigEffectiveScrollTop = null;
+    this._templateConfigFingerOffsetInCard = null;
+    this._templateConfigLastUpdateTime = null;
+    this.setData({ dragActive: false, draggingClauseTemplateIndex: -1, dragTemplateInsertIndex: -1, dragTemplateGhostVisible: false });
+  },
+
+  onTemplateConfigDragCancel() {
+    this.endTemplateConfigDrag();
   },
 
   deleteTemplate(e) {
@@ -3490,6 +4750,26 @@ Page({
     });
   },
 
+  onAllowSelfAssessmentChange(e) {
+    this.setData({
+      ruleForm: {
+        ...this.data.ruleForm,
+        allowSelfAssessment: !!e.detail.value
+      }
+    });
+  },
+
+  onCalculationMethodChange(e) {
+    const methods = ['weighted_average', 'trim_extremes'];
+    const method = methods[e.detail.value];
+    this.setData({
+      ruleForm: {
+        ...this.data.ruleForm,
+        clauseCalculationMethod: method
+      }
+    });
+  },
+
   openNewRuleClauseEditor() {
     this.setData({
       ruleForm: {
@@ -3514,14 +4794,17 @@ Page({
 
   openTemplateConfigEditor() {
     this.setData({
+      clauseTemplateInlineEditIndex: this.data.ruleForm.clauseTemplateConfigs.length,
       ruleForm: {
         ...this.data.ruleForm,
         clauseTemplateId: '',
         clauseTemplateName: '',
         clauseTemplateWeight: '1',
         clauseTemplateOrder: '',
-        clauseTemplateConfigEditingIndex: -1,
-        isTemplateConfigEditorVisible: true
+        clauseCalculationMethod: 'weighted_average',
+        clauseTrimHighCount: 0,
+        clauseTrimLowCount: 0,
+        clauseTemplateConfigEditingIndex: -1
       }
     });
   },
@@ -3773,7 +5056,10 @@ Page({
       templateId: clauseTemplateId,
       templateName: clauseTemplateName,
       weight: String(weight),
-      sortOrder: String(sortOrderValue)
+      sortOrder: String(sortOrderValue),
+      calculationMethod: this.data.ruleForm.clauseCalculationMethod || 'weighted_average',
+      trimHighCount: Number(this.data.ruleForm.clauseTrimHighCount || 0),
+      trimLowCount: Number(this.data.ruleForm.clauseTrimLowCount || 0)
     };
 
     const exists = clauseTemplateConfigs.some((item, index) => (
@@ -3821,14 +5107,17 @@ Page({
     }
 
     this.setData({
+      clauseTemplateInlineEditIndex: index,
       ruleForm: {
         ...this.data.ruleForm,
         clauseTemplateId: targetConfig.templateId || '',
         clauseTemplateName: targetConfig.templateName || '',
         clauseTemplateWeight: String(targetConfig.weight || '1'),
         clauseTemplateOrder: String(targetConfig.sortOrder || ''),
-        clauseTemplateConfigEditingIndex: index,
-        isTemplateConfigEditorVisible: true
+        clauseCalculationMethod: targetConfig.calculationMethod || 'weighted_average',
+        clauseTrimHighCount: Number(targetConfig.trimHighCount || 0),
+        clauseTrimLowCount: Number(targetConfig.trimLowCount || 0),
+        clauseTemplateConfigEditingIndex: index
       }
     });
   },
@@ -3851,18 +5140,116 @@ Page({
     });
   },
 
-  cancelClauseTemplateConfigEdit() {
+  moveClauseTemplateConfigUp(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (Number.isNaN(index) || index <= 0) return;
+    const configs = refreshTemplateConfigSortOrder(
+      moveItem(this.data.ruleForm.clauseTemplateConfigs, index, index - 1)
+    );
     this.setData({
+      ruleForm: { ...this.data.ruleForm, clauseTemplateConfigs: configs }
+    });
+  },
+
+  moveClauseTemplateConfigDown(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const configs = this.data.ruleForm.clauseTemplateConfigs;
+    if (Number.isNaN(index) || index >= configs.length - 1) return;
+    const nextConfigs = refreshTemplateConfigSortOrder(
+      moveItem(configs, index, index + 1)
+    );
+    this.setData({
+      ruleForm: { ...this.data.ruleForm, clauseTemplateConfigs: nextConfigs }
+    });
+  },
+
+  saveClauseTemplateConfigInline() {
+    const {
+      clauseTemplateId,
+      clauseTemplateName,
+      clauseTemplateWeight,
+      clauseTemplateConfigs
+    } = this.data.ruleForm;
+    const editIndex = this.data.clauseTemplateInlineEditIndex;
+
+    if (!clauseTemplateId) {
+      wx.showToast({ title: '请先选择评分问题', icon: 'none' });
+      return;
+    }
+
+    const weight = Number(clauseTemplateWeight);
+    if (!Number.isFinite(weight) || weight <= 0) {
+      wx.showToast({ title: '评分问题权重必须大于 0', icon: 'none' });
+      return;
+    }
+
+    const isAdd = editIndex >= clauseTemplateConfigs.length;
+    const sortOrderValue = isAdd
+      ? clauseTemplateConfigs.length + 1
+      : Number(clauseTemplateConfigs[editIndex].sortOrder) || (editIndex + 1);
+
+    const nextConfig = {
+      templateId: clauseTemplateId,
+      templateName: clauseTemplateName,
+      weight: String(weight),
+      sortOrder: String(sortOrderValue),
+      calculationMethod: this.data.ruleForm.clauseCalculationMethod || 'weighted_average',
+      trimHighCount: Number(this.data.ruleForm.clauseTrimHighCount || 0),
+      trimLowCount: Number(this.data.ruleForm.clauseTrimLowCount || 0)
+    };
+
+    const exists = clauseTemplateConfigs.some((item, idx) => (
+      idx !== editIndex && item.templateId === nextConfig.templateId
+    ));
+
+    if (exists) {
+      wx.showToast({ title: '这个评分问题已在当前规则中', icon: 'none' });
+      return;
+    }
+
+    const nextConfigs = [...clauseTemplateConfigs];
+    if (isAdd) {
+      nextConfigs.push(nextConfig);
+    } else {
+      nextConfigs[editIndex] = nextConfig;
+    }
+
+    nextConfigs.sort((a, b) => Number(a.sortOrder) - Number(b.sortOrder));
+    const normalizedNextConfigs = refreshTemplateConfigSortOrder(nextConfigs);
+
+    this.setData({
+      clauseTemplateInlineEditIndex: -1,
+      ruleForm: {
+        ...this.data.ruleForm,
+        clauseTemplateConfigs: normalizedNextConfigs,
+        clauseTemplateId: '',
+        clauseTemplateName: '',
+        clauseTemplateWeight: '1',
+        clauseTemplateOrder: '',
+        clauseTemplateConfigEditingIndex: -1
+      }
+    });
+  },
+
+  cancelClauseTemplateConfigInline() {
+    this.setData({
+      clauseTemplateInlineEditIndex: -1,
       ruleForm: {
         ...this.data.ruleForm,
         clauseTemplateId: '',
         clauseTemplateName: '',
         clauseTemplateWeight: '1',
         clauseTemplateOrder: '',
-        clauseTemplateConfigEditingIndex: -1,
-        isTemplateConfigEditorVisible: false
+        clauseCalculationMethod: 'weighted_average',
+        clauseTrimHighCount: 0,
+        clauseTrimLowCount: 0,
+        clauseTemplateConfigEditingIndex: -1
       }
     });
+  },
+
+  cancelClauseTemplateConfigEdit() {
+    this.cancelClauseTemplateConfigInline();
   },
 
   addRuleClause() {
@@ -3915,6 +5302,7 @@ Page({
     }
 
     this.setData({
+      clauseTemplateInlineEditIndex: -1,
       ruleForm: {
         ...this.data.ruleForm,
         clauses: nextClauses,
@@ -3992,6 +5380,7 @@ Page({
 
   cancelRuleClauseEdit() {
     this.setData({
+      clauseTemplateInlineEditIndex: -1,
       ruleForm: {
         ...this.data.ruleForm,
         clauseScope: RULE_SCOPE_OPTIONS[0].value,
@@ -4029,6 +5418,7 @@ Page({
         scorerDepartment: target.scorerDepartment || '',
         scorerIdentityId: target.scorerIdentityId || '',
         scorerIdentity: target.scorerIdentity || '',
+        allowSelfAssessment: target.allowSelfAssessment !== false,
         clauseScope: RULE_SCOPE_OPTIONS[0].value,
         clauseScopeLabel: RULE_SCOPE_OPTIONS[0].label,
         clauseTargetIdentity: '',
@@ -4037,6 +5427,9 @@ Page({
         clauseTemplateName: '',
         clauseTemplateWeight: '1',
         clauseTemplateOrder: '',
+        clauseCalculationMethod: 'weighted_average',
+        clauseTrimHighCount: 0,
+        clauseTrimLowCount: 0,
         clauseTemplateConfigEditingIndex: -1,
         clauseEditingIndex: -1,
         isRuleClauseEditorVisible: false,
@@ -4085,6 +5478,7 @@ Page({
         activityName: currentActivity.name || '',
         scorerDepartmentId,
         scorerIdentityId,
+        allowSelfAssessment: this.data.ruleForm.allowSelfAssessment,
         clauses
       });
       if (result.status !== 'success') {
@@ -4198,11 +5592,6 @@ Page({
         icon: 'success'
       });
       return;
-
-      wx.showToast({
-        title: '默认评分人类别已生成',
-        icon: 'success'
-      });
     } catch (error) {
       if (result && result.status === 'success') {
         wx.showToast({
@@ -4210,19 +5599,7 @@ Page({
           icon: 'success'
         });
         return;
-
-        wx.showToast({
-          title: '默认评分人类别已生成',
-          icon: 'success'
-        });
-        return;
       }
-
-      wx.showToast({
-        title: '生成默认评分人类别失败',
-        icon: 'none'
-      });
-      return;
 
       wx.showToast({
         title: '生成默认评分人类别失败',
@@ -4318,6 +5695,7 @@ Page({
         activityName: currentActivity.name || '',
         scorerDepartmentId,
         scorerIdentityId,
+        allowSelfAssessment: this.data.ruleForm.allowSelfAssessment,
         clauses
       });
       if (result.status !== 'success') {
@@ -4414,6 +5792,16 @@ Page({
       const template = result.template || null;
       const rawRows = result.rows || [];
       const hrProfileFilterOptions = buildHrProfileFilterOptions(rawRows);
+      // Cascade work group options based on current department filter
+      if (this.data.hrProfileFilters.department === '全部部门') {
+        hrProfileFilterOptions.workGroups = ['无'];
+      } else {
+        const dept = this.data.departmentList.find(d => d.name === this.data.hrProfileFilters.department) || {};
+        const wgs = this.data.workGroupList
+          .filter(w => w.departmentId === dept.id)
+          .map(w => w.name);
+        hrProfileFilterOptions.workGroups = ['无', ...wgs];
+      }
       const hrProfileRows = applyHrProfileFilters(rawRows, this.data.hrProfileFilters);
       this.setData({
         hrProfileTemplateForm: template ? {
@@ -4459,29 +5847,408 @@ Page({
       ...this.data.hrProfileFilters,
       [valueKey]: value
     };
-    this.setData({
-      hrProfileFilters: nextFilters
-    });
+    const patch = { hrProfileFilters: nextFilters };
+
+    // Cascade work group options when department filter changes
+    if (field === 'departments') {
+      if (value === '全部部门') {
+        patch['hrProfileFilterOptions.workGroups'] = ['无'];
+        nextFilters.workGroup = '无';
+        patch.hrProfileFilters = nextFilters;
+      } else {
+        const dept = this.data.departmentList.find(d => d.name === value) || {};
+        const wgs = this.data.workGroupList
+          .filter(w => w.departmentId === dept.id)
+          .map(w => w.name);
+        patch['hrProfileFilterOptions.workGroups'] = ['无', ...wgs];
+        nextFilters.workGroup = '无';
+        patch.hrProfileFilters = nextFilters;
+      }
+    }
+
+    this.setData(patch);
     this.refreshHrProfileRows(nextFilters);
   },
 
   onHrProfileKeywordInput(e) {
-    const nextFilters = {
-      ...this.data.hrProfileFilters,
-      keyword: e.detail.value
-    };
+    const displayValue = e.detail.value;
+    this.setData({ _hrInfoKeywordInput: displayValue });
+    if (this.data._hrInfoKeywordTimer) {
+      clearTimeout(this.data._hrInfoKeywordTimer);
+    }
     this.setData({
-      hrProfileFilters: nextFilters
+      _hrInfoKeywordTimer: setTimeout(() => {
+        const nextFilters = {
+          ...this.data.hrProfileFilters,
+          keyword: displayValue
+        };
+        this.setData({ hrProfileFilters: nextFilters, _hrInfoKeywordTimer: null });
+        this.refreshHrProfileRows(nextFilters);
+      }, 300)
     });
-    this.refreshHrProfileRows(nextFilters);
   },
 
   resetHrProfileFilters() {
     const nextFilters = emptyHrProfileFilters();
     this.setData({
-      hrProfileFilters: nextFilters
+      hrProfileFilters: nextFilters,
+      'hrProfileFilterOptions.workGroups': ['无'],
+      _hrInfoKeywordInput: ''
     });
     this.refreshHrProfileRows(nextFilters);
+  },
+
+  async openHrPersonDetail(e) {
+    const hrId = String(e.currentTarget.dataset.hrId || '');
+    if (!hrId) return;
+
+    // Proactively ensure department/identity/workGroup lists are loaded
+    const loadPromises = [];
+    if (!this.data.departmentList || !this.data.departmentList.length) {
+      loadPromises.push(this._ensureDepartmentsLoaded());
+    }
+    if (!this.data.identityList || !this.data.identityList.length) {
+      loadPromises.push(this._ensureIdentitiesLoaded());
+    }
+    if (!this.data.workGroupList || !this.data.workGroupList.length) {
+      loadPromises.push(this._ensureWorkGroupsLoaded());
+    }
+    if (loadPromises.length) {
+      await Promise.all(loadPromises);
+    }
+
+    this.setData({ showHrPersonDetail: true, detailHrId: hrId, loadingDetailHr: true });
+    try {
+      const result = await this.callCloud('getHrPersonDetail', { hrId });
+      if (result.status !== 'success') {
+        wx.showToast({ title: result.message || '加载失败', icon: 'none' });
+        this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
+        return;
+      }
+      const vals = {};
+      const profile = result.profile || {};
+      if (profile.name) vals._name = profile.name;
+      if (profile.studentId) vals._studentId = profile.studentId;
+      if (profile.departmentId) vals._departmentId = profile.departmentId;
+      if (profile.department) vals._departmentName = profile.department;
+      if (profile.identityId) vals._identityId = profile.identityId;
+      if (profile.identity) vals._identityName = profile.identity;
+      if (profile.workGroupId) vals._workGroupId = profile.workGroupId;
+      if (profile.workGroup) vals._workGroupName = profile.workGroup;
+      if (result.values) {
+        Object.keys(result.values).forEach(k => { vals[k] = result.values[k]; });
+      }
+      const detailHrTemplate = result.template ? {
+        ...result.template,
+        fields: Array.isArray(result.template.fields)
+          ? result.template.fields.map((f) => {
+              const field = {
+                id: f.id || '',
+                label: f.label || '',
+                type: f.type || 'text',
+                required: f.required === true,
+                options: Array.isArray(f.options) ? f.options : (typeof f.options === 'string' ? f.options.split('\n').filter(Boolean) : []),
+                minLength: f.minLength,
+                maxLength: f.maxLength,
+                numberRule: f.numberRule || '',
+                allowDecimal: f.allowDecimal !== false,
+                minDigits: f.minDigits,
+                maxDigits: f.maxDigits,
+                minValue: f.minValue,
+                maxValue: f.maxValue
+              };
+              field.hintText = buildFieldHint(field);
+              return field;
+            })
+          : []
+      } : null;
+      this.setData({
+        detailHrProfile: profile,
+        detailHrTemplate,
+        detailHrValues: vals,
+        detailHrPendingValues: result.pendingValues || {},
+        detailHrAuditStatus: result.auditStatus || 'none',
+        detailHrAuditStatusText: result.auditStatusText || '未提交',
+        detailHrRejectionReason: result.rejectionReason || '',
+        detailHrHasPending: !!result.hasPending,
+        loadingDetailHr: false
+      });
+      this._ensureDetailFormOptions();
+      this.updateDetailWorkGroupOptions();
+      this._syncDetailPickerValues();
+    } catch (err) {
+      wx.showToast({ title: '加载详情失败', icon: 'none' });
+      this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
+    }
+  },
+
+  closeHrPersonDetail() {
+    this.setData({
+      showHrPersonDetail: false,
+      detailWorkGroupOptions: [],
+      detailDepartmentValue: 0,
+      detailIdentityValue: 0,
+      detailWorkGroupValue: 0,
+      detailFieldValues: {}
+    });
+  },
+
+  async _ensureDepartmentsLoaded() {
+    if (this.data.departmentList && this.data.departmentList.length) return;
+    const result = await this.callCloud('listDepartments');
+    if (result.status === 'success') {
+      this.setData({ departmentList: result.departments || [] });
+    }
+  },
+
+  async _ensureIdentitiesLoaded() {
+    if (this.data.identityList && this.data.identityList.length) return;
+    const result = await this.callCloud('listIdentities');
+    if (result.status === 'success') {
+      this.setData({ identityList: result.identities || [] });
+    }
+  },
+
+  async _ensureWorkGroupsLoaded() {
+    if (this.data.workGroupList && this.data.workGroupList.length) return;
+    const result = await this.callCloud('listWorkGroups');
+    if (result.status === 'success') {
+      const items = (result.workGroups || []).map((item) => {
+        const department = this.data.departmentList.find(d => (
+          d.id === item.departmentId || d.code === item.departmentCode
+        ));
+        return {
+          ...item,
+          departmentCode: item.departmentCode || (department ? department.code : ''),
+          departmentName: item.departmentName || (department ? department.name : '')
+        };
+      });
+      this.setData({ workGroupList: items });
+    }
+  },
+
+  updateDetailWorkGroupOptions(deptId) {
+    const id = deptId || this.data.detailHrValues._departmentId || (this.data.detailHrProfile || {}).departmentId || '';
+    if (!id) {
+      this.setData({ detailWorkGroupOptions: ['无'], detailWorkGroupValue: 0 });
+      return;
+    }
+    const idStr = String(id);
+    const wgs = this.data.workGroupList
+      .filter(w => String(w.departmentId) === idStr)
+      .map(w => w.name);
+    const options = ['无', ...wgs];
+    const wgName = this.data.detailHrValues._workGroupName || '';
+    const wgIdx = options.indexOf(wgName);
+    this.setData({
+      detailWorkGroupOptions: options,
+      detailWorkGroupValue: wgIdx >= 0 ? wgIdx : 0
+    });
+  },
+
+  _ensureDetailFormOptions() {
+    this.setData({
+      departmentOptions: this.data.departmentList.map(item => item.name),
+      identityOptions: this.data.identityList.map(item => item.name)
+    });
+  },
+
+  _syncDetailPickerValues() {
+    const vals = this.data.detailHrValues || {};
+    const deptValue = this.data.departmentOptions.indexOf(vals._departmentName);
+    const identityValue = this.data.identityOptions.indexOf(vals._identityName);
+
+    const fieldValues = { ...(this.data.detailFieldValues || {}) };
+    const template = this.data.detailHrTemplate;
+    if (template && template.fields) {
+      template.fields.forEach(f => {
+        if (f.type === 'sequence' && Array.isArray(f.options)) {
+          const idx = f.options.indexOf(vals[f.id]);
+          fieldValues[f.id] = idx >= 0 ? idx : 0;
+        }
+      });
+    }
+
+    this.setData({
+      detailDepartmentValue: deptValue >= 0 ? deptValue : 0,
+      detailIdentityValue: identityValue >= 0 ? identityValue : 0,
+      detailFieldValues: fieldValues
+    });
+  },
+
+  onDetailBasicFieldInput(e) {
+    const field = String(e.currentTarget.dataset.field || '');
+    this.setData({ ['detailHrValues.' + field]: e.detail.value });
+  },
+
+  onDetailProfileFieldInput(e) {
+    const field = String(e.currentTarget.dataset.field || '');
+    let value = e.detail.value;
+
+    // For sequence pickers, e.detail.value is the numeric index;
+    // resolve it to the option text so the display shows the selected text.
+    const template = this.data.detailHrTemplate;
+    let seqIndex = -1;
+    if (template && template.fields) {
+      const fieldDef = template.fields.find(function(f) { return String(f.id) === field; });
+      if (fieldDef && fieldDef.type === 'sequence' && Array.isArray(fieldDef.options)) {
+        const idx = Number(value);
+        if (!isNaN(idx) && idx >= 0 && idx < fieldDef.options.length) {
+          value = fieldDef.options[idx];
+          seqIndex = idx;
+        }
+      }
+    }
+
+    const updates = { ['detailHrValues.' + field]: value };
+    if (seqIndex >= 0) {
+      updates['detailFieldValues.' + field] = seqIndex;
+    }
+    this.setData(updates);
+  },
+
+  onDetailDepartmentChange(e) {
+    const index = Number(e.detail.value);
+    const dept = this.data.departmentList[index] || {};
+    this.setData({
+      'detailHrValues._departmentId': dept.id || '',
+      'detailHrValues._departmentName': dept.name || '',
+      'detailHrValues._workGroupId': '',
+      'detailHrValues._workGroupName': '',
+      detailDepartmentValue: index
+    });
+    this.updateDetailWorkGroupOptions(dept.id);
+  },
+
+  onDetailIdentityChange(e) {
+    const index = Number(e.detail.value);
+    const ident = this.data.identityList[index] || {};
+    this.setData({
+      'detailHrValues._identityId': ident.id || '',
+      'detailHrValues._identityName': ident.name || '',
+      detailIdentityValue: index
+    });
+  },
+
+  onDetailWorkGroupChange(e) {
+    const index = Number(e.detail.value);
+    if (index === 0) {
+      this.setData({
+        'detailHrValues._workGroupId': '',
+        'detailHrValues._workGroupName': '',
+        detailWorkGroupValue: 0
+      });
+      return;
+    }
+    const deptId = this.data.detailHrValues._departmentId || (this.data.detailHrProfile || {}).departmentId || '';
+    const idStr = String(deptId);
+    const wgs = this.data.workGroupList.filter(w => String(w.departmentId) === idStr);
+    const wg = wgs[index - 1] || {};
+    this.setData({
+      'detailHrValues._workGroupId': wg.id || '',
+      'detailHrValues._workGroupName': wg.name || '',
+      detailWorkGroupValue: index
+    });
+  },
+
+  async saveHrPersonDetail() {
+    const vals = this.data.detailHrValues || {};
+    const profile = this.data.detailHrProfile || {};
+    const hrId = this.data.detailHrId;
+    if (!hrId) return;
+
+    const name = (vals._name || '').trim();
+    const studentId = (vals._studentId || '').trim();
+    const departmentId = vals._departmentId || profile.departmentId || '';
+    const identityId = vals._identityId || profile.identityId || '';
+    const workGroupId = vals._workGroupId || profile.workGroupId || '';
+
+    if (!name || !studentId || !departmentId || !identityId) {
+      wx.showToast({ title: '请填写完整的姓名、学号、部门和身份', icon: 'none' });
+      return;
+    }
+
+    const profileValues = {};
+    Object.keys(vals).forEach(k => {
+      if (!k.startsWith('_')) {
+        profileValues[k] = vals[k];
+      }
+    });
+
+    const template = this.data.detailHrTemplate;
+    if (template && Array.isArray(template.fields)) {
+      for (let i = 0; i < template.fields.length; i += 1) {
+        const field = template.fields[i];
+        const errorMessage = validateProfileField(field, profileValues[field.id]);
+        if (errorMessage) {
+          wx.showToast({ title: errorMessage, icon: 'none' });
+          return;
+        }
+      }
+    }
+
+    this.setData({ savingDetailHr: true });
+    try {
+      const result = await this.callCloud('saveHrPersonFull', {
+        hrId, name, studentId, departmentId, identityId, workGroupId, profileValues
+      });
+      if (result.status !== 'success') {
+        wx.showToast({ title: result.message || '保存失败', icon: 'none' });
+        return;
+      }
+      wx.showToast({ title: '保存成功', icon: 'success' });
+      this.setData({ showHrPersonDetail: false });
+      this.loadHrProfileAdminData();
+      this.loadHrList();
+    } catch (err) {
+      wx.showToast({ title: '保存失败', icon: 'none' });
+    } finally {
+      this.setData({ savingDetailHr: false });
+    }
+  },
+
+  async approveDetailHrProfile() {
+    const profile = this.data.detailHrProfile || {};
+    const studentId = profile.studentId || '';
+    if (!studentId) return;
+    try {
+      const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'approve' });
+      if (result.status !== 'success') {
+        wx.showToast({ title: result.message || '操作失败', icon: 'none' });
+        return;
+      }
+      wx.showToast({ title: '已通过', icon: 'success' });
+      this.closeHrPersonDetail();
+      this.loadHrProfileAdminData();
+    } catch (err) {
+      wx.showToast({ title: '操作失败', icon: 'none' });
+    }
+  },
+
+  async rejectDetailHrProfile() {
+    const profile = this.data.detailHrProfile || {};
+    const studentId = profile.studentId || '';
+    if (!studentId) return;
+    try {
+      const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'reject' });
+      if (result.status !== 'success') {
+        wx.showToast({ title: result.message || '操作失败', icon: 'none' });
+        return;
+      }
+      wx.showToast({ title: '已驳回', icon: 'success' });
+      this.closeHrPersonDetail();
+      this.loadHrProfileAdminData();
+    } catch (err) {
+      wx.showToast({ title: '操作失败', icon: 'none' });
+    }
+  },
+
+  toggleAddEditForm() {
+    this.setData({ showAddEditForm: !this.data.showAddEditForm });
+  },
+
+  toggleTemplateConfig() {
+    this.setData({ showTemplateConfig: !this.data.showTemplateConfig });
   },
 
   onHrProfileTemplateInput(e) {
@@ -4602,6 +6369,48 @@ Page({
         ...(this.data.hrProfileTemplateForm.fields || []),
         createEmptyProfileField()
       ]
+    });
+  },
+
+  importTableFields() {
+    this.setLoading('importTemplateFieldsCsv', true);
+    const _this = this;
+    chooseTableFile(_this.callCloud.bind(_this)).then(function (tableData) {
+      if (!tableData) { _this.setLoading('importTemplateFieldsCsv', false); return; }
+
+      const headers = tableData.headers;
+      if (!headers.length) {
+        wx.showToast({ title: '表格文件为空或格式不正确', icon: 'none' });
+        _this.setLoading('importTemplateFieldsCsv', false);
+        return;
+      }
+
+      const newFields = headers.map(function (label) {
+        return Object.assign({}, createEmptyProfileField(), {
+          id: 'profile_field_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          label: label
+        });
+      });
+
+      const existingFields = _this.data.hrProfileTemplateForm.fields || [];
+      const headerPreview = headers.length > 5
+        ? headers.slice(0, 5).join('、') + ' 等' + headers.length + '个字段'
+        : headers.join('、');
+
+      wx.showModal({
+        title: '导入字段',
+        content: '检测到 ' + headers.length + ' 个字段：' + headerPreview + '。是否替换现有字段？（取消则追加到末尾）',
+        confirmText: '替换',
+        cancelText: '追加',
+        success: function (modalRes) {
+          const fields = modalRes.confirm ? newFields : existingFields.concat(newFields);
+          _this.setData({ 'hrProfileTemplateForm.fields': fields });
+          wx.showToast({ title: '已导入 ' + headers.length + ' 个字段', icon: 'success' });
+        }
+      });
+      _this.setLoading('importTemplateFieldsCsv', false);
+    }).catch(function () {
+      _this.setLoading('importTemplateFieldsCsv', false);
     });
   },
 
@@ -4786,7 +6595,7 @@ Page({
         workGroupId: item.workGroupId || '',
         workGroup: item.workGroup || ''
       },
-      activeTab: 'hr'
+      showAddEditForm: true
     });
   },
 
@@ -4798,7 +6607,7 @@ Page({
 
   startCreateHr() {
     this.resetHrForm();
-    this.setData({ activeTab: 'hr' });
+    this.setData({ showAddEditForm: true });
   },
 
   async saveHr() {
@@ -4833,6 +6642,7 @@ Page({
   
       this.resetHrForm();
       await this.loadHrList();
+      await this.loadHrProfileAdminData(); // refresh unified list
       wx.showToast({
         title: '人事成员已保存',
         icon: 'success'
@@ -4859,6 +6669,7 @@ Page({
         try {
           await this.callCloud('deleteHrInfo', { id });
           await this.loadHrList();
+          await this.loadHrProfileAdminData(); // refresh unified list
           wx.showToast({
             title: '已删除',
             icon: 'success'
@@ -4873,65 +6684,476 @@ Page({
     });
   },
 
-  chooseCsv() {
-    wx.chooseMessageFile({
-      count: 1,
-      type: 'file',
-      extension: ['csv'],
-      success: (res) => {
-        const file = res.tempFiles && res.tempFiles[0];
-        if (!file) {
+  chooseTable() {
+    var self = this;
+    self._csvImportActive = true;
+
+    chooseTableFile(self.callCloud.bind(self)).then(function (tableData) {
+      if (!tableData) { self._csvImportActive = false; return; }
+
+      var headers = tableData.headers;
+      var rows = tableData.rows;
+      var rawContent = tableData.rawContent;
+      var fileName = tableData.fileName;
+
+      var samples = [headers];
+      for (var r = 0; r < Math.min(rows.length, 6); r++) {
+        samples.push(rows[r]);
+      }
+
+      var templateFields = (self.data.hrProfileTemplateForm || {}).fields || [];
+      var result = buildCsvColumnMapping(headers, samples, templateFields);
+
+      self.setData({
+        showCsvMappingDialog: true,
+        csvImportRows: result.rows,
+        csvImportContent: rawContent,
+        csvImportFileName: fileName || '',
+        csvImportSamples: samples,
+        csvImportMappingLabels: result.labels,
+        csvImportMappingValues: result.values
+      });
+      self._csvImportActive = false;
+    }).catch(function (err) {
+      console.error('Table file parse error:', err);
+      wx.showToast({ title: '读取文件失败: ' + (err.message || '格式错误'), icon: 'none' });
+      self._csvImportActive = false;
+    });
+  },
+
+  parseCsvLine(line) {
+    var result = [];
+    var current = '';
+    var inQuotes = false;
+    var text = String(line || '');
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      var next = text[i + 1];
+      if (ch === '"') {
+        if (inQuotes && next === '"') { current += '"'; i++; continue; }
+        inQuotes = !inQuotes;
+        continue;
+      }
+      if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; continue; }
+      current += ch;
+    }
+    result.push(current.trim());
+    return result;
+  },
+
+  closeCsvMappingDialog() {
+    this._csvImportActive = false;
+    this.setData({ showCsvMappingDialog: false });
+  },
+
+  toggleCsvSkipInvalid() {
+    this.setData({ csvImportSkipInvalid: !this.data.csvImportSkipInvalid });
+  },
+
+  buildValidationErrorCards(flatErrors) {
+    var cards = [];
+    var cardMap = {};
+    for (var i = 0; i < flatErrors.length; i++) {
+      var e = flatErrors[i];
+      var key = e.studentId || '__no_id__';
+      if (!cardMap[key]) {
+        cardMap[key] = { name: e.name, studentId: e.studentId, errors: [] };
+        cards.push(cardMap[key]);
+      }
+      cardMap[key].errors.push({
+        fieldName: e.fieldName,
+        fieldType: e.fieldType,
+        errorValue: e.errorValue,
+        errorReason: e.errorReason
+      });
+    }
+    return cards;
+  },
+
+  downloadErrorTable() {
+    var self = this;
+    var errors = self.data.validationErrors || [];
+    if (!errors.length) {
+      wx.showToast({ title: '没有错误数据可导出', icon: 'none' });
+      return;
+    }
+    wx.showActionSheet({
+      itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
+      success: function (res) {
+        var format = res.tapIndex === 0 ? 'csv' : 'excel';
+        var headers = [
+          { key: 'name', label: '姓名' },
+          { key: 'studentId', label: '学号' },
+          { key: 'fieldName', label: '字段名' },
+          { key: 'fieldType', label: '字段类型' },
+          { key: 'errorValue', label: '错误值' },
+          { key: 'errorReason', label: '错误原因' }
+        ];
+        var rows = errors.map(function (e) {
+          return {
+            name: e.name || '',
+            studentId: e.studentId || '',
+            fieldName: e.fieldName || '',
+            fieldType: e.fieldType || '',
+            errorValue: e.errorValue || '',
+            errorReason: e.errorReason || ''
+          };
+        });
+        if (format === 'excel') {
+          self.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: '导入错误清单' }).then(function (result) {
+            if (result && result.status === 'success' && result.fileBase64) {
+              saveAndShareFile(result.fileBase64, '导入错误明细', 'xlsx');
+            } else {
+              wx.showToast({ title: '生成Excel失败', icon: 'none' });
+            }
+          }).catch(function () {
+            wx.showToast({ title: '生成Excel失败', icon: 'none' });
+          });
+        } else {
+          saveAndShareFile(buildCsv(headers, rows), '导入错误明细', 'csv');
+        }
+      }
+    });
+  },
+
+  escapeCsvCell(value) {
+    var s = String(value == null ? '' : value);
+    if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) {
+      s = '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  },
+
+  closeValidationErrors() {
+    this.setData({ showValidationErrors: false });
+  },
+
+  onCsvMappingTargetChange(e) {
+    var rowIndex = Number(e.currentTarget.dataset.index);
+    var values = this.data.csvImportMappingValues || [];
+    var labels = this.data.csvImportMappingLabels || [];
+    var optionIndex = Number(e.detail.value);
+    var targetValue = values[optionIndex];
+    if (isNaN(rowIndex) || targetValue === undefined) return;
+
+    var newFieldTypeLabel = getFieldTypeLabelForTarget(
+      targetValue,
+      (this.data.hrProfileTemplateForm || {}).fields || []
+    );
+
+    var rows = this.data.csvImportRows.slice();
+    rows[rowIndex] = {
+      header: rows[rowIndex].header,
+      target: targetValue,
+      fieldTypeLabel: newFieldTypeLabel,
+      sampleValue: rows[rowIndex].sampleValue,
+      optionIndex: optionIndex,
+      optionLabel: labels[optionIndex] || ''
+    };
+    this.setData({ csvImportRows: rows });
+  },
+
+  async confirmCsvMapping() {
+    var self = this;
+    var rows = self.data.csvImportRows || [];
+    var columnMapping = {};
+    var extensionFields = {};
+
+    // Build field ID → label lookup for extension fields
+    var tplFields = (self.data.hrProfileTemplateForm || {}).fields || [];
+    var fieldIdToLabel = {};
+    for (var j = 0; j < tplFields.length; j++) {
+      fieldIdToLabel[tplFields[j].id] = tplFields[j].label;
+    }
+
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (!row || row.target === 'ignore') continue;
+
+      if (row.target === 'name' || row.target === 'studentId' || row.target === 'department'
+        || row.target === 'identity' || row.target === 'workGroup') {
+        columnMapping[row.target] = row.header;
+      } else {
+        var label = fieldIdToLabel[row.target];
+        if (label) {
+          extensionFields[row.header] = label;
+        }
+      }
+    }
+
+    // Require all 5 basic fields to be mapped
+    var requiredBasicFields = ['name', 'studentId', 'department', 'identity', 'workGroup'];
+    var missingBasicFields = [];
+    for (var k = 0; k < requiredBasicFields.length; k++) {
+      if (!columnMapping[requiredBasicFields[k]]) {
+        missingBasicFields.push(requiredBasicFields[k]);
+      }
+    }
+    if (missingBasicFields.length > 0) {
+      var fieldNameMap = { name: '姓名', studentId: '学号', department: '所属部门', identity: '身份', workGroup: '工作分工' };
+      var missingNames = [];
+      for (var k2 = 0; k2 < missingBasicFields.length; k2++) {
+        missingNames.push(fieldNameMap[missingBasicFields[k2]] || missingBasicFields[k2]);
+      }
+      wx.showModal({
+        title: '基础字段未映射',
+        content: '以下基础字段必须映射到 CSV 列，请完成映射后再导入：\n' + missingNames.join('、'),
+        showCancel: false,
+        confirmText: '知道了'
+      });
+      self._csvImportActive = false;
+      return;
+    }
+
+    var skipInvalid = self.data.csvImportSkipInvalid;
+
+    // --- Pre-validation (only when NOT skipping invalid fields) ---
+    var validationErrors = [];
+    var csvLines = self.data.csvImportContent.split(/\r?\n/);
+
+    if (!skipInvalid) {
+      // Validate ALL data rows against field definitions
+      var tplFields = (self.data.hrProfileTemplateForm || {}).fields || [];
+
+      // Build index: CSV column index → field definition
+      var colFieldMap = [];
+      for (var r = 0; r < rows.length; r++) {
+        var mappingRow = rows[r];
+        if (!mappingRow || mappingRow.target === 'ignore') {
+          colFieldMap[r] = null;
+          continue;
+        }
+        if (mappingRow.target === 'name' || mappingRow.target === 'studentId'
+          || mappingRow.target === 'department' || mappingRow.target === 'identity'
+          || mappingRow.target === 'workGroup') {
+          colFieldMap[r] = { type: 'basic', name: mappingRow.target, csvHeader: mappingRow.header };
+        } else {
+          var found = tplFields.find(function (f) { return f.id === mappingRow.target; });
+          colFieldMap[r] = { type: 'ext', csvHeader: mappingRow.header, fieldDef: found || { type: 'text' } };
+        }
+      }
+
+      var studentIdColIndex = -1;
+      var nameColIndex = -1;
+      for (var c = 0; c < colFieldMap.length; c++) {
+        if (colFieldMap[c] && colFieldMap[c].type === 'basic') {
+          if (colFieldMap[c].name === 'studentId') studentIdColIndex = c;
+          if (colFieldMap[c].name === 'name') nameColIndex = c;
+        }
+      }
+
+      for (var rowIdx = 1; rowIdx < csvLines.length; rowIdx++) {
+        var rowCells = self.parseCsvLine(csvLines[rowIdx] || '');
+        if (!rowCells.length) continue;
+
+        var studentId = normalizeEmptyValue(rowCells[studentIdColIndex]);
+        if (!studentId) continue;
+
+        var name = normalizeEmptyValue(rowCells[nameColIndex]);
+
+        if (!name && nameColIndex >= 0) {
+          validationErrors.push({
+            rowNumber: rowIdx + 1,
+            name: '',
+            studentId: studentId,
+            fieldName: colFieldMap[nameColIndex].csvHeader,
+            fieldType: '基础字段',
+            errorValue: '',
+            errorReason: '姓名不能为空'
+          });
+        }
+
+        for (var c = 0; c < colFieldMap.length; c++) {
+          var map = colFieldMap[c];
+          if (!map || map.type !== 'ext') continue;
+          var cellValue = normalizeEmptyValue(rowCells[c]);
+          var check = validateCsvValueAgainstField(cellValue, map.fieldDef);
+          if (!check.ok) {
+            validationErrors.push({
+              rowNumber: rowIdx + 1,
+              name: name,
+              studentId: studentId,
+              fieldName: map.csvHeader,
+              fieldType: check.fieldType || getFieldTypeDisplayName(map.fieldDef),
+              errorValue: cellValue,
+              errorReason: check.reason
+            });
+          }
+        }
+      }
+
+      if (validationErrors.length > 0) {
+        var errorRecordCount = 0;
+        var seenStudentIds = {};
+        for (var ei = 0; ei < validationErrors.length; ei++) {
+          if (!seenStudentIds[validationErrors[ei].studentId]) {
+            seenStudentIds[validationErrors[ei].studentId] = true;
+            errorRecordCount++;
+          }
+        }
+        self.setData({
+          showValidationErrors: true,
+          validationErrors: validationErrors,
+          validationErrorCards: self.buildValidationErrorCards(validationErrors),
+          validationErrorSummary: '共 ' + errorRecordCount + ' 条记录 ' + validationErrors.length + ' 个错误'
+        });
+        self._csvImportActive = false;
+        return;
+      }
+    }
+
+    // --- Proceed with import ---
+    self.setData({ showCsvMappingDialog: false, csvImportLoading: true });
+
+    try {
+      var startIndex = 1;
+      var totalCount = 0;
+      var hasMore = true;
+      var skipInvalidFlag = skipInvalid;
+      var skippedNoStudentIdTotal = 0;
+
+      while (hasMore) {
+        wx.showLoading({
+          title: '正在导入' + (totalCount > 0 ? '（已导入' + totalCount + '条）' : '...'),
+          mask: true
+        });
+
+        var result = await this.callCloud('importHrCsv', {
+          csvContent: self.data.csvImportContent,
+          startIndex: startIndex,
+          batchSize: 100,
+          columnMapping: columnMapping,
+          extensionFields: extensionFields,
+          skipInvalid: skipInvalidFlag
+        });
+
+        if (result.status === 'validation_errors') {
+          // Backend rejected the batch (skipInvalid is off and there are validation errors).
+          // Collect errors so they can be displayed after all batches are processed.
+          var errors = result.errors || [];
+          var flatErrors = [];
+          for (var ei = 0; ei < errors.length; ei++) {
+            var errRec = errors[ei];
+            for (var fi = 0; fi < errRec.errors.length; fi++) {
+              var e = errRec.errors[fi];
+              flatErrors.push({
+                rowNumber: 0,
+                name: errRec.name || '',
+                studentId: errRec.studentId || '',
+                fieldName: e.field || '',
+                fieldType: e.fieldType || '',
+                errorValue: e.value || '',
+                errorReason: e.error || ''
+              });
+            }
+          }
+          validationErrors = validationErrors.concat(flatErrors);
+          if (result.skippedNoStudentId) {
+            skippedNoStudentIdTotal += Number(result.skippedNoStudentId);
+          }
+          startIndex = Number(result.nextIndex || startIndex + 100);
+          hasMore = result.hasMore !== undefined ? (!!result.hasMore || startIndex < csvLines.length) : (startIndex < csvLines.length);
+          if (!hasMore) {
+            wx.hideLoading();
+          }
+          continue;
+        }
+
+        if (result.status !== 'success') {
+          wx.hideLoading();
+          wx.showToast({ title: result.message || '导入失败', icon: 'none' });
+          self.setData({ csvImportLoading: false });
+          self._csvImportActive = false;
           return;
         }
 
-        wx.getFileSystemManager().readFile({
-          filePath: file.path,
-          encoding: 'utf8',
-          success: async (readRes) => {
-            try {
-              let startIndex = 1;
-              let totalCount = 0;
-              let hasMore = true;
-              this.setLoading('importCsv', true);
+        totalCount += Number(result.count || 0);
+        if (result.skippedNoStudentId) {
+          skippedNoStudentIdTotal += Number(result.skippedNoStudentId);
+        }
+        startIndex = Number(result.nextIndex || startIndex + 100);
+        var successBatchHadRows = Number(result.count || 0) > 0;
+        var successFrontendHasMore = startIndex < csvLines.length;
+        if (result.hasMore !== undefined) {
+          hasMore = !!result.hasMore || (successBatchHadRows && successFrontendHasMore);
+        } else {
+          hasMore = successFrontendHasMore;
+        }
 
-              while (hasMore) {
-                wx.showLoading({
-                  title: `正在导入${totalCount > 0 ? '（已导入' + totalCount + '条）' : '...'}`,
-                  mask: true
-                });
-
-                const result = await this.callCloud('importHrCsv', {
-                  csvContent: readRes.data,
-                  startIndex,
-                  batchSize: 100
-                });
-
-                if (result.status !== 'success') {
-                  wx.hideLoading();
-                  wx.showToast({ title: result.message || '导入失败', icon: 'none' });
-                  this.setLoading('importCsv', false);
-                  return;
-                }
-
-                totalCount += Number(result.count || 0);
-                startIndex = Number(result.nextIndex || startIndex + 100);
-                hasMore = !!result.hasMore;
-              }
-
-              wx.hideLoading();
-              this.setLoading('importCsv', false);
-              this.setData({ csvName: file.name || '已导入 CSV' });
-              await this.loadHrList();
-              wx.showToast({ title: `导入成功，共 ${totalCount} 条`, icon: 'success' });
-            } catch (error) {
-              wx.hideLoading();
-              this.setLoading('importCsv', false);
-              wx.showToast({ title: 'CSV 导入失败', icon: 'none' });
+        // Collect any skipped-field errors from this batch
+        if (result.errors && result.errors.length) {
+          var batchFlatErrors = [];
+          for (var bei = 0; bei < result.errors.length; bei++) {
+            var ber = result.errors[bei];
+            for (var bfi = 0; bfi < ber.errors.length; bfi++) {
+              var be = ber.errors[bfi];
+              batchFlatErrors.push({
+                rowNumber: 0,
+                name: ber.name || '',
+                studentId: ber.studentId || '',
+                fieldName: be.field || '',
+                fieldType: be.fieldType || '',
+                errorValue: be.value || '',
+                errorReason: be.error || ''
+              });
             }
           }
-        });
+          validationErrors = validationErrors.concat(batchFlatErrors);
+        }
       }
-    });
+
+      wx.hideLoading();
+      self.setData({ csvImportLoading: false, csvName: self.data.csvImportFileName || '已导入表格' });
+      self._csvImportActive = false;
+      await self.loadHrList();
+      self.loadHrProfileAdminData();
+
+      var toastTitle = '导入成功，共 ' + totalCount + ' 条';
+      if (skippedNoStudentIdTotal > 0) {
+        toastTitle += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
+      }
+      if (validationErrors.length > 0) {
+        var errRecordCount = 0;
+        var errSeen = {};
+        for (var ie = 0; ie < validationErrors.length; ie++) {
+          if (!errSeen[validationErrors[ie].studentId]) {
+            errSeen[validationErrors[ie].studentId] = true;
+            errRecordCount++;
+          }
+        }
+        if (totalCount > 0) {
+          var summary = '已导入 ' + totalCount + ' 条，共 ' + errRecordCount + ' 条记录 ' + validationErrors.length + ' 个字段因格式问题跳过';
+          if (skippedNoStudentIdTotal > 0) {
+            summary += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
+          }
+          toastTitle += '（部分字段已跳过）';
+          wx.showToast({ title: toastTitle, icon: 'none', duration: 2500 });
+        } else {
+          var summary = '导入失败，' + errRecordCount + ' 条记录存在 ' + validationErrors.length + ' 个字段格式错误，请修正后重新导入，或开启「字段无效时仍然导入」';
+          if (skippedNoStudentIdTotal > 0) {
+            summary += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
+          }
+          toastTitle = '导入失败，' + errRecordCount + ' 条记录存在格式错误';
+          if (skippedNoStudentIdTotal > 0) {
+            toastTitle += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
+          }
+          wx.showToast({ title: toastTitle, icon: 'none', duration: 3000 });
+        }
+        self.setData({
+          showValidationErrors: true,
+          validationErrors: validationErrors,
+          validationErrorCards: self.buildValidationErrorCards(validationErrors),
+          validationErrorSummary: summary
+        });
+      } else {
+        wx.showToast({ title: toastTitle, icon: 'success' });
+      }
+    } catch (error) {
+      wx.hideLoading();
+      self.setData({ csvImportLoading: false });
+      self._csvImportActive = false;
+      wx.showToast({ title: 'CSV 导入失败', icon: 'none' });
+    }
   },
 
   onAdminFieldInput(e) {
@@ -5204,5 +7426,457 @@ Page({
         }
       }
     });
+  },
+
+  // ─── Publication Management (类别-条款层级架构) ───
+
+  async loadPublicationData(activityId) {
+    if (!activityId) {
+      this.setData({ publicationForm: { id: '', activityId: '', activityName: '', isPublished: false }, pubViewRuleList: [], pubMeritRuleList: [], designationList: [] });
+      return;
+    }
+    this.setLoading('publications', true);
+    try {
+      const result = await this.callCloud('getResultPublication', { activityId });
+      if (result.status === 'success') {
+        const pub = result.publication;
+        const viewRules = result.viewRules || [];
+        const meritRules = result.meritRules || [];
+        this.setData({
+          publicationForm: pub ? { id: pub.id, activityId: pub.activityId, activityName: this.data.publicationForm.activityName, isPublished: pub.isPublished } : { id: '', activityId, activityName: this.data.publicationForm.activityName, isPublished: false },
+          pubViewRuleList: viewRules, pubViewRuleListView: viewRules,
+          pubMeritRuleList: meritRules, pubMeritRuleListView: meritRules,
+          designationList: result.meritListDesignations || [],
+          pubViewRuleSelectedIds: {}, pubViewRuleAllSelected: false,
+          pubMeritRuleSelectedIds: {}, pubMeritRuleAllSelected: false
+        });
+        this.rebuildPubViewRuleFilters(viewRules);
+        this.rebuildPubMeritRuleFilters(meritRules);
+      }
+    } catch (e) { console.error('loadPublicationData error:', e); }
+    this.setLoading('publications', false);
+  },
+
+  // ─── Publication toggle ───
+  async onPublicationActivityChange(e) {
+    const idx = parseInt(e.detail.value, 10);
+    const activity = this.data.activityList[idx];
+    if (activity) {
+      const activityId = activity.id || '';
+      this.setData({ 'publicationForm.activityId': activityId, 'publicationForm.activityName': activity.name || '' });
+      // 先确保 publication 存在（静默创建），再加载数据
+      await this.savePublication(true);
+      this.loadPublicationData(activityId);
+    }
+  },
+  onPublicationToggle(e) { this.setData({ 'publicationForm.isPublished': !!e.detail.value }); },
+  async savePublication(silent) {
+    const form = this.data.publicationForm;
+    if (!form.activityId) { if (!silent) wx.showToast({ title: '请选择评分活动', icon: 'none' }); return; }
+    // 静默模式下，如果 publication 已存在则跳过（避免覆盖 isPublished 等已有字段）
+    if (silent && form.id) return;
+    this.setLoading('savePublication', true);
+    try {
+      const result = await this.callCloud('saveResultPublication', { activityId: form.activityId, isPublished: form.isPublished });
+      if (result.status === 'success') {
+        if (!silent) wx.showToast({ title: result.message || '已保存', icon: 'success' });
+        this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': result.publication.isPublished });
+      } else { if (!silent) wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
+    } catch (e) { if (!silent) wx.showToast({ title: '保存失败', icon: 'none' }); }
+    this.setLoading('savePublication', false);
+  },
+
+  // ─── View Rule Filters ───
+  rebuildPubViewRuleFilters(list) {
+    const depts = new Set(); const idents = new Set();
+    (list || []).forEach(r => { if (r.granteeDepartment) depts.add(r.granteeDepartment); if (r.granteeIdentity) idents.add(r.granteeIdentity); });
+    this.setData({
+      pubViewRuleFilterOptions: { departments: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] },
+      pubViewRuleListView: list || []
+    });
+  },
+  rebuildPubMeritRuleFilters(list) {
+    const depts = new Set(); const idents = new Set();
+    (list || []).forEach(r => { if (r.granteeDepartment) depts.add(r.granteeDepartment); if (r.granteeIdentity) idents.add(r.granteeIdentity); });
+    this.setData({
+      pubMeritRuleFilterOptions: { departments: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] },
+      pubMeritRuleListView: list || []
+    });
+  },
+  onPubViewRuleFilterChange(e) {
+    const field = e.currentTarget.dataset.field;
+    const optionKey = field === 'identity' ? 'identities' : 'departments';
+    const options = (this.data.pubViewRuleFilterOptions || {})[optionKey] || ['全部'];
+    const value = options[Number(e.detail.value)] || '全部';
+    const next = { ...this.data.pubViewRuleFilters, [field]: value };
+    this.setData({ pubViewRuleFilters: next });
+    let list = this.data.pubViewRuleList || [];
+    if (next.department && next.department !== '全部') list = list.filter(r => r.granteeDepartment === next.department);
+    if (next.identity && next.identity !== '全部') list = list.filter(r => r.granteeIdentity === next.identity);
+    this.setData({ pubViewRuleListView: list, pubViewRuleSelectedIds: {}, pubViewRuleAllSelected: false });
+  },
+  onPubMeritRuleFilterChange(e) {
+    const field = e.currentTarget.dataset.field;
+    const optionKey = field === 'identity' ? 'identities' : 'departments';
+    const options = (this.data.pubMeritRuleFilterOptions || {})[optionKey] || ['全部'];
+    const value = options[Number(e.detail.value)] || '全部';
+    const next = { ...this.data.pubMeritRuleFilters, [field]: value };
+    this.setData({ pubMeritRuleFilters: next });
+    let list = this.data.pubMeritRuleList || [];
+    if (next.department && next.department !== '全部') list = list.filter(r => r.granteeDepartment === next.department);
+    if (next.identity && next.identity !== '全部') list = list.filter(r => r.granteeIdentity === next.identity);
+    this.setData({ pubMeritRuleListView: list, pubMeritRuleSelectedIds: {}, pubMeritRuleAllSelected: false });
+  },
+
+  // ─── View Rule Category CRUD ───
+  startNewPubViewRule() {
+    this.setData({ pubViewRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', displayMode: 'score', gradeBands: [], isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauses: [] } });
+  },
+  editPubViewRule(e) {
+    const id = e.currentTarget.dataset.id;
+    const rule = this.data.pubViewRuleList.find(r => r.id === id);
+    if (!rule) return;
+    this.setData({ pubViewRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, displayMode: rule.displayMode || 'score', gradeBands: (rule.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })), isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauses: (rule.clauses || []).map(c => ({ ...c })) } });
+  },
+  async savePubViewRule() {
+    const f = this.data.pubViewRuleForm;
+    if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: '请选择授权部门和身份', icon: 'none' }); return; }
+    if (!f.publicationId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
+    this.setLoading('savePubViewRule', true);
+    try {
+      const result = await this.callCloud('savePubViewRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, displayMode: f.displayMode || 'score', gradeBands: f.displayMode === 'grade' ? (f.gradeBands || []) : [], clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId })) });
+      if (result.status === 'success') { wx.showToast({ title: '已保存', icon: 'success' }); this.startNewPubViewRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
+      else { wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
+    } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
+    this.setLoading('savePubViewRule', false);
+  },
+  async deletePubViewRule(e) {
+    const ruleId = e.currentTarget.dataset.id;
+    if (!ruleId) return;
+    const that = this;
+    wx.showModal({ title: '确认删除', content: '确定要删除该查看权限类别及所有条款吗？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '删除失败', icon: 'none' }); } } catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); } } });
+  },
+
+  // ─── View Rule Clause Editor ───
+  openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': '仅查看自己的评分结果', 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '' }); },
+  cancelPubViewClauseEdit() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 }); },
+  onPubViewClauseScopeChange(e) { const scope = this.data.viewScopeOptions[parseInt(e.detail.value, 10)]; if (scope) this.setData({ 'pubViewRuleForm.clauseScopeType': scope.value, 'pubViewRuleForm.clauseScopeLabel': scope.label }); },
+  onPubViewClauseTargetIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.clauseTargetIdentityId': ident.id, 'pubViewRuleForm.clauseTargetIdentity': ident.name }); },
+  addPubViewClause() {
+    const f = this.data.pubViewRuleForm;
+    const clause = { scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity };
+    const clauses = [...f.clauses];
+    if (f.clauseEditingIndex >= 0) { clauses[f.clauseEditingIndex] = clause; } else { clauses.push(clause); }
+    this.setData({ 'pubViewRuleForm.clauses': clauses, 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 });
+  },
+  editPubViewClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const c = this.data.pubViewRuleForm.clauses[idx]; if (!c) return; this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': idx, 'pubViewRuleForm.clauseScopeType': c.scopeType, 'pubViewRuleForm.clauseScopeLabel': c.scopeLabel, 'pubViewRuleForm.clauseTargetIdentityId': c.targetIdentityId, 'pubViewRuleForm.clauseTargetIdentity': c.targetIdentity }); },
+  removePubViewClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const clauses = [...this.data.pubViewRuleForm.clauses]; clauses.splice(idx, 1); this.setData({ 'pubViewRuleForm.clauses': clauses }); },
+  onPubViewRuleDeptChange(e) { const dept = this.data.departmentList[parseInt(e.detail.value, 10)]; if (dept) this.setData({ 'pubViewRuleForm.granteeDepartmentId': dept.id, 'pubViewRuleForm.granteeDepartment': dept.name }); },
+  onPubViewRuleIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubViewRuleForm.granteeIdentityId': ident.id, 'pubViewRuleForm.granteeIdentity': ident.name }); },
+
+  // ─── Display mode & grade band handlers ───
+  onPubViewDisplayModeChange(e) {
+    const mode = this.data.displayModeOptions[parseInt(e.detail.value, 10)];
+    if (mode) this.setData({ 'pubViewRuleForm.displayMode': mode.value });
+  },
+  onGradeBandInput(e) {
+    const idx = parseInt(e.currentTarget.dataset.index, 10);
+    const field = e.currentTarget.dataset.field;
+    const value = field === 'gradeName' ? e.detail.value : (parseFloat(e.detail.value) || 0);
+    const bands = [...this.data.pubViewRuleForm.gradeBands];
+    if (bands[idx]) {
+      bands[idx] = { ...bands[idx], [field]: value };
+      this.setData({ 'pubViewRuleForm.gradeBands': bands });
+    }
+  },
+  addGradeBand() {
+    const bands = [...this.data.pubViewRuleForm.gradeBands];
+    bands.push({ minScore: 0, maxScore: 100, gradeName: '' });
+    this.setData({ 'pubViewRuleForm.gradeBands': bands });
+  },
+  removeGradeBand(e) {
+    const idx = parseInt(e.currentTarget.dataset.index, 10);
+    const bands = [...this.data.pubViewRuleForm.gradeBands];
+    bands.splice(idx, 1);
+    this.setData({ 'pubViewRuleForm.gradeBands': bands });
+  },
+  generateDefaultGradeBands() {
+    this.setData({ 'pubViewRuleForm.gradeBands': [
+      { minScore: 0, maxScore: 59.99, gradeName: '不合格' },
+      { minScore: 60, maxScore: 69.99, gradeName: '合格' },
+      { minScore: 70, maxScore: 79.99, gradeName: '中等' },
+      { minScore: 80, maxScore: 89.99, gradeName: '良好' },
+      { minScore: 90, maxScore: 100, gradeName: '优秀' }
+    ] });
+  },
+
+  // ─── View Rule Category List batch ops ───
+  togglePubViewRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubViewRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubViewRuleListView.every(r => map[r.id]); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },
+  toggleSelectAllPubViewRules() { const allSel = !this.data.pubViewRuleAllSelected; const map = {}; if (allSel) this.data.pubViewRuleListView.forEach(r => { map[r.id] = true; }); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: allSel }); },
+  reverseSelectPubViewRules() { const map = {}; this.data.pubViewRuleListView.forEach(r => { map[r.id] = !this.data.pubViewRuleSelectedIds[r.id]; }); this.setData({ pubViewRuleSelectedIds: map, pubViewRuleAllSelected: this.data.pubViewRuleListView.every(r => map[r.id]) }); },
+  async batchDeletePubViewRules() {
+    const ids = Object.keys(this.data.pubViewRuleSelectedIds).filter(id => this.data.pubViewRuleSelectedIds[id]);
+    if (!ids.length) { wx.showToast({ title: '请先选择要删除的类别', icon: 'none' }); return; }
+    const that = this;
+    wx.showModal({ title: '批量删除', content: `确定要删除选中的 ${ids.length} 个查看权限类别吗？`, success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubViewRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: `已删除 ${ids.length} 个`, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
+  },
+
+  // ─── Merit Rule Category CRUD ───
+  startNewPubMeritRule() {
+    this.setData({ pubMeritRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: '全部成员', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] } });
+  },
+  editPubMeritRule(e) {
+    const id = e.currentTarget.dataset.id;
+    const rule = this.data.pubMeritRuleList.find(r => r.id === id);
+    if (!rule) return;
+    this.setData({ pubMeritRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: '全部成员', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: (rule.clauses || []).map(c => ({ ...c })) } });
+  },
+  async savePubMeritRule() {
+    const f = this.data.pubMeritRuleForm;
+    if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: '请选择授权部门和身份', icon: 'none' }); return; }
+    if (!f.publicationId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
+    this.setLoading('savePubMeritRule', true);
+    try {
+      const result = await this.callCloud('savePubMeritRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit, requireExactQuota: c.requireExactQuota })) });
+      if (result.status === 'success') { wx.showToast({ title: '已保存', icon: 'success' }); this.startNewPubMeritRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
+      else { wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
+    } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
+    this.setLoading('savePubMeritRule', false);
+  },
+  async deletePubMeritRule(e) {
+    const ruleId = e.currentTarget.dataset.id;
+    if (!ruleId) return;
+    const that = this;
+    wx.showModal({ title: '确认删除', content: '确定要删除该评优指定权类别及所有条款吗？关联的评优名单也会被清空。', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '删除失败', icon: 'none' }); } } catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); } } });
+  },
+
+  // ─── Merit Rule Clause Editor ───
+  openPubMeritClauseEditor() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': -1, 'pubMeritRuleForm.clauseScopeType': 'all_people', 'pubMeritRuleForm.clauseScopeLabel': '全部成员', 'pubMeritRuleForm.clauseTargetIdentityId': '', 'pubMeritRuleForm.clauseTargetIdentity': '', 'pubMeritRuleForm.clauseQuotaLimit': 0, 'pubMeritRuleForm.clauseRequireExactQuota': false }); },
+  cancelPubMeritClauseEdit() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': false, 'pubMeritRuleForm.clauseEditingIndex': -1 }); },
+  onPubMeritClauseScopeChange(e) { const scope = this.data.viewScopeOptions[parseInt(e.detail.value, 10)]; if (scope) this.setData({ 'pubMeritRuleForm.clauseScopeType': scope.value, 'pubMeritRuleForm.clauseScopeLabel': scope.label }); },
+  onPubMeritClauseTargetIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.clauseTargetIdentityId': ident.id, 'pubMeritRuleForm.clauseTargetIdentity': ident.name }); },
+  onPubMeritClauseQuotaInput(e) { this.setData({ 'pubMeritRuleForm.clauseQuotaLimit': Math.max(0, parseInt(e.detail.value, 10) || 0) }); },
+  onPubMeritClauseExactToggle(e) { this.setData({ 'pubMeritRuleForm.clauseRequireExactQuota': !!e.detail.value }); },
+  addPubMeritClause() {
+    const f = this.data.pubMeritRuleForm;
+    if (!f.clauseTargetIdentityId) { wx.showToast({ title: '请选择目标身份', icon: 'none' }); return; }
+    const clause = { scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity, quotaLimit: f.clauseQuotaLimit, requireExactQuota: f.clauseRequireExactQuota };
+    const clauses = [...f.clauses];
+    if (f.clauseEditingIndex >= 0) { clauses[f.clauseEditingIndex] = clause; } else { clauses.push(clause); }
+    this.setData({ 'pubMeritRuleForm.clauses': clauses, 'pubMeritRuleForm.isClauseEditorVisible': false, 'pubMeritRuleForm.clauseEditingIndex': -1 });
+  },
+  editPubMeritClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const c = this.data.pubMeritRuleForm.clauses[idx]; if (!c) return; this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': idx, 'pubMeritRuleForm.clauseScopeType': c.scopeType, 'pubMeritRuleForm.clauseScopeLabel': c.scopeLabel, 'pubMeritRuleForm.clauseTargetIdentityId': c.targetIdentityId, 'pubMeritRuleForm.clauseTargetIdentity': c.targetIdentity, 'pubMeritRuleForm.clauseQuotaLimit': c.quotaLimit || 0, 'pubMeritRuleForm.clauseRequireExactQuota': c.requireExactQuota || false }); },
+  removePubMeritClause(e) { const idx = parseInt(e.currentTarget.dataset.index, 10); const clauses = [...this.data.pubMeritRuleForm.clauses]; clauses.splice(idx, 1); this.setData({ 'pubMeritRuleForm.clauses': clauses }); },
+  onPubMeritRuleDeptChange(e) { const dept = this.data.departmentList[parseInt(e.detail.value, 10)]; if (dept) this.setData({ 'pubMeritRuleForm.granteeDepartmentId': dept.id, 'pubMeritRuleForm.granteeDepartment': dept.name }); },
+  onPubMeritRuleIdentChange(e) { const ident = this.data.identityList[parseInt(e.detail.value, 10)]; if (ident) this.setData({ 'pubMeritRuleForm.granteeIdentityId': ident.id, 'pubMeritRuleForm.granteeIdentity': ident.name }); },
+
+  // ─── Merit Rule Category List batch ops ───
+  togglePubMeritRuleSelection(e) { const id = e.currentTarget.dataset.id; const map = { ...this.data.pubMeritRuleSelectedIds }; map[id] = !map[id]; const allSel = this.data.pubMeritRuleListView.every(r => map[r.id]); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: allSel }); },
+  toggleSelectAllPubMeritRules() { const allSel = !this.data.pubMeritRuleAllSelected; const map = {}; if (allSel) this.data.pubMeritRuleListView.forEach(r => { map[r.id] = true; }); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: allSel }); },
+  reverseSelectPubMeritRules() { const map = {}; this.data.pubMeritRuleListView.forEach(r => { map[r.id] = !this.data.pubMeritRuleSelectedIds[r.id]; }); this.setData({ pubMeritRuleSelectedIds: map, pubMeritRuleAllSelected: this.data.pubMeritRuleListView.every(r => map[r.id]) }); },
+  async batchDeletePubMeritRules() {
+    const ids = Object.keys(this.data.pubMeritRuleSelectedIds).filter(id => this.data.pubMeritRuleSelectedIds[id]);
+    if (!ids.length) { wx.showToast({ title: '请先选择要删除的类别', icon: 'none' }); return; }
+    const that = this;
+    wx.showModal({ title: '批量删除', content: `确定要删除选中的 ${ids.length} 个评优指定权类别吗？`, success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubMeritRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: `已删除 ${ids.length} 个`, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
+  },
+
+  // ─── Generate default categories ───
+  async generatePubViewRules() {
+    const pubId = this.data.publicationForm.id;
+    if (!pubId) { wx.showToast({ title: '请先选择活动，公示记录将自动创建', icon: 'none' }); return; }
+    this.setLoading('generatePubViewRules', true);
+    try {
+      const result = await this.callCloud('generatePubViewRules', { publicationId: pubId });
+      if (result.status === 'success') {
+        const parts = [];
+        if (result.createdCount > 0) parts.push(`已生成 ${result.createdCount} 个`);
+        if (result.skippedCount > 0) parts.push(`跳过 ${result.skippedCount} 个已存在`);
+        if (result.backfilledCount > 0) parts.push(`补填 ${result.backfilledCount} 个条款`);
+        const msg = parts.length > 0 ? parts.join('，') : '已全部就绪';
+        wx.showToast({ title: msg, icon: 'success' });
+        this.loadPublicationData(this.data.publicationForm.activityId);
+      } else {
+        wx.showToast({ title: result.message || '生成失败', icon: 'none' });
+      }
+    } catch (e) { wx.showToast({ title: '生成失败: ' + (e.message || '网络错误'), icon: 'none' }); }
+    this.setLoading('generatePubViewRules', false);
+  },
+
+  async generatePubMeritRules() {
+    const pubId = this.data.publicationForm.id;
+    if (!pubId) { wx.showToast({ title: '请先选择活动，公示记录将自动创建', icon: 'none' }); return; }
+    this.setLoading('generatePubMeritRules', true);
+    try {
+      const result = await this.callCloud('generatePubMeritRules', { publicationId: pubId });
+      if (result.status === 'success') {
+        const parts = [];
+        if (result.createdCount > 0) parts.push(`已生成 ${result.createdCount} 个`);
+        if (result.skippedCount > 0) parts.push(`跳过 ${result.skippedCount} 个已存在`);
+        if (result.backfilledCount > 0) parts.push(`补填 ${result.backfilledCount} 个条款`);
+        const msg = parts.length > 0 ? parts.join('，') : '已全部就绪';
+        wx.showToast({ title: msg, icon: 'success' });
+        this.loadPublicationData(this.data.publicationForm.activityId);
+      } else {
+        wx.showToast({ title: result.message || '生成失败', icon: 'none' });
+      }
+    } catch (e) { wx.showToast({ title: '生成失败: ' + (e.message || '网络错误'), icon: 'none' }); }
+    this.setLoading('generatePubMeritRules', false);
+  },
+
+  // ─── Designation Picker (uses clauseId) ───
+  async openDesignationPicker(e) {
+    const ds = e.currentTarget.dataset;
+    const clauseId = ds.clauseId; const pubId = ds.pubId;
+    if (!clauseId || !pubId) { wx.showToast({ title: '参数错误', icon: 'none' }); return; }
+
+    // Show popup immediately with loading state
+    this.setData({ showDesignationPicker: true, designationPickerClauseId: clauseId, designationPickerPubId: pubId, designationPickerHrList: [], designationPickerFilteredList: [], designationPickerSelectedIds: [], designationPickerSelectedList: [], desigSearchKeyword: '', desigFilterDept: '全部', desigFilterIdent: '全部', desigFilterDeptOptions: ['全部'], desigFilterIdentOptions: ['全部'] });
+
+    try {
+      // Reload publication data to get latest clause info and designations
+      await this.loadPublicationData(this.data.publicationForm.activityId);
+      const allClauses = [];
+      for (const rule of this.data.pubMeritRuleList) {
+        for (const c of (rule.clauses || [])) {
+          allClauses.push({ ...c, granteeDepartmentId: rule.granteeDepartmentId });
+        }
+      }
+      const clause = allClauses.find(c => c.id === clauseId);
+      if (!clause) { wx.showToast({ title: '未找到该条款', icon: 'none' }); this.setData({ showDesignationPicker: false }); return; }
+
+      const granteeDeptId = clause.granteeDepartmentId || '';
+      const scopeType = clause.scopeType || 'all_people';
+      const targetIdentityId = clause.targetIdentityId || '';
+
+      const currentIds = (this.data.designationList || []).filter(d => d.clauseId === clauseId).map(d => d.targetHrId);
+      const hrResult = await this.callCloud('listHrInfo');
+      if (hrResult.status !== 'success') { wx.showToast({ title: '加载人事信息失败', icon: 'none' }); return; }
+
+      const currentIdSet = new Set(currentIds);
+      let granteeWgId = '';
+      if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') {
+        const granteeHr = (hrResult.list || []).find(hr => hr.departmentId === granteeDeptId);
+        granteeWgId = granteeHr ? (granteeHr.workGroupId || '') : '';
+      }
+      const filtered = (hrResult.list || []).filter(hr => {
+        if (hr.identityId !== targetIdentityId) return false;
+        if (scopeType === 'all_people' || scopeType === 'identity_only') return true;
+        if (scopeType === 'same_department_identity' || scopeType === 'same_department_all') return hr.departmentId === granteeDeptId;
+        if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') return hr.departmentId === granteeDeptId && hr.workGroupId === granteeWgId;
+        return true;
+      }).map(hr => ({ ...hr, isSelected: currentIdSet.has(hr.id) }));
+      const depts = new Set(filtered.map(hr => hr.department).filter(Boolean));
+      const idents = new Set(filtered.map(hr => hr.identity).filter(Boolean));
+      const selectedList = filtered.filter(hr => hr.isSelected);
+      this.setData({
+        designationPickerHrList: filtered, designationPickerFilteredList: filtered,
+        designationPickerSelectedIds: currentIds, designationPickerSelectedList: selectedList,
+        desigFilterDept: '全部', desigFilterIdent: '全部',
+        desigFilterDeptOptions: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
+        desigFilterIdentOptions: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
+        desigSearchKeyword: ''
+      });
+    } catch (e) { console.error('openDesignationPicker error:', e); wx.showToast({ title: '加载失败: ' + (e.message || '未知错误'), icon: 'none' }); }
+  },
+  closeDesignationPicker() { this.setData({ showDesignationPicker: false }); },
+  onDesignationPickerToggle(e) {
+    const hrId = e.currentTarget.dataset.hrId;
+    const selected = [...this.data.designationPickerSelectedIds];
+    const idx = selected.indexOf(hrId);
+    if (idx >= 0) selected.splice(idx, 1); else selected.push(hrId);
+    const hrList = this.data.designationPickerHrList.map(hr => ({ ...hr, isSelected: hr.id === hrId ? !hr.isSelected : hr.isSelected }));
+    this.setData({
+      designationPickerSelectedIds: selected, designationPickerHrList: hrList,
+      designationPickerFilteredList: this.applyDesigFilters(hrList),
+      designationPickerSelectedList: hrList.filter(hr => hr.isSelected)
+    });
+  },
+  applyDesigFilters(list) {
+    let result = list || this.data.designationPickerHrList;
+    if (this.data.desigFilterDept !== '全部') result = result.filter(hr => hr.department === this.data.desigFilterDept);
+    if (this.data.desigFilterIdent !== '全部') result = result.filter(hr => hr.identity === this.data.desigFilterIdent);
+    if (this.data.desigSearchKeyword) { const kw = this.data.desigSearchKeyword.toLowerCase(); result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw)); }
+    return result;
+  },
+  onDesigFilterChange(e) {
+    const field = e.currentTarget.dataset.field;
+    const options = field === 'identity' ? this.data.desigFilterIdentOptions : this.data.desigFilterDeptOptions;
+    const value = options[Number(e.detail.value)] || '全部';
+    if (field === 'department') this.setData({ desigFilterDept: value }); else this.setData({ desigFilterIdent: value });
+    this.setData({ designationPickerFilteredList: this.applyDesigFilters() });
+  },
+  onDesigSearchInput(e) { this.setData({ desigSearchKeyword: e.detail.value, designationPickerFilteredList: this.applyDesigFilters() }); },
+  async saveDesignations() {
+    const clauseId = this.data.designationPickerClauseId;
+    const pubId = this.data.designationPickerPubId;
+    const hrIds = this.data.designationPickerSelectedIds;
+    this.setLoading('saveDesignations', true);
+    try {
+      const result = await this.callCloud('saveMeritListDesignations', { clauseId, publicationId: pubId, designationHrIds: hrIds });
+      if (result.status === 'success') { wx.showToast({ title: result.message || '已保存', icon: 'success' }); this.closeDesignationPicker(); this.loadPublicationData(this.data.publicationForm.activityId); }
+      else { wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
+    } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
+    this.setLoading('saveDesignations', false);
+  },
+  // ─── Batch category creation (replaces old batch form) ───
+  buildPubScorerCategoryList() {
+    if (!this.data.departmentList.length || !this.data.identityList.length) return;
+    const list = []; const seen = new Set();
+    for (const dept of this.data.departmentList) { for (const ident of this.data.identityList) { const key = dept.id + '::' + ident.id; if (seen.has(key)) continue; seen.add(key); list.push({ key, departmentId: dept.id, department: dept.name, identityId: ident.id, identity: ident.name }); } };
+    const depts = new Set(); const idents = new Set();
+    list.forEach(item => { depts.add(item.department); idents.add(item.identity); });
+    this.setData({ pubBatchList: list, pubBatchFilteredList: list, pubBatchFilterOptions: { departments: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] } });
+  },
+  onPubBatchFilterChange(e) { /* kept for compatibility */ },
+  applyPubBatchFilter(filters) { /* kept for compatibility */ },
+  toggleBatchSelection(e) { /* kept for compatibility */ },
+  toggleSelectAllBatch() { /* kept for compatibility */ },
+  reverseSelectBatch() { /* kept for compatibility */ },
+
+  // Batch save: create a pubViewRule for each selected category
+  async batchSavePubViewRules() {
+    const pubId = this.data.publicationForm.id;
+    if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
+    // Use the current view clauses as template
+    const templateClauses = (this.data.pubViewRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId }));
+    if (!templateClauses.length) { wx.showToast({ title: '请先在当前类别中配置至少一条查看规则条款', icon: 'none' }); return; }
+    this.buildPubScorerCategoryList();
+    const selected = this.data.pubBatchFilteredList.filter(item => this.data.pubBatchSelectedKeys[item.key]);
+    if (!selected.length) { wx.showToast({ title: '请选择至少一个类别（需先在列表中勾选）', icon: 'none' }); return; }
+    this.setLoading('batchSavePubViewRules', true);
+    let count = 0;
+    for (const item of selected) {
+      try {
+        const res = await this.callCloud('savePubViewRule', { publicationId: pubId, granteeDepartmentId: item.departmentId, granteeIdentityId: item.identityId, clauses: templateClauses });
+        if (res.status === 'success') count++;
+      } catch (e) {}
+    }
+    wx.showToast({ title: `已批量授权 ${count} 个类别`, icon: 'success' });
+    this.setLoading('batchSavePubViewRules', false);
+    this.loadPublicationData(this.data.publicationForm.activityId);
+  },
+
+  // Batch save: create a pubMeritRule for each selected category
+  async batchSavePubMeritRules() {
+    const pubId = this.data.publicationForm.id;
+    if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
+    const templateClauses = (this.data.pubMeritRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit || 0, requireExactQuota: c.requireExactQuota || false }));
+    if (!templateClauses.length) { wx.showToast({ title: '请先在当前类别中配置至少一条评优规则条款', icon: 'none' }); return; }
+    this.buildPubScorerCategoryList();
+    const selected = this.data.pubBatchFilteredList.filter(item => this.data.pubBatchSelectedKeys[item.key]);
+    if (!selected.length) { wx.showToast({ title: '请选择至少一个类别', icon: 'none' }); return; }
+    this.setLoading('batchSavePubMeritRules', true);
+    let ok = 0, err = 0;
+    for (const item of selected) {
+      try {
+        const res = await this.callCloud('savePubMeritRule', { publicationId: pubId, granteeDepartmentId: item.departmentId, granteeIdentityId: item.identityId, clauses: templateClauses });
+        if (res.status === 'success') ok++; else err++;
+      } catch (e) { err++; }
+    }
+    let msg = `成功 ${ok} 个`; if (err > 0) msg += `，${err} 个失败`;
+    wx.showToast({ title: msg, icon: ok > 0 ? 'success' : 'none' });
+    this.setLoading('batchSavePubMeritRules', false);
+    this.loadPublicationData(this.data.publicationForm.activityId);
   }
 });

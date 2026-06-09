@@ -1,460 +1,296 @@
-# REDSU Scoring 项目记忆
-
-## 项目基本信息
-
-- 项目名称：REDSU考核评分小程序
-- 项目类型：微信小程序 + 云开发云函数
-- 项目根目录：`D:\WeChat\WHUSUScoring\ScoringServerCloud`
-- 当前主要目录：
-  - `miniprogram/`：小程序前端
-  - `cloudfunctions/`：云函数
-  - `project.config.json`：微信开发者工具项目配置
-  - `memory.md`：当前项目上下文记忆
-
-## 当前前端页面
-
-- `pages/login/login`：登录页
-- `pages/home/home`：首页
-- `pages/score/score`：评分页
-- `pages/admin/admin`：管理端主页
-- `pages/scorerTasks/scorerTasks`：评分人未完成任务页
-- 仍存在但已基本不作为主流程使用的页面：
-  - `pages/index/index`
-  - `pages/logs/logs`
-  - `pages/example/example`
-  - `pages/settings/settings`
-
-## 当前核心业务模型
-
-### 1. 登录与身份
-
-- 支持两类入口：
-  - 普通用户
-  - 管理员
-- 普通用户登录相关云函数：
-  - `userLogin`
-  - `bindUserInfo`
-- 管理员登录相关云函数：
-  - `adminLogin`
-  - `bindAdminInfo`
-- 支持解绑当前身份：
-  - `unbindRole`
-
-### 2. 管理员模型
-
-- 管理员集合：`admin_info`
-- 当前管理员核心字段：
-  - `姓名`
-  - `学号`
-  - `name`
-  - `studentId`
-  - `adminLevel`
-  - `inviteCode`
-  - `openid`
-  - `bindStatus`
-- 管理员类别：
-  - `admin`
-  - `super_admin`
-
-说明：
-- 管理员结构已被简化，不再依赖部门、身份、职能组等普通成员业务字段。
-- 管理员可从 `hr_info` 快速选人，也可手动录入，不要求和普通用户绑定。
-
-### 3. 普通成员与绑定
-
-- 人事信息集合：`hr_info`
-- 普通用户绑定集合：`user_info`
-- `hr_info` 常用字段：
-  - `姓名`
-  - `学号`
-  - `所属部门`
-  - `身份`
-  - `工作分工（职能组）`
-
-### 4. 评分活动
-
-- 集合：`score_activities`
-- 当前活动通过 `isCurrent: true` 标记
-- 所有评分规则、评分记录均已按 `activityId` 进行隔离
-- 删除活动时，需要级联删除该活动下的：
-  - `rate_target_rules`
-  - `score_records`
-
-### 5. 评分问题
-
-- 集合：`score_question_templates`
-- 模板在前端面向用户统一称为“评分问题”
-- 每道题当前支持字段：
-  - `question`
-  - `scoreLabel`
-  - `minValue`
-  - `startValue`
-  - `maxValue`
-  - `stepValue`
-
-说明：
-- `startValue` 缺失时按 `0` 理解
-- `stepValue` 缺失时按 `0.5` 理解
-- 分值说明、活动说明、模板说明支持换行
-
-### 6. 评分人类别与被评分人规则
-
-- 集合：`rate_target_rules`
-- 每条记录代表某个评分活动下的一类评分人类别
-- 评分人类别唯一键逻辑：
-  - `activityId + scorerDepartment + scorerIdentity`
-- 前端面向用户统一称：
-  - “评分人类别”
-  - “被评分人规则”
-  - “评分问题”
-
-每条评分人类别记录下可有多个被评分人规则，规则中可配置：
-- 被评分范围
-- 被评分身份
-- 多个评分问题配置
-- 每个评分问题的权重
-- 每个评分问题的呈现顺序
-- `requireAllComplete`
-
-`requireAllComplete` 说明：
-- 对某一类评分人/被评分人关系，如果该字段为 `true`
-- 某个评分人没有评完该规则下所有应评对象，则其在该规则下所有评分记录都不计入最终核算
-- 缺失或默认情况下按 `false` 处理
-
-### 7. 评分记录
-
-- 集合：`score_records`
-- 当前一条评分记录通常包含：
-  - `activityId`
-  - `activityName`
-  - `ruleId`
-  - `templateConfigSignature`
-  - `templateConfigs`
-  - `scorerId`
-  - `scorerOpenId`
-  - `scorerName`
-  - `scorerStudentId`
-  - `scorerIdentity`
-  - `targetId`
-  - `targetName`
-  - `targetStudentId`
-  - `targetIdentity`
-  - `answers`
-  - `templateScores`
-  - `rawTotalScore`
-  - `weightedTotalScore`
-  - `submittedAt`
-
-记录唯一性要求：
-- 同一 `activityId`
-- 同一评分人
-- 同一被评分人
-- 只允许存在一条有效记录
-- 后提交覆盖先提交
-
-历史记录兼容逻辑：
-- 解绑后重新绑定时，已改为优先通过 `openid`、`学号` 等稳定标识回查历史评分
-- 如果旧记录与当前模板签名不匹配，会删除旧记录并按未评分处理
-
-## 当前普通用户主链路
-
-### 首页
-
-- 进入首页后自动拉取：
-  - 当前评分活动
-  - 当前用户基本信息
-  - 当前活动下该用户可评的被评分人列表
-- 被评分人列表会显示：
-  - 姓名
-  - 部门
-  - 身份
-  - 职能组
-  - 评分状态：`待评分` / `已评分`
-- 列表按 `待评分` 优先排序
-
-### 评分页
-
-- 点击被评分人后进入评分页
-- 评分页会拉取当前活动、当前评分人、当前被评分人对应的评分问题
-- 若规则存在但未配置评分问题，会提示：
-  - `当前被评分人规则尚未配置评分问题，请联系管理员完善设置`
-- 若目标确实不在规则内，才提示不在评分范围内
-
-评分校验当前支持：
-- 填完单题立即校验
-- 提交前全量校验
-- 输入错误会在题目边显示警告
-- 错误文案统一为：
-  - `低于起评分`
-  - `不符合步进值`
-  - `超出评分范围`
-- 提交时若有错误，会自动滚动到第一道有问题的题
-
-## 当前管理端能力
-
-### 已实现模块
-
-- 评分活动管理
-- 评分问题管理
-- 评分人类别与被评分人规则管理
-- 人事成员管理
-- 管理员管理
-- 评分结果查看
-- 未完成评分人任务查看
-- 导出 CSV / Excel
-
-### 结果查看页
-
-- 支持查看：
-  - 总分速览
-  - 总分计算表
-  - 评分明细
-  - 评分记录管理
-- 支持按以下视图筛选：
-  - 所属部门
-  - 身份
-  - 工作分工（职能组）
-- 支持按当前筛选条件导出
-- 分数统一按四舍五入保留 3 位小数
-
-### 完成率看板
-
-- 当前已改成评分人视角，而不是被评分人视角
-- 统计口径：
-  - 只按“评分人是否完成全部评分任务”计算
-  - 不是按待完成条数统计
-- 当前展示：
-  - 按部门聚合的完成率
-  - 完成率百分比
-  - `已完成人数/应评人数`
-- 卡片支持点击查看该部门在当前筛选条件下的具体评分人明细
-- 明细中按未完成在前、已完成在后排序
-
-### 未完成评分人任务页
-
-- 独立页面：`pages/scorerTasks/scorerTasks`
-- 可按以下条件筛选评分人任务：
-  - 所属部门
-  - 身份
-  - 工作分工（职能组）
-  - 姓名/学号关键词
-- 支持查看：
-  - 当前视图下未完成评分人
-  - 每个评分人的完成率
-  - 具体未完成对谁的评分
-- 支持导出：
-  - 概览 CSV / Excel
-  - 明细 CSV / Excel
-
-## 当前重要云函数清单
-
-### 登录与身份
-
-- `userLogin`
-- `adminLogin`
-- `bindUserInfo`
-- `bindAdminInfo`
-- `unbindRole`
-
-### 活动
-
-- `listScoreActivities`
-- `saveScoreActivity`
-- `setCurrentScoreActivity`
-- `deleteScoreActivity`
-- `getCurrentScoreActivity`
-
-### 评分问题
-
-- `listScoreTemplates`
-- `saveScoreTemplate`
-- `deleteScoreTemplate`
-- `duplicateScoreTemplate`
-- `saveScoreTemplateOrder`
-
-### 评分人类别与规则
-
-- `listRateRules`
-- `saveRateRule`
-- `deleteRateRule`
-- `generateRateTargetRules`
-
-### 评分流程
-
-- `getRateTargets`
-- `getScoreFormData`
-- `submitScoreRecord`
-- `getScoreResults`
-- `exportScoreResults`
-- `getScorerTaskStatus`
-- `exportScorerTaskStatus`
-- `revokeScoreRecord`
-
-### 人事与管理员
-
-- `listHrInfo`
-- `saveHrInfo`
-- `deleteHrInfo`
-- `importHrCsv`
-- `listAdmins`
-- `saveAdmin`
-- `deleteAdmin`
-- `exportAdmins`
-- `adminUnbindUser`
-
-## 当前数据库集合清单
-
-- `hr_info`
-- `user_info`
-- `admin_info`
-- `score_activities`
-- `score_question_templates`
-- `rate_target_rules`
-- `score_records`
-
-## 当前已知高风险点
-
-### 1. 云函数性能热点
-
-以下函数最容易在数据量大时变慢或超时：
-- `getScoreResults`
-- `exportScoreResults`
-- `getScorerTaskStatus`
-- `exportScorerTaskStatus`
-- `getRateTargets`
-- `getScoreFormData`
-- `submitScoreRecord`
-
-主要原因：
-- 大量 `limit(1000)` / `limit(2000)` 整表读取
-- 多层循环在内存中做规则匹配
-- 导出时全量重算
-- 部分写入逻辑缺少更强的并发幂等保护
-
-### 2. 编码与历史补丁问题
-
-- 项目历史上存在部分文件编码混乱问题
-- `memory.md` 曾出现乱码，已在 2026-04-25 重写为 UTF-8 中文版
-- `admin.js`、`admin.wxml` 过去多次叠加修改，虽然目前可用，但仍需警惕旧逻辑残留
-
-## 当前推荐索引
-
-建议优先在云数据库中为这些字段建索引：
-
-### `score_records`
-
-- `activityId`
-- `activityId + targetId`
-- `activityId + scorerStudentId`
-- `activityId + scorerOpenId`
-- `activityId + scorerId`
-- `activityId + targetId + scorerStudentId`
-
-### `rate_target_rules`
-
-- `activityId`
-- `activityId + scorerDepartment + scorerIdentity`
-
-### `hr_info`
-
-- `学号`
-- `所属部门 + 身份`
-- `所属部门 + 工作分工（职能组） + 身份`
-
-### `user_info`
-
-- `openid`
-- `学号`
-
-### `admin_info`
-
-- `openid`
-- `学号`
-
-## 最近重要修复记录
-
-- 完成率看板改为评分人视角
-- 看板支持按当前筛选条件联动
-- 新增评分人未完成任务页及导出
-- 核算规则支持 `requireAllComplete`
-- 评分结果支持筛选导出
-- 分数展示统一保留 3 位小数
-- 评分页支持即时校验与提交前自动定位错误题目
-- 评分页顶部评分人/被评分人信息样式已重做
-- 页面标题统一为“页功能 - REDSU考核评分”
-
-## 后续继续开发时的建议
-
-- 修改评分规则时，要同步关注：
-  - 首页被评分人拉取
-  - 评分页模板装配
-  - 评分记录唯一性
-  - 结果核算逻辑
-  - 完成率统计逻辑
-- 修改管理端结果页时，优先检查：
-  - `admin.js`
-  - `admin.wxml`
-  - `getScoreResults`
-  - `getScorerTaskStatus`
-- 修改评分页时，优先检查：
-  - `score.js`
-  - `score.wxml`
-  - `score.wxss`
-  - `getScoreFormData`
-  - `submitScoreRecord`
-
-## 项目迁移到另一台电脑的建议步骤
-
-### 需要带走的内容
-
-至少拷贝或提交到 Git 的内容：
-- 整个项目目录 `ScoringServerCloud`
-- `miniprogram/`
-- `cloudfunctions/`
-- `project.config.json`
-- `project.private.config.json`（如果你希望保留本机配置可一起带，但也可不带）
-- `memory.md`
-
-### 新电脑上需要准备的环境
-
-1. 安装微信开发者工具
-2. 用同一个微信开发者账号登录
-3. 确保有对应云开发环境权限
-4. 安装 Node.js
-5. 如果云函数有依赖，进入对应云函数目录执行依赖安装，或在微信开发者工具里直接“上传并部署：云端安装依赖”
-
-### 迁移步骤
-
-1. 把整个项目目录复制到新电脑
-2. 用微信开发者工具打开 `D:\WeChat\WHUSUScoring\ScoringServerCloud` 对应的新路径
-3. 检查 `project.config.json` 中的 `appid` 是否正确
-4. 检查云开发环境 ID 是否还是原来的环境
-5. 重新编译小程序
-6. 将所有必要云函数重新上传部署
-7. 检查数据库集合是否已存在：
-   - `hr_info`
-   - `user_info`
-   - `admin_info`
-   - `score_activities`
-   - `score_question_templates`
-   - `rate_target_rules`
-   - `score_records`
-8. 检查索引是否也已在目标环境建好
-
-### 最稳的迁移方式
-
-最推荐：
-- 用 Git 管理代码
-- 在新电脑上 `clone` 项目
-- 云数据库仍然使用同一个云开发环境
-
-如果不是同一个云开发环境，而是迁移到全新环境，还需要额外做：
-- 新建数据库集合
-- 手动重建索引
-- 导出原环境数据并导入新环境
-- 重新初始化管理员数据
-
-## 当前文档状态
-
-- 本文件已于 2026-04-25 重建为 UTF-8 中文版
-- 用途：帮助后续继续开发、换电脑接力、网络中断后快速恢复上下文
+# REDSU Scoring System — 项目完整记忆
+
+> 本文件包含项目全部上下文，新会话打开时先读此文件，如同已有上下文。
+> 最后更新：2026-05-04
+
+---
+
+## 1. 项目概述
+
+**REDSU 考核评分系统** — 武汉大学某部门成员互评微信小程序。
+正在从 **微信云函数 + NoSQL** 迁移到 **Node.js Express + MySQL 8.0**。
+
+## 2. 目录结构
+
+```
+ScoringServerDomain/
+├── server/                         # Node.js Express 后端 (新)
+│   ├── .env                        # 数据库、微信、JWT 密钥
+│   ├── package.json
+│   ├── certs/
+│   │   ├── key.pem                 # ECC 私钥 (prime256v1)
+│   │   └── cert.pem                # 自签名证书 (CN=localhost, 10年)
+│   ├── db/
+│   │   ├── init.sql                # 完整 MySQL 建表语句 (535行)
+│   │   └── setup-local.bat         # 交互式本地数据库初始化脚本
+│   └── src/
+│       ├── index.js                # HTTPS Express 入口 (端口 3000)
+│       ├── config/db.js            # mysql2/promise 连接池
+│       ├── middleware/auth.js      # JWT Bearer → req.openid
+│       ├── routes/                 # 15 个路由文件
+│       │   ├── auth.js             # 登录/绑定
+│       │   ├── admin.js            # 管理员管理
+│       │   ├── hr.js               # 人事信息 + CSV批量导入
+│       │   ├── departments.js      # 部门CRUD
+│       │   ├── identities.js       # 身份类别CRUD
+│       │   ├── workGroups.js       # 工作分工商CRUD
+│       │   ├── org.js              # 组织切换/归档
+│       │   ├── activities.js       # 评分活动
+│       │   ├── templates.js        # 评分问题模板
+│       │   ├── rules.js            # 评分规则
+│       │   ├── scoring.js          # 评分提交
+│       │   ├── results.js          # 评分结果
+│       │   ├── hrProfile.js        # 人事扩展资料
+│       │   ├── user.js             # 用户端API
+│       │   └── system.js           # 系统配置
+│       ├── models/                 # 20 个 model 文件 (原生 SQL)
+│       └── utils/
+│           ├── helpers.js          # safeString, generateId(64位), toNumber, roundScore
+│           └── csv.js              # CSV 解析工具
+├── miniprogram/                    # 微信小程序前端 (活跃)
+│   ├── app.js / app.json / app.wxss
+│   ├── utils/api.js                # wx.request 封装 (callFunction)
+│   └── pages/
+│       ├── login/login.js          # 双角色登录 + 绑定
+│       ├── home/home.js            # 主页 (用户/管理双视图)
+│       ├── score/score.js          # 评分表单
+│       ├── admin/admin.js          # 管理面板 (~5400行)
+│       ├── scorerTasks/            # 评分人任务列表
+│       └── settings/               # 设置页
+├── miniprogramCloud/               # 原始云函数前端备份
+└── cloudfunctions/                 # 63个云函数 (已删除，迁移到 Express)
+```
+
+## 3. 数据库架构 (MySQL 8.0)
+
+### 连接信息 (server/.env)
+```
+DB_HOST=localhost
+DB_PORT=3361
+DB_USER=redsu
+DB_PASSWORD=redsu
+DB_NAME=redsu_scoring
+```
+
+MySQL 8.0 Community Server: `C:\Program Files\MySQL\MySQL Server 8.0\`
+连接池: mysql2/promise, connectionLimit=10, charset=utf8mb4
+
+### 表结构总览 (server/db/init.sql)
+
+**所有表使用 VARCHAR(64) 作为主键**，ID 由 `generateId()` 生成（64位 base-62 随机字符串）。
+**无自增 ID，无 code 字段**（外键直接用 id）。
+
+#### 1. 基础组织
+- `organizations` — 组织记录 (id, name)
+- `system_config` — 系统配置 (id='default', timezone=8, current_organization)
+
+#### 2. 组织架构 (无 sort_order)
+- `departments` — 部门 (id, name, description)
+- `identities` — 身份类别 (id, name, description)
+- `work_groups` — 工作分工 (id, name, department_id)
+
+#### 3. 人事信息
+- `hr_info` — 人事记录 (id, name, student_id UNIQUE, department_id, identity_id, work_group_id)
+
+#### 4. 用户绑定
+- `user_info` — 普通用户 (openid UNIQUE, hr_id)
+- `admin_info` — 管理员 (openid, admin_level=root_admin|super_admin, bind_status, invite_code)
+
+#### 5. 评分活动与模板
+- `score_activities` — 评分活动 (name, start_date, end_date, is_current)
+- `score_question_templates` — 评分问题模板 (name, description)
+- `score_questions` — 模板内的问题 (template_id FK, sort_order, question, score_label, min/start/max/step_value)
+
+#### 6. 评分规则
+- `rate_target_rules` — 评分人规则 (activity_id FK, scorer_department_id, scorer_identity_id, scorer_key)
+- `rate_rule_clauses` — 规则条款 (rule_id FK, scope_type, target_identity_id)
+- `clause_template_configs` — 条款↔模板关联 (clause_id FK, template_id FK, sort_order, weight)
+
+#### 7. 评分记录
+- `score_records` — 评分记录 (activity_id, rule_id, scorer_id, target_id, template_config_signature)
+- `score_answers` — 评分答案 (record_id FK, question_index, score)
+
+#### 8. 人事扩展资料
+- `hr_profile_templates` — 资料模板 (template_key UNIQUE, edit_mode)
+- `hr_profile_template_fields` — 模板字段 (template_id FK, sort_order, label, type, validation rules)
+- `hr_profile_records` — 资料记录 (hr_id, audit_status, rejection_reason)
+- `hr_profile_record_values` — 资料值 (record_id FK, field_id, field_value, is_pending)
+
+#### 9. 历史表 (组织切换归档)
+每个主要表都有对应的 `_history` 表：departments, identities, work_groups, hr_info, user_info, admin_info, score_activities, rate_target_rules, rate_rule_clauses, clause_template_configs, hr_profile_templates, hr_profile_template_fields, score_records, score_answers, hr_profile_records, hr_profile_record_values
+
+注意：organizations 没有 _history 表（组织本身不随组织切换产生历史）。
+
+### 当前数据状态
+- `admin_info`: 1条 — 陈逸凡, student_id=2023302181034, admin_level=root_admin, invite_code=A9U49V
+- `hr_info`: **空** — 尚未导入人事数据
+- 其余表: 空
+
+### setup-local.bat 行为
+1. 测试 MySQL 连接
+2. 创建数据库 + 执行 init.sql (如果表已存在则跳过)
+3. 插入 system_config 种子数据
+4. 创建 root admin (如果已有 root_admin 则跳过)
+5. 显示所有表
+
+---
+
+## 4. 认证流程
+
+### JWT 中间件 (server/src/middleware/auth.js)
+- 提取 `Authorization: Bearer <token>` 请求头
+- 用 JWT_SECRET 验证
+- 设置 `req.openid` (无效token则为空字符串)
+- **不拒绝未认证请求** — 由各路由自行检查
+
+### 前端 API 层 (miniprogram/utils/api.js)
+```js
+const API_BASE = 'https://localhost:3000/api';
+callFunction({ name, data, success, fail })
+// 自动添加 Authorization: Bearer <token>
+// 响应包装: success({ result: res.data })
+```
+
+### 登录流程 (miniprogram/pages/login/login.js)
+1. 用户选择角色 → 点击登录
+2. `wx.login()` 获取 code
+3. POST /api/userLogin 或 /api/adminLogin 携带 `{ code }`
+4. 服务端优先检查 JWT (req.openid)，其次使用微信 code2session，最后使用 code 作为开发环境 openid
+5. 前端处理:
+   - `login_success` → 保存 token + profile → 跳转主页
+   - `need_bind` → 保存 token → 显示绑定表单
+   - 其他 → toast 错误信息
+
+### 关键响应契约 (必须精确匹配)
+- **userLogin success**: `{ status: 'login_success', token, user: { id, hrId, name, studentId, departmentId, department, identityId, identity, workGroupId, workGroup } }`
+- **userLogin need_bind**: `{ status: 'need_bind', token }`
+- **adminLogin success**: `{ status: 'login_success', token, user: { ...同上..., adminLevel } }`
+- **bindUserInfo success**: `{ status: 'success', message: '绑定成功', hrInfo: { id, name, studentId } }`
+- **bindAdminInfo success**: `{ status: 'success', message: '管理员绑定成功', token, adminLevel }`
+
+### openid 处理注意
+- `safeString()` 将 null/undefined 转为 '' — 对 NULL openid 检查至关重要
+- admin_info.openid=NULL 表示邀请码未被绑定
+- 两个登录路由都必须在微信 API 不可达时使用开发回退 (code 作为 openid)
+
+---
+
+## 5. 所有已修复的 Bug
+
+### Bug 1: setup-local.bat "此时不应有 0"
+**原因**: `for /f '...'` 中 `'root_admin'` 的单引号破坏了命令分隔符
+**修复**: 使用 `for /f "usebackq skip=1" %%c in (\`mysql ...\`)` (反引号分隔)
+
+### Bug 2: 绑定时 "请先登录"
+**原因**: need_bind 响应不带 token，绑定时 req.openid 为空
+**修复**: userLogin/adminLogin 现在在 need_bind 响应中也返回 token
+
+### Bug 3: 前端从未保存 JWT token
+**原因**: handleLoginResult/handleBindResult 从未调用 wx.setStorageSync
+**修复**: 在两个 handler 中添加 `wx.setStorageSync('token', result.token)`
+
+### Bug 4: admin.openid=NULL 时 "邀请码已被使用"
+**原因**: `safeString(NULL)=''`, `'' !== 'userOpenid'` → true，空 openid 被误判为已绑定
+**修复**: 改为 `if (boundOpenid && boundOpenid !== openid)` — NULL/空 openid 视为可用
+
+### Bug 5: adminLogin 缺少微信 API 开发回退
+**原因**: adminLogin 没有 `if (!openid) openid = code` 的回退逻辑
+**修复**: 添加与 userLogin 匹配的回退逻辑
+
+### Bug 6: 管理员登录成功却显示 "暂时无法登录"
+**原因**: adminLogin 返回 `status: 'success'`（应为 `login_success`），且返回扁平字段而非 `user` 对象
+**修复**: adminLogin 现在返回 `status: 'login_success'` + 完整 `user` 对象
+
+### Bug 7: bind 响应格式不匹配
+**原因**: 前端检查 `status === 'bind_success'` 但服务端返回 `status: 'success'`
+**修复**: 前端改为检查 `status === 'success'`，绑定后关闭弹窗即可
+
+### Bug 8: 普通用户登录后跳转管理员页面
+**原因**: (1) userLogin 忽略 JWT 中的 openid，refreshUserFromCloud 调用时无 code 返回 need_bind → 触发 profile 删除和角色切换
+**修复**: userLogin 优先检查 req.openid，home.js 错误路径不再删除已有 user profile
+
+### Bug 9: CSV 批量导入抹去 work_group 字段
+**原因**: 更新已有记录时无条件覆盖所有字段，CSV 不含 workGroup 则覆盖为空
+**修复**: 更新路径改为 `row.workGroupName ? workGroupId : safeString(prev.work_group_id)`
+
+### Bug 10: setup-local.bat "Unknown command '\`'"
+**原因**: MySQL CLI 将 `\`` 中的 `\` 解释为客户端命令前缀
+**修复**: 移除反斜杠，仅使用反引号引用 MySQL 标识符
+
+### Bug 11: Toast 提示文字被截断 (各页签)
+**原因**: 微信小程序 `wx.showToast` title 限制约 7 个中文字符，多条消息超过此限制
+**修复**: 
+- 修改 `showShortToast()` 函数（admin.js + home.js）自动截断超长文本至 7 字符 + "…"
+- 精简所有超过 7 个中文字符的固定 toast 消息（约 40+ 处）
+- 涉及文件: admin.js, home.js, score.js, login.js
+
+### Bug 12: 人事编辑页选择器加载不全
+**原因**: `editHr` 和 `startCreateHr` 方法没有调用 `updateHrFormOptions()` 填充部门/身份/工作分工下拉选项
+**修复**: 在两个方法中添加 `this.updateHrFormOptions()` 调用
+
+---
+
+## 6. 最新功能更新 (2026-05-04)
+
+### 评分问题拖拽排序
+- **admin.wxml**: 每个问题卡片添加拖拽手柄 (☰) + ↑↓ 圆形箭头按钮
+- **admin.js**: 
+  - `moveQuestionUp/Down(index)` — 按钮交换相邻问题
+  - `startQuestionDrag/onQuestionDragMove/endQuestionDrag` — 长按拖拽排序
+  - `draggingQuestionIndex` 状态追踪，拖拽中卡片半透明
+  - 删除/重置/编辑时重置拖拽状态
+- **admin.wxss**: `.question-header`, `.drag-handle`, `.reorder-btn` 等样式
+- **服务端无需修改**: `templates.js` 保存时以数组索引 `i` 为 `sort_order` 重新写入
+
+### ID 格式变更
+- 所有记录 ID 从 32 位 hex 改为 **64 位 base-62 随机字符串** (generateId)
+- 填充 VARCHAR(64) 最大长度，避免碰撞
+
+### Toast 消息截断修复
+- `showShortToast()` 增加了超 7 字符自动截断逻辑
+- 40+ 条固定 toast 消息精简至 ≤7 个中文汉字
+
+---
+
+## 7. 关键约束
+
+- API 名称、参数、响应格式 = 原云函数
+- 前端包装: `{ result: res.data }` 包裹服务端响应
+- `safeString()` 转换 null/undefined 为 '' — NULL 比较的关键
+- `generateId()` = 64 位 base-62 随机字符串 ([0-9a-zA-Z])
+- 所有 ID 均为 VARCHAR(64)，无自增主键
+- departments/identities/work_groups 无 sort_order
+- 微信开发者工具需开启"不校验合法域名"(自签名 HTTPS 证书)
+- Windows 批处理: `setlocal enabledelayedexpansion` 时在 `endlocal` 前捕获 ERRORLEVEL
+
+## 8. 待办事项
+
+1. 导入 HR 人事数据 (hr_info 表为空)
+2. 端到端测试: 普通用户登录 → 绑定 → login_success → 主页
+3. 端到端测试: 管理员登录 → 绑定 → login_success → 管理面板
+4. 创建组织、部门、身份分类、工作分工
+5. 测试完整评分流程
+6. 部署生产环境 (有效 HTTPS 证书或云域名)
+
+## 9. 环境设置
+
+### 前置条件
+- Node.js 16+
+- MySQL 8.0 Community Server
+- 微信开发者工具
+
+### 快速启动
+```bash
+# 1. 初始化数据库
+cd server/db
+# 双击运行 setup-local.bat
+
+# 2. 启动后端
+cd server
+npm install
+npm start
+# HTTPS 服务运行在 https://localhost:3000
+
+# 3. 用微信开发者工具打开 miniprogram/ 目录
+# 设置 → 不校验合法域名 ☑
+```

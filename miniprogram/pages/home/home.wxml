@@ -5,6 +5,13 @@
     <view class="hero-subtitle">{{heroSubtitle}}</view>
   </view>
 
+  <view class="card activity-card" wx:if="{{organizationName}}">
+    <view class="info-head">
+      <view class="section-title">当前组织</view>
+    </view>
+    <view class="activity-name">{{organizationName}}</view>
+  </view>
+
   <view class="tabs-card" wx:if="{{hasUser && !isAdminRole}}">
     <view
       class="feature-tab {{activeTab === item.key ? 'feature-tab-active' : ''}}"
@@ -57,37 +64,199 @@
       </view>
     </view>
 
+    <view class="stats-bar" wx:if="{{hasUser && !isAdminRole && activeTab === 'scoring'}}">
+      <view class="stat-item">
+        <view class="stat-value">{{scoringStats.total}}</view>
+        <view class="stat-label">待评人数</view>
+      </view>
+      <view class="stat-item">
+        <view class="stat-value stat-value-gold">{{scoringStats.scored}}</view>
+        <view class="stat-label">已完成</view>
+      </view>
+      <view class="stat-item">
+        <view class="stat-value stat-value-blue">{{scoringStats.pending}}</view>
+        <view class="stat-label">待评分</view>
+      </view>
+    </view>
+
     <view class="card targets-card" wx:if="{{hasUser && !isAdminRole && activeTab === 'scoring'}}">
       <view class="info-head">
         <view class="section-title">被评分人</view>
       </view>
 
+      <view class="activity-status-banner paused-banner" wx:if="{{activityPaused}}">
+        <view class="status-banner-text">当前评分活动已暂停</view>
+      </view>
+
       <view class="target-state" wx:if="{{targetsLoading}}">加载中...</view>
 
-      <scroll-view class="target-scroll" scroll-y wx:if="{{!targetsLoading && targetList.length}}">
-        <view
-          class="target-card {{selectedTargetId === item.id ? 'target-card-active' : ''}}"
-          wx:for="{{targetList}}"
-          wx:key="id"
-          data-id="{{item.id}}"
-          data-name="{{item.name}}"
-          bindtap="selectTarget"
-        >
-          <view class="target-main">
-            <view class="target-name">{{item.name}}</view>
-            <view class="target-tags">
-              <view class="target-identity">{{item.identity}}</view>
-              <view class="target-status {{item.scoreStatus === 'scored' ? 'target-status-scored' : 'target-status-pending'}}">
-                {{item.scoreStatusText}}
+      <scroll-view class="target-scroll" scroll-y wx:if="{{!targetsLoading && targetGroups.length}}">
+        <block wx:for="{{targetGroups}}" wx:key="identity">
+          <view class="target-group-label">{{item.identity}}</view>
+          <view
+            class="target-card {{selectedTargetId === target.id ? 'target-card-active' : ''}}"
+            wx:for="{{item.targets}}"
+            wx:key="id"
+            wx:for-item="target"
+            data-id="{{target.id}}"
+            data-name="{{target.name}}"
+            bindtap="selectTarget"
+          >
+            <view class="target-main">
+              <view class="target-name">{{target.name}}</view>
+              <view class="target-tags">
+                <view class="target-identity">{{target.identity}}</view>
+                <view class="target-status {{target.scoreStatus === 'scored' ? 'target-status-scored' : 'target-status-pending'}}">
+                  {{target.scoreStatusText}}
+                </view>
               </view>
             </view>
+            <view class="target-meta">{{target.department}}</view>
+            <view class="target-meta" wx:if="{{target.workGroup}}">{{target.workGroup}}</view>
           </view>
-          <view class="target-meta">{{item.department}}</view>
-          <view class="target-meta" wx:if="{{item.workGroup}}">{{item.workGroup}}</view>
-        </view>
+        </block>
       </scroll-view>
 
       <view class="target-state" wx:if="{{!targetsLoading && !targetList.length}}">{{targetsEmptyText}}</view>
+    </view>
+  </view>
+
+  <view class="panel {{activeTab === 'results' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'results'}}">
+    <view class="card empty-state-card" wx:if="{{!hasPublication}}">
+      <view class="empty-illustration"><view class="empty-icon-clock"></view></view>
+      <view class="empty-title">暂无结果公示</view>
+      <view class="empty-desc">当前暂无结果公示，请等待管理员发布。</view>
+    </view>
+    <view class="card empty-state-card" wx:if="{{hasPublication && !publishedResults.length}}">
+      <view class="empty-illustration"><view class="empty-icon-lock"></view></view>
+      <view class="empty-title">暂无可查看结果</view>
+      <view class="empty-desc">暂无您可查看的评分结果，如有疑问请联系管理员。</view>
+    </view>
+    <view class="card results-panel-card" wx:if="{{hasPublication && publishedResults.length}}">
+      <view class="info-head">
+        <view class="section-title">评分结果</view>
+        <view class="results-count-chip">共 {{publishedResults.length}} 人</view>
+      </view>
+      <view class="stats-bar">
+        <view class="stat-item">
+          <view class="stat-value">{{filteredStatsData.count || publishedResults.length}}</view>
+          <view class="stat-label">公示人数</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value stat-value-gold">{{filteredStatsData.maxScore || '--'}}</view>
+          <view class="stat-label">最高分</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value">{{filteredStatsData.avgScore || '--'}}</view>
+          <view class="stat-label">平均分</view>
+        </view>
+      </view>
+
+      <!-- 搜索 + 筛选 -->
+      <view class="result-filter-area">
+        <view class="result-search-row">
+          <view class="search-icon">🔍</view>
+          <input class="result-search-input" placeholder="搜索姓名 / 身份 / 部门 / 职能组" value="{{resultSearchText}}" bindinput="onResultSearchInput" confirm-type="search" />
+          <view class="search-clear" wx:if="{{resultSearchText}}" bindtap="onResultSearchClear">✕</view>
+        </view>
+        <view class="filter-title">筛选</view>
+        <view class="filter-row" wx:if="{{resultIdentities.length}}">
+          <view class="filter-row-label">身份</view>
+          <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+            <view class="filter-chip {{resultFilterIdentity === '' ? 'filter-chip-active' : ''}}" bindtap="onResultFilterIdentity" data-value="">全部</view>
+            <view class="filter-chip {{resultFilterIdentity === item ? 'filter-chip-active' : ''}}" wx:for="{{resultIdentities}}" wx:key="*this" bindtap="onResultFilterIdentity" data-value="{{item}}">{{item}}</view>
+          </scroll-view>
+        </view>
+        <view class="filter-row" wx:if="{{resultDepartments.length}}">
+          <view class="filter-row-label">部门</view>
+          <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+            <view class="filter-chip {{resultFilterDepartment === '' ? 'filter-chip-active' : ''}}" bindtap="onResultFilterDepartment" data-value="">全部</view>
+            <view class="filter-chip {{resultFilterDepartment === item ? 'filter-chip-active' : ''}}" wx:for="{{resultDepartments}}" wx:key="*this" bindtap="onResultFilterDepartment" data-value="{{item}}">{{item}}</view>
+          </scroll-view>
+        </view>
+        <view class="filter-row" wx:if="{{resultWorkGroups.length}}">
+          <view class="filter-row-label">职能组</view>
+          <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+            <view class="filter-chip {{resultFilterWorkGroup === '' ? 'filter-chip-active' : ''}}" bindtap="onResultFilterWorkGroup" data-value="">全部</view>
+            <view class="filter-chip filter-chip-wg {{resultFilterWorkGroup === item ? 'filter-chip-active' : ''}}" wx:for="{{resultWorkGroups}}" wx:key="*this" bindtap="onResultFilterWorkGroup" data-value="{{item}}">{{item}}</view>
+          </scroll-view>
+        </view>
+        <view class="filter-clear" wx:if="{{resultFilterIdentity || resultFilterDepartment || resultFilterWorkGroup || resultSearchText}}" bindtap="onResultFilterClear">清除全部筛选</view>
+      </view>
+
+      <scroll-view class="results-scroll" scroll-y enhanced show-scrollbar="{{false}}" wx:if="{{filteredResults.length}}">
+      <view class="ranked-list">
+        <view class="rank-card rank-card-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}" wx:for="{{filteredResults}}" wx:key="name" style="animation-delay: {{0.06 * index}}s;">
+          <view class="rank-badge rank-badge-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}">
+            <text wx:if="{{item.rank === 1}}">🥇</text>
+            <text wx:elif="{{item.rank === 2}}">🥈</text>
+            <text wx:elif="{{item.rank === 3}}">🥉</text>
+            <text wx:else>{{item.rank}}</text>
+          </view>
+          <view class="member-info">
+            <view class="member-name">{{item.name}}</view>
+            <view class="member-detail">{{item.identity}}<text wx:if="{{item.department}}"> · {{item.department}}</text><text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
+          </view>
+          <view class="score-display">
+            <view class="score-value">{{item.finalScore}}</view>
+            <view class="score-label">得分</view>
+          </view>
+        </view>
+      </view>
+      </scroll-view>
+      <view class="target-state" wx:if="{{!filteredResults.length && publishedResults.length}}">当前筛选条件下无匹配结果</view>
+    </view>
+  </view>
+
+  <view class="panel {{activeTab === 'meritList' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'meritList'}}">
+    <view class="card empty-state-card" wx:if="{{!hasPublication}}">
+      <view class="empty-illustration"><view class="empty-icon-clock"></view></view>
+      <view class="empty-title">暂无评优名单</view>
+      <view class="empty-desc">当前暂无结果公示，请等待管理员发布。</view>
+    </view>
+    <view class="card empty-state-card" wx:if="{{hasPublication && !hasMeritPerm}}">
+      <view class="empty-illustration"><view class="empty-icon-star"></view></view>
+      <view class="empty-title">暂无评优名单</view>
+      <view class="empty-desc">暂未发布评优名单，如有疑问请联系管理员。</view>
+    </view>
+    <view wx:if="{{hasPublication && hasMeritPerm}}">
+      <view class="info-head">
+        <view class="section-title">🏆 评优名单</view>
+        <view class="results-count-chip">共 {{meritRuleGroups.length}} 个组别</view>
+      </view>
+      <view class="stats-bar">
+        <view class="stat-item">
+          <view class="stat-value stat-value-gold">{{meritRuleGroups.length}}</view>
+          <view class="stat-label">评优组别</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value">{{publishedMeritList.length}}</view>
+          <view class="stat-label">已指定人数</view>
+        </view>
+        <view class="stat-item">
+          <view class="stat-value stat-value-blue">{{meritDeptCount || meritRuleGroups.length}}</view>
+          <view class="stat-label">涉及部门</view>
+        </view>
+      </view>
+      <view class="card targets-card" wx:for="{{meritRuleGroups}}" wx:key="targetIdentity" style="animation: glassFadeUp 0.42s {{0.08 * index}}s ease both;">
+        <view class="merit-rule-head">
+          <view class="target-group-label" style="margin-top:0;">{{item.targetIdentity}}</view>
+          <view class="merit-group-count">{{item.quotaInfo}}</view>
+          <text class="merit-edit-btn" bindtap="openUserDesignation" data-identity="{{item.targetIdentity}}">✎ 编辑</text>
+        </view>
+        <scroll-view class="target-scroll" scroll-y wx:if="{{item.designatedMembers.length}}">
+          <view class="target-card" wx:for="{{item.designatedMembers}}" wx:key="id" wx:for-item="m" style="animation-delay: {{0.05 * index}}s;">
+            <view class="target-main">
+              <view class="target-name">{{m.name}}</view>
+              <view class="target-tags">
+                <view class="target-identity">{{m.identity}}</view>
+              </view>
+            </view>
+            <view class="target-meta">{{m.department}}{{m.workGroup ? ' · ' + m.workGroup : ''}}</view>
+          </view>
+        </scroll-view>
+        <view class="target-state" wx:else>暂未指定人选，点击「编辑名单」开始指定</view>
+      </view>
     </view>
   </view>
 
@@ -142,6 +311,7 @@
       </view>
 
       <view class="profile-form" wx:if="{{!hrProfile.loading && hrProfile.template && hrProfile.template.fields.length}}">
+        <scroll-view class="profile-form-scroll" scroll-y enhanced show-scrollbar="{{false}}">
         <view class="profile-field" wx:for="{{hrProfile.template.fields}}" wx:key="id">
           <view class="profile-field-head">
             <view class="profile-field-title">{{item.label}}<text class="field-required" wx:if="{{item.required}}">*</text></view>
@@ -151,6 +321,7 @@
           <picker
             wx:if="{{item.type === 'sequence'}}"
             range="{{item.options}}"
+            value="{{item.valueIndex}}"
             bindchange="onHrProfileOptionChange"
             data-index="{{index}}"
           >
@@ -213,6 +384,7 @@
 
           <view class="field-hint" wx:if="{{item.hintText}}">{{item.hintText}}</view>
         </view>
+        </scroll-view>
 
         <button
           class="primary-btn profile-submit-btn {{hrProfile.template.editMode === 'audit' ? 'profile-submit-btn-audit' : ''}}"
@@ -237,6 +409,11 @@
     <button class="danger-btn" wx:if="{{hasUser}}" bindtap="openUnbindDialog">解绑当前身份</button>
   </view>
 
+  <view class="page-footer">
+    <view class="footer-name">REDSU考核评分</view>
+    <view class="footer-org">武汉大学学生会</view>
+  </view>
+
   <view class="dialog-layer" wx:if="{{showUnbindDialog}}">
     <view class="dialog-mask" bindtap="closeUnbindDialog"></view>
     <view class="dialog-panel">
@@ -246,6 +423,60 @@
       <view class="dialog-actions">
         <button class="secondary-btn dialog-btn" bindtap="closeUnbindDialog">再想想</button>
         <button class="danger-btn dialog-btn" loading="{{unbindLoading}}" bindtap="confirmUnbind">确认解绑</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="popup-mask" wx:if="{{showUserDesigPopup}}" bindtap="closeUserDesignation">
+    <view class="popup-card desig-popup-card" catchtap="noop">
+      <view class="popup-header"><view class="popup-title">指定评优名单</view><text class="popup-close" bindtap="closeUserDesignation">关闭</text></view>
+      <view class="list-title">当前名单（{{userDesigSelectedIds.length}}人）</view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll">
+        <view class="list-item desig-current-item" wx:for="{{userDesigSelectedList}}" wx:key="id">
+          <view class="list-main">
+            <view class="list-name">{{item.name}}</view>
+            <view class="list-desc">{{item.department}} · {{item.studentId}}</view>
+          </view>
+          <view class="inline-actions list-actions-below">
+            <text class="link danger" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle">移除</text>
+          </view>
+        </view>
+        <view class="empty-inline" wx:if="{{!userDesigSelectedList.length}}">尚未指定任何人</view>
+      </scroll-view>
+      <view class="list-title" style="margin-top:8rpx;">可选成员</view>
+      <view class="rule-filter-row">
+        <view class="rule-filter-field">
+          <view class="field-label">部门</view>
+          <picker range="{{userDesigFilterDeptOptions}}" bindchange="onUserDesigFilterChange" data-field="department">
+            <view class="picker-value compact-picker-value">{{userDesigFilterDept}}</view>
+          </picker>
+        </view>
+        <view class="rule-filter-field">
+          <view class="field-label">身份</view>
+          <picker range="{{userDesigFilterIdentOptions}}" bindchange="onUserDesigFilterChange" data-field="identity">
+            <view class="picker-value compact-picker-value">{{userDesigFilterIdent}}</view>
+          </picker>
+        </view>
+        <view class="rule-filter-field" style="flex:1;">
+          <view class="field-label">搜索</view>
+          <input class="field-input" placeholder="姓名/学号" value="{{userDesigSearchKeyword}}" bindinput="onUserDesigSearchInput"/>
+        </view>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
+        <view wx:if="{{!userDesigFilteredList.length}}" class="empty-inline">没有匹配的成员</view>
+        <view class="list-item" wx:for="{{userDesigFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="onUserDesigToggle" wx:if="{{userDesigFilteredList.length}}">
+          <view class="list-main">
+            <view class="list-name">
+              <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>
+              {{item.name}}
+            </view>
+            <view class="list-desc">{{item.studentId}} · {{item.department}}</view>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="button-row">
+        <button class="secondary-btn" bindtap="closeUserDesignation">取消</button>
+        <button class="primary-btn" loading="{{userDesigSaving}}" bindtap="saveUserDesignations">保存名单（已选{{userDesigSelectedIds.length}}人）</button>
       </view>
     </view>
   </view>

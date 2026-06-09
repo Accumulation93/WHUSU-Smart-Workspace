@@ -1,3 +1,6 @@
+const { callFunction } = require('../../utils/api');
+const { saveAndShareFile } = require('../../utils/tableFile');
+
 function buildOptions(values = []) {
   return ['全部', ...values.filter(Boolean)];
 }
@@ -20,34 +23,29 @@ function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function lerpNumber(a, b, t) {
-  return a + (b - a) * t;
-}
-
-function mixRgb(from, to, t) {
-  const clamped = clampNumber(t, 0, 1);
-  const r = Math.round(lerpNumber(from[0], to[0], clamped));
-  const g = Math.round(lerpNumber(from[1], to[1], clamped));
-  const b = Math.round(lerpNumber(from[2], to[2], clamped));
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
+// ── Progress bar colour: 0–100 HSL lookup (red → orange → yellow → green, always bright) ──
 function getProgressColor(ratePercent) {
-  const percent = clampNumber(toNumber(ratePercent, 0), 0, 100);
-  const low = [239, 68, 68];
-  const mid = [249, 115, 22];
-  const high = [34, 197, 94];
+  const t = clampNumber(toNumber(ratePercent, 0), 0, 100) / 100;
 
-  if (percent <= 50) {
-    return mixRgb(low, mid, percent / 50);
-  }
-  return mixRgb(mid, high, (percent - 50) / 50);
+  // Hue: 0° red → 30° orange → 55° golden-yellow → 140° green
+  let hue;
+  if (t < 0.35)       hue = (t / 0.35) * 30;
+  else if (t < 0.65)  hue = 30 + ((t - 0.35) / 0.30) * 25;
+  else                hue = 55 + ((t - 0.65) / 0.35) * 85;
+
+  // Saturation: high throughout (80–95%), peaking in the middle
+  const sat = 85 + Math.sin(t * Math.PI) * 10;
+
+  // Lightness: bright range (48–58%), peaking at golden-yellow
+  const light = 50 + Math.sin(t * Math.PI) * 8;
+
+  return `hsl(${Math.round(hue)}, ${Math.round(sat)}%, ${Math.round(light)}%)`;
 }
 
 function buildProgressFillStyle(ratePercent) {
   const percent = clampNumber(toNumber(ratePercent, 0), 0, 100);
   const color = getProgressColor(percent);
-  return `width: ${percent}%; background: linear-gradient(90deg, rgba(255,255,255,0.26), ${color});`;
+  return `width: ${percent}%; background: linear-gradient(90deg, rgba(255,255,255,0.30), ${color});`;
 }
 
 function normalizeScorerRows(rows = []) {
@@ -109,7 +107,7 @@ Page({
 
   callCloud(name, data = {}) {
     return new Promise((resolve, reject) => {
-      wx.cloud.callFunction({
+      callFunction({
         name,
         data,
         success: (res) => resolve(res.result || {}),
@@ -298,11 +296,20 @@ Page({
 
   noop() {},
 
-  async exportCurrentView(e) {
+  exportCurrentViewUnified(e) {
     const reportType = e.currentTarget.dataset.report;
-    const format = e.currentTarget.dataset.format;
-    const loadingKey = `${reportType}_${format}`;
-    this.setExportLoading(loadingKey, true);
+    const _this = this;
+    wx.showActionSheet({
+      itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
+      success: function (res) {
+        const format = res.tapIndex === 0 ? 'csv' : 'excel';
+        _this._doExportCurrentView(reportType, format);
+      }
+    });
+  },
+
+  async _doExportCurrentView(reportType, format) {
+    this.setExportLoading(reportType, true);
 
     try {
       const result = await this.callCloud('exportScorerTaskStatus', {
@@ -325,36 +332,14 @@ Page({
         return;
       }
 
-      const extension = result.extension || (format === 'excel' ? 'xls' : 'csv');
-      const filePath = `${wx.env.USER_DATA_PATH}/${result.fileName || '未完成评分导出'}_${Date.now()}.${extension}`;
-      await new Promise((resolve, reject) => {
-        wx.getFileSystemManager().writeFile({
-          filePath,
-          data: result.fileContent,
-          encoding: 'utf8',
-          success: resolve,
-          fail: reject
-        });
-      });
-
-      wx.openDocument({
-        filePath,
-        fileType: extension,
-        showMenu: true,
-        fail: () => {
-          wx.showToast({
-            title: '已导出到本地文件',
-            icon: 'none'
-          });
-        }
-      });
+      saveAndShareFile(result.fileContent, result.fileName || '未完成评分导出', result.extension || 'csv');
     } catch (error) {
       wx.showToast({
         title: getErrorText(error, '导出失败'),
         icon: 'none'
       });
     } finally {
-      this.setExportLoading(loadingKey, false);
+      this.setExportLoading(reportType, false);
     }
   }
 });

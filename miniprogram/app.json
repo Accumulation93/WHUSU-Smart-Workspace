@@ -1,12 +1,24 @@
 {
   "pages": [
     "pages/login/login",
-    "pages/home/home",
-    "pages/score/score",
-    "pages/admin/admin",
-    "pages/scorerTasks/scorerTasks",
-    "pages/index/index",
-    "pages/logs/logs"
+    "pages/home/home"
+  ],
+  "subPackages": [
+    {
+      "root": "pages/score",
+      "name": "scoring",
+      "pages": ["score"]
+    },
+    {
+      "root": "pages/admin",
+      "name": "admin",
+      "pages": ["admin"]
+    },
+    {
+      "root": "pages/scorerTasks",
+      "name": "scorerTasks",
+      "pages": ["scorerTasks"]
+    }
   ],
   "window": {
     "navigationBarTextStyle": "black",

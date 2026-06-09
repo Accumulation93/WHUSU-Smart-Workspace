@@ -27,3 +27,16 @@ build/
 tmp/
 temp/
 
+# Server sensitive files (do not commit credentials)
+server/.env
+server/certs/
+server/node_modules/
+
+# Project-specific sensitive files
+.env
+*.pem
+*.key
+certs/
+
+server/logs/
+server/db/nul_*

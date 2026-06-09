@@ -19,12 +19,17 @@
     <view class="hero-subtitle">按题目完成评分后提交结果</view>
   </view>
 
+  <view class="target-sticky {{showStickyTarget ? 'target-sticky-show' : ''}}" wx:if="{{target.name}}">
+    <view class="target-sticky-label">被评分人</view>
+    <view class="target-sticky-name">{{target.name}}</view>
+  </view>
+
   <view class="card" wx:if="{{loading}}">
     <view class="empty-text">加载中...</view>
   </view>
 
   <view wx:if="{{!loading && !loadFailed}}">
-    <view class="card">
+    <view class="card target-info-card">
       <view class="info-grid">
         <view class="info-block info-block-full">
           <view class="info-label">当前评分活动</view>
@@ -39,9 +44,9 @@
             <view wx:if="{{scorer.workGroup}}">{{scorer.workGroup}}</view>
           </view>
         </view>
-        <view class="info-block">
+        <view class="info-block target-block">
           <view class="info-label">被评分人</view>
-          <view class="info-value">{{target.name}}</view>
+          <view class="info-value target-name-anchor">{{target.name}}</view>
           <view class="info-subvalue">
             <view wx:if="{{target.department}}">{{target.department}}</view>
             <view wx:if="{{target.identity}}">{{target.identity}}</view>
@@ -111,6 +116,11 @@
     <view class="page-submit-bar" wx:if="{{!loading && !loadFailed && questionList.length > 0}}">
       <button class="page-submit-btn" loading="{{submitting}}" bindtap="submitScore">提交评分结果</button>
     </view>
+  </view>
+
+  <view class="page-footer">
+    <view class="footer-name">REDSU考核评分</view>
+    <view class="footer-org">武汉大学学生会</view>
   </view>
 
   <!-- Keyboard: collapsed state -->

@@ -1,5 +1,16 @@
+const { callFunction } = require('../../utils/api');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
+const DEVICE_OPENID_KEY = 'deviceOpenid';
+
+function getDeviceOpenid() {
+  let id = wx.getStorageSync(DEVICE_OPENID_KEY);
+  if (!id) {
+    id = 'DEV_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+    wx.setStorageSync(DEVICE_OPENID_KEY, id);
+  }
+  return id;
+}
 
 const ROLE_MAP = {
   user: {
@@ -8,7 +19,7 @@ const ROLE_MAP = {
     loginFunction: 'userLogin',
     bindFunction: 'bindUserInfo',
     title: '普通用户登录',
-    subtitle: '使用微信授权后进入普通用户端，未完成资料匹配时再补充姓名和学号。',
+    subtitle: '授权微信登录后即可进入，首次使用需完善个人资料。',
     loginButtonText: '普通用户登录',
     bindTitle: '补充普通用户信息',
     bindButtonText: '确认提交'
@@ -19,7 +30,7 @@ const ROLE_MAP = {
     loginFunction: 'adminLogin',
     bindFunction: 'bindAdminInfo',
     title: '管理员登录',
-    subtitle: '管理员使用邀请码完成验证后进入管理端，支持至高权限管理员、超级管理员与普通管理员三种类别。',
+    subtitle: '使用邀请码验证身份后进入管理后台。',
     loginButtonText: '管理员登录',
     bindTitle: '补充管理员信息',
     bindButtonText: '确认提交'
@@ -65,9 +76,10 @@ Page({
   },
 
   onShow() {
-    const storedRole = wx.getStorageSync(ACTIVE_ROLE_KEY);
-    if (storedRole && ROLE_MAP[storedRole] && storedRole !== this.data.activeRole) {
-      this.syncRoleCopy(storedRole);
+    // Always default to user tab on login page — prevents regular users
+    // from accidentally landing on admin tab due to a stored active role.
+    if (this.data.activeRole !== 'user') {
+      this.syncRoleCopy('user');
     }
   },
 
@@ -132,19 +144,31 @@ Page({
 
     this.setData({ loading: true });
 
-    wx.cloud.callFunction({
-      name: config.loginFunction,
-      success: (res) => {
-        this.handleLoginResult(config.key, res.result);
-      },
-      fail: () => {
-        wx.showToast({
-          title: '登录失败',
-          icon: 'error'
+    wx.login({
+      success: (loginRes) => {
+        callFunction({
+          name: config.loginFunction,
+          data: { code: loginRes.code, deviceOpenid: getDeviceOpenid() },
+          success: (res) => {
+            this.handleLoginResult(config.key, res.result);
+          },
+          fail: () => {
+            wx.showToast({
+              title: '登录失败',
+              icon: 'error'
+            });
+          },
+          complete: () => {
+            this.setData({ loading: false });
+          }
         });
       },
-      complete: () => {
+      fail: () => {
         this.setData({ loading: false });
+        wx.showToast({
+          title: '微信登录失败',
+          icon: 'error'
+        });
       }
     });
   },
@@ -156,6 +180,10 @@ Page({
         icon: 'error'
       });
       return;
+    }
+
+    if (result.token) {
+      wx.setStorageSync('token', result.token);
     }
 
     if (result.status === 'login_success') {
@@ -193,7 +221,7 @@ Page({
 
     if (!name || !studentId) {
       wx.showToast({
-        title: '请填写姓名和学号',
+        title: '请填姓名和学号',
         icon: 'none'
       });
       return;
@@ -219,7 +247,7 @@ Page({
 
     this.setData({ loading: true });
 
-    wx.cloud.callFunction({
+    callFunction({
       name: config.bindFunction,
       data: payload,
       success: (res) => {
@@ -246,22 +274,14 @@ Page({
       return;
     }
 
-    if (result.status === 'bind_success') {
-      this.saveProfile(role, result.user);
-      this.setData({
-        showBind: false,
-        sheetClass: 'sheet',
-        name: '',
-        studentId: '',
-        inviteCode: ''
-      });
-      wx.showToast({
-        title: '提交成功',
-        icon: 'success'
-      });
-      wx.redirectTo({
-        url: '/pages/home/home'
-      });
+    if (result.token) {
+      wx.setStorageSync('token', result.token);
+    }
+
+    if (result.status === 'success') {
+      this.setData({ showBind: false, sheetClass: 'sheet', loading: false });
+      wx.showToast({ title: result.message || '绑定成功', icon: 'success' });
+      this.onLogin();
       return;
     }
 
