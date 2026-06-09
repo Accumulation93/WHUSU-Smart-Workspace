@@ -486,7 +486,7 @@ router.post('/getPublicResults', async (req, res) => {
     const viewerHr = await hrInfoModel.getById(safeString(user.hr_id));
     if (!viewerHr) return res.json({ status: 'not_bound', message: '人事信息不存在' });
 
-    const viewer = { id: viewerHr.id, departmentId: safeString(viewerHr.department_id), identityId: safeString(viewerHr.identity_id), workGroupId: safeString(viewerHr.work_group_id) };
+    const viewer = { id: safeString(viewerHr.id), departmentId: safeString(viewerHr.department_id), identityId: safeString(viewerHr.identity_id), workGroupId: safeString(viewerHr.work_group_id) };
 
     const orgId = await getCurrentOrgId();
     const [viewRuleRows] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
@@ -542,13 +542,15 @@ router.post('/getPublicResults', async (req, res) => {
 
     // Compute scores using unified engine (validates identity, template, requireAllComplete)
     const { computeValidScoreMap } = require('../utils/scoreCalc');
-    const scoreMap = await computeValidScoreMap(activityId, orgId, { visibleTargetIds: visibleIds });
+    const rawScoreMap = await computeValidScoreMap(activityId, orgId, { visibleTargetIds: visibleIds });
+    // Defensive: ensure we always get a Map (not the includeCounts return shape)
+    const scoreMap = (rawScoreMap instanceof Map) ? rawScoreMap : (rawScoreMap && rawScoreMap.finalScoreMap instanceof Map ? rawScoreMap.finalScoreMap : new Map());
 
     const results = [];
     for (const member of allMembers) {
       if (!visibleIds.has(member.id)) continue;
       const scoreData = scoreMap.get(member.id);
-      const rawScore = scoreData ? scoreData.finalScore : 0;
+      const rawScore = (scoreData && typeof scoreData.finalScore === 'number') ? scoreData.finalScore : 0;
 
       const resultEntry = {
         name: member.name,

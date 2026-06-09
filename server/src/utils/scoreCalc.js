@@ -481,6 +481,8 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
           targetId,
           scorerCategoryKey,
           templateId,
+          clauseId: matchedClause.id,
+          ruleId: effectiveRule.id,
           weight: toNumber(cfg.weight, 1),
           method: safeString(cfg.calculation_method) || 'weighted_average',
           trimHigh: Number(cfg.trim_high_count || 0),
@@ -549,18 +551,13 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   const finalScoreMap = new Map();
 
   calculationMap.forEach((item, groupKey) => {
-    // Check requireAllComplete exclusion
-    const ruleClauseKey = `${ruleById.get(ruleByKey.get(item.scorerCategoryKey)?.id || '')?.id || ''}::${groupKey.split('::')[1]}::${item.scorerKey}`;
-    // Find if this scorer-clause is invalid
-    let isInvalid = false;
-    for (const [invalidKey] of invalidScorerClauseKeys) {
-      const invalidParts = invalidKey.split('::');
-      if (invalidParts.length >= 3 && invalidParts[2] === item.scorerKey) {
-        isInvalid = true;
-        break;
-      }
+    // Check requireAllComplete exclusion: a scorer who hasn't completed all
+    // required targets for a specific clause should have that clause's scores excluded.
+    // The invalidScorerClauseKeys set stores keys in the format ruleId::clauseId::scorerKey.
+    if (invalidScorerClauseKeys.size > 0) {
+      const itemClauseKey = `${item.ruleId || ''}::${item.clauseId || ''}::${item.scorerKey}`;
+      if (invalidScorerClauseKeys.has(itemClauseKey)) return;
     }
-    if (isInvalid) return;
 
     if (!item.scores.length) return;
     const result = applyCalcMethod(item.scores, item.weight, item.method, item.trimHigh, item.trimLow);

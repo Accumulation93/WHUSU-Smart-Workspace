@@ -7463,10 +7463,10 @@ Page({
     const activity = this.data.activityList[idx];
     if (activity) {
       const activityId = activity.id || '';
-      this.setData({ 'publicationForm.activityId': activityId, 'publicationForm.activityName': activity.name || '' });
-      // 先确保 publication 存在（静默创建），再加载数据
+      this.setData({ 'publicationForm.activityId': activityId, 'publicationForm.activityName': activity.name || '', 'publicationForm.isPublished': false });
+      // 先确保 publication 存在（静默创建），再加载数据（必须 await 避免 isPublished 竞态）
       await this.savePublication(true);
-      this.loadPublicationData(activityId);
+      await this.loadPublicationData(activityId);
     }
   },
   onPublicationToggle(e) { this.setData({ 'publicationForm.isPublished': !!e.detail.value }); },

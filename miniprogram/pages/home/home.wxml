@@ -142,13 +142,20 @@
           <view class="stat-value">{{filteredStatsData.count || publishedResults.length}}</view>
           <view class="stat-label">公示人数</view>
         </view>
-        <view class="stat-item">
-          <view class="stat-value stat-value-gold">{{displayMode === 'grade' ? '等第' : (filteredStatsData.maxScore || '--')}}</view>
-          <view class="stat-label">{{displayMode === 'grade' ? '显示模式' : '最高分'}}</view>
+        <view class="stat-item" wx:if="{{displayMode !== 'grade'}}">
+          <view class="stat-value stat-value-gold">{{filteredStatsData.maxScore || '--'}}</view>
+          <view class="stat-label">最高分</view>
         </view>
-        <view class="stat-item">
-          <view class="stat-value">{{displayMode === 'grade' ? '等第' : (filteredStatsData.avgScore || '--')}}</view>
-          <view class="stat-label">{{displayMode === 'grade' ? '显示模式' : '平均分'}}</view>
+        <view class="stat-item" wx:if="{{displayMode !== 'grade'}}">
+          <view class="stat-value">{{filteredStatsData.avgScore || '--'}}</view>
+          <view class="stat-label">平均分</view>
+        </view>
+      </view>
+      <!-- 等第模式下显示各等第人数分布 -->
+      <view class="grade-distribution" wx:if="{{displayMode === 'grade' && gradeDistribution.length}}">
+        <view class="grade-chip" wx:for="{{gradeDistribution}}" wx:key="grade">
+          <text class="grade-chip-name">{{item.grade}}</text>
+          <text class="grade-chip-count">{{item.count}}人</text>
         </view>
       </view>
 

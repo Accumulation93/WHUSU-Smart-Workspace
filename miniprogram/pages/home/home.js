@@ -244,8 +244,9 @@ Page({
     scoringStats: { total: 0, scored: 0, pending: 0 },
     showUnbindDialog: false,
     unbindLoading: false,
-    userTabs: USER_TABS,
-    activeTab: USER_TABS[0].key,
+    // Start with only always-available tabs; results/meritList added after permission check
+    userTabs: [{ key: 'scoring', label: '考核评分' }, { key: 'profile', label: '人事信息' }],
+    activeTab: 'scoring',
     hrProfile: emptyHrProfileState(),
     publishedResults: [],
     publishedMeritList: [],
@@ -258,6 +259,7 @@ Page({
     userDesigCandidates: [],
     statsData: { count: 0, maxScore: '--', avgScore: '--' },
     displayMode: 'score',
+    gradeDistribution: [],
     resultFilterIdentity: '',
     resultFilterDepartment: '',
     resultFilterWorkGroup: '',
@@ -900,7 +902,16 @@ Page({
           : [...results].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
         sorted.forEach((item, idx) => { item.rank = idx + 1; });
         let statsData;
+        let gradeDistribution = [];
         if (isGrade) {
+          // Compute grade distribution for the stats bar
+          const gradeCountMap = new Map();
+          sorted.forEach(r => {
+            const g = r.grade || '未评级';
+            gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1);
+          });
+          gradeDistribution = Array.from(gradeCountMap.entries())
+            .map(([grade, count]) => ({ grade, count }));
           statsData = { count: sorted.length, maxScore: '--', avgScore: '--' };
         } else {
           const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
@@ -917,7 +928,8 @@ Page({
         const resultDepartments = Array.from(deptSet).sort();
         const resultWorkGroups = Array.from(wgSet).sort();
         this.setData({ publishedResults: sorted, hasPublication: true, hasViewPerm: true, statsData,
-          displayMode, resultIdentities, resultDepartments, resultWorkGroups,
+          displayMode, gradeDistribution,
+          resultIdentities, resultDepartments, resultWorkGroups,
           resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultSearchText: '' });
         this.applyResultFilters();
       } else if (res.status === 'no_permission') {
@@ -1002,7 +1014,15 @@ Page({
       if (!isGradeFilter && typeof item.finalScore === 'number') item.finalScore = item.finalScore.toFixed(3);
     });
     let filteredStatsData;
+    let gradeDistribution;
     if (isGradeFilter) {
+      const gradeCountMap = new Map();
+      sorted.forEach(r => {
+        const g = r.grade || '未评级';
+        gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1);
+      });
+      gradeDistribution = Array.from(gradeCountMap.entries())
+        .map(([grade, count]) => ({ grade, count }));
       filteredStatsData = { count: sorted.length, maxScore: '--', avgScore: '--' };
     } else {
       const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
@@ -1014,7 +1034,8 @@ Page({
     }
     this.setData({
       filteredResults: sorted,
-      filteredStatsData
+      filteredStatsData,
+      gradeDistribution: gradeDistribution || this.data.gradeDistribution || []
     });
   },
 
