@@ -7472,17 +7472,19 @@ Page({
   onPublicationToggle(e) { this.setData({ 'publicationForm.isPublished': !!e.detail.value }); },
   async savePublication(silent) {
     const form = this.data.publicationForm;
-    if (!form.activityId) { if (!silent) wx.showToast({ title: '请选择评分活动', icon: 'none' }); return; }
+    // 区分 bindtap 事件对象（用户点击按钮）和布尔 true（代码静默调用）
+    const isSilent = silent === true;
+    if (!form.activityId) { if (!isSilent) wx.showToast({ title: '请选择评分活动', icon: 'none' }); return; }
     // 静默模式下，如果 publication 已存在则跳过（避免覆盖 isPublished 等已有字段）
-    if (silent && form.id) return;
+    if (isSilent && form.id) return;
     this.setLoading('savePublication', true);
     try {
       const result = await this.callCloud('saveResultPublication', { activityId: form.activityId, isPublished: form.isPublished });
       if (result.status === 'success') {
-        if (!silent) wx.showToast({ title: result.message || '已保存', icon: 'success' });
+        if (!isSilent) wx.showToast({ title: result.message || '已保存', icon: 'success' });
         this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': result.publication.isPublished });
-      } else { if (!silent) wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
-    } catch (e) { if (!silent) wx.showToast({ title: '保存失败', icon: 'none' }); }
+      } else { if (!isSilent) wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
+    } catch (e) { if (!isSilent) wx.showToast({ title: '保存失败', icon: 'none' }); }
     this.setLoading('savePublication', false);
   },
 
