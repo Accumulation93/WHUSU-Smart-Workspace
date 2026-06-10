@@ -559,10 +559,23 @@ router.post('/getPublicResults', async (req, res) => {
       clauseTargetMap.set(clause.id, targetSet);
     }
 
-    // Compute scores once for all visible targets
+    // Compute scores for ALL targets (same as admin overview) to guarantee
+    // the score for any given target is identical regardless of which clause
+    // the viewer is using (own_results, same_work_group, etc.).
+    // The visibleTargetIds optimization is NOT used here because it can
+    // interact with rule scoping in unexpected ways and produce different
+    // scores for the same target depending on which clause's visible set
+    // they appear in.
     const { computeValidScoreMap } = require('../utils/scoreCalc');
-    const rawScoreMap = await computeValidScoreMap(activityId, orgId, { visibleTargetIds: allVisibleIds });
+    const rawScoreMap = await computeValidScoreMap(activityId, orgId, {});
     const scoreMap = (rawScoreMap instanceof Map) ? rawScoreMap : (rawScoreMap && rawScoreMap.finalScoreMap instanceof Map ? rawScoreMap.finalScoreMap : new Map());
+
+    // Diagnostic: log viewer's own score for cross-reference with admin overview
+    console.log('[getPublicResults] viewer score:', JSON.stringify({
+      viewerId: viewer.id,
+      scoreData: scoreMap.get(viewer.id),
+      visibleTargetCount: allVisibleIds.size
+    }));
 
     // Build scope label lookup
     const scopeLabelMap = {
