@@ -1479,8 +1479,8 @@
       <view class="rule-panel">
         <view class="rule-panel-head"><view class="rule-panel-title">公示发布</view><view class="rule-panel-subtitle">选择评分活动后，可开启结果公示并配置查看权限与评优名单</view></view>
         <view class="field"><view class="field-label">评分活动</view><picker range="{{activityList}}" range-key="name" bindchange="onPublicationActivityChange"><view class="picker-value">{{publicationForm.activityName || '请选择活动'}}</view></picker></view>
-        <view wx:if="{{publicationForm.activityId && !publicationsLoading}}">
-          <view class="rule-switch-row"><view><view class="field-label">公示开关</view><view class="rule-panel-subtitle">开启后，被授权的用户可以查看评分结果</view></view><switch checked="{{publicationForm.isPublished}}" color="#2563eb" bindchange="onPublicationToggle"/></view>
+        <view wx:if="{{publicationForm.activityId}}">
+          <view class="rule-switch-row"><view><view class="field-label">公示开关</view><view class="rule-panel-subtitle">开启后，被授权的用户可以查看评分结果</view></view><switch checked="{{!!publicationForm.isPublished}}" color="#2563eb" bindchange="onPublicationToggle"/></view>
           <view class="button-row"><button class="primary-btn" loading="{{loadingMap.savePublication}}" bindtap="savePublication">保存发布设置</button></view>
         </view>
       </view>
@@ -1608,7 +1608,7 @@
       </view>
 
       <!-- ═══ 评优名单汇总（Feature 5） ═══ -->
-      <view class="rule-panel" wx:if="{{publicationForm.id && !publicationsLoading}}" style="margin-top:28rpx;">
+      <view class="rule-panel" wx:if="{{publicationForm.id}}" style="margin-top:28rpx;">
         <view class="rule-panel-head rule-panel-head-row">
           <view>
             <view class="rule-panel-title">🏆 评优名单汇总</view>

@@ -7464,7 +7464,7 @@ Page({
         const viewRules = result.viewRules || [];
         const meritRules = result.meritRules || [];
         this.setData({
-          publicationForm: pub ? { id: pub.id, activityId: pub.activityId, activityName: this.data.publicationForm.activityName, isPublished: pub.isPublished } : { id: '', activityId, activityName: this.data.publicationForm.activityName, isPublished: false },
+          publicationForm: pub ? { id: pub.id, activityId: pub.activityId, activityName: this.data.publicationForm.activityName, isPublished: !!pub.isPublished } : { id: '', activityId, activityName: this.data.publicationForm.activityName, isPublished: false },
           pubViewRuleList: viewRules, pubViewRuleListView: viewRules,
           pubMeritRuleList: meritRules, pubMeritRuleListView: meritRules,
           designationList: result.meritListDesignations || [],
@@ -7607,7 +7607,7 @@ Page({
       const result = await this.callCloud('saveResultPublication', { activityId: form.activityId, isPublished: form.isPublished });
       if (result.status === 'success') {
         if (!isSilent) wx.showToast({ title: result.message || '已保存', icon: 'success' });
-        this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': result.publication.isPublished });
+        this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': !!result.publication.isPublished });
       } else { if (!isSilent) wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
     } catch (e) { if (!isSilent) wx.showToast({ title: '保存失败', icon: 'none' }); }
     this.setLoading('savePublication', false);
