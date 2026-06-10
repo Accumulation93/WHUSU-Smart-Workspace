@@ -692,22 +692,21 @@ router.post('/getPublicMeritList', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
     const designations = await designationModel.getByPublication(publication.id);
-    // Only include designations linked to valid merit clauses in new system
-    const validClauseIds = new Set();
-    if (designations.length > 0) {
-      const [meritRules] = await pool.query('SELECT id FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
-      if (meritRules.length > 0) {
-        const ruleIds = meritRules.map(r => r.id);
-        const rulePh = ruleIds.map(() => '?').join(',');
-        const [clauses] = await pool.query(`SELECT id FROM pub_merit_rule_clauses WHERE rule_id IN (${rulePh})`, ruleIds);
-        clauses.forEach(c => validClauseIds.add(c.id));
+    // Only include designations linked to clauses under the viewer's OWN matching rules.
+    // Build clause set from matchingRules only (not ALL publication rules).
+    const viewerClauseIds = new Set();
+    if (matchingRules.length > 0 && designations.length > 0) {
+      for (const rule of matchingRules) {
+        const [clauses] = await pool.query('SELECT id FROM pub_merit_rule_clauses WHERE rule_id = ?', [rule.id]);
+        clauses.forEach(c => viewerClauseIds.add(c.id));
       }
     }
     const lookups = await fetchOrgLookups();
     const result = [];
     for (const d of designations) {
       const cid = d.clause_id || '';
-      if (!cid || !validClauseIds.has(cid)) continue;
+      // Only show designations that belong to the viewer's own merit rule clauses
+      if (!cid || !viewerClauseIds.has(cid)) continue;
       const hr = await hrInfoModel.getById(d.target_hr_id);
       if (!hr) continue;
       result.push({
