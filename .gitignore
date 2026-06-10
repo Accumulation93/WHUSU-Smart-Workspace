@@ -32,7 +32,6 @@ server/.env
 server/certs/
 server/ssl/
 server/node_modules/
-server/backup.js
 
 # Project-specific sensitive files
 .env
