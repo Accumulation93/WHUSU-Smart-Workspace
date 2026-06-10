@@ -459,11 +459,14 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
     const recordSigNormalized = normalizeSignatureToStructure(recordSig) || recordSig;
     // Compat: old records without signature → accept and mark for auto-repair
     // Records with matching structure → accept
-    // Records with mismatched structure → exclude (template genuinely changed)
-    if (currentSig && recordSigNormalized && currentSig !== recordSigNormalized) {
+    // Records with mismatched structure → accept but flag as sigStale (matching old
+    // admin calculation path behavior which includes stale records in computation).
+    // The template scores are extracted using the CURRENT matched clause's configs,
+    // which is what getRecordTemplateScores in results.js also does.
+    const sigStale = !!(currentSig && recordSigNormalized && currentSig !== recordSigNormalized);
+    if (sigStale) {
       diag_skipped_sig++;
       if (diag_sigDetails.length < 5) diag_sigDetails.push({ recordId: record.id, currentSig: currentSig.substring(0, 120), recordSig: recordSigNormalized.substring(0, 120) });
-      continue;
     }
     const needsRepair = currentSig && (!recordSig || normalizeSignatureToStructure(recordSig) !== recordSig); // old format or no signature
     if (needsRepair) repairMap.set(record.id, currentSig);
@@ -528,17 +531,21 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
     const parts = key.split('::');
     const ruleId = parts[0];
     const clauseId = parts[1];
+    const scorerKey = parts[2]; // scorer's hr_id
 
     const rule = ruleById.get(ruleId);
     if (!rule) return;
     const clause = rule.clauses.find(c => c.id === clauseId);
     if (!clause || !clause.requireAllComplete) return;
 
-    // Find all expected targets for this scorer under this clause
-    // We need to know how many targets the scorer SHOULD have completed
-    // This requires building expected pairs — simplified: count unique targets
-    // in this scorer's department with matching identity
+    // Find all expected targets for this scorer under this clause.
+    // Must account for work-group scoping: for same_work_group_* scopes,
+    // only targets in the scorer's work group are expected.
     const scorerDeptId = rule.departmentId;
+    // Look up the scorer's work_group_id for WG-scope filtering
+    const scorerHr = scorerKey ? hrById.get(scorerKey) : null;
+    const scorerWgId = scorerHr ? safeString(scorerHr.work_group_id) : '';
+
     let expectedTargetCount = 0;
     hrRows.forEach(hr => {
       const tid = safeString(hr.identity_id);
@@ -549,7 +556,7 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
       else if (clause.scopeType === 'same_department_identity' || clause.scopeType === 'same_department_all')
         match = tdid === scorerDeptId;
       else if (clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all')
-        match = tdid === scorerDeptId;
+        match = tdid === scorerDeptId && safeString(hr.work_group_id) === scorerWgId;
       if (match) expectedTargetCount++;
     });
 
