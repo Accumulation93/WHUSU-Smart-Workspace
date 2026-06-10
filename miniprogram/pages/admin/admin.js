@@ -7968,20 +7968,20 @@ Page({
   toggleSelectAllBatch() { /* kept for compatibility */ },
   reverseSelectBatch() { /* kept for compatibility */ },
 
-  // Batch save: create a pubViewRule for each selected category
+  // Batch save: apply current view clauses to selected view rule categories
   async batchSavePubViewRules() {
     const pubId = this.data.publicationForm.id;
     if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
     // Use the current view clauses as template
     const templateClauses = (this.data.pubViewRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] }));
-    this.buildPubScorerCategoryList();
-    const selected = this.data.pubBatchFilteredList.filter(item => this.data.pubBatchSelectedKeys[item.key]);
-    if (!selected.length) { wx.showToast({ title: '请选择至少一个类别（需先在列表中勾选）', icon: 'none' }); return; }
+    // Use the actual user-selected items from the view rules list
+    const selected = (this.data.pubViewRuleList || []).filter(item => this.data.pubViewRuleSelectedIds[item.id]);
+    if (!selected.length) { wx.showToast({ title: '请先在下方列表中勾选需要批量应用的类别', icon: 'none' }); return; }
     this.setLoading('batchSavePubViewRules', true);
     let count = 0;
     for (const item of selected) {
       try {
-        const res = await this.callCloud('savePubViewRule', { publicationId: pubId, granteeDepartmentId: item.departmentId, granteeIdentityId: item.identityId, clauses: templateClauses });
+        const res = await this.callCloud('savePubViewRule', { id: item.id, publicationId: pubId, granteeDepartmentId: item.granteeDepartmentId, granteeIdentityId: item.granteeIdentityId, clauses: templateClauses });
         if (res.status === 'success') count++;
       } catch (e) {}
     }
@@ -7990,19 +7990,19 @@ Page({
     this.loadPublicationData(this.data.publicationForm.activityId);
   },
 
-  // Batch save: create a pubMeritRule for each selected category
+  // Batch save: apply current merit clauses to selected merit rule categories
   async batchSavePubMeritRules() {
     const pubId = this.data.publicationForm.id;
     if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
     const templateClauses = (this.data.pubMeritRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit || 0, requireExactQuota: c.requireExactQuota || false }));
-    this.buildPubScorerCategoryList();
-    const selected = this.data.pubBatchFilteredList.filter(item => this.data.pubBatchSelectedKeys[item.key]);
-    if (!selected.length) { wx.showToast({ title: '请选择至少一个类别', icon: 'none' }); return; }
+    // Use the actual user-selected items from the merit rules list
+    const selected = (this.data.pubMeritRuleList || []).filter(item => this.data.pubMeritRuleSelectedIds[item.id]);
+    if (!selected.length) { wx.showToast({ title: '请先在下方列表中勾选需要批量应用的类别', icon: 'none' }); return; }
     this.setLoading('batchSavePubMeritRules', true);
     let ok = 0, err = 0;
     for (const item of selected) {
       try {
-        const res = await this.callCloud('savePubMeritRule', { publicationId: pubId, granteeDepartmentId: item.departmentId, granteeIdentityId: item.identityId, clauses: templateClauses });
+        const res = await this.callCloud('savePubMeritRule', { id: item.id, publicationId: pubId, granteeDepartmentId: item.granteeDepartmentId, granteeIdentityId: item.granteeIdentityId, clauses: templateClauses });
         if (res.status === 'success') ok++; else err++;
       } catch (e) { err++; }
     }
