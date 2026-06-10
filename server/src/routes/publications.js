@@ -21,6 +21,12 @@ const VALID_SCOPES = ['own_results', 'same_department_identity', 'same_departmen
 const IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity'];
 const VALID_DISPLAY_MODES = ['score', 'grade'];
 
+// Score computation cache for getPublicResults.
+// Full score map is deterministic for a given (activityId, orgId) during publication.
+// Caching avoids redundant three-layer recomputation across concurrent users.
+const PUB_SCORE_CACHE = new Map();
+const PUB_SCORE_CACHE_TTL = 30000; // 30 seconds
+
 /**
  * Apply grade bands to a numeric score. Returns the first matching grade name,
  * or '未评级' if no band matches. Bands must be sorted by sort_order ascending.
@@ -45,11 +51,33 @@ function applyGradeBands(score, bands) {
 
 async function ensureAdmin(openid) { return adminInfoModel.getByOpenid(openid); }
 
+// Cached org lookups (departments, identities, workGroups are stable during publication)
+let _orgLookupsCache = null;
+let _orgLookupsCacheTime = 0;
+const ORG_LOOKUPS_CACHE_TTL = 60000; // 60 seconds
+
 async function fetchOrgLookups() {
+  const now = Date.now();
+  if (_orgLookupsCache && (now - _orgLookupsCacheTime) < ORG_LOOKUPS_CACHE_TTL) return _orgLookupsCache;
   const [departments, identities, workGroups] = await Promise.all([
     departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
   ]);
-  return { departmentsById: buildNameMap(departments), identitiesById: buildNameMap(identities), workGroupsById: buildNameMap(workGroups) };
+  _orgLookupsCache = { departmentsById: buildNameMap(departments), identitiesById: buildNameMap(identities), workGroupsById: buildNameMap(workGroups) };
+  _orgLookupsCacheTime = now;
+  return _orgLookupsCache;
+}
+
+// Cached HR member list per org (HR data is stable during publication)
+const _hrCache = new Map();
+const HR_CACHE_TTL = 60000; // 60 seconds
+
+async function fetchHrMembers(orgId) {
+  const cached = _hrCache.get(orgId);
+  const now = Date.now();
+  if (cached && (now - cached.timestamp) < HR_CACHE_TTL) return cached.rows;
+  const [rows] = await pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
+  _hrCache.set(orgId, { rows, timestamp: now });
+  return rows;
 }
 
 // ─── getResultPublication ───
@@ -531,7 +559,7 @@ router.post('/getPublicResults', async (req, res) => {
       }
     }
 
-    const [hrRows] = await pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
+    const hrRows = await fetchHrMembers(orgId);
     const allMembers = hrRows.map(m => ({
       id: safeString(m.id), name: safeString(m.name), studentId: safeString(m.student_id),
       departmentId: safeString(m.department_id), identityId: safeString(m.identity_id), workGroupId: safeString(m.work_group_id)
@@ -559,16 +587,30 @@ router.post('/getPublicResults', async (req, res) => {
       clauseTargetMap.set(clause.id, targetSet);
     }
 
-    // Compute scores for ALL targets (same as admin overview) to guarantee
-    // the score for any given target is identical regardless of which clause
-    // the viewer is using (own_results, same_work_group, etc.).
-    // The visibleTargetIds optimization is NOT used here because it can
-    // interact with rule scoping in unexpected ways and produce different
-    // scores for the same target depending on which clause's visible set
-    // they appear in.
-    const { computeValidScoreMap } = require('../utils/scoreCalc');
-    const rawScoreMap = await computeValidScoreMap(activityId, orgId, {});
-    const scoreMap = (rawScoreMap instanceof Map) ? rawScoreMap : (rawScoreMap && rawScoreMap.finalScoreMap instanceof Map ? rawScoreMap.finalScoreMap : new Map());
+    // ── Score computation with module-level cache ──
+    // Full three-layer score map is deterministic for a given (activity, org).
+    // Cache hit → O(visibleTargetCount) pure Map lookups, zero DB.
+    const cacheKey = `${activityId}:${orgId}`;
+    let cached = PUB_SCORE_CACHE.get(cacheKey);
+    if (!cached || (Date.now() - cached.timestamp) >= PUB_SCORE_CACHE_TTL) {
+      const { computeValidScoreMap } = require('../utils/scoreCalc');
+      const freshMap = await computeValidScoreMap(activityId, orgId, {});
+      cached = { scoreMap: freshMap, timestamp: Date.now() };
+      PUB_SCORE_CACHE.set(cacheKey, cached);
+      // Opportunistic cleanup of stale entries
+      const now = Date.now();
+      for (const [k, v] of PUB_SCORE_CACHE) {
+        if (now - v.timestamp > PUB_SCORE_CACHE_TTL) PUB_SCORE_CACHE.delete(k);
+      }
+    }
+    const fullScoreMap = (cached.scoreMap instanceof Map) ? cached.scoreMap : (cached.scoreMap && cached.scoreMap.finalScoreMap instanceof Map ? cached.scoreMap.finalScoreMap : new Map());
+
+    // Filter cached full map to visible targets only (pure O(1) Map.get, no side effects)
+    const scoreMap = new Map();
+    for (const tid of allVisibleIds) {
+      const sd = fullScoreMap.get(tid);
+      if (sd) scoreMap.set(tid, sd);
+    }
 
     // Diagnostic: log viewer's own score for cross-reference with admin overview
     console.log('[getPublicResults] viewer score:', JSON.stringify({
@@ -672,9 +714,10 @@ router.post('/getPublicMeritList', async (req, res) => {
     // Check if user has merit list designation permission
     let canDesignate = false;
     let matchingRules = [];
+    let viewerHr = null;
     const user = await userInfoModel.getByOpenid(openid);
     if (user && safeString(user.hr_id)) {
-      const viewerHr = await hrInfoModel.getById(safeString(user.hr_id));
+      viewerHr = await hrInfoModel.getById(safeString(user.hr_id));
       if (viewerHr) {
         const orgId = await getCurrentOrgId();
         const [meritRuleRows] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
@@ -682,10 +725,12 @@ router.post('/getPublicMeritList', async (req, res) => {
           safeString(r.grantee_department_id) === safeString(viewerHr.department_id) &&
           safeString(r.grantee_identity_id) === safeString(viewerHr.identity_id)
         );
-        // Only grant designation right if at least one clause exists
-        for (const rule of matchingRules) {
-          const [[{cnt}]] = await pool.query('SELECT COUNT(*) as cnt FROM pub_merit_rule_clauses WHERE rule_id = ?', [rule.id]);
-          if (cnt > 0) { canDesignate = true; break; }
+        // Only grant designation right if at least one clause exists (batched COUNT)
+        if (matchingRules.length > 0) {
+          const ruleIds = matchingRules.map(r => r.id);
+          const ph = ruleIds.map(() => '?').join(',');
+          const [[{cnt}]] = await pool.query(`SELECT COUNT(*) as cnt FROM pub_merit_rule_clauses WHERE rule_id IN (${ph})`, ruleIds);
+          if (cnt > 0) canDesignate = true;
         }
       }
     }
@@ -703,11 +748,24 @@ router.post('/getPublicMeritList', async (req, res) => {
     }
     const lookups = await fetchOrgLookups();
     const result = [];
+    // Batch-load all designated HRs in a single query instead of N+1
+    let designatedHrMap = new Map(); // hrId -> hr row
+    const designatedHrIds = designations
+      .filter(d => d.clause_id && viewerClauseIds.has(d.clause_id))
+      .map(d => d.target_hr_id);
+    if (designatedHrIds.length > 0) {
+      const ph = designatedHrIds.map(() => '?').join(',');
+      const [designatedHrRows] = await pool.query(
+        `SELECT * FROM hr_info WHERE id IN (${ph}) AND org_id = ?`,
+        [...designatedHrIds, orgId]
+      );
+      designatedHrRows.forEach(hr => designatedHrMap.set(safeString(hr.id), hr));
+    }
     for (const d of designations) {
       const cid = d.clause_id || '';
       // Only show designations that belong to the viewer's own merit rule clauses
       if (!cid || !viewerClauseIds.has(cid)) continue;
-      const hr = await hrInfoModel.getById(d.target_hr_id);
+      const hr = designatedHrMap.get(d.target_hr_id);
       if (!hr) continue;
       result.push({
         id: d.id, targetHrId: d.target_hr_id, name: safeString(hr.name),
@@ -722,14 +780,21 @@ router.post('/getPublicMeritList', async (req, res) => {
     const designationCandidates = [];
     const seenCandidateIds = new Set();
     if (canDesignate) {
-      // Re-query viewer HR info for scope matching (may have been scoped inside the permission check)
-      const viewerHrRef = user && safeString(user.hr_id) ? await hrInfoModel.getById(safeString(user.hr_id)) : null;
-      const viewerDepartmentId = viewerHrRef ? safeString(viewerHrRef.department_id) : '';
-      const viewerIdentityId = viewerHrRef ? safeString(viewerHrRef.identity_id) : '';
-      const viewerWg = viewerHrRef ? safeString(viewerHrRef.work_group_id) : '';
+      // Reuse viewerHr from permission check above (no duplicate query)
+      const viewerDepartmentId = safeString(viewerHr.department_id);
+      const viewerWg = safeString(viewerHr.work_group_id);
 
-      // Fetch all HR for scope matching
+      // Pre-index HR by identity_id for O(1) candidate lookup per clause
       const [allHrMembers] = await pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
+      const hrByIdentity = new Map();
+      allHrMembers.forEach(hr => {
+        const iid = safeString(hr.identity_id);
+        if (!hrByIdentity.has(iid)) hrByIdentity.set(iid, []);
+        hrByIdentity.get(iid).push(hr);
+      });
+
+      // Pre-build Set of already-designated HR IDs for O(1) lookup
+      const designatedIdSet = new Set(result.map(d => d.targetHrId));
 
       for (const rule of matchingRules) {
         const [clauses] = await pool.query('SELECT * FROM pub_merit_rule_clauses WHERE rule_id = ? ORDER BY sort_order', [rule.id]);
@@ -749,8 +814,8 @@ router.post('/getPublicMeritList', async (req, res) => {
           // Build designation candidates for this clause
           const st = safeString(c.scope_type) || 'all_people';
           const tid = safeString(c.target_identity_id);
-          for (const hr of allHrMembers) {
-            if (safeString(hr.identity_id) !== tid) continue;
+          const candidatesForIdentity = hrByIdentity.get(tid) || [];
+          for (const hr of candidatesForIdentity) {
             if (seenCandidateIds.has(hr.id)) continue;
             let match = false;
             if (st === 'all_people' || st === 'identity_only') match = true;
@@ -760,7 +825,6 @@ router.post('/getPublicMeritList', async (req, res) => {
             else if (st === 'same_work_group_all') match = safeString(hr.department_id) === viewerDepartmentId && safeString(hr.work_group_id) === viewerWg;
             if (match) {
               seenCandidateIds.add(hr.id);
-              const alreadySelected = result.some(d => d.targetHrId === hr.id);
               designationCandidates.push({
                 id: hr.id,
                 name: safeString(hr.name),
@@ -770,7 +834,7 @@ router.post('/getPublicMeritList', async (req, res) => {
                 identity: lookups.identitiesById.get(safeString(hr.identity_id)) || '',
                 workGroupId: safeString(hr.work_group_id),
                 workGroup: lookups.workGroupsById.get(safeString(hr.work_group_id)) || '',
-                isSelected: alreadySelected,
+                isSelected: designatedIdSet.has(hr.id),
                 targetIdentityId: tid,
                 targetIdentity: targetIdentityName
               });
