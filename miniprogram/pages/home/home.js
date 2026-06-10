@@ -1007,6 +1007,7 @@ Page({
       (r.workGroup || '').toLowerCase().indexOf(searchText) >= 0
     );
     // Always sort by score descending regardless of display mode
+    const isGradeFilter = this.data.displayMode === 'grade';
     const sorted = [...filtered].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
     sorted.forEach((item, idx) => {
       item.rank = idx + 1;
