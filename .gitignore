@@ -30,13 +30,18 @@ temp/
 # Server sensitive files (do not commit credentials)
 server/.env
 server/certs/
+server/ssl/
 server/node_modules/
+server/backup.js
 
 # Project-specific sensitive files
 .env
 *.pem
 *.key
 certs/
+
+# Audit reports (generated, do not commit)
+*audit_report*
 
 server/logs/
 server/db/nul_*
