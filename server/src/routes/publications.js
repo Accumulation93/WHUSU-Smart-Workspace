@@ -28,11 +28,11 @@ const VALID_DISPLAY_MODES = ['score', 'grade'];
 function applyGradeBands(score, bands) {
   if (!Array.isArray(bands) || !bands.length) return '未评级';
   for (const band of bands) {
-    const minScore = Number(band.min_score != null ? band.min_score : band.minScore);
-    const maxScore = Number(band.max_score != null ? band.max_score : band.maxScore);
+    const minScore = Number(band.minScore != null ? band.minScore : band.min_score);
+    const maxScore = Number(band.maxScore != null ? band.maxScore : band.max_score);
     if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) continue;
     if (score >= minScore && score <= maxScore) {
-      return band.grade_name || band.gradeName || '';
+      return band.gradeName || band.grade_name || '';
     }
   }
   return '未评级';
@@ -506,17 +506,24 @@ router.post('/getPublicResults', async (req, res) => {
     const gradeBandsByClause = new Map();
     {
       const clauseIds = matchingClauses.map(c => c.id);
-      const ph = clauseIds.map(() => '?').join(',');
-      try {
-        const [allGradeBands] = await pool.query(
-          `SELECT * FROM pub_grade_bands WHERE clause_id IN (${ph}) AND org_id = ? ORDER BY clause_id, sort_order ASC`,
-          [...clauseIds, orgId]
-        );
-        allGradeBands.forEach(gb => {
-          if (!gradeBandsByClause.has(gb.clause_id)) gradeBandsByClause.set(gb.clause_id, []);
-          gradeBandsByClause.get(gb.clause_id).push(gb);
-        });
-      } catch (e) { /* table may not exist */ }
+      if (clauseIds.length > 0) {
+        const ph = clauseIds.map(() => '?').join(',');
+        try {
+          const [allGradeBands] = await pool.query(
+            `SELECT * FROM pub_grade_bands WHERE clause_id IN (${ph}) AND org_id = ? ORDER BY clause_id, sort_order ASC`,
+            [...clauseIds, orgId]
+          );
+          allGradeBands.forEach(gb => {
+            if (!gradeBandsByClause.has(gb.clause_id)) gradeBandsByClause.set(gb.clause_id, []);
+            gradeBandsByClause.get(gb.clause_id).push({
+              minScore: Number(gb.min_score), maxScore: Number(gb.max_score),
+              gradeName: safeString(gb.grade_name)
+            });
+          });
+        } catch (e) {
+          console.error('[getPublicResults] Failed to load grade bands:', e.message);
+        }
+      }
     }
 
     const [hrRows] = await pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
@@ -596,11 +603,20 @@ router.post('/getPublicResults', async (req, res) => {
           finalScore: Number(rawScore).toFixed(3)
         };
 
-        if (clauseDisplayMode === 'grade' && clauseGradeBands.length) {
+        // Always map grade when in grade mode (fallback to '未评级' if no bands or no match)
+        if (clauseDisplayMode === 'grade') {
           entry.grade = applyGradeBands(rawScore, clauseGradeBands);
         }
 
         members.push(entry);
+      }
+
+      // Diagnostic: log first group's scores for debugging
+      if (members.length > 0) {
+        console.log('[getPublicResults] clause', clause.id, 'displayMode:', clauseDisplayMode,
+          'bandCount:', clauseGradeBands.length,
+          'memberCount:', members.length,
+          'sampleScores:', members.slice(0, 3).map(m => ({ name: m.name, raw: m.sortScore, grade: m.grade, display: m.finalScore })));
       }
 
       // Sort members by score descending
