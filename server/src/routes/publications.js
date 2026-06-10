@@ -502,21 +502,21 @@ router.post('/getPublicResults', async (req, res) => {
     }
     if (!matchingClauses.length) return res.json({ status: 'no_permission', message: '暂无查看评分结果的权限' });
 
-    // Determine display mode from the first matching clause (per-clause level)
-    const displayMode = safeString(matchingClauses[0].display_mode) || 'score';
-    let gradeBands = [];
-    if (displayMode === 'grade') {
+    // Load per-clause grade bands in one batch
+    const gradeBandsByClause = new Map();
+    {
+      const clauseIds = matchingClauses.map(c => c.id);
+      const ph = clauseIds.map(() => '?').join(',');
       try {
-        const clauseIds = matchingClauses.map(c => c.id);
-        const ph = clauseIds.map(() => '?').join(',');
-        const [gbRows] = await pool.query(
+        const [allGradeBands] = await pool.query(
           `SELECT * FROM pub_grade_bands WHERE clause_id IN (${ph}) AND org_id = ? ORDER BY clause_id, sort_order ASC`,
           [...clauseIds, orgId]
         );
-        gradeBands = gbRows;
-      } catch (e) {
-        // Table may not exist yet — fall back to score display
-      }
+        allGradeBands.forEach(gb => {
+          if (!gradeBandsByClause.has(gb.clause_id)) gradeBandsByClause.set(gb.clause_id, []);
+          gradeBandsByClause.get(gb.clause_id).push(gb);
+        });
+      } catch (e) { /* table may not exist */ }
     }
 
     const [hrRows] = await pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
@@ -536,58 +536,88 @@ router.post('/getPublicResults', async (req, res) => {
       return false;
     }
 
-    const visibleIds = new Set();
-    for (const m of allMembers) {
-      for (const clause of matchingClauses) { if (matchScope(m, clause)) { visibleIds.add(m.id); break; } }
+    // Build clause → target mapping (each target can appear in multiple clauses)
+    const clauseTargetMap = new Map(); // clauseId → Set of target IDs
+    const allVisibleIds = new Set();
+    for (const clause of matchingClauses) {
+      const targetSet = new Set();
+      for (const m of allMembers) {
+        if (matchScope(m, clause)) { targetSet.add(m.id); allVisibleIds.add(m.id); }
+      }
+      clauseTargetMap.set(clause.id, targetSet);
     }
 
-    // Compute scores using unified engine (validates identity, template, requireAllComplete)
+    // Compute scores once for all visible targets
     const { computeValidScoreMap } = require('../utils/scoreCalc');
-    const rawScoreMap = await computeValidScoreMap(activityId, orgId, { visibleTargetIds: visibleIds });
-    // Defensive: ensure we always get a Map (not the includeCounts return shape)
+    const rawScoreMap = await computeValidScoreMap(activityId, orgId, { visibleTargetIds: allVisibleIds });
     const scoreMap = (rawScoreMap instanceof Map) ? rawScoreMap : (rawScoreMap && rawScoreMap.finalScoreMap instanceof Map ? rawScoreMap.finalScoreMap : new Map());
-    // ── Diagnostic logging: help identify why scores may be 0 ──
-    const diag = { visibleCount: visibleIds.size, scoreMapSize: scoreMap.size, rawScoreMapType: typeof rawScoreMap, rawScoreMapIsMap: rawScoreMap instanceof Map, sampleScores: [] };
-    if (scoreMap.size > 0) {
-      const samples = [];
-      let sampled = 0;
-      for (const [id, data] of scoreMap) { if (sampled >= 5) break; samples.push({ id, finalScore: data.finalScore }); sampled++; }
-      diag.sampleScores = samples;
-    }
-    console.log('[getPublicResults] score diagnostics:', JSON.stringify(diag));
 
-    const results = [];
-    for (const member of allMembers) {
-      if (!visibleIds.has(member.id)) continue;
-      const scoreData = scoreMap.get(member.id);
-      const rawScore = (scoreData && typeof scoreData.finalScore === 'number') ? scoreData.finalScore : 0;
+    // Build scope label lookup
+    const scopeLabelMap = {
+      own_results: '我的结果',
+      same_department_identity: '同部门',
+      same_department_all: '同部门全部',
+      same_work_group_identity: '同职能组',
+      same_work_group_all: '同职能组全部',
+      all_people: '全部成员'
+    };
 
-      const resultEntry = {
-        name: member.name,
-        department: lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || '未分类',
-        identity: lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || '未分类',
-        workGroup: lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || '未分类',
-        sortScore: rawScore
-      };
+    // Build per-clause groups
+    const groups = [];
+    const seenMemberInClause = new Map(); // memberId → Set of clauseIds (for dedup across clauses)
+    const memberCache = new Map(); // memberId → enriched member data
 
-      if (displayMode === 'grade') {
-        // Server-side grade computation — frontend receives grade + sortScore for ordering
-        resultEntry.grade = applyGradeBands(rawScore, gradeBands);
-        resultEntry.finalScore = Number(rawScore).toFixed(3);
-      } else {
-        // Default: expose numeric score (backward compatible)
-        resultEntry.finalScore = Number(rawScore).toFixed(3);
+    for (const clause of matchingClauses) {
+      const targetIds = clauseTargetMap.get(clause.id) || new Set();
+      if (!targetIds.size) continue;
+
+      const clauseDisplayMode = safeString(clause.display_mode) || 'score';
+      const clauseGradeBands = gradeBandsByClause.get(clause.id) || [];
+      const targetIdentityName = lookups.identitiesById.get(safeString(clause.target_identity_id)) || '';
+
+      // Build group label
+      let groupLabel = scopeLabelMap[safeString(clause.scope_type)] || safeString(clause.scope_type);
+      if (targetIdentityName) groupLabel = groupLabel + ' ' + targetIdentityName;
+      if (clauseDisplayMode === 'grade') groupLabel = groupLabel + '（等第）';
+
+      const members = [];
+      for (const targetId of targetIds) {
+        const member = allMembers.find(m => m.id === targetId);
+        if (!member) continue;
+        const scoreData = scoreMap.get(member.id);
+        const rawScore = (scoreData && typeof scoreData.finalScore === 'number') ? scoreData.finalScore : 0;
+
+        const entry = {
+          name: member.name,
+          department: lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || '未分类',
+          identity: lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || '未分类',
+          workGroup: lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || '未分类',
+          sortScore: rawScore,
+          finalScore: Number(rawScore).toFixed(3)
+        };
+
+        if (clauseDisplayMode === 'grade' && clauseGradeBands.length) {
+          entry.grade = applyGradeBands(rawScore, clauseGradeBands);
+        }
+
+        members.push(entry);
       }
 
-      results.push(resultEntry);
+      // Sort members by score descending
+      members.sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
+
+      groups.push({
+        clauseId: clause.id,
+        displayMode: clauseDisplayMode,
+        groupLabel,
+        memberCount: members.length,
+        members
+      });
     }
-    // Always sort by score descending regardless of display mode
-    results.sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
 
     res.json({
       status: 'success',
-      displayMode,
-      results
+      groups
     });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });

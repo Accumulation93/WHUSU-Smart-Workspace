@@ -249,6 +249,7 @@ Page({
     activeTab: 'scoring',
     hrProfile: emptyHrProfileState(),
     publishedResults: [],
+    publishedGroups: [],
     publishedMeritList: [],
     publishedMeritGroups: [],
     meritRuleGroups: [],
@@ -269,7 +270,9 @@ Page({
     resultDepartments: [],
     resultWorkGroups: [],
     filteredResults: [],
+    filteredGroups: [],
     filteredStatsData: { count: 0, maxScore: '--', avgScore: '--' },
+    expandedResultGroupClauseId: '',
     showUserDesigPopup: false,
     userDesigPerms: [],
     userDesigHrList: [],
@@ -891,46 +894,70 @@ Page({
       if (res.status === 'success') {
         const displayMode = res.displayMode || 'score';
         const isGrade = displayMode === 'grade';
-        const results = (res.results || []).map(r => ({
-          ...r,
-          // Keep both fields: grade for grade mode, finalScore for score mode
-          grade: r.grade || '',
-          finalScore: isGrade ? '' : (typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000')),
-          sortScore: typeof r.sortScore === 'number' ? r.sortScore : (parseFloat(r.finalScore) || 0)
+        // Support both legacy flat results and new per-clause groups
+        const groups = res.groups || [];
+        const flatResults = res.results || [];
+
+        // Enrich groups with sorting
+        const enrichedGroups = groups.map(group => ({
+          ...group,
+          members: (group.members || []).map(m => ({
+            ...m,
+            grade: m.grade || '',
+            sortScore: typeof m.sortScore === 'number' ? m.sortScore : (parseFloat(m.finalScore) || 0)
+          })).sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0))
         }));
-        // Always sort by score descending regardless of display mode
-        const sorted = [...results].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
-        sorted.forEach((item, idx) => { item.rank = idx + 1; });
-        let statsData;
-        let gradeDistribution = [];
-        if (isGrade) {
-          // Compute grade distribution for the stats bar
-          const gradeCountMap = new Map();
-          sorted.forEach(r => {
-            const g = r.grade || '未评级';
-            gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1);
-          });
-          gradeDistribution = Array.from(gradeCountMap.entries())
-            .map(([grade, count]) => ({ grade, count }));
-          statsData = { count: sorted.length, maxScore: '--', avgScore: '--' };
-        } else {
-          const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
-          statsData = {
-            count: sorted.length,
-            maxScore: scores.length ? Math.max(...scores).toFixed(1) : '--',
-            avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '--'
-          };
+
+        // Build flat results from all groups for filtering compatibility
+        const allMembers = [];
+        enrichedGroups.forEach(g => { g.members.forEach(m => { allMembers.push(m); }); });
+
+        // Legacy: if server returned flat results
+        let sorted = [];
+        if (flatResults.length && !enrichedGroups.length) {
+          const results = flatResults.map(r => ({
+            ...r,
+            grade: r.grade || '',
+            finalScore: isGrade ? '' : (typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000')),
+            sortScore: typeof r.sortScore === 'number' ? r.sortScore : (parseFloat(r.finalScore) || 0)
+          }));
+          sorted = [...results].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
+        } else if (allMembers.length) {
+          sorted = [...allMembers].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
         }
-        // Extract available filter options
+        sorted.forEach((item, idx) => { item.rank = idx + 1; });
+
+        // Flatten all members for stats
+        const allScores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
+
+        // Grade distribution from all members (for grade filter chips)
+        const gradeCountMap = new Map();
+        sorted.forEach(r => {
+          const g = r.grade || (isGrade ? '未评级' : '');
+          if (g) gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1);
+        });
+        const gradeDistribution = Array.from(gradeCountMap.entries())
+          .map(([grade, count]) => ({ grade, count }));
+
+        const statsData = isGrade
+          ? { count: sorted.length, maxScore: '--', avgScore: '--' }
+          : {
+              count: sorted.length,
+              maxScore: allScores.length ? Math.max(...allScores).toFixed(1) : '--',
+              avgScore: allScores.length ? (allScores.reduce((a, b) => a + b, 0) / allScores.length).toFixed(1) : '--'
+            };
+
+        // Extract filter options from all members
         const idSet = new Set(); const deptSet = new Set(); const wgSet = new Set();
         sorted.forEach(r => { if (r.identity) idSet.add(r.identity); if (r.department) deptSet.add(r.department); if (r.workGroup) wgSet.add(r.workGroup); });
         const resultIdentities = Array.from(idSet).sort();
         const resultDepartments = Array.from(deptSet).sort();
         const resultWorkGroups = Array.from(wgSet).sort();
-        this.setData({ publishedResults: sorted, hasPublication: true, hasViewPerm: true, statsData,
+
+        this.setData({ publishedResults: sorted, publishedGroups: enrichedGroups, hasPublication: true, hasViewPerm: true, statsData,
           displayMode, gradeDistribution,
           resultIdentities, resultDepartments, resultWorkGroups,
-          resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultSearchText: '' });
+          resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultFilterGrade: '', resultSearchText: '' });
         this.applyResultFilters();
       } else if (res.status === 'no_permission') {
         this.setData({ publishedResults: [], hasPublication: true, hasViewPerm: false });
@@ -990,53 +1017,70 @@ Page({
 
   applyResultFilters() {
     const base = this.data.publishedResults || [];
+    const baseGroups = this.data.publishedGroups || [];
     const idFilter = this.data.resultFilterIdentity || '';
     const deptFilter = this.data.resultFilterDepartment || '';
     const wgFilter = this.data.resultFilterWorkGroup || '';
     const gradeFilter = this.data.resultFilterGrade || '';
     const searchText = (this.data.resultSearchText || '').trim().toLowerCase();
-    let filtered = base;
-    if (idFilter) filtered = filtered.filter(r => r.identity === idFilter);
-    if (deptFilter) filtered = filtered.filter(r => r.department === deptFilter);
-    if (wgFilter) filtered = filtered.filter(r => r.workGroup === wgFilter);
-    if (gradeFilter) filtered = filtered.filter(r => (r.grade || '未评级') === gradeFilter);
-    if (searchText) filtered = filtered.filter(r =>
-      (r.name || '').toLowerCase().indexOf(searchText) >= 0 ||
-      (r.identity || '').toLowerCase().indexOf(searchText) >= 0 ||
-      (r.department || '').toLowerCase().indexOf(searchText) >= 0 ||
-      (r.workGroup || '').toLowerCase().indexOf(searchText) >= 0
-    );
-    // Always sort by score descending regardless of display mode
-    const isGradeFilter = this.data.displayMode === 'grade';
+
+    const memberMatches = function(r) {
+      if (idFilter && r.identity !== idFilter) return false;
+      if (deptFilter && r.department !== deptFilter) return false;
+      if (wgFilter && r.workGroup !== wgFilter) return false;
+      if (gradeFilter && (r.grade || '未评级') !== gradeFilter) return false;
+      if (searchText) {
+        const s = searchText;
+        if ((r.name || '').toLowerCase().indexOf(s) < 0 &&
+            (r.identity || '').toLowerCase().indexOf(s) < 0 &&
+            (r.department || '').toLowerCase().indexOf(s) < 0 &&
+            (r.workGroup || '').toLowerCase().indexOf(s) < 0) return false;
+      }
+      return true;
+    };
+
+    // Flat filtered results (legacy)
+    let filtered = base.filter(memberMatches);
     const sorted = [...filtered].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
-    sorted.forEach((item, idx) => {
-      item.rank = idx + 1;
-      if (!isGradeFilter && typeof item.finalScore === 'number') item.finalScore = item.finalScore.toFixed(3);
-    });
+    sorted.forEach((item, idx) => { item.rank = idx + 1; });
+
+    // Filtered groups
+    const filteredGroups = baseGroups.map(group => ({
+      ...group,
+      members: (group.members || []).filter(memberMatches)
+    })).filter(group => group.members.length > 0);
+
+    // Stats from all filtered members
+    const allFiltered = [];
+    filteredGroups.forEach(g => { g.members.forEach(m => { allFiltered.push(m); }); });
+    if (!allFiltered.length && sorted.length) sorted.forEach(m => allFiltered.push(m));
+
+    const hasAnyGrade = allFiltered.some(r => r.grade);
     let filteredStatsData;
     let gradeDistribution;
-    if (isGradeFilter) {
+    if (hasAnyGrade) {
       const gradeCountMap = new Map();
-      sorted.forEach(r => {
-        const g = r.grade || '未评级';
-        gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1);
-      });
-      gradeDistribution = Array.from(gradeCountMap.entries())
-        .map(([grade, count]) => ({ grade, count }));
-      filteredStatsData = { count: sorted.length, maxScore: '--', avgScore: '--' };
+      allFiltered.forEach(r => { const g = r.grade || '未评级'; gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1); });
+      gradeDistribution = Array.from(gradeCountMap.entries()).map(([grade, count]) => ({ grade, count }));
+      filteredStatsData = { count: allFiltered.length, maxScore: '--', avgScore: '--' };
     } else {
-      const scores = sorted.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
+      const scores = allFiltered.map(r => parseFloat(r.finalScore) || 0).filter(s => !isNaN(s));
       filteredStatsData = {
-        count: sorted.length,
+        count: allFiltered.length,
         maxScore: scores.length ? Math.max(...scores).toFixed(1) : '--',
         avgScore: scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '--'
       };
     }
     this.setData({
       filteredResults: sorted,
+      filteredGroups,
       filteredStatsData,
       gradeDistribution: gradeDistribution || this.data.gradeDistribution || []
     });
+  },
+  toggleResultGroup(e) {
+    const clauseId = e.currentTarget.dataset.clauseId || '';
+    this.setData({ expandedResultGroupClauseId: this.data.expandedResultGroupClauseId === clauseId ? '' : clauseId });
   },
 
   onResultFilterClear() {

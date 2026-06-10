@@ -191,7 +191,44 @@
         <view class="filter-clear" wx:if="{{resultFilterIdentity || resultFilterDepartment || resultFilterWorkGroup || resultFilterGrade || resultSearchText}}" bindtap="onResultFilterClear">清除全部筛选</view>
       </view>
 
-      <scroll-view class="results-scroll" scroll-y enhanced show-scrollbar="{{false}}" wx:if="{{filteredResults.length}}">
+      <!-- Grouped bubble cards (new per-clause mode) -->
+      <view class="result-groups-area" wx:if="{{filteredGroups.length}}">
+        <view class="result-group-bubble" wx:for="{{filteredGroups}}" wx:key="clauseId" wx:for-item="group" wx:for-index="gi" style="animation: glassFadeUp 0.38s {{0.07 * gi}}s ease both;">
+          <view class="result-group-head" data-clause-id="{{group.clauseId}}" bindtap="toggleResultGroup">
+            <view class="result-group-head-left">
+              <view class="result-group-label">{{group.groupLabel}}</view>
+              <view class="result-group-mode-chip {{group.displayMode === 'grade' ? 'result-group-mode-grade' : 'result-group-mode-score'}}">{{group.displayMode === 'grade' ? '等第' : '分数'}}</view>
+            </view>
+            <view class="result-group-head-right">
+              <view class="result-group-count">{{group.memberCount}}人</view>
+              <text class="result-group-arrow">{{expandedResultGroupClauseId === group.clauseId ? '▲' : '▼'}}</text>
+            </view>
+          </view>
+          <view class="result-group-body" wx:if="{{expandedResultGroupClauseId === group.clauseId || filteredGroups.length === 1}}">
+            <view class="ranked-list">
+              <view class="rank-card rank-card-{{index === 0 ? 'gold' : (index === 1 ? 'silver' : (index === 2 ? 'bronze' : 'normal'))}}" wx:for="{{group.members}}" wx:for-item="m" wx:key="name" style="animation-delay: {{0.05 * index}}s;">
+                <view class="rank-badge rank-badge-{{index === 0 ? 'gold' : (index === 1 ? 'silver' : (index === 2 ? 'bronze' : 'normal'))}}">
+                  <text wx:if="{{index === 0}}">🥇</text>
+                  <text wx:elif="{{index === 1}}">🥈</text>
+                  <text wx:elif="{{index === 2}}">🥉</text>
+                  <text wx:else>{{index + 1}}</text>
+                </view>
+                <view class="member-info">
+                  <view class="member-name">{{m.name}}</view>
+                  <view class="member-detail">{{m.identity}}<text wx:if="{{m.department}}"> · {{m.department}}</text><text wx:if="{{m.workGroup}}"> · {{m.workGroup}}</text></view>
+                </view>
+                <view class="score-display">
+                  <view class="score-value">{{group.displayMode === 'grade' ? (m.grade || m.finalScore) : m.finalScore}}</view>
+                  <view class="score-label">{{group.displayMode === 'grade' ? '等第' : '得分'}}</view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Legacy flat list (fallback when no groups) -->
+      <scroll-view class="results-scroll" scroll-y enhanced show-scrollbar="{{false}}" wx:if="{{!filteredGroups.length && filteredResults.length}}">
       <view class="ranked-list">
         <view class="rank-card rank-card-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}" wx:for="{{filteredResults}}" wx:key="name" style="animation-delay: {{0.06 * index}}s;">
           <view class="rank-badge rank-badge-{{item.rank === 1 ? 'gold' : (item.rank === 2 ? 'silver' : (item.rank === 3 ? 'bronze' : 'normal'))}}">
@@ -211,7 +248,7 @@
         </view>
       </view>
       </scroll-view>
-      <view class="target-state" wx:if="{{!filteredResults.length && publishedResults.length}}">当前筛选条件下无匹配结果</view>
+      <view class="target-state" wx:if="{{!filteredResults.length && !filteredGroups.length && publishedResults.length}}">当前筛选条件下无匹配结果</view>
     </view>
   </view>
 
