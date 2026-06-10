@@ -6,6 +6,7 @@ const hrInfoModel = require('../models/hrInfo');
 const departmentModel = require('../models/department');
 const identityModel = require('../models/identity');
 const workGroupModel = require('../models/workGroup');
+const pubCache = require('../utils/pubCache');
 const scoreActivityModel = require('../models/scoreActivity');
 const scoreTemplateModel = require('../models/scoreTemplate');
 const scoreQuestionModel = require('../models/scoreQuestion');
@@ -687,6 +688,9 @@ router.post('/submitScoreRecord', async (req, res) => {
 
       resultRecordId = recordId;
     });
+
+    // Invalidate publication score cache so next viewer sees fresh results
+    pubCache.invalidate(activityId, orgId);
 
     res.json({ status: 'success', recordId: resultRecordId });
   } catch (e) {

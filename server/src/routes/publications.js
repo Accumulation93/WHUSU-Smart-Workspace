@@ -16,16 +16,11 @@ const activityModel = require('../models/scoreActivity');
 const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { getCurrentOrgId } = require('../utils/orgContext');
+const pubCache = require('../utils/pubCache');
 
 const VALID_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
 const IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity'];
 const VALID_DISPLAY_MODES = ['score', 'grade'];
-
-// Score computation cache for getPublicResults.
-// Full score map is deterministic for a given (activityId, orgId) during publication.
-// Caching avoids redundant three-layer recomputation across concurrent users.
-const PUB_SCORE_CACHE = new Map();
-const PUB_SCORE_CACHE_TTL = 30000; // 30 seconds
 
 /**
  * Apply grade bands to a numeric score. Returns the first matching grade name,
@@ -587,23 +582,17 @@ router.post('/getPublicResults', async (req, res) => {
       clauseTargetMap.set(clause.id, targetSet);
     }
 
-    // ── Score computation with module-level cache ──
+    // ── Score computation with shared pubCache ──
     // Full three-layer score map is deterministic for a given (activity, org).
     // Cache hit → O(visibleTargetCount) pure Map lookups, zero DB.
-    const cacheKey = `${activityId}:${orgId}`;
-    let cached = PUB_SCORE_CACHE.get(cacheKey);
-    if (!cached || (Date.now() - cached.timestamp) >= PUB_SCORE_CACHE_TTL) {
+    // Cache auto-expires after 5 min; invalidated on score submission.
+    let cached = pubCache.get(activityId, orgId);
+    if (!cached) {
       const { computeValidScoreMap } = require('../utils/scoreCalc');
-      const freshMap = await computeValidScoreMap(activityId, orgId, {});
-      cached = { scoreMap: freshMap, timestamp: Date.now() };
-      PUB_SCORE_CACHE.set(cacheKey, cached);
-      // Opportunistic cleanup of stale entries
-      const now = Date.now();
-      for (const [k, v] of PUB_SCORE_CACHE) {
-        if (now - v.timestamp > PUB_SCORE_CACHE_TTL) PUB_SCORE_CACHE.delete(k);
-      }
+      cached = await computeValidScoreMap(activityId, orgId, {});
+      pubCache.set(activityId, orgId, cached);
     }
-    const fullScoreMap = (cached.scoreMap instanceof Map) ? cached.scoreMap : (cached.scoreMap && cached.scoreMap.finalScoreMap instanceof Map ? cached.scoreMap.finalScoreMap : new Map());
+    const fullScoreMap = (cached instanceof Map) ? cached : (cached && cached.finalScoreMap instanceof Map ? cached.finalScoreMap : new Map());
 
     // Filter cached full map to visible targets only (pure O(1) Map.get, no side effects)
     const scoreMap = new Map();

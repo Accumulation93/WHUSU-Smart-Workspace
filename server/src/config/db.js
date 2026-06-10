@@ -15,9 +15,9 @@ const pool = mysql.createPool({
   password,
   database: process.env.DB_NAME || 'redsu_scoring',
   waitForConnections: true,
-  connectionLimit: 25,
+  connectionLimit: 50,
   queueLimit: 200,
-  connectTimeout: 10000,
+  connectTimeout: 5000,
   enableKeepAlive: true,
   keepAliveInitialDelay: 30000,
   charset: 'utf8mb4'

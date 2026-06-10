@@ -525,40 +525,81 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   }
 
   // ── 5. requireAllComplete: determine which scorer-clause combos are complete ──
+  // Pre-index hrRows by (dept, wg) for O(1) target counting per scorer-clause combo
+  const hrByDeptForComplete = new Map();
+  hrRows.forEach(hr => {
+    const did = safeString(hr.department_id);
+    if (!hrByDeptForComplete.has(did)) hrByDeptForComplete.set(did, []);
+    hrByDeptForComplete.get(did).push(hr);
+  });
+  // Pre-count: for each (dept, identity) pair, how many HRs match (for identity_only / all_people filters)
+  const hrCountByIdentity = new Map();
+  hrRows.forEach(hr => {
+    const iid = safeString(hr.identity_id);
+    hrCountByIdentity.set(iid, (hrCountByIdentity.get(iid) || 0) + 1);
+  });
+  // Pre-count by (dept, wg) for work-group scopes
+  const hrCountByDeptWg = new Map(); // deptId -> wgId -> count
+  hrRows.forEach(hr => {
+    const did = safeString(hr.department_id);
+    const wid = safeString(hr.work_group_id);
+    if (!hrCountByDeptWg.has(did)) hrCountByDeptWg.set(did, new Map());
+    const inner = hrCountByDeptWg.get(did);
+    inner.set(wid, (inner.get(wid) || 0) + 1);
+  });
+  // Pre-count filtered by (dept, identity) and (dept, wg, identity)
+  const hrCountByDeptIdent = new Map(); // deptId::identityId -> count
+  hrRows.forEach(hr => {
+    const key = safeString(hr.department_id) + '::' + safeString(hr.identity_id);
+    hrCountByDeptIdent.set(key, (hrCountByDeptIdent.get(key) || 0) + 1);
+  });
+  const hrCountByDeptWgIdent = new Map(); // deptId::wgId::identityId -> count
+  hrRows.forEach(hr => {
+    const key = safeString(hr.department_id) + '::' + safeString(hr.work_group_id) + '::' + safeString(hr.identity_id);
+    hrCountByDeptWgIdent.set(key, (hrCountByDeptWgIdent.get(key) || 0) + 1);
+  });
+
   const invalidScorerClauseKeys = new Set();
   scorerCompletionMap.forEach((completedTargets, key) => {
-    // Parse key: ruleId::clauseId::scorerKey
     const parts = key.split('::');
     const ruleId = parts[0];
     const clauseId = parts[1];
-    const scorerKey = parts[2]; // scorer's hr_id
+    const scorerKey = parts[2];
 
     const rule = ruleById.get(ruleId);
     if (!rule) return;
     const clause = rule.clauses.find(c => c.id === clauseId);
     if (!clause || !clause.requireAllComplete) return;
 
-    // Find all expected targets for this scorer under this clause.
-    // Must account for work-group scoping: for same_work_group_* scopes,
-    // only targets in the scorer's work group are expected.
     const scorerDeptId = rule.departmentId;
-    // Look up the scorer's work_group_id for WG-scope filtering
     const scorerHr = scorerKey ? hrById.get(scorerKey) : null;
     const scorerWgId = scorerHr ? safeString(scorerHr.work_group_id) : '';
+    const tid = clause.targetIdentityId || '';
 
+    // O(1) expected count lookup using pre-indexed maps
     let expectedTargetCount = 0;
-    hrRows.forEach(hr => {
-      const tid = safeString(hr.identity_id);
-      const tdid = safeString(hr.department_id);
-      if (clause.targetIdentityId && clause.targetIdentityId !== tid) return;
-      let match = false;
-      if (clause.scopeType === 'all_people' || clause.scopeType === 'identity_only') match = true;
-      else if (clause.scopeType === 'same_department_identity' || clause.scopeType === 'same_department_all')
-        match = tdid === scorerDeptId;
-      else if (clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all')
-        match = tdid === scorerDeptId && safeString(hr.work_group_id) === scorerWgId;
-      if (match) expectedTargetCount++;
-    });
+    const st = clause.scopeType;
+    if (st === 'all_people') {
+      expectedTargetCount = tid ? (hrCountByIdentity.get(tid) || 0) : hrRows.length;
+    } else if (st === 'identity_only') {
+      expectedTargetCount = tid ? (hrCountByIdentity.get(tid) || 0) : hrRows.length;
+    } else if (st === 'same_department_all') {
+      const deptHrs = hrByDeptForComplete.get(scorerDeptId) || [];
+      expectedTargetCount = tid
+        ? deptHrs.filter(h => safeString(h.identity_id) === tid).length
+        : deptHrs.length;
+    } else if (st === 'same_department_identity') {
+      expectedTargetCount = tid
+        ? (hrCountByDeptIdent.get(scorerDeptId + '::' + tid) || 0)
+        : (hrByDeptForComplete.get(scorerDeptId) || []).length;
+    } else if (st === 'same_work_group_all') {
+      const inner = hrCountByDeptWg.get(scorerDeptId);
+      expectedTargetCount = inner ? (inner.get(scorerWgId) || 0) : 0;
+    } else if (st === 'same_work_group_identity') {
+      expectedTargetCount = tid
+        ? (hrCountByDeptWgIdent.get(scorerDeptId + '::' + scorerWgId + '::' + tid) || 0)
+        : (hrCountByDeptWg.get(scorerDeptId) || new Map()).get(scorerWgId) || 0;
+    }
 
     if (completedTargets.size < expectedTargetCount) {
       invalidScorerClauseKeys.add(key);
