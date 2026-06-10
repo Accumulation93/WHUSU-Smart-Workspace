@@ -2,45 +2,32 @@
 // computeValidScoreMap results are deterministic for a given (activityId, orgId)
 // during the publication period. Cached to avoid redundant recomputation.
 // Invalidated on new score submissions.
+//
+// Uses MySQL-backed shared cache so all PM2 instances see the same state.
 
-const cache = new Map();
+const sharedCache = require('./sharedCache');
+
 const TTL = 300000; // 5 minutes
 
 function cacheKey(activityId, orgId) {
-  return `${activityId}:${orgId}`;
+  return `pubCache:${activityId}:${orgId}`;
 }
 
-function get(activityId, orgId) {
-  const entry = cache.get(cacheKey(activityId, orgId));
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp >= TTL) {
-    cache.delete(cacheKey(activityId, orgId));
-    return null;
-  }
-  return entry.data;
+async function get(activityId, orgId) {
+  return sharedCache.get(cacheKey(activityId, orgId));
 }
 
-function set(activityId, orgId, data) {
-  cache.set(cacheKey(activityId, orgId), { data, timestamp: Date.now() });
+async function set(activityId, orgId, data) {
+  return sharedCache.set(cacheKey(activityId, orgId), data, TTL);
 }
 
-function invalidate(activityId, orgId) {
+async function invalidate(activityId, orgId) {
   if (orgId) {
-    cache.delete(cacheKey(activityId, orgId));
+    await sharedCache.invalidateKey(cacheKey(activityId, orgId));
   } else if (activityId) {
     // Invalidate all orgs for this activity
-    for (const key of cache.keys()) {
-      if (key.startsWith(`${activityId}:`)) cache.delete(key);
-    }
+    await sharedCache.invalidatePrefix(cacheKey(activityId, ''));
   }
 }
-
-// Periodic cleanup of stale entries
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of cache) {
-    if (now - entry.timestamp >= TTL) cache.delete(key);
-  }
-}, 60000).unref();
 
 module.exports = { get, set, invalidate };

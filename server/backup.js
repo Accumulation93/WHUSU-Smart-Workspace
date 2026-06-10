@@ -70,11 +70,12 @@ function runBackup() {
 
   const startTime = Date.now();
 
+  // Use MYSQL_PWD env var to avoid exposing password in process list
+  const env = { ...process.env, MYSQL_PWD: DB.password };
   const mysqldump = spawn('mysqldump', [
     `--host=${DB.host}`,
     `--port=${DB.port}`,
     `--user=${DB.user}`,
-    `--password=${DB.password}`,
     '--single-transaction',
     '--quick',
     '--routines',
@@ -84,7 +85,7 @@ function runBackup() {
     '--no-tablespaces',
     '--set-gtid-purged=OFF',
     DB.database
-  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  ], { stdio: ['ignore', 'pipe', 'pipe'], env });
 
   const gzip = createGzip();
   const outStream = fs.createWriteStream(outFile);

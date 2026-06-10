@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../utils/helpers');
 const { getCurrentOrgId } = require('../utils/orgContext');
+const crypto = require('crypto');
 const adminInfoModel = require('../models/adminInfo');
 const userInfoModel = require('../models/userInfo');
 const pool = require('../config/db');
@@ -216,10 +217,10 @@ router.post('/createAdminInvite', async (req, res) => {
       if (dupRows.length) return res.json({ status: 'duplicate', message: '该学号已存在' });
     }
 
-    // Generate invite code
+    // Generate invite code using crypto.randomInt for cryptographic security
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let inviteCode = '';
-    for (let i = 0; i < 6; i++) inviteCode += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 6; i++) inviteCode += chars[crypto.randomInt(0, chars.length)];
 
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const id = generateId();
@@ -252,7 +253,7 @@ router.post('/generateAdminInviteCode', async (req, res) => {
 
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let inviteCode = '';
-    for (let i = 0; i < 6; i++) inviteCode += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 6; i++) inviteCode += chars[crypto.randomInt(0, chars.length)];
 
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await adminInfoModel.update(adminId, { inviteCode, invitedAt: nowUtc, bindStatus: 'invited', updatedAt: nowUtc });
@@ -275,7 +276,7 @@ router.post('/bootstrapRootAdmin', async (req, res) => {
     const id = generateId();
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let inviteCode = '';
-    for (let i = 0; i < 6; i++) inviteCode += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 6; i++) inviteCode += chars[crypto.randomInt(0, chars.length)];
 
     await pool.query(
       'INSERT INTO admin_info (id, name, student_id, admin_level, invite_code, bind_status, openid, invited_at, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -301,7 +302,7 @@ router.post('/bootstrapSuperAdmin', async (req, res) => {
     const id = generateId();
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let inviteCode = '';
-    for (let i = 0; i < 6; i++) inviteCode += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < 6; i++) inviteCode += chars[crypto.randomInt(0, chars.length)];
 
     await adminInfoModel.create(id, {
       name: safeString(req.body.name || 'Super Admin'),

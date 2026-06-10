@@ -18,9 +18,22 @@ const ORG_SCOPED_TABLES = [
   'hr_profile_records', 'hr_profile_record_values'
 ];
 
-// listOrganizations
+// listOrganizations — admin only
 router.post('/listOrganizations', async (req, res) => {
   try {
+    // Require admin authentication
+    const openid = req.openid;
+    if (!openid) {
+      return res.json({ status: 'forbidden', message: '未登录' });
+    }
+    const [adminRows] = await pool.query(
+      "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active'",
+      [openid]
+    );
+    if (!adminRows.length) {
+      return res.json({ status: 'forbidden', message: '仅管理员可查看组织列表' });
+    }
+
     const rows = await organizationModel.getAll();
     res.json({ status: 'success', list: rows });
   } catch (e) {

@@ -17,9 +17,11 @@ const scoreAnswerModel = require('../models/scoreAnswer');
 const systemConfigModel = require('../models/systemConfig');
 const pool = require('../config/db');
 const { getCurrentOrgId } = require('../utils/orgContext');
+const sharedCache = require('../utils/sharedCache');
 
 const DEFAULT_WORK_GROUP = '';
 const RESPONSE_SAFE_LIMIT = 850 * 1024;
+const EXPORT_MAX_ROWS = 50000; // Safety cap to prevent OOM from excessive export data
 
 function parseTimezone(value) {
   const tz = Number(value);
@@ -73,7 +75,7 @@ let _orgLookupsCacheTime = 0;
 const ORG_LOOKUPS_CACHE_TTL = 60000;
 
 // ─── Overview result cache (avoids recomputing scores on every page request) ───
-let _overviewCache = new Map();
+// Uses MySQL-backed shared cache so all PM2 instances see the same state.
 const OVERVIEW_CACHE_TTL = 60000; // 60 seconds
 
 function getOverviewCacheKey(activityId, filters) {
@@ -83,23 +85,12 @@ function getOverviewCacheKey(activityId, filters) {
   return `overview_${activityId}_${dept}_${ident}_${wg}`;
 }
 
-function getCachedOverview(cacheKey) {
-  const entry = _overviewCache.get(cacheKey);
-  if (!entry) return null;
-  if (Date.now() - entry.timestamp > OVERVIEW_CACHE_TTL) {
-    _overviewCache.delete(cacheKey);
-    return null;
-  }
-  return entry;
+async function getCachedOverview(cacheKey) {
+  return sharedCache.get(cacheKey);
 }
 
-function setCachedOverview(cacheKey, data) {
-  // Clean up expired entries to prevent memory leaks
-  const now = Date.now();
-  for (const [k, v] of _overviewCache) {
-    if (now - v.timestamp > OVERVIEW_CACHE_TTL) _overviewCache.delete(k);
-  }
-  _overviewCache.set(cacheKey, { ...data, timestamp: now });
+async function setCachedOverview(cacheKey, data) {
+  return sharedCache.set(cacheKey, data, OVERVIEW_CACHE_TTL);
 }
 
 async function fetchOrgLookups() {
@@ -853,8 +844,8 @@ router.post('/getScoreResults', async (req, res) => {
     // ── Overview cache shortcut (must be BEFORE any DB query) ──
     if (dataType === 'overview') {
       const cacheKey = getOverviewCacheKey(activityId, filters);
-      if (nocache) _overviewCache.delete(cacheKey);
-      const cached = getCachedOverview(cacheKey);
+      if (nocache) await sharedCache.invalidateKey(cacheKey);
+      const cached = await getCachedOverview(cacheKey);
       if (cached) {
         return res.json({
           status: 'success',
@@ -954,7 +945,7 @@ router.post('/getScoreResults', async (req, res) => {
       };
 
       // Cache and return
-      setCachedOverview(cacheKey, {
+      await setCachedOverview(cacheKey, {
         overviewRows: filteredRows,
         stats: overviewStats,
         filterOptions: filterOpts,
@@ -1536,6 +1527,16 @@ router.post('/exportScoreResults', async (req, res) => {
     if (reportType === 'overview') filteredRows = filterOverviewRows(rows, filters);
     else if (reportType === 'detail') filteredRows = filterDetailRows(rows, filters);
     else if (reportType === 'completion') filteredRows = filterScorerRows(rows, filters);
+
+    // Safety cap: refuse exports larger than EXPORT_MAX_ROWS to prevent OOM
+    if (filteredRows.length > EXPORT_MAX_ROWS) {
+      return res.json({
+        status: 'too_large',
+        message: `导出数据量过大（${filteredRows.length} 行），请缩小筛选范围或联系管理员分批导出`,
+        rowCount: filteredRows.length,
+        maxAllowed: EXPORT_MAX_ROWS
+      });
+    }
 
     // All exports produce XLSX — wx.openDocument only supports Excel formats for save-to-path
     const sheetNames = { overview: '总分速览', detail: '评分明细', completion: '评分人完成率' };

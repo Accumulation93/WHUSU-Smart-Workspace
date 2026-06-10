@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, roundScore, generateId, buildNameMap } = require('../utils/helpers');
+const { logger } = require('../utils/logger');
 const adminInfoModel = require('../models/adminInfo');
 const userInfoModel = require('../models/userInfo');
 const publicationModel = require('../models/resultPublication');
@@ -39,8 +40,8 @@ function applyGradeBands(score, bands) {
       return band.gradeName || band.grade_name || '';
     }
   }
-  // Diagnostic: log when a score doesn't match any band (helps catch config mismatches)
-  console.warn('[applyGradeBands] no band matched:', { numScore, bandCount: bands.length, bands: bands.map(b => ({ min: b.minScore != null ? b.minScore : b.min_score, max: b.maxScore != null ? b.maxScore : b.max_score, name: b.gradeName || b.grade_name })) });
+  // Debug: log when a score doesn't match any band (helps catch config mismatches)
+  logger.debug('No grade band matched', { numScore, bandCount: bands.length });
   return '未评级';
 }
 
@@ -200,10 +201,22 @@ router.post('/getResultPublication', async (req, res) => {
       };
     });
 
+    // Batch-load all designated HR members
+    const designatedHrIds = [...new Set(designationRows.map(d => d.target_hr_id).filter(Boolean))];
+    const hrByIdMap = new Map();
+    if (designatedHrIds.length) {
+      const hrPh = designatedHrIds.map(() => '?').join(',');
+      const [hrRows] = await pool.query(
+        `SELECT * FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
+        [...designatedHrIds, orgId]
+      );
+      hrRows.forEach(hr => hrByIdMap.set(safeString(hr.id), hr));
+    }
+
     // Enrich designations
     const enrichedDesignations = [];
     for (const d of designationRows) {
-      const hr = await hrInfoModel.getById(d.target_hr_id);
+      const hr = hrByIdMap.get(d.target_hr_id);
       if (!hr) {
         try { await pool.query('DELETE FROM merit_list_designations WHERE id = ?', [d.id]); } catch (e) {}
         continue;
@@ -429,8 +442,19 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     }
     const [granteeRows] = await pool.query('SELECT id, work_group_id FROM hr_info WHERE department_id = ? AND org_id = ? LIMIT 1', [safeString(clause.grantee_department_id), orgId]);
     const granteeWgId = safeString((granteeRows[0] || {}).work_group_id);
+
+    // Batch-load all designated HR members for validation
+    const validationHrMap = new Map();
+    if (designationHrIds.length) {
+      const hrPh = designationHrIds.map(() => '?').join(',');
+      const [hrRows] = await pool.query(
+        `SELECT * FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
+        [...designationHrIds, orgId]
+      );
+      hrRows.forEach(hr => validationHrMap.set(safeString(hr.id), hr));
+    }
     for (const hrId of designationHrIds) {
-      const hr = await hrInfoModel.getById(hrId);
+      const hr = validationHrMap.get(hrId);
       if (!hr) return res.json({ status: 'invalid_hr', message: '人事成员不存在' });
       let matchesAnyClause = false;
       for (const sc of allClauseScopes) {
@@ -473,9 +497,20 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       `SELECT * FROM merit_list_designations WHERE clause_id IN (${clausesPh}) AND org_id = ?`,
       [...clauseIds, orgId]
     );
+    // Batch-load all referenced HR members
+    const hrIds = [...new Set(designations.map(d => d.target_hr_id).filter(Boolean))];
+    const hrMap = new Map();
+    if (hrIds.length) {
+      const hrPh = hrIds.map(() => '?').join(',');
+      const [hrRows] = await pool.query(
+        `SELECT id, name, student_id FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
+        [...hrIds, orgId]
+      );
+      hrRows.forEach(hr => hrMap.set(safeString(hr.id), hr));
+    }
     const result = [];
     for (const d of designations) {
-      const hr = await hrInfoModel.getById(d.target_hr_id);
+      const hr = hrMap.get(d.target_hr_id);
       result.push({ id: d.id, clauseId: d.clause_id || '', targetHrId: d.target_hr_id, targetName: hr ? safeString(hr.name) : '', targetStudentId: hr ? safeString(hr.student_id) : '' });
     }
     res.json({ status: 'success', designations: result, message: `已保存 ${result.length} 条评优名单` });
@@ -549,7 +584,7 @@ router.post('/getPublicResults', async (req, res) => {
             });
           });
         } catch (e) {
-          console.error('[getPublicResults] Failed to load grade bands:', e.message);
+          logger.warn('Failed to load grade bands in getPublicResults', { error: e.message });
         }
       }
     }
@@ -586,11 +621,11 @@ router.post('/getPublicResults', async (req, res) => {
     // Full three-layer score map is deterministic for a given (activity, org).
     // Cache hit → O(visibleTargetCount) pure Map lookups, zero DB.
     // Cache auto-expires after 5 min; invalidated on score submission.
-    let cached = pubCache.get(activityId, orgId);
+    let cached = await pubCache.get(activityId, orgId);
     if (!cached) {
       const { computeValidScoreMap } = require('../utils/scoreCalc');
       cached = await computeValidScoreMap(activityId, orgId, {});
-      pubCache.set(activityId, orgId, cached);
+      await pubCache.set(activityId, orgId, cached);
     }
     const fullScoreMap = (cached instanceof Map) ? cached : (cached && cached.finalScoreMap instanceof Map ? cached.finalScoreMap : new Map());
 
@@ -601,12 +636,11 @@ router.post('/getPublicResults', async (req, res) => {
       if (sd) scoreMap.set(tid, sd);
     }
 
-    // Diagnostic: log viewer's own score for cross-reference with admin overview
-    console.log('[getPublicResults] viewer score:', JSON.stringify({
-      viewerId: viewer.id,
-      scoreData: scoreMap.get(viewer.id),
+    // Debug: log viewer score stats (non-sensitive aggregate only)
+    logger.debug('getPublicResults viewer stats', {
+      viewerId: (viewer.id || '').slice(0, 8),
       visibleTargetCount: allVisibleIds.size
-    }));
+    });
 
     // Build scope label lookup
     const scopeLabelMap = {
@@ -660,14 +694,15 @@ router.post('/getPublicResults', async (req, res) => {
         members.push(entry);
       }
 
-      // Diagnostic: log first group's scores for debugging
+      // Debug: log first group's aggregate stats (no individual scores)
       if (members.length > 0) {
-        console.log('[getPublicResults] clause', clause.id, 'scope:', safeString(clause.scope_type),
-          'displayMode:', clauseDisplayMode,
-          'bandCount:', clauseGradeBands.length,
-          'bands:', clauseGradeBands.map(b => ({ min: b.minScore, max: b.maxScore, name: b.gradeName })),
-          'memberCount:', members.length,
-          'sampleScores:', members.slice(0, 3).map(m => ({ name: m.name, raw: m.sortScore, grade: m.grade, display: m.finalScore })));
+        logger.debug('getPublicResults clause summary', {
+          clauseId: clause.id,
+          scopeType: safeString(clause.scope_type),
+          displayMode: clauseDisplayMode,
+          bandCount: clauseGradeBands.length,
+          memberCount: members.length
+        });
       }
 
       // Sort members by score descending
@@ -914,9 +949,20 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     });
 
     const [designations] = await pool.query('SELECT * FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [primaryClauseId, orgId]);
+    // Batch-load all referenced HR members
+    const hrIds = [...new Set(designations.map(d => d.target_hr_id).filter(Boolean))];
+    const hrMap = new Map();
+    if (hrIds.length) {
+      const hrPh = hrIds.map(() => '?').join(',');
+      const [hrRows] = await pool.query(
+        `SELECT id, name, student_id FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
+        [...hrIds, orgId]
+      );
+      hrRows.forEach(hr => hrMap.set(safeString(hr.id), hr));
+    }
     const result = [];
     for (const d of designations) {
-      const hr = await hrInfoModel.getById(d.target_hr_id);
+      const hr = hrMap.get(d.target_hr_id);
       result.push({ id: d.id, clauseId: primaryClauseId, targetHrId: d.target_hr_id, targetName: hr ? safeString(hr.name) : '', targetStudentId: hr ? safeString(hr.student_id) : '' });
     }
     res.json({ status: 'success', designations: result, message: `已保存 ${result.length} 条评优名单` });
@@ -1344,17 +1390,61 @@ router.post('/getMeritListSummary', async (req, res) => {
 
     const lookups = await fetchOrgLookups();
 
-    // Get all merit rules with clauses and designations
+    // Get all merit rules with clauses and designations — batch all queries
     const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
-    const groups = [];
+    if (!meritRules.length) {
+      return res.json({ status: 'success', groups: [], departmentOptions: [], identityOptions: [], workGroupOptions: [] });
+    }
 
+    // Batch-load all clauses
+    const ruleIds = meritRules.map(r => r.id);
+    const rulePh = ruleIds.map(() => '?').join(',');
+    const [allClauses] = await pool.query(
+      `SELECT * FROM pub_merit_rule_clauses WHERE rule_id IN (${rulePh}) ORDER BY sort_order`,
+      ruleIds
+    );
+    const clausesByRule = new Map();
+    allClauses.forEach(c => {
+      if (!clausesByRule.has(c.rule_id)) clausesByRule.set(c.rule_id, []);
+      clausesByRule.get(c.rule_id).push(c);
+    });
+
+    // Batch-load all designations
+    const clauseIds = allClauses.map(c => c.id);
+    let allDesignations = [];
+    if (clauseIds.length) {
+      const clausePh = clauseIds.map(() => '?').join(',');
+      [allDesignations] = await pool.query(
+        `SELECT * FROM merit_list_designations WHERE clause_id IN (${clausePh}) AND org_id = ?`,
+        [...clauseIds, orgId]
+      );
+    }
+    const designationsByClause = new Map();
+    allDesignations.forEach(d => {
+      if (!designationsByClause.has(d.clause_id)) designationsByClause.set(d.clause_id, []);
+      designationsByClause.get(d.clause_id).push(d);
+    });
+
+    // Batch-load all designated HR members
+    const designatedHrIds = [...new Set(allDesignations.map(d => d.target_hr_id).filter(Boolean))];
+    const hrById = new Map();
+    if (designatedHrIds.length) {
+      const hrPh = designatedHrIds.map(() => '?').join(',');
+      const [hrRows] = await pool.query(
+        `SELECT * FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
+        [...designatedHrIds, orgId]
+      );
+      hrRows.forEach(hr => hrById.set(safeString(hr.id), hr));
+    }
+
+    const groups = [];
     for (const rule of meritRules) {
-      const [clauses] = await pool.query('SELECT * FROM pub_merit_rule_clauses WHERE rule_id = ? ORDER BY sort_order', [rule.id]);
+      const clauses = clausesByRule.get(rule.id) || [];
       for (const clause of clauses) {
-        const [designations] = await pool.query('SELECT * FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [clause.id, orgId]);
+        const designations = designationsByClause.get(clause.id) || [];
         const members = [];
         for (const d of designations) {
-          const hr = await hrInfoModel.getById(d.target_hr_id);
+          const hr = hrById.get(d.target_hr_id);
           if (!hr) continue;
           members.push({
             id: safeString(hr.id),
@@ -1423,18 +1513,64 @@ router.post('/exportMeritListSummary', async (req, res) => {
 
     const lookups = await fetchOrgLookups();
     const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
+    if (!meritRules.length) {
+      return res.json({ status: 'success', fileContent: '', fileName: '评优名单汇总', extension: 'xlsx', rowCount: 0 });
+    }
+
+    // Batch-load ALL clauses for ALL rules in a single query
+    const ruleIds = meritRules.map(r => r.id);
+    const rulePh = ruleIds.map(() => '?').join(',');
+    const [allClauses] = await pool.query(
+      `SELECT * FROM pub_merit_rule_clauses WHERE rule_id IN (${rulePh}) ORDER BY sort_order`,
+      ruleIds
+    );
+    const clausesByRule = new Map();
+    allClauses.forEach(c => {
+      if (!clausesByRule.has(c.rule_id)) clausesByRule.set(c.rule_id, []);
+      clausesByRule.get(c.rule_id).push(c);
+    });
+
+    // Batch-load ALL designations for ALL clauses in a single query
+    const clauseIds = allClauses.map(c => c.id);
+    let allDesignations = [];
+    if (clauseIds.length) {
+      const clausePh = clauseIds.map(() => '?').join(',');
+      [allDesignations] = await pool.query(
+        `SELECT * FROM merit_list_designations WHERE clause_id IN (${clausePh}) AND org_id = ?`,
+        [...clauseIds, orgId]
+      );
+    }
+    const designationsByClause = new Map();
+    allDesignations.forEach(d => {
+      if (!designationsByClause.has(d.clause_id)) designationsByClause.set(d.clause_id, []);
+      designationsByClause.get(d.clause_id).push(d);
+    });
+
+    // Batch-load ALL designated HR members in a single query
+    const designatedHrIds = [...new Set(allDesignations.map(d => d.target_hr_id).filter(Boolean))];
+    let hrById = new Map();
+    if (designatedHrIds.length) {
+      const hrPh = designatedHrIds.map(() => '?').join(',');
+      const [hrRows] = await pool.query(
+        `SELECT * FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
+        [...designatedHrIds, orgId]
+      );
+      hrRows.forEach(hr => hrById.set(safeString(hr.id), hr));
+    }
+
     const rows = [];
+    const EXPORT_MAX_ROWS = 50000;
 
     for (const rule of meritRules) {
-      const [clauses] = await pool.query('SELECT * FROM pub_merit_rule_clauses WHERE rule_id = ? ORDER BY sort_order', [rule.id]);
+      const clauses = clausesByRule.get(rule.id) || [];
       for (const clause of clauses) {
-        const [designations] = await pool.query('SELECT * FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [clause.id, orgId]);
+        const designations = designationsByClause.get(clause.id) || [];
         const targetIdentityName = lookups.identitiesById.get(safeString(clause.target_identity_id)) || '';
         const granteeDepartmentName = lookups.departmentsById.get(safeString(rule.grantee_department_id)) || '';
         const granteeIdentityName = lookups.identitiesById.get(safeString(rule.grantee_identity_id)) || '';
         const groupLabel = `${granteeDepartmentName} ${granteeIdentityName} → ${targetIdentityName}`;
         for (const d of designations) {
-          const hr = await hrInfoModel.getById(d.target_hr_id);
+          const hr = hrById.get(d.target_hr_id);
           if (!hr) continue;
           const dept = lookups.departmentsById.get(safeString(hr.department_id)) || '';
           const ident = lookups.identitiesById.get(safeString(hr.identity_id)) || '';
@@ -1445,6 +1581,9 @@ router.post('/exportMeritListSummary', async (req, res) => {
           if (filterIdentity && ident !== filterIdentity) continue;
           if (filterWorkGroup && wg !== filterWorkGroup) continue;
 
+          // Safety cap
+          if (rows.length >= EXPORT_MAX_ROWS) break;
+
           rows.push({
             name: safeString(hr.name),
             studentId: safeString(hr.student_id),
@@ -1454,7 +1593,18 @@ router.post('/exportMeritListSummary', async (req, res) => {
             groupLabel
           });
         }
+        if (rows.length >= EXPORT_MAX_ROWS) break;
       }
+      if (rows.length >= EXPORT_MAX_ROWS) break;
+    }
+
+    if (rows.length >= EXPORT_MAX_ROWS) {
+      return res.json({
+        status: 'too_large',
+        message: `导出数据量达到上限（${EXPORT_MAX_ROWS} 行），请缩小筛选范围`,
+        rowCount: rows.length,
+        maxAllowed: EXPORT_MAX_ROWS
+      });
     }
 
     // Build XLSX file (same pattern as exportScoreResults)

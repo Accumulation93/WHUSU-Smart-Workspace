@@ -16,6 +16,7 @@
  */
 const { safeString, toNumber, roundScore } = require('./helpers');
 const pool = require('../config/db');
+const { logger } = require('./logger');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -122,17 +123,19 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   if (!ruleRows.length) return new Map();
 
   // ── 2. Build current rule structures ──────────────────────────────────
-  const ruleIds = ruleRows.map(r => `'${r.id}'`);
+  const ruleIds = ruleRows.map(r => r.id);
+  const rulePh = ruleIds.map(() => '?').join(',');
   const [clauseRows] = await pool.query(
-    `SELECT * FROM rate_rule_clauses WHERE rule_id IN (${ruleIds.join(',')}) AND org_id = ?`,
-    [orgId]
+    `SELECT * FROM rate_rule_clauses WHERE rule_id IN (${rulePh}) AND org_id = ?`,
+    [...ruleIds, orgId]
   );
-  const clauseIds = clauseRows.map(c => `'${c.id}'`);
+  const clauseIds = clauseRows.map(c => c.id);
   let configRows = [];
   if (clauseIds.length) {
+    const clausePh = clauseIds.map(() => '?').join(',');
     [configRows] = await pool.query(
-      `SELECT * FROM clause_template_configs WHERE clause_id IN (${clauseIds.join(',')}) AND org_id = ?`,
-      [orgId]
+      `SELECT * FROM clause_template_configs WHERE clause_id IN (${clausePh}) AND org_id = ?`,
+      [...clauseIds, orgId]
     );
   }
 
@@ -363,10 +366,11 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   // ── 3. Load all answers (batch) ───────────────────────────────────────
   let answerMap = new Map(); // recordId -> [{questionIndex, score}]
   if (recordRows.length) {
-    const recordIds = recordRows.map(r => `'${r.id}'`);
+    const recordIds = recordRows.map(r => r.id);
+    const recordPh = recordIds.map(() => '?').join(',');
     const [answerRows] = await pool.query(
-      `SELECT * FROM score_answers WHERE record_id IN (${recordIds.join(',')}) AND org_id = ? ORDER BY record_id, question_index`,
-      [orgId]
+      `SELECT * FROM score_answers WHERE record_id IN (${recordPh}) AND org_id = ? ORDER BY record_id, question_index`,
+      [...recordIds, orgId]
     );
     // Normalize: group answers by record_id with zero-index detection (match getRecordTemplateScores logic)
     const rawByRecord = new Map();
@@ -636,16 +640,14 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
     )).catch(() => {});
   }
 
-  // ── Diagnostic log ──
-  console.log('[computeValidScoreMap] diag:', JSON.stringify({
+  // ── Diagnostic log (debug level, no sensitive score data) ──
+  logger.debug('computeValidScoreMap stats', {
     activityId, orgId,
     rules: ruleRows.length, records: recordRows.length, templates: tplRows.length,
-    diag_total, diag_skipped_visible, diag_skipped_noHr, diag_skipped_noRule,
-    diag_skipped_noScope, diag_skipped_self, diag_skipped_sig, diag_accepted,
+    accepted: diag_accepted, skippedTotal: diag_total - diag_accepted,
     calcMapSize: calculationMap.size, finalScoreMapSize: finalScoreMap.size,
-    invalidClauseKeys: invalidScorerClauseKeys.size, repairMapSize: repairMap.size,
-    sigDetails: diag_sigDetails
-  }));
+    invalidClauseKeys: invalidScorerClauseKeys.size, repairMapSize: repairMap.size
+  });
 
   if (options.includeCounts) {
     return { finalScoreMap, submittedByTarget, expectedByCount, scorerExpectedCount };

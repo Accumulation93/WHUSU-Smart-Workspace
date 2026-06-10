@@ -690,7 +690,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     });
 
     // Invalidate publication score cache so next viewer sees fresh results
-    pubCache.invalidate(activityId, orgId);
+    await pubCache.invalidate(activityId, orgId);
 
     res.json({ status: 'success', recordId: resultRecordId });
   } catch (e) {
@@ -1079,6 +1079,16 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
       if (a.pendingCount !== b.pendingCount) return b.pendingCount - a.pendingCount;
       return String(a.scorerName).localeCompare(String(b.scorerName), 'zh-CN');
     });
+
+    const EXPORT_MAX_ROWS = 50000;
+    if (rows.length > EXPORT_MAX_ROWS) {
+      return res.json({
+        status: 'too_large',
+        message: `导出数据量过大（${rows.length} 行），请缩小筛选范围或联系管理员分批导出`,
+        rowCount: rows.length,
+        maxAllowed: EXPORT_MAX_ROWS
+      });
+    }
 
     const activityName = safeString(activity.name) || '评分活动';
     const report = buildTaskExportReport(activityName, reportType, rows);
