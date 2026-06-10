@@ -565,12 +565,14 @@ router.post('/getPublicResults', async (req, res) => {
         name: member.name,
         department: lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || '未分类',
         identity: lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || '未分类',
-        workGroup: lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || '未分类'
+        workGroup: lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || '未分类',
+        sortScore: rawScore
       };
 
       if (displayMode === 'grade') {
-        // Server-side grade computation — frontend receives only the grade string
+        // Server-side grade computation — frontend receives grade + sortScore for ordering
         resultEntry.grade = applyGradeBands(rawScore, gradeBands);
+        resultEntry.finalScore = Number(rawScore).toFixed(3);
       } else {
         // Default: expose numeric score (backward compatible)
         resultEntry.finalScore = Number(rawScore).toFixed(3);
@@ -578,12 +580,8 @@ router.post('/getPublicResults', async (req, res) => {
 
       results.push(resultEntry);
     }
-    results.sort((a, b) => {
-      if (displayMode === 'grade') {
-        return String(a.grade || '').localeCompare(String(b.grade || ''), 'zh-CN');
-      }
-      return (Number(b.finalScore) || 0) - (Number(a.finalScore) || 0);
-    });
+    // Always sort by score descending regardless of display mode
+    results.sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
 
     res.json({
       status: 'success',
@@ -1210,6 +1208,145 @@ router.post('/deletePubMeritRule', async (req, res) => {
     await pool.query('DELETE FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
     await pool.query('DELETE FROM pub_merit_rules WHERE id=? AND org_id=?', [ruleId, orgId]);
     res.json({ status: 'success', message: '已删除' });
+  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+});
+
+// ─── getMeritListSummary (admin) ───
+router.post('/getMeritListSummary', async (req, res) => {
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '无管理权限' });
+    const activityId = safeString(req.body.activityId);
+    if (!activityId) return res.json({ status: 'invalid_params', message: '请提供评分活动ID' });
+
+    const orgId = await getCurrentOrgId();
+    const publication = await publicationModel.getByActivity(activityId);
+    if (!publication) return res.json({ status: 'not_found', message: '公示记录不存在' });
+
+    const lookups = await fetchOrgLookups();
+
+    // Get all merit rules with clauses and designations
+    const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
+    const groups = [];
+
+    for (const rule of meritRules) {
+      const [clauses] = await pool.query('SELECT * FROM pub_merit_rule_clauses WHERE rule_id = ? ORDER BY sort_order', [rule.id]);
+      for (const clause of clauses) {
+        const [designations] = await pool.query('SELECT * FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [clause.id, orgId]);
+        const members = [];
+        for (const d of designations) {
+          const hr = await hrInfoModel.getById(d.target_hr_id);
+          if (!hr) continue;
+          members.push({
+            id: safeString(hr.id),
+            name: safeString(hr.name),
+            studentId: safeString(hr.student_id),
+            departmentId: safeString(hr.department_id),
+            department: lookups.departmentsById.get(safeString(hr.department_id)) || '',
+            identityId: safeString(hr.identity_id),
+            identity: lookups.identitiesById.get(safeString(hr.identity_id)) || '',
+            workGroupId: safeString(hr.work_group_id),
+            workGroup: lookups.workGroupsById.get(safeString(hr.work_group_id)) || ''
+          });
+        }
+        const targetIdentityName = lookups.identitiesById.get(safeString(clause.target_identity_id)) || '';
+        const granteeDepartmentName = lookups.departmentsById.get(safeString(rule.grantee_department_id)) || '';
+        const granteeIdentityName = lookups.identitiesById.get(safeString(rule.grantee_identity_id)) || '';
+        groups.push({
+          clauseId: clause.id,
+          granteeDepartment: granteeDepartmentName,
+          granteeIdentity: granteeIdentityName,
+          targetIdentity: targetIdentityName,
+          scopeType: clause.scope_type,
+          quotaLimit: clause.quota_limit || 0,
+          requireExactQuota: (clause.require_exact_quota === 1),
+          memberCount: members.length,
+          members
+        });
+      }
+    }
+
+    // Build filter options from all members
+    const deptSet = new Set(), identSet = new Set(), wgSet = new Set();
+    for (const g of groups) {
+      for (const m of g.members) {
+        if (m.department) deptSet.add(m.department);
+        if (m.identity) identSet.add(m.identity);
+        if (m.workGroup) wgSet.add(m.workGroup);
+      }
+    }
+
+    res.json({
+      status: 'success',
+      groups,
+      departmentOptions: Array.from(deptSet).sort((a, b) => a.localeCompare(b, 'zh-CN')),
+      identityOptions: Array.from(identSet).sort((a, b) => a.localeCompare(b, 'zh-CN')),
+      workGroupOptions: Array.from(wgSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+    });
+  } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
+});
+
+// ─── exportMeritListSummary (admin) ───
+router.post('/exportMeritListSummary', async (req, res) => {
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '无管理权限' });
+    const activityId = safeString(req.body.activityId);
+    if (!activityId) return res.json({ status: 'invalid_params', message: '请提供评分活动ID' });
+
+    const filterDepartment = safeString(req.body.filterDepartment || '');
+    const filterIdentity = safeString(req.body.filterIdentity || '');
+    const filterWorkGroup = safeString(req.body.filterWorkGroup || '');
+
+    const orgId = await getCurrentOrgId();
+    const publication = await publicationModel.getByActivity(activityId);
+    if (!publication) return res.json({ status: 'not_found', message: '公示记录不存在' });
+
+    const lookups = await fetchOrgLookups();
+    const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
+    const rows = [];
+
+    for (const rule of meritRules) {
+      const [clauses] = await pool.query('SELECT * FROM pub_merit_rule_clauses WHERE rule_id = ? ORDER BY sort_order', [rule.id]);
+      for (const clause of clauses) {
+        const [designations] = await pool.query('SELECT * FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [clause.id, orgId]);
+        const targetIdentityName = lookups.identitiesById.get(safeString(clause.target_identity_id)) || '';
+        const granteeDepartmentName = lookups.departmentsById.get(safeString(rule.grantee_department_id)) || '';
+        const granteeIdentityName = lookups.identitiesById.get(safeString(rule.grantee_identity_id)) || '';
+        const groupLabel = `${granteeDepartmentName} ${granteeIdentityName} → ${targetIdentityName}`;
+        for (const d of designations) {
+          const hr = await hrInfoModel.getById(d.target_hr_id);
+          if (!hr) continue;
+          const dept = lookups.departmentsById.get(safeString(hr.department_id)) || '';
+          const ident = lookups.identitiesById.get(safeString(hr.identity_id)) || '';
+          const wg = lookups.workGroupsById.get(safeString(hr.work_group_id)) || '';
+
+          // Apply filters
+          if (filterDepartment && dept !== filterDepartment) continue;
+          if (filterIdentity && ident !== filterIdentity) continue;
+          if (filterWorkGroup && wg !== filterWorkGroup) continue;
+
+          rows.push({
+            name: safeString(hr.name),
+            studentId: safeString(hr.student_id),
+            department: dept,
+            identity: ident,
+            workGroup: wg,
+            groupLabel
+          });
+        }
+      }
+    }
+
+    // Build CSV
+    const header = '姓名,学号,部门,身份,职能组,评优分组';
+    const csvLines = [header];
+    for (const r of rows) {
+      csvLines.push([r.name, r.studentId, r.department, r.identity, r.workGroup, r.groupLabel]
+        .map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
+    }
+
+    res.json({ status: 'success', csv: csvLines.join('\n'), rowCount: rows.length });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 

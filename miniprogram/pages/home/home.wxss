@@ -1002,6 +1002,17 @@ scroll-view {
 .grade-chip-count {
   font-size: 20rpx; font-weight: 600; color: #64748b;
 }
+.grade-chip-active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #1e40af;
+  box-shadow: 0 4rpx 14rpx rgba(37,99,235,0.32);
+}
+.grade-chip-active .grade-chip-name {
+  color: #fff;
+}
+.grade-chip-active .grade-chip-count {
+  color: rgba(255,255,255,0.8);
+}
 
 /* 结果筛选区 */
 .result-filter-area {

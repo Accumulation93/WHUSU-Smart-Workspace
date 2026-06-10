@@ -1374,6 +1374,7 @@ Page({
     timezoneIndex: 20,
     systemConfig: { timezone: 8 },
     // ─── Publication management ───
+    publicationsLoading: false,
     publicationList: [],
     publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
 
@@ -1410,7 +1411,21 @@ Page({
     displayModeOptions: [
       { value: 'score', label: '分数模式' },
       { value: 'grade', label: '等第模式' }
-    ]
+    ],
+    // Grade band expand/collapse (Feature 4)
+    expandedGradeBandIndex: -1,
+    gradeBandColorMap: { '优秀': '#f59e0b', '良好': '#10b981', '合格': '#3b82f6', '不合格': '#ef4444' },
+
+    // Merit list summary (Feature 5)
+    meritSummaryGroups: [],
+    meritSummaryFilteredGroups: [],
+    meritSummaryFilterDept: '全部',
+    meritSummaryFilterIdent: '全部',
+    meritSummaryFilterWg: '全部',
+    meritSummaryDeptOptions: ['全部'],
+    meritSummaryIdentOptions: ['全部'],
+    meritSummaryWgOptions: ['全部'],
+    expandedMeritSummaryClauseId: ''
   },
 
   onShow() {
@@ -1532,6 +1547,7 @@ Page({
     if (tab === 'publications') {
       if (!this.data.departmentList.length) this.loadDepartmentList();
       if (!this.data.identityList.length) this.loadIdentityList();
+      this.setData({ publicationsLoading: true });
       this.loadActivityList().then(async () => {
         const currentActivityId = this.data.currentActivityId;
         if (currentActivityId) {
@@ -1546,8 +1562,11 @@ Page({
           if (!this.data.publicationForm.id && currentActivityId) {
             await this.savePublication(true);
           }
+          // Load merit summary (Feature 5)
+          await this.loadMeritListSummary();
         }
-      });
+        this.setData({ publicationsLoading: false });
+      }).catch(() => { this.setData({ publicationsLoading: false }); });
     }
   },
 
@@ -7457,6 +7476,107 @@ Page({
       }
     } catch (e) { console.error('loadPublicationData error:', e); }
     this.setLoading('publications', false);
+  },
+
+  // ─── Merit list summary (Feature 5) ───
+  async loadMeritListSummary() {
+    const activityId = this.data.publicationForm.activityId;
+    if (!activityId) return;
+    try {
+      const result = await this.callCloud('getMeritListSummary', { activityId });
+      if (result.status === 'success') {
+        const groups = result.groups || [];
+        // Build filter options
+        const deptSet = new Set(), identSet = new Set(), wgSet = new Set();
+        groups.forEach(g => {
+          g.members.forEach(m => {
+            if (m.department) deptSet.add(m.department);
+            if (m.identity) identSet.add(m.identity);
+            if (m.workGroup) wgSet.add(m.workGroup);
+          });
+        });
+        this.setData({
+          meritSummaryGroups: groups,
+          meritSummaryFilteredGroups: groups,
+          meritSummaryDeptOptions: ['全部', ...Array.from(deptSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
+          meritSummaryIdentOptions: ['全部', ...Array.from(identSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
+          meritSummaryWgOptions: ['全部', ...Array.from(wgSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
+          meritSummaryFilterDept: '全部', meritSummaryFilterIdent: '全部', meritSummaryFilterWg: '全部'
+        });
+      }
+    } catch (e) { console.error('loadMeritListSummary error:', e); }
+  },
+
+  applyMeritSummaryFilters() {
+    let groups = this.data.meritSummaryGroups || [];
+    const deptFilter = this.data.meritSummaryFilterDept;
+    const identFilter = this.data.meritSummaryFilterIdent;
+    const wgFilter = this.data.meritSummaryFilterWg;
+    if (deptFilter !== '全部' || identFilter !== '全部' || wgFilter !== '全部') {
+      groups = groups.map(g => ({
+        ...g,
+        members: g.members.filter(m =>
+          (deptFilter === '全部' || m.department === deptFilter) &&
+          (identFilter === '全部' || m.identity === identFilter) &&
+          (wgFilter === '全部' || m.workGroup === wgFilter)
+        )
+      })).filter(g => g.members.length > 0);
+    }
+    this.setData({ meritSummaryFilteredGroups: groups });
+  },
+
+  onMeritSummaryFilterChange(e) {
+    const field = e.currentTarget.dataset.field;
+    const options = this.data[field === 'department' ? 'meritSummaryDeptOptions' : (field === 'identity' ? 'meritSummaryIdentOptions' : 'meritSummaryWgOptions')];
+    const value = options[Number(e.detail.value)] || '全部';
+    if (field === 'department') this.setData({ meritSummaryFilterDept: value });
+    else if (field === 'identity') this.setData({ meritSummaryFilterIdent: value });
+    else this.setData({ meritSummaryFilterWg: value });
+    this.applyMeritSummaryFilters();
+  },
+
+  toggleMeritSummaryGroup(e) {
+    const clauseId = e.currentTarget.dataset.clauseId || '';
+    this.setData({ expandedMeritSummaryClauseId: this.data.expandedMeritSummaryClauseId === clauseId ? '' : clauseId });
+  },
+
+  async exportMeritListSummary() {
+    const activityId = this.data.publicationForm.activityId;
+    if (!activityId) { wx.showToast({ title: '请先选择评分活动', icon: 'none' }); return; }
+    this.setLoading('exportMeritSummary', true);
+    try {
+      const result = await this.callCloud('exportMeritListSummary', {
+        activityId,
+        filterDepartment: this.data.meritSummaryFilterDept === '全部' ? '' : this.data.meritSummaryFilterDept,
+        filterIdentity: this.data.meritSummaryFilterIdent === '全部' ? '' : this.data.meritSummaryFilterIdent,
+        filterWorkGroup: this.data.meritSummaryFilterWg === '全部' ? '' : this.data.meritSummaryFilterWg
+      });
+      if (result.status === 'success' && result.csv) {
+        // Copy CSV to clipboard or use file system
+        wx.setClipboardData({ data: result.csv, success: () => {
+          wx.showToast({ title: `已复制 ${result.rowCount} 条记录`, icon: 'success' });
+        }});
+      } else {
+        wx.showToast({ title: result.message || '导出失败', icon: 'none' });
+      }
+    } catch (e) { wx.showToast({ title: '导出失败', icon: 'none' }); }
+    this.setLoading('exportMeritSummary', false);
+  },
+
+  // ─── Grade band expand/collapse (Feature 4) ───
+  toggleGradeBandExpand(e) {
+    const index = parseInt(e.currentTarget.dataset.index, 10);
+    this.setData({ expandedGradeBandIndex: this.data.expandedGradeBandIndex === index ? -1 : index });
+  },
+
+  getGradeBandColor(gradeName) {
+    const map = this.data.gradeBandColorMap || {};
+    if (map[gradeName]) return map[gradeName];
+    // Fallback: hash the name to pick a color
+    const palette = ['#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1'];
+    let hash = 0;
+    for (let i = 0; i < gradeName.length; i++) hash = ((hash << 5) - hash) + gradeName.charCodeAt(i);
+    return palette[Math.abs(hash) % palette.length];
   },
 
   // ─── Publication toggle ───

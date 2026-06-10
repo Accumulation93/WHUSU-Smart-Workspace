@@ -151,9 +151,9 @@
           <view class="stat-label">平均分</view>
         </view>
       </view>
-      <!-- 等第模式下显示各等第人数分布 -->
+      <!-- 等第模式下显示各等第人数分布（可点击筛选） -->
       <view class="grade-distribution" wx:if="{{displayMode === 'grade' && gradeDistribution.length}}">
-        <view class="grade-chip" wx:for="{{gradeDistribution}}" wx:key="grade">
+        <view class="grade-chip {{resultFilterGrade === item.grade ? 'grade-chip-active' : ''}}" wx:for="{{gradeDistribution}}" wx:key="grade" bindtap="onResultFilterGrade" data-value="{{item.grade}}">
           <text class="grade-chip-name">{{item.grade}}</text>
           <text class="grade-chip-count">{{item.count}}人</text>
         </view>
@@ -188,7 +188,7 @@
             <view class="filter-chip filter-chip-wg {{resultFilterWorkGroup === item ? 'filter-chip-active' : ''}}" wx:for="{{resultWorkGroups}}" wx:key="*this" bindtap="onResultFilterWorkGroup" data-value="{{item}}">{{item}}</view>
           </scroll-view>
         </view>
-        <view class="filter-clear" wx:if="{{resultFilterIdentity || resultFilterDepartment || resultFilterWorkGroup || resultSearchText}}" bindtap="onResultFilterClear">清除全部筛选</view>
+        <view class="filter-clear" wx:if="{{resultFilterIdentity || resultFilterDepartment || resultFilterWorkGroup || resultFilterGrade || resultSearchText}}" bindtap="onResultFilterClear">清除全部筛选</view>
       </view>
 
       <scroll-view class="results-scroll" scroll-y enhanced show-scrollbar="{{false}}" wx:if="{{filteredResults.length}}">

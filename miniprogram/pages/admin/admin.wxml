@@ -1,3 +1,4 @@
+<wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
 <page-meta page-style="{{dragActive ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <view class="hero hero-admin" wx:if="{{hasPermission}}">
@@ -1472,10 +1473,13 @@
     </view>
 
     <view class="section" wx:if="{{activeTab === 'publications'}}">
+      <view class="card-loading-overlay" wx:if="{{publicationsLoading}}">
+        <view class="card-loading-spinner"></view>
+      </view>
       <view class="rule-panel">
         <view class="rule-panel-head"><view class="rule-panel-title">公示发布</view><view class="rule-panel-subtitle">选择评分活动后，可开启结果公示并配置查看权限与评优名单</view></view>
         <view class="field"><view class="field-label">评分活动</view><picker range="{{activityList}}" range-key="name" bindchange="onPublicationActivityChange"><view class="picker-value">{{publicationForm.activityName || '请选择活动'}}</view></picker></view>
-        <view wx:if="{{publicationForm.activityId}}">
+        <view wx:if="{{publicationForm.activityId && !publicationsLoading}}">
           <view class="rule-switch-row"><view><view class="field-label">公示开关</view><view class="rule-panel-subtitle">开启后，被授权的用户可以查看评分结果</view></view><switch checked="{{publicationForm.isPublished}}" color="#2563eb" bindchange="onPublicationToggle"/></view>
           <view class="button-row"><button class="primary-btn" loading="{{loadingMap.savePublication}}" bindtap="savePublication">保存发布设置</button></view>
         </view>
@@ -1510,14 +1514,28 @@
             <view class="list-card nested-card">
               <view class="list-title">等第区间配置</view>
               <view class="empty-inline" wx:if="{{!pubViewRuleForm.clauseGradeBands.length}}">暂无等第区间，请点击下方按钮添加</view>
-              <view class="question-card" wx:for="{{pubViewRuleForm.clauseGradeBands}}" wx:key="index">
-                <view class="question-title">等第区间 {{index + 1}}</view>
-                <view class="field field-row">
-                  <view class="field field-half"><view class="field-label">最低分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="0" /></view>
-                  <view class="field field-half"><view class="field-label">最高分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="100" /></view>
+              <view class="question-card grade-band-card" wx:for="{{pubViewRuleForm.clauseGradeBands}}" wx:key="index">
+                <view class="question-header" data-index="{{index}}" bindtap="toggleGradeBandExpand">
+                  <view class="question-title">
+                    <text>等第区间 {{index + 1}}</text>
+                    <text class="expand-indicator">{{expandedGradeBandIndex === index ? '▲' : '▼'}}</text>
+                  </view>
                 </view>
-                <view class="field"><view class="field-label">等第名称</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onClauseGradeBandInput" value="{{item.gradeName}}" placeholder="例如：优秀、良好、合格" /></view>
-                <view class="button-row compact-row"><button class="secondary-btn" data-index="{{index}}" bindtap="removeClauseGradeBand">删除此区间</button></view>
+                <!-- Collapsed: colored bubble -->
+                <view class="grade-band-collapsed" wx:if="{{expandedGradeBandIndex !== index}}" data-index="{{index}}" bindtap="toggleGradeBandExpand">
+                  <view class="grade-band-bubble" style="background: {{gradeBandWxs.getColor(item.gradeName)}};">
+                    <text class="grade-band-bubble-name">{{gradeBandWxs.getLabel(item, index)}}</text>
+                  </view>
+                </view>
+                <!-- Expanded: editable fields -->
+                <view class="question-fields" wx:if="{{expandedGradeBandIndex === index}}">
+                  <view class="field field-row">
+                    <view class="field field-half"><view class="field-label">最低分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="0" /></view>
+                    <view class="field field-half"><view class="field-label">最高分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="100" /></view>
+                  </view>
+                  <view class="field"><view class="field-label">等第名称</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onClauseGradeBandInput" value="{{item.gradeName}}" placeholder="例如：优秀、良好、合格" /></view>
+                  <view class="button-row compact-row"><button class="secondary-btn" data-index="{{index}}" bindtap="removeClauseGradeBand">删除此区间</button></view>
+                </view>
               </view>
               <view class="button-row"><button class="secondary-btn" bindtap="addClauseGradeBand">新增等第区间</button><button class="secondary-btn" bindtap="generateClauseDefaultGradeBands">生成默认等第</button></view>
             </view>
@@ -1586,6 +1604,69 @@
             </view>
             <view class="rule-empty small-empty" wx:if="{{!pubMeritRuleListView.length}}">暂无评优指定权类别</view>
           </scroll-view>
+        </view>
+      </view>
+
+      <!-- ═══ 评优名单汇总（Feature 5） ═══ -->
+      <view class="rule-panel" wx:if="{{publicationForm.id && !publicationsLoading}}" style="margin-top:28rpx;">
+        <view class="rule-panel-head rule-panel-head-row">
+          <view>
+            <view class="rule-panel-title">🏆 评优名单汇总</view>
+            <view class="rule-panel-subtitle">按规则条款分组显示，支持筛选和导出</view>
+          </view>
+          <button class="secondary-btn mini-action-btn" loading="{{loadingMap.exportMeritSummary}}" bindtap="exportMeritListSummary">导出CSV</button>
+        </view>
+
+        <!-- 筛选 -->
+        <view class="rule-filter-row" wx:if="{{meritSummaryGroups.length}}">
+          <view class="rule-filter-field">
+            <view class="field-label">部门</view>
+            <picker range="{{meritSummaryDeptOptions}}" bindchange="onMeritSummaryFilterChange" data-field="department">
+              <view class="picker-value compact-picker-value">{{meritSummaryFilterDept}}</view>
+            </picker>
+          </view>
+          <view class="rule-filter-field">
+            <view class="field-label">身份</view>
+            <picker range="{{meritSummaryIdentOptions}}" bindchange="onMeritSummaryFilterChange" data-field="identity">
+              <view class="picker-value compact-picker-value">{{meritSummaryFilterIdent}}</view>
+            </picker>
+          </view>
+          <view class="rule-filter-field">
+            <view class="field-label">职能组</view>
+            <picker range="{{meritSummaryWgOptions}}" bindchange="onMeritSummaryFilterChange" data-field="workGroup">
+              <view class="picker-value compact-picker-value">{{meritSummaryFilterWg}}</view>
+            </picker>
+          </view>
+        </view>
+
+        <view class="rule-empty" wx:if="{{!meritSummaryGroups.length}}">暂无评优名单数据，请先在评优规则条款中指定人选</view>
+
+        <!-- 分组卡片 -->
+        <view class="rule-clause-card merit-summary-group-card" wx:for="{{meritSummaryFilteredGroups}}" wx:key="clauseId" wx:for-item="group" wx:for-index="gi" style="animation: glassFadeUp 0.35s {{0.06 * gi}}s ease both;">
+          <view class="rule-clause-main" data-clause-id="{{group.clauseId}}" bindtap="toggleMeritSummaryGroup">
+            <view class="rule-clause-title">{{group.granteeDepartment}} {{group.granteeIdentity}} → {{group.targetIdentity}}</view>
+            <view class="rule-tag-row">
+              <text class="rule-tag tag-scope">{{group.scopeType}}</text>
+              <view class="grade-band-bubble merit-summary-bubble" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};">
+                <text class="grade-band-bubble-name">{{group.memberCount}}人</text>
+              </view>
+              <text class="rule-tag tag-weight" wx:if="{{group.quotaLimit > 0}}">名额 {{group.quotaLimit}}</text>
+              <text class="expand-indicator" style="font-size:22rpx;margin-left:8rpx;">{{expandedMeritSummaryClauseId === group.clauseId ? '▲' : '▼'}}</text>
+            </view>
+          </view>
+          <!-- Expanded member list -->
+          <view class="merit-summary-members" wx:if="{{expandedMeritSummaryClauseId === group.clauseId}}">
+            <view class="target-card merit-summary-member" wx:for="{{group.members}}" wx:key="id" wx:for-item="m" style="animation-delay: {{0.03 * index}}s;">
+              <view class="target-main">
+                <view class="target-name">{{m.name}}</view>
+                <view class="target-tags">
+                  <view class="target-identity">{{m.identity}}</view>
+                </view>
+              </view>
+              <view class="target-meta">{{m.department}}{{m.workGroup ? ' · ' + m.workGroup : ''}}</view>
+            </view>
+            <view class="empty-inline" wx:if="{{!group.members.length}}">当前筛选条件下无匹配成员</view>
+          </view>
         </view>
       </view>
 

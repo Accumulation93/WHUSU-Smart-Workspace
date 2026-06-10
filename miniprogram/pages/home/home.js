@@ -263,6 +263,7 @@ Page({
     resultFilterIdentity: '',
     resultFilterDepartment: '',
     resultFilterWorkGroup: '',
+    resultFilterGrade: '',
     resultSearchText: '',
     resultIdentities: [],
     resultDepartments: [],
@@ -894,11 +895,11 @@ Page({
           ...r,
           // Keep both fields: grade for grade mode, finalScore for score mode
           grade: r.grade || '',
-          finalScore: isGrade ? '' : (typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000'))
+          finalScore: isGrade ? '' : (typeof r.finalScore === 'number' ? r.finalScore.toFixed(3) : (r.finalScore || '0.000')),
+          sortScore: typeof r.sortScore === 'number' ? r.sortScore : (parseFloat(r.finalScore) || 0)
         }));
-        const sorted = isGrade
-          ? [...results].sort((a, b) => String(a.grade || '').localeCompare(String(b.grade || ''), 'zh-CN'))
-          : [...results].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
+        // Always sort by score descending regardless of display mode
+        const sorted = [...results].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
         sorted.forEach((item, idx) => { item.rank = idx + 1; });
         let statsData;
         let gradeDistribution = [];
@@ -992,22 +993,21 @@ Page({
     const idFilter = this.data.resultFilterIdentity || '';
     const deptFilter = this.data.resultFilterDepartment || '';
     const wgFilter = this.data.resultFilterWorkGroup || '';
+    const gradeFilter = this.data.resultFilterGrade || '';
     const searchText = (this.data.resultSearchText || '').trim().toLowerCase();
     let filtered = base;
     if (idFilter) filtered = filtered.filter(r => r.identity === idFilter);
     if (deptFilter) filtered = filtered.filter(r => r.department === deptFilter);
     if (wgFilter) filtered = filtered.filter(r => r.workGroup === wgFilter);
+    if (gradeFilter) filtered = filtered.filter(r => (r.grade || '未评级') === gradeFilter);
     if (searchText) filtered = filtered.filter(r =>
       (r.name || '').toLowerCase().indexOf(searchText) >= 0 ||
       (r.identity || '').toLowerCase().indexOf(searchText) >= 0 ||
       (r.department || '').toLowerCase().indexOf(searchText) >= 0 ||
       (r.workGroup || '').toLowerCase().indexOf(searchText) >= 0
     );
-    // Re-rank within filtered set
-    const isGradeFilter = this.data.displayMode === 'grade';
-    const sorted = isGradeFilter
-      ? [...filtered].sort((a, b) => String(a.grade || '').localeCompare(String(b.grade || ''), 'zh-CN'))
-      : [...filtered].sort((a, b) => (parseFloat(b.finalScore) || 0) - (parseFloat(a.finalScore) || 0));
+    // Always sort by score descending regardless of display mode
+    const sorted = [...filtered].sort((a, b) => (b.sortScore || 0) - (a.sortScore || 0));
     sorted.forEach((item, idx) => {
       item.rank = idx + 1;
       if (!isGradeFilter && typeof item.finalScore === 'number') item.finalScore = item.finalScore.toFixed(3);
@@ -1039,7 +1039,7 @@ Page({
   },
 
   onResultFilterClear() {
-    this.setData({ resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultSearchText: '' });
+    this.setData({ resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultFilterGrade: '', resultSearchText: '' });
     this.applyResultFilters();
   },
 
@@ -1058,6 +1058,12 @@ Page({
   onResultFilterWorkGroup(e) {
     const val = e.currentTarget.dataset.value || '';
     this.setData({ resultFilterWorkGroup: val === this.data.resultFilterWorkGroup ? '' : val });
+    this.applyResultFilters();
+  },
+
+  onResultFilterGrade(e) {
+    const val = e.currentTarget.dataset.value || '';
+    this.setData({ resultFilterGrade: val === this.data.resultFilterGrade ? '' : val });
     this.applyResultFilters();
   },
 
