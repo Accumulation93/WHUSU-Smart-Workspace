@@ -27,14 +27,19 @@ const VALID_DISPLAY_MODES = ['score', 'grade'];
  */
 function applyGradeBands(score, bands) {
   if (!Array.isArray(bands) || !bands.length) return '未评级';
+  // Ensure numeric comparison (defensive: score may come as string from some paths)
+  const numScore = Number(score);
+  if (!Number.isFinite(numScore)) return '未评级';
   for (const band of bands) {
     const minScore = Number(band.minScore != null ? band.minScore : band.min_score);
     const maxScore = Number(band.maxScore != null ? band.maxScore : band.max_score);
     if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) continue;
-    if (score >= minScore && score <= maxScore) {
+    if (numScore >= minScore && numScore <= maxScore) {
       return band.gradeName || band.grade_name || '';
     }
   }
+  // Diagnostic: log when a score doesn't match any band (helps catch config mismatches)
+  console.warn('[applyGradeBands] no band matched:', { numScore, bandCount: bands.length, bands: bands.map(b => ({ min: b.minScore != null ? b.minScore : b.min_score, max: b.maxScore != null ? b.maxScore : b.max_score, name: b.gradeName || b.grade_name })) });
   return '未评级';
 }
 
@@ -613,8 +618,10 @@ router.post('/getPublicResults', async (req, res) => {
 
       // Diagnostic: log first group's scores for debugging
       if (members.length > 0) {
-        console.log('[getPublicResults] clause', clause.id, 'displayMode:', clauseDisplayMode,
+        console.log('[getPublicResults] clause', clause.id, 'scope:', safeString(clause.scope_type),
+          'displayMode:', clauseDisplayMode,
           'bandCount:', clauseGradeBands.length,
+          'bands:', clauseGradeBands.map(b => ({ min: b.minScore, max: b.maxScore, name: b.gradeName })),
           'memberCount:', members.length,
           'sampleScores:', members.slice(0, 3).map(m => ({ name: m.name, raw: m.sortScore, grade: m.grade, display: m.finalScore })));
       }

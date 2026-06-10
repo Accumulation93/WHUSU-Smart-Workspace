@@ -1530,8 +1530,8 @@
                 <!-- Expanded: editable fields -->
                 <view class="question-fields" wx:if="{{expandedGradeBandIndex === index}}">
                   <view class="field field-row">
-                    <view class="field field-half"><view class="field-label">最低分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="0" /></view>
-                    <view class="field field-half"><view class="field-label">最高分（含）</view><input class="field-input" type="digit" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="100" /></view>
+                    <view class="field field-half"><view class="field-label">最低分（含）</view><input class="field-input" type="number" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="0" /></view>
+                    <view class="field field-half"><view class="field-label">最高分（含）</view><input class="field-input" type="number" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="100" /></view>
                   </view>
                   <view class="field"><view class="field-label">等第名称</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onClauseGradeBandInput" value="{{item.gradeName}}" placeholder="例如：优秀、良好、合格" /></view>
                   <view class="button-row compact-row"><button class="secondary-btn" data-index="{{index}}" bindtap="removeClauseGradeBand">删除此区间</button></view>
