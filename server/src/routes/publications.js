@@ -13,6 +13,7 @@ const departmentModel = require('../models/department');
 const identityModel = require('../models/identity');
 const workGroupModel = require('../models/workGroup');
 const activityModel = require('../models/scoreActivity');
+const XLSX = require('xlsx');
 const pool = require('../config/db');
 const { getCurrentOrgId } = require('../utils/orgContext');
 
@@ -1338,15 +1339,25 @@ router.post('/exportMeritListSummary', async (req, res) => {
       }
     }
 
-    // Build CSV
-    const header = '姓名,学号,部门,身份,职能组,评优分组';
-    const csvLines = [header];
-    for (const r of rows) {
-      csvLines.push([r.name, r.studentId, r.department, r.identity, r.workGroup, r.groupLabel]
-        .map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
-    }
+    // Build XLSX file (same pattern as exportScoreResults)
+    const headers = [
+      { key: 'name', label: '姓名' },
+      { key: 'studentId', label: '学号' },
+      { key: 'department', label: '部门' },
+      { key: 'identity', label: '身份' },
+      { key: 'workGroup', label: '职能组' },
+      { key: 'groupLabel', label: '评优分组' }
+    ];
+    const headerLabels = headers.map(h => h.label);
+    const dataRows = rows.map(row => headers.map(h => row[h.key]));
+    const sheetData = [headerLabels, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '评优名单汇总');
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const fileContent = buffer.toString('base64');
 
-    res.json({ status: 'success', csv: csvLines.join('\n'), rowCount: rows.length });
+    res.json({ status: 'success', fileContent, fileName: '评优名单汇总', extension: 'xlsx', rowCount: rows.length });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 

@@ -1608,62 +1608,70 @@
       </view>
 
       <!-- ═══ 评优名单汇总（Feature 5） ═══ -->
-      <view class="rule-panel" wx:if="{{publicationForm.id}}" style="margin-top:28rpx;">
+      <view class="rule-panel merit-summary-panel" wx:if="{{publicationForm.id}}" style="margin-top:28rpx;">
         <view class="rule-panel-head rule-panel-head-row">
           <view>
             <view class="rule-panel-title">🏆 评优名单汇总</view>
             <view class="rule-panel-subtitle">按规则条款分组显示，支持筛选和导出</view>
           </view>
-          <button class="secondary-btn mini-action-btn" loading="{{loadingMap.exportMeritSummary}}" bindtap="exportMeritListSummary">导出CSV</button>
+          <view class="merit-summary-head-actions">
+            <view class="merit-summary-total-chip" wx:if="{{meritSummaryGroups.length}}">共 {{meritSummaryGroups.length}} 组</view>
+            <button class="secondary-btn mini-action-btn" loading="{{loadingMap.exportMeritSummary}}" bindtap="exportMeritListSummary">导出表格</button>
+          </view>
         </view>
 
-        <!-- 筛选 -->
-        <view class="rule-filter-row" wx:if="{{meritSummaryGroups.length}}">
-          <view class="rule-filter-field">
-            <view class="field-label">部门</view>
+        <!-- 筛选条（玻璃风格） -->
+        <view class="merit-summary-filter-bar" wx:if="{{meritSummaryGroups.length}}">
+          <view class="merit-summary-filter-field">
+            <text class="merit-summary-filter-label">部门</text>
             <picker range="{{meritSummaryDeptOptions}}" bindchange="onMeritSummaryFilterChange" data-field="department">
-              <view class="picker-value compact-picker-value">{{meritSummaryFilterDept}}</view>
+              <view class="merit-summary-filter-value">{{meritSummaryFilterDept}}</view>
             </picker>
           </view>
-          <view class="rule-filter-field">
-            <view class="field-label">身份</view>
+          <view class="merit-summary-filter-field">
+            <text class="merit-summary-filter-label">身份</text>
             <picker range="{{meritSummaryIdentOptions}}" bindchange="onMeritSummaryFilterChange" data-field="identity">
-              <view class="picker-value compact-picker-value">{{meritSummaryFilterIdent}}</view>
+              <view class="merit-summary-filter-value">{{meritSummaryFilterIdent}}</view>
             </picker>
           </view>
-          <view class="rule-filter-field">
-            <view class="field-label">职能组</view>
+          <view class="merit-summary-filter-field">
+            <text class="merit-summary-filter-label">职能组</text>
             <picker range="{{meritSummaryWgOptions}}" bindchange="onMeritSummaryFilterChange" data-field="workGroup">
-              <view class="picker-value compact-picker-value">{{meritSummaryFilterWg}}</view>
+              <view class="merit-summary-filter-value">{{meritSummaryFilterWg}}</view>
             </picker>
           </view>
         </view>
 
-        <view class="rule-empty" wx:if="{{!meritSummaryGroups.length}}">暂无评优名单数据，请先在评优规则条款中指定人选</view>
+        <view class="rule-empty glass-empty" wx:if="{{!meritSummaryGroups.length}}">
+          <view class="empty-illustration"><view class="empty-icon-star"></view></view>
+          <view class="empty-title">暂无评优名单</view>
+          <view class="empty-desc">请先在评优规则条款中指定人选</view>
+        </view>
 
-        <!-- 分组卡片 -->
-        <view class="rule-clause-card merit-summary-group-card" wx:for="{{meritSummaryFilteredGroups}}" wx:key="clauseId" wx:for-item="group" wx:for-index="gi" style="animation: glassFadeUp 0.35s {{0.06 * gi}}s ease both;">
-          <view class="rule-clause-main" data-clause-id="{{group.clauseId}}" bindtap="toggleMeritSummaryGroup">
-            <view class="rule-clause-title">{{group.granteeDepartment}} {{group.granteeIdentity}} → {{group.targetIdentity}}</view>
-            <view class="rule-tag-row">
-              <text class="rule-tag tag-scope">{{group.scopeType}}</text>
-              <view class="grade-band-bubble merit-summary-bubble" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};">
-                <text class="grade-band-bubble-name">{{group.memberCount}}人</text>
+        <!-- 分组卡片（玻璃风格） -->
+        <view class="merit-group-glass-card" wx:for="{{meritSummaryFilteredGroups}}" wx:key="clauseId" wx:for-item="group" wx:for-index="gi" style="animation: glassFadeUp 0.38s {{0.06 * gi}}s ease both;">
+          <view class="merit-group-glass-head" data-clause-id="{{group.clauseId}}" bindtap="toggleMeritSummaryGroup">
+            <view class="merit-group-glass-left">
+              <view class="merit-group-color-dot" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};"></view>
+              <view class="merit-group-glass-title">{{group.granteeDepartment}} {{group.granteeIdentity}} → {{group.targetIdentity}}</view>
+            </view>
+            <view class="merit-group-glass-right">
+              <view class="merit-group-count-bubble" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};">
+                <text>{{group.memberCount}}人</text>
               </view>
-              <text class="rule-tag tag-weight" wx:if="{{group.quotaLimit > 0}}">名额 {{group.quotaLimit}}</text>
-              <text class="expand-indicator" style="font-size:22rpx;margin-left:8rpx;">{{expandedMeritSummaryClauseId === group.clauseId ? '▲' : '▼'}}</text>
+              <view class="merit-group-quota-chip" wx:if="{{group.quotaLimit > 0}}">名额{{group.quotaLimit}}</view>
+              <text class="merit-group-expand-arrow">{{expandedMeritSummaryClauseId === group.clauseId ? '▲' : '▼'}}</text>
             </view>
           </view>
-          <!-- Expanded member list -->
-          <view class="merit-summary-members" wx:if="{{expandedMeritSummaryClauseId === group.clauseId}}">
-            <view class="target-card merit-summary-member" wx:for="{{group.members}}" wx:key="id" wx:for-item="m" style="animation-delay: {{0.03 * index}}s;">
-              <view class="target-main">
-                <view class="target-name">{{m.name}}</view>
-                <view class="target-tags">
-                  <view class="target-identity">{{m.identity}}</view>
-                </view>
+          <!-- Expanded: glass member cards -->
+          <view class="merit-group-glass-body" wx:if="{{expandedMeritSummaryClauseId === group.clauseId}}">
+            <view class="merit-group-glass-member" wx:for="{{group.members}}" wx:key="id" wx:for-item="m" style="animation: glassFadeUp 0.28s {{0.04 * index}}s ease both;">
+              <view class="merit-member-avatar" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};">{{m.name[0] || '?'}}</view>
+              <view class="merit-member-info">
+                <view class="merit-member-name">{{m.name}}</view>
+                <view class="merit-member-detail">{{m.identity}}<text wx:if="{{m.department}}"> · {{m.department}}</text><text wx:if="{{m.workGroup}}"> · {{m.workGroup}}</text></view>
               </view>
-              <view class="target-meta">{{m.department}}{{m.workGroup ? ' · ' + m.workGroup : ''}}</view>
+              <view class="merit-member-id">{{m.studentId}}</view>
             </view>
             <view class="empty-inline" wx:if="{{!group.members.length}}">当前筛选条件下无匹配成员</view>
           </view>
