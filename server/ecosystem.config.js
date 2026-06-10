@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'redsu-scoring',
     script: 'src/index.js',
-    cwd: '/home/ubuntu/server',
+    cwd: '/home/ubuntu/redsu_scoring/server',
     instances: 2,
     exec_mode: 'cluster',
     env: {
@@ -21,7 +21,7 @@ module.exports = {
   }, {
     name: 'redsu-backup',
     script: 'backup.js',
-    cwd: '/home/ubuntu/server',
+    cwd: '/home/ubuntu/redsu_scoring/server',
     exec_mode: 'fork',
     instances: 1,
     env: {
