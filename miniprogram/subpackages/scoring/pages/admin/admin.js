@@ -350,8 +350,8 @@ Page({
 
     // Audit sub-app: only load what audit tabs need (fire-and-forget, don't block rendering)
     if (this._subApp === 'audit') {
-      this.loadIdentityList();
-      this.loadAuditFlowTemplates();
+      this.loadIdentityList().catch(function() {});
+      this.loadAuditFlowTemplates().catch(function() {});
       return;
     }
 

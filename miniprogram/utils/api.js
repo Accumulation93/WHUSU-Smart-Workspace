@@ -8,6 +8,15 @@ function callFunction(options) {
   const complete = options.complete;
 
   const promise = new Promise((resolve, reject) => {
+    let settled = false;
+    // Custom timeout avoids WeChat framework "Error: timeout" from WAServiceMainContext
+    const timer = setTimeout(function() {
+      if (!settled) {
+        settled = true;
+        reject({ errMsg: 'request:fail timeout', timedOut: true });
+      }
+    }, 12000);
+
     wx.request({
       url: API_BASE + '/' + name,
       method: 'POST',
@@ -16,8 +25,10 @@ function callFunction(options) {
         'Authorization': 'Bearer ' + (wx.getStorageSync('token') || '')
       },
       data: data,
-      timeout: 15000, // 15s to avoid hanging page rendering
       success: function(res) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         if (res.statusCode === 200) {
           resolve(res.data);
         } else {
@@ -25,6 +36,9 @@ function callFunction(options) {
         }
       },
       fail: function(err) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         console.error('[API] Request failed:', name, JSON.stringify(err));
         reject(err);
       }

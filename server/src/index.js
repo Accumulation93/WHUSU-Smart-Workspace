@@ -144,6 +144,11 @@ app.use('/api', require('./modules/audit/routes/auditUser'));
 app.use('/api', require('./modules/audit/routes/auditSignature'));
 app.use('/api', require('./modules/audit/routes/auditFile'));
 
+// ---------- 404 handler (fail fast for unknown routes) ----------
+app.use('/api', (req, res) => {
+  res.status(404).json({ status: 'not_found', message: 'Route not found: ' + req.method + ' ' + req.path });
+});
+
 // ---------- error handler ----------
 app.use((err, req, res, next) => {
   logger.error('Unhandled error', {
