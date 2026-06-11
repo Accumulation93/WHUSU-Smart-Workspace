@@ -1227,6 +1227,11 @@
       </view>
     </view>
 
+    <!-- BINARY SEARCH MARKER 1: after hrInfo, before admins -->
+    <view style="background:#0f0;color:#000;padding:16rpx;margin:8rpx 0;font-size:28rpx;font-weight:bold;">
+      ★ MARKER-1: after hrInfo section ★
+    </view>
+
     <view class="section" wx:if="{{activeTab === 'admins'}}">
 
       <view class="section-title">管理员</view>
