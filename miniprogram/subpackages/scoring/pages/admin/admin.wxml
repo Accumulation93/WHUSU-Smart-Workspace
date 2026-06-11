@@ -1,4 +1,4 @@
-<wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
+<!-- WXS TEMPORARILY DISABLED FOR DEBUG -->
 <page-meta page-style="{{dragActive ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <view class="hero hero-admin" wx:if="{{hasPermission}}">
@@ -1508,6 +1508,13 @@
       <view class="section-title">审核流模板 FORCE RENDER TEST</view>
       <view class="list-card">
         <view class="list-title">Force render check — if you see this, section content renders OK</view>
+        <!-- wx:if diagnostic tests -->
+        <view style="background:#ff0;color:#000;padding:12rpx;margin:8rpx 0;font-size:24rpx;line-height:1.8;">
+          <view>→ wx:if=true: <text wx:if="{{true}}" style="background:#0f0;color:#000;padding:2rpx 4rpx;">TRUE-RENDERED</text><text wx:else style="background:#f00;color:#fff;padding:2rpx 4rpx;">TRUE-FAILED</text></view>
+          <view>→ wx:if=false: <text wx:if="{{false}}" style="background:#0f0;color:#000;padding:2rpx 4rpx;">FALSE-RENDERED</text><text wx:else style="background:#f00;color:#fff;padding:2rpx 4rpx;">FALSE-ELSE</text></view>
+          <view>→ wx:if=hasPermission: <text wx:if="{{hasPermission}}" style="background:#0f0;color:#000;padding:2rpx 4rpx;">PERM-TRUE</text><text wx:else style="background:#f00;color:#fff;padding:2rpx 4rpx;">PERM-FALSE</text></view>
+          <view>→ wx:if=activeTab==auditTemplates: <text wx:if="{{activeTab === 'auditTemplates'}}" style="background:#0f0;color:#000;padding:2rpx 4rpx;">MATCH-TRUE</text><text wx:else style="background:#f00;color:#fff;padding:2rpx 4rpx;">MATCH-FALSE(activeTab=[{{activeTab}}])</text></view>
+        </view>
       </view>
     </view>
 
