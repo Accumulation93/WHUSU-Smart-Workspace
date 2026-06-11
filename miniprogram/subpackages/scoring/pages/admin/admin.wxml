@@ -40,6 +40,11 @@
       DIAG: activeTab=[{{activeTab}}] | visibleTabs=[{{visibleTabs}}] | subAppLabel=[{{subAppLabel}}] | hasPermission=[{{hasPermission}}]
     </view>
 
+    <!-- FORCE RENDER AT TOP: placed immediately after diag to test rendering -->
+    <view style="background:#0f0;color:#000;padding:16rpx;margin:8rpx 0;font-size:28rpx;font-weight:bold;">
+      ★ FORCE RENDER AT TOP — if you see this green bar, rendering works here ★
+    </view>
+
     <view class="section" wx:if="{{activeTab === 'activities'}}">
       <view class="section-title">评分活动</view>
       <view class="edit-box">
