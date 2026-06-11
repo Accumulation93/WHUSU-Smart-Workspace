@@ -1702,6 +1702,10 @@
 
     <!-- ══════════════ Audit: Flow Templates ══════════════ -->
     <view class="section" wx:if="{{activeTab === 'auditTemplates'}}">
+      <!-- DEBUG: verify section renders -->
+      <view style="background:#fee;color:#c00;padding:8rpx 16rpx;font-size:24rpx;margin-bottom:8rpx;">
+        DEBUG: activeTab={{activeTab}} | loadingMap.auditTemplates={{loadingMap.auditTemplates}} | templates.length={{auditFlowTemplates.length}}
+      </view>
       <view class="section-title">审核流模板</view>
       <view class="edit-box">
         <view class="list-title">{{auditTemplateForm.id ? '编辑模板' : '新建模板'}}</view>
