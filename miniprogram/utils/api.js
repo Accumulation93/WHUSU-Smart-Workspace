@@ -7,22 +7,28 @@ function callFunction(options) {
   const fail = options.fail;
   const complete = options.complete;
 
-  const promise = new Promise((resolve, reject) => {
-    let settled = false;
-    let requestTask = null;
+  var settled = false;
+  var timer = null;
 
-    const timer = setTimeout(function() {
-      if (!settled) {
-        settled = true;
-        // Abort the underlying network request so WeChat's WAServiceMainContext
-        // won't later emit a framework-level "Error: timeout" after we've already
-        // handled the timeout at the application layer.
-        if (requestTask) requestTask.abort();
-        reject({ errMsg: 'request:fail timeout', timedOut: true });
+  var promise = new Promise(function(resolve, reject) {
+    function settle(err, result) {
+      if (settled) return;
+      settled = true;
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (err) { reject(err); } else { resolve(result); }
+    }
+
+    timer = setTimeout(function() {
+      // Wrap in try-catch: any synchronous throw inside a setTimeout callback
+      // gets caught by WeChat's WAServiceMainContext and surfaced as "Error: timeout"
+      try {
+        settle({ errMsg: 'request:fail timeout', timedOut: true });
+      } catch (e) {
+        // Silently swallow — prevents WAServiceMainContext "Error: timeout"
       }
     }, 15000);
 
-    requestTask = wx.request({
+    wx.request({
       url: API_BASE + '/' + name,
       method: 'POST',
       header: {
@@ -31,21 +37,17 @@ function callFunction(options) {
       },
       data: data,
       success: function(res) {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
         if (res.statusCode === 200) {
-          resolve(res.data);
+          settle(null, res.data);
         } else {
-          reject({ errMsg: 'request:fail statusCode ' + res.statusCode });
+          settle({ errMsg: 'request:fail statusCode ' + res.statusCode });
         }
       },
       fail: function(err) {
+        // Ignore abort errors caused by our own timeout settlement
         if (settled) return;
-        settled = true;
-        clearTimeout(timer);
         console.error('[API] Request failed:', name, JSON.stringify(err));
-        reject(err);
+        settle(err);
       }
     });
   });
@@ -67,13 +69,14 @@ function callFunction(options) {
   return promise;
 }
 
-function showShortToast(title, icon = 'none') {
-  wx.showToast({ title, icon });
+function showShortToast(title, icon) {
+  if (!icon) icon = 'none';
+  wx.showToast({ title: title, icon: icon });
 }
 
 function getErrorText(error, fallback) {
-  const text = String((error && (error.errMsg || error.message)) || '').trim();
+  var text = String((error && (error.errMsg || error.message)) || '').trim();
   return text || fallback;
 }
 
-module.exports = { callFunction, showShortToast, getErrorText };
+module.exports = { callFunction: callFunction, showShortToast: showShortToast, getErrorText: getErrorText };
