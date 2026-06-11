@@ -16,6 +16,7 @@ function callFunction(options) {
         'Authorization': 'Bearer ' + (wx.getStorageSync('token') || '')
       },
       data: data,
+      timeout: 15000, // 15s to avoid hanging page rendering
       success: function(res) {
         if (res.statusCode === 200) {
           resolve(res.data);

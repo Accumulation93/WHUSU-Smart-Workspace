@@ -348,9 +348,9 @@ Page({
         : ['普通管理员', '超级管理员']
     });
 
-    // Audit sub-app: only load what audit tabs need
+    // Audit sub-app: only load what audit tabs need (fire-and-forget, don't block rendering)
     if (this._subApp === 'audit') {
-      await this.loadIdentityList();
+      this.loadIdentityList();
       this.loadAuditFlowTemplates();
       return;
     }
