@@ -348,10 +348,14 @@ Page({
         : ['普通管理员', '超级管理员']
     });
 
-    // Audit sub-app: only load what audit tabs need (fire-and-forget, don't block rendering)
+    // Audit sub-app: load all audit tab data (fire-and-forget, don't block rendering)
     if (this._subApp === 'audit') {
+      this.loadDepartmentList().catch(function() {});
       this.loadIdentityList().catch(function() {});
       this.loadAuditFlowTemplates().catch(function() {});
+      this.loadStamps().catch(function() {});
+      this.loadAuditSubmissions().catch(function() {});
+      this.loadVerificationPermissions().catch(function() {});
       return;
     }
 
