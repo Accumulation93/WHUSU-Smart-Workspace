@@ -9,15 +9,20 @@ function callFunction(options) {
 
   const promise = new Promise((resolve, reject) => {
     let settled = false;
-    // Custom timeout avoids WeChat framework "Error: timeout" from WAServiceMainContext
+    let requestTask = null;
+
     const timer = setTimeout(function() {
       if (!settled) {
         settled = true;
+        // Abort the underlying network request so WeChat's WAServiceMainContext
+        // won't later emit a framework-level "Error: timeout" after we've already
+        // handled the timeout at the application layer.
+        if (requestTask) requestTask.abort();
         reject({ errMsg: 'request:fail timeout', timedOut: true });
       }
-    }, 12000);
+    }, 15000);
 
-    wx.request({
+    requestTask = wx.request({
       url: API_BASE + '/' + name,
       method: 'POST',
       header: {
