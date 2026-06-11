@@ -35,6 +35,11 @@
       </block>
     </view>
 
+    <!-- DIAGNOSTIC: always visible, no wx:if -->
+    <view style="background:#ff0;color:#000;padding:12rpx 16rpx;font-size:26rpx;margin:8rpx 0;line-height:1.6;">
+      DIAG: activeTab=[{{activeTab}}] | visibleTabs=[{{visibleTabs}}] | subAppLabel=[{{subAppLabel}}] | hasPermission=[{{hasPermission}}]
+    </view>
+
     <view class="section" wx:if="{{activeTab === 'activities'}}">
       <view class="section-title">评分活动</view>
       <view class="edit-box">
