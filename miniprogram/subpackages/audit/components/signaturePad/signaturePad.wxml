@@ -1,0 +1,15 @@
+<view class="sigpad-wrap">
+  <canvas
+    type="2d"
+    id="sigCanvas"
+    class="sigpad-canvas"
+    disable-scroll="{{true}}"
+    bindtouchstart="onTouchStart"
+    bindtouchmove="onTouchMove"
+    bindtouchend="onTouchEnd"
+  ></canvas>
+  <view class="sigpad-actions">
+    <button class="secondary-btn sigpad-btn" bindtap="onClear">清除</button>
+    <button class="primary-btn sigpad-btn" bindtap="onConfirm">确认签名</button>
+  </view>
+</view>

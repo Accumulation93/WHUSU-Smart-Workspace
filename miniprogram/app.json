@@ -19,6 +19,17 @@
       "root": "subpackages/scoring/pages/scorerTasks",
       "name": "scorerTasks",
       "pages": ["scorerTasks"]
+    },
+    {
+      "root": "subpackages/audit",
+      "name": "audit",
+      "pages": [
+        "pages/mySubmissions/mySubmissions",
+        "pages/submissionDetail/submissionDetail",
+        "pages/pendingApprovals/pendingApprovals",
+        "pages/signatureManager/signatureManager",
+        "pages/verification/verification"
+      ]
     }
   ],
   "window": {

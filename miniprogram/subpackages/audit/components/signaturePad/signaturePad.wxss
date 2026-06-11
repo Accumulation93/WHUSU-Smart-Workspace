@@ -1,0 +1,27 @@
+.sigpad-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16rpx;
+}
+
+.sigpad-canvas {
+  width: 100%;
+  height: 320rpx;
+  background: #fff;
+  border: 2rpx solid #e2e8f0;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.sigpad-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 20rpx;
+  width: 100%;
+}
+
+.sigpad-btn {
+  flex: 1;
+  font-size: 26rpx;
+}

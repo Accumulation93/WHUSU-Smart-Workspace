@@ -77,8 +77,8 @@ echo "Connecting: $DB_USER@$DB_HOST:$DB_PORT  ->  $DB_NAME"
 echo "=========================================="
 echo ""
 
-# ─── [1/6] test connection ──────────────────────────
-echo "[1/6] Testing connection..."
+# ─── [1/7] test connection ──────────────────────────
+echo "[1/7] Testing connection..."
 if ! run_mysql -e "SELECT 1 AS test;"; then
   echo ""
   echo "[ERROR] Cannot connect. Check host / port / user / password."
@@ -92,8 +92,8 @@ if ! run_mysql -e "SELECT 1 AS test;"; then
 fi
 echo "       OK."
 
-# ─── [2/6] verify database ──────────────────────────
-echo "[2/6] Verifying database exists..."
+# ─── [2/7] verify database ──────────────────────────
+echo "[2/7] Verifying database exists..."
 if ! run_mysql -e "USE \`$DB_NAME\`;"; then
   echo "[ERROR] Database '$DB_NAME' does not exist. Run setup-local.sh first."
   exit 1
@@ -102,7 +102,7 @@ echo "       OK."
 
 # ─── [3/6] run main org_id migration ────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-echo "[3/6] Running main migration (migrate_org_id.sql) ..."
+echo "[3/7] Running main migration (migrate_org_id.sql) ..."
 echo "       This may take a while depending on data size."
 
 if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migrate_org_id.sql" 2>&1; then
@@ -113,7 +113,7 @@ fi
 echo "       OK."
 
 # ─── [4/6] fix permission_id ─────────────────────────
-echo "[4/6] Fixing permission_id column (migrate_fix_permission_id.sql) ..."
+echo "[4/7] Fixing permission_id column (migrate_fix_permission_id.sql) ..."
 echo "       Drops legacy FK, makes permission_id nullable."
 
 if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migrate_fix_permission_id.sql" 2>&1; then
@@ -124,7 +124,7 @@ else
 fi
 
 # ─── [5/6] fix clause_id ─────────────────────────────
-echo "[5/6] Fixing clause_id column (migrate_clause_id.sql) ..."
+echo "[5/7] Fixing clause_id column (migrate_clause_id.sql) ..."
 echo "       Adds clause_id, copies from permission_id, drops old FKs."
 
 if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migrate_clause_id.sql" 2>&1; then
@@ -134,13 +134,24 @@ else
   echo "       OK."
 fi
 
-# ─── [6/6] grade bands migration ─────────────────────
-echo "[6/6] Running grade bands migration (migration_grade_bands.sql) ..."
+# ─── [6/7] grade bands migration ─────────────────────
+echo "[6/7] Running grade bands migration (migration_grade_bands.sql) ..."
 echo "       display_mode → clauses, pub_grade_bands, cascade FKs, orphan cleanup."
 
 if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migration_grade_bands.sql" 2>&1; then
   echo "[ERROR] Grade bands migration failed. See errors above."
   echo "       This is not fatal — you can run migration_grade_bands.sql manually."
+else
+  echo "       OK."
+fi
+
+# ─── [7/7] audit workflow migration ──────────────────
+echo "[7/7] Running audit workflow migration (migrate_audit_workflow.sql) ..."
+echo "       Creates audit flow templates, submissions, signatures, stamps tables."
+
+if ! run_mysql "$DB_NAME" < "$SCRIPT_DIR/migrate_audit_workflow.sql" 2>&1; then
+  echo "[ERROR] Audit workflow migration failed. See errors above."
+  echo "       This is not fatal — you can run migrate_audit_workflow.sql manually."
 else
   echo "       OK."
 fi
@@ -197,6 +208,7 @@ echo "  1. migrate_org_id.sql         — org_id columns, history tables dropped
 echo "  2. migrate_fix_permission_id.sql — permission_id nullable, FK removed"
 echo "  3. migrate_clause_id.sql      — clause_id column, old FK cleanup"
 echo "  4. migration_grade_bands.sql  — display_mode → clauses, cascade FKs, pub_grade_bands"
+echo "  5. migrate_audit_workflow.sql — audit flow templates, submissions, signatures, stamps"
 echo ""
 echo "New features:"
 echo "  - org-scoped architecture (org_id on all tables)"
@@ -206,4 +218,5 @@ echo "  - merit_list_designations uses clause_id (permission_id is legacy)"
 echo "  - pub_view_rule_clauses.display_mode (score | grade) per clause"
 echo "  - pub_grade_bands table for customizable grade intervals"
 echo "  - cascade FKs ensure no zombie records on category deletion"
+echo "  - audit workflow system: flow templates, e-signatures, stamps, hash-chain verification"
 echo "=========================================="

@@ -1,0 +1,236 @@
+<view class="page">
+  <view class="hero">
+    <view class="hero-badge">审核</view>
+    <view class="hero-title" wx:if="{{action === 'create'}}">发起新审核</view>
+    <view class="hero-title" wx:else>{{submission.title || submission.submissionNumber || '审核详情'}}</view>
+    <view class="hero-subtitle" wx:if="{{action === 'view' && submission}}">{{submission.submissionNumber}} · {{submission.submitterName}}</view>
+  </view>
+
+  <!-- ═══════════ Create Mode ═══════════ -->
+  <view class="section" wx:if="{{action === 'create'}}">
+    <view class="card">
+      <view class="section-title">审核类型</view>
+      <view class="button-row">
+        <button class="{{createMode === 'template' ? 'primary-btn' : 'secondary-btn'}}" data-mode="template" bindtap="onCreateModeChange">从模板创建</button>
+        <button class="{{createMode === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}}" data-mode="ad_hoc" bindtap="onCreateModeChange">临时审批</button>
+      </view>
+    </view>
+
+    <!-- Template mode -->
+    <view class="card" wx:if="{{createMode === 'template'}}">
+      <view class="section-title">选择审核流模板</view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll small-scroll" scroll-y>
+        <view class="list-item {{selectedTemplateId === item.id ? 'list-item-selected' : ''}}" wx:for="{{flowTemplates}}" wx:key="id" data-id="{{item.id}}" bindtap="onTemplateSelect">
+          <view class="list-main">
+            <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}步 · {{item.resubmitMode === 'fresh' ? '重新逐层' : '回到驳回人'}})</text></view>
+            <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
+          </view>
+        </view>
+        <view class="empty-inline" wx:if="{{!flowTemplates.length}}">暂无可用的审核流模板</view>
+      </scroll-view>
+    </view>
+
+    <!-- Ad-hoc mode -->
+    <view class="card" wx:if="{{createMode === 'ad_hoc'}}">
+      <view class="section-title">审批步骤 ({{adHocSteps.length}}步)</view>
+      <view class="list-item" wx:for="{{adHocSteps}}" wx:key="index">
+        <view class="list-main"><view class="list-name">第{{index + 1}}步：{{item.approverType === 'identity' ? '身份' + item.approverIdentityId : '人员' + item.approverHrId}} — {{item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章')}}</view></view>
+        <view class="list-actions"><text class="link danger-link" data-index="{{index}}" bindtap="removeAdHocStep">移除</text></view>
+      </view>
+      <view class="button-row compact-row"><button class="secondary-btn" bindtap="openAdHocStepEditor">添加步骤</button></view>
+      <view class="field" style="margin-top:16rpx;">
+        <view class="field-label">驳回重提交模式</view>
+        <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onResubmitModeChange">
+          <view class="picker-value">{{resubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- Common: Title + Files -->
+    <view class="card">
+      <view class="section-title">基本信息</view>
+      <view class="field">
+        <view class="field-label">标题</view>
+        <input class="field-input" value="{{createTitle}}" bindinput="onTitleInput" placeholder="请输入审核标题" />
+      </view>
+      <view class="list-title" style="margin-top:16rpx;">附件 ({{uploadedFiles.length}}份)</view>
+      <view class="list-item" wx:for="{{uploadedFiles}}" wx:key="fileId">
+        <view class="list-main"><view class="list-name">{{item.fileName}}</view></view>
+        <view class="list-actions"><text class="link danger-link" data-index="{{index}}" bindtap="removeUploadedFile">移除</text></view>
+      </view>
+      <view class="button-row compact-row">
+        <button class="secondary-btn" bindtap="chooseImage">选择图片</button>
+        <button class="secondary-btn" bindtap="chooseFile">选择文件</button>
+      </view>
+      <view class="button-row" style="margin-top:20rpx;">
+        <button class="primary-btn" loading="{{loading}}" bindtap="submitAudit">提交审核</button>
+      </view>
+    </view>
+
+    <!-- Ad-hoc step editor popup -->
+    <view class="popup-mask" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
+      <view class="popup-card" catchtap="noop">
+        <view class="popup-header"><view class="popup-title">添加审批步骤</view><text class="popup-close" bindtap="closeAdHocStepEditor">关闭</text></view>
+        <view class="edit-box" style="margin:0;padding:0;background:none;border:none;box-shadow:none;">
+          <view class="field">
+            <view class="field-label">审批人类型</view>
+            <picker range="{{['指定身份','指定人员']}}" bindchange="onAdHocStepTypeChange">
+              <view class="picker-value">{{adHocStepForm.approverType === 'identity' ? '指定身份' : '指定人员'}}</view>
+            </picker>
+          </view>
+          <view class="field" wx:if="{{adHocStepForm.approverType === 'identity'}}">
+            <view class="field-label">身份ID</view>
+            <input class="field-input" data-field="approverIdentityId" bindinput="onAdHocStepFieldInput" value="{{adHocStepForm.approverIdentityId}}" placeholder="输入身份ID" />
+          </view>
+          <view class="field" wx:if="{{adHocStepForm.approverType === 'specific_person'}}">
+            <view class="field-label">人员HR ID</view>
+            <input class="field-input" data-field="approverHrId" bindinput="onAdHocStepFieldInput" value="{{adHocStepForm.approverHrId}}" placeholder="输入人员HR ID" />
+          </view>
+          <view class="button-row"><button class="primary-btn" bindtap="confirmAdHocStep">确定</button></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══════════ View Mode ═══════════ -->
+  <view class="section" wx:if="{{action === 'view'}}">
+    <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+
+    <block wx:if="{{!loading && submission}}">
+      <!-- Status -->
+      <view class="card">
+        <view class="info-grid">
+          <view class="info-block">
+            <view class="info-label">状态</view>
+            <view class="info-value">
+              <text style="color:{{submission.status === 'approved' ? '#059669' : (submission.status === 'rejected' ? '#ef4444' : (submission.status === 'in_progress' ? '#2563eb' : '#64748b'))}};">
+                {{submission.status === 'draft' ? '草稿' : (submission.status === 'pending' ? '待提交' : (submission.status === 'in_progress' ? '审核中' : (submission.status === 'rejected' ? '已驳回' : (submission.status === 'approved' ? '已完成' : '已撤回'))))}}
+              </text>
+            </view>
+          </view>
+          <view class="info-block">
+            <view class="info-label">类型</view>
+            <view class="info-value">{{submission.type === 'template' ? '模板审核' : '临时审批'}}</view>
+          </view>
+          <view class="info-block info-block-full" wx:if="{{submission.templateName}}">
+            <view class="info-label">模板</view>
+            <view class="info-value">{{submission.templateName}}</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Steps Timeline -->
+      <view class="card">
+        <view class="section-title">审批进度</view>
+        <view class="list-item" wx:for="{{steps}}" wx:key="id">
+          <view class="list-main">
+            <view class="list-name">第{{item.sortOrder}}步 {{item.approverName}} ({{item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章')}})</view>
+            <view class="chip-row">
+              <view class="status-chip {{item.status === 'approved' ? 'green-chip' : (item.status === 'rejected' ? 'red-chip' : '')}}">
+                {{item.status === 'pending' ? '待处理' : (item.status === 'approved' ? '✓ 已通过' : '✗ 已驳回')}}
+              </view>
+              <text class="list-desc" wx:if="{{item.round > 1}}">第{{item.round}}轮</text>
+            </view>
+            <view class="list-desc" wx:if="{{item.comment}}">意见：{{item.comment}}</view>
+            <view class="list-desc danger-text" wx:if="{{item.rejectionReason}}">驳回：{{item.rejectionReason}}</view>
+          </view>
+          <!-- Approval buttons for current pending step -->
+          <view class="list-actions" wx:if="{{item.status === 'pending'}}">
+            <text class="link" data-step-id="{{item.id}}" bindtap="openApprove">通过</text>
+            <text class="link danger-link" data-step-id="{{item.id}}" bindtap="openReject">驳回</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- Files -->
+      <view class="card" wx:if="{{files.length}}">
+        <view class="section-title">附件 ({{files.length}}份)</view>
+        <view class="list-item" wx:for="{{files}}" wx:key="id">
+          <view class="list-main">
+            <view class="list-name">{{item.fileName}} <text class="list-desc">({{item.mimeType}})</text></view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Signatures -->
+      <view class="card" wx:if="{{signatures.length}}">
+        <view class="section-title">签署记录 ({{signatures.length}}条)</view>
+        <view class="list-item" wx:for="{{signatures}}" wx:key="id">
+          <view class="list-main">
+            <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? '签名' : '印章'}} · 第{{item.round}}轮</view>
+            <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" style="width:200rpx;border-radius:8rpx;margin-top:6rpx;" />
+            <view class="list-desc">{{item.signedAt}}</view>
+          </view>
+        </view>
+      </view>
+
+      <!-- Actions -->
+      <view class="card">
+        <view class="button-row">
+          <button class="primary-btn" wx:if="{{submission.status === 'rejected'}}" bindtap="resubmit">重新提交</button>
+          <button class="secondary-btn danger-btn" wx:if="{{submission.status !== 'approved' && submission.status !== 'withdrawn'}}" bindtap="withdraw">撤回申请</button>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- Approval Dialog -->
+  <view class="popup-mask" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">{{approvalAction === 'approve' ? '审批通过' : '驳回'}}</view>
+        <text class="popup-close" bindtap="closeApproval">关闭</text>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="edit-box" style="margin:0;padding:0;background:none;border:none;box-shadow:none;">
+          <!-- Signature section (only for approve) -->
+          <view wx:if="{{approvalAction === 'approve'}}">
+            <view class="list-title">签名/盖章</view>
+            <view class="list-item" wx:for="{{pendingSignatures}}" wx:key="index">
+              <view class="list-main">
+                <view class="list-name">签名{{index + 1}} (文件: {{item.fileId}})</view>
+                <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" style="width:160rpx;border-radius:8rpx;margin-top:4rpx;" />
+              </view>
+              <view class="list-actions"><text class="link danger-link" data-index="{{index}}" bindtap="removePendingSignature">移除</text></view>
+            </view>
+            <view class="button-row compact-row">
+              <button class="secondary-btn" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" bindtap="openSignaturePad">签在 {{item.fileName}}</button>
+            </view>
+            <view class="field" style="margin-top:12rpx;">
+              <view class="field-label">审批意见</view>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="可选：填写审批意见" />
+            </view>
+          </view>
+
+          <!-- Reject reason -->
+          <view wx:if="{{approvalAction === 'reject'}}">
+            <view class="field">
+              <view class="field-label">驳回理由</view>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="请填写驳回理由（必填）" />
+            </view>
+          </view>
+
+          <view class="button-row">
+            <button class="primary-btn" loading="{{loading}}" bindtap="confirmApproval">{{approvalAction === 'approve' ? '确认通过' : '确认驳回'}}</button>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- Signature Pad Popup -->
+  <view class="popup-mask" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">手写签名</view>
+        <text class="popup-close" bindtap="closeSignaturePad">关闭</text>
+      </view>
+      <signature-pad bindconfirm="onSignatureConfirm" />
+    </view>
+  </view>
+
+  <view class="page-footer">
+    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-org">武汉大学学生会</view>
+  </view>
+</view>

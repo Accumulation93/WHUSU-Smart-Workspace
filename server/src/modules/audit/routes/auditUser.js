@@ -1,0 +1,714 @@
+const express = require('express');
+const router = express.Router();
+const path = require('path');
+const fs = require('fs');
+const { safeString, generateId } = require('../../../utils/helpers');
+const { getCurrentOrgId } = require('../../../utils/orgContext');
+const pool = require('../../../config/db');
+const adminInfoModel = require('../../../core/models/adminInfo');
+const hrInfoModel = require('../../../core/models/hrInfo');
+const flowTemplateModel = require('../models/auditFlowTemplate');
+const flowTemplateStepModel = require('../models/auditFlowTemplateStep');
+const submissionModel = require('../models/auditSubmission');
+const submissionStepModel = require('../models/auditSubmissionStep');
+const submissionFileModel = require('../models/auditSubmissionFile');
+const submissionSignatureModel = require('../models/auditSubmissionSignature');
+const { hashFile, computeSignatureHash } = require('../utils/hashChain');
+
+const UPLOAD_DIR = path.resolve(__dirname, '../../../../uploads/audit');
+
+/**
+ * Resolve the current user's HR ID from openid.
+ */
+async function resolveHrId(openid) {
+  if (!openid) return null;
+  const orgId = await getCurrentOrgId();
+  const [rows] = await pool.query(
+    'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
+    [openid, orgId]
+  );
+  return rows[0] ? rows[0].hr_id : null;
+}
+
+// ═══════════════════════════════════════════════════
+// My Submissions
+// ═══════════════════════════════════════════════════
+
+// listMySubmissions
+router.post('/listMySubmissions', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const filters = {
+      submittedBy: hrId,
+      status: safeString(req.body.status) || null,
+      limit: parseInt(req.body.limit) || 50,
+      offset: parseInt(req.body.offset) || 0
+    };
+
+    const submissions = await submissionModel.getAll(filters);
+    const result = submissions.map((s) => ({
+      id: safeString(s.id),
+      submissionNumber: safeString(s.submission_number),
+      title: safeString(s.title),
+      type: safeString(s.type),
+      status: safeString(s.status),
+      currentStepIndex: s.current_step_index,
+      resubmitMode: safeString(s.resubmit_mode),
+      createdAt: s.created_at,
+      updatedAt: s.updated_at
+    }));
+
+    res.json({ status: 'success', submissions: result });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// listPendingApprovals — Submissions waiting for the current user to approve
+router.post('/listPendingApprovals', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const steps = await submissionStepModel.getPendingByApprover(hrId);
+
+    // Load submitter names
+    const submitterIds = [...new Set(steps.map((s) => s.submitted_by))];
+    const hrMap = {};
+    if (submitterIds.length) {
+      const hrRows = await hrInfoModel.getByIds(submitterIds);
+      for (const hr of hrRows) hrMap[hr.id] = safeString(hr.name);
+    }
+
+    const result = steps.map((s) => ({
+      id: safeString(s.id),
+      submissionId: safeString(s.submission_id),
+      submissionNumber: safeString(s.submission_number),
+      title: safeString(s.title),
+      submittedBy: safeString(s.submitted_by),
+      submitterName: hrMap[s.submitted_by] || '未知',
+      sortOrder: s.sort_order,
+      actionType: safeString(s.action_type),
+      round: s.round,
+      createdAt: s.created_at
+    }));
+
+    res.json({ status: 'success', pending: result });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// Start Submission
+// ═══════════════════════════════════════════════════
+
+// startAuditSubmission — Create a new submission from a template
+router.post('/startAuditSubmission', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const templateId = safeString(req.body.templateId);
+    const title = safeString(req.body.title);
+    const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
+
+    if (!templateId) {
+      return res.json({ status: 'invalid_params', message: '请选择审核流模板' });
+    }
+    if (!title) {
+      return res.json({ status: 'invalid_params', message: '请输入提交标题' });
+    }
+    if (!uploadedFiles.length) {
+      return res.json({ status: 'invalid_params', message: '请上传至少一份文件' });
+    }
+
+    // Load template
+    const template = await flowTemplateModel.getById(templateId);
+    if (!template) {
+      return res.json({ status: 'not_found', message: '审核流模板不存在' });
+    }
+    if (!template.is_active) {
+      return res.json({ status: 'invalid_params', message: '该审核流模板已停用' });
+    }
+
+    const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
+    if (!templateSteps.length) {
+      return res.json({ status: 'invalid_params', message: '审核流模板没有配置步骤' });
+    }
+
+    await conn.beginTransaction();
+
+    // Create submission
+    const submissionId = generateId();
+    const submissionNumber = await submissionModel.generateSubmissionNumber();
+    await submissionModel.create(submissionId, {
+      submissionNumber,
+      submittedBy: hrId,
+      type: 'template',
+      templateId,
+      title,
+      status: 'pending',
+      resubmitMode: template.resubmit_mode
+    });
+
+    // Move files from temp to submission directory
+    const submissionDir = path.join(UPLOAD_DIR, submissionId);
+    if (!fs.existsSync(submissionDir)) fs.mkdirSync(submissionDir, { recursive: true });
+
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const f = uploadedFiles[i];
+      const tmpPath = safeString(f.tmpPath);
+      const fileId = safeString(f.fileId) || generateId();
+      const fileName = safeString(f.fileName);
+      const mimeType = safeString(f.mimeType);
+      const fileSize = parseInt(f.fileSize) || 0;
+      const fileHash = safeString(f.fileHash);
+
+      // Move file from temp to submission directory
+      const ext = path.extname(fileName) || '';
+      const destPath = path.join(submissionDir, fileId + ext);
+
+      if (tmpPath && fs.existsSync(tmpPath)) {
+        fs.renameSync(tmpPath, destPath);
+      }
+
+      await submissionFileModel.create(fileId, {
+        submissionId,
+        fileName,
+        mimeType,
+        filePath: destPath,
+        fileSize,
+        fileHash,
+        sortOrder: i + 1
+      });
+    }
+
+    // Create submission steps from template steps
+    for (let i = 0; i < templateSteps.length; i++) {
+      const ts = templateSteps[i];
+      const stepId = generateId();
+
+      // Resolve approver_hr_id for specific_person type
+      let approverHrId = null;
+      if (ts.approver_type === 'specific_person' && ts.approver_hr_id) {
+        approverHrId = ts.approver_hr_id;
+      }
+
+      await submissionStepModel.create(stepId, {
+        submissionId,
+        templateStepId: ts.id,
+        sortOrder: i + 1,
+        approverType: ts.approver_type,
+        approverHrId,
+        approverIdentityId: ts.approver_identity_id,
+        actionType: ts.action_type,
+        round: 1
+      });
+    }
+
+    // Update submission to in_progress (first step is pending)
+    await submissionModel.update(submissionId, { status: 'in_progress', currentStepIndex: 1 });
+
+    await conn.commit();
+    res.json({
+      status: 'success',
+      id: submissionId,
+      submissionNumber,
+      message: '审核提交成功'
+    });
+  } catch (e) {
+    await conn.rollback();
+    res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// startAdHocAudit — Start an ad-hoc (temporary) approval flow
+router.post('/startAdHocAudit', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const title = safeString(req.body.title);
+    const resubmitMode = safeString(req.body.resubmitMode) || 'fresh';
+    const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
+    const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
+
+    if (!title) return res.json({ status: 'invalid_params', message: '请输入提交标题' });
+    if (!steps.length) return res.json({ status: 'invalid_params', message: '请至少添加一个审批步骤' });
+    if (!uploadedFiles.length) return res.json({ status: 'invalid_params', message: '请上传至少一份文件' });
+
+    await conn.beginTransaction();
+
+    const submissionId = generateId();
+    const submissionNumber = await submissionModel.generateSubmissionNumber();
+    await submissionModel.create(submissionId, {
+      submissionNumber,
+      submittedBy: hrId,
+      type: 'ad_hoc',
+      templateId: null,
+      title,
+      status: 'pending',
+      resubmitMode
+    });
+
+    // Move files
+    const submissionDir = path.join(UPLOAD_DIR, submissionId);
+    if (!fs.existsSync(submissionDir)) fs.mkdirSync(submissionDir, { recursive: true });
+
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const f = uploadedFiles[i];
+      const tmpPath = safeString(f.tmpPath);
+      const fileId = safeString(f.fileId) || generateId();
+      const fileName = safeString(f.fileName);
+      const mimeType = safeString(f.mimeType);
+      const fileSize = parseInt(f.fileSize) || 0;
+      const fileHash = safeString(f.fileHash);
+      const ext = path.extname(fileName) || '';
+      const destPath = path.join(submissionDir, fileId + ext);
+      if (tmpPath && fs.existsSync(tmpPath)) fs.renameSync(tmpPath, destPath);
+
+      await submissionFileModel.create(fileId, {
+        submissionId, fileName, mimeType, filePath: destPath, fileSize, fileHash, sortOrder: i + 1
+      });
+    }
+
+    // Create user-specified steps
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      const stepId = generateId();
+      await submissionStepModel.create(stepId, {
+        submissionId,
+        templateStepId: null,
+        sortOrder: i + 1,
+        approverType: safeString(s.approverType) || 'identity',
+        approverHrId: safeString(s.approverHrId) || null,
+        approverIdentityId: safeString(s.approverIdentityId) || null,
+        actionType: safeString(s.actionType) || 'sign',
+        round: 1
+      });
+    }
+
+    await submissionModel.update(submissionId, { status: 'in_progress', currentStepIndex: 1 });
+    await conn.commit();
+    res.json({ status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' });
+  } catch (e) {
+    await conn.rollback();
+    res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// Get Submission Detail
+// ═══════════════════════════════════════════════════
+
+// getSubmissionDetail
+router.post('/getSubmissionDetail', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    const admin = await adminInfoModel.getByOpenid(openid);
+    if (!hrId && !admin) return res.json({ status: 'forbidden', message: '请先登录' });
+
+    const submissionId = safeString(req.body.submissionId);
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+
+    const submission = await submissionModel.getById(submissionId);
+    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+
+    // Check access: submitter, approver in any step, or admin
+    const isSubmitter = submission.submitted_by === hrId;
+    const steps = await submissionStepModel.getBySubmissionId(submissionId);
+    const isApprover = steps.some((s) => s.approver_hr_id === hrId);
+    if (!isSubmitter && !isApprover && !admin) {
+      return res.json({ status: 'forbidden', message: '没有查看权限' });
+    }
+
+    const files = await submissionFileModel.getBySubmissionId(submissionId);
+    const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
+
+    // Load HR names
+    const allHrIds = new Set();
+    allHrIds.add(submission.submitted_by);
+    steps.forEach((s) => { if (s.approver_hr_id) allHrIds.add(s.approver_hr_id); });
+    signatures.forEach((s) => allHrIds.add(s.signer_hr_id));
+    const hrMap = {};
+    if (allHrIds.size) {
+      const hrRows = await hrInfoModel.getByIds([...allHrIds]);
+      for (const hr of hrRows) hrMap[hr.id] = safeString(hr.name);
+    }
+
+    // Load template name if applicable
+    let templateName = '';
+    if (submission.template_id) {
+      const template = await flowTemplateModel.getById(submission.template_id);
+      templateName = template ? safeString(template.name) : '';
+    }
+
+    res.json({
+      status: 'success',
+      submission: {
+        id: safeString(submission.id),
+        submissionNumber: safeString(submission.submission_number),
+        title: safeString(submission.title),
+        type: safeString(submission.type),
+        templateId: safeString(submission.template_id),
+        templateName,
+        status: safeString(submission.status),
+        submittedBy: safeString(submission.submitted_by),
+        submitterName: hrMap[submission.submitted_by] || '未知',
+        currentStepIndex: submission.current_step_index,
+        resubmitMode: safeString(submission.resubmit_mode),
+        previousRejectStepIndex: submission.previous_reject_step_index,
+        createdAt: submission.created_at,
+        updatedAt: submission.updated_at
+      },
+      steps: steps.map((s) => ({
+        id: safeString(s.id),
+        sortOrder: s.sort_order,
+        approverType: safeString(s.approver_type),
+        approverHrId: safeString(s.approver_hr_id),
+        approverName: hrMap[s.approver_hr_id] || '未指定',
+        approverIdentityId: safeString(s.approver_identity_id),
+        actionType: safeString(s.action_type),
+        status: safeString(s.status),
+        comment: safeString(s.comment),
+        rejectionReason: safeString(s.rejection_reason),
+        round: s.round,
+        processedAt: s.processed_at
+      })),
+      files: files.map((f) => ({
+        id: safeString(f.id),
+        fileName: safeString(f.file_name),
+        mimeType: safeString(f.mime_type),
+        fileSize: f.file_size,
+        fileHash: safeString(f.file_hash),
+        sortOrder: f.sort_order
+      })),
+      signatures: signatures.map((sig) => ({
+        id: safeString(sig.id),
+        stepId: safeString(sig.step_id),
+        fileId: safeString(sig.file_id),
+        signatureType: safeString(sig.signature_type),
+        imageData: sig.image_data || '',
+        positionX: parseFloat(sig.position_x) || 0,
+        positionY: parseFloat(sig.position_y) || 0,
+        signerHrId: safeString(sig.signer_hr_id),
+        signerName: hrMap[sig.signer_hr_id] || '未知',
+        round: sig.round,
+        signedAt: sig.signed_at
+      }))
+    });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// Approval Actions
+// ═══════════════════════════════════════════════════
+
+// approveStep — Approve current step with optional signature/stamp
+router.post('/approveStep', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const submissionId = safeString(req.body.submissionId);
+    const stepId = safeString(req.body.stepId);
+    const comment = safeString(req.body.comment);
+    const signatures = Array.isArray(req.body.signatures) ? req.body.signatures : [];
+
+    if (!submissionId || !stepId) {
+      return res.json({ status: 'invalid_params', message: '请提供提交ID和步骤ID' });
+    }
+
+    const submission = await submissionModel.getById(submissionId);
+    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (submission.status !== 'in_progress') {
+      return res.json({ status: 'invalid_state', message: '提交状态不允许审批' });
+    }
+
+    const step = await submissionStepModel.getById(stepId);
+    if (!step) return res.json({ status: 'not_found', message: '步骤不存在' });
+    if (step.status !== 'pending') {
+      return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
+    }
+    if (step.approver_hr_id !== hrId) {
+      return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
+    }
+
+    const now = new Date();
+    const nowISO = now.toISOString().slice(0, 19).replace('T', ' ');
+    const currentRound = step.round;
+
+    await conn.beginTransaction();
+
+    // Update step status to approved
+    await submissionStepModel.updateStatus(stepId, {
+      status: 'approved',
+      comment,
+      processedAt: nowISO
+    });
+
+    // Record signatures/stamps
+    for (const sigData of signatures) {
+      const sigId = generateId();
+      const fileId = safeString(sigData.fileId);
+      const signatureType = safeString(sigData.signatureType) || 'signature';
+      const imageData = safeString(sigData.imageData);
+      const positionX = parseFloat(sigData.positionX) || 0;
+      const positionY = parseFloat(sigData.positionY) || 0;
+
+      // Get document hash at signing time
+      let documentHash = '';
+      if (fileId) {
+        const file = await submissionFileModel.getById(fileId);
+        if (file && file.file_path && fs.existsSync(file.file_path)) {
+          documentHash = hashFile(fs.readFileSync(file.file_path));
+        } else if (file) {
+          documentHash = file.file_hash;
+        }
+      }
+
+      // Get previous signature hash for chain linking
+      const lastSig = await submissionSignatureModel.getLastSignature(fileId, currentRound);
+      const previousHash = lastSig ? lastSig.signature_data_hash : null;
+
+      // Compute signature data hash
+      const sigHash = computeSignatureHash({
+        id: sigId,
+        stepId,
+        signerHrId: hrId,
+        positionX,
+        positionY,
+        round: currentRound,
+        previousSignatureHash: previousHash,
+        documentHash,
+        signedAt: now.toISOString()
+      });
+
+      await submissionSignatureModel.create(sigId, {
+        submissionId,
+        stepId,
+        fileId,
+        signatureType,
+        imageData,
+        positionX,
+        positionY,
+        signerHrId: hrId,
+        round: currentRound,
+        previousSignatureHash: previousHash,
+        documentHashAtSigning: documentHash,
+        signatureDataHash: sigHash,
+        signedAt: now
+      });
+    }
+
+    // Check if there are more steps
+    const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
+    const currentSteps = allSteps.filter((s) => s.round === currentRound).sort((a, b) => a.sort_order - b.sort_order);
+    const currentIndex = step.sort_order;
+    const nextStep = currentSteps.find((s) => s.sort_order === currentIndex + 1);
+
+    if (nextStep) {
+      // Move to next step
+      await submissionModel.update(submissionId, { currentStepIndex: nextStep.sort_order });
+    } else {
+      // All steps approved — submission complete
+      await submissionModel.update(submissionId, { status: 'approved' });
+    }
+
+    await conn.commit();
+    res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
+  } catch (e) {
+    await conn.rollback();
+    res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// rejectStep — Reject current step
+router.post('/rejectStep', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const submissionId = safeString(req.body.submissionId);
+    const stepId = safeString(req.body.stepId);
+    const rejectionReason = safeString(req.body.rejectionReason);
+
+    if (!submissionId || !stepId) {
+      return res.json({ status: 'invalid_params', message: '请提供提交ID和步骤ID' });
+    }
+    if (!rejectionReason) {
+      return res.json({ status: 'invalid_params', message: '请填写驳回理由' });
+    }
+
+    const submission = await submissionModel.getById(submissionId);
+    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+
+    const step = await submissionStepModel.getById(stepId);
+    if (!step) return res.json({ status: 'not_found', message: '步骤不存在' });
+    if (step.status !== 'pending') {
+      return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
+    }
+    if (step.approver_hr_id !== hrId) {
+      return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
+    }
+
+    const nowISO = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    await conn.beginTransaction();
+
+    // Update step to rejected
+    await submissionStepModel.updateStatus(stepId, {
+      status: 'rejected',
+      rejectionReason,
+      processedAt: nowISO
+    });
+
+    // Set submission to rejected, record which step rejected
+    await submissionModel.update(submissionId, {
+      status: 'rejected',
+      previousRejectStepIndex: step.sort_order
+    });
+
+    await conn.commit();
+    res.json({ status: 'success', message: '已驳回，提交人将收到通知' });
+  } catch (e) {
+    await conn.rollback();
+    res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// resubmitAudit — Resubmit after rejection
+router.post('/resubmitAudit', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const submissionId = safeString(req.body.submissionId);
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+
+    const submission = await submissionModel.getById(submissionId);
+    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (submission.submitted_by !== hrId) {
+      return res.json({ status: 'forbidden', message: '只有提交人可以重提交' });
+    }
+    if (submission.status !== 'rejected') {
+      return res.json({ status: 'invalid_state', message: '当前状态不允许重提交' });
+    }
+
+    await conn.beginTransaction();
+
+    const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
+    const resubmitMode = submission.resubmit_mode;
+    const rejectStepIndex = submission.previous_reject_step_index || 1;
+    const newRound = (allSteps[0] ? allSteps[0].round : 1) + 1;
+
+    if (resubmitMode === 'from_rejector') {
+      // Create new round only for steps from reject step onwards
+      const rejectStep = allSteps.find((s) => s.sort_order === rejectStepIndex && s.round === newRound - 1);
+      if (rejectStep) {
+        // Create a new round entry only for the reject step
+        const stepId = generateId();
+        await submissionStepModel.create(stepId, {
+          submissionId,
+          templateStepId: safeString(rejectStep.template_step_id),
+          sortOrder: rejectStep.sort_order,
+          approverType: rejectStep.approver_type,
+          approverHrId: rejectStep.approver_hr_id,
+          approverIdentityId: rejectStep.approver_identity_id,
+          actionType: rejectStep.action_type,
+          round: newRound
+        });
+      }
+    } else {
+      // Fresh mode: create new round entries for ALL steps
+      const templateSteps = allSteps.filter((s) => s.round === newRound - 1).sort((a, b) => a.sort_order - b.sort_order);
+      for (const ts of templateSteps) {
+        const stepId = generateId();
+        await submissionStepModel.create(stepId, {
+          submissionId,
+          templateStepId: safeString(ts.template_step_id),
+          sortOrder: ts.sort_order,
+          approverType: ts.approver_type,
+          approverHrId: ts.approver_hr_id,
+          approverIdentityId: ts.approver_identity_id,
+          actionType: ts.action_type,
+          round: newRound
+        });
+      }
+    }
+
+    // Reset submission status
+    const startStepIndex = resubmitMode === 'from_rejector' ? rejectStepIndex : 1;
+    await submissionModel.update(submissionId, {
+      status: 'in_progress',
+      currentStepIndex: startStepIndex
+    });
+
+    await conn.commit();
+    res.json({
+      status: 'success',
+      message: resubmitMode === 'from_rejector'
+        ? '已重提交，直接流转至驳回审批人'
+        : '已重提交，将从头开始审批流程'
+    });
+  } catch (e) {
+    await conn.rollback();
+    res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
+// withdrawSubmission — Withdraw own submission
+router.post('/withdrawSubmission', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const submissionId = safeString(req.body.submissionId);
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+
+    const submission = await submissionModel.getById(submissionId);
+    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (submission.submitted_by !== hrId) {
+      return res.json({ status: 'forbidden', message: '只有提交人可以撤回' });
+    }
+    if (submission.status === 'approved') {
+      return res.json({ status: 'invalid_state', message: '已完成的审核不能撤回' });
+    }
+
+    await submissionModel.update(submissionId, { status: 'withdrawn' });
+    res.json({ status: 'success', message: '审核已撤回' });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+module.exports = router;

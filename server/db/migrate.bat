@@ -78,8 +78,8 @@ echo Connecting: %DB_USER%@%DB_HOST%:%DB_PORT%  -^>  %DB_NAME%
 echo ==========================================
 echo.
 
-REM ─── [1/6] Test connection ─────────────────────────
-echo [1/6] Testing connection...
+REM ─── [1/7] Test connection ─────────────────────────
+echo [1/7] Testing connection...
 %MYSQL_CMD% -e "SELECT 1 AS test;" 2>nul
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Cannot connect. Check host / port / user / password.
@@ -88,8 +88,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo        OK.
 
-REM ─── [2/6] Verify database ─────────────────────────
-echo [2/6] Verifying database exists...
+REM ─── [2/7] Verify database ─────────────────────────
+echo [2/7] Verifying database exists...
 %MYSQL_CMD% -e "USE `%DB_NAME%`;" 2>nul
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Database '%DB_NAME%' does not exist. Run setup-local.bat first.
@@ -98,8 +98,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo        OK.
 
-REM ─── [3/6] Main org_id migration ───────────────────
-echo [3/6] Running main migration ^(migrate_org_id.sql^) ...
+REM ─── [3/7] Main org_id migration ───────────────────
+echo [3/7] Running main migration ^(migrate_org_id.sql^) ...
 echo        This may take a while depending on data size.
 %MYSQL_CMD% %DB_NAME% < "%~dp0migrate_org_id.sql" 2>&1
 if %ERRORLEVEL% NEQ 0 (
@@ -110,8 +110,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo        OK.
 
-REM ─── [4/6] Fix permission_id ───────────────────────
-echo [4/6] Fixing permission_id column ^(migrate_fix_permission_id.sql^) ...
+REM ─── [4/7] Fix permission_id ───────────────────────
+echo [4/7] Fixing permission_id column ^(migrate_fix_permission_id.sql^) ...
 echo        Drops legacy FK, makes permission_id nullable.
 %MYSQL_CMD% %DB_NAME% < "%~dp0migrate_fix_permission_id.sql" 2>&1
 if %ERRORLEVEL% NEQ 0 (
@@ -121,8 +121,8 @@ if %ERRORLEVEL% NEQ 0 (
     echo        OK.
 )
 
-REM ─── [5/6] Fix clause_id ───────────────────────────
-echo [5/6] Fixing clause_id column ^(migrate_clause_id.sql^) ...
+REM ─── [5/7] Fix clause_id ───────────────────────────
+echo [5/7] Fixing clause_id column ^(migrate_clause_id.sql^) ...
 echo        Adds clause_id, copies from permission_id, drops old FKs.
 %MYSQL_CMD% %DB_NAME% < "%~dp0migrate_clause_id.sql" 2>&1
 if %ERRORLEVEL% NEQ 0 (
@@ -132,13 +132,24 @@ if %ERRORLEVEL% NEQ 0 (
     echo        OK.
 )
 
-REM ─── [6/6] Grade bands migration ───────────────────
-echo [6/6] Running grade bands migration ^(migration_grade_bands.sql^) ...
+REM ─── [6/7] Grade bands migration ───────────────────
+echo [6/7] Running grade bands migration ^(migration_grade_bands.sql^) ...
 echo        display_mode → clauses, pub_grade_bands, cascade FKs, orphan cleanup.
 %MYSQL_CMD% %DB_NAME% < "%~dp0migration_grade_bands.sql" 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [WARNING] Grade bands migration failed. See errors above.
     echo          This is not fatal — you can run migration_grade_bands.sql manually.
+) else (
+    echo        OK.
+)
+
+REM ─── [7/7] Audit workflow migration ──────────────────
+echo [7/7] Running audit workflow migration ^(migrate_audit_workflow.sql^) ...
+echo        Creates audit flow templates, submissions, signatures, stamps tables.
+%MYSQL_CMD% %DB_NAME% < "%~dp0migrate_audit_workflow.sql" 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo [WARNING] Audit workflow migration failed. See errors above.
+    echo          This is not fatal — you can run migrate_audit_workflow.sql manually.
 ) else (
     echo        OK.
 )
@@ -195,6 +206,7 @@ echo   1. migrate_org_id.sql         - org_id columns, history tables dropped
 echo   2. migrate_fix_permission_id.sql - permission_id nullable, FK removed
 echo   3. migrate_clause_id.sql      - clause_id column, old FK cleanup
 echo   4. migration_grade_bands.sql  - display_mode → clauses, cascade FKs, pub_grade_bands
+echo   5. migrate_audit_workflow.sql - audit flow templates, submissions, signatures, stamps
 echo.
 echo New features:
 echo   - org-scoped architecture (org_id on all tables)
@@ -204,6 +216,7 @@ echo   - merit_list_designations uses clause_id (permission_id is legacy)
 echo   - pub_view_rule_clauses.display_mode (score ^| grade) per clause
 echo   - pub_grade_bands table for customizable grade intervals
 echo   - cascade FKs ensure no zombie records on category deletion
+echo   - audit workflow system: flow templates, e-signatures, stamps, hash-chain verification
 echo ==========================================
 pause
 endlocal

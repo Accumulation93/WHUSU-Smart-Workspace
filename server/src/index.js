@@ -139,6 +139,10 @@ app.use('/api', require('./core/routes/system'));
 app.use('/api', require('./core/routes/parseTableFile'));
 app.use('/api', require('./core/routes/buildTableFile'));
 app.use('/api', require('./modules/scoring/routes/publications'));
+app.use('/api', require('./modules/audit/routes/auditAdmin'));
+app.use('/api', require('./modules/audit/routes/auditUser'));
+app.use('/api', require('./modules/audit/routes/auditSignature'));
+app.use('/api', require('./modules/audit/routes/auditFile'));
 
 // ---------- error handler ----------
 app.use((err, req, res, next) => {

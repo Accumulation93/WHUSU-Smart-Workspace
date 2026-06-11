@@ -27,6 +27,10 @@
           <block wx:elif="{{tabKey === 'admins'}}">管理员</block>
           <block wx:elif="{{tabKey === 'settings'}}">基础配置</block>
           <block wx:elif="{{tabKey === 'publications'}}">结果公示</block>
+          <block wx:elif="{{tabKey === 'auditTemplates'}}">审核流模板</block>
+          <block wx:elif="{{tabKey === 'auditStamps'}}">电子印章</block>
+          <block wx:elif="{{tabKey === 'auditSubmissions'}}">审核记录</block>
+          <block wx:elif="{{tabKey === 'auditVerification'}}">验签管理</block>
         </view>
       </block>
     </view>
@@ -1695,6 +1699,273 @@
           </view>
         </view>
       </view>
+
+    <!-- ══════════════ Audit: Flow Templates ══════════════ -->
+    <view class="section" wx:if="{{activeTab === 'auditTemplates'}}">
+      <view class="section-title">审核流模板</view>
+      <view class="edit-box">
+        <view class="list-title">{{auditTemplateForm.id ? '编辑模板' : '新建模板'}}</view>
+        <view class="field">
+          <view class="field-label">模板名称</view>
+          <input class="field-input" data-field="name" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.name}}" placeholder="请输入模板名称" />
+        </view>
+        <view class="field">
+          <view class="field-label">描述说明</view>
+          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.description}}" placeholder="请输入模板说明" />
+        </view>
+        <view class="field field-row">
+          <view class="field field-half">
+            <view class="field-label">可发起人类型</view>
+            <picker range="{{['任何人','指定身份','指定人员']}}" data-field="starterType" bindchange="onStarterTypeChange">
+              <view class="picker-value">{{auditTemplateForm.starterType === 'self' ? '任何人' : (auditTemplateForm.starterType === 'identity' ? '指定身份' : '指定人员')}}</view>
+            </picker>
+          </view>
+          <view class="field field-half">
+            <view class="field-label">驳回重提交模式</view>
+            <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onResubmitModeChange">
+              <view class="picker-value">{{auditTemplateForm.resubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
+            </picker>
+          </view>
+        </view>
+        <view class="field" wx:if="{{auditTemplateForm.starterType === 'identity'}}">
+          <view class="field-label">发起人身份ID</view>
+          <input class="field-input" data-field="starterIdentityId" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.starterIdentityId}}" placeholder="输入身份ID" />
+        </view>
+
+        <view class="list-title" style="margin-top: 20rpx;">审批步骤（{{auditTemplateForm.steps.length}}步）</view>
+        <view class="list-item" wx:for="{{auditTemplateForm.steps}}" wx:key="index">
+          <view class="list-main">
+            <view class="list-name">第{{index + 1}}步：{{item.approverType === 'identity' ? '指定身份审批' : (item.approverType === 'specific_person' ? '指定人员审批' : '关联人员审批')}} — {{item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章')}}</view>
+            <view class="chip-row">
+              <view class="status-chip current-chip" wx:if="{{item.approverIdentityId}}">身份:{{item.approverIdentityId}}</view>
+              <view class="status-chip paused-chip" wx:if="{{item.approverHrId}}">人员:{{item.approverHrId}}</view>
+            </view>
+          </view>
+          <view class="list-actions">
+            <text class="link" data-index="{{index}}" bindtap="openAuditTemplateStepEditor">编辑</text>
+            <text class="link danger-link" data-index="{{index}}" bindtap="removeAuditTemplateStep">移除</text>
+          </view>
+        </view>
+        <view class="button-row compact-row">
+          <button class="secondary-btn" bindtap="openAuditTemplateStepEditor">添加步骤</button>
+        </view>
+        <view class="button-row" style="margin-top: 16rpx;">
+          <button class="primary-btn" loading="{{loadingMap.saveAuditTemplate}}" bindtap="saveAuditFlowTemplate">保存模板</button>
+          <button class="secondary-btn" bindtap="startCreateAuditTemplate">新建模板</button>
+        </view>
+      </view>
+
+      <view class="list-card">
+        <view class="list-title">模板列表</view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.auditTemplates}}"><view class="card-loading-spinner"></view></view>
+          <block wx:else>
+          <view class="list-item" wx:for="{{auditFlowTemplates}}" wx:key="id">
+            <view class="list-main">
+              <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}步 · {{item.resubmitMode === 'fresh' ? '重新逐层' : '回到驳回人'}})</text></view>
+              <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
+            </view>
+            <view class="list-actions">
+              <text class="link" data-id="{{item.id}}" bindtap="editAuditTemplate">编辑</text>
+              <text class="link danger-link" data-id="{{item.id}}" bindtap="deleteAuditFlowTemplate">删除</text>
+            </view>
+          </view>
+          <view class="empty-inline" wx:if="{{!auditFlowTemplates.length}}">暂无审核流模板，请新建。</view>
+          </block>
+        </scroll-view>
+      </view>
+
+      <!-- Step editor popup -->
+      <view class="popup-mask" wx:if="{{auditTemplateStepEditorVisible}}" bindtap="closeAuditTemplateStepEditor">
+        <view class="popup-card" catchtap="noop">
+          <view class="popup-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? '编辑步骤' : '添加步骤'}}</view><text class="popup-close" bindtap="closeAuditTemplateStepEditor">关闭</text></view>
+          <view class="edit-box" style="margin: 0; padding: 0; background: none; border: none; box-shadow: none;">
+            <view class="field">
+              <view class="field-label">审批人类型</view>
+              <picker range="{{['指定身份','指定人员','关联人员']}}" bindchange="onStepApproverTypeChange">
+                <view class="picker-value">{{auditTemplateStepForm.approverType === 'identity' ? '指定身份' : (auditTemplateStepForm.approverType === 'specific_person' ? '指定人员' : '关联人员')}}</view>
+              </picker>
+            </view>
+            <view class="field" wx:if="{{auditTemplateStepForm.approverType === 'identity'}}">
+              <view class="field-label">审批人身份ID</view>
+              <input class="field-input" data-field="approverIdentityId" bindinput="onStepFieldInput" value="{{auditTemplateStepForm.approverIdentityId}}" placeholder="输入身份ID" />
+            </view>
+            <view class="field" wx:if="{{auditTemplateStepForm.approverType === 'specific_person'}}">
+              <view class="field-label">审批人HR ID</view>
+              <input class="field-input" data-field="approverHrId" bindinput="onStepFieldInput" value="{{auditTemplateStepForm.approverHrId}}" placeholder="输入人员HR ID" />
+            </view>
+            <view class="field">
+              <view class="field-label">审批方式</view>
+              <picker range="{{['签字','盖章','签字+盖章']}}" bindchange="onStepActionTypeChange">
+                <view class="picker-value">{{auditTemplateStepForm.actionType === 'sign' ? '签字' : (auditTemplateStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章')}}</view>
+              </picker>
+            </view>
+            <view class="button-row">
+              <button class="primary-btn" bindtap="confirmAuditTemplateStep">确定</button>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ══════════════ Audit: Stamps ══════════════ -->
+    <view class="section" wx:if="{{activeTab === 'auditStamps'}}">
+      <view class="section-title">电子印章管理</view>
+      <view class="edit-box">
+        <view class="list-title">{{stampForm.id ? '编辑印章' : '新建印章'}}</view>
+        <view class="field">
+          <view class="field-label">印章名称</view>
+          <input class="field-input" data-field="name" bindinput="onStampFieldInput" value="{{stampForm.name}}" placeholder="请输入印章名称" />
+        </view>
+        <view class="field">
+          <view class="field-label">印章图片</view>
+          <image wx:if="{{stampForm.imageData}}" src="{{stampForm.imageData}}" mode="widthFix" style="width:200rpx; border-radius:12rpx; margin-bottom:12rpx;" />
+          <button class="secondary-btn" bindtap="chooseStampImage">{{stampForm.imageData ? '更换图片' : '选择图片'}}</button>
+        </view>
+        <view class="button-row">
+          <button class="primary-btn" loading="{{loadingMap.saveStamp}}" bindtap="saveStamp">保存印章</button>
+          <button class="secondary-btn" bindtap="startCreateStamp">新建印章</button>
+        </view>
+      </view>
+
+      <view class="list-card">
+        <view class="list-title">印章列表</view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.auditStamps}}"><view class="card-loading-spinner"></view></view>
+          <block wx:else>
+          <view class="list-item" wx:for="{{stamps}}" wx:key="id">
+            <view class="list-main">
+              <view class="list-name">{{item.name}}</view>
+              <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" style="width:160rpx; border-radius:8rpx; margin-top:6rpx;" />
+            </view>
+            <view class="list-actions">
+              <text class="link" data-id="{{item.id}}" bindtap="editStamp">编辑</text>
+              <text class="link danger-link" data-id="{{item.id}}" bindtap="deleteStamp">删除</text>
+            </view>
+          </view>
+          <view class="empty-inline" wx:if="{{!stamps.length}}">暂无电子印章，请新建。</view>
+          </block>
+        </scroll-view>
+      </view>
+    </view>
+
+    <!-- ══════════════ Audit: Submissions ══════════════ -->
+    <view class="section" wx:if="{{activeTab === 'auditSubmissions'}}">
+      <view class="section-title">审核记录</view>
+      <view class="edit-box">
+        <view class="field">
+          <view class="field-label">状态筛选</view>
+          <picker range="{{['全部','草稿','待提交','审核中','已驳回','已完成','已撤回']}}" bindchange="onAuditSubmissionStatusFilter">
+            <view class="picker-value">{{auditSubmissionFilters.status === 'draft' ? '草稿' : (auditSubmissionFilters.status === 'pending' ? '待提交' : (auditSubmissionFilters.status === 'in_progress' ? '审核中' : (auditSubmissionFilters.status === 'rejected' ? '已驳回' : (auditSubmissionFilters.status === 'approved' ? '已完成' : (auditSubmissionFilters.status === 'withdrawn' ? '已撤回' : '全部')))))}}</view>
+          </picker>
+        </view>
+      </view>
+      <view class="list-card">
+        <view class="list-title">提交列表</view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.auditSubmissions}}"><view class="card-loading-spinner"></view></view>
+          <block wx:else>
+          <view class="list-item" wx:for="{{auditSubmissions}}" wx:key="id">
+            <view class="list-main">
+              <view class="list-name">{{item.title || item.submissionNumber}}</view>
+              <view class="chip-row">
+                <view class="status-chip {{item.status === 'approved' ? 'green-chip' : (item.status === 'rejected' ? 'red-chip' : (item.status === 'in_progress' ? 'blue-chip' : ''))}}">{{item.status === 'draft' ? '草稿' : (item.status === 'pending' ? '待提交' : (item.status === 'in_progress' ? '审核中' : (item.status === 'rejected' ? '已驳回' : (item.status === 'approved' ? '已完成' : '已撤回'))))}}</view>
+                <text class="list-desc">{{item.submissionNumber}} · {{item.submitterName}} · {{item.createdAt}}</text>
+              </view>
+            </view>
+            <view class="list-actions">
+              <text class="link" data-id="{{item.id}}" bindtap="viewAuditProgress">查看进度</text>
+            </view>
+          </view>
+          <view class="empty-inline" wx:if="{{!auditSubmissions.length}}">暂无审核记录。</view>
+          </block>
+        </scroll-view>
+      </view>
+
+      <!-- Progress detail popup -->
+      <view class="popup-mask" wx:if="{{auditSubmissionDetailVisible}}" bindtap="closeAuditSubmissionDetail">
+        <view class="popup-card" catchtap="noop" style="max-height: 85vh;">
+          <view class="popup-header"><view class="popup-title">审核进度</view><text class="popup-close" bindtap="closeAuditSubmissionDetail">关闭</text></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y wx:if="{{auditSubmissionDetail}}">
+            <view class="card-loading-overlay" wx:if="{{loadingMap.auditProgress}}"><view class="card-loading-spinner"></view></view>
+            <block wx:else>
+            <view class="list-item">
+              <view class="list-main">
+                <view class="list-name">{{auditSubmissionDetail.submission.title}}</view>
+                <view class="list-desc">{{auditSubmissionDetail.submission.submissionNumber}} · {{auditSubmissionDetail.submission.submitterName}}</view>
+              </view>
+            </view>
+            <view class="list-title">审批步骤</view>
+            <view class="list-item" wx:for="{{auditSubmissionDetail.steps}}" wx:key="id">
+              <view class="list-main">
+                <view class="list-name">第{{item.sortOrder}}步 {{item.approverName}} ({{item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章')}})</view>
+                <view class="chip-row">
+                  <view class="status-chip {{item.status === 'approved' ? 'green-chip' : (item.status === 'rejected' ? 'red-chip' : '')}}">{{item.status === 'pending' ? '待处理' : (item.status === 'approved' ? '已通过' : '已驳回')}}</view>
+                  <text class="list-desc" wx:if="{{item.processedAt}}">{{item.processedAt}}</text>
+                </view>
+                <view class="list-desc" wx:if="{{item.comment}}">{{item.comment}}</view>
+                <view class="list-desc danger-text" wx:if="{{item.rejectionReason}}">驳回理由：{{item.rejectionReason}}</view>
+              </view>
+            </view>
+            <view class="list-title" wx:if="{{auditSubmissionDetail.files.length}}">附件 ({{auditSubmissionDetail.files.length}}份)</view>
+            <view class="list-item" wx:for="{{auditSubmissionDetail.files}}" wx:key="id">
+              <view class="list-main"><view class="list-name">{{item.fileName}}</view></view>
+            </view>
+            </block>
+          </scroll-view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ══════════════ Audit: Verification ══════════════ -->
+    <view class="section" wx:if="{{activeTab === 'auditVerification'}}">
+      <view class="section-title">验签权限管理</view>
+      <view class="edit-box">
+        <view class="list-title">授予验签权限</view>
+        <view class="field">
+          <view class="field-label">人员HR ID</view>
+          <input class="field-input" value="{{verificationGrantHrId}}" bindinput="onVerificationGrantHrInput" placeholder="输入要授权的人员HR ID" />
+        </view>
+        <view class="button-row">
+          <button class="primary-btn" bindtap="grantVerificationPermission">授予权限</button>
+        </view>
+      </view>
+      <view class="list-card">
+        <view class="list-title">已授权人员</view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
+          <view class="card-loading-overlay" wx:if="{{loadingMap.auditVerification}}"><view class="card-loading-spinner"></view></view>
+          <block wx:else>
+          <view class="list-item" wx:for="{{verificationPermissions}}" wx:key="id">
+            <view class="list-main"><view class="list-name">{{item.granteeName}} ({{item.granteeHrId}})</view></view>
+            <view class="list-actions">
+              <text class="link danger-link" data-hr-id="{{item.granteeHrId}}" bindtap="revokeVerificationPermission">撤销</text>
+            </view>
+          </view>
+          <view class="empty-inline" wx:if="{{!verificationPermissions.length}}">暂无授权人员。</view>
+          </block>
+        </scroll-view>
+      </view>
+
+      <view class="edit-box" style="margin-top: 24rpx;">
+        <view class="list-title">验证签名链</view>
+        <view class="field">
+          <view class="field-label">提交编号</view>
+          <input class="field-input" value="{{verificationInputNumber}}" bindinput="onVerificationInputNumber" placeholder="输入提交编号 (如 SUB-20260611-001)" />
+        </view>
+        <view class="button-row">
+          <button class="primary-btn" loading="{{loadingMap.verifyChain}}" bindtap="verifySubmissionChain">验证哈希链</button>
+        </view>
+        <view wx:if="{{verificationResult}}" class="list-card" style="margin-top: 16rpx;">
+          <view class="list-name" style="color: {{verificationResult.valid ? '#059669' : '#ef4444'}};">
+            {{verificationResult.valid ? '✓ 验证通过 — 所有签名链完整' : '✗ 验证失败 — 签名链存在问题'}}
+          </view>
+          <view class="list-desc" wx:if="{{verificationResult.totalSignatures > 0}}">共 {{verificationResult.totalSignatures}} 个签名</view>
+          <view wx:for="{{verificationResult.files}}" wx:key="fileId" style="margin-top: 8rpx;">
+            <view class="list-desc">文件: {{item.fileHash === null ? '文件不可访问' : (item.hashVerified ? '✓ 哈希一致' : '✗ 哈希不匹配')}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
 
     <view class="actions" style="padding: 28rpx 8rpx 12rpx;">
       <button class="secondary-btn" bindtap="goPortal">返回门户</button>

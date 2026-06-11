@@ -15,6 +15,7 @@ const identityBehavior = require('./modules/identityBehavior');
 const adminManagementBehavior = require('./modules/adminManagementBehavior');
 const settingsBehavior = require('./modules/settingsBehavior');
 const publicationBehavior = require('./modules/publicationBehavior');
+const auditBehavior = require('./modules/auditBehavior');
 
 Page({
   behaviors: [
@@ -30,6 +31,7 @@ Page({
     adminManagementBehavior,
     settingsBehavior,
     publicationBehavior,
+    auditBehavior,
   ],
   data: {
     user: null,
@@ -291,10 +293,11 @@ Page({
     const SUB_APP_ADMIN_TABS = {
       scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
       hr: ['hrInfo', 'departments', 'workGroups', 'identities'],
-      system: ['admins', 'settings']
+      system: ['admins', 'settings'],
+      audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification']
     };
     this._visibleTabs = SUB_APP_ADMIN_TABS[subApp] || SUB_APP_ADMIN_TABS.scoring;
-    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', system: '系统配置' };
+    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', system: '系统配置', audit: '审核管理' };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
     this.setData({
       visibleTabs: this._visibleTabs,
