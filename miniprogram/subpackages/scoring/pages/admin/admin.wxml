@@ -35,15 +35,6 @@
       </block>
     </view>
 
-    <!-- DIAGNOSTIC: always visible, no wx:if -->
-    <view style="background:#ff0;color:#000;padding:12rpx 16rpx;font-size:26rpx;margin:8rpx 0;line-height:1.6;">
-      DIAG: activeTab=[{{activeTab}}] | visibleTabs=[{{visibleTabs}}] | subAppLabel=[{{subAppLabel}}] | hasPermission=[{{hasPermission}}]
-    </view>
-
-    <!-- FORCE RENDER AT TOP: placed immediately after diag to test rendering -->
-    <view style="background:#0f0;color:#000;padding:16rpx;margin:8rpx 0;font-size:28rpx;font-weight:bold;">
-      ★ FORCE RENDER AT TOP — if you see this green bar, rendering works here ★
-    </view>
 
     <view class="section" wx:if="{{activeTab === 'activities'}}">
       <view class="section-title">评分活动</view>
@@ -1227,10 +1218,6 @@
       </view>
     </view>
 
-    <!-- BINARY SEARCH MARKER 1: after hrInfo, before admins -->
-    <view style="background:#0f0;color:#000;padding:16rpx;margin:8rpx 0;font-size:28rpx;font-weight:bold;">
-      ★ MARKER-1: after hrInfo section ★
-    </view>
 
     <view class="section" wx:if="{{activeTab === 'admins'}}">
 
@@ -1495,29 +1482,226 @@
       </block>
     </view>
 
-    <!-- BINARY MARKER-2: after settings, before publications -->
-    <view style="background:#0ff;color:#000;padding:16rpx;margin:8rpx 0;font-size:28rpx;font-weight:bold;">
-      ★ MARKER-2: after settings, before publications ★
-    </view>
+    <view class="section" wx:if="{{activeTab === 'publications'}}">
+      <view class="card-loading-overlay" wx:if="{{publicationsLoading}}">
+        <view class="card-loading-spinner"></view>
+      </view>
+      <view class="rule-panel">
+        <view class="rule-panel-head"><view class="rule-panel-title">公示发布</view><view class="rule-panel-subtitle">选择评分活动后，可开启结果公示并配置查看权限与评优名单</view></view>
+        <view class="field"><view class="field-label">评分活动</view><picker range="{{activityList}}" range-key="name" bindchange="onPublicationActivityChange"><view class="picker-value">{{publicationForm.activityName || '请选择活动'}}</view></picker></view>
+        <view wx:if="{{publicationForm.activityId}}">
+          <view class="rule-switch-row"><view><view class="field-label">公示开关</view><view class="rule-panel-subtitle">开启后，被授权的用户可以查看评分结果</view></view><switch checked="{{!!publicationForm.isPublished}}" color="#2563eb" bindchange="onPublicationToggle"/></view>
+          <view class="button-row"><button class="primary-btn" loading="{{loadingMap.savePublication}}" bindtap="savePublication">保存发布设置</button></view>
+        </view>
+      </view>
 
-    <!-- PUBLICATIONS TEMPORARILY REMOVED FOR DEBUG -->
+      <view wx:if="{{publicationForm.id}}">
+        <!-- ═══ 结果查看权限 ─── 类别 + 条款 ─── -->
+        <view class="rule-panel">
+          <view class="rule-panel-head"><view class="rule-panel-title">查看权限类别</view><view class="rule-panel-subtitle">选择授权部门+身份后，可在下方配置查看规则条款</view></view>
+          <view class="field"><view class="field-label">授权部门</view><picker range="{{departmentList}}" range-key="name" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || '请选择部门'}}</view></picker></view>
+          <view class="field"><view class="field-label">授权身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || '请选择身份'}}</view></picker></view>
+          <view class="button-row"><button class="primary-btn" loading="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule">保存类别</button><button class="secondary-btn" bindtap="startNewPubViewRule">新建类别</button><button class="secondary-btn" bindtap="batchSavePubViewRules">批量应用到已选类别</button><button class="secondary-btn" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules">生成默认类别</button></view>
+        </view>
 
-    <!-- ══════════════ Audit: Flow Templates ══════════════ -->
-    <!-- FORCE RENDER TEST: removed wx:if to verify section content renders -->
-    <view class="section">
-      <view class="section-title">审核流模板 FORCE RENDER TEST</view>
-      <view class="list-card">
-        <view class="list-title">Force render check — if you see this, section content renders OK</view>
-        <!-- wx:if diagnostic tests -->
-        <view style="background:#ff0;color:#000;padding:12rpx;margin:8rpx 0;font-size:24rpx;line-height:1.8;">
-          <view>→ wx:if=true: <text wx:if="{{true}}" style="background:#0f0;color:#000;padding:2rpx 4rpx;">TRUE-RENDERED</text><text wx:else style="background:#f00;color:#fff;padding:2rpx 4rpx;">TRUE-FAILED</text></view>
-          <view>→ wx:if=false: <text wx:if="{{false}}" style="background:#0f0;color:#000;padding:2rpx 4rpx;">FALSE-RENDERED</text><text wx:else style="background:#f00;color:#fff;padding:2rpx 4rpx;">FALSE-ELSE</text></view>
-          <view>→ wx:if=hasPermission: <text wx:if="{{hasPermission}}" style="background:#0f0;color:#000;padding:2rpx 4rpx;">PERM-TRUE</text><text wx:else style="background:#f00;color:#fff;padding:2rpx 4rpx;">PERM-FALSE</text></view>
-          <view>→ wx:if=activeTab==auditTemplates: <text wx:if="{{activeTab === 'auditTemplates'}}" style="background:#0f0;color:#000;padding:2rpx 4rpx;">MATCH-TRUE</text><text wx:else style="background:#f00;color:#fff;padding:2rpx 4rpx;">MATCH-FALSE(activeTab=[{{activeTab}}])</text></view>
+        <view class="rule-panel" wx:if="{{pubViewRuleForm.granteeDepartmentId && pubViewRuleForm.granteeIdentityId}}">
+          <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">当前查看规则条款</view><view class="rule-panel-subtitle">附加到此类别下的每条查看规则</view></view><button class="secondary-btn mini-action-btn" bindtap="openPubViewClauseEditor">新建查看规则条款</button></view>
+          <view class="rule-empty" wx:if="{{!pubViewRuleForm.clauses.length}}">暂无查看规则，点击右上角「新建查看规则条款」添加</view>
+          <view class="rule-clause-card" wx:for="{{pubViewRuleForm.clauses}}" wx:key="index" wx:for-item="c">
+            <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || '不限身份'}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel || c.scopeType}}</text><text class="rule-tag tag-target" wx:if="{{c.targetIdentity}}">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">{{c.displayMode === 'grade' ? '等第' : '分数'}}</text></view></view>
+            <view class="pill-actions rule-card-actions"><text class="pill-link" data-index="{{index}}" bindtap="editPubViewClause">编辑</text><text class="pill-close" data-index="{{index}}" bindtap="removePubViewClause">删除</text></view>
+          </view>
+        </view>
+        <view class="rule-empty" wx:elif="{{pubViewRuleForm.granteeDepartmentId || pubViewRuleForm.granteeIdentityId}}">请先完整选择授权部门和身份，再配置查看规则条款</view>
+
+        <view class="rule-panel" wx:if="{{pubViewRuleForm.granteeDepartmentId && pubViewRuleForm.granteeIdentityId && pubViewRuleForm.isClauseEditorVisible}}">
+          <view class="rule-panel-head"><view class="rule-panel-title">查看规则条款编辑</view><view class="rule-panel-subtitle">{{pubViewRuleForm.clauseEditingIndex >= 0 ? '正在编辑已有条款' : '添加一条新的查看规则'}}</view></view>
+          <view class="field"><view class="field-label">查看范围</view><picker range="{{viewScopeOptions}}" range-key="label" bindchange="onPubViewClauseScopeChange"><view class="picker-value">{{pubViewRuleForm.clauseScopeLabel || '请选择范围'}}</view></picker></view>
+          <view class="field" wx:if="{{pubViewRuleForm.clauseScopeType === 'same_department_identity' || pubViewRuleForm.clauseScopeType === 'same_work_group_identity'}}"><view class="field-label">目标身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubViewClauseTargetIdentChange"><view class="picker-value">{{pubViewRuleForm.clauseTargetIdentity || '请选择目标身份'}}</view></picker></view>
+          <view class="field"><view class="field-label">显示模式</view><picker range="{{displayModeOptions}}" range-key="label" bindchange="onPubViewClauseDisplayModeChange"><view class="picker-value">{{pubViewRuleForm.clauseDisplayMode === 'grade' ? '等第模式' : '分数模式'}}</view></picker></view>
+          <!-- 等第区间编辑器（仅等第模式，每条条款独立配置） -->
+          <view wx:if="{{pubViewRuleForm.clauseDisplayMode === 'grade'}}">
+            <view class="list-card nested-card">
+              <view class="list-title">等第区间配置</view>
+              <view class="empty-inline" wx:if="{{!pubViewRuleForm.clauseGradeBands.length}}">暂无等第区间，请点击下方按钮添加</view>
+              <view class="question-card grade-band-card" wx:for="{{pubViewRuleForm.clauseGradeBands}}" wx:key="index">
+                <view class="question-header" data-index="{{index}}" bindtap="toggleGradeBandExpand">
+                  <view class="question-title">
+                    <text>等第区间 {{index + 1}}</text>
+                    <text class="expand-indicator">{{expandedGradeBandIndex === index ? '▲' : '▼'}}</text>
+                  </view>
+                </view>
+                <!-- Collapsed: colored bubble -->
+                <view class="grade-band-collapsed" wx:if="{{expandedGradeBandIndex !== index}}" data-index="{{index}}" bindtap="toggleGradeBandExpand">
+                  <view class="grade-band-bubble" style="background: {{gradeBandWxs.getColor(item.gradeName)}};">
+                    <text class="grade-band-bubble-name">{{gradeBandWxs.getLabel(item, index)}}</text>
+                  </view>
+                </view>
+                <!-- Expanded: editable fields -->
+                <view class="question-fields" wx:if="{{expandedGradeBandIndex === index}}">
+                  <view class="field field-row">
+                    <view class="field field-half"><view class="field-label">最低分（含）</view><input class="field-input" type="number" data-index="{{index}}" data-field="minScore" bindinput="onClauseGradeBandInput" value="{{item.minScore}}" placeholder="0" /></view>
+                    <view class="field field-half"><view class="field-label">最高分（含）</view><input class="field-input" type="number" data-index="{{index}}" data-field="maxScore" bindinput="onClauseGradeBandInput" value="{{item.maxScore}}" placeholder="100" /></view>
+                  </view>
+                  <view class="field"><view class="field-label">等第名称</view><input class="field-input" data-index="{{index}}" data-field="gradeName" bindinput="onClauseGradeBandInput" value="{{item.gradeName}}" placeholder="例如：优秀、良好、合格" /></view>
+                  <view class="button-row compact-row"><button class="secondary-btn" data-index="{{index}}" bindtap="removeClauseGradeBand">删除此区间</button></view>
+                </view>
+              </view>
+              <view class="button-row"><button class="secondary-btn" bindtap="addClauseGradeBand">新增等第区间</button><button class="secondary-btn" bindtap="generateClauseDefaultGradeBands">生成默认等第</button></view>
+            </view>
+          </view>
+          <view class="button-row compact-row"><button class="secondary-btn" bindtap="addPubViewClause">{{pubViewRuleForm.clauseEditingIndex >= 0 ? '保存条款' : '加入当前条款'}}</button><button class="secondary-btn" bindtap="cancelPubViewClauseEdit">取消编辑</button></view>
+        </view>
+
+        <view class="list-card rule-list-card">
+          <view class="rule-list-toolbar"><view><view class="list-title">查看权限类别列表</view><view class="rule-panel-subtitle">筛选只影响当前显示，不影响权限本身</view></view><view class="rule-list-count">{{pubViewRuleListView.length}} / {{pubViewRuleList.length}}</view></view>
+          <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{pubViewRuleFilterOptions.departments}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{pubViewRuleFilterOptions.identities}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
+          <view class="button-row compact-row"><button class="secondary-btn" bindtap="toggleSelectAllPubViewRules">{{pubViewRuleAllSelected ? '取消全选' : '全选当前列表'}}</button><button class="secondary-btn" bindtap="reverseSelectPubViewRules">反选当前列表</button><button class="secondary-btn" bindtap="batchDeletePubViewRules">批量删除选中</button></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll" style="max-height:500rpx;">
+            <view class="list-item rule-list-item" wx:for="{{pubViewRuleListView}}" wx:key="id">
+              <view class="list-main">
+                <view class="rule-list-action-row">
+                  <view class="select-chip {{pubViewRuleSelectedIds[item.id] ? 'select-chip-active' : ''}}" data-id="{{item.id}}" catchtap="togglePubViewRuleSelection">{{pubViewRuleSelectedIds[item.id] ? '已选' : '选择'}}</view>
+                  <view class="inline-actions rule-list-inline-actions"><text class="link" data-id="{{item.id}}" bindtap="editPubViewRule">编辑</text><text class="link danger" data-id="{{item.id}}" bindtap="deletePubViewRule">删除</text></view>
+                </view>
+                <view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} 条查看规则</text></view></view>
+              </view>
+            </view>
+            <view class="rule-empty small-empty" wx:if="{{!pubViewRuleListView.length}}">暂无查看权限类别</view>
+          </scroll-view>
+        </view>
+
+        <!-- ═══ 评优名单指定权 ─── 类别 + 条款 ─── -->
+        <view class="rule-panel" style="margin-top:28rpx;">
+          <view class="rule-panel-head"><view class="rule-panel-title">评优指定权类别</view><view class="rule-panel-subtitle">选择授权部门+身份后，可在下方配置评优规则条款（需先有查看权限）</view></view>
+          <view class="field"><view class="field-label">授权部门</view><picker range="{{departmentList}}" range-key="name" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || '请选择部门'}}</view></picker></view>
+          <view class="field"><view class="field-label">授权身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || '请选择身份'}}</view></picker></view>
+          <view class="button-row"><button class="primary-btn" loading="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule">保存类别</button><button class="secondary-btn" bindtap="startNewPubMeritRule">新建类别</button><button class="secondary-btn" bindtap="batchSavePubMeritRules">批量应用到已选类别</button><button class="secondary-btn" disabled="{{loadingMap.generatePubMeritRules}}" bindtap="generatePubMeritRules">生成默认类别</button></view>
+        </view>
+
+        <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId}}">
+          <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">当前评优规则条款</view><view class="rule-panel-subtitle">附加到此类别下的每条评优规则</view></view><button class="secondary-btn mini-action-btn" bindtap="openPubMeritClauseEditor">新建评优规则条款</button></view>
+          <view class="rule-empty" wx:if="{{!pubMeritRuleForm.clauses.length}}">暂无评优规则，点击右上角「新建评优规则条款」添加</view>
+          <view class="rule-clause-card" wx:for="{{pubMeritRuleForm.clauses}}" wx:key="index" wx:for-item="c">
+            <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || '未选择目标身份'}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel || c.scopeType}}</text><text class="rule-tag tag-target">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">名额 {{c.quotaLimit || '不限'}}</text><text class="rule-tag {{c.requireExactQuota ? 'tag-required' : 'tag-free'}}">{{c.requireExactQuota ? '等额' : '可少于'}}</text></view></view>
+            <view class="pill-actions rule-card-actions"><text class="pill-link" data-clause-id="{{c.id}}" data-pub-id="{{publicationForm.id}}" bindtap="openDesignationPicker">指定名单</text><text class="pill-link" data-index="{{index}}" bindtap="editPubMeritClause">编辑</text><text class="pill-close" data-index="{{index}}" bindtap="removePubMeritClause">删除</text></view>
+          </view>
+        </view>
+        <view class="rule-empty" wx:elif="{{pubMeritRuleForm.granteeDepartmentId || pubMeritRuleForm.granteeIdentityId}}">请先完整选择授权部门和身份，再配置评优规则条款</view>
+
+        <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId && pubMeritRuleForm.isClauseEditorVisible}}">
+          <view class="rule-panel-head"><view class="rule-panel-title">评优规则条款编辑</view><view class="rule-panel-subtitle">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? '正在编辑已有条款' : '添加一条新的评优规则'}}</view></view>
+          <view class="field"><view class="field-label">指定范围</view><picker range="{{viewScopeOptions}}" range-key="label" bindchange="onPubMeritClauseScopeChange"><view class="picker-value">{{pubMeritRuleForm.clauseScopeLabel || '请选择范围'}}</view></picker></view>
+          <view class="field"><view class="field-label">目标身份（为哪个身份的成员评优）</view><picker range="{{identityList}}" range-key="name" bindchange="onPubMeritClauseTargetIdentChange"><view class="picker-value">{{pubMeritRuleForm.clauseTargetIdentity || '请选择目标身份'}}</view></picker></view>
+          <view class="field"><view class="field-label">名额上限（0=不限）</view><input class="field-input" type="number" value="{{pubMeritRuleForm.clauseQuotaLimit}}" bindinput="onPubMeritClauseQuotaInput"/></view>
+          <view class="rule-switch-row"><view><view class="field-label">必须等额</view><view class="rule-panel-subtitle">开启后，必须恰好填满名额</view></view><switch checked="{{pubMeritRuleForm.clauseRequireExactQuota}}" color="#2563eb" bindchange="onPubMeritClauseExactToggle"/></view>
+          <view class="button-row compact-row"><button class="secondary-btn" bindtap="addPubMeritClause">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? '保存条款' : '加入当前条款'}}</button><button class="secondary-btn" bindtap="cancelPubMeritClauseEdit">取消编辑</button></view>
+        </view>
+
+        <view class="list-card rule-list-card">
+          <view class="rule-list-toolbar"><view><view class="list-title">评优指定权类别列表</view><view class="rule-panel-subtitle">筛选只影响当前显示</view></view><view class="rule-list-count">{{pubMeritRuleListView.length}} / {{pubMeritRuleList.length}}</view></view>
+          <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{pubMeritRuleFilterOptions.departments}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{pubMeritRuleFilterOptions.identities}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
+          <view class="button-row compact-row"><button class="secondary-btn" bindtap="toggleSelectAllPubMeritRules">{{pubMeritRuleAllSelected ? '取消全选' : '全选当前列表'}}</button><button class="secondary-btn" bindtap="reverseSelectPubMeritRules">反选当前列表</button><button class="secondary-btn" bindtap="batchDeletePubMeritRules">批量删除选中</button></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll" style="max-height:500rpx;">
+            <view class="list-item rule-list-item" wx:for="{{pubMeritRuleListView}}" wx:key="id">
+              <view class="list-main">
+                <view class="rule-list-action-row">
+                  <view class="select-chip {{pubMeritRuleSelectedIds[item.id] ? 'select-chip-active' : ''}}" data-id="{{item.id}}" catchtap="togglePubMeritRuleSelection">{{pubMeritRuleSelectedIds[item.id] ? '已选' : '选择'}}</view>
+                  <view class="inline-actions rule-list-inline-actions"><text class="link" data-id="{{item.id}}" bindtap="editPubMeritRule">编辑</text><text class="link danger" data-id="{{item.id}}" bindtap="deletePubMeritRule">删除</text></view>
+                </view>
+                <view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} 条评优规则</text></view></view>
+              </view>
+            </view>
+            <view class="rule-empty small-empty" wx:if="{{!pubMeritRuleListView.length}}">暂无评优指定权类别</view>
+          </scroll-view>
+        </view>
+      </view>
+
+      <!-- ═══ 评优名单汇总（Feature 5） ═══ -->
+      <view class="rule-panel merit-summary-panel" wx:if="{{publicationForm.id}}" style="margin-top:28rpx;">
+        <view class="rule-panel-head">
+          <view class="rule-panel-head-row">
+            <view>
+              <view class="rule-panel-title">🏆 评优名单汇总</view>
+              <view class="rule-panel-subtitle">按规则条款分组显示，支持筛选和导出</view>
+            </view>
+          </view>
+          <view class="merit-summary-head-bar" wx:if="{{meritSummaryGroups.length}}">
+            <view class="merit-summary-total-chip">共 {{meritSummaryGroups.length}} 组</view>
+            <view class="merit-export-btn-wrap">
+              <button class="secondary-btn" loading="{{loadingMap.exportMeritSummary}}" bindtap="exportMeritListSummary">导出表格</button>
+            </view>
+          </view>
+        </view>
+
+        <!-- 筛选条（玻璃风格） -->
+        <view class="merit-summary-filter-bar" wx:if="{{meritSummaryGroups.length}}">
+          <view class="merit-summary-filter-field">
+            <text class="merit-summary-filter-label">部门</text>
+            <picker range="{{meritSummaryDeptOptions}}" bindchange="onMeritSummaryFilterChange" data-field="department">
+              <view class="merit-summary-filter-value">{{meritSummaryFilterDept}}</view>
+            </picker>
+          </view>
+          <view class="merit-summary-filter-field">
+            <text class="merit-summary-filter-label">身份</text>
+            <picker range="{{meritSummaryIdentOptions}}" bindchange="onMeritSummaryFilterChange" data-field="identity">
+              <view class="merit-summary-filter-value">{{meritSummaryFilterIdent}}</view>
+            </picker>
+          </view>
+          <view class="merit-summary-filter-field">
+            <text class="merit-summary-filter-label">职能组</text>
+            <picker range="{{meritSummaryWgOptions}}" bindchange="onMeritSummaryFilterChange" data-field="workGroup">
+              <view class="merit-summary-filter-value">{{meritSummaryFilterWg}}</view>
+            </picker>
+          </view>
+        </view>
+
+        <view class="rule-empty glass-empty" wx:if="{{!meritSummaryGroups.length}}">
+          <view class="empty-illustration"><view class="empty-icon-star"></view></view>
+          <view class="empty-title">暂无评优名单</view>
+          <view class="empty-desc">请先在评优规则条款中指定人选</view>
+        </view>
+
+        <!-- 分组卡片 -->
+        <view class="merit-group-card" wx:for="{{meritSummaryFilteredGroups}}" wx:key="clauseId" wx:for-item="group" wx:for-index="gi" style="animation: glassFadeUp 0.38s {{0.06 * gi}}s ease both;">
+          <!-- Group header -->
+          <view class="merit-group-head" data-clause-id="{{group.clauseId}}" bindtap="toggleMeritSummaryGroup">
+            <view class="merit-group-head-accent" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};"></view>
+            <view class="merit-group-head-body">
+              <view class="merit-group-head-title">
+                <text class="merit-title-dept">{{group.granteeDepartment}}</text>
+              </view>
+              <view class="merit-group-head-meta">
+                <view class="merit-chip merit-chip-ident">{{group.targetIdentity}}</view>
+                <view class="merit-chip merit-chip-count">{{group.memberCount}} 人</view>
+                <view class="merit-chip merit-chip-quota" wx:if="{{group.quotaLimit > 0}}">名额 {{group.quotaLimit}}</view>
+              </view>
+            </view>
+            <view class="merit-group-chevron {{expandedMeritSummaryClauseId === group.clauseId ? 'merit-group-chevron-open' : ''}}">
+              <text>{{expandedMeritSummaryClauseId === group.clauseId ? '▴' : '▾'}}</text>
+            </view>
+          </view>
+          <!-- Expanded member list -->
+          <view class="merit-group-body" wx:if="{{expandedMeritSummaryClauseId === group.clauseId}}">
+            <view class="merit-member-card" wx:for="{{group.members}}" wx:key="id" wx:for-item="m" style="animation: glassFadeUp 0.28s {{0.04 * index}}s ease both;">
+              <view class="merit-member-accent" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};"></view>
+              <view class="merit-member-body">
+                <view class="merit-member-row">
+                  <text class="merit-member-name">{{m.name}}</text>
+                  <view class="merit-member-sid-chip"><text>{{m.studentId}}</text></view>
+                </view>
+                <view class="merit-member-tags">
+                  <view class="merit-tag merit-tag-ident">{{m.identity}}</view>
+                  <view class="merit-tag merit-tag-dept" wx:if="{{m.department}}">{{m.department}}</view>
+                  <view class="merit-tag merit-tag-wg" wx:if="{{m.workGroup}}">{{m.workGroup}}</view>
+                </view>
+              </view>
+            </view>
+            <view class="empty-inline" wx:if="{{!group.members.length}}">当前筛选条件下无匹配成员</view>
+          </view>
         </view>
       </view>
     </view>
-
     <view class="section" wx:if="{{activeTab === 'auditTemplates'}}">
       <view class="edit-box">
         <view class="list-title">{{auditTemplateForm.id ? '编辑模板' : '新建模板'}}</view>
