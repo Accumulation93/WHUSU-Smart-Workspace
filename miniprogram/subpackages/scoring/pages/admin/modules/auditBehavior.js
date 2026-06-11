@@ -56,16 +56,20 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadAuditFlowTemplates() {
-      this.setData({ 'loadingMap.auditTemplates': true });
+      this.setLoading('auditTemplates', true);
       try {
         const res = await this.callCloud('listAuditFlowTemplates', {});
+        console.log('[audit] listAuditFlowTemplates response:', JSON.stringify(res));
         if (res.status === 'success') {
           this.setData({ auditFlowTemplates: res.templates || [] });
+        } else {
+          console.error('[audit] listAuditFlowTemplates failed:', res.message);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '加载审核流模板失败'));
+        console.error('[audit] loadAuditFlowTemplates error:', e);
+        this.setData({ auditFlowTemplates: [] });
       } finally {
-        this.setData({ 'loadingMap.auditTemplates': false });
+        this.setLoading('auditTemplates', false);
       }
     },
 
@@ -187,7 +191,7 @@ module.exports = Behavior({
       if (!form.name) { showShortToast('请输入模板名称'); return; }
       if (!form.steps.length) { showShortToast('请至少添加一个步骤'); return; }
 
-      this.setData({ 'loadingMap.saveAuditTemplate': true });
+      this.setLoading('saveAuditTemplate', true);
       try {
         const res = await this.callCloud('saveAuditFlowTemplate', {
           id: form.id,
@@ -209,7 +213,7 @@ module.exports = Behavior({
       } catch (e) {
         showShortToast(getErrorText(e, '保存失败'));
       } finally {
-        this.setData({ 'loadingMap.saveAuditTemplate': false });
+        this.setLoading('saveAuditTemplate', false);
       }
     },
 
@@ -241,16 +245,20 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadStamps() {
-      this.setData({ 'loadingMap.auditStamps': true });
+      this.setLoading('auditStamps', true);
       try {
         const res = await this.callCloud('listStamps', {});
+        console.log('[audit] listStamps response:', JSON.stringify(res));
         if (res.status === 'success') {
           this.setData({ stamps: res.stamps || [] });
+        } else {
+          console.error('[audit] listStamps failed:', res.message);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '加载印章失败'));
+        console.error('[audit] loadStamps error:', e);
+        this.setData({ stamps: [] });
       } finally {
-        this.setData({ 'loadingMap.auditStamps': false });
+        this.setLoading('auditStamps', false);
       }
     },
 
@@ -278,7 +286,6 @@ module.exports = Behavior({
         sourceType: ['album', 'camera'],
         success(res) {
           const tempFilePath = res.tempFilePaths[0];
-          // Convert to base64
           wx.getFileSystemManager().readFile({
             filePath: tempFilePath,
             encoding: 'base64',
@@ -299,7 +306,7 @@ module.exports = Behavior({
       if (!form.name) { showShortToast('请输入印章名称'); return; }
       if (!form.imageData) { showShortToast('请选择印章图片'); return; }
 
-      this.setData({ 'loadingMap.saveStamp': true });
+      this.setLoading('saveStamp', true);
       try {
         const res = await this.callCloud('saveStamp', {
           id: form.id,
@@ -316,7 +323,7 @@ module.exports = Behavior({
       } catch (e) {
         showShortToast(getErrorText(e, '保存失败'));
       } finally {
-        this.setData({ 'loadingMap.saveStamp': false });
+        this.setLoading('saveStamp', false);
       }
     },
 
@@ -345,10 +352,6 @@ module.exports = Behavior({
 
     openStampAssign(e) {
       const identityId = e.currentTarget.dataset.identityId || '';
-      // Find currently assigned stamp IDs for this identity
-      const stamp = this.data.stamps.find((s) =>
-        (s.assignedIdentities || []).some((a) => a.identityId === identityId)
-      );
       const selectedIds = (this.data.stamps || [])
         .filter((s) => (s.assignedIdentities || []).some((a) => a.identityId === identityId))
         .map((s) => s.id);
@@ -396,7 +399,7 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadAuditSubmissions() {
-      this.setData({ 'loadingMap.auditSubmissions': true });
+      this.setLoading('auditSubmissions', true);
       try {
         const filters = this.data.auditSubmissionFilters;
         const res = await this.callCloud('listAllAuditSubmissions', {
@@ -404,13 +407,17 @@ module.exports = Behavior({
           limit: 50,
           offset: 0
         });
+        console.log('[audit] listAllAuditSubmissions response:', JSON.stringify(res));
         if (res.status === 'success') {
           this.setData({ auditSubmissions: res.submissions || [] });
+        } else {
+          console.error('[audit] listAllAuditSubmissions failed:', res.message);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '加载审核记录失败'));
+        console.error('[audit] loadAuditSubmissions error:', e);
+        this.setData({ auditSubmissions: [] });
       } finally {
-        this.setData({ 'loadingMap.auditSubmissions': false });
+        this.setLoading('auditSubmissions', false);
       }
     },
 
@@ -423,7 +430,7 @@ module.exports = Behavior({
 
     async viewAuditProgress(e) {
       const submissionId = e.currentTarget.dataset.id;
-      this.setData({ 'loadingMap.auditProgress': true });
+      this.setLoading('auditProgress', true);
       try {
         const res = await this.callCloud('getAuditProgress', { submissionId });
         if (res.status === 'success') {
@@ -437,7 +444,7 @@ module.exports = Behavior({
       } catch (e) {
         showShortToast(getErrorText(e, '加载失败'));
       } finally {
-        this.setData({ 'loadingMap.auditProgress': false });
+        this.setLoading('auditProgress', false);
       }
     },
 
@@ -450,16 +457,20 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadVerificationPermissions() {
-      this.setData({ 'loadingMap.auditVerification': true });
+      this.setLoading('auditVerification', true);
       try {
         const res = await this.callCloud('listVerificationPermissions', {});
+        console.log('[audit] listVerificationPermissions response:', JSON.stringify(res));
         if (res.status === 'success') {
           this.setData({ verificationPermissions: res.permissions || [] });
+        } else {
+          console.error('[audit] listVerificationPermissions failed:', res.message);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '加载验签权限失败'));
+        console.error('[audit] loadVerificationPermissions error:', e);
+        this.setData({ verificationPermissions: [] });
       } finally {
-        this.setData({ 'loadingMap.auditVerification': false });
+        this.setLoading('auditVerification', false);
       }
     },
 
@@ -520,7 +531,7 @@ module.exports = Behavior({
     async verifySubmissionChain() {
       const number = this.data.verificationInputNumber;
       if (!number) { showShortToast('请输入提交编号'); return; }
-      this.setData({ 'loadingMap.verifyChain': true });
+      this.setLoading('verifyChain', true);
       try {
         const res = await this.callCloud('verifySignatureChain', { submissionNumber: number });
         if (res.status === 'success') {
@@ -531,7 +542,7 @@ module.exports = Behavior({
       } catch (e) {
         showShortToast(getErrorText(e, '验证失败'));
       } finally {
-        this.setData({ 'loadingMap.verifyChain': false });
+        this.setLoading('verifyChain', false);
       }
     }
   }
