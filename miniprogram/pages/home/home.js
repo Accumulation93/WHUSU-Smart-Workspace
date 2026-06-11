@@ -290,6 +290,8 @@ Page({
     userDesigSearchKeyword: ''
   },
 
+  noop() {},
+
   onShow() {
     this.refreshCurrentUser();
     this.refreshUserFromCloud();

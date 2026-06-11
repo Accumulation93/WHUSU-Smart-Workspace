@@ -66,6 +66,9 @@ Page({
     uploading: false
   },
 
+  // Empty handler for catchtap to prevent event bubbling through popups
+  noop() {},
+
   onLoad(options) {
     if (options.action === 'create') {
       this.setData({ action: 'create' });

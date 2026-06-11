@@ -348,6 +348,13 @@ Page({
         : ['普通管理员', '超级管理员']
     });
 
+    // Audit sub-app: only load what audit tabs need
+    if (this._subApp === 'audit') {
+      await this.loadIdentityList();
+      this.loadAuditFlowTemplates();
+      return;
+    }
+
     await this.loadActivityList();
     this.loadTemplateList();
     this.loadRuleList();
@@ -434,16 +441,28 @@ Page({
               'publicationForm.activityName': this.data.currentActivityName
             });
           }
-          // 先加载服务端状态，再决定是否需要静默创建（避免 savePublication 覆盖已发布状态）
           await this.loadPublicationData(currentActivityId);
           if (!this.data.publicationForm.id && currentActivityId) {
             await this.savePublication(true);
           }
-          // Load merit summary (Feature 5)
           await this.loadMeritListSummary();
         }
         this.setData({ publicationsLoading: false });
       }).catch(() => { this.setData({ publicationsLoading: false }); });
+    }
+    // ── Audit tabs ──
+    if (tab === 'auditTemplates') {
+      this.loadAuditFlowTemplates();
+    }
+    if (tab === 'auditStamps') {
+      this.loadStamps();
+      if (!this.data.identityList.length) this.loadIdentityList();
+    }
+    if (tab === 'auditSubmissions') {
+      this.loadAuditSubmissions();
+    }
+    if (tab === 'auditVerification') {
+      this.loadVerificationPermissions();
     }
   },
 
