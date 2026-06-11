@@ -448,13 +448,12 @@
   </view>
 
   <view class="actions">
-    <button class="primary-btn" wx:if="{{isAdminRole}}" bindtap="goAdmin">进入管理端</button>
-    <button class="secondary-btn" bindtap="goLogin">切换身份</button>
+    <button class="secondary-btn" bindtap="goPortal">返回门户</button>
     <button class="danger-btn" wx:if="{{hasUser}}" bindtap="openUnbindDialog">解绑当前身份</button>
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">REDSU考核评分</view>
+    <view class="footer-name">REDSU智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
   </view>
 

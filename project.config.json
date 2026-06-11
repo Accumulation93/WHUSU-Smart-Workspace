@@ -41,7 +41,7 @@
     "useCompilerPlugins": false,
     "condition": false,
     "swc": false,
-    "disableSWC": true
+    "disableSWC": false
   },
   "appid": "wxa0946295a962ee2e",
   "projectname": "quickstart-wx-cloud",

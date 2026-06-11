@@ -1176,7 +1176,7 @@ scroll-view {
 .chip-min { background: rgba(219, 234, 254, 0.76); color: #1d4ed8; border-color: rgba(147, 197, 253, 0.64); }
 .chip-start { background: rgba(209, 250, 229, 0.78); color: #15803d; border-color: rgba(110, 231, 183, 0.58); }
 .chip-max { background: rgba(255, 237, 213, 0.78); color: #c2410c; border-color: rgba(253, 186, 116, 0.58); }
-.chip-step { background: rgba(237, 233, 254, 0.78); color: #6d28d9; border-color: rgba(196, 181, 253, 0.64); }
+.chip-step { background: rgba(224,242,254,0.76); color: #0369a1; border-color: rgba(56,189,248,0.56); }
 
 .question-fields {
   margin-top: 8rpx;
@@ -2870,18 +2870,25 @@ scroll-view {
   white-space: nowrap;
 }
 
-/* ─── Merit Summary (Feature 5) ─── */
+/* ─── Merit Summary (Feature 5) — redesigned to match project card language ─── */
 .merit-summary-panel {
   background: transparent; border: none; box-shadow: none; padding: 0;
 }
-.merit-summary-head-actions {
-  display: flex; align-items: center; gap: 14rpx;
+.merit-summary-head-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 16rpx;
+}
+.merit-export-btn-wrap {
+  flex-shrink: 0; width: 320rpx;
+}
+.merit-export-btn-wrap .secondary-btn {
+  width: 100%; min-width: 0; padding: 0; font-size: 22rpx;
 }
 .merit-summary-total-chip {
   font-size: 22rpx; font-weight: 600; color: #64748b;
   padding: 8rpx 18rpx; border-radius: 999rpx;
   background: rgba(255,255,255,0.64);
-  border: 1rpx solid rgba(148,163,184,0.2);
+  border: 1rpx solid rgba(148,163,184,0.20);
 }
 .merit-summary-filter-bar {
   display: flex; gap: 18rpx; padding: 18rpx 24rpx; margin-bottom: 22rpx;
@@ -2909,81 +2916,167 @@ scroll-view {
   padding: 48rpx 30rpx; text-align: center;
 }
 
-/* Glass group card */
-.merit-group-glass-card {
-  margin-bottom: 22rpx; border-radius: 24rpx;
-  background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(248,251,255,0.74) 100%);
-  border: 1rpx solid rgba(255,255,255,0.68);
-  box-shadow: 0 14rpx 32rpx rgba(15,23,42,0.05), inset 0 1rpx 0 rgba(255,255,255,0.80);
-  overflow: hidden; transition: all 0.25s ease;
-}
-.merit-group-glass-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 22rpx 26rpx; cursor: pointer;
-}
-.merit-group-glass-head:active {
-  background: rgba(241,245,249,0.45);
-}
-.merit-group-glass-left {
-  display: flex; align-items: center; gap: 14rpx; flex: 1; min-width: 0;
-}
-.merit-group-color-dot {
-  width: 16rpx; height: 16rpx; border-radius: 50%; flex-shrink: 0;
-  box-shadow: 0 0 0 6rpx currentColor, 0 0 0 10rpx rgba(255,255,255,0.45);
-  /* currentColor is not supported in WeChat; override via inline style */
-}
-.merit-group-glass-title {
-  font-size: 26rpx; font-weight: 700; color: #1e293b;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.merit-group-glass-right {
-  display: flex; align-items: center; gap: 12rpx; flex-shrink: 0;
-}
-.merit-group-count-bubble {
-  padding: 8rpx 18rpx; border-radius: 999rpx;
-  color: #fff; font-size: 22rpx; font-weight: 700;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.10);
-}
-.merit-group-quota-chip {
-  font-size: 20rpx; font-weight: 600; color: #475569;
-  padding: 6rpx 14rpx; border-radius: 999rpx;
-  background: rgba(241,245,249,0.72);
-  border: 1rpx solid rgba(148,163,184,0.22);
-}
-.merit-group-expand-arrow {
-  font-size: 20rpx; color: #94a3b8; margin-left: 2rpx;
+/* ── Group card (matches .list-item / .rule-clause-card pattern) ── */
+.merit-group-card {
+  margin-bottom: 20rpx; border-radius: 22rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(249,251,255,0.82) 100%);
+  border: 1rpx solid rgba(226,237,247,0.96);
+  box-shadow: 0 12rpx 24rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.78);
+  overflow: hidden;
 }
 
-/* Expanded body */
-.merit-group-glass-body {
-  padding: 0 14rpx 18rpx;
+/* ── Group header ── */
+.merit-group-head {
+  display: flex; align-items: center; gap: 0;
+  padding: 22rpx 24rpx;
+  transition: background 0.18s ease;
 }
-.merit-group-glass-member {
-  display: flex; align-items: center; gap: 16rpx;
-  margin: 0 8rpx 8rpx; padding: 16rpx 18rpx;
+.merit-group-head:active {
+  background: rgba(241,245,249,0.28);
+}
+.merit-group-head-accent {
+  width: 6rpx; height: 52rpx; border-radius: 999rpx;
+  flex-shrink: 0; margin-right: 18rpx;
+  opacity: 0.82;
+}
+.merit-group-head-body {
+  flex: 1; min-width: 0;
+}
+.merit-group-head-title {
+  line-height: 1.4;
+}
+.merit-title-dept {
+  font-weight: 600; color: #475569; font-size: 27rpx;
+}
+.merit-group-head-meta {
+  display: flex; align-items: center; gap: 10rpx; margin-top: 8rpx;
+}
+
+/* ── Colorful accent chips (matches .preview-chip style) ── */
+.merit-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 36rpx; padding: 5rpx 14rpx; border-radius: 999rpx;
+  font-size: 20rpx; font-weight: 700; line-height: 1.35;
+  border: 1rpx solid transparent;
+}
+.merit-chip-count {
+  background: rgba(219,234,254,0.76); color: #1d4ed8;
+  border-color: rgba(147,197,253,0.64);
+}
+.merit-chip-quota {
+  background: rgba(255,237,213,0.78); color: #c2410c;
+  border-color: rgba(253,186,116,0.58);
+}
+.merit-chip-ident {
+  background: rgba(209,250,229,0.78); color: #15803d;
+  border-color: rgba(110,231,183,0.58);
+}
+
+/* ── Chevron circle ── */
+.merit-group-chevron {
+  width: 44rpx; height: 44rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-left: 10rpx;
+  background: rgba(241,245,249,0.65);
+  border: 1rpx solid rgba(148,163,184,0.18);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.merit-group-chevron text {
+  font-size: 18rpx; color: #64748b;
+  transition: transform 0.24s ease;
+}
+.merit-group-chevron-open {
+  background: rgba(219,234,254,0.64);
+  border-color: rgba(147,197,253,0.38);
+}
+.merit-group-chevron-open text {
+  color: #2563eb;
+}
+
+/* ── Group body (expanded member list) ── */
+.merit-group-body {
+  padding: 0 16rpx 18rpx;
+}
+
+/* ── Member card ── */
+.merit-member-card {
+  display: flex; align-items: center; gap: 0;
+  margin: 0 4rpx 8rpx; padding: 16rpx 18rpx;
   border-radius: 18rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(241,245,249,0.78) 100%);
   border: 1rpx solid rgba(226,232,240,0.65);
   box-shadow: 0 4rpx 12rpx rgba(15,23,42,0.03);
 }
-.merit-member-avatar {
-  width: 56rpx; height: 56rpx; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 24rpx; font-weight: 700;
-  flex-shrink: 0;
-  box-shadow: 0 3rpx 10rpx rgba(0,0,0,0.08);
+.merit-member-accent {
+  width: 5rpx; height: 42rpx; border-radius: 999rpx;
+  flex-shrink: 0; margin-right: 16rpx;
+  opacity: 0.58;
 }
-.merit-member-info {
+.merit-member-body {
   flex: 1; min-width: 0;
 }
+
+/* ── Member top row: name (left) + student ID chip (right) ── */
+.merit-member-row {
+  display: flex; align-items: center; justify-content: space-between;
+}
 .merit-member-name {
-  font-size: 26rpx; font-weight: 700; color: #1e293b;
+  font-size: 27rpx; font-weight: 700; color: #1e293b; line-height: 1.35;
 }
-.merit-member-detail {
-  font-size: 22rpx; color: #64748b; margin-top: 3rpx;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.merit-member-sid-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4rpx 16rpx; border-radius: 999rpx; flex-shrink: 0; margin-left: 14rpx;
+  background: rgba(241,245,249,0.72);
+  border: 1rpx solid rgba(148,163,184,0.16);
 }
-.merit-member-id {
-  font-size: 20rpx; color: #94a3b8; flex-shrink: 0;
+.merit-member-sid-chip text {
+  font-size: 21rpx; font-weight: 600; color: #64748b; line-height: 1.5;
+  font-family: -apple-system, "Helvetica Neue", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0.8rpx;
+}
+
+/* ── Member tag row (colorful bubbles matching .preview-chip style) ── */
+.merit-member-tags {
+  display: flex; flex-wrap: wrap; gap: 8rpx; margin-top: 8rpx;
+}
+.merit-tag {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 34rpx; padding: 4rpx 12rpx; border-radius: 999rpx;
+  font-size: 19rpx; font-weight: 600; line-height: 1.35;
+  border: 1rpx solid transparent;
+}
+.merit-tag-ident {
+  background: rgba(219,234,254,0.76); color: #2563eb;
+  border-color: rgba(147,197,253,0.64);
+}
+.merit-tag-dept {
+  background: rgba(207,250,254,0.72); color: #0891b2;
+  border-color: rgba(103,232,249,0.48);
+}
+.merit-tag-wg {
+  background: rgba(209,250,229,0.78); color: #059669;
+  border-color: rgba(110,231,183,0.58);
+}
+
+/* ── Portal back button ── */
+.actions {
+  margin-top: 8rpx;
+  padding-bottom: 12rpx;
+}
+.actions button {
+  position: relative;
+  overflow: hidden;
+  height: 94rpx;
+  line-height: 94rpx;
+  margin-bottom: 20rpx;
+  border: none;
+  border-radius: 24rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  letter-spacing: 0.5rpx;
+  box-shadow: 0 16rpx 30rpx rgba(15,23,42,0.06), inset 0 1rpx 0 rgba(255,255,255,0.24);
+}
+.actions button::after {
+  border: none;
 }
 

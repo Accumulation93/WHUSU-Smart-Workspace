@@ -1,0 +1,255 @@
+// Behavior: settings tab — auto-extracted from admin.js
+// Zero functional changes. All methods preserved exactly.
+const utils = require('./adminUtils');
+
+module.exports = Behavior({
+  methods: {
+    async loadSystemConfig() {
+      this.setLoading('settings', true);
+      try {
+        const result = await this.callCloud('getSystemConfig');
+        if (result.status === 'success' && result.config) {
+          const timezone = result.config.timezone;
+          const timezoneIndex = this.data.timezoneOptions.findIndex(function (item) {
+            return item.value === timezone;
+          });
+          this.setData({
+            systemConfig: { timezone: timezone },
+            timezoneIndex: timezoneIndex >= 0 ? timezoneIndex : 20,
+            currentOrganizationId: result.config.currentOrganization || null
+          });
+          this.resolveCurrentOrganizationName();
+        }
+      } catch (e) {
+        console.error('loadSystemConfig error:', e);
+      } finally {
+        this.setLoading('settings', false);
+      }
+    },
+
+    onTimezoneChange(e) {
+      const idx = Number(e.detail.value);
+      const option = this.data.timezoneOptions[idx];
+      if (option) {
+        this.setData({
+          timezoneIndex: idx,
+          systemConfig: { timezone: option.value }
+        });
+      }
+    },
+
+    async saveSystemConfig() {
+      this.setLoading('saveSystemConfig', true);
+      try {
+        const result = await this.callCloud('saveSystemConfig', {
+          timezone: this.data.systemConfig.timezone
+        });
+        if (result.status === 'success') {
+          wx.showToast({ title: '配置已保存', icon: 'success' });
+        } else {
+          wx.showToast({ title: result.message || '保存失败', icon: 'none' });
+        }
+      } catch (e) {
+        wx.showToast({ title: '保存失败', icon: 'none' });
+      }
+      this.setLoading('saveSystemConfig', false);
+    },
+
+    async loadOrganizations() {
+      if (!this.data.isRootAdmin) return;
+      try {
+        const result = await this.callCloud('listOrganizations');
+        if (result.status === 'success') {
+          this.setData({ organizationList: result.list || [] });
+          this.resolveCurrentOrganizationName();
+        }
+      } catch (e) {
+        console.error('loadOrganizations error:', e);
+      }
+    },
+
+    resolveCurrentOrganizationName() {
+      const orgId = this.data.currentOrganizationId;
+      if (!orgId) {
+        this.setData({ currentOrganizationName: '' });
+        return;
+      }
+      const org = this.data.organizationList.find(function (o) { return o.id === orgId; });
+      this.setData({ currentOrganizationName: org ? org.name : '' });
+    },
+
+    openOrgForm(e) {
+      const id = e && e.currentTarget && e.currentTarget.dataset.id;
+      if (id) {
+        const org = this.data.organizationList.find(function (o) { return o.id === id; });
+        this.setData({ orgFormVisible: true, orgFormData: { id, name: org ? org.name : '' } });
+      } else {
+        this.setData({ orgFormVisible: true, orgFormData: { name: '' } });
+      }
+    },
+
+    closeOrgForm() {
+      this.setData({ orgFormVisible: false, orgFormData: { name: '' } });
+    },
+
+    onOrgFieldInput(e) {
+      this.setData({
+        orgFormData: { ...this.data.orgFormData, name: e.detail.value.trim() }
+      });
+    },
+
+    async saveOrganization() {
+      if (!this.data.orgFormData.name) {
+        wx.showToast({ title: '请填写组织名称', icon: 'none' });
+        return;
+      }
+      this.setLoading('saveOrganization', true);
+      try {
+        const result = await this.callCloud('saveOrganization', this.data.orgFormData);
+        if (result.status === 'success') {
+          wx.showToast({ title: '组织已保存', icon: 'success' });
+          this.closeOrgForm();
+          await this.loadOrganizations();
+        } else {
+          wx.showToast({ title: result.message || '保存失败', icon: 'none' });
+        }
+      } catch (e) {
+        wx.showToast({ title: '保存组织失败', icon: 'none' });
+      }
+      this.setLoading('saveOrganization', false);
+    },
+
+    async deleteOrganization(e) {
+      const organizationId = e.currentTarget.dataset.id;
+      if (!organizationId) return;
+      const confirm = await new Promise(function (resolve) {
+        wx.showModal({
+          title: '删除组织',
+          content: '删除后将清除该组织的所有数据，不可恢复。确认删除？',
+          confirmText: '删除',
+          cancelText: '取消',
+          success: function (res) { resolve(res.confirm); }
+        });
+      });
+      if (!confirm) return;
+      this.setLoading('deleteOrganization', true);
+      wx.showLoading({ title: '正在删除组织...', mask: true });
+      try {
+        const result = await this.callCloud('deleteOrganization', { organizationId });
+        if (result.status === 'success') {
+          wx.showToast({ title: '组织已删除', icon: 'success' });
+          await this.loadOrganizations();
+        } else {
+          wx.showToast({ title: result.message || '删除失败', icon: 'none' });
+        }
+      } catch (e) {
+        wx.showToast({ title: '删除组织失败', icon: 'none' });
+      }
+      wx.hideLoading();
+      this.setLoading('deleteOrganization', false);
+    },
+
+    async switchOrganization(e) {
+      const { id, name } = e.currentTarget.dataset;
+      if (!id || !name) return;
+      const confirm = await new Promise(function (resolve) {
+        wx.showModal({
+          title: '切换组织',
+          content: '确认切换到「' + name + '」？',
+          confirmText: '切换',
+          cancelText: '取消',
+          success: function (res) { resolve(res.confirm); }
+        });
+      });
+      if (!confirm) return;
+  
+      this.setLoading('switchOrganization', true);
+      wx.showLoading({ title: '正在切换组织...', mask: true });
+  
+      try {
+        const result = await this.callCloud('switchOrganization', {
+          organizationId: id,
+          organizationName: name
+        });
+        if (result.status === 'success') {
+          wx.showToast({ title: result.message || '切换成功', icon: 'success' });
+          this.setData({ currentOrganizationId: id, currentOrganizationName: name });
+          await this.loadOrganizations();
+          this.loadActivityList();
+          this.loadTemplateList();
+          this.loadRuleList();
+          this.loadHrProfileAdminData();
+          this.loadHrList();
+          this.loadAdminList();
+          await this.loadDepartmentList();
+          await this.loadWorkGroupList();
+          await this.loadIdentityList();
+        } else {
+          wx.showToast({ title: result.message || '切换失败', icon: 'none' });
+        }
+      } catch (e) {
+        wx.showToast({ title: '切换组织失败', icon: 'none' });
+      }
+      wx.hideLoading();
+      this.setLoading('switchOrganization', false);
+    },
+
+    async createAndSwitchOrganization() {
+      if (!this.data.orgFormData.name) {
+        wx.showToast({ title: '请填写组织名称', icon: 'none' });
+        return;
+      }
+      const confirm = await new Promise(function (resolve) {
+        wx.showModal({
+          title: '新建并切换组织',
+          content: '确认创建并切换到新组织「' + this.data.orgFormData.name + '」？',
+          confirmText: '确认',
+          cancelText: '取消',
+          success: function (res) { resolve(res.confirm); }
+        });
+      }.bind(this));
+      if (!confirm) return;
+  
+      this.setLoading('switchOrganization', true);
+      wx.showLoading({ title: '正在创建并切换组织...', mask: true });
+  
+      try {
+        // Step 1: Create the organization
+        const saveResult = await this.callCloud('saveOrganization', { name: this.data.orgFormData.name });
+        if (saveResult.status !== 'success') {
+          wx.hideLoading();
+          wx.showToast({ title: saveResult.message || '创建组织失败', icon: 'none' });
+          this.setLoading('switchOrganization', false);
+          return;
+        }
+  
+        // Step 2: Switch to it
+        const result = await this.callCloud('switchOrganization', {
+          organizationId: saveResult.organization.id,
+          organizationName: this.data.orgFormData.name
+        });
+        if (result.status === 'success') {
+          wx.showToast({ title: result.message || '切换成功', icon: 'success' });
+          this.closeOrgForm();
+          this.setData({ currentOrganizationId: saveResult.organization.id, currentOrganizationName: this.data.orgFormData.name });
+          await this.loadOrganizations();
+          this.loadActivityList();
+          this.loadTemplateList();
+          this.loadRuleList();
+          this.loadHrProfileAdminData();
+          this.loadHrList();
+          this.loadAdminList();
+          await this.loadDepartmentList();
+          await this.loadWorkGroupList();
+          await this.loadIdentityList();
+        } else {
+          wx.showToast({ title: result.message || '切换失败', icon: 'none' });
+        }
+      } catch (e) {
+        wx.showToast({ title: '切换失败，请重试', icon: 'none' });
+      }
+      wx.hideLoading();
+      this.setLoading('switchOrganization', false);
+    }
+  }
+});

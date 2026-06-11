@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/login/login",
+    "pages/portal/portal",
     "pages/home/home"
   ],
   "subPackages": [
@@ -22,7 +23,7 @@
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "REDSU考核评分",
+    "navigationBarTitleText": "REDSU智慧工作台",
     "navigationBarBackgroundColor": "#ffffff"
   },
   "style": "v2",

@@ -1,0 +1,94 @@
+<view class="page">
+  <!-- ═══ Hero (blue gradient - same as home page hero) ═══ -->
+  <view class="hero">
+    <view class="hero-badge">{{heroIdentity}}</view>
+    <view class="hero-title">{{heroName}}</view>
+    <view class="hero-subtitle">欢迎使用REDSU智慧工作台系统</view>
+  </view>
+
+  <!-- ═══ Organization Card (same .card style as home) ═══ -->
+  <view class="card" wx:if="{{organizationName}}">
+    <view class="info-head">
+      <view class="section-title">当前组织</view>
+    </view>
+    <view class="activity-name">{{organizationName}}</view>
+  </view>
+
+  <!-- ═══ Profile Info Card (same as 评分人信息 in home) ═══ -->
+  <view class="card" wx:if="{{hasUser}}">
+    <view class="info-head">
+      <view class="section-title">个人信息</view>
+    </view>
+    <view class="info-grid">
+      <view class="info-block">
+        <view class="info-label">姓名</view>
+        <view class="info-value">{{heroName}}</view>
+      </view>
+      <view class="info-block">
+        <view class="info-label">身份</view>
+        <view class="info-value">{{heroIdentity}}</view>
+      </view>
+      <view class="info-block info-block-full" wx:if="{{userDepartment}}">
+        <view class="info-label">部门</view>
+        <view class="info-value">{{userDepartment}}</view>
+      </view>
+      <view class="info-block info-block-full" wx:if="{{showWorkGroup}}">
+        <view class="info-label">工作分工（职能组）</view>
+        <view class="info-value">{{userWorkGroup}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══ Sub-app Navigation Cards (same .card style as home) ═══ -->
+  <view class="card">
+    <view class="info-head">
+      <view class="section-title">应用服务</view>
+    </view>
+    <view class="nav-list">
+      <view
+        class="nav-row {{item.disabled ? 'nav-row-disabled' : ''}}"
+        wx:for="{{portalCards}}"
+        wx:key="key"
+        wx:for-item="item"
+        wx:for-index="i"
+        style="animation: glassFadeUp 0.42s {{0.06 * i}}s ease both;"
+        data-key="{{item.key}}"
+        bindtap="onCardTap"
+      >
+        <view class="nav-row-icon">{{item.icon}}</view>
+        <view class="nav-row-body">
+          <view class="nav-row-label">{{item.label}}</view>
+          <view class="nav-row-desc">{{item.desc}}</view>
+        </view>
+        <view class="nav-row-badge" wx:if="{{item.disabled}}">开发中</view>
+        <text class="nav-row-arrow" wx:if="{{!item.disabled}}">›</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══ Actions (same as home page) ═══ -->
+  <view class="actions">
+    <button class="secondary-btn" bindtap="goLogin">切换身份</button>
+    <button class="danger-btn" wx:if="{{hasUser}}" bindtap="openUnbindDialog">解绑当前身份</button>
+  </view>
+
+  <!-- ═══ Footer ═══ -->
+  <view class="page-footer">
+    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-org">武汉大学学生会</view>
+  </view>
+
+  <!-- ═══ Unbind Dialog (same as home page) ═══ -->
+  <view class="dialog-layer" wx:if="{{showUnbindDialog}}">
+    <view class="dialog-mask" bindtap="closeUnbindDialog"></view>
+    <view class="dialog-panel">
+      <view class="dialog-badge">危险操作</view>
+      <view class="dialog-title">确认解绑当前身份？</view>
+      <view class="dialog-desc">解绑后会立即移除当前身份的登录状态，后续如需进入，需要重新完成验证。</view>
+      <view class="dialog-actions">
+        <button class="secondary-btn dialog-btn" bindtap="closeUnbindDialog">再想想</button>
+        <button class="danger-btn dialog-btn" loading="{{unbindLoading}}" bindtap="confirmUnbind">确认解绑</button>
+      </view>
+    </view>
+  </view>
+</view>

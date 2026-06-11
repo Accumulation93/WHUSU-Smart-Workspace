@@ -193,7 +193,7 @@ Page({
         icon: 'success'
       });
       wx.redirectTo({
-        url: '/pages/home/home'
+        url: '/pages/portal/portal'
       });
       return;
     }

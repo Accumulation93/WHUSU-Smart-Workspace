@@ -297,17 +297,29 @@ Page({
     this.loadOrganizationName();
   },
 
+  onLoad(options) {
+    this._subApp = (options && options.subApp) || 'scoring';
+  },
+
+  applySubAppFilter() {
+    const subApp = this._subApp || 'scoring';
+    const SUB_APP_USER_TABS = {
+      scoring: ['scoring', 'results', 'meritList'],
+      hr: ['profile']
+    };
+    this._subAppAllowedTabs = SUB_APP_USER_TABS[subApp] || SUB_APP_USER_TABS.scoring;
+    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息' };
+    this._subAppLabel = SUB_APP_LABELS[subApp] || '';
+  },
+
   rebuildUserTabs() {
-    const tabs = [
-      { key: 'scoring', label: '考核评分' }
-    ];
-    if (this.data.hasViewPerm) {
-      tabs.push({ key: 'results', label: '结果公示' });
-    }
-    if (this.data.hasMeritPerm) {
-      tabs.push({ key: 'meritList', label: '评优名单' });
-    }
-    tabs.push({ key: 'profile', label: '人事信息' });
+    if (!this._subAppAllowedTabs) this.applySubAppFilter();
+    const allowed = this._subAppAllowedTabs || ['scoring', 'results', 'meritList'];
+    const tabs = [];
+    if (allowed.indexOf('scoring') !== -1) tabs.push({ key: 'scoring', label: '考核评分' });
+    if (allowed.indexOf('results') !== -1 && this.data.hasViewPerm) tabs.push({ key: 'results', label: '结果公示' });
+    if (allowed.indexOf('meritList') !== -1 && this.data.hasMeritPerm) tabs.push({ key: 'meritList', label: '评优名单' });
+    if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: '人事信息' });
     this.setData({ userTabs: tabs });
   },
 
@@ -351,7 +363,7 @@ Page({
             showWorkGroup: shouldShowWorkGroup(result.user),
             heroName: result.user.name || '欢迎使用',
             heroIdentity: getDisplayIdentity(result.user, 'user'),
-            heroSubtitle: '欢迎使用REDSU考核评分系统'
+            heroSubtitle: '欢迎使用REDSU智慧工作台系统' + (this._subAppLabel ? (' · ' + this._subAppLabel) : '')
           });
 
           this.fetchRateTargets('user');
@@ -362,6 +374,8 @@ Page({
   },
 
   refreshCurrentUser() {
+    this.applySubAppFilter();
+    const subAppLabel = this._subAppLabel ? (' · ' + this._subAppLabel) : '';
     const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
     let activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
 
@@ -386,7 +400,7 @@ Page({
       showWorkGroup: shouldShowWorkGroup(currentUser),
       heroName: currentUser ? currentUser.name : '欢迎使用',
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
-      heroSubtitle: currentUser ? '欢迎使用REDSU考核评分系统' : '请先完成登录',
+      heroSubtitle: currentUser ? ('欢迎使用REDSU智慧工作台系统' + subAppLabel) : '请先完成登录',
       targetList: [],
       selectedTargetId: '',
       targetsEmptyText: '加载中...',
@@ -790,6 +804,12 @@ Page({
   goLogin() {
     wx.redirectTo({
       url: '/pages/login/login'
+    });
+  },
+
+  goPortal() {
+    wx.redirectTo({
+      url: '/pages/portal/portal'
     });
   },
 

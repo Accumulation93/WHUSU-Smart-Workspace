@@ -5,7 +5,7 @@ var COLOR_MAP = {
   '不合格': '#ef4444'
 };
 
-var PALETTE = ['#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#84cc16', '#6366f1'];
+var PALETTE = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#2563eb'];
 
 function getColor(name) {
   if (COLOR_MAP[name]) return COLOR_MAP[name];

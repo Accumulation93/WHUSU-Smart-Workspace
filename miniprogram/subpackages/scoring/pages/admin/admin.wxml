@@ -4,7 +4,7 @@
   <view class="hero hero-admin" wx:if="{{hasPermission}}">
     <view class="hero-badge">管理端</view>
     <view class="hero-title">评分管理工作台</view>
-    <view class="hero-subtitle hero-admin-subtitle">{{user.name}} - {{isRootAdmin ? '至高权限管理员' : (isSuperAdmin ? '超级管理员' : '普通管理员')}}</view>
+    <view class="hero-subtitle hero-admin-subtitle">{{subAppLabel}} · {{user.name}} - {{isRootAdmin ? '至高权限管理员' : (isSuperAdmin ? '超级管理员' : '普通管理员')}}</view>
   </view>
 
   <view class="empty-card" wx:if="{{!hasPermission}}">
@@ -14,17 +14,21 @@
 
   <view wx:if="{{hasPermission}}">
     <view class="tabs">
-      <view class="tab {{activeTab === 'activities' ? 'tab-active' : ''}}" data-tab="activities" bindtap="switchTab">评分活动</view>
-      <view class="tab {{activeTab === 'templates' ? 'tab-active' : ''}}" data-tab="templates" bindtap="switchTab">评分问题</view>
-      <view class="tab {{activeTab === 'rules' ? 'tab-active' : ''}}" data-tab="rules" bindtap="switchTab">评分人类别</view>
-      <view class="tab {{activeTab === 'results' ? 'tab-active' : ''}}" data-tab="results" bindtap="switchTab">结果查看</view>
-      <view class="tab {{activeTab === 'hrInfo' ? 'tab-active' : ''}}" data-tab="hrInfo" bindtap="switchTab">人事信息</view>
-      <view class="tab {{activeTab === 'departments' ? 'tab-active' : ''}}" data-tab="departments" bindtap="switchTab">部门维护</view>
-      <view class="tab {{activeTab === 'workGroups' ? 'tab-active' : ''}}" data-tab="workGroups" bindtap="switchTab">工作分工（职能组）</view>
-      <view class="tab {{activeTab === 'identities' ? 'tab-active' : ''}}" data-tab="identities" bindtap="switchTab">身份类别</view>
-      <view class="tab {{activeTab === 'admins' ? 'tab-active' : ''}}" data-tab="admins" bindtap="switchTab">管理员</view>
-      <view class="tab {{activeTab === 'settings' ? 'tab-active' : ''}}" data-tab="settings" bindtap="switchTab">基础配置</view>
-      <view class="tab {{activeTab === 'publications' ? 'tab-active' : ''}}" data-tab="publications" bindtap="switchTab">结果公示</view>
+      <block wx:for="{{visibleTabs}}" wx:key="*this" wx:for-item="tabKey">
+        <view class="tab {{activeTab === tabKey ? 'tab-active' : ''}}" data-tab="{{tabKey}}" bindtap="switchTab">
+          <block wx:if="{{tabKey === 'activities'}}">评分活动</block>
+          <block wx:elif="{{tabKey === 'templates'}}">评分问题</block>
+          <block wx:elif="{{tabKey === 'rules'}}">评分人类别</block>
+          <block wx:elif="{{tabKey === 'results'}}">结果查看</block>
+          <block wx:elif="{{tabKey === 'hrInfo'}}">人事信息</block>
+          <block wx:elif="{{tabKey === 'departments'}}">部门维护</block>
+          <block wx:elif="{{tabKey === 'workGroups'}}">工作分工（职能组）</block>
+          <block wx:elif="{{tabKey === 'identities'}}">身份类别</block>
+          <block wx:elif="{{tabKey === 'admins'}}">管理员</block>
+          <block wx:elif="{{tabKey === 'settings'}}">基础配置</block>
+          <block wx:elif="{{tabKey === 'publications'}}">结果公示</block>
+        </view>
+      </block>
     </view>
 
     <view class="section" wx:if="{{activeTab === 'activities'}}">
@@ -1609,14 +1613,18 @@
 
       <!-- ═══ 评优名单汇总（Feature 5） ═══ -->
       <view class="rule-panel merit-summary-panel" wx:if="{{publicationForm.id}}" style="margin-top:28rpx;">
-        <view class="rule-panel-head rule-panel-head-row">
-          <view>
-            <view class="rule-panel-title">🏆 评优名单汇总</view>
-            <view class="rule-panel-subtitle">按规则条款分组显示，支持筛选和导出</view>
+        <view class="rule-panel-head">
+          <view class="rule-panel-head-row">
+            <view>
+              <view class="rule-panel-title">🏆 评优名单汇总</view>
+              <view class="rule-panel-subtitle">按规则条款分组显示，支持筛选和导出</view>
+            </view>
           </view>
-          <view class="merit-summary-head-actions">
-            <view class="merit-summary-total-chip" wx:if="{{meritSummaryGroups.length}}">共 {{meritSummaryGroups.length}} 组</view>
-            <button class="secondary-btn mini-action-btn" loading="{{loadingMap.exportMeritSummary}}" bindtap="exportMeritListSummary">导出表格</button>
+          <view class="merit-summary-head-bar" wx:if="{{meritSummaryGroups.length}}">
+            <view class="merit-summary-total-chip">共 {{meritSummaryGroups.length}} 组</view>
+            <view class="merit-export-btn-wrap">
+              <button class="secondary-btn" loading="{{loadingMap.exportMeritSummary}}" bindtap="exportMeritListSummary">导出表格</button>
+            </view>
           </view>
         </view>
 
@@ -1648,37 +1656,51 @@
           <view class="empty-desc">请先在评优规则条款中指定人选</view>
         </view>
 
-        <!-- 分组卡片（玻璃风格） -->
-        <view class="merit-group-glass-card" wx:for="{{meritSummaryFilteredGroups}}" wx:key="clauseId" wx:for-item="group" wx:for-index="gi" style="animation: glassFadeUp 0.38s {{0.06 * gi}}s ease both;">
-          <view class="merit-group-glass-head" data-clause-id="{{group.clauseId}}" bindtap="toggleMeritSummaryGroup">
-            <view class="merit-group-glass-left">
-              <view class="merit-group-color-dot" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};"></view>
-              <view class="merit-group-glass-title">{{group.granteeDepartment}} {{group.granteeIdentity}} → {{group.targetIdentity}}</view>
-            </view>
-            <view class="merit-group-glass-right">
-              <view class="merit-group-count-bubble" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};">
-                <text>{{group.memberCount}}人</text>
+        <!-- 分组卡片 -->
+        <view class="merit-group-card" wx:for="{{meritSummaryFilteredGroups}}" wx:key="clauseId" wx:for-item="group" wx:for-index="gi" style="animation: glassFadeUp 0.38s {{0.06 * gi}}s ease both;">
+          <!-- Group header -->
+          <view class="merit-group-head" data-clause-id="{{group.clauseId}}" bindtap="toggleMeritSummaryGroup">
+            <view class="merit-group-head-accent" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};"></view>
+            <view class="merit-group-head-body">
+              <view class="merit-group-head-title">
+                <text class="merit-title-dept">{{group.granteeDepartment}}</text>
               </view>
-              <view class="merit-group-quota-chip" wx:if="{{group.quotaLimit > 0}}">名额{{group.quotaLimit}}</view>
-              <text class="merit-group-expand-arrow">{{expandedMeritSummaryClauseId === group.clauseId ? '▲' : '▼'}}</text>
+              <view class="merit-group-head-meta">
+                <view class="merit-chip merit-chip-ident">{{group.targetIdentity}}</view>
+                <view class="merit-chip merit-chip-count">{{group.memberCount}} 人</view>
+                <view class="merit-chip merit-chip-quota" wx:if="{{group.quotaLimit > 0}}">名额 {{group.quotaLimit}}</view>
+              </view>
+            </view>
+            <view class="merit-group-chevron {{expandedMeritSummaryClauseId === group.clauseId ? 'merit-group-chevron-open' : ''}}">
+              <text>{{expandedMeritSummaryClauseId === group.clauseId ? '▴' : '▾'}}</text>
             </view>
           </view>
-          <!-- Expanded: glass member cards -->
-          <view class="merit-group-glass-body" wx:if="{{expandedMeritSummaryClauseId === group.clauseId}}">
-            <view class="merit-group-glass-member" wx:for="{{group.members}}" wx:key="id" wx:for-item="m" style="animation: glassFadeUp 0.28s {{0.04 * index}}s ease both;">
-              <view class="merit-member-avatar" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};">{{m.name[0] || '?'}}</view>
-              <view class="merit-member-info">
-                <view class="merit-member-name">{{m.name}}</view>
-                <view class="merit-member-detail">{{m.identity}}<text wx:if="{{m.department}}"> · {{m.department}}</text><text wx:if="{{m.workGroup}}"> · {{m.workGroup}}</text></view>
+          <!-- Expanded member list -->
+          <view class="merit-group-body" wx:if="{{expandedMeritSummaryClauseId === group.clauseId}}">
+            <view class="merit-member-card" wx:for="{{group.members}}" wx:key="id" wx:for-item="m" style="animation: glassFadeUp 0.28s {{0.04 * index}}s ease both;">
+              <view class="merit-member-accent" style="background: {{gradeBandWxs.getColor(group.targetIdentity)}};"></view>
+              <view class="merit-member-body">
+                <view class="merit-member-row">
+                  <text class="merit-member-name">{{m.name}}</text>
+                  <view class="merit-member-sid-chip"><text>{{m.studentId}}</text></view>
+                </view>
+                <view class="merit-member-tags">
+                  <view class="merit-tag merit-tag-ident">{{m.identity}}</view>
+                  <view class="merit-tag merit-tag-dept" wx:if="{{m.department}}">{{m.department}}</view>
+                  <view class="merit-tag merit-tag-wg" wx:if="{{m.workGroup}}">{{m.workGroup}}</view>
+                </view>
               </view>
-              <view class="merit-member-id">{{m.studentId}}</view>
             </view>
             <view class="empty-inline" wx:if="{{!group.members.length}}">当前筛选条件下无匹配成员</view>
           </view>
         </view>
       </view>
 
+    <view class="actions" style="padding: 28rpx 8rpx 12rpx;">
+      <button class="secondary-btn" bindtap="goPortal">返回门户</button>
     </view>
+
+  </view>
 
   <!-- Designation Picker Popup (page level, outside tab sections) -->
   <view class="popup-mask" wx:if="{{showDesignationPicker}}" bindtap="closeDesignationPicker">
@@ -1750,7 +1772,7 @@
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">REDSU考核评分</view>
+    <view class="footer-name">REDSU智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
