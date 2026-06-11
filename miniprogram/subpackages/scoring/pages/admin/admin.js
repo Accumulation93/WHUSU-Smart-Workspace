@@ -352,6 +352,7 @@ Page({
     if (this._subApp === 'audit') {
       this.loadDepartmentList().catch(function() {});
       this.loadIdentityList().catch(function() {});
+      this.loadHrList().catch(function() {});
       this.loadAuditFlowTemplates().catch(function() {});
       this.loadStamps().catch(function() {});
       this.loadAuditSubmissions().catch(function() {});
