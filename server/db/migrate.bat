@@ -196,6 +196,14 @@ echo   Checking cascade FKs (ON DELETE CASCADE) ...
 %MYSQL_CMD% %DB_NAME% -e "SELECT TABLE_NAME, CONSTRAINT_NAME, DELETE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = '%DB_NAME%' AND TABLE_NAME IN ('pub_view_rule_clauses','pub_merit_rule_clauses','pub_grade_bands','merit_list_designations') ORDER BY TABLE_NAME, CONSTRAINT_NAME;" 2>nul
 echo.
 
+echo   Checking audit tables ...
+%MYSQL_CMD% %DB_NAME% -e "SELECT TABLE_NAME, TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA = '%DB_NAME%' AND TABLE_NAME LIKE 'audit_%%' ORDER BY TABLE_NAME;" 2>nul
+echo.
+
+echo   Checking scope_type column (identity approval scope) ...
+%MYSQL_CMD% %DB_NAME% -e "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_DEFAULT, IS_NULLABLE, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '%DB_NAME%' AND TABLE_NAME = 'audit_submission_steps' AND COLUMN_NAME IN ('scope_type','scope_department_id','scope_work_group_id') ORDER BY COLUMN_NAME;" 2>nul
+echo.
+
 echo ==========================================
 echo Migration complete!
 echo   Database: %DB_NAME%
@@ -205,8 +213,8 @@ echo Migrations applied (all idempotent):
 echo   1. migrate_org_id.sql         - org_id columns, history tables dropped
 echo   2. migrate_fix_permission_id.sql - permission_id nullable, FK removed
 echo   3. migrate_clause_id.sql      - clause_id column, old FK cleanup
-echo   4. migration_grade_bands.sql  - display_mode → clauses, cascade FKs, pub_grade_bands
-echo   5. migrate_audit_workflow.sql - audit flow templates, submissions, signatures, stamps
+echo   4. migration_grade_bands.sql  - display_mode -^> clauses, cascade FKs, pub_grade_bands
+echo   5. migrate_audit_workflow.sql - audit flow: templates, submissions, e-signatures, stamps, scope-based approval
 echo.
 echo New features:
 echo   - org-scoped architecture (org_id on all tables)
@@ -216,7 +224,8 @@ echo   - merit_list_designations uses clause_id (permission_id is legacy)
 echo   - pub_view_rule_clauses.display_mode (score ^| grade) per clause
 echo   - pub_grade_bands table for customizable grade intervals
 echo   - cascade FKs ensure no zombie records on category deletion
-echo   - audit workflow system: flow templates, e-signatures, stamps, hash-chain verification
+echo   - audit workflow: flow templates, e-signatures, stamps, hash-chain verification
+echo   - scope-based identity approval: same_department, same_work_group, specific_department, specific_work_group
 echo ==========================================
 pause
 endlocal

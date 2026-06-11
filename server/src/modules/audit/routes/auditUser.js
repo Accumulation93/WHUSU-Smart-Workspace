@@ -92,6 +92,9 @@ router.post('/listPendingApprovals', async (req, res) => {
       submittedBy: safeString(s.submitted_by),
       submitterName: hrMap[s.submitted_by] || '未知',
       sortOrder: s.sort_order,
+      approverType: safeString(s.approver_type),
+      approverIdentityId: safeString(s.approver_identity_id),
+      scopeType: safeString(s.scope_type),
       actionType: safeString(s.action_type),
       round: s.round,
       createdAt: s.created_at
@@ -294,6 +297,9 @@ router.post('/startAdHocAudit', async (req, res) => {
         approverType: safeString(s.approverType) || 'identity',
         approverHrId: safeString(s.approverHrId) || null,
         approverIdentityId: safeString(s.approverIdentityId) || null,
+        scopeType: safeString(s.scopeType) || null,
+        scopeDepartmentId: safeString(s.scopeDepartmentId) || null,
+        scopeWorkGroupId: safeString(s.scopeWorkGroupId) || null,
         actionType: safeString(s.actionType) || 'sign',
         round: 1
       });
@@ -320,6 +326,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
     const admin = await adminInfoModel.getByOpenid(openid);
+    const orgId = await getCurrentOrgId();
     if (!hrId && !admin) return res.json({ status: 'forbidden', message: '请先登录' });
 
     const submissionId = safeString(req.body.submissionId);
@@ -357,6 +364,17 @@ router.post('/getSubmissionDetail', async (req, res) => {
       templateName = template ? safeString(template.name) : '';
     }
 
+    // Load identity names
+    const identityIds = [...new Set(steps.map(s => s.approver_identity_id).filter(Boolean))];
+    const identityMap = {};
+    if (identityIds.length) {
+      const [identRows] = await pool.query(
+        'SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?',
+        [identityIds, orgId]
+      );
+      for (const ident of identRows) identityMap[ident.id] = safeString(ident.name);
+    }
+
     res.json({
       status: 'success',
       submission: {
@@ -382,6 +400,10 @@ router.post('/getSubmissionDetail', async (req, res) => {
         approverHrId: safeString(s.approver_hr_id),
         approverName: hrMap[s.approver_hr_id] || '未指定',
         approverIdentityId: safeString(s.approver_identity_id),
+        approverIdentityName: identityMap[s.approver_identity_id] || '',
+        scopeType: safeString(s.scope_type),
+        scopeDepartmentId: safeString(s.scope_department_id),
+        scopeWorkGroupId: safeString(s.scope_work_group_id),
         actionType: safeString(s.action_type),
         status: safeString(s.status),
         comment: safeString(s.comment),
@@ -448,7 +470,30 @@ router.post('/approveStep', async (req, res) => {
     if (step.status !== 'pending') {
       return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
     }
-    if (step.approver_hr_id !== hrId) {
+
+    // Check authorization (identity with scope, or specific person)
+    const orgId = await getCurrentOrgId();
+    let authorized = false;
+    if (step.approver_type === 'specific_person') {
+      authorized = step.approver_hr_id === hrId;
+    } else {
+      const [approverRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [hrId, orgId]
+      );
+      const approver = approverRows[0];
+      if (approver && approver.identity_id === step.approver_identity_id) {
+        // Look up submitter for same_department / same_work_group scope
+        let submitter = null;
+        const [subRows] = await pool.query(
+          'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [submission.submitted_by, orgId]
+        );
+        submitter = subRows[0] || null;
+        authorized = submissionStepModel.matchesScope(step, approver, submitter);
+      }
+    }
+    if (!authorized) {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
 
@@ -570,7 +615,29 @@ router.post('/rejectStep', async (req, res) => {
     if (step.status !== 'pending') {
       return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
     }
-    if (step.approver_hr_id !== hrId) {
+
+    // Check authorization
+    const orgId = await getCurrentOrgId();
+    let authorized = false;
+    if (step.approver_type === 'specific_person') {
+      authorized = step.approver_hr_id === hrId;
+    } else {
+      const [approverRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [hrId, orgId]
+      );
+      const approver = approverRows[0];
+      if (approver && approver.identity_id === step.approver_identity_id) {
+        let submitter = null;
+        const [subRows] = await pool.query(
+          'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [submission.submitted_by, orgId]
+        );
+        submitter = subRows[0] || null;
+        authorized = submissionStepModel.matchesScope(step, approver, submitter);
+      }
+    }
+    if (!authorized) {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
 

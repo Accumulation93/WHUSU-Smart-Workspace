@@ -1,5 +1,4 @@
-const { callFunction } = require('../../../../../utils/api');
-const { getErrorText, showShortToast } = require('../../../scoring/pages/admin/modules/adminUtils');
+const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 
 Page({
   data: {

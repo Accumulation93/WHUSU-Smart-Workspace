@@ -30,7 +30,17 @@ async function getCurrentStep(submissionId, currentStepIndex) {
 
 async function getPendingByApprover(hrId) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+
+  // Get the approver's HR info for identity/scope matching
+  const [hrRows] = await pool.query(
+    'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+    [hrId, orgId]
+  );
+  const approver = hrRows[0] || null;
+
+  // Direct matches: specific_person steps assigned to this hrId
+  let rows = [];
+  const [directRows] = await pool.query(
     `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
      JOIN audit_submissions asub ON asub.id = ass.submission_id
@@ -38,16 +48,97 @@ async function getPendingByApprover(hrId) {
      ORDER BY ass.created_at DESC`,
     [hrId, orgId]
   );
+  rows = directRows;
+
+  // Identity-based matches: steps with approver_type='identity' where the approver matches
+  if (approver) {
+    const [identityRows] = await pool.query(
+      `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
+       FROM audit_submission_steps ass
+       JOIN audit_submissions asub ON asub.id = ass.submission_id
+       WHERE ass.approver_type = 'identity'
+         AND ass.approver_identity_id = ?
+         AND ass.status = 'pending'
+         AND ass.org_id = ?`,
+      [approver.identity_id, orgId]
+    );
+
+    // Filter by scope — need submitter info for same_department / same_work_group
+    const submitterIds = [...new Set(identityRows.map(r => r.submitted_by).filter(Boolean))];
+    const submitterMap = {};
+    if (submitterIds.length) {
+      const [subRows] = await pool.query(
+        'SELECT id, department_id, work_group_id FROM hr_info WHERE id IN (?) AND org_id = ?',
+        [submitterIds, orgId]
+      );
+      for (const s of subRows) submitterMap[s.id] = s;
+    }
+
+    for (const row of identityRows) {
+      const submitter = submitterMap[row.submitted_by] || null;
+      if (matchesScope(row, approver, submitter)) {
+        rows.push(row);
+      }
+    }
+  }
+
+  // Sort by created_at DESC
+  rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   return rows;
 }
 
+/**
+ * Check if an approver matches the step's scope constraints.
+ * @param {object} step - The submission step row
+ * @param {object} approver - The candidate approver's HR info (must have department_id, work_group_id)
+ * @param {object} submitter - The submission submitter's HR info (for same_department / same_work_group)
+ */
+function matchesScope(step, approver, submitter) {
+  const scopeType = (step.scope_type || '').trim();
+  if (!scopeType || scopeType === 'all') return true;
+
+  if (scopeType === 'same_department') {
+    if (!submitter) return false;
+    return approver.department_id === submitter.department_id;
+  }
+
+  if (scopeType === 'same_work_group') {
+    if (!submitter) return false;
+    return approver.work_group_id === submitter.work_group_id;
+  }
+
+  if (scopeType === 'specific_department') {
+    return approver.department_id === (step.scope_department_id || '');
+  }
+
+  if (scopeType === 'specific_work_group') {
+    return approver.department_id === (step.scope_department_id || '') &&
+           approver.work_group_id === (step.scope_work_group_id || '');
+  }
+
+  return true;
+}
+
 async function create(id, data) {
-  const { submissionId, templateStepId, sortOrder, approverType, approverHrId, approverIdentityId, actionType, round } = data;
+  const {
+    submissionId, templateStepId, sortOrder,
+    approverType, approverHrId, approverIdentityId,
+    actionType, round,
+    scopeType, scopeDepartmentId, scopeWorkGroupId
+  } = data;
   const orgId = await getCurrentOrgId();
   await pool.query(
-    `INSERT INTO audit_submission_steps (id, submission_id, template_step_id, sort_order, approver_type, approver_hr_id, approver_identity_id, action_type, status, round, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-    [id, submissionId, templateStepId || null, sortOrder || 1, approverType || 'identity', approverHrId || null, approverIdentityId || null, actionType || 'sign', round || 1, orgId]
+    `INSERT INTO audit_submission_steps
+     (id, submission_id, template_step_id, sort_order, approver_type, approver_hr_id, approver_identity_id,
+      scope_type, scope_department_id, scope_work_group_id,
+      action_type, status, round, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+    [
+      id, submissionId, templateStepId || null, sortOrder || 1,
+      approverType || 'identity', approverHrId || null, approverIdentityId || null,
+      scopeType || null, scopeDepartmentId || null, scopeWorkGroupId || null,
+      actionType || 'sign', round || 1, orgId
+    ]
   );
 }
 
@@ -74,4 +165,4 @@ async function getMaxRound(submissionId, sortOrder) {
   return (rows[0] && rows[0].max_round) || 1;
 }
 
-module.exports = { getBySubmissionId, getById, getCurrentStep, getPendingByApprover, create, updateStatus, getMaxRound };
+module.exports = { getBySubmissionId, getById, getCurrentStep, getPendingByApprover, create, updateStatus, getMaxRound, matchesScope };
