@@ -772,7 +772,7 @@ Page({
         }
 
         wx.navigateTo({
-          url: `/pages/score/score?targetId=${encodeURIComponent(id)}`
+          url: `/subpackages/scoring/pages/score/score?targetId=${encodeURIComponent(id)}`
         });
       },
       fail: () => {
@@ -795,7 +795,7 @@ Page({
 
   goAdmin() {
     wx.navigateTo({
-      url: '/pages/admin/admin'
+      url: '/subpackages/scoring/pages/admin/admin'
     });
   },
 

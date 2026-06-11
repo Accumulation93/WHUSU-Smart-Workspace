@@ -121,24 +121,24 @@ app.use((req, res, next) => {
 });
 
 // ---------- business routes ----------
-app.use('/api', require('./routes/auth'));
-app.use('/api', require('./routes/org'));
-app.use('/api', require('./routes/departments'));
-app.use('/api', require('./routes/identities'));
-app.use('/api', require('./routes/workGroups'));
-app.use('/api', require('./routes/hr'));
-app.use('/api', require('./routes/admin'));
-app.use('/api', require('./routes/user'));
-app.use('/api', require('./routes/scoring'));
-app.use('/api', require('./routes/activities'));
-app.use('/api', require('./routes/templates'));
-app.use('/api', require('./routes/rules'));
-app.use('/api', require('./routes/results'));
-app.use('/api', require('./routes/hrProfile'));
-app.use('/api', require('./routes/system'));
-app.use('/api', require('./routes/parseTableFile'));
-app.use('/api', require('./routes/buildTableFile'));
-app.use('/api', require('./routes/publications'));
+app.use('/api', require('./core/routes/auth'));
+app.use('/api', require('./core/routes/org'));
+app.use('/api', require('./core/routes/departments'));
+app.use('/api', require('./core/routes/identities'));
+app.use('/api', require('./core/routes/workGroups'));
+app.use('/api', require('./core/routes/hr'));
+app.use('/api', require('./core/routes/admin'));
+app.use('/api', require('./core/routes/user'));
+app.use('/api', require('./modules/scoring/routes/scoring'));
+app.use('/api', require('./modules/scoring/routes/activities'));
+app.use('/api', require('./modules/scoring/routes/templates'));
+app.use('/api', require('./modules/scoring/routes/rules'));
+app.use('/api', require('./modules/scoring/routes/results'));
+app.use('/api', require('./core/routes/hrProfile'));
+app.use('/api', require('./core/routes/system'));
+app.use('/api', require('./core/routes/parseTableFile'));
+app.use('/api', require('./core/routes/buildTableFile'));
+app.use('/api', require('./modules/scoring/routes/publications'));
 
 // ---------- error handler ----------
 app.use((err, req, res, next) => {
