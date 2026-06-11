@@ -1495,6 +1495,11 @@
       </block>
     </view>
 
+    <!-- BINARY MARKER-2: after settings, before publications -->
+    <view style="background:#0ff;color:#000;padding:16rpx;margin:8rpx 0;font-size:28rpx;font-weight:bold;">
+      ★ MARKER-2: after settings, before publications ★
+    </view>
+
     <view class="section" wx:if="{{activeTab === 'publications'}}">
       <view class="card-loading-overlay" wx:if="{{publicationsLoading}}">
         <view class="card-loading-spinner"></view>
