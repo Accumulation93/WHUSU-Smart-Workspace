@@ -22,9 +22,10 @@
           </view>
           <view class="pending-list-arrow">›</view>
         </view>
-        <view class="audit-empty-state" wx:if="{{!pending.length}}">
+        <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
           <view class="audit-empty-icon">✅</view>
-          <view class="audit-empty-text">暂无待审批的审核申请</view>
+          <view class="audit-empty-text">暂无待审批的审核</view>
+          <view style="font-size:22rpx;color:#94a3b8;margin-top:8rpx;text-align:center;line-height:1.6;">当其他成员发起审核并指定你为审批人时，<br/>需要你处理的审核将显示在这里。</view>
         </view>
         </block>
       </scroll-view>

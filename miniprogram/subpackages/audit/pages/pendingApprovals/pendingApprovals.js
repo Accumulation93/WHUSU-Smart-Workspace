@@ -16,6 +16,10 @@ Page({
       const res = await callFunction({ name: 'listPendingApprovals', data: {} });
       if (res.status === 'success') {
         this.setData({ pending: res.pending || [] });
+      } else if (res.status === 'forbidden') {
+        showShortToast(res.message || '请先绑定人事信息');
+      } else {
+        showShortToast(res.message || '加载失败');
       }
     } catch (e) {
       showShortToast(getErrorText(e, '加载失败'));

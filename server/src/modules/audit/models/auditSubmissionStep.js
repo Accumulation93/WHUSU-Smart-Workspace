@@ -44,11 +44,12 @@ async function getPendingByApprover(hrId) {
   if (!approver) return [];
 
   // Direct matches: specific_person steps assigned to this hrId (legacy field)
+  // Only include steps from in_progress submissions (not draft/pending/withdrawn/rejected/approved)
   const [directRows] = await pool.query(
     `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
      JOIN audit_submissions asub ON asub.id = ass.submission_id
-     WHERE ass.approver_hr_id = ? AND ass.status = 'pending' AND ass.org_id = ?
+     WHERE ass.approver_hr_id = ? AND ass.status = 'pending' AND asub.status = 'in_progress' AND ass.org_id = ?
      ORDER BY ass.created_at DESC`,
     [hrId, orgId]
   );
@@ -60,7 +61,7 @@ async function getPendingByApprover(hrId) {
     `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
      JOIN audit_submissions asub ON asub.id = ass.submission_id
-     WHERE ass.status = 'pending' AND ass.org_id = ?
+     WHERE ass.status = 'pending' AND asub.status = 'in_progress' AND ass.org_id = ?
      ORDER BY ass.created_at DESC`,
     [orgId]
   );
