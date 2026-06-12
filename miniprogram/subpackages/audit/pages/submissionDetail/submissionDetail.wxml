@@ -19,8 +19,9 @@
     <!-- Template mode -->
     <view class="card" wx:if="{{createMode === 'template'}}">
       <view class="section-title">选择审核流模板</view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll small-scroll" scroll-y>
-        <view class="list-item {{selectedTemplateId === item.id ? 'list-item-selected' : ''}}" wx:for="{{flowTemplates}}" wx:key="id" data-id="{{item.id}}" bindtap="onTemplateSelect">
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll small-scroll" scroll-y>
+        <view class="list-item template-item {{selectedTemplateId === item.id ? 'list-item-selected' : ''}}" wx:for="{{flowTemplates}}" wx:key="id" data-id="{{item.id}}" catchtap="onTemplateSelect">
+          <view class="radio-dot {{selectedTemplateId === item.id ? 'radio-dot-checked' : ''}}"></view>
           <view class="list-main">
             <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}步 · {{item.resubmitMode === 'fresh' ? '重新逐层' : '回到驳回人'}})</text></view>
             <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>

@@ -136,7 +136,9 @@ Page({
   },
 
   onTemplateSelect(e) {
-    this.setData({ selectedTemplateId: e.currentTarget.dataset.id });
+    var id = e.currentTarget.dataset.id;
+    // Toggle: tap selected item to deselect
+    this.setData({ selectedTemplateId: this.data.selectedTemplateId === id ? '' : id });
   },
 
   onCreateModeChange(e) {
