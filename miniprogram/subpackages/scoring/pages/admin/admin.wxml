@@ -1714,29 +1714,43 @@
           <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onAuditTemplateFieldInput" value="{{auditTemplateForm.description}}" placeholder="请输入模板说明" />
         </view>
         <view class="field field-row">
-          <view class="field field-half">
-            <view class="field-label">可发起人类型</view>
-            <picker range="{{['任何人','指定身份','指定人员']}}" data-field="starterType" bindchange="onStarterTypeChange">
-              <view class="picker-value">{{auditTemplateForm.starterType === 'self' ? '任何人' : (auditTemplateForm.starterType === 'identity' ? '指定身份' : '指定人员')}}</view>
-            </picker>
+        <view class="field field-half">
+          <view class="field-label">驳回重提交模式</view>
+          <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onResubmitModeChange">
+            <view class="picker-value">{{auditTemplateForm.resubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <!-- Starter Conditions (multi-condition OR-ed) -->
+      <view class="list-card nested-card" style="margin:0 0 16rpx;">
+        <view class="list-title">可发起人（满足任一即可 · 不设条件则任何人可发起）</view>
+        <view class="list-item" wx:for="{{auditTemplateForm.starterConditions}}" wx:key="index" wx:for-item="cond">
+          <view class="list-main">
+            <view class="list-name">{{cond.conditionType === 'person' ? '人员条件' : '身份范围条件'}}</view>
+            <view class="chip-row" style="flex-wrap:wrap;">
+              <block wx:if="{{cond.conditionType === 'person'}}">
+                <view class="status-chip info-chip" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" style="margin:2rpx;">{{pname}}</view>
+                <view class="list-desc" wx:if="{{!cond._personNames || !cond._personNames.length}}" style="margin:2rpx;">未选择人员</view>
+              </block>
+              <block wx:else>
+                <view class="status-chip info-chip" wx:if="{{cond.departmentScope !== 'all'}}" style="margin:2rpx;">{{cond.departmentScope === 'own' ? '同部门' : (cond._deptName || '指定部门')}}</view>
+                <view class="status-chip info-chip" wx:if="{{cond.workGroupScope !== 'all'}}" style="margin:2rpx;">{{cond.workGroupScope === 'own' ? '同职能组' : (cond._wgName || '指定职能组')}}</view>
+                <view class="status-chip info-chip" wx:if="{{cond.identityScope !== 'all'}}" style="margin:2rpx;">{{cond.identityScope === 'own' ? '同身份' : (cond._identName || '指定身份')}}</view>
+                <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
+              </block>
+            </view>
           </view>
-          <view class="field field-half">
-            <view class="field-label">驳回重提交模式</view>
-            <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onResubmitModeChange">
-              <view class="picker-value">{{auditTemplateForm.resubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
-            </picker>
+          <view class="list-actions">
+            <text class="link" data-index="{{index}}" bindtap="openStarterConditionEditor">编辑</text>
+            <text class="link danger-link" data-index="{{index}}" bindtap="removeStarterCondition">移除</text>
           </view>
         </view>
-        <view class="field" wx:if="{{auditTemplateForm.starterType === 'identity'}}">
-          <view class="field-label">发起人身份</view>
-          <view class="picker-value" data-target="starterIdentityId" data-label="发起人身份" data-multi="false" bindtap="openAuditIdentityPicker">{{auditTemplateForm.starterIdentityName || '点击选择身份'}}</view>
-          <text class="link" wx:if="{{auditTemplateForm.starterIdentityId}}" data-target="starterIdentityId" bindtap="clearAuditIdentity" style="font-size:22rpx;color:#ef4444;margin-left:8rpx;">清除</text>
+        <view class="empty-inline" wx:if="{{!auditTemplateForm.starterConditions.length}}" style="padding:0 24rpx;">未设发起人条件（当前任何人可发起）</view>
+        <view class="button-row" style="padding:0 24rpx;">
+          <button class="secondary-btn" bindtap="openStarterConditionEditor">添加发起条件</button>
         </view>
-        <view class="field" wx:if="{{auditTemplateForm.starterType === 'specific_person'}}">
-          <view class="field-label">发起人员</view>
-          <view class="picker-value" data-target="starterHrId" data-label="发起人员" bindtap="openAuditPersonnelPicker">{{auditTemplateForm.starterHrName || '点击选择人员'}}</view>
-          <text class="link" wx:if="{{auditTemplateForm.starterHrId}}" data-target="starterHrId" bindtap="clearAuditPersonnel" style="font-size:22rpx;color:#ef4444;margin-left:8rpx;">清除</text>
-        </view>
+      </view>
 
         <view class="list-title" style="margin-top: 20rpx;">审批步骤（{{auditTemplateForm.steps.length}}步）</view>
         <view class="list-item" wx:for="{{auditTemplateForm.steps}}" wx:key="index">
@@ -1751,9 +1765,10 @@
                 <view class="status-chip current-chip" wx:else style="margin:2rpx;">人员未选择</view>
               </block>
               <block wx:else>
-                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : (cond._deptName || '部门'))}}</view>
-                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : (cond._wgName || '职能组'))}}</view>
-                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : (cond._identName || '身份'))}}</view>
+                <view class="status-chip info-chip" wx:if="{{cond.departmentScope !== 'all'}}" style="margin:2rpx;">{{cond.departmentScope === 'own' ? '同部门' : (cond._deptName || '指定部门')}}</view>
+                <view class="status-chip info-chip" wx:if="{{cond.workGroupScope !== 'all'}}" style="margin:2rpx;">{{cond.workGroupScope === 'own' ? '同职能组' : (cond._wgName || '指定职能组')}}</view>
+                <view class="status-chip info-chip" wx:if="{{cond.identityScope !== 'all'}}" style="margin:2rpx;">{{cond.identityScope === 'own' ? '同身份' : (cond._identName || '指定身份')}}</view>
+                <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
               </block>
               <text wx:if="{{ci < item.conditions.length - 1}}" style="color:#ef4444;font-size:22rpx;font-weight:bold;margin:2rpx 8rpx;">或</text>
             </view>
@@ -1807,9 +1822,10 @@
                     <view wx:else style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">人员未选择</view>
                   </block>
                   <block wx:else>
-                    <view style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : (cond._deptName || '部门'))}}</view>
-                    <view style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : (cond._wgName || '职能组'))}}</view>
-                    <view style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : (cond._identName || '身份'))}}</view>
+                    <view wx:if="{{cond.departmentScope !== 'all'}}" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.departmentScope === 'own' ? '同部门' : (cond._deptName || '指定部门')}}</view>
+                    <view wx:if="{{cond.workGroupScope !== 'all'}}" style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.workGroupScope === 'own' ? '同职能组' : (cond._wgName || '指定职能组')}}</view>
+                    <view wx:if="{{cond.identityScope !== 'all'}}" style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.identityScope === 'own' ? '同身份' : (cond._identName || '指定身份')}}</view>
+                    <view wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">不限</view>
                   </block>
                   <text wx:if="{{ci < step._resolvedConditions.length - 1}}" style="color:#ef4444;font-size:20rpx;font-weight:bold;margin:2rpx 6rpx;">或</text>
                 </view>
@@ -1838,9 +1854,10 @@
                     <view class="list-desc" wx:if="{{!cond._personNames || !cond._personNames.length}}" style="margin:2rpx;">未选择人员</view>
                   </block>
                   <block wx:else>
-                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : (cond._deptName || '部门'))}}</view>
-                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : (cond._wgName || '职能组'))}}</view>
-                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : (cond._identName || '身份'))}}</view>
+                    <view class="status-chip info-chip" wx:if="{{cond.departmentScope !== 'all'}}" style="margin:2rpx;">{{cond.departmentScope === 'own' ? '同部门' : (cond._deptName || '指定部门')}}</view>
+                    <view class="status-chip info-chip" wx:if="{{cond.workGroupScope !== 'all'}}" style="margin:2rpx;">{{cond.workGroupScope === 'own' ? '同职能组' : (cond._wgName || '指定职能组')}}</view>
+                    <view class="status-chip info-chip" wx:if="{{cond.identityScope !== 'all'}}" style="margin:2rpx;">{{cond.identityScope === 'own' ? '同身份' : (cond._identName || '指定身份')}}</view>
+                    <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
                   </block>
                 </view>
               </view>
@@ -1927,6 +1944,67 @@
 
             <view class="button-row" style="padding:0 24rpx;">
               <button class="primary-btn" bindtap="confirmAuditTemplateStep">确定步骤</button>
+            </view>
+          </scroll-view>
+        </view>
+      </view>
+
+      <!-- Starter condition editor popup -->
+      <view class="popup-mask" wx:if="{{auditStarterConditionEditorVisible}}" bindtap="closeStarterConditionEditor">
+        <view class="popup-card" catchtap="noop">
+          <view class="popup-header"><view class="popup-title">{{auditStarterConditionEditingIndex >= 0 ? '编辑发起条件' : '添加发起条件'}}</view><text class="popup-close" bindtap="closeStarterConditionEditor">关闭</text></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="popup-scroll">
+            <view class="field">
+              <view class="field-label">条件类型</view>
+              <picker range="{{['身份范围','指定人员']}}" bindchange="onStarterConditionTypeChange">
+                <view class="picker-value">{{auditStarterConditionForm.conditionType === 'identity_scope' ? '身份范围' : '指定人员'}}</view>
+              </picker>
+            </view>
+            <block wx:if="{{auditStarterConditionForm.conditionType === 'person'}}">
+              <view class="field">
+                <view class="field-label">指定人员（可多选）</view>
+                <view class="picker-value" data-target="personHrIds" data-title="选择人员" bindtap="openStarterConditionPicker">{{auditStarterConditionForm.personHrNames || '点击选择人员'}}</view>
+                <text class="link" wx:if="{{auditStarterConditionForm.personHrIds}}" bindtap="onStarterConditionFieldClear" data-field="personHrIds" style="font-size:22rpx;color:#ef4444;">清除</text>
+              </view>
+            </block>
+            <block wx:else>
+              <view class="field">
+                <view class="field-label">部门范围</view>
+                <picker range="{{['全部','指定','同部门']}}" data-field="departmentScope" bindchange="onStarterConditionScopeChange">
+                  <view class="picker-value">{{auditStarterConditionForm.departmentScope === 'all' ? '全部' : (auditStarterConditionForm.departmentScope === 'specific' ? '指定' : '同部门')}}</view>
+                </picker>
+              </view>
+              <view class="field" wx:if="{{auditStarterConditionForm.departmentScope === 'specific'}}">
+                <view class="field-label">指定部门</view>
+                <view class="picker-value" data-target="specificDepartmentId" data-title="选择部门" bindtap="openStarterConditionPicker">{{auditStarterConditionForm.specificDepartmentName || '点击选择部门'}}</view>
+                <text class="link" wx:if="{{auditStarterConditionForm.specificDepartmentId}}" bindtap="onStarterConditionFieldClear" data-field="specificDepartmentId" style="font-size:22rpx;color:#ef4444;">清除</text>
+              </view>
+              <view class="field">
+                <view class="field-label">职能组范围</view>
+                <picker range="{{['全部','指定','同职能组']}}" data-field="workGroupScope" bindchange="onStarterConditionScopeChange">
+                  <view class="picker-value">{{auditStarterConditionForm.workGroupScope === 'all' ? '全部' : (auditStarterConditionForm.workGroupScope === 'specific' ? '指定' : '同职能组')}}</view>
+                </picker>
+              </view>
+              <view class="field" wx:if="{{auditStarterConditionForm.workGroupScope === 'specific'}}">
+                <view class="field-label">指定职能组</view>
+                <view class="picker-value" data-target="specificWorkGroupId" data-title="选择职能组" bindtap="openStarterConditionPicker">{{auditStarterConditionForm.specificWorkGroupName || '点击选择职能组'}}</view>
+                <text class="link" wx:if="{{auditStarterConditionForm.specificWorkGroupId}}" bindtap="onStarterConditionFieldClear" data-field="specificWorkGroupId" style="font-size:22rpx;color:#ef4444;">清除</text>
+              </view>
+              <view class="field">
+                <view class="field-label">身份范围</view>
+                <picker range="{{['全部','指定','同身份']}}" data-field="identityScope" bindchange="onStarterConditionScopeChange">
+                  <view class="picker-value">{{auditStarterConditionForm.identityScope === 'all' ? '全部' : (auditStarterConditionForm.identityScope === 'specific' ? '指定' : '同身份')}}</view>
+                </picker>
+              </view>
+              <view class="field" wx:if="{{auditStarterConditionForm.identityScope === 'specific'}}">
+                <view class="field-label">指定身份</view>
+                <view class="picker-value" data-target="specificIdentityId" data-title="选择身份" bindtap="openStarterConditionPicker">{{auditStarterConditionForm.specificIdentityName || '点击选择身份'}}</view>
+                <text class="link" wx:if="{{auditStarterConditionForm.specificIdentityId}}" bindtap="onStarterConditionFieldClear" data-field="specificIdentityId" style="font-size:22rpx;color:#ef4444;">清除</text>
+              </view>
+            </block>
+            <view class="button-row compact-row">
+              <button class="primary-btn" bindtap="confirmStarterCondition">{{auditStarterConditionEditingIndex >= 0 ? '更新条件' : '添加条件'}}</button>
+              <button class="secondary-btn" bindtap="closeStarterConditionEditor">取消</button>
             </view>
           </scroll-view>
         </view>

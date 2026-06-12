@@ -265,3 +265,22 @@ SET @add_col_sql = IF(@col_exists = 0,
 PREPARE add_col_stmt FROM @add_col_sql;
 EXECUTE add_col_stmt;
 DEALLOCATE PREPARE add_col_stmt;
+
+-- ============================================================
+-- Bonus: Add starter_conditions_json column to audit_flow_templates
+-- ============================================================
+SET @starter_col_exists = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'audit_flow_templates'
+    AND COLUMN_NAME = 'starter_conditions_json'
+);
+
+SET @add_starter_col_sql = IF(@starter_col_exists = 0,
+  'ALTER TABLE audit_flow_templates ADD COLUMN starter_conditions_json TEXT DEFAULT NULL COMMENT ''JSON array of starter conditions for multi-condition OR matching''',
+  'SELECT ''Column starter_conditions_json already exists, skipping'' AS info'
+);
+
+PREPARE add_starter_col_stmt FROM @add_starter_col_sql;
+EXECUTE add_starter_col_stmt;
+DEALLOCATE PREPARE add_starter_col_stmt;

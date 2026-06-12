@@ -145,6 +145,60 @@ router.post('/startAuditSubmission', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '该审核流模板已停用' });
     }
 
+    // Check starter eligibility
+    // Load submitter info for scope resolution
+    const [submitterRows] = await pool.query(
+      'SELECT h.*, d.name as department_name, wg.name as work_group_name, i.name as identity_name FROM hr_info h LEFT JOIN departments d ON h.department_id = d.id LEFT JOIN work_groups wg ON h.work_group_id = wg.id LEFT JOIN identities i ON h.identity_id = i.id WHERE h.id = ?',
+      [hrId]
+    );
+    const submitterInfo = submitterRows[0] || null;
+    const submitterFull = submitterInfo ? {
+      hrId: hrId,
+      departmentId: submitterInfo.department_id || '',
+      workGroupId: submitterInfo.work_group_id || '',
+      identityId: submitterInfo.identity_id || ''
+    } : null;
+
+    // Parse starter conditions
+    let starterConditions = [];
+    if (template.starter_conditions_json) {
+      try { starterConditions = JSON.parse(template.starter_conditions_json); } catch (_) {}
+    }
+
+    if (starterConditions.length) {
+      // Multi-condition check: user must match at least one condition
+      let starterMatch = false;
+      for (const cond of starterConditions) {
+        if (cond.conditionType === 'person') {
+          const personIds = (cond.personHrIds || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          if (personIds.includes(hrId)) { starterMatch = true; break; }
+        } else {
+          if (matchesIdentityScopeCondition(cond, submitterFull, submitterFull)) {
+            starterMatch = true; break;
+          }
+        }
+      }
+      if (!starterMatch) {
+        conn.release();
+        return res.json({ status: 'forbidden', message: '您没有权限发起此审核流程' });
+      }
+    } else if (template.starter_type === 'identity' && template.starter_identity_id && submitterFull) {
+      // Legacy identity check
+      const identIds = template.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      if (!identIds.includes(submitterFull.identityId)) {
+        conn.release();
+        return res.json({ status: 'forbidden', message: '您的身份没有权限发起此审核流程' });
+      }
+    } else if (template.starter_type === 'specific_person' && template.starter_hr_id && submitterFull) {
+      // Legacy specific person check
+      const personIds = template.starter_hr_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      if (!personIds.includes(hrId)) {
+        conn.release();
+        return res.json({ status: 'forbidden', message: '您没有权限发起此审核流程' });
+      }
+    }
+    // starter_type === 'self' means anyone can start — no check needed
+
     const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
     if (!templateSteps.length) {
       return res.json({ status: 'invalid_params', message: '审核流模板没有配置步骤' });

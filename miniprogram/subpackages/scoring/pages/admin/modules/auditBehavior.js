@@ -20,6 +20,7 @@ module.exports = Behavior({
       starterIdentityName: '',
       starterHrId: '',
       starterHrName: '',
+      starterConditions: [],   // multi-condition starter OR-ed
       resubmitMode: 'fresh',
       steps: []
     },
@@ -42,6 +43,18 @@ module.exports = Behavior({
       personHrIds: '', personHrNames: ''
     },
     auditStepConditionEditingIndex: -1, // -1 = new, >=0 = editing existing
+    _auditConditionTarget: 'step',       // 'step' | 'starter' — which conditions array is being edited
+
+    // ── Starter Condition Editor ──
+    auditStarterConditionEditorVisible: false,
+    auditStarterConditionForm: {
+      conditionType: 'identity_scope',
+      departmentScope: 'all', specificDepartmentId: '', specificDepartmentName: '',
+      workGroupScope: 'all', specificWorkGroupId: '', specificWorkGroupName: '',
+      identityScope: 'all', specificIdentityId: '', specificIdentityName: '',
+      personHrIds: '', personHrNames: ''
+    },
+    auditStarterConditionEditingIndex: -1,
 
     // ── Unified Multi-Select Picker (replaces personnel + identity pickers) ──
     auditMultiPickerVisible: false,
@@ -211,9 +224,10 @@ module.exports = Behavior({
       this.setData({
         auditTemplateForm: {
           id: '', name: '', description: '',
-          starterType: 'self',
+          starterType: 'conditions',
           starterIdentityId: '', starterIdentityName: '',
           starterHrId: '', starterHrName: '',
+          starterConditions: [],
           resubmitMode: 'fresh',
           steps: []
         },
@@ -222,7 +236,8 @@ module.exports = Behavior({
           actionType: 'sign',
           editingIndex: -1
         },
-        auditTemplateStepEditorVisible: false
+        auditTemplateStepEditorVisible: false,
+        auditStarterConditionEditorVisible: false
       });
     },
 
@@ -231,16 +246,19 @@ module.exports = Behavior({
       const template = this.data.auditFlowTemplates.find(function (t) { return t.id === id; });
       if (!template) return;
       var that = this;
+      // Resolve starter conditions
+      var starterConds = (template.starterConditions || []).map(function(c) { return that._auditResolveCondition(c); });
       this.setData({
         auditTemplateForm: {
           id: template.id,
           name: template.name,
           description: template.description,
-          starterType: template.starterType || 'self',
+          starterType: template.starterType || 'conditions',
           starterIdentityId: template.starterIdentityId || '',
           starterIdentityName: this._auditIdentityName(template.starterIdentityId),
           starterHrId: template.starterHrId || '',
           starterHrName: this._auditHrName(template.starterHrId),
+          starterConditions: starterConds,
           resubmitMode: template.resubmitMode || 'fresh',
           steps: (template.steps || []).map(function(s) {
             return {
@@ -249,7 +267,8 @@ module.exports = Behavior({
             };
           })
         },
-        auditTemplateStepEditorVisible: false
+        auditTemplateStepEditorVisible: false,
+        auditStarterConditionEditorVisible: false
       });
     },
 
@@ -445,33 +464,28 @@ module.exports = Behavior({
           var names = c.personHrIds.split(',').map(function (hid) {
             return this._auditHrName(hid.trim());
           }.bind(this)).filter(function (n) { return n; });
-          return names.length ? '人员: ' + names.join('、') : '人员: (未找到)';
+          return names.length ? names.join('、') : '未选择人员';
         }
-        return '人员: 未设置';
+        return '未设置人员';
       }
-      // identity_scope — resolve every sub-dimension from master lists
+      // identity_scope — only show what's restricted, skip 'all'
       var parts = [];
-      if (c.departmentScope === 'all') {
-        parts.push('部门不限');
-      } else if (c.departmentScope === 'own') {
-        parts.push('自己所在部门');
-      } else if (c.specificDepartmentId) {
-        parts.push('部门: ' + this._auditDeptName(c.specificDepartmentId));
+      if (c.departmentScope === 'own') {
+        parts.push('同部门');
+      } else if (c.departmentScope === 'specific' && c.specificDepartmentId) {
+        parts.push(this._auditDeptName(c.specificDepartmentId) || '指定部门');
       }
-      if (c.workGroupScope === 'all') {
-        parts.push('职能组不限');
-      } else if (c.workGroupScope === 'own') {
-        parts.push('自己所在职能组');
-      } else if (c.specificWorkGroupId) {
-        parts.push('职能组: ' + this._auditWgName(c.specificWorkGroupId));
+      if (c.workGroupScope === 'own') {
+        parts.push('同职能组');
+      } else if (c.workGroupScope === 'specific' && c.specificWorkGroupId) {
+        parts.push(this._auditWgName(c.specificWorkGroupId) || '指定职能组');
       }
-      if (c.identityScope === 'all') {
-        parts.push('身份不限');
-      } else if (c.identityScope === 'own') {
-        parts.push('自己所在身份');
-      } else if (c.specificIdentityId) {
-        parts.push('身份: ' + this._auditIdentityName(c.specificIdentityId));
+      if (c.identityScope === 'own') {
+        parts.push('同身份');
+      } else if (c.identityScope === 'specific' && c.specificIdentityId) {
+        parts.push(this._auditIdentityName(c.specificIdentityId) || '指定身份');
       }
+      if (!parts.length) return '不限（所有人）';
       return parts.join(' · ');
     },
 
@@ -617,10 +631,20 @@ module.exports = Behavior({
     onAuditMultiPickerToggle(e) {
       var id = String(e.currentTarget.dataset.id);
       var selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
-      if (selected[id]) {
-        delete selected[id];
-      } else {
+      var target = this.data.auditMultiPickerTarget;
+      var isSingle = target !== 'personHrIds'; // only personHrIds supports multi-select
+
+      if (isSingle) {
+        // Single-select: clear all previous, select only this one
+        Object.keys(selected).forEach(function(k) { delete selected[k]; });
         selected[id] = true;
+      } else {
+        // Multi-select: toggle
+        if (selected[id]) {
+          delete selected[id];
+        } else {
+          selected[id] = true;
+        }
       }
       this.setData({ auditMultiPickerSelectedIds: selected });
     },
@@ -644,15 +668,35 @@ module.exports = Behavior({
       var selectedIds = this.data.auditMultiPickerSelectedIds;
       var ids = Object.keys(selectedIds);
       var items = this.data.auditMultiPickerItems;
+      var isSingle = target !== 'personHrIds';
+      var condTarget = this.data._auditConditionTarget || 'step';
+      var formPrefix = condTarget === 'starter' ? 'auditStarterConditionForm' : 'auditStepConditionForm';
 
+      if (!ids.length) {
+        showShortToast('请至少选择一项');
+        return;
+      }
+
+      if (isSingle) {
+        var firstId = ids[0];
+        var found = items.find(function(item) { return String(item.id) === String(firstId); });
+        var updateObj = {};
+        updateObj[formPrefix + '.' + target] = firstId;
+        updateObj[formPrefix + '.' + target.replace('Id', 'Name')] = found ? found.name : '';
+        this.setData(updateObj);
+        this.closeAuditMultiPicker();
+        return;
+      }
+
+      // Multi-select (personHrIds)
       var names = ids.map(function(id) {
         var found = items.find(function(item) { return String(item.id) === String(id); });
-        return found ? found.name : id;
-      }).join('、');
+        return found ? found.name : '';
+      }).filter(Boolean).join('、');
 
       var updateObj = {};
-      updateObj['auditStepConditionForm.' + target] = ids.join(',');
-      updateObj['auditStepConditionForm.' + target.replace('Id', 'Name')] = names;
+      updateObj[formPrefix + '.' + target] = ids.join(',');
+      updateObj[formPrefix + '.' + target.replace('Id', 'Name')] = names;
       this.setData(updateObj);
       this.closeAuditMultiPicker();
     },
@@ -672,6 +716,169 @@ module.exports = Behavior({
       if (scope === 'own') return '自己所在';
       if (scope === 'specific') return '指定';
       return '全部';
+    },
+
+    // ═══════════════════════════════════════════════
+    // ── Starter Condition Editor ──
+    // ═══════════════════════════════════════════════
+
+    openStarterConditionEditor(e) {
+      var index = e && e.currentTarget ? parseInt(e.currentTarget.dataset.index) : -1;
+      if (index >= 0 && this.data.auditTemplateForm.starterConditions[index]) {
+        var c = this.data.auditTemplateForm.starterConditions[index];
+        this.setData({
+          auditStarterConditionForm: {
+            conditionType: c.conditionType || 'identity_scope',
+            departmentScope: c.departmentScope || 'all',
+            specificDepartmentId: c.specificDepartmentId || '',
+            specificDepartmentName: c._deptName || c.specificDepartmentName || this._auditDeptName(c.specificDepartmentId),
+            workGroupScope: c.workGroupScope || 'all',
+            specificWorkGroupId: c.specificWorkGroupId || '',
+            specificWorkGroupName: c._wgName || c.specificWorkGroupName || this._auditWgName(c.specificWorkGroupId),
+            identityScope: c.identityScope || 'all',
+            specificIdentityId: c.specificIdentityId || '',
+            specificIdentityName: c._identName || c.specificIdentityName || this._auditIdentityName(c.specificIdentityId),
+            personHrIds: c.personHrIds || '',
+            personHrNames: c.personHrNames || (c._personNames ? c._personNames.join('、') : '')
+          },
+          auditStarterConditionEditingIndex: index,
+          auditStarterConditionEditorVisible: true
+        });
+      } else {
+        this.setData({
+          auditStarterConditionForm: {
+            conditionType: 'identity_scope',
+            departmentScope: 'all', specificDepartmentId: '', specificDepartmentName: '',
+            workGroupScope: 'all', specificWorkGroupId: '', specificWorkGroupName: '',
+            identityScope: 'all', specificIdentityId: '', specificIdentityName: '',
+            personHrIds: '', personHrNames: ''
+          },
+          auditStarterConditionEditingIndex: -1,
+          auditStarterConditionEditorVisible: true
+        });
+      }
+      this.setData({ _auditConditionTarget: 'starter' });
+    },
+
+    closeStarterConditionEditor() {
+      this.setData({ auditStarterConditionEditorVisible: false });
+    },
+
+    onStarterConditionTypeChange(e) {
+      this.setData({ 'auditStarterConditionForm.conditionType': ['identity_scope', 'person'][e.detail.value] || 'identity_scope' });
+    },
+
+    onStarterConditionScopeChange(e) {
+      var field = e.currentTarget.dataset.field;
+      var scopes = ['all', 'specific', 'own'];
+      var idx = parseInt(e.detail.value);
+      this.setData({ ['auditStarterConditionForm.' + field]: scopes[idx] || 'all' });
+    },
+
+    confirmStarterCondition() {
+      var cond = this.data.auditStarterConditionForm;
+      var newCond = { conditionType: cond.conditionType };
+
+      if (cond.conditionType === 'person') {
+        if (!cond.personHrIds) { showShortToast('请选择人员'); return; }
+        newCond.personHrIds = cond.personHrIds;
+        var ids = cond.personHrIds.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        newCond.personHrNames = ids.map(function(hid) { return this._auditHrName(hid); }.bind(this)).join('、');
+        newCond._personNames = ids.map(function(hid) { return this._auditHrName(hid); }.bind(this));
+      } else {
+        newCond.departmentScope = cond.departmentScope;
+        newCond.specificDepartmentId = cond.departmentScope === 'specific' ? cond.specificDepartmentId : '';
+        newCond._deptName = cond.departmentScope === 'specific' && cond.specificDepartmentId ? this._auditDeptName(cond.specificDepartmentId) : '';
+        newCond.workGroupScope = cond.workGroupScope;
+        newCond.specificWorkGroupId = cond.workGroupScope === 'specific' ? cond.specificWorkGroupId : '';
+        newCond._wgName = cond.workGroupScope === 'specific' && cond.specificWorkGroupId ? this._auditWgName(cond.specificWorkGroupId) : '';
+        newCond.identityScope = cond.identityScope;
+        newCond.specificIdentityId = cond.identityScope === 'specific' ? cond.specificIdentityId : '';
+        newCond._identName = cond.identityScope === 'specific' && cond.specificIdentityId ? this._auditIdentityName(cond.specificIdentityId) : '';
+      }
+
+      var conditions = [...this.data.auditTemplateForm.starterConditions];
+      if (this.data.auditStarterConditionEditingIndex >= 0) {
+        conditions[this.data.auditStarterConditionEditingIndex] = newCond;
+      } else {
+        conditions.push(newCond);
+      }
+      this.setData({
+        'auditTemplateForm.starterConditions': conditions,
+        auditStarterConditionEditorVisible: false
+      });
+    },
+
+    removeStarterCondition(e) {
+      var index = parseInt(e.currentTarget.dataset.index);
+      var conditions = [...this.data.auditTemplateForm.starterConditions];
+      conditions.splice(index, 1);
+      this.setData({ 'auditTemplateForm.starterConditions': conditions });
+    },
+
+    // Open the unified multi-picker for a starter condition field
+    openStarterConditionPicker(e) {
+      var target = e.currentTarget.dataset.target;
+      var title = e.currentTarget.dataset.title || '选择';
+      var list = [];
+      var deptOpts = this._auditBuildDeptOptions();
+      var identOpts = this._auditBuildIdentOptions();
+
+      switch (target) {
+        case 'specificDepartmentId':
+          list = (this.data.departmentList || []).map(function(d) { return { id: d.id, name: d.name, extra: d.description || '' }; });
+          break;
+        case 'specificWorkGroupId':
+          list = (this.data.workGroupList || []).map(function(w) { return { id: w.id, name: w.name, extra: w.departmentName || '' }; });
+          break;
+        case 'specificIdentityId':
+          list = (this.data.identityList || []).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
+          break;
+        case 'personHrIds':
+          list = (this.data.hrList || []).map(function(h) { return { id: h.id, name: h.name, extra: (h.studentId || '') + ' · ' + (h.department || '') }; });
+          break;
+      }
+
+      var selectedIds = {};
+      var currentVal = this.data.auditStarterConditionForm[target] || '';
+      if (currentVal) {
+        currentVal.split(',').forEach(function(id) {
+          var trimmed = id.trim();
+          if (trimmed) selectedIds[String(trimmed)] = true;
+        });
+      }
+
+      this.setData({
+        auditMultiPickerVisible: true,
+        auditMultiPickerTarget: target,
+        auditMultiPickerTitle: title,
+        auditMultiPickerItems: list,
+        auditMultiPickerSelectedIds: selectedIds,
+        auditMultiPickerSearchKeyword: '',
+        auditMultiPickerFilterDept: '全部',
+        auditMultiPickerFilterIdent: '全部',
+        auditMultiPickerDeptOptions: deptOpts,
+        auditMultiPickerIdentOptions: identOpts,
+        auditMultiPickerFilteredList: [],
+        _auditConditionTarget: 'starter'
+      });
+      this._applyAuditMultiPickerFilters();
+    },
+
+    // Clear a field in the starter condition form
+    onStarterConditionFieldClear(e) {
+      var field = e.currentTarget.dataset.field;
+      var update = {};
+      update['auditStarterConditionForm.' + field] = '';
+      update['auditStarterConditionForm.' + field.replace('Id', 'Name')] = '';
+      this.setData(update);
+    },
+
+    // Build a human-readable summary for starter conditions
+    _auditStarterSummary() {
+      var conds = this.data.auditTemplateForm.starterConditions;
+      if (!conds || !conds.length) return '任何人';
+      return conds.map(function(c) { return this._auditConditionSummary(c); }.bind(this)).join(' 或 ');
     },
 
     async saveAuditFlowTemplate() {
@@ -708,6 +915,21 @@ module.exports = Behavior({
           };
         });
 
+        var starterCondsToSend = (form.starterConditions || []).map(function(c) {
+          var cond = { conditionType: c.conditionType };
+          if (c.conditionType === 'person') {
+            cond.personHrIds = c.personHrIds;
+          } else {
+            cond.departmentScope = c.departmentScope || 'all';
+            cond.specificDepartmentId = c.specificDepartmentId || '';
+            cond.workGroupScope = c.workGroupScope || 'all';
+            cond.specificWorkGroupId = c.specificWorkGroupId || '';
+            cond.identityScope = c.identityScope || 'all';
+            cond.specificIdentityId = c.specificIdentityId || '';
+          }
+          return cond;
+        });
+
         const res = await this.callCloud('saveAuditFlowTemplate', {
           id: form.id,
           name: form.name,
@@ -715,6 +937,7 @@ module.exports = Behavior({
           starterType: form.starterType,
           starterIdentityId: form.starterIdentityId,
           starterHrId: form.starterHrId,
+          starterConditions: starterCondsToSend,
           resubmitMode: form.resubmitMode,
           steps: stepsToSend
         });

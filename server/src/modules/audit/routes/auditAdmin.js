@@ -37,6 +37,13 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
     const result = [];
     for (const t of templates) {
       const steps = await flowTemplateStepModel.getByTemplateId(t.id);
+      // Parse starter conditions JSON
+      let starterConditions = [];
+      if (t.starter_conditions_json) {
+        try {
+          starterConditions = JSON.parse(t.starter_conditions_json);
+        } catch (_) { starterConditions = []; }
+      }
       result.push({
         id: safeString(t.id),
         name: safeString(t.name),
@@ -44,6 +51,17 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
         starterType: safeString(t.starter_type),
         starterIdentityId: safeString(t.starter_identity_id),
         starterHrId: safeString(t.starter_hr_id),
+        starterConditionsJson: t.starter_conditions_json || null,
+        starterConditions: starterConditions.map(function(c) { return {
+          conditionType: safeString(c.conditionType),
+          personHrIds: safeString(c.personHrIds),
+          departmentScope: safeString(c.departmentScope),
+          specificDepartmentId: safeString(c.specificDepartmentId),
+          workGroupScope: safeString(c.workGroupScope),
+          specificWorkGroupId: safeString(c.specificWorkGroupId),
+          identityScope: safeString(c.identityScope),
+          specificIdentityId: safeString(c.specificIdentityId)
+        }; }),
         resubmitMode: safeString(t.resubmit_mode),
         isActive: t.is_active === 1,
         createdBy: safeString(t.created_by),
@@ -89,10 +107,11 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const description = safeString(req.body.description);
-    const starterType = safeString(req.body.starterType) || 'self';
+    const starterType = safeString(req.body.starterType) || 'conditions';
     const starterIdentityId = safeString(req.body.starterIdentityId);
     const starterHrId = safeString(req.body.starterHrId);
     const resubmitMode = safeString(req.body.resubmitMode) || 'fresh';
+    const starterConditions = Array.isArray(req.body.starterConditions) ? req.body.starterConditions : [];
     const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
 
     if (!name) {
@@ -100,6 +119,25 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     }
     if (!steps.length) {
       return res.json({ status: 'invalid_params', message: '请至少添加一个审核步骤' });
+    }
+
+    // Build starter conditions JSON if provided
+    let starterConditionsJson = null;
+    if (starterConditions.length) {
+      starterConditionsJson = JSON.stringify(starterConditions.map(function(c) {
+        var cond = { conditionType: c.conditionType };
+        if (c.conditionType === 'person') {
+          cond.personHrIds = c.personHrIds || '';
+        } else {
+          cond.departmentScope = c.departmentScope || 'all';
+          cond.specificDepartmentId = c.specificDepartmentId || null;
+          cond.workGroupScope = c.workGroupScope || 'all';
+          cond.specificWorkGroupId = c.specificWorkGroupId || null;
+          cond.identityScope = c.identityScope || 'all';
+          cond.specificIdentityId = c.specificIdentityId || null;
+        }
+        return cond;
+      }));
     }
 
     const conn = await pool.getConnection();
@@ -113,6 +151,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           name, description, starterType,
           starterIdentityId: starterIdentityId || null,
           starterHrId: starterHrId || null,
+          starterConditionsJson,
           resubmitMode,
           isActive: true
         });
@@ -124,6 +163,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           name, description, starterType,
           starterIdentityId: starterIdentityId || null,
           starterHrId: starterHrId || null,
+          starterConditionsJson,
           resubmitMode,
           createdBy: admin.id
         });
