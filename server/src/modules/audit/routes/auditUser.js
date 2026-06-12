@@ -154,9 +154,9 @@ router.post('/startAuditSubmission', async (req, res) => {
     const submitterInfo = submitterRows[0] || null;
     const submitterFull = submitterInfo ? {
       hrId: hrId,
-      departmentId: submitterInfo.department_id || '',
-      workGroupId: submitterInfo.work_group_id || '',
-      identityId: submitterInfo.identity_id || ''
+      department_id: submitterInfo.department_id || '',
+      work_group_id: submitterInfo.work_group_id || '',
+      identity_id: submitterInfo.identity_id || ''
     } : null;
 
     // Parse starter conditions
@@ -185,7 +185,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     } else if (template.starter_type === 'identity' && template.starter_identity_id && submitterFull) {
       // Legacy identity check
       const identIds = template.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-      if (!identIds.includes(submitterFull.identityId)) {
+      if (!identIds.includes(submitterFull.identity_id)) {
         conn.release();
         return res.json({ status: 'forbidden', message: '您的身份没有权限发起此审核流程' });
       }
@@ -946,9 +946,9 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
       if (info) {
         submitterFull = {
           hrId: hrId,
-          departmentId: info.department_id || '',
-          workGroupId: info.work_group_id || '',
-          identityId: info.identity_id || ''
+          department_id: info.department_id || '',
+          work_group_id: info.work_group_id || '',
+          identity_id: info.identity_id || ''
         };
       }
     }
@@ -981,7 +981,7 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
       } else if (t.starter_type === 'identity' && t.starter_identity_id && submitterFull) {
         // Legacy identity check
         const identIds = t.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-        if (identIds.includes(submitterFull.identityId)) eligible = true;
+        if (identIds.includes(submitterFull.identity_id)) eligible = true;
       } else if (t.starter_type === 'specific_person' && t.starter_hr_id) {
         // Legacy specific person check
         const personIds = t.starter_hr_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
