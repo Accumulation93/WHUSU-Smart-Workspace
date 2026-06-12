@@ -1742,9 +1742,19 @@
         <view class="list-item" wx:for="{{auditTemplateForm.steps}}" wx:key="index">
           <view class="list-main">
             <view class="list-name">第{{index + 1}}步 — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
-            <view class="chip-row" wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci">
-              <view class="status-chip current-chip">{{cond.conditionType === 'person' ? '人员：' + (cond.personHrNames || cond.personHrIds) : '身份范围：' + (cond.identityScope === 'all' ? '身份不限' : (cond.identityScope === 'own' ? '自己所在身份' : (cond.specificIdentityName || cond.specificIdentityId))) + ' / ' + (cond.departmentScope === 'all' ? '部门不限' : (cond.departmentScope === 'own' ? '自己所在部门' : (cond.specificDepartmentName || cond.specificDepartmentId))) + ' / ' + (cond.workGroupScope === 'all' ? '职能组不限' : (cond.workGroupScope === 'own' ? '自己所在职能组' : (cond.specificWorkGroupName || cond.specificWorkGroupId)))}}</view>
-              <text class="list-desc" wx:if="{{ci < item.conditions.length - 1}}" style="color:#6b7280;margin:0 4rpx;">或</text>
+            <!-- Each condition as separate bubble chips, OR-separated -->
+            <view wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="margin-top:6rpx;display:flex;flex-wrap:wrap;align-items:center;">
+              <block wx:if="{{cond.conditionType === 'person'}}">
+                <block wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">
+                  <view class="status-chip info-chip" style="margin:2rpx;">{{pname}}</view>
+                </block>
+              </block>
+              <block wx:else>
+                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : cond._deptName)}}</view>
+                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : cond._wgName)}}</view>
+                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : cond._identName)}}</view>
+              </block>
+              <text wx:if="{{ci < item.conditions.length - 1}}" style="color:#ef4444;font-size:22rpx;font-weight:bold;margin:2rpx 8rpx;">或</text>
             </view>
           </view>
           <view class="list-actions">
@@ -1766,14 +1776,43 @@
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.auditTemplates}}"><view class="card-loading-spinner"></view></view>
           <block wx:else>
-          <view class="list-item" wx:for="{{auditFlowTemplates}}" wx:key="id">
-            <view class="list-main">
-              <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}步 · {{item.resubmitMode === 'fresh' ? '重新逐层' : '回到驳回人'}})</text></view>
-              <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
+          <view class="list-item" wx:for="{{auditFlowTemplates}}" wx:key="id" style="flex-direction:column;">
+            <view style="display:flex;justify-content:space-between;width:100%;" data-id="{{item.id}}" bindtap="toggleAuditTemplateExpand">
+              <view class="list-main">
+                <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}步 · {{item.resubmitMode === 'fresh' ? '重新逐层' : '回到驳回人'}})</text></view>
+                <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
+              </view>
+              <view style="display:flex;align-items:center;gap:8rpx;">
+                <text style="font-size:28rpx;color:#9ca3af;">{{auditExpandedTemplateId === item.id ? '收起 ▲' : '展开 ▼'}}</text>
+              </view>
             </view>
-            <view class="list-actions">
-              <text class="link" data-id="{{item.id}}" bindtap="editAuditTemplate">编辑</text>
-              <text class="link danger-link" data-id="{{item.id}}" bindtap="deleteAuditFlowTemplate">删除</text>
+            <view class="list-actions" style="position:absolute;right:80rpx;top:16rpx;">
+              <text class="link" data-id="{{item.id}}" catchtap="editAuditTemplate">编辑</text>
+              <text class="link danger-link" data-id="{{item.id}}" catchtap="deleteAuditFlowTemplate">删除</text>
+            </view>
+            <!-- Expanded steps preview with bubble chips -->
+            <view wx:if="{{auditExpandedTemplateId === item.id}}" style="width:100%;margin-top:12rpx;padding-top:12rpx;border-top:1rpx solid #e5e7eb;">
+              <view wx:for="{{item.steps}}" wx:for-item="step" wx:for-index="si" wx:key="si" style="margin-bottom:12rpx;">
+                <view style="display:flex;align-items:center;margin-bottom:4rpx;">
+                  <text style="font-weight:600;font-size:26rpx;color:#1f2937;">第{{si + 1}}步：</text>
+                  <text style="font-size:22rpx;color:#6b7280;margin-left:8rpx;">{{step.actionType === 'pass' ? '仅通过' : (step.actionType === 'sign' ? '签字' : (step.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</text>
+                </view>
+                <!-- Each condition as bubble chips -->
+                <view wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="display:flex;flex-wrap:wrap;align-items:center;margin-left:16rpx;margin-bottom:2rpx;">
+                  <block wx:if="{{cond.conditionType === 'person'}}">
+                    <block wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">
+                      <view style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{pname}}</view>
+                    </block>
+                  </block>
+                  <block wx:else>
+                    <view style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : cond._deptName)}}</view>
+                    <view style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : cond._wgName)}}</view>
+                    <view style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : cond._identName)}}</view>
+                  </block>
+                  <text wx:if="{{ci < step._resolvedConditions.length - 1}}" style="color:#ef4444;font-size:20rpx;font-weight:bold;margin:2rpx 6rpx;">或</text>
+                </view>
+              </view>
+              <view wx:if="{{!item.steps || !item.steps.length}}" style="color:#9ca3af;font-size:22rpx;">暂无步骤</view>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!auditFlowTemplates.length}}">暂无审核流模板，请新建。</view>
@@ -1791,8 +1830,17 @@
             <view class="list-item" wx:for="{{auditTemplateStepForm.conditions}}" wx:key="index" wx:for-item="cond">
               <view class="list-main">
                 <view class="list-name">{{cond.conditionType === 'person' ? '人员条件' : '身份范围条件'}}</view>
-                <view class="list-desc" wx:if="{{cond.conditionType === 'person'}}">{{cond.personHrNames || cond.personHrIds || '未选择人员'}}</view>
-                <view class="list-desc" wx:else>{{cond.departmentScope === 'all' ? '部门不限' : (cond.departmentScope === 'own' ? '自己所在部门' : ('部门：' + (cond.specificDepartmentName || cond.specificDepartmentId)))}} · {{cond.workGroupScope === 'all' ? '职能组不限' : (cond.workGroupScope === 'own' ? '自己所在职能组' : ('职能组：' + (cond.specificWorkGroupName || cond.specificWorkGroupId)))}} · {{cond.identityScope === 'all' ? '身份不限' : (cond.identityScope === 'own' ? '自己所在身份' : ('身份：' + (cond.specificIdentityName || cond.specificIdentityId)))}}</view>
+                <view class="chip-row" style="flex-wrap:wrap;">
+                  <block wx:if="{{cond.conditionType === 'person'}}">
+                    <view class="status-chip info-chip" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" style="margin:2rpx;">{{pname}}</view>
+                    <view class="list-desc" wx:if="{{!cond._personNames || !cond._personNames.length}}" style="margin:2rpx;">未选择人员</view>
+                  </block>
+                  <block wx:else>
+                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : cond._deptName)}}</view>
+                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : cond._wgName)}}</view>
+                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : cond._identName)}}</view>
+                  </block>
+                </view>
               </view>
               <view class="list-actions">
                 <text class="link" data-index="{{index}}" bindtap="openStepConditionEditor">编辑</text>

@@ -100,7 +100,10 @@ module.exports = Behavior({
     auditIdentityPickerLabel: '',
     auditIdentityPickerMulti: false,
     auditIdentityPickerSelectedIds: {},
-    auditIdentityPickerSelectedCount: 0
+    auditIdentityPickerSelectedCount: 0,
+
+    // ── Template step expand/collapse ──
+    auditExpandedTemplateId: '',
   },
 
   methods: {
@@ -166,30 +169,26 @@ module.exports = Behavior({
         const res = await this.callCloud('listAuditFlowTemplates', {});
         console.log('[audit] listAuditFlowTemplates response:', JSON.stringify(res));
         if (res.status === 'success') {
-          // Hydrate step display names & condition display names
-          var templates = (res.templates || []).map((function (t) {
-            t.steps = (t.steps || []).map((function (s) {
-              s.approverIdentityName = this._auditIdentityName(s.approverIdentityId);
-              s.approverHrName = this._auditHrName(s.approverHrId);
-              // Hydrate conditions
+          var that = this;
+          var templates = (res.templates || []).map(function (t) {
+            t.steps = (t.steps || []).map(function (s) {
+              // Always resolve names from master lists
+              s._approverIdentityName = that._auditIdentityName(s.approverIdentityId);
+              s._approverHrName = that._auditHrName(s.approverHrId);
+              // Resolve conditions with display names
               if (s.conditions && s.conditions.length) {
-                s.conditions = s.conditions.map((function (c) {
-                  c.specificDepartmentName = this._auditDeptName(c.specificDepartmentId);
-                  c.specificWorkGroupName = this._auditWgName(c.specificWorkGroupId);
-                  c.specificIdentityName = this._auditIdentityName(c.specificIdentityId);
-                  if (c.conditionType === 'person' && c.personHrIds) {
-                    var names = c.personHrIds.split(',').map((function (hid) {
-                      return this._auditHrName(hid.trim());
-                    }).bind(this));
-                    c.personHrNames = names.join('、');
-                  }
-                  return c;
-                }).bind(this));
+                s._resolvedConditions = s.conditions.map(function (c) {
+                  return that._auditResolveCondition(c);
+                });
+              } else {
+                s._resolvedConditions = [];
               }
+              // Build condition summary
+              s._conditionSummary = that._auditConditionSummary(s.conditions && s.conditions[0] ? s.conditions[0] : null);
               return s;
-            }).bind(this));
+            });
             return t;
-          }).bind(this));
+          });
           this.setData({ auditFlowTemplates: templates });
         } else {
           console.error('[audit] listAuditFlowTemplates failed:', res.message);
@@ -231,6 +230,7 @@ module.exports = Behavior({
       const id = e.currentTarget.dataset.id;
       const template = this.data.auditFlowTemplates.find(function (t) { return t.id === id; });
       if (!template) return;
+      var that = this;
       this.setData({
         auditTemplateForm: {
           id: template.id,
@@ -244,7 +244,7 @@ module.exports = Behavior({
           resubmitMode: template.resubmitMode || 'fresh',
           steps: (template.steps || []).map(function(s) {
             return {
-              conditions: (s.conditions || []).map(function(c) { return Object.assign({}, c); }),
+              conditions: (s.conditions || []).map(function(c) { return that._auditResolveCondition(c); }),
               actionType: s.actionType || 'sign'
             };
           })
@@ -398,19 +398,24 @@ module.exports = Behavior({
           return;
         }
         newCond.personHrIds = cond.personHrIds;
-        newCond.personHrNames = cond.personHrNames;
+        // Resolve names from master hrList
+        var ids = cond.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        newCond.personHrNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this)).join('、');
+        newCond._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this));
       } else {
-        // identity_scope
+        // identity_scope — always resolve names from master lists
         newCond.departmentScope = cond.departmentScope;
         newCond.specificDepartmentId = cond.departmentScope === 'specific' ? cond.specificDepartmentId : '';
-        newCond.specificDepartmentName = cond.departmentScope === 'specific' ? cond.specificDepartmentName : '';
+        newCond._deptName = cond.departmentScope === 'specific' && cond.specificDepartmentId ? this._auditDeptName(cond.specificDepartmentId) : '';
         newCond.workGroupScope = cond.workGroupScope;
         newCond.specificWorkGroupId = cond.workGroupScope === 'specific' ? cond.specificWorkGroupId : '';
-        newCond.specificWorkGroupName = cond.workGroupScope === 'specific' ? cond.specificWorkGroupName : '';
+        newCond._wgName = cond.workGroupScope === 'specific' && cond.specificWorkGroupId ? this._auditWgName(cond.specificWorkGroupId) : '';
         newCond.identityScope = cond.identityScope;
         newCond.specificIdentityId = cond.identityScope === 'specific' ? cond.specificIdentityId : '';
-        newCond.specificIdentityName = cond.identityScope === 'specific' ? cond.specificIdentityName : '';
+        newCond._identName = cond.identityScope === 'specific' && cond.specificIdentityId ? this._auditIdentityName(cond.specificIdentityId) : '';
       }
+      // Pre-compute display summary
+      newCond._summary = this._auditConditionSummary(newCond);
 
       var conditions = [...this.data.auditTemplateStepForm.conditions];
       if (this.data.auditStepConditionEditingIndex >= 0) {
@@ -436,18 +441,59 @@ module.exports = Behavior({
     _auditConditionSummary(c) {
       if (!c) return '未知条件';
       if (c.conditionType === 'person') {
-        var names = c.personHrNames || '';
-        return names ? '人员: ' + names : '人员: ' + (c.personHrIds || '');
+        if (c.personHrIds) {
+          var names = c.personHrIds.split(',').map(function (hid) {
+            return this._auditHrName(hid.trim());
+          }.bind(this)).filter(function (n) { return n; });
+          return names.length ? '人员: ' + names.join('、') : '人员: (未找到)';
+        }
+        return '人员: 未设置';
       }
-      // identity_scope
+      // identity_scope — resolve every sub-dimension from master lists
       var parts = [];
-      var deptLabel = c.departmentScope === 'all' ? '部门不限' : (c.departmentScope === 'own' ? '自己所在部门' : ('部门: ' + (c.specificDepartmentName || c.specificDepartmentId)));
-      parts.push(deptLabel);
-      var wgLabel = c.workGroupScope === 'all' ? '职能组不限' : (c.workGroupScope === 'own' ? '自己所在职能组' : ('职能组: ' + (c.specificWorkGroupName || c.specificWorkGroupId)));
-      parts.push(wgLabel);
-      var identLabel = c.identityScope === 'all' ? '身份不限' : (c.identityScope === 'own' ? '自己所在身份' : ('身份: ' + (c.specificIdentityName || c.specificIdentityId)));
-      parts.push(identLabel);
+      if (c.departmentScope === 'all') {
+        parts.push('部门不限');
+      } else if (c.departmentScope === 'own') {
+        parts.push('自己所在部门');
+      } else if (c.specificDepartmentId) {
+        parts.push('部门: ' + this._auditDeptName(c.specificDepartmentId));
+      }
+      if (c.workGroupScope === 'all') {
+        parts.push('职能组不限');
+      } else if (c.workGroupScope === 'own') {
+        parts.push('自己所在职能组');
+      } else if (c.specificWorkGroupId) {
+        parts.push('职能组: ' + this._auditWgName(c.specificWorkGroupId));
+      }
+      if (c.identityScope === 'all') {
+        parts.push('身份不限');
+      } else if (c.identityScope === 'own') {
+        parts.push('自己所在身份');
+      } else if (c.specificIdentityId) {
+        parts.push('身份: ' + this._auditIdentityName(c.specificIdentityId));
+      }
       return parts.join(' · ');
+    },
+
+    /**
+     * Resolve ALL names in a condition from master lists into _d* fields.
+     * Returns a new object suitable for WXML bubble rendering.
+     */
+    _auditResolveCondition(c) {
+      var r = Object.assign({}, c);
+      if (c.conditionType === 'person') {
+        if (c.personHrIds) {
+          var ids = c.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+          r._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this));
+        } else {
+          r._personNames = [];
+        }
+      } else {
+        r._deptName = c.departmentScope === 'specific' && c.specificDepartmentId ? this._auditDeptName(c.specificDepartmentId) : '';
+        r._wgName = c.workGroupScope === 'specific' && c.specificWorkGroupId ? this._auditWgName(c.specificWorkGroupId) : '';
+        r._identName = c.identityScope === 'specific' && c.specificIdentityId ? this._auditIdentityName(c.specificIdentityId) : '';
+      }
+      return r;
     },
 
     // ── Open unified multi-picker for step condition fields ──
@@ -707,6 +753,13 @@ module.exports = Behavior({
           }
         }
       });
+    },
+
+    // Toggle expand/collapse of a template to show step details
+    toggleAuditTemplateExpand(e) {
+      var id = e.currentTarget.dataset.id;
+      var current = this.data.auditExpandedTemplateId;
+      this.setData({ auditExpandedTemplateId: current === id ? '' : id });
     },
 
     // ═══════════════════════════════════════════════════════

@@ -47,8 +47,8 @@ async function create(id, data) {
   const { templateId, sortOrder, actionType } = data;
   const orgId = await getCurrentOrgId();
   await pool.query(
-    `INSERT INTO audit_flow_template_steps (id, template_id, sort_order, approver_type, approver_identity_id, approver_hr_id, related_relation, action_type, org_id)
-     VALUES (?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)`,
+    `INSERT INTO audit_flow_template_steps (id, template_id, sort_order, action_type, org_id)
+     VALUES (?, ?, ?, ?, ?)`,
     [id, templateId, sortOrder || 1, actionType || 'sign', orgId]
   );
 }

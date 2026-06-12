@@ -231,7 +231,7 @@ async function create(id, data) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
     [
       id, submissionId, templateStepId || null, sortOrder || 1,
-      approverType || null, approverHrId || null, approverIdentityId || null,
+      approverType || 'identity', approverHrId || null, approverIdentityId || null,
       scopeType || null, scopeDepartmentId || null, scopeWorkGroupId || null,
       stepConditionsJson || null,
       actionType || 'sign', round || 1, orgId
