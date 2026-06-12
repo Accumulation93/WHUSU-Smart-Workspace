@@ -923,15 +923,76 @@ router.post('/withdrawSubmission', async (req, res) => {
   }
 });
 
-// listAvailableFlowTemplates — User-facing: list active templates for submission creation
+// listAvailableFlowTemplates — User-facing: list active templates the current user is eligible to start
 router.post('/listAvailableFlowTemplates', async (req, res) => {
   try {
     const openid = req.openid;
     if (!openid) return res.json({ status: 'forbidden', message: '请先登录' });
 
+    // Resolve submitter info for starter-condition matching
+    const hrId = await resolveHrId(openid);
+    let submitterFull = null;
+    if (hrId) {
+      const [submitterRows] = await pool.query(
+        `SELECT h.*, d.name as department_name, wg.name as work_group_name, i.name as identity_name
+         FROM hr_info h
+         LEFT JOIN departments d ON h.department_id = d.id
+         LEFT JOIN work_groups wg ON h.work_group_id = wg.id
+         LEFT JOIN identities i ON h.identity_id = i.id
+         WHERE h.id = ?`,
+        [hrId]
+      );
+      const info = submitterRows[0] || null;
+      if (info) {
+        submitterFull = {
+          hrId: hrId,
+          departmentId: info.department_id || '',
+          workGroupId: info.work_group_id || '',
+          identityId: info.identity_id || ''
+        };
+      }
+    }
+
     const templates = await flowTemplateModel.getActive();
     const result = [];
+
     for (const t of templates) {
+      // Check if user is eligible to start this template
+      let eligible = false;
+
+      // Parse starter conditions
+      let starterConditions = [];
+      if (t.starter_conditions_json) {
+        try { starterConditions = JSON.parse(t.starter_conditions_json); } catch (_) {}
+      }
+
+      if (starterConditions.length && submitterFull) {
+        // Multi-condition OR match
+        for (const cond of starterConditions) {
+          if (cond.conditionType === 'person') {
+            const personIds = (cond.personHrIds || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+            if (personIds.includes(hrId)) { eligible = true; break; }
+          } else {
+            if (matchesIdentityScopeCondition(cond, submitterFull, submitterFull)) {
+              eligible = true; break;
+            }
+          }
+        }
+      } else if (t.starter_type === 'identity' && t.starter_identity_id && submitterFull) {
+        // Legacy identity check
+        const identIds = t.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        if (identIds.includes(submitterFull.identityId)) eligible = true;
+      } else if (t.starter_type === 'specific_person' && t.starter_hr_id) {
+        // Legacy specific person check
+        const personIds = t.starter_hr_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        if (hrId && personIds.includes(hrId)) eligible = true;
+      } else {
+        // starter_type === 'self' or no conditions — anyone can start
+        eligible = true;
+      }
+
+      if (!eligible) continue;
+
       const steps = await flowTemplateStepModel.getByTemplateId(t.id);
       result.push({
         id: safeString(t.id),
