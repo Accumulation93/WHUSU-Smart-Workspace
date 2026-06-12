@@ -1682,50 +1682,30 @@ scroll-view {
 
 /* ═══════════════════════════════════════════════════════════
    Audit Flow Visualization — vertical timeline with connectors
+   Uses actual <view> elements (NOT ::before pseudo-elements)
+   because WeChat mini-programs don't support ::before on flex items.
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Flow container ── */
 .audit-flow {
-  position: relative; padding: 8rpx 0 4rpx;
+  padding: 4rpx 0;
 }
 
-/* ── Flow node (each step in the timeline) ── */
-.audit-flow-node {
-  position: relative; display: flex; gap: 20rpx;
-  padding-left: 28rpx;
-  min-height: 90rpx;
+/* ── Flow node (each step row) ── */
+.flow-node {
+  display: flex; gap: 14rpx;
 }
-.audit-flow-node:last-child { min-height: 40rpx; }
+.flow-node:last-child .flow-connector { display: none; }
 
-/* ── Vertical connector line ── */
-.audit-flow-node::before {
-  content: "";
-  position: absolute;
-  left: 46rpx; /* centers in the 36rpx dot area */
-  top: 48rpx;
-  bottom: -8rpx;
-  width: 3rpx;
-  border-radius: 3rpx;
-  background: linear-gradient(180deg, rgba(203,213,225,0.85) 0%, rgba(226,232,240,0.6) 100%);
-}
-.audit-flow-node:last-child::before { display: none; }
-
-/* Connector color by status */
-.audit-flow-node.flow-node-done::before {
-  background: linear-gradient(180deg, rgba(16,185,129,0.55) 0%, rgba(16,185,129,0.18) 100%);
-}
-.audit-flow-node.flow-node-active::before {
-  background: linear-gradient(180deg, rgba(37,99,235,0.6) 0%, rgba(203,213,225,0.6) 100%);
-}
-.audit-flow-node.flow-node-rejected::before {
-  background: linear-gradient(180deg, rgba(239,68,68,0.55) 0%, rgba(239,68,68,0.18) 100%);
+/* ── Left column: dot + vertical connector ── */
+.flow-left-col {
+  display: flex; flex-direction: column; align-items: center;
+  flex-shrink: 0; width: 48rpx;
 }
 
 /* ── Step dot (circle indicator) ── */
 .flow-dot {
-  position: relative; z-index: 1;
   flex-shrink: 0; width: 40rpx; height: 40rpx; border-radius: 50%;
-  margin-top: 4rpx;
   display: flex; align-items: center; justify-content: center;
   font-size: 22rpx; font-weight: 800; line-height: 1;
   transition: all 0.28s ease;
@@ -1755,26 +1735,43 @@ scroll-view {
   50% { box-shadow: 0 4rpx 28rpx rgba(37,99,235,0.45); }
 }
 
-/* ── Step info card (next to dot) ── */
+/* ── Vertical connector line (actual <view>, not ::before) ── */
+.flow-connector {
+  flex: 1; width: 3rpx; min-height: 24rpx; border-radius: 3rpx;
+  background: linear-gradient(180deg, rgba(203,213,225,0.85) 0%, rgba(226,232,240,0.55) 100%);
+  margin: 4rpx 0;
+}
+/* Connector color by node state */
+.flow-node-done .flow-connector {
+  background: linear-gradient(180deg, rgba(16,185,129,0.55) 0%, rgba(16,185,129,0.15) 100%);
+}
+.flow-node-active .flow-connector {
+  background: linear-gradient(180deg, rgba(37,99,235,0.6) 0%, rgba(203,213,225,0.55) 100%);
+}
+.flow-node-rejected .flow-connector {
+  background: linear-gradient(180deg, rgba(239,68,68,0.5) 0%, rgba(239,68,68,0.15) 100%);
+}
+
+/* ── Step info card (right of dot) ── */
 .flow-info {
   flex: 1; min-width: 0;
-  padding: 10rpx 14rpx 12rpx; border-radius: 16rpx;
-  margin-bottom: 8rpx;
+  padding: 8rpx 14rpx 10rpx; border-radius: 16rpx;
+  margin-bottom: 12rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.70) 0%, rgba(248,251,255,0.60) 100%);
   border: 1rpx solid rgba(226,232,240,0.55);
   transition: all 0.24s ease;
 }
 .flow-node-done .flow-info {
-  background: linear-gradient(135deg, rgba(240,253,244,0.55) 0%, rgba(220,252,231,0.45) 100%);
-  border-color: rgba(134,239,172,0.3);
+  background: linear-gradient(135deg, rgba(240,253,244,0.55) 0%, rgba(220,252,231,0.40) 100%);
+  border-color: rgba(134,239,172,0.30);
 }
 .flow-node-active .flow-info {
-  background: linear-gradient(135deg, rgba(239,246,255,0.80) 0%, rgba(219,234,254,0.70) 100%);
+  background: linear-gradient(135deg, rgba(239,246,255,0.82) 0%, rgba(219,234,254,0.72) 100%);
   border-color: rgba(147,197,253,0.55);
 }
 .flow-node-rejected .flow-info {
-  background: linear-gradient(135deg, rgba(254,242,242,0.65) 0%, rgba(254,226,226,0.55) 100%);
-  border-color: rgba(252,165,165,0.4);
+  background: linear-gradient(135deg, rgba(254,242,242,0.65) 0%, rgba(254,226,226,0.50) 100%);
+  border-color: rgba(252,165,165,0.40);
 }
 
 .flow-step-label {

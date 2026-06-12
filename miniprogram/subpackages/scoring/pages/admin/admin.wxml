@@ -2163,12 +2163,15 @@
             </view>
 
             <!-- Flow visualization -->
-            <view class="audit-flow">
-              <view class="audit-flow-node {{item.status === 'approved' ? 'flow-node-done' : (item.status === 'rejected' ? 'flow-node-rejected' : (item.status === 'pending' ? 'flow-node-active' : ''))}}" wx:for="{{auditSubmissionDetail.steps}}" wx:key="id">
-                <view class="flow-dot {{item.status === 'approved' ? 'flow-dot-done' : (item.status === 'rejected' ? 'flow-dot-rejected' : (item.status === 'pending' ? 'flow-dot-active' : 'flow-dot-pending'))}}">
-                  <block wx:if="{{item.status === 'approved'}}">✓</block>
-                  <block wx:elif="{{item.status === 'rejected'}}">✗</block>
-                  <block wx:else>{{item.sortOrder}}</block>
+            <view class="audit-flow" wx:if="{{auditSubmissionDetail.steps.length}}">
+              <view class="flow-node {{item.flowNodeClass}}" wx:for="{{auditSubmissionDetail.steps}}" wx:key="id">
+                <view class="flow-left-col">
+                  <view class="flow-dot {{item.flowDotClass}}">
+                    <block wx:if="{{item.flowIcon === 'check'}}">✓</block>
+                    <block wx:elif="{{item.flowIcon === 'cross'}}">✗</block>
+                    <block wx:else>{{item.sortOrder}}</block>
+                  </view>
+                  <view class="flow-connector"></view>
                 </view>
                 <view class="flow-info">
                   <view class="flow-step-label">第{{item.sortOrder}}步<text class="flow-round-badge" wx:if="{{item.round > 1}}">第{{item.round}}轮</text></view>
@@ -2176,14 +2179,16 @@
                     {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}
                     <text style="font-size:21rpx;color:#64748b;font-weight:500;"> — {{item.approverName || '待审批人'}}</text>
                   </view>
-                  <view class="flow-step-status-tag {{item.status === 'approved' ? 'flow-tag-done' : (item.status === 'rejected' ? 'flow-tag-rejected' : (item.status === 'pending' ? 'flow-tag-active' : 'flow-tag-pending'))}}">
-                    {{item.status === 'approved' ? '✓ 已通过' : (item.status === 'rejected' ? '✗ 已驳回' : (item.status === 'pending' ? '● 待处理' : '○ 未到达'))}}
-                  </view>
-                  <view class="flow-step-meta" wx:if="{{item.processedAt}}">{{item.processedAt}}</view>
+                  <view class="flow-step-status-tag {{item.flowTagClass}}">{{item.flowStatusLabel}}</view>
+                  <view class="flow-step-meta" wx:if="{{item.flowIcon === 'check' || item.flowIcon === 'cross'}}">{{item.processedAt}}</view>
                   <view class="flow-step-comment" wx:if="{{item.comment}}">{{item.comment}}</view>
                   <view class="flow-step-rejection" wx:if="{{item.rejectionReason}}">驳回：{{item.rejectionReason}}</view>
                 </view>
               </view>
+            </view>
+            <view wx:if="{{!auditSubmissionDetail.steps.length}}" class="audit-empty-state">
+              <view class="audit-empty-icon">📋</view>
+              <view class="audit-empty-text">审批流程尚未生成</view>
             </view>
 
             <!-- Files -->

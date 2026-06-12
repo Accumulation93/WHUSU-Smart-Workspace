@@ -1201,8 +1201,37 @@ module.exports = Behavior({
       try {
         const res = await this.callCloud('getAuditProgress', { submissionId: submissionId });
         if (res.status === 'success') {
+          // Pre-compute flow visualization classes for steps
+          const submissionStatus = res.submission.status;
+          const currentStepIndex = res.submission.currentStepIndex || 0;
+          const enrichedSteps = (res.steps || []).map(s => {
+            let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+            if (s.status === 'rejected') {
+              flowNodeClass = 'flow-node-rejected'; flowDotClass = 'flow-dot-rejected';
+              flowIcon = 'cross'; flowStatusLabel = '✗ 已驳回'; flowTagClass = 'flow-tag-rejected';
+            } else if (submissionStatus === 'approved') {
+              flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
+              flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+            } else if (submissionStatus === 'pending') {
+              flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
+              flowIcon = 'number'; flowStatusLabel = '○ 未开始'; flowTagClass = 'flow-tag-pending';
+            } else if (s.status === 'approved') {
+              flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
+              flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+            } else if (s.sortOrder === currentStepIndex) {
+              flowNodeClass = 'flow-node-active'; flowDotClass = 'flow-dot-active';
+              flowIcon = 'number'; flowStatusLabel = '● 待处理'; flowTagClass = 'flow-tag-active';
+            } else if (s.sortOrder < currentStepIndex) {
+              flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
+              flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+            } else {
+              flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
+              flowIcon = 'number'; flowStatusLabel = '○ 未到达'; flowTagClass = 'flow-tag-pending';
+            }
+            return { ...s, flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass };
+          });
           this.setData({
-            auditSubmissionDetail: res,
+            auditSubmissionDetail: { ...res, steps: enrichedSteps },
             auditSubmissionDetailVisible: true
           });
         } else {

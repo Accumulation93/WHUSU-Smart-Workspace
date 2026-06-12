@@ -618,15 +618,92 @@ Page({
         data: { submissionId: this.data.submissionId }
       });
       if (res.status === 'success') {
-        const steps = res.steps || [];
+        const submissionStatus = res.submission.status;
+        const currentStepIndex = res.submission.currentStepIndex || 0;
+
+        // Pre-compute flow classes for each step based on submission context
+        const steps = (res.steps || []).map(s => {
+          let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+
+          if (s.status === 'rejected') {
+            // This specific step was rejected
+            flowNodeClass = 'flow-node-rejected';
+            flowDotClass = 'flow-dot-rejected';
+            flowIcon = 'cross';
+            flowStatusLabel = '✗ 已驳回';
+            flowTagClass = 'flow-tag-rejected';
+          } else if (submissionStatus === 'approved') {
+            // All steps passed
+            flowNodeClass = 'flow-node-done';
+            flowDotClass = 'flow-dot-done';
+            flowIcon = 'check';
+            flowStatusLabel = '✓ 已通过';
+            flowTagClass = 'flow-tag-done';
+          } else if (submissionStatus === 'pending') {
+            // Submission hasn't entered the pipeline yet — all steps are future
+            flowNodeClass = 'flow-node-pending';
+            flowDotClass = 'flow-dot-pending';
+            flowIcon = 'number';
+            flowStatusLabel = '○ 未开始';
+            flowTagClass = 'flow-tag-pending';
+          } else if (s.status === 'approved') {
+            // Step was approved (past step in in_progress submission)
+            flowNodeClass = 'flow-node-done';
+            flowDotClass = 'flow-dot-done';
+            flowIcon = 'check';
+            flowStatusLabel = '✓ 已通过';
+            flowTagClass = 'flow-tag-done';
+          } else if (s.sortOrder === currentStepIndex) {
+            // Current active step
+            flowNodeClass = 'flow-node-active';
+            flowDotClass = 'flow-dot-active';
+            flowIcon = 'number';
+            flowStatusLabel = '● 待处理';
+            flowTagClass = 'flow-tag-active';
+          } else if (s.sortOrder < currentStepIndex) {
+            // Past step that was somehow skipped (shouldn't normally happen)
+            flowNodeClass = 'flow-node-done';
+            flowDotClass = 'flow-dot-done';
+            flowIcon = 'check';
+            flowStatusLabel = '✓ 已通过';
+            flowTagClass = 'flow-tag-done';
+          } else {
+            // Future step (sortOrder > currentStepIndex)
+            flowNodeClass = 'flow-node-pending';
+            flowDotClass = 'flow-dot-pending';
+            flowIcon = 'number';
+            flowStatusLabel = '○ 未到达';
+            flowTagClass = 'flow-tag-pending';
+          }
+
+          return { ...s, flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass };
+        });
+
         // Compute flow progress
-        const doneCount = steps.filter(s => s.status === 'approved').length;
         const totalSteps = steps.length || 1;
-        const flowProgressPercent = Math.round((doneCount / totalSteps) * 100);
-        const currentIndex = steps.findIndex(s => s.status === 'pending');
-        const flowProgressText = currentIndex >= 0
-          ? `第${currentIndex + 1}/${totalSteps}步待处理`
-          : (doneCount === totalSteps ? '全部完成' : `${doneCount}/${totalSteps}已完成`);
+        let flowProgressPercent, flowProgressText;
+
+        if (submissionStatus === 'approved') {
+          flowProgressPercent = 100;
+          flowProgressText = '全部完成';
+        } else if (submissionStatus === 'rejected') {
+          // Find which step was rejected
+          const rejectedIdx = steps.findIndex(s => s.status === 'rejected');
+          flowProgressPercent = rejectedIdx >= 0 ? Math.round(((rejectedIdx + 1) / totalSteps) * 100) : 0;
+          flowProgressText = rejectedIdx >= 0 ? `第${rejectedIdx + 1}/${totalSteps}步被驳回` : '已驳回';
+        } else if (submissionStatus === 'pending') {
+          flowProgressPercent = 0;
+          flowProgressText = '待提交';
+        } else if (submissionStatus === 'withdrawn') {
+          const doneCount = steps.filter(s => s.status === 'approved').length;
+          flowProgressPercent = Math.round((doneCount / totalSteps) * 100);
+          flowProgressText = '已撤回';
+        } else {
+          // in_progress
+          const doneCount = steps.filter(s => s.status === 'approved').length;
+          flowProgressPercent = Math.round((doneCount / totalSteps) * 100);
+          flowProgressText = `第${currentStepIndex}/${totalSteps}步待处理`;
+        }
 
         this.setData({
           submission: res.submission,

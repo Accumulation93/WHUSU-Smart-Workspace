@@ -210,7 +210,7 @@
             <view class="info-label">状态</view>
             <view class="info-value">
               <view class="detail-status-chip {{submission.status === 'approved' ? 'detail-status-approved' : (submission.status === 'rejected' ? 'detail-status-rejected' : (submission.status === 'in_progress' ? 'detail-status-progress' : (submission.status === 'draft' ? 'detail-status-draft' : (submission.status === 'pending' ? 'detail-status-pending' : (submission.status === 'withdrawn' ? 'detail-status-withdrawn' : 'detail-status-draft')))))}}">
-                {{submission.status === 'draft' ? '草稿' : (submission.status === 'pending' ? '待进入流程' : (submission.status === 'in_progress' ? '审核中' : (submission.status === 'rejected' ? '已驳回' : (submission.status === 'approved' ? '已完成' : '已撤回'))))}}
+                {{submission.status === 'draft' ? '草稿' : (submission.status === 'pending' ? '待提交' : (submission.status === 'in_progress' ? '审核中' : (submission.status === 'rejected' ? '已驳回' : (submission.status === 'approved' ? '已完成' : '已撤回'))))}}
               </view>
             </view>
           </view>
@@ -223,14 +223,14 @@
             <view class="info-value">{{submission.templateName}}</view>
           </view>
         </view>
-        <!-- Status context hint -->
+        <!-- Status context hint — 6 states clearly explained -->
         <view style="margin-top:16rpx;padding:16rpx 18rpx;border-radius:16rpx;font-size:23rpx;line-height:1.6;color:#64748b;background:rgba(248,251,255,0.7);border:1rpx solid rgba(226,232,240,0.45);">
-          <block wx:if="{{submission.status === 'draft'}}">📝 此审核尚未提交，请完善信息后点击提交。</block>
-          <block wx:elif="{{submission.status === 'pending'}}">⏳ 审核已提交但尚未进入流程 — 点击「重新提交」启动审批流程。</block>
-          <block wx:elif="{{submission.status === 'in_progress'}}">🔄 审批流程进行中 — 请等待当前步骤的审批人处理。</block>
-          <block wx:elif="{{submission.status === 'rejected'}}">❌ 审核已被驳回 — 您可以修改后重新提交，将从驳回步骤继续。</block>
-          <block wx:elif="{{submission.status === 'approved'}}">✅ 恭喜！此审核已全部通过，所有步骤均已完成。</block>
-          <block wx:elif="{{submission.status === 'withdrawn'}}">↩️ 您已撤回此审核 — 可以点击下方「重新提交」重新发起审批流程。</block>
+          <block wx:if="{{submission.status === 'draft'}}">📝 草稿 — 尚未提交，完善信息后点击提交即可发起审批。</block>
+          <block wx:elif="{{submission.status === 'pending'}}">⏳ 待提交 — 审核尚未进入审批流程，点击下方「重新提交」启动。</block>
+          <block wx:elif="{{submission.status === 'in_progress'}}">🔄 审核中 — 当前第{{submission.currentStepIndex}}步正在等待审批人处理。</block>
+          <block wx:elif="{{submission.status === 'rejected'}}">❌ 已驳回 — 第{{submission.previousRejectStepIndex || '?'}}步审批人驳回了此审核，修改后可重新提交。</block>
+          <block wx:elif="{{submission.status === 'approved'}}">✅ 已完成 — 所有审批步骤均已通过。</block>
+          <block wx:elif="{{submission.status === 'withdrawn'}}">↩️ 已撤回 — 您主动撤回了此审核，可点击下方「重新提交」重新发起。</block>
         </view>
       </view>
 
@@ -249,16 +249,19 @@
 
         <!-- Flow timeline -->
         <view class="audit-flow" wx:if="{{steps.length}}">
-          <view class="audit-flow-node {{item.status === 'approved' ? 'flow-node-done' : (item.status === 'rejected' ? 'flow-node-rejected' : (item.status === 'pending' ? 'flow-node-active' : 'flow-node-pending'))}}" wx:for="{{steps}}" wx:key="id">
+          <view class="flow-node {{item.flowNodeClass}}" wx:for="{{steps}}" wx:key="id">
 
-            <!-- Step dot -->
-            <view class="flow-dot {{item.status === 'approved' ? 'flow-dot-done' : (item.status === 'rejected' ? 'flow-dot-rejected' : (item.status === 'pending' ? 'flow-dot-active' : 'flow-dot-pending'))}}">
-              <block wx:if="{{item.status === 'approved'}}">✓</block>
-              <block wx:elif="{{item.status === 'rejected'}}">✗</block>
-              <block wx:else>{{item.sortOrder}}</block>
+            <!-- Left column: dot + connector line -->
+            <view class="flow-left-col">
+              <view class="flow-dot {{item.flowDotClass}}">
+                <block wx:if="{{item.flowIcon === 'check'}}">✓</block>
+                <block wx:elif="{{item.flowIcon === 'cross'}}">✗</block>
+                <block wx:else>{{item.sortOrder}}</block>
+              </view>
+              <view class="flow-connector"></view>
             </view>
 
-            <!-- Step info -->
+            <!-- Step info card -->
             <view class="flow-info">
               <view class="flow-step-label">第{{item.sortOrder}}步<text class="flow-round-badge" wx:if="{{item.round > 1}}">第{{item.round}}轮</text></view>
               <view class="flow-step-title">
@@ -267,12 +270,10 @@
               </view>
 
               <!-- Status tag -->
-              <view class="flow-step-status-tag {{item.status === 'approved' ? 'flow-tag-done' : (item.status === 'rejected' ? 'flow-tag-rejected' : (item.status === 'pending' ? 'flow-tag-active' : 'flow-tag-pending'))}}">
-                {{item.status === 'approved' ? '✓ 已通过' : (item.status === 'rejected' ? '✗ 已驳回' : (item.status === 'pending' ? '● 待处理' : '○ 未到达'))}}
-              </view>
+              <view class="flow-step-status-tag {{item.flowTagClass}}">{{item.flowStatusLabel}}</view>
 
               <!-- Processed info -->
-              <view class="flow-step-meta" wx:if="{{item.status === 'approved' || item.status === 'rejected'}}">
+              <view class="flow-step-meta" wx:if="{{item.flowIcon === 'check' || item.flowIcon === 'cross'}}">
                 {{item.approverName}} · {{item.processedAt || ''}}
               </view>
 
@@ -280,8 +281,8 @@
               <view class="flow-step-comment" wx:if="{{item.comment}}">{{item.comment}}</view>
               <view class="flow-step-rejection" wx:if="{{item.rejectionReason}}">驳回理由：{{item.rejectionReason}}</view>
 
-              <!-- Approval action buttons for current pending step -->
-              <view class="flow-actions" wx:if="{{item.status === 'pending'}}">
+              <!-- Approval action buttons for current active step -->
+              <view class="flow-actions" wx:if="{{item.flowNodeClass === 'flow-node-active'}}">
                 <text class="flow-action-btn" data-step-id="{{item.id}}" bindtap="openApprove">✓ 通过</text>
                 <text class="flow-action-btn flow-action-danger" data-step-id="{{item.id}}" bindtap="openReject">✗ 驳回</text>
               </view>
