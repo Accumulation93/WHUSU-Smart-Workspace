@@ -180,7 +180,6 @@ module.exports = Behavior({
       this.setLoading('auditTemplates', true);
       try {
         const res = await this.callCloud('listAuditFlowTemplates', {});
-        console.log('[audit] listAuditFlowTemplates response:', JSON.stringify(res));
         if (res.status === 'success') {
           var that = this;
           var templates = (res.templates || []).map(function (t) {
@@ -422,16 +421,28 @@ module.exports = Behavior({
         newCond.personHrNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this)).join('、');
         newCond._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this));
       } else {
-        // identity_scope — always resolve names from master lists
+        // identity_scope — always resolve names from master lists, handling comma-separated IDs
         newCond.departmentScope = cond.departmentScope;
         newCond.specificDepartmentId = cond.departmentScope === 'specific' ? cond.specificDepartmentId : '';
-        newCond._deptName = cond.departmentScope === 'specific' && cond.specificDepartmentId ? this._auditDeptName(cond.specificDepartmentId) : '';
+        if (newCond.specificDepartmentId) {
+          var deptIds = newCond.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          newCond._deptNames = deptIds.map(function(did) { return this._auditDeptName(did); }.bind(this)).filter(Boolean);
+          newCond._deptName = newCond._deptNames.join('、');
+        } else { newCond._deptNames = []; newCond._deptName = ''; }
         newCond.workGroupScope = cond.workGroupScope;
         newCond.specificWorkGroupId = cond.workGroupScope === 'specific' ? cond.specificWorkGroupId : '';
-        newCond._wgName = cond.workGroupScope === 'specific' && cond.specificWorkGroupId ? this._auditWgName(cond.specificWorkGroupId) : '';
+        if (newCond.specificWorkGroupId) {
+          var wgIds = newCond.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          newCond._wgNames = wgIds.map(function(wid) { return this._auditWgName(wid); }.bind(this)).filter(Boolean);
+          newCond._wgName = newCond._wgNames.join('、');
+        } else { newCond._wgNames = []; newCond._wgName = ''; }
         newCond.identityScope = cond.identityScope;
         newCond.specificIdentityId = cond.identityScope === 'specific' ? cond.specificIdentityId : '';
-        newCond._identName = cond.identityScope === 'specific' && cond.specificIdentityId ? this._auditIdentityName(cond.specificIdentityId) : '';
+        if (newCond.specificIdentityId) {
+          var identIds = newCond.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          newCond._identNames = identIds.map(function(iid) { return this._auditIdentityName(iid); }.bind(this)).filter(Boolean);
+          newCond._identName = newCond._identNames.join('、');
+        } else { newCond._identNames = []; newCond._identName = ''; }
       }
       // Pre-compute display summary
       newCond._summary = this._auditConditionSummary(newCond);
@@ -491,6 +502,7 @@ module.exports = Behavior({
 
     /**
      * Resolve ALL names in a condition from master lists into _d* fields.
+     * Handles comma-separated IDs (multi-select).
      * Returns a new object suitable for WXML bubble rendering.
      */
     _auditResolveCondition(c) {
@@ -498,14 +510,36 @@ module.exports = Behavior({
       if (c.conditionType === 'person') {
         if (c.personHrIds) {
           var ids = c.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-          r._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this));
+          r._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this)).filter(Boolean);
         } else {
           r._personNames = [];
         }
       } else {
-        r._deptName = c.departmentScope === 'specific' && c.specificDepartmentId ? this._auditDeptName(c.specificDepartmentId) : '';
-        r._wgName = c.workGroupScope === 'specific' && c.specificWorkGroupId ? this._auditWgName(c.specificWorkGroupId) : '';
-        r._identName = c.identityScope === 'specific' && c.specificIdentityId ? this._auditIdentityName(c.specificIdentityId) : '';
+        // Handle comma-separated IDs for specific fields
+        if (c.departmentScope === 'specific' && c.specificDepartmentId) {
+          var deptIds = c.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          r._deptNames = deptIds.map(function(did) { return this._auditDeptName(did); }.bind(this)).filter(Boolean);
+          r._deptName = r._deptNames.join('、');
+        } else {
+          r._deptNames = [];
+          r._deptName = '';
+        }
+        if (c.workGroupScope === 'specific' && c.specificWorkGroupId) {
+          var wgIds = c.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          r._wgNames = wgIds.map(function(wid) { return this._auditWgName(wid); }.bind(this)).filter(Boolean);
+          r._wgName = r._wgNames.join('、');
+        } else {
+          r._wgNames = [];
+          r._wgName = '';
+        }
+        if (c.identityScope === 'specific' && c.specificIdentityId) {
+          var identIds = c.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          r._identNames = identIds.map(function(iid) { return this._auditIdentityName(iid); }.bind(this)).filter(Boolean);
+          r._identName = r._identNames.join('、');
+        } else {
+          r._identNames = [];
+          r._identName = '';
+        }
       }
       return r;
     },
@@ -766,13 +800,25 @@ module.exports = Behavior({
       } else {
         newCond.departmentScope = cond.departmentScope;
         newCond.specificDepartmentId = cond.departmentScope === 'specific' ? cond.specificDepartmentId : '';
-        newCond._deptName = cond.departmentScope === 'specific' && cond.specificDepartmentId ? this._auditDeptName(cond.specificDepartmentId) : '';
+        if (newCond.specificDepartmentId) {
+          var deptIds = newCond.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          newCond._deptNames = deptIds.map(function(did) { return this._auditDeptName(did); }.bind(this)).filter(Boolean);
+          newCond._deptName = newCond._deptNames.join('、');
+        } else { newCond._deptNames = []; newCond._deptName = ''; }
         newCond.workGroupScope = cond.workGroupScope;
         newCond.specificWorkGroupId = cond.workGroupScope === 'specific' ? cond.specificWorkGroupId : '';
-        newCond._wgName = cond.workGroupScope === 'specific' && cond.specificWorkGroupId ? this._auditWgName(cond.specificWorkGroupId) : '';
+        if (newCond.specificWorkGroupId) {
+          var wgIds = newCond.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          newCond._wgNames = wgIds.map(function(wid) { return this._auditWgName(wid); }.bind(this)).filter(Boolean);
+          newCond._wgName = newCond._wgNames.join('、');
+        } else { newCond._wgNames = []; newCond._wgName = ''; }
         newCond.identityScope = cond.identityScope;
         newCond.specificIdentityId = cond.identityScope === 'specific' ? cond.specificIdentityId : '';
-        newCond._identName = cond.identityScope === 'specific' && cond.specificIdentityId ? this._auditIdentityName(cond.specificIdentityId) : '';
+        if (newCond.specificIdentityId) {
+          var identIds = newCond.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          newCond._identNames = identIds.map(function(iid) { return this._auditIdentityName(iid); }.bind(this)).filter(Boolean);
+          newCond._identName = newCond._identNames.join('、');
+        } else { newCond._identNames = []; newCond._identName = ''; }
       }
 
       var conditions = [...this.data.auditTemplateForm.starterConditions];
@@ -971,7 +1017,6 @@ module.exports = Behavior({
       this.setLoading('auditStamps', true);
       try {
         const res = await this.callCloud('listStamps', {});
-        console.log('[audit] listStamps response:', JSON.stringify(res));
         if (res.status === 'success') {
           this.setData({ stamps: res.stamps || [] });
         } else {
@@ -1130,7 +1175,6 @@ module.exports = Behavior({
           limit: 50,
           offset: 0
         });
-        console.log('[audit] listAllAuditSubmissions response:', JSON.stringify(res));
         if (res.status === 'success') {
           this.setData({ auditSubmissions: res.submissions || [] });
         } else {
@@ -1183,7 +1227,6 @@ module.exports = Behavior({
       this.setLoading('auditVerification', true);
       try {
         const res = await this.callCloud('listVerificationPermissions', {});
-        console.log('[audit] listVerificationPermissions response:', JSON.stringify(res));
         if (res.status === 'success') {
           this.setData({ verificationPermissions: res.permissions || [] });
         } else {

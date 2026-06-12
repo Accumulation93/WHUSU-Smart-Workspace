@@ -1734,9 +1734,27 @@
                 <view class="list-desc" wx:if="{{!cond._personNames || !cond._personNames.length}}" style="margin:2rpx;">未选择人员</view>
               </block>
               <block wx:else>
-                <view class="status-chip info-chip" wx:if="{{cond.departmentScope !== 'all'}}" style="margin:2rpx;">{{cond.departmentScope === 'own' ? '同部门' : (cond._deptName || '指定部门')}}</view>
-                <view class="status-chip info-chip" wx:if="{{cond.workGroupScope !== 'all'}}" style="margin:2rpx;">{{cond.workGroupScope === 'own' ? '同职能组' : (cond._wgName || '指定职能组')}}</view>
-                <view class="status-chip info-chip" wx:if="{{cond.identityScope !== 'all'}}" style="margin:2rpx;">{{cond.identityScope === 'own' ? '同身份' : (cond._identName || '指定身份')}}</view>
+                <block wx:if="{{cond.departmentScope === 'own'}}">
+                  <view class="status-chip info-chip" style="margin:2rpx;">同部门</view>
+                </block>
+                <block wx:elif="{{cond.departmentScope === 'specific'}}">
+                  <view class="status-chip info-chip" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" style="margin:2rpx;">{{dname}}</view>
+                  <view class="status-chip info-chip" wx:if="{{!cond._deptNames || !cond._deptNames.length}}" style="margin:2rpx;">指定部门</view>
+                </block>
+                <block wx:if="{{cond.workGroupScope === 'own'}}">
+                  <view class="status-chip info-chip" style="margin:2rpx;">同职能组</view>
+                </block>
+                <block wx:elif="{{cond.workGroupScope === 'specific'}}">
+                  <view class="status-chip info-chip" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" style="margin:2rpx;">{{wname}}</view>
+                  <view class="status-chip info-chip" wx:if="{{!cond._wgNames || !cond._wgNames.length}}" style="margin:2rpx;">指定职能组</view>
+                </block>
+                <block wx:if="{{cond.identityScope === 'own'}}">
+                  <view class="status-chip info-chip" style="margin:2rpx;">同身份</view>
+                </block>
+                <block wx:elif="{{cond.identityScope === 'specific'}}">
+                  <view class="status-chip info-chip" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" style="margin:2rpx;">{{iname}}</view>
+                  <view class="status-chip info-chip" wx:if="{{!cond._identNames || !cond._identNames.length}}" style="margin:2rpx;">指定身份</view>
+                </block>
                 <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
               </block>
             </view>
@@ -1765,9 +1783,27 @@
                 <view class="status-chip current-chip" wx:else style="margin:2rpx;">人员未选择</view>
               </block>
               <block wx:else>
-                <view class="status-chip info-chip" wx:if="{{cond.departmentScope !== 'all'}}" style="margin:2rpx;">{{cond.departmentScope === 'own' ? '同部门' : (cond._deptName || '指定部门')}}</view>
-                <view class="status-chip info-chip" wx:if="{{cond.workGroupScope !== 'all'}}" style="margin:2rpx;">{{cond.workGroupScope === 'own' ? '同职能组' : (cond._wgName || '指定职能组')}}</view>
-                <view class="status-chip info-chip" wx:if="{{cond.identityScope !== 'all'}}" style="margin:2rpx;">{{cond.identityScope === 'own' ? '同身份' : (cond._identName || '指定身份')}}</view>
+                <block wx:if="{{cond.departmentScope === 'own'}}">
+                  <view class="status-chip info-chip" style="margin:2rpx;">同部门</view>
+                </block>
+                <block wx:elif="{{cond.departmentScope === 'specific'}}">
+                  <view class="status-chip info-chip" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" style="margin:2rpx;">{{dname}}</view>
+                  <view class="status-chip info-chip" wx:if="{{!cond._deptNames || !cond._deptNames.length}}" style="margin:2rpx;">指定部门</view>
+                </block>
+                <block wx:if="{{cond.workGroupScope === 'own'}}">
+                  <view class="status-chip info-chip" style="margin:2rpx;">同职能组</view>
+                </block>
+                <block wx:elif="{{cond.workGroupScope === 'specific'}}">
+                  <view class="status-chip info-chip" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" style="margin:2rpx;">{{wname}}</view>
+                  <view class="status-chip info-chip" wx:if="{{!cond._wgNames || !cond._wgNames.length}}" style="margin:2rpx;">指定职能组</view>
+                </block>
+                <block wx:if="{{cond.identityScope === 'own'}}">
+                  <view class="status-chip info-chip" style="margin:2rpx;">同身份</view>
+                </block>
+                <block wx:elif="{{cond.identityScope === 'specific'}}">
+                  <view class="status-chip info-chip" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" style="margin:2rpx;">{{iname}}</view>
+                  <view class="status-chip info-chip" wx:if="{{!cond._identNames || !cond._identNames.length}}" style="margin:2rpx;">指定身份</view>
+                </block>
                 <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
               </block>
               <text wx:if="{{ci < item.conditions.length - 1}}" style="color:#ef4444;font-size:22rpx;font-weight:bold;margin:2rpx 8rpx;">或</text>
@@ -1822,9 +1858,15 @@
                     <view wx:else style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">人员未选择</view>
                   </block>
                   <block wx:else>
-                    <view wx:if="{{cond.departmentScope !== 'all'}}" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.departmentScope === 'own' ? '同部门' : (cond._deptName || '指定部门')}}</view>
-                    <view wx:if="{{cond.workGroupScope !== 'all'}}" style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.workGroupScope === 'own' ? '同职能组' : (cond._wgName || '指定职能组')}}</view>
-                    <view wx:if="{{cond.identityScope !== 'all'}}" style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.identityScope === 'own' ? '同身份' : (cond._identName || '指定身份')}}</view>
+                    <view wx:if="{{cond.departmentScope === 'own'}}" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">同部门</view>
+                    <view wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" wx:if="{{cond.departmentScope === 'specific'}}" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{dname}}</view>
+                    <view wx:if="{{cond.departmentScope === 'specific' && (!cond._deptNames || !cond._deptNames.length)}}" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">指定部门</view>
+                    <view wx:if="{{cond.workGroupScope === 'own'}}" style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">同职能组</view>
+                    <view wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" wx:if="{{cond.workGroupScope === 'specific'}}" style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{wname}}</view>
+                    <view wx:if="{{cond.workGroupScope === 'specific' && (!cond._wgNames || !cond._wgNames.length)}}" style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">指定职能组</view>
+                    <view wx:if="{{cond.identityScope === 'own'}}" style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">同身份</view>
+                    <view wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" wx:if="{{cond.identityScope === 'specific'}}" style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{iname}}</view>
+                    <view wx:if="{{cond.identityScope === 'specific' && (!cond._identNames || !cond._identNames.length)}}" style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">指定身份</view>
                     <view wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">不限</view>
                   </block>
                   <text wx:if="{{ci < step._resolvedConditions.length - 1}}" style="color:#ef4444;font-size:20rpx;font-weight:bold;margin:2rpx 6rpx;">或</text>
@@ -1854,9 +1896,31 @@
                     <view class="list-desc" wx:if="{{!cond._personNames || !cond._personNames.length}}" style="margin:2rpx;">未选择人员</view>
                   </block>
                   <block wx:else>
-                    <view class="status-chip info-chip" wx:if="{{cond.departmentScope !== 'all'}}" style="margin:2rpx;">{{cond.departmentScope === 'own' ? '同部门' : (cond._deptName || '指定部门')}}</view>
-                    <view class="status-chip info-chip" wx:if="{{cond.workGroupScope !== 'all'}}" style="margin:2rpx;">{{cond.workGroupScope === 'own' ? '同职能组' : (cond._wgName || '指定职能组')}}</view>
-                    <view class="status-chip info-chip" wx:if="{{cond.identityScope !== 'all'}}" style="margin:2rpx;">{{cond.identityScope === 'own' ? '同身份' : (cond._identName || '指定身份')}}</view>
+                    <!-- Department badges -->
+                    <block wx:if="{{cond.departmentScope === 'own'}}">
+                      <view class="status-chip info-chip" style="margin:2rpx;">同部门</view>
+                    </block>
+                    <block wx:elif="{{cond.departmentScope === 'specific'}}">
+                      <view class="status-chip info-chip" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" style="margin:2rpx;">{{dname}}</view>
+                      <view class="status-chip info-chip" wx:if="{{!cond._deptNames || !cond._deptNames.length}}" style="margin:2rpx;">指定部门</view>
+                    </block>
+                    <!-- Work Group badges -->
+                    <block wx:if="{{cond.workGroupScope === 'own'}}">
+                      <view class="status-chip info-chip" style="margin:2rpx;">同职能组</view>
+                    </block>
+                    <block wx:elif="{{cond.workGroupScope === 'specific'}}">
+                      <view class="status-chip info-chip" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" style="margin:2rpx;">{{wname}}</view>
+                      <view class="status-chip info-chip" wx:if="{{!cond._wgNames || !cond._wgNames.length}}" style="margin:2rpx;">指定职能组</view>
+                    </block>
+                    <!-- Identity badges -->
+                    <block wx:if="{{cond.identityScope === 'own'}}">
+                      <view class="status-chip info-chip" style="margin:2rpx;">同身份</view>
+                    </block>
+                    <block wx:elif="{{cond.identityScope === 'specific'}}">
+                      <view class="status-chip info-chip" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" style="margin:2rpx;">{{iname}}</view>
+                      <view class="status-chip info-chip" wx:if="{{!cond._identNames || !cond._identNames.length}}" style="margin:2rpx;">指定身份</view>
+                    </block>
+                    <!-- All scopes = anyone -->
                     <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
                   </block>
                 </view>

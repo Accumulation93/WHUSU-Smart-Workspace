@@ -923,4 +923,28 @@ router.post('/withdrawSubmission', async (req, res) => {
   }
 });
 
+// listAvailableFlowTemplates — User-facing: list active templates for submission creation
+router.post('/listAvailableFlowTemplates', async (req, res) => {
+  try {
+    const openid = req.openid;
+    if (!openid) return res.json({ status: 'forbidden', message: '请先登录' });
+
+    const templates = await flowTemplateModel.getActive();
+    const result = [];
+    for (const t of templates) {
+      const steps = await flowTemplateStepModel.getByTemplateId(t.id);
+      result.push({
+        id: safeString(t.id),
+        name: safeString(t.name),
+        description: safeString(t.description),
+        stepCount: steps.length,
+        resubmitMode: safeString(t.resubmit_mode)
+      });
+    }
+    res.json({ status: 'success', templates: result });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
 module.exports = router;

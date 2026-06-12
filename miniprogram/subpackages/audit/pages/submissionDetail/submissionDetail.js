@@ -126,9 +126,9 @@ Page({
 
   async loadFlowTemplates() {
     try {
-      const res = await callFunction({ name: 'listAuditFlowTemplates', data: {} });
+      const res = await callFunction({ name: 'listAvailableFlowTemplates', data: {} });
       if (res.status === 'success') {
-        this.setData({ flowTemplates: (res.templates || []).filter((t) => t.isActive) });
+        this.setData({ flowTemplates: res.templates || [] });
       }
     } catch (e) {
       showShortToast(getErrorText(e, '加载模板失败'));
@@ -479,15 +479,27 @@ Page({
   },
 
   async uploadFiles(tempFiles) {
+    if (!tempFiles || !tempFiles.length) return;
     this.setData({ uploading: true });
+    const that = this;
     const uploaded = [...this.data.uploadedFiles];
-    try {
-      for (const tf of tempFiles) {
-        const fs = wx.getFileSystemManager();
-        const base64 = fs.readFileSync(tf.path, 'base64');
+    let errorCount = 0;
+
+    // Use async readFile per file, handled sequentially
+    for (let i = 0; i < tempFiles.length; i++) {
+      const tf = tempFiles[i];
+      try {
+        const base64 = await new Promise(function(resolve, reject) {
+          wx.getFileSystemManager().readFile({
+            filePath: tf.path,
+            encoding: 'base64',
+            success: function(r) { resolve(r.data); },
+            fail: function(err) { reject(err); }
+          });
+        });
         const fileId = 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         uploaded.push({
-          fileId,
+          fileId: fileId,
           fileName: tf.name || 'unknown',
           mimeType: tf.name ? (tf.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg') : 'image/jpeg',
           fileSize: tf.size || 0,
@@ -495,13 +507,18 @@ Page({
           tmpPath: tf.path,
           base64: base64
         });
+      } catch (e) {
+        errorCount++;
+        console.error('文件读取失败:', tf.name, e);
       }
-      this.setData({ uploadedFiles: uploaded });
-    } catch (e) {
-      showShortToast('上传失败: ' + (e.errMsg || e.message));
-    } finally {
-      this.setData({ uploading: false });
     }
+
+    if (uploaded.length > this.data.uploadedFiles.length) {
+      this.setData({ uploadedFiles: uploaded });
+    } else if (errorCount > 0) {
+      showShortToast('文件读取失败，请重试');
+    }
+    this.setData({ uploading: false });
   },
 
   removeUploadedFile(e) {
