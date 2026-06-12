@@ -131,19 +131,46 @@ Page({
     this.setData({ unbindLoading: true });
 
     const activeRole = this.data.activeRole;
-    const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-    delete roleProfiles[activeRole];
-    wx.setStorageSync(STORAGE_KEY, roleProfiles);
 
-    const roleKeys = Object.keys(roleProfiles);
-    if (roleKeys.length) {
-      wx.setStorageSync(ACTIVE_ROLE_KEY, roleKeys[0]);
-    } else {
-      wx.removeStorageSync(ACTIVE_ROLE_KEY);
-    }
+    // Call server to actually unlink the WeChat openid from this role
+    callFunction({
+      name: 'unbindRole',
+      data: { role: activeRole },
+      success: (res) => {
+        const result = res.result || {};
+        if (result.status !== 'unbind_success' && result.status !== 'already_unbound') {
+          wx.showToast({ title: result.message || '解绑失败', icon: 'none' });
+          this.setData({ unbindLoading: false });
+          return;
+        }
 
-    wx.showToast({ title: '已解绑', icon: 'success' });
-    this.setData({ showUnbindDialog: false, unbindLoading: false });
-    this.refreshCurrentUser();
+        // Clear all auth state
+        const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
+        delete roleProfiles[activeRole];
+        wx.setStorageSync(STORAGE_KEY, roleProfiles);
+
+        const roleKeys = Object.keys(roleProfiles);
+        if (roleKeys.length) {
+          wx.setStorageSync(ACTIVE_ROLE_KEY, roleKeys[0]);
+        } else {
+          wx.removeStorageSync(ACTIVE_ROLE_KEY);
+        }
+
+        // Clear token to prevent auto-login with old credentials
+        wx.removeStorageSync('token');
+
+        wx.showToast({ title: '已解绑，即将返回登录页', icon: 'success' });
+        this.setData({ showUnbindDialog: false, unbindLoading: false });
+
+        // Redirect to login page
+        setTimeout(function() {
+          wx.redirectTo({ url: '/pages/login/login' });
+        }, 800);
+      },
+      fail: () => {
+        wx.showToast({ title: '解绑失败，请检查网络', icon: 'none' });
+        this.setData({ unbindLoading: false });
+      }
+    });
   }
 });

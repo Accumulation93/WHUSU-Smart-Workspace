@@ -877,6 +877,9 @@ Page({
           wx.removeStorageSync(ACTIVE_ROLE_KEY);
         }
 
+        // Clear token to prevent auto-login with old credentials
+        wx.removeStorageSync('token');
+
         this.setData({
           showUnbindDialog: false
         });
