@@ -248,7 +248,20 @@ CREATE TABLE IF NOT EXISTS audit_verification_permissions (
 
 -- ============================================================
 -- Bonus: Add step_conditions_json column for runtime matching
+-- Safe idempotent approach using information_schema check
 -- ============================================================
-ALTER TABLE audit_submission_steps
-  ADD COLUMN IF NOT EXISTS step_conditions_json TEXT DEFAULT NULL
-  COMMENT 'JSON array of approver conditions for runtime resolution';
+SET @col_exists = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'audit_submission_steps'
+    AND COLUMN_NAME = 'step_conditions_json'
+);
+
+SET @add_col_sql = IF(@col_exists = 0,
+  'ALTER TABLE audit_submission_steps ADD COLUMN step_conditions_json TEXT DEFAULT NULL COMMENT ''JSON array of approver conditions for runtime resolution''',
+  'SELECT ''Column step_conditions_json already exists, skipping'' AS info'
+);
+
+PREPARE add_col_stmt FROM @add_col_sql;
+EXECUTE add_col_stmt;
+DEALLOCATE PREPARE add_col_stmt;
