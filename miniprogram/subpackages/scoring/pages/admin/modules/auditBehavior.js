@@ -1201,37 +1201,85 @@ module.exports = Behavior({
       try {
         const res = await this.callCloud('getAuditProgress', { submissionId: submissionId });
         if (res.status === 'success') {
-          // Pre-compute flow visualization classes for steps
           const submissionStatus = res.submission.status;
           const currentStepIndex = res.submission.currentStepIndex || 0;
-          const enrichedSteps = (res.steps || []).map(s => {
-            let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
-            if (s.status === 'rejected') {
-              flowNodeClass = 'flow-node-rejected'; flowDotClass = 'flow-dot-rejected';
-              flowIcon = 'cross'; flowStatusLabel = '✗ 已驳回'; flowTagClass = 'flow-tag-rejected';
-            } else if (submissionStatus === 'approved') {
-              flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
-              flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
-            } else if (submissionStatus === 'pending') {
-              flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
-              flowIcon = 'number'; flowStatusLabel = '○ 未开始'; flowTagClass = 'flow-tag-pending';
-            } else if (s.status === 'approved') {
-              flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
-              flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
-            } else if (s.sortOrder === currentStepIndex) {
-              flowNodeClass = 'flow-node-active'; flowDotClass = 'flow-dot-active';
-              flowIcon = 'number'; flowStatusLabel = '● 待处理'; flowTagClass = 'flow-tag-active';
-            } else if (s.sortOrder < currentStepIndex) {
-              flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
-              flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
-            } else {
-              flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
-              flowIcon = 'number'; flowStatusLabel = '○ 未到达'; flowTagClass = 'flow-tag-pending';
-            }
-            return { ...s, flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass };
+          const rawSteps = res.steps || [];
+
+          // ── Build flow timeline: lifecycle events + steps ──
+          const flowTimeline = [];
+
+          // 1. "提交" lifecycle event
+          flowTimeline.push({
+            _key: 'lifecycle_submit',
+            type: 'lifecycle', event: 'submit', label: '提交审核',
+            time: res.submission.createdAt || '', icon: '📤'
           });
+
+          // 2. Group steps by round
+          const rounds = {};
+          for (const s of rawSteps) {
+            const r = s.round || 1;
+            if (!rounds[r]) rounds[r] = [];
+            rounds[r].push(s);
+          }
+          const roundKeys = Object.keys(rounds).sort((a, b) => Number(a) - Number(b));
+
+          // 3. For each round, insert steps with resubmit markers
+          for (let ri = 0; ri < roundKeys.length; ri++) {
+            const round = Number(roundKeys[ri]);
+            const roundSteps = rounds[round].sort((a, b) => a.sort_order - b.sort_order);
+
+            if (round > 1) {
+              flowTimeline.push({
+                _key: 'lifecycle_resubmit_r' + round,
+                type: 'lifecycle', event: 'resubmit', label: '重新提交',
+                subLabel: '第' + round + '轮', icon: '🔄'
+              });
+            }
+
+            for (const s of roundSteps) {
+              let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+              if (s.status === 'rejected') {
+                flowNodeClass = 'flow-node-rejected'; flowDotClass = 'flow-dot-rejected';
+                flowIcon = 'cross'; flowStatusLabel = '✗ 已驳回'; flowTagClass = 'flow-tag-rejected';
+              } else if (submissionStatus === 'approved') {
+                flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
+                flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+              } else if (submissionStatus === 'pending') {
+                flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
+                flowIcon = 'number'; flowStatusLabel = '○ 未开始'; flowTagClass = 'flow-tag-pending';
+              } else if (s.status === 'approved') {
+                flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
+                flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+              } else if (s.sort_order === currentStepIndex && s.status === 'pending') {
+                flowNodeClass = 'flow-node-active'; flowDotClass = 'flow-dot-active';
+                flowIcon = 'number'; flowStatusLabel = '● 待处理'; flowTagClass = 'flow-tag-active';
+              } else if (s.sort_order < currentStepIndex) {
+                flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
+                flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+              } else {
+                flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
+                flowIcon = 'number'; flowStatusLabel = '○ 未到达'; flowTagClass = 'flow-tag-pending';
+              }
+              flowTimeline.push({
+                _key: 'step_' + s.id,
+                type: 'step', ...s,
+                flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass
+              });
+            }
+          }
+
+          // 4. "撤回" lifecycle event if withdrawn
+          if (submissionStatus === 'withdrawn') {
+            flowTimeline.push({
+              _key: 'lifecycle_withdraw',
+              type: 'lifecycle', event: 'withdraw', label: '撤回审核',
+              time: res.submission.updatedAt || '', icon: '↩️'
+            });
+          }
+
           this.setData({
-            auditSubmissionDetail: { ...res, steps: enrichedSteps },
+            auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
             auditSubmissionDetailVisible: true
           });
         } else {

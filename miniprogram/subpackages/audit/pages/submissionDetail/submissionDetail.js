@@ -5,7 +5,8 @@ Page({
     submissionId: '',
     action: '', // 'create' or 'view'
     submission: null,
-    steps: [],
+    steps: [],  // kept for backward compat; prefer flowTimeline
+    flowTimeline: [],
     files: [],
     signatures: [],
     loading: false,
@@ -621,93 +622,142 @@ Page({
         const submissionStatus = res.submission.status;
         const currentStepIndex = res.submission.currentStepIndex || 0;
 
-        // Pre-compute flow classes for each step based on submission context
-        const steps = (res.steps || []).map(s => {
-          let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+        // ── Build flow timeline: lifecycle events + steps ──
+        const rawSteps = res.steps || [];
+        const flowTimeline = [];
 
-          if (s.status === 'rejected') {
-            // This specific step was rejected
-            flowNodeClass = 'flow-node-rejected';
-            flowDotClass = 'flow-dot-rejected';
-            flowIcon = 'cross';
-            flowStatusLabel = '✗ 已驳回';
-            flowTagClass = 'flow-tag-rejected';
-          } else if (submissionStatus === 'approved') {
-            // All steps passed
-            flowNodeClass = 'flow-node-done';
-            flowDotClass = 'flow-dot-done';
-            flowIcon = 'check';
-            flowStatusLabel = '✓ 已通过';
-            flowTagClass = 'flow-tag-done';
-          } else if (submissionStatus === 'pending') {
-            // Submission hasn't entered the pipeline yet — all steps are future
-            flowNodeClass = 'flow-node-pending';
-            flowDotClass = 'flow-dot-pending';
-            flowIcon = 'number';
-            flowStatusLabel = '○ 未开始';
-            flowTagClass = 'flow-tag-pending';
-          } else if (s.status === 'approved') {
-            // Step was approved (past step in in_progress submission)
-            flowNodeClass = 'flow-node-done';
-            flowDotClass = 'flow-dot-done';
-            flowIcon = 'check';
-            flowStatusLabel = '✓ 已通过';
-            flowTagClass = 'flow-tag-done';
-          } else if (s.sortOrder === currentStepIndex) {
-            // Current active step
-            flowNodeClass = 'flow-node-active';
-            flowDotClass = 'flow-dot-active';
-            flowIcon = 'number';
-            flowStatusLabel = '● 待处理';
-            flowTagClass = 'flow-tag-active';
-          } else if (s.sortOrder < currentStepIndex) {
-            // Past step that was somehow skipped (shouldn't normally happen)
-            flowNodeClass = 'flow-node-done';
-            flowDotClass = 'flow-dot-done';
-            flowIcon = 'check';
-            flowStatusLabel = '✓ 已通过';
-            flowTagClass = 'flow-tag-done';
-          } else {
-            // Future step (sortOrder > currentStepIndex)
-            flowNodeClass = 'flow-node-pending';
-            flowDotClass = 'flow-dot-pending';
-            flowIcon = 'number';
-            flowStatusLabel = '○ 未到达';
-            flowTagClass = 'flow-tag-pending';
-          }
-
-          return { ...s, flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass };
+        // 1. "提交" lifecycle event — always first
+        flowTimeline.push({
+          _key: 'lifecycle_submit',
+          type: 'lifecycle',
+          event: 'submit',
+          label: '提交审核',
+          time: res.submission.createdAt || '',
+          icon: '📤'
         });
 
-        // Compute flow progress
-        const totalSteps = steps.length || 1;
+        // 2. Group steps by round
+        const rounds = {};
+        for (const s of rawSteps) {
+          const r = s.round || 1;
+          if (!rounds[r]) rounds[r] = [];
+          rounds[r].push(s);
+        }
+        const roundKeys = Object.keys(rounds).sort((a, b) => Number(a) - Number(b));
+
+        // 3. For each round, insert steps (with resubmit marker between rounds)
+        for (let ri = 0; ri < roundKeys.length; ri++) {
+          const round = Number(roundKeys[ri]);
+          const roundSteps = rounds[round].sort((a, b) => a.sort_order - b.sort_order);
+
+          // Insert "重新提交" lifecycle event between rounds
+          if (round > 1) {
+            flowTimeline.push({
+              _key: 'lifecycle_resubmit_r' + round,
+              type: 'lifecycle',
+              event: 'resubmit',
+              label: '重新提交',
+              subLabel: '第' + round + '轮',
+              icon: '🔄'
+            });
+          }
+
+          // Enrich step nodes with flow classes
+          for (const s of roundSteps) {
+            let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+
+            if (s.status === 'rejected') {
+              flowNodeClass = 'flow-node-rejected';
+              flowDotClass = 'flow-dot-rejected';
+              flowIcon = 'cross';
+              flowStatusLabel = '✗ 已驳回';
+              flowTagClass = 'flow-tag-rejected';
+            } else if (submissionStatus === 'approved') {
+              flowNodeClass = 'flow-node-done';
+              flowDotClass = 'flow-dot-done';
+              flowIcon = 'check';
+              flowStatusLabel = '✓ 已通过';
+              flowTagClass = 'flow-tag-done';
+            } else if (submissionStatus === 'pending') {
+              flowNodeClass = 'flow-node-pending';
+              flowDotClass = 'flow-dot-pending';
+              flowIcon = 'number';
+              flowStatusLabel = '○ 未开始';
+              flowTagClass = 'flow-tag-pending';
+            } else if (s.status === 'approved') {
+              flowNodeClass = 'flow-node-done';
+              flowDotClass = 'flow-dot-done';
+              flowIcon = 'check';
+              flowStatusLabel = '✓ 已通过';
+              flowTagClass = 'flow-tag-done';
+            } else if (s.sort_order === currentStepIndex && s.status === 'pending' && submissionStatus === 'in_progress') {
+              flowNodeClass = 'flow-node-active';
+              flowDotClass = 'flow-dot-active';
+              flowIcon = 'number';
+              flowStatusLabel = '● 待处理';
+              flowTagClass = 'flow-tag-active';
+            } else if (s.sort_order < currentStepIndex) {
+              flowNodeClass = 'flow-node-done';
+              flowDotClass = 'flow-dot-done';
+              flowIcon = 'check';
+              flowStatusLabel = '✓ 已通过';
+              flowTagClass = 'flow-tag-done';
+            } else {
+              flowNodeClass = 'flow-node-pending';
+              flowDotClass = 'flow-dot-pending';
+              flowIcon = 'number';
+              flowStatusLabel = '○ 未到达';
+              flowTagClass = 'flow-tag-pending';
+            }
+
+            flowTimeline.push({
+              _key: 'step_' + s.id,
+              type: 'step',
+              ...s,
+              flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass
+            });
+          }
+        }
+
+        // 4. "撤回" lifecycle event — at the end if withdrawn
+        if (submissionStatus === 'withdrawn') {
+          flowTimeline.push({
+            _key: 'lifecycle_withdraw',
+            type: 'lifecycle',
+            event: 'withdraw',
+            label: '撤回审核',
+            time: res.submission.updatedAt || '',
+            icon: '↩️'
+          });
+        }
+
+        // ── Compute flow progress ──
+        const totalSteps = rawSteps.length || 1;
         let flowProgressPercent, flowProgressText;
+        const approvedCount = rawSteps.filter(s => s.status === 'approved').length;
 
         if (submissionStatus === 'approved') {
           flowProgressPercent = 100;
           flowProgressText = '全部完成';
         } else if (submissionStatus === 'rejected') {
-          // Find which step was rejected
-          const rejectedIdx = steps.findIndex(s => s.status === 'rejected');
-          flowProgressPercent = rejectedIdx >= 0 ? Math.round(((rejectedIdx + 1) / totalSteps) * 100) : 0;
-          flowProgressText = rejectedIdx >= 0 ? `第${rejectedIdx + 1}/${totalSteps}步被驳回` : '已驳回';
+          const rejectedStep = rawSteps.find(s => s.status === 'rejected');
+          flowProgressPercent = Math.round((approvedCount / totalSteps) * 100);
+          flowProgressText = rejectedStep ? '第' + rejectedStep.sort_order + '/' + totalSteps + '步被驳回' : '已驳回';
         } else if (submissionStatus === 'pending') {
           flowProgressPercent = 0;
           flowProgressText = '待提交';
         } else if (submissionStatus === 'withdrawn') {
-          const doneCount = steps.filter(s => s.status === 'approved').length;
-          flowProgressPercent = Math.round((doneCount / totalSteps) * 100);
+          flowProgressPercent = Math.round((approvedCount / totalSteps) * 100);
           flowProgressText = '已撤回';
         } else {
           // in_progress
-          const doneCount = steps.filter(s => s.status === 'approved').length;
-          flowProgressPercent = Math.round((doneCount / totalSteps) * 100);
-          flowProgressText = `第${currentStepIndex}/${totalSteps}步待处理`;
+          flowProgressPercent = Math.round((approvedCount / totalSteps) * 100);
+          flowProgressText = '第' + currentStepIndex + '/' + totalSteps + '步待处理';
         }
 
         this.setData({
           submission: res.submission,
-          steps: steps,
+          flowTimeline: flowTimeline,
           files: res.files || [],
           signatures: res.signatures || [],
           flowProgressPercent: flowProgressPercent,

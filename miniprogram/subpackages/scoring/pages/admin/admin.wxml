@@ -2163,32 +2163,49 @@
             </view>
 
             <!-- Flow visualization -->
-            <view class="audit-flow" wx:if="{{auditSubmissionDetail.steps.length}}">
-              <view class="flow-node {{item.flowNodeClass}}" wx:for="{{auditSubmissionDetail.steps}}" wx:key="id">
-                <view class="flow-left-col">
-                  <view class="flow-dot {{item.flowDotClass}}">
-                    <block wx:if="{{item.flowIcon === 'check'}}">✓</block>
-                    <block wx:elif="{{item.flowIcon === 'cross'}}">✗</block>
-                    <block wx:else>{{item.sortOrder}}</block>
+            <view class="audit-flow" wx:if="{{auditSubmissionDetail.flowTimeline.length}}">
+              <block wx:for="{{auditSubmissionDetail.flowTimeline}}" wx:key="_key" wx:for-item="node">
+
+                <!-- Lifecycle event -->
+                <view class="flow-node flow-node-lifecycle" wx:if="{{node.type === 'lifecycle'}}">
+                  <view class="flow-left-col">
+                    <view class="flow-dot-lifecycle-icon">{{node.icon}}</view>
+                    <view class="flow-connector flow-connector-lifecycle"></view>
                   </view>
-                  <view class="flow-connector"></view>
-                </view>
-                <view class="flow-info">
-                  <view class="flow-step-label">第{{item.sortOrder}}步<text class="flow-round-badge" wx:if="{{item.round > 1}}">第{{item.round}}轮</text></view>
-                  <view class="flow-step-title">
-                    {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}
-                    <text style="font-size:21rpx;color:#64748b;font-weight:500;"> — {{item.approverName || '待审批人'}}</text>
+                  <view class="flow-info flow-info-lifecycle">
+                    <view class="flow-lifecycle-label">{{node.label}}<text class="flow-lifecycle-round" wx:if="{{node.subLabel}}">{{node.subLabel}}</text></view>
+                    <view class="flow-lifecycle-time" wx:if="{{node.time}}">{{node.time}}</view>
                   </view>
-                  <view class="flow-step-status-tag {{item.flowTagClass}}">{{item.flowStatusLabel}}</view>
-                  <view class="flow-step-meta" wx:if="{{item.flowIcon === 'check' || item.flowIcon === 'cross'}}">{{item.processedAt}}</view>
-                  <view class="flow-step-comment" wx:if="{{item.comment}}">{{item.comment}}</view>
-                  <view class="flow-step-rejection" wx:if="{{item.rejectionReason}}">驳回：{{item.rejectionReason}}</view>
                 </view>
-              </view>
+
+                <!-- Approval step -->
+                <view class="flow-node {{node.flowNodeClass}}" wx:if="{{node.type === 'step'}}">
+                  <view class="flow-left-col">
+                    <view class="flow-dot {{node.flowDotClass}}">
+                      <block wx:if="{{node.flowIcon === 'check'}}">✓</block>
+                      <block wx:elif="{{node.flowIcon === 'cross'}}">✗</block>
+                      <block wx:else>{{node.sortOrder}}</block>
+                    </view>
+                    <view class="flow-connector"></view>
+                  </view>
+                  <view class="flow-info">
+                    <view class="flow-step-label">第{{node.sortOrder}}步<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
+                    <view class="flow-step-title">
+                      {{node.actionType === 'pass' ? '仅通过' : (node.actionType === 'sign' ? '签字' : (node.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}
+                      <text style="font-size:21rpx;color:#64748b;font-weight:500;"> — {{node.approverName || '待审批人'}}</text>
+                    </view>
+                    <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
+                    <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">{{node.processedAt}}</view>
+                    <view class="flow-step-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
+                    <view class="flow-step-rejection" wx:if="{{node.rejectionReason}}">驳回：{{node.rejectionReason}}</view>
+                  </view>
+                </view>
+
+              </block>
             </view>
-            <view wx:if="{{!auditSubmissionDetail.steps.length}}" class="audit-empty-state">
+            <view wx:if="{{!auditSubmissionDetail.flowTimeline.length}}" class="audit-empty-state">
               <view class="audit-empty-icon">📋</view>
-              <view class="audit-empty-text">审批流程尚未生成</view>
+              <view class="audit-empty-text">暂无流程数据</view>
             </view>
 
             <!-- Files -->

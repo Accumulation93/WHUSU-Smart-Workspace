@@ -1838,6 +1838,37 @@ scroll-view {
   white-space: nowrap;
 }
 
+/* ── Lifecycle event nodes (提交/撤回/重新提交) ── */
+.flow-dot-lifecycle-icon {
+  flex-shrink: 0; width: 40rpx; height: 40rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26rpx; line-height: 1;
+  background: linear-gradient(135deg, rgba(241,245,249,0.96) 0%, rgba(226,232,240,0.90) 100%);
+  border: 2rpx solid rgba(148,163,184,0.35);
+}
+.flow-connector-lifecycle {
+  background: linear-gradient(180deg, rgba(203,213,225,0.6) 0%, rgba(226,232,240,0.35) 100%) !important;
+}
+.flow-info-lifecycle {
+  padding: 6rpx 14rpx 8rpx !important;
+  background: transparent !important;
+  border: 1rpx dashed rgba(148,163,184,0.25) !important;
+  margin-bottom: 12rpx;
+}
+.flow-lifecycle-label {
+  font-size: 24rpx; font-weight: 700; color: #475569; line-height: 1.4;
+}
+.flow-lifecycle-round {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 3rpx 12rpx; border-radius: 999rpx; margin-left: 8rpx;
+  font-size: 19rpx; font-weight: 700;
+  background: linear-gradient(135deg, rgba(255,251,235,0.94) 0%, rgba(254,243,199,0.84) 100%);
+  color: #b45309; border: 1rpx solid rgba(251,191,36,0.45);
+}
+.flow-lifecycle-time {
+  font-size: 20rpx; color: #94a3b8; line-height: 1.4; margin-top: 2rpx;
+}
+
 /* ── Step approval action buttons (inline with flow) ── */
 .flow-actions {
   display: flex; gap: 10rpx; margin-top: 6rpx;
