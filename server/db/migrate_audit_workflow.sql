@@ -284,3 +284,11 @@ SET @add_starter_col_sql = IF(@starter_col_exists = 0,
 PREPARE add_starter_col_stmt FROM @add_starter_col_sql;
 EXECUTE add_starter_col_stmt;
 DEALLOCATE PREPARE add_starter_col_stmt;
+
+-- ============================================================
+-- Bonus: Expand specific ID columns to hold comma-separated values for multi-select
+-- ============================================================
+ALTER TABLE audit_flow_template_step_conditions
+  MODIFY COLUMN specific_department_id VARCHAR(1000) DEFAULT NULL,
+  MODIFY COLUMN specific_work_group_id VARCHAR(1000) DEFAULT NULL,
+  MODIFY COLUMN specific_identity_id VARCHAR(1000) DEFAULT NULL;

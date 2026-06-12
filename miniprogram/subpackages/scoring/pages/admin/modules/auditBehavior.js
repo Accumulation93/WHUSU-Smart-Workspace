@@ -631,20 +631,11 @@ module.exports = Behavior({
     onAuditMultiPickerToggle(e) {
       var id = String(e.currentTarget.dataset.id);
       var selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
-      var target = this.data.auditMultiPickerTarget;
-      var isSingle = target !== 'personHrIds'; // only personHrIds supports multi-select
-
-      if (isSingle) {
-        // Single-select: clear all previous, select only this one
-        Object.keys(selected).forEach(function(k) { delete selected[k]; });
-        selected[id] = true;
+      // All pickers support multi-select
+      if (selected[id]) {
+        delete selected[id];
       } else {
-        // Multi-select: toggle
-        if (selected[id]) {
-          delete selected[id];
-        } else {
-          selected[id] = true;
-        }
+        selected[id] = true;
       }
       this.setData({ auditMultiPickerSelectedIds: selected });
     },
@@ -668,7 +659,6 @@ module.exports = Behavior({
       var selectedIds = this.data.auditMultiPickerSelectedIds;
       var ids = Object.keys(selectedIds);
       var items = this.data.auditMultiPickerItems;
-      var isSingle = target !== 'personHrIds';
       var condTarget = this.data._auditConditionTarget || 'step';
       var formPrefix = condTarget === 'starter' ? 'auditStarterConditionForm' : 'auditStepConditionForm';
 
@@ -677,18 +667,6 @@ module.exports = Behavior({
         return;
       }
 
-      if (isSingle) {
-        var firstId = ids[0];
-        var found = items.find(function(item) { return String(item.id) === String(firstId); });
-        var updateObj = {};
-        updateObj[formPrefix + '.' + target] = firstId;
-        updateObj[formPrefix + '.' + target.replace('Id', 'Name')] = found ? found.name : '';
-        this.setData(updateObj);
-        this.closeAuditMultiPicker();
-        return;
-      }
-
-      // Multi-select (personHrIds)
       var names = ids.map(function(id) {
         var found = items.find(function(item) { return String(item.id) === String(id); });
         return found ? found.name : '';
@@ -770,7 +748,7 @@ module.exports = Behavior({
 
     onStarterConditionScopeChange(e) {
       var field = e.currentTarget.dataset.field;
-      var scopes = ['all', 'specific', 'own'];
+      var scopes = ['all', 'specific']; // starter has no 'own' — starter IS the submitter
       var idx = parseInt(e.detail.value);
       this.setData({ ['auditStarterConditionForm.' + field]: scopes[idx] || 'all' });
     },

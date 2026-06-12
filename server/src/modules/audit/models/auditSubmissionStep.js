@@ -151,10 +151,16 @@ function matchesAnyCondition(conditions, approver, submitter) {
  * @returns {boolean}
  */
 function matchesIdentityScopeCondition(cond, approver, submitter) {
+  // Helper: check if a value is in a comma-separated list
+  function inCsv(csv, value) {
+    if (!csv || !value) return false;
+    return csv.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(String(value));
+  }
+
   // Department check
   const deptScope = cond.departmentScope || 'all';
   if (deptScope === 'specific') {
-    if (approver.department_id !== (cond.specificDepartmentId || '')) return false;
+    if (!inCsv(cond.specificDepartmentId || '', approver.department_id)) return false;
   } else if (deptScope === 'own') {
     if (!submitter || approver.department_id !== submitter.department_id) return false;
   }
@@ -163,7 +169,7 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
   // Work group check
   const wgScope = cond.workGroupScope || 'all';
   if (wgScope === 'specific') {
-    if (approver.work_group_id !== (cond.specificWorkGroupId || '')) return false;
+    if (!inCsv(cond.specificWorkGroupId || '', approver.work_group_id)) return false;
   } else if (wgScope === 'own') {
     if (!submitter || approver.work_group_id !== submitter.work_group_id) return false;
   }
@@ -172,7 +178,7 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
   // Identity check
   const identScope = cond.identityScope || 'all';
   if (identScope === 'specific') {
-    if (approver.identity_id !== (cond.specificIdentityId || '')) return false;
+    if (!inCsv(cond.specificIdentityId || '', approver.identity_id)) return false;
   } else if (identScope === 'own') {
     if (!submitter || approver.identity_id !== submitter.identity_id) return false;
   }

@@ -1970,34 +1970,34 @@
             <block wx:else>
               <view class="field">
                 <view class="field-label">部门范围</view>
-                <picker range="{{['全部','指定','同部门']}}" data-field="departmentScope" bindchange="onStarterConditionScopeChange">
-                  <view class="picker-value">{{auditStarterConditionForm.departmentScope === 'all' ? '全部' : (auditStarterConditionForm.departmentScope === 'specific' ? '指定' : '同部门')}}</view>
+                <picker range="{{['全部','指定']}}" data-field="departmentScope" bindchange="onStarterConditionScopeChange">
+                  <view class="picker-value">{{auditStarterConditionForm.departmentScope === 'all' ? '全部' : '指定'}}</view>
                 </picker>
               </view>
               <view class="field" wx:if="{{auditStarterConditionForm.departmentScope === 'specific'}}">
-                <view class="field-label">指定部门</view>
+                <view class="field-label">指定部门（可多选）</view>
                 <view class="picker-value" data-target="specificDepartmentId" data-title="选择部门" bindtap="openStarterConditionPicker">{{auditStarterConditionForm.specificDepartmentName || '点击选择部门'}}</view>
                 <text class="link" wx:if="{{auditStarterConditionForm.specificDepartmentId}}" bindtap="onStarterConditionFieldClear" data-field="specificDepartmentId" style="font-size:22rpx;color:#ef4444;">清除</text>
               </view>
               <view class="field">
                 <view class="field-label">职能组范围</view>
-                <picker range="{{['全部','指定','同职能组']}}" data-field="workGroupScope" bindchange="onStarterConditionScopeChange">
-                  <view class="picker-value">{{auditStarterConditionForm.workGroupScope === 'all' ? '全部' : (auditStarterConditionForm.workGroupScope === 'specific' ? '指定' : '同职能组')}}</view>
+                <picker range="{{['全部','指定']}}" data-field="workGroupScope" bindchange="onStarterConditionScopeChange">
+                  <view class="picker-value">{{auditStarterConditionForm.workGroupScope === 'all' ? '全部' : '指定'}}</view>
                 </picker>
               </view>
               <view class="field" wx:if="{{auditStarterConditionForm.workGroupScope === 'specific'}}">
-                <view class="field-label">指定职能组</view>
+                <view class="field-label">指定职能组（可多选）</view>
                 <view class="picker-value" data-target="specificWorkGroupId" data-title="选择职能组" bindtap="openStarterConditionPicker">{{auditStarterConditionForm.specificWorkGroupName || '点击选择职能组'}}</view>
                 <text class="link" wx:if="{{auditStarterConditionForm.specificWorkGroupId}}" bindtap="onStarterConditionFieldClear" data-field="specificWorkGroupId" style="font-size:22rpx;color:#ef4444;">清除</text>
               </view>
               <view class="field">
                 <view class="field-label">身份范围</view>
-                <picker range="{{['全部','指定','同身份']}}" data-field="identityScope" bindchange="onStarterConditionScopeChange">
-                  <view class="picker-value">{{auditStarterConditionForm.identityScope === 'all' ? '全部' : (auditStarterConditionForm.identityScope === 'specific' ? '指定' : '同身份')}}</view>
+                <picker range="{{['全部','指定']}}" data-field="identityScope" bindchange="onStarterConditionScopeChange">
+                  <view class="picker-value">{{auditStarterConditionForm.identityScope === 'all' ? '全部' : '指定'}}</view>
                 </picker>
               </view>
               <view class="field" wx:if="{{auditStarterConditionForm.identityScope === 'specific'}}">
-                <view class="field-label">指定身份</view>
+                <view class="field-label">指定身份（可多选）</view>
                 <view class="picker-value" data-target="specificIdentityId" data-title="选择身份" bindtap="openStarterConditionPicker">{{auditStarterConditionForm.specificIdentityName || '点击选择身份'}}</view>
                 <text class="link" wx:if="{{auditStarterConditionForm.specificIdentityId}}" bindtap="onStarterConditionFieldClear" data-field="specificIdentityId" style="font-size:22rpx;color:#ef4444;">清除</text>
               </view>
