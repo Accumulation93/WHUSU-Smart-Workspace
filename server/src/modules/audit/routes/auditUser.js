@@ -827,18 +827,36 @@ router.post('/resubmitAudit', async (req, res) => {
     if (submission.submitted_by !== hrId) {
       return res.json({ status: 'forbidden', message: '只有提交人可以重提交' });
     }
-    if (submission.status !== 'rejected') {
-      return res.json({ status: 'invalid_state', message: '当前状态不允许重提交' });
+    if (submission.status !== 'rejected' && submission.status !== 'withdrawn' && submission.status !== 'pending') {
+      return res.json({ status: 'invalid_state', message: '当前状态不允许重提交，只有待提交、已驳回或已撤回的审核可以重提交' });
     }
+
+    const isWithdrawn = submission.status === 'withdrawn';
+    const isPending = submission.status === 'pending';
 
     await conn.beginTransaction();
 
     const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
-    const resubmitMode = submission.resubmit_mode;
-    const rejectStepIndex = submission.previous_reject_step_index || 1;
+
+    if (isPending) {
+      // Pending: steps already exist but status wasn't updated to in_progress
+      // Simply activate the submission — no new steps needed
+      await submissionModel.update(submissionId, {
+        status: 'in_progress',
+        currentStepIndex: 1
+      });
+      await conn.commit();
+      return res.json({
+        status: 'success',
+        message: '审核已提交，审批流程已启动'
+      });
+    }
+
+    const resubmitMode = isWithdrawn ? 'fresh' : submission.resubmit_mode;
+    const rejectStepIndex = isWithdrawn ? 1 : (submission.previous_reject_step_index || 1);
     const newRound = (allSteps[0] ? allSteps[0].round : 1) + 1;
 
-    if (resubmitMode === 'from_rejector') {
+    if (!isWithdrawn && resubmitMode === 'from_rejector') {
       // Create new round only for steps from reject step onwards
       const rejectStep = allSteps.find((s) => s.sort_order === rejectStepIndex && s.round === newRound - 1);
       if (rejectStep) {
@@ -885,9 +903,11 @@ router.post('/resubmitAudit', async (req, res) => {
     await conn.commit();
     res.json({
       status: 'success',
-      message: resubmitMode === 'from_rejector'
-        ? '已重提交，直接流转至驳回审批人'
-        : '已重提交，将从头开始审批流程'
+      message: isWithdrawn
+        ? '已重新提交，将从头开始审批流程'
+        : (resubmitMode === 'from_rejector'
+          ? '已重提交，直接流转至驳回审批人'
+          : '已重提交，将从头开始审批流程')
     });
   } catch (e) {
     await conn.rollback();
@@ -914,6 +934,15 @@ router.post('/withdrawSubmission', async (req, res) => {
     }
     if (submission.status === 'approved') {
       return res.json({ status: 'invalid_state', message: '已完成的审核不能撤回' });
+    }
+    if (submission.status === 'withdrawn') {
+      return res.json({ status: 'invalid_state', message: '该审核已经撤回' });
+    }
+    if (submission.status === 'draft') {
+      return res.json({ status: 'invalid_state', message: '草稿状态的审核不能撤回，请先提交' });
+    }
+    if (submission.status === 'pending') {
+      return res.json({ status: 'invalid_state', message: '待提交的审核不能撤回，审核尚未进入审批流程' });
     }
 
     await submissionModel.update(submissionId, { status: 'withdrawn' });

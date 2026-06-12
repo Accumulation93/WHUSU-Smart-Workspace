@@ -9,32 +9,33 @@
     <view class="card" wx:if="{{creating}}">
       <view class="section-title">{{editingSignature ? '编辑签名' : '新建签名'}}</view>
       <signature-pad initialImage="{{editingSignature.imageData || ''}}" bindconfirm="onSignatureDrawConfirm" />
-      <view class="button-row"><button class="secondary-btn" bindtap="cancelCreate">取消</button></view>
+      <view class="audit-btn-bar"><button class="secondary-btn" bindtap="cancelCreate">取消</button></view>
     </view>
 
     <view class="card" wx:if="{{!creating}}">
-      <view class="button-row">
+      <view class="audit-btn-bar">
         <button class="primary-btn" bindtap="startCreate">新建签名</button>
       </view>
     </view>
 
-    <view class="list-card">
-      <view class="list-title">签名模板</view>
+    <view class="card">
+      <view class="section-title">签名模板</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>
-        <view class="list-item" wx:for="{{signatures}}" wx:key="id">
-          <view class="list-main">
-            <view class="list-name">{{item.name}} <text wx:if="{{item.isDefault}}" style="color:#2563eb;font-size:22rpx;">(默认)</text></view>
-            <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" style="width:260rpx;border-radius:8rpx;margin-top:6rpx;background:#fff;border:1rpx solid #e2e8f0;" />
-          </view>
-          <view class="list-actions">
-            <text class="link" data-id="{{item.id}}" bindtap="editSignature">编辑</text>
-            <text class="link" wx:if="{{!item.isDefault}}" data-id="{{item.id}}" bindtap="setDefault">设默认</text>
-            <text class="link danger-link" data-id="{{item.id}}" bindtap="deleteSignature">删除</text>
+        <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
+          <view class="list-name">{{item.name}} <text wx:if="{{item.isDefault}}" class="audit-chip audit-chip-approved" style="margin-left:8rpx;">默认</text></view>
+          <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-sig-preview" />
+          <view class="inline-actions list-actions-below">
+            <text class="audit-link-btn" data-id="{{item.id}}" bindtap="editSignature">编辑</text>
+            <text class="audit-link-btn" wx:if="{{!item.isDefault}}" data-id="{{item.id}}" bindtap="setDefault">设默认</text>
+            <text class="audit-link-btn audit-link-danger" data-id="{{item.id}}" bindtap="deleteSignature">删除</text>
           </view>
         </view>
-        <view class="empty-inline" wx:if="{{!signatures.length}}">暂无签名模板，请新建。</view>
+        <view class="audit-empty-state" wx:if="{{!signatures.length}}">
+          <view class="audit-empty-icon">✍️</view>
+          <view class="audit-empty-text">暂无签名模板，请新建</view>
+        </view>
         </block>
       </scroll-view>
     </view>

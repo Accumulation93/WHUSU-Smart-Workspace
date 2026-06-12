@@ -6,23 +6,26 @@
   </view>
 
   <view class="section">
-    <view class="list-card">
-      <view class="list-title">待审批列表</view>
+    <view class="card">
+      <view class="section-title">待审批列表</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>
-        <view class="list-item" wx:for="{{pending}}" wx:key="id" data-submission-id="{{item.submissionId}}" bindtap="viewDetail">
-          <view class="list-main">
-            <view class="list-name">{{item.title || item.submissionNumber}}</view>
-            <view class="chip-row">
-              <view class="status-chip blue-chip">待我处理</view>
-              <text class="list-desc">第{{item.sortOrder}}步 · {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}} · 第{{item.round}}轮</text>
+        <view class="pending-item" wx:for="{{pending}}" wx:key="id" data-submission-id="{{item.submissionId}}" bindtap="viewDetail">
+          <view class="pending-item-main">
+            <view class="pending-item-name">{{item.title || item.submissionNumber}}</view>
+            <view class="pending-item-meta">
+              <view class="audit-chip audit-chip-progress">待我处理</view>
+              <view class="pending-item-step">第{{item.sortOrder}}步 · {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}} · 第{{item.round}}轮</view>
             </view>
-            <view class="list-desc">提交人：{{item.submitterName}} · {{item.submissionNumber}}</view>
+            <view class="pending-item-info">提交人：{{item.submitterName}} · {{item.submissionNumber}}</view>
           </view>
-          <view class="list-arrow">›</view>
+          <view class="pending-list-arrow">›</view>
         </view>
-        <view class="empty-inline" wx:if="{{!pending.length}}">暂无待审批的审核申请。</view>
+        <view class="audit-empty-state" wx:if="{{!pending.length}}">
+          <view class="audit-empty-icon">✅</view>
+          <view class="audit-empty-text">暂无待审批的审核申请</view>
+        </view>
         </block>
       </scroll-view>
     </view>

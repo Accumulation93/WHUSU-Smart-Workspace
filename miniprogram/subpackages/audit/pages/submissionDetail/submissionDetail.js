@@ -9,6 +9,8 @@ Page({
     files: [],
     signatures: [],
     loading: false,
+    flowProgressPercent: 0,
+    flowProgressText: '未开始',
 
     // Create mode
     createMode: 'template', // 'template' or 'ad_hoc'
@@ -616,11 +618,23 @@ Page({
         data: { submissionId: this.data.submissionId }
       });
       if (res.status === 'success') {
+        const steps = res.steps || [];
+        // Compute flow progress
+        const doneCount = steps.filter(s => s.status === 'approved').length;
+        const totalSteps = steps.length || 1;
+        const flowProgressPercent = Math.round((doneCount / totalSteps) * 100);
+        const currentIndex = steps.findIndex(s => s.status === 'pending');
+        const flowProgressText = currentIndex >= 0
+          ? `第${currentIndex + 1}/${totalSteps}步待处理`
+          : (doneCount === totalSteps ? '全部完成' : `${doneCount}/${totalSteps}已完成`);
+
         this.setData({
           submission: res.submission,
-          steps: res.steps || [],
+          steps: steps,
           files: res.files || [],
-          signatures: res.signatures || []
+          signatures: res.signatures || [],
+          flowProgressPercent: flowProgressPercent,
+          flowProgressText: flowProgressText
         });
       } else {
         showShortToast(res.message || '加载失败');

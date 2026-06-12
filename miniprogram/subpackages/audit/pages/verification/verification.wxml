@@ -33,23 +33,26 @@
       <view class="field" wx:if="{{verifyMode === 'file'}}">
         <view class="field-label">选择文件</view>
         <view class="picker-value" bindtap="chooseVerifyFile">{{fileName || '点击选择要验签的文件'}}</view>
-        <view class="list-desc" wx:if="{{fileSize > 0}}" style="font-size:22rpx;color:#6b7280;">{{fileName}} · {{fileSize}} 字节</view>
+        <view class="list-desc" wx:if="{{fileSize > 0}}" style="font-size:22rpx;color:#64748b;margin-top:6rpx;">{{fileName}} · {{fileSize}} 字节</view>
       </view>
 
-      <view class="button-row">
+      <view class="audit-btn-bar">
         <button class="primary-btn" loading="{{loading}}" bindtap="verify">验证签名链</button>
       </view>
     </view>
 
     <view class="card" wx:if="{{result}}">
       <view class="section-title">验证结果</view>
-      <view class="info-grid">
-        <view class="info-block info-block-full">
-          <view class="info-label">总体结果</view>
-          <view class="info-value" style="color:{{result.valid ? '#059669' : '#ef4444'}}; font-size:32rpx;">
-            {{result.valid ? '✓ 验证通过' : '✗ 验证失败'}}
-          </view>
+
+      <!-- Overall result -->
+      <view class="audit-verify-result" style="margin-bottom:20rpx;">
+        <view class="audit-verify-icon">{{result.valid ? '✅' : '❌'}}</view>
+        <view class="audit-verify-text {{result.valid ? 'audit-verify-valid' : 'audit-verify-invalid'}}">
+          {{result.valid ? '验证通过' : '验证失败'}}
         </view>
+      </view>
+
+      <view class="info-grid">
         <view class="info-block">
           <view class="info-label">签名总数</view>
           <view class="info-value">{{result.totalSignatures}}</view>
@@ -58,35 +61,39 @@
           <view class="info-label">提交编号</view>
           <view class="info-value">{{result.submissionNumber}}</view>
         </view>
-        <view class="info-block" wx:if="{{result.verifyByFileHash}}">
+        <view class="info-block info-block-full" wx:if="{{result.verifyByFileHash}}">
           <view class="info-label">验证文件哈希</view>
           <view class="info-value" style="font-size:20rpx;word-break:break-all;">{{result.verifyByFileHash}}</view>
         </view>
       </view>
 
       <!-- Rounds -->
-      <view class="list-title" style="margin-top:16rpx;" wx:if="{{result.totalSignatures > 0}}">各轮详情</view>
+      <view class="section-title" style="margin-top:20rpx;" wx:if="{{result.totalSignatures > 0}}">各轮详情</view>
       <view wx:for="{{result.rounds}}" wx:key="*this" wx:for-index="round" wx:for-item="roundData">
-        <view class="list-item">
-          <view class="list-main">
-            <view class="list-name" style="color:{{roundData.valid ? '#059669' : '#ef4444'}};">
+        <view class="audit-step-card">
+          <view class="audit-step-indicator {{roundData.valid ? 'audit-step-dot-done' : 'audit-step-dot-rejected'}}">
+            {{roundData.valid ? '✓' : '✗'}}
+          </view>
+          <view class="audit-step-body">
+            <view class="audit-step-title" style="color:{{roundData.valid ? '#059669' : '#ef4444'}};">
               第{{round}}轮：{{roundData.valid ? '完整' : '异常'}} ({{roundData.signatures}}个签名)
             </view>
-            <view class="list-desc danger-text" wx:if="{{roundData.brokenAt}}">断裂点：{{roundData.brokenAt}}</view>
+            <view class="audit-step-reject-reason" wx:if="{{roundData.brokenAt}}">断裂点：{{roundData.brokenAt}}</view>
           </view>
         </view>
       </view>
 
       <!-- File hash check -->
-      <view class="list-title" style="margin-top:16rpx;" wx:if="{{result.files.length}}">文件哈希对比</view>
+      <view class="section-title" style="margin-top:20rpx;" wx:if="{{result.files.length}}">文件哈希对比</view>
       <view wx:for="{{result.files}}" wx:key="fileId">
-        <view class="list-item">
-          <view class="list-main">
-            <view class="list-name" style="color:{{item.hashVerified === true ? '#059669' : (item.hashVerified === false ? '#ef4444' : '#64748b')}};">
-              {{item.hashVerified === true ? '✓ 一致' : (item.hashVerified === false ? '✗ 不匹配' : '? 无法对比')}}
+        <view class="file-attach-item">
+          <view class="file-attach-icon">{{item.hashVerified === true ? '✓' : (item.hashVerified === false ? '✗' : '?')}}</view>
+          <view style="flex:1;min-width:0;">
+            <view class="file-attach-name" style="color:{{item.hashVerified === true ? '#059669' : (item.hashVerified === false ? '#ef4444' : '#64748b')}};">
+              {{item.hashVerified === true ? '哈希一致' : (item.hashVerified === false ? '哈希不匹配' : '无法对比')}}
             </view>
-            <view class="list-desc" wx:if="{{item.currentHash}}">当前哈希：{{item.currentHash}}</view>
-            <view class="list-desc" wx:if="{{item.documentHashAtLastSigning}}">签名时哈希：{{item.documentHashAtLastSigning}}</view>
+            <view class="list-desc" wx:if="{{item.currentHash}}" style="word-break:break-all;">当前：{{item.currentHash}}</view>
+            <view class="list-desc" wx:if="{{item.documentHashAtLastSigning}}" style="word-break:break-all;">签名时：{{item.documentHashAtLastSigning}}</view>
           </view>
         </view>
       </view>

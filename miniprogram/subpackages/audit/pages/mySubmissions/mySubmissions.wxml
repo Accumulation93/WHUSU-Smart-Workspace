@@ -6,37 +6,40 @@
   </view>
 
   <view class="section">
-    <view class="edit-box">
+    <view class="my-filter-box">
       <view class="field">
         <view class="field-label">状态筛选</view>
         <picker range="{{statusOptions}}" bindchange="onStatusFilterChange">
           <view class="picker-value">{{statusOptions[0]}}</view>
         </picker>
       </view>
-      <view class="button-row">
+      <view class="audit-btn-bar">
         <button class="primary-btn" bindtap="goCreate">发起新审核</button>
       </view>
     </view>
 
-    <view class="list-card">
-      <view class="list-title">审核列表</view>
+    <view class="card">
+      <view class="section-title">审核列表</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>
-        <view class="list-item" wx:for="{{submissions}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail">
-          <view class="list-main">
-            <view class="list-name">{{item.title || item.submissionNumber}}</view>
-            <view class="chip-row">
-              <view class="status-chip {{item.status === 'approved' ? 'green-chip' : (item.status === 'rejected' ? 'red-chip' : (item.status === 'in_progress' ? 'blue-chip' : ''))}}">
+        <view class="audit-submission-item" wx:for="{{submissions}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail">
+          <view class="audit-submission-main">
+            <view class="audit-submission-name">{{item.title || item.submissionNumber}}</view>
+            <view class="audit-submission-meta">
+              <view class="audit-chip {{item.status === 'approved' ? 'audit-chip-approved' : (item.status === 'rejected' ? 'audit-chip-rejected' : (item.status === 'in_progress' ? 'audit-chip-progress' : (item.status === 'draft' ? 'audit-chip-draft' : (item.status === 'withdrawn' ? 'audit-chip-withdrawn' : 'audit-chip-pending'))))}}">
                 {{item.status === 'draft' ? '草稿' : (item.status === 'pending' ? '待提交' : (item.status === 'in_progress' ? '审核中' : (item.status === 'rejected' ? '已驳回' : (item.status === 'approved' ? '已完成' : '已撤回'))))}}
               </view>
-              <text class="list-desc">{{item.submissionNumber}}</text>
+              <text class="audit-submission-id">{{item.submissionNumber}}</text>
             </view>
-            <view class="list-desc">{{item.createdAt}}</view>
+            <view class="audit-submission-date">{{item.createdAt}}</view>
           </view>
-          <view class="list-arrow">›</view>
+          <view class="audit-list-arrow">›</view>
         </view>
-        <view class="empty-inline" wx:if="{{!submissions.length}}">暂无审核申请。</view>
+        <view class="audit-empty-state" wx:if="{{!submissions.length}}">
+          <view class="audit-empty-icon">📋</view>
+          <view class="audit-empty-text">暂无审核申请，点击上方按钮发起</view>
+        </view>
         </block>
       </scroll-view>
     </view>

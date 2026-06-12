@@ -1,6 +1,31 @@
 @import '../../../../pages/home/home.wxss';
 
-.status-chip { display:inline-block; padding:2rpx 12rpx; border-radius:16rpx; font-size:20rpx; background:#f1f5f9; color:#64748b; margin-right:8rpx; }
-.blue-chip { background:#dbeafe; color:#1e40af; }
+/* ── Pending approval list items ── */
+.pending-item {
+  display: flex; align-items: center; gap: 18rpx;
+  padding: 24rpx 22rpx; margin-bottom: 12rpx; border-radius: 22rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(248,251,255,0.80) 100%);
+  border: 1rpx solid rgba(226,237,247,0.94);
+  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.035), inset 0 1rpx 0 rgba(255,255,255,0.78);
+  box-sizing: border-box; transition: transform 0.18s ease, box-shadow 0.22s ease;
+  animation: glassFadeUp 0.36s ease both;
+}
+.pending-item:last-child { margin-bottom: 4rpx; }
+.pending-item:active { transform: translateY(1rpx) scale(0.992); }
 
-.list-arrow { font-size:36rpx; color:#94a3b8; line-height:1; }
+.pending-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
+.pending-item-name { color: #0f172a; font-size: 28rpx; font-weight: 700; line-height: 1.4; }
+
+.pending-item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10rpx; }
+.pending-item-step {
+  font-size: 21rpx; font-weight: 600; color: #475569;
+  padding: 4rpx 12rpx; border-radius: 999rpx;
+  background: rgba(241,245,249,0.7); border: 1rpx solid rgba(148,163,184,0.2);
+}
+.pending-item-info { color: #94a3b8; font-size: 22rpx; }
+
+.pending-list-arrow {
+  flex-shrink: 0; width: 48rpx; height: 48rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(241,245,249,0.7); color: #94a3b8; font-size: 32rpx; font-weight: 600;
+}

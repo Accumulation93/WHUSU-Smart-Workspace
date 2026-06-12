@@ -1806,7 +1806,7 @@
                 </block>
                 <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
               </block>
-              <text wx:if="{{ci < item.conditions.length - 1}}" style="color:#ef4444;font-size:22rpx;font-weight:bold;margin:2rpx 8rpx;">或</text>
+              <text wx:if="{{ci < item.conditions.length - 1}}" class="audit-or-sep">或</text>
             </view>
           </view>
           <view class="list-actions">
@@ -1828,14 +1828,14 @@
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.auditTemplates}}"><view class="card-loading-spinner"></view></view>
           <block wx:else>
-          <view class="list-item" wx:for="{{auditFlowTemplates}}" wx:key="id" style="flex-direction:column;">
-            <view style="display:flex;justify-content:space-between;width:100%;" data-id="{{item.id}}" bindtap="toggleAuditTemplateExpand">
+          <view class="list-item audit-template-list-item" wx:for="{{auditFlowTemplates}}" wx:key="id">
+            <view data-id="{{item.id}}" bindtap="toggleAuditTemplateExpand" style="display:flex;justify-content:space-between;width:100%;">
               <view class="list-main">
                 <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}步 · {{item.resubmitMode === 'fresh' ? '重新逐层' : '回到驳回人'}})</text></view>
                 <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
               </view>
-              <view style="display:flex;align-items:center;gap:8rpx;">
-                <text style="font-size:28rpx;color:#9ca3af;">{{auditExpandedTemplateId === item.id ? '收起 ▲' : '展开 ▼'}}</text>
+              <view class="audit-expand-toggle">
+                <text>{{auditExpandedTemplateId === item.id ? '收起 ▲' : '展开 ▼'}}</text>
               </view>
             </view>
             <view class="list-actions" style="position:absolute;right:80rpx;top:16rpx;">
@@ -1843,33 +1843,33 @@
               <text class="link danger-link" data-id="{{item.id}}" catchtap="deleteAuditFlowTemplate">删除</text>
             </view>
             <!-- Expanded steps preview with bubble chips -->
-            <view wx:if="{{auditExpandedTemplateId === item.id}}" style="width:100%;margin-top:12rpx;padding-top:12rpx;border-top:1rpx solid #e5e7eb;">
-              <view wx:for="{{item.steps}}" wx:for-item="step" wx:for-index="si" wx:key="si" style="margin-bottom:12rpx;">
-                <view style="display:flex;align-items:center;margin-bottom:4rpx;">
-                  <text style="font-weight:600;font-size:26rpx;color:#1f2937;">第{{si + 1}}步：</text>
-                  <text style="font-size:22rpx;color:#6b7280;margin-left:8rpx;">{{step.actionType === 'pass' ? '仅通过' : (step.actionType === 'sign' ? '签字' : (step.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</text>
+            <view wx:if="{{auditExpandedTemplateId === item.id}}" class="audit-template-expanded">
+              <view wx:for="{{item.steps}}" wx:for-item="step" wx:for-index="si" wx:key="si" class="audit-template-step-preview">
+                <view class="audit-template-step-head">
+                  <text style="font-weight:700;font-size:25rpx;color:#0f172a;">第{{si + 1}}步：</text>
+                  <text style="font-size:21rpx;color:#64748b;margin-left:8rpx;">{{step.actionType === 'pass' ? '仅通过' : (step.actionType === 'sign' ? '签字' : (step.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</text>
                 </view>
                 <!-- Each condition as bubble chips -->
-                <view wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="display:flex;flex-wrap:wrap;align-items:center;margin-left:16rpx;margin-bottom:2rpx;">
+                <view wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="display:flex;flex-wrap:wrap;align-items:center;margin-left:12rpx;">
                   <block wx:if="{{cond.conditionType === 'person'}}">
                     <block wx:if="{{cond._personNames && cond._personNames.length}}">
-                      <view wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{pname}}</view>
+                      <view wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" class="audit-cond-chip audit-cond-person">{{pname}}</view>
                     </block>
-                    <view wx:else style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">人员未选择</view>
+                    <view wx:else class="audit-cond-chip audit-cond-none">人员未选择</view>
                   </block>
                   <block wx:else>
-                    <view wx:if="{{cond.departmentScope === 'own'}}" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">同部门</view>
-                    <view wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" wx:if="{{cond.departmentScope === 'specific'}}" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{dname}}</view>
-                    <view wx:if="{{cond.departmentScope === 'specific' && (!cond._deptNames || !cond._deptNames.length)}}" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">指定部门</view>
-                    <view wx:if="{{cond.workGroupScope === 'own'}}" style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">同职能组</view>
-                    <view wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" wx:if="{{cond.workGroupScope === 'specific'}}" style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{wname}}</view>
-                    <view wx:if="{{cond.workGroupScope === 'specific' && (!cond._wgNames || !cond._wgNames.length)}}" style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">指定职能组</view>
-                    <view wx:if="{{cond.identityScope === 'own'}}" style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">同身份</view>
-                    <view wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" wx:if="{{cond.identityScope === 'specific'}}" style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{iname}}</view>
-                    <view wx:if="{{cond.identityScope === 'specific' && (!cond._identNames || !cond._identNames.length)}}" style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">指定身份</view>
-                    <view wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">不限</view>
+                    <view wx:if="{{cond.departmentScope === 'own'}}" class="audit-cond-chip audit-cond-dept">同部门</view>
+                    <view wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" wx:if="{{cond.departmentScope === 'specific'}}" class="audit-cond-chip audit-cond-dept">{{dname}}</view>
+                    <view wx:if="{{cond.departmentScope === 'specific' && (!cond._deptNames || !cond._deptNames.length)}}" class="audit-cond-chip audit-cond-dept">指定部门</view>
+                    <view wx:if="{{cond.workGroupScope === 'own'}}" class="audit-cond-chip audit-cond-wg">同职能组</view>
+                    <view wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" wx:if="{{cond.workGroupScope === 'specific'}}" class="audit-cond-chip audit-cond-wg">{{wname}}</view>
+                    <view wx:if="{{cond.workGroupScope === 'specific' && (!cond._wgNames || !cond._wgNames.length)}}" class="audit-cond-chip audit-cond-wg">指定职能组</view>
+                    <view wx:if="{{cond.identityScope === 'own'}}" class="audit-cond-chip audit-cond-ident">同身份</view>
+                    <view wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" wx:if="{{cond.identityScope === 'specific'}}" class="audit-cond-chip audit-cond-ident">{{iname}}</view>
+                    <view wx:if="{{cond.identityScope === 'specific' && (!cond._identNames || !cond._identNames.length)}}" class="audit-cond-chip audit-cond-ident">指定身份</view>
+                    <view wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" class="audit-cond-chip audit-cond-none">不限</view>
                   </block>
-                  <text wx:if="{{ci < step._resolvedConditions.length - 1}}" style="color:#ef4444;font-size:20rpx;font-weight:bold;margin:2rpx 6rpx;">或</text>
+                  <text wx:if="{{ci < step._resolvedConditions.length - 1}}" class="audit-or-sep">或</text>
                 </view>
               </view>
               <view wx:if="{{!item.steps || !item.steps.length}}" style="color:#9ca3af;font-size:22rpx;">暂无步骤</view>
@@ -2086,7 +2086,7 @@
         </view>
         <view class="field">
           <view class="field-label">印章图片</view>
-          <image wx:if="{{stampForm.imageData}}" src="{{stampForm.imageData}}" mode="widthFix" style="width:200rpx; border-radius:12rpx; margin-bottom:12rpx;" />
+          <image wx:if="{{stampForm.imageData}}" src="{{stampForm.imageData}}" mode="widthFix" class="audit-stamp-preview" style="width:200rpx;" />
           <button class="secondary-btn" bindtap="chooseStampImage">{{stampForm.imageData ? '更换图片' : '选择图片'}}</button>
         </view>
         <view class="button-row">
@@ -2103,7 +2103,7 @@
           <view class="list-item" wx:for="{{stamps}}" wx:key="id">
             <view class="list-main">
               <view class="list-name">{{item.name}}</view>
-              <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" style="width:160rpx; border-radius:8rpx; margin-top:6rpx;" />
+              <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-stamp-preview" style="width:160rpx;" />
             </view>
             <view class="list-actions">
               <text class="link" data-id="{{item.id}}" bindtap="editStamp">编辑</text>
@@ -2132,11 +2132,11 @@
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.auditSubmissions}}"><view class="card-loading-spinner"></view></view>
           <block wx:else>
-          <view class="list-item" wx:for="{{auditSubmissions}}" wx:key="id">
+          <view class="list-item audit-submission-admin-item" wx:for="{{auditSubmissions}}" wx:key="id">
             <view class="list-main">
               <view class="list-name">{{item.title || item.submissionNumber}}</view>
-              <view class="chip-row">
-                <view class="status-chip {{item.status === 'approved' ? 'green-chip' : (item.status === 'rejected' ? 'red-chip' : (item.status === 'in_progress' ? 'blue-chip' : ''))}}">{{item.status === 'draft' ? '草稿' : (item.status === 'pending' ? '待提交' : (item.status === 'in_progress' ? '审核中' : (item.status === 'rejected' ? '已驳回' : (item.status === 'approved' ? '已完成' : '已撤回'))))}}</view>
+              <view class="chip-row" style="margin-top:6rpx;">
+                <view class="status-chip {{item.status === 'approved' ? 'green-chip' : (item.status === 'rejected' ? 'red-chip' : (item.status === 'in_progress' ? 'blue-chip' : (item.status === 'draft' ? 'gray-chip' : (item.status === 'pending' ? 'orange-chip' : (item.status === 'withdrawn' ? 'red-chip' : '')))))}}">{{item.status === 'draft' ? '草稿' : (item.status === 'pending' ? '待提交' : (item.status === 'in_progress' ? '审核中' : (item.status === 'rejected' ? '已驳回' : (item.status === 'approved' ? '已完成' : '已撤回'))))}}</view>
                 <text class="list-desc">{{item.submissionNumber}} · {{item.submitterName}} · {{item.createdAt}}</text>
               </view>
             </view>
@@ -2152,31 +2152,45 @@
       <!-- Progress detail popup -->
       <view class="popup-mask" wx:if="{{auditSubmissionDetailVisible}}" bindtap="closeAuditSubmissionDetail">
         <view class="popup-card" catchtap="noop" style="max-height: 85vh;">
-          <view class="popup-header"><view class="popup-title">审核进度</view><text class="popup-close" bindtap="closeAuditSubmissionDetail">关闭</text></view>
+          <view class="popup-header"><view class="popup-title">审核流程</view><text class="popup-close" bindtap="closeAuditSubmissionDetail">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y wx:if="{{auditSubmissionDetail}}">
             <view class="card-loading-overlay" wx:if="{{loadingMap.auditProgress}}"><view class="card-loading-spinner"></view></view>
             <block wx:else>
-            <view class="list-item">
-              <view class="list-main">
-                <view class="list-name">{{auditSubmissionDetail.submission.title}}</view>
-                <view class="list-desc">{{auditSubmissionDetail.submission.submissionNumber}} · {{auditSubmissionDetail.submission.submitterName}}</view>
-              </view>
+            <!-- Header -->
+            <view class="audit-progress-header">
+              <view class="list-name">{{auditSubmissionDetail.submission.title || auditSubmissionDetail.submission.submissionNumber}}</view>
+              <view class="list-desc">{{auditSubmissionDetail.submission.submissionNumber}} · {{auditSubmissionDetail.submission.submitterName}} · {{auditSubmissionDetail.submission.status === 'draft' ? '草稿' : (auditSubmissionDetail.submission.status === 'pending' ? '待提交' : (auditSubmissionDetail.submission.status === 'in_progress' ? '审核中' : (auditSubmissionDetail.submission.status === 'rejected' ? '已驳回' : (auditSubmissionDetail.submission.status === 'approved' ? '已完成' : '已撤回'))))}}</view>
             </view>
-            <view class="list-title">审批步骤</view>
-            <view class="list-item" wx:for="{{auditSubmissionDetail.steps}}" wx:key="id">
-              <view class="list-main">
-                <view class="list-name">第{{item.sortOrder}}步 {{item.approverName}} ({{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}})</view>
-                <view class="chip-row">
-                  <view class="status-chip {{item.status === 'approved' ? 'green-chip' : (item.status === 'rejected' ? 'red-chip' : '')}}">{{item.status === 'pending' ? '待处理' : (item.status === 'approved' ? '已通过' : '已驳回')}}</view>
-                  <text class="list-desc" wx:if="{{item.processedAt}}">{{item.processedAt}}</text>
+
+            <!-- Flow visualization -->
+            <view class="audit-flow">
+              <view class="audit-flow-node {{item.status === 'approved' ? 'flow-node-done' : (item.status === 'rejected' ? 'flow-node-rejected' : (item.status === 'pending' ? 'flow-node-active' : ''))}}" wx:for="{{auditSubmissionDetail.steps}}" wx:key="id">
+                <view class="flow-dot {{item.status === 'approved' ? 'flow-dot-done' : (item.status === 'rejected' ? 'flow-dot-rejected' : (item.status === 'pending' ? 'flow-dot-active' : 'flow-dot-pending'))}}">
+                  <block wx:if="{{item.status === 'approved'}}">✓</block>
+                  <block wx:elif="{{item.status === 'rejected'}}">✗</block>
+                  <block wx:else>{{item.sortOrder}}</block>
                 </view>
-                <view class="list-desc" wx:if="{{item.comment}}">{{item.comment}}</view>
-                <view class="list-desc danger-text" wx:if="{{item.rejectionReason}}">驳回理由：{{item.rejectionReason}}</view>
+                <view class="flow-info">
+                  <view class="flow-step-label">第{{item.sortOrder}}步<text class="flow-round-badge" wx:if="{{item.round > 1}}">第{{item.round}}轮</text></view>
+                  <view class="flow-step-title">
+                    {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}
+                    <text style="font-size:21rpx;color:#64748b;font-weight:500;"> — {{item.approverName || '待审批人'}}</text>
+                  </view>
+                  <view class="flow-step-status-tag {{item.status === 'approved' ? 'flow-tag-done' : (item.status === 'rejected' ? 'flow-tag-rejected' : (item.status === 'pending' ? 'flow-tag-active' : 'flow-tag-pending'))}}">
+                    {{item.status === 'approved' ? '✓ 已通过' : (item.status === 'rejected' ? '✗ 已驳回' : (item.status === 'pending' ? '● 待处理' : '○ 未到达'))}}
+                  </view>
+                  <view class="flow-step-meta" wx:if="{{item.processedAt}}">{{item.processedAt}}</view>
+                  <view class="flow-step-comment" wx:if="{{item.comment}}">{{item.comment}}</view>
+                  <view class="flow-step-rejection" wx:if="{{item.rejectionReason}}">驳回：{{item.rejectionReason}}</view>
+                </view>
               </view>
             </view>
-            <view class="list-title" wx:if="{{auditSubmissionDetail.files.length}}">附件 ({{auditSubmissionDetail.files.length}}份)</view>
-            <view class="list-item" wx:for="{{auditSubmissionDetail.files}}" wx:key="id">
-              <view class="list-main"><view class="list-name">{{item.fileName}}</view></view>
+
+            <!-- Files -->
+            <view class="list-title" wx:if="{{auditSubmissionDetail.files.length}}" style="margin-top:8rpx;">附件 ({{auditSubmissionDetail.files.length}}份)</view>
+            <view class="file-attach-item" wx:for="{{auditSubmissionDetail.files}}" wx:key="id" style="margin-bottom:6rpx;">
+              <view class="file-attach-icon">📎</view>
+              <view class="file-attach-name">{{item.fileName}}</view>
             </view>
             </block>
           </scroll-view>
@@ -2238,8 +2252,8 @@
         <view class="button-row">
           <button class="primary-btn" loading="{{loadingMap.verifyChain}}" bindtap="verifySubmissionChain">验证哈希链</button>
         </view>
-        <view wx:if="{{verificationResult}}" class="list-card" style="margin-top: 16rpx;">
-          <view class="list-name" style="color: {{verificationResult.valid ? '#059669' : '#ef4444'}};">
+        <view wx:if="{{verificationResult}}" class="audit-verify-result-card">
+          <view class="audit-verify-result-badge {{verificationResult.valid ? 'audit-verify-valid' : 'audit-verify-invalid'}}">
             {{verificationResult.valid ? '✓ 验证通过 — 所有签名链完整' : '✗ 验证失败 — 签名链存在问题'}}
           </view>
           <view class="list-desc" wx:if="{{verificationResult.totalSignatures > 0}}">共 {{verificationResult.totalSignatures}} 个签名</view>
