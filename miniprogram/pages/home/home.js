@@ -375,6 +375,7 @@ Page({
             heroSubtitle: '欢迎使用REDSU智慧工作台系统' + (this._subAppLabel ? (' · ' + this._subAppLabel) : '')
           });
 
+          this.rebuildUserTabs();
           this.fetchRateTargets('user');
           this.loadUserHrProfile();
         }
@@ -423,6 +424,11 @@ Page({
     if (currentUser && activeRole === 'user') {
       // 用户信息现在以 checkLogin 云端合并结果为准，
       // 不再用本地缓存直接加载被评分人，避免旧缓存缺字段导致误报。
+    }
+
+    // Ensure audit tab is added immediately — don't wait for checkPublication
+    if (currentUser && !isAdminRole) {
+      this.rebuildUserTabs();
     }
   },
 
