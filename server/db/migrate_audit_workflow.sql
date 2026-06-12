@@ -206,7 +206,34 @@ CREATE TABLE IF NOT EXISTS audit_submission_signatures (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 10. Audit Verification Permissions (验签权限)
+-- 10. Audit Flow Template Step Conditions (步骤审批条件 — multi-condition OR-ed)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS audit_flow_template_step_conditions (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  template_step_id VARCHAR(64) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  condition_type VARCHAR(20) NOT NULL DEFAULT 'identity_scope' COMMENT 'identity_scope | person',
+  -- person type fields
+  person_hr_ids TEXT DEFAULT NULL COMMENT 'Comma-separated HR IDs for person-type conditions',
+  -- identity_scope type fields
+  department_scope VARCHAR(16) DEFAULT 'all' COMMENT 'all | specific | own',
+  specific_department_id VARCHAR(64) DEFAULT NULL,
+  work_group_scope VARCHAR(16) DEFAULT 'all' COMMENT 'all | specific | own',
+  specific_work_group_id VARCHAR(64) DEFAULT NULL,
+  identity_scope VARCHAR(16) DEFAULT 'all' COMMENT 'all | specific | own',
+  specific_identity_id VARCHAR(64) DEFAULT NULL,
+  -- common
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_aftsc_step (template_step_id),
+  INDEX idx_aftsc_org (org_id),
+  CONSTRAINT fk_aftsc_step FOREIGN KEY (template_step_id)
+    REFERENCES audit_flow_template_steps(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 11. Audit Verification Permissions (验签权限)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS audit_verification_permissions (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
@@ -218,3 +245,10 @@ CREATE TABLE IF NOT EXISTS audit_verification_permissions (
   INDEX idx_avp_org (org_id),
   UNIQUE INDEX idx_avp_unique (grantee_hr_id, org_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Bonus: Add step_conditions_json column for runtime matching
+-- ============================================================
+ALTER TABLE audit_submission_steps
+  ADD COLUMN IF NOT EXISTS step_conditions_json TEXT DEFAULT NULL
+  COMMENT 'JSON array of approver conditions for runtime resolution';

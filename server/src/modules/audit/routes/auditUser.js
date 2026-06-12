@@ -9,11 +9,14 @@ const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const flowTemplateModel = require('../models/auditFlowTemplate');
 const flowTemplateStepModel = require('../models/auditFlowTemplateStep');
+const flowTemplateStepConditionModel = require('../models/auditFlowTemplateStepCondition');
 const submissionModel = require('../models/auditSubmission');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const { hashFile, computeSignatureHash } = require('../utils/hashChain');
+
+const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
 
 const UPLOAD_DIR = path.resolve(__dirname, '../../../../uploads/audit');
 
@@ -97,7 +100,8 @@ router.post('/listPendingApprovals', async (req, res) => {
       scopeType: safeString(s.scope_type),
       actionType: safeString(s.action_type),
       round: s.round,
-      createdAt: s.created_at
+      createdAt: s.created_at,
+      stepConditionsJson: s.step_conditions_json || null
     }));
 
     res.json({ status: 'success', pending: result });
@@ -193,12 +197,39 @@ router.post('/startAuditSubmission', async (req, res) => {
       });
     }
 
+    // Load conditions for all template steps
+    const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
+    const stepConditionMap = {};
+    for (const c of allConditions) {
+      const sid = c.template_step_id;
+      if (!stepConditionMap[sid]) stepConditionMap[sid] = [];
+      stepConditionMap[sid].push({
+        id: c.id,
+        sortOrder: c.sort_order,
+        conditionType: c.condition_type,
+        personHrIds: c.person_hr_ids,
+        departmentScope: c.department_scope,
+        specificDepartmentId: c.specific_department_id,
+        workGroupScope: c.work_group_scope,
+        specificWorkGroupId: c.specific_work_group_id,
+        identityScope: c.identity_scope,
+        specificIdentityId: c.specific_identity_id
+      });
+    }
+
     // Create submission steps from template steps
     for (let i = 0; i < templateSteps.length; i++) {
       const ts = templateSteps[i];
       const stepId = generateId();
 
-      // Resolve approver_hr_id for specific_person type
+      // Build resolved conditions JSON from template step conditions
+      const conditions = stepConditionMap[ts.id] || [];
+      let stepConditionsJson = null;
+      if (conditions.length > 0) {
+        stepConditionsJson = JSON.stringify(conditions);
+      }
+
+      // Legacy: resolve approver_hr_id for specific_person type
       let approverHrId = null;
       if (ts.approver_type === 'specific_person' && ts.approver_hr_id) {
         approverHrId = ts.approver_hr_id;
@@ -212,7 +243,8 @@ router.post('/startAuditSubmission', async (req, res) => {
         approverHrId,
         approverIdentityId: ts.approver_identity_id,
         actionType: ts.action_type,
-        round: 1
+        round: 1,
+        stepConditionsJson
       });
     }
 
@@ -290,18 +322,27 @@ router.post('/startAdHocAudit', async (req, res) => {
     for (let i = 0; i < steps.length; i++) {
       const s = steps[i];
       const stepId = generateId();
+
+      // Serialize conditions if provided
+      const conditions = Array.isArray(s.conditions) ? s.conditions : [];
+      let stepConditionsJson = null;
+      if (conditions.length > 0) {
+        stepConditionsJson = JSON.stringify(conditions);
+      }
+
       await submissionStepModel.create(stepId, {
         submissionId,
         templateStepId: null,
         sortOrder: i + 1,
-        approverType: safeString(s.approverType) || 'identity',
+        approverType: safeString(s.approverType) || null,
         approverHrId: safeString(s.approverHrId) || null,
         approverIdentityId: safeString(s.approverIdentityId) || null,
         scopeType: safeString(s.scopeType) || null,
         scopeDepartmentId: safeString(s.scopeDepartmentId) || null,
         scopeWorkGroupId: safeString(s.scopeWorkGroupId) || null,
         actionType: safeString(s.actionType) || 'sign',
-        round: 1
+        round: 1,
+        stepConditionsJson
       });
     }
 
@@ -409,7 +450,8 @@ router.post('/getSubmissionDetail', async (req, res) => {
         comment: safeString(s.comment),
         rejectionReason: safeString(s.rejection_reason),
         round: s.round,
-        processedAt: s.processed_at
+        processedAt: s.processed_at,
+        stepConditionsJson: s.step_conditions_json || null
       })),
       files: files.map((f) => ({
         id: safeString(f.id),
@@ -471,28 +513,52 @@ router.post('/approveStep', async (req, res) => {
       return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
     }
 
-    // Check authorization (identity with scope, or specific person)
+    // Check authorization — multi-condition OR matching
     const orgId = await getCurrentOrgId();
     let authorized = false;
-    if (step.approver_type === 'specific_person') {
-      authorized = step.approver_hr_id === hrId;
-    } else {
-      const [approverRows] = await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [hrId, orgId]
-      );
-      const approver = approverRows[0];
-      if (approver && approver.identity_id === step.approver_identity_id) {
-        // Look up submitter for same_department / same_work_group scope
-        let submitter = null;
-        const [subRows] = await pool.query(
-          'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [submission.submitted_by, orgId]
+
+    // 1. Check step_conditions_json first (new multi-condition model)
+    if (step.step_conditions_json) {
+      try {
+        const conditions = JSON.parse(step.step_conditions_json);
+        const [approverRows] = await pool.query(
+          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [hrId, orgId]
         );
-        submitter = subRows[0] || null;
-        authorized = submissionStepModel.matchesScope(step, approver, submitter);
+        const approver = approverRows[0];
+        if (approver) {
+          const [subRows] = await pool.query(
+            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+            [submission.submitted_by, orgId]
+          );
+          const submitter = subRows[0] || null;
+          authorized = matchesAnyCondition(conditions, approver, submitter);
+        }
+      } catch (_) { /* fall through to legacy */ }
+    }
+
+    // 2. Legacy check
+    if (!authorized) {
+      if (step.approver_type === 'specific_person') {
+        authorized = step.approver_hr_id === hrId;
+      } else if (step.approver_type === 'identity' && step.approver_identity_id) {
+        const [approverRows] = await pool.query(
+          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [hrId, orgId]
+        );
+        const approver = approverRows[0];
+        if (approver && approver.identity_id === step.approver_identity_id) {
+          let submitter = null;
+          const [subRows] = await pool.query(
+            'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+            [submission.submitted_by, orgId]
+          );
+          submitter = subRows[0] || null;
+          authorized = matchesScope(step, approver, submitter);
+        }
       }
     }
+
     if (!authorized) {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
@@ -616,27 +682,50 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
     }
 
-    // Check authorization
+    // Check authorization — multi-condition OR matching
     const orgId = await getCurrentOrgId();
     let authorized = false;
-    if (step.approver_type === 'specific_person') {
-      authorized = step.approver_hr_id === hrId;
-    } else {
-      const [approverRows] = await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [hrId, orgId]
-      );
-      const approver = approverRows[0];
-      if (approver && approver.identity_id === step.approver_identity_id) {
-        let submitter = null;
-        const [subRows] = await pool.query(
-          'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [submission.submitted_by, orgId]
+
+    if (step.step_conditions_json) {
+      try {
+        const conditions = JSON.parse(step.step_conditions_json);
+        const [approverRows] = await pool.query(
+          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [hrId, orgId]
         );
-        submitter = subRows[0] || null;
-        authorized = submissionStepModel.matchesScope(step, approver, submitter);
+        const approver = approverRows[0];
+        if (approver) {
+          const [subRows] = await pool.query(
+            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+            [submission.submitted_by, orgId]
+          );
+          const submitter = subRows[0] || null;
+          authorized = matchesAnyCondition(conditions, approver, submitter);
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    if (!authorized) {
+      if (step.approver_type === 'specific_person') {
+        authorized = step.approver_hr_id === hrId;
+      } else if (step.approver_type === 'identity' && step.approver_identity_id) {
+        const [approverRows] = await pool.query(
+          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [hrId, orgId]
+        );
+        const approver = approverRows[0];
+        if (approver && approver.identity_id === step.approver_identity_id) {
+          let submitter = null;
+          const [subRows] = await pool.query(
+            'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+            [submission.submitted_by, orgId]
+          );
+          submitter = subRows[0] || null;
+          authorized = matchesScope(step, approver, submitter);
+        }
       }
     }
+
     if (!authorized) {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
@@ -709,7 +798,8 @@ router.post('/resubmitAudit', async (req, res) => {
           approverHrId: rejectStep.approver_hr_id,
           approverIdentityId: rejectStep.approver_identity_id,
           actionType: rejectStep.action_type,
-          round: newRound
+          round: newRound,
+          stepConditionsJson: rejectStep.step_conditions_json
         });
       }
     } else {
@@ -725,7 +815,8 @@ router.post('/resubmitAudit', async (req, res) => {
           approverHrId: ts.approver_hr_id,
           approverIdentityId: ts.approver_identity_id,
           actionType: ts.action_type,
-          round: newRound
+          round: newRound,
+          stepConditionsJson: ts.step_conditions_json
         });
       }
     }

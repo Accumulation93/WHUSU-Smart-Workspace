@@ -129,6 +129,8 @@ router.post('/verifySignatureChain', async (req, res) => {
     const openid = req.openid;
     const submissionNumber = safeString(req.body.submissionNumber);
     const submissionId = safeString(req.body.submissionId);
+    const fileHash = safeString(req.body.fileHash);
+    const fileBase64 = safeString(req.body.fileBase64);
 
     // Check permissions: must be admin or have verification permission
     const admin = await adminInfoModel.getByOpenid(openid);
@@ -143,12 +145,30 @@ router.post('/verifySignatureChain', async (req, res) => {
       return res.json({ status: 'forbidden', message: '没有验签权限' });
     }
 
+    // Resolve file hash from base64 if provided
+    let resolvedFileHash = fileHash;
+    if (!resolvedFileHash && fileBase64) {
+      const crypto = require('crypto');
+      const buffer = Buffer.from(fileBase64, 'base64');
+      resolvedFileHash = crypto.createHash('sha256').update(buffer).digest('hex');
+    }
+
     // Find submission
     let submission;
     if (submissionId) {
       submission = await submissionModel.getById(submissionId);
     } else if (submissionNumber) {
       submission = await submissionModel.getByNumber(submissionNumber);
+    } else if (resolvedFileHash) {
+      // Find by file hash — lookup the submission containing this file
+      const orgId = await getCurrentOrgId();
+      const [fileRows] = await pool.query(
+        'SELECT submission_id FROM audit_submission_files WHERE file_hash = ? AND org_id = ? ORDER BY created_at DESC LIMIT 1',
+        [resolvedFileHash, orgId]
+      );
+      if (fileRows.length > 0) {
+        submission = await submissionModel.getById(fileRows[0].submission_id);
+      }
     }
 
     if (!submission) {
@@ -175,6 +195,7 @@ router.post('/verifySignatureChain', async (req, res) => {
       status: 'success',
       submissionId: safeString(submission.id),
       submissionNumber: safeString(submission.submission_number),
+      verifyByFileHash: resolvedFileHash || null,
       ...result
     });
   } catch (e) {

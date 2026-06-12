@@ -7,11 +7,35 @@
 
   <view class="section">
     <view class="card">
-      <view class="section-title">输入提交编号</view>
+      <view class="section-title">验证方式</view>
+
+      <!-- Verification mode picker -->
       <view class="field">
+        <view class="field-label">查询方式</view>
+        <picker range="{{['提交编号查询','提交ID查询','文件验证']}}" bindchange="onVerifyModeChange">
+          <view class="picker-value">{{verifyMode === 'number' ? '提交编号查询' : (verifyMode === 'id' ? '提交ID查询' : '文件验证')}}</view>
+        </picker>
+      </view>
+
+      <!-- Number mode -->
+      <view class="field" wx:if="{{verifyMode === 'number'}}">
         <view class="field-label">提交编号</view>
         <input class="field-input" value="{{submissionNumber}}" bindinput="onInputNumber" placeholder="例如：SUB-20260611-001" />
       </view>
+
+      <!-- ID mode -->
+      <view class="field" wx:if="{{verifyMode === 'id'}}">
+        <view class="field-label">提交ID</view>
+        <input class="field-input" value="{{submissionId}}" bindinput="onInputId" placeholder="输入提交的唯一标识ID" />
+      </view>
+
+      <!-- File mode -->
+      <view class="field" wx:if="{{verifyMode === 'file'}}">
+        <view class="field-label">选择文件</view>
+        <view class="picker-value" bindtap="chooseVerifyFile">{{fileName || '点击选择要验签的文件'}}</view>
+        <view class="list-desc" wx:if="{{fileSize > 0}}" style="font-size:22rpx;color:#6b7280;">{{fileName}} · {{fileSize}} 字节</view>
+      </view>
+
       <view class="button-row">
         <button class="primary-btn" loading="{{loading}}" bindtap="verify">验证签名链</button>
       </view>
@@ -29,6 +53,14 @@
         <view class="info-block">
           <view class="info-label">签名总数</view>
           <view class="info-value">{{result.totalSignatures}}</view>
+        </view>
+        <view class="info-block" wx:if="{{result.submissionNumber}}">
+          <view class="info-label">提交编号</view>
+          <view class="info-value">{{result.submissionNumber}}</view>
+        </view>
+        <view class="info-block" wx:if="{{result.verifyByFileHash}}">
+          <view class="info-label">验证文件哈希</view>
+          <view class="info-value" style="font-size:20rpx;word-break:break-all;">{{result.verifyByFileHash}}</view>
         </view>
       </view>
 

@@ -7,6 +7,7 @@ const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const flowTemplateModel = require('../models/auditFlowTemplate');
 const flowTemplateStepModel = require('../models/auditFlowTemplateStep');
+const flowTemplateStepConditionModel = require('../models/auditFlowTemplateStepCondition');
 const stampModel = require('../models/stamp');
 const stampAssignmentModel = require('../models/identityStampAssignment');
 const submissionModel = require('../models/auditSubmission');
@@ -54,7 +55,19 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
           approverIdentityId: safeString(s.approver_identity_id),
           approverHrId: safeString(s.approver_hr_id),
           relatedRelation: safeString(s.related_relation),
-          actionType: safeString(s.action_type)
+          actionType: safeString(s.action_type),
+          conditions: (s.conditions || []).map((c) => ({
+            id: safeString(c.id),
+            sortOrder: c.sort_order,
+            conditionType: safeString(c.condition_type),
+            personHrIds: safeString(c.person_hr_ids),
+            departmentScope: safeString(c.department_scope),
+            specificDepartmentId: safeString(c.specific_department_id),
+            workGroupScope: safeString(c.work_group_scope),
+            specificWorkGroupId: safeString(c.specific_work_group_id),
+            identityScope: safeString(c.identity_scope),
+            specificIdentityId: safeString(c.specific_identity_id)
+          }))
         })),
         createdAt: t.created_at,
         updatedAt: t.updated_at
@@ -116,19 +129,56 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
         });
       }
 
-      // Insert steps
+      // Insert steps with conditions
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
         const stepId = generateId();
         await flowTemplateStepModel.create(stepId, {
           templateId,
           sortOrder: i + 1,
-          approverType: safeString(step.approverType) || 'identity',
-          approverIdentityId: safeString(step.approverIdentityId) || null,
-          approverHrId: safeString(step.approverHrId) || null,
-          relatedRelation: safeString(step.relatedRelation) || null,
           actionType: safeString(step.actionType) || 'sign'
         });
+
+        // Create conditions for this step
+        const conditions = Array.isArray(step.conditions) ? step.conditions : [];
+        // If no conditions provided, try legacy fields
+        if (!conditions.length && (step.approverType || step.approverIdentityId || step.approverHrId)) {
+          const legacyCondId = generateId();
+          const legacyType = safeString(step.approverType) || 'identity';
+          if (legacyType === 'specific_person' && step.approverHrId) {
+            await flowTemplateStepConditionModel.create(legacyCondId, {
+              templateStepId: stepId,
+              sortOrder: 1,
+              conditionType: 'person',
+              personHrIds: safeString(step.approverHrId)
+            });
+          } else if (legacyType === 'identity' && step.approverIdentityId) {
+            await flowTemplateStepConditionModel.create(legacyCondId, {
+              templateStepId: stepId,
+              sortOrder: 1,
+              conditionType: 'identity_scope',
+              identityScope: 'specific',
+              specificIdentityId: safeString(step.approverIdentityId)
+            });
+          }
+        } else {
+          for (let j = 0; j < conditions.length; j++) {
+            const cond = conditions[j];
+            const condId = generateId();
+            await flowTemplateStepConditionModel.create(condId, {
+              templateStepId: stepId,
+              sortOrder: j + 1,
+              conditionType: safeString(cond.conditionType) || 'identity_scope',
+              personHrIds: safeString(cond.personHrIds) || null,
+              departmentScope: safeString(cond.departmentScope) || 'all',
+              specificDepartmentId: safeString(cond.specificDepartmentId) || null,
+              workGroupScope: safeString(cond.workGroupScope) || 'all',
+              specificWorkGroupId: safeString(cond.specificWorkGroupId) || null,
+              identityScope: safeString(cond.identityScope) || 'all',
+              specificIdentityId: safeString(cond.specificIdentityId) || null
+            });
+          }
+        }
       }
 
       await conn.commit();
@@ -477,7 +527,8 @@ router.post('/getAuditProgress', async (req, res) => {
         comment: safeString(s.comment),
         rejectionReason: safeString(s.rejection_reason),
         round: s.round,
-        processedAt: s.processed_at
+        processedAt: s.processed_at,
+        stepConditionsJson: s.step_conditions_json || null
       })),
       files: files.map((f) => ({
         id: safeString(f.id),
@@ -487,6 +538,58 @@ router.post('/getAuditProgress', async (req, res) => {
         fileHash: safeString(f.file_hash),
         sortOrder: f.sort_order
       }))
+    });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// verifyAuditFile — Admin finds submissions containing a file by hash or base64 content
+router.post('/verifyAuditFile', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const admin = await ensureAdmin(openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+
+    const fileHash = safeString(req.body.fileHash);
+    const fileBase64 = safeString(req.body.fileBase64);
+
+    let targetHash = fileHash;
+    if (!targetHash && fileBase64) {
+      const crypto = require('crypto');
+      const buffer = Buffer.from(fileBase64, 'base64');
+      targetHash = crypto.createHash('sha256').update(buffer).digest('hex');
+    }
+
+    if (!targetHash) {
+      return res.json({ status: 'invalid_params', message: '请提供文件或文件哈希' });
+    }
+
+    const orgId = await getCurrentOrgId();
+    const [fileRows] = await pool.query(
+      `SELECT asf.*, asub.submission_number, asub.title, asub.status
+       FROM audit_submission_files asf
+       JOIN audit_submissions asub ON asub.id = asf.submission_id
+       WHERE asf.file_hash = ? AND asf.org_id = ?
+       ORDER BY asub.created_at DESC`,
+      [targetHash, orgId]
+    );
+
+    const submissions = fileRows.map((f) => ({
+      submissionId: safeString(f.submission_id),
+      submissionNumber: safeString(f.submission_number),
+      title: safeString(f.title),
+      status: safeString(f.status),
+      fileId: safeString(f.id),
+      fileName: safeString(f.file_name),
+      fileSize: f.file_size
+    }));
+
+    res.json({
+      status: 'success',
+      fileHash: targetHash,
+      matchCount: submissions.length,
+      submissions
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

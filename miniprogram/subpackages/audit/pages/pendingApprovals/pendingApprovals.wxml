@@ -16,7 +16,7 @@
             <view class="list-name">{{item.title || item.submissionNumber}}</view>
             <view class="chip-row">
               <view class="status-chip blue-chip">待我处理</view>
-              <text class="list-desc">第{{item.sortOrder}}步 · {{item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章')}} · 第{{item.round}}轮</text>
+              <text class="list-desc">第{{item.sortOrder}}步 · {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}} · 第{{item.round}}轮</text>
             </view>
             <view class="list-desc">提交人：{{item.submitterName}} · {{item.submissionNumber}}</view>
           </view>
