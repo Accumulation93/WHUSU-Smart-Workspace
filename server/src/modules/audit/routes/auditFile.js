@@ -47,24 +47,65 @@ async function ensureAdmin(openid) {
 }
 
 // uploadAuditFile — Upload a document file for audit submission
-router.post('/uploadAuditFile', upload.single('file'), async (req, res) => {
+// Supports both multipart/form-data (multer) and JSON body with base64
+router.post('/uploadAuditFile', function(req, res, next) {
+  // If Content-Type is multipart/form-data, use multer
+  var contentType = req.get('content-type') || '';
+  if (contentType.indexOf('multipart/form-data') !== -1) {
+    return upload.single('file')(req, res, next);
+  }
+  // JSON body — skip multer
+  next();
+}, async (req, res) => {
   try {
-    if (!req.file) {
+    var fileId = generateId();
+    var originalName, mimeType, fileSize, tmpPath, fileBuffer;
+
+    if (req.file) {
+      // Multipart upload via multer
+      originalName = safeString(req.file.originalname);
+      mimeType = safeString(req.file.mimetype);
+      fileSize = req.file.size;
+      tmpPath = req.file.path;
+      fileBuffer = fs.readFileSync(tmpPath);
+    } else if (req.body.fileBase64) {
+      // JSON body with base64 data
+      originalName = safeString(req.body.fileName);
+      mimeType = safeString(req.body.mimeType);
+      fileBuffer = Buffer.from(String(req.body.fileBase64), 'base64');
+      fileSize = fileBuffer.length;
+
+      // Validate mime type
+      var ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+      if (ALLOWED_MIMES.indexOf(mimeType) === -1) {
+        return res.json({ status: 'invalid_params', message: '不支持的文件类型：' + mimeType + '。仅支持 PNG、JPEG、WebP 图片和 PDF 文件。' });
+      }
+
+      // Validate file size
+      var MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      if (fileSize > MAX_FILE_SIZE) {
+        return res.json({ status: 'invalid_params', message: '文件过大，最大支持 10MB' });
+      }
+
+      // Write to temp file
+      var ext = path.extname(originalName) || '';
+      if (!ext) {
+        // Infer extension from mime type
+        if (mimeType === 'image/png') ext = '.png';
+        else if (mimeType === 'image/jpeg') ext = '.jpg';
+        else if (mimeType === 'image/webp') ext = '.webp';
+        else if (mimeType === 'application/pdf') ext = '.pdf';
+      }
+      var tmpDir = path.join(UPLOAD_DIR, '_tmp');
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+      tmpPath = path.join(tmpDir, fileId + ext);
+      fs.writeFileSync(tmpPath, fileBuffer);
+    } else {
       return res.json({ status: 'invalid_params', message: '请选择要上传的文件' });
     }
 
-    const fileId = generateId();
-    const originalName = safeString(req.file.originalname);
-    const mimeType = safeString(req.file.mimetype);
-    const fileSize = req.file.size;
-    const tmpPath = req.file.path;
-
     // Compute SHA-256 hash
-    const fileBuffer = fs.readFileSync(tmpPath);
-    const fileHash = hashFile(fileBuffer);
-
-    // File stays in _tmp for now; will be moved when submission is created
-    // Store the tmp path so the submission creation can move it
+    var fileHash = hashFile(fileBuffer);
 
     res.json({
       status: 'success',
