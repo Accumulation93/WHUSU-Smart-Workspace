@@ -304,7 +304,7 @@
       <!-- Files -->
       <view class="card" wx:if="{{files.length}}">
         <view class="section-title">附件 ({{files.length}}份)</view>
-        <view class="file-attach-item" wx:for="{{files}}" wx:key="id">
+        <view class="file-attach-item" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" data-file-name="{{item.fileName}}" bindtap="previewFile">
           <view class="file-attach-icon">📎</view>
           <view class="file-attach-name">{{item.fileName}}</view>
           <view class="audit-file-type">{{item.mimeType}}</view>

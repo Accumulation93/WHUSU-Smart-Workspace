@@ -8,6 +8,13 @@ const pool = require('../../../config/db');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const flowTemplateModel = require('../models/auditFlowTemplate');
+
+// Format current time in local timezone (UTC+8 / China Standard Time)
+function nowLocal() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 const flowTemplateStepModel = require('../models/auditFlowTemplateStep');
 const flowTemplateStepConditionModel = require('../models/auditFlowTemplateStepCondition');
 const submissionModel = require('../models/auditSubmission');
@@ -618,7 +625,7 @@ router.post('/approveStep', async (req, res) => {
     }
 
     const now = new Date();
-    const nowISO = now.toISOString().slice(0, 19).replace('T', ' ');
+    const nowISO = nowLocal();
     const currentRound = step.round;
 
     await conn.beginTransaction();
@@ -784,7 +791,7 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
 
-    const nowISO = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const nowISO = nowLocal();
 
     await conn.beginTransaction();
 

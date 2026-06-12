@@ -1,4 +1,4 @@
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 
 Page({
   data: {
@@ -632,7 +632,7 @@ Page({
           type: 'lifecycle',
           event: 'submit',
           label: '提交审核',
-          time: res.submission.createdAt || '',
+          time: formatAuditTime(res.submission.createdAt),
           icon: '📤'
         });
 
@@ -714,7 +714,8 @@ Page({
               _key: 'step_' + s.id,
               type: 'step',
               ...s,
-              flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass
+              flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass,
+              processedAt: s.processed_at ? formatAuditTime(s.processed_at) : ''
             });
           }
         }
@@ -726,7 +727,7 @@ Page({
             type: 'lifecycle',
             event: 'withdraw',
             label: '撤回审核',
-            time: res.submission.updatedAt || '',
+            time: formatAuditTime(res.submission.updatedAt),
             icon: '↩️'
           });
         }
@@ -902,6 +903,68 @@ Page({
       showShortToast(getErrorText(e, '重提交失败'));
     } finally {
       this.setData({ loading: false });
+    }
+  },
+
+  // ── File preview ──
+  async previewFile(e) {
+    const fileId = e.currentTarget.dataset.fileId;
+    const fileName = e.currentTarget.dataset.fileName || '';
+    if (!fileId) return;
+
+    wx.showLoading({ title: '加载中...' });
+    try {
+      const res = await callFunction({
+        name: 'getAuditFile',
+        data: { fileId: fileId }
+      });
+      if (res.status !== 'success' || !res.data) {
+        wx.hideLoading();
+        showShortToast(res.message || '文件加载失败');
+        return;
+      }
+
+      // Write base64 to temp file
+      const fs = wx.getFileSystemManager();
+      const ext = (res.fileName || fileName).split('.').pop() || 'bin';
+      const tmpPath = `${wx.env.USER_DATA_PATH}/${fileId}.${ext}`;
+
+      fs.writeFile({
+        filePath: tmpPath,
+        data: res.data,
+        encoding: 'base64',
+        success: () => {
+          wx.hideLoading();
+          // Open with appropriate viewer
+          const mime = res.mimeType || '';
+          if (mime.startsWith('image/')) {
+            wx.previewImage({
+              urls: [tmpPath],
+              current: tmpPath
+            });
+          } else {
+            wx.openDocument({
+              filePath: tmpPath,
+              showMenu: true,
+              fail: () => {
+                // Fallback: show file info
+                wx.showModal({
+                  title: '文件信息',
+                  content: `文件名：${res.fileName}\n类型：${res.mimeType}\n大小：${(res.fileSize / 1024).toFixed(1)} KB`,
+                  showCancel: false
+                });
+              }
+            });
+          }
+        },
+        fail: () => {
+          wx.hideLoading();
+          showShortToast('文件写入失败');
+        }
+      });
+    } catch (e) {
+      wx.hideLoading();
+      showShortToast(getErrorText(e, '预览失败'));
     }
   },
 

@@ -79,4 +79,28 @@ function getErrorText(error, fallback) {
   return text || fallback;
 }
 
-module.exports = { callFunction: callFunction, showShortToast: showShortToast, getErrorText: getErrorText };
+/**
+ * Format an audit timestamp for display.
+ * Handles both ISO 8601 (2026-06-12T08:30:00.000Z) and MySQL DATETIME (2026-06-12 16:30:00).
+ * Output: "2026-06-12 16:30" in local time
+ */
+function formatAuditTime(raw) {
+  if (!raw) return '';
+  try {
+    var d;
+    if (raw.indexOf('T') !== -1) {
+      // ISO 8601 — parse as UTC, display in local
+      d = new Date(raw);
+    } else {
+      // MySQL DATETIME — already in local time
+      d = new Date(raw.replace(' ', 'T') + '+08:00');
+    }
+    if (isNaN(d.getTime())) return raw;
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  } catch (_) {
+    return raw;
+  }
+}
+
+module.exports = { callFunction: callFunction, showShortToast: showShortToast, getErrorText: getErrorText, formatAuditTime: formatAuditTime };

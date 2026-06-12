@@ -287,7 +287,10 @@ Page({
     userDesigFilterIdent: '全部',
     userDesigFilterDeptOptions: ['全部'],
     userDesigFilterIdentOptions: ['全部'],
-    userDesigSearchKeyword: ''
+    userDesigSearchKeyword: '',
+    // Audit badge counts
+    auditPendingCount: 0,
+    auditMyCount: 0,
   },
 
   noop() {},
@@ -306,8 +309,8 @@ Page({
   applySubAppFilter() {
     const subApp = this._subApp || 'scoring';
     const SUB_APP_USER_TABS = {
-      scoring: ['scoring', 'results', 'meritList'],
-      hr: ['profile']
+      scoring: ['scoring', 'results', 'meritList', 'audit'],
+      hr: ['profile', 'audit']
     };
     this._subAppAllowedTabs = SUB_APP_USER_TABS[subApp] || SUB_APP_USER_TABS.scoring;
     const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息' };
@@ -322,7 +325,11 @@ Page({
     if (allowed.indexOf('results') !== -1 && this.data.hasViewPerm) tabs.push({ key: 'results', label: '结果公示' });
     if (allowed.indexOf('meritList') !== -1 && this.data.hasMeritPerm) tabs.push({ key: 'meritList', label: '评优名单' });
     if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: '人事信息' });
+    // Always add audit tab for users with HR info
+    if (allowed.indexOf('audit') !== -1 && this.data.hasUser) tabs.push({ key: 'audit', label: '审核' });
     this.setData({ userTabs: tabs });
+    // Load audit badge counts
+    if (this.data.hasUser) this.loadAuditBadgeCounts();
   },
 
   refreshUserFromCloud() {
@@ -819,6 +826,34 @@ Page({
     wx.navigateTo({
       url: '/subpackages/scoring/pages/admin/admin'
     });
+  },
+
+  // ── Audit navigation ──
+  goMySubmissions() {
+    wx.navigateTo({
+      url: '/subpackages/audit/pages/mySubmissions/mySubmissions'
+    });
+  },
+
+  goPendingApprovals() {
+    wx.navigateTo({
+      url: '/subpackages/audit/pages/pendingApprovals/pendingApprovals'
+    });
+  },
+
+  async loadAuditBadgeCounts() {
+    try {
+      const [myRes, pendingRes] = await Promise.all([
+        callFunction({ name: 'listMySubmissions', data: { limit: 1 } }),
+        callFunction({ name: 'listPendingApprovals', data: {} })
+      ]);
+      this.setData({
+        auditMyCount: (myRes.status === 'success' ? (myRes.submissions || []).length : 0),
+        auditPendingCount: (pendingRes.status === 'success' ? (pendingRes.pending || []).length : 0)
+      });
+    } catch (_) {
+      // Non-critical; badges just won't show counts
+    }
   },
 
   openUnbindDialog() {

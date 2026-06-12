@@ -442,6 +442,35 @@
     </view>
   </view>
 
+  <!-- ═══ Audit Panel ═══ -->
+  <view class="panel {{activeTab === 'audit' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'audit'}}">
+    <view class="card">
+      <view class="section-title">审核中心</view>
+      <view class="audit-home-cards">
+        <!-- 我的审核 -->
+        <view class="audit-home-card" bindtap="goMySubmissions">
+          <view class="audit-home-card-icon">📄</view>
+          <view class="audit-home-card-content">
+            <view class="audit-home-card-title">我的审核</view>
+            <view class="audit-home-card-desc">查看我发起的审核申请</view>
+          </view>
+          <view class="audit-home-card-badge" wx:if="{{auditMyCount > 0}}">{{auditMyCount}}</view>
+          <view class="audit-home-card-arrow">›</view>
+        </view>
+        <!-- 待我审批 -->
+        <view class="audit-home-card" bindtap="goPendingApprovals">
+          <view class="audit-home-card-icon">✍️</view>
+          <view class="audit-home-card-content">
+            <view class="audit-home-card-title">待我审批</view>
+            <view class="audit-home-card-desc">需要我处理的审批步骤</view>
+          </view>
+          <view class="audit-home-card-badge audit-home-card-badge-pending" wx:if="{{auditPendingCount > 0}}">{{auditPendingCount}}</view>
+          <view class="audit-home-card-arrow">›</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <view class="card empty-card" wx:if="{{!hasUser}}">
     <view class="empty-title">当前暂无可用身份</view>
     <view class="empty-desc">请先完成登录。</view>

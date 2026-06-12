@@ -20,7 +20,8 @@ const pool = mysql.createPool({
   connectTimeout: 5000,
   enableKeepAlive: true,
   keepAliveInitialDelay: 30000,
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  timezone: '+08:00'
 });
 
 // Apply query timeout to every new connection (15s safety margin)
