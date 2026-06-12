@@ -348,12 +348,21 @@ Page({
         : ['普通管理员', '超级管理员']
     });
 
-    // Audit sub-app: load all audit tab data (fire-and-forget, don't block rendering)
+    // Audit sub-app: load reference lists first, then templates (names depend on lists)
     if (this._subApp === 'audit') {
-      this.loadDepartmentList().catch(function() {});
-      this.loadIdentityList().catch(function() {});
-      this.loadHrList().catch(function() {});
-      this.loadAuditFlowTemplates().catch(function() {});
+      var that = this;
+      // Load reference data lists in parallel, then templates after they're ready
+      Promise.all([
+        that.loadDepartmentList(),
+        that.loadWorkGroupList(),
+        that.loadIdentityList(),
+        that.loadHrList()
+      ]).then(function() {
+        that.loadAuditFlowTemplates().catch(function() {});
+      }).catch(function() {
+        that.loadAuditFlowTemplates().catch(function() {});
+      });
+      // These don't depend on reference lists, load immediately
       this.loadStamps().catch(function() {});
       this.loadAuditSubmissions().catch(function() {});
       this.loadVerificationPermissions().catch(function() {});

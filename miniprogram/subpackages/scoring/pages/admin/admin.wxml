@@ -1745,14 +1745,15 @@
             <!-- Each condition as separate bubble chips, OR-separated -->
             <view wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="margin-top:6rpx;display:flex;flex-wrap:wrap;align-items:center;">
               <block wx:if="{{cond.conditionType === 'person'}}">
-                <block wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">
-                  <view class="status-chip info-chip" style="margin:2rpx;">{{pname}}</view>
+                <block wx:if="{{cond._personNames && cond._personNames.length}}">
+                  <view class="status-chip info-chip" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" style="margin:2rpx;">{{pname}}</view>
                 </block>
+                <view class="status-chip current-chip" wx:else style="margin:2rpx;">人员未选择</view>
               </block>
               <block wx:else>
-                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : cond._deptName)}}</view>
-                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : cond._wgName)}}</view>
-                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : cond._identName)}}</view>
+                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : (cond._deptName || '部门'))}}</view>
+                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : (cond._wgName || '职能组'))}}</view>
+                <view class="status-chip info-chip" style="margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : (cond._identName || '身份'))}}</view>
               </block>
               <text wx:if="{{ci < item.conditions.length - 1}}" style="color:#ef4444;font-size:22rpx;font-weight:bold;margin:2rpx 8rpx;">或</text>
             </view>
@@ -1800,14 +1801,15 @@
                 <!-- Each condition as bubble chips -->
                 <view wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="display:flex;flex-wrap:wrap;align-items:center;margin-left:16rpx;margin-bottom:2rpx;">
                   <block wx:if="{{cond.conditionType === 'person'}}">
-                    <block wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">
-                      <view style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{pname}}</view>
+                    <block wx:if="{{cond._personNames && cond._personNames.length}}">
+                      <view wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{pname}}</view>
                     </block>
+                    <view wx:else style="display:inline-block;background:#fee2e2;color:#991b1b;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">人员未选择</view>
                   </block>
                   <block wx:else>
-                    <view style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : cond._deptName)}}</view>
-                    <view style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : cond._wgName)}}</view>
-                    <view style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : cond._identName)}}</view>
+                    <view style="display:inline-block;background:#dbeafe;color:#1e40af;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : (cond._deptName || '部门'))}}</view>
+                    <view style="display:inline-block;background:#dcfce7;color:#166534;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : (cond._wgName || '职能组'))}}</view>
+                    <view style="display:inline-block;background:#fef3c7;color:#92400e;font-size:22rpx;padding:2rpx 10rpx;border-radius:8rpx;margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : (cond._identName || '身份'))}}</view>
                   </block>
                   <text wx:if="{{ci < step._resolvedConditions.length - 1}}" style="color:#ef4444;font-size:20rpx;font-weight:bold;margin:2rpx 6rpx;">或</text>
                 </view>
@@ -1836,9 +1838,9 @@
                     <view class="list-desc" wx:if="{{!cond._personNames || !cond._personNames.length}}" style="margin:2rpx;">未选择人员</view>
                   </block>
                   <block wx:else>
-                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : cond._deptName)}}</view>
-                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : cond._wgName)}}</view>
-                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : cond._identName)}}</view>
+                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.departmentScope === 'all' ? '全部部门' : (cond.departmentScope === 'own' ? '自己所在部门' : (cond._deptName || '部门'))}}</view>
+                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.workGroupScope === 'all' ? '全部职能组' : (cond.workGroupScope === 'own' ? '自己所在职能组' : (cond._wgName || '职能组'))}}</view>
+                    <view class="status-chip info-chip" style="margin:2rpx;">{{cond.identityScope === 'all' ? '全部身份' : (cond.identityScope === 'own' ? '自己所在身份' : (cond._identName || '身份'))}}</view>
                   </block>
                 </view>
               </view>

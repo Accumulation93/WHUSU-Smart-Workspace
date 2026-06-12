@@ -111,40 +111,40 @@ module.exports = Behavior({
     // Shared helpers
     // ═══════════════════════════════════════════════════════
 
-    /** Derive display name from identityList by id */
+    /** Derive display name from identityList by id — NEVER returns raw ID */
     _auditIdentityName(id) {
       if (!id) return '';
       const found = (this.data.identityList || []).find(function (item) {
         return String(item.id) === String(id);
       });
-      return found ? found.name : id;
+      return found ? found.name : '';
     },
 
-    /** Derive display name from hrList by id */
+    /** Derive display name from hrList by id — NEVER returns raw ID */
     _auditHrName(id) {
       if (!id) return '';
       const found = (this.data.hrList || []).find(function (item) {
         return String(item.id) === String(id);
       });
-      return found ? found.name : id;
+      return found ? found.name : '';
     },
 
-    /** Derive display name from departmentList by id */
+    /** Derive display name from departmentList by id — NEVER returns raw ID */
     _auditDeptName(id) {
       if (!id) return '';
       const found = (this.data.departmentList || []).find(function (item) {
         return String(item.id) === String(id);
       });
-      return found ? found.name : id;
+      return found ? found.name : '';
     },
 
-    /** Derive display name from workGroupList by id */
+    /** Derive display name from workGroupList by id — NEVER returns raw ID */
     _auditWgName(id) {
       if (!id) return '';
       const found = (this.data.workGroupList || []).find(function (item) {
         return String(item.id) === String(id);
       });
-      return found ? found.name : id;
+      return found ? found.name : '';
     },
 
     /** Build department options for personnel picker */
@@ -342,15 +342,15 @@ module.exports = Behavior({
             conditionType: cond.conditionType || 'identity_scope',
             departmentScope: cond.departmentScope || 'all',
             specificDepartmentId: cond.specificDepartmentId || '',
-            specificDepartmentName: cond.specificDepartmentName || this._auditDeptName(cond.specificDepartmentId),
+            specificDepartmentName: cond._deptName || cond.specificDepartmentName || this._auditDeptName(cond.specificDepartmentId),
             workGroupScope: cond.workGroupScope || 'all',
             specificWorkGroupId: cond.specificWorkGroupId || '',
-            specificWorkGroupName: cond.specificWorkGroupName || this._auditWgName(cond.specificWorkGroupId),
+            specificWorkGroupName: cond._wgName || cond.specificWorkGroupName || this._auditWgName(cond.specificWorkGroupId),
             identityScope: cond.identityScope || 'all',
             specificIdentityId: cond.specificIdentityId || '',
-            specificIdentityName: cond.specificIdentityName || this._auditIdentityName(cond.specificIdentityId),
+            specificIdentityName: cond._identName || cond.specificIdentityName || this._auditIdentityName(cond.specificIdentityId),
             personHrIds: cond.personHrIds || '',
-            personHrNames: cond.personHrNames || ''
+            personHrNames: cond.personHrNames || (cond._personNames ? cond._personNames.join('、') : '')
           },
           auditStepConditionEditingIndex: index,
           auditStepConditionEditorVisible: true
