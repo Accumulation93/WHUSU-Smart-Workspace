@@ -1042,7 +1042,7 @@ Page({
               _key: 'step_' + step.id,
               type: 'step',
               id: step.id,
-              sortOrder: step.sortOrder,
+              sortOrder: step.sortOrder || (si2 + 1),
               approverType: step.approverType,
               approverHrId: step.approverHrId,
               approverName: step.approverName,
@@ -1172,6 +1172,44 @@ Page({
           }
         }
 
+        // Fallback: if active step not found via flowTimeline, find it from rawSteps
+        // (handles edge cases where the flowTimeline filtering skips the active step)
+        var computedActiveStepId = activeApprovalStep ? activeApprovalStep.id : '';
+        if (!activeApprovalStep && rawSteps.length > 0 && submissionStatus === 'in_progress') {
+          var actionMap2 = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+          // Find max round first
+          var maxRound2 = 0;
+          for (var si3 = 0; si3 < rawSteps.length; si3++) {
+            maxRound2 = Math.max(maxRound2, rawSteps[si3].round || 1);
+          }
+          // Find pending step matching currentStepIndex from latest round
+          for (var si4 = 0; si4 < rawSteps.length; si4++) {
+            var rawStep = rawSteps[si4];
+            if ((rawStep.round || 1) === maxRound2 &&
+                rawStep.sortOrder === currentStepIndex &&
+                rawStep.status === 'pending') {
+              activeApprovalStep = {
+                id: rawStep.id,
+                sortOrder: rawStep.sortOrder,
+                actionLabel: actionMap2[rawStep.actionType] || rawStep.actionType || '仅通过',
+                approverDesc: rawStep.approverDesc || '由未指定审批人审批',
+                round: rawStep.round || 1,
+                conditionsDisplay: rawStep.stepConditionsDisplay || []
+              };
+              computedActiveStepId = rawStep.id;
+              console.log('[audit:loadDetail] fallback activeStep found: id=' + rawStep.id +
+                ' sortOrder=' + rawStep.sortOrder);
+              break;
+            }
+          }
+        }
+        if (!computedActiveStepId && !activeApprovalStep && submissionStatus === 'in_progress') {
+          console.log('[audit:loadDetail] WARNING: active step NOT found via any method!' +
+            ' maxRound2=' + (typeof maxRound2 !== 'undefined' ? maxRound2 : 'N/A') +
+            ' currentStepIndex=' + currentStepIndex +
+            ' rawSteps.length=' + rawSteps.length);
+        }
+
         this.setData({
           submission: res.submission,
           flowTimeline: flowTimeline,
@@ -1181,7 +1219,7 @@ Page({
           signatures: res.signatures || [],
           flowProgressPercent: flowProgressPercent,
           flowProgressText: flowProgressText,
-          activeApprovalStepId: activeApprovalStep ? activeApprovalStep.id : '',
+          activeApprovalStepId: computedActiveStepId,
           activeApprovalStep: activeApprovalStep,
           designatedNextPersons: [],
           nextStepInfo: nextStepInfo,
@@ -1350,6 +1388,25 @@ Page({
     var stepId = this.data.activeApprovalStepId;
     var comment = this.data.approvalComment;
     var reason = this.data.rejectionReason;
+
+    // Fallback: if activeApprovalStepId is not set, find the pending step from latest round
+    if (!stepId) {
+      var steps = this.data.steps || [];
+      var submission = this.data.submission;
+      if (submission && steps.length && submission.status === 'in_progress') {
+        var maxRound = 0;
+        for (var i = 0; i < steps.length; i++) maxRound = Math.max(maxRound, steps[i].round || 1);
+        for (var i = 0; i < steps.length; i++) {
+          if ((steps[i].round || 1) === maxRound &&
+              steps[i].sortOrder === submission.currentStepIndex &&
+              steps[i].status === 'pending') {
+            stepId = steps[i].id;
+            console.log('[audit:confirmApprovalDirect] fallback stepId=' + stepId);
+            break;
+          }
+        }
+      }
+    }
 
     if (!stepId) {
       showShortToast('未找到待审批步骤');

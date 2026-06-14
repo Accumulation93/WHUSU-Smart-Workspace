@@ -673,7 +673,8 @@ router.post('/getSubmissionDetail', async (req, res) => {
     let isApprover = steps.some((s) => s.approver_hr_id === hrId);
 
     // Check identity-based matching — always run so submitter-as-approver is detected
-    if (!isApprover && !admin && hrId) {
+    // Also runs for admins so they get properly identified as approvers when their identity matches
+    if (!isApprover && hrId) {
       const orgId = await getCurrentOrgId();
       // Load approver HR info for identity/scope matching
       const [approverRows] = await pool.query(

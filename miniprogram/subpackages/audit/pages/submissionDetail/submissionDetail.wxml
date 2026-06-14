@@ -93,7 +93,7 @@
       </view>
       <view class="field">
         <view class="field-label">描述</view>
-        <textarea class="field-textarea" auto-height maxlength="-1" value="{{createDesc}}" bindinput="onDescInput" placeholder="可选：填写审核描述/说明" />
+        <textarea class="field-textarea" auto-height maxlength="-1" value="{{createDesc}}" bindinput="onDescInput" placeholder="可选：填写审核描述/说明" ></textarea>
       </view>
       <view class="section-title" style="margin-top:16rpx;">附件 ({{uploadedFiles.length}}份)</view>
       <view class="file-attach-item" wx:for="{{uploadedFiles}}" wx:key="fileId">
@@ -267,7 +267,7 @@
       </view>
 
       <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
-      <view class="card" wx:if="{{activeApprovalStepId && !editMode}}" style="border:2rpx solid #3b82f6;background:linear-gradient(135deg,rgba(239,246,255,0.6),rgba(255,255,255,0.6));">
+      <view class="card" wx:if="{{!editMode && submission.status === 'in_progress' && (activeApprovalStepId || userIsApprover || userIsAdmin)}}" style="border:2rpx solid #3b82f6;background:linear-gradient(135deg,rgba(239,246,255,0.6),rgba(255,255,255,0.6));">
         <view class="section-title" style="color:#1d4ed8;">📋 审批操作</view>
         <view style="margin-bottom:12rpx;font-size:23rpx;color:#475569;">
           第{{activeApprovalStep.sortOrder}}步 · {{activeApprovalStep.actionLabel}}
@@ -278,13 +278,13 @@
         <!-- Approval comment -->
         <view style="margin-bottom:8rpx;">
           <view style="font-size:23rpx;font-weight:600;color:#475569;margin-bottom:6rpx;">审批意见（可选）</view>
-          <textarea style="width:100%;min-height:120rpx;padding:16rpx;border:1rpx solid #d1d5db;border-radius:12rpx;font-size:24rpx;box-sizing:border-box;" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="填写审批通过时的意见（可选）" />
+          <textarea style="width:100%;min-height:120rpx;padding:16rpx;border:1rpx solid #d1d5db;border-radius:12rpx;font-size:24rpx;box-sizing:border-box;" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="填写审批通过时的意见（可选）"></textarea>
         </view>
 
         <!-- Rejection reason -->
         <view style="margin-bottom:16rpx;">
           <view style="font-size:23rpx;font-weight:600;color:#475569;margin-bottom:6rpx;">驳回理由</view>
-          <textarea style="width:100%;min-height:120rpx;padding:16rpx;border:1rpx solid #d1d5db;border-radius:12rpx;font-size:24rpx;box-sizing:border-box;" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="填写驳回理由（驳回时必填）" />
+          <textarea style="width:100%;min-height:120rpx;padding:16rpx;border:1rpx solid #d1d5db;border-radius:12rpx;font-size:24rpx;box-sizing:border-box;" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="填写驳回理由（驳回时必填）"></textarea>
         </view>
 
         <!-- Designate next-step approvers (optional) -->
@@ -453,7 +453,7 @@
           </view>
           <view class="field">
             <view class="field-label">描述</view>
-            <textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" bindinput="onEditDescInput" placeholder="可选：填写审核描述/说明" />
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" bindinput="onEditDescInput" placeholder="可选：填写审核描述/说明" ></textarea>
           </view>
         </view>
 
