@@ -850,6 +850,21 @@ Page({
         //    Every event (submit/withdraw/resubmit/approve/reject/edit) is part of the audit trail
         var lifecycleEvents = serverEvents;
 
+        // Build a lookup map: key = round_stepIndex_eventType → operatorName
+        // Used to resolve the ACTUAL operator (not the designated approver) for step nodes
+        var eventOperatorMap = {};
+        for (var eomi = 0; eomi < lifecycleEvents.length; eomi++) {
+          var eo = lifecycleEvents[eomi];
+          if ((eo.eventType === 'approve' || eo.eventType === 'reject') && eo.stepIndex != null) {
+            var eoKey = (eo.round || 1) + '_' + eo.stepIndex + '_' + eo.eventType;
+            eventOperatorMap[eoKey] = {
+              operatorName: eo.operatorName || '',
+              comment: eo.comment || '',
+              time: formatAuditTime(eo.createdAt)
+            };
+          }
+        }
+
         // 2. Group steps by round
         var rounds = {};
         for (var si = 0; si < rawSteps.length; si++) {
@@ -1066,6 +1081,13 @@ Page({
               hasProcessedSteps = true;
             }
 
+            // Look up the ACTUAL operator from the audit event (not the designated approver)
+            var eventKey = (step.round || 1) + '_' + step.sortOrder + '_' + (step.status === 'approved' ? 'approve' : 'reject');
+            var eventInfo = eventOperatorMap[eventKey] || {};
+            var actualOperatorName = eventInfo.operatorName || '';
+            var actualComment = eventInfo.comment || step.comment || '';
+            var actualProcessedAt = eventInfo.time || (step.processedAt ? formatAuditTime(step.processedAt) : '');
+
             flowTimeline.push({
               _key: 'step_' + step.id,
               type: 'step',
@@ -1074,7 +1096,7 @@ Page({
               approverType: step.approverType,
               approverHrId: step.approverHrId,
               approverName: step.approverName,
-              operatorName: step.approverName,
+              operatorName: actualOperatorName || step.approverName,
               approverIdentityId: step.approverIdentityId,
               approverIdentityName: step.approverIdentityName,
               scopeType: step.scopeType,
@@ -1084,10 +1106,10 @@ Page({
               scopeWorkGroupName: step.scopeWorkGroupName,
               actionType: step.actionType,
               status: step.status,
-              comment: step.comment,
-              rejectionReason: step.rejectionReason,
+              comment: actualComment,
+              rejectionReason: step.status === 'rejected' ? (eventInfo.comment || step.rejectionReason || '') : step.rejectionReason,
               round: step.round,
-              processedAt: step.processedAt ? formatAuditTime(step.processedAt) : '',
+              processedAt: actualProcessedAt,
               flowNodeClass: flowNodeClass,
               flowDotClass: flowDotClass,
               flowIcon: flowIcon,
