@@ -377,7 +377,7 @@
             </view>
 
             <!-- ── Lifecycle event node (tappable to expand) ── -->
-            <view class="flow-node flow-node-lifecycle {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:if="{{node.type === 'lifecycle'}}" bindtap="toggleFlowNode" data-node-key="{{node._key}}">
+            <view class="flow-node flow-node-lifecycle {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:if="{{node.type === 'lifecycle'}}" bindtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="flow-node-tap" hover-stay-time="{{80}}">
               <view class="flow-left-col">
                 <view class="flow-dot-lifecycle-icon">{{node.icon}}</view>
                 <view class="flow-connector flow-connector-lifecycle"></view>
@@ -403,7 +403,7 @@
             </view>
 
             <!-- ── Approval step node (tappable to expand) ── -->
-            <view class="flow-node {{node.flowNodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:if="{{node.type === 'step'}}" bindtap="toggleFlowNode" data-node-key="{{node._key}}">
+            <view class="flow-node {{node.flowNodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:if="{{node.type === 'step'}}" bindtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="flow-node-tap" hover-stay-time="{{80}}">
               <view class="flow-left-col">
                 <view class="flow-dot {{node.flowDotClass}}">
                   <block wx:if="{{node.flowIcon === 'check'}}">✓</block>

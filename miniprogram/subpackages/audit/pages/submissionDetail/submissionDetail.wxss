@@ -160,16 +160,34 @@
   font-size: 16rpx; color: #ef4444; margin-left: 2rpx;
 }
 
-/* ── Expandable flow nodes ── */
-.flow-node.flow-node-lifecycle,
-.flow-node:not(.flow-node-lifecycle) {
-  cursor: pointer;
+/* ── Expandable flow nodes — glassmorphism ── */
+.flow-node {
+  transition: all 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
+
+/* Tap feedback: subtle frosted glass ripple (replaces default blue highlight) */
+.flow-node-tap {
+  background: radial-gradient(circle at center, rgba(148,163,184,0.08) 0%, transparent 70%);
+  border-radius: 16rpx;
+  transition: none;
+}
+
+/* Expanded state: soft glass card */
 .flow-node-expanded .flow-info {
-  background: rgba(248,250,252,0.6);
-  border-radius: 10rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(248,250,252,0.64) 100%);
+  backdrop-filter: blur(12rpx);
+  -webkit-backdrop-filter: blur(12rpx);
+  border: 1rpx solid rgba(203,213,225,0.35);
+  border-radius: 16rpx;
+  box-shadow: 0 8rpx 32rpx rgba(15,23,42,0.06), inset 0 1rpx 0 rgba(255,255,255,0.6);
+  transition: all 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .flow-node-expanded .flow-info-lifecycle {
-  background: rgba(248,250,252,0.6);
-  border-radius: 10rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(248,250,252,0.64) 100%);
+  backdrop-filter: blur(12rpx);
+  -webkit-backdrop-filter: blur(12rpx);
+  border: 1rpx solid rgba(203,213,225,0.35);
+  border-radius: 16rpx;
+  box-shadow: 0 8rpx 32rpx rgba(15,23,42,0.06), inset 0 1rpx 0 rgba(255,255,255,0.6);
+  transition: all 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
