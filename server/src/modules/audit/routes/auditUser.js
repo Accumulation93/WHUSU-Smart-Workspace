@@ -64,6 +64,7 @@ router.post('/listMySubmissions', async (req, res) => {
       id: safeString(s.id),
       submissionNumber: safeString(s.submission_number),
       title: safeString(s.title),
+      description: safeString(s.description),
       type: safeString(s.type),
       status: safeString(s.status),
       currentStepIndex: s.current_step_index,
@@ -151,6 +152,7 @@ router.post('/startAuditSubmission', async (req, res) => {
 
     const templateId = safeString(req.body.templateId);
     const title = safeString(req.body.title);
+    const description = safeString(req.body.description);
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
     const stepOverrides = Array.isArray(req.body.stepOverrides) ? req.body.stepOverrides : [];
 
@@ -243,6 +245,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       type: 'template',
       templateId,
       title,
+      description,
       status: 'in_progress',
       currentStepIndex: 1,
       resubmitMode: template.resubmit_mode
@@ -425,6 +428,7 @@ router.post('/startAdHocAudit', async (req, res) => {
     const orgId = await getCurrentOrgId();
 
     const title = safeString(req.body.title);
+    const description = safeString(req.body.description);
     const resubmitMode = safeString(req.body.resubmitMode) || 'fresh';
     const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
@@ -443,6 +447,7 @@ router.post('/startAdHocAudit', async (req, res) => {
       type: 'ad_hoc',
       templateId: null,
       title,
+      description,
       status: 'in_progress',
       currentStepIndex: 1,
       resubmitMode
@@ -841,6 +846,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         id: safeString(submission.id),
         submissionNumber: safeString(submission.submission_number),
         title: safeString(submission.title),
+        description: safeString(submission.description),
         type: safeString(submission.type),
         templateId: safeString(submission.template_id),
         templateName,
@@ -1232,6 +1238,205 @@ router.post('/rejectStep', async (req, res) => {
   }
 });
 
+// updateAuditSubmission — Edit submission metadata, steps, and files when in editable status
+router.post('/updateAuditSubmission', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const orgId = await getCurrentOrgId();
+
+    const submissionId = safeString(req.body.submissionId);
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+
+    const submission = await submissionModel.getById(submissionId);
+    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (submission.submitted_by !== hrId) {
+      return res.json({ status: 'forbidden', message: '只有提交人可以修改' });
+    }
+
+    const editableStatuses = ['draft', 'pending', 'rejected', 'withdrawn'];
+    if (!editableStatuses.includes(submission.status)) {
+      return res.json({ status: 'invalid_state', message: '当前状态不允许修改，只有草稿、待提交、已驳回或已撤回的审核可以修改' });
+    }
+
+    const title = safeString(req.body.title);
+    const description = safeString(req.body.description);
+    const newType = safeString(req.body.type) || submission.type;
+    const newTemplateId = safeString(req.body.templateId) || null;
+    const newResubmitMode = safeString(req.body.resubmitMode) || submission.resubmit_mode;
+    const newSteps = Array.isArray(req.body.steps) ? req.body.steps : null;
+    const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : null;
+
+    if (!title) return res.json({ status: 'invalid_params', message: '请输入标题' });
+
+    await conn.beginTransaction();
+
+    // Update submission metadata
+    await submissionModel.update(submissionId, {
+      title,
+      description,
+      type: newType,
+      templateId: newType === 'template' ? newTemplateId : null,
+      resubmitMode: newResubmitMode
+    }, conn);
+
+    // Replace steps
+    // Remove existing steps for this submission
+    await submissionStepModel.removeBySubmissionId(submissionId, conn);
+
+    let stepsToCreate = [];
+    if (newType === 'template' && newTemplateId) {
+      // Load template steps
+      const templateSteps = await flowTemplateStepModel.getByTemplateId(newTemplateId);
+      const allConditions = await flowTemplateStepConditionModel.getByTemplateId(newTemplateId);
+      const stepConditionMap = {};
+      for (const c of allConditions) {
+        const sid = c.template_step_id;
+        if (!stepConditionMap[sid]) stepConditionMap[sid] = [];
+        stepConditionMap[sid].push({
+          conditionType: c.condition_type,
+          personHrIds: c.person_hr_ids,
+          departmentScope: c.department_scope,
+          specificDepartmentId: c.specific_department_id,
+          workGroupScope: c.work_group_scope,
+          specificWorkGroupId: c.specific_work_group_id,
+          identityScope: c.identity_scope,
+          specificIdentityId: c.specific_identity_id
+        });
+      }
+      stepsToCreate = templateSteps.map((ts, idx) => ({
+        templateStepId: ts.id,
+        sortOrder: idx + 1,
+        actionType: ts.action_type || 'sign',
+        conditions: stepConditionMap[ts.id] || []
+      }));
+    } else if (newSteps && newSteps.length) {
+      // Ad-hoc: use user-provided steps
+      stepsToCreate = newSteps.map((s, idx) => {
+        let conditions = Array.isArray(s.conditions) ? s.conditions : [];
+        if (conditions.length === 0) {
+          const scopeType = safeString(s.scopeType) || 'all';
+          const approverIdentId = safeString(s.approverIdentityId);
+          if (approverIdentId) {
+            const cond = {
+              conditionType: 'identity_scope',
+              identityScope: 'specific',
+              specificIdentityId: approverIdentId,
+              departmentScope: 'all',
+              workGroupScope: 'all'
+            };
+            if (scopeType === 'same_department') cond.departmentScope = 'own';
+            else if (scopeType === 'same_work_group') cond.workGroupScope = 'own';
+            else if (scopeType === 'specific_department') {
+              cond.departmentScope = 'specific';
+              cond.specificDepartmentId = safeString(s.scopeDepartmentId) || null;
+            } else if (scopeType === 'specific_work_group') {
+              cond.departmentScope = 'specific';
+              cond.specificDepartmentId = safeString(s.scopeDepartmentId) || null;
+              cond.workGroupScope = 'specific';
+              cond.specificWorkGroupId = safeString(s.scopeWorkGroupId) || null;
+            }
+            conditions.push(cond);
+          }
+        }
+        return {
+          templateStepId: null,
+          sortOrder: idx + 1,
+          approverType: safeString(s.approverType) || null,
+          approverHrId: safeString(s.approverHrId) || null,
+          approverIdentityId: safeString(s.approverIdentityId) || null,
+          actionType: safeString(s.actionType) || 'sign',
+          conditions
+        };
+      });
+    }
+
+    if (stepsToCreate.length > 0) {
+      for (let i = 0; i < stepsToCreate.length; i++) {
+        const s = stepsToCreate[i];
+        const stepId = generateId();
+        let stepConditionsJson = s.conditions && s.conditions.length > 0 ? JSON.stringify(s.conditions) : null;
+        await submissionStepModel.create(stepId, {
+          submissionId,
+          templateStepId: s.templateStepId || null,
+          sortOrder: s.sortOrder,
+          approverType: s.approverType || null,
+          approverHrId: s.approverHrId || null,
+          approverIdentityId: s.approverIdentityId || null,
+          actionType: s.actionType || 'sign',
+          round: 1,
+          stepConditionsJson
+        }, conn);
+      }
+    }
+
+    // Reset to step 1 since steps changed
+    await submissionModel.update(submissionId, { currentStepIndex: 1, previousRejectStepIndex: null }, conn);
+
+    // Replace files if provided
+    if (uploadedFiles && uploadedFiles.length) {
+      // Remove existing files
+      const existingFiles = await submissionFileModel.getBySubmissionId(submissionId);
+      for (const ef of existingFiles) {
+        if (ef.file_path && require('fs').existsSync(ef.file_path)) {
+          try { require('fs').unlinkSync(ef.file_path); } catch (_) {}
+        }
+      }
+      await submissionFileModel.removeBySubmissionId(submissionId, conn);
+
+      const path = require('path');
+      const fs = require('fs');
+      const submissionDir = path.join(UPLOAD_DIR, submissionId);
+      if (!fs.existsSync(submissionDir)) fs.mkdirSync(submissionDir, { recursive: true });
+
+      for (let i = 0; i < uploadedFiles.length; i++) {
+        const f = uploadedFiles[i];
+        const tmpPath = safeString(f.tmpPath);
+        const fileId = safeString(f.fileId) || generateId();
+        const fileName = safeString(f.fileName);
+        const mimeType = safeString(f.mimeType);
+        const fileSize = parseInt(f.fileSize) || 0;
+        const fileHash = safeString(f.fileHash);
+
+        const ext = path.extname(fileName) || '';
+        const destPath = path.join(submissionDir, fileId + ext);
+
+        if (tmpPath && fs.existsSync(tmpPath)) {
+          fs.renameSync(tmpPath, destPath);
+        }
+
+        await submissionFileModel.create(fileId, {
+          submissionId, fileName, mimeType, filePath: destPath, fileSize, fileHash, sortOrder: i + 1
+        }, conn);
+      }
+    }
+
+    // Insert edit event
+    const [editorNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
+    const editorName = editorNameRows[0] ? editorNameRows[0].name : '';
+    await auditEventModel.create(generateId(), {
+      submissionId,
+      eventType: 'edit',
+      stepIndex: null,
+      round: 1,
+      operatorHrId: hrId,
+      operatorName: editorName,
+      comment: null
+    }, conn);
+
+    await conn.commit();
+    res.json({ status: 'success', message: '审核已更新' });
+  } catch (e) {
+    await conn.rollback();
+    res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // resubmitAudit — Resubmit after rejection
 router.post('/resubmitAudit', async (req, res) => {
   const conn = await pool.getConnection();
@@ -1252,6 +1457,16 @@ router.post('/resubmitAudit', async (req, res) => {
     }
     if (submission.status !== 'rejected' && submission.status !== 'withdrawn' && submission.status !== 'pending') {
       return res.json({ status: 'invalid_state', message: '当前状态不允许重提交，只有待提交、已驳回或已撤回的审核可以重提交' });
+    }
+
+    // Optional updates during resubmission
+    const newTitle = safeString(req.body.title);
+    const newDescription = safeString(req.body.description);
+    if (newTitle || newDescription) {
+      const updateData = {};
+      if (newTitle) updateData.title = newTitle;
+      if (newDescription) updateData.description = newDescription;
+      await submissionModel.update(submissionId, updateData, conn);
     }
 
     const isWithdrawn = submission.status === 'withdrawn';

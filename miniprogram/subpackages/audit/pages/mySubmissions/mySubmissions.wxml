@@ -26,6 +26,7 @@
         <view class="audit-submission-item" wx:for="{{submissions}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail">
           <view class="audit-submission-main">
             <view class="audit-submission-name">{{item.title || item.submissionNumber}}</view>
+            <view class="audit-submission-desc" wx:if="{{item.description}}" style="font-size:22rpx;color:#94a3b8;margin-top:4rpx;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{item.description}}</view>
             <view class="audit-submission-meta">
               <view class="audit-chip {{item.status === 'approved' ? 'audit-chip-approved' : (item.status === 'rejected' ? 'audit-chip-rejected' : (item.status === 'in_progress' ? 'audit-chip-progress' : (item.status === 'draft' ? 'audit-chip-draft' : (item.status === 'withdrawn' ? 'audit-chip-withdrawn' : 'audit-chip-pending'))))}}">
                 {{item.status === 'draft' ? '草稿' : (item.status === 'pending' ? '待提交' : (item.status === 'in_progress' ? '审核中' : (item.status === 'rejected' ? '已驳回' : (item.status === 'approved' ? '已完成' : '已撤回'))))}}

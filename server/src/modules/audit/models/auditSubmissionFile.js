@@ -35,4 +35,10 @@ async function remove(id) {
   await pool.query('DELETE FROM audit_submission_files WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getBySubmissionId, getById, create, remove };
+async function removeBySubmissionId(submissionId, conn) {
+  const orgId = await getCurrentOrgId();
+  const db = conn || pool;
+  await db.query('DELETE FROM audit_submission_files WHERE submission_id = ? AND org_id = ?', [submissionId, orgId]);
+}
+
+module.exports = { getBySubmissionId, getById, create, remove, removeBySubmissionId };

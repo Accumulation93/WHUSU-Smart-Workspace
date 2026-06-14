@@ -18,6 +18,7 @@ Page({
     flowTemplates: [],
     selectedTemplateId: '',
     createTitle: '',
+    createDesc: '',
     uploadedFiles: [], // { fileId, fileName, mimeType, fileSize, fileHash, tmpPath }
     adHocSteps: [],
     adHocStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
@@ -59,6 +60,33 @@ Page({
     personPickerSelectedIds: [],
     personPickerSelectedList: [],
     personPickerStepActionType: 'sign',
+
+    // Edit mode (for editable submissions)
+    editMode: false,
+    editTitle: '',
+    editDesc: '',
+    editType: '',        // 'template' or 'ad_hoc'
+    editResubmitMode: 'fresh',
+    editTemplateId: '',
+    editSteps: [],       // for ad_hoc type
+    editFiles: [],       // current files (display)
+    editNewFiles: [],    // newly uploaded files
+    editStepEditorVisible: false,
+    editStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
+    editIdentityPickerScopeIndex: 0,
+    editIdentityPickerDeptIndex: 0,
+    editIdentityPickerWgIndex: 0,
+    editIdentityPickerIdentIndex: 0,
+    editPersonPickerVisible: false,
+    editPersonPickerDept: '全部',
+    editPersonPickerIdent: '全部',
+    editPersonPickerWg: '全部',
+    editPersonPickerKeyword: '',
+    editPersonPickerCandidates: [],
+    editPersonPickerSelectedIds: [],
+    editPersonPickerSelectedList: [],
+    editPersonPickerStepActionType: 'pass',
+    editUploading: false,
 
     // Approval mode
     approvalVisible: false,
@@ -274,6 +302,10 @@ Page({
 
   onTitleInput(e) {
     this.setData({ createTitle: e.detail.value });
+  },
+
+  onDescInput(e) {
+    this.setData({ createDesc: e.detail.value });
   },
 
   // ── Ad-hoc Step Editor ──
@@ -704,7 +736,7 @@ Page({
           .map(function(o) { return { stepIndex: o.stepIndex, personHrIds: o.personHrIds }; });
         res = await callFunction({
           name: 'startAuditSubmission',
-          data: { templateId: selectedTemplateId, title: createTitle, files: serverFiles, stepOverrides: stepOverrides }
+          data: { templateId: selectedTemplateId, title: createTitle, description: this.data.createDesc, files: serverFiles, stepOverrides: stepOverrides }
         });
       } else {
         if (!adHocSteps.length) { showShortToast('请添加审批步骤'); this.setData({ loading: false }); return; }
@@ -720,7 +752,7 @@ Page({
         }));
         res = await callFunction({
           name: 'startAdHocAudit',
-          data: { title: createTitle, resubmitMode, steps: cleanSteps, files: serverFiles }
+          data: { title: createTitle, description: this.data.createDesc, resubmitMode, steps: cleanSteps, files: serverFiles }
         });
       }
 
@@ -847,9 +879,20 @@ Page({
           var hasProcessedSteps = false;
           var hasFutureSteps = false;
 
+          // Determine the max round for hiding stale pending steps
+          var maxRoundForSteps = Math.max.apply(null, roundKeys.map(function(k) { return Number(k); }));
+
           for (var si2 = 0; si2 < roundSteps.length; si2++) {
             var step = roundSteps[si2];
             var flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+
+            // For non-last rounds, skip pending steps that were never reached
+            // (they belong to a completed/abandoned round and would show as confusing "○ 未到达")
+            if (round < maxRoundForSteps && step.status === 'pending') {
+              // Only skip if the step was beyond what was processed in that round
+              // Keep rejected/approved steps from old rounds
+              continue;
+            }
 
             var approverDesc = step.approverDesc || '';
             if (!approverDesc) {
@@ -962,8 +1005,9 @@ Page({
             });
           }
 
-          // Inject separator
-          if (hasProcessedSteps && hasFutureSteps) {
+          // Inject separator — only for the LAST round
+          var maxRound = Math.max.apply(null, roundKeys.map(function(k) { return Number(k); }));
+          if (hasProcessedSteps && hasFutureSteps && round === maxRound) {
             var remainingCount = roundSteps.filter(function(rs) {
               return rs.status === 'pending' && rs.sort_order > currentStepIndex;
             }).length;
@@ -1168,6 +1212,416 @@ Page({
       }
     } catch (e) {
       showShortToast(getErrorText(e, '操作失败'));
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  // ═══════════════════════════════════════════════
+  // Edit Mode (for draft/pending/rejected/withdrawn)
+  // ═══════════════════════════════════════════════
+
+  // Check if submission is editable
+  isEditableStatus(status) {
+    return status === 'draft' || status === 'pending' || status === 'rejected' || status === 'withdrawn';
+  },
+
+  enterEditMode() {
+    var submission = this.data.submission;
+    var files = this.data.files || [];
+    var steps = this.data.steps || [];
+
+    if (!this.isEditableStatus(submission.status)) {
+      showShortToast('当前状态不允许编辑');
+      return;
+    }
+
+    // Load reference data if not loaded
+    if (!this.data.allIdentities.length && !this.data.allDepartments.length) {
+      this.loadReferenceData();
+    }
+
+    this.setData({
+      editMode: true,
+      editTitle: submission.title || '',
+      editDesc: submission.description || '',
+      editType: submission.type || 'template',
+      editResubmitMode: submission.resubmitMode || 'fresh',
+      editTemplateId: submission.templateId || '',
+      editSteps: submission.type === 'ad_hoc' ? steps.map(function(s) {
+        return {
+          approverType: s.approverType || 'identity',
+          approverHrId: s.approverHrId || '',
+          approverHrName: s.approverName || '',
+          approverIdentityId: s.approverIdentityId || '',
+          approverIdentityName: s.approverIdentityName || '',
+          actionType: s.actionType || 'pass',
+          scopeType: s.scopeType || 'all',
+          scopeDepartmentId: s.scopeDepartmentId || '',
+          scopeDepartmentName: s.scopeDepartmentName || '',
+          scopeWorkGroupId: s.scopeWorkGroupId || '',
+          scopeWorkGroupName: s.scopeWorkGroupName || ''
+        };
+      }) : [],
+      editFiles: files,
+      editNewFiles: []
+    });
+  },
+
+  cancelEdit() {
+    this.setData({ editMode: false });
+  },
+
+  onEditTitleInput(e) {
+    this.setData({ editTitle: e.detail.value });
+  },
+
+  onEditDescInput(e) {
+    this.setData({ editDesc: e.detail.value });
+  },
+
+  onEditTypeChange(e) {
+    this.setData({ editType: e.currentTarget.dataset.type });
+  },
+
+  onEditResubmitModeChange(e) {
+    this.setData({ editResubmitMode: ['fresh', 'from_rejector'][e.detail.value] || 'fresh' });
+  },
+
+  // ── Edit: Ad-hoc step editor ──
+
+  openEditStepEditor() {
+    this.setData({
+      editStepEditorVisible: true,
+      editStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
+      editIdentityPickerScopeIndex: 0,
+      editIdentityPickerDeptIndex: 0,
+      editIdentityPickerWgIndex: 0,
+      editIdentityPickerIdentIndex: 0
+    });
+  },
+
+  closeEditStepEditor() {
+    this.setData({ editStepEditorVisible: false, editPersonPickerVisible: false });
+  },
+
+  onEditStepTypeChange(e) {
+    var type = ['identity', 'specific_person'][e.detail.value] || 'identity';
+    this.setData({
+      'editStepForm.approverType': type,
+      'editStepForm.approverIdentityId': '',
+      'editStepForm.approverIdentityName': '',
+      'editStepForm.approverHrId': '',
+      'editStepForm.approverHrName': ''
+    });
+  },
+
+  onEditActionTypeChange(e) {
+    var val = ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'pass';
+    this.setData({ 'editStepForm.actionType': val });
+  },
+
+  onEditIdentityScopeChange(e) { this.setData({ editIdentityPickerScopeIndex: parseInt(e.detail.value) }); },
+  onEditIdentityDeptChange(e) { this.setData({ editIdentityPickerDeptIndex: parseInt(e.detail.value) }); },
+  onEditIdentityWgChange(e) { this.setData({ editIdentityPickerWgIndex: parseInt(e.detail.value) }); },
+  onEditIdentityIdentChange(e) { this.setData({ editIdentityPickerIdentIndex: parseInt(e.detail.value) }); },
+
+  confirmEditIdentityStep() {
+    var sf = this.data.editStepForm;
+    var identities = this.data.allIdentities;
+    var departments = this.data.allDepartments;
+    var workGroups = this.data.allWorkGroups;
+    var identIdx = this.data.editIdentityPickerIdentIndex;
+    var identOpts = this.data.identityPickerIdentOptions;
+    var scopeIdx = this.data.editIdentityPickerScopeIndex;
+    var scopeValues = this.data.identityPickerScopeValues;
+
+    if (identIdx <= 0) { showShortToast('请选择身份'); return; }
+    var identName = identOpts[identIdx];
+    var identity = identities.find(function(i) { return i.name === identName; });
+    if (!identity) { showShortToast('身份数据异常，请重试'); return; }
+
+    var scopeType = scopeValues[scopeIdx] || 'all';
+    var scopeDepartmentId = '', scopeDepartmentName = '', scopeWorkGroupId = '', scopeWorkGroupName = '';
+
+    if (scopeType === 'specific_department' || scopeType === 'specific_work_group') {
+      var deptIdx = this.data.editIdentityPickerDeptIndex;
+      var deptOpts = this.data.identityPickerDeptOptions;
+      if (deptIdx <= 0) { showShortToast('请选择部门'); return; }
+      var deptName = deptOpts[deptIdx];
+      var dept = departments.find(function(d) { return d.name === deptName; });
+      if (!dept) { showShortToast('部门数据异常'); return; }
+      scopeDepartmentId = dept.id;
+      scopeDepartmentName = dept.name;
+    }
+    if (scopeType === 'specific_work_group') {
+      var wgIdx = this.data.editIdentityPickerWgIndex;
+      var wgOpts = this.data.identityPickerWgOptions;
+      if (wgIdx <= 0) { showShortToast('请选择职能组'); return; }
+      var wgName = wgOpts[wgIdx];
+      var wg = workGroups.find(function(w) { return w.name === wgName; });
+      if (!wg) { showShortToast('职能组数据异常'); return; }
+      scopeWorkGroupId = wg.id;
+      scopeWorkGroupName = wg.name;
+    }
+
+    var steps = [...this.data.editSteps];
+    steps.push({
+      approverType: 'identity',
+      approverIdentityId: identity.id,
+      approverIdentityName: identity.name,
+      approverHrId: '',
+      approverHrName: '',
+      actionType: sf.actionType,
+      scopeType: scopeType,
+      scopeDepartmentId: scopeDepartmentId,
+      scopeDepartmentName: scopeDepartmentName,
+      scopeWorkGroupId: scopeWorkGroupId,
+      scopeWorkGroupName: scopeWorkGroupName
+    });
+
+    this.setData({
+      editSteps: steps,
+      editStepEditorVisible: false,
+      editStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' }
+    });
+  },
+
+  // ── Edit: Person picker ──
+
+  openEditPersonPicker() {
+    this.setData({
+      editPersonPickerVisible: true,
+      editPersonPickerDept: '全部',
+      editPersonPickerIdent: '全部',
+      editPersonPickerWg: '全部',
+      editPersonPickerKeyword: '',
+      editPersonPickerSelectedIds: [],
+      editPersonPickerSelectedList: [],
+      editPersonPickerStepActionType: 'pass'
+    });
+    this.applyEditPersonPickerFilters();
+  },
+
+  closeEditPersonPicker() { this.setData({ editPersonPickerVisible: false }); },
+
+  onEditPersonPickerDeptChange(e) {
+    var opts = this.data.personPickerDeptOpts;
+    this.setData({ editPersonPickerDept: opts[parseInt(e.detail.value)] || '全部' });
+    this.applyEditPersonPickerFilters();
+  },
+
+  onEditPersonPickerIdentChange(e) {
+    var opts = this.data.personPickerIdentOpts;
+    this.setData({ editPersonPickerIdent: opts[parseInt(e.detail.value)] || '全部' });
+    this.applyEditPersonPickerFilters();
+  },
+
+  onEditPersonPickerWgChange(e) {
+    var opts = this.data.personPickerWgOpts;
+    this.setData({ editPersonPickerWg: opts[parseInt(e.detail.value)] || '全部' });
+    this.applyEditPersonPickerFilters();
+  },
+
+  onEditPersonPickerSearch(e) {
+    this.setData({ editPersonPickerKeyword: e.detail.value });
+    this.applyEditPersonPickerFilters();
+  },
+
+  applyEditPersonPickerFilters() {
+    var list = [...this.data.allHrPersons];
+    var dept = this.data.editPersonPickerDept;
+    var ident = this.data.editPersonPickerIdent;
+    var wg = this.data.editPersonPickerWg;
+    var kw = (this.data.editPersonPickerKeyword || '').trim().toLowerCase();
+
+    if (dept !== '全部') list = list.filter(function(p) { return p.department === dept; });
+    if (ident !== '全部') list = list.filter(function(p) { return p.identity === ident; });
+    if (wg !== '全部') list = list.filter(function(p) { return p.workGroup === wg; });
+    if (kw) list = list.filter(function(p) {
+      return (p.name || '').toLowerCase().includes(kw) || (p.studentId || '').toLowerCase().includes(kw);
+    });
+
+    var selectedIds = this.data.editPersonPickerSelectedIds;
+    var candidates = list.map(function(p) { return { ...p, isSelected: selectedIds.indexOf(p.id) >= 0 }; });
+    var selectedList = candidates.filter(function(p) { return p.isSelected; });
+
+    this.setData({ editPersonPickerCandidates: candidates, editPersonPickerSelectedList: selectedList });
+  },
+
+  onEditPersonToggle(e) {
+    var hrId = e.currentTarget.dataset.hrId;
+    var sel = [...this.data.editPersonPickerSelectedIds];
+    var idx = sel.indexOf(hrId);
+    if (idx >= 0) sel.splice(idx, 1); else sel.push(hrId);
+    this.setData({ editPersonPickerSelectedIds: sel });
+    this.applyEditPersonPickerFilters();
+  },
+
+  onEditPersonPickerActionTypeChange(e) {
+    this.setData({ editPersonPickerStepActionType: ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'pass' });
+  },
+
+  confirmEditPersonPicker() {
+    var selected = this.data.editPersonPickerSelectedList;
+    if (!selected.length) { showShortToast('请至少选择一个人'); return; }
+    var steps = [...this.data.editSteps];
+    var actionType = this.data.editPersonPickerStepActionType;
+    for (var i = 0; i < selected.length; i++) {
+      var p = selected[i];
+      steps.push({
+        approverType: 'specific_person',
+        approverHrId: p.id,
+        approverHrName: p.name,
+        approverIdentityId: '',
+        approverIdentityName: '',
+        actionType: actionType
+      });
+    }
+    this.setData({ editSteps: steps, editPersonPickerVisible: false });
+  },
+
+  removeEditStep(e) {
+    var idx = e.currentTarget.dataset.index;
+    var steps = [...this.data.editSteps];
+    steps.splice(idx, 1);
+    this.setData({ editSteps: steps });
+  },
+
+  // ── Edit: File management ──
+
+  editChooseFile() {
+    var that = this;
+    wx.chooseMessageFile({
+      count: 3,
+      type: 'file',
+      success: function(res) { that.uploadEditFiles(res.tempFiles); }
+    });
+  },
+
+  editChooseImage() {
+    var that = this;
+    wx.chooseImage({
+      count: 3,
+      sizeType: ['original', 'compressed'],
+      sourceType: ['album', 'camera'],
+      success: function(res) {
+        var tempFiles = res.tempFilePaths.map(function(p, i) {
+          return { path: p, name: 'image_' + Date.now() + '_' + i + '.jpg', size: res.tempFiles ? (res.tempFiles[i] ? res.tempFiles[i].size : 0) : 0 };
+        });
+        that.uploadEditFiles(tempFiles);
+      }
+    });
+  },
+
+  async uploadEditFiles(tempFiles) {
+    if (!tempFiles || !tempFiles.length) return;
+    this.setData({ editUploading: true });
+    var newFiles = [...this.data.editNewFiles];
+    for (var i = 0; i < tempFiles.length; i++) {
+      var tf = tempFiles[i];
+      try {
+        var base64 = await new Promise(function(resolve, reject) {
+          wx.getFileSystemManager().readFile({
+            filePath: tf.path, encoding: 'base64',
+            success: function(r) { resolve(r.data); },
+            fail: function(err) { reject(err); }
+          });
+        });
+        var fileId = 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        newFiles.push({
+          fileId: fileId, fileName: tf.name || 'unknown',
+          mimeType: tf.name ? (tf.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg') : 'image/jpeg',
+          fileSize: tf.size || 0, fileHash: '', tmpPath: tf.path, base64: base64
+        });
+      } catch (e) {
+        console.error('文件读取失败:', tf.name, e);
+      }
+    }
+    this.setData({ editNewFiles: newFiles, editUploading: false });
+  },
+
+  removeEditFile(e) {
+    var idx = e.currentTarget.dataset.index;
+    var files = [...this.data.editFiles];
+    files.splice(idx, 1);
+    this.setData({ editFiles: files });
+  },
+
+  removeEditNewFile(e) {
+    var idx = e.currentTarget.dataset.index;
+    var files = [...this.data.editNewFiles];
+    files.splice(idx, 1);
+    this.setData({ editNewFiles: files });
+  },
+
+  async saveEdit() {
+    var _editTitle = this.data.editTitle;
+    if (!_editTitle) { showShortToast('请输入标题'); return; }
+
+    this.setData({ loading: true });
+
+    try {
+      // Upload new files first
+      var serverNewFiles = [];
+      var editNewFiles = this.data.editNewFiles;
+      for (var i = 0; i < editNewFiles.length; i++) {
+        var uf = editNewFiles[i];
+        var uploadRes = await callFunction({
+          name: 'uploadAuditFile',
+          data: { fileBase64: uf.base64, fileName: uf.fileName, mimeType: uf.mimeType }
+        });
+        if (uploadRes.status === 'success') {
+          serverNewFiles.push({
+            fileId: uploadRes.fileId, fileName: uploadRes.fileName,
+            mimeType: uploadRes.mimeType, fileSize: uploadRes.fileSize,
+            fileHash: uploadRes.fileHash, tmpPath: uploadRes.tmpPath
+          });
+        }
+      }
+
+      // Build steps data
+      var stepsData = null;
+      if (this.data.editType === 'ad_hoc' && this.data.editSteps.length) {
+        stepsData = this.data.editSteps.map(function(s) {
+          return {
+            approverType: s.approverType,
+            approverIdentityId: s.approverIdentityId || '',
+            approverHrId: s.approverHrId || '',
+            actionType: s.actionType || 'pass',
+            scopeType: s.scopeType || 'all',
+            scopeDepartmentId: s.scopeDepartmentId || '',
+            scopeWorkGroupId: s.scopeWorkGroupId || ''
+          };
+        });
+      }
+
+      // All files to send (existing + new)
+      var allFiles = serverNewFiles.length > 0 ? serverNewFiles : null;
+
+      var res = await callFunction({
+        name: 'updateAuditSubmission',
+        data: {
+          submissionId: this.data.submissionId,
+          title: _editTitle,
+          description: this.data.editDesc,
+          type: this.data.editType,
+          templateId: this.data.editTemplateId || '',
+          resubmitMode: this.data.editResubmitMode,
+          steps: stepsData,
+          files: allFiles
+        }
+      });
+
+      if (res.status === 'success') {
+        showShortToast('修改已保存');
+        this.setData({ editMode: false });
+        this.loadDetail();
+      } else {
+        showShortToast(res.message || '保存失败');
+      }
+    } catch (e) {
+      showShortToast(getErrorText(e, '保存失败'));
     } finally {
       this.setData({ loading: false });
     }

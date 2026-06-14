@@ -420,8 +420,15 @@ async function getMaxRound(submissionId, sortOrder) {
   return (rows[0] && rows[0].max_round) || 1;
 }
 
+async function removeBySubmissionId(submissionId, conn) {
+  const orgId = await getCurrentOrgId();
+  const db = conn || pool;
+  await db.query('DELETE FROM audit_submission_steps WHERE submission_id = ? AND org_id = ?', [submissionId, orgId]);
+}
+
 module.exports = {
   getBySubmissionId, getById, getCurrentStep, getPendingByApprover, create, updateStatus, getMaxRound,
+  removeBySubmissionId,
   getTemplateStepConditions,
   matchesScope, matchesAnyCondition, matchesIdentityScopeCondition
 };

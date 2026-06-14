@@ -85,26 +85,30 @@ async function generateSubmissionNumber() {
 }
 
 async function create(id, data, conn) {
-  const { submissionNumber, submittedBy, type, templateId, title, status, resubmitMode, currentStepIndex } = data;
+  const { submissionNumber, submittedBy, type, templateId, title, description, status, resubmitMode, currentStepIndex } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    `INSERT INTO audit_submissions (id, submission_number, submitted_by, type, template_id, title, status, current_step_index, resubmit_mode, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, submissionNumber, submittedBy, type || 'template', templateId || null, title || '', status || 'draft',
+    `INSERT INTO audit_submissions (id, submission_number, submitted_by, type, template_id, title, description, status, current_step_index, resubmit_mode, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, submissionNumber, submittedBy, type || 'template', templateId || null, title || '', description || null, status || 'draft',
      currentStepIndex !== undefined ? currentStepIndex : 0,
      resubmitMode || 'fresh', orgId]
   );
 }
 
 async function update(id, data, conn) {
-  const { title, status, currentStepIndex, previousRejectStepIndex } = data;
+  const { title, description, type, templateId, resubmitMode, status, currentStepIndex, previousRejectStepIndex } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   const fields = [];
   const params = [];
 
   if (title !== undefined) { fields.push('title = ?'); params.push(title); }
+  if (description !== undefined) { fields.push('description = ?'); params.push(description); }
+  if (type !== undefined) { fields.push('type = ?'); params.push(type); }
+  if (templateId !== undefined) { fields.push('template_id = ?'); params.push(templateId); }
+  if (resubmitMode !== undefined) { fields.push('resubmit_mode = ?'); params.push(resubmitMode); }
   if (status !== undefined) { fields.push('status = ?'); params.push(status); }
   if (currentStepIndex !== undefined) { fields.push('current_step_index = ?'); params.push(currentStepIndex); }
   if (previousRejectStepIndex !== undefined) { fields.push('previous_reject_step_index = ?'); params.push(previousRejectStepIndex); }

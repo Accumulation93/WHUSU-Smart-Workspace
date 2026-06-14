@@ -91,6 +91,10 @@
         <view class="field-label">标题</view>
         <input class="field-input" value="{{createTitle}}" bindinput="onTitleInput" placeholder="请输入审核标题" />
       </view>
+      <view class="field">
+        <view class="field-label">描述</view>
+        <textarea class="field-textarea" auto-height maxlength="-1" value="{{createDesc}}" bindinput="onDescInput" placeholder="可选：填写审核描述/说明" />
+      </view>
       <view class="section-title" style="margin-top:16rpx;">附件 ({{uploadedFiles.length}}份)</view>
       <view class="file-attach-item" wx:for="{{uploadedFiles}}" wx:key="fileId">
         <view class="file-attach-icon">📎</view>
@@ -315,8 +319,9 @@
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
                   {{node.approverName}} · {{node.processedAt || ''}}
                 </view>
-                <view class="flow-step-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
-                <view class="flow-step-rejection" wx:if="{{node.rejectionReason}}">驳回理由：{{node.rejectionReason}}</view>
+                <view class="flow-step-comment" wx:if="{{node.comment && node.flowIcon === 'check'}}">💬 审批意见：{{node.comment}}</view>
+                <view class="flow-step-comment" wx:if="{{node.comment && node.flowIcon === 'cross'}}">{{node.comment}}</view>
+                <view class="flow-step-rejection" wx:if="{{node.rejectionReason}}">❌ 驳回理由：{{node.rejectionReason}}</view>
                 <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active'}}">
                   <text class="flow-action-btn" data-step-id="{{node.id}}" bindtap="openApprove">✓ 通过</text>
                   <text class="flow-action-btn flow-action-danger" data-step-id="{{node.id}}" bindtap="openReject">✗ 驳回</text>
@@ -363,11 +368,188 @@
         </view>
       </view>
 
+      <!-- Description display (view mode) -->
+      <view class="card" wx:if="{{submission.description}}">
+        <view class="section-title">描述</view>
+        <view style="font-size:24rpx;color:#475569;line-height:1.6;white-space:pre-wrap;">{{submission.description}}</view>
+      </view>
+
       <!-- Actions -->
       <view class="card">
         <view class="audit-btn-bar">
+          <button class="secondary-btn" wx:if="{{submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="enterEditMode">修改审批</button>
           <button class="primary-btn" wx:if="{{submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="resubmit">重新提交</button>
           <button class="secondary-btn danger-btn" wx:if="{{submission.status === 'in_progress' || submission.status === 'rejected'}}" bindtap="withdraw">撤回申请</button>
+        </view>
+      </view>
+
+      <!-- ═══════════ Edit Mode ═══════════ -->
+      <view wx:if="{{editMode}}">
+        <view class="card">
+          <view class="section-title">修改审批</view>
+          <view class="section-desc" style="font-size:21rpx;color:#94a3b8;margin-bottom:12rpx;">修改审批类型、审批人和附件，保存后即可重新提交</view>
+        </view>
+
+        <view class="card">
+          <view class="section-title">审批类型</view>
+          <view class="button-row">
+            <button class="{{editType === 'template' ? 'primary-btn' : 'secondary-btn'}}" data-type="template" bindtap="onEditTypeChange">模板审核</button>
+            <button class="{{editType === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}}" data-type="ad_hoc" bindtap="onEditTypeChange">临时审批</button>
+          </view>
+        </view>
+
+        <!-- Basic info -->
+        <view class="card">
+          <view class="section-title">基本信息</view>
+          <view class="field">
+            <view class="field-label">标题</view>
+            <input class="field-input" value="{{editTitle}}" bindinput="onEditTitleInput" placeholder="请输入审核标题" />
+          </view>
+          <view class="field">
+            <view class="field-label">描述</view>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" bindinput="onEditDescInput" placeholder="可选：填写审核描述/说明" />
+          </view>
+        </view>
+
+        <!-- Ad-hoc steps editor -->
+        <view class="card" wx:if="{{editType === 'ad_hoc'}}">
+          <view class="section-title">审批步骤 ({{editSteps.length}}步)</view>
+          <view class="ad-hoc-step-item" wx:for="{{editSteps}}" wx:key="index">
+            <view class="ad-hoc-step-main">
+              <view class="ad-hoc-step-title">第{{index + 1}}步：{{item.approverType === 'specific_person' ? item.approverHrName : (item.approverIdentityName + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? item.scopeDepartmentName : (item.scopeType === 'specific_work_group' ? item.scopeDepartmentName + '·' + item.scopeWorkGroupName : '全体')))) + '）')}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+            </view>
+            <view class="list-actions"><text class="audit-link-btn audit-link-danger" data-index="{{index}}" bindtap="removeEditStep">移除</text></view>
+          </view>
+          <view class="audit-empty-state" wx:if="{{!editSteps.length}}">
+            <view class="audit-empty-text">尚未添加审批步骤，请添加</view>
+          </view>
+          <view class="button-row compact-row">
+            <button class="secondary-btn" bindtap="openEditStepEditor">添加步骤 (按身份)</button>
+            <button class="secondary-btn" bindtap="openEditPersonPicker">添加步骤 (指定人员)</button>
+          </view>
+          <view class="field" style="margin-top:16rpx;">
+            <view class="field-label">驳回重提交模式</view>
+            <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onEditResubmitModeChange">
+              <view class="picker-value">{{editResubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
+            </picker>
+          </view>
+        </view>
+
+        <!-- Files -->
+        <view class="card">
+          <view class="section-title">当前附件 ({{editFiles.length}}份)</view>
+          <view class="file-attach-item" wx:for="{{editFiles}}" wx:key="id">
+            <view class="file-attach-icon">📎</view>
+            <view class="file-attach-name">{{item.fileName}}</view>
+            <view class="list-actions"><text class="audit-link-btn audit-link-danger" data-index="{{index}}" bindtap="removeEditFile">移除</text></view>
+          </view>
+          <view class="section-title" style="margin-top:16rpx;" wx:if="{{editNewFiles.length}}">新增附件 ({{editNewFiles.length}}份)</view>
+          <view class="file-attach-item" wx:for="{{editNewFiles}}" wx:key="fileId">
+            <view class="file-attach-icon">📎</view>
+            <view class="file-attach-name">{{item.fileName}}</view>
+            <view class="list-actions"><text class="audit-link-btn audit-link-danger" data-index="{{index}}" bindtap="removeEditNewFile">移除</text></view>
+          </view>
+          <view class="button-row compact-row">
+            <button class="secondary-btn" bindtap="editChooseImage">选择图片</button>
+            <button class="secondary-btn" bindtap="editChooseFile">选择文件</button>
+          </view>
+        </view>
+
+        <view class="card">
+          <view class="audit-btn-bar">
+            <button class="primary-btn" loading="{{loading}}" bindtap="saveEdit">保存修改</button>
+            <button class="secondary-btn" bindtap="cancelEdit">取消</button>
+          </view>
+        </view>
+      </view>
+
+      <!-- ═══ Edit: Identity step editor popup ═══ -->
+      <view class="popup-mask" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
+        <view class="popup-card" catchtap="noop">
+          <view class="popup-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close" bindtap="closeEditStepEditor">关闭</text></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+            <view class="detail-popup-form">
+              <view class="field">
+                <view class="field-label">审批动作</view>
+                <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onEditActionTypeChange">
+                  <view class="picker-value">{{editStepForm.actionType === 'pass' ? '仅通过' : (editStepForm.actionType === 'sign' ? '签字' : (editStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+                </picker>
+              </view>
+              <view class="field">
+                <view class="field-label">审批范围</view>
+                <picker range="{{identityPickerScopeOptions}}" bindchange="onEditIdentityScopeChange">
+                  <view class="picker-value">{{identityPickerScopeOptions[editIdentityPickerScopeIndex] || '全体成员'}}</view>
+                </picker>
+              </view>
+              <view class="field" wx:if="{{identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_department' || identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_work_group'}}">
+                <view class="field-label">指定部门</view>
+                <picker range="{{identityPickerDeptOptions}}" bindchange="onEditIdentityDeptChange">
+                  <view class="picker-value">{{identityPickerDeptOptions[editIdentityPickerDeptIndex] || '请选择部门'}}</view>
+                </picker>
+              </view>
+              <view class="field" wx:if="{{identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_work_group'}}">
+                <view class="field-label">指定职能组</view>
+                <picker range="{{identityPickerWgOptions}}" bindchange="onEditIdentityWgChange">
+                  <view class="picker-value">{{identityPickerWgOptions[editIdentityPickerWgIndex] || '请选择职能组'}}</view>
+                </picker>
+              </view>
+              <view class="field">
+                <view class="field-label">审批人身份</view>
+                <picker range="{{identityPickerIdentOptions}}" bindchange="onEditIdentityIdentChange">
+                  <view class="picker-value">{{identityPickerIdentOptions[editIdentityPickerIdentIndex] || '请选择身份'}}</view>
+                </picker>
+              </view>
+              <view class="audit-btn-bar"><button class="primary-btn" bindtap="confirmEditIdentityStep">确定</button></view>
+            </view>
+          </scroll-view>
+        </view>
+      </view>
+
+      <!-- ═══ Edit: Person picker popup ═══ -->
+      <view class="popup-mask" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker">
+        <view class="popup-card desig-popup-card" catchtap="noop">
+          <view class="popup-header"><view class="popup-title">指定审批人员</view><text class="popup-close" bindtap="closeEditPersonPicker">关闭</text></view>
+          <view class="list-title">已选人员（{{editPersonPickerSelectedIds.length}}人）</view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll">
+            <view class="audit-person-item" wx:for="{{editPersonPickerSelectedList}}" wx:key="id">
+              <view class="audit-person-avatar">{{item.name[0]}}</view>
+              <view class="audit-person-info">
+                <view class="audit-person-name">{{item.name}}</view>
+                <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
+              </view>
+              <view class="inline-actions list-actions-below">
+                <text class="audit-link-btn audit-link-danger" data-hr-id="{{item.id}}" bindtap="onEditPersonToggle">移除</text>
+              </view>
+            </view>
+            <view class="empty-inline" wx:if="{{!editPersonPickerSelectedList.length}}">尚未选择任何人</view>
+          </scroll-view>
+          <view class="list-title" style="margin-top:8rpx;">可选人员</view>
+          <view class="rule-filter-row">
+            <view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{personPickerDeptOpts}}" bindchange="onEditPersonPickerDeptChange"><view class="picker-value compact-picker-value">{{editPersonPickerDept}}</view></picker></view>
+            <view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{personPickerIdentOpts}}" bindchange="onEditPersonPickerIdentChange"><view class="picker-value compact-picker-value">{{editPersonPickerIdent}}</view></picker></view>
+            <view class="rule-filter-field"><view class="field-label">职能组</view><picker range="{{personPickerWgOpts}}" bindchange="onEditPersonPickerWgChange"><view class="picker-value compact-picker-value">{{editPersonPickerWg}}</view></picker></view>
+          </view>
+          <view class="field" style="margin-bottom:8rpx;"><input class="field-input" placeholder="搜索姓名/学号" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
+            <view wx:if="{{!editPersonPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
+            <view class="audit-person-item" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="onEditPersonToggle">
+              <view class="audit-person-avatar">{{item.name[0]}}</view>
+              <view class="audit-person-info">
+                <view class="audit-person-name"><view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>{{item.name}}</view>
+                <view class="audit-person-detail">{{item.studentId}} · {{item.department}} · {{item.identity}}<text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
+              </view>
+            </view>
+          </scroll-view>
+          <view class="field" style="margin-top:8rpx;">
+            <view class="field-label">审批动作</view>
+            <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onEditPersonPickerActionTypeChange">
+              <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? '仅通过' : (editPersonPickerStepActionType === 'sign' ? '签字' : (editPersonPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+            </picker>
+          </view>
+          <view class="button-row">
+            <button class="secondary-btn" bindtap="closeEditPersonPicker">取消</button>
+            <button class="primary-btn" bindtap="confirmEditPersonPicker">添加 {{editPersonPickerSelectedIds.length}} 人</button>
+          </view>
         </view>
       </view>
     </block>
