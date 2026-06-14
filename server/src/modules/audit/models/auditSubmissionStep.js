@@ -110,14 +110,20 @@ async function getPendingByApprover(hrId) {
 
   // Direct matches: specific_person steps assigned to this hrId (legacy field)
   // Only include steps that are the CURRENT step of in_progress submissions
+  // AND only from the MAX round per (submission_id, sort_order)
   const [directRows] = await pool.query(
     `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
      JOIN audit_submissions asub ON asub.id = ass.submission_id
+     JOIN (
+       SELECT submission_id, sort_order, MAX(round) as max_round
+       FROM audit_submission_steps WHERE org_id = ?
+       GROUP BY submission_id, sort_order
+     ) mr ON mr.submission_id = ass.submission_id AND mr.sort_order = ass.sort_order AND mr.max_round = ass.round
      WHERE ass.approver_hr_id = ? AND ass.status = 'pending' AND asub.status = 'in_progress'
        AND ass.sort_order = asub.current_step_index AND ass.org_id = ?
      ORDER BY ass.created_at DESC`,
-    [hrId, orgId]
+    [orgId, hrId, orgId]
   );
 
   // Identity-based matches: steps with approver_type='identity' or step_conditions_json
@@ -127,10 +133,15 @@ async function getPendingByApprover(hrId) {
     `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
      JOIN audit_submissions asub ON asub.id = ass.submission_id
+     JOIN (
+       SELECT submission_id, sort_order, MAX(round) as max_round
+       FROM audit_submission_steps WHERE org_id = ?
+       GROUP BY submission_id, sort_order
+     ) mr ON mr.submission_id = ass.submission_id AND mr.sort_order = ass.sort_order AND mr.max_round = ass.round
      WHERE ass.status = 'pending' AND asub.status = 'in_progress'
        AND ass.sort_order = asub.current_step_index AND ass.org_id = ?
      ORDER BY ass.created_at DESC`,
-    [orgId]
+    [orgId, orgId]
   );
 
   // Deduplicate by step ID (a step might match via multiple paths)

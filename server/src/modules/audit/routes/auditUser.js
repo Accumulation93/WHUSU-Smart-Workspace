@@ -1617,6 +1617,15 @@ router.post('/resubmitAudit', async (req, res) => {
 
     await conn.beginTransaction();
 
+    // Clean up: mark all old-round pending steps as 'superseded' so they
+    // don't pollute authorization queries that should only see the latest round.
+    await conn.query(
+      `UPDATE audit_submission_steps
+       SET status = 'superseded'
+       WHERE submission_id = ? AND status = 'pending' AND org_id = ?`,
+      [submissionId, orgId]
+    );
+
     const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
 
     if (isPending) {

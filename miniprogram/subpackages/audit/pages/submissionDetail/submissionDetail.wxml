@@ -267,7 +267,7 @@
       </view>
 
       <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
-      <view class="card" wx:if="{{!editMode && submission.status === 'in_progress' && (activeApprovalStepId || userIsApprover || userIsAdmin)}}" style="border:2rpx solid #3b82f6;background:#eff6ff;">
+      <view class="card" wx:if="{{!editMode && submission.status === 'in_progress' && activeApprovalStepId && (userIsApprover || userIsAdmin)}}" style="border:2rpx solid #3b82f6;background:#eff6ff;">
         <view class="section-title" style="color:#1d4ed8;">📋 审批操作</view>
         <view style="margin-bottom:6rpx;font-size:23rpx;color:#475569;">
           第{{activeApprovalStep.sortOrder}}步 · {{activeApprovalStep.actionLabel}}
