@@ -723,7 +723,12 @@ router.post('/getSubmissionDetail', async (req, res) => {
             });
           }
         }
+        // Only check CURRENT pending steps (at current_step_index).
+        // Don't match against already-approved or future steps — the user
+        // must match the step that is actually waiting for approval.
         for (const s of steps) {
+          if (s.status !== 'pending') continue;
+          if (s.sort_order !== submission.current_step_index) continue;
           // Check step_conditions_json
           if (s.step_conditions_json) {
             try {
@@ -741,7 +746,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
           }
           // Legacy check
           if (!isApprover && s.approver_type === 'identity' && s.approver_identity_id) {
-            if (approverInfo.identity_id === s.approver_identity_id) {
+            if (inCsv(s.approver_identity_id, approverInfo.identity_id)) {
               if (matchesScope(s, approverInfo, submitterInfo)) {
                 isApprover = true; break;
               }
