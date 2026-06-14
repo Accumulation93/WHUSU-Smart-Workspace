@@ -618,6 +618,8 @@ router.post('/getAuditProgress', async (req, res) => {
     const admin = await ensureAdmin(openid);
     if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
 
+    const orgId = await getCurrentOrgId();
+
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) {
       return res.json({ status: 'invalid_params', message: '请提供提交ID' });

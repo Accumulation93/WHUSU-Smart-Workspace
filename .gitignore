@@ -44,3 +44,4 @@ certs/
 
 server/logs/
 server/db/nul_*
+server/uploads/

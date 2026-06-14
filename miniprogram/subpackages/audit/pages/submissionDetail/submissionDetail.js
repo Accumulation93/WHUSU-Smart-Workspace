@@ -470,9 +470,9 @@ Page({
 
     // If we're in next-step designation mode, save to designatedNextPersons
     if (this.data.personPickerMode === 'designateNext') {
-      var selected = this.data.personPickerSelectedList;
+      var designatedList = this.data.personPickerSelectedList;
       this.setData({
-        designatedNextPersons: selected.map(function(p) { return { id: p.id, name: p.name }; }),
+        designatedNextPersons: designatedList.map(function(p) { return { id: p.id, name: p.name }; }),
         personPickerVisible: false,
         personPickerMode: ''
       });
