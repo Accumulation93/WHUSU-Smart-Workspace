@@ -159,3 +159,17 @@
   width: 22rpx; height: 22rpx; border-radius: 50%;
   font-size: 16rpx; color: #ef4444; margin-left: 2rpx;
 }
+
+/* ── Expandable flow nodes ── */
+.flow-node.flow-node-lifecycle,
+.flow-node:not(.flow-node-lifecycle) {
+  cursor: pointer;
+}
+.flow-node-expanded .flow-info {
+  background: rgba(248,250,252,0.6);
+  border-radius: 10rpx;
+}
+.flow-node-expanded .flow-info-lifecycle {
+  background: rgba(248,250,252,0.6);
+  border-radius: 10rpx;
+}

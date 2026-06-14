@@ -128,6 +128,9 @@ Page({
     userIsApprover: false,
     userIsAdmin: false,
 
+    // Flow node expansion
+    expandedNodeKey: '',
+
     // Uploading
     uploading: false
   },
@@ -876,7 +879,9 @@ Page({
             event: 'submit',
             label: '提交审核',
             time: formatAuditTime(initialSubmit.createdAt),
-            icon: '📤'
+            icon: '📤',
+            operatorName: initialSubmit.operatorName || '',
+            comment: ''
           });
         }
 
@@ -917,7 +922,8 @@ Page({
                 subLabel: (interEvt.round > 1 ? '第' + interEvt.round + '轮 ' : '') + interStepLabel,
                 time: formatAuditTime(interEvt.createdAt),
                 icon: interIconMap[interEvt.eventType] || '📌',
-                comment: interEvt.comment || ''
+                comment: interEvt.comment || '',
+                operatorName: interEvt.operatorName || ''
               });
             }
 
@@ -930,7 +936,9 @@ Page({
                 label: '重新提交',
                 subLabel: '第' + round + '轮',
                 time: formatAuditTime(resubmitEvt.createdAt),
-                icon: '🔄'
+                icon: '🔄',
+                operatorName: resubmitEvt.operatorName || '',
+                comment: ''
               });
               nextEventIdx = resubmitEvtIdx + 1;
             } else {
@@ -941,7 +949,9 @@ Page({
                 event: 'resubmit',
                 label: '重新提交',
                 subLabel: '第' + round + '轮',
-                icon: '🔄'
+                icon: '🔄',
+                operatorName: '',
+                comment: ''
               });
               nextEventIdx = lifecycleEvents.length;
             }
@@ -1064,6 +1074,7 @@ Page({
               approverType: step.approverType,
               approverHrId: step.approverHrId,
               approverName: step.approverName,
+              operatorName: step.approverName,
               approverIdentityId: step.approverIdentityId,
               approverIdentityName: step.approverIdentityName,
               scopeType: step.scopeType,
@@ -1125,7 +1136,9 @@ Page({
             label: lateLabelMap[lateEvt.eventType] || lateEvt.eventType,
             subLabel: lateEvt.round > 1 ? '第' + lateEvt.round + '轮' : '',
             time: formatAuditTime(lateEvt.createdAt),
-            icon: lateIconMap[lateEvt.eventType] || '📌'
+            icon: lateIconMap[lateEvt.eventType] || '📌',
+            operatorName: lateEvt.operatorName || '',
+            comment: lateEvt.comment || ''
           });
         }
 
@@ -1265,7 +1278,8 @@ Page({
           // User role flags for conditional UI
           userIsSubmitter: res.userIsSubmitter || false,
           userIsApprover: res.userIsApprover || false,
-          userIsAdmin: res.userIsAdmin || false
+          userIsAdmin: res.userIsAdmin || false,
+          expandedNodeKey: ''
         });
       } else {
         showShortToast(res.message || '加载失败');
@@ -1634,6 +1648,13 @@ Page({
     if (warning !== this.data.approvalWarning) {
       this.setData({ approvalWarning: warning });
     }
+  },
+
+  // Toggle flow node detail expansion
+  toggleFlowNode(e) {
+    var key = e.currentTarget.dataset.nodeKey;
+    var current = this.data.expandedNodeKey;
+    this.setData({ expandedNodeKey: current === key ? '' : key });
   },
 
   // Direct approval from the inline approval card (no popup)

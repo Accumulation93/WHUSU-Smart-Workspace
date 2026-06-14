@@ -376,8 +376,8 @@
               <view class="flow-separator-dash"></view>
             </view>
 
-            <!-- ── Lifecycle event node ── -->
-            <view class="flow-node flow-node-lifecycle" wx:if="{{node.type === 'lifecycle'}}">
+            <!-- ── Lifecycle event node (tappable to expand) ── -->
+            <view class="flow-node flow-node-lifecycle {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:if="{{node.type === 'lifecycle'}}" bindtap="toggleFlowNode" data-node-key="{{node._key}}">
               <view class="flow-left-col">
                 <view class="flow-dot-lifecycle-icon">{{node.icon}}</view>
                 <view class="flow-connector flow-connector-lifecycle"></view>
@@ -385,12 +385,25 @@
               <view class="flow-info flow-info-lifecycle">
                 <view class="flow-lifecycle-label">{{node.label}}<text class="flow-lifecycle-round" wx:if="{{node.subLabel}}"> {{node.subLabel}}</text></view>
                 <view class="flow-lifecycle-time" wx:if="{{node.time}}">{{node.time}}</view>
-                <view class="flow-step-comment" wx:if="{{node.comment}}" style="margin-top:4rpx;font-size:21rpx;color:#64748b;">{{node.event === 'approve' ? '💬 ' + node.comment : (node.event === 'reject' ? '❌ ' + node.comment : node.comment)}}</view>
+                <!-- Expand indicator -->
+                <view style="font-size:19rpx;color:#94a3b8;margin-top:2rpx;">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                <!-- Expanded detail -->
+                <view wx:if="{{expandedNodeKey === node._key}}" style="margin-top:8rpx;padding:10rpx 12rpx;background:#f8fafc;border-radius:8rpx;">
+                  <view style="font-size:21rpx;color:#64748b;line-height:1.6;">
+                    <text style="font-weight:600;">操作人：</text>{{node.operatorName || '系统'}}
+                  </view>
+                  <view wx:if="{{node.comment}}" style="font-size:21rpx;color:#64748b;margin-top:4rpx;line-height:1.6;">
+                    <text style="font-weight:600;">{{node.event === 'approve' ? '审批意见：' : (node.event === 'reject' ? '驳回理由：' : '备注：')}}</text>{{node.comment}}
+                  </view>
+                  <view wx:if="{{node.time}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">时间：{{node.time}}</view>
+                </view>
+                <!-- Collapsed: show comment inline for approve/reject -->
+                <view wx:if="{{expandedNodeKey !== node._key && node.comment && (node.event === 'approve' || node.event === 'reject')}}" style="margin-top:2rpx;font-size:20rpx;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400rpx;">{{node.event === 'approve' ? '💬 ' : '❌ '}}{{node.comment}}</view>
               </view>
             </view>
 
-            <!-- ── Approval step node ── -->
-            <view class="flow-node {{node.flowNodeClass}}" wx:if="{{node.type === 'step'}}">
+            <!-- ── Approval step node (tappable to expand) ── -->
+            <view class="flow-node {{node.flowNodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:if="{{node.type === 'step'}}" bindtap="toggleFlowNode" data-node-key="{{node._key}}">
               <view class="flow-left-col">
                 <view class="flow-dot {{node.flowDotClass}}">
                   <block wx:if="{{node.flowIcon === 'check'}}">✓</block>
@@ -400,17 +413,44 @@
                 <view class="flow-connector"></view>
               </view>
               <view class="flow-info">
+                <!-- Collapsed: key info only -->
                 <view class="flow-step-label">第{{node.sortOrder || '?'}}步 · {{node.actionLabel || '审批'}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
                 <view class="flow-step-approver">{{node.approverDesc || '由未指定审批人审批'}}</view>
-                <!-- Show individual condition lines when multiple (OR logic) -->
-                <view class="flow-step-condition" wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" wx:if="{{node.conditionsDisplay.length > 1}}" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">└ {{condLine}}</view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
+                <!-- Always show approver name + time if processed -->
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
                   {{node.approverName}} · {{node.processedAt || ''}}
                 </view>
-                <view class="flow-step-comment" wx:if="{{node.comment && node.flowIcon === 'check'}}">💬 审批意见：{{node.comment}}</view>
-                <view class="flow-step-comment" wx:if="{{node.comment && node.flowIcon === 'cross'}}">{{node.comment}}</view>
-                <view class="flow-step-rejection" wx:if="{{node.rejectionReason}}">❌ 驳回理由：{{node.rejectionReason}}</view>
+                <!-- Expand indicator -->
+                <view style="font-size:19rpx;color:#94a3b8;margin-top:2rpx;">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+
+                <!-- Expanded detail section -->
+                <view wx:if="{{expandedNodeKey === node._key}}" style="margin-top:8rpx;padding:10rpx 12rpx;background:#f8fafc;border-radius:8rpx;">
+                  <!-- Processed info -->
+                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" style="font-size:21rpx;color:#475569;line-height:1.6;">
+                    <text style="font-weight:600;">处理人：</text>{{node.approverName || '未知'}}
+                  </view>
+                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">
+                    处理时间：{{node.processedAt || ''}}
+                  </view>
+                  <!-- Approval comment -->
+                  <view wx:if="{{node.comment && node.flowIcon === 'check'}}" style="font-size:21rpx;color:#475569;margin-top:6rpx;line-height:1.6;">
+                    <text style="font-weight:600;">💬 审批意见：</text>{{node.comment}}
+                  </view>
+                  <!-- Rejection reason -->
+                  <view wx:if="{{node.rejectionReason}}" style="font-size:21rpx;color:#dc2626;margin-top:6rpx;line-height:1.6;">
+                    <text style="font-weight:600;">❌ 驳回理由：</text>{{node.rejectionReason}}
+                  </view>
+                  <!-- Conditions detail (multi-condition OR logic) -->
+                  <view wx:if="{{node.conditionsDisplay && node.conditionsDisplay.length}}" style="margin-top:6rpx;">
+                    <view style="font-size:20rpx;font-weight:600;color:#64748b;">审批条件：</view>
+                    <view wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">{{condLine}}</view>
+                  </view>
+                  <!-- Round info -->
+                  <view wx:if="{{node.round > 1}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">第{{node.round}}轮审批</view>
+                </view>
+
+                <!-- Approval action buttons (only for active step + authorized user) -->
                 <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active' && userIsApprover}}">
                   <text class="flow-action-btn" data-step-id="{{node.id}}" bindtap="openApprove">✓ 通过</text>
                   <text class="flow-action-btn flow-action-danger" data-step-id="{{node.id}}" bindtap="openReject">✗ 驳回</text>
