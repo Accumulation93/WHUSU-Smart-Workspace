@@ -475,7 +475,37 @@ router.post('/startAdHocAudit', async (req, res) => {
       const stepId = generateId();
 
       // Serialize conditions if provided
-      const conditions = Array.isArray(s.conditions) ? s.conditions : [];
+      let conditions = Array.isArray(s.conditions) ? s.conditions : [];
+
+      // Convert legacy scope fields to conditions format (frontend compatibility)
+      if (conditions.length === 0) {
+        const scopeType = safeString(s.scopeType) || 'all';
+        const approverIdentId = safeString(s.approverIdentityId);
+        if (approverIdentId) {
+          const cond = {
+            conditionType: 'identity_scope',
+            identityScope: 'specific',
+            specificIdentityId: approverIdentId,
+            departmentScope: 'all',
+            workGroupScope: 'all'
+          };
+          if (scopeType === 'same_department') {
+            cond.departmentScope = 'own';
+          } else if (scopeType === 'same_work_group') {
+            cond.workGroupScope = 'own';
+          } else if (scopeType === 'specific_department') {
+            cond.departmentScope = 'specific';
+            cond.specificDepartmentId = safeString(s.scopeDepartmentId) || null;
+          } else if (scopeType === 'specific_work_group') {
+            cond.departmentScope = 'specific';
+            cond.specificDepartmentId = safeString(s.scopeDepartmentId) || null;
+            cond.workGroupScope = 'specific';
+            cond.specificWorkGroupId = safeString(s.scopeWorkGroupId) || null;
+          }
+          conditions.push(cond);
+        }
+      }
+
       let stepConditionsJson = null;
       if (conditions.length > 0) {
         stepConditionsJson = JSON.stringify(conditions);
@@ -488,9 +518,6 @@ router.post('/startAdHocAudit', async (req, res) => {
         approverType: safeString(s.approverType) || null,
         approverHrId: safeString(s.approverHrId) || null,
         approverIdentityId: safeString(s.approverIdentityId) || null,
-        scopeType: safeString(s.scopeType) || null,
-        scopeDepartmentId: safeString(s.scopeDepartmentId) || null,
-        scopeWorkGroupId: safeString(s.scopeWorkGroupId) || null,
         actionType: safeString(s.actionType) || 'sign',
         round: 1,
         stepConditionsJson
