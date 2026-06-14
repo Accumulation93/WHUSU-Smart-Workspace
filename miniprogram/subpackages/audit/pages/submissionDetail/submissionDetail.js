@@ -798,7 +798,7 @@ Page({
         var lifecycleEvents = [];
         for (var ei = 0; ei < serverEvents.length; ei++) {
           var evt = serverEvents[ei];
-          if (evt.eventType === 'submit' || evt.eventType === 'withdraw' || evt.eventType === 'resubmit') {
+          if (evt.eventType === 'submit' || evt.eventType === 'withdraw' || evt.eventType === 'resubmit' || evt.eventType === 'edit') {
             lifecycleEvents.push(evt);
           }
         }
@@ -843,17 +843,37 @@ Page({
           var round = Number(roundKeys[ri]);
           var roundSteps = rounds[round].sort(function(a, b) { return a.sort_order - b.sort_order; });
 
-          // If round > 1, find resubmit event before it
+          // If round > 1, show ALL lifecycle events between previous round and this round's resubmit
           if (round > 1) {
-            var resubmitEvt = null;
+            // Find the resubmit event index for this round
+            var resubmitEvtIdx = -1;
             for (var ei3 = nextEventIdx; ei3 < lifecycleEvents.length; ei3++) {
               if (lifecycleEvents[ei3].eventType === 'resubmit' && lifecycleEvents[ei3].round === round) {
-                resubmitEvt = lifecycleEvents[ei3];
-                nextEventIdx = ei3 + 1;
+                resubmitEvtIdx = ei3;
                 break;
               }
             }
-            if (resubmitEvt) {
+
+            // Show ALL events BEFORE the resubmit (e.g., withdraw, edit)
+            // that happened between the previous round and this resubmit
+            var untilIdx = resubmitEvtIdx >= 0 ? resubmitEvtIdx : lifecycleEvents.length;
+            for (var eiPre = nextEventIdx; eiPre < untilIdx; eiPre++) {
+              var interEvt = lifecycleEvents[eiPre];
+              var interIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️' };
+              var interLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核' };
+              flowTimeline.push({
+                _key: 'lifecycle_inter_' + interEvt.id,
+                type: 'lifecycle',
+                event: interEvt.eventType,
+                label: interLabelMap[interEvt.eventType] || interEvt.eventType,
+                subLabel: interEvt.round > 1 ? '第' + interEvt.round + '轮' : '',
+                time: formatAuditTime(interEvt.createdAt),
+                icon: interIconMap[interEvt.eventType] || '📌'
+              });
+            }
+
+            if (resubmitEvtIdx >= 0) {
+              var resubmitEvt = lifecycleEvents[resubmitEvtIdx];
               flowTimeline.push({
                 _key: 'lifecycle_resubmit_r' + round,
                 type: 'lifecycle',
@@ -863,6 +883,7 @@ Page({
                 time: formatAuditTime(resubmitEvt.createdAt),
                 icon: '🔄'
               });
+              nextEventIdx = resubmitEvtIdx + 1;
             } else {
               // Fallback: still show round marker even if no event
               flowTimeline.push({
@@ -873,6 +894,7 @@ Page({
                 subLabel: '第' + round + '轮',
                 icon: '🔄'
               });
+              nextEventIdx = lifecycleEvents.length;
             }
           }
 
@@ -1030,29 +1052,20 @@ Page({
           }
         }
 
-        // 5. Remaining lifecycle events after last round
+        // 5. Remaining lifecycle events after last round — show ALL event types
+        var lateIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
+        var lateLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
         for (var ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
           var lateEvt = lifecycleEvents[ei4];
-          if (lateEvt.eventType === 'withdraw') {
-            flowTimeline.push({
-              _key: 'lifecycle_withdraw_' + lateEvt.id,
-              type: 'lifecycle',
-              event: 'withdraw',
-              label: '撤回审核',
-              time: formatAuditTime(lateEvt.createdAt),
-              icon: '↩️'
-            });
-          } else if (lateEvt.eventType === 'resubmit') {
-            flowTimeline.push({
-              _key: 'lifecycle_resubmit_late_' + lateEvt.id,
-              type: 'lifecycle',
-              event: 'resubmit',
-              label: '重新提交',
-              subLabel: '第' + (lateEvt.round || 1) + '轮',
-              time: formatAuditTime(lateEvt.createdAt),
-              icon: '🔄'
-            });
-          }
+          flowTimeline.push({
+            _key: 'lifecycle_late_' + lateEvt.id,
+            type: 'lifecycle',
+            event: lateEvt.eventType,
+            label: lateLabelMap[lateEvt.eventType] || lateEvt.eventType,
+            subLabel: lateEvt.round > 1 ? '第' + lateEvt.round + '轮' : '',
+            time: formatAuditTime(lateEvt.createdAt),
+            icon: lateIconMap[lateEvt.eventType] || '📌'
+          });
         }
 
 
