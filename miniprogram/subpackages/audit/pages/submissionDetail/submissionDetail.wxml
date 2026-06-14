@@ -358,8 +358,8 @@
               <view class="flow-info">
                 <view class="flow-step-label">第{{node.sortOrder || '?'}}步 · {{node.actionLabel || '审批'}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
                 <view class="flow-step-approver">{{node.approverDesc || '由未指定审批人审批'}}</view>
-                <!-- Show individual condition lines when multiple conditions exist -->
-                <view class="flow-step-condition" wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" wx:if="{{node.conditionsDisplay.length > 1}}" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">{{condLine}}</view>
+                <!-- Show individual condition lines when multiple (OR logic) -->
+                <view class="flow-step-condition" wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" wx:if="{{node.conditionsDisplay.length > 1}}" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">└ {{condLine}}</view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
                   {{node.approverName}} · {{node.processedAt || ''}}
@@ -461,7 +461,10 @@
           <view class="section-title">审批步骤 ({{editSteps.length}}步)</view>
           <view class="ad-hoc-step-item" wx:for="{{editSteps}}" wx:key="index">
             <view class="ad-hoc-step-main">
-              <view class="ad-hoc-step-title">第{{index + 1}}步：{{item.approverType === 'specific_person' ? (item.approverHrName || '未指定人员') : (item.approverIdentityName || '未指定身份') + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || '指定部门') : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : '全体')))) + '）'}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+              <view class="ad-hoc-step-title">第{{index + 1}}步 · {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+              <view class="ad-hoc-step-desc">{{item.approverDesc || '未配置审批人'}}</view>
+              <!-- Show individual condition lines for OR logic -->
+              <view wx:for="{{item.stepConditionsDisplay}}" wx:for-item="cond" wx:key="*this" wx:if="{{item.stepConditionsDisplay.length > 1}}" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">{{cond}}</view>
             </view>
             <view class="list-actions"><text class="audit-link-btn audit-link-danger" data-index="{{index}}" bindtap="removeEditStep">移除</text></view>
           </view>

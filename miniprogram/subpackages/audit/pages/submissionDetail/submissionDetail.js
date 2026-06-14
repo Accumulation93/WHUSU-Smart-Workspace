@@ -1410,7 +1410,11 @@ Page({
           scopeDepartmentId: s.scopeDepartmentId || '',
           scopeDepartmentName: s.scopeDepartmentName || '',
           scopeWorkGroupId: s.scopeWorkGroupId || '',
-          scopeWorkGroupName: s.scopeWorkGroupName || ''
+          scopeWorkGroupName: s.scopeWorkGroupName || '',
+          // Include conditions for multi-select / OR display
+          stepConditionsJson: s.stepConditionsJson || null,
+          stepConditionsDisplay: s.stepConditionsDisplay || [],
+          approverDesc: s.approverDesc || ''
         };
       }) : [],
       editFiles: files,

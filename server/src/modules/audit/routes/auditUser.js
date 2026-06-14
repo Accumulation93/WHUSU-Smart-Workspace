@@ -557,6 +557,19 @@ router.post('/startAdHocAudit', async (req, res) => {
 // ═══════════════════════════════════════════════════
 
 /**
+ * Resolve comma-separated IDs to names, joined with 、
+ * @param {string|null} rawIds - Comma-separated ID string
+ * @param {object} map - id→name lookup
+ * @returns {string} resolved names or empty string
+ */
+function resolveMultiNames(rawIds, map) {
+  if (!rawIds) return '';
+  const ids = String(rawIds).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  if (!ids.length) return '';
+  return ids.map(function(id) { return map[id] || id; }).filter(Boolean).join('、');
+}
+
+/**
  * Build human-readable display strings from step conditions JSON.
  * Resolves all IDs to names using provided lookup maps.
  * @param {string|null} conditionsJson - Raw step_conditions_json
@@ -764,7 +777,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
     // Load HR names
     const allHrIds = new Set();
     allHrIds.add(submission.submitted_by);
-    steps.forEach((s) => { if (s.approver_hr_id) allHrIds.add(s.approver_hr_id); });
+    steps.forEach(function(s) { if (s.approver_hr_id) addCsvToSet(s.approver_hr_id, allHrIds); });
     signatures.forEach((s) => allHrIds.add(s.signer_hr_id));
     events.forEach((e) => { if (e.operator_hr_id) allHrIds.add(e.operator_hr_id); });
     const hrMap = {};
@@ -780,11 +793,24 @@ router.post('/getSubmissionDetail', async (req, res) => {
       templateName = template ? safeString(template.name) : '';
     }
 
-    // Load identity names
-    const identityIds = new Set(steps.map(s => s.approver_identity_id).filter(Boolean));
-    const deptIdSet = new Set(steps.map(s => s.scope_department_id).filter(Boolean));
-    const wgIdSet = new Set(steps.map(s => s.scope_work_group_id).filter(Boolean));
+    // Helper: add comma-separated IDs to a Set
+    function addCsvToSet(csv, targetSet) {
+      if (!csv) return;
+      String(csv).split(',').forEach(function(id) {
+        var tid = id.trim();
+        if (tid) targetSet.add(tid);
+      });
+    }
+
+    // Load identity names — split comma-separated IDs
+    const identityIds = new Set();
+    steps.forEach(function(s) { addCsvToSet(s.approver_identity_id, identityIds); });
+    const deptIdSet = new Set();
+    steps.forEach(function(s) { addCsvToSet(s.scope_department_id, deptIdSet); });
+    const wgIdSet = new Set();
+    steps.forEach(function(s) { addCsvToSet(s.scope_work_group_id, wgIdSet); });
     const hrIdSet = new Set();
+    // Also collect from step_conditions_json
     for (const s of steps) {
       if (s.step_conditions_json) {
         try {
@@ -792,12 +818,12 @@ router.post('/getSubmissionDetail', async (req, res) => {
           if (Array.isArray(conds)) {
             for (const c of conds) {
               if (c.conditionType === 'person' && c.personHrIds) {
-                c.personHrIds.split(',').forEach(function(id) { hrIdSet.add(id.trim()); });
+                addCsvToSet(c.personHrIds, hrIdSet);
               } else {
                 // identity_scope or unknown type — treat as identity_scope
-                if (c.specificIdentityId) c.specificIdentityId.split(',').forEach(function(id) { identityIds.add(id.trim()); });
-                if (c.specificDepartmentId) c.specificDepartmentId.split(',').forEach(function(id) { deptIdSet.add(id.trim()); });
-                if (c.specificWorkGroupId) c.specificWorkGroupId.split(',').forEach(function(id) { wgIdSet.add(id.trim()); });
+                addCsvToSet(c.specificIdentityId, identityIds);
+                addCsvToSet(c.specificDepartmentId, deptIdSet);
+                addCsvToSet(c.specificWorkGroupId, wgIdSet);
               }
             }
           }
@@ -880,10 +906,24 @@ router.post('/getSubmissionDetail', async (req, res) => {
 
         // Build legacy approverDesc as fallback
         let legacyApproverDesc = '';
-        const identName = identityMap[s.approver_identity_id] || '';
+        // Resolve legacy identity field — may contain comma-separated IDs (multi-select)
+        const rawIdentId = (s.approver_identity_id || '').trim();
+        let identName = '';
+        if (rawIdentId) {
+          const identIds = rawIdentId.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
+          const identNames = identIds.map(function(id) { return identityMap[id] || id; }).filter(Boolean);
+          identName = identNames.join('、');
+        }
         const scopeType = (s.scope_type || '').trim();
         if (s.approver_type === 'specific_person') {
-          legacyApproverDesc = '由 ' + (hrMap[s.approver_hr_id] || '未指定') + ' 审批';
+          const rawHrId = (s.approver_hr_id || '').trim();
+          let personNames = '';
+          if (rawHrId) {
+            const hrIds = rawHrId.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
+            const names = hrIds.map(function(id) { return hrMap[id] || id; }).filter(Boolean);
+            personNames = names.join('、');
+          }
+          legacyApproverDesc = '由 ' + (personNames || '未指定') + ' 审批';
         } else if (identName || scopeType) {
           // Always build from scope + identity, using fallback labels when names are missing
           const identLabel = identName || '特定身份';
@@ -894,11 +934,11 @@ router.post('/getSubmissionDetail', async (req, res) => {
           } else if (scopeType === 'same_work_group') {
             legacyApproverDesc = '由 同职能组 ' + identLabel + ' 审批';
           } else if (scopeType === 'specific_department') {
-            const dn = deptMap[s.scope_department_id] || s.scope_department_id || '指定部门';
+            const dn = resolveMultiNames(s.scope_department_id, deptMap) || s.scope_department_id || '指定部门';
             legacyApproverDesc = '由 ' + dn + ' ' + identLabel + ' 审批';
           } else if (scopeType === 'specific_work_group') {
-            const dn = deptMap[s.scope_department_id] || '';
-            const wn = wgMap[s.scope_work_group_id] || '';
+            const dn = resolveMultiNames(s.scope_department_id, deptMap) || '';
+            const wn = resolveMultiNames(s.scope_work_group_id, wgMap) || '';
             const loc = [dn, wn].filter(Boolean).join('·') || '指定职能组';
             legacyApproverDesc = '由 ' + loc + ' ' + identLabel + ' 审批';
           } else {
@@ -906,19 +946,35 @@ router.post('/getSubmissionDetail', async (req, res) => {
           }
         }
 
+        // Resolve multi-select names for legacy flat fields
+        var approverNameDisplay = '未指定';
+        var rawHrId2 = (s.approver_hr_id || '').trim();
+        if (rawHrId2) {
+          var hrIds2 = rawHrId2.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
+          var hrNames2 = hrIds2.map(function(id) { return hrMap[id] || id; }).filter(Boolean);
+          approverNameDisplay = hrNames2.join('、');
+        }
+        var approverIdentityNameDisplay = '';
+        var rawIdentId2 = (s.approver_identity_id || '').trim();
+        if (rawIdentId2) {
+          var identIds2 = rawIdentId2.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
+          var identNames2 = identIds2.map(function(id) { return identityMap[id] || id; }).filter(Boolean);
+          approverIdentityNameDisplay = identNames2.join('、');
+        }
+
         return {
         id: safeString(s.id),
         sortOrder: s.sort_order,
         approverType: safeString(s.approver_type),
         approverHrId: safeString(s.approver_hr_id),
-        approverName: hrMap[s.approver_hr_id] || '未指定',
+        approverName: approverNameDisplay,
         approverIdentityId: safeString(s.approver_identity_id),
-        approverIdentityName: identityMap[s.approver_identity_id] || '',
+        approverIdentityName: approverIdentityNameDisplay,
         scopeType: safeString(s.scope_type),
         scopeDepartmentId: safeString(s.scope_department_id),
-        scopeDepartmentName: deptMap[s.scope_department_id] || '',
+        scopeDepartmentName: resolveMultiNames(s.scope_department_id, deptMap),
         scopeWorkGroupId: safeString(s.scope_work_group_id),
-        scopeWorkGroupName: wgMap[s.scope_work_group_id] || '',
+        scopeWorkGroupName: resolveMultiNames(s.scope_work_group_id, wgMap),
         actionType: safeString(s.action_type),
         status: safeString(s.status),
         comment: safeString(s.comment),
