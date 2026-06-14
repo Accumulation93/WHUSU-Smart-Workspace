@@ -6,10 +6,11 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
  * @param {string} id - Event ID
  * @param {object} data - { submissionId, eventType, stepIndex, round, operatorHrId, operatorName, comment }
  */
-async function create(id, data) {
+async function create(id, data, conn) {
   const { submissionId, eventType, stepIndex, round, operatorHrId, operatorName, comment } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const db = conn || pool;
+  await db.query(
     `INSERT INTO audit_events (id, submission_id, event_type, step_index, round, operator_hr_id, operator_name, comment, org_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, submissionId, eventType, stepIndex || null, round || 1, operatorHrId || null, operatorName || null, comment || null, orgId]

@@ -246,7 +246,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       status: 'in_progress',
       currentStepIndex: 1,
       resubmitMode: template.resubmit_mode
-    });
+    }, conn);
 
     // Move files from temp to submission directory
     const submissionDir = path.join(UPLOAD_DIR, submissionId);
@@ -277,7 +277,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         fileSize,
         fileHash,
         sortOrder: i + 1
-      });
+      }, conn);
     }
 
     // Load conditions for all template steps
@@ -344,6 +344,15 @@ router.post('/startAuditSubmission', async (req, res) => {
         }
       }
 
+      // Fallback: if no conditions resolved from template step, use template starter conditions
+      // This ensures steps always have approvers — prevents orphan steps with no approver
+      if (conditions.length === 0 && starterConditions.length > 0) {
+        console.log('[audit:startSubmission] step[' + i + '] no conditions — falling back to starter conditions');
+        for (var sci = 0; sci < starterConditions.length; sci++) {
+          conditions.push(Object.assign({}, starterConditions[sci]));
+        }
+      }
+
       let stepConditionsJson = null;
       if (conditions.length > 0) {
         stepConditionsJson = JSON.stringify(conditions);
@@ -375,7 +384,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         actionType: ts.action_type,
         round: 1,
         stepConditionsJson
-      });
+      }, conn);
     }
 
     // Insert submit event
@@ -388,7 +397,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       operatorHrId: hrId,
       operatorName: submitterName,
       comment: null
-    });
+    }, conn);
 
     await conn.commit();
     res.json({
@@ -412,6 +421,8 @@ router.post('/startAdHocAudit', async (req, res) => {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const orgId = await getCurrentOrgId();
 
     const title = safeString(req.body.title);
     const resubmitMode = safeString(req.body.resubmitMode) || 'fresh';
@@ -455,7 +466,7 @@ router.post('/startAdHocAudit', async (req, res) => {
 
       await submissionFileModel.create(fileId, {
         submissionId, fileName, mimeType, filePath: destPath, fileSize, fileHash, sortOrder: i + 1
-      });
+      }, conn);
     }
 
     // Create user-specified steps
@@ -483,7 +494,7 @@ router.post('/startAdHocAudit', async (req, res) => {
         actionType: safeString(s.actionType) || 'sign',
         round: 1,
         stepConditionsJson
-      });
+      }, conn);
     }
 
     // Insert submit event for ad-hoc audit
@@ -497,7 +508,7 @@ router.post('/startAdHocAudit', async (req, res) => {
       operatorHrId: hrId,
       operatorName: adHocSubmitterName,
       comment: null
-    });
+    }, conn);
 
     await conn.commit();
     res.json({ status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' });
@@ -985,6 +996,8 @@ router.post('/approveStep', async (req, res) => {
     const hrId = await resolveHrId(openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
+    const orgId = await getCurrentOrgId();
+
     const submissionId = safeString(req.body.submissionId);
     const stepId = safeString(req.body.stepId);
     const comment = safeString(req.body.comment);
@@ -1023,7 +1036,7 @@ router.post('/approveStep', async (req, res) => {
       status: 'approved',
       comment,
       processedAt: nowISO
-    });
+    }, conn);
 
     // Record signatures/stamps
     for (const sigData of signatures) {
@@ -1087,10 +1100,10 @@ router.post('/approveStep', async (req, res) => {
 
     if (nextStep) {
       // Move to next step
-      await submissionModel.update(submissionId, { currentStepIndex: nextStep.sort_order });
+      await submissionModel.update(submissionId, { currentStepIndex: nextStep.sort_order }, conn);
     } else {
       // All steps approved — submission complete
-      await submissionModel.update(submissionId, { status: 'approved' });
+      await submissionModel.update(submissionId, { status: 'approved' }, conn);
     }
 
     // Insert approve event
@@ -1104,7 +1117,7 @@ router.post('/approveStep', async (req, res) => {
       operatorHrId: hrId,
       operatorName: approverEventName,
       comment: comment || null
-    });
+    }, conn);
 
     await conn.commit();
     res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
@@ -1123,6 +1136,8 @@ router.post('/rejectStep', async (req, res) => {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
     const stepId = safeString(req.body.stepId);
@@ -1159,13 +1174,13 @@ router.post('/rejectStep', async (req, res) => {
       status: 'rejected',
       rejectionReason,
       processedAt: nowISO
-    });
+    }, conn);
 
     // Set submission to rejected, record which step rejected
     await submissionModel.update(submissionId, {
       status: 'rejected',
       previousRejectStepIndex: step.sort_order
-    });
+    }, conn);
 
     // Insert reject event
     const [rejecterNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
@@ -1178,7 +1193,7 @@ router.post('/rejectStep', async (req, res) => {
       operatorHrId: hrId,
       operatorName: rejecterEventName,
       comment: rejectionReason || null
-    });
+    }, conn);
 
     await conn.commit();
     res.json({ status: 'success', message: '已驳回，提交人将收到通知' });
@@ -1197,6 +1212,8 @@ router.post('/resubmitAudit', async (req, res) => {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
@@ -1223,7 +1240,7 @@ router.post('/resubmitAudit', async (req, res) => {
       await submissionModel.update(submissionId, {
         status: 'in_progress',
         currentStepIndex: 1
-      });
+      }, conn);
       // Insert submit event (first submit from pending state)
       const [resubNameRows1] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
       await auditEventModel.create(generateId(), {
@@ -1234,7 +1251,7 @@ router.post('/resubmitAudit', async (req, res) => {
         operatorHrId: hrId,
         operatorName: resubNameRows1[0] ? resubNameRows1[0].name : '',
         comment: null
-      });
+      }, conn);
 
       await conn.commit();
       return res.json({
@@ -1263,7 +1280,7 @@ router.post('/resubmitAudit', async (req, res) => {
           actionType: rejectStep.action_type,
           round: newRound,
           stepConditionsJson: rejectStep.step_conditions_json
-        });
+        }, conn);
       }
     } else {
       // Fresh mode: create new round entries for ALL steps
@@ -1280,7 +1297,7 @@ router.post('/resubmitAudit', async (req, res) => {
           actionType: ts.action_type,
           round: newRound,
           stepConditionsJson: ts.step_conditions_json
-        });
+        }, conn);
       }
     }
 
@@ -1289,7 +1306,7 @@ router.post('/resubmitAudit', async (req, res) => {
     await submissionModel.update(submissionId, {
       status: 'in_progress',
       currentStepIndex: startStepIndex
-    });
+    }, conn);
 
     // Insert resubmit event
     const [resubNameRows2] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
@@ -1301,7 +1318,7 @@ router.post('/resubmitAudit', async (req, res) => {
       operatorHrId: hrId,
       operatorName: resubNameRows2[0] ? resubNameRows2[0].name : '',
       comment: null
-    });
+    }, conn);
 
     await conn.commit();
     res.json({
@@ -1326,6 +1343,8 @@ router.post('/withdrawSubmission', async (req, res) => {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });

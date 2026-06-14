@@ -289,43 +289,53 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
   // Department check
   var deptScope = cond.departmentScope || 'all';
   if (deptScope === 'specific') {
-    var deptMatch = inCsv(cond.specificDepartmentId || '', approver.department_id);
-    console.log('[audit:matchesIdentityScope] deptScope=specific approverDept=' + (approver.department_id || 'none') +
-      ' condDeptIds=' + (cond.specificDepartmentId || 'none') + ' match=' + deptMatch);
-    if (!deptMatch) return false;
+    var specificDeptId = (cond.specificDepartmentId || '').trim();
+    // Treat 'specific' with no IDs as 'all' (malformed condition fallback)
+    if (specificDeptId) {
+      var deptMatch = inCsv(specificDeptId, approver.department_id);
+      console.log('[audit:matchesIdentityScope] deptScope=specific approverDept=' + (approver.department_id || 'none') +
+        ' condDeptIds=' + specificDeptId + ' match=' + deptMatch);
+      if (!deptMatch) return false;
+    }
   } else if (deptScope === 'own') {
     var deptOwnMatch = submitter && String(approver.department_id) === String(submitter.department_id);
     console.log('[audit:matchesIdentityScope] deptScope=own approverDept=' + (approver.department_id || 'none') +
       ' submitterDept=' + (submitter ? submitter.department_id : 'none') + ' match=' + deptOwnMatch);
     if (!deptOwnMatch) return false;
   }
-  // 'all' means any department → pass
+  // 'all' or 'specific' with no IDs means any department → pass
 
   // Work group check
   var wgScope = cond.workGroupScope || 'all';
   if (wgScope === 'specific') {
-    var wgMatch = inCsv(cond.specificWorkGroupId || '', approver.work_group_id);
-    console.log('[audit:matchesIdentityScope] wgScope=specific approverWg=' + (approver.work_group_id || 'none') +
-      ' condWg=' + (cond.specificWorkGroupId || 'none') + ' match=' + wgMatch);
-    if (!wgMatch) return false;
+    var specificWgId = (cond.specificWorkGroupId || '').trim();
+    if (specificWgId) {
+      var wgMatch = inCsv(specificWgId, approver.work_group_id);
+      console.log('[audit:matchesIdentityScope] wgScope=specific approverWg=' + (approver.work_group_id || 'none') +
+        ' condWg=' + specificWgId + ' match=' + wgMatch);
+      if (!wgMatch) return false;
+    }
   } else if (wgScope === 'own') {
     var wgOwnMatch = submitter && String(approver.work_group_id) === String(submitter.work_group_id);
     if (!wgOwnMatch) return false;
   }
-  // 'all' means any work group → pass
+  // 'all' or 'specific' with no IDs means any work group → pass
 
   // Identity check
   var identScope = cond.identityScope || 'all';
   if (identScope === 'specific') {
-    var identMatch = inCsv(cond.specificIdentityId || '', approver.identity_id);
-    console.log('[audit:matchesIdentityScope] identScope=specific approverIdent=' + (approver.identity_id || 'none') +
-      ' condIdentIds=' + (cond.specificIdentityId || 'none') + ' match=' + identMatch);
-    if (!identMatch) return false;
+    var specificIdentId = (cond.specificIdentityId || '').trim();
+    if (specificIdentId) {
+      var identMatch = inCsv(specificIdentId, approver.identity_id);
+      console.log('[audit:matchesIdentityScope] identScope=specific approverIdent=' + (approver.identity_id || 'none') +
+        ' condIdentIds=' + specificIdentId + ' match=' + identMatch);
+      if (!identMatch) return false;
+    }
   } else if (identScope === 'own') {
     var identOwnMatch = submitter && String(approver.identity_id) === String(submitter.identity_id);
     if (!identOwnMatch) return false;
   }
-  // 'all' means any identity → pass
+  // 'all' or 'specific' with no IDs means any identity → pass
 
   return true;
 }
@@ -362,35 +372,34 @@ function matchesScope(step, approver, submitter) {
   return true;
 }
 
-async function create(id, data) {
+async function create(id, data, conn) {
   const {
     submissionId, templateStepId, sortOrder,
     approverType, approverHrId, approverIdentityId,
     actionType, round,
-    scopeType, scopeDepartmentId, scopeWorkGroupId,
     stepConditionsJson
   } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const db = conn || pool;
+  await db.query(
     `INSERT INTO audit_submission_steps
      (id, submission_id, template_step_id, sort_order, approver_type, approver_hr_id, approver_identity_id,
-      scope_type, scope_department_id, scope_work_group_id,
       step_conditions_json,
       action_type, status, round, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
     [
       id, submissionId, templateStepId || null, sortOrder || 1,
       approverType || 'identity', approverHrId || null, approverIdentityId || null,
-      scopeType || null, scopeDepartmentId || null, scopeWorkGroupId || null,
       stepConditionsJson || null,
       actionType || 'sign', round || 1, orgId
     ]
   );
 }
 
-async function updateStatus(id, data) {
+async function updateStatus(id, data, conn) {
   const { status, comment, rejectionReason, processedAt } = data;
   const orgId = await getCurrentOrgId();
+  const db = conn || pool;
   const fields = ['status = ?'];
   const params = [status];
 
@@ -399,7 +408,7 @@ async function updateStatus(id, data) {
   if (processedAt !== undefined) { fields.push('processed_at = ?'); params.push(processedAt); }
 
   params.push(id, orgId);
-  await pool.query(`UPDATE audit_submission_steps SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, params);
+  await db.query(`UPDATE audit_submission_steps SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, params);
 }
 
 async function getMaxRound(submissionId, sortOrder) {

@@ -84,10 +84,11 @@ async function generateSubmissionNumber() {
   return prefix + String(seq).padStart(3, '0');
 }
 
-async function create(id, data) {
+async function create(id, data, conn) {
   const { submissionNumber, submittedBy, type, templateId, title, status, resubmitMode, currentStepIndex } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const db = conn || pool;
+  await db.query(
     `INSERT INTO audit_submissions (id, submission_number, submitted_by, type, template_id, title, status, current_step_index, resubmit_mode, org_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, submissionNumber, submittedBy, type || 'template', templateId || null, title || '', status || 'draft',
@@ -96,9 +97,10 @@ async function create(id, data) {
   );
 }
 
-async function update(id, data) {
+async function update(id, data, conn) {
   const { title, status, currentStepIndex, previousRejectStepIndex } = data;
   const orgId = await getCurrentOrgId();
+  const db = conn || pool;
   const fields = [];
   const params = [];
 
@@ -109,7 +111,7 @@ async function update(id, data) {
 
   if (fields.length === 0) return;
   params.push(id, orgId);
-  await pool.query(`UPDATE audit_submissions SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, params);
+  await db.query(`UPDATE audit_submissions SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, params);
 }
 
 async function remove(id) {

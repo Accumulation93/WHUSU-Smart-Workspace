@@ -19,10 +19,11 @@ async function getById(id) {
   return rows[0] || null;
 }
 
-async function create(id, data) {
+async function create(id, data, conn) {
   const { submissionId, fileName, mimeType, filePath, fileSize, fileHash, sortOrder } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const db = conn || pool;
+  await db.query(
     `INSERT INTO audit_submission_files (id, submission_id, file_name, mime_type, file_path, file_size, file_hash, sort_order, org_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, submissionId, fileName || '', mimeType || null, filePath || '', fileSize || 0, fileHash || '', sortOrder || 1, orgId]
