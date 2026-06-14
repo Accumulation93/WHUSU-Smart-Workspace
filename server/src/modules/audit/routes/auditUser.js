@@ -1431,6 +1431,13 @@ router.post('/updateAuditSubmission', async (req, res) => {
       resubmitMode: newResubmitMode
     }, conn);
 
+    // Compute max round BEFORE removing old steps (for edit event logging)
+    const oldSteps = await submissionStepModel.getBySubmissionId(submissionId);
+    var editEventRound = 1;
+    for (var osi = 0; osi < oldSteps.length; osi++) {
+      editEventRound = Math.max(editEventRound, oldSteps[osi].round || 1);
+    }
+
     // Replace steps
     // Remove existing steps for this submission
     await submissionStepModel.removeBySubmissionId(submissionId, conn);
@@ -1569,7 +1576,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
       submissionId,
       eventType: 'edit',
       stepIndex: null,
-      round: 1,
+      round: editEventRound,
       operatorHrId: hrId,
       operatorName: editorName,
       comment: null
@@ -1661,24 +1668,34 @@ router.post('/resubmitAudit', async (req, res) => {
 
     const resubmitMode = isWithdrawn ? 'fresh' : submission.resubmit_mode;
     const rejectStepIndex = isWithdrawn ? 1 : (submission.previous_reject_step_index || 1);
-    const newRound = (allSteps[0] ? allSteps[0].round : 1) + 1;
+    // Use MAX round across ALL steps (not just the first one) to ensure
+    // round numbers only ever increase, never decrease or repeat.
+    var maxExistingRound = 1;
+    for (var ri = 0; ri < allSteps.length; ri++) {
+      maxExistingRound = Math.max(maxExistingRound, allSteps[ri].round || 1);
+    }
+    const newRound = maxExistingRound + 1;
 
     if (!isWithdrawn && resubmitMode === 'from_rejector') {
-      // Create new round only for steps from reject step onwards
-      const rejectStep = allSteps.find((s) => s.sort_order === rejectStepIndex && s.round === newRound - 1);
-      if (rejectStep) {
-        // Create a new round entry only for the reject step
-        const stepId = generateId();
+      // Create new round entries for all steps from reject step onwards.
+      // Recreating only the reject step would leave subsequent steps stranded
+      // in the old round, causing the flow to terminate prematurely.
+      const remainingSteps = allSteps
+        .filter(function(s) { return s.sort_order >= rejectStepIndex && s.round === newRound - 1; })
+        .sort(function(a, b) { return a.sort_order - b.sort_order; });
+      for (var rsi = 0; rsi < remainingSteps.length; rsi++) {
+        var rs = remainingSteps[rsi];
+        var stepId = generateId();
         await submissionStepModel.create(stepId, {
           submissionId,
-          templateStepId: safeString(rejectStep.template_step_id),
-          sortOrder: rejectStep.sort_order,
-          approverType: rejectStep.approver_type,
-          approverHrId: rejectStep.approver_hr_id,
-          approverIdentityId: rejectStep.approver_identity_id,
-          actionType: rejectStep.action_type,
+          templateStepId: safeString(rs.template_step_id),
+          sortOrder: rs.sort_order,
+          approverType: rs.approver_type,
+          approverHrId: rs.approver_hr_id,
+          approverIdentityId: rs.approver_identity_id,
+          actionType: rs.action_type,
           round: newRound,
-          stepConditionsJson: rejectStep.step_conditions_json
+          stepConditionsJson: rs.step_conditions_json
         }, conn);
       }
     } else {
@@ -1768,13 +1785,18 @@ router.post('/withdrawSubmission', async (req, res) => {
 
     await submissionModel.update(submissionId, { status: 'withdrawn' });
 
-    // Insert withdraw event
+    // Insert withdraw event with actual current round (not hardcoded 1)
+    const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
+    var currentRound = 1;
+    for (var wi = 0; wi < allSteps.length; wi++) {
+      currentRound = Math.max(currentRound, allSteps[wi].round || 1);
+    }
     const [withdrawNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     await auditEventModel.create(generateId(), {
       submissionId,
       eventType: 'withdraw',
       stepIndex: null,
-      round: 1,
+      round: currentRound,
       operatorHrId: hrId,
       operatorName: withdrawNameRows[0] ? withdrawNameRows[0].name : '',
       comment: null
