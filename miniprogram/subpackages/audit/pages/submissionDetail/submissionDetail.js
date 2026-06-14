@@ -105,6 +105,11 @@ Page({
     designatedNextPersons: [], // [{id, name}] for next-step designation
     nextStepInfo: null,        // {sortOrder, approverDesc} of next step
 
+    // User role flags
+    userIsSubmitter: false,
+    userIsApprover: false,
+    userIsAdmin: false,
+
     // Uploading
     uploading: false
   },
@@ -811,6 +816,14 @@ Page({
           ' rawSteps.length=' + rawSteps.length +
           ' serverEvents.length=' + serverEvents.length +
           ' diag=' + JSON.stringify(res._diag || {}));
+        // Debug: log sortOrder of first few steps
+        for (var dsi = 0; dsi < Math.min(rawSteps.length, 4); dsi++) {
+          console.log('[audit:loadDetail] rawStep[' + dsi + '] sortOrder=' + rawSteps[dsi].sortOrder +
+            ' sort_order=' + rawSteps[dsi].sort_order +
+            ' round=' + rawSteps[dsi].round +
+            ' status=' + rawSteps[dsi].status +
+            ' id=' + rawSteps[dsi].id);
+        }
 
         // 1. Build lifecycle nodes from ALL server events — no filtering
         //    Every event (submit/withdraw/resubmit/approve/reject/edit) is part of the audit trail
@@ -1129,6 +1142,18 @@ Page({
           flowProgressText = '第' + currentStepIndex + '/' + totalSteps + '步待处理';
         }
 
+        // Debug: log step nodes in flowTimeline
+        console.log('[audit:loadDetail] flowTimeline built, total nodes=' + flowTimeline.length);
+        for (var fti = 0; fti < flowTimeline.length; fti++) {
+          var ftn = flowTimeline[fti];
+          if (ftn.type === 'step') {
+            console.log('[audit:loadDetail] flowTimeline[' + fti + '] step sortOrder=' + ftn.sortOrder +
+              ' flowNodeClass=' + ftn.flowNodeClass +
+              ' id=' + ftn.id +
+              ' round=' + ftn.round);
+          }
+        }
+
         // Detect active step for inline approval UI
         var activeApprovalStep = null;
         var nextStepInfo = null;
@@ -1164,7 +1189,11 @@ Page({
           approvalAction: '',
           approvalComment: '',
           rejectionReason: '',
-          pendingSignatures: []
+          pendingSignatures: [],
+          // User role flags for conditional UI
+          userIsSubmitter: res.userIsSubmitter || false,
+          userIsApprover: res.userIsApprover || false,
+          userIsAdmin: res.userIsAdmin || false
         });
       } else {
         showShortToast(res.message || '加载失败');

@@ -672,8 +672,8 @@ router.post('/getSubmissionDetail', async (req, res) => {
     const isSubmitter = submission.submitted_by === hrId;
     let isApprover = steps.some((s) => s.approver_hr_id === hrId);
 
-    // If not a direct (specific_person) approver, check identity-based matching
-    if (!isSubmitter && !isApprover && !admin && hrId) {
+    // Check identity-based matching — always run so submitter-as-approver is detected
+    if (!isApprover && !admin && hrId) {
       const orgId = await getCurrentOrgId();
       // Load approver HR info for identity/scope matching
       const [approverRows] = await pool.query(
@@ -863,6 +863,9 @@ router.post('/getSubmissionDetail', async (req, res) => {
 
     res.json({
       status: 'success',
+      userIsSubmitter: isSubmitter,
+      userIsApprover: isApprover,
+      userIsAdmin: !!admin,
       _diag: {
         stepCount: steps.length,
         stepDiag: stepDiag,

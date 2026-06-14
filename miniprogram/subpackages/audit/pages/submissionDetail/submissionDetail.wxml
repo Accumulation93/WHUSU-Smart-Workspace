@@ -419,8 +419,9 @@
         <view style="font-size:24rpx;color:#475569;line-height:1.6;white-space:pre-wrap;">{{submission.description}}</view>
       </view>
 
-      <!-- Actions -->
-      <view class="card">
+      <!-- Actions — submitter-only buttons -->
+      <view class="card" wx:if="{{userIsSubmitter}}">
+        <view class="section-title" wx:if="{{activeApprovalStepId}}">提交人操作</view>
         <view class="audit-btn-bar">
           <button class="secondary-btn" wx:if="{{submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="enterEditMode">修改审批</button>
           <button class="primary-btn" wx:if="{{submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="resubmit">重新提交</button>
