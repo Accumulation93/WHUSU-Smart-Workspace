@@ -2188,11 +2188,8 @@
                     <view class="flow-connector"></view>
                   </view>
                   <view class="flow-info">
-                    <view class="flow-step-label">第{{node.sortOrder}}步<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
-                    <view class="flow-step-title">
-                      {{node.actionType === 'pass' ? '仅通过' : (node.actionType === 'sign' ? '签字' : (node.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}
-                      <text style="font-size:21rpx;color:#64748b;font-weight:500;"> — {{node.approverName || '待审批人'}}</text>
-                    </view>
+                    <view class="flow-step-label">第{{node.sortOrder}}步 · {{node.actionLabel}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
+                    <view class="flow-step-approver">{{node.approverDesc}}</view>
                     <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                     <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">{{node.processedAt}}</view>
                     <view class="flow-step-comment" wx:if="{{node.comment}}">{{node.comment}}</view>

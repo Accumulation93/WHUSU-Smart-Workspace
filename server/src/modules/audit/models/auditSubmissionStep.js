@@ -194,6 +194,18 @@ async function getPendingByApprover(hrId) {
 }
 
 /**
+ * Helper: check if a value exists in a comma-separated list.
+ * Both inputs are coerced to strings for robust comparison.
+ */
+function inCsv(csv, value) {
+  if (csv == null || value == null) return false;
+  var csvStr = String(csv).trim();
+  var valStr = String(value).trim();
+  if (!csvStr || !valStr) return false;
+  return csvStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(valStr);
+}
+
+/**
  * Check whether the approver matches ANY condition in the conditions array (OR logic).
  * @param {Array} conditions - Parsed JSON array of approver conditions
  * @param {object} approver - Candidate approver HR info
@@ -206,10 +218,10 @@ function matchesAnyCondition(conditions, approver, submitter) {
   for (const cond of conditions) {
     if (cond.conditionType === 'person') {
       // Person condition: approver must be in the personHrIds list
-      const personIds = (cond.personHrIds || '').split(',').map((s) => s.trim()).filter(Boolean);
-      if (personIds.includes(approver.id)) return true;
-    } else if (cond.conditionType === 'identity_scope') {
-      // Identity scope condition: all three dimensions must match
+      var personIds = (cond.personHrIds || '').toString().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      if (personIds.includes(String(approver.id))) return true;
+    } else {
+      // identity_scope or unknown type — treat as identity_scope
       if (matchesIdentityScopeCondition(cond, approver, submitter)) return true;
     }
   }
@@ -226,36 +238,30 @@ function matchesAnyCondition(conditions, approver, submitter) {
  * @returns {boolean}
  */
 function matchesIdentityScopeCondition(cond, approver, submitter) {
-  // Helper: check if a value is in a comma-separated list
-  function inCsv(csv, value) {
-    if (!csv || !value) return false;
-    return csv.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(String(value));
-  }
-
   // Department check
-  const deptScope = cond.departmentScope || 'all';
+  var deptScope = cond.departmentScope || 'all';
   if (deptScope === 'specific') {
     if (!inCsv(cond.specificDepartmentId || '', approver.department_id)) return false;
   } else if (deptScope === 'own') {
-    if (!submitter || approver.department_id !== submitter.department_id) return false;
+    if (!submitter || String(approver.department_id) !== String(submitter.department_id)) return false;
   }
   // 'all' means any department → pass
 
   // Work group check
-  const wgScope = cond.workGroupScope || 'all';
+  var wgScope = cond.workGroupScope || 'all';
   if (wgScope === 'specific') {
     if (!inCsv(cond.specificWorkGroupId || '', approver.work_group_id)) return false;
   } else if (wgScope === 'own') {
-    if (!submitter || approver.work_group_id !== submitter.work_group_id) return false;
+    if (!submitter || String(approver.work_group_id) !== String(submitter.work_group_id)) return false;
   }
   // 'all' means any work group → pass
 
   // Identity check
-  const identScope = cond.identityScope || 'all';
+  var identScope = cond.identityScope || 'all';
   if (identScope === 'specific') {
     if (!inCsv(cond.specificIdentityId || '', approver.identity_id)) return false;
   } else if (identScope === 'own') {
-    if (!submitter || approver.identity_id !== submitter.identity_id) return false;
+    if (!submitter || String(approver.identity_id) !== String(submitter.identity_id)) return false;
   }
   // 'all' means any identity → pass
 
@@ -274,21 +280,21 @@ function matchesScope(step, approver, submitter) {
 
   if (scopeType === 'same_department') {
     if (!submitter) return false;
-    return approver.department_id === submitter.department_id;
+    return String(approver.department_id) === String(submitter.department_id);
   }
 
   if (scopeType === 'same_work_group') {
     if (!submitter) return false;
-    return approver.work_group_id === submitter.work_group_id;
+    return String(approver.work_group_id) === String(submitter.work_group_id);
   }
 
   if (scopeType === 'specific_department') {
-    return approver.department_id === (step.scope_department_id || '');
+    return String(approver.department_id) === String(step.scope_department_id || '');
   }
 
   if (scopeType === 'specific_work_group') {
-    return approver.department_id === (step.scope_department_id || '') &&
-           approver.work_group_id === (step.scope_work_group_id || '');
+    return String(approver.department_id) === String(step.scope_department_id || '') &&
+           String(approver.work_group_id) === String(step.scope_work_group_id || '');
   }
 
   return true;

@@ -1225,7 +1225,7 @@ module.exports = Behavior({
           }
           const roundKeys = Object.keys(rounds).sort((a, b) => Number(a) - Number(b));
 
-          // 3. For each round, insert steps with resubmit markers
+          // 3. For each round, insert steps with resubmit markers + separator
           for (let ri = 0; ri < roundKeys.length; ri++) {
             const round = Number(roundKeys[ri]);
             const roundSteps = rounds[round].sort((a, b) => a.sort_order - b.sort_order);
@@ -1237,6 +1237,9 @@ module.exports = Behavior({
                 subLabel: '第' + round + '轮', icon: '🔄'
               });
             }
+
+            let hasProcessedSteps = false;
+            let hasFutureSteps = false;
 
             for (const s of roundSteps) {
               let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
@@ -1289,13 +1292,21 @@ module.exports = Behavior({
               } else if (s.sort_order === currentStepIndex && s.status === 'pending') {
                 flowNodeClass = 'flow-node-active'; flowDotClass = 'flow-dot-active';
                 flowIcon = 'number'; flowStatusLabel = '● 待处理'; flowTagClass = 'flow-tag-active';
+                hasProcessedSteps = true;
               } else if (s.sort_order < currentStepIndex) {
                 flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
                 flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+                hasProcessedSteps = true;
               } else {
                 flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
                 flowIcon = 'number'; flowStatusLabel = '○ 未到达'; flowTagClass = 'flow-tag-pending';
+                hasFutureSteps = true;
               }
+
+              if (s.status === 'approved' || s.status === 'rejected') {
+                hasProcessedSteps = true;
+              }
+
               flowTimeline.push({
                 _key: 'step_' + s.id,
                 type: 'step', ...s,
@@ -1303,6 +1314,29 @@ module.exports = Behavior({
                 approverDesc, actionLabel,
                 processedAt: s.processed_at ? formatAuditTime(s.processed_at) : ''
               });
+            }
+
+            // Inject "remaining steps" separator between processed and future steps
+            if (hasProcessedSteps && hasFutureSteps) {
+              var remainingCount = roundSteps.filter(function(rs) {
+                return rs.status === 'pending' && rs.sort_order >= currentStepIndex + 1;
+              }).length;
+              if (remainingCount > 0) {
+                var insertIdx = -1;
+                for (var fi = flowTimeline.length - 1; fi >= 0; fi--) {
+                  if (flowTimeline[fi].type === 'lifecycle') break;
+                  if (flowTimeline[fi].flowStatusLabel === '○ 未到达') {
+                    insertIdx = fi;
+                  }
+                }
+                if (insertIdx > 0) {
+                  flowTimeline.splice(insertIdx, 0, {
+                    _key: 'separator_r' + round + '_remaining',
+                    type: 'separator',
+                    label: '剩余 ' + remainingCount + ' 步待处理'
+                  });
+                }
+              }
             }
           }
 

@@ -6,7 +6,7 @@ const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
 const PORTAL_CARDS_USER = [
   { key: 'scoring', label: '考核评分', icon: '📊', desc: '评分 · 结果 · 公示', url: '/pages/home/home?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', icon: '👤', desc: '档案 · 资料 · 履历', url: '/pages/home/home?subApp=hr', disabled: false },
-  { key: 'audit', label: '审核', icon: '📋', desc: '申请 · 审批 · 签署', url: '/subpackages/audit/pages/mySubmissions/mySubmissions', disabled: false }
+  { key: 'audit', label: '审核', icon: '📋', desc: '发起 · 审批 · 记录', url: '/pages/home/home?subApp=audit', disabled: false }
 ];
 
 const PORTAL_CARDS_ADMIN = [

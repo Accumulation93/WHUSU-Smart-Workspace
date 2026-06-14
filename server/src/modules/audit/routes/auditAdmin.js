@@ -601,33 +601,57 @@ router.post('/getAuditProgress', async (req, res) => {
     }
 
     // Load identity names
-    const identityIds = [...new Set(steps.map(s => s.approver_identity_id).filter(Boolean))];
+    const identityIds = new Set(steps.map(s => s.approver_identity_id).filter(Boolean));
+    const deptIdSet = new Set(steps.map(s => s.scope_department_id).filter(Boolean));
+    const wgIdSet = new Set(steps.map(s => s.scope_work_group_id).filter(Boolean));
+    const hrIdSet = new Set();
+    for (const s of steps) {
+      if (s.step_conditions_json) {
+        try {
+          const conds = JSON.parse(s.step_conditions_json);
+          if (Array.isArray(conds)) {
+            for (const c of conds) {
+              if (c.conditionType === 'person' && c.personHrIds) {
+                c.personHrIds.split(',').forEach(function(id) { hrIdSet.add(id.trim()); });
+              } else if (c.conditionType === 'identity_scope') {
+                if (c.specificIdentityId) c.specificIdentityId.split(',').forEach(function(id) { identityIds.add(id.trim()); });
+                if (c.specificDepartmentId) c.specificDepartmentId.split(',').forEach(function(id) { deptIdSet.add(id.trim()); });
+                if (c.specificWorkGroupId) c.specificWorkGroupId.split(',').forEach(function(id) { wgIdSet.add(id.trim()); });
+              }
+            }
+          }
+        } catch (_) { }
+      }
+    }
     const identityMap = {};
-    if (identityIds.length) {
+    if (identityIds.size) {
       const [identRows] = await pool.query(
         'SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?',
-        [identityIds, orgId]
+        [[...identityIds], orgId]
       );
       for (const ident of identRows) identityMap[ident.id] = safeString(ident.name);
     }
 
-    // Load scope department & work group names
-    const deptIds = [...new Set(steps.map(s => s.scope_department_id).filter(Boolean))];
-    const wgIds = [...new Set(steps.map(s => s.scope_work_group_id).filter(Boolean))];
     const deptMap = {}, wgMap = {};
-    if (deptIds.length) {
+    if (deptIdSet.size) {
       const [deptRows] = await pool.query(
         'SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?',
-        [deptIds, orgId]
+        [[...deptIdSet], orgId]
       );
       for (const d of deptRows) deptMap[d.id] = safeString(d.name);
     }
-    if (wgIds.length) {
+    if (wgIdSet.size) {
       const [wgRows] = await pool.query(
         'SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?',
-        [wgIds, orgId]
+        [[...wgIdSet], orgId]
       );
       for (const w of wgRows) wgMap[w.id] = safeString(w.name);
+    }
+    if (hrIdSet.size) {
+      const hrCondRows = await hrInfoModel.getByIds([...hrIdSet]);
+      for (const hr of hrCondRows) {
+        if (!hrMap[hr.id]) hrMap[hr.id] = safeString(hr.name);
+      }
     }
 
     res.json({

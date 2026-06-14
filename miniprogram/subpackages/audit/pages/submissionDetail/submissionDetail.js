@@ -178,7 +178,8 @@ Page({
         });
       }
     } catch (e) {
-      // Non-fatal; user can still submit without preview
+      console.error('[audit] loadTemplatePreview failed:', e);
+      showShortToast('模板步骤预览加载失败，但仍可提交');
     }
   },
 

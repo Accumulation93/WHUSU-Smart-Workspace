@@ -309,11 +309,12 @@ Page({
   applySubAppFilter() {
     const subApp = this._subApp || 'scoring';
     const SUB_APP_USER_TABS = {
-      scoring: ['scoring', 'results', 'meritList', 'audit'],
-      hr: ['profile', 'audit']
+      scoring: ['scoring', 'results', 'meritList'],
+      hr: ['profile'],
+      audit: ['audit']
     };
     this._subAppAllowedTabs = SUB_APP_USER_TABS[subApp] || SUB_APP_USER_TABS.scoring;
-    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息' };
+    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', audit: '审核' };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
   },
 
@@ -327,7 +328,9 @@ Page({
     if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: '人事信息' });
     // Always add audit tab for users with HR info
     if (allowed.indexOf('audit') !== -1 && this.data.hasUser) tabs.push({ key: 'audit', label: '审核' });
-    this.setData({ userTabs: tabs });
+    // If only audit tab (dedicated audit sub-app), auto-select it
+    const activeTab = tabs.length === 1 ? tabs[0].key : this.data.activeTab;
+    this.setData({ userTabs: tabs, activeTab });
     // Load audit badge counts
     if (this.data.hasUser) this.loadAuditBadgeCounts();
   },
