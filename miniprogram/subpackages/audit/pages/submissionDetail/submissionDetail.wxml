@@ -411,7 +411,7 @@
                 <view class="flow-step-comment" wx:if="{{node.comment && node.flowIcon === 'check'}}">💬 审批意见：{{node.comment}}</view>
                 <view class="flow-step-comment" wx:if="{{node.comment && node.flowIcon === 'cross'}}">{{node.comment}}</view>
                 <view class="flow-step-rejection" wx:if="{{node.rejectionReason}}">❌ 驳回理由：{{node.rejectionReason}}</view>
-                <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active'}}">
+                <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active' && userIsApprover}}">
                   <text class="flow-action-btn" data-step-id="{{node.id}}" bindtap="openApprove">✓ 通过</text>
                   <text class="flow-action-btn flow-action-danger" data-step-id="{{node.id}}" bindtap="openReject">✗ 驳回</text>
                 </view>
