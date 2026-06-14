@@ -543,13 +543,91 @@ router.post('/getSubmissionDetail', async (req, res) => {
     const submission = await submissionModel.getById(submissionId);
     if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
 
+    const steps = await submissionStepModel.getBySubmissionId(submissionId);
+    console.log('[audit:getSubmissionDetail] submission=' + submissionId +
+      ' status=' + submission.status +
+      ' currentStepIndex=' + (submission.current_step_index || 0) +
+      ' stepCount=' + steps.length);
+
     // Check access: submitter, approver in any step, or admin
     const isSubmitter = submission.submitted_by === hrId;
-    const steps = await submissionStepModel.getBySubmissionId(submissionId);
-    const isApprover = steps.some((s) => s.approver_hr_id === hrId);
+    let isApprover = steps.some((s) => s.approver_hr_id === hrId);
+
+    // If not a direct (specific_person) approver, check identity-based matching
+    if (!isSubmitter && !isApprover && !admin && hrId) {
+      const orgId = await getCurrentOrgId();
+      // Load approver HR info for identity/scope matching
+      const [approverRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [hrId, orgId]
+      );
+      const approverInfo = approverRows[0] || null;
+      if (approverInfo) {
+        // Load submitter info
+        const [subRows] = await pool.query(
+          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [submission.submitted_by, orgId]
+        );
+        const submitterInfo = subRows[0] || null;
+        // Batch-load template step conditions for fallback
+        const tplStepIds = [...new Set(steps.map(s => s.template_step_id).filter(Boolean))];
+        const templateConditionMap = {};
+        if (tplStepIds.length) {
+          const [tplCondRows] = await pool.query(
+            `SELECT * FROM audit_flow_template_step_conditions
+             WHERE template_step_id IN (?) AND org_id = ?
+             ORDER BY template_step_id, sort_order`,
+            [tplStepIds, orgId]
+          );
+          for (const tc of tplCondRows) {
+            if (!templateConditionMap[tc.template_step_id]) templateConditionMap[tc.template_step_id] = [];
+            templateConditionMap[tc.template_step_id].push({
+              conditionType: tc.condition_type,
+              personHrIds: tc.person_hr_ids,
+              departmentScope: tc.department_scope,
+              specificDepartmentId: tc.specific_department_id,
+              workGroupScope: tc.work_group_scope,
+              specificWorkGroupId: tc.specific_work_group_id,
+              identityScope: tc.identity_scope,
+              specificIdentityId: tc.specific_identity_id
+            });
+          }
+        }
+        for (const s of steps) {
+          // Check step_conditions_json
+          if (s.step_conditions_json) {
+            try {
+              const conds = JSON.parse(s.step_conditions_json);
+              if (matchesAnyCondition(conds, approverInfo, submitterInfo)) {
+                isApprover = true; break;
+              }
+            } catch (_) {}
+          }
+          // Fallback: template step conditions
+          if (!isApprover && s.template_step_id && templateConditionMap[s.template_step_id]) {
+            if (matchesAnyCondition(templateConditionMap[s.template_step_id], approverInfo, submitterInfo)) {
+              isApprover = true; break;
+            }
+          }
+          // Legacy check
+          if (!isApprover && s.approver_type === 'identity' && s.approver_identity_id) {
+            if (approverInfo.identity_id === s.approver_identity_id) {
+              if (matchesScope(s, approverInfo, submitterInfo)) {
+                isApprover = true; break;
+              }
+            }
+          }
+        }
+      }
+    }
+
     if (!isSubmitter && !isApprover && !admin) {
+      console.log('[audit:getSubmissionDetail] ACCESS DENIED: hrId=' + hrId +
+        ' isSubmitter=' + isSubmitter + ' isApprover=' + isApprover + ' isAdmin=' + !!admin);
       return res.json({ status: 'forbidden', message: '没有查看权限' });
     }
+    console.log('[audit:getSubmissionDetail] access granted: hrId=' + hrId +
+      ' isSubmitter=' + isSubmitter + ' isApprover=' + isApprover + ' isAdmin=' + !!admin);
 
     const files = await submissionFileModel.getBySubmissionId(submissionId);
     const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
@@ -585,7 +663,8 @@ router.post('/getSubmissionDetail', async (req, res) => {
             for (const c of conds) {
               if (c.conditionType === 'person' && c.personHrIds) {
                 c.personHrIds.split(',').forEach(function(id) { hrIdSet.add(id.trim()); });
-              } else if (c.conditionType === 'identity_scope') {
+              } else {
+                // identity_scope or unknown type — treat as identity_scope
                 if (c.specificIdentityId) c.specificIdentityId.split(',').forEach(function(id) { identityIds.add(id.trim()); });
                 if (c.specificDepartmentId) c.specificDepartmentId.split(',').forEach(function(id) { deptIdSet.add(id.trim()); });
                 if (c.specificWorkGroupId) c.specificWorkGroupId.split(',').forEach(function(id) { wgIdSet.add(id.trim()); });

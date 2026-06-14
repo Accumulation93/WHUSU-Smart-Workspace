@@ -99,15 +99,23 @@ async function getPendingByApprover(hrId) {
     [hrId, orgId]
   );
   const approver = hrRows[0] || null;
-  if (!approver) return [];
+  if (!approver) {
+    console.log('[audit:getPendingByApprover] No hr_info found for hrId=' + hrId + ' orgId=' + orgId);
+    return [];
+  }
+  console.log('[audit:getPendingByApprover] approver hrId=' + hrId +
+    ' dept=' + (approver.department_id || 'none') +
+    ' ident=' + (approver.identity_id || 'none') +
+    ' wg=' + (approver.work_group_id || 'none'));
 
   // Direct matches: specific_person steps assigned to this hrId (legacy field)
-  // Only include steps from in_progress submissions (not draft/pending/withdrawn/rejected/approved)
+  // Only include steps that are the CURRENT step of in_progress submissions
   const [directRows] = await pool.query(
     `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
      JOIN audit_submissions asub ON asub.id = ass.submission_id
-     WHERE ass.approver_hr_id = ? AND ass.status = 'pending' AND asub.status = 'in_progress' AND ass.org_id = ?
+     WHERE ass.approver_hr_id = ? AND ass.status = 'pending' AND asub.status = 'in_progress'
+       AND ass.sort_order = asub.current_step_index AND ass.org_id = ?
      ORDER BY ass.created_at DESC`,
     [hrId, orgId]
   );
@@ -119,13 +127,17 @@ async function getPendingByApprover(hrId) {
     `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
      JOIN audit_submissions asub ON asub.id = ass.submission_id
-     WHERE ass.status = 'pending' AND asub.status = 'in_progress' AND ass.org_id = ?
+     WHERE ass.status = 'pending' AND asub.status = 'in_progress'
+       AND ass.sort_order = asub.current_step_index AND ass.org_id = ?
      ORDER BY ass.created_at DESC`,
     [orgId]
   );
 
   // Deduplicate by step ID (a step might match via multiple paths)
   const seenIds = new Set(directRows.map((r) => r.id));
+
+  console.log('[audit:getPendingByApprover] direct=' + directRows.length +
+    ' identityRows=' + identityRows.length + ' total candidates');
 
   // Load submitter info for all identity rows (needed for scope resolution)
   const submitterIds = [...new Set(identityRows.map((r) => r.submitted_by).filter(Boolean))];
@@ -157,12 +169,28 @@ async function getPendingByApprover(hrId) {
     if (row.step_conditions_json) {
       try {
         const conditions = JSON.parse(row.step_conditions_json);
-        if (matchesAnyCondition(conditions, approver, submitter)) {
+        const matched = matchesAnyCondition(conditions, approver, submitter);
+        console.log('[audit:getPendingByApprover] step=' + row.id +
+          ' submission=' + row.submission_id +
+          ' sort_order=' + row.sort_order +
+          ' has_conditions_json=true condCount=' + conditions.length +
+          ' match=' + matched);
+        if (matched) {
           rows.push(row);
           seenIds.add(row.id);
           continue;
         }
-      } catch (_) { /* fall through to fallback check */ }
+      } catch (e) {
+        console.log('[audit:getPendingByApprover] step=' + row.id +
+          ' JSON parse error: ' + e.message);
+      }
+    } else {
+      console.log('[audit:getPendingByApprover] step=' + row.id +
+        ' submission=' + row.submission_id +
+        ' sort_order=' + row.sort_order +
+        ' has_conditions_json=false hasTemplateStep=' + !!row.template_step_id +
+        ' legacy_type=' + (row.approver_type || 'none') +
+        ' legacy_ident=' + (row.approver_identity_id || 'none'));
     }
 
     // Fallback: if submission step has no conditions or they failed to match,
@@ -170,7 +198,11 @@ async function getPendingByApprover(hrId) {
     // before conditions were properly serialized)
     if (row.template_step_id && templateConditionMap[row.template_step_id]) {
       const tplConds = templateConditionMap[row.template_step_id];
-      if (matchesAnyCondition(tplConds, approver, submitter)) {
+      const tplMatched = matchesAnyCondition(tplConds, approver, submitter);
+      console.log('[audit:getPendingByApprover] step=' + row.id +
+        ' templateConditionFallback condCount=' + tplConds.length +
+        ' match=' + tplMatched);
+      if (tplMatched) {
         rows.push(row);
         seenIds.add(row.id);
         continue;
@@ -179,14 +211,18 @@ async function getPendingByApprover(hrId) {
 
     // Legacy check: approver_type='identity' with approver_identity_id match
     if (row.approver_type === 'identity' && row.approver_identity_id) {
-      if (approver.identity_id === row.approver_identity_id) {
-        if (matchesScope(row, approver, submitter)) {
-          rows.push(row);
-          seenIds.add(row.id);
-        }
+      const identMatch = approver.identity_id === row.approver_identity_id;
+      const scopeMatch = identMatch ? matchesScope(row, approver, submitter) : false;
+      console.log('[audit:getPendingByApprover] step=' + row.id +
+        ' legacyCheck identMatch=' + identMatch + ' scopeMatch=' + scopeMatch);
+      if (identMatch && scopeMatch) {
+        rows.push(row);
+        seenIds.add(row.id);
       }
     }
   }
+
+  console.log('[audit:getPendingByApprover] final pending count=' + rows.length);
 
   // Sort by created_at DESC
   rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -219,10 +255,22 @@ function matchesAnyCondition(conditions, approver, submitter) {
     if (cond.conditionType === 'person') {
       // Person condition: approver must be in the personHrIds list
       var personIds = (cond.personHrIds || '').toString().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-      if (personIds.includes(String(approver.id))) return true;
+      var personMatch = personIds.includes(String(approver.id));
+      console.log('[audit:matchesAnyCondition] personCond hrId=' + approver.id +
+        ' personIds=[' + personIds.join(',') + '] match=' + personMatch);
+      if (personMatch) return true;
     } else {
       // identity_scope or unknown type — treat as identity_scope
-      if (matchesIdentityScopeCondition(cond, approver, submitter)) return true;
+      console.log('[audit:matchesAnyCondition] checking identity_scope cond:' +
+        ' deptScope=' + (cond.departmentScope || 'all') +
+        ' specDept=' + (cond.specificDepartmentId || 'none') +
+        ' wgScope=' + (cond.workGroupScope || 'all') +
+        ' specWg=' + (cond.specificWorkGroupId || 'none') +
+        ' identScope=' + (cond.identityScope || 'all') +
+        ' specIdent=' + (cond.specificIdentityId || 'none'));
+      var identMatch = matchesIdentityScopeCondition(cond, approver, submitter);
+      console.log('[audit:matchesAnyCondition] identity_scope result=' + identMatch);
+      if (identMatch) return true;
     }
   }
 
@@ -241,27 +289,41 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
   // Department check
   var deptScope = cond.departmentScope || 'all';
   if (deptScope === 'specific') {
-    if (!inCsv(cond.specificDepartmentId || '', approver.department_id)) return false;
+    var deptMatch = inCsv(cond.specificDepartmentId || '', approver.department_id);
+    console.log('[audit:matchesIdentityScope] deptScope=specific approverDept=' + (approver.department_id || 'none') +
+      ' condDeptIds=' + (cond.specificDepartmentId || 'none') + ' match=' + deptMatch);
+    if (!deptMatch) return false;
   } else if (deptScope === 'own') {
-    if (!submitter || String(approver.department_id) !== String(submitter.department_id)) return false;
+    var deptOwnMatch = submitter && String(approver.department_id) === String(submitter.department_id);
+    console.log('[audit:matchesIdentityScope] deptScope=own approverDept=' + (approver.department_id || 'none') +
+      ' submitterDept=' + (submitter ? submitter.department_id : 'none') + ' match=' + deptOwnMatch);
+    if (!deptOwnMatch) return false;
   }
   // 'all' means any department → pass
 
   // Work group check
   var wgScope = cond.workGroupScope || 'all';
   if (wgScope === 'specific') {
-    if (!inCsv(cond.specificWorkGroupId || '', approver.work_group_id)) return false;
+    var wgMatch = inCsv(cond.specificWorkGroupId || '', approver.work_group_id);
+    console.log('[audit:matchesIdentityScope] wgScope=specific approverWg=' + (approver.work_group_id || 'none') +
+      ' condWg=' + (cond.specificWorkGroupId || 'none') + ' match=' + wgMatch);
+    if (!wgMatch) return false;
   } else if (wgScope === 'own') {
-    if (!submitter || String(approver.work_group_id) !== String(submitter.work_group_id)) return false;
+    var wgOwnMatch = submitter && String(approver.work_group_id) === String(submitter.work_group_id);
+    if (!wgOwnMatch) return false;
   }
   // 'all' means any work group → pass
 
   // Identity check
   var identScope = cond.identityScope || 'all';
   if (identScope === 'specific') {
-    if (!inCsv(cond.specificIdentityId || '', approver.identity_id)) return false;
+    var identMatch = inCsv(cond.specificIdentityId || '', approver.identity_id);
+    console.log('[audit:matchesIdentityScope] identScope=specific approverIdent=' + (approver.identity_id || 'none') +
+      ' condIdentIds=' + (cond.specificIdentityId || 'none') + ' match=' + identMatch);
+    if (!identMatch) return false;
   } else if (identScope === 'own') {
-    if (!submitter || String(approver.identity_id) !== String(submitter.identity_id)) return false;
+    var identOwnMatch = submitter && String(approver.identity_id) === String(submitter.identity_id);
+    if (!identOwnMatch) return false;
   }
   // 'all' means any identity → pass
 

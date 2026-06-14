@@ -2177,6 +2177,13 @@
                   </view>
                 </view>
 
+                <!-- Remaining steps separator -->
+                <view class="flow-separator" wx:if="{{node.type === 'separator'}}">
+                  <view class="flow-separator-dash"></view>
+                  <text class="flow-separator-text">{{node.label}}</text>
+                  <view class="flow-separator-dash"></view>
+                </view>
+
                 <!-- Approval step -->
                 <view class="flow-node {{node.flowNodeClass}}" wx:if="{{node.type === 'step'}}">
                   <view class="flow-left-col">

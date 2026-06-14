@@ -613,7 +613,8 @@ router.post('/getAuditProgress', async (req, res) => {
             for (const c of conds) {
               if (c.conditionType === 'person' && c.personHrIds) {
                 c.personHrIds.split(',').forEach(function(id) { hrIdSet.add(id.trim()); });
-              } else if (c.conditionType === 'identity_scope') {
+              } else {
+                // identity_scope or unknown type — treat as identity_scope
                 if (c.specificIdentityId) c.specificIdentityId.split(',').forEach(function(id) { identityIds.add(id.trim()); });
                 if (c.specificDepartmentId) c.specificDepartmentId.split(',').forEach(function(id) { deptIdSet.add(id.trim()); });
                 if (c.specificWorkGroupId) c.specificWorkGroupId.split(',').forEach(function(id) { wgIdSet.add(id.trim()); });

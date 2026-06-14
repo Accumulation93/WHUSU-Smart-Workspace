@@ -1814,8 +1814,8 @@ scroll-view {
   border-color: rgba(252,165,165,0.40);
 }
 .flow-node-pending .flow-info {
-  background: linear-gradient(135deg, rgba(248,251,255,0.45) 0%, rgba(241,245,249,0.35) 100%);
-  border-color: rgba(226,232,240,0.35);
+  background: linear-gradient(135deg, rgba(248,251,255,0.65) 0%, rgba(241,245,249,0.55) 100%);
+  border-color: rgba(203,213,225,0.55);
 }
 
 .flow-step-label {

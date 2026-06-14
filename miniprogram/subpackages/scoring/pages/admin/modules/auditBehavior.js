@@ -1319,14 +1319,14 @@ module.exports = Behavior({
             // Inject "remaining steps" separator between processed and future steps
             if (hasProcessedSteps && hasFutureSteps) {
               var remainingCount = roundSteps.filter(function(rs) {
-                return rs.status === 'pending' && rs.sort_order >= currentStepIndex + 1;
+                return rs.status === 'pending' && rs.sort_order > currentStepIndex;
               }).length;
               if (remainingCount > 0) {
                 var insertIdx = -1;
-                for (var fi = flowTimeline.length - 1; fi >= 0; fi--) {
-                  if (flowTimeline[fi].type === 'lifecycle') break;
-                  if (flowTimeline[fi].flowStatusLabel === '○ 未到达') {
+                for (var fi = 0; fi < flowTimeline.length; fi++) {
+                  if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === '○ 未到达') {
                     insertIdx = fi;
+                    break;
                   }
                 }
                 if (insertIdx > 0) {

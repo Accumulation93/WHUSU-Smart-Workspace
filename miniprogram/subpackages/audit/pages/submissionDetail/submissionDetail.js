@@ -898,17 +898,17 @@ Page({
 
           // Inject "remaining steps" separator between processed and future steps
           if (hasProcessedSteps && hasFutureSteps) {
-            // Count remaining steps in this round
+            // Count remaining steps in this round (future pending steps, not including current)
             var remainingCount = roundSteps.filter(function(rs) {
-              return rs.status === 'pending' && rs.sort_order >= currentStepIndex + 1;
+              return rs.status === 'pending' && rs.sort_order > currentStepIndex;
             }).length;
             if (remainingCount > 0) {
-              // Find insertion point: after last processed step, before first future step
+              // Find insertion point: right before the FIRST future step node in flowTimeline
               var insertIdx = -1;
-              for (var fi = flowTimeline.length - 1; fi >= 0; fi--) {
-                if (flowTimeline[fi].type === 'lifecycle') break;
-                if (flowTimeline[fi].flowStatusLabel === '○ 未到达') {
+              for (var fi = 0; fi < flowTimeline.length; fi++) {
+                if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === '○ 未到达') {
                   insertIdx = fi;
+                  break; // stop at FIRST future step
                 }
               }
               if (insertIdx > 0) {
