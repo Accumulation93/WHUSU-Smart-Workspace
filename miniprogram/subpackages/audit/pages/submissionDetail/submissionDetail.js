@@ -104,6 +104,24 @@ Page({
     activeApprovalStep: null,
     designatedNextPersons: [], // [{id, name}] for next-step designation
     nextStepInfo: null,        // {sortOrder, approverDesc} of next step
+    approvalWarning: '',       // warning text for incomplete sign+stamp
+
+    // Stamp picker
+    stampPickerVisible: false,
+    availableStamps: [],
+    stampPickFileId: '',
+    stampPickFileName: '',
+
+    // Placement popup (positioning sig/stamp on file)
+    placementVisible: false,
+    placementType: '',        // 'signature' or 'stamp'
+    placementFileName: '',
+    placementFileImage: '',   // base64 image data for preview
+    placementItems: [],       // all sigs/stamps on the current file
+    placementActiveIdx: -1,   // index of the item being repositioned
+    placementPreviewX: -1,    // preview crosshair X (0-1)
+    placementPreviewY: -1,    // preview crosshair Y (0-1)
+    placementFileId: '',
 
     // User role flags
     userIsSubmitter: false,
@@ -1243,6 +1261,7 @@ Page({
           approvalComment: '',
           rejectionReason: '',
           pendingSignatures: [],
+          approvalWarning: '',
           // User role flags for conditional UI
           userIsSubmitter: res.userIsSubmitter || false,
           userIsApprover: res.userIsApprover || false,
@@ -1310,19 +1329,25 @@ Page({
   },
 
   onSignatureConfirm(e) {
-    const imageData = e.detail.imageData;
-    const sigs = [...this.data.pendingSignatures];
+    var imageData = e.detail.imageData;
+    var fileId = this.data.sigPadFileId || this.data.currentSignatureFileId;
+    var sigs = [...this.data.pendingSignatures];
     sigs.push({
-      fileId: this.data.currentSignatureFileId,
+      _idx: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      fileId: fileId,
       signatureType: 'signature',
+      stampName: '',
+      stampId: '',
       imageData: imageData,
       positionX: 0.5,
-      positionY: 0.5
+      positionY: 0.3
     });
     this.setData({
       pendingSignatures: sigs,
-      signaturePadVisible: false
+      signaturePadVisible: false,
+      approvalWarning: ''
     });
+    this.updateApprovalWarning();
   },
 
   removePendingSignature(e) {
@@ -1397,6 +1422,220 @@ Page({
     this.setData({ designatedNextPersons: list });
   },
 
+  // ═══════════════════════════════════════════════
+  // Signature & Stamp Actions
+  // ═══════════════════════════════════════════════
+
+  // Open signature pad for a specific file
+  addSignatureForFile(e) {
+    var fileId = e.currentTarget.dataset.fileId;
+    var fileName = e.currentTarget.dataset.fileName;
+    this.setData({
+      sigPadFileId: fileId,
+      sigPadFileName: fileName,
+      signaturePadVisible: true,
+      currentSignatureFileId: fileId
+    });
+  },
+
+  // Open stamp picker for a specific file
+  addStampForFile(e) {
+    var fileId = e.currentTarget.dataset.fileId;
+    var fileName = e.currentTarget.dataset.fileName;
+    this.setData({
+      stampPickFileId: fileId,
+      stampPickFileName: fileName,
+      stampPickerVisible: true
+    });
+    this.loadAvailableStamps();
+  },
+
+  // Load stamps available to the current user
+  async loadAvailableStamps() {
+    try {
+      var res = await callFunction({ name: 'listMyStamps', data: {} });
+      if (res.status === 'success') {
+        this.setData({ availableStamps: res.stamps || [] });
+      }
+    } catch (e) {
+      console.error('[audit] loadAvailableStamps failed:', e);
+    }
+  },
+
+  closeStampPicker() {
+    this.setData({ stampPickerVisible: false });
+  },
+
+  // User selected a stamp from the picker
+  onStampSelect(e) {
+    var stampId = e.currentTarget.dataset.stampId;
+    var stampName = e.currentTarget.dataset.stampName;
+    var stampImage = e.currentTarget.dataset.stampImage;
+    var fileId = this.data.stampPickFileId;
+    var sigs = [...this.data.pendingSignatures];
+    sigs.push({
+      _idx: 'stamp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      fileId: fileId,
+      signatureType: 'stamp',
+      stampName: stampName,
+      stampId: stampId,
+      imageData: stampImage,
+      positionX: 0.5,
+      positionY: 0.3
+    });
+    this.setData({
+      pendingSignatures: sigs,
+      stampPickerVisible: false,
+      approvalWarning: ''
+    });
+    this.updateApprovalWarning();
+  },
+
+  // Remove a pending signature/stamp
+  removePendingSign(e) {
+    var idx = parseInt(e.currentTarget.dataset.sigIdx);
+    var sigs = [...this.data.pendingSignatures];
+    if (idx >= 0 && idx < sigs.length) {
+      sigs.splice(idx, 1);
+    }
+    this.setData({ pendingSignatures: sigs, approvalWarning: '' });
+    this.updateApprovalWarning();
+  },
+
+  // Open placement popup to adjust sig/stamp position
+  openPlacement(e) {
+    var idx = parseInt(e.currentTarget.dataset.sigIdx);
+    var sig = this.data.pendingSignatures[idx];
+    if (!sig) return;
+    var fileId = sig.fileId;
+    var files = this.data.files || [];
+    var file = files.find(function(f) { return f.id === fileId; });
+    var fileName = file ? file.fileName : '未知文件';
+
+    // Collect all sigs/stamps on the same file
+    var fileItems = [];
+    for (var i = 0; i < this.data.pendingSignatures.length; i++) {
+      var s = this.data.pendingSignatures[i];
+      if (s.fileId === fileId) {
+        fileItems.push({
+          dispIdx: i,
+          imageData: s.imageData,
+          positionX: s.positionX,
+          positionY: s.positionY,
+          signatureType: s.signatureType
+        });
+      }
+    }
+
+    // Try to load file image for preview
+    this.loadFileForPlacement(fileId);
+
+    this.setData({
+      placementVisible: true,
+      placementType: sig.signatureType,
+      placementFileName: fileName,
+      placementFileId: fileId,
+      placementItems: fileItems,
+      placementActiveIdx: idx,
+      placementPreviewX: sig.positionX != null ? sig.positionX : -1,
+      placementPreviewY: sig.positionY != null ? sig.positionY : -1,
+      placementFileImage: ''
+    });
+  },
+
+  // Load file image for placement preview
+  async loadFileForPlacement(fileId) {
+    try {
+      var res = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
+      if (res.status === 'success' && res.mimeType && res.mimeType.indexOf('image/') === 0) {
+        this.setData({ placementFileImage: 'data:' + res.mimeType + ';base64,' + res.data });
+      }
+    } catch (e) {
+      // Non-fatal; placement works without image preview
+    }
+  },
+
+  closePlacement() {
+    this.setData({ placementVisible: false });
+  },
+
+  // Handle tap on placement canvas — update position
+  onPlacementTap(e) {
+    var that = this;
+    var tapX = e.detail.x;
+    var tapY = e.detail.y;
+    // Query the placement canvas view for its dimensions
+    wx.createSelectorQuery().select('#placementCanvas').boundingClientRect(function(rect) {
+      if (!rect) return;
+      var px = Math.max(0, Math.min(1, tapX / (rect.width || 1)));
+      var py = Math.max(0, Math.min(1, tapY / (rect.height || 1)));
+      that.setData({
+        placementPreviewX: px,
+        placementPreviewY: py
+      });
+      // Also update the active item's position immediately for preview
+      var idx = that.data.placementActiveIdx;
+      if (idx >= 0) {
+        var sigs = [...that.data.pendingSignatures];
+        if (idx < sigs.length) {
+          sigs[idx].positionX = px;
+          sigs[idx].positionY = py;
+        }
+        // Update placementItems for visual preview
+        var items = [...that.data.placementItems];
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].dispIdx === idx) {
+            items[i].positionX = px;
+            items[i].positionY = py;
+            break;
+          }
+        }
+        that.setData({ pendingSignatures: sigs, placementItems: items });
+      }
+    }).exec();
+  },
+
+  // Save the adjusted position
+  confirmPlacement() {
+    var idx = this.data.placementActiveIdx;
+    var px = this.data.placementPreviewX;
+    var py = this.data.placementPreviewY;
+    if (idx < 0 || px < 0 || py < 0) {
+      this.setData({ placementVisible: false });
+      return;
+    }
+    var sigs = [...this.data.pendingSignatures];
+    if (idx < sigs.length) {
+      sigs[idx].positionX = px;
+      sigs[idx].positionY = py;
+    }
+    this.setData({
+      pendingSignatures: sigs,
+      placementVisible: false
+    });
+  },
+
+  // Check if signature/stamp requirements are met and set warning
+  updateApprovalWarning() {
+    var actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
+    var sigs = this.data.pendingSignatures || [];
+    var hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
+    var hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
+    var warning = '';
+    if (actionType === 'both') {
+      if (!hasSignature && !hasStamp) {
+        warning = '此环节需要签名和盖章，请至少添加一项';
+      } else if (!hasSignature) {
+        warning = '此环节需要签名和盖章，建议添加签名（不强制）';
+      } else if (!hasStamp) {
+        warning = '此环节需要签名和盖章，建议添加盖章（不强制）';
+      }
+    }
+    if (warning !== this.data.approvalWarning) {
+      this.setData({ approvalWarning: warning });
+    }
+  },
+
   // Direct approval from the inline approval card (no popup)
   async confirmApprovalDirect(e) {
     var action = e.currentTarget.dataset.action;
@@ -1432,18 +1671,46 @@ Page({
       return;
     }
 
+    // Check approval warning for sign+stamp steps
+    if (action === 'approve') {
+      this.updateApprovalWarning();
+      var warn = this.data.approvalWarning;
+      if (warn && warn.indexOf('不强制') < 0) {
+        // Only block if neither signature nor stamp was added to a "both" step
+        var actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
+        if (actionType === 'both') {
+          var sigs = this.data.pendingSignatures || [];
+          var hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
+          var hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
+          if (!hasSignature && !hasStamp) {
+            showShortToast('此环节需要签名和盖章，请至少添加签名或盖章');
+            return;
+          }
+        }
+      }
+    }
+
     this.setData({ loading: true });
     try {
       var res;
       if (action === 'approve') {
         var designatedPersons = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
+        var sigs = (this.data.pendingSignatures || []).map(function(s) {
+          return {
+            fileId: s.fileId,
+            signatureType: s.signatureType,
+            imageData: s.imageData,
+            positionX: s.positionX,
+            positionY: s.positionY
+          };
+        });
         res = await callFunction({
           name: 'approveStep',
           data: {
             submissionId: this.data.submissionId,
             stepId: stepId,
             comment: comment,
-            signatures: [],
+            signatures: sigs,
             designatedNextPersonIds: designatedPersons
           }
         });

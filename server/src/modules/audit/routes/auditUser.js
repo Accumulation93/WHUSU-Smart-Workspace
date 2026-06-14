@@ -22,6 +22,7 @@ const submissionStepModel = require('../models/auditSubmissionStep');
 const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const auditEventModel = require('../models/auditEvent');
+const stampAssignmentModel = require('../models/identityStampAssignment');
 const { hashFile, computeSignatureHash } = require('../utils/hashChain');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
@@ -1925,6 +1926,41 @@ router.post('/previewTemplateSteps', async (req, res) => {
     });
 
     res.json({ status: 'success', steps: previewSteps });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// listMyStamps — Get stamps available for the current user's identity
+router.post('/listMyStamps', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const orgId = await getCurrentOrgId();
+    const [hrRows] = await pool.query(
+      'SELECT identity_id FROM hr_info WHERE id = ? AND org_id = ?',
+      [hrId, orgId]
+    );
+    const identityId = hrRows[0] ? hrRows[0].identity_id : null;
+    if (!identityId) return res.json({ status: 'success', stamps: [] });
+
+    const assignments = await stampAssignmentModel.getByIdentityId(identityId);
+    if (!assignments.length) return res.json({ status: 'success', stamps: [] });
+
+    const stampIds = assignments.map(a => a.stamp_id);
+    const [stampRows] = await pool.query(
+      'SELECT id, name, image_data FROM stamps WHERE id IN (?) AND org_id = ?',
+      [stampIds, orgId]
+    );
+    const stamps = stampRows.map(s => ({
+      id: safeString(s.id),
+      name: safeString(s.name),
+      imageData: s.image_data || ''
+    }));
+
+    res.json({ status: 'success', stamps });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
