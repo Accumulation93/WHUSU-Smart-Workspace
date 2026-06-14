@@ -297,8 +297,9 @@
                 <view class="flow-connector flow-connector-lifecycle"></view>
               </view>
               <view class="flow-info flow-info-lifecycle">
-                <view class="flow-lifecycle-label">{{node.label}}<text class="flow-lifecycle-round" wx:if="{{node.subLabel}}">{{node.subLabel}}</text></view>
+                <view class="flow-lifecycle-label">{{node.label}}<text class="flow-lifecycle-round" wx:if="{{node.subLabel}}"> {{node.subLabel}}</text></view>
                 <view class="flow-lifecycle-time" wx:if="{{node.time}}">{{node.time}}</view>
+                <view class="flow-step-comment" wx:if="{{node.comment}}" style="margin-top:4rpx;font-size:21rpx;color:#64748b;">{{node.event === 'approve' ? '💬 ' + node.comment : (node.event === 'reject' ? '❌ ' + node.comment : node.comment)}}</view>
               </view>
             </view>
 

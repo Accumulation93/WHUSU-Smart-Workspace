@@ -794,14 +794,9 @@ Page({
           ' serverEvents.length=' + serverEvents.length +
           ' diag=' + JSON.stringify(res._diag || {}));
 
-        // 1. Build lifecycle nodes from REAL server events
-        var lifecycleEvents = [];
-        for (var ei = 0; ei < serverEvents.length; ei++) {
-          var evt = serverEvents[ei];
-          if (evt.eventType === 'submit' || evt.eventType === 'withdraw' || evt.eventType === 'resubmit' || evt.eventType === 'edit') {
-            lifecycleEvents.push(evt);
-          }
-        }
+        // 1. Build lifecycle nodes from ALL server events — no filtering
+        //    Every event (submit/withdraw/resubmit/approve/reject/edit) is part of the audit trail
+        var lifecycleEvents = serverEvents;
 
         // 2. Group steps by round
         var rounds = {};
@@ -859,16 +854,21 @@ Page({
             var untilIdx = resubmitEvtIdx >= 0 ? resubmitEvtIdx : lifecycleEvents.length;
             for (var eiPre = nextEventIdx; eiPre < untilIdx; eiPre++) {
               var interEvt = lifecycleEvents[eiPre];
-              var interIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️' };
-              var interLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核' };
+              var interIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
+              var interLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
+              var interStepLabel = '';
+              if ((interEvt.eventType === 'approve' || interEvt.eventType === 'reject') && interEvt.stepIndex) {
+                interStepLabel = '第' + interEvt.stepIndex + '步';
+              }
               flowTimeline.push({
                 _key: 'lifecycle_inter_' + interEvt.id,
                 type: 'lifecycle',
                 event: interEvt.eventType,
                 label: interLabelMap[interEvt.eventType] || interEvt.eventType,
-                subLabel: interEvt.round > 1 ? '第' + interEvt.round + '轮' : '',
+                subLabel: (interEvt.round > 1 ? '第' + interEvt.round + '轮 ' : '') + interStepLabel,
                 time: formatAuditTime(interEvt.createdAt),
-                icon: interIconMap[interEvt.eventType] || '📌'
+                icon: interIconMap[interEvt.eventType] || '📌',
+                comment: interEvt.comment || ''
               });
             }
 
