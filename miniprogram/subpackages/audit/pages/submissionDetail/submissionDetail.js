@@ -1119,27 +1119,42 @@ Page({
           ' currentStepIndex=' + diagInfo.currentStepIndex);
 
         // ── Compute flow progress ──
-        const totalSteps = rawSteps.length || 1;
+        // Use unique sortOrders (steps per round), not total row count across all rounds
+        var sortOrderSet = new Set();
+        for (var spi = 0; spi < rawSteps.length; spi++) {
+          sortOrderSet.add(rawSteps[spi].sortOrder);
+        }
+        var stepsPerRound = sortOrderSet.size || 1;
+        // Count approved steps from the latest round only
+        var maxRound = 0;
+        for (var sri = 0; sri < rawSteps.length; sri++) {
+          maxRound = Math.max(maxRound, rawSteps[sri].round || 1);
+        }
+        var currentRoundApproved = 0;
+        for (var sri2 = 0; sri2 < rawSteps.length; sri2++) {
+          if ((rawSteps[sri2].round || 1) === maxRound && rawSteps[sri2].status === 'approved') {
+            currentRoundApproved++;
+          }
+        }
         let flowProgressPercent, flowProgressText;
-        const approvedCount = rawSteps.filter(s => s.status === 'approved').length;
 
         if (submissionStatus === 'approved') {
           flowProgressPercent = 100;
-          flowProgressText = '全部完成';
+          flowProgressText = '全部完成（共' + stepsPerRound + '步）';
         } else if (submissionStatus === 'rejected') {
           const rejectedStep = rawSteps.find(s => s.status === 'rejected');
-          flowProgressPercent = Math.round((approvedCount / totalSteps) * 100);
-          flowProgressText = rejectedStep ? '第' + rejectedStep.sortOrder + '/' + totalSteps + '步被驳回' : '已驳回';
+          flowProgressPercent = Math.round((currentRoundApproved / stepsPerRound) * 100);
+          flowProgressText = rejectedStep ? '第' + rejectedStep.sortOrder + '/' + stepsPerRound + '步被驳回' : '已驳回';
         } else if (submissionStatus === 'pending') {
           flowProgressPercent = 0;
-          flowProgressText = '待提交';
+          flowProgressText = '待提交（共' + stepsPerRound + '步）';
         } else if (submissionStatus === 'withdrawn') {
-          flowProgressPercent = Math.round((approvedCount / totalSteps) * 100);
-          flowProgressText = '已撤回';
+          flowProgressPercent = Math.round((currentRoundApproved / stepsPerRound) * 100);
+          flowProgressText = '已撤回（共' + stepsPerRound + '步）';
         } else {
           // in_progress
-          flowProgressPercent = Math.round((approvedCount / totalSteps) * 100);
-          flowProgressText = '第' + currentStepIndex + '/' + totalSteps + '步待处理';
+          flowProgressPercent = Math.round((currentRoundApproved / stepsPerRound) * 100);
+          flowProgressText = '第' + currentStepIndex + '/' + stepsPerRound + '步待处理';
         }
 
         // Debug: log step nodes in flowTimeline

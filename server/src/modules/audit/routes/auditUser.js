@@ -605,9 +605,8 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
           const deptIds = cond.specificDepartmentId.split(',').map(s => s.trim()).filter(Boolean);
           const deptNames = deptIds.map(id => deptMap[id] || id).filter(Boolean);
           if (deptNames.length) scopeParts.push(deptNames.join('、'));
-        } else {
-          scopeParts.push('指定部门');
         }
+        // else: specific without ID → malformed condition, silently skip department part
       }
 
       if (cond.workGroupScope === 'own') scopeParts.push('同职能组');
@@ -616,9 +615,8 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
           const wgIds = cond.specificWorkGroupId.split(',').map(s => s.trim()).filter(Boolean);
           const wgNames = wgIds.map(id => wgMap[id] || id).filter(Boolean);
           if (wgNames.length) scopeParts.push(wgNames.join('、'));
-        } else {
-          scopeParts.push('指定职能组');
         }
+        // else: specific without ID → malformed condition, silently skip wg part
       }
 
       if (cond.identityScope === 'own') scopeParts.push('同身份');
@@ -627,9 +625,8 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
           const identIds = cond.specificIdentityId.split(',').map(s => s.trim()).filter(Boolean);
           const identNames = identIds.map(id => identityMap[id] || id).filter(Boolean);
           if (identNames.length) scopeParts.push(identNames.join('、'));
-        } else {
-          scopeParts.push('特定身份');
         }
+        // else: specific without ID → malformed condition, silently skip identity part
       }
 
       const scopeStr = scopeParts.length ? scopeParts.join(' · ') + ' ' : '';
@@ -938,13 +935,21 @@ router.post('/getSubmissionDetail', async (req, res) => {
           } else if (scopeType === 'same_work_group') {
             legacyApproverDesc = '由 同职能组 ' + identLabel + ' 审批';
           } else if (scopeType === 'specific_department') {
-            const dn = resolveMultiNames(s.scope_department_id, deptMap) || s.scope_department_id || '指定部门';
-            legacyApproverDesc = '由 ' + dn + ' ' + identLabel + ' 审批';
+            const dn = resolveMultiNames(s.scope_department_id, deptMap);
+            if (dn) {
+              legacyApproverDesc = '由 ' + dn + ' ' + identLabel + ' 审批';
+            } else {
+              legacyApproverDesc = '由 ' + identLabel + ' 审批';
+            }
           } else if (scopeType === 'specific_work_group') {
-            const dn = resolveMultiNames(s.scope_department_id, deptMap) || '';
-            const wn = resolveMultiNames(s.scope_work_group_id, wgMap) || '';
-            const loc = [dn, wn].filter(Boolean).join('·') || '指定职能组';
-            legacyApproverDesc = '由 ' + loc + ' ' + identLabel + ' 审批';
+            const dn = resolveMultiNames(s.scope_department_id, deptMap);
+            const wn = resolveMultiNames(s.scope_work_group_id, wgMap);
+            const loc = [dn, wn].filter(Boolean).join('·');
+            if (loc) {
+              legacyApproverDesc = '由 ' + loc + ' ' + identLabel + ' 审批';
+            } else {
+              legacyApproverDesc = '由 ' + identLabel + ' 审批';
+            }
           } else {
             legacyApproverDesc = '由 ' + identLabel + ' 审批';
           }
