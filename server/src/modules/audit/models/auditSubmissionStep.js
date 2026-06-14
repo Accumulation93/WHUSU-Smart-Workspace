@@ -158,7 +158,8 @@ async function getPendingByApprover(hrId) {
     if (seenIds.has(row.id)) continue;
 
     // If already directly matched via approver_hr_id, skip
-    if (row.approver_hr_id === hrId) {
+    // Use inCsv to handle comma-separated multi-person IDs in legacy steps
+    if (row.approver_hr_id && inCsv(row.approver_hr_id, hrId)) {
       seenIds.add(row.id);
       continue;
     }
@@ -210,8 +211,9 @@ async function getPendingByApprover(hrId) {
     }
 
     // Legacy check: approver_type='identity' with approver_identity_id match
+    // Use inCsv() to handle comma-separated multi-identity fields
     if (row.approver_type === 'identity' && row.approver_identity_id) {
-      const identMatch = approver.identity_id === row.approver_identity_id;
+      const identMatch = inCsv(row.approver_identity_id, approver.identity_id);
       const scopeMatch = identMatch ? matchesScope(row, approver, submitter) : false;
       console.log('[audit:getPendingByApprover] step=' + row.id +
         ' legacyCheck identMatch=' + identMatch + ' scopeMatch=' + scopeMatch);
@@ -237,6 +239,34 @@ async function getPendingByApprover(hrId) {
   }
   rows = Object.values(bestBySubmission);
   console.log('[audit:getPendingByApprover] after dedup by max round, count=' + rows.length);
+
+  // Separation of duties: filter out submissions where the user already approved
+  // a step in the same round. Prevents the same person from approving multiple
+  // consecutive steps in one round.
+  if (rows.length > 0) {
+    const subIds = [...new Set(rows.map(function(r) { return r.submission_id; }))];
+    const [prevApprovals] = await pool.query(
+      'SELECT submission_id, round FROM audit_events WHERE submission_id IN (?) AND event_type = ? AND operator_hr_id = ? AND org_id = ?',
+      [subIds, 'approve', hrId, orgId]
+    );
+    const approvedSet = new Set();
+    for (var pai = 0; pai < prevApprovals.length; pai++) {
+      approvedSet.add(prevApprovals[pai].submission_id + '_' + prevApprovals[pai].round);
+    }
+    var filteredRows = [];
+    for (var fri = 0; fri < rows.length; fri++) {
+      var key = rows[fri].submission_id + '_' + (rows[fri].round || 1);
+      if (!approvedSet.has(key)) {
+        filteredRows.push(rows[fri]);
+      } else {
+        console.log('[audit:getPendingByApprover] DUTY_SEPARATION: filtered out submission=' +
+          rows[fri].submission_id + ' round=' + (rows[fri].round || 1) +
+          ' — user already approved a step in this round');
+      }
+    }
+    rows = filteredRows;
+  }
+  console.log('[audit:getPendingByApprover] after duty-separation filter, count=' + rows.length);
 
   // Sort by created_at DESC
   rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());

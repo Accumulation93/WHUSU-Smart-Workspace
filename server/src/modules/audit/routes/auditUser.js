@@ -27,6 +27,18 @@ const { hashFile, computeSignatureHash } = require('../utils/hashChain');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
 
+/**
+ * Helper: check if a value exists in a comma-separated list.
+ * Both inputs are coerced to strings for robust comparison.
+ */
+function inCsv(csv, value) {
+  if (csv == null || value == null) return false;
+  var csvStr = String(csv).trim();
+  var valStr = String(value).trim();
+  if (!csvStr || !valStr) return false;
+  return csvStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(valStr);
+}
+
 const UPLOAD_DIR = path.resolve(__dirname, '../../../../uploads/audit');
 
 /**
@@ -668,7 +680,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
 
     // Check access: submitter, approver in any step, or admin
     const isSubmitter = submission.submitted_by === hrId;
-    let isApprover = steps.some((s) => s.approver_hr_id === hrId);
+    let isApprover = steps.some((s) => s.approver_hr_id && inCsv(s.approver_hr_id, hrId));
 
     // Check identity-based matching — always run so submitter-as-approver is detected
     // Also runs for admins so they get properly identified as approvers when their identity matches
@@ -1035,6 +1047,20 @@ router.post('/getSubmissionDetail', async (req, res) => {
 async function checkStepAuthorization(step, submission, hrId) {
   const orgId = await getCurrentOrgId();
 
+  // 0. Separation of duties: check if user already approved a step in this round.
+  //    Prevents the same person from approving multiple consecutive steps.
+  const [prevApproval] = await pool.query(
+    'SELECT step_index FROM audit_events WHERE submission_id = ? AND event_type = ? AND operator_hr_id = ? AND round = ? AND org_id = ? LIMIT 1',
+    [submission.id, 'approve', hrId, step.round || 1, orgId]
+  );
+  if (prevApproval.length > 0) {
+    console.log('[audit:checkStepAuthorization] DENIED: user hrId=' + hrId +
+      ' already approved step ' + prevApproval[0].step_index +
+      ' in round ' + (step.round || 1) +
+      ' — cannot approve step ' + step.sort_order);
+    return false;
+  }
+
   // 1. Check step_conditions_json first (new multi-condition model)
   if (step.step_conditions_json) {
     try {
@@ -1078,16 +1104,16 @@ async function checkStepAuthorization(step, submission, hrId) {
     } catch (_) { /* fall through */ }
   }
 
-  // 3. Legacy check
-  if (step.approver_type === 'specific_person') {
-    if (step.approver_hr_id === hrId) return true;
+  // 3. Legacy check — uses inCsv() to handle comma-separated multi-ID fields
+  if (step.approver_type === 'specific_person' && step.approver_hr_id) {
+    if (inCsv(step.approver_hr_id, hrId)) return true;
   } else if (step.approver_type === 'identity' && step.approver_identity_id) {
     const [approverRows] = await pool.query(
       'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
       [hrId, orgId]
     );
     const approver = approverRows[0];
-    if (approver && approver.identity_id === step.approver_identity_id) {
+    if (approver && inCsv(step.approver_identity_id, approver.identity_id)) {
       let submitter = null;
       const [subRows] = await pool.query(
         'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
