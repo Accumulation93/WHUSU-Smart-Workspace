@@ -21,6 +21,7 @@ const submissionModel = require('../models/auditSubmission');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
+const auditEventModel = require('../models/auditEvent');
 const { hashFile, computeSignatureHash } = require('../utils/hashChain');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
@@ -377,6 +378,18 @@ router.post('/startAuditSubmission', async (req, res) => {
       });
     }
 
+    // Insert submit event
+    const submitterName = submitterInfo ? submitterInfo.name : '';
+    await auditEventModel.create(generateId(), {
+      submissionId,
+      eventType: 'submit',
+      stepIndex: null,
+      round: 1,
+      operatorHrId: hrId,
+      operatorName: submitterName,
+      comment: null
+    });
+
     await conn.commit();
     res.json({
       status: 'success',
@@ -472,6 +485,19 @@ router.post('/startAdHocAudit', async (req, res) => {
         stepConditionsJson
       });
     }
+
+    // Insert submit event for ad-hoc audit
+    const [adHocNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
+    const adHocSubmitterName = adHocNameRows[0] ? adHocNameRows[0].name : '';
+    await auditEventModel.create(generateId(), {
+      submissionId,
+      eventType: 'submit',
+      stepIndex: null,
+      round: 1,
+      operatorHrId: hrId,
+      operatorName: adHocSubmitterName,
+      comment: null
+    });
 
     await conn.commit();
     res.json({ status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' });
@@ -678,12 +704,14 @@ router.post('/getSubmissionDetail', async (req, res) => {
 
     const files = await submissionFileModel.getBySubmissionId(submissionId);
     const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
+    const events = await auditEventModel.getBySubmissionId(submissionId);
 
     // Load HR names
     const allHrIds = new Set();
     allHrIds.add(submission.submitted_by);
     steps.forEach((s) => { if (s.approver_hr_id) allHrIds.add(s.approver_hr_id); });
     signatures.forEach((s) => allHrIds.add(s.signer_hr_id));
+    events.forEach((e) => { if (e.operator_hr_id) allHrIds.add(e.operator_hr_id); });
     const hrMap = {};
     if (allHrIds.size) {
       const hrRows = await hrInfoModel.getByIds([...allHrIds]);
@@ -758,8 +786,19 @@ router.post('/getSubmissionDetail', async (req, res) => {
         stepCount: steps.length,
         stepDiag: stepDiag,
         submissionStatus: submission.status,
-        currentStepIndex: submission.current_step_index || 0
+        currentStepIndex: submission.current_step_index || 0,
+        eventCount: events.length
       },
+      events: events.map((e) => ({
+        id: safeString(e.id),
+        eventType: safeString(e.event_type),
+        stepIndex: e.step_index,
+        round: e.round || 1,
+        operatorHrId: safeString(e.operator_hr_id),
+        operatorName: hrMap[e.operator_hr_id] || e.operator_name || '',
+        comment: safeString(e.comment),
+        createdAt: e.created_at
+      })),
       submission: {
         id: safeString(submission.id),
         submissionNumber: safeString(submission.submission_number),
@@ -1054,6 +1093,19 @@ router.post('/approveStep', async (req, res) => {
       await submissionModel.update(submissionId, { status: 'approved' });
     }
 
+    // Insert approve event
+    const [approverNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
+    const approverEventName = approverNameRows[0] ? approverNameRows[0].name : '';
+    await auditEventModel.create(generateId(), {
+      submissionId,
+      eventType: 'approve',
+      stepIndex: step.sort_order,
+      round: currentRound,
+      operatorHrId: hrId,
+      operatorName: approverEventName,
+      comment: comment || null
+    });
+
     await conn.commit();
     res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
   } catch (e) {
@@ -1115,6 +1167,19 @@ router.post('/rejectStep', async (req, res) => {
       previousRejectStepIndex: step.sort_order
     });
 
+    // Insert reject event
+    const [rejecterNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
+    const rejecterEventName = rejecterNameRows[0] ? rejecterNameRows[0].name : '';
+    await auditEventModel.create(generateId(), {
+      submissionId,
+      eventType: 'reject',
+      stepIndex: step.sort_order,
+      round: step.round,
+      operatorHrId: hrId,
+      operatorName: rejecterEventName,
+      comment: rejectionReason || null
+    });
+
     await conn.commit();
     res.json({ status: 'success', message: '已驳回，提交人将收到通知' });
   } catch (e) {
@@ -1159,6 +1224,18 @@ router.post('/resubmitAudit', async (req, res) => {
         status: 'in_progress',
         currentStepIndex: 1
       });
+      // Insert submit event (first submit from pending state)
+      const [resubNameRows1] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
+      await auditEventModel.create(generateId(), {
+        submissionId,
+        eventType: 'submit',
+        stepIndex: null,
+        round: 1,
+        operatorHrId: hrId,
+        operatorName: resubNameRows1[0] ? resubNameRows1[0].name : '',
+        comment: null
+      });
+
       await conn.commit();
       return res.json({
         status: 'success',
@@ -1214,6 +1291,18 @@ router.post('/resubmitAudit', async (req, res) => {
       currentStepIndex: startStepIndex
     });
 
+    // Insert resubmit event
+    const [resubNameRows2] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
+    await auditEventModel.create(generateId(), {
+      submissionId,
+      eventType: 'resubmit',
+      stepIndex: null,
+      round: newRound,
+      operatorHrId: hrId,
+      operatorName: resubNameRows2[0] ? resubNameRows2[0].name : '',
+      comment: null
+    });
+
     await conn.commit();
     res.json({
       status: 'success',
@@ -1260,6 +1349,19 @@ router.post('/withdrawSubmission', async (req, res) => {
     }
 
     await submissionModel.update(submissionId, { status: 'withdrawn' });
+
+    // Insert withdraw event
+    const [withdrawNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
+    await auditEventModel.create(generateId(), {
+      submissionId,
+      eventType: 'withdraw',
+      stepIndex: null,
+      round: 1,
+      operatorHrId: hrId,
+      operatorName: withdrawNameRows[0] ? withdrawNameRows[0].name : '',
+      comment: null
+    });
+
     res.json({ status: 'success', message: '审核已撤回' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

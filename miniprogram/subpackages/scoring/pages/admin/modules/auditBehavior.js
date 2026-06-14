@@ -1206,15 +1206,18 @@ module.exports = Behavior({
           const currentStepIndex = res.submission.currentStepIndex || 0;
           const rawSteps = res.steps || [];
 
-          // ── Build flow timeline: lifecycle events + steps ──
+          // Build flow timeline from server events + steps
+          var serverEvents = res.events || [];
           const flowTimeline = [];
 
-          // 1. "提交" lifecycle event
-          flowTimeline.push({
-            _key: 'lifecycle_submit',
-            type: 'lifecycle', event: 'submit', label: '提交审核',
-            time: formatAuditTime(res.submission.createdAt), icon: '📤'
-          });
+          // 1. Build lifecycle nodes from REAL server events
+          var lifecycleEvents = [];
+          for (var ei = 0; ei < serverEvents.length; ei++) {
+            var evt = serverEvents[ei];
+            if (evt.eventType === 'submit' || evt.eventType === 'withdraw' || evt.eventType === 'resubmit') {
+              lifecycleEvents.push(evt);
+            }
+          }
 
           // 2. Group steps by round
           const rounds = {};
@@ -1225,17 +1228,57 @@ module.exports = Behavior({
           }
           const roundKeys = Object.keys(rounds).sort((a, b) => Number(a) - Number(b));
 
-          // 3. For each round, insert steps with resubmit markers + separator
+          // 3. Find the first submit event (round 1)
+          var initialSubmit = null;
+          var usedEventIdx = 0;
+          for (var ei2 = 0; ei2 < lifecycleEvents.length; ei2++) {
+            if (lifecycleEvents[ei2].eventType === 'submit' && lifecycleEvents[ei2].round === 1) {
+              initialSubmit = lifecycleEvents[ei2];
+              usedEventIdx = ei2 + 1;
+              break;
+            }
+          }
+
+          // Only show submit if there IS a submit event
+          if (initialSubmit) {
+            flowTimeline.push({
+              _key: 'lifecycle_submit',
+              type: 'lifecycle', event: 'submit', label: '提交审核',
+              time: formatAuditTime(initialSubmit.createdAt), icon: '📤'
+            });
+          }
+
+          // 4. For each round, show steps with lifecycle events between
+          var nextEventIdx = usedEventIdx;
+
           for (let ri = 0; ri < roundKeys.length; ri++) {
             const round = Number(roundKeys[ri]);
             const roundSteps = rounds[round].sort((a, b) => a.sort_order - b.sort_order);
 
             if (round > 1) {
-              flowTimeline.push({
-                _key: 'lifecycle_resubmit_r' + round,
-                type: 'lifecycle', event: 'resubmit', label: '重新提交',
-                subLabel: '第' + round + '轮', icon: '🔄'
-              });
+              var resubmitEvt = null;
+              for (var ei3 = nextEventIdx; ei3 < lifecycleEvents.length; ei3++) {
+                if (lifecycleEvents[ei3].eventType === 'resubmit' && lifecycleEvents[ei3].round === round) {
+                  resubmitEvt = lifecycleEvents[ei3];
+                  nextEventIdx = ei3 + 1;
+                  break;
+                }
+              }
+              if (resubmitEvt) {
+                flowTimeline.push({
+                  _key: 'lifecycle_resubmit_r' + round,
+                  type: 'lifecycle', event: 'resubmit', label: '重新提交',
+                  subLabel: '第' + round + '轮',
+                  time: formatAuditTime(resubmitEvt.createdAt),
+                  icon: '🔄'
+                });
+              } else {
+                flowTimeline.push({
+                  _key: 'lifecycle_resubmit_r' + round,
+                  type: 'lifecycle', event: 'resubmit', label: '重新提交',
+                  subLabel: '第' + round + '轮', icon: '🔄'
+                });
+              }
             }
 
             let hasProcessedSteps = false;
@@ -1244,11 +1287,9 @@ module.exports = Behavior({
             for (const s of roundSteps) {
               let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
 
-              // ── Build approver description ──
-              // Use server-provided pre-built description when available
+              // Build approver description
               let approverDesc = s.approverDesc || '';
               if (!approverDesc) {
-                // Legacy fallback for old clients or incomplete data
                 if (s.approverType === 'specific_person' || s.approverName) {
                   approverDesc = '由 ' + (s.approverName || '未指定') + ' 审批';
                 } else {
@@ -1283,7 +1324,7 @@ module.exports = Behavior({
               } else if (submissionStatus === 'approved') {
                 flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
                 flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
-              } else if (submissionStatus === 'pending') {
+              } else if (submissionStatus === 'pending' || submissionStatus === 'draft') {
                 flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
                 flowIcon = 'number'; flowStatusLabel = '○ 未开始'; flowTagClass = 'flow-tag-pending';
               } else if (s.status === 'approved') {
@@ -1316,7 +1357,7 @@ module.exports = Behavior({
               });
             }
 
-            // Inject "remaining steps" separator between processed and future steps
+            // Inject separator
             if (hasProcessedSteps && hasFutureSteps) {
               var remainingCount = roundSteps.filter(function(rs) {
                 return rs.status === 'pending' && rs.sort_order > currentStepIndex;
@@ -1340,17 +1381,28 @@ module.exports = Behavior({
             }
           }
 
-          // 4. "撤回" lifecycle event if withdrawn
-          if (submissionStatus === 'withdrawn') {
-            flowTimeline.push({
-              _key: 'lifecycle_withdraw',
-              type: 'lifecycle', event: 'withdraw', label: '撤回审核',
-              time: formatAuditTime(res.submission.updatedAt), icon: '↩️'
-            });
+          // 5. Remaining lifecycle events after last round
+          for (var ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
+            var lateEvt = lifecycleEvents[ei4];
+            if (lateEvt.eventType === 'withdraw') {
+              flowTimeline.push({
+                _key: 'lifecycle_withdraw_' + lateEvt.id,
+                type: 'lifecycle', event: 'withdraw', label: '撤回审核',
+                time: formatAuditTime(lateEvt.createdAt), icon: '↩️'
+              });
+            } else if (lateEvt.eventType === 'resubmit') {
+              flowTimeline.push({
+                _key: 'lifecycle_resubmit_late_' + lateEvt.id,
+                type: 'lifecycle', event: 'resubmit', label: '重新提交',
+                subLabel: '第' + (lateEvt.round || 1) + '轮',
+                time: formatAuditTime(lateEvt.createdAt), icon: '🔄'
+              });
+            }
           }
 
           this.setData({
             auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
+auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
             auditSubmissionDetailVisible: true
           });
         } else {

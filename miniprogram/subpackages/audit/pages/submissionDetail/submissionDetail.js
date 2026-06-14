@@ -752,69 +752,112 @@ Page({
         const submissionStatus = res.submission.status;
         const currentStepIndex = res.submission.currentStepIndex || 0;
 
-        // ── Build flow timeline: lifecycle events + steps ──
-        const rawSteps = res.steps || [];
-        const flowTimeline = [];
+        // Build flow timeline from server events + steps
+        var serverEvents = res.events || [];
+        var rawSteps = res.steps || [];
+        var flowTimeline = [];
 
         console.log('[audit:loadDetail] submissionId=' + this.data.submissionId +
           ' rawSteps.length=' + rawSteps.length +
+          ' serverEvents.length=' + serverEvents.length +
           ' diag=' + JSON.stringify(res._diag || {}));
 
-        // 1. "提交" lifecycle event — always first
-        flowTimeline.push({
-          _key: 'lifecycle_submit',
-          type: 'lifecycle',
-          event: 'submit',
-          label: '提交审核',
-          time: formatAuditTime(res.submission.createdAt),
-          icon: '📤'
-        });
+        // 1. Build lifecycle nodes from REAL server events
+        var lifecycleEvents = [];
+        for (var ei = 0; ei < serverEvents.length; ei++) {
+          var evt = serverEvents[ei];
+          if (evt.eventType === 'submit' || evt.eventType === 'withdraw' || evt.eventType === 'resubmit') {
+            lifecycleEvents.push(evt);
+          }
+        }
 
         // 2. Group steps by round
-        const rounds = {};
-        for (const s of rawSteps) {
-          const r = s.round || 1;
+        var rounds = {};
+        for (var si = 0; si < rawSteps.length; si++) {
+          var s = rawSteps[si];
+          var r = s.round || 1;
           if (!rounds[r]) rounds[r] = [];
           rounds[r].push(s);
         }
-        const roundKeys = Object.keys(rounds).sort((a, b) => Number(a) - Number(b));
+        var roundKeys = Object.keys(rounds).sort(function(a, b) { return Number(a) - Number(b); });
 
-        // 3. For each round, insert steps (with resubmit marker between rounds)
-        for (let ri = 0; ri < roundKeys.length; ri++) {
-          const round = Number(roundKeys[ri]);
-          const roundSteps = rounds[round].sort((a, b) => a.sort_order - b.sort_order);
+        // 3. Find the first submit event (round 1)
+        var initialSubmit = null;
+        var usedEventIdx = 0;
+        for (var ei2 = 0; ei2 < lifecycleEvents.length; ei2++) {
+          if (lifecycleEvents[ei2].eventType === 'submit' && lifecycleEvents[ei2].round === 1) {
+            initialSubmit = lifecycleEvents[ei2];
+            usedEventIdx = ei2 + 1;
+            break;
+          }
+        }
 
-          // Insert "重新提交" lifecycle event between rounds
+        // Only show submit if there IS a submit event (not for drafts with no events)
+        if (initialSubmit) {
+          flowTimeline.push({
+            _key: 'lifecycle_submit',
+            type: 'lifecycle',
+            event: 'submit',
+            label: '提交审核',
+            time: formatAuditTime(initialSubmit.createdAt),
+            icon: '📤'
+          });
+        }
+
+        // 4. For each round, show steps with lifecycle events between
+        var nextEventIdx = usedEventIdx;
+
+        for (var ri = 0; ri < roundKeys.length; ri++) {
+          var round = Number(roundKeys[ri]);
+          var roundSteps = rounds[round].sort(function(a, b) { return a.sort_order - b.sort_order; });
+
+          // If round > 1, find resubmit event before it
           if (round > 1) {
-            flowTimeline.push({
-              _key: 'lifecycle_resubmit_r' + round,
-              type: 'lifecycle',
-              event: 'resubmit',
-              label: '重新提交',
-              subLabel: '第' + round + '轮',
-              icon: '🔄'
-            });
+            var resubmitEvt = null;
+            for (var ei3 = nextEventIdx; ei3 < lifecycleEvents.length; ei3++) {
+              if (lifecycleEvents[ei3].eventType === 'resubmit' && lifecycleEvents[ei3].round === round) {
+                resubmitEvt = lifecycleEvents[ei3];
+                nextEventIdx = ei3 + 1;
+                break;
+              }
+            }
+            if (resubmitEvt) {
+              flowTimeline.push({
+                _key: 'lifecycle_resubmit_r' + round,
+                type: 'lifecycle',
+                event: 'resubmit',
+                label: '重新提交',
+                subLabel: '第' + round + '轮',
+                time: formatAuditTime(resubmitEvt.createdAt),
+                icon: '🔄'
+              });
+            } else {
+              // Fallback: still show round marker even if no event
+              flowTimeline.push({
+                _key: 'lifecycle_resubmit_r' + round,
+                type: 'lifecycle',
+                event: 'resubmit',
+                label: '重新提交',
+                subLabel: '第' + round + '轮',
+                icon: '🔄'
+              });
+            }
           }
 
-          // Track whether we've seen processed steps (for separator injection)
-          let hasProcessedSteps = false;
-          let hasFutureSteps = false;
+          var hasProcessedSteps = false;
+          var hasFutureSteps = false;
 
-          // Enrich step nodes with flow classes + approver description
-          for (let si = 0; si < roundSteps.length; si++) {
-            const s = roundSteps[si];
-            let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+          for (var si2 = 0; si2 < roundSteps.length; si2++) {
+            var step = roundSteps[si2];
+            var flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
 
-            // ── Build approver description ──
-            // Use server-provided pre-built description when available
-            let approverDesc = s.approverDesc || '';
+            var approverDesc = step.approverDesc || '';
             if (!approverDesc) {
-              // Legacy fallback for old clients or incomplete data
-              if (s.approverType === 'specific_person' || s.approverName) {
-                approverDesc = '由 ' + (s.approverName || '未指定') + ' 审批';
+              if (step.approverType === 'specific_person' || step.approverName) {
+                approverDesc = '由 ' + (step.approverName || '未指定') + ' 审批';
               } else {
-                const identName = s.approverIdentityName || '未指定身份';
-                const scopeType = s.scopeType || 'all';
+                var identName = step.approverIdentityName || '未指定身份';
+                var scopeType = step.scopeType || 'all';
                 if (scopeType === 'all' || !scopeType) {
                   approverDesc = '由 全体 ' + identName + ' 审批';
                 } else if (scopeType === 'same_department') {
@@ -822,12 +865,12 @@ Page({
                 } else if (scopeType === 'same_work_group') {
                   approverDesc = '由 同职能组 ' + identName + ' 审批';
                 } else if (scopeType === 'specific_department') {
-                  const deptName = s.scopeDepartmentName || s.scopeDepartmentId || '指定部门';
+                  var deptName = step.scopeDepartmentName || step.scopeDepartmentId || '指定部门';
                   approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
                 } else if (scopeType === 'specific_work_group') {
-                  const deptName = s.scopeDepartmentName || '';
-                  const wgName = s.scopeWorkGroupName || '';
-                  const location = [deptName, wgName].filter(Boolean).join('·') || '指定职能组';
+                  var deptName2 = step.scopeDepartmentName || '';
+                  var wgName = step.scopeWorkGroupName || '';
+                  var location = [deptName2, wgName].filter(Boolean).join('·') || '指定职能组';
                   approverDesc = '由 ' + location + ' ' + identName + ' 审批';
                 } else {
                   approverDesc = '由 ' + identName + ' 审批';
@@ -835,11 +878,10 @@ Page({
               }
             }
 
-            // ── Build action label ──
-            const actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
-            const actionLabel = actionMap[s.actionType] || s.actionType || '仅通过';
+            var actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+            var actionLabel = actionMap[step.actionType] || step.actionType || '仅通过';
 
-            if (s.status === 'rejected') {
+            if (step.status === 'rejected') {
               flowNodeClass = 'flow-node-rejected';
               flowDotClass = 'flow-dot-rejected';
               flowIcon = 'cross';
@@ -851,25 +893,25 @@ Page({
               flowIcon = 'check';
               flowStatusLabel = '✓ 已通过';
               flowTagClass = 'flow-tag-done';
-            } else if (submissionStatus === 'pending') {
+            } else if (submissionStatus === 'pending' || submissionStatus === 'draft') {
               flowNodeClass = 'flow-node-pending';
               flowDotClass = 'flow-dot-pending';
               flowIcon = 'number';
               flowStatusLabel = '○ 未开始';
               flowTagClass = 'flow-tag-pending';
-            } else if (s.status === 'approved') {
+            } else if (step.status === 'approved') {
               flowNodeClass = 'flow-node-done';
               flowDotClass = 'flow-dot-done';
               flowIcon = 'check';
               flowStatusLabel = '✓ 已通过';
               flowTagClass = 'flow-tag-done';
-            } else if (s.sort_order === currentStepIndex && s.status === 'pending' && submissionStatus === 'in_progress') {
+            } else if (step.sort_order === currentStepIndex && step.status === 'pending' && submissionStatus === 'in_progress') {
               flowNodeClass = 'flow-node-active';
               flowDotClass = 'flow-dot-active';
               flowIcon = 'number';
               flowStatusLabel = '● 待处理';
               flowTagClass = 'flow-tag-active';
-            } else if (s.sort_order < currentStepIndex) {
+            } else if (step.sort_order < currentStepIndex) {
               flowNodeClass = 'flow-node-done';
               flowDotClass = 'flow-dot-done';
               flowIcon = 'check';
@@ -884,35 +926,53 @@ Page({
               hasFutureSteps = true;
             }
 
-            // Track processed steps (any step that is done, active, or rejected)
-            if (s.status === 'approved' || s.status === 'rejected' ||
-                (s.sort_order === currentStepIndex && s.status === 'pending' && submissionStatus === 'in_progress')) {
+            if (step.status === 'approved' || step.status === 'rejected' ||
+                (step.sort_order === currentStepIndex && step.status === 'pending' && submissionStatus === 'in_progress')) {
               hasProcessedSteps = true;
             }
 
             flowTimeline.push({
-              _key: 'step_' + s.id,
+              _key: 'step_' + step.id,
               type: 'step',
-              ...s,
-              flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass,
-              approverDesc, actionLabel,
-              processedAt: s.processed_at ? formatAuditTime(s.processed_at) : ''
+              id: step.id,
+              sortOrder: step.sort_order,
+              approverType: step.approverType,
+              approverHrId: step.approverHrId,
+              approverName: step.approverName,
+              approverIdentityId: step.approverIdentityId,
+              approverIdentityName: step.approverIdentityName,
+              scopeType: step.scopeType,
+              scopeDepartmentId: step.scopeDepartmentId,
+              scopeDepartmentName: step.scopeDepartmentName,
+              scopeWorkGroupId: step.scopeWorkGroupId,
+              scopeWorkGroupName: step.scopeWorkGroupName,
+              actionType: step.actionType,
+              status: step.status,
+              comment: step.comment,
+              rejectionReason: step.rejectionReason,
+              round: step.round,
+              processedAt: step.processed_at ? formatAuditTime(step.processed_at) : '',
+              flowNodeClass: flowNodeClass,
+              flowDotClass: flowDotClass,
+              flowIcon: flowIcon,
+              flowStatusLabel: flowStatusLabel,
+              flowTagClass: flowTagClass,
+              approverDesc: approverDesc,
+              actionLabel: actionLabel
             });
           }
 
-          // Inject "remaining steps" separator between processed and future steps
+          // Inject separator
           if (hasProcessedSteps && hasFutureSteps) {
-            // Count remaining steps in this round (future pending steps, not including current)
             var remainingCount = roundSteps.filter(function(rs) {
               return rs.status === 'pending' && rs.sort_order > currentStepIndex;
             }).length;
             if (remainingCount > 0) {
-              // Find insertion point: right before the FIRST future step node in flowTimeline
               var insertIdx = -1;
               for (var fi = 0; fi < flowTimeline.length; fi++) {
                 if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === '○ 未到达') {
                   insertIdx = fi;
-                  break; // stop at FIRST future step
+                  break;
                 }
               }
               if (insertIdx > 0) {
@@ -924,19 +984,33 @@ Page({
               }
             }
           }
-          }
-
-        // 4. "撤回" lifecycle event — at the end if withdrawn
-        if (submissionStatus === 'withdrawn') {
-          flowTimeline.push({
-            _key: 'lifecycle_withdraw',
-            type: 'lifecycle',
-            event: 'withdraw',
-            label: '撤回审核',
-            time: formatAuditTime(res.submission.updatedAt),
-            icon: '↩️'
-          });
         }
+
+        // 5. Remaining lifecycle events after last round
+        for (var ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
+          var lateEvt = lifecycleEvents[ei4];
+          if (lateEvt.eventType === 'withdraw') {
+            flowTimeline.push({
+              _key: 'lifecycle_withdraw_' + lateEvt.id,
+              type: 'lifecycle',
+              event: 'withdraw',
+              label: '撤回审核',
+              time: formatAuditTime(lateEvt.createdAt),
+              icon: '↩️'
+            });
+          } else if (lateEvt.eventType === 'resubmit') {
+            flowTimeline.push({
+              _key: 'lifecycle_resubmit_late_' + lateEvt.id,
+              type: 'lifecycle',
+              event: 'resubmit',
+              label: '重新提交',
+              subLabel: '第' + (lateEvt.round || 1) + '轮',
+              time: formatAuditTime(lateEvt.createdAt),
+              icon: '🔄'
+            });
+          }
+        }
+
 
         // ── Store diagnostic data for debugging ──
         var diagInfo = res._diag || {};

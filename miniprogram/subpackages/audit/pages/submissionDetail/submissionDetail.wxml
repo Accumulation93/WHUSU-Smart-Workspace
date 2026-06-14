@@ -327,8 +327,13 @@
           </block>
         </view>
         <!-- Diagnostic: step count from server -->
-        <view wx:if="{{rawStepCount === 0 && flowTimeline.length === 1}}" style="margin:12rpx 0;padding:16rpx 20rpx;border-radius:16rpx;background:rgba(254,242,242,0.6);border:1rpx solid rgba(252,165,165,0.4);">
-          <text style="font-size:21rpx;color:#dc2626;">⚠ 服务器返回了 0 个步骤。请检查：1) 模板是否已配置审批步骤 2) 服务器日志中 [audit:startSubmission] 的输出</text>
+        <view wx:if="{{rawStepCount === 0 && submission.status !== 'draft' && submission.status !== 'pending'}}" style="margin:12rpx 0;padding:16rpx 20rpx;border-radius:16rpx;background:rgba(254,242,242,0.6);border:1rpx solid rgba(252,165,165,0.4);">
+          <text style="font-size:21rpx;color:#dc2626;">⚠ 服务器返回了 0 个审批步骤。请检查：1) 模板是否已配置审批步骤 2) 服务器日志</text>
+        </view>
+
+        <!-- Empty state for draft/pending with no events -->
+        <view wx:if="{{!flowTimeline.length && (submission.status === 'draft' || submission.status === 'pending')}}" style="margin:12rpx 0;padding:16rpx 20rpx;border-radius:16rpx;background:rgba(248,251,255,0.7);border:1rpx solid rgba(226,232,240,0.45);">
+          <text style="font-size:23rpx;color:#64748b;">{{submission.status === 'draft' ? '📝 草稿 — 提交后将开始审批流程' : '⏳ 待提交 — 点击下方「重新提交」启动审批流程'}}</text>
         </view>
 
         <!-- Empty state when no timeline -->

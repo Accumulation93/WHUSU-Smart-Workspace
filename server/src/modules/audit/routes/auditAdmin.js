@@ -14,6 +14,7 @@ const submissionModel = require('../models/auditSubmission');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const submissionFileModel = require('../models/auditSubmissionFile');
 const submissionSignatureModel = require('../models/auditSubmissionSignature');
+const auditEventModel = require('../models/auditEvent');
 const verificationPermModel = require('../models/verificationPermission');
 const { verifySignatureChain } = require('../utils/hashChain');
 
@@ -602,12 +603,14 @@ router.post('/getAuditProgress', async (req, res) => {
     const steps = await submissionStepModel.getBySubmissionId(submissionId);
     const files = await submissionFileModel.getBySubmissionId(submissionId);
     const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
+    const events = await auditEventModel.getBySubmissionId(submissionId);
 
     // Load HR names
     const allHrIds = new Set();
     allHrIds.add(submission.submitted_by);
     steps.forEach((s) => { if (s.approver_hr_id) allHrIds.add(s.approver_hr_id); });
     signatures.forEach((s) => allHrIds.add(s.signer_hr_id));
+    events.forEach((e) => { if (e.operator_hr_id) allHrIds.add(e.operator_hr_id); });
     const hrMap = {};
     if (allHrIds.size) {
       const hrRows = await hrInfoModel.getByIds([...allHrIds]);
@@ -684,6 +687,16 @@ router.post('/getAuditProgress', async (req, res) => {
         createdAt: submission.created_at,
         updatedAt: submission.updated_at
       },
+      events: events.map((e) => ({
+        id: safeString(e.id),
+        eventType: safeString(e.event_type),
+        stepIndex: e.step_index,
+        round: e.round || 1,
+        operatorHrId: safeString(e.operator_hr_id),
+        operatorName: hrMap[e.operator_hr_id] || e.operator_name || '',
+        comment: safeString(e.comment),
+        createdAt: e.created_at
+      })),
       steps: steps.map((s) => {
         const condDisplay = buildStepConditionsDisplay(
           s.step_conditions_json,
