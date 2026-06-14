@@ -224,6 +224,20 @@ async function getPendingByApprover(hrId) {
 
   console.log('[audit:getPendingByApprover] final pending count=' + rows.length);
 
+  // Deduplicate by submission_id: keep only the MAX round per submission.
+  // After resubmission, old rounds' pending steps still exist in the DB,
+  // but the approver should only see the latest round's pending step.
+  var bestBySubmission = {};
+  for (var ri = 0; ri < rows.length; ri++) {
+    var r = rows[ri];
+    var sid = r.submission_id;
+    if (!bestBySubmission[sid] || r.round > bestBySubmission[sid].round) {
+      bestBySubmission[sid] = r;
+    }
+  }
+  rows = Object.values(bestBySubmission);
+  console.log('[audit:getPendingByApprover] after dedup by max round, count=' + rows.length);
+
   // Sort by created_at DESC
   rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   return rows;

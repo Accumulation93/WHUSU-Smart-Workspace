@@ -266,6 +266,34 @@
         </view>
       </view>
 
+      <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
+      <view class="card" wx:if="{{activeApprovalStepId && !editMode}}" style="border:2rpx solid #3b82f6;background:linear-gradient(135deg,rgba(239,246,255,0.6),rgba(255,255,255,0.6));">
+        <view class="section-title" style="color:#1d4ed8;">📋 审批操作</view>
+        <view style="margin-bottom:12rpx;font-size:23rpx;color:#475569;">
+          第{{activeApprovalStep.sortOrder}}步 · {{activeApprovalStep.actionLabel}}
+          <text wx:if="{{activeApprovalStep.round > 1}}" style="color:#94a3b8;">（第{{activeApprovalStep.round}}轮）</text>
+        </view>
+        <view style="margin-bottom:12rpx;font-size:22rpx;color:#64748b;">{{activeApprovalStep.approverDesc}}</view>
+
+        <!-- Approval comment -->
+        <view style="margin-bottom:8rpx;">
+          <view style="font-size:23rpx;font-weight:600;color:#475569;margin-bottom:6rpx;">审批意见（可选）</view>
+          <textarea style="width:100%;min-height:120rpx;padding:16rpx;border:1rpx solid #d1d5db;border-radius:12rpx;font-size:24rpx;box-sizing:border-box;" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="填写审批通过时的意见（可选）" />
+        </view>
+
+        <!-- Rejection reason -->
+        <view style="margin-bottom:16rpx;">
+          <view style="font-size:23rpx;font-weight:600;color:#475569;margin-bottom:6rpx;">驳回理由</view>
+          <textarea style="width:100%;min-height:120rpx;padding:16rpx;border:1rpx solid #d1d5db;border-radius:12rpx;font-size:24rpx;box-sizing:border-box;" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="填写驳回理由（驳回时必填）" />
+        </view>
+
+        <!-- Action buttons -->
+        <view class="button-row">
+          <button class="primary-btn" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="approve" style="flex:1;background:#10b981;border-color:#10b981;">✓ 通过</button>
+          <button class="secondary-btn danger-btn" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="reject" style="flex:1;">✗ 驳回</button>
+        </view>
+      </view>
+
       <!-- Flow Visualization -->
       <view class="card">
         <view class="section-title">审批流程</view>

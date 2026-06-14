@@ -1111,6 +1111,15 @@ Page({
           flowProgressText = '第' + currentStepIndex + '/' + totalSteps + '步待处理';
         }
 
+        // Detect active step for inline approval UI
+        var activeApprovalStep = null;
+        for (var fi = 0; fi < flowTimeline.length; fi++) {
+          if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowNodeClass === 'flow-node-active') {
+            activeApprovalStep = flowTimeline[fi];
+            break;
+          }
+        }
+
         this.setData({
           submission: res.submission,
           flowTimeline: flowTimeline,
@@ -1119,7 +1128,14 @@ Page({
           files: res.files || [],
           signatures: res.signatures || [],
           flowProgressPercent: flowProgressPercent,
-          flowProgressText: flowProgressText
+          flowProgressText: flowProgressText,
+          activeApprovalStepId: activeApprovalStep ? activeApprovalStep.id : '',
+          activeApprovalStep: activeApprovalStep,
+          approvalVisible: false,
+          approvalAction: '',
+          approvalComment: '',
+          rejectionReason: '',
+          pendingSignatures: []
         });
       } else {
         showShortToast(res.message || '加载失败');
@@ -1237,6 +1253,51 @@ Page({
       }
     } catch (e) {
       showShortToast(getErrorText(e, '操作失败'));
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  // Direct approval from the inline approval card (no popup)
+  async confirmApprovalDirect(e) {
+    var action = e.currentTarget.dataset.action;
+    var stepId = this.data.activeApprovalStepId;
+    var comment = this.data.approvalComment;
+    var reason = this.data.rejectionReason;
+
+    if (!stepId) {
+      showShortToast('未找到待审批步骤');
+      return;
+    }
+    if (action === 'reject' && !reason) {
+      showShortToast('请填写驳回理由');
+      return;
+    }
+
+    this.setData({ loading: true });
+    try {
+      var res;
+      if (action === 'approve') {
+        res = await callFunction({
+          name: 'approveStep',
+          data: { submissionId: this.data.submissionId, stepId: stepId, comment: comment, signatures: [] }
+        });
+      } else {
+        res = await callFunction({
+          name: 'rejectStep',
+          data: { submissionId: this.data.submissionId, stepId: stepId, rejectionReason: reason }
+        });
+      }
+
+      if (res.status === 'success') {
+        showShortToast(res.message || '操作成功');
+        this.setData({ approvalComment: '', rejectionReason: '' });
+        this.loadDetail();
+      } else {
+        showShortToast(res.message || '操作失败');
+      }
+    } catch (err) {
+      showShortToast(getErrorText(err, '操作失败'));
     } finally {
       this.setData({ loading: false });
     }
