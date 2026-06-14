@@ -85,12 +85,14 @@ async function generateSubmissionNumber() {
 }
 
 async function create(id, data) {
-  const { submissionNumber, submittedBy, type, templateId, title, status, resubmitMode } = data;
+  const { submissionNumber, submittedBy, type, templateId, title, status, resubmitMode, currentStepIndex } = data;
   const orgId = await getCurrentOrgId();
   await pool.query(
     `INSERT INTO audit_submissions (id, submission_number, submitted_by, type, template_id, title, status, current_step_index, resubmit_mode, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-    [id, submissionNumber, submittedBy, type || 'template', templateId || null, title || '', status || 'draft', resubmitMode || 'fresh', orgId]
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, submissionNumber, submittedBy, type || 'template', templateId || null, title || '', status || 'draft',
+     currentStepIndex !== undefined ? currentStepIndex : 0,
+     resubmitMode || 'fresh', orgId]
   );
 }
 

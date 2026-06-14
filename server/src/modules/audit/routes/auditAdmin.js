@@ -181,6 +181,20 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
 
         // Create conditions for this step
         const conditions = Array.isArray(step.conditions) ? step.conditions : [];
+        console.log('[audit:saveTemplate] templateId=' + templateId +
+          ' step[' + i + '] stepId=' + stepId +
+          ' conditionsProvided=' + conditions.length +
+          ' hasLegacyType=' + !!(step.approverType || step.approverIdentityId || step.approverHrId));
+        if (conditions.length) {
+          for (var ci2 = 0; ci2 < conditions.length; ci2++) {
+            var cc = conditions[ci2];
+            console.log('[audit:saveTemplate] step[' + i + '] cond[' + ci2 + '] type=' + cc.conditionType +
+              ' deptScope=' + (cc.departmentScope || 'all') +
+              ' specDept=' + (cc.specificDepartmentId || 'none') +
+              ' identScope=' + (cc.identityScope || 'all') +
+              ' specIdent=' + (cc.specificIdentityId || 'none'));
+          }
+        }
         // If no conditions provided, try legacy fields
         if (!conditions.length && (step.approverType || step.approverIdentityId || step.approverHrId)) {
           const legacyCondId = generateId();

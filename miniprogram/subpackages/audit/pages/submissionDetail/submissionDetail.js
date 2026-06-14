@@ -756,6 +756,10 @@ Page({
         const rawSteps = res.steps || [];
         const flowTimeline = [];
 
+        console.log('[audit:loadDetail] submissionId=' + this.data.submissionId +
+          ' rawSteps.length=' + rawSteps.length +
+          ' diag=' + JSON.stringify(res._diag || {}));
+
         // 1. "提交" lifecycle event — always first
         flowTimeline.push({
           _key: 'lifecycle_submit',
@@ -934,6 +938,12 @@ Page({
           });
         }
 
+        // ── Store diagnostic data for debugging ──
+        var diagInfo = res._diag || {};
+        console.log('[audit:loadDetail] DIAG: stepCount=' + diagInfo.stepCount +
+          ' submissionStatus=' + diagInfo.submissionStatus +
+          ' currentStepIndex=' + diagInfo.currentStepIndex);
+
         // ── Compute flow progress ──
         const totalSteps = rawSteps.length || 1;
         let flowProgressPercent, flowProgressText;
@@ -961,6 +971,8 @@ Page({
         this.setData({
           submission: res.submission,
           flowTimeline: flowTimeline,
+          rawStepCount: rawSteps.length,
+          steps: rawSteps,
           files: res.files || [],
           signatures: res.signatures || [],
           flowProgressPercent: flowProgressPercent,

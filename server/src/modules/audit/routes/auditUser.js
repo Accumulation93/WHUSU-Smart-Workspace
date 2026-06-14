@@ -129,6 +129,7 @@ router.post('/listPendingApprovals', async (req, res) => {
       stepConditionsJson: s.step_conditions_json || null
     }));
 
+    console.log('[audit:listPendingApprovals] hrId=' + hrId + ' pendingCount=' + result.length);
     res.json({ status: 'success', pending: result });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -241,7 +242,8 @@ router.post('/startAuditSubmission', async (req, res) => {
       type: 'template',
       templateId,
       title,
-      status: 'pending',
+      status: 'in_progress',
+      currentStepIndex: 1,
       resubmitMode: template.resubmit_mode
     });
 
@@ -279,6 +281,22 @@ router.post('/startAuditSubmission', async (req, res) => {
 
     // Load conditions for all template steps
     const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
+    console.log('[audit:startSubmission] templateId=' + templateId +
+      ' templateSteps=' + templateSteps.length +
+      ' allConditions=' + allConditions.length);
+
+    // Log each condition for diagnostics
+    for (let ci = 0; ci < allConditions.length; ci++) {
+      const c = allConditions[ci];
+      console.log('[audit:startSubmission] condition[' + ci + '] template_step_id=' + c.template_step_id +
+        ' type=' + c.condition_type +
+        ' deptScope=' + (c.department_scope || 'all') +
+        ' specDept=' + (c.specific_department_id || 'none') +
+        ' identScope=' + (c.identity_scope || 'all') +
+        ' specIdent=' + (c.specific_identity_id || 'none') +
+        ' personHrIds=' + (c.person_hr_ids || 'none'));
+    }
+
     const stepConditionMap = {};
     for (const c of allConditions) {
       const sid = c.template_step_id;
@@ -329,6 +347,16 @@ router.post('/startAuditSubmission', async (req, res) => {
       if (conditions.length > 0) {
         stepConditionsJson = JSON.stringify(conditions);
       }
+      console.log('[audit:startSubmission] creating step[' + i + '] id=' + stepId +
+        ' sortOrder=' + (i + 1) +
+        ' templateStepId=' + ts.id +
+        ' conditionCount=' + conditions.length +
+        ' hasJson=' + (stepConditionsJson !== null) +
+        ' actionType=' + (ts.action_type || 'sign'));
+      if (stepConditionsJson) {
+        console.log('[audit:startSubmission] step[' + i + '] conditionsJson=' +
+          stepConditionsJson.substring(0, 500));
+      }
 
       // Legacy: resolve approver_hr_id for specific_person type
       let approverHrId = null;
@@ -348,9 +376,6 @@ router.post('/startAuditSubmission', async (req, res) => {
         stepConditionsJson
       });
     }
-
-    // Update submission to in_progress (first step is pending)
-    await submissionModel.update(submissionId, { status: 'in_progress', currentStepIndex: 1 });
 
     await conn.commit();
     res.json({
@@ -394,7 +419,8 @@ router.post('/startAdHocAudit', async (req, res) => {
       type: 'ad_hoc',
       templateId: null,
       title,
-      status: 'pending',
+      status: 'in_progress',
+      currentStepIndex: 1,
       resubmitMode
     });
 
@@ -447,7 +473,6 @@ router.post('/startAdHocAudit', async (req, res) => {
       });
     }
 
-    await submissionModel.update(submissionId, { status: 'in_progress', currentStepIndex: 1 });
     await conn.commit();
     res.json({ status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' });
   } catch (e) {
@@ -629,6 +654,28 @@ router.post('/getSubmissionDetail', async (req, res) => {
     console.log('[audit:getSubmissionDetail] access granted: hrId=' + hrId +
       ' isSubmitter=' + isSubmitter + ' isApprover=' + isApprover + ' isAdmin=' + !!admin);
 
+    // Build diagnostic info about steps
+    const stepDiag = steps.map(function(s) {
+      var hasConds = !!s.step_conditions_json;
+      var condCount = 0;
+      if (hasConds) {
+        try { var p = JSON.parse(s.step_conditions_json); condCount = Array.isArray(p) ? p.length : 0; } catch(_) {}
+      }
+      return {
+        id: s.id,
+        sort_order: s.sort_order,
+        status: s.status,
+        round: s.round || 1,
+        has_conditions_json: hasConds,
+        condition_count: condCount,
+        template_step_id: s.template_step_id || null,
+        approver_type: s.approver_type || null,
+        approver_identity_id: s.approver_identity_id || null,
+        approver_hr_id: s.approver_hr_id || null
+      };
+    });
+    console.log('[audit:getSubmissionDetail] stepDiag=' + JSON.stringify(stepDiag));
+
     const files = await submissionFileModel.getBySubmissionId(submissionId);
     const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
 
@@ -707,6 +754,12 @@ router.post('/getSubmissionDetail', async (req, res) => {
 
     res.json({
       status: 'success',
+      _diag: {
+        stepCount: steps.length,
+        stepDiag: stepDiag,
+        submissionStatus: submission.status,
+        currentStepIndex: submission.current_step_index || 0
+      },
       submission: {
         id: safeString(submission.id),
         submissionNumber: safeString(submission.submission_number),
