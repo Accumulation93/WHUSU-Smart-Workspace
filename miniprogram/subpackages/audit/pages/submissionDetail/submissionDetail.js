@@ -60,6 +60,7 @@ Page({
     personPickerSelectedIds: [],
     personPickerSelectedList: [],
     personPickerStepActionType: 'sign',
+    personPickerMode: '',  // '' | 'designateNext'
 
     // Edit mode (for editable submissions)
     editMode: false,
@@ -97,6 +98,12 @@ Page({
     signaturePadVisible: false,
     currentSignatureFileId: '',
     pendingSignatures: [], // signatures to submit with approval
+
+    // Inline approval card
+    activeApprovalStepId: '',
+    activeApprovalStep: null,
+    designatedNextPersons: [], // [{id, name}] for next-step designation
+    nextStepInfo: null,        // {sortOrder, approverDesc} of next step
 
     // Uploading
     uploading: false
@@ -453,6 +460,17 @@ Page({
     // If we're in template step override mode, delegate
     if (this.data.templateOverrideStepIndex >= 0) {
       this.confirmTemplateStepPersonPicker();
+      return;
+    }
+
+    // If we're in next-step designation mode, save to designatedNextPersons
+    if (this.data.personPickerMode === 'designateNext') {
+      var selected = this.data.personPickerSelectedList;
+      this.setData({
+        designatedNextPersons: selected.map(function(p) { return { id: p.id, name: p.name }; }),
+        personPickerVisible: false,
+        personPickerMode: ''
+      });
       return;
     }
 
@@ -836,7 +854,7 @@ Page({
 
         for (var ri = 0; ri < roundKeys.length; ri++) {
           var round = Number(roundKeys[ri]);
-          var roundSteps = rounds[round].sort(function(a, b) { return a.sort_order - b.sort_order; });
+          var roundSteps = rounds[round].sort(function(a, b) { return a.sortOrder - b.sortOrder; });
 
           // If round > 1, show ALL lifecycle events between previous round and this round's resubmit
           if (round > 1) {
@@ -981,13 +999,13 @@ Page({
               flowIcon = 'check';
               flowStatusLabel = '✓ 已通过';
               flowTagClass = 'flow-tag-done';
-            } else if (step.sort_order === currentStepIndex && step.status === 'pending' && submissionStatus === 'in_progress') {
+            } else if (step.sortOrder === currentStepIndex && step.status === 'pending' && submissionStatus === 'in_progress') {
               flowNodeClass = 'flow-node-active';
               flowDotClass = 'flow-dot-active';
               flowIcon = 'number';
               flowStatusLabel = '● 待处理';
               flowTagClass = 'flow-tag-active';
-            } else if (step.sort_order < currentStepIndex) {
+            } else if (step.sortOrder < currentStepIndex) {
               flowNodeClass = 'flow-node-done';
               flowDotClass = 'flow-dot-done';
               flowIcon = 'check';
@@ -1003,7 +1021,7 @@ Page({
             }
 
             if (step.status === 'approved' || step.status === 'rejected' ||
-                (step.sort_order === currentStepIndex && step.status === 'pending' && submissionStatus === 'in_progress')) {
+                (step.sortOrder === currentStepIndex && step.status === 'pending' && submissionStatus === 'in_progress')) {
               hasProcessedSteps = true;
             }
 
@@ -1011,7 +1029,7 @@ Page({
               _key: 'step_' + step.id,
               type: 'step',
               id: step.id,
-              sortOrder: step.sort_order,
+              sortOrder: step.sortOrder,
               approverType: step.approverType,
               approverHrId: step.approverHrId,
               approverName: step.approverName,
@@ -1027,7 +1045,7 @@ Page({
               comment: step.comment,
               rejectionReason: step.rejectionReason,
               round: step.round,
-              processedAt: step.processed_at ? formatAuditTime(step.processed_at) : '',
+              processedAt: step.processedAt ? formatAuditTime(step.processedAt) : '',
               flowNodeClass: flowNodeClass,
               flowDotClass: flowDotClass,
               flowIcon: flowIcon,
@@ -1043,7 +1061,7 @@ Page({
           var maxRound = Math.max.apply(null, roundKeys.map(function(k) { return Number(k); }));
           if (hasProcessedSteps && hasFutureSteps && round === maxRound) {
             var remainingCount = roundSteps.filter(function(rs) {
-              return rs.status === 'pending' && rs.sort_order > currentStepIndex;
+              return rs.status === 'pending' && rs.sortOrder > currentStepIndex;
             }).length;
             if (remainingCount > 0) {
               var insertIdx = -1;
@@ -1098,7 +1116,7 @@ Page({
         } else if (submissionStatus === 'rejected') {
           const rejectedStep = rawSteps.find(s => s.status === 'rejected');
           flowProgressPercent = Math.round((approvedCount / totalSteps) * 100);
-          flowProgressText = rejectedStep ? '第' + rejectedStep.sort_order + '/' + totalSteps + '步被驳回' : '已驳回';
+          flowProgressText = rejectedStep ? '第' + rejectedStep.sortOrder + '/' + totalSteps + '步被驳回' : '已驳回';
         } else if (submissionStatus === 'pending') {
           flowProgressPercent = 0;
           flowProgressText = '待提交';
@@ -1113,10 +1131,19 @@ Page({
 
         // Detect active step for inline approval UI
         var activeApprovalStep = null;
+        var nextStepInfo = null;
         for (var fi = 0; fi < flowTimeline.length; fi++) {
-          if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowNodeClass === 'flow-node-active') {
-            activeApprovalStep = flowTimeline[fi];
-            break;
+          if (flowTimeline[fi].type === 'step') {
+            if (flowTimeline[fi].flowNodeClass === 'flow-node-active') {
+              activeApprovalStep = flowTimeline[fi];
+            }
+            // The first future step right after the active one is the "next step"
+            if (!nextStepInfo && activeApprovalStep && flowTimeline[fi].sortOrder === (activeApprovalStep.sortOrder + 1)) {
+              nextStepInfo = {
+                sortOrder: flowTimeline[fi].sortOrder,
+                approverDesc: flowTimeline[fi].approverDesc
+              };
+            }
           }
         }
 
@@ -1131,6 +1158,8 @@ Page({
           flowProgressText: flowProgressText,
           activeApprovalStepId: activeApprovalStep ? activeApprovalStep.id : '',
           activeApprovalStep: activeApprovalStep,
+          designatedNextPersons: [],
+          nextStepInfo: nextStepInfo,
           approvalVisible: false,
           approvalAction: '',
           approvalComment: '',
@@ -1258,6 +1287,34 @@ Page({
     }
   },
 
+  // ── Next-step person designation ──
+
+  openDesignateNextPersonPicker() {
+    // Pre-populate with current designation
+    var preIds = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
+    var preList = this.data.allHrPersons.filter(function(p) {
+      return preIds.indexOf(p.id) >= 0;
+    });
+    this.setData({
+      personPickerVisible: true,
+      personPickerDept: '全部',
+      personPickerIdent: '全部',
+      personPickerWg: '全部',
+      personPickerKeyword: '',
+      personPickerSelectedIds: preIds,
+      personPickerSelectedList: preList,
+      personPickerStepActionType: 'pass',
+      personPickerMode: 'designateNext'  // signals confirmPersonPicker to save to designatedNextPersons
+    });
+    this.applyPersonPickerFilters();
+  },
+
+  removeDesignatedNextPerson(e) {
+    var hrId = e.currentTarget.dataset.hrId;
+    var list = (this.data.designatedNextPersons || []).filter(function(p) { return p.id !== hrId; });
+    this.setData({ designatedNextPersons: list });
+  },
+
   // Direct approval from the inline approval card (no popup)
   async confirmApprovalDirect(e) {
     var action = e.currentTarget.dataset.action;
@@ -1278,9 +1335,16 @@ Page({
     try {
       var res;
       if (action === 'approve') {
+        var designatedPersons = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
         res = await callFunction({
           name: 'approveStep',
-          data: { submissionId: this.data.submissionId, stepId: stepId, comment: comment, signatures: [] }
+          data: {
+            submissionId: this.data.submissionId,
+            stepId: stepId,
+            comment: comment,
+            signatures: [],
+            designatedNextPersonIds: designatedPersons
+          }
         });
       } else {
         res = await callFunction({
@@ -1291,7 +1355,7 @@ Page({
 
       if (res.status === 'success') {
         showShortToast(res.message || '操作成功');
-        this.setData({ approvalComment: '', rejectionReason: '' });
+        this.setData({ approvalComment: '', rejectionReason: '', designatedNextPersons: [], nextStepInfo: null });
         this.loadDetail();
       } else {
         showShortToast(res.message || '操作失败');

@@ -1145,7 +1145,44 @@ router.post('/approveStep', async (req, res) => {
     const currentIndex = step.sort_order;
     const nextStep = currentSteps.find((s) => s.sort_order === currentIndex + 1);
 
+    // Handle designated next-step approvers (optional person override)
+    const designatedNextPersonIds = Array.isArray(req.body.designatedNextPersonIds)
+      ? req.body.designatedNextPersonIds.map(function(id) { return safeString(id); }).filter(Boolean)
+      : [];
+
     if (nextStep) {
+      // If the approver designated specific people for the next step,
+      // add them as person-type conditions to the next step
+      if (designatedNextPersonIds.length > 0) {
+        let existingConds = [];
+        if (nextStep.step_conditions_json) {
+          try {
+            existingConds = JSON.parse(nextStep.step_conditions_json);
+            if (!Array.isArray(existingConds)) existingConds = [];
+          } catch (_) { existingConds = []; }
+        }
+        // Add person conditions for each designated person
+        for (var dni = 0; dni < designatedNextPersonIds.length; dni++) {
+          existingConds.push({
+            conditionType: 'person',
+            personHrIds: designatedNextPersonIds[dni],
+            departmentScope: null,
+            specificDepartmentId: null,
+            workGroupScope: null,
+            specificWorkGroupId: null,
+            identityScope: null,
+            specificIdentityId: null
+          });
+        }
+        var newCondsJson = JSON.stringify(existingConds);
+        await conn.query(
+          'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ?',
+          [newCondsJson, nextStep.id]
+        );
+        console.log('[audit:approveStep] designated ' + designatedNextPersonIds.length +
+          ' persons for next step ' + nextStep.id +
+          ' new conditions=' + newCondsJson.substring(0, 300));
+      }
       // Move to next step
       await submissionModel.update(submissionId, { currentStepIndex: nextStep.sort_order }, conn);
     } else {
