@@ -56,6 +56,34 @@
       </view>
     </view>
 
+    <!-- Template step preview (person override) -->
+    <view class="card" wx:if="{{createMode === 'template' && selectedTemplateId && templatePreviewSteps.length}}">
+      <view class="section-title">审批步骤预览（共{{templatePreviewSteps.length}}步）</view>
+      <view class="section-desc" style="font-size:21rpx;color:#94a3b8;margin-bottom:12rpx;">默认由模板设定的人员审批，可指定具体人员覆盖</view>
+      <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
+        <view class="tpl-step-preview-main">
+          <view class="tpl-step-preview-num">第{{item.sortOrder}}步</view>
+          <view class="tpl-step-preview-desc">{{item.approverDesc}}</view>
+          <view class="tpl-step-preview-action">{{item.actionLabel}}</view>
+        </view>
+        <view class="tpl-step-preview-mode">
+          <block wx:for="{{templateStepOverrides}}" wx:for-item="ovr" wx:key="stepIndex">
+            <block wx:if="{{ovr.stepIndex === item.stepIndex}}">
+              <text class="tpl-step-toggle {{ovr.mode === 'specific' ? 'tpl-step-toggle-active' : ''}}" data-step-index="{{item.stepIndex}}" bindtap="onTemplateStepModeToggle">{{ovr.mode === 'auto' ? '按角色' : '已指定'}}</text>
+              <!-- Show selected persons when in specific mode -->
+              <view wx:if="{{ovr.mode === 'specific' && ovr.personHrNames.length}}" style="margin-top:4rpx;">
+                <view class="tpl-step-person-tag" wx:for="{{ovr.personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
+                  <text>{{pname}}</text>
+                  <text class="tpl-step-person-remove" data-step-index="{{item.stepIndex}}" data-hr-id="{{ovr.personHrIds[pidx]}}" bindtap="removeTemplateStepOverridePerson">×</text>
+                </view>
+              </view>
+              <text wx:if="{{ovr.mode === 'specific'}}" class="audit-link-btn" style="font-size:21rpx;margin-top:4rpx;" data-step-index="{{item.stepIndex}}" bindtap="openTemplateStepPersonPicker">{{ovr.personHrIds.length ? '修改人员' : '选择人员'}}</text>
+            </block>
+          </block>
+        </view>
+      </view>
+    </view>
+
     <!-- Common: Title + Files -->
     <view class="card">
       <view class="section-title">基本信息</view>
@@ -251,6 +279,13 @@
         <view class="audit-flow" wx:if="{{flowTimeline.length}}">
           <block wx:for="{{flowTimeline}}" wx:key="_key" wx:for-item="node">
 
+            <!-- ── Remaining steps separator ── -->
+            <view class="flow-separator" wx:if="{{node.type === 'separator'}}">
+              <view class="flow-separator-dash"></view>
+              <text class="flow-separator-text">{{node.label}}</text>
+              <view class="flow-separator-dash"></view>
+            </view>
+
             <!-- ── Lifecycle event node ── -->
             <view class="flow-node flow-node-lifecycle" wx:if="{{node.type === 'lifecycle'}}">
               <view class="flow-left-col">
@@ -274,11 +309,8 @@
                 <view class="flow-connector"></view>
               </view>
               <view class="flow-info">
-                <view class="flow-step-label">第{{node.sortOrder}}步<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
-                <view class="flow-step-title">
-                  {{node.actionType === 'pass' ? '仅通过' : (node.actionType === 'sign' ? '签字' : (node.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}
-                  <text style="font-size:21rpx;color:#64748b;font-weight:500;"> — {{node.approverType === 'identity' ? (node.approverIdentityName || '身份审批') : (node.approverName || '指定人员')}}</text>
-                </view>
+                <view class="flow-step-label">第{{node.sortOrder}}步 · {{node.actionLabel}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
+                <view class="flow-step-approver">{{node.approverDesc}}</view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
                   {{node.approverName}} · {{node.processedAt || ''}}

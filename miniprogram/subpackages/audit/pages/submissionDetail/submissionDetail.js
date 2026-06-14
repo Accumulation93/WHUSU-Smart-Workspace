@@ -41,6 +41,11 @@ Page({
     identityPickerIdentIndex: 0,
     identityPickerIdentOptions: ['全部身份'],
 
+    // Template step preview (for overrides)
+    templatePreviewSteps: [],
+    templateStepOverrides: [],    // [{ stepIndex, mode: 'auto'|'specific', personHrIds: [], personHrNames: [] }]
+    templateOverrideStepIndex: -1, // which step index is being edited in person picker
+
     // Approver picker — person mode (multi-select)
     personPickerVisible: false,
     personPickerDept: '全部',
@@ -141,7 +146,121 @@ Page({
   onTemplateSelect(e) {
     var id = e.currentTarget.dataset.id;
     // Toggle: tap selected item to deselect
-    this.setData({ selectedTemplateId: this.data.selectedTemplateId === id ? '' : id });
+    var newId = this.data.selectedTemplateId === id ? '' : id;
+    this.setData({
+      selectedTemplateId: newId,
+      templatePreviewSteps: [],
+      templateStepOverrides: []
+    });
+    if (newId) {
+      this.loadTemplatePreview(newId);
+    }
+  },
+
+  // Load template steps preview for step-level person override
+  async loadTemplatePreview(templateId) {
+    try {
+      var res = await callFunction({ name: 'previewTemplateSteps', data: { templateId: templateId } });
+      if (res.status === 'success') {
+        var steps = res.steps || [];
+        // Initialize overrides: auto mode for all steps
+        var overrides = steps.map(function(s) {
+          return {
+            stepIndex: s.stepIndex,
+            mode: 'auto',
+            personHrIds: [],
+            personHrNames: []
+          };
+        });
+        this.setData({
+          templatePreviewSteps: steps,
+          templateStepOverrides: overrides
+        });
+      }
+    } catch (e) {
+      // Non-fatal; user can still submit without preview
+    }
+  },
+
+  // Toggle step override mode between 'auto' (anyone with role) and 'specific' (chosen persons)
+  onTemplateStepModeToggle(e) {
+    var stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+    var overrides = [...this.data.templateStepOverrides];
+    var entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
+    if (entry) {
+      entry.mode = entry.mode === 'auto' ? 'specific' : 'auto';
+      if (entry.mode === 'auto') {
+        entry.personHrIds = [];
+        entry.personHrNames = [];
+      }
+    }
+    this.setData({ templateStepOverrides: overrides });
+  },
+
+  // Open person picker for a specific template step override
+  openTemplateStepPersonPicker(e) {
+    var stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+    // Pre-populate selected persons from existing override
+    var entry = (this.data.templateStepOverrides || []).find(function(o) { return o.stepIndex === stepIndex; });
+    var preSelectedIds = [];
+    var preSelectedList = [];
+    if (entry && entry.personHrIds && entry.personHrIds.length) {
+      preSelectedIds = entry.personHrIds.slice();
+      preSelectedList = this.data.allHrPersons.filter(function(p) {
+        return preSelectedIds.indexOf(p.id) >= 0;
+      });
+    }
+    this.setData({
+      personPickerVisible: true,
+      templateOverrideStepIndex: stepIndex,
+      personPickerDept: '全部',
+      personPickerIdent: '全部',
+      personPickerWg: '全部',
+      personPickerKeyword: '',
+      personPickerSelectedIds: preSelectedIds,
+      personPickerSelectedList: preSelectedList,
+      personPickerStepActionType: 'pass'
+    });
+    this.applyPersonPickerFilters();
+  },
+
+  // Confirm person picker for template step override
+  confirmTemplateStepPersonPicker() {
+    var selected = this.data.personPickerSelectedList;
+    var stepIndex = this.data.templateOverrideStepIndex;
+    if (stepIndex < 0) return;
+    var overrides = [...this.data.templateStepOverrides];
+    var entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
+    if (!entry) {
+      entry = { stepIndex: stepIndex, mode: 'specific', personHrIds: [], personHrNames: [] };
+      overrides.push(entry);
+    }
+    entry.personHrIds = selected.map(function(p) { return p.id; });
+    entry.personHrNames = selected.map(function(p) { return p.name; });
+    this.setData({
+      templateStepOverrides: overrides,
+      personPickerVisible: false,
+      templateOverrideStepIndex: -1
+    });
+  },
+
+  // Remove a person from a template step override
+  removeTemplateStepOverridePerson(e) {
+    var stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+    var hrId = e.currentTarget.dataset.hrId;
+    var overrides = [...this.data.templateStepOverrides];
+    var entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
+    if (entry) {
+      var idx = entry.personHrIds.indexOf(hrId);
+      if (idx >= 0) {
+        entry.personHrIds.splice(idx, 1);
+        entry.personHrNames.splice(idx, 1);
+      }
+      if (!entry.personHrIds.length) {
+        entry.mode = 'auto';
+      }
+    }
+    this.setData({ templateStepOverrides: overrides });
   },
 
   onCreateModeChange(e) {
@@ -298,6 +417,12 @@ Page({
   },
 
   confirmPersonPicker() {
+    // If we're in template step override mode, delegate
+    if (this.data.templateOverrideStepIndex >= 0) {
+      this.confirmTemplateStepPersonPicker();
+      return;
+    }
+
     const selected = this.data.personPickerSelectedList;
     if (!selected.length) {
       showShortToast('请至少选择一个人');
@@ -572,9 +697,13 @@ Page({
       let res;
       if (createMode === 'template') {
         if (!selectedTemplateId) { showShortToast('请选择审核流模板'); this.setData({ loading: false }); return; }
+        // Collect step overrides from template step preview
+        var stepOverrides = (this.data.templateStepOverrides || [])
+          .filter(function(o) { return o.mode === 'specific' && o.personHrIds && o.personHrIds.length; })
+          .map(function(o) { return { stepIndex: o.stepIndex, personHrIds: o.personHrIds }; });
         res = await callFunction({
           name: 'startAuditSubmission',
-          data: { templateId: selectedTemplateId, title: createTitle, files: serverFiles }
+          data: { templateId: selectedTemplateId, title: createTitle, files: serverFiles, stepOverrides: stepOverrides }
         });
       } else {
         if (!adHocSteps.length) { showShortToast('请添加审批步骤'); this.setData({ loading: false }); return; }
@@ -662,9 +791,48 @@ Page({
             });
           }
 
-          // Enrich step nodes with flow classes
-          for (const s of roundSteps) {
+          // Track whether we've seen processed steps (for separator injection)
+          let hasProcessedSteps = false;
+          let hasFutureSteps = false;
+
+          // Enrich step nodes with flow classes + approver description
+          for (let si = 0; si < roundSteps.length; si++) {
+            const s = roundSteps[si];
             let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+
+            // ── Build approver description ──
+            // Use server-provided pre-built description when available
+            let approverDesc = s.approverDesc || '';
+            if (!approverDesc) {
+              // Legacy fallback for old clients or incomplete data
+              if (s.approverType === 'specific_person' || s.approverName) {
+                approverDesc = '由 ' + (s.approverName || '未指定') + ' 审批';
+              } else {
+                const identName = s.approverIdentityName || '未指定身份';
+                const scopeType = s.scopeType || 'all';
+                if (scopeType === 'all' || !scopeType) {
+                  approverDesc = '由 全体 ' + identName + ' 审批';
+                } else if (scopeType === 'same_department') {
+                  approverDesc = '由 同部门 ' + identName + ' 审批';
+                } else if (scopeType === 'same_work_group') {
+                  approverDesc = '由 同职能组 ' + identName + ' 审批';
+                } else if (scopeType === 'specific_department') {
+                  const deptName = s.scopeDepartmentName || s.scopeDepartmentId || '指定部门';
+                  approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
+                } else if (scopeType === 'specific_work_group') {
+                  const deptName = s.scopeDepartmentName || '';
+                  const wgName = s.scopeWorkGroupName || '';
+                  const location = [deptName, wgName].filter(Boolean).join('·') || '指定职能组';
+                  approverDesc = '由 ' + location + ' ' + identName + ' 审批';
+                } else {
+                  approverDesc = '由 ' + identName + ' 审批';
+                }
+              }
+            }
+
+            // ── Build action label ──
+            const actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+            const actionLabel = actionMap[s.actionType] || s.actionType || '仅通过';
 
             if (s.status === 'rejected') {
               flowNodeClass = 'flow-node-rejected';
@@ -708,6 +876,13 @@ Page({
               flowIcon = 'number';
               flowStatusLabel = '○ 未到达';
               flowTagClass = 'flow-tag-pending';
+              hasFutureSteps = true;
+            }
+
+            // Track processed steps (any step that is done, active, or rejected)
+            if (s.status === 'approved' || s.status === 'rejected' ||
+                (s.sort_order === currentStepIndex && s.status === 'pending' && submissionStatus === 'in_progress')) {
+              hasProcessedSteps = true;
             }
 
             flowTimeline.push({
@@ -715,10 +890,36 @@ Page({
               type: 'step',
               ...s,
               flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass,
+              approverDesc, actionLabel,
               processedAt: s.processed_at ? formatAuditTime(s.processed_at) : ''
             });
           }
-        }
+
+          // Inject "remaining steps" separator between processed and future steps
+          if (hasProcessedSteps && hasFutureSteps) {
+            // Count remaining steps in this round
+            var remainingCount = roundSteps.filter(function(rs) {
+              return rs.status === 'pending' && rs.sort_order >= currentStepIndex + 1;
+            }).length;
+            if (remainingCount > 0) {
+              // Find insertion point: after last processed step, before first future step
+              var insertIdx = -1;
+              for (var fi = flowTimeline.length - 1; fi >= 0; fi--) {
+                if (flowTimeline[fi].type === 'lifecycle') break;
+                if (flowTimeline[fi].flowStatusLabel === '○ 未到达') {
+                  insertIdx = fi;
+                }
+              }
+              if (insertIdx > 0) {
+                flowTimeline.splice(insertIdx, 0, {
+                  _key: 'separator_r' + round + '_remaining',
+                  type: 'separator',
+                  label: '剩余 ' + remainingCount + ' 步待处理'
+                });
+              }
+            }
+          }
+          }
 
         // 4. "撤回" lifecycle event — at the end if withdrawn
         if (submissionStatus === 'withdrawn') {

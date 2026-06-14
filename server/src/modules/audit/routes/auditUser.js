@@ -77,6 +77,24 @@ router.post('/listMySubmissions', async (req, res) => {
   }
 });
 
+// checkPendingCount — Lightweight poll: returns count + latest timestamp only
+// Used by the mini-program for periodic background refresh without loading full list
+router.post('/checkPendingCount', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const steps = await submissionStepModel.getPendingByApprover(hrId);
+    const count = steps.length;
+    const latestAt = count > 0 ? steps[0].created_at : null; // Already sorted DESC in model
+
+    res.json({ status: 'success', count, latestAt });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
 // listPendingApprovals — Submissions waiting for the current user to approve
 router.post('/listPendingApprovals', async (req, res) => {
   try {
@@ -132,6 +150,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     const templateId = safeString(req.body.templateId);
     const title = safeString(req.body.title);
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
+    const stepOverrides = Array.isArray(req.body.stepOverrides) ? req.body.stepOverrides : [];
 
     if (!templateId) {
       return res.json({ status: 'invalid_params', message: '请选择审核流模板' });
@@ -285,6 +304,27 @@ router.post('/startAuditSubmission', async (req, res) => {
 
       // Build resolved conditions JSON from template step conditions
       const conditions = stepConditionMap[ts.id] || [];
+
+      // Apply person overrides from submitter (specific person selection)
+      const stepOverride = stepOverrides.find(function(o) {
+        return o.stepIndex === i;
+      });
+      if (stepOverride && stepOverride.personHrIds && stepOverride.personHrIds.length) {
+        // Merge override person conditions — they are OR-ed with existing identity conditions
+        for (var pi = 0; pi < stepOverride.personHrIds.length; pi++) {
+          conditions.push({
+            conditionType: 'person',
+            personHrIds: String(stepOverride.personHrIds[pi]),
+            departmentScope: null,
+            specificDepartmentId: null,
+            workGroupScope: null,
+            specificWorkGroupId: null,
+            identityScope: null,
+            specificIdentityId: null
+          });
+        }
+      }
+
       let stepConditionsJson = null;
       if (conditions.length > 0) {
         stepConditionsJson = JSON.stringify(conditions);
@@ -422,6 +462,72 @@ router.post('/startAdHocAudit', async (req, res) => {
 // Get Submission Detail
 // ═══════════════════════════════════════════════════
 
+/**
+ * Build human-readable display strings from step conditions JSON.
+ * Resolves all IDs to names using provided lookup maps.
+ * @param {string|null} conditionsJson - Raw step_conditions_json
+ * @param {object} maps - { hrMap, identityMap, deptMap, wgMap }
+ * @returns {object} { displayParts, approverDesc }
+ */
+function buildStepConditionsDisplay(conditionsJson, maps) {
+  const { hrMap, identityMap, deptMap, wgMap } = maps;
+  let displayParts = [];
+  let approverDesc = '';
+
+  if (!conditionsJson) return { displayParts, approverDesc };
+
+  let conditions;
+  try {
+    conditions = typeof conditionsJson === 'string' ? JSON.parse(conditionsJson) : conditionsJson;
+  } catch (_) { return { displayParts, approverDesc }; }
+
+  if (!Array.isArray(conditions) || !conditions.length) return { displayParts, approverDesc };
+
+  for (const cond of conditions) {
+    let part = '';
+    if (cond.conditionType === 'person') {
+      const ids = (cond.personHrIds || '').split(',').map(s => s.trim()).filter(Boolean);
+      const names = ids.map(id => hrMap[id] || id).filter(Boolean);
+      part = names.length ? '由 ' + names.join('、') + ' 审批' : '由指定人员审批';
+    } else {
+      // identity_scope
+      const scopeParts = [];
+      if (cond.departmentScope === 'own') scopeParts.push('同部门');
+      else if (cond.departmentScope === 'specific' && cond.specificDepartmentId) {
+        const deptIds = cond.specificDepartmentId.split(',').map(s => s.trim()).filter(Boolean);
+        const deptNames = deptIds.map(id => deptMap[id] || id).filter(Boolean);
+        if (deptNames.length) scopeParts.push(deptNames.join('、'));
+      }
+
+      if (cond.workGroupScope === 'own') scopeParts.push('同职能组');
+      else if (cond.workGroupScope === 'specific' && cond.specificWorkGroupId) {
+        const wgIds = cond.specificWorkGroupId.split(',').map(s => s.trim()).filter(Boolean);
+        const wgNames = wgIds.map(id => wgMap[id] || id).filter(Boolean);
+        if (wgNames.length) scopeParts.push(wgNames.join('、'));
+      }
+
+      if (cond.identityScope === 'own') scopeParts.push('同身份');
+      else if (cond.identityScope === 'specific' && cond.specificIdentityId) {
+        const identIds = cond.specificIdentityId.split(',').map(s => s.trim()).filter(Boolean);
+        const identNames = identIds.map(id => identityMap[id] || id).filter(Boolean);
+        if (identNames.length) scopeParts.push(identNames.join('、'));
+      }
+
+      const scopeStr = scopeParts.length ? scopeParts.join(' · ') + ' ' : '';
+
+      if (cond.identityScope === 'all' && cond.departmentScope === 'all' && cond.workGroupScope === 'all') {
+        part = '由全体成员审批';
+      } else {
+        part = '由 ' + scopeStr + '审批';
+      }
+    }
+    if (part) displayParts.push(part);
+  }
+
+  approverDesc = displayParts.join(' 或 ');
+  return { displayParts, approverDesc };
+}
+
 // getSubmissionDetail
 router.post('/getSubmissionDetail', async (req, res) => {
   try {
@@ -477,6 +583,25 @@ router.post('/getSubmissionDetail', async (req, res) => {
       for (const ident of identRows) identityMap[ident.id] = safeString(ident.name);
     }
 
+    // Load scope department & work group names
+    const deptIds = [...new Set(steps.map(s => s.scope_department_id).filter(Boolean))];
+    const wgIds = [...new Set(steps.map(s => s.scope_work_group_id).filter(Boolean))];
+    const deptMap = {}, wgMap = {};
+    if (deptIds.length) {
+      const [deptRows] = await pool.query(
+        'SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?',
+        [deptIds, orgId]
+      );
+      for (const d of deptRows) deptMap[d.id] = safeString(d.name);
+    }
+    if (wgIds.length) {
+      const [wgRows] = await pool.query(
+        'SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?',
+        [wgIds, orgId]
+      );
+      for (const w of wgRows) wgMap[w.id] = safeString(w.name);
+    }
+
     res.json({
       status: 'success',
       submission: {
@@ -495,7 +620,40 @@ router.post('/getSubmissionDetail', async (req, res) => {
         createdAt: submission.created_at,
         updatedAt: submission.updated_at
       },
-      steps: steps.map((s) => ({
+      steps: steps.map((s) => {
+        // Build condition display strings from step_conditions_json
+        const condDisplay = buildStepConditionsDisplay(
+          s.step_conditions_json,
+          { hrMap, identityMap, deptMap, wgMap }
+        );
+
+        // Build legacy approverDesc as fallback
+        let legacyApproverDesc = '';
+        const identName = identityMap[s.approver_identity_id] || '';
+        const scopeType = (s.scope_type || '').trim();
+        if (s.approver_type === 'specific_person') {
+          legacyApproverDesc = '由 ' + (hrMap[s.approver_hr_id] || '未指定') + ' 审批';
+        } else if (identName) {
+          if (!scopeType || scopeType === 'all') {
+            legacyApproverDesc = '由 全体 ' + identName + ' 审批';
+          } else if (scopeType === 'same_department') {
+            legacyApproverDesc = '由 同部门 ' + identName + ' 审批';
+          } else if (scopeType === 'same_work_group') {
+            legacyApproverDesc = '由 同职能组 ' + identName + ' 审批';
+          } else if (scopeType === 'specific_department') {
+            const dn = deptMap[s.scope_department_id] || s.scope_department_id || '指定部门';
+            legacyApproverDesc = '由 ' + dn + ' ' + identName + ' 审批';
+          } else if (scopeType === 'specific_work_group') {
+            const dn = deptMap[s.scope_department_id] || '';
+            const wn = wgMap[s.scope_work_group_id] || '';
+            const loc = [dn, wn].filter(Boolean).join('·') || '指定职能组';
+            legacyApproverDesc = '由 ' + loc + ' ' + identName + ' 审批';
+          } else {
+            legacyApproverDesc = '由 ' + identName + ' 审批';
+          }
+        }
+
+        return {
         id: safeString(s.id),
         sortOrder: s.sort_order,
         approverType: safeString(s.approver_type),
@@ -505,15 +663,20 @@ router.post('/getSubmissionDetail', async (req, res) => {
         approverIdentityName: identityMap[s.approver_identity_id] || '',
         scopeType: safeString(s.scope_type),
         scopeDepartmentId: safeString(s.scope_department_id),
+        scopeDepartmentName: deptMap[s.scope_department_id] || '',
         scopeWorkGroupId: safeString(s.scope_work_group_id),
+        scopeWorkGroupName: wgMap[s.scope_work_group_id] || '',
         actionType: safeString(s.action_type),
         status: safeString(s.status),
         comment: safeString(s.comment),
         rejectionReason: safeString(s.rejection_reason),
         round: s.round,
         processedAt: s.processed_at,
-        stepConditionsJson: s.step_conditions_json || null
-      })),
+        stepConditionsJson: s.step_conditions_json || null,
+        stepConditionsDisplay: condDisplay.displayParts,
+        approverDesc: condDisplay.approverDesc || legacyApproverDesc || '由未指定审批人审批'
+      };
+    }),
       files: files.map((f) => ({
         id: safeString(f.id),
         fileName: safeString(f.file_name),
@@ -545,6 +708,80 @@ router.post('/getSubmissionDetail', async (req, res) => {
 // Approval Actions
 // ═══════════════════════════════════════════════════
 
+/**
+ * Shared authorization check for approve/reject step actions.
+ * Checks: 1) step_conditions_json, 2) template step conditions fallback, 3) legacy flat fields.
+ * @returns {boolean} authorized
+ */
+async function checkStepAuthorization(step, submission, hrId) {
+  const orgId = await getCurrentOrgId();
+
+  // 1. Check step_conditions_json first (new multi-condition model)
+  if (step.step_conditions_json) {
+    try {
+      const conditions = JSON.parse(step.step_conditions_json);
+      const [approverRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [hrId, orgId]
+      );
+      const approver = approverRows[0];
+      if (approver) {
+        const [subRows] = await pool.query(
+          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [submission.submitted_by, orgId]
+        );
+        const submitter = subRows[0] || null;
+        if (matchesAnyCondition(conditions, approver, submitter)) return true;
+      }
+    } catch (_) { /* fall through */ }
+  }
+
+  // 2. Fallback: load conditions from template step (covers legacy submissions
+  //    or steps created before conditions were properly serialized)
+  if (step.template_step_id) {
+    try {
+      const tplConds = await submissionStepModel.getTemplateStepConditions(step.template_step_id);
+      if (tplConds) {
+        const [approverRows] = await pool.query(
+          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [hrId, orgId]
+        );
+        const approver = approverRows[0];
+        if (approver) {
+          const [subRows] = await pool.query(
+            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+            [submission.submitted_by, orgId]
+          );
+          const submitter = subRows[0] || null;
+          if (matchesAnyCondition(tplConds, approver, submitter)) return true;
+        }
+      }
+    } catch (_) { /* fall through */ }
+  }
+
+  // 3. Legacy check
+  if (step.approver_type === 'specific_person') {
+    if (step.approver_hr_id === hrId) return true;
+  } else if (step.approver_type === 'identity' && step.approver_identity_id) {
+    const [approverRows] = await pool.query(
+      'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+      [hrId, orgId]
+    );
+    const approver = approverRows[0];
+    if (approver && approver.identity_id === step.approver_identity_id) {
+      let submitter = null;
+      const [subRows] = await pool.query(
+        'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [submission.submitted_by, orgId]
+      );
+      submitter = subRows[0] || null;
+      if (matchesScope(step, approver, submitter)) return true;
+    }
+  }
+
+  return false;
+}
+
 // approveStep — Approve current step with optional signature/stamp
 router.post('/approveStep', async (req, res) => {
   const conn = await pool.getConnection();
@@ -574,52 +811,8 @@ router.post('/approveStep', async (req, res) => {
       return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
     }
 
-    // Check authorization — multi-condition OR matching
-    const orgId = await getCurrentOrgId();
-    let authorized = false;
-
-    // 1. Check step_conditions_json first (new multi-condition model)
-    if (step.step_conditions_json) {
-      try {
-        const conditions = JSON.parse(step.step_conditions_json);
-        const [approverRows] = await pool.query(
-          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [hrId, orgId]
-        );
-        const approver = approverRows[0];
-        if (approver) {
-          const [subRows] = await pool.query(
-            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-            [submission.submitted_by, orgId]
-          );
-          const submitter = subRows[0] || null;
-          authorized = matchesAnyCondition(conditions, approver, submitter);
-        }
-      } catch (_) { /* fall through to legacy */ }
-    }
-
-    // 2. Legacy check
-    if (!authorized) {
-      if (step.approver_type === 'specific_person') {
-        authorized = step.approver_hr_id === hrId;
-      } else if (step.approver_type === 'identity' && step.approver_identity_id) {
-        const [approverRows] = await pool.query(
-          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [hrId, orgId]
-        );
-        const approver = approverRows[0];
-        if (approver && approver.identity_id === step.approver_identity_id) {
-          let submitter = null;
-          const [subRows] = await pool.query(
-            'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-            [submission.submitted_by, orgId]
-          );
-          submitter = subRows[0] || null;
-          authorized = matchesScope(step, approver, submitter);
-        }
-      }
-    }
-
+    // Check authorization — shared helper
+    const authorized = await checkStepAuthorization(step, submission, hrId);
     if (!authorized) {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
@@ -743,50 +936,8 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
     }
 
-    // Check authorization — multi-condition OR matching
-    const orgId = await getCurrentOrgId();
-    let authorized = false;
-
-    if (step.step_conditions_json) {
-      try {
-        const conditions = JSON.parse(step.step_conditions_json);
-        const [approverRows] = await pool.query(
-          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [hrId, orgId]
-        );
-        const approver = approverRows[0];
-        if (approver) {
-          const [subRows] = await pool.query(
-            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-            [submission.submitted_by, orgId]
-          );
-          const submitter = subRows[0] || null;
-          authorized = matchesAnyCondition(conditions, approver, submitter);
-        }
-      } catch (_) { /* fall through */ }
-    }
-
-    if (!authorized) {
-      if (step.approver_type === 'specific_person') {
-        authorized = step.approver_hr_id === hrId;
-      } else if (step.approver_type === 'identity' && step.approver_identity_id) {
-        const [approverRows] = await pool.query(
-          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [hrId, orgId]
-        );
-        const approver = approverRows[0];
-        if (approver && approver.identity_id === step.approver_identity_id) {
-          let submitter = null;
-          const [subRows] = await pool.query(
-            'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-            [submission.submitted_by, orgId]
-          );
-          submitter = subRows[0] || null;
-          authorized = matchesScope(step, approver, submitter);
-        }
-      }
-    }
-
+    // Check authorization — shared helper
+    const authorized = await checkStepAuthorization(step, submission, hrId);
     if (!authorized) {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
@@ -1039,6 +1190,106 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
       });
     }
     res.json({ status: 'success', templates: result });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// previewTemplateSteps — Returns template steps with resolved condition display info
+router.post('/previewTemplateSteps', async (req, res) => {
+  try {
+    const openid = req.openid;
+    if (!openid) return res.json({ status: 'forbidden', message: '请先登录' });
+
+    const templateId = safeString(req.body.templateId);
+    if (!templateId) return res.json({ status: 'invalid_params', message: '请提供模板ID' });
+
+    const template = await flowTemplateModel.getById(templateId);
+    if (!template) return res.json({ status: 'not_found', message: '模板不存在' });
+
+    const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
+    const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
+
+    // Group conditions by template_step_id
+    const stepConditionMap = {};
+    for (const c of allConditions) {
+      const sid = c.template_step_id;
+      if (!stepConditionMap[sid]) stepConditionMap[sid] = [];
+      stepConditionMap[sid].push({
+        conditionType: c.condition_type,
+        personHrIds: c.person_hr_ids,
+        departmentScope: c.department_scope,
+        specificDepartmentId: c.specific_department_id,
+        workGroupScope: c.work_group_scope,
+        specificWorkGroupId: c.specific_work_group_id,
+        identityScope: c.identity_scope,
+        specificIdentityId: c.specific_identity_id
+      });
+    }
+
+    // Collect IDs to resolve names
+    const orgId = await getCurrentOrgId();
+    const hrIdSet = new Set();
+    const identIdSet = new Set();
+    const deptIdSet = new Set();
+    const wgIdSet = new Set();
+
+    for (const sid in stepConditionMap) {
+      for (const cond of stepConditionMap[sid]) {
+        if (cond.conditionType === 'person' && cond.personHrIds) {
+          cond.personHrIds.split(',').forEach(function(id) { hrIdSet.add(id.trim()); });
+        } else {
+          if (cond.specificDepartmentId) cond.specificDepartmentId.split(',').forEach(function(id) { deptIdSet.add(id.trim()); });
+          if (cond.specificWorkGroupId) cond.specificWorkGroupId.split(',').forEach(function(id) { wgIdSet.add(id.trim()); });
+          if (cond.specificIdentityId) cond.specificIdentityId.split(',').forEach(function(id) { identIdSet.add(id.trim()); });
+        }
+      }
+    }
+
+    const identityMap = {};
+    if (identIdSet.size) {
+      const [idRows] = await pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [[...identIdSet], orgId]);
+      for (const r of idRows) identityMap[r.id] = safeString(r.name);
+    }
+    const deptMap = {};
+    if (deptIdSet.size) {
+      const [dRows] = await pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [[...deptIdSet], orgId]);
+      for (const r of dRows) deptMap[r.id] = safeString(r.name);
+    }
+    const wgMap = {};
+    if (wgIdSet.size) {
+      const [wRows] = await pool.query('SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?', [[...wgIdSet], orgId]);
+      for (const r of wRows) wgMap[r.id] = safeString(r.name);
+    }
+    const hrMap = {};
+    if (hrIdSet.size) {
+      const hrRows = await hrInfoModel.getByIds([...hrIdSet]);
+      for (const hr of hrRows) hrMap[hr.id] = safeString(hr.name);
+    }
+
+    // Build step preview
+    const previewSteps = templateSteps.sort((a, b) => a.sort_order - b.sort_order).map(function(ts, idx) {
+      const conds = stepConditionMap[ts.id] || [];
+      const actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+      const actionLabel = actionMap[ts.action_type] || ts.action_type || '签字';
+
+      // Build condition display using shared helper
+      const condJson = conds.length ? JSON.stringify(conds) : null;
+      const display = buildStepConditionsDisplay(condJson, { hrMap, identityMap, deptMap, wgMap });
+
+      return {
+        stepIndex: idx,
+        sortOrder: idx + 1,
+        actionType: ts.action_type || 'sign',
+        actionLabel: actionLabel,
+        displayParts: display.displayParts,
+        approverDesc: display.approverDesc || '由全体成员审批',
+        // Pass raw conditions for client-side person override logic
+        conditions: conds
+      };
+    });
+
+    res.json({ status: 'success', steps: previewSteps });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

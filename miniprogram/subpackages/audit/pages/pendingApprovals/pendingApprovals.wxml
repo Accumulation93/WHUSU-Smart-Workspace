@@ -8,6 +8,10 @@
   <view class="section">
     <view class="card">
       <view class="section-title">待审批列表</view>
+      <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">
+        <text class="pending-update-time">更新于 {{lastUpdateTime}}</text>
+        <text class="pending-refresh-btn" bindtap="loadData">⟳ 刷新</text>
+      </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>

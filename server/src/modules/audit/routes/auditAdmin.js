@@ -508,6 +508,66 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
   }
 });
 
+/**
+ * Build human-readable display strings from step conditions JSON.
+ * Resolves all IDs to names using provided lookup maps.
+ * @param {string|null} conditionsJson - Raw step_conditions_json
+ * @param {object} maps - { hrMap, identityMap, deptMap, wgMap }
+ * @returns {object} { displayParts, approverDesc }
+ */
+function buildStepConditionsDisplay(conditionsJson, maps) {
+  const { hrMap, identityMap, deptMap, wgMap } = maps;
+  let displayParts = [];
+  let approverDesc = '';
+
+  if (!conditionsJson) return { displayParts, approverDesc };
+
+  let conditions;
+  try {
+    conditions = typeof conditionsJson === 'string' ? JSON.parse(conditionsJson) : conditionsJson;
+  } catch (_) { return { displayParts, approverDesc }; }
+
+  if (!Array.isArray(conditions) || !conditions.length) return { displayParts, approverDesc };
+
+  for (const cond of conditions) {
+    let part = '';
+    if (cond.conditionType === 'person') {
+      const ids = (cond.personHrIds || '').split(',').map(s => s.trim()).filter(Boolean);
+      const names = ids.map(id => hrMap[id] || id).filter(Boolean);
+      part = names.length ? '由 ' + names.join('、') + ' 审批' : '由指定人员审批';
+    } else {
+      const scopeParts = [];
+      if (cond.departmentScope === 'own') scopeParts.push('同部门');
+      else if (cond.departmentScope === 'specific' && cond.specificDepartmentId) {
+        const deptIds = cond.specificDepartmentId.split(',').map(s => s.trim()).filter(Boolean);
+        const deptNames = deptIds.map(id => deptMap[id] || id).filter(Boolean);
+        if (deptNames.length) scopeParts.push(deptNames.join('、'));
+      }
+      if (cond.workGroupScope === 'own') scopeParts.push('同职能组');
+      else if (cond.workGroupScope === 'specific' && cond.specificWorkGroupId) {
+        const wgIds = cond.specificWorkGroupId.split(',').map(s => s.trim()).filter(Boolean);
+        const wgNames = wgIds.map(id => wgMap[id] || id).filter(Boolean);
+        if (wgNames.length) scopeParts.push(wgNames.join('、'));
+      }
+      if (cond.identityScope === 'own') scopeParts.push('同身份');
+      else if (cond.identityScope === 'specific' && cond.specificIdentityId) {
+        const identIds = cond.specificIdentityId.split(',').map(s => s.trim()).filter(Boolean);
+        const identNames = identIds.map(id => identityMap[id] || id).filter(Boolean);
+        if (identNames.length) scopeParts.push(identNames.join('、'));
+      }
+      const scopeStr = scopeParts.length ? scopeParts.join(' · ') + ' ' : '';
+      if (cond.identityScope === 'all' && cond.departmentScope === 'all' && cond.workGroupScope === 'all') {
+        part = '由全体成员审批';
+      } else {
+        part = '由 ' + scopeStr + '审批';
+      }
+    }
+    if (part) displayParts.push(part);
+  }
+  approverDesc = displayParts.join(' 或 ');
+  return { displayParts, approverDesc };
+}
+
 // getAuditProgress — View flow progress for a submission
 router.post('/getAuditProgress', async (req, res) => {
   try {
@@ -540,6 +600,36 @@ router.post('/getAuditProgress', async (req, res) => {
       for (const hr of hrRows) hrMap[hr.id] = safeString(hr.name);
     }
 
+    // Load identity names
+    const identityIds = [...new Set(steps.map(s => s.approver_identity_id).filter(Boolean))];
+    const identityMap = {};
+    if (identityIds.length) {
+      const [identRows] = await pool.query(
+        'SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?',
+        [identityIds, orgId]
+      );
+      for (const ident of identRows) identityMap[ident.id] = safeString(ident.name);
+    }
+
+    // Load scope department & work group names
+    const deptIds = [...new Set(steps.map(s => s.scope_department_id).filter(Boolean))];
+    const wgIds = [...new Set(steps.map(s => s.scope_work_group_id).filter(Boolean))];
+    const deptMap = {}, wgMap = {};
+    if (deptIds.length) {
+      const [deptRows] = await pool.query(
+        'SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?',
+        [deptIds, orgId]
+      );
+      for (const d of deptRows) deptMap[d.id] = safeString(d.name);
+    }
+    if (wgIds.length) {
+      const [wgRows] = await pool.query(
+        'SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?',
+        [wgIds, orgId]
+      );
+      for (const w of wgRows) wgMap[w.id] = safeString(w.name);
+    }
+
     res.json({
       status: 'success',
       submission: {
@@ -555,21 +645,59 @@ router.post('/getAuditProgress', async (req, res) => {
         createdAt: submission.created_at,
         updatedAt: submission.updated_at
       },
-      steps: steps.map((s) => ({
-        id: safeString(s.id),
-        sortOrder: s.sort_order,
-        approverType: safeString(s.approver_type),
-        approverHrId: safeString(s.approver_hr_id),
-        approverName: hrMap[s.approver_hr_id] || '未指定',
-        approverIdentityId: safeString(s.approver_identity_id),
-        actionType: safeString(s.action_type),
-        status: safeString(s.status),
-        comment: safeString(s.comment),
-        rejectionReason: safeString(s.rejection_reason),
-        round: s.round,
-        processedAt: s.processed_at,
-        stepConditionsJson: s.step_conditions_json || null
-      })),
+      steps: steps.map((s) => {
+        const condDisplay = buildStepConditionsDisplay(
+          s.step_conditions_json,
+          { hrMap, identityMap, deptMap, wgMap }
+        );
+        let legacyApproverDesc = '';
+        const identName = identityMap[s.approver_identity_id] || '';
+        const scopeType = (s.scope_type || '').trim();
+        if (s.approver_type === 'specific_person') {
+          legacyApproverDesc = '由 ' + (hrMap[s.approver_hr_id] || '未指定') + ' 审批';
+        } else if (identName) {
+          if (!scopeType || scopeType === 'all') {
+            legacyApproverDesc = '由 全体 ' + identName + ' 审批';
+          } else if (scopeType === 'same_department') {
+            legacyApproverDesc = '由 同部门 ' + identName + ' 审批';
+          } else if (scopeType === 'same_work_group') {
+            legacyApproverDesc = '由 同职能组 ' + identName + ' 审批';
+          } else if (scopeType === 'specific_department') {
+            const dn = deptMap[s.scope_department_id] || s.scope_department_id || '指定部门';
+            legacyApproverDesc = '由 ' + dn + ' ' + identName + ' 审批';
+          } else if (scopeType === 'specific_work_group') {
+            const dn = deptMap[s.scope_department_id] || '';
+            const wn = wgMap[s.scope_work_group_id] || '';
+            const loc = [dn, wn].filter(Boolean).join('·') || '指定职能组';
+            legacyApproverDesc = '由 ' + loc + ' ' + identName + ' 审批';
+          } else {
+            legacyApproverDesc = '由 ' + identName + ' 审批';
+          }
+        }
+        return {
+          id: safeString(s.id),
+          sortOrder: s.sort_order,
+          approverType: safeString(s.approver_type),
+          approverHrId: safeString(s.approver_hr_id),
+          approverName: hrMap[s.approver_hr_id] || '未指定',
+          approverIdentityId: safeString(s.approver_identity_id),
+          approverIdentityName: identityMap[s.approver_identity_id] || '',
+          scopeType: safeString(s.scope_type),
+          scopeDepartmentId: safeString(s.scope_department_id),
+          scopeDepartmentName: deptMap[s.scope_department_id] || '',
+          scopeWorkGroupId: safeString(s.scope_work_group_id),
+          scopeWorkGroupName: wgMap[s.scope_work_group_id] || '',
+          actionType: safeString(s.action_type),
+          status: safeString(s.status),
+          comment: safeString(s.comment),
+          rejectionReason: safeString(s.rejection_reason),
+          round: s.round,
+          processedAt: s.processed_at,
+          stepConditionsJson: s.step_conditions_json || null,
+          stepConditionsDisplay: condDisplay.displayParts,
+          approverDesc: condDisplay.approverDesc || legacyApproverDesc || '由未指定审批人审批'
+        };
+      }),
       files: files.map((f) => ({
         id: safeString(f.id),
         fileName: safeString(f.file_name),

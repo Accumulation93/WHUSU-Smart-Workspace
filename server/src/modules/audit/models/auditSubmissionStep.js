@@ -29,8 +29,66 @@ async function getCurrentStep(submissionId, currentStepIndex) {
 }
 
 /**
+ * Get template step conditions for fallback matching.
+ * Used when a submission step has no step_conditions_json (legacy submission)
+ * or the conditions failed to parse.
+ * @param {string} templateStepId
+ * @returns {Array|null} parsed conditions array or null
+ */
+async function getTemplateStepConditions(templateStepId) {
+  const orgId = await getCurrentOrgId();
+  const [condRows] = await pool.query(
+    'SELECT * FROM audit_flow_template_step_conditions WHERE template_step_id = ? AND org_id = ? ORDER BY sort_order',
+    [templateStepId, orgId]
+  );
+  if (!condRows.length) return null;
+  return condRows.map(c => ({
+    conditionType: c.condition_type,
+    personHrIds: c.person_hr_ids,
+    departmentScope: c.department_scope,
+    specificDepartmentId: c.specific_department_id,
+    workGroupScope: c.work_group_scope,
+    specificWorkGroupId: c.specific_work_group_id,
+    identityScope: c.identity_scope,
+    specificIdentityId: c.specific_identity_id
+  }));
+}
+
+/**
+ * Batch-load template step conditions for multiple template_step_ids.
+ * Returns a map: template_step_id → conditions array.
+ */
+async function _batchLoadTemplateConditions(templateStepIds) {
+  const orgId = await getCurrentOrgId();
+  const map = {};
+  if (!templateStepIds.length) return map;
+
+  const [tplCondRows] = await pool.query(
+    `SELECT * FROM audit_flow_template_step_conditions
+     WHERE template_step_id IN (?) AND org_id = ?
+     ORDER BY template_step_id, sort_order`,
+    [templateStepIds, orgId]
+  );
+  for (const tc of tplCondRows) {
+    if (!map[tc.template_step_id]) map[tc.template_step_id] = [];
+    map[tc.template_step_id].push({
+      conditionType: tc.condition_type,
+      personHrIds: tc.person_hr_ids,
+      departmentScope: tc.department_scope,
+      specificDepartmentId: tc.specific_department_id,
+      workGroupScope: tc.work_group_scope,
+      specificWorkGroupId: tc.specific_work_group_id,
+      identityScope: tc.identity_scope,
+      specificIdentityId: tc.specific_identity_id
+    });
+  }
+  return map;
+}
+
+/**
  * Get pending steps that the given approver can approve.
  * Supports both legacy flat fields and new step_conditions_json multi-condition OR logic.
+ * Also falls back to template step conditions for legacy submissions.
  */
 async function getPendingByApprover(hrId) {
   const orgId = await getCurrentOrgId();
@@ -80,6 +138,10 @@ async function getPendingByApprover(hrId) {
     for (const s of subRows) submitterMap[s.id] = s;
   }
 
+  // Batch-load template step conditions for fallback matching
+  const tplStepIds = [...new Set(identityRows.map((r) => r.template_step_id).filter(Boolean))];
+  const templateConditionMap = await _batchLoadTemplateConditions(tplStepIds);
+
   for (const row of identityRows) {
     if (seenIds.has(row.id)) continue;
 
@@ -100,7 +162,19 @@ async function getPendingByApprover(hrId) {
           seenIds.add(row.id);
           continue;
         }
-      } catch (_) { /* fall through to legacy check */ }
+      } catch (_) { /* fall through to fallback check */ }
+    }
+
+    // Fallback: if submission step has no conditions or they failed to match,
+    // try template step conditions (e.g., legacy submissions or steps created
+    // before conditions were properly serialized)
+    if (row.template_step_id && templateConditionMap[row.template_step_id]) {
+      const tplConds = templateConditionMap[row.template_step_id];
+      if (matchesAnyCondition(tplConds, approver, submitter)) {
+        rows.push(row);
+        seenIds.add(row.id);
+        continue;
+      }
     }
 
     // Legacy check: approver_type='identity' with approver_identity_id match
@@ -271,5 +345,6 @@ async function getMaxRound(submissionId, sortOrder) {
 
 module.exports = {
   getBySubmissionId, getById, getCurrentStep, getPendingByApprover, create, updateStatus, getMaxRound,
+  getTemplateStepConditions,
   matchesScope, matchesAnyCondition, matchesIdentityScopeCondition
 };

@@ -1821,6 +1821,10 @@ scroll-view {
 .flow-step-title {
   font-size: 25rpx; font-weight: 700; color: #0f172a; line-height: 1.4;
 }
+.flow-step-approver {
+  font-size: 22rpx; font-weight: 500; color: #475569; line-height: 1.45;
+  margin-top: 2rpx;
+}
 .flow-step-meta {
   font-size: 21rpx; color: #64748b; line-height: 1.5; margin-top: 2rpx;
 }
@@ -1926,4 +1930,21 @@ scroll-view {
 .flow-action-danger {
   background: linear-gradient(135deg, rgba(254,242,242,0.92) 0%, rgba(254,226,226,0.80) 100%);
   color: #dc2626; border-color: rgba(252,165,165,0.52);
+}
+
+/* ── Remaining steps separator ── */
+.flow-separator {
+  display: flex; align-items: center; gap: 12rpx;
+  padding: 8rpx 0; margin-bottom: 4rpx;
+}
+.flow-separator-dash {
+  flex: 1; height: 0;
+  border-top: 2rpx dashed rgba(148,163,184,0.35);
+}
+.flow-separator-text {
+  flex-shrink: 0; font-size: 19rpx; font-weight: 600; color: #94a3b8;
+  padding: 4rpx 18rpx; border-radius: 999rpx;
+  background: rgba(241,245,249,0.55);
+  border: 1rpx solid rgba(226,232,240,0.5);
+  letter-spacing: 0.5rpx;
 }

@@ -1240,6 +1240,40 @@ module.exports = Behavior({
 
             for (const s of roundSteps) {
               let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+
+              // ── Build approver description ──
+              // Use server-provided pre-built description when available
+              let approverDesc = s.approverDesc || '';
+              if (!approverDesc) {
+                // Legacy fallback for old clients or incomplete data
+                if (s.approverType === 'specific_person' || s.approverName) {
+                  approverDesc = '由 ' + (s.approverName || '未指定') + ' 审批';
+                } else {
+                  const identName = s.approverIdentityName || '未指定身份';
+                  const scopeType = s.scopeType || 'all';
+                  if (scopeType === 'all' || !scopeType) {
+                    approverDesc = '由 全体 ' + identName + ' 审批';
+                  } else if (scopeType === 'same_department') {
+                    approverDesc = '由 同部门 ' + identName + ' 审批';
+                  } else if (scopeType === 'same_work_group') {
+                    approverDesc = '由 同职能组 ' + identName + ' 审批';
+                  } else if (scopeType === 'specific_department') {
+                    const deptName = s.scopeDepartmentName || s.scopeDepartmentId || '指定部门';
+                    approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
+                  } else if (scopeType === 'specific_work_group') {
+                    const deptName = s.scopeDepartmentName || '';
+                    const wgName = s.scopeWorkGroupName || '';
+                    const location = [deptName, wgName].filter(Boolean).join('·') || '指定职能组';
+                    approverDesc = '由 ' + location + ' ' + identName + ' 审批';
+                  } else {
+                    approverDesc = '由 ' + identName + ' 审批';
+                  }
+                }
+              }
+
+              const actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+              const actionLabel = actionMap[s.actionType] || s.actionType || '仅通过';
+
               if (s.status === 'rejected') {
                 flowNodeClass = 'flow-node-rejected'; flowDotClass = 'flow-dot-rejected';
                 flowIcon = 'cross'; flowStatusLabel = '✗ 已驳回'; flowTagClass = 'flow-tag-rejected';
@@ -1266,6 +1300,7 @@ module.exports = Behavior({
                 _key: 'step_' + s.id,
                 type: 'step', ...s,
                 flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass,
+                approverDesc, actionLabel,
                 processedAt: s.processed_at ? formatAuditTime(s.processed_at) : ''
               });
             }
