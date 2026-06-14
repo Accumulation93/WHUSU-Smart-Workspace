@@ -39,7 +39,7 @@
       <view class="section-title">审批步骤 ({{adHocSteps.length}}步)</view>
       <view class="ad-hoc-step-item" wx:for="{{adHocSteps}}" wx:key="index">
         <view class="ad-hoc-step-main">
-          <view class="ad-hoc-step-title">第{{index + 1}}步：{{item.approverType === 'specific_person' ? item.approverHrName : (item.approverIdentityName + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? item.scopeDepartmentName : (item.scopeType === 'specific_work_group' ? item.scopeDepartmentName + '·' + item.scopeWorkGroupName : '全体')))) + '）')}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+          <view class="ad-hoc-step-title">第{{index + 1}}步：{{item.approverType === 'specific_person' ? (item.approverHrName || '未指定人员') : (item.approverIdentityName || '未指定身份') + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || '指定部门') : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : '全体')))) + '）'}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
           <view class="ad-hoc-step-desc">{{item.approverType === 'identity' ? '按身份审批' : '指定人员审批'}}</view>
         </view>
         <view class="list-actions"><text class="audit-link-btn audit-link-danger" data-index="{{index}}" bindtap="removeAdHocStep">移除</text></view>
@@ -62,9 +62,9 @@
       <view class="section-desc" style="font-size:21rpx;color:#94a3b8;margin-bottom:12rpx;">默认由模板设定的人员审批，可指定具体人员覆盖</view>
       <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
         <view class="tpl-step-preview-main">
-          <view class="tpl-step-preview-num">第{{item.sortOrder}}步</view>
-          <view class="tpl-step-preview-desc">{{item.approverDesc}}</view>
-          <view class="tpl-step-preview-action">{{item.actionLabel}}</view>
+          <view class="tpl-step-preview-num">第{{item.sortOrder || (index + 1)}}步</view>
+          <view class="tpl-step-preview-desc">{{item.approverDesc || '由未指定审批人审批'}}</view>
+          <view class="tpl-step-preview-action">{{item.actionLabel || '审批'}}</view>
         </view>
         <view class="tpl-step-preview-mode">
           <block wx:for="{{templateStepOverrides}}" wx:for-item="ovr" wx:key="stepIndex">
@@ -259,7 +259,7 @@
         <view style="margin-top:16rpx;padding:16rpx 18rpx;border-radius:16rpx;font-size:23rpx;line-height:1.6;color:#64748b;background:rgba(248,251,255,0.7);border:1rpx solid rgba(226,232,240,0.45);">
           <block wx:if="{{submission.status === 'draft'}}">📝 草稿 — 尚未提交，完善信息后点击提交即可发起审批。</block>
           <block wx:elif="{{submission.status === 'pending'}}">⏳ 待提交 — 审核尚未进入审批流程，点击下方「重新提交」启动。</block>
-          <block wx:elif="{{submission.status === 'in_progress'}}">🔄 审核中 — 当前第{{submission.currentStepIndex}}步正在等待审批人处理。</block>
+          <block wx:elif="{{submission.status === 'in_progress'}}">🔄 审核中 — 当前第{{submission.currentStepIndex || 1}}步正在等待审批人处理。</block>
           <block wx:elif="{{submission.status === 'rejected'}}">❌ 已驳回 — 第{{submission.previousRejectStepIndex || '?'}}步审批人驳回了此审核，修改后可重新提交。</block>
           <block wx:elif="{{submission.status === 'approved'}}">✅ 已完成 — 所有审批步骤均已通过。</block>
           <block wx:elif="{{submission.status === 'withdrawn'}}">↩️ 已撤回 — 您主动撤回了此审核，可点击下方「重新提交」重新发起。</block>
@@ -314,8 +314,10 @@
                 <view class="flow-connector"></view>
               </view>
               <view class="flow-info">
-                <view class="flow-step-label">第{{node.sortOrder}}步 · {{node.actionLabel}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
-                <view class="flow-step-approver">{{node.approverDesc}}</view>
+                <view class="flow-step-label">第{{node.sortOrder || '?'}}步 · {{node.actionLabel || '审批'}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
+                <view class="flow-step-approver">{{node.approverDesc || '由未指定审批人审批'}}</view>
+                <!-- Show individual condition lines when multiple conditions exist -->
+                <view class="flow-step-condition" wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" wx:if="{{node.conditionsDisplay.length > 1}}" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">{{condLine}}</view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
                   {{node.approverName}} · {{node.processedAt || ''}}
@@ -417,7 +419,7 @@
           <view class="section-title">审批步骤 ({{editSteps.length}}步)</view>
           <view class="ad-hoc-step-item" wx:for="{{editSteps}}" wx:key="index">
             <view class="ad-hoc-step-main">
-              <view class="ad-hoc-step-title">第{{index + 1}}步：{{item.approverType === 'specific_person' ? item.approverHrName : (item.approverIdentityName + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? item.scopeDepartmentName : (item.scopeType === 'specific_work_group' ? item.scopeDepartmentName + '·' + item.scopeWorkGroupName : '全体')))) + '）')}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+              <view class="ad-hoc-step-title">第{{index + 1}}步：{{item.approverType === 'specific_person' ? (item.approverHrName || '未指定人员') : (item.approverIdentityName || '未指定身份') + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || '指定部门') : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : '全体')))) + '）'}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
             </view>
             <view class="list-actions"><text class="audit-link-btn audit-link-danger" data-index="{{index}}" bindtap="removeEditStep">移除</text></view>
           </view>

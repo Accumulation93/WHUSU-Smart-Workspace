@@ -122,6 +122,33 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请至少添加一个审核步骤' });
     }
 
+    // Validate each step has at least one valid condition with proper IDs
+    for (let vi = 0; vi < steps.length; vi++) {
+      const vstep = steps[vi];
+      const vconditions = Array.isArray(vstep.conditions) ? vstep.conditions : [];
+      if (!vconditions.length && !(vstep.approverType || vstep.approverIdentityId || vstep.approverHrId)) {
+        return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步至少需要一个审批条件' });
+      }
+      for (let vj = 0; vj < vconditions.length; vj++) {
+        const vc = vconditions[vj];
+        if (vc.conditionType === 'person') {
+          if (!vc.personHrIds || !vc.personHrIds.trim()) {
+            return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步条件' + (vj + 1) + '：指定人员不能为空' });
+          }
+        } else {
+          if (vc.departmentScope === 'specific' && (!vc.specificDepartmentId || !vc.specificDepartmentId.trim())) {
+            return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步条件' + (vj + 1) + '：指定了部门范围但未选择具体部门' });
+          }
+          if (vc.workGroupScope === 'specific' && (!vc.specificWorkGroupId || !vc.specificWorkGroupId.trim())) {
+            return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步条件' + (vj + 1) + '：指定了职能组范围但未选择具体职能组' });
+          }
+          if (vc.identityScope === 'specific' && (!vc.specificIdentityId || !vc.specificIdentityId.trim())) {
+            return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步条件' + (vj + 1) + '：指定了身份但未选择具体身份' });
+          }
+        }
+      }
+    }
+
     // Build starter conditions JSON if provided
     let starterConditionsJson = null;
     if (starterConditions.length) {

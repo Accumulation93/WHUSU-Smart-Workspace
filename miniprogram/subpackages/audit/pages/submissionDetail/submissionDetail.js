@@ -917,28 +917,39 @@ Page({
             }
 
             var approverDesc = step.approverDesc || '';
-            if (!approverDesc) {
-              if (step.approverType === 'specific_person' || step.approverName) {
-                approverDesc = '由 ' + (step.approverName || '未指定') + ' 审批';
-              } else {
-                var identName = step.approverIdentityName || '未指定身份';
-                var scopeType = step.scopeType || 'all';
-                if (scopeType === 'all' || !scopeType) {
-                  approverDesc = '由 全体 ' + identName + ' 审批';
-                } else if (scopeType === 'same_department') {
-                  approverDesc = '由 同部门 ' + identName + ' 审批';
-                } else if (scopeType === 'same_work_group') {
-                  approverDesc = '由 同职能组 ' + identName + ' 审批';
-                } else if (scopeType === 'specific_department') {
-                  var deptName = step.scopeDepartmentName || step.scopeDepartmentId || '指定部门';
-                  approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
-                } else if (scopeType === 'specific_work_group') {
-                  var deptName2 = step.scopeDepartmentName || '';
-                  var wgName = step.scopeWorkGroupName || '';
-                  var location = [deptName2, wgName].filter(Boolean).join('·') || '指定职能组';
-                  approverDesc = '由 ' + location + ' ' + identName + ' 审批';
+            var conditionsDisplay = step.stepConditionsDisplay || [];
+
+            // If the server approverDesc is empty or looks incomplete (no actual names),
+            // try to build a better description from individual fields or conditions display
+            if (!approverDesc || approverDesc.indexOf('未指定') >= 0) {
+              // Try conditions display first (multi-condition, more detailed)
+              if (conditionsDisplay.length) {
+                approverDesc = conditionsDisplay.join(' 或 ');
+              }
+              // If still empty, fall back to individual fields
+              if (!approverDesc || approverDesc.indexOf('未指定') >= 0) {
+                if (step.approverType === 'specific_person' || (step.approverName && step.approverName !== '未指定')) {
+                  approverDesc = '由 ' + (step.approverName || '未指定') + ' 审批';
                 } else {
-                  approverDesc = '由 ' + identName + ' 审批';
+                  var identName = step.approverIdentityName || '未指定身份';
+                  var scopeType = step.scopeType || 'all';
+                  if (scopeType === 'all' || !scopeType) {
+                    approverDesc = '由 全体 ' + identName + ' 审批';
+                  } else if (scopeType === 'same_department') {
+                    approverDesc = '由 同部门 ' + identName + ' 审批';
+                  } else if (scopeType === 'same_work_group') {
+                    approverDesc = '由 同职能组 ' + identName + ' 审批';
+                  } else if (scopeType === 'specific_department') {
+                    var deptName = step.scopeDepartmentName || step.scopeDepartmentId || '指定部门';
+                    approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
+                  } else if (scopeType === 'specific_work_group') {
+                    var deptName2 = step.scopeDepartmentName || '';
+                    var wgName = step.scopeWorkGroupName || '';
+                    var location = [deptName2, wgName].filter(Boolean).join('·') || '指定职能组';
+                    approverDesc = '由 ' + location + ' ' + identName + ' 审批';
+                  } else {
+                    approverDesc = '由 ' + identName + ' 审批';
+                  }
                 }
               }
             }
@@ -1023,7 +1034,8 @@ Page({
               flowStatusLabel: flowStatusLabel,
               flowTagClass: flowTagClass,
               approverDesc: approverDesc,
-              actionLabel: actionLabel
+              actionLabel: actionLabel,
+              conditionsDisplay: conditionsDisplay
             });
           }
 
