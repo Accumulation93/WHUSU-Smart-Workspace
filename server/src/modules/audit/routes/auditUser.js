@@ -1190,6 +1190,7 @@ router.post('/approveStep', async (req, res) => {
       const imageData = safeString(sigData.imageData);
       const positionX = parseFloat(sigData.positionX) || 0;
       const positionY = parseFloat(sigData.positionY) || 0;
+      const page = parseInt(sigData.page) || 1;
 
       // Get document hash at signing time
       let documentHash = '';
@@ -1213,6 +1214,7 @@ router.post('/approveStep', async (req, res) => {
         signerHrId: hrId,
         positionX,
         positionY,
+        page,
         round: currentRound,
         previousSignatureHash: previousHash,
         documentHash,
@@ -1227,6 +1229,7 @@ router.post('/approveStep', async (req, res) => {
         imageData,
         positionX,
         positionY,
+        page,
         signerHrId: hrId,
         round: currentRound,
         previousSignatureHash: previousHash,

@@ -18,13 +18,8 @@ Component({
   },
 
   data: {
-    _canvas: null,
-    _ctx: null,
-    _drawing: false,
-    _points: [],
-    _canvasWidth: 0,
-    _canvasHeight: 0,
-    _dpr: 1
+    // Canvas dimensions for WXML rendering (setData-safe)
+    canvasReady: false
   },
 
   lifetimes: {
@@ -35,6 +30,7 @@ Component({
 
   methods: {
     async _initCanvas() {
+      const that = this;
       const query = this.createSelectorQuery();
       query.select('#sigCanvas')
         .fields({ node: true, size: true })
@@ -51,20 +47,29 @@ Component({
           canvas.height = height * dpr;
           ctx.scale(dpr, dpr);
 
-          this.setData({ _canvas: canvas, _ctx: ctx, _canvasWidth: width, _canvasHeight: height, _dpr: dpr });
+          // Store as INSTANCE properties (NOT via setData — canvas/ctx are complex objects)
+          that._canvas = canvas;
+          that._ctx = ctx;
+          that._canvasWidth = width;
+          that._canvasHeight = height;
+          that._dpr = dpr;
+
+          that.setData({ canvasReady: true });
 
           // White background
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, width, height);
 
           // Draw initial image if provided
-          if (this.properties.initialImage) {
-            this._loadInitialImage(ctx, width, height, dpr, canvas);
+          if (that.properties.initialImage) {
+            that._loadInitialImage(ctx, width, height);
           }
         });
     },
 
-    _loadInitialImage(ctx, width, height, dpr, canvas) {
+    _loadInitialImage(ctx, width, height) {
+      const canvas = this._canvas;
+      if (!canvas) return;
       const img = canvas.createImage();
       img.onload = () => {
         ctx.drawImage(img, 0, 0, width, height);
@@ -73,15 +78,14 @@ Component({
     },
 
     onTouchStart(e) {
-      if (!this.data._ctx) return;
+      if (!this._ctx) return;
       const touch = e.touches[0];
       const x = touch.x;
       const y = touch.y;
-      this.data._drawing = true;
-      this.data._points = [{ x, y }];
+      this._drawing = true;
+      this._points = [{ x, y }];
 
-      // Start a new path
-      const ctx = this.data._ctx;
+      const ctx = this._ctx;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.strokeStyle = this.properties.penColor;
@@ -91,35 +95,34 @@ Component({
     },
 
     onTouchMove(e) {
-      if (!this.data._drawing || !this.data._ctx) return;
+      if (!this._drawing || !this._ctx) return;
       const touch = e.touches[0];
       const x = touch.x;
       const y = touch.y;
 
-      const ctx = this.data._ctx;
+      const ctx = this._ctx;
       ctx.lineTo(x, y);
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(x, y);
 
-      this.data._points.push({ x, y });
+      this._points.push({ x, y });
     },
 
     onTouchEnd() {
-      this.data._drawing = false;
+      this._drawing = false;
     },
 
     onClear() {
-      if (!this.data._ctx) return;
-      const ctx = this.data._ctx;
+      if (!this._ctx) return;
+      const ctx = this._ctx;
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, this.data._canvasWidth, this.data._canvasHeight);
+      ctx.fillRect(0, 0, this._canvasWidth, this._canvasHeight);
     },
 
     onConfirm() {
-      if (!this.data._canvas) return;
-      // Export as base64 PNG
-      const canvas = this.data._canvas;
+      if (!this._canvas) return;
+      const canvas = this._canvas;
       canvas.toDataURL({
         type: 'image/png',
         success: (res) => {
@@ -136,11 +139,11 @@ Component({
      */
     toDataURL() {
       return new Promise((resolve, reject) => {
-        if (!this.data._canvas) {
+        if (!this._canvas) {
           reject(new Error('Canvas not initialized'));
           return;
         }
-        this.data._canvas.toDataURL({
+        this._canvas.toDataURL({
           type: 'image/png',
           success: (res) => resolve(res.data),
           fail: reject

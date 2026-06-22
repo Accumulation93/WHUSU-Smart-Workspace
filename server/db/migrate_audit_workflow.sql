@@ -292,3 +292,22 @@ ALTER TABLE audit_flow_template_step_conditions
   MODIFY COLUMN specific_department_id VARCHAR(1000) DEFAULT NULL,
   MODIFY COLUMN specific_work_group_id VARCHAR(1000) DEFAULT NULL,
   MODIFY COLUMN specific_identity_id VARCHAR(1000) DEFAULT NULL;
+
+-- ============================================================
+-- Bonus: Add page column to audit_submission_signatures for PDF page-level positioning
+-- ============================================================
+SET @page_col_exists = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'audit_submission_signatures'
+    AND COLUMN_NAME = 'page'
+);
+
+SET @add_page_col_sql = IF(@page_col_exists = 0,
+  'ALTER TABLE audit_submission_signatures ADD COLUMN page INT NOT NULL DEFAULT 1 COMMENT ''Page number (for PDF files)'' AFTER position_y',
+  'SELECT ''Column page already exists in audit_submission_signatures, skipping'' AS info'
+);
+
+PREPARE add_page_col_stmt FROM @add_page_col_sql;
+EXECUTE add_page_col_stmt;
+DEALLOCATE PREPARE add_page_col_stmt;

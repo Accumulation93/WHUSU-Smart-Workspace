@@ -286,6 +286,9 @@
             <view style="display:flex;align-items:center;justify-content:space-between;">
               <view style="font-size:22rpx;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 {{f.fileName}}</view>
               <view style="display:flex;gap:4rpx;flex-shrink:0;margin-left:8rpx;">
+                <text style="font-size:20rpx;color:#64748b;padding:4rpx 10rpx;border:1rpx solid #94a3b8;border-radius:20rpx;"
+                      data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
+                      bindtap="previewFile">预览</text>
                 <text wx:if="{{activeApprovalStep.actionType === 'sign' || activeApprovalStep.actionType === 'both'}}"
                       style="font-size:20rpx;color:#3b82f6;padding:4rpx 10rpx;border:1rpx solid #3b82f6;border-radius:20rpx;"
                       data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
@@ -303,7 +306,7 @@
               <view style="display:flex;align-items:center;gap:6rpx;">
                 <image wx:if="{{sig.imageData}}" src="{{sig.imageData}}" mode="aspectFit" style="width:36rpx;height:36rpx;border-radius:4rpx;border:1rpx solid #cbd5e1;" />
                 <text style="font-size:21rpx;color:#475569;">{{sig.signatureType === 'stamp' ? (sig.stampName || '印章') : '签名'}}</text>
-                <text style="font-size:19rpx;color:#94a3b8;">({{sig.positionX ? Math.round(sig.positionX * 100) : 50}}%, {{sig.positionY ? Math.round(sig.positionY * 100) : 50}}%)</text>
+                <text style="font-size:19rpx;color:#94a3b8;">({{sig.positionX ? Math.round(sig.positionX * 100) : 50}}%, {{sig.positionY ? Math.round(sig.positionY * 100) : 50}}%{{sig.page && sig.page > 1 ? ', 第' + sig.page + '页' : ''}})</text>
               </view>
               <view style="display:flex;gap:8rpx;">
                 <text style="font-size:19rpx;color:#3b82f6;" data-sig-idx="{{index}}" bindtap="openPlacement">调整位置</text>
@@ -712,35 +715,75 @@
     </view>
   </view>
 
-  <!-- ═══ Placement Popup (positioning sig/stamp on file) ═══ -->
+  <!-- ═══ Placement / File Preview Popup (positioning sig/stamp on file) ═══ -->
   <view class="popup-mask" wx:if="{{placementVisible}}" bindtap="closePlacement">
     <view class="popup-card placement-popup" catchtap="noop">
       <view class="popup-header">
-        <view class="popup-title">调整位置 - {{placementFileName}}</view>
+        <view class="popup-title">预览 &amp; 定位 - {{placementFileName}}</view>
         <text class="popup-close" bindtap="closePlacement">关闭</text>
       </view>
-      <view style="padding:8rpx 16rpx;font-size:21rpx;color:#64748b;">
+
+      <!-- Hint -->
+      <view style="padding:8rpx 16rpx;font-size:20rpx;color:#64748b;">
         点击文件区域放置{{placementType === 'stamp' ? '印章' : '签名'}}，可多次点击调整位置
+        <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}" style="color:#3b82f6;">
+          · 当前：第{{placementCurrentPage}}页
+        </text>
       </view>
+
+      <!-- Page selector for PDFs -->
+      <view wx:if="{{placementFileMime === 'application/pdf' && placementTotalPages > 1}}"
+            style="display:flex;align-items:center;justify-content:center;gap:16rpx;padding:8rpx 16rpx;">
+        <text style="font-size:22rpx;color:#3b82f6;padding:6rpx 16rpx;border:1rpx solid #3b82f6;border-radius:20rpx;"
+              data-dir="prev" bindtap="onPlacementPageChange"
+              wx:if="{{placementCurrentPage > 1}}">◀ 上一页</text>
+        <text style="font-size:23rpx;color:#475569;font-weight:600;">第 {{placementCurrentPage}} / {{placementTotalPages}} 页</text>
+        <text style="font-size:22rpx;color:#3b82f6;padding:6rpx 16rpx;border:1rpx solid #3b82f6;border-radius:20rpx;"
+              data-dir="next" bindtap="onPlacementPageChange"
+              wx:if="{{placementCurrentPage < placementTotalPages}}">下一页 ▶</text>
+      </view>
+
       <!-- Placement canvas -->
-      <view id="placementCanvas" style="position:relative;width:100%;height:700rpx;background:#f8fafc;border:2rpx dashed #cbd5e1;border-radius:8rpx;overflow:hidden;margin:0 16rpx;box-sizing:border-box;"
+      <view id="placementCanvas"
+            style="position:relative;width:100%;height:700rpx;background:#f8fafc;border:2rpx dashed #cbd5e1;border-radius:8rpx;overflow:hidden;margin:0 16rpx;box-sizing:border-box;"
             bindtap="onPlacementTap">
-        <!-- File preview (image) or placeholder (PDF) -->
-        <image wx:if="{{placementFileImage}}" src="{{placementFileImage}}" mode="widthFix"
-               style="width:100%;pointer-events:none;" />
-        <view wx:else style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:25rpx;">
-          📄 {{placementFileName}}（点击区域放置）
+        <!-- Loading indicator -->
+        <view wx:if="{{placementLoading}}"
+              style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:23rpx;">
+          ⏳ 加载文件预览中...
+        </view>
+        <!-- File preview (image or rendered PDF page) -->
+        <block wx:elif="{{placementFileImage}}">
+          <image src="{{placementFileImage}}" mode="widthFix"
+                 style="width:100%;pointer-events:none;" />
+        </block>
+        <!-- Fallback: no preview available -->
+        <view wx:else style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:25rpx;">
+          <view style="font-size:48rpx;margin-bottom:12rpx;">📄</view>
+          <view>{{placementFileName}}</view>
+          <view style="font-size:20rpx;margin-top:8rpx;">
+            {{placementFileMime === 'application/pdf' ? 'PDF文件 · 点击区域放置签名 · 页面' + placementCurrentPage : '点击区域放置' + (placementType === 'stamp' ? '印章' : '签名')}}
+          </view>
         </view>
         <!-- Overlaid signatures/stamps -->
         <block wx:for="{{placementItems}}" wx:key="dispIdx" wx:for-item="item">
-          <image src="{{item.imageData}}"
-                 mode="aspectFit"
-                 style="position:absolute;left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;width:80rpx;height:80rpx;transform:translate(-50%,-50%);pointer-events:none;border:{{placementActiveIdx === index ? '2rpx solid #3b82f6' : 'none'}};border-radius:4rpx;" />
+          <block wx:if="{{!placementFileMime || placementFileMime.indexOf('pdf') < 0 || item.page === placementCurrentPage}}">
+            <image src="{{item.imageData}}"
+                   mode="aspectFit"
+                   style="position:absolute;left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;width:80rpx;height:80rpx;transform:translate(-50%,-50%);pointer-events:none;border:{{placementActiveIdx === item.dispIdx ? '2rpx solid #3b82f6' : 'none'}};border-radius:4rpx;opacity:0.85;" />
+          </block>
         </block>
         <!-- Crosshair showing current position -->
         <view wx:if="{{placementPreviewX >= 0}}" style="position:absolute;left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;width:4rpx;height:40rpx;background:#ef4444;transform:translate(-50%,-50%);pointer-events:none;"></view>
         <view wx:if="{{placementPreviewX >= 0}}" style="position:absolute;left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;width:40rpx;height:4rpx;background:#ef4444;transform:translate(-50%,-50%);pointer-events:none;"></view>
       </view>
+
+      <!-- Position info -->
+      <view wx:if="{{placementPreviewX >= 0}}" style="padding:8rpx 16rpx;font-size:20rpx;color:#64748b;text-align:center;">
+        位置：{{(placementPreviewX * 100).toFixed(1)}}%, {{(placementPreviewY * 100).toFixed(1)}}%
+        <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}"> · 第{{placementCurrentPage}}页</text>
+      </view>
+
       <view style="padding:16rpx;display:flex;gap:12rpx;">
         <button class="secondary-btn" style="flex:1;" bindtap="closePlacement">取消</button>
         <button class="primary-btn" style="flex:1;" bindtap="confirmPlacement">保存位置</button>
@@ -792,7 +835,69 @@
     </view>
   </view>
 
-  <!-- Signature Pad Popup -->
+  <!-- ═══ Signature Source Picker Popup (saved signatures + new drawing) ═══ -->
+  <view class="popup-mask" wx:if="{{sigSourcePickerVisible}}" bindtap="closeSigSourcePicker">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">选择签名方式</view>
+        <text class="popup-close" bindtap="closeSigSourcePicker">关闭</text>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="detail-popup-form">
+          <view style="font-size:22rpx;color:#64748b;margin-bottom:12rpx;">{{sigSourceFileName}}</view>
+
+          <!-- Saved Signatures -->
+          <view wx:if="{{mySignatures.length}}" style="margin-bottom:16rpx;">
+            <view style="font-size:24rpx;font-weight:600;color:#334155;margin-bottom:8rpx;">我的签名</view>
+            <view wx:for="{{mySignatures}}" wx:key="id"
+                  style="display:flex;align-items:center;gap:16rpx;padding:14rpx 16rpx;margin-bottom:8rpx;border:1rpx solid #e2e8f0;border-radius:12rpx;background:#fff;"
+                  data-sig-id="{{item.id}}" data-sig-image="{{item.imageData}}"
+                  bindtap="onSelectSavedSignature">
+              <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="aspectFit"
+                     style="width:80rpx;height:60rpx;border-radius:8rpx;border:1rpx solid #e2e8f0;background:#f8fafc;" />
+              <view wx:else style="width:80rpx;height:60rpx;border-radius:8rpx;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:30rpx;">✍️</view>
+              <view style="flex:1;">
+                <view style="font-size:25rpx;color:#334155;">{{item.name}}</view>
+                <view wx:if="{{item.isDefault}}" style="font-size:20rpx;color:#3b82f6;">默认签名</view>
+              </view>
+              <text style="font-size:22rpx;color:#3b82f6;">使用</text>
+            </view>
+          </view>
+
+          <!-- No saved signatures -->
+          <view wx:if="{{!mySignatures.length}}" style="text-align:center;padding:20rpx;color:#94a3b8;font-size:23rpx;">
+            暂无已保存的签名
+          </view>
+
+          <!-- Divider -->
+          <view style="display:flex;align-items:center;gap:12rpx;margin:16rpx 0;">
+            <view style="flex:1;height:1rpx;background:#e2e8f0;"></view>
+            <text style="font-size:21rpx;color:#94a3b8;">或</text>
+            <view style="flex:1;height:1rpx;background:#e2e8f0;"></view>
+          </view>
+
+          <!-- Draw new signature -->
+          <view style="margin-bottom:12rpx;">
+            <view style="font-size:24rpx;font-weight:600;color:#334155;margin-bottom:8rpx;">手写新签名</view>
+            <!-- Save option -->
+            <view style="display:flex;align-items:center;gap:8rpx;margin-bottom:8rpx;" bindtap="onSigSaveToggle">
+              <view style="width:36rpx;height:36rpx;border-radius:6rpx;border:2rpx solid {{sigSaveNew ? '#3b82f6' : '#cbd5e1'}};background:{{sigSaveNew ? '#3b82f6' : '#fff'}};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <text wx:if="{{sigSaveNew}}" style="color:#fff;font-size:22rpx;">✓</text>
+              </view>
+              <text style="font-size:23rpx;color:#475569;">保存此签名到我的签名库</text>
+            </view>
+            <view wx:if="{{sigSaveNew}}" style="margin-bottom:10rpx;">
+              <input style="width:100%;padding:12rpx;border:1rpx solid #d1d5db;border-radius:8rpx;font-size:23rpx;box-sizing:border-box;"
+                     placeholder="签名名称（可选）" value="{{sigSaveName}}" bindinput="onSigSaveNameInput" />
+            </view>
+            <button class="primary-btn" style="width:100%;" bindtap="onOpenNewSignaturePad">✍️ 手写签名</button>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- Signature Pad Popup (with save-to-library controls) -->
   <view class="popup-mask" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad">
     <view class="popup-card" catchtap="noop">
       <view class="popup-header">

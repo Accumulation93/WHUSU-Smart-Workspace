@@ -31,19 +31,21 @@ function hashFile(buffer) {
  * @param {string} params.signerHrId - Signer's HR ID
  * @param {number} params.positionX - X position (fraction 0-1)
  * @param {number} params.positionY - Y position (fraction 0-1)
+ * @param {number} params.page - Page number (for PDF files, defaults to 1)
  * @param {number} params.round - Round number
  * @param {string|null} params.previousSignatureHash - Previous signature hash in chain
  * @param {string} params.documentHash - Document hash at signing time
  * @param {string} params.signedAt - ISO 8601 timestamp of signing
  * @returns {string} Hex-encoded SHA-256 hash
  */
-function computeSignatureHash({ id, stepId, signerHrId, positionX, positionY, round, previousSignatureHash, documentHash, signedAt }) {
+function computeSignatureHash({ id, stepId, signerHrId, positionX, positionY, page, round, previousSignatureHash, documentHash, signedAt }) {
   const canonical = [
     id,
     stepId,
     signerHrId,
     String(positionX),
     String(positionY),
+    String(page || 1),
     String(round),
     previousSignatureHash || '',
     documentHash,
@@ -117,6 +119,7 @@ function verifySignatureChain(signatures, currentFileHashes = {}) {
         signerHrId: current.signer_hr_id,
         positionX: parseFloat(current.position_x) || 0,
         positionY: parseFloat(current.position_y) || 0,
+        page: current.page || 1,
         round: current.round,
         previousSignatureHash: current.previous_signature_hash,
         documentHash: current.document_hash_at_signing,
@@ -180,6 +183,7 @@ function buildCanonicalString(sig) {
     sig.signer_hr_id,
     String(sig.position_x),
     String(sig.position_y),
+    String(sig.page || 1),
     String(sig.round),
     sig.previous_signature_hash || '',
     sig.document_hash_at_signing,

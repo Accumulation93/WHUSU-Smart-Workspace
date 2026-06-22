@@ -112,16 +112,28 @@ Page({
     stampPickFileId: '',
     stampPickFileName: '',
 
-    // Placement popup (positioning sig/stamp on file)
+    // Signature source picker (saved sigs + new drawing + save option)
+    sigSourcePickerVisible: false,
+    sigSourceFileId: '',
+    sigSourceFileName: '',
+    mySignatures: [],
+    sigSaveNew: false,
+    sigSaveName: '',
+
+    // Placement / File Preview popup (positioning sig/stamp on file)
     placementVisible: false,
     placementType: '',        // 'signature' or 'stamp'
     placementFileName: '',
-    placementFileImage: '',   // base64 image data for preview
+    placementFileImage: '',   // base64 image data for preview (with data URI prefix)
     placementItems: [],       // all sigs/stamps on the current file
     placementActiveIdx: -1,   // index of the item being repositioned
     placementPreviewX: -1,    // preview crosshair X (0-1)
     placementPreviewY: -1,    // preview crosshair Y (0-1)
     placementFileId: '',
+    placementFileMime: '',       // mime type of the file being previewed
+    placementTotalPages: 1,      // total pages (for PDFs)
+    placementCurrentPage: 1,     // current page being shown
+    placementLoading: false,     // loading page preview
 
     // User role flags
     userIsSubmitter: false,
@@ -1351,7 +1363,132 @@ Page({
     this.setData({ rejectionReason: e.detail.value });
   },
 
-  // Signature placement
+  // ═══════════════════════════════════════════════
+  // Signature Source Picker (saved signatures + new drawing)
+  // ═══════════════════════════════════════════════
+
+  // Open signature source picker for a specific file
+  addSignatureForFile(e) {
+    var fileId = e.currentTarget.dataset.fileId;
+    var fileName = e.currentTarget.dataset.fileName;
+    this.setData({
+      sigSourceFileId: fileId,
+      sigSourceFileName: fileName,
+      sigSourcePickerVisible: true,
+      sigSaveNew: false,
+      sigSaveName: ''
+    });
+    this.loadMySignatures();
+  },
+
+  closeSigSourcePicker() {
+    this.setData({ sigSourcePickerVisible: false });
+  },
+
+  // Load user's saved signatures
+  async loadMySignatures() {
+    try {
+      var res = await callFunction({ name: 'listMySignatures', data: {} });
+      if (res.status === 'success') {
+        this.setData({ mySignatures: res.signatures || [] });
+      }
+    } catch (e) {
+      console.error('[audit] loadMySignatures failed:', e);
+      this.setData({ mySignatures: [] });
+    }
+  },
+
+  // User selected a saved signature template
+  onSelectSavedSignature(e) {
+    var sigId = e.currentTarget.dataset.sigId;
+    var sigImage = e.currentTarget.dataset.sigImage;
+    var fileId = this.data.sigSourceFileId;
+    var sigs = [...this.data.pendingSignatures];
+    sigs.push({
+      _idx: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      fileId: fileId,
+      signatureType: 'signature',
+      stampName: '',
+      stampId: '',
+      imageData: sigImage,
+      positionX: 0.5,
+      positionY: 0.3,
+      page: 1
+    });
+    this.setData({
+      pendingSignatures: sigs,
+      sigSourcePickerVisible: false,
+      approvalWarning: ''
+    });
+    this.updateApprovalWarning();
+    showShortToast('已选择签名');
+  },
+
+  // User wants to draw a new signature — open signature pad from picker
+  onOpenNewSignaturePad() {
+    var fileId = this.data.sigSourceFileId;
+    this.setData({
+      currentSignatureFileId: fileId,
+      signaturePadVisible: true
+    });
+    // Keep sigSourcePickerVisible so we can return context
+  },
+
+  // Toggle save-new-signature checkbox
+  onSigSaveToggle() {
+    this.setData({ sigSaveNew: !this.data.sigSaveNew });
+  },
+
+  // Input for new signature name
+  onSigSaveNameInput(e) {
+    this.setData({ sigSaveName: e.detail.value });
+  },
+
+  // Signature drawing confirmed
+  onSignatureConfirm(e) {
+    var that = this;
+    var imageData = e.detail.imageData;
+    var fileId = this.data.sigPadFileId || this.data.currentSignatureFileId;
+
+    // If user wants to save this signature to library
+    if (this.data.sigSaveNew) {
+      var saveName = this.data.sigSaveName || ('签名 ' + new Date().toLocaleDateString());
+      callFunction({
+        name: 'saveSignature',
+        data: { id: '', name: saveName, imageData: imageData }
+      }).then(function(saveRes) {
+        if (saveRes.status === 'success') {
+          showShortToast('签名已保存到我的签名库');
+        }
+      }).catch(function() {
+        // Non-critical; signature still used for this approval
+      });
+    }
+
+    var sigs = [...this.data.pendingSignatures];
+    sigs.push({
+      _idx: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      fileId: fileId,
+      signatureType: 'signature',
+      stampName: '',
+      stampId: '',
+      imageData: imageData,
+      positionX: 0.5,
+      positionY: 0.3,
+      page: 1
+    });
+    this.setData({
+      pendingSignatures: sigs,
+      signaturePadVisible: false,
+      sigSourcePickerVisible: false,
+      sigSaveNew: false,
+      sigSaveName: '',
+      approvalWarning: ''
+    });
+    this.updateApprovalWarning();
+  },
+
+  // Legacy: open signature pad directly (used in old approval dialog)
   openSignaturePad(e) {
     const fileId = e.currentTarget.dataset.fileId;
     this.setData({
@@ -1362,28 +1499,6 @@ Page({
 
   closeSignaturePad() {
     this.setData({ signaturePadVisible: false });
-  },
-
-  onSignatureConfirm(e) {
-    var imageData = e.detail.imageData;
-    var fileId = this.data.sigPadFileId || this.data.currentSignatureFileId;
-    var sigs = [...this.data.pendingSignatures];
-    sigs.push({
-      _idx: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      fileId: fileId,
-      signatureType: 'signature',
-      stampName: '',
-      stampId: '',
-      imageData: imageData,
-      positionX: 0.5,
-      positionY: 0.3
-    });
-    this.setData({
-      pendingSignatures: sigs,
-      signaturePadVisible: false,
-      approvalWarning: ''
-    });
-    this.updateApprovalWarning();
   },
 
   removePendingSignature(e) {
@@ -1462,18 +1577,6 @@ Page({
   // Signature & Stamp Actions
   // ═══════════════════════════════════════════════
 
-  // Open signature pad for a specific file
-  addSignatureForFile(e) {
-    var fileId = e.currentTarget.dataset.fileId;
-    var fileName = e.currentTarget.dataset.fileName;
-    this.setData({
-      sigPadFileId: fileId,
-      sigPadFileName: fileName,
-      signaturePadVisible: true,
-      currentSignatureFileId: fileId
-    });
-  },
-
   // Open stamp picker for a specific file
   addStampForFile(e) {
     var fileId = e.currentTarget.dataset.fileId;
@@ -1517,7 +1620,8 @@ Page({
       stampId: stampId,
       imageData: stampImage,
       positionX: 0.5,
-      positionY: 0.3
+      positionY: 0.3,
+      page: 1
     });
     this.setData({
       pendingSignatures: sigs,
@@ -1538,7 +1642,7 @@ Page({
     this.updateApprovalWarning();
   },
 
-  // Open placement popup to adjust sig/stamp position
+  // Open placement popup to adjust sig/stamp position on file preview
   openPlacement(e) {
     var idx = parseInt(e.currentTarget.dataset.sigIdx);
     var sig = this.data.pendingSignatures[idx];
@@ -1547,6 +1651,7 @@ Page({
     var files = this.data.files || [];
     var file = files.find(function(f) { return f.id === fileId; });
     var fileName = file ? file.fileName : '未知文件';
+    var fileMime = file ? file.mimeType : '';
 
     // Collect all sigs/stamps on the same file
     var fileItems = [];
@@ -1558,28 +1663,98 @@ Page({
           imageData: s.imageData,
           positionX: s.positionX,
           positionY: s.positionY,
+          page: s.page || 1,
           signatureType: s.signatureType
         });
       }
     }
 
-    // Try to load file image for preview
-    this.loadFileForPlacement(fileId);
+    var currentPage = sig.page || 1;
 
     this.setData({
       placementVisible: true,
       placementType: sig.signatureType,
       placementFileName: fileName,
       placementFileId: fileId,
+      placementFileMime: fileMime,
       placementItems: fileItems,
       placementActiveIdx: idx,
       placementPreviewX: sig.positionX != null ? sig.positionX : -1,
       placementPreviewY: sig.positionY != null ? sig.positionY : -1,
-      placementFileImage: ''
+      placementCurrentPage: currentPage,
+      placementTotalPages: 1,
+      placementFileImage: '',
+      placementLoading: true
     });
+
+    // Load file preview for positioning
+    this.loadFilePreview(fileId, currentPage);
   },
 
-  // Load file image for placement preview
+  // Load file preview (image or PDF page) from server
+  async loadFilePreview(fileId, page) {
+    var that = this;
+    try {
+      var res = await callFunction({
+        name: 'getAuditFilePreview',
+        data: { fileId: fileId, page: page || 1 }
+      });
+      if (res.status === 'success') {
+        var updateData = {
+          placementTotalPages: res.totalPages || 1,
+          placementCurrentPage: res.page || 1,
+          placementFileMime: res.mimeType || that.data.placementFileMime,
+          placementLoading: false
+        };
+        if (res.data) {
+          updateData.placementFileImage = 'data:' + (res.previewMime || 'image/png') + ';base64,' + res.data;
+        } else if (res.fallback) {
+          // No preview available — show placeholder
+          updateData.placementFileImage = '';
+        }
+        that.setData(updateData);
+      } else {
+        that.setData({ placementLoading: false });
+      }
+    } catch (e) {
+      console.error('[audit] loadFilePreview failed:', e);
+      // Fall back to old method for images
+      try {
+        var fallbackRes = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
+        if (fallbackRes.status === 'success' && fallbackRes.mimeType && fallbackRes.mimeType.indexOf('image/') === 0) {
+          that.setData({
+            placementFileImage: 'data:' + fallbackRes.mimeType + ';base64,' + fallbackRes.data,
+            placementLoading: false
+          });
+        } else {
+          that.setData({ placementLoading: false });
+        }
+      } catch (_) {
+        that.setData({ placementLoading: false });
+      }
+    }
+  },
+
+  // Switch PDF page in placement preview
+  onPlacementPageChange(e) {
+    var direction = e.currentTarget.dataset.dir; // 'prev' or 'next'
+    var newPage = this.data.placementCurrentPage;
+    if (direction === 'prev') {
+      newPage = Math.max(1, newPage - 1);
+    } else {
+      newPage = Math.min(this.data.placementTotalPages, newPage + 1);
+    }
+    if (newPage !== this.data.placementCurrentPage) {
+      this.setData({
+        placementCurrentPage: newPage,
+        placementFileImage: '',
+        placementLoading: true
+      });
+      this.loadFilePreview(this.data.placementFileId, newPage);
+    }
+  },
+
+  // Legacy: load file for placement (called from openPlacement)
   async loadFileForPlacement(fileId) {
     try {
       var res = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
@@ -1616,6 +1791,7 @@ Page({
         if (idx < sigs.length) {
           sigs[idx].positionX = px;
           sigs[idx].positionY = py;
+          sigs[idx].page = that.data.placementCurrentPage;
         }
         // Update placementItems for visual preview
         var items = [...that.data.placementItems];
@@ -1623,6 +1799,7 @@ Page({
           if (items[i].dispIdx === idx) {
             items[i].positionX = px;
             items[i].positionY = py;
+            items[i].page = that.data.placementCurrentPage;
             break;
           }
         }
@@ -1631,11 +1808,12 @@ Page({
     }).exec();
   },
 
-  // Save the adjusted position
+  // Save the adjusted position and page
   confirmPlacement() {
     var idx = this.data.placementActiveIdx;
     var px = this.data.placementPreviewX;
     var py = this.data.placementPreviewY;
+    var page = this.data.placementCurrentPage;
     if (idx < 0 || px < 0 || py < 0) {
       this.setData({ placementVisible: false });
       return;
@@ -1644,6 +1822,7 @@ Page({
     if (idx < sigs.length) {
       sigs[idx].positionX = px;
       sigs[idx].positionY = py;
+      sigs[idx].page = page;
     }
     this.setData({
       pendingSignatures: sigs,
@@ -1744,7 +1923,8 @@ Page({
             signatureType: s.signatureType,
             imageData: s.imageData,
             positionX: s.positionX,
-            positionY: s.positionY
+            positionY: s.positionY,
+            page: s.page || 1
           };
         });
         res = await callFunction({
