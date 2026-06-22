@@ -168,11 +168,14 @@ router.post('/getVenueSchedule', async (req, res) => {
       const openSlots = getOpenSlots(dateStr, openRules);
       const activitySlots = getActivitySlots(dateStr, activityRules);
 
-      // Get bookings for this date
-      const bookings = await venueBookingModel.getByVenueId(venueId, { date: dateStr, status: 'approved' });
-      const bookedSlots = bookings.map(b => ({
+      // Get bookings for this date (both approved and pending are blocking)
+      const allBookings = await venueBookingModel.getByVenueId(venueId, { date: dateStr });
+      // Filter to approved + pending only (exclude rejected/cancelled)
+      const activeBookings = allBookings.filter(b => b.status === 'approved' || b.status === 'pending');
+      const bookedSlots = activeBookings.map(b => ({
         id: b.id,
         title: b.title,
+        status: b.status,
         timeStart: b.time_start && b.time_start.length >= 5 ? b.time_start.substring(0, 5) : '',
         timeEnd: b.time_end && b.time_end.length >= 5 ? b.time_end.substring(0, 5) : '',
         type: 'booked',

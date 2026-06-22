@@ -5,7 +5,6 @@
     <view class="hero-subtitle">浏览场地、查看空闲时间并申请借用</view>
   </view>
 
-  <!-- Quick nav -->
   <view class="header-nav">
     <text class="header-nav-btn" bindtap="goMyBookings">📋 我的借用</text>
   </view>
@@ -20,44 +19,77 @@
         <view class="venue-card-main">
           <view class="venue-card-name">{{item.name}}</view>
           <view class="venue-card-loc" wx:if="{{item.location}}">📍 {{item.location}}</view>
-          <view class="venue-card-loc" wx:if="{{item.description}}">{{item.description}}</view>
           <text class="venue-card-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
         </view>
         <view class="venue-card-actions">
-          <text class="venue-card-action view" data-id="{{item.id}}" bindtap="openSchedule">📅 查看</text>
+          <text class="venue-card-action view" data-id="{{item.id}}" bindtap="openSchedule">📅 课表</text>
           <text class="venue-card-action book" data-id="{{item.id}}" bindtap="openBooking">+ 借用</text>
         </view>
       </view>
     </scroll-view>
   </view>
 
-  <!-- ═══ Schedule Popup ═══ -->
+  <!-- ═══ Weekly Timetable Popup ═══ -->
   <view class="popup-mask" wx:if="{{scheduleVisible}}" bindtap="closeSchedule">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">安排表 · {{scheduleVenueName}}</view><text class="popup-close" bindtap="closeSchedule">关闭</text></view>
-      <view class="schedule-nav">
-        <text class="schedule-nav-btn" data-dir="prev" bindtap="onScheduleNavigate">◀ 前一周</text>
-        <view class="field" style="flex:1;"><input class="field-input" style="text-align:center;" value="{{scheduleDate}}" bindinput="onScheduleDateChange" placeholder="YYYY-MM-DD"/></view>
-        <text class="schedule-nav-btn" data-dir="next" bindtap="onScheduleNavigate">后一周 ▶</text>
+    <view class="popup-card timetable-popup" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">📅 {{scheduleVenueName}}</view>
+        <text class="popup-close" bindtap="closeSchedule">关闭</text>
       </view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
-        <view class="schedule-day" wx:for="{{dailySchedules}}" wx:key="date">
-          <view class="schedule-day-title">📅 {{item.date}}</view>
-          <view wx:if="{{item.openSlots.length}}">
-            <text style="font-size:20rpx;color:#94a3b8;">开放：</text>
-            <text class="slot-tag open" wx:for="{{item.openSlots}}" wx:key="ruleId" wx:for-item="s">{{s.ruleName||'开放'}} {{s.timeStart}}-{{s.timeEnd}}</text>
+
+      <!-- Week nav -->
+      <view class="schedule-nav">
+        <text class="schedule-nav-btn" bindtap="onTimetablePrevWeek">◀</text>
+        <text style="font-size:25rpx;font-weight:700;color:#1e293b;">{{scheduleWeekStart}} 起一周</text>
+        <text class="schedule-nav-btn" bindtap="onTimetableNextWeek">▶</text>
+      </view>
+
+      <!-- Timetable grid -->
+      <scroll-view scroll-x scroll-y class="timetable-scroll">
+        <view class="timetable-grid">
+          <!-- Header row: weekday + date -->
+          <view class="tt-row tt-header">
+            <view class="tt-hour-cell">时间</view>
+            <view class="tt-day-cell" wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this" wx:for-index="di">
+              <text style="font-size:21rpx;font-weight:600;color:#475569;">{{item}}</text>
+            </view>
           </view>
-          <view wx:if="{{item.activitySlots.length}}">
-            <text style="font-size:20rpx;color:#94a3b8;">活动：</text>
-            <text class="slot-tag activity" wx:for="{{item.activitySlots}}" wx:key="ruleId" wx:for-item="s">{{s.ruleName}} {{s.timeStart}}-{{s.timeEnd}}</text>
+          <!-- Hour rows -->
+          <view class="tt-row" wx:for="{{timetable}}" wx:key="hour">
+            <view class="tt-hour-cell">{{item.hour}}</view>
+            <view class="tt-day-cell {{cell.status}}" wx:for="{{item.days}}" wx:key="*this" wx:for-item="cell"
+                  data-cell="{{cell}}" bindtap="onTimetableCellTap">
+              <text wx:if="{{cell.status === 'open'}}" class="tt-cell-text">空闲</text>
+              <text wx:elif="{{cell.status === 'booked'}}" class="tt-cell-text">{{cell.info}}</text>
+              <text wx:elif="{{cell.status === 'activity'}}" class="tt-cell-text">{{cell.info}}</text>
+            </view>
           </view>
-          <view wx:if="{{item.bookedSlots.length}}">
-            <text style="font-size:20rpx;color:#94a3b8;">已借用：</text>
-            <text class="slot-tag booked" wx:for="{{item.bookedSlots}}" wx:key="id" wx:for-item="s">{{s.title||'占用'}} {{s.timeStart}}-{{s.timeEnd}}</text>
-          </view>
-          <view wx:if="{{!item.openSlots.length && !item.activitySlots.length && !item.bookedSlots.length}}" style="font-size:21rpx;color:#94a3b8;">当日无安排</view>
         </view>
       </scroll-view>
+
+      <!-- Legend -->
+      <view style="display:flex;gap:16rpx;padding:12rpx 16rpx;font-size:20rpx;color:#64748b;">
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-open"></view> 空闲</view>
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-booked"></view> 已通过</view>
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-pending"></view> 待审核</view>
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-activity"></view> 活动</view>
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-closed"></view> 关闭</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Booking detail popup -->
+  <view class="popup-mask" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header"><view class="popup-title">借用详情</view><text class="popup-close" bindtap="closeBookingDetail">关闭</text></view>
+      <view style="padding:20rpx;">
+        <view style="font-size:26rpx;font-weight:700;color:#1e293b;margin-bottom:12rpx;">{{bookingDetail.title || '借用'}}</view>
+        <view style="font-size:23rpx;color:#64748b;line-height:1.8;">
+          <view wx:if="{{bookingDetail.id}}">编号：{{bookingDetail.id}}</view>
+          <view wx:if="{{bookingDetail.userId}}">借用人：{{bookingDetail.userId}}</view>
+          <view wx:if="{{bookingDetail.timeStart}}">时间：{{bookingDetail.timeStart}} - {{bookingDetail.timeEnd}}</view>
+        </view>
+      </view>
     </view>
   </view>
 
@@ -68,9 +100,27 @@
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-popup-form">
           <view class="field"><view class="field-label">借用主题</view><input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="如：部门例会"/></view>
-          <view class="field"><view class="field-label">借用日期</view><input class="field-input" value="{{bookingDate}}" bindinput="onBookingDateChange" placeholder="YYYY-MM-DD"/></view>
-          <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{bookingTimeStart}}" data-field="bookingTimeStart" bindinput="onFieldInput" placeholder="09:00"/></view>
-          <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{bookingTimeEnd}}" data-field="bookingTimeEnd" bindinput="onFieldInput" placeholder="10:00"/></view>
+
+          <!-- Date picker -->
+          <view class="field"><view class="field-label">借用日期</view>
+            <picker mode="date" value="{{bookingDate}}" bindchange="onBookingDateChange">
+              <view class="picker-value">{{bookingDateDisplay || '请选择日期'}}</view>
+            </picker>
+          </view>
+
+          <!-- Free time slots after date selected -->
+          <view wx:if="{{dailySlots.length}}" style="margin-bottom:12rpx;">
+            <view class="field-label" style="margin-bottom:6rpx;">可选时间段（点击选择）：</view>
+            <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
+              <text wx:for="{{dailySlots}}" wx:key="timeStart"
+                    class="slot-chip {{bookingTimeStart === item.timeStart ? 'selected' : ''}}"
+                    data-ts="{{item.timeStart}}" data-te="{{item.timeEnd}}" bindtap="onSelectSlot">{{item.label}}</text>
+            </view>
+          </view>
+          <view wx:if="{{!dailySlots.length && bookingDate}}" style="font-size:22rpx;color:#94a3b8;margin-bottom:12rpx;">该日期暂无可选时段</view>
+
+          <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{bookingTimeStart}}" data-field="bookingTimeStart" bindinput="onFieldInput" placeholder="点击上方时段自动填充"/></view>
+          <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{bookingTimeEnd}}" data-field="bookingTimeEnd" bindinput="onFieldInput" placeholder="点击上方时段自动填充"/></view>
           <view class="field"><view class="field-label">描述（可选）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="借用说明"/></view>
           <view class="audit-btn-bar"><button class="primary-btn" loading="{{loading}}" bindtap="submitBooking">提交借用申请</button></view>
         </view>

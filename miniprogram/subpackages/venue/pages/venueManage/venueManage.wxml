@@ -36,6 +36,7 @@
         </view>
         <view class="venue-list-actions">
           <text class="venue-action-btn primary" data-id="{{item.id}}" bindtap="openRules">规则</text>
+          <text class="venue-action-btn" data-id="{{item.id}}" bindtap="openVenueSchedule">安排</text>
           <text class="venue-action-btn" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
           <text class="venue-action-btn danger" data-id="{{item.id}}" bindtap="deleteVenue">删除</text>
         </view>
@@ -154,6 +155,62 @@
           <view class="audit-btn-bar"><button class="primary-btn" bindtap="saveRule">保存</button></view>
         </view>
       </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Admin Timetable Popup ═══ -->
+  <view class="popup-mask" wx:if="{{scheduleVisible}}" bindtap="closeVenueSchedule">
+    <view class="popup-card timetable-popup" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">📅 {{scheduleVenueName}}</view>
+        <text class="popup-close" bindtap="closeVenueSchedule">关闭</text>
+      </view>
+      <view class="schedule-nav">
+        <text class="schedule-nav-btn" bindtap="onTimetablePrevWeek">◀</text>
+        <text style="font-size:25rpx;font-weight:700;color:#1e293b;">{{scheduleWeekStart}} 起一周</text>
+        <text class="schedule-nav-btn" bindtap="onTimetableNextWeek">▶</text>
+      </view>
+      <scroll-view scroll-x scroll-y class="timetable-scroll">
+        <view class="timetable-grid">
+          <view class="tt-row tt-header">
+            <view class="tt-hour-cell">时间</view>
+            <view class="tt-day-cell" wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this">
+              <text style="font-size:21rpx;font-weight:600;color:#475569;">{{item}}</text>
+            </view>
+          </view>
+          <view class="tt-row" wx:for="{{timetable}}" wx:key="hour">
+            <view class="tt-hour-cell">{{item.hour}}</view>
+            <view class="tt-day-cell {{cell.status}}" wx:for="{{item.days}}" wx:key="*this" wx:for-item="cell"
+                  data-cell="{{cell}}" bindtap="onAdminCellTap">
+              <text wx:if="{{cell.status === 'open'}}" class="tt-cell-text">空闲</text>
+              <text wx:elif="{{cell.status === 'booked'}}" class="tt-cell-text">{{cell.info}}</text>
+              <text wx:elif="{{cell.status === 'activity'}}" class="tt-cell-text">{{cell.info}}</text>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+      <view style="display:flex;gap:16rpx;padding:12rpx 16rpx;font-size:20rpx;color:#64748b;">
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-open"></view> 空闲</view>
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-booked"></view> 已通过</view>
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-pending"></view> 待审核</view>
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-activity"></view> 活动</view>
+        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-closed"></view> 关闭</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Booking detail popup -->
+  <view class="popup-mask" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header"><view class="popup-title">借用详情</view><text class="popup-close" bindtap="closeBookingDetail">关闭</text></view>
+      <view style="padding:24rpx;">
+        <view style="font-size:26rpx;font-weight:700;color:#1e293b;margin-bottom:12rpx;">{{bookingDetail.title || '借用'}}</view>
+        <view style="font-size:23rpx;color:#64748b;line-height:1.8;">
+          <view wx:if="{{bookingDetail.id}}">借用编号：{{bookingDetail.id}}</view>
+          <view wx:if="{{bookingDetail.userId}}">借用人：{{bookingDetail.userId}}</view>
+          <view wx:if="{{bookingDetail.timeStart}}">时间：{{bookingDetail.timeStart}} - {{bookingDetail.timeEnd}}</view>
+        </view>
+      </view>
     </view>
   </view>
 

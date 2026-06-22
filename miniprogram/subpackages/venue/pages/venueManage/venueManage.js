@@ -1,5 +1,13 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 
+const HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
+
+function timeToMin(t) {
+  if (!t) return 0;
+  const parts = String(t).split(':');
+  return (parseInt(parts[0])||0)*60 + (parseInt(parts[1])||0);
+}
+
 Page({
   data: {
     venues: [],
@@ -31,10 +39,20 @@ Page({
     // Yearly date picker state
     yearlyPickMonth: 1,
     yearlyPickDay: 1,
-    yearlyDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]
+    yearlyDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31],
+
+    // Timetable schedule view
+    scheduleVisible: false,
+    scheduleVenueId: '',
+    scheduleVenueName: '',
+    scheduleWeekStart: '',
+    timetable: [],
+    bookingDetailVisible: false,
+    bookingDetail: null
   },
 
   onShow() {
+    this._initWeekStart();
     this.loadVenues();
     this.loadReferenceData();
   },
@@ -305,6 +323,103 @@ Page({
   goVenueBookings() {
     wx.navigateTo({ url: '/subpackages/venue/pages/venueBookings/venueBookings' });
   },
+
+  // ── Admin Timetable / Schedule ──
+  _initWeekStart() {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+    const ws = monday.getFullYear() + '-' + String(monday.getMonth()+1).padStart(2,'0') + '-' + String(monday.getDate()).padStart(2,'0');
+    this.setData({ scheduleWeekStart: ws });
+  },
+
+  async openVenueSchedule(e) {
+    const id = e.currentTarget.dataset.id;
+    const v = this.data.venues.find(v => v.id === id);
+    this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: v ? v.name : '', timetable: [] });
+    await this.loadVenueTimetable();
+  },
+  closeVenueSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false }); },
+
+  async loadVenueTimetable() {
+    const { scheduleVenueId, scheduleWeekStart } = this.data;
+    const start = new Date(scheduleWeekStart + 'T00:00:00');
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const dateTo = end.toISOString().substring(0, 10);
+    wx.showLoading({ title: '加载中...' });
+    try {
+      const res = await callFunction({
+        name: 'getVenueSchedule',
+        data: { venueId: scheduleVenueId, dateFrom: scheduleWeekStart, dateTo }
+      });
+      if (res.status === 'success') {
+        this._buildAdminTimetable(res.dailySchedules || []);
+      }
+    } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
+    finally { wx.hideLoading(); }
+  },
+
+  _buildAdminTimetable(dailySchedules) {
+    const start = new Date(this.data.scheduleWeekStart + 'T00:00:00');
+    const dayDates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      dayDates.push(d.toISOString().substring(0, 10));
+    }
+    const timetable = HOURS.map(hour => {
+      const row = { hour, days: [] };
+      for (let di = 0; di < 7; di++) {
+        const dateStr = dayDates[di];
+        const dayData = dailySchedules.find(ds => ds.date === dateStr);
+        row.days.push(this._classifyAdminSlot(hour, dayData, dateStr));
+      }
+      return row;
+    });
+    this.setData({ timetable, dayDates });
+  },
+
+  _classifyAdminSlot(hour, dayData, dateStr) {
+    const hMin = timeToMin(hour);
+    const nextHMin = hMin + 60;
+    if (!dayData) return { status: 'closed', info: '' };
+    for (const a of (dayData.activitySlots || [])) {
+      if (hMin < timeToMin(a.timeEnd) && nextHMin > timeToMin(a.timeStart))
+        return { status: 'activity', info: a.ruleName || '活动' };
+    }
+    for (const b of (dayData.bookedSlots || [])) {
+      if (hMin < timeToMin(b.timeEnd) && nextHMin > timeToMin(b.timeStart))
+        return { status: b.status === 'pending' ? 'pending' : 'booked', info: b.title || '已借用', booking: b, date: dateStr };
+    }
+    for (const o of (dayData.openSlots || [])) {
+      if (hMin >= timeToMin(o.timeStart) && nextHMin <= timeToMin(o.timeEnd))
+        return { status: 'open', info: '空闲' };
+    }
+    return { status: 'closed', info: '' };
+  },
+
+  onTimetablePrevWeek() {
+    const d = new Date(this.data.scheduleWeekStart + 'T00:00:00');
+    d.setDate(d.getDate() - 7);
+    this.setData({ scheduleWeekStart: d.toISOString().substring(0,10) });
+    this.loadVenueTimetable();
+  },
+  onTimetableNextWeek() {
+    const d = new Date(this.data.scheduleWeekStart + 'T00:00:00');
+    d.setDate(d.getDate() + 7);
+    this.setData({ scheduleWeekStart: d.toISOString().substring(0,10) });
+    this.loadVenueTimetable();
+  },
+
+  onAdminCellTap(e) {
+    const cell = e.currentTarget.dataset.cell;
+    if (cell && cell.status === 'booked' && cell.booking) {
+      this.setData({ bookingDetailVisible: true, bookingDetail: cell.booking });
+    }
+  },
+  closeBookingDetail() { this.setData({ bookingDetailVisible: false }); },
 
   noop() {}
 });
