@@ -1,3 +1,5 @@
+@import '../../../../pages/home/home.wxss';
+
 .page { padding-bottom: 40rpx; }
 .filter-row { display:flex; gap:8rpx; flex-wrap:wrap; margin-bottom:12rpx; }
 .filter-chip { font-size:21rpx; padding:6rpx 14rpx; border-radius:20rpx; border:1rpx solid #cbd5e1; color:#64748b; }

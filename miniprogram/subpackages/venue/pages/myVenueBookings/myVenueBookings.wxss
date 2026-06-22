@@ -1,3 +1,5 @@
+@import '../../../../pages/home/home.wxss';
+
 .page { padding-bottom: 40rpx; }
 .booking-item { padding:20rpx; margin-bottom:12rpx; border:1rpx solid #e2e8f0; border-radius:14rpx; background:#fff; }
 .booking-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8rpx; }

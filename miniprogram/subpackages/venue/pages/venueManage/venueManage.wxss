@@ -1,3 +1,5 @@
+@import '../../../../pages/home/home.wxss';
+
 .page { padding-bottom: 40rpx; }
 .card { margin: 16rpx 24rpx; }
 

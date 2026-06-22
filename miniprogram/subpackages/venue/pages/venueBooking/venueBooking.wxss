@@ -1,3 +1,5 @@
+@import '../../../../pages/home/home.wxss';
+
 .page { padding-bottom: 40rpx; }
 .venue-card { display:flex; align-items:center; justify-content:space-between; padding:20rpx; margin-bottom:12rpx; border:1rpx solid #e2e8f0; border-radius:14rpx; background:#fff; }
 .venue-name { font-size:27rpx; font-weight:700; color:#1e293b; }
