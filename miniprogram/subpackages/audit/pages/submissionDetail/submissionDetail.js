@@ -134,6 +134,7 @@ Page({
     placementTotalPages: 1,      // total pages (for PDFs)
     placementCurrentPage: 1,     // current page being shown
     placementLoading: false,     // loading page preview
+    placementPosText: '',        // formatted position text for display
 
     // User role flags
     userIsSubmitter: false,
@@ -1684,7 +1685,8 @@ Page({
       placementCurrentPage: currentPage,
       placementTotalPages: 1,
       placementFileImage: '',
-      placementLoading: true
+      placementLoading: true,
+      placementPosText: sig.positionX != null ? (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%' : ''
     });
 
     // Load file preview for positioning
@@ -1782,7 +1784,8 @@ Page({
       var py = Math.max(0, Math.min(1, tapY / (rect.height || 1)));
       that.setData({
         placementPreviewX: px,
-        placementPreviewY: py
+        placementPreviewY: py,
+        placementPosText: (px * 100).toFixed(1) + '%, ' + (py * 100).toFixed(1) + '%'
       });
       // Also update the active item's position immediately for preview
       var idx = that.data.placementActiveIdx;

@@ -779,8 +779,8 @@
       </view>
 
       <!-- Position info -->
-      <view wx:if="{{placementPreviewX >= 0}}" style="padding:8rpx 16rpx;font-size:20rpx;color:#64748b;text-align:center;">
-        位置：{{(placementPreviewX * 100).toFixed(1)}}%, {{(placementPreviewY * 100).toFixed(1)}}%
+      <view wx:if="{{placementPreviewX >= 0 && placementPosText}}" style="padding:8rpx 16rpx;font-size:20rpx;color:#64748b;text-align:center;">
+        位置：{{placementPosText}}
         <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}"> · 第{{placementCurrentPage}}页</text>
       </view>
 
