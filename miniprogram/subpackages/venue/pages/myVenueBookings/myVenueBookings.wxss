@@ -1,0 +1,9 @@
+.page { padding-bottom: 40rpx; }
+.booking-item { padding:20rpx; margin-bottom:12rpx; border:1rpx solid #e2e8f0; border-radius:14rpx; background:#fff; }
+.booking-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8rpx; }
+.booking-title { font-size:26rpx; font-weight:700; color:#1e293b; }
+.booking-meta { font-size:22rpx; color:#64748b; line-height:1.6; }
+.status-pending { color:#d97706; font-weight:600; }
+.status-approved { color:#10b981; font-weight:600; }
+.status-rejected { color:#ef4444; font-weight:600; }
+.status-cancelled { color:#94a3b8; }

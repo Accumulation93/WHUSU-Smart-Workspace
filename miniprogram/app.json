@@ -30,6 +30,16 @@
         "pages/signatureManager/signatureManager",
         "pages/verification/verification"
       ]
+    },
+    {
+      "root": "subpackages/venue",
+      "name": "venue",
+      "pages": [
+        "pages/venueManage/venueManage",
+        "pages/venueBookings/venueBookings",
+        "pages/venueBooking/venueBooking",
+        "pages/myVenueBookings/myVenueBookings"
+      ]
     }
   ],
   "window": {

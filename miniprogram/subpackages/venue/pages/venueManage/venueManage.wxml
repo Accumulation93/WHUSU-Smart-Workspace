@@ -1,0 +1,126 @@
+<view class="page">
+  <view class="hero">
+    <view class="hero-badge">场地</view>
+    <view class="hero-title">场地管理</view>
+    <view class="hero-subtitle">管理场地、开放时间、活动与借用规则</view>
+  </view>
+
+  <view class="section">
+    <view class="card">
+      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+
+      <view class="section-title">场地列表 ({{venues.length}})</view>
+      <button class="primary-btn" wx:if="{{!editing}}" bindtap="startAdd" style="margin-bottom:16rpx;">+ 新增场地</button>
+
+      <!-- Edit form -->
+      <view wx:if="{{editing}}" style="padding:16rpx;background:#f8fafc;border-radius:12rpx;margin-bottom:16rpx;">
+        <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onRuleFormField" placeholder="场地名称"/></view>
+        <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onRuleFormField" placeholder="物理位置"/></view>
+        <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onRuleFormField" placeholder="场地描述"/></view>
+        <view class="button-row"><button class="secondary-btn" bindtap="cancelEdit">取消</button><button class="primary-btn" loading="{{loading}}" bindtap="saveVenue">保存</button></view>
+      </view>
+
+      <!-- Venue list -->
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y wx:if="{{!editing}}">
+        <view class="audit-empty-state" wx:if="{{!venues.length}}"><view class="audit-empty-icon">🏟️</view><view class="audit-empty-text">暂无场地，请新增</view></view>
+        <view class="venue-card" wx:for="{{venues}}" wx:key="id">
+          <view class="venue-info">
+            <view class="venue-name">{{item.name}}</view>
+            <view class="venue-loc" wx:if="{{item.location}}">📍 {{item.location}}</view>
+            <view class="venue-loc" wx:if="{{item.description}}">{{item.description}}</view>
+          </view>
+          <view class="venue-actions">
+            <text class="audit-link-btn" data-id="{{item.id}}" bindtap="openRules">规则</text>
+            <text class="audit-link-btn" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
+            <text class="audit-link-btn audit-link-danger" data-id="{{item.id}}" bindtap="deleteVenue">删除</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Rules Popup ═══ -->
+  <view class="popup-mask" wx:if="{{rulesVisible}}" bindtap="closeRules">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header"><view class="popup-title">规则管理 - {{rulesVenueName}}</view><text class="popup-close" bindtap="closeRules">关闭</text></view>
+
+      <view class="rules-tabs">
+        <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}}" data-tab="open" bindtap="switchRulesTab">开放时间</view>
+        <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}}" data-tab="activity" bindtap="switchRulesTab">活动时间</view>
+        <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}}" data-tab="booking" bindtap="switchRulesTab">借用规则</view>
+      </view>
+
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <!-- Open Time Rules -->
+        <block wx:if="{{rulesTab === 'open'}}">
+          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="open" bindtap="openRuleEditor">+ 新增开放时间规则</button>
+          <view wx:if="{{!openRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则</view>
+          <view class="rule-item" wx:for="{{openRules}}" wx:key="id">
+            <view><view class="rule-item-name">{{item.name || '开放时间'}}</view>
+              <view class="rule-item-detail">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}}-{{item.time_end || '18:00'}}</view></view>
+            <view class="venue-actions">
+              <text class="audit-link-btn" data-type="open" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+              <text class="audit-link-btn audit-link-danger" data-type="open" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+            </view>
+          </view>
+        </block>
+
+        <!-- Activity Rules -->
+        <block wx:if="{{rulesTab === 'activity'}}">
+          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="activity" bindtap="openRuleEditor">+ 新增活动规则</button>
+          <view wx:if="{{!activityRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则</view>
+          <view class="rule-item" wx:for="{{activityRules}}" wx:key="id">
+            <view><view class="rule-item-name">{{item.activity_name || '活动'}}</view>
+              <view class="rule-item-detail">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}}-{{item.time_end || '18:00'}}</view></view>
+            <view class="venue-actions">
+              <text class="audit-link-btn" data-type="activity" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+              <text class="audit-link-btn audit-link-danger" data-type="activity" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+            </view>
+          </view>
+        </block>
+
+        <!-- Booking Rules -->
+        <block wx:if="{{rulesTab === 'booking'}}">
+          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="booking" bindtap="openRuleEditor">+ 新增借用规则</button>
+          <view wx:if="{{!bookingRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则（默认需管理员审核）</view>
+          <view class="rule-item" wx:for="{{bookingRules}}" wx:key="id">
+            <view><view class="rule-item-name">{{getRuleTypeLabel(item.rule_type)}}</view></view>
+            <view class="venue-actions">
+              <text class="audit-link-btn" data-type="booking" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+              <text class="audit-link-btn audit-link-danger" data-type="booking" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+            </view>
+          </view>
+        </block>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Rule Editor Popup ═══ -->
+  <view class="popup-mask" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header"><view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view><text class="popup-close" bindtap="closeRuleEditor">关闭</text></view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="detail-popup-form">
+          <!-- Open / Activity fields -->
+          <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
+            <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
+            <view class="field"><view class="field-label">周期类型</view>
+              <picker range="{{['每天','每周','每月','每年']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : 3))}}" bindchange="onRuleFormField" data-field="cycleType">
+                <view class="picker-value">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : '每年'))}}</view></picker></view>
+            <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
+            <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
+          </block>
+          <!-- Booking fields -->
+          <block wx:if="{{ruleEditorType === 'booking'}}">
+            <view class="field"><view class="field-label">审批类型</view>
+              <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm.ruleType === 'admin' ? 0 : (ruleForm.ruleType === 'direct' ? 1 : (ruleForm.ruleType === 'identity' ? 2 : 3))}}" bindchange="onRuleFormField" data-field="ruleType">
+                <view class="picker-value">{{getRuleTypeLabel(ruleForm.ruleType)}}</view></picker></view>
+          </block>
+          <view class="audit-btn-bar"><button class="primary-btn" bindtap="saveRule">保存</button></view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <view class="page-footer"><view class="footer-name">REDSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
+</view>

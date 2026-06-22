@@ -144,6 +144,10 @@ app.use('/api', require('./modules/audit/routes/auditUser'));
 app.use('/api', require('./modules/audit/routes/auditSignature'));
 app.use('/api', require('./modules/audit/routes/auditFile'));
 
+// ---------- Venue Booking ----------
+app.use('/api', require('./modules/venue/routes/venueAdmin'));
+app.use('/api', require('./modules/venue/routes/venueUser'));
+
 // ---------- 404 handler (fail fast for unknown routes) ----------
 app.use('/api', (req, res) => {
   res.status(404).json({ status: 'not_found', message: 'Route not found: ' + req.method + ' ' + req.path });

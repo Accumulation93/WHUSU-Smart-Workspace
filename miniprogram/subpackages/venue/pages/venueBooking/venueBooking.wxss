@@ -1,0 +1,17 @@
+.page { padding-bottom: 40rpx; }
+.venue-card { display:flex; align-items:center; justify-content:space-between; padding:20rpx; margin-bottom:12rpx; border:1rpx solid #e2e8f0; border-radius:14rpx; background:#fff; }
+.venue-name { font-size:27rpx; font-weight:700; color:#1e293b; }
+.venue-loc { font-size:22rpx; color:#64748b; }
+.venue-tag { font-size:20rpx; padding:4rpx 12rpx; border-radius:20rpx; }
+.venue-tag-direct { background:#d1fae5; color:#065f46; }
+.venue-tag-approval { background:#fef3c7; color:#92400e; }
+
+.schedule-date-nav { display:flex; align-items:center; justify-content:center; gap:16rpx; margin-bottom:12rpx; }
+.schedule-day { padding:8rpx 0; border-bottom:1rpx solid #f1f5f9; margin-bottom:8rpx; }
+.schedule-day-title { font-size:24rpx; font-weight:600; color:#334155; margin-bottom:4rpx; }
+.slot-tag { display:inline-block; font-size:19rpx; padding:3rpx 10rpx; border-radius:10rpx; margin:2rpx 4rpx 2rpx 0; }
+.slot-open { background:#dbeafe; color:#1d4ed8; }
+.slot-activity { background:#fce7f3; color:#9d174d; }
+.slot-booked { background:#fef3c7; color:#92400e; }
+
+.booking-form { padding:16rpx; }

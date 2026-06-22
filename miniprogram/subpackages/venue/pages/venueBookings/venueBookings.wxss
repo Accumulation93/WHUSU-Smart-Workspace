@@ -1,0 +1,13 @@
+.page { padding-bottom: 40rpx; }
+.filter-row { display:flex; gap:8rpx; flex-wrap:wrap; margin-bottom:12rpx; }
+.filter-chip { font-size:21rpx; padding:6rpx 14rpx; border-radius:20rpx; border:1rpx solid #cbd5e1; color:#64748b; }
+.filter-chip.active { background:#3b82f6; color:#fff; border-color:#3b82f6; }
+
+.booking-item { padding:16rpx; margin-bottom:10rpx; border:1rpx solid #e2e8f0; border-radius:12rpx; background:#fff; }
+.booking-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6rpx; }
+.booking-title { font-size:25rpx; font-weight:700; color:#1e293b; }
+.booking-meta { font-size:21rpx; color:#64748b; line-height:1.5; }
+.status-pending { color:#d97706; }
+.status-approved { color:#10b981; }
+.status-rejected { color:#ef4444; }
+.status-cancelled { color:#94a3b8; }
