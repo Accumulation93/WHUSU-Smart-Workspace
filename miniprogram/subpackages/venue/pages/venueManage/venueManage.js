@@ -48,7 +48,19 @@ Page({
     scheduleWeekStart: '',
     timetable: [],
     bookingDetailVisible: false,
-    bookingDetail: null
+    bookingDetail: null,
+
+    // Admin quick booking from timetable
+    adminBookingVisible: false,
+    adminBookingVenueId: '',
+    adminBookingVenueName: '',
+    adminBookingDate: '',
+    adminBookingDateDisplay: '',
+    adminBookingTitle: '',
+    adminBookingDesc: '',
+    adminBookingTimeStart: '',
+    adminBookingTimeEnd: '',
+    adminDailySlots: []
   },
 
   onShow() {
@@ -384,20 +396,20 @@ Page({
   _classifyAdminSlot(hour, dayData, dateStr) {
     const hMin = timeToMin(hour);
     const nextHMin = hMin + 60;
-    if (!dayData) return { status: 'closed', info: '' };
+    if (!dayData) return { status: 'closed', info: '', date: dateStr, hour: hour };
     for (const a of (dayData.activitySlots || [])) {
       if (hMin < timeToMin(a.timeEnd) && nextHMin > timeToMin(a.timeStart))
-        return { status: 'activity', info: a.ruleName || '活动' };
+        return { status: 'activity', info: a.ruleName || '活动', date: dateStr, hour: hour };
     }
     for (const b of (dayData.bookedSlots || [])) {
       if (hMin < timeToMin(b.timeEnd) && nextHMin > timeToMin(b.timeStart))
-        return { status: b.status === 'pending' ? 'pending' : 'booked', info: b.title || '已借用', booking: b, date: dateStr };
+        return { status: b.status === 'pending' ? 'pending' : 'booked', info: b.title || '已借用', booking: b, date: dateStr, hour: hour };
     }
     for (const o of (dayData.openSlots || [])) {
       if (hMin >= timeToMin(o.timeStart) && nextHMin <= timeToMin(o.timeEnd))
-        return { status: 'open', info: '空闲' };
+        return { status: 'open', info: '空闲', date: dateStr, hour: hour };
     }
-    return { status: 'closed', info: '' };
+    return { status: 'closed', info: '', date: dateStr, hour: hour };
   },
 
   onTimetablePrevWeek() {
@@ -415,11 +427,104 @@ Page({
 
   onAdminCellTap(e) {
     const cell = e.currentTarget.dataset.cell;
-    if (cell && cell.status === 'booked' && cell.booking) {
+    if (!cell) return;
+    if ((cell.status === 'booked' || cell.status === 'pending') && cell.booking) {
       this.setData({ bookingDetailVisible: true, bookingDetail: cell.booking });
+    } else if (cell.status === 'open') {
+      // Close timetable, open admin booking popup
+      const date = cell.date;
+      const timeStart = cell.hour;
+      this.setData({
+        scheduleVisible: false,
+        adminBookingVisible: true,
+        adminBookingDate: date,
+        adminBookingDateDisplay: date,
+        adminBookingTimeStart: timeStart,
+        adminBookingTimeEnd: '',
+        adminBookingTitle: '',
+        adminBookingDesc: '',
+        adminDailySlots: []
+      });
+      this._loadAdminDailySlots(date);
     }
   },
   closeBookingDetail() { this.setData({ bookingDetailVisible: false }); },
+
+  // ── Admin Quick Booking ──
+  closeAdminBooking() { this.setData({ adminBookingVisible: false }); },
+
+  onAdminBookingDateChange(e) {
+    const d = e.detail.value;
+    this.setData({ adminBookingDate: d, adminBookingDateDisplay: d, adminDailySlots: [], adminBookingTimeStart: '', adminBookingTimeEnd: '' });
+    this._loadAdminDailySlots(d);
+  },
+
+  async _loadAdminDailySlots(dateStr) {
+    if (!dateStr) return;
+    wx.showLoading({ title: '查询空闲...' });
+    try {
+      const res = await callFunction({
+        name: 'getVenueSchedule',
+        data: { venueId: this.data.scheduleVenueId, dateFrom: dateStr, dateTo: dateStr }
+      });
+      if (res.status === 'success') {
+        const dayData = (res.dailySchedules || [])[0];
+        if (dayData) {
+          const slots = [];
+          const openSlots = dayData.openSlots || [];
+          const bookedSlots = dayData.bookedSlots || [];
+          const activitySlots = dayData.activitySlots || [];
+          for (const o of openSlots) {
+            let t = timeToMin(o.timeStart);
+            const end = timeToMin(o.timeEnd);
+            while (t + 30 <= end) {
+              const ts = String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
+              const te = String(Math.floor((t+30)/60)).padStart(2,'0')+':'+String((t+30)%60).padStart(2,'0');
+              let blocked = false;
+              for (const b of bookedSlots) { if (t < timeToMin(b.timeEnd) && t+30 > timeToMin(b.timeStart)) { blocked = true; break; } }
+              if (!blocked) for (const a of activitySlots) { if (t < timeToMin(a.timeEnd) && t+30 > timeToMin(a.timeStart)) { blocked = true; break; } }
+              if (!blocked) slots.push({ timeStart: ts, timeEnd: te, label: ts+' - '+te });
+              t += 30;
+            }
+          }
+          this.setData({ adminDailySlots: slots });
+        }
+      }
+    } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
+    finally { wx.hideLoading(); }
+  },
+
+  onAdminSelectSlot(e) {
+    this.setData({
+      adminBookingTimeStart: e.currentTarget.dataset.ts,
+      adminBookingTimeEnd: e.currentTarget.dataset.te
+    });
+  },
+
+  onAdminFieldInput(e) {
+    this.setData({ [e.currentTarget.dataset.field]: e.detail.value });
+  },
+
+  async submitAdminBooking() {
+    const { scheduleVenueId, adminBookingDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc } = this.data;
+    if (!scheduleVenueId || !adminBookingDate || !adminBookingTimeStart || !adminBookingTimeEnd) {
+      showShortToast('请完整填写信息并选择时间段'); return;
+    }
+    this.setData({ loading: true });
+    try {
+      const res = await callFunction({
+        name: 'createVenueBooking',
+        data: { venueId: scheduleVenueId, title: adminBookingTitle || '管理员使用', description: adminBookingDesc,
+                bookingDate: adminBookingDate, timeStart: adminBookingTimeStart, timeEnd: adminBookingTimeEnd }
+      });
+      if (res.status === 'success') {
+        showShortToast(res.message);
+        this.setData({ adminBookingVisible: false });
+        if (this.data.scheduleVisible) this.loadVenueTimetable();
+      } else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, '借用失败')); }
+    finally { this.setData({ loading: false }); }
+  },
 
   noop() {}
 });

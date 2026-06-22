@@ -122,3 +122,7 @@
 .tt-l-pending { background:rgba(254,215,170,0.7); border:1rpx solid #fdba74; }
 .tt-l-activity { background:rgba(252,231,243,0.7); border:1rpx solid #f9a8d4; }
 .tt-l-closed { background:rgba(241,245,249,0.6); border:1rpx solid #e2e8f0; }
+
+/* ── Slot chips ── */
+.slot-chip { font-size:22rpx; padding:10rpx 18rpx; border-radius:18rpx; background:#dbeafe; color:#1d4ed8; border:1rpx solid #bfdbfe; font-weight:500; }
+.slot-chip.selected { background:#3b82f6; color:#fff; border-color:#3b82f6; box-shadow:0 4rpx 12rpx rgba(59,130,246,0.2); }

@@ -116,27 +116,27 @@ Page({
   _classifySlot(hour, dayData, dateStr) {
     const hMin = timeToMin(hour);
     const nextHMin = hMin + 60;
-    if (!dayData) return { status: 'closed', info: '' };
+    if (!dayData) return { status: 'closed', info: '', date: dateStr, hour: hour };
 
     // Check activities first
     for (const a of (dayData.activitySlots || [])) {
       if (hMin < timeToMin(a.timeEnd) && nextHMin > timeToMin(a.timeStart)) {
-        return { status: 'activity', info: a.ruleName || '活动' };
+        return { status: 'activity', info: a.ruleName || '活动', date: dateStr, hour: hour };
       }
     }
     // Check bookings
     for (const b of (dayData.bookedSlots || [])) {
       if (hMin < timeToMin(b.timeEnd) && nextHMin > timeToMin(b.timeStart)) {
-        return { status: b.status === 'pending' ? 'pending' : 'booked', info: b.title || '已借用', booking: b, date: dateStr };
+        return { status: b.status === 'pending' ? 'pending' : 'booked', info: b.title || '已借用', booking: b, date: dateStr, hour: hour };
       }
     }
     // Check open
     for (const o of (dayData.openSlots || [])) {
       if (hMin >= timeToMin(o.timeStart) && nextHMin <= timeToMin(o.timeEnd)) {
-        return { status: 'open', info: '可借用' };
+        return { status: 'open', info: '可借用', date: dateStr, hour: hour };
       }
     }
-    return { status: 'closed', info: '' };
+    return { status: 'closed', info: '', date: dateStr, hour: hour };
   },
 
   onTimetablePrevWeek() {
@@ -152,11 +152,27 @@ Page({
     this.loadTimetable();
   },
 
-  // Tap a booked cell to see details
+  // Tap a timetable cell: booked → detail, open → start booking
   onTimetableCellTap(e) {
     const cell = e.currentTarget.dataset.cell;
-    if (cell && cell.status === 'booked' && cell.booking) {
+    if (!cell) return;
+    if ((cell.status === 'booked' || cell.status === 'pending') && cell.booking) {
       this.setData({ bookingDetailVisible: true, bookingDetail: cell.booking });
+    } else if (cell.status === 'open') {
+      // Close timetable, open booking with pre-filled date+time
+      const date = cell.date;
+      const timeStart = cell.hour;
+      this.setData({
+        scheduleVisible: false,
+        bookingVisible: true,
+        bookingDate: date,
+        bookingDateDisplay: date,
+        bookingTimeStart: timeStart,
+        bookingTimeEnd: '',
+        bookingTitle: '',
+        bookingDesc: ''
+      });
+      this.loadDailyAvailability(date);
     }
   },
   closeBookingDetail() { this.setData({ bookingDetailVisible: false }); },

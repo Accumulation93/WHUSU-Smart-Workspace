@@ -22,7 +22,7 @@
           <text class="venue-card-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
         </view>
         <view class="venue-card-actions">
-          <text class="venue-card-action view" data-id="{{item.id}}" bindtap="openSchedule">📅 课表</text>
+          <text class="venue-card-action view" data-id="{{item.id}}" bindtap="openSchedule">📅 安排</text>
           <text class="venue-card-action book" data-id="{{item.id}}" bindtap="openBooking">+ 借用</text>
         </view>
       </view>

@@ -214,5 +214,34 @@
     </view>
   </view>
 
+  <!-- ═══ Admin Quick Booking Popup ═══ -->
+  <view class="popup-mask" wx:if="{{adminBookingVisible}}" bindtap="closeAdminBooking">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header"><view class="popup-title">使用场地 · {{scheduleVenueName}}</view><text class="popup-close" bindtap="closeAdminBooking">关闭</text></view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="detail-popup-form">
+          <view class="field"><view class="field-label">使用主题</view><input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="如：活动使用"/></view>
+          <view class="field"><view class="field-label">使用日期</view>
+            <picker mode="date" value="{{adminBookingDate}}" bindchange="onAdminBookingDateChange">
+              <view class="picker-value">{{adminBookingDateDisplay || '请选择日期'}}</view>
+            </picker>
+          </view>
+          <view wx:if="{{adminDailySlots.length}}" style="margin-bottom:12rpx;">
+            <view class="field-label" style="margin-bottom:6rpx;">可选时间段（点击选择）：</view>
+            <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
+              <text wx:for="{{adminDailySlots}}" wx:key="timeStart"
+                    class="slot-chip {{adminBookingTimeStart === item.timeStart ? 'selected' : ''}}"
+                    data-ts="{{item.timeStart}}" data-te="{{item.timeEnd}}" bindtap="onAdminSelectSlot">{{item.label}}</text>
+            </view>
+          </view>
+          <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{adminBookingTimeStart}}" data-field="adminBookingTimeStart" bindinput="onAdminFieldInput"/></view>
+          <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{adminBookingTimeEnd}}" data-field="adminBookingTimeEnd" bindinput="onAdminFieldInput"/></view>
+          <view class="field"><view class="field-label">描述（可选）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="使用说明"/></view>
+          <view class="audit-btn-bar"><button class="primary-btn" loading="{{loading}}" bindtap="submitAdminBooking">提交使用</button></view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
   <view class="page-footer"><view class="footer-name">REDSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
 </view>
