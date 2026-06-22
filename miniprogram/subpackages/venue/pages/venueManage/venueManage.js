@@ -26,7 +26,12 @@ Page({
 
     // Reference data
     allIdentities: [],
-    allHrPersons: []
+    allHrPersons: [],
+
+    // Yearly date picker state
+    yearlyPickMonth: 1,
+    yearlyPickDay: 1,
+    yearlyDays: Array.from({length: 31}, (_, i) => i + 1)
   },
 
   onShow() {
@@ -174,6 +179,71 @@ Page({
   onRuleFormField(e) {
     const f = e.currentTarget.dataset.field;
     this.setData({ ['ruleForm.' + f]: e.detail.value });
+  },
+
+  // Cycle type picker: convert index to string value + reset cycleValues
+  onCycleTypeChange(e) {
+    const types = ['daily', 'weekly', 'monthly', 'yearly'];
+    const idx = parseInt(e.detail.value);
+    const ct = types[idx] || 'weekly';
+    this.setData({ 'ruleForm.cycleType': ct, 'ruleForm.cycleValues': [] });
+  },
+
+  // Booking rule type picker: convert index to string
+  onBookingRuleTypeChange(e) {
+    const types = ['admin', 'direct', 'identity', 'person'];
+    const idx = parseInt(e.detail.value);
+    this.setData({ 'ruleForm.ruleType': types[idx] || 'admin' });
+  },
+
+  // Toggle a cycle value (for weekly / monthly)
+  onToggleCycleDay(e) {
+    const val = parseInt(e.currentTarget.dataset.val);
+    let vals = [...(this.data.ruleForm.cycleValues || [])];
+    const idx = vals.indexOf(val);
+    if (idx >= 0) vals.splice(idx, 1); else vals.push(val);
+    vals.sort((a, b) => a - b);
+    this.setData({ 'ruleForm.cycleValues': vals });
+  },
+
+  // Toggle a yearly date {m, d}
+  onToggleYearlyDate(e) {
+    const m = parseInt(e.currentTarget.dataset.m);
+    const d = parseInt(e.currentTarget.dataset.d);
+    let vals = [...(this.data.ruleForm.cycleValues || [])];
+    const idx = vals.findIndex(v => v && v.m === m && v.d === d);
+    if (idx >= 0) vals.splice(idx, 1); else vals.push({ m, d });
+    this.setData({ 'ruleForm.cycleValues': vals });
+  },
+
+  // Yearly picker: month
+  onYearlyPickMonth(e) {
+    this.setData({ yearlyPickMonth: parseInt(e.detail.value) + 1 });
+  },
+
+  // Yearly picker: day
+  onYearlyPickDay(e) {
+    this.setData({ yearlyPickDay: parseInt(e.detail.value) + 1 });
+  },
+
+  // Add the currently selected month+day to yearly cycle values
+  onAddYearlyDate() {
+    const m = this.data.yearlyPickMonth;
+    const d = this.data.yearlyPickDay;
+    let vals = [...(this.data.ruleForm.cycleValues || [])];
+    if (!vals.some(v => v.m === m && v.d === d)) {
+      vals.push({ m, d });
+      vals.sort((a, b) => a.m - b.m || a.d - b.d);
+      this.setData({ 'ruleForm.cycleValues': vals });
+    }
+  },
+
+  // Remove a yearly date by index
+  onRemoveYearlyDate(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    let vals = [...(this.data.ruleForm.cycleValues || [])];
+    vals.splice(idx, 1);
+    this.setData({ 'ruleForm.cycleValues': vals });
   },
 
   async saveRule() {

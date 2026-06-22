@@ -104,16 +104,62 @@
           <!-- Open / Activity fields -->
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
+
             <view class="field"><view class="field-label">周期类型</view>
-              <picker range="{{['每天','每周','每月','每年']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : 3))}}" bindchange="onRuleFormField" data-field="cycleType">
+              <picker range="{{['每天','每周','每月','每年']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : 3))}}" bindchange="onCycleTypeChange">
                 <view class="picker-value">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : '每年'))}}</view></picker></view>
+
+            <!-- Weekly: multi-select Mon-Sun -->
+            <view wx:if="{{ruleForm.cycleType === 'weekly'}}" style="margin-bottom:12rpx;">
+              <view class="field-label" style="margin-bottom:6rpx;">选择星期（多选）</view>
+              <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
+                <text wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this" wx:for-index="di"
+                      style="font-size:22rpx;padding:8rpx 16rpx;border-radius:20rpx;border:1rpx solid {{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#3b82f6' : '#cbd5e1'}};color:{{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#fff' : '#64748b'}};background:{{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#3b82f6' : '#fff'}};"
+                      data-val="{{di + 1}}" bindtap="onToggleCycleDay">{{item}}</text>
+              </view>
+              <view wx:if="{{!ruleForm.cycleValues.length}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">未选择（将匹配所有星期）</view>
+            </view>
+
+            <!-- Monthly: multi-select days 1-31 -->
+            <view wx:if="{{ruleForm.cycleType === 'monthly'}}" style="margin-bottom:12rpx;">
+              <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选）</view>
+              <view style="display:flex;flex-wrap:wrap;gap:6rpx;">
+                <text wx:for="{{31}}" wx:key="*this" wx:for-index="di"
+                      style="font-size:20rpx;width:56rpx;height:48rpx;line-height:48rpx;text-align:center;border-radius:10rpx;border:1rpx solid {{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#3b82f6' : '#cbd5e1'}};color:{{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#fff' : '#64748b'}};background:{{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#3b82f6' : '#fff'}};"
+                      data-val="{{di + 1}}" bindtap="onToggleCycleDay">{{di + 1}}</text>
+              </view>
+              <view wx:if="{{!ruleForm.cycleValues.length}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">未选择（将匹配所有日期）</view>
+            </view>
+
+            <!-- Yearly: month + day combinations using picker + chip list -->
+            <view wx:if="{{ruleForm.cycleType === 'yearly'}}" style="margin-bottom:12rpx;">
+              <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选月+日）</view>
+              <!-- Add new date -->
+              <view style="display:flex;gap:8rpx;align-items:center;margin-bottom:8rpx;">
+                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyPickMonth - 1}}" bindchange="onYearlyPickMonth">
+                  <view class="picker-value" style="flex:1;min-width:120rpx;">{{yearlyPickMonth}}月</view></picker>
+                <picker range="{{yearlyDays}}" value="{{yearlyPickDay - 1}}" bindchange="onYearlyPickDay">
+                  <view class="picker-value" style="flex:1;min-width:120rpx;">{{yearlyPickDay}}日</view></picker>
+                <text style="font-size:22rpx;color:#3b82f6;padding:10rpx 20rpx;border:1rpx solid #3b82f6;border-radius:16rpx;white-space:nowrap;" bindtap="onAddYearlyDate">添加</text>
+              </view>
+              <!-- Selected dates as chips -->
+              <view style="display:flex;flex-wrap:wrap;gap:6rpx;">
+                <view wx:for="{{ruleForm.cycleValues}}" wx:key="idx" wx:for-item="cv" wx:for-index="idx"
+                      style="font-size:20rpx;padding:6rpx 14rpx;border-radius:16rpx;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;gap:4rpx;">
+                  <text>{{cv.m}}月{{cv.d}}日</text>
+                  <text style="color:#ef4444;font-weight:700;" data-idx="{{idx}}" bindtap="onRemoveYearlyDate">×</text>
+                </view>
+              </view>
+              <view wx:if="{{!ruleForm.cycleValues.length}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">未选择（将匹配所有日期）</view>
+            </view>
+
             <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
             <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
           </block>
           <!-- Booking fields -->
           <block wx:if="{{ruleEditorType === 'booking'}}">
             <view class="field"><view class="field-label">审批类型</view>
-              <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm.ruleType === 'admin' ? 0 : (ruleForm.ruleType === 'direct' ? 1 : (ruleForm.ruleType === 'identity' ? 2 : 3))}}" bindchange="onRuleFormField" data-field="ruleType">
+              <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm.ruleType === 'admin' ? 0 : (ruleForm.ruleType === 'direct' ? 1 : (ruleForm.ruleType === 'identity' ? 2 : 3))}}" bindchange="onBookingRuleTypeChange">
                 <view class="picker-value">{{getRuleTypeLabel(ruleForm.ruleType)}}</view></picker></view>
           </block>
           <view class="audit-btn-bar"><button class="primary-btn" bindtap="saveRule">保存</button></view>
