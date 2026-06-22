@@ -165,6 +165,12 @@ Page({
 
   closeRuleEditor() { this.setData({ ruleEditorVisible: false }); },
 
+  // Generic field handler: writes to data[field] directly
+  onFieldInput(e) {
+    const f = e.currentTarget.dataset.field;
+    this.setData({ [f]: e.detail.value });
+  },
+
   onRuleFormField(e) {
     const f = e.currentTarget.dataset.field;
     this.setData({ ['ruleForm.' + f]: e.detail.value });

@@ -14,9 +14,9 @@
 
       <!-- Edit form -->
       <view wx:if="{{editing}}" style="padding:16rpx;background:#f8fafc;border-radius:12rpx;margin-bottom:16rpx;">
-        <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onRuleFormField" placeholder="场地名称"/></view>
-        <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onRuleFormField" placeholder="物理位置"/></view>
-        <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onRuleFormField" placeholder="场地描述"/></view>
+        <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
+        <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="物理位置"/></view>
+        <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
         <view class="button-row"><button class="secondary-btn" bindtap="cancelEdit">取消</button><button class="primary-btn" loading="{{loading}}" bindtap="saveVenue">保存</button></view>
       </view>
 
