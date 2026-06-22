@@ -108,5 +108,13 @@ Page({
     finally { this.setData({ loading: false }); }
   },
 
+  onFieldInput(e) {
+    this.setData({ [e.currentTarget.dataset.field]: e.detail.value });
+  },
+
+  goMyBookings() {
+    wx.navigateTo({ url: '/subpackages/venue/pages/myVenueBookings/myVenueBookings' });
+  },
+
   noop() {}
 });

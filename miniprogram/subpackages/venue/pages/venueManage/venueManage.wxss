@@ -1,18 +1,97 @@
 @import '../../../../pages/home/home.wxss';
 
 .page { padding-bottom: 40rpx; }
-.card { margin: 16rpx 24rpx; }
 
-.venue-card { display:flex; align-items:center; justify-content:space-between; padding:20rpx; margin-bottom:12rpx; border:1rpx solid #e2e8f0; border-radius:14rpx; background:#fff; }
-.venue-info { flex:1; }
-.venue-name { font-size:27rpx; font-weight:700; color:#1e293b; }
-.venue-loc { font-size:22rpx; color:#64748b; margin-top:4rpx; }
-.venue-actions { display:flex; gap:8rpx; }
+/* ── Venue Card ── */
+.venue-list-item {
+  display: flex; align-items: center; gap: 20rpx;
+  padding: 24rpx 22rpx; margin-bottom: 14rpx; border-radius: 24rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(248,251,255,0.78) 100%);
+  border: 1rpx solid rgba(226,237,247,0.92);
+  box-shadow: 0 12rpx 24rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.74);
+  animation: glassFadeUp 0.38s ease both;
+}
+.venue-list-item:active { transform: translateY(1rpx) scale(0.992); }
 
-.rules-tabs { display:flex; border-bottom:1rpx solid #e2e8f0; margin-bottom:12rpx; }
-.rules-tab { flex:1; text-align:center; padding:14rpx 0; font-size:24rpx; color:#64748b; border-bottom:3rpx solid transparent; }
-.rules-tab.active { color:#3b82f6; border-bottom-color:#3b82f6; font-weight:600; }
+.venue-list-avatar {
+  width: 76rpx; height: 76rpx; border-radius: 22rpx;
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 34rpx; flex-shrink: 0;
+  box-shadow: 0 8rpx 18rpx rgba(59,130,246,0.22);
+}
 
-.rule-item { display:flex; align-items:center; justify-content:space-between; padding:14rpx 16rpx; margin-bottom:8rpx; border:1rpx solid #e2e8f0; border-radius:12rpx; background:#f8fafc; }
-.rule-item-name { font-size:24rpx; color:#334155; font-weight:600; }
-.rule-item-detail { font-size:21rpx; color:#64748b; margin-top:2rpx; }
+.venue-list-main { flex:1; min-width:0; }
+.venue-list-name { color:#0f172a; font-size:28rpx; font-weight:700; line-height:1.4; }
+.venue-list-loc { color:#64748b; font-size:21rpx; margin-top:4rpx; }
+.venue-list-desc { color:#94a3b8; font-size:20rpx; margin-top:2rpx; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.venue-list-actions { display:flex; gap:6rpx; flex-shrink:0; }
+.venue-action-btn {
+  font-size:20rpx; padding:8rpx 16rpx; border-radius:18rpx; font-weight:600;
+  background:rgba(241,245,249,0.8); color:#475569; border:1rpx solid rgba(203,213,225,0.5);
+}
+.venue-action-btn.primary { background:#3b82f6; color:#fff; border-color:#3b82f6; }
+.venue-action-btn.danger { background:rgba(254,226,226,0.6); color:#dc2626; border-color:rgba(252,165,165,0.5); }
+
+/* ── Edit Form ── */
+.edit-form-card {
+  padding: 24rpx; margin-bottom: 16rpx; border-radius: 24rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(248,251,255,0.82) 100%);
+  border: 1rpx solid rgba(226,237,247,0.88);
+  box-shadow: 0 14rpx 28rpx rgba(15,23,42,0.05);
+}
+
+/* ── Rules Popup ── */
+.rules-tabs {
+  display:flex; border-bottom:1rpx solid rgba(226,232,240,0.8); margin:0 0 16rpx;
+}
+.rules-tab {
+  flex:1; text-align:center; padding:16rpx 0; font-size:24rpx; color:#94a3b8;
+  border-bottom:3rpx solid transparent; font-weight:500; transition: all 0.2s;
+}
+.rules-tab.active { color:#3b82f6; border-bottom-color:#3b82f6; font-weight:700; }
+
+.rule-item {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18rpx 20rpx; margin-bottom:10rpx; border-radius:18rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,251,255,0.76) 100%);
+  border:1rpx solid rgba(226,237,247,0.84);
+  box-shadow: 0 6rpx 14rpx rgba(15,23,42,0.025);
+}
+.rule-item-name { font-size:25rpx; color:#1e293b; font-weight:600; }
+.rule-item-detail { font-size:21rpx; color:#64748b; margin-top:4rpx; }
+
+/* ── Cycle picker chips ── */
+.cycle-chip {
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:22rpx; padding:8rpx 16rpx; border-radius:20rpx; margin:4rpx;
+  border:1rpx solid #cbd5e1; color:#64748b; background:#fff;
+  transition: all 0.15s;
+}
+.cycle-chip.selected { border-color:#3b82f6; color:#fff; background:#3b82f6; }
+
+.month-chip {
+  width:56rpx; height:48rpx; line-height:48rpx; text-align:center;
+  font-size:20rpx; border-radius:10rpx; margin:3rpx;
+  border:1rpx solid #cbd5e1; color:#64748b; background:#fff;
+}
+.month-chip.selected { border-color:#3b82f6; color:#fff; background:#3b82f6; }
+
+.year-chip {
+  display:inline-flex; align-items:center; gap:4rpx;
+  font-size:21rpx; padding:8rpx 16rpx; border-radius:18rpx; margin:3rpx;
+  background:#dbeafe; color:#1d4ed8; border:1rpx solid #bfdbfe;
+}
+.year-chip-remove { color:#ef4444; font-weight:700; margin-left:4rpx; }
+
+/* ── Header bar with nav ── */
+.header-nav {
+  display:flex; align-items:center; justify-content:flex-end; gap:12rpx;
+  padding:0 0 16rpx;
+}
+.header-nav-btn {
+  font-size:22rpx; padding:10rpx 20rpx; border-radius:20rpx; font-weight:600;
+  background:rgba(255,255,255,0.8); color:#3b82f6; border:1rpx solid rgba(59,130,246,0.3);
+  box-shadow: 0 4rpx 12rpx rgba(59,130,246,0.08);
+}

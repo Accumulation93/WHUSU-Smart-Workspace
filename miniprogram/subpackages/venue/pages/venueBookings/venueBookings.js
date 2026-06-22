@@ -54,5 +54,9 @@ Page({
       if (res.status === 'success') { showShortToast('已驳回'); this.loadBookings(); }
       else showShortToast(res.message);
     } catch (e) { showShortToast(getErrorText(e, '操作失败')); }
+  },
+
+  goVenueManage() {
+    wx.navigateTo({ url: '/subpackages/venue/pages/venueManage/venueManage' });
   }
 });

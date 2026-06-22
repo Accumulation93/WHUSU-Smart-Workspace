@@ -5,89 +5,89 @@
     <view class="hero-subtitle">管理场地、开放时间、活动与借用规则</view>
   </view>
 
-  <view class="section">
-    <view class="card">
-      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+  <!-- Quick nav -->
+  <view class="header-nav">
+    <text class="header-nav-btn" bindtap="goVenueBookings">📅 借用管理</text>
+  </view>
 
-      <view class="section-title">场地列表 ({{venues.length}})</view>
-      <button class="primary-btn" wx:if="{{!editing}}" bindtap="startAdd" style="margin-bottom:16rpx;">+ 新增场地</button>
+  <!-- Venue list -->
+  <view class="card">
+    <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+    <view class="section-title">场地列表 ({{venues.length}})</view>
+    <button class="primary-btn" wx:if="{{!editing}}" bindtap="startAdd" style="margin-bottom:16rpx;">+ 新增场地</button>
 
-      <!-- Edit form -->
-      <view wx:if="{{editing}}" style="padding:16rpx;background:#f8fafc;border-radius:12rpx;margin-bottom:16rpx;">
-        <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
-        <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="物理位置"/></view>
-        <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
-        <view class="button-row"><button class="secondary-btn" bindtap="cancelEdit">取消</button><button class="primary-btn" loading="{{loading}}" bindtap="saveVenue">保存</button></view>
-      </view>
-
-      <!-- Venue list -->
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y wx:if="{{!editing}}">
-        <view class="audit-empty-state" wx:if="{{!venues.length}}"><view class="audit-empty-icon">🏟️</view><view class="audit-empty-text">暂无场地，请新增</view></view>
-        <view class="venue-card" wx:for="{{venues}}" wx:key="id">
-          <view class="venue-info">
-            <view class="venue-name">{{item.name}}</view>
-            <view class="venue-loc" wx:if="{{item.location}}">📍 {{item.location}}</view>
-            <view class="venue-loc" wx:if="{{item.description}}">{{item.description}}</view>
-          </view>
-          <view class="venue-actions">
-            <text class="audit-link-btn" data-id="{{item.id}}" bindtap="openRules">规则</text>
-            <text class="audit-link-btn" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
-            <text class="audit-link-btn audit-link-danger" data-id="{{item.id}}" bindtap="deleteVenue">删除</text>
-          </view>
-        </view>
-      </scroll-view>
+    <!-- Edit form -->
+    <view class="edit-form-card" wx:if="{{editing}}">
+      <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
+      <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="物理位置"/></view>
+      <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
+      <view class="button-row"><button class="secondary-btn" bindtap="cancelEdit">取消</button><button class="primary-btn" loading="{{loading}}" bindtap="saveVenue">保存</button></view>
     </view>
+
+    <!-- List -->
+    <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y wx:if="{{!editing}}">
+      <view class="audit-empty-state" wx:if="{{!venues.length}}"><view class="audit-empty-icon">🏟️</view><view class="audit-empty-text">暂无场地，请新增</view></view>
+      <view class="venue-list-item" wx:for="{{venues}}" wx:key="id">
+        <view class="venue-list-avatar">🏟️</view>
+        <view class="venue-list-main">
+          <view class="venue-list-name">{{item.name}}</view>
+          <view class="venue-list-loc" wx:if="{{item.location}}">📍 {{item.location}}</view>
+          <view class="venue-list-desc" wx:if="{{item.description}}">{{item.description}}</view>
+        </view>
+        <view class="venue-list-actions">
+          <text class="venue-action-btn primary" data-id="{{item.id}}" bindtap="openRules">规则</text>
+          <text class="venue-action-btn" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
+          <text class="venue-action-btn danger" data-id="{{item.id}}" bindtap="deleteVenue">删除</text>
+        </view>
+      </view>
+    </scroll-view>
   </view>
 
   <!-- ═══ Rules Popup ═══ -->
   <view class="popup-mask" wx:if="{{rulesVisible}}" bindtap="closeRules">
     <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">规则管理 - {{rulesVenueName}}</view><text class="popup-close" bindtap="closeRules">关闭</text></view>
-
+      <view class="popup-header"><view class="popup-title">规则管理 · {{rulesVenueName}}</view><text class="popup-close" bindtap="closeRules">关闭</text></view>
       <view class="rules-tabs">
         <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}}" data-tab="open" bindtap="switchRulesTab">开放时间</view>
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}}" data-tab="activity" bindtap="switchRulesTab">活动时间</view>
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}}" data-tab="booking" bindtap="switchRulesTab">借用规则</view>
       </view>
-
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
-        <!-- Open Time Rules -->
+        <!-- Open -->
         <block wx:if="{{rulesTab === 'open'}}">
           <button class="primary-btn" style="margin-bottom:12rpx;" data-type="open" bindtap="openRuleEditor">+ 新增开放时间规则</button>
           <view wx:if="{{!openRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则</view>
           <view class="rule-item" wx:for="{{openRules}}" wx:key="id">
             <view><view class="rule-item-name">{{item.name || '开放时间'}}</view>
               <view class="rule-item-detail">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}}-{{item.time_end || '18:00'}}</view></view>
-            <view class="venue-actions">
-              <text class="audit-link-btn" data-type="open" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-              <text class="audit-link-btn audit-link-danger" data-type="open" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+            <view class="venue-list-actions">
+              <text class="venue-action-btn" data-type="open" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+              <text class="venue-action-btn danger" data-type="open" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
             </view>
           </view>
         </block>
-
-        <!-- Activity Rules -->
+        <!-- Activity -->
         <block wx:if="{{rulesTab === 'activity'}}">
           <button class="primary-btn" style="margin-bottom:12rpx;" data-type="activity" bindtap="openRuleEditor">+ 新增活动规则</button>
           <view wx:if="{{!activityRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则</view>
           <view class="rule-item" wx:for="{{activityRules}}" wx:key="id">
             <view><view class="rule-item-name">{{item.activity_name || '活动'}}</view>
               <view class="rule-item-detail">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}}-{{item.time_end || '18:00'}}</view></view>
-            <view class="venue-actions">
-              <text class="audit-link-btn" data-type="activity" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-              <text class="audit-link-btn audit-link-danger" data-type="activity" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+            <view class="venue-list-actions">
+              <text class="venue-action-btn" data-type="activity" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+              <text class="venue-action-btn danger" data-type="activity" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
             </view>
           </view>
         </block>
-
-        <!-- Booking Rules -->
+        <!-- Booking -->
         <block wx:if="{{rulesTab === 'booking'}}">
           <button class="primary-btn" style="margin-bottom:12rpx;" data-type="booking" bindtap="openRuleEditor">+ 新增借用规则</button>
           <view wx:if="{{!bookingRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则（默认需管理员审核）</view>
           <view class="rule-item" wx:for="{{bookingRules}}" wx:key="id">
             <view><view class="rule-item-name">{{getRuleTypeLabel(item.rule_type)}}</view></view>
-            <view class="venue-actions">
-              <text class="audit-link-btn" data-type="booking" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-              <text class="audit-link-btn audit-link-danger" data-type="booking" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+            <view class="venue-list-actions">
+              <text class="venue-action-btn" data-type="booking" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+              <text class="venue-action-btn danger" data-type="booking" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
             </view>
           </view>
         </block>
@@ -95,68 +95,57 @@
     </view>
   </view>
 
-  <!-- ═══ Rule Editor Popup ═══ -->
+  <!-- ═══ Rule Editor ═══ -->
   <view class="popup-mask" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
     <view class="popup-card" catchtap="noop">
       <view class="popup-header"><view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view><text class="popup-close" bindtap="closeRuleEditor">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-popup-form">
-          <!-- Open / Activity fields -->
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
-
             <view class="field"><view class="field-label">周期类型</view>
               <picker range="{{['每天','每周','每月','每年']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : 3))}}" bindchange="onCycleTypeChange">
                 <view class="picker-value">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : '每年'))}}</view></picker></view>
 
-            <!-- Weekly: multi-select Mon-Sun -->
+            <!-- Weekly -->
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" style="margin-bottom:12rpx;">
               <view class="field-label" style="margin-bottom:6rpx;">选择星期（多选）</view>
               <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
                 <text wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this" wx:for-index="di"
-                      style="font-size:22rpx;padding:8rpx 16rpx;border-radius:20rpx;border:1rpx solid {{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#3b82f6' : '#cbd5e1'}};color:{{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#fff' : '#64748b'}};background:{{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#3b82f6' : '#fff'}};"
+                      class="cycle-chip {{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? 'selected' : ''}}"
                       data-val="{{di + 1}}" bindtap="onToggleCycleDay">{{item}}</text>
               </view>
-              <view wx:if="{{!ruleForm.cycleValues.length}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">未选择（将匹配所有星期）</view>
             </view>
-
-            <!-- Monthly: multi-select days 1-31 -->
+            <!-- Monthly -->
             <view wx:if="{{ruleForm.cycleType === 'monthly'}}" style="margin-bottom:12rpx;">
               <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选）</view>
-              <view style="display:flex;flex-wrap:wrap;gap:6rpx;">
+              <view style="display:flex;flex-wrap:wrap;gap:4rpx;">
                 <text wx:for="{{31}}" wx:key="*this" wx:for-index="di"
-                      style="font-size:20rpx;width:56rpx;height:48rpx;line-height:48rpx;text-align:center;border-radius:10rpx;border:1rpx solid {{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#3b82f6' : '#cbd5e1'}};color:{{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#fff' : '#64748b'}};background:{{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? '#3b82f6' : '#fff'}};"
+                      class="month-chip {{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? 'selected' : ''}}"
                       data-val="{{di + 1}}" bindtap="onToggleCycleDay">{{di + 1}}</text>
               </view>
-              <view wx:if="{{!ruleForm.cycleValues.length}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">未选择（将匹配所有日期）</view>
             </view>
-
-            <!-- Yearly: month + day combinations using picker + chip list -->
+            <!-- Yearly -->
             <view wx:if="{{ruleForm.cycleType === 'yearly'}}" style="margin-bottom:12rpx;">
-              <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选月+日）</view>
-              <!-- Add new date -->
+              <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选）</view>
               <view style="display:flex;gap:8rpx;align-items:center;margin-bottom:8rpx;">
                 <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyPickMonth - 1}}" bindchange="onYearlyPickMonth">
-                  <view class="picker-value" style="flex:1;min-width:120rpx;">{{yearlyPickMonth}}月</view></picker>
+                  <view class="picker-value" style="min-width:120rpx;">{{yearlyPickMonth}}月</view></picker>
                 <picker range="{{yearlyDays}}" value="{{yearlyPickDay - 1}}" bindchange="onYearlyPickDay">
-                  <view class="picker-value" style="flex:1;min-width:120rpx;">{{yearlyPickDay}}日</view></picker>
-                <text style="font-size:22rpx;color:#3b82f6;padding:10rpx 20rpx;border:1rpx solid #3b82f6;border-radius:16rpx;white-space:nowrap;" bindtap="onAddYearlyDate">添加</text>
+                  <view class="picker-value" style="min-width:120rpx;">{{yearlyPickDay}}日</view></picker>
+                <text style="font-size:22rpx;color:#3b82f6;padding:10rpx 20rpx;border:1rpx solid #3b82f6;border-radius:18rpx;white-space:nowrap;" bindtap="onAddYearlyDate">添加</text>
               </view>
-              <!-- Selected dates as chips -->
               <view style="display:flex;flex-wrap:wrap;gap:6rpx;">
-                <view wx:for="{{ruleForm.cycleValues}}" wx:key="idx" wx:for-item="cv" wx:for-index="idx"
-                      style="font-size:20rpx;padding:6rpx 14rpx;border-radius:16rpx;background:#dbeafe;color:#1d4ed8;display:flex;align-items:center;gap:4rpx;">
+                <view wx:for="{{ruleForm.cycleValues}}" wx:key="idx" wx:for-item="cv" wx:for-index="idx" class="year-chip">
                   <text>{{cv.m}}月{{cv.d}}日</text>
-                  <text style="color:#ef4444;font-weight:700;" data-idx="{{idx}}" bindtap="onRemoveYearlyDate">×</text>
+                  <text class="year-chip-remove" data-idx="{{idx}}" bindtap="onRemoveYearlyDate">×</text>
                 </view>
               </view>
-              <view wx:if="{{!ruleForm.cycleValues.length}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">未选择（将匹配所有日期）</view>
             </view>
 
             <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
             <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
           </block>
-          <!-- Booking fields -->
           <block wx:if="{{ruleEditorType === 'booking'}}">
             <view class="field"><view class="field-label">审批类型</view>
               <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm.ruleType === 'admin' ? 0 : (ruleForm.ruleType === 'direct' ? 1 : (ruleForm.ruleType === 'identity' ? 2 : 3))}}" bindchange="onBookingRuleTypeChange">

@@ -2,46 +2,50 @@
   <view class="hero">
     <view class="hero-badge">场地</view>
     <view class="hero-title">借用管理</view>
-    <view class="hero-subtitle">查看和管理所有场地借用</view>
+    <view class="hero-subtitle">查看和管理所有场地借用申请</view>
   </view>
 
-  <view class="section">
-    <view class="card">
-      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+  <!-- Quick nav -->
+  <view class="header-nav">
+    <text class="header-nav-btn" bindtap="goVenueManage">🏟️ 场地管理</text>
+  </view>
 
-      <!-- Status filter -->
-      <view class="filter-row">
-        <text class="filter-chip {{filterStatus === '' ? 'active' : ''}}" data-status="" bindtap="onFilterStatus">全部</text>
-        <text class="filter-chip {{filterStatus === 'pending' ? 'active' : ''}}" data-status="pending" bindtap="onFilterStatus">待审核</text>
-        <text class="filter-chip {{filterStatus === 'approved' ? 'active' : ''}}" data-status="approved" bindtap="onFilterStatus">已通过</text>
-        <text class="filter-chip {{filterStatus === 'rejected' ? 'active' : ''}}" data-status="rejected" bindtap="onFilterStatus">已驳回</text>
-        <text class="filter-chip {{filterStatus === 'cancelled' ? 'active' : ''}}" data-status="cancelled" bindtap="onFilterStatus">已取消</text>
-      </view>
+  <view class="card">
+    <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
 
-      <!-- Venue filter -->
-      <scroll-view scroll-x class="filter-row" style="margin-bottom:12rpx;">
-        <text class="filter-chip {{filterVenueId === '' ? 'active' : ''}}" data-id="" bindtap="onFilterVenue">全部场地</text>
-        <text class="filter-chip {{filterVenueId === item.id ? 'active' : ''}}" wx:for="{{venues}}" wx:key="id" data-id="{{item.id}}" bindtap="onFilterVenue">{{item.name}}</text>
-      </scroll-view>
-
-      <!-- Booking list -->
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-icon">📋</view><view class="audit-empty-text">暂无借用记录</view></view>
-        <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
-          <view class="booking-header">
-            <view class="booking-title">{{item.title || '借用申请'}}</view>
-            <text class="{{item.status === 'pending' ? 'status-pending' : (item.status === 'approved' ? 'status-approved' : (item.status === 'rejected' ? 'status-rejected' : 'status-cancelled'))}}" style="font-size:22rpx;font-weight:600;">{{statusLabels[item.status] || item.status}}</text>
-          </view>
-          <view class="booking-meta">🏟️ {{item.venueName}} · 📍 {{item.venueLocation || '-'}}</view>
-          <view class="booking-meta">👤 {{item.userName}} · 📅 {{item.bookingDate}} · 🕐 {{item.timeStart}}-{{item.timeEnd}}</view>
-          <view class="booking-meta" wx:if="{{item.description}}">{{item.description}}</view>
-          <view wx:if="{{item.status === 'pending'}}" class="button-row" style="margin-top:8rpx;">
-            <button class="primary-btn" style="flex:1;background:#10b981;border-color:#10b981;" data-id="{{item.id}}" bindtap="approve">✓ 通过</button>
-            <button class="secondary-btn danger-btn" style="flex:1;" data-id="{{item.id}}" bindtap="reject">✗ 驳回</button>
-          </view>
-        </view>
-      </scroll-view>
+    <!-- Status filter -->
+    <view class="filter-row">
+      <text class="filter-chip {{filterStatus === '' ? 'active' : ''}}" data-status="" bindtap="onFilterStatus">全部</text>
+      <text class="filter-chip {{filterStatus === 'pending' ? 'active' : ''}}" data-status="pending" bindtap="onFilterStatus">⏳ 待审核</text>
+      <text class="filter-chip {{filterStatus === 'approved' ? 'active' : ''}}" data-status="approved" bindtap="onFilterStatus">✅ 已通过</text>
+      <text class="filter-chip {{filterStatus === 'rejected' ? 'active' : ''}}" data-status="rejected" bindtap="onFilterStatus">❌ 已驳回</text>
+      <text class="filter-chip {{filterStatus === 'cancelled' ? 'active' : ''}}" data-status="cancelled" bindtap="onFilterStatus">↩️ 已取消</text>
     </view>
+
+    <!-- Venue filter -->
+    <scroll-view scroll-x class="filter-row">
+      <text class="filter-chip {{filterVenueId === '' ? 'active' : ''}}" data-id="" bindtap="onFilterVenue">全部场地</text>
+      <text class="filter-chip {{filterVenueId === item.id ? 'active' : ''}}" wx:for="{{venues}}" wx:key="id" data-id="{{item.id}}" bindtap="onFilterVenue">{{item.name}}</text>
+    </scroll-view>
+
+    <!-- List -->
+    <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
+      <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-icon">📋</view><view class="audit-empty-text">暂无借用记录</view></view>
+      <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
+        <view class="booking-item-header">
+          <view class="booking-item-title">{{item.title || '借用申请'}}</view>
+          <text class="booking-status {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
+        </view>
+        <view class="booking-item-meta">🏟️ {{item.venueName}} · 📍 {{item.venueLocation || '-'}}</view>
+        <view class="booking-item-meta">👤 {{item.userName}} · 📅 {{item.bookingDate}} · 🕐 {{item.timeStart}}-{{item.timeEnd}}</view>
+        <view class="booking-item-meta" wx:if="{{item.description}}">💬 {{item.description}}</view>
+        <view class="booking-item-meta" wx:if="{{item.approvalComment}}">📝 {{item.approvalComment}}</view>
+        <view class="booking-actions" wx:if="{{item.status === 'pending'}}">
+          <button class="approve-btn" data-id="{{item.id}}" bindtap="approve">✓ 通过</button>
+          <button class="reject-btn" data-id="{{item.id}}" bindtap="reject">✗ 驳回</button>
+        </view>
+      </view>
+    </scroll-view>
   </view>
 
   <view class="page-footer"><view class="footer-name">REDSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>

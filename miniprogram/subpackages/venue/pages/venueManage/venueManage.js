@@ -302,5 +302,9 @@ Page({
     return map[rt] || rt;
   },
 
+  goVenueBookings() {
+    wx.navigateTo({ url: '/subpackages/venue/pages/venueBookings/venueBookings' });
+  },
+
   noop() {}
 });

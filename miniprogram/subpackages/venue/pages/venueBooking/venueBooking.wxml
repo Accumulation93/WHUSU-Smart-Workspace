@@ -5,61 +5,66 @@
     <view class="hero-subtitle">浏览场地、查看空闲时间并申请借用</view>
   </view>
 
-  <view class="section">
-    <view class="card">
-      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-      <view class="section-title">可用场地 ({{venues.length}})</view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="audit-empty-state" wx:if="{{!venues.length}}"><view class="audit-empty-icon">🏟️</view><view class="audit-empty-text">暂无可用的场地</view></view>
-        <view class="venue-card" wx:for="{{venues}}" wx:key="id">
-          <view class="venue-info">
-            <view class="venue-name">{{item.name}}</view>
-            <view class="venue-loc" wx:if="{{item.location}}">📍 {{item.location}}</view>
-            <view class="venue-loc" wx:if="{{item.description}}">{{item.description}}</view>
-          </view>
-          <view class="venue-actions" style="display:flex;flex-direction:column;gap:6rpx;">
-            <text class="audit-link-btn" data-id="{{item.id}}" bindtap="openSchedule">📅 查看</text>
-            <text class="audit-link-btn" style="color:#10b981;" data-id="{{item.id}}" bindtap="openBooking">+ 借用</text>
-          </view>
+  <!-- Quick nav -->
+  <view class="header-nav">
+    <text class="header-nav-btn" bindtap="goMyBookings">📋 我的借用</text>
+  </view>
+
+  <view class="card">
+    <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+    <view class="section-title">可用场地 ({{venues.length}})</view>
+    <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
+      <view class="audit-empty-state" wx:if="{{!venues.length}}"><view class="audit-empty-icon">🏟️</view><view class="audit-empty-text">暂无可用的场地</view></view>
+      <view class="venue-card" wx:for="{{venues}}" wx:key="id">
+        <view class="venue-card-avatar">🏟️</view>
+        <view class="venue-card-main">
+          <view class="venue-card-name">{{item.name}}</view>
+          <view class="venue-card-loc" wx:if="{{item.location}}">📍 {{item.location}}</view>
+          <view class="venue-card-loc" wx:if="{{item.description}}">{{item.description}}</view>
+          <text class="venue-card-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
         </view>
-      </scroll-view>
-    </view>
+        <view class="venue-card-actions">
+          <text class="venue-card-action view" data-id="{{item.id}}" bindtap="openSchedule">📅 查看</text>
+          <text class="venue-card-action book" data-id="{{item.id}}" bindtap="openBooking">+ 借用</text>
+        </view>
+      </view>
+    </scroll-view>
   </view>
 
   <!-- ═══ Schedule Popup ═══ -->
   <view class="popup-mask" wx:if="{{scheduleVisible}}" bindtap="closeSchedule">
     <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">安排表 - {{scheduleVenueName}}</view><text class="popup-close" bindtap="closeSchedule">关闭</text></view>
-      <view class="schedule-date-nav">
-        <text class="audit-link-btn" data-dir="prev" bindtap="onScheduleNavigate">◀ 前一周</text>
+      <view class="popup-header"><view class="popup-title">安排表 · {{scheduleVenueName}}</view><text class="popup-close" bindtap="closeSchedule">关闭</text></view>
+      <view class="schedule-nav">
+        <text class="schedule-nav-btn" data-dir="prev" bindtap="onScheduleNavigate">◀ 前一周</text>
         <view class="field" style="flex:1;"><input class="field-input" style="text-align:center;" value="{{scheduleDate}}" bindinput="onScheduleDateChange" placeholder="YYYY-MM-DD"/></view>
-        <text class="audit-link-btn" data-dir="next" bindtap="onScheduleNavigate">后一周 ▶</text>
+        <text class="schedule-nav-btn" data-dir="next" bindtap="onScheduleNavigate">后一周 ▶</text>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="schedule-day" wx:for="{{dailySchedules}}" wx:key="date">
           <view class="schedule-day-title">📅 {{item.date}}</view>
           <view wx:if="{{item.openSlots.length}}">
-            <text style="font-size:20rpx;color:#64748b;">开放：</text>
-            <text class="slot-tag slot-open" wx:for="{{item.openSlots}}" wx:key="ruleId" wx:for-item="s">{{s.ruleName || '开放'}} {{s.timeStart}}-{{s.timeEnd}}</text>
+            <text style="font-size:20rpx;color:#94a3b8;">开放：</text>
+            <text class="slot-tag open" wx:for="{{item.openSlots}}" wx:key="ruleId" wx:for-item="s">{{s.ruleName||'开放'}} {{s.timeStart}}-{{s.timeEnd}}</text>
           </view>
           <view wx:if="{{item.activitySlots.length}}">
-            <text style="font-size:20rpx;color:#64748b;">活动：</text>
-            <text class="slot-tag slot-activity" wx:for="{{item.activitySlots}}" wx:key="ruleId" wx:for-item="s">{{s.ruleName}} {{s.timeStart}}-{{s.timeEnd}}</text>
+            <text style="font-size:20rpx;color:#94a3b8;">活动：</text>
+            <text class="slot-tag activity" wx:for="{{item.activitySlots}}" wx:key="ruleId" wx:for-item="s">{{s.ruleName}} {{s.timeStart}}-{{s.timeEnd}}</text>
           </view>
           <view wx:if="{{item.bookedSlots.length}}">
-            <text style="font-size:20rpx;color:#64748b;">已借用：</text>
-            <text class="slot-tag slot-booked" wx:for="{{item.bookedSlots}}" wx:key="id" wx:for-item="s">{{s.title || '占用'}} {{s.timeStart}}-{{s.timeEnd}}</text>
+            <text style="font-size:20rpx;color:#94a3b8;">已借用：</text>
+            <text class="slot-tag booked" wx:for="{{item.bookedSlots}}" wx:key="id" wx:for-item="s">{{s.title||'占用'}} {{s.timeStart}}-{{s.timeEnd}}</text>
           </view>
-          <view wx:if="{{!item.openSlots.length && !item.activitySlots.length && !item.bookedSlots.length}}" style="font-size:20rpx;color:#94a3b8;">当日无安排</view>
+          <view wx:if="{{!item.openSlots.length && !item.activitySlots.length && !item.bookedSlots.length}}" style="font-size:21rpx;color:#94a3b8;">当日无安排</view>
         </view>
       </scroll-view>
     </view>
   </view>
 
-  <!-- ═══ Booking Form Popup ═══ -->
+  <!-- ═══ Booking Form ═══ -->
   <view class="popup-mask" wx:if="{{bookingVisible}}" bindtap="closeBooking">
     <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">借用申请 - {{bookingVenueName}}</view><text class="popup-close" bindtap="closeBooking">关闭</text></view>
+      <view class="popup-header"><view class="popup-title">借用申请 · {{bookingVenueName}}</view><text class="popup-close" bindtap="closeBooking">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-popup-form">
           <view class="field"><view class="field-label">借用主题</view><input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="如：部门例会"/></view>

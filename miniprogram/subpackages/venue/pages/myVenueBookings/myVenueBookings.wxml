@@ -5,27 +5,28 @@
     <view class="hero-subtitle">查看和管理你的场地借用记录</view>
   </view>
 
-  <view class="section">
-    <view class="card">
-      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-      <view class="section-title">借用记录 ({{bookings.length}})</view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-icon">📋</view><view class="audit-empty-text">暂无借用记录</view></view>
-        <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
-          <view class="booking-header">
-            <view class="booking-title">{{item.title || '借用申请'}}</view>
-            <text class="status-{{item.status}}">{{statusLabels[item.status] || item.status}}</text>
-          </view>
-          <view class="booking-meta">🏟️ {{item.venueName}} · 📍 {{item.venueLocation || '-'}}</view>
-          <view class="booking-meta">📅 {{item.bookingDate}} · 🕐 {{item.timeStart}} - {{item.timeEnd}}</view>
-          <view class="booking-meta" wx:if="{{item.description}}">{{item.description}}</view>
-          <view class="booking-meta" wx:if="{{item.approvalComment}}">💬 {{item.approvalComment}}</view>
-          <view wx:if="{{item.status === 'pending' || item.status === 'approved'}}" style="margin-top:10rpx;">
-            <text class="audit-link-btn audit-link-danger" data-id="{{item.id}}" bindtap="cancelBooking">取消借用</text>
-          </view>
+  <!-- Quick nav -->
+  <view class="header-nav">
+    <text class="header-nav-btn" bindtap="goVenueBooking">🏟️ 浏览场地</text>
+  </view>
+
+  <view class="card">
+    <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+    <view class="section-title">借用记录 ({{bookings.length}})</view>
+    <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
+      <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-icon">📋</view><view class="audit-empty-text">暂无借用记录</view></view>
+      <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
+        <view class="booking-header">
+          <view class="booking-title">{{item.title || '借用申请'}}</view>
+          <text class="booking-status {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
         </view>
-      </scroll-view>
-    </view>
+        <view class="booking-meta">🏟️ {{item.venueName}} · 📍 {{item.venueLocation || '-'}}</view>
+        <view class="booking-meta">📅 {{item.bookingDate}} · 🕐 {{item.timeStart}} - {{item.timeEnd}}</view>
+        <view class="booking-meta" wx:if="{{item.description}}">💬 {{item.description}}</view>
+        <view class="booking-meta" wx:if="{{item.approvalComment}}">📝 {{item.approvalComment}}</view>
+        <text wx:if="{{item.status === 'pending' || item.status === 'approved'}}" class="cancel-btn" data-id="{{item.id}}" bindtap="cancelBooking">取消借用</text>
+      </view>
+    </scroll-view>
   </view>
 
   <view class="page-footer"><view class="footer-name">REDSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>

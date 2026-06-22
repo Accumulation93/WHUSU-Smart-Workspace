@@ -1,15 +1,64 @@
 @import '../../../../pages/home/home.wxss';
 
 .page { padding-bottom: 40rpx; }
-.filter-row { display:flex; gap:8rpx; flex-wrap:wrap; margin-bottom:12rpx; }
-.filter-chip { font-size:21rpx; padding:6rpx 14rpx; border-radius:20rpx; border:1rpx solid #cbd5e1; color:#64748b; }
-.filter-chip.active { background:#3b82f6; color:#fff; border-color:#3b82f6; }
 
-.booking-item { padding:16rpx; margin-bottom:10rpx; border:1rpx solid #e2e8f0; border-radius:12rpx; background:#fff; }
-.booking-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6rpx; }
-.booking-title { font-size:25rpx; font-weight:700; color:#1e293b; }
-.booking-meta { font-size:21rpx; color:#64748b; line-height:1.5; }
-.status-pending { color:#d97706; }
-.status-approved { color:#10b981; }
-.status-rejected { color:#ef4444; }
-.status-cancelled { color:#94a3b8; }
+/* ── Filter chips ── */
+.filter-row { display:flex; gap:8rpx; flex-wrap:wrap; margin-bottom:16rpx; }
+.filter-chip {
+  font-size:22rpx; padding:10rpx 20rpx; border-radius:22rpx; font-weight:600;
+  background:rgba(255,255,255,0.84); color:#64748b;
+  border:1rpx solid rgba(203,213,225,0.6);
+  box-shadow:0 4rpx 10rpx rgba(15,23,42,0.03);
+  transition: all 0.2s;
+}
+.filter-chip.active {
+  background:linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+  color:#fff; border-color:#3b82f6;
+  box-shadow:0 8rpx 18rpx rgba(59,130,246,0.22);
+}
+
+/* ── Header nav ── */
+.header-nav {
+  display:flex; align-items:center; justify-content:flex-end; gap:12rpx;
+  padding:0 0 16rpx;
+}
+.header-nav-btn {
+  font-size:22rpx; padding:10rpx 20rpx; border-radius:20rpx; font-weight:600;
+  background:rgba(255,255,255,0.8); color:#3b82f6; border:1rpx solid rgba(59,130,246,0.3);
+  box-shadow:0 4rpx 12rpx rgba(59,130,246,0.08);
+}
+
+/* ── Booking item ── */
+.booking-item {
+  padding:22rpx 24rpx; margin-bottom:14rpx; border-radius:24rpx;
+  background:linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(248,251,255,0.78) 100%);
+  border:1rpx solid rgba(226,237,247,0.92);
+  box-shadow:0 12rpx 24rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.74);
+  animation:glassFadeUp 0.38s ease both;
+}
+.booking-item:active { transform:translateY(1rpx) scale(0.992); }
+
+.booking-item-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8rpx; }
+.booking-item-title { font-size:27rpx; font-weight:700; color:#0f172a; }
+.booking-item-meta { font-size:22rpx; color:#64748b; line-height:1.7; }
+
+.booking-status {
+  font-size:21rpx; font-weight:700; padding:6rpx 16rpx; border-radius:16rpx; white-space:nowrap;
+}
+.booking-status.pending { background:#fef3c7; color:#92400e; }
+.booking-status.approved { background:#d1fae5; color:#065f46; }
+.booking-status.rejected { background:#fee2e2; color:#991b1b; }
+.booking-status.cancelled { background:#f1f5f9; color:#94a3b8; }
+
+.booking-actions { display:flex; gap:8rpx; margin-top:12rpx; }
+.booking-actions .approve-btn {
+  flex:1; padding:12rpx; border-radius:18rpx; text-align:center; font-size:22rpx; font-weight:700;
+  background:linear-gradient(135deg, #10b981 0%, #34d399 100%); color:#fff;
+  border:none; box-shadow:0 8rpx 16rpx rgba(16,185,129,0.18);
+}
+.booking-actions .reject-btn {
+  flex:1; padding:12rpx; border-radius:18rpx; text-align:center; font-size:22rpx; font-weight:700;
+  background:linear-gradient(135deg, rgba(254,226,226,0.9) 0%, rgba(252,165,165,0.7) 100%);
+  color:#dc2626; border:1rpx solid rgba(252,165,165,0.5);
+  box-shadow:0 6rpx 14rpx rgba(239,68,68,0.08);
+}

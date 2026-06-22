@@ -37,5 +37,9 @@ Page({
         } catch (e) { showShortToast(getErrorText(e, '取消失败')); }
       }
     });
+  },
+
+  goVenueBooking() {
+    wx.navigateTo({ url: '/subpackages/venue/pages/venueBooking/venueBooking' });
   }
 });
