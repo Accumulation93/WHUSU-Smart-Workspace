@@ -743,40 +743,43 @@
               wx:if="{{placementCurrentPage < placementTotalPages}}">下一页 ▶</text>
       </view>
 
-      <!-- Placement canvas -->
-      <view id="placementCanvas"
-            style="position:relative;width:100%;height:700rpx;background:#f8fafc;border:2rpx dashed #cbd5e1;border-radius:8rpx;overflow:hidden;margin:0 16rpx;box-sizing:border-box;"
+      <!-- Placement canvas — scrollable to show full file -->
+      <scroll-view id="placementCanvas"
+            scroll-y="{{true}}"
+            style="position:relative;width:100%;height:700rpx;background:#f8fafc;border:2rpx dashed #cbd5e1;border-radius:8rpx;margin:0 16rpx;box-sizing:border-box;"
             bindtap="onPlacementTap">
         <!-- Loading indicator -->
         <view wx:if="{{placementLoading}}"
-              style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:23rpx;">
+              style="display:flex;align-items:center;justify-content:center;height:700rpx;color:#94a3b8;font-size:23rpx;">
           ⏳ 加载文件预览中...
         </view>
         <!-- File preview (image or rendered PDF page) -->
         <block wx:elif="{{placementFileImage}}">
-          <image src="{{placementFileImage}}" mode="widthFix"
-                 style="width:100%;pointer-events:none;" />
+          <view style="position:relative;display:inline-block;width:100%;">
+            <image id="placementPreviewImage" src="{{placementFileImage}}" mode="widthFix"
+                   style="width:100%;display:block;" />
+            <!-- Overlaid signatures/stamps -->
+            <block wx:for="{{placementItems}}" wx:key="dispIdx" wx:for-item="item">
+              <block wx:if="{{!placementFileMime || placementFileMime.indexOf('pdf') < 0 || item.page === placementCurrentPage}}">
+                <image src="{{item.imageData}}"
+                       mode="aspectFit"
+                       style="position:absolute;left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;width:80rpx;height:80rpx;transform:translate(-50%,-50%);border:{{placementActiveIdx === item.dispIdx ? '2rpx solid #3b82f6' : 'none'}};border-radius:4rpx;opacity:0.85;" />
+              </block>
+            </block>
+            <!-- Crosshair showing current position -->
+            <view wx:if="{{placementPreviewX >= 0}}" style="position:absolute;left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;width:4rpx;height:36rpx;background:#ef4444;transform:translate(-50%,-50%);"></view>
+            <view wx:if="{{placementPreviewX >= 0}}" style="position:absolute;left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;width:36rpx;height:4rpx;background:#ef4444;transform:translate(-50%,-50%);"></view>
+          </view>
         </block>
         <!-- Fallback: no preview available -->
-        <view wx:else style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:25rpx;">
+        <view wx:else style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:700rpx;color:#94a3b8;font-size:25rpx;">
           <view style="font-size:48rpx;margin-bottom:12rpx;">📄</view>
           <view>{{placementFileName}}</view>
           <view style="font-size:20rpx;margin-top:8rpx;">
-            {{placementFileMime === 'application/pdf' ? 'PDF文件 · 点击区域放置签名 · 页面' + placementCurrentPage : '点击区域放置' + (placementType === 'stamp' ? '印章' : '签名')}}
+            {{placementFileMime === 'application/pdf' ? 'PDF文件 · 点击区域放置签名 · 第' + placementCurrentPage + '页' : '点击区域放置' + (placementType === 'stamp' ? '印章' : '签名')}}
           </view>
         </view>
-        <!-- Overlaid signatures/stamps -->
-        <block wx:for="{{placementItems}}" wx:key="dispIdx" wx:for-item="item">
-          <block wx:if="{{!placementFileMime || placementFileMime.indexOf('pdf') < 0 || item.page === placementCurrentPage}}">
-            <image src="{{item.imageData}}"
-                   mode="aspectFit"
-                   style="position:absolute;left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;width:80rpx;height:80rpx;transform:translate(-50%,-50%);pointer-events:none;border:{{placementActiveIdx === item.dispIdx ? '2rpx solid #3b82f6' : 'none'}};border-radius:4rpx;opacity:0.85;" />
-          </block>
-        </block>
-        <!-- Crosshair showing current position -->
-        <view wx:if="{{placementPreviewX >= 0}}" style="position:absolute;left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;width:4rpx;height:40rpx;background:#ef4444;transform:translate(-50%,-50%);pointer-events:none;"></view>
-        <view wx:if="{{placementPreviewX >= 0}}" style="position:absolute;left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;width:40rpx;height:4rpx;background:#ef4444;transform:translate(-50%,-50%);pointer-events:none;"></view>
-      </view>
+      </scroll-view>
 
       <!-- Position info -->
       <view wx:if="{{placementPreviewX >= 0 && placementPosText}}" style="padding:8rpx 16rpx;font-size:20rpx;color:#64748b;text-align:center;">

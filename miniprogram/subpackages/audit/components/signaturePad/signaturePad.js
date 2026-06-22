@@ -18,24 +18,32 @@ Component({
   },
 
   data: {
-    // Canvas dimensions for WXML rendering (setData-safe)
-    canvasReady: false
+    canvasReady: false,
+    hasContent: false  // whether user has drawn anything
   },
 
   lifetimes: {
     attached() {
-      this._initCanvas();
+      // Canvas 2D node needs a tick to be ready in the DOM
+      const that = this;
+      wx.nextTick(() => {
+        that._initCanvas();
+      });
     }
   },
 
   methods: {
-    async _initCanvas() {
+    _initCanvas() {
       const that = this;
       const query = this.createSelectorQuery();
       query.select('#sigCanvas')
         .fields({ node: true, size: true })
         .exec((res) => {
-          if (!res || !res[0]) return;
+          if (!res || !res[0] || !res[0].node) {
+            console.error('[sigPad] Canvas node not found:', res);
+            wx.showToast({ title: '签名画板加载失败，请重试', icon: 'none' });
+            return;
+          }
           const canvas = res[0].node;
           const ctx = canvas.getContext('2d');
           const dpr = wx.getSystemInfoSync().pixelRatio;
@@ -47,7 +55,7 @@ Component({
           canvas.height = height * dpr;
           ctx.scale(dpr, dpr);
 
-          // Store as INSTANCE properties (NOT via setData — canvas/ctx are complex objects)
+          // Store as INSTANCE properties (NOT via setData)
           that._canvas = canvas;
           that._ctx = ctx;
           that._canvasWidth = width;
@@ -62,17 +70,22 @@ Component({
 
           // Draw initial image if provided
           if (that.properties.initialImage) {
-            that._loadInitialImage(ctx, width, height);
+            that._loadInitialImage(width, height);
           }
         });
     },
 
-    _loadInitialImage(ctx, width, height) {
+    _loadInitialImage(width, height) {
       const canvas = this._canvas;
       if (!canvas) return;
       const img = canvas.createImage();
       img.onload = () => {
+        const ctx = this._ctx;
         ctx.drawImage(img, 0, 0, width, height);
+        this.setData({ hasContent: true });
+      };
+      img.onerror = () => {
+        console.error('[sigPad] Failed to load initial image');
       };
       img.src = this.properties.initialImage;
     },
@@ -107,6 +120,9 @@ Component({
       ctx.moveTo(x, y);
 
       this._points.push({ x, y });
+      if (!this.data.hasContent && this._points.length > 5) {
+        this.setData({ hasContent: true });
+      }
     },
 
     onTouchEnd() {
@@ -118,18 +134,26 @@ Component({
       const ctx = this._ctx;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, this._canvasWidth, this._canvasHeight);
+      this.setData({ hasContent: false });
     },
 
     onConfirm() {
-      if (!this._canvas) return;
+      if (!this._canvas) {
+        wx.showToast({ title: '画板未就绪，请稍后重试', icon: 'none' });
+        return;
+      }
       const canvas = this._canvas;
+      wx.showLoading({ title: '确认签名中...' });
       canvas.toDataURL({
         type: 'image/png',
         success: (res) => {
+          wx.hideLoading();
           this.triggerEvent('confirm', { imageData: res.data });
         },
-        fail: () => {
-          wx.showToast({ title: '导出签名失败', icon: 'none' });
+        fail: (err) => {
+          wx.hideLoading();
+          console.error('[sigPad] toDataURL failed:', err);
+          wx.showToast({ title: '导出签名失败，请重试', icon: 'none' });
         }
       });
     },

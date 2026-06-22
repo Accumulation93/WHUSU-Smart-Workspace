@@ -1399,12 +1399,13 @@ Page({
     }
   },
 
-  // User selected a saved signature template
+  // User selected a saved signature template — auto-open placement
   onSelectSavedSignature(e) {
-    var sigId = e.currentTarget.dataset.sigId;
+    var that = this;
     var sigImage = e.currentTarget.dataset.sigImage;
     var fileId = this.data.sigSourceFileId;
     var sigs = [...this.data.pendingSignatures];
+    var newSigIdx = sigs.length;
     sigs.push({
       _idx: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       fileId: fileId,
@@ -1422,7 +1423,11 @@ Page({
       approvalWarning: ''
     });
     this.updateApprovalWarning();
-    showShortToast('已选择签名');
+
+    // Auto-open placement popup for positioning
+    wx.nextTick(() => {
+      that._openPlacementForIdx(newSigIdx);
+    });
   },
 
   // User wants to draw a new signature — open signature pad from picker
@@ -1430,9 +1435,9 @@ Page({
     var fileId = this.data.sigSourceFileId;
     this.setData({
       currentSignatureFileId: fileId,
-      signaturePadVisible: true
+      signaturePadVisible: true,
+      sigSourcePickerVisible: false  // Close picker to avoid double-popup
     });
-    // Keep sigSourcePickerVisible so we can return context
   },
 
   // Toggle save-new-signature checkbox
@@ -1445,11 +1450,11 @@ Page({
     this.setData({ sigSaveName: e.detail.value });
   },
 
-  // Signature drawing confirmed
+  // Signature drawing confirmed — auto-open placement popup
   onSignatureConfirm(e) {
     var that = this;
     var imageData = e.detail.imageData;
-    var fileId = this.data.sigPadFileId || this.data.currentSignatureFileId;
+    var fileId = this.data.currentSignatureFileId;
 
     // If user wants to save this signature to library
     if (this.data.sigSaveNew) {
@@ -1466,9 +1471,11 @@ Page({
       });
     }
 
+    var newIdx = '_sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     var sigs = [...this.data.pendingSignatures];
+    var newSigIdx = sigs.length;
     sigs.push({
-      _idx: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      _idx: newIdx,
       fileId: fileId,
       signatureType: 'signature',
       stampName: '',
@@ -1487,6 +1494,59 @@ Page({
       approvalWarning: ''
     });
     this.updateApprovalWarning();
+
+    // Auto-open placement popup for this new signature
+    wx.nextTick(() => {
+      that._openPlacementForIdx(newSigIdx);
+    });
+  },
+
+  // Utility: open placement popup for a pending signature at given index
+  _openPlacementForIdx(idx) {
+    var sig = this.data.pendingSignatures[idx];
+    if (!sig) return;
+    var fileId = sig.fileId;
+    var files = this.data.files || [];
+    var file = files.find(function(f) { return f.id === fileId; });
+    var fileName = file ? file.fileName : '未知文件';
+    var fileMime = file ? file.mimeType : '';
+
+    // Collect all sigs/stamps on the same file
+    var fileItems = [];
+    for (var i = 0; i < this.data.pendingSignatures.length; i++) {
+      var s = this.data.pendingSignatures[i];
+      if (s.fileId === fileId) {
+        fileItems.push({
+          dispIdx: i,
+          imageData: s.imageData,
+          positionX: s.positionX,
+          positionY: s.positionY,
+          page: s.page || 1,
+          signatureType: s.signatureType
+        });
+      }
+    }
+
+    var currentPage = sig.page || 1;
+
+    this.setData({
+      placementVisible: true,
+      placementType: sig.signatureType,
+      placementFileName: fileName,
+      placementFileId: fileId,
+      placementFileMime: fileMime,
+      placementItems: fileItems,
+      placementActiveIdx: idx,
+      placementPreviewX: sig.positionX != null ? sig.positionX : -1,
+      placementPreviewY: sig.positionY != null ? sig.positionY : -1,
+      placementCurrentPage: currentPage,
+      placementTotalPages: 1,
+      placementFileImage: '',
+      placementLoading: true,
+      placementPosText: sig.positionX != null ? (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%' : ''
+    });
+
+    this.loadFilePreview(fileId, currentPage);
   },
 
   // Legacy: open signature pad directly (used in old approval dialog)
@@ -1608,11 +1668,13 @@ Page({
 
   // User selected a stamp from the picker
   onStampSelect(e) {
+    var that = this;
     var stampId = e.currentTarget.dataset.stampId;
     var stampName = e.currentTarget.dataset.stampName;
     var stampImage = e.currentTarget.dataset.stampImage;
     var fileId = this.data.stampPickFileId;
     var sigs = [...this.data.pendingSignatures];
+    var newSigIdx = sigs.length;
     sigs.push({
       _idx: 'stamp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       fileId: fileId,
@@ -1630,6 +1692,11 @@ Page({
       approvalWarning: ''
     });
     this.updateApprovalWarning();
+
+    // Auto-open placement popup
+    wx.nextTick(() => {
+      that._openPlacementForIdx(newSigIdx);
+    });
   },
 
   // Remove a pending signature/stamp
@@ -1643,54 +1710,10 @@ Page({
     this.updateApprovalWarning();
   },
 
-  // Open placement popup to adjust sig/stamp position on file preview
+  // Open placement popup (called from "调整位置" button on pending signatures)
   openPlacement(e) {
     var idx = parseInt(e.currentTarget.dataset.sigIdx);
-    var sig = this.data.pendingSignatures[idx];
-    if (!sig) return;
-    var fileId = sig.fileId;
-    var files = this.data.files || [];
-    var file = files.find(function(f) { return f.id === fileId; });
-    var fileName = file ? file.fileName : '未知文件';
-    var fileMime = file ? file.mimeType : '';
-
-    // Collect all sigs/stamps on the same file
-    var fileItems = [];
-    for (var i = 0; i < this.data.pendingSignatures.length; i++) {
-      var s = this.data.pendingSignatures[i];
-      if (s.fileId === fileId) {
-        fileItems.push({
-          dispIdx: i,
-          imageData: s.imageData,
-          positionX: s.positionX,
-          positionY: s.positionY,
-          page: s.page || 1,
-          signatureType: s.signatureType
-        });
-      }
-    }
-
-    var currentPage = sig.page || 1;
-
-    this.setData({
-      placementVisible: true,
-      placementType: sig.signatureType,
-      placementFileName: fileName,
-      placementFileId: fileId,
-      placementFileMime: fileMime,
-      placementItems: fileItems,
-      placementActiveIdx: idx,
-      placementPreviewX: sig.positionX != null ? sig.positionX : -1,
-      placementPreviewY: sig.positionY != null ? sig.positionY : -1,
-      placementCurrentPage: currentPage,
-      placementTotalPages: 1,
-      placementFileImage: '',
-      placementLoading: true,
-      placementPosText: sig.positionX != null ? (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%' : ''
-    });
-
-    // Load file preview for positioning
-    this.loadFilePreview(fileId, currentPage);
+    this._openPlacementForIdx(idx);
   },
 
   // Load file preview (image or PDF page) from server
@@ -1772,43 +1795,60 @@ Page({
     this.setData({ placementVisible: false });
   },
 
-  // Handle tap on placement canvas — update position
+  // Handle tap on placement canvas — update position relative to the preview image
   onPlacementTap(e) {
     var that = this;
     var tapX = e.detail.x;
     var tapY = e.detail.y;
-    // Query the placement canvas view for its dimensions
-    wx.createSelectorQuery().select('#placementCanvas').boundingClientRect(function(rect) {
-      if (!rect) return;
+    // Query the preview image element to get its display dimensions (not the scroll container)
+    wx.createSelectorQuery().select('#placementPreviewImage').boundingClientRect(function(rect) {
+      // Fallback to canvas if image not found (placeholder mode)
+      if (!rect) {
+        wx.createSelectorQuery().select('#placementCanvas').boundingClientRect(function(canvasRect) {
+          if (!canvasRect) return;
+          var px = Math.max(0, Math.min(1, tapX / (canvasRect.width || 1)));
+          var py = Math.max(0, Math.min(1, tapY / (canvasRect.height || 1)));
+          that._applyPlacementPosition(px, py);
+        }).exec();
+        return;
+      }
       var px = Math.max(0, Math.min(1, tapX / (rect.width || 1)));
       var py = Math.max(0, Math.min(1, tapY / (rect.height || 1)));
-      that.setData({
-        placementPreviewX: px,
-        placementPreviewY: py,
-        placementPosText: (px * 100).toFixed(1) + '%, ' + (py * 100).toFixed(1) + '%'
-      });
-      // Also update the active item's position immediately for preview
-      var idx = that.data.placementActiveIdx;
-      if (idx >= 0) {
-        var sigs = [...that.data.pendingSignatures];
-        if (idx < sigs.length) {
-          sigs[idx].positionX = px;
-          sigs[idx].positionY = py;
-          sigs[idx].page = that.data.placementCurrentPage;
-        }
-        // Update placementItems for visual preview
-        var items = [...that.data.placementItems];
-        for (var i = 0; i < items.length; i++) {
-          if (items[i].dispIdx === idx) {
-            items[i].positionX = px;
-            items[i].positionY = py;
-            items[i].page = that.data.placementCurrentPage;
-            break;
-          }
-        }
-        that.setData({ pendingSignatures: sigs, placementItems: items });
-      }
+      that._applyPlacementPosition(px, py);
     }).exec();
+  },
+
+  // Apply placement position to active signature
+  _applyPlacementPosition(px, py) {
+    var that = this;
+    var idx = that.data.placementActiveIdx;
+    var sigs = [...that.data.pendingSignatures];
+    var items = [...that.data.placementItems];
+    var page = that.data.placementCurrentPage;
+
+    if (idx >= 0 && idx < sigs.length) {
+      sigs[idx].positionX = px;
+      sigs[idx].positionY = py;
+      sigs[idx].page = page;
+    }
+
+    // Update placementItems for visual preview
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].dispIdx === idx) {
+        items[i].positionX = px;
+        items[i].positionY = py;
+        items[i].page = page;
+        break;
+      }
+    }
+
+    that.setData({
+      placementPreviewX: px,
+      placementPreviewY: py,
+      placementPosText: (px * 100).toFixed(1) + '%, ' + (py * 100).toFixed(1) + '%',
+      pendingSignatures: sigs,
+      placementItems: items
+    });
   },
 
   // Save the adjusted position and page
