@@ -189,10 +189,10 @@
 .tt-legend { display:flex; gap:16rpx; padding:12rpx 18rpx; font-size:20rpx; color:#64748b; flex-wrap:wrap; }
 .tt-leg-item { display:flex; align-items:center; gap:6rpx; }
 .tt-dot { width:22rpx; height:22rpx; border-radius:6rpx; flex-shrink:0; }
-.tt-dot.open { background:#86efac; border:1rpx solid #4ade80; }
-.tt-dot.booked { background:#fca5a5; border:1rpx solid #f87171; }
-.tt-dot.pending { background:#fde68a; border:1rpx solid #fbbf24; }
-.tt-dot.activity { background:#e9d5ff; border:1rpx solid #c084fc; }
+.tt-dot.open { background:#93c5fd; border:1rpx solid #60a5fa; }
+.tt-dot.booked { background:#fde68a; border:1rpx solid #fcd34d; }
+.tt-dot.pending { background:#fdba74; border:1rpx solid #fb923c; }
+.tt-dot.activity { background:#f9a8d4; border:1rpx solid #f472b6; }
 .tt-dot.closed { background:#e2e8f0; border:1rpx solid #cbd5e1; }
 
 /* ═══ Timeline ═══ */
