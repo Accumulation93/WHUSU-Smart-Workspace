@@ -4,6 +4,28 @@ const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','
 const HOUR_HEIGHT = 64; // rpx per hour
 const BASE_MIN = 0;
 
+const ALL_MINUTES = [];
+for (let i = 0; i < 60; i++) {
+  ALL_MINUTES.push({ value: i, label: String(i).padStart(2, '0') });
+}
+
+function isMinInOpen(min, openSlots) {
+  for (const o of openSlots) {
+    if (min >= timeToMin(o.timeStart) && min < timeToMin(o.timeEnd)) return true;
+  }
+  return false;
+}
+
+function isMinBlocked(min, bookedSlots, activitySlots) {
+  for (const b of bookedSlots) {
+    if (min >= timeToMin(b.timeStart) && min < timeToMin(b.timeEnd)) return true;
+  }
+  for (const a of activitySlots) {
+    if (min >= timeToMin(a.timeStart) && min < timeToMin(a.timeEnd)) return true;
+  }
+  return false;
+}
+
 function timeToMin(t) {
   if (!t) return 0;
   const parts = String(t).split(':');
@@ -106,6 +128,18 @@ Page({
     adminBookingTimeStart: '',
     adminBookingTimeEnd: '',
     adminDailySlots: [],
+
+    // Admin time picker options
+    adminStartHours: [],
+    adminStartHourIdx: 0,
+    adminStartMinIdx: 0,
+    adminEndHours: [],
+    adminEndHourIdx: 0,
+    adminEndMinIdx: 0,
+    _adminDayData: null,
+
+    // Shared minute options
+    ALL_MINUTES: ALL_MINUTES,
 
     // Purpose management
     purposeVisible: false,
@@ -577,7 +611,10 @@ Page({
       adminBookingTimeEnd: '',
       adminBookingTitle: '',
       adminBookingDesc: '',
-      adminDailySlots: []
+      adminDailySlots: [],
+      adminStartHours: [], adminStartHourIdx: 0, adminStartMinIdx: 0,
+      adminEndHours: [], adminEndHourIdx: 0, adminEndMinIdx: 0,
+      _adminDayData: null
     });
     this._loadAdminDailySlots(date);
   },
@@ -589,15 +626,22 @@ Page({
 
   onAdminStartDateChange(e) {
     const d = e.detail.value;
-    this.setData({ adminBookingStartDate: d, adminBookingStartDateDisplay: d, adminBookingEndDate: d, adminBookingEndDateDisplay: d, adminDailySlots: [], adminBookingTimeStart: '', adminBookingTimeEnd: '' });
-    this._loadAdminDailySlots(d);
+    this.setData({
+      adminBookingStartDate: d, adminBookingStartDateDisplay: d,
+      adminBookingEndDate: d, adminBookingEndDateDisplay: d,
+      adminBookingTimeStart: '', adminBookingTimeEnd: '',
+      adminStartHours: [], adminStartHourIdx: 0, adminStartMinIdx: 0,
+      adminEndHours: [], adminEndHourIdx: 0, adminEndMinIdx: 0,
+      _adminDayData: null
+    });
+    this._loadAdminAvailability(d);
   },
   onAdminEndDateChange(e) {
     const d = e.detail.value;
-    this.setData({ adminBookingEndDate: d, adminBookingEndDateDisplay: d });
+    this.setData({ adminBookingEndDate: d, adminBookingEndDateDisplay: d, adminBookingTimeEnd: '' });
   },
 
-  async _loadAdminDailySlots(dateStr) {
+  async _loadAdminAvailability(dateStr) {
     if (!dateStr) return;
     wx.showLoading({ title: '查询空闲...' });
     try {
@@ -608,28 +652,90 @@ Page({
       if (res.status === 'success') {
         const dayData = (res.dailySchedules || [])[0];
         if (dayData) {
-          const slots = [];
           const openSlots = dayData.openSlots || [];
-          const bookedSlots = dayData.bookedSlots || [];
-          const activitySlots = dayData.activitySlots || [];
+          const openHourSet = new Set();
           for (const o of openSlots) {
-            let t = timeToMin(o.timeStart);
-            const end = timeToMin(o.timeEnd);
-            while (t + 30 <= end) {
-              const ts = String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
-              const te = String(Math.floor((t+30)/60)).padStart(2,'0')+':'+String((t+30)%60).padStart(2,'0');
-              let blocked = false;
-              for (const b of bookedSlots) { if (t < timeToMin(b.timeEnd) && t+30 > timeToMin(b.timeStart)) { blocked = true; break; } }
-              if (!blocked) for (const a of activitySlots) { if (t < timeToMin(a.timeEnd) && t+30 > timeToMin(a.timeStart)) { blocked = true; break; } }
-              if (!blocked) slots.push({ timeStart: ts, timeEnd: te, label: ts+' - '+te });
-              t += 30;
+            const os = timeToMin(o.timeStart);
+            const oe = timeToMin(o.timeEnd);
+            for (let h = Math.floor(os / 60); h < Math.ceil(oe / 60); h++) {
+              if (h >= 0 && h < 24) openHourSet.add(h);
             }
           }
-          this.setData({ adminDailySlots: slots });
+          const sortedHours = Array.from(openHourSet).sort((a, b) => a - b);
+          const startHours = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
+          const endHoursAll = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
+          this.setData({
+            adminStartHours: startHours, adminStartHourIdx: 0, adminStartMinIdx: 0,
+            adminEndHours: endHoursAll, adminEndHourIdx: 0, adminEndMinIdx: 0,
+            adminBookingTimeStart: '', adminBookingTimeEnd: '',
+            _adminDayData: dayData
+          });
+        } else {
+          this.setData({
+            adminStartHours: [], adminEndHours: [],
+            adminBookingTimeStart: '', adminBookingTimeEnd: '',
+            _adminDayData: null
+          });
         }
+      } else {
+        showShortToast(res.message || '加载失败');
       }
     } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
     finally { wx.hideLoading(); }
+  },
+
+  onAdminStartHourChange(e) {
+    const idx = parseInt(e.detail.value);
+    const hour = this.data.adminStartHours[idx] ? this.data.adminStartHours[idx].value : 0;
+    const min = ALL_MINUTES[this.data.adminStartMinIdx] ? ALL_MINUTES[this.data.adminStartMinIdx].value : 0;
+    this.setData({ adminStartHourIdx: idx, adminBookingTimeStart: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
+    this._adminRefreshEndHours();
+  },
+  onAdminStartMinChange(e) {
+    const idx = parseInt(e.detail.value);
+    const min = ALL_MINUTES[idx] ? ALL_MINUTES[idx].value : 0;
+    const hour = this.data.adminStartHours[this.data.adminStartHourIdx] ? this.data.adminStartHours[this.data.adminStartHourIdx].value : 0;
+    this.setData({ adminStartMinIdx: idx, adminBookingTimeStart: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
+    this._adminRefreshEndHours();
+  },
+  onAdminEndHourChange(e) {
+    const idx = parseInt(e.detail.value);
+    const hour = this.data.adminEndHours[idx] ? this.data.adminEndHours[idx].value : 0;
+    const min = ALL_MINUTES[this.data.adminEndMinIdx] ? ALL_MINUTES[this.data.adminEndMinIdx].value : 0;
+    this.setData({ adminEndHourIdx: idx, adminBookingTimeEnd: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
+  },
+  onAdminEndMinChange(e) {
+    const idx = parseInt(e.detail.value);
+    const min = ALL_MINUTES[idx] ? ALL_MINUTES[idx].value : 0;
+    const hour = this.data.adminEndHours[this.data.adminEndHourIdx] ? this.data.adminEndHours[this.data.adminEndHourIdx].value : 0;
+    this.setData({ adminEndMinIdx: idx, adminBookingTimeEnd: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
+  },
+
+  _adminRefreshEndHours() {
+    const dayData = this.data._adminDayData;
+    if (!dayData) return;
+    const openSlots = dayData.openSlots || [];
+    const startMin = timeToMin(this.data.adminBookingTimeStart);
+    const endHourSet = new Set();
+    for (const o of openSlots) {
+      const os = timeToMin(o.timeStart);
+      const oe = timeToMin(o.timeEnd);
+      for (let h = Math.floor(Math.max(os, startMin + 1) / 60); h < Math.ceil(oe / 60); h++) {
+        if (h >= 0 && h < 24) endHourSet.add(h);
+      }
+      if (oe > startMin && Math.floor(oe / 60) < 24) endHourSet.add(Math.floor(oe / 60));
+    }
+    const sortedHours = Array.from(endHourSet).sort((a, b) => a - b);
+    const endHours = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
+    let endHourIdx = 0;
+    const curEndHour = this.data.adminEndHours[this.data.adminEndHourIdx];
+    if (curEndHour && endHourSet.has(curEndHour.value)) {
+      endHourIdx = endHours.findIndex(h => h.value === curEndHour.value);
+      if (endHourIdx < 0) endHourIdx = 0;
+    }
+    const eh = endHours[endHourIdx] ? endHours[endHourIdx].value : 0;
+    const em = ALL_MINUTES[this.data.adminEndMinIdx] ? ALL_MINUTES[this.data.adminEndMinIdx].value : 0;
+    this.setData({ adminEndHours: endHours, adminEndHourIdx: endHourIdx, adminBookingTimeEnd: String(eh).padStart(2,'0')+':'+String(em).padStart(2,'0') });
   },
 
   onAdminSelectPurpose(e) {
@@ -637,19 +743,12 @@ Page({
     this.setData({ adminBookingTitle: text });
   },
 
-  onAdminSelectSlot(e) {
-    this.setData({
-      adminBookingTimeStart: e.currentTarget.dataset.ts,
-      adminBookingTimeEnd: e.currentTarget.dataset.te
-    });
-  },
-
   onAdminFieldInput(e) {
     this.setData({ [e.currentTarget.dataset.field]: e.detail.value });
   },
 
   async submitAdminBooking() {
-    const { scheduleVenueId, adminBookingStartDate, adminBookingEndDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc } = this.data;
+    const { scheduleVenueId, adminBookingStartDate, adminBookingEndDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc, _adminDayData } = this.data;
     if (!scheduleVenueId || !adminBookingStartDate || !adminBookingTimeStart || !adminBookingTimeEnd) {
       showShortToast('请完整填写信息并选择时间段'); return;
     }
@@ -657,6 +756,28 @@ Page({
     const timeStart = adminBookingStartDate + 'T' + adminBookingTimeStart;
     const timeEnd = adminBookingEndDate + 'T' + adminBookingTimeEnd;
     if (timeStart >= timeEnd) { showShortToast('结束时间必须晚于开始时间'); return; }
+
+    // Validate range
+    if (_adminDayData) {
+      const openSlots = _adminDayData.openSlots || [];
+      const bookedSlots = _adminDayData.bookedSlots || [];
+      const activitySlots = _adminDayData.activitySlots || [];
+      const sm = timeToMin(adminBookingTimeStart);
+      const em = timeToMin(adminBookingTimeEnd);
+      for (let m = sm; m < em; m++) {
+        if (!isMinInOpen(m, openSlots)) {
+          const h = String(Math.floor(m / 60)).padStart(2, '0');
+          const mi = String(m % 60).padStart(2, '0');
+          showShortToast(h + ':' + mi + ' 场地不开放'); return;
+        }
+        if (isMinBlocked(m, bookedSlots, activitySlots)) {
+          const h = String(Math.floor(m / 60)).padStart(2, '0');
+          const mi = String(m % 60).padStart(2, '0');
+          showShortToast(h + ':' + mi + ' 已被占用'); return;
+        }
+      }
+    }
+
     this.setData({ loading: true });
     try {
       const res = await callFunction({

@@ -73,6 +73,13 @@
 .tl-dot.activity { background:#c084fc; }
 .tl-dot.closed { background:#cbd5e1; }
 
+/* ── Time pickers ── */
+.time-picker-val {
+  min-width:100rpx; height:60rpx; line-height:60rpx; text-align:center;
+  font-size:28rpx; font-weight:600; color:#1e293b;
+  background:#f1f5f9; border-radius:14rpx; border:1rpx solid #e2e8f0; padding:0 12rpx;
+}
+
 /* ── Slot chips ── */
 .slot-chip { font-size:22rpx; padding:10rpx 18rpx; border-radius:18rpx; background:#dbeafe; color:#1d4ed8; border:1rpx solid #bfdbfe; font-weight:500; }
 .slot-chip.selected { background:#3b82f6; color:#fff; border-color:#3b82f6; box-shadow:0 4rpx 12rpx rgba(59,130,246,0.2); }

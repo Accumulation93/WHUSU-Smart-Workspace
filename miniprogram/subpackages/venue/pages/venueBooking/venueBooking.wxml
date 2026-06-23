@@ -129,18 +129,21 @@
             </view>
           </view>
 
-          <!-- Free time slots for start date -->
-          <view wx:if="{{dailySlots.length}}" style="margin-bottom:12rpx;">
-            <view class="field-label" style="margin-bottom:6rpx;">可选时间段（点击选择开始时间）：</view>
-            <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
-              <text wx:for="{{dailySlots}}" wx:key="timeStart"
-                    class="slot-chip {{bookingTimeStart === item.timeStart ? 'selected' : ''}}"
-                    data-ts="{{item.timeStart}}" data-te="{{item.timeEnd}}" bindtap="onSelectSlot">{{item.label}}</text>
+          <!-- Start time: hour + minute pickers -->
+          <view class="field">
+            <view class="field-label">开始时间</view>
+            <view wx:if="{{startHours.length}}" style="display:flex;gap:10rpx;align-items:center;">
+              <picker range="{{startHours}}" range-key="label" value="{{startHourIdx}}" bindchange="onStartHourChange">
+                <view class="time-picker-val">{{startHours[startHourIdx] ? startHours[startHourIdx].label : '时'}}</view>
+              </picker>
+              <text style="font-size:28rpx;color:#64748b;">:</text>
+              <picker range="{{startMinutes}}" range-key="label" value="{{startMinIdx}}" bindchange="onStartMinChange">
+                <view class="time-picker-val">{{startMinutes[startMinIdx] ? startMinutes[startMinIdx].label : '分'}}</view>
+              </picker>
+              <text wx:if="{{bookingTimeStart}}" style="font-size:26rpx;color:#3b82f6;font-weight:600;min-width:100rpx;">{{bookingTimeStart}}</text>
             </view>
+            <view wx:else style="font-size:22rpx;color:#94a3b8;">{{bookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
           </view>
-          <view wx:if="{{!dailySlots.length && bookingStartDate}}" style="font-size:22rpx;color:#94a3b8;margin-bottom:12rpx;">该日期暂无可选时段</view>
-
-          <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{bookingTimeStart}}" data-field="bookingTimeStart" bindinput="onFieldInput" placeholder="点击上方时段自动填充"/></view>
 
           <!-- End date -->
           <view class="field"><view class="field-label">结束日期</view>
@@ -149,18 +152,21 @@
             </picker>
           </view>
 
-          <!-- Free time slots for end date (only when different from start date) -->
-          <view wx:if="{{endDailySlots.length && bookingEndDate !== bookingStartDate}}" style="margin-bottom:12rpx;">
-            <view class="field-label" style="margin-bottom:6rpx;">结束日期可选时段（点击选择）：</view>
-            <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
-              <text wx:for="{{endDailySlots}}" wx:key="timeStart"
-                    class="slot-chip {{bookingTimeEnd === item.timeEnd ? 'selected' : ''}}"
-                    data-te="{{item.timeEnd}}" bindtap="onSelectEndSlot">{{item.label}}</text>
+          <!-- End time: hour + minute pickers -->
+          <view class="field">
+            <view class="field-label">结束时间</view>
+            <view wx:if="{{endHours.length}}" style="display:flex;gap:10rpx;align-items:center;">
+              <picker range="{{endHours}}" range-key="label" value="{{endHourIdx}}" bindchange="onEndHourChange">
+                <view class="time-picker-val">{{endHours[endHourIdx] ? endHours[endHourIdx].label : '时'}}</view>
+              </picker>
+              <text style="font-size:28rpx;color:#64748b;">:</text>
+              <picker range="{{endMinutes}}" range-key="label" value="{{endMinIdx}}" bindchange="onEndMinChange">
+                <view class="time-picker-val">{{endMinutes[endMinIdx] ? endMinutes[endMinIdx].label : '分'}}</view>
+              </picker>
+              <text wx:if="{{bookingTimeEnd}}" style="font-size:26rpx;color:#3b82f6;font-weight:600;min-width:100rpx;">{{bookingTimeEnd}}</text>
             </view>
+            <view wx:else style="font-size:22rpx;color:#94a3b8;">{{bookingEndDate ? (bookingEndDate !== bookingStartDate ? '结束日期暂无可选时段' : '请先选择开始时间') : '请先选择结束日期'}}</view>
           </view>
-          <view wx:if="{{!endDailySlots.length && bookingEndDate && bookingEndDate !== bookingStartDate}}" style="font-size:22rpx;color:#94a3b8;margin-bottom:12rpx;">结束日期暂无可选时段</view>
-
-          <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{bookingTimeEnd}}" data-field="bookingTimeEnd" bindinput="onFieldInput" placeholder="点击时段选择或上方开始时段自动填充"/></view>
 
           <view class="field"><view class="field-label">描述（可选）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="借用说明"/></view>
           <view class="audit-btn-bar"><button class="primary-btn" loading="{{loading}}" bindtap="submitBooking">提交借用申请</button></view>

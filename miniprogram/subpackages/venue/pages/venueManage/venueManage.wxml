@@ -264,16 +264,37 @@
               <view class="picker-value">{{adminBookingEndDateDisplay || '请选择日期'}}</view>
             </picker>
           </view>
-          <view wx:if="{{adminDailySlots.length}}" style="margin-bottom:12rpx;">
-            <view class="field-label" style="margin-bottom:6rpx;">可选时间段（点击选择）：</view>
-            <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
-              <text wx:for="{{adminDailySlots}}" wx:key="timeStart"
-                    class="slot-chip {{adminBookingTimeStart === item.timeStart ? 'selected' : ''}}"
-                    data-ts="{{item.timeStart}}" data-te="{{item.timeEnd}}" bindtap="onAdminSelectSlot">{{item.label}}</text>
+          <!-- Start time: hour + minute -->
+          <view class="field">
+            <view class="field-label">开始时间</view>
+            <view wx:if="{{adminStartHours.length}}" style="display:flex;gap:10rpx;align-items:center;">
+              <picker range="{{adminStartHours}}" range-key="label" value="{{adminStartHourIdx}}" bindchange="onAdminStartHourChange">
+                <view class="time-picker-val">{{adminStartHours[adminStartHourIdx] ? adminStartHours[adminStartHourIdx].label : '时'}}</view>
+              </picker>
+              <text style="font-size:28rpx;color:#64748b;">:</text>
+              <picker range="{{ALL_MINUTES}}" range-key="label" value="{{adminStartMinIdx}}" bindchange="onAdminStartMinChange">
+                <view class="time-picker-val">{{ALL_MINUTES[adminStartMinIdx] ? ALL_MINUTES[adminStartMinIdx].label : '分'}}</view>
+              </picker>
+              <text wx:if="{{adminBookingTimeStart}}" style="font-size:26rpx;color:#3b82f6;font-weight:600;min-width:100rpx;">{{adminBookingTimeStart}}</text>
             </view>
+            <view wx:else style="font-size:22rpx;color:#94a3b8;">{{adminBookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
           </view>
-          <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{adminBookingTimeStart}}" data-field="adminBookingTimeStart" bindinput="onAdminFieldInput"/></view>
-          <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{adminBookingTimeEnd}}" data-field="adminBookingTimeEnd" bindinput="onAdminFieldInput"/></view>
+
+          <!-- End time: hour + minute -->
+          <view class="field">
+            <view class="field-label">结束时间</view>
+            <view wx:if="{{adminEndHours.length}}" style="display:flex;gap:10rpx;align-items:center;">
+              <picker range="{{adminEndHours}}" range-key="label" value="{{adminEndHourIdx}}" bindchange="onAdminEndHourChange">
+                <view class="time-picker-val">{{adminEndHours[adminEndHourIdx] ? adminEndHours[adminEndHourIdx].label : '时'}}</view>
+              </picker>
+              <text style="font-size:28rpx;color:#64748b;">:</text>
+              <picker range="{{ALL_MINUTES}}" range-key="label" value="{{adminEndMinIdx}}" bindchange="onAdminEndMinChange">
+                <view class="time-picker-val">{{ALL_MINUTES[adminEndMinIdx] ? ALL_MINUTES[adminEndMinIdx].label : '分'}}</view>
+              </picker>
+              <text wx:if="{{adminBookingTimeEnd}}" style="font-size:26rpx;color:#3b82f6;font-weight:600;min-width:100rpx;">{{adminBookingTimeEnd}}</text>
+            </view>
+            <view wx:else style="font-size:22rpx;color:#94a3b8;">{{adminBookingEndDate ? '请先选择开始时间' : '请先选择结束日期'}}</view>
+          </view>
           <view class="field"><view class="field-label">描述（可选）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="使用说明"/></view>
           <view class="audit-btn-bar"><button class="primary-btn" loading="{{loading}}" bindtap="submitAdminBooking">提交使用</button></view>
         </view>

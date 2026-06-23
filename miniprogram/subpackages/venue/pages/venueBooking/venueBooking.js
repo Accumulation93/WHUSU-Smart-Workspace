@@ -22,6 +22,31 @@ function calcBlock(timeStart, timeEnd) {
   return { top, height };
 }
 
+// Generate minute picker options 00-59
+const ALL_MINUTES = [];
+for (let i = 0; i < 60; i++) {
+  ALL_MINUTES.push({ value: i, label: String(i).padStart(2, '0') });
+}
+
+/** Check if a minute offset is inside any open slot */
+function isMinInOpen(min, openSlots) {
+  for (const o of openSlots) {
+    if (min >= timeToMin(o.timeStart) && min < timeToMin(o.timeEnd)) return true;
+  }
+  return false;
+}
+
+/** Check if a minute offset conflicts with a booking or activity */
+function isMinBlocked(min, bookedSlots, activitySlots) {
+  for (const b of bookedSlots) {
+    if (min >= timeToMin(b.timeStart) && min < timeToMin(b.timeEnd)) return true;
+  }
+  for (const a of activitySlots) {
+    if (min >= timeToMin(a.timeStart) && min < timeToMin(a.timeEnd)) return true;
+  }
+  return false;
+}
+
 Page({
   data: {
     venues: [],
@@ -49,9 +74,24 @@ Page({
     bookingDesc: '',
     bookingTimeStart: '',
     bookingTimeEnd: '',
-    dailySlots: [],
-    endDailySlots: [],
+
+    // Timeline (visual axis)
     timelineBlocks: [],
+
+    // Time picker options
+    startHours: [],
+    startHourIdx: 0,
+    startMinutes: ALL_MINUTES,
+    startMinIdx: 0,
+    endHours: [],
+    endHourIdx: 0,
+    endMinutes: ALL_MINUTES,
+    endMinIdx: 0,
+
+    // Cached day data for validation
+    _startDayData: null,
+    _endDayData: null,
+
     purposes: []
   },
 
@@ -203,6 +243,7 @@ Page({
     const top = e.detail.y - e.currentTarget.offsetTop;
     const hourIdx = Math.floor(top / HOUR_HEIGHT);
     const hour = HOURS[Math.min(Math.max(hourIdx, 0), HOURS.length - 1)];
+    const initMin = parseInt(hour.split(':')[1]) || 0;
     this.setData({
       scheduleVisible: false,
       bookingVisible: true,
@@ -216,9 +257,10 @@ Page({
       bookingTimeEnd: '',
       bookingTitle: '',
       bookingDesc: '',
-      dailySlots: [],
-      endDailySlots: [],
-      timelineBlocks: []
+      timelineBlocks: [],
+      startHours: [], startHourIdx: 0, startMinIdx: initMin || 0,
+      endHours: [], endHourIdx: 0, endMinIdx: 0,
+      _startDayData: null, _endDayData: null
     });
     this.loadDailyAvailability(date);
   },
@@ -235,7 +277,10 @@ Page({
       bookingStartDate: today, bookingStartDateDisplay: today,
       bookingEndDate: today, bookingEndDateDisplay: today,
       bookingTitle: '', bookingDesc: '', bookingTimeStart: '', bookingTimeEnd: '',
-      dailySlots: [], endDailySlots: [], timelineBlocks: []
+      timelineBlocks: [],
+      startHours: [], startHourIdx: 0, startMinIdx: 0,
+      endHours: [], endHourIdx: 0, endMinIdx: 0,
+      _startDayData: null, _endDayData: null
     });
     this.loadDailyAvailability(today);
   },
@@ -246,14 +291,22 @@ Page({
     this.setData({
       bookingStartDate: d, bookingStartDateDisplay: d,
       bookingEndDate: d, bookingEndDateDisplay: d,
-      dailySlots: [], endDailySlots: [], timelineBlocks: [],
-      bookingTimeStart: '', bookingTimeEnd: ''
+      bookingTimeStart: '', bookingTimeEnd: '',
+      timelineBlocks: [],
+      startHours: [], startHourIdx: 0, startMinIdx: 0,
+      endHours: [], endHourIdx: 0, endMinIdx: 0,
+      _startDayData: null, _endDayData: null
     });
     this.loadDailyAvailability(d);
   },
   onEndDateChange(e) {
     const d = e.detail.value;
-    this.setData({ bookingEndDate: d, bookingEndDateDisplay: d, endDailySlots: [] });
+    this.setData({
+      bookingEndDate: d, bookingEndDateDisplay: d,
+      bookingTimeEnd: '',
+      endHours: [], endHourIdx: 0, endMinIdx: 0,
+      _endDayData: null
+    });
     if (d !== this.data.bookingStartDate) {
       this.loadEndDailyAvailability(d);
     }
@@ -271,10 +324,26 @@ Page({
       if (res.status === 'success') {
         const dayData = (res.dailySchedules || [])[0];
         if (dayData) {
-          const { freeSlots, timelineBlocks } = this._buildTimelineAndSlots(dayData);
-          this.setData({ dailySlots: freeSlots, timelineBlocks });
+          const result = this._buildTimelineAndOptions(dayData);
+          this.setData({
+            timelineBlocks: result.timelineBlocks,
+            startHours: result.startHours,
+            startHourIdx: 0,
+            startMinIdx: 0,
+            endHours: result.endHoursAll,
+            endHourIdx: 0,
+            endMinIdx: 0,
+            bookingTimeStart: '',
+            bookingTimeEnd: '',
+            _startDayData: dayData,
+            _endDayData: dayData
+          });
         } else {
-          this.setData({ dailySlots: [], timelineBlocks: [] });
+          this.setData({
+            timelineBlocks: [], startHours: [], endHours: [],
+            bookingTimeStart: '', bookingTimeEnd: '',
+            _startDayData: null, _endDayData: null
+          });
         }
       } else {
         showShortToast(res.message || '加载时段失败');
@@ -294,32 +363,39 @@ Page({
       if (res.status === 'success') {
         const dayData = (res.dailySchedules || [])[0];
         if (dayData) {
-          const { freeSlots } = this._buildTimelineAndSlots(dayData);
-          this.setData({ endDailySlots: freeSlots });
-        } else {
-          this.setData({ endDailySlots: [] });
+          this.setData({ _endDayData: dayData });
         }
       }
     } catch (_) {}
   },
 
-  _buildTimelineAndSlots(dayData) {
+  /** Build timeline blocks and time picker options from a day's schedule */
+  _buildTimelineAndOptions(dayData) {
     const openSlots = dayData.openSlots || [];
     const bookedSlots = dayData.bookedSlots || [];
     const activitySlots = dayData.activitySlots || [];
-    const freeSlots = [];
     const blocks = [];
 
-    const dayStart = 0;        // 00:00
-    const dayEnd = 24 * 60;    // 24:00
-    const totalMin = dayEnd - dayStart; // 1440 min
+    const dayStart = 0;
+    const dayEnd = 24 * 60;
+    const totalMin = dayEnd - dayStart;
     let t = dayStart;
 
+    // Collect all hours that have at least one open minute
+    const openHourSet = new Set();
+    for (const o of openSlots) {
+      const os = timeToMin(o.timeStart);
+      const oe = timeToMin(o.timeEnd);
+      for (let h = Math.floor(os / 60); h < Math.ceil(oe / 60); h++) {
+        if (h >= 0 && h < 24) openHourSet.add(h);
+      }
+    }
+
+    // Build timeline blocks
     while (t + 30 <= dayEnd) {
       const segStart = t;
       const segEnd = t + 30;
 
-      // Determine if within any open slot
       let inOpen = false;
       for (const o of openSlots) {
         if (segStart >= timeToMin(o.timeStart) && segEnd <= timeToMin(o.timeEnd)) {
@@ -330,14 +406,12 @@ Page({
       let status = 'closed';
       if (inOpen) {
         status = 'free';
-        // Check bookings
         for (const b of bookedSlots) {
           if (segStart < timeToMin(b.timeEnd) && segEnd > timeToMin(b.timeStart)) {
             status = b.status === 'pending' ? 'pending' : 'booked';
             break;
           }
         }
-        // Check activities (only if still free)
         if (status === 'free') {
           for (const a of activitySlots) {
             if (segStart < timeToMin(a.timeEnd) && segEnd > timeToMin(a.timeStart)) {
@@ -347,58 +421,122 @@ Page({
         }
       }
 
-      const ts = String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
-      const te = String(Math.floor((t + 30) / 60)).padStart(2, '0') + ':' + String((t + 30) % 60).padStart(2, '0');
-
-      if (status === 'free') {
-        freeSlots.push({ timeStart: ts, timeEnd: te, label: ts + ' - ' + te });
-      }
-
-      // Merge contiguous same-status blocks
       const last = blocks[blocks.length - 1];
       if (last && last.status === status) {
         last.endMin = segEnd;
       } else {
         blocks.push({ startMin: segStart, endMin: segEnd, status });
       }
-
       t += 30;
     }
 
-    // Convert block minutes to percentage positions
     const timelineBlocks = blocks.map(b => ({
       left: ((b.startMin - dayStart) / totalMin * 100).toFixed(2),
       width: ((b.endMin - b.startMin) / totalMin * 100).toFixed(2),
       status: b.status
     }));
 
-    return { freeSlots, timelineBlocks };
+    // Build hour picker options (sorted hours that have open slots)
+    const sortedHours = Array.from(openHourSet).sort((a, b) => a - b);
+    const startHours = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
+    const endHoursAll = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
+
+    return { timelineBlocks, startHours, endHoursAll };
   },
 
-  onSelectSlot(e) {
-    this.setData({
-      bookingTimeStart: e.currentTarget.dataset.ts,
-      bookingTimeEnd: e.currentTarget.dataset.te
-    });
+  // ── Time picker handlers ──
+  onStartHourChange(e) {
+    const idx = parseInt(e.detail.value);
+    const hour = this.data.startHours[idx] ? this.data.startHours[idx].value : 0;
+    const min = this.data.startMinutes[this.data.startMinIdx] ? this.data.startMinutes[this.data.startMinIdx].value : 0;
+    const ts = String(hour).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+    this.setData({ startHourIdx: idx, bookingTimeStart: ts });
+    this._refreshEndHours();
   },
 
-  onSelectEndSlot(e) {
-    this.setData({ bookingTimeEnd: e.currentTarget.dataset.te });
+  onStartMinChange(e) {
+    const idx = parseInt(e.detail.value);
+    const min = this.data.startMinutes[idx] ? this.data.startMinutes[idx].value : 0;
+    const hour = this.data.startHours[this.data.startHourIdx] ? this.data.startHours[this.data.startHourIdx].value : 0;
+    const ts = String(hour).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+    this.setData({ startMinIdx: idx, bookingTimeStart: ts });
+    this._refreshEndHours();
   },
 
-  onFieldInput(e) {
-    this.setData({ [e.currentTarget.dataset.field]: e.detail.value });
+  onEndHourChange(e) {
+    const idx = parseInt(e.detail.value);
+    const hour = this.data.endHours[idx] ? this.data.endHours[idx].value : 0;
+    const min = this.data.endMinutes[this.data.endMinIdx] ? this.data.endMinutes[this.data.endMinIdx].value : 0;
+    const te = String(hour).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+    this.setData({ endHourIdx: idx, bookingTimeEnd: te });
   },
 
+  onEndMinChange(e) {
+    const idx = parseInt(e.detail.value);
+    const min = this.data.endMinutes[idx] ? this.data.endMinutes[idx].value : 0;
+    const hour = this.data.endHours[this.data.endHourIdx] ? this.data.endHours[this.data.endHourIdx].value : 0;
+    const te = String(hour).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+    this.setData({ endMinIdx: idx, bookingTimeEnd: te });
+  },
+
+  /** Rebuild end hour options based on current start time */
+  _refreshEndHours() {
+    const dayData = this.data._endDayData || this.data._startDayData;
+    if (!dayData) return;
+    const openSlots = dayData.openSlots || [];
+
+    // Parse current start time
+    const startMin = timeToMin(this.data.bookingTimeStart);
+
+    // Build end hours: only hours after start time that are within an open slot
+    const endHourSet = new Set();
+    for (const o of openSlots) {
+      const os = timeToMin(o.timeStart);
+      const oe = timeToMin(o.timeEnd);
+      // End must be > start and <= open end
+      for (let h = Math.floor(Math.max(os, startMin + 1) / 60); h < Math.ceil(oe / 60); h++) {
+        if (h >= 0 && h < 24) endHourSet.add(h);
+      }
+      // Also include the exact end hour if it aligns
+      if (oe > startMin && Math.floor(oe / 60) < 24) {
+        endHourSet.add(Math.floor(oe / 60));
+      }
+    }
+
+    const sortedHours = Array.from(endHourSet).sort((a, b) => a - b);
+    const endHours = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
+
+    // Try to keep current end hour selection if still valid
+    let endHourIdx = 0;
+    const curEndHour = this.data.endHours[this.data.endHourIdx];
+    if (curEndHour && endHourSet.has(curEndHour.value)) {
+      endHourIdx = endHours.findIndex(h => h.value === curEndHour.value);
+      if (endHourIdx < 0) endHourIdx = 0;
+    }
+
+    // Update end time display
+    const eh = endHours[endHourIdx] ? endHours[endHourIdx].value : 0;
+    const em = this.data.endMinutes[this.data.endMinIdx] ? this.data.endMinutes[this.data.endMinIdx].value : 0;
+    const te = String(eh).padStart(2, '0') + ':' + String(em).padStart(2, '0');
+
+    this.setData({ endHours, endHourIdx, bookingTimeEnd: te });
+  },
+
+  // ── Submit ──
   async submitBooking() {
-    const { bookingVenueId, bookingStartDate, bookingEndDate, bookingTitle, bookingTimeStart, bookingTimeEnd, bookingDesc } = this.data;
+    const { bookingVenueId, bookingStartDate, bookingEndDate, bookingTitle, bookingTimeStart, bookingTimeEnd, bookingDesc, _startDayData, _endDayData } = this.data;
     if (!bookingVenueId || !bookingStartDate || !bookingTimeStart || !bookingTimeEnd) {
       showShortToast('请完整填写信息并选择时间段'); return;
     }
     if (!bookingTitle) { showShortToast('请填写借用事由'); return; }
+
     const timeStart = bookingStartDate + 'T' + bookingTimeStart;
     const timeEnd = bookingEndDate + 'T' + bookingTimeEnd;
     if (timeStart >= timeEnd) { showShortToast('结束时间必须晚于开始时间'); return; }
+
+    // Validate entire range: every minute from start to end must be open and not blocked
+    const error = this._validateRange(_startDayData, _endDayData, bookingStartDate, bookingEndDate, bookingTimeStart, bookingTimeEnd);
+    if (error) { showShortToast(error); return; }
 
     this.setData({ loading: true });
     try {
@@ -412,6 +550,42 @@ Page({
       } else showShortToast(res.message);
     } catch (e) { showShortToast(getErrorText(e, '借用失败')); }
     finally { this.setData({ loading: false }); }
+  },
+
+  /** Validate that the full range from start to end is within open slots and not blocked */
+  _validateRange(startDayData, endDayData, startDate, endDate, startTime, endTime) {
+    const openSlots = (startDayData && startDayData.openSlots) || [];
+    const bookedSlots = (startDayData && startDayData.bookedSlots) || [];
+    const activitySlots = (startDayData && startDayData.activitySlots) || [];
+
+    // If cross-day, also check end day data
+    let allOpenSlots = [...openSlots];
+    let allBooked = [...bookedSlots];
+    let allActivity = [...activitySlots];
+    if (endDate !== startDate && endDayData) {
+      allOpenSlots = [...allOpenSlots, ...(endDayData.openSlots || [])];
+      allBooked = [...allBooked, ...(endDayData.bookedSlots || [])];
+      allActivity = [...allActivity, ...(endDayData.activitySlots || [])];
+    }
+
+    const startMin = timeToMin(startTime);
+    const endMin = timeToMin(endTime);
+
+    // Check every minute from start to end
+    for (let m = startMin; m < endMin; m++) {
+      if (!isMinInOpen(m, allOpenSlots)) {
+        const h = String(Math.floor(m / 60)).padStart(2, '0');
+        const mi = String(m % 60).padStart(2, '0');
+        return h + ':' + mi + ' 场地不开放，请调整时间';
+      }
+      if (isMinBlocked(m, allBooked, allActivity)) {
+        const h = String(Math.floor(m / 60)).padStart(2, '0');
+        const mi = String(m % 60).padStart(2, '0');
+        return h + ':' + mi + ' 已被占用，请调整时间';
+      }
+    }
+
+    return null; // OK
   },
 
   goMyBookings() {
