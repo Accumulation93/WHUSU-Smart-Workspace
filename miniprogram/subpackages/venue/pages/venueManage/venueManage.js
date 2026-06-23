@@ -136,6 +136,16 @@ Page({
     scheduleWeekStart: '',
     timetableColumns: [],
     timetableScrollTop: 0,
+    // Pre-computed for data-time binding (same approach as data-date)
+    HOUR_HEIGHT: HOUR_HEIGHT,
+    HEADER_H: HEADER_H,
+    halfHourTimes: (() => {
+      const arr = [];
+      for (let i = 0; i < 48; i++) {
+        arr.push(String(Math.floor(i/2)).padStart(2,'0') + ':' + String((i%2)*30).padStart(2,'0'));
+      }
+      return arr;
+    })(),
     timetableHours: HOURS,
     bookingDetailVisible: false,
     bookingDetail: null,
@@ -630,17 +640,37 @@ Page({
     this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
   },
 
+  onTimeTargetTap(e) {
+    // Same pattern as date: data-date + data-time from DOM, no coordinate math
+    const date = e.currentTarget.dataset.date;
+    const time = e.currentTarget.dataset.time;
+    if (!date || !time) return;
+    this.setData({
+      adminBookingVisible: true,
+      adminBookingStartDate: date,
+      adminBookingStartDateDisplay: date,
+      adminBookingEndDate: date,
+      adminBookingEndDateDisplay: date,
+      adminBookingTimeStart: time,
+      adminBookingTimeEnd: '',
+      adminBookingTitle: '',
+      adminBookingDesc: '',
+      adminDailySlots: []
+    });
+    this._loadAdminAvailability(date, time);
+  },
+
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
-    // e.detail.y is column-relative in PX. Convert to RPX for time label alignment.
-    const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
-    const tapY_rpx = e.detail.y * rpxPerPx;
-    const timeY_rpx = tapY_rpx - HEADER_H;       // below header = time area
-    if (timeY_rpx < 0) return;
-    // HOUR_HEIGHT rpx per hour, /2 for half-hour granularity
-    const halfHours = Math.round(timeY_rpx / (HOUR_HEIGHT / 2));
-    const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
-    const m = (halfHours % 2) * 30;
+    // e.detail.y is column-relative. Its unit varies by device — use it directly,
+    // same as how data-date uses the raw string without conversion.
+    // The time labels are spaced HOUR_HEIGHT apart; the header is ~HEADER_H.
+    // Divide raw tapY by half-hour height, round, then back out hour:min.
+    const halfH = HOUR_HEIGHT / 2;
+    const rawIdx = Math.round((e.detail.y - HEADER_H) / halfH);
+    const idx = Math.min(Math.max(rawIdx, 0), 47);
+    const h = Math.floor(idx / 2);
+    const m = (idx % 2) * 30;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     this.setData({
       adminBookingVisible: true,

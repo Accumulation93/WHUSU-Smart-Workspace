@@ -199,9 +199,16 @@
               <view class="tt-col" wx:for="{{timetableColumns}}" wx:key="date" wx:for-item="col" data-date="{{col.date}}" bindtap="onTimetableOpenTap">
                 <!-- Day header -->
                 <view class="tt-col-header">{{col.label}}<text style="font-size:17rpx;display:block;font-weight:400;color:#64748b;">{{col.dateDisplay}}</text></view>
-                <!-- Open blocks (taps bubble to column → onTimetableOpenTap) -->
+                <!-- Open blocks (background) -->
                 <view class="tt-open-block" wx:for="{{col.openBlocks}}" wx:key="top" wx:for-item="ob"
                       style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"></view>
+                <!-- Time targets: positioned at every half-hour, data-time = pure value like date -->
+                <view wx:for="{{48}}" wx:key="*this" wx:for-item="hi"
+                      class="tt-time-target"
+                      style="top:{{HEADER_H + hi * HOUR_HEIGHT / 2}}rpx;height:{{HOUR_HEIGHT / 2}}rpx;"
+                      data-date="{{col.date}}" data-time="{{halfHourTimes[hi]}}"
+                      catchtap="onTimeTargetTap">
+                </view>
                 <!-- Event blocks (bookings + activities) -->
                 <view class="tt-event-block {{eb.status}}" wx:for="{{col.eventBlocks}}" wx:key="top" wx:for-item="eb"
                       style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;"

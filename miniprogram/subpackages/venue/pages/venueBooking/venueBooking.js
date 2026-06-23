@@ -89,6 +89,15 @@ Page({
     scheduleWeekStart: '',
     timetableColumns: [],
     timetableScrollTop: 0,
+    HOUR_HEIGHT: HOUR_HEIGHT,
+    HEADER_H: HEADER_H,
+    halfHourTimes: (() => {
+      const arr = [];
+      for (let i = 0; i < 48; i++) {
+        arr.push(String(Math.floor(i/2)).padStart(2,'0') + ':' + String((i%2)*30).padStart(2,'0'));
+      }
+      return arr;
+    })(),
     timetableHours: HOURS,
     bookingDetailVisible: false,
     bookingDetail: null,
@@ -279,16 +288,34 @@ Page({
     this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
   },
 
+  onTimeTargetTap(e) {
+    const date = e.currentTarget.dataset.date;
+    const time = e.currentTarget.dataset.time;
+    if (!date || !time) return;
+    this.setData({
+      bookingVisible: true,
+      bookingVenueId: this.data.scheduleVenueId,
+      bookingVenueName: this.data.scheduleVenueName,
+      bookingStartDate: date,
+      bookingStartDateDisplay: date,
+      bookingEndDate: date,
+      bookingEndDateDisplay: date,
+      bookingTimeStart: time,
+      bookingTimeEnd: '',
+      bookingTitle: '',
+      bookingDesc: '',
+      timelineBlocks: []
+    });
+    this.loadDailyAvailability(date, time);
+  },
+
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
-    // e.detail.y is column-relative in PX. Convert to RPX for time label alignment.
-    const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
-    const tapY_rpx = e.detail.y * rpxPerPx;
-    const timeY_rpx = tapY_rpx - HEADER_H;
-    if (timeY_rpx < 0) return;
-    const halfHours = Math.round(timeY_rpx / (HOUR_HEIGHT / 2));
-    const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
-    const m = (halfHours % 2) * 30;
+    const halfH = HOUR_HEIGHT / 2;
+    const rawIdx = Math.round((e.detail.y - HEADER_H) / halfH);
+    const idx = Math.min(Math.max(rawIdx, 0), 47);
+    const h = Math.floor(idx / 2);
+    const m = (idx % 2) * 30;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     this.setData({
       bookingVisible: true,
