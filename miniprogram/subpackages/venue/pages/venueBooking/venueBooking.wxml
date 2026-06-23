@@ -86,7 +86,7 @@
         <view style="font-size:26rpx;font-weight:700;color:#1e293b;margin-bottom:12rpx;">{{bookingDetail.title || '借用'}}</view>
         <view style="font-size:23rpx;color:#64748b;line-height:1.8;">
           <view wx:if="{{bookingDetail.id}}">编号：{{bookingDetail.id}}</view>
-          <view wx:if="{{bookingDetail.userId}}">借用人：{{bookingDetail.userId}}</view>
+          <view wx:if="{{bookingDetail.userId}}">借用人：{{bookingDetail.userName || bookingDetail.userId}}</view>
           <view wx:if="{{bookingDetail.timeStart}}">时间：{{bookingDetail.timeStart}} - {{bookingDetail.timeEnd}}</view>
         </view>
       </view>

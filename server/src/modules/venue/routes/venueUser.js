@@ -172,6 +172,17 @@ router.post('/getVenueSchedule', async (req, res) => {
       const allBookings = await venueBookingModel.getByVenueId(venueId, { date: dateStr });
       // Filter to approved + pending only (exclude rejected/cancelled)
       const activeBookings = allBookings.filter(b => b.status === 'approved' || b.status === 'pending');
+
+      // Resolve user names from hr_ids
+      const hrIds = [...new Set(activeBookings.map(b => b.user_hr_id).filter(Boolean))];
+      const nameMap = {};
+      if (hrIds.length) {
+        try {
+          const hrList = await hrInfoModel.getByIds(hrIds);
+          (hrList || []).forEach(h => { nameMap[h.id] = h.name || h.id; });
+        } catch (_) {}
+      }
+
       const bookedSlots = activeBookings.map(b => ({
         id: b.id,
         title: b.title,
@@ -179,7 +190,8 @@ router.post('/getVenueSchedule', async (req, res) => {
         timeStart: b.time_start && b.time_start.length >= 5 ? b.time_start.substring(0, 5) : '',
         timeEnd: b.time_end && b.time_end.length >= 5 ? b.time_end.substring(0, 5) : '',
         type: 'booked',
-        userId: b.user_hr_id
+        userId: b.user_hr_id,
+        userName: nameMap[b.user_hr_id] || b.user_hr_id
       }));
 
       dailySchedules.push({
