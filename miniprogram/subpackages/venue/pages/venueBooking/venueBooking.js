@@ -79,16 +79,16 @@ Page({
   },
 
   async checkIsAdmin() {
-    let isAdmin = false;
     try {
       const res = await callFunction({ name: 'listVenues', data: {} });
-      isAdmin = !!(res && res.status === 'success' && Array.isArray(res.venues));
-    } catch (_) { isAdmin = false; }
-    // Use local var, not this.data.isAdmin (setData is async, this.data lags)
-    this.setData({ isAdmin });
+      // Only set true when explicitly confirmed with venues array
+      if (res && res.status === 'success' && Array.isArray(res.venues)) {
+        this.setData({ isAdmin: true });
+        this.loadReferenceData();
+      }
+    } catch (_) { /* not admin */ }
     this.loadVenues();
     this.loadPurposes();
-    if (isAdmin) this.loadReferenceData();
   },
 
   switchTab(e) {

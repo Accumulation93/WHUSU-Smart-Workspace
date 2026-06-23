@@ -3,14 +3,14 @@
   <view class="hero">
     <view class="hero-badge">🏟️</view>
     <view class="hero-title">场地借用</view>
-    <view class="hero-subtitle">浏览可用时间 · 申请借用 · {{isAdmin ? '管理场地' : '查看记录'}}</view>
+    <view class="hero-subtitle">浏览可用时间 · 申请借用{{isAdmin === true ? ' · 管理场地' : ''}}</view>
   </view>
 
   <!-- ═══ Tab bar ═══ -->
   <view class="venue-tab-bar">
     <view class="venue-tab {{activeTab === 'browse' ? 'active' : ''}}" data-tab="browse" bindtap="switchTab">场地浏览</view>
     <view class="venue-tab {{activeTab === 'bookings' ? 'active' : ''}}" data-tab="bookings" bindtap="switchTab">我的借用</view>
-    <view class="venue-tab {{activeTab === 'manage' ? 'active' : ''}}" data-tab="manage" bindtap="switchTab" wx:if="{{isAdmin}}">管理</view>
+    <view class="venue-tab {{activeTab === 'manage' ? 'active' : ''}}" data-tab="manage" bindtap="switchTab" wx:if="{{isAdmin === true}}">管理</view>
   </view>
 
   <!-- ═══════════════════ BROWSE TAB ═══════════════════ -->
