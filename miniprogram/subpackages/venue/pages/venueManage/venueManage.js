@@ -281,14 +281,24 @@ Page({
   async loadOpenRules() {
     try {
       const res = await callFunction({ name: 'listVenueOpenRules', data: { venueId: this.data.rulesVenueId } });
-      if (res.status === 'success') this.setData({ openRules: res.rules || [] });
+      if (res.status === 'success') {
+        const rules = (res.rules || []).map(r => ({
+          ...r, _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values)
+        }));
+        this.setData({ openRules: rules });
+      }
     } catch (_) {}
   },
 
   async loadActivityRules() {
     try {
       const res = await callFunction({ name: 'listVenueActivityRules', data: { venueId: this.data.rulesVenueId } });
-      if (res.status === 'success') this.setData({ activityRules: res.rules || [] });
+      if (res.status === 'success') {
+        const rules = (res.rules || []).map(r => ({
+          ...r, _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values)
+        }));
+        this.setData({ activityRules: rules });
+      }
     } catch (_) {}
   },
 

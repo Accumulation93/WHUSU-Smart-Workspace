@@ -68,7 +68,7 @@
             <view class="list-item list-item-stacked" wx:for="{{openRules}}" wx:key="id">
               <view class="list-main">
                 <view class="list-name">{{item.name || '开放时间'}}</view>
-                <view class="list-desc">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
+                <view class="list-desc">{{item._cycleLabel}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
                 <view class="inline-actions list-actions-below">
                   <text class="link" data-type="open" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
                   <text class="link danger" data-type="open" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
@@ -84,7 +84,7 @@
             <view class="list-item list-item-stacked" wx:for="{{activityRules}}" wx:key="id">
               <view class="list-main">
                 <view class="list-name">{{item.activity_name || '活动'}}</view>
-                <view class="list-desc">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
+                <view class="list-desc">{{item._cycleLabel}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
                 <view class="inline-actions list-actions-below">
                   <text class="link" data-type="activity" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
                   <text class="link danger" data-type="activity" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
