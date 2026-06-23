@@ -30,9 +30,9 @@ function fmtLocalTime(d) {
   return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
-/** Format a Date to "YYYY-MM-DD HH:MM:SS" for MySQL DATETIME */
+/** Format a Date to "YYYY-MM-DD HH:MM" for display and MySQL DATETIME */
 function fmtDatetime(d) {
-  return fmtLocalDate(d) + ' ' + fmtLocalTime(d) + ':' + String(d.getSeconds()).padStart(2, '0');
+  return fmtLocalDate(d) + ' ' + fmtLocalTime(d);
 }
 
 /** Parse a date string "YYYY-MM-DD" as local midnight */
