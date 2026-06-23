@@ -888,7 +888,7 @@ Page({
 
   async loadPurposes() {
     try {
-      const res = await callFunction({ name: 'listAllVenueBookingPurposes', data: {} });
+      const res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
       if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
     } catch (_) {}
   },

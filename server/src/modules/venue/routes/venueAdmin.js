@@ -376,11 +376,9 @@ router.post('/rejectVenueBooking', async (req, res) => {
 // Booking Purposes (事由管理)
 // ═══════════════════════════════════════════════════
 
-// listAllVenueBookingPurposes (admin only — distinct name to avoid shadowing user route)
-router.post('/listAllVenueBookingPurposes', async (req, res) => {
+// listVenueBookingPurposes (public — any authenticated user can read purposes)
+router.post('/listVenueBookingPurposes', async (req, res) => {
   try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
     const purposes = await venueBookingPurposeModel.getAll();
     res.json({ status: 'success', purposes });
   } catch (e) {

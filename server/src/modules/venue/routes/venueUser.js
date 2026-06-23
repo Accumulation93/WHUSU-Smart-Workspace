@@ -9,7 +9,6 @@ const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
 const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingModel = require('../models/venueBooking');
-const venueBookingPurposeModel = require('../models/venueBookingPurpose');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -208,21 +207,6 @@ function splitByDate(startDate, endDate) {
   }
   return segments;
 }
-
-// ═══════════════════════════════════════════════════
-// Purpose list
-// ═══════════════════════════════════════════════════
-
-router.post('/listVenueBookingPurposes', async (req, res) => {
-  try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
-    const purposes = await venueBookingPurposeModel.getAll();
-    res.json({ status: 'success', purposes });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
-});
 
 // ═══════════════════════════════════════════════════
 // Browse venues
