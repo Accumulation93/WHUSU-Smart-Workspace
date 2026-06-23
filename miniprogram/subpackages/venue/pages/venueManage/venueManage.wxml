@@ -186,7 +186,7 @@
         <text style="font-size:25rpx;font-weight:700;color:#1e293b;">{{scheduleWeekStart}} 起一周</text>
         <text class="schedule-nav-btn" bindtap="onTimetableNextWeek">▶</text>
       </view>
-      <scroll-view scroll-x scroll-y class="timetable-scroll">
+      <scroll-view scroll-x scroll-y class="timetable-scroll" bindscroll="onTimetableScroll">
         <view class="timetable-body">
           <!-- Time labels column (fixed left) -->
           <view class="tt-time-col">
@@ -202,7 +202,7 @@
                 <!-- Open blocks (clickable → open booking form) -->
                 <view class="tt-open-block" wx:for="{{col.openBlocks}}" wx:key="top" wx:for-item="ob"
                       style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"
-                      data-date="{{col.date}}" data-start-min="{{ob.startMin}}" data-end-min="{{ob.endMin}}" data-duration="{{ob.duration}}" data-height="{{ob.height}}" catchtap="onOpenBlockTap"></view>
+                      data-date="{{col.date}}" data-top="{{ob.top}}" data-start-min="{{ob.startMin}}" data-end-min="{{ob.endMin}}" data-duration="{{ob.duration}}" data-height="{{ob.height}}" catchtap="onOpenBlockTap"></view>
                 <!-- Event blocks (bookings + activities) -->
                 <view class="tt-event-block {{eb.status}}" wx:for="{{col.eventBlocks}}" wx:key="top" wx:for-item="eb"
                       style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;"

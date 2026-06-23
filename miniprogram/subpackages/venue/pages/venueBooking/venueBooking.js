@@ -85,6 +85,7 @@ Page({
     scheduleVenueName: '',
     scheduleWeekStart: '',
     timetableColumns: [],
+    timetableScrollTop: 0,
     timetableHours: HOURS,
     bookingDetailVisible: false,
     bookingDetail: null,
@@ -172,6 +173,10 @@ Page({
     await this.loadTimetable();
   },
   closeSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false }); },
+
+  onTimetableScroll(e) {
+    this.setData({ timetableScrollTop: e.detail.scrollTop || 0 });
+  },
 
   async loadTimetable() {
     const { scheduleVenueId, scheduleWeekStart } = this.data;
@@ -276,14 +281,15 @@ Page({
     const startMin = parseInt(e.currentTarget.dataset.startMin) || 0;
     const endMin = parseInt(e.currentTarget.dataset.endMin) || 0;
     const duration = endMin - startMin;
-    // e.detail.y is element-relative but in PX, blockH is from CSS in RPX.
-    // Convert px→rpx: 750rpx = screenWidth px → rpxPerPx = 750 / screenWidth
+    // Account for scroll: e.detail.y is viewport-relative in px
     const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
-    const tapY = (e.detail.y || 0) * rpxPerPx;
+    const blockTop_rpx = parseFloat(e.currentTarget.dataset.top) || 0;
+    const scrollTop_rpx = this.data.timetableScrollTop * rpxPerPx;
+    const blockViewTop_rpx = blockTop_rpx - scrollTop_rpx;
+    const tapInBlock_rpx = (e.detail.y || 0) * rpxPerPx - blockViewTop_rpx;
     const blockH = parseFloat(e.currentTarget.dataset.height) || 1;
-    const proportion = Math.max(0, Math.min(1, tapY / blockH));
+    const proportion = Math.max(0, Math.min(1, tapInBlock_rpx / blockH));
     let minutes = startMin + proportion * duration;
-    // Round to nearest 30 min
     const halfHours = Math.round(minutes / 30);
     const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
     const m = (halfHours % 2) * 30;

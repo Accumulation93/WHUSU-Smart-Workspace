@@ -132,6 +132,7 @@ Page({
     scheduleVenueName: '',
     scheduleWeekStart: '',
     timetableColumns: [],
+    timetableScrollTop: 0,
     timetableHours: HOURS,
     bookingDetailVisible: false,
     bookingDetail: null,
@@ -524,6 +525,10 @@ Page({
   },
   closeVenueSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false }); },
 
+  onTimetableScroll(e) {
+    this.setData({ timetableScrollTop: e.detail.scrollTop || 0 });
+  },
+
   async loadVenueTimetable() {
     const { scheduleVenueId, scheduleWeekStart } = this.data;
     const [y, m, d] = scheduleWeekStart.split('-').map(Number);
@@ -627,10 +632,17 @@ Page({
     const startMin = parseInt(e.currentTarget.dataset.startMin) || 0;
     const endMin = parseInt(e.currentTarget.dataset.endMin) || 0;
     const duration = endMin - startMin;
+    // e.detail.y is viewport-relative in px. Account for scroll offset.
     const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
-    const tapY = (e.detail.y || 0) * rpxPerPx;
+    const blockTop_rpx = parseFloat(e.currentTarget.dataset.top) || 0;
+    const scrollTop_rpx = this.data.timetableScrollTop * rpxPerPx;
+    // Block's current viewport top (may be negative if scrolled past)
+    const blockViewTop_rpx = blockTop_rpx - scrollTop_rpx;
+    // Tap Y in viewport (px→rpx), then subtract block's viewport top
+    const tapY_viewport_rpx = (e.detail.y || 0) * rpxPerPx;
+    const tapInBlock_rpx = tapY_viewport_rpx - blockViewTop_rpx;
     const blockH = parseFloat(e.currentTarget.dataset.height) || 1;
-    const proportion = Math.max(0, Math.min(1, tapY / blockH));
+    const proportion = Math.max(0, Math.min(1, tapInBlock_rpx / blockH));
     let minutes = startMin + proportion * duration;
     const halfHours = Math.round(minutes / 30);
     const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
