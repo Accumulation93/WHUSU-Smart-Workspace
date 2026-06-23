@@ -230,10 +230,13 @@
       <view style="padding:24rpx;">
         <view style="font-size:26rpx;font-weight:700;color:#1e293b;margin-bottom:12rpx;">{{bookingDetail.title || '借用'}}</view>
         <view style="font-size:23rpx;color:#64748b;line-height:1.8;">
-          <view wx:if="{{bookingDetail.id}}">借用编号：{{bookingDetail.id}}</view>
-          <view wx:if="{{bookingDetail.userId}}">借用人：{{bookingDetail.userName || bookingDetail.userId}}</view>
+          <view wx:if="{{bookingDetail.userName}}">借用人：{{bookingDetail.userName}}</view>
+          <view wx:if="{{bookingDetail.userDept}}">部门：{{bookingDetail.userDept}}</view>
+          <view wx:if="{{bookingDetail.userIdentity}}">身份：{{bookingDetail.userIdentity}}</view>
+          <view wx:if="{{bookingDetail.userWorkGroup}}">职能组：{{bookingDetail.userWorkGroup}}</view>
           <view wx:if="{{bookingDetail.timeStart}}">时间：{{bookingDetail.timeStart}} - {{bookingDetail.timeEnd}}</view>
           <view wx:if="{{bookingDetail.description}}">说明：{{bookingDetail.description}}</view>
+          <view wx:if="{{bookingDetail.status}}">状态：{{bookingDetail.status === 'approved' ? '已通过' : (bookingDetail.status === 'pending' ? '待审核' : bookingDetail.status)}}</view>
         </view>
       </view>
     </view>

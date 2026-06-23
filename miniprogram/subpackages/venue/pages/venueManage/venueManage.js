@@ -585,6 +585,7 @@ Page({
           booking: {
             id: b.id, title: b.title, description: b.description,
             userId: b.userId, userName: b.userName,
+            userDept: b.userDept || '', userIdentity: b.userIdentity || '', userWorkGroup: b.userWorkGroup || '',
             timeStart: b.fullTimeStart || b.timeStart,
             timeEnd: b.fullTimeEnd || b.timeEnd,
             status: b.status

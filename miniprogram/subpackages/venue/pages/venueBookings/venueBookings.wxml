@@ -37,7 +37,12 @@
           <text class="booking-status {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
         </view>
         <view class="booking-item-meta">🏟️ {{item.venueName}} · 📍 {{item.venueLocation || '-'}}</view>
-        <view class="booking-item-meta">👤 {{item.userName}} · 🕐 {{item.timeStart}} 至 {{item.timeEnd}}</view>
+        <view class="booking-item-meta">👤 {{item.userName}}
+          <text wx:if="{{item.userDept}}"> · 🏢 {{item.userDept}}</text>
+          <text wx:if="{{item.userIdentity}}"> · 🪪 {{item.userIdentity}}</text>
+          <text wx:if="{{item.userWorkGroup}}"> · 👥 {{item.userWorkGroup}}</text>
+        </view>
+        <view class="booking-item-meta">🕐 {{item.timeStart}} 至 {{item.timeEnd}}</view>
         <view class="booking-item-meta" wx:if="{{item.description}}">💬 {{item.description}}</view>
         <view class="booking-item-meta" wx:if="{{item.approvalComment}}">📝 {{item.approvalComment}}</view>
         <view class="booking-actions" wx:if="{{item.status === 'pending'}}">

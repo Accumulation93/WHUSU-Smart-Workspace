@@ -278,13 +278,32 @@ router.post('/listAllVenueBookings', async (req, res) => {
     if (timeFrom) filters.timeFrom = timeFrom;
     if (timeTo) filters.timeTo = timeTo;
     const bookings = await venueBookingModel.getAll(filters);
-    // Build user name map
+    // Build user info map
     const hrIds = [...new Set(bookings.map(b => b.user_hr_id).filter(Boolean))];
-    const nameMap = {};
+    const userMap = {};
     if (hrIds.length) {
       try {
         const hrList = await hrInfoModel.getByIds(hrIds);
-        (hrList || []).forEach(h => { nameMap[h.id] = h.name || h.id; });
+        const deptIds = [...new Set(hrList.map(h => h.department_id).filter(Boolean))];
+        const identIds = [...new Set(hrList.map(h => h.identity_id).filter(Boolean))];
+        const wgIds = [...new Set(hrList.map(h => h.work_group_id).filter(Boolean))];
+        const orgId = await getCurrentOrgId();
+        const [deptRows, identRows, wgRows] = await Promise.all([
+          deptIds.length ? pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [deptIds, orgId]) : Promise.resolve([[]]),
+          identIds.length ? pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [identIds, orgId]) : Promise.resolve([[]]),
+          wgIds.length ? pool.query('SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?', [wgIds, orgId]) : Promise.resolve([[]])
+        ]);
+        const deptMap = {}; (deptRows[0] || []).forEach(r => { deptMap[r.id] = r.name; });
+        const identMap = {}; (identRows[0] || []).forEach(r => { identMap[r.id] = r.name; });
+        const wgMap = {}; (wgRows[0] || []).forEach(r => { wgMap[r.id] = r.name; });
+        (hrList || []).forEach(h => {
+          userMap[h.id] = {
+            name: h.name || h.id,
+            department: deptMap[h.department_id] || '',
+            identity: identMap[h.identity_id] || '',
+            workGroup: wgMap[h.work_group_id] || ''
+          };
+        });
       } catch (_) {}
     }
     const list = bookings.map(b => ({
@@ -293,7 +312,10 @@ router.post('/listAllVenueBookings', async (req, res) => {
       venueName: b.venue_name,
       venueLocation: b.venue_location,
       userHrId: b.user_hr_id,
-      userName: nameMap[b.user_hr_id] || b.user_hr_id,
+      userName: (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || b.user_hr_id,
+      userDept: (userMap[b.user_hr_id] && userMap[b.user_hr_id].department) || '',
+      userIdentity: (userMap[b.user_hr_id] && userMap[b.user_hr_id].identity) || '',
+      userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || '',
       title: b.title,
       description: b.description,
       timeStart: fmtDatetime(new Date(b.time_start)),
