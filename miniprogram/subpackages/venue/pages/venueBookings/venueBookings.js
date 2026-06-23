@@ -1,16 +1,34 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 
+function fmtLocalDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 Page({
   data: {
     bookings: [],
     loading: false,
     filterStatus: '',
     filterVenueId: '',
+    timeFrom: '',
+    timeTo: '',
+    timeFromDisplay: '',
+    timeToDisplay: '',
     venues: [],
     statusLabels: { pending: '待审核', approved: '已通过', rejected: '已驳回', cancelled: '已取消' }
   },
 
   onShow() {
+    this._init();
+  },
+
+  _init() {
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    const from = fmtLocalDate(weekAgo);
+    const to = fmtLocalDate(now);
+    this.setData({ timeFrom: from, timeTo: to, timeFromDisplay: from, timeToDisplay: to });
     this.loadVenues();
     this.loadBookings();
   },
@@ -25,18 +43,46 @@ Page({
   async loadBookings() {
     this.setData({ loading: true });
     try {
-      const { filterStatus, filterVenueId } = this.data;
-      const res = await callFunction({
+      const { filterStatus, filterVenueId, timeFrom, timeTo } = this.data;
+
+      // 1. Always fetch ALL pending bookings (regardless of time)
+      const pendingReq = callFunction({
         name: 'listAllVenueBookings',
-        data: { status: filterStatus, venueId: filterVenueId }
+        data: { status: 'pending', venueId: filterVenueId }
       });
-      if (res.status === 'success') this.setData({ bookings: res.bookings || [] });
+
+      // 2. Fetch bookings within time range with optional status filter
+      const timeReq = callFunction({
+        name: 'listAllVenueBookings',
+        data: {
+          status: filterStatus || undefined,
+          venueId: filterVenueId,
+          timeFrom: timeFrom ? timeFrom + ' 00:00' : undefined,
+          timeTo: timeTo ? timeTo + ' 23:59' : undefined
+        }
+      });
+
+      const [pendingRes, timeRes] = await Promise.all([pendingReq, timeReq]);
+
+      const pendingList = (pendingRes.status === 'success' ? pendingRes.bookings : []) || [];
+      const timeList = (timeRes.status === 'success' ? timeRes.bookings : []) || [];
+
+      // Merge: pending at top (deduped), then time-filtered non-pending
+      const pendingIds = new Set(pendingList.map(b => b.id));
+      const nonPending = timeList.filter(b => !pendingIds.has(b.id));
+      const merged = [...pendingList, ...nonPending];
+
+      this.setData({ bookings: merged });
     } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
     finally { this.setData({ loading: false }); }
   },
 
   onFilterStatus(e) { this.setData({ filterStatus: e.currentTarget.dataset.status }); this.loadBookings(); },
   onFilterVenue(e) { this.setData({ filterVenueId: e.currentTarget.dataset.id || '' }); this.loadBookings(); },
+
+  onTimeFromChange(e) { this.setData({ timeFrom: e.detail.value, timeFromDisplay: e.detail.value }); this.loadBookings(); },
+  onTimeToChange(e) { this.setData({ timeTo: e.detail.value, timeToDisplay: e.detail.value }); this.loadBookings(); },
+  onClearTime() { const now = new Date(); const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7); this.setData({ timeFrom: fmtLocalDate(weekAgo), timeTo: fmtLocalDate(now), timeFromDisplay: fmtLocalDate(weekAgo), timeToDisplay: fmtLocalDate(now) }); this.loadBookings(); },
 
   async approve(e) {
     const id = e.currentTarget.dataset.id;

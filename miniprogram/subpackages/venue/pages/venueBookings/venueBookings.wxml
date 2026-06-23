@@ -1,53 +1,78 @@
 <view class="page">
   <view class="hero">
-    <view class="hero-badge">场地</view>
+    <view class="hero-badge">MANAGE</view>
     <view class="hero-title">借用管理</view>
-    <view class="hero-subtitle">查看和管理所有场地借用申请</view>
+    <view class="hero-subtitle">审核和管理所有场地借用申请</view>
   </view>
 
-  <!-- Quick nav -->
+  <!-- Nav -->
   <view class="header-nav">
-    <text class="header-nav-btn" bindtap="goVenueManage">🏟️ 场地管理</text>
+    <text class="header-nav-btn" bindtap="goVenueManage">场地管理</text>
   </view>
 
   <view class="card">
     <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
 
+    <!-- Time filter row -->
+    <view class="filter-section">
+      <view class="filter-label">时间范围</view>
+      <view class="time-filter-row">
+        <picker mode="date" value="{{timeFrom}}" bindchange="onTimeFromChange">
+          <view class="time-pick">{{timeFromDisplay || '开始日期'}}</view>
+        </picker>
+        <text class="time-to">至</text>
+        <picker mode="date" value="{{timeTo}}" bindchange="onTimeToChange">
+          <view class="time-pick">{{timeToDisplay || '结束日期'}}</view>
+        </picker>
+        <text class="filter-clear" wx:if="{{timeFrom || timeTo}}" bindtap="onClearTime">清除</text>
+      </view>
+    </view>
+
     <!-- Status filter -->
-    <view class="filter-row">
-      <text class="filter-chip {{filterStatus === '' ? 'active' : ''}}" data-status="" bindtap="onFilterStatus">全部</text>
-      <text class="filter-chip {{filterStatus === 'pending' ? 'active' : ''}}" data-status="pending" bindtap="onFilterStatus">⏳ 待审核</text>
-      <text class="filter-chip {{filterStatus === 'approved' ? 'active' : ''}}" data-status="approved" bindtap="onFilterStatus">✅ 已通过</text>
-      <text class="filter-chip {{filterStatus === 'rejected' ? 'active' : ''}}" data-status="rejected" bindtap="onFilterStatus">❌ 已驳回</text>
-      <text class="filter-chip {{filterStatus === 'cancelled' ? 'active' : ''}}" data-status="cancelled" bindtap="onFilterStatus">↩️ 已取消</text>
+    <view class="filter-section">
+      <view class="filter-label">状态</view>
+      <scroll-view scroll-x class="filter-scroll">
+        <view class="filter-row">
+          <text class="filter-chip {{filterStatus === '' ? 'active' : ''}}" data-status="" bindtap="onFilterStatus">全部</text>
+          <text class="filter-chip {{filterStatus === 'pending' ? 'active' : ''}}" data-status="pending" bindtap="onFilterStatus">待审核</text>
+          <text class="filter-chip {{filterStatus === 'approved' ? 'active' : ''}}" data-status="approved" bindtap="onFilterStatus">已通过</text>
+          <text class="filter-chip {{filterStatus === 'rejected' ? 'active' : ''}}" data-status="rejected" bindtap="onFilterStatus">已驳回</text>
+          <text class="filter-chip {{filterStatus === 'cancelled' ? 'active' : ''}}" data-status="cancelled" bindtap="onFilterStatus">已取消</text>
+        </view>
+      </scroll-view>
     </view>
 
     <!-- Venue filter -->
-    <scroll-view scroll-x class="filter-row">
-      <text class="filter-chip {{filterVenueId === '' ? 'active' : ''}}" data-id="" bindtap="onFilterVenue">全部场地</text>
-      <text class="filter-chip {{filterVenueId === item.id ? 'active' : ''}}" wx:for="{{venues}}" wx:key="id" data-id="{{item.id}}" bindtap="onFilterVenue">{{item.name}}</text>
-    </scroll-view>
+    <view class="filter-section">
+      <view class="filter-label">场地</view>
+      <scroll-view scroll-x class="filter-scroll">
+        <view class="filter-row">
+          <text class="filter-chip {{filterVenueId === '' ? 'active' : ''}}" data-id="" bindtap="onFilterVenue">全部</text>
+          <text class="filter-chip {{filterVenueId === item.id ? 'active' : ''}}" wx:for="{{venues}}" wx:key="id" data-id="{{item.id}}" bindtap="onFilterVenue">{{item.name}}</text>
+        </view>
+      </scroll-view>
+    </view>
 
-    <!-- List -->
+    <!-- Booking list -->
     <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-      <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-icon">📋</view><view class="audit-empty-text">暂无借用记录</view></view>
+      <view class="empty-inline" wx:if="{{!bookings.length}}">暂无借用记录</view>
       <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
-        <view class="booking-item-header">
+        <view class="booking-item-head">
           <view class="booking-item-title">{{item.title || '借用申请'}}</view>
           <text class="booking-status {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
         </view>
-        <view class="booking-item-meta">🏟️ {{item.venueName}} · 📍 {{item.venueLocation || '-'}}</view>
-        <view class="booking-item-meta">👤 {{item.userName}}
-          <text wx:if="{{item.userDept}}"> · 🏢 {{item.userDept}}</text>
-          <text wx:if="{{item.userIdentity}}"> · 🪪 {{item.userIdentity}}</text>
-          <text wx:if="{{item.userWorkGroup}}"> · 👥 {{item.userWorkGroup}}</text>
+        <view class="booking-item-meta">{{item.venueName}} · {{item.venueLocation || ''}}</view>
+        <view class="booking-item-meta">{{item.userName}}
+          <text wx:if="{{item.userDept}}"> · {{item.userDept}}</text>
+          <text wx:if="{{item.userIdentity}}"> · {{item.userIdentity}}</text>
+          <text wx:if="{{item.userWorkGroup}}"> · {{item.userWorkGroup}}</text>
         </view>
-        <view class="booking-item-meta">🕐 {{item.timeStart}} 至 {{item.timeEnd}}</view>
-        <view class="booking-item-meta" wx:if="{{item.description}}">💬 {{item.description}}</view>
-        <view class="booking-item-meta" wx:if="{{item.approvalComment}}">📝 {{item.approvalComment}}</view>
+        <view class="booking-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
+        <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
+        <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
         <view class="booking-actions" wx:if="{{item.status === 'pending'}}">
-          <button class="approve-btn" data-id="{{item.id}}" bindtap="approve">✓ 通过</button>
-          <button class="reject-btn" data-id="{{item.id}}" bindtap="reject">✗ 驳回</button>
+          <button class="approve-btn" data-id="{{item.id}}" bindtap="approve">通过</button>
+          <button class="reject-btn" data-id="{{item.id}}" bindtap="reject">驳回</button>
         </view>
       </view>
     </scroll-view>
