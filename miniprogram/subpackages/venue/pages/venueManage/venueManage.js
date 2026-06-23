@@ -1,11 +1,21 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 
 const HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
+const HOUR_HEIGHT = 64; // rpx per hour
+const BASE_MIN = 8 * 60; // 08:00 in minutes
 
 function timeToMin(t) {
   if (!t) return 0;
   const parts = String(t).split(':');
   return (parseInt(parts[0])||0)*60 + (parseInt(parts[1])||0);
+}
+
+function calcBlock(timeStart, timeEnd) {
+  const s = timeToMin(timeStart);
+  const e = timeToMin(timeEnd);
+  const top = Math.round((s - BASE_MIN) / 60 * HOUR_HEIGHT);
+  const height = Math.max(Math.round((e - s) / 60 * HOUR_HEIGHT), 20);
+  return { top, height };
 }
 
 Page({
@@ -46,7 +56,8 @@ Page({
     scheduleVenueId: '',
     scheduleVenueName: '',
     scheduleWeekStart: '',
-    timetable: [],
+    timetableColumns: [],    // [{date, label, openBlocks:[], eventBlocks:[]}]
+    timetableHours: HOURS,   // time labels
     bookingDetailVisible: false,
     bookingDetail: null,
 
@@ -60,13 +71,20 @@ Page({
     adminBookingDesc: '',
     adminBookingTimeStart: '',
     adminBookingTimeEnd: '',
-    adminDailySlots: []
+    adminDailySlots: [],
+
+    // Purpose management
+    purposeVisible: false,
+    purposes: [],
+    purposeEditId: '',
+    purposeEditText: ''
   },
 
   onShow() {
     this._initWeekStart();
     this.loadVenues();
     this.loadReferenceData();
+    this.loadPurposes();
   },
 
   async loadReferenceData() {
@@ -349,7 +367,7 @@ Page({
   async openVenueSchedule(e) {
     const id = e.currentTarget.dataset.id;
     const v = this.data.venues.find(v => v.id === id);
-    this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: v ? v.name : '', timetable: [] });
+    this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: v ? v.name : '', timetableColumns: [] });
     await this.loadVenueTimetable();
   },
   closeVenueSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false }); },
@@ -375,41 +393,68 @@ Page({
 
   _buildAdminTimetable(dailySchedules) {
     const start = new Date(this.data.scheduleWeekStart + 'T00:00:00');
-    const dayDates = [];
+    const weekDayLabels = ['周一','周二','周三','周四','周五','周六','周日'];
+    const columns = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(start);
       d.setDate(d.getDate() + i);
-      dayDates.push(d.toISOString().substring(0, 10));
+      const dateStr = d.toISOString().substring(0, 10);
+      const dayData = dailySchedules.find(ds => ds.date === dateStr);
+      const col = this._buildDayColumn(dayData, dateStr, weekDayLabels[i]);
+      columns.push(col);
     }
-    const timetable = HOURS.map(hour => {
-      const row = { hour, days: [] };
-      for (let di = 0; di < 7; di++) {
-        const dateStr = dayDates[di];
-        const dayData = dailySchedules.find(ds => ds.date === dateStr);
-        row.days.push(this._classifyAdminSlot(hour, dayData, dateStr));
-      }
-      return row;
-    });
-    this.setData({ timetable, dayDates });
+    this.setData({ timetableColumns: columns });
   },
 
-  _classifyAdminSlot(hour, dayData, dateStr) {
-    const hMin = timeToMin(hour);
-    const nextHMin = hMin + 60;
-    if (!dayData) return { status: 'closed', info: '', date: dateStr, hour: hour };
-    for (const a of (dayData.activitySlots || [])) {
-      if (hMin < timeToMin(a.timeEnd) && nextHMin > timeToMin(a.timeStart))
-        return { status: 'activity', info: a.ruleName || '活动', date: dateStr, hour: hour };
+  _buildDayColumn(dayData, dateStr, label) {
+    const openBlocks = [];
+    const eventBlocks = [];
+
+    // Open slots → background blocks
+    if (dayData && dayData.openSlots) {
+      for (const o of dayData.openSlots) {
+        const { top, height } = calcBlock(o.timeStart, o.timeEnd);
+        openBlocks.push({ top, height });
+      }
     }
-    for (const b of (dayData.bookedSlots || [])) {
-      if (hMin < timeToMin(b.timeEnd) && nextHMin > timeToMin(b.timeStart))
-        return { status: b.status === 'pending' ? 'pending' : 'booked', info: b.title || '已借用', booking: b, date: dateStr, hour: hour };
+
+    // Activity slots → event blocks
+    if (dayData && dayData.activitySlots) {
+      for (const a of dayData.activitySlots) {
+        const { top, height } = calcBlock(a.timeStart, a.timeEnd);
+        eventBlocks.push({
+          top, height,
+          status: 'activity',
+          label: a.ruleName || '活动',
+          type: 'activity'
+        });
+      }
     }
-    for (const o of (dayData.openSlots || [])) {
-      if (hMin >= timeToMin(o.timeStart) && nextHMin <= timeToMin(o.timeEnd))
-        return { status: 'open', info: '空闲', date: dateStr, hour: hour };
+
+    // Booked slots → event blocks
+    if (dayData && dayData.bookedSlots) {
+      for (const b of dayData.bookedSlots) {
+        const { top, height } = calcBlock(b.timeStart, b.timeEnd);
+        eventBlocks.push({
+          top, height,
+          status: b.status === 'pending' ? 'pending' : 'booked',
+          label: b.title || '已借用',
+          type: 'booking',
+          booking: {
+            id: b.id,
+            title: b.title,
+            description: b.description,
+            userId: b.userId,
+            userName: b.userName,
+            timeStart: b.timeStart,
+            timeEnd: b.timeEnd,
+            status: b.status
+          }
+        });
+      }
     }
-    return { status: 'closed', info: '', date: dateStr, hour: hour };
+
+    return { date: dateStr, label, openBlocks, eventBlocks };
   },
 
   onTimetablePrevWeek() {
@@ -425,29 +470,34 @@ Page({
     this.loadVenueTimetable();
   },
 
-  onAdminCellTap(e) {
-    const cell = e.currentTarget.dataset.cell;
-    if (!cell) return;
-    if ((cell.status === 'booked' || cell.status === 'pending') && cell.booking) {
-      this.setData({ bookingDetailVisible: true, bookingDetail: cell.booking });
-    } else if (cell.status === 'open') {
-      // Close timetable, open admin booking popup
-      const date = cell.date;
-      const timeStart = cell.hour;
-      this.setData({
-        scheduleVisible: false,
-        adminBookingVisible: true,
-        adminBookingDate: date,
-        adminBookingDateDisplay: date,
-        adminBookingTimeStart: timeStart,
-        adminBookingTimeEnd: '',
-        adminBookingTitle: '',
-        adminBookingDesc: '',
-        adminDailySlots: []
-      });
-      this._loadAdminDailySlots(date);
-    }
+  // Tap an event block in timetable → open detail
+  onTimetableBlockTap(e) {
+    const block = e.currentTarget.dataset.block;
+    if (!block || !block.booking) return;
+    this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
   },
+
+  // Tap empty area in timetable column → open admin quick booking with date
+  onTimetableOpenTap(e) {
+    const date = e.currentTarget.dataset.date;
+    const top = e.detail.y - e.currentTarget.offsetTop;
+    // Calculate which hour was tapped based on vertical position
+    const hourIdx = Math.floor(top / HOUR_HEIGHT);
+    const hour = HOURS[Math.min(Math.max(hourIdx, 0), HOURS.length - 1)];
+    this.setData({
+      scheduleVisible: false,
+      adminBookingVisible: true,
+      adminBookingDate: date,
+      adminBookingDateDisplay: date,
+      adminBookingTimeStart: hour,
+      adminBookingTimeEnd: '',
+      adminBookingTitle: '',
+      adminBookingDesc: '',
+      adminDailySlots: []
+    });
+    this._loadAdminDailySlots(date);
+  },
+
   closeBookingDetail() { this.setData({ bookingDetailVisible: false }); },
 
   // ── Admin Quick Booking ──
@@ -494,6 +544,11 @@ Page({
     finally { wx.hideLoading(); }
   },
 
+  onAdminSelectPurpose(e) {
+    const text = e.currentTarget.dataset.text;
+    this.setData({ adminBookingTitle: text });
+  },
+
   onAdminSelectSlot(e) {
     this.setData({
       adminBookingTimeStart: e.currentTarget.dataset.ts,
@@ -510,11 +565,12 @@ Page({
     if (!scheduleVenueId || !adminBookingDate || !adminBookingTimeStart || !adminBookingTimeEnd) {
       showShortToast('请完整填写信息并选择时间段'); return;
     }
+    if (!adminBookingTitle) { showShortToast('请填写借用事由'); return; }
     this.setData({ loading: true });
     try {
       const res = await callFunction({
         name: 'createVenueBooking',
-        data: { venueId: scheduleVenueId, title: adminBookingTitle || '管理员使用', description: adminBookingDesc,
+        data: { venueId: scheduleVenueId, title: adminBookingTitle, description: adminBookingDesc,
                 bookingDate: adminBookingDate, timeStart: adminBookingTimeStart, timeEnd: adminBookingTimeEnd }
       });
       if (res.status === 'success') {
@@ -524,6 +580,55 @@ Page({
       } else showShortToast(res.message);
     } catch (e) { showShortToast(getErrorText(e, '借用失败')); }
     finally { this.setData({ loading: false }); }
+  },
+
+  // ── Purpose Management ──
+  openPurposeManager() {
+    this.setData({ purposeVisible: true, purposeEditId: '', purposeEditText: '' });
+    this.loadPurposes();
+  },
+  closePurposeManager() { this.setData({ purposeVisible: false }); },
+
+  async loadPurposes() {
+    try {
+      const res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
+      if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
+    } catch (_) {}
+  },
+
+  onPurposeFieldInput(e) {
+    this.setData({ purposeEditText: e.detail.value });
+  },
+
+  startEditPurpose(e) {
+    const id = e.currentTarget.dataset.id;
+    const p = this.data.purposes.find(p => p.id === id);
+    if (p) this.setData({ purposeEditId: p.id, purposeEditText: p.text });
+  },
+
+  async savePurpose() {
+    const { purposeEditId, purposeEditText } = this.data;
+    if (!purposeEditText.trim()) { showShortToast('请输入事由内容'); return; }
+    try {
+      const res = await callFunction({
+        name: 'saveVenueBookingPurpose',
+        data: { id: purposeEditId, text: purposeEditText.trim() }
+      });
+      if (res.status === 'success') {
+        showShortToast(res.message);
+        this.setData({ purposeEditId: '', purposeEditText: '' });
+        this.loadPurposes();
+      } else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, '保存失败')); }
+  },
+
+  async deletePurpose(e) {
+    const id = e.currentTarget.dataset.id;
+    try {
+      const res = await callFunction({ name: 'deleteVenueBookingPurpose', data: { id } });
+      if (res.status === 'success') { showShortToast('已删除'); this.loadPurposes(); }
+      else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, '删除失败')); }
   },
 
   noop() {}

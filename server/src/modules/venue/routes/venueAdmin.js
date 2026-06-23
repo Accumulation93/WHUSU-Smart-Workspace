@@ -10,6 +10,7 @@ const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
 const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingModel = require('../models/venueBooking');
+const venueBookingPurposeModel = require('../models/venueBookingPurpose');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -336,6 +337,57 @@ router.post('/rejectVenueBooking', async (req, res) => {
     if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
     await venueBookingModel.updateStatus(id, 'rejected', admin.hr_id || admin.id, comment);
     res.json({ status: 'success', message: '借用已驳回' });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// Booking Purposes (事由管理)
+// ═══════════════════════════════════════════════════
+
+// listVenueBookingPurposes
+router.post('/listVenueBookingPurposes', async (req, res) => {
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    const purposes = await venueBookingPurposeModel.getAll();
+    res.json({ status: 'success', purposes });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// saveVenueBookingPurpose
+router.post('/saveVenueBookingPurpose', async (req, res) => {
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    const id = safeString(req.body.id) || generateId();
+    const text = safeString(req.body.text);
+    if (!text) return res.json({ status: 'invalid_params', message: '请输入事由内容' });
+    const data = { text, sortOrder: parseInt(req.body.sortOrder) || 1 };
+    const existing = await venueBookingPurposeModel.getById(id);
+    if (existing) {
+      await venueBookingPurposeModel.update(id, data);
+    } else {
+      await venueBookingPurposeModel.create(id, data);
+    }
+    res.json({ status: 'success', id, message: existing ? '事由已更新' : '事由已创建' });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// deleteVenueBookingPurpose
+router.post('/deleteVenueBookingPurpose', async (req, res) => {
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    const id = safeString(req.body.id);
+    if (!id) return res.json({ status: 'invalid_params', message: '请提供事由ID' });
+    await venueBookingPurposeModel.remove(id);
+    res.json({ status: 'success', message: '事由已删除' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

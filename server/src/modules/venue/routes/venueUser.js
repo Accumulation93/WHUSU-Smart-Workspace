@@ -9,6 +9,7 @@ const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
 const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingModel = require('../models/venueBooking');
+const venueBookingPurposeModel = require('../models/venueBookingPurpose');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -107,6 +108,18 @@ function timeToMin(t) {
   return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
 }
 
+// listVenueBookingPurposes
+router.post('/listVenueBookingPurposes', async (req, res) => {
+  try {
+    const hrId = await resolveHrId(req.openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const purposes = await venueBookingPurposeModel.getAll();
+    res.json({ status: 'success', purposes });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
 // ═══════════════════════════════════════════════════
 // User: Browse venues
 // ═══════════════════════════════════════════════════
@@ -186,6 +199,7 @@ router.post('/getVenueSchedule', async (req, res) => {
       const bookedSlots = activeBookings.map(b => ({
         id: b.id,
         title: b.title,
+        description: b.description,
         status: b.status,
         timeStart: b.time_start && b.time_start.length >= 5 ? b.time_start.substring(0, 5) : '',
         timeEnd: b.time_end && b.time_end.length >= 5 ? b.time_end.substring(0, 5) : '',
@@ -230,6 +244,9 @@ router.post('/createVenueBooking', async (req, res) => {
 
     if (!venueId || !bookingDate || !timeStart || !timeEnd) {
       return res.json({ status: 'invalid_params', message: '请填写完整信息' });
+    }
+    if (!title) {
+      return res.json({ status: 'invalid_params', message: '请填写借用事由' });
     }
     if (timeToMin(timeStart) >= timeToMin(timeEnd)) {
       return res.json({ status: 'invalid_params', message: '结束时间必须晚于开始时间' });

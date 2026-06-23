@@ -99,7 +99,15 @@
       <view class="popup-header"><view class="popup-title">借用申请 · {{bookingVenueName}}</view><text class="popup-close" bindtap="closeBooking">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-popup-form">
-          <view class="field"><view class="field-label">借用主题</view><input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="如：部门例会"/></view>
+          <view class="field">
+            <view class="field-label">借用事由 <text style="color:#ef4444;">*</text></view>
+            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="选择或输入借用事由"/>
+            <view class="purpose-chips" wx:if="{{purposes.length}}">
+              <text wx:for="{{purposes}}" wx:key="id"
+                    class="purpose-chip {{bookingTitle === item.text ? 'selected' : ''}}"
+                    data-text="{{item.text}}" bindtap="onSelectPurpose">{{item.text}}</text>
+            </view>
+          </view>
 
           <!-- Date picker -->
           <view class="field"><view class="field-label">借用日期</view>

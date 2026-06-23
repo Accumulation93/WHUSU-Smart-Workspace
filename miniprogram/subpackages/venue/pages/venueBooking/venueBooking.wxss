@@ -53,3 +53,8 @@
 
 /* ── Booking form ── */
 .booking-form { padding:4rpx 0; }
+
+/* ── Purpose chips ── */
+.purpose-chips { display:flex; flex-wrap:wrap; gap:8rpx; margin-top:8rpx; }
+.purpose-chip { font-size:22rpx; padding:8rpx 18rpx; border-radius:18rpx; background:#dbeafe; color:#1d4ed8; border:1rpx solid #bfdbfe; font-weight:500; }
+.purpose-chip.selected { background:#3b82f6; color:#fff; border-color:#3b82f6; box-shadow:0 4rpx 12rpx rgba(59,130,246,0.2); }

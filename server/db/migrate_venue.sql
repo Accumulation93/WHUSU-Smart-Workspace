@@ -114,3 +114,16 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   INDEX idx_vb_venue_date (venue_id, booking_date),
   CONSTRAINT fk_vb_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 6. Venue Booking Purposes (借用事由预设列表) — per org
+-- ============================================================
+CREATE TABLE IF NOT EXISTS venue_booking_purposes (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  text VARCHAR(200) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_vbp_org (org_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

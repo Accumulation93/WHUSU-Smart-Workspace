@@ -33,12 +33,26 @@ Page({
     bookingDesc: '',
     bookingTimeStart: '',
     bookingTimeEnd: '',
-    dailySlots: []  // available time slots for selected date
+    dailySlots: [], // available time slots for selected date
+    purposes: []     // preset purposes for autocomplete
   },
 
   onShow() {
     this.loadVenues();
+    this.loadPurposes();
     this._initWeekStart();
+  },
+
+  async loadPurposes() {
+    try {
+      const res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
+      if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
+    } catch (_) {}
+  },
+
+  onSelectPurpose(e) {
+    const text = e.currentTarget.dataset.text;
+    this.setData({ bookingTitle: text });
   },
 
   _initWeekStart() {
@@ -263,6 +277,7 @@ Page({
     if (!bookingVenueId || !bookingDate || !bookingTimeStart || !bookingTimeEnd) {
       showShortToast('请完整填写信息并选择时间段'); return;
     }
+    if (!bookingTitle) { showShortToast('请填写借用事由'); return; }
     this.setData({ loading: true });
     try {
       const res = await callFunction({

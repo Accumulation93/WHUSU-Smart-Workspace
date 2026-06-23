@@ -8,6 +8,7 @@
   <!-- Quick nav -->
   <view class="header-nav">
     <text class="header-nav-btn" bindtap="goVenueBookings">📅 借用管理</text>
+    <text class="header-nav-btn" bindtap="openPurposeManager">📝 事由管理</text>
   </view>
 
   <!-- Venue list -->
@@ -158,7 +159,7 @@
     </view>
   </view>
 
-  <!-- ═══ Admin Timetable Popup ═══ -->
+  <!-- ═══ Admin Timetable Popup (proportional blocks) ═══ -->
   <view class="popup-mask" wx:if="{{scheduleVisible}}" bindtap="closeVenueSchedule">
     <view class="popup-card timetable-popup" catchtap="noop">
       <view class="popup-header">
@@ -171,24 +172,32 @@
         <text class="schedule-nav-btn" bindtap="onTimetableNextWeek">▶</text>
       </view>
       <scroll-view scroll-x scroll-y class="timetable-scroll">
-        <view class="timetable-grid">
-          <view class="tt-row tt-header">
-            <view class="tt-hour-cell">时间</view>
-            <view class="tt-day-cell" wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this">
-              <text style="font-size:21rpx;font-weight:600;color:#475569;">{{item}}</text>
-            </view>
+        <view class="timetable-body">
+          <!-- Time labels column (fixed left) -->
+          <view class="tt-time-col">
+            <view class="tt-time-header">时间</view>
+            <view class="tt-time-label" wx:for="{{timetableHours}}" wx:key="*this">{{item}}</view>
           </view>
-          <view class="tt-row" wx:for="{{timetable}}" wx:key="hour">
-            <view class="tt-hour-cell">{{item.hour}}</view>
-            <view class="tt-day-cell {{cell.status}}" wx:for="{{item.days}}" wx:key="*this" wx:for-item="cell"
-                  data-cell="{{cell}}" bindtap="onAdminCellTap">
-              <text wx:if="{{cell.status === 'open'}}" class="tt-cell-text">空闲</text>
-              <text wx:elif="{{cell.status === 'booked'}}" class="tt-cell-text">{{cell.info}}</text>
-              <text wx:elif="{{cell.status === 'activity'}}" class="tt-cell-text">{{cell.info}}</text>
+          <!-- Day columns -->
+          <view class="tt-col-scroll">
+            <view class="tt-cols-row">
+              <view class="tt-col" wx:for="{{timetableColumns}}" wx:key="date" data-date="{{item.date}}" bindtap="onTimetableOpenTap">
+                <!-- Day header -->
+                <view class="tt-col-header">{{item.label}}</view>
+                <!-- Open blocks (background) -->
+                <view class="tt-open-block" wx:for="{{item.openBlocks}}" wx:key="top" wx:for-item="ob" style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"></view>
+                <!-- Event blocks (bookings + activities) -->
+                <view class="tt-event-block {{eb.status}}" wx:for="{{item.eventBlocks}}" wx:key="top" wx:for-item="eb"
+                      style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;"
+                      data-block="{{eb}}" catchtap="onTimetableBlockTap">
+                  <text class="tt-event-label">{{eb.label}}</text>
+                </view>
+              </view>
             </view>
           </view>
         </view>
       </scroll-view>
+      <!-- Legend -->
       <view style="display:flex;gap:16rpx;padding:12rpx 16rpx;font-size:20rpx;color:#64748b;">
         <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-open"></view> 空闲</view>
         <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-booked"></view> 已通过</view>
@@ -209,6 +218,7 @@
           <view wx:if="{{bookingDetail.id}}">借用编号：{{bookingDetail.id}}</view>
           <view wx:if="{{bookingDetail.userId}}">借用人：{{bookingDetail.userName || bookingDetail.userId}}</view>
           <view wx:if="{{bookingDetail.timeStart}}">时间：{{bookingDetail.timeStart}} - {{bookingDetail.timeEnd}}</view>
+          <view wx:if="{{bookingDetail.description}}">说明：{{bookingDetail.description}}</view>
         </view>
       </view>
     </view>
@@ -220,7 +230,15 @@
       <view class="popup-header"><view class="popup-title">使用场地 · {{scheduleVenueName}}</view><text class="popup-close" bindtap="closeAdminBooking">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-popup-form">
-          <view class="field"><view class="field-label">使用主题</view><input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="如：活动使用"/></view>
+          <view class="field">
+            <view class="field-label">借用事由 <text style="color:#ef4444;">*</text></view>
+            <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="选择或输入借用事由"/>
+            <view class="purpose-chips" wx:if="{{purposes.length}}">
+              <text wx:for="{{purposes}}" wx:key="id"
+                    class="purpose-chip {{adminBookingTitle === item.text ? 'selected' : ''}}"
+                    data-text="{{item.text}}" bindtap="onAdminSelectPurpose">{{item.text}}</text>
+            </view>
+          </view>
           <view class="field"><view class="field-label">使用日期</view>
             <picker mode="date" value="{{adminBookingDate}}" bindchange="onAdminBookingDateChange">
               <view class="picker-value">{{adminBookingDateDisplay || '请选择日期'}}</view>
@@ -238,6 +256,33 @@
           <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{adminBookingTimeEnd}}" data-field="adminBookingTimeEnd" bindinput="onAdminFieldInput"/></view>
           <view class="field"><view class="field-label">描述（可选）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="使用说明"/></view>
           <view class="audit-btn-bar"><button class="primary-btn" loading="{{loading}}" bindtap="submitAdminBooking">提交使用</button></view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Purpose Management Popup ═══ -->
+  <view class="popup-mask" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header"><view class="popup-title">📝 借用事由管理</view><text class="popup-close" bindtap="closePurposeManager">关闭</text></view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="detail-popup-form">
+          <!-- Add / Edit form -->
+          <view class="field"><view class="field-label">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
+            <view style="display:flex;gap:10rpx;">
+              <input class="field-input" style="flex:1;" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/>
+              <button class="primary-btn" style="min-height:60rpx;padding:0 24rpx;font-size:22rpx;" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button>
+            </view>
+          </view>
+          <!-- Purpose list -->
+          <view wx:if="{{!purposes.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无预设事由</view>
+          <view class="purpose-item" wx:for="{{purposes}}" wx:key="id">
+            <view class="purpose-item-text">{{item.text}}</view>
+            <view class="venue-list-actions">
+              <text class="venue-action-btn" data-id="{{item.id}}" bindtap="startEditPurpose">编辑</text>
+              <text class="venue-action-btn danger" data-id="{{item.id}}" bindtap="deletePurpose">删除</text>
+            </view>
+          </view>
         </view>
       </scroll-view>
     </view>
