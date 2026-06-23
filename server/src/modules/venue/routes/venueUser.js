@@ -144,6 +144,51 @@ function timeToMin(t) {
   return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
 }
 
+/** Convert slot objects to {start, end} minute intervals */
+function slotsToIntervals(slots) {
+  return (slots || []).map(s => ({
+    start: timeToMin(s.timeStart),
+    end: timeToMin(s.timeEnd)
+  }));
+}
+
+/** Merge overlapping/adjacent intervals. Returns sorted merged list. */
+function mergeIntervals(intervals) {
+  if (!intervals.length) return [];
+  const sorted = [...intervals].sort((a, b) => a.start - b.start);
+  const merged = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    if (sorted[i].start <= last.end) {
+      last.end = Math.max(last.end, sorted[i].end);
+    } else {
+      merged.push(sorted[i]);
+    }
+  }
+  return merged;
+}
+
+/** Find first minute gap in [rangeStart, rangeEnd] not covered by mergedOpen.
+ *  Returns gap minute, or -1 if fully covered. */
+function findOpenGap(rangeStart, rangeEnd, mergedOpen) {
+  let cursor = rangeStart;
+  for (const iv of mergedOpen) {
+    if (iv.start > cursor) return cursor;
+    if (iv.end > cursor) cursor = iv.end;
+    if (cursor >= rangeEnd) return -1;
+  }
+  return cursor < rangeEnd ? cursor : -1;
+}
+
+/** Check if [rangeStart, rangeEnd] overlaps any blocked interval.
+ *  Returns the blocked interval that overlaps, or null. */
+function findBlockedOverlap(rangeStart, rangeEnd, mergedBlocked) {
+  for (const iv of mergedBlocked) {
+    if (iv.start < rangeEnd && iv.end > rangeStart) return iv;
+  }
+  return null;
+}
+
 /**
  * Split a datetime range into per-date segments for open-hours/activity validation.
  * Returns [{date: "YYYY-MM-DD", timeStart: "HH:MM", timeEnd: "HH:MM"}]
@@ -337,34 +382,35 @@ router.post('/createVenueBooking', async (req, res) => {
     const dbTimeStart = fmtDatetime(startDate);
     const dbTimeEnd = fmtDatetime(endDate);
 
-    // Cross-day validation: split into per-date segments and check open hours + activities
+    // Cross-day validation: split into per-date segments, validate with interval merging
     const openRules = await venueOpenRuleModel.getByVenueId(venueId);
     const activityRules = await venueActivityRuleModel.getByVenueId(venueId);
     const segments = splitByDate(startDate, endDate);
 
     for (const seg of segments) {
-      // Check open hours for this date
+      const segStart = timeToMin(seg.timeStart);
+      const segEnd = timeToMin(seg.timeEnd);
+
+      // Check open hours — MUST have open slots covering the entire segment
       const openSlots = getOpenSlots(seg.date, openRules);
-      if (openSlots.length > 0) {
-        let segOpen = false;
-        for (const slot of openSlots) {
-          if (timeToMin(seg.timeStart) >= timeToMin(slot.timeStart) &&
-              timeToMin(seg.timeEnd) <= timeToMin(slot.timeEnd)) {
-            segOpen = true;
-            break;
-          }
-        }
-        if (!segOpen) {
-          return res.json({ status: 'invalid_state', message: seg.date + ' ' + seg.timeStart + '-' + seg.timeEnd + ' 场地不开放' });
-        }
+      if (!openSlots.length) {
+        return res.json({ status: 'invalid_state', message: seg.date + ' 场地全天不开放' });
+      }
+      const mergedOpen = mergeIntervals(slotsToIntervals(openSlots));
+      const gap = findOpenGap(segStart, segEnd, mergedOpen);
+      if (gap >= 0) {
+        const hh = String(Math.floor(gap / 60)).padStart(2, '0');
+        const mm = String(gap % 60).padStart(2, '0');
+        return res.json({ status: 'invalid_state', message: seg.date + ' ' + hh + ':' + mm + ' 场地不开放' });
       }
 
-      // Check activity conflicts for this date
+      // Check activity conflicts — any overlap with activity slots is rejected
       const actSlots = getActivitySlots(seg.date, activityRules);
-      for (const slot of actSlots) {
-        if (timeToMin(seg.timeStart) < timeToMin(slot.timeEnd) &&
-            timeToMin(seg.timeEnd) > timeToMin(slot.timeStart)) {
-          return res.json({ status: 'conflict', message: seg.date + ' ' + seg.timeStart + '-' + seg.timeEnd + ' 有活动占用：' + slot.ruleName });
+      if (actSlots.length) {
+        const mergedActivity = mergeIntervals(slotsToIntervals(actSlots));
+        const actConflict = findBlockedOverlap(segStart, segEnd, mergedActivity);
+        if (actConflict) {
+          return res.json({ status: 'conflict', message: seg.date + ' ' + seg.timeStart + '-' + seg.timeEnd + ' 有活动占用' });
         }
       }
     }
