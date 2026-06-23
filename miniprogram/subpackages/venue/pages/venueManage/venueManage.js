@@ -578,16 +578,24 @@ Page({
   _buildDayColumn(dayData, dateStr, label, dateDisplay) {
     const openBlocks = [];
     const eventBlocks = [];
+    const timeTargets = [];
 
     if (dayData && dayData.openSlots) {
       for (const o of dayData.openSlots) {
         const { top, height } = calcBlock(o.timeStart, o.timeEnd);
-        openBlocks.push({
-          top: top + HEADER_H + TEXT_OFFSET, height,
-          startMin: timeToMin(o.timeStart),
-          endMin: timeToMin(o.timeEnd),
-          duration: timeToMin(o.timeEnd) - timeToMin(o.timeStart)
-        });
+        const s = timeToMin(o.timeStart);
+        const e = timeToMin(o.timeEnd);
+        openBlocks.push({ top: top + HEADER_H + TEXT_OFFSET, height, startMin: s, endMin: e, duration: e - s });
+        // Generate time targets only within this open slot, at half-hour intervals
+        for (let min = s; min < e; min += 30) {
+          const hh = Math.floor(min / 60);
+          const mm = min % 60;
+          const offset_rpx = (min - s) / (e - s) * height;
+          timeTargets.push({
+            top: top + HEADER_H + TEXT_OFFSET + offset_rpx,
+            time: String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0')
+          });
+        }
       }
     }
 
@@ -618,7 +626,7 @@ Page({
       }
     }
 
-    return { date: dateStr, label, dateDisplay, openBlocks, eventBlocks };
+    return { date: dateStr, label, dateDisplay, openBlocks, eventBlocks, timeTargets };
   },
 
   onTimetablePrevWeek() {
