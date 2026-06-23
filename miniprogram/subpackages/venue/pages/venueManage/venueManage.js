@@ -1,8 +1,8 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 
-const HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
+const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64; // rpx per hour
-const BASE_MIN = 8 * 60; // 08:00 in minutes
+const BASE_MIN = 0;
 
 function timeToMin(t) {
   if (!t) return 0;
@@ -24,6 +24,19 @@ function calcBlock(timeStart, timeEnd) {
   const top = Math.round((s - BASE_MIN) / 60 * HOUR_HEIGHT);
   const height = Math.max(Math.round((e - s) / 60 * HOUR_HEIGHT), 20);
   return { top, height };
+}
+
+/** Build checked arrays from cycleValues (WXML can't call indexOf) */
+function buildWeeklyChecked(cycleValues) {
+  const arr = [false, false, false, false, false, false, false];
+  (cycleValues || []).forEach(v => { const n = Number(v); if (n >= 1 && n <= 7) arr[n - 1] = true; });
+  return arr;
+}
+
+function buildMonthlyChecked(cycleValues) {
+  const arr = Array(31).fill(false);
+  (cycleValues || []).forEach(v => { const n = Number(v); if (n >= 1 && n <= 31) arr[n - 1] = true; });
+  return arr;
 }
 
 Page({
@@ -48,6 +61,7 @@ Page({
     // Rule editor
     ruleEditorVisible: false,
     ruleEditId: '',
+    ruleEditorType: '',
     ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin' },
 
     // Reference data
@@ -59,13 +73,23 @@ Page({
     yearlyPickDay: 1,
     yearlyDays: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31],
 
+    // Yearly range picker state
+    yearlyRangeStartMonth: 1,
+    yearlyRangeStartDay: 1,
+    yearlyRangeEndMonth: 1,
+    yearlyRangeEndDay: 1,
+
+    // Pre-computed checked arrays for WXML (indexOf not supported in templates)
+    weeklyChecked: [false, false, false, false, false, false, false],
+    monthlyChecked: Array(31).fill(false),
+
     // Timetable schedule view
     scheduleVisible: false,
     scheduleVenueId: '',
     scheduleVenueName: '',
     scheduleWeekStart: '',
-    timetableColumns: [],    // [{date, label, openBlocks:[], eventBlocks:[]}]
-    timetableHours: HOURS,   // time labels
+    timetableColumns: [],
+    timetableHours: HOURS,
     bookingDetailVisible: false,
     bookingDetail: null,
 
@@ -215,10 +239,16 @@ Page({
     if (ruleId) {
       if (type === 'open') {
         const r = this.data.openRules.find(r => r.id === ruleId);
-        if (r) form = { ...form, name: r.name || '', cycleType: r.cycle_type, cycleValues: typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []), timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
+        if (r) {
+          const cv = typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []);
+          form = { ...form, name: r.name || '', cycleType: r.cycle_type, cycleValues: cv, timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
+        }
       } else if (type === 'activity') {
         const r = this.data.activityRules.find(r => r.id === ruleId);
-        if (r) form = { ...form, name: r.activity_name || '', cycleType: r.cycle_type, cycleValues: typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []), timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
+        if (r) {
+          const cv = typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []);
+          form = { ...form, name: r.activity_name || '', cycleType: r.cycle_type, cycleValues: cv, timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
+        }
       } else if (type === 'booking') {
         const r = this.data.bookingRules.find(r => r.id === ruleId);
         if (r) {
@@ -229,12 +259,15 @@ Page({
         }
       }
     }
-    this.setData({ ruleEditorVisible: true, ruleEditId: ruleId, ruleEditorType: type, ruleForm: form });
+    this.setData({
+      ruleEditorVisible: true, ruleEditId: ruleId, ruleEditorType: type, ruleForm: form,
+      weeklyChecked: buildWeeklyChecked(form.cycleValues),
+      monthlyChecked: buildMonthlyChecked(form.cycleValues)
+    });
   },
 
   closeRuleEditor() { this.setData({ ruleEditorVisible: false }); },
 
-  // Generic field handler: writes to data[field] directly
   onFieldInput(e) {
     const f = e.currentTarget.dataset.field;
     this.setData({ [f]: e.detail.value });
@@ -245,22 +278,24 @@ Page({
     this.setData({ ['ruleForm.' + f]: e.detail.value });
   },
 
-  // Cycle type picker: convert index to string value + reset cycleValues
   onCycleTypeChange(e) {
     const types = ['daily', 'weekly', 'monthly', 'yearly'];
     const idx = parseInt(e.detail.value);
     const ct = types[idx] || 'weekly';
-    this.setData({ 'ruleForm.cycleType': ct, 'ruleForm.cycleValues': [] });
+    this.setData({
+      'ruleForm.cycleType': ct,
+      'ruleForm.cycleValues': [],
+      weeklyChecked: [false, false, false, false, false, false, false],
+      monthlyChecked: Array(31).fill(false)
+    });
   },
 
-  // Booking rule type picker: convert index to string
   onBookingRuleTypeChange(e) {
     const types = ['admin', 'direct', 'identity', 'person'];
     const idx = parseInt(e.detail.value);
     this.setData({ 'ruleForm.ruleType': types[idx] || 'admin' });
   },
 
-  // Booking rule identity picker
   onBookingIdentityChange(e) {
     const idx = parseInt(e.detail.value);
     const ident = this.data.allIdentities[idx];
@@ -273,7 +308,6 @@ Page({
     }
   },
 
-  // Booking rule person picker
   onBookingHrChange(e) {
     const idx = parseInt(e.detail.value);
     const hr = this.data.allHrPersons[idx];
@@ -286,50 +320,69 @@ Page({
     }
   },
 
-  // Toggle a cycle value (for weekly / monthly)
-  onToggleCycleDay(e) {
-    const val = parseInt(e.currentTarget.dataset.val);
+  // Toggle a weekly day
+  onToggleWeekDay(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx); // 0-6
+    const checked = [...this.data.weeklyChecked];
+    checked[idx] = !checked[idx];
+    // Rebuild cycleValues from checked array
+    const vals = [];
+    checked.forEach((c, i) => { if (c) vals.push(i + 1); });
+    this.setData({
+      weeklyChecked: checked,
+      'ruleForm.cycleValues': vals
+    });
+  },
+
+  // Toggle a monthly day
+  onToggleMonthDay(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx); // 0-30
+    const checked = [...this.data.monthlyChecked];
+    checked[idx] = !checked[idx];
+    const vals = [];
+    checked.forEach((c, i) => { if (c) vals.push(i + 1); });
+    this.setData({
+      monthlyChecked: checked,
+      'ruleForm.cycleValues': vals
+    });
+  },
+
+  // Yearly range: month pickers
+  onYearlyRangeStartMonthChange(e) {
+    this.setData({ yearlyRangeStartMonth: parseInt(e.detail.value) + 1 });
+  },
+  onYearlyRangeStartDayChange(e) {
+    this.setData({ yearlyRangeStartDay: parseInt(e.detail.value) + 1 });
+  },
+  onYearlyRangeEndMonthChange(e) {
+    this.setData({ yearlyRangeEndMonth: parseInt(e.detail.value) + 1 });
+  },
+  onYearlyRangeEndDayChange(e) {
+    this.setData({ yearlyRangeEndDay: parseInt(e.detail.value) + 1 });
+  },
+
+  // Add a date range to yearly cycle values
+  onAddYearlyRange() {
+    const sm = this.data.yearlyRangeStartMonth;
+    const sd = this.data.yearlyRangeStartDay;
+    const em = this.data.yearlyRangeEndMonth;
+    const ed = this.data.yearlyRangeEndDay;
+    // Validate: start must be before or equal to end
+    if (sm > em || (sm === em && sd > ed)) {
+      showShortToast('开始日期不能晚于结束日期'); return;
+    }
     let vals = [...(this.data.ruleForm.cycleValues || [])];
-    const idx = vals.indexOf(val);
-    if (idx >= 0) vals.splice(idx, 1); else vals.push(val);
-    vals.sort((a, b) => a - b);
-    this.setData({ 'ruleForm.cycleValues': vals });
-  },
-
-  // Toggle a yearly date {m, d}
-  onToggleYearlyDate(e) {
-    const m = parseInt(e.currentTarget.dataset.m);
-    const d = parseInt(e.currentTarget.dataset.d);
-    let vals = [...(this.data.ruleForm.cycleValues || [])];
-    const idx = vals.findIndex(v => v && v.m === m && v.d === d);
-    if (idx >= 0) vals.splice(idx, 1); else vals.push({ m, d });
-    this.setData({ 'ruleForm.cycleValues': vals });
-  },
-
-  // Yearly picker: month
-  onYearlyPickMonth(e) {
-    this.setData({ yearlyPickMonth: parseInt(e.detail.value) + 1 });
-  },
-
-  // Yearly picker: day
-  onYearlyPickDay(e) {
-    this.setData({ yearlyPickDay: parseInt(e.detail.value) + 1 });
-  },
-
-  // Add the currently selected month+day to yearly cycle values
-  onAddYearlyDate() {
-    const m = this.data.yearlyPickMonth;
-    const d = this.data.yearlyPickDay;
-    let vals = [...(this.data.ruleForm.cycleValues || [])];
-    if (!vals.some(v => v.m === m && v.d === d)) {
-      vals.push({ m, d });
-      vals.sort((a, b) => a.m - b.m || a.d - b.d);
+    // Check for duplicate
+    const dup = vals.some(v => v && Number(v.m) === sm && Number(v.dStart) === sd && Number(v.dEnd) === ed);
+    if (!dup) {
+      vals.push({ m: sm, dStart: sd, dEnd: ed });
+      vals.sort((a, b) => (Number(a.m) - Number(b.m)) || (Number(a.dStart) - Number(b.dStart)));
       this.setData({ 'ruleForm.cycleValues': vals });
     }
   },
 
-  // Remove a yearly date by index
-  onRemoveYearlyDate(e) {
+  // Remove a yearly range by index
+  onRemoveYearlyRange(e) {
     const idx = parseInt(e.currentTarget.dataset.idx);
     let vals = [...(this.data.ruleForm.cycleValues || [])];
     vals.splice(idx, 1);
@@ -381,9 +434,12 @@ Page({
     if (type === 'daily') return '每天';
     const v = typeof values === 'string' ? (() => { try { return JSON.parse(values); } catch (_) { return []; } })() : (values || []);
     const weekNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    if (type === 'weekly') return v.map(i => weekNames[i] || i).join('、') || '未设置';
-    if (type === 'monthly') return '每月' + v.join('、') + '日';
-    if (type === 'yearly') return v.map(c => (c.m || '?') + '月' + (c.d || '?') + '日').join('、');
+    if (type === 'weekly') return v.map(i => weekNames[Number(i)] || i).join('、') || '未设置';
+    if (type === 'monthly') return '每月' + v.map(i => Number(i)).join('、') + '日';
+    if (type === 'yearly') return v.map(c => {
+      if (c.dEnd !== undefined) return (c.m || '?') + '月' + (c.dStart || '?') + '日-' + (c.dEnd || '?') + '日';
+      return (c.m || '?') + '月' + (c.d || '?') + '日';
+    }).join('、');
     return JSON.stringify(v || []);
   },
 
@@ -416,7 +472,6 @@ Page({
   async loadVenueTimetable() {
     const { scheduleVenueId, scheduleWeekStart } = this.data;
     const [y, m, d] = scheduleWeekStart.split('-').map(Number);
-    const start = new Date(y, m - 1, d);
     const end = new Date(y, m - 1, d + 6);
     const dateTo = fmtLocalDate(end);
     wx.showLoading({ title: '加载中...' });
@@ -434,7 +489,6 @@ Page({
 
   _buildAdminTimetable(dailySchedules) {
     const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
-    const start = new Date(y, m - 1, d);
     const weekDayLabels = ['周一','周二','周三','周四','周五','周六','周日'];
     const columns = [];
     for (let i = 0; i < 7; i++) {
@@ -452,7 +506,6 @@ Page({
     const openBlocks = [];
     const eventBlocks = [];
 
-    // Open slots → background blocks
     if (dayData && dayData.openSlots) {
       for (const o of dayData.openSlots) {
         const { top, height } = calcBlock(o.timeStart, o.timeEnd);
@@ -460,20 +513,13 @@ Page({
       }
     }
 
-    // Activity slots → event blocks
     if (dayData && dayData.activitySlots) {
       for (const a of dayData.activitySlots) {
         const { top, height } = calcBlock(a.timeStart, a.timeEnd);
-        eventBlocks.push({
-          top, height,
-          status: 'activity',
-          label: a.ruleName || '活动',
-          type: 'activity'
-        });
+        eventBlocks.push({ top, height, status: 'activity', label: a.ruleName || '活动', type: 'activity' });
       }
     }
 
-    // Booked slots → event blocks
     if (dayData && dayData.bookedSlots) {
       for (const b of dayData.bookedSlots) {
         const { top, height } = calcBlock(b.timeStart, b.timeEnd);
@@ -483,11 +529,8 @@ Page({
           label: b.title || '已借用',
           type: 'booking',
           booking: {
-            id: b.id,
-            title: b.title,
-            description: b.description,
-            userId: b.userId,
-            userName: b.userName,
+            id: b.id, title: b.title, description: b.description,
+            userId: b.userId, userName: b.userName,
             timeStart: b.fullTimeStart || b.timeStart,
             timeEnd: b.fullTimeEnd || b.timeEnd,
             status: b.status
@@ -512,14 +555,12 @@ Page({
     this.loadVenueTimetable();
   },
 
-  // Tap an event block in timetable → open detail
   onTimetableBlockTap(e) {
     const block = e.currentTarget.dataset.block;
     if (!block || !block.booking) return;
     this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
   },
 
-  // Tap empty area in timetable column → open admin quick booking with date
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
     const top = e.detail.y - e.currentTarget.offsetTop;

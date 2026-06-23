@@ -78,7 +78,20 @@ function dateMatchesCycle(dateStr, cycleType, cycleValues) {
     case 'yearly': {
       const month = date.getMonth() + 1;
       const day = date.getDate();
-      return cycleValues.some(v => v && Number(v.m) === month && Number(v.d) === day);
+      return cycleValues.some(v => {
+        if (!v) return false;
+        const m = Number(v.m);
+        if (m !== month) return false;
+        // Date range: dStart to dEnd (inclusive)
+        if (v.dEnd !== undefined) {
+          return day >= Number(v.dStart) && day <= Number(v.dEnd);
+        }
+        // Legacy individual date
+        if (v.d !== undefined) {
+          return day === Number(v.d);
+        }
+        return false;
+      });
     }
     default:
       return false;

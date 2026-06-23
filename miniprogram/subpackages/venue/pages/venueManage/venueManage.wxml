@@ -111,38 +111,47 @@
 
             <!-- Weekly -->
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" style="margin-bottom:12rpx;">
-              <view class="field-label" style="margin-bottom:6rpx;">选择星期（多选）</view>
+              <view class="field-label" style="margin-bottom:6rpx;">选择星期（多选，点击切换）</view>
               <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
                 <text wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this"
-                      class="cycle-chip {{ruleForm.cycleValues.indexOf(index + 1) >= 0 ? 'selected' : ''}}"
-                      data-val="{{index + 1}}" bindtap="onToggleCycleDay">{{item}}</text>
+                      class="cycle-chip {{weeklyChecked[index] ? 'selected' : ''}}"
+                      data-idx="{{index}}" bindtap="onToggleWeekDay">{{item}}</text>
               </view>
             </view>
             <!-- Monthly -->
             <view wx:if="{{ruleForm.cycleType === 'monthly'}}" style="margin-bottom:12rpx;">
-              <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选）</view>
+              <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选，点击切换）</view>
               <view style="display:flex;flex-wrap:wrap;gap:4rpx;">
                 <text wx:for="{{31}}" wx:key="*this"
-                      class="month-chip {{ruleForm.cycleValues.indexOf(index + 1) >= 0 ? 'selected' : ''}}"
-                      data-val="{{index + 1}}" bindtap="onToggleCycleDay">{{index + 1}}</text>
+                      class="month-chip {{monthlyChecked[index] ? 'selected' : ''}}"
+                      data-idx="{{index}}" bindtap="onToggleMonthDay">{{index + 1}}</text>
               </view>
             </view>
-            <!-- Yearly -->
+            <!-- Yearly — date range picker -->
             <view wx:if="{{ruleForm.cycleType === 'yearly'}}" style="margin-bottom:12rpx;">
-              <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选）</view>
-              <view style="display:flex;gap:8rpx;align-items:center;margin-bottom:8rpx;">
-                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyPickMonth - 1}}" bindchange="onYearlyPickMonth">
-                  <view class="picker-value" style="min-width:120rpx;">{{yearlyPickMonth}}月</view></picker>
-                <picker range="{{yearlyDays}}" value="{{yearlyPickDay - 1}}" bindchange="onYearlyPickDay">
-                  <view class="picker-value" style="min-width:120rpx;">{{yearlyPickDay}}日</view></picker>
-                <text style="font-size:22rpx;color:#3b82f6;padding:10rpx 20rpx;border:1rpx solid #3b82f6;border-radius:18rpx;white-space:nowrap;" bindtap="onAddYearlyDate">添加</text>
+              <view class="field-label" style="margin-bottom:6rpx;">添加日期范围（批量）</view>
+              <view style="display:flex;flex-wrap:wrap;gap:6rpx;align-items:center;margin-bottom:6rpx;">
+                <text style="font-size:22rpx;color:#64748b;">从</text>
+                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeStartMonth - 1}}" bindchange="onYearlyRangeStartMonthChange">
+                  <view class="picker-value" style="min-width:100rpx;">{{yearlyRangeStartMonth}}月</view></picker>
+                <picker range="{{yearlyDays}}" value="{{yearlyRangeStartDay - 1}}" bindchange="onYearlyRangeStartDayChange">
+                  <view class="picker-value" style="min-width:100rpx;">{{yearlyRangeStartDay}}日</view></picker>
               </view>
-              <view style="display:flex;flex-wrap:wrap;gap:6rpx;">
+              <view style="display:flex;flex-wrap:wrap;gap:6rpx;align-items:center;margin-bottom:8rpx;">
+                <text style="font-size:22rpx;color:#64748b;">到</text>
+                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeEndMonth - 1}}" bindchange="onYearlyRangeEndMonthChange">
+                  <view class="picker-value" style="min-width:100rpx;">{{yearlyRangeEndMonth}}月</view></picker>
+                <picker range="{{yearlyDays}}" value="{{yearlyRangeEndDay - 1}}" bindchange="onYearlyRangeEndDayChange">
+                  <view class="picker-value" style="min-width:100rpx;">{{yearlyRangeEndDay}}日</view></picker>
+                <text class="add-range-btn" bindtap="onAddYearlyRange">+ 添加范围</text>
+              </view>
+              <view wx:if="{{ruleForm.cycleValues.length}}" style="display:flex;flex-wrap:wrap;gap:6rpx;">
                 <view wx:for="{{ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip">
-                  <text>{{cv.m}}月{{cv.d}}日</text>
-                  <text class="year-chip-remove" data-idx="{{index}}" bindtap="onRemoveYearlyDate">×</text>
+                  <text>{{cv.m}}月{{cv.dStart}}日 - {{cv.dEnd}}日</text>
+                  <text class="year-chip-remove" data-idx="{{index}}" bindtap="onRemoveYearlyRange">×</text>
                 </view>
               </view>
+              <view wx:else style="font-size:22rpx;color:#94a3b8;">暂未添加日期范围</view>
             </view>
 
             <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>

@@ -85,6 +85,8 @@
 }
 .year-chip-remove { color:#ef4444; font-weight:700; margin-left:4rpx; }
 
+.add-range-btn { font-size:22rpx; color:#fff; background:linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding:10rpx 22rpx; border-radius:20rpx; font-weight:600; white-space:nowrap; box-shadow:0 4rpx 12rpx rgba(59,130,246,0.18); }
+
 /* ── Header bar with nav ── */
 .header-nav {
   display:flex; align-items:center; justify-content:flex-end; gap:12rpx;
