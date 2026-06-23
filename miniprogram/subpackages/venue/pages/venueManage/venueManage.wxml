@@ -180,9 +180,9 @@
     <view class="popup-card timetable-popup" catchtap="noop">
       <view class="popup-header"><view class="popup-title">{{scheduleVenueName}}</view><text class="popup-close" bindtap="closeVenueSchedule">关闭</text></view>
       <view class="schedule-nav">
-        <text class="nav-arrow" bindtap="onTimetablePrevWeek">&#8249;</text>
+        <text class="nav-arrow" bindtap="onTimetablePrevWeek"><</text>
         <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
-        <text class="nav-arrow" bindtap="onTimetableNextWeek">&#8250;</text>
+        <text class="nav-arrow" bindtap="onTimetableNextWeek">></text>
       </view>
       <scroll-view scroll-x scroll-y class="timetable-scroll" bindscroll="onTimetableScroll">
         <view class="timetable-body">
