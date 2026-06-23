@@ -625,8 +625,15 @@ Page({
   onOpenBlockTap(e) {
     const date = e.currentTarget.dataset.date;
     const startMin = parseInt(e.currentTarget.dataset.startMin) || 0;
-    const h = Math.floor(startMin / 60);
-    const m = startMin % 60;
+    const endMin = parseInt(e.currentTarget.dataset.endMin) || 0;
+    const duration = endMin - startMin;
+    const tapY = e.detail.y || 0;
+    const blockH = parseFloat(e.currentTarget.dataset.height) || 60;
+    const proportion = Math.max(0, Math.min(1, tapY / blockH));
+    let minutes = startMin + proportion * duration;
+    const halfHours = Math.round(minutes / 30);
+    const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
+    const m = (halfHours % 2) * 30;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     this.setData({
       adminBookingVisible: true,
