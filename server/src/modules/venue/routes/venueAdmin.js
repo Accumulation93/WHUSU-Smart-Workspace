@@ -321,8 +321,8 @@ router.post('/approveVenueBooking', async (req, res) => {
     if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
     if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
     // Re-check conflict
-    const timeStart = String(booking.time_start).substring(0, 19);
-    const timeEnd = String(booking.time_end).substring(0, 19);
+    const timeStart = fmtDatetime(new Date(booking.time_start));
+    const timeEnd = fmtDatetime(new Date(booking.time_end));
     const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id);
     if (conflict) return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     await venueBookingModel.updateStatus(id, 'approved', admin.hr_id || admin.id, comment);

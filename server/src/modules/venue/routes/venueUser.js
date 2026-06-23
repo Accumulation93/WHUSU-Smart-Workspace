@@ -56,9 +56,12 @@ function parseDatetime(str) {
  * Check if a given date matches a cycle rule.
  */
 function dateMatchesCycle(dateStr, cycleType, cycleValues) {
+  // daily always matches, even without cycleValues
+  if (cycleType === 'daily') return true;
   if (!cycleValues || !Array.isArray(cycleValues) || !cycleValues.length) {
-    return cycleType === 'daily';
+    return false;
   }
+  // Parse date as local time (timezone-safe: uses local getters, not ISO strings)
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   switch (cycleType) {
@@ -242,14 +245,14 @@ router.post('/getVenueSchedule', async (req, res) => {
       const dayStart = dateStr + ' 00:00:00';
       const dayEnd = dateStr + ' 23:59:59';
       const dayBookings = activeBookings.filter(b => {
-        const bs = String(b.time_start).substring(0, 19);
-        const be = String(b.time_end).substring(0, 19);
+        const bs = fmtDatetime(new Date(b.time_start));
+        const be = fmtDatetime(new Date(b.time_end));
         return bs < dayEnd && be > dayStart;
       });
 
       const bookedSlots = dayBookings.map(b => {
-        const ts = String(b.time_start).substring(0, 19);
-        const te = String(b.time_end).substring(0, 19);
+        const ts = fmtDatetime(new Date(b.time_start));
+        const te = fmtDatetime(new Date(b.time_end));
         // Extract just the time portion if the booking is on this date, otherwise clip
         let displayStart = ts.substring(11, 16);
         let displayEnd = te.substring(11, 16);

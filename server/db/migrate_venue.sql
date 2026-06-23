@@ -129,15 +129,31 @@ CREATE TABLE IF NOT EXISTS venue_booking_purposes (
 
 -- ============================================================
 -- 7. Migration: Convert venue_bookings to unified DATETIME columns
---    Run when upgrading from old schema (separate booking_date + time_start/time_end)
+--    Run these statements to upgrade an existing database:
 -- ============================================================
--- Step 1: Add new DATETIME columns
--- ALTER TABLE venue_bookings ADD COLUMN booking_start DATETIME NULL AFTER description;
--- ALTER TABLE venue_bookings ADD COLUMN booking_end DATETIME NULL AFTER booking_start;
--- Step 2: Migrate data
--- UPDATE venue_bookings SET booking_start = STR_TO_DATE(CONCAT(booking_date, ' ', time_start), '%Y-%m-%d %H:%i:%s'), booking_end = STR_TO_DATE(CONCAT(booking_date, ' ', time_end), '%Y-%m-%d %H:%i:%s') WHERE booking_start IS NULL AND booking_date IS NOT NULL;
+
+-- Step 1: Add temporary DATETIME columns
+ALTER TABLE venue_bookings
+  ADD COLUMN booking_start DATETIME NULL AFTER description,
+  ADD COLUMN booking_end DATETIME NULL AFTER booking_start;
+
+-- Step 2: Migrate data from old columns
+UPDATE venue_bookings
+  SET booking_start = STR_TO_DATE(CONCAT(booking_date, ' ', time_start), '%Y-%m-%d %H:%i:%s'),
+      booking_end   = STR_TO_DATE(CONCAT(booking_date, ' ', time_end),   '%Y-%m-%d %H:%i:%s')
+  WHERE booking_start IS NULL;
+
 -- Step 3: Drop old columns and indexes
--- ALTER TABLE venue_bookings DROP INDEX idx_vb_date, DROP INDEX idx_vb_venue_date, DROP COLUMN booking_date, DROP COLUMN time_start, DROP COLUMN time_end;
--- Step 4: Rename and add indexes
--- ALTER TABLE venue_bookings CHANGE COLUMN booking_start time_start DATETIME NOT NULL, CHANGE COLUMN booking_end time_end DATETIME NOT NULL;
--- ALTER TABLE venue_bookings ADD INDEX idx_vb_time_start (time_start), ADD INDEX idx_vb_venue_time (venue_id, time_start);
+ALTER TABLE venue_bookings
+  DROP INDEX idx_vb_date,
+  DROP INDEX idx_vb_venue_date,
+  DROP COLUMN booking_date,
+  DROP COLUMN time_start,
+  DROP COLUMN time_end;
+
+-- Step 4: Rename temp columns to final names + add new indexes
+ALTER TABLE venue_bookings
+  CHANGE COLUMN booking_start time_start DATETIME NOT NULL,
+  CHANGE COLUMN booking_end   time_end   DATETIME NOT NULL,
+  ADD INDEX idx_vb_time_start (time_start),
+  ADD INDEX idx_vb_venue_time (venue_id, time_start);
