@@ -103,16 +103,35 @@
             </view>
           </view>
 
-          <!-- Start date + time -->
+          <!-- Start date -->
           <view class="field"><view class="field-label">开始日期</view>
             <picker mode="date" value="{{bookingStartDate}}" bindchange="onStartDateChange">
               <view class="picker-value">{{bookingStartDateDisplay || '请选择日期'}}</view>
             </picker>
           </view>
 
+          <!-- ═══ Horizontal Timeline Axis ═══ -->
+          <view wx:if="{{timelineBlocks.length}}" class="timeline-wrap">
+            <view class="timeline-bar">
+              <view wx:for="{{timelineBlocks}}" wx:key="startMin" wx:if="{{item.width > 0}}"
+                    class="timeline-block tl-{{item.status}}"
+                    style="left:{{item.left}}%;width:{{item.width}}%;"></view>
+            </view>
+            <view class="timeline-ticks">
+              <text>00:00</text><text>03:00</text><text>06:00</text><text>09:00</text><text>12:00</text><text>15:00</text><text>18:00</text><text>21:00</text><text>24:00</text>
+            </view>
+            <view class="timeline-legend">
+              <view class="tl-leg-item"><view class="tl-dot free"></view>空闲</view>
+              <view class="tl-leg-item"><view class="tl-dot booked"></view>已借用</view>
+              <view class="tl-leg-item"><view class="tl-dot pending"></view>审核中</view>
+              <view class="tl-leg-item"><view class="tl-dot activity"></view>活动</view>
+              <view class="tl-leg-item"><view class="tl-dot closed"></view>关闭</view>
+            </view>
+          </view>
+
           <!-- Free time slots for start date -->
           <view wx:if="{{dailySlots.length}}" style="margin-bottom:12rpx;">
-            <view class="field-label" style="margin-bottom:6rpx;">可选时间段（点击选择）：</view>
+            <view class="field-label" style="margin-bottom:6rpx;">可选时间段（点击选择开始时间）：</view>
             <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
               <text wx:for="{{dailySlots}}" wx:key="timeStart"
                     class="slot-chip {{bookingTimeStart === item.timeStart ? 'selected' : ''}}"
@@ -123,13 +142,25 @@
 
           <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{bookingTimeStart}}" data-field="bookingTimeStart" bindinput="onFieldInput" placeholder="点击上方时段自动填充"/></view>
 
-          <!-- End date + time -->
+          <!-- End date -->
           <view class="field"><view class="field-label">结束日期</view>
             <picker mode="date" value="{{bookingEndDate}}" bindchange="onEndDateChange">
               <view class="picker-value">{{bookingEndDateDisplay || '请选择日期'}}</view>
             </picker>
           </view>
-          <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{bookingTimeEnd}}" data-field="bookingTimeEnd" bindinput="onFieldInput" placeholder="点击上方时段自动填充"/></view>
+
+          <!-- Free time slots for end date (only when different from start date) -->
+          <view wx:if="{{endDailySlots.length && bookingEndDate !== bookingStartDate}}" style="margin-bottom:12rpx;">
+            <view class="field-label" style="margin-bottom:6rpx;">结束日期可选时段（点击选择）：</view>
+            <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
+              <text wx:for="{{endDailySlots}}" wx:key="timeStart"
+                    class="slot-chip {{bookingTimeEnd === item.timeEnd ? 'selected' : ''}}"
+                    data-te="{{item.timeEnd}}" bindtap="onSelectEndSlot">{{item.label}}</text>
+            </view>
+          </view>
+          <view wx:if="{{!endDailySlots.length && bookingEndDate && bookingEndDate !== bookingStartDate}}" style="font-size:22rpx;color:#94a3b8;margin-bottom:12rpx;">结束日期暂无可选时段</view>
+
+          <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{bookingTimeEnd}}" data-field="bookingTimeEnd" bindinput="onFieldInput" placeholder="点击时段选择或上方开始时段自动填充"/></view>
 
           <view class="field"><view class="field-label">描述（可选）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="借用说明"/></view>
           <view class="audit-btn-bar"><button class="primary-btn" loading="{{loading}}" bindtap="submitBooking">提交借用申请</button></view>

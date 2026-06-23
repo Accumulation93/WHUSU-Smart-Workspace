@@ -53,6 +53,26 @@
 .tt-l-activity { background:rgba(252,231,243,0.7); border:1rpx solid #f9a8d4; }
 .tt-l-closed { background:rgba(241,245,249,0.6); border:1rpx solid #e2e8f0; }
 
+/* ── Horizontal Timeline Axis ── */
+.timeline-wrap { margin:16rpx 0 8rpx; }
+.timeline-bar { position:relative; height:48rpx; background:#f1f5f9; border-radius:12rpx; overflow:hidden; }
+.timeline-block { position:absolute; top:0; height:100%; min-width:2rpx; }
+.timeline-block.tl-free { background:linear-gradient(180deg, #86efac 0%, #4ade80 100%); }
+.timeline-block.tl-booked { background:linear-gradient(180deg, #fca5a5 0%, #f87171 100%); }
+.timeline-block.tl-pending { background:linear-gradient(180deg, #fde68a 0%, #fbbf24 100%); }
+.timeline-block.tl-activity { background:linear-gradient(180deg, #e9d5ff 0%, #c084fc 100%); }
+.timeline-block.tl-closed { background:#e2e8f0; }
+
+.timeline-ticks { display:flex; justify-content:space-between; font-size:18rpx; color:#94a3b8; margin-top:4rpx; padding:0 2rpx; }
+.timeline-legend { display:flex; gap:14rpx; flex-wrap:wrap; font-size:18rpx; color:#64748b; margin-top:8rpx; }
+.tl-leg-item { display:flex; align-items:center; gap:4rpx; }
+.tl-dot { width:20rpx; height:20rpx; border-radius:6rpx; flex-shrink:0; }
+.tl-dot.free { background:#4ade80; }
+.tl-dot.booked { background:#f87171; }
+.tl-dot.pending { background:#fbbf24; }
+.tl-dot.activity { background:#c084fc; }
+.tl-dot.closed { background:#cbd5e1; }
+
 /* ── Slot chips ── */
 .slot-chip { font-size:22rpx; padding:10rpx 18rpx; border-radius:18rpx; background:#dbeafe; color:#1d4ed8; border:1rpx solid #bfdbfe; font-weight:500; }
 .slot-chip.selected { background:#3b82f6; color:#fff; border-color:#3b82f6; box-shadow:0 4rpx 12rpx rgba(59,130,246,0.2); }

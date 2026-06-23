@@ -1,8 +1,8 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 
-const HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
+const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64;
-const BASE_MIN = 8 * 60;
+const BASE_MIN = 0;
 
 function timeToMin(t) {
   if (!t) return 0;
@@ -50,6 +50,8 @@ Page({
     bookingTimeStart: '',
     bookingTimeEnd: '',
     dailySlots: [],
+    endDailySlots: [],
+    timelineBlocks: [],
     purposes: []
   },
 
@@ -214,7 +216,9 @@ Page({
       bookingTimeEnd: '',
       bookingTitle: '',
       bookingDesc: '',
-      dailySlots: []
+      dailySlots: [],
+      endDailySlots: [],
+      timelineBlocks: []
     });
     this.loadDailyAvailability(date);
   },
@@ -231,7 +235,7 @@ Page({
       bookingStartDate: today, bookingStartDateDisplay: today,
       bookingEndDate: today, bookingEndDateDisplay: today,
       bookingTitle: '', bookingDesc: '', bookingTimeStart: '', bookingTimeEnd: '',
-      dailySlots: []
+      dailySlots: [], endDailySlots: [], timelineBlocks: []
     });
     this.loadDailyAvailability(today);
   },
@@ -239,11 +243,20 @@ Page({
 
   onStartDateChange(e) {
     const d = e.detail.value;
-    this.setData({ bookingStartDate: d, bookingStartDateDisplay: d, bookingEndDate: d, bookingEndDateDisplay: d, dailySlots: [], bookingTimeStart: '', bookingTimeEnd: '' });
+    this.setData({
+      bookingStartDate: d, bookingStartDateDisplay: d,
+      bookingEndDate: d, bookingEndDateDisplay: d,
+      dailySlots: [], endDailySlots: [], timelineBlocks: [],
+      bookingTimeStart: '', bookingTimeEnd: ''
+    });
     this.loadDailyAvailability(d);
   },
   onEndDateChange(e) {
-    this.setData({ bookingEndDate: e.detail.value, bookingEndDateDisplay: e.detail.value });
+    const d = e.detail.value;
+    this.setData({ bookingEndDate: d, bookingEndDateDisplay: d, endDailySlots: [] });
+    if (d !== this.data.bookingStartDate) {
+      this.loadEndDailyAvailability(d);
+    }
   },
 
   async loadDailyAvailability(dateStr) {
@@ -258,33 +271,108 @@ Page({
       if (res.status === 'success') {
         const dayData = (res.dailySchedules || [])[0];
         if (dayData) {
-          const slots = this._computeFreeSlots(dayData);
-          this.setData({ dailySlots: slots });
+          const { freeSlots, timelineBlocks } = this._buildTimelineAndSlots(dayData);
+          this.setData({ dailySlots: freeSlots, timelineBlocks });
+        } else {
+          this.setData({ dailySlots: [], timelineBlocks: [] });
         }
+      } else {
+        showShortToast(res.message || '加载时段失败');
       }
     } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
     finally { wx.hideLoading(); }
   },
 
-  _computeFreeSlots(dayData) {
+  async loadEndDailyAvailability(dateStr) {
+    const venueId = this.data.bookingVenueId;
+    if (!venueId || !dateStr) return;
+    try {
+      const res = await callFunction({
+        name: 'getVenueSchedule',
+        data: { venueId, dateFrom: dateStr, dateTo: dateStr }
+      });
+      if (res.status === 'success') {
+        const dayData = (res.dailySchedules || [])[0];
+        if (dayData) {
+          const { freeSlots } = this._buildTimelineAndSlots(dayData);
+          this.setData({ endDailySlots: freeSlots });
+        } else {
+          this.setData({ endDailySlots: [] });
+        }
+      }
+    } catch (_) {}
+  },
+
+  _buildTimelineAndSlots(dayData) {
     const openSlots = dayData.openSlots || [];
     const bookedSlots = dayData.bookedSlots || [];
     const activitySlots = dayData.activitySlots || [];
-    const free = [];
-    for (const o of openSlots) {
-      let t = timeToMin(o.timeStart);
-      const end = timeToMin(o.timeEnd);
-      while (t + 30 <= end) {
-        const ts = String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0');
-        const te = String(Math.floor((t+30)/60)).padStart(2,'0') + ':' + String((t+30)%60).padStart(2,'0');
-        let blocked = false;
-        for (const b of bookedSlots) { if (t < timeToMin(b.timeEnd) && t+30 > timeToMin(b.timeStart)) { blocked = true; break; } }
-        if (!blocked) for (const a of activitySlots) { if (t < timeToMin(a.timeEnd) && t+30 > timeToMin(a.timeStart)) { blocked = true; break; } }
-        if (!blocked) free.push({ timeStart: ts, timeEnd: te, label: ts + ' - ' + te });
-        t += 30;
+    const freeSlots = [];
+    const blocks = [];
+
+    const dayStart = 0;        // 00:00
+    const dayEnd = 24 * 60;    // 24:00
+    const totalMin = dayEnd - dayStart; // 1440 min
+    let t = dayStart;
+
+    while (t + 30 <= dayEnd) {
+      const segStart = t;
+      const segEnd = t + 30;
+
+      // Determine if within any open slot
+      let inOpen = false;
+      for (const o of openSlots) {
+        if (segStart >= timeToMin(o.timeStart) && segEnd <= timeToMin(o.timeEnd)) {
+          inOpen = true; break;
+        }
       }
+
+      let status = 'closed';
+      if (inOpen) {
+        status = 'free';
+        // Check bookings
+        for (const b of bookedSlots) {
+          if (segStart < timeToMin(b.timeEnd) && segEnd > timeToMin(b.timeStart)) {
+            status = b.status === 'pending' ? 'pending' : 'booked';
+            break;
+          }
+        }
+        // Check activities (only if still free)
+        if (status === 'free') {
+          for (const a of activitySlots) {
+            if (segStart < timeToMin(a.timeEnd) && segEnd > timeToMin(a.timeStart)) {
+              status = 'activity'; break;
+            }
+          }
+        }
+      }
+
+      const ts = String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+      const te = String(Math.floor((t + 30) / 60)).padStart(2, '0') + ':' + String((t + 30) % 60).padStart(2, '0');
+
+      if (status === 'free') {
+        freeSlots.push({ timeStart: ts, timeEnd: te, label: ts + ' - ' + te });
+      }
+
+      // Merge contiguous same-status blocks
+      const last = blocks[blocks.length - 1];
+      if (last && last.status === status) {
+        last.endMin = segEnd;
+      } else {
+        blocks.push({ startMin: segStart, endMin: segEnd, status });
+      }
+
+      t += 30;
     }
-    return free;
+
+    // Convert block minutes to percentage positions
+    const timelineBlocks = blocks.map(b => ({
+      left: ((b.startMin - dayStart) / totalMin * 100).toFixed(2),
+      width: ((b.endMin - b.startMin) / totalMin * 100).toFixed(2),
+      status: b.status
+    }));
+
+    return { freeSlots, timelineBlocks };
   },
 
   onSelectSlot(e) {
@@ -292,6 +380,10 @@ Page({
       bookingTimeStart: e.currentTarget.dataset.ts,
       bookingTimeEnd: e.currentTarget.dataset.te
     });
+  },
+
+  onSelectEndSlot(e) {
+    this.setData({ bookingTimeEnd: e.currentTarget.dataset.te });
   },
 
   onFieldInput(e) {
