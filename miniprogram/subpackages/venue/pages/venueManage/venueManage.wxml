@@ -202,7 +202,7 @@
                 <!-- Open blocks (clickable → open booking form) -->
                 <view class="tt-open-block" wx:for="{{col.openBlocks}}" wx:key="top" wx:for-item="ob"
                       style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"
-                      data-date="{{col.date}}" data-start-min="{{ob.startMin}}" catchtap="onOpenBlockTap"></view>
+                      data-date="{{col.date}}" data-start-min="{{ob.startMin}}" data-end-min="{{ob.endMin}}" data-duration="{{ob.duration}}" catchtap="onOpenBlockTap"></view>
                 <!-- Event blocks (bookings + activities) -->
                 <view class="tt-event-block {{eb.status}}" wx:for="{{col.eventBlocks}}" wx:key="top" wx:for-item="eb"
                       style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;"

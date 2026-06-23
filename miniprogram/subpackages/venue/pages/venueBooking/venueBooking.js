@@ -213,7 +213,12 @@ Page({
     if (dayData && dayData.openSlots) {
       for (const o of dayData.openSlots) {
         const { top, height } = calcBlock(o.timeStart, o.timeEnd);
-        openBlocks.push({ top: top + HEADER_H + TEXT_OFFSET, height, startMin: timeToMin(o.timeStart) });
+        openBlocks.push({
+          top: top + HEADER_H + TEXT_OFFSET, height,
+          startMin: timeToMin(o.timeStart),
+          endMin: timeToMin(o.timeEnd),
+          duration: timeToMin(o.timeEnd) - timeToMin(o.timeStart)
+        });
       }
     }
 
@@ -269,10 +274,20 @@ Page({
   onOpenBlockTap(e) {
     const date = e.currentTarget.dataset.date;
     const startMin = parseInt(e.currentTarget.dataset.startMin) || 0;
-    const h = Math.floor(startMin / 60);
-    const m = startMin % 60;
+    const duration = parseInt(e.currentTarget.dataset.duration) || 0;
+    // Compute proportion within the block from tap Y
+    const sysInfo = wx.getSystemInfoSync();
+    const rpxRatio = 750 / sysInfo.windowWidth;
+    const tapY_rpx = (e.detail.y || 0) * rpxRatio;
+    const blockH = parseFloat(e.currentTarget.dataset.height) || 60;
+    const proportion = Math.max(0, Math.min(1, tapY_rpx / blockH));
+    let minutes = startMin + proportion * duration;
+    // Round to nearest 30 min
+    const halfHours = Math.round(minutes / 30);
+    const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
+    const m = (halfHours % 2) * 30;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    // Show booking form ON TOP of schedule (don't close schedule)
+    // Show booking form ON TOP of schedule
     this.setData({
       bookingVisible: true,
       bookingVenueId: this.data.scheduleVenueId,
