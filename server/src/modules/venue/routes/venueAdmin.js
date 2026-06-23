@@ -89,7 +89,7 @@ router.post('/listVenueOpenRules', async (req, res) => {
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
     const rules = await venueOpenRuleModel.getByVenueId(venueId);
-    res.json({ status: 'success', rules });
+    res.json({ status: 'success', rules: rules.map(r => ({ ...r, time_start: (r.time_start||'').substring(0,5), time_end: (r.time_end||'').substring(0,5) })) });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -149,7 +149,7 @@ router.post('/listVenueActivityRules', async (req, res) => {
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
     const rules = await venueActivityRuleModel.getByVenueId(venueId);
-    res.json({ status: 'success', rules });
+    res.json({ status: 'success', rules: rules.map(r => ({ ...r, time_start: (r.time_start||'').substring(0,5), time_end: (r.time_end||'').substring(0,5) })) });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
