@@ -38,7 +38,7 @@
               <view class="list-name">{{item.name}}</view>
               <view class="list-desc" wx:if="{{item.location}}">{{item.location}}</view>
               <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below" style="justify-content:flex-end;">
                 <text class="link" data-id="{{item.id}}" bindtap="openRules">规则</text>
                 <text class="link" data-id="{{item.id}}" bindtap="openVenueSchedule">安排</text>
                 <text class="link" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
