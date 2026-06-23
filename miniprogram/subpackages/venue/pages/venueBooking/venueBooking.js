@@ -276,10 +276,11 @@ Page({
     const startMin = parseInt(e.currentTarget.dataset.startMin) || 0;
     const endMin = parseInt(e.currentTarget.dataset.endMin) || 0;
     const duration = endMin - startMin;
-    // Tap position: e.detail.y is element-relative (same coord system as CSS rpx)
-    // blockH from data-height, same unit — proportion is unit-independent
-    const tapY = e.detail.y || 0;
-    const blockH = parseFloat(e.currentTarget.dataset.height) || 60;
+    // e.detail.y is element-relative but in PX, blockH is from CSS in RPX.
+    // Convert px→rpx: 750rpx = screenWidth px → rpxPerPx = 750 / screenWidth
+    const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
+    const tapY = (e.detail.y || 0) * rpxPerPx;
+    const blockH = parseFloat(e.currentTarget.dataset.height) || 1;
     const proportion = Math.max(0, Math.min(1, tapY / blockH));
     let minutes = startMin + proportion * duration;
     // Round to nearest 30 min
@@ -287,7 +288,6 @@ Page({
     const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
     const m = (halfHours % 2) * 30;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    // time passed as parameter to avoid async this.data race
     this.setData({
       bookingVisible: true,
       bookingVenueId: this.data.scheduleVenueId,
