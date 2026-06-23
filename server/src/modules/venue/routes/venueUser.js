@@ -256,8 +256,8 @@ router.post('/getVenueSchedule', async (req, res) => {
     const endDate = dateTo || dateFrom;
 
     // Fetch ALL bookings that overlap with the week range
-    const weekStart = dateFrom + ' 00:00:00';
-    const weekEnd = endDate + ' 23:59:59';
+    const weekStart = dateFrom + ' 00:00';
+    const weekEnd = endDate + ' 23:59';
     const allBookings = await venueBookingModel.getByVenueId(venueId, {
       timeFrom: weekStart,
       timeTo: weekEnd
@@ -306,8 +306,8 @@ router.post('/getVenueSchedule', async (req, res) => {
       const activitySlots = getActivitySlots(dateStr, activityRules);
 
       // Filter bookings that overlap with this date
-      const dayStart = dateStr + ' 00:00:00';
-      const dayEnd = dateStr + ' 23:59:59';
+      const dayStart = dateStr + ' 00:00';
+      const dayEnd = dateStr + ' 23:59';
       const dayBookings = activeBookings.filter(b => {
         const bs = fmtDatetime(new Date(b.time_start));
         const be = fmtDatetime(new Date(b.time_end));
