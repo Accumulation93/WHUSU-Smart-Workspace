@@ -113,18 +113,18 @@
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" style="margin-bottom:12rpx;">
               <view class="field-label" style="margin-bottom:6rpx;">选择星期（多选）</view>
               <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
-                <text wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this" wx:for-index="di"
-                      class="cycle-chip {{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? 'selected' : ''}}"
-                      data-val="{{di + 1}}" bindtap="onToggleCycleDay">{{item}}</text>
+                <text wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this"
+                      class="cycle-chip {{ruleForm.cycleValues.indexOf(index + 1) >= 0 ? 'selected' : ''}}"
+                      data-val="{{index + 1}}" bindtap="onToggleCycleDay">{{item}}</text>
               </view>
             </view>
             <!-- Monthly -->
             <view wx:if="{{ruleForm.cycleType === 'monthly'}}" style="margin-bottom:12rpx;">
               <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选）</view>
               <view style="display:flex;flex-wrap:wrap;gap:4rpx;">
-                <text wx:for="{{31}}" wx:key="*this" wx:for-index="di"
-                      class="month-chip {{ruleForm.cycleValues.indexOf(di + 1) >= 0 ? 'selected' : ''}}"
-                      data-val="{{di + 1}}" bindtap="onToggleCycleDay">{{di + 1}}</text>
+                <text wx:for="{{31}}" wx:key="*this"
+                      class="month-chip {{ruleForm.cycleValues.indexOf(index + 1) >= 0 ? 'selected' : ''}}"
+                      data-val="{{index + 1}}" bindtap="onToggleCycleDay">{{index + 1}}</text>
               </view>
             </view>
             <!-- Yearly -->
@@ -138,9 +138,9 @@
                 <text style="font-size:22rpx;color:#3b82f6;padding:10rpx 20rpx;border:1rpx solid #3b82f6;border-radius:18rpx;white-space:nowrap;" bindtap="onAddYearlyDate">添加</text>
               </view>
               <view style="display:flex;flex-wrap:wrap;gap:6rpx;">
-                <view wx:for="{{ruleForm.cycleValues}}" wx:key="idx" wx:for-item="cv" wx:for-index="idx" class="year-chip">
+                <view wx:for="{{ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip">
                   <text>{{cv.m}}月{{cv.d}}日</text>
-                  <text class="year-chip-remove" data-idx="{{idx}}" bindtap="onRemoveYearlyDate">×</text>
+                  <text class="year-chip-remove" data-idx="{{index}}" bindtap="onRemoveYearlyDate">×</text>
                 </view>
               </view>
             </view>
@@ -152,6 +152,12 @@
             <view class="field"><view class="field-label">审批类型</view>
               <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm.ruleType === 'admin' ? 0 : (ruleForm.ruleType === 'direct' ? 1 : (ruleForm.ruleType === 'identity' ? 2 : 3))}}" bindchange="onBookingRuleTypeChange">
                 <view class="picker-value">{{getRuleTypeLabel(ruleForm.ruleType)}}</view></picker></view>
+            <view class="field" wx:if="{{ruleForm.ruleType === 'identity'}}"><view class="field-label">审核身份</view>
+              <picker range="{{allIdentities}}" range-key="name" value="{{ruleForm.approverIdentityIndex}}" bindchange="onBookingIdentityChange">
+                <view class="picker-value">{{ruleForm.approverIdentityName || '请选择身份'}}</view></picker></view>
+            <view class="field" wx:if="{{ruleForm.ruleType === 'person'}}"><view class="field-label">审核人员</view>
+              <picker range="{{allHrPersons}}" range-key="name" value="{{ruleForm.approverHrIndex}}" bindchange="onBookingHrChange">
+                <view class="picker-value">{{ruleForm.approverHrName || '请选择人员'}}</view></picker></view>
           </block>
           <view class="audit-btn-bar"><button class="primary-btn" bindtap="saveRule">保存</button></view>
         </view>

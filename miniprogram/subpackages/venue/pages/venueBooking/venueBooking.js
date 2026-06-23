@@ -204,6 +204,8 @@ Page({
     this.setData({
       scheduleVisible: false,
       bookingVisible: true,
+      bookingVenueId: this.data.scheduleVenueId,
+      bookingVenueName: this.data.scheduleVenueName,
       bookingStartDate: date,
       bookingStartDateDisplay: date,
       bookingEndDate: date,
@@ -231,6 +233,7 @@ Page({
       bookingTitle: '', bookingDesc: '', bookingTimeStart: '', bookingTimeEnd: '',
       dailySlots: []
     });
+    this.loadDailyAvailability(today);
   },
   closeBooking() { this.setData({ bookingVisible: false }); },
 

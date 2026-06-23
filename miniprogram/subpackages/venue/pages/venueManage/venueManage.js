@@ -203,24 +203,30 @@ Page({
     try {
       const res = await callFunction({ name: 'listVenueBookingRules', data: { venueId: this.data.rulesVenueId } });
       if (res.status === 'success') this.setData({ bookingRules: res.rules || [] });
-    } catch (_) {}
+      else console.warn('[loadBookingRules] failed:', res.message);
+    } catch (e) { console.error('[loadBookingRules] error:', e); }
   },
 
   // ── Rule Editor ──
   openRuleEditor(e) {
     const type = e.currentTarget.dataset.type; // 'open' | 'activity' | 'booking'
     const ruleId = e.currentTarget.dataset.id || '';
-    let form = { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin' };
+    let form = { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
     if (ruleId) {
       if (type === 'open') {
         const r = this.data.openRules.find(r => r.id === ruleId);
-        if (r) form = { name: r.name || '', cycleType: r.cycle_type, cycleValues: typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []), timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5), ruleType: 'admin' };
+        if (r) form = { ...form, name: r.name || '', cycleType: r.cycle_type, cycleValues: typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []), timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
       } else if (type === 'activity') {
         const r = this.data.activityRules.find(r => r.id === ruleId);
-        if (r) form = { name: r.activity_name || '', cycleType: r.cycle_type, cycleValues: typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []), timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5), ruleType: 'admin' };
+        if (r) form = { ...form, name: r.activity_name || '', cycleType: r.cycle_type, cycleValues: typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []), timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
       } else if (type === 'booking') {
         const r = this.data.bookingRules.find(r => r.id === ruleId);
-        if (r) form = { name: '', cycleType: '', cycleValues: [], timeStart: '', timeEnd: '', ruleType: r.rule_type || 'admin', approverIdentityId: r.approver_identity_id || '', approverHrId: r.approver_hr_id || '' };
+        if (r) {
+          const { allIdentities, allHrPersons } = this.data;
+          const idIdx = allIdentities.findIndex(ident => ident.id === r.approver_identity_id);
+          const hrIdx = allHrPersons.findIndex(hr => hr.id === r.approver_hr_id);
+          form = { ...form, ruleType: r.rule_type || 'admin', approverIdentityId: r.approver_identity_id || '', approverHrId: r.approver_hr_id || '', approverIdentityName: idIdx >= 0 ? allIdentities[idIdx].name : '', approverHrName: hrIdx >= 0 ? allHrPersons[hrIdx].name : '', approverIdentityIndex: Math.max(idIdx, 0), approverHrIndex: Math.max(hrIdx, 0) };
+        }
       }
     }
     this.setData({ ruleEditorVisible: true, ruleEditId: ruleId, ruleEditorType: type, ruleForm: form });
@@ -252,6 +258,32 @@ Page({
     const types = ['admin', 'direct', 'identity', 'person'];
     const idx = parseInt(e.detail.value);
     this.setData({ 'ruleForm.ruleType': types[idx] || 'admin' });
+  },
+
+  // Booking rule identity picker
+  onBookingIdentityChange(e) {
+    const idx = parseInt(e.detail.value);
+    const ident = this.data.allIdentities[idx];
+    if (ident) {
+      this.setData({
+        'ruleForm.approverIdentityId': ident.id,
+        'ruleForm.approverIdentityName': ident.name,
+        'ruleForm.approverIdentityIndex': idx
+      });
+    }
+  },
+
+  // Booking rule person picker
+  onBookingHrChange(e) {
+    const idx = parseInt(e.detail.value);
+    const hr = this.data.allHrPersons[idx];
+    if (hr) {
+      this.setData({
+        'ruleForm.approverHrId': hr.id,
+        'ruleForm.approverHrName': hr.name,
+        'ruleForm.approverHrIndex': idx
+      });
+    }
   },
 
   // Toggle a cycle value (for weekly / monthly)
@@ -315,7 +347,7 @@ Page({
       data = { id: ruleEditId, venueId: rulesVenueId, activityName: ruleForm.name, cycleType: ruleForm.cycleType, cycleValues: ruleForm.cycleValues, timeStart: ruleForm.timeStart, timeEnd: ruleForm.timeEnd };
     } else {
       endpoint = 'saveVenueBookingRule';
-      data = { id: ruleEditId, venueId: rulesVenueId, ruleType: ruleForm.ruleType, approverIdentityId: ruleForm.approverIdentityId, approverHrId: ruleForm.approverHrId };
+      data = { id: ruleEditId, venueId: rulesVenueId, ruleType: ruleForm.ruleType, approverIdentityId: ruleForm.approverIdentityId || '', approverHrId: ruleForm.approverHrId || '', scopeDepartmentId: '', scopeWorkGroupId: '' };
     }
     try {
       const res = await callFunction({ name: endpoint, data });
