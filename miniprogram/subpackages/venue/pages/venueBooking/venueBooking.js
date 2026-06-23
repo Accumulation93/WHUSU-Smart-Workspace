@@ -274,20 +274,10 @@ Page({
   onOpenBlockTap(e) {
     const date = e.currentTarget.dataset.date;
     const startMin = parseInt(e.currentTarget.dataset.startMin) || 0;
-    const duration = parseInt(e.currentTarget.dataset.duration) || 0;
-    // Compute proportion within the block from tap Y
-    const sysInfo = wx.getSystemInfoSync();
-    const rpxRatio = 750 / sysInfo.windowWidth;
-    const tapY_rpx = (e.detail.y || 0) * rpxRatio;
-    const blockH = parseFloat(e.currentTarget.dataset.height) || 60;
-    const proportion = Math.max(0, Math.min(1, tapY_rpx / blockH));
-    let minutes = startMin + proportion * duration;
-    // Round to nearest 30 min
-    const halfHours = Math.round(minutes / 30);
-    const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
-    const m = (halfHours % 2) * 30;
+    const h = Math.floor(startMin / 60);
+    const m = startMin % 60;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    // Show booking form ON TOP of schedule
+    // Show booking form ON TOP of schedule; picker indices synced after hours load
     this.setData({
       bookingVisible: true,
       bookingVenueId: this.data.scheduleVenueId,
@@ -301,8 +291,6 @@ Page({
       bookingTitle: '',
       bookingDesc: '',
       timelineBlocks: [],
-      startHours: [], startHourIdx: 0, startMinIdx: m,
-      endHours: [], endHourIdx: 0, endMinIdx: 0,
       _startDayData: null, _endDayData: null
     });
     this.loadDailyAvailability(date);
@@ -397,11 +385,18 @@ Page({
         const dayData = (res.dailySchedules || [])[0];
         if (dayData) {
           const result = this._buildTimelineAndOptions(dayData);
+          // Sync picker indices with any already-set start time (from tap handler)
+          const curTime = this.data.bookingTimeStart || '';
+          const curParts = curTime.split(':');
+          const curH = parseInt(curParts[0]) || 0;
+          const curM = parseInt(curParts[1]) || 0;
+          const sHi = Math.max(0, result.startHours.findIndex(h => h.value === curH));
+          const sMi = Math.max(0, ALL_MINUTES.findIndex(m => m.value === curM));
           this.setData({
             timelineBlocks: result.timelineBlocks,
             startHours: result.startHours,
-            startHourIdx: 0,
-            startMinIdx: 0,
+            startHourIdx: sHi,
+            startMinIdx: sMi,
             endHours: result.endHoursAll,
             endHourIdx: 0,
             endMinIdx: 0,
