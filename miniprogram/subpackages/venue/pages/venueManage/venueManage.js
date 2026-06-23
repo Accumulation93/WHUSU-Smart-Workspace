@@ -564,7 +564,7 @@ Page({
     if (dayData && dayData.openSlots) {
       for (const o of dayData.openSlots) {
         const { top, height } = calcBlock(o.timeStart, o.timeEnd);
-        openBlocks.push({ top: top + HEADER_H + TEXT_OFFSET, height });
+        openBlocks.push({ top: top + HEADER_H + TEXT_OFFSET, height, startMin: timeToMin(o.timeStart) });
       }
     }
 
@@ -615,6 +615,31 @@ Page({
     const block = e.currentTarget.dataset.block;
     if (!block || !block.booking) return;
     this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
+  },
+
+  onOpenBlockTap(e) {
+    const date = e.currentTarget.dataset.date;
+    const startMin = parseInt(e.currentTarget.dataset.startMin) || 0;
+    const h = Math.floor(startMin / 60);
+    const m = startMin % 60;
+    const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    this.setData({
+      scheduleVisible: false,
+      adminBookingVisible: true,
+      adminBookingStartDate: date,
+      adminBookingStartDateDisplay: date,
+      adminBookingEndDate: date,
+      adminBookingEndDateDisplay: date,
+      adminBookingTimeStart: time,
+      adminBookingTimeEnd: '',
+      adminBookingTitle: '',
+      adminBookingDesc: '',
+      adminDailySlots: [],
+      adminStartHours: [], adminStartHourIdx: 0, adminStartMinIdx: m,
+      adminEndHours: [], adminEndHourIdx: 0, adminEndMinIdx: 0,
+      _adminDayData: null
+    });
+    this._loadAdminAvailability(date);
   },
 
   onTimetableOpenTap(e) {

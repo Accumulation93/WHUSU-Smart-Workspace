@@ -37,7 +37,7 @@
 .tt-col { flex:1; min-width:110rpx; position:relative; }
 .tt-col-header { height:58rpx; display:flex; align-items:center; justify-content:center; font-size:21rpx; font-weight:600; color:#475569; background:#f1f5f9; border-right:1rpx solid rgba(226,232,240,0.4); border-bottom:1rpx solid rgba(226,232,240,0.6); position:sticky; top:0; z-index:1; box-sizing:border-box; }
 
-.tt-open-block { position:absolute; left:4rpx; right:4rpx; background:rgba(219,234,254,0.35); border-radius:8rpx; border:1rpx dashed rgba(147,197,253,0.35); pointer-events:none; }
+.tt-open-block { position:absolute; left:4rpx; right:4rpx; background:rgba(219,234,254,0.35); border-radius:8rpx; border:1rpx dashed rgba(147,197,253,0.35); }
 
 .tt-event-block { position:absolute; left:4rpx; right:4rpx; display:flex; align-items:center; justify-content:center; border-radius:10rpx; overflow:hidden; z-index:2; }
 .tt-event-block.booked { background:rgba(254,243,199,0.78); border:1rpx solid rgba(252,211,77,0.5); }
