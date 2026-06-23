@@ -28,23 +28,48 @@ for (let i = 0; i < 60; i++) {
   ALL_MINUTES.push({ value: i, label: String(i).padStart(2, '0') });
 }
 
-/** Check if a minute offset is inside any open slot */
-function isMinInOpen(min, openSlots) {
-  for (const o of openSlots) {
-    if (min >= timeToMin(o.timeStart) && min < timeToMin(o.timeEnd)) return true;
-  }
-  return false;
+/** Convert slot objects to {start, end} minute intervals */
+function slotsToIntervals(slots) {
+  return (slots || []).map(s => ({ start: timeToMin(s.timeStart), end: timeToMin(s.timeEnd) }));
 }
 
-/** Check if a minute offset conflicts with a booking or activity */
-function isMinBlocked(min, bookedSlots, activitySlots) {
-  for (const b of bookedSlots) {
-    if (min >= timeToMin(b.timeStart) && min < timeToMin(b.timeEnd)) return true;
+/** Merge overlapping/adjacent intervals. Assumes sorted by start. */
+function mergeIntervals(intervals) {
+  if (!intervals.length) return [];
+  const sorted = [...intervals].sort((a, b) => a.start - b.start);
+  const merged = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    if (sorted[i].start <= last.end) {
+      last.end = Math.max(last.end, sorted[i].end);
+    } else {
+      merged.push(sorted[i]);
+    }
   }
-  for (const a of activitySlots) {
-    if (min >= timeToMin(a.timeStart) && min < timeToMin(a.timeEnd)) return true;
+  return merged;
+}
+
+/** Find the first minute gap in [rangeStart, rangeEnd] not covered by mergedOpen.
+ *  Returns the gap start minute, or -1 if fully covered. */
+function findOpenGap(rangeStart, rangeEnd, mergedOpen) {
+  let cursor = rangeStart;
+  for (const iv of mergedOpen) {
+    if (iv.start > cursor) return cursor;          // gap before this interval
+    if (iv.end > cursor) cursor = iv.end;          // extend coverage
+    if (cursor >= rangeEnd) return -1;             // fully covered
   }
-  return false;
+  return cursor < rangeEnd ? cursor : -1;
+}
+
+/** Check if [rangeStart, rangeEnd] overlaps any blocked interval.
+ *  Returns the blocked interval that overlaps, or null. */
+function findBlockedOverlap(rangeStart, rangeEnd, mergedBlocked) {
+  for (const iv of mergedBlocked) {
+    if (iv.start < rangeEnd && iv.end > rangeStart) {
+      return iv; // overlap found
+    }
+  }
+  return null;
 }
 
 Page({
@@ -552,40 +577,44 @@ Page({
     finally { this.setData({ loading: false }); }
   },
 
-  /** Validate that the full range from start to end is within open slots and not blocked */
+  /** Validate that the full range from start to end is within open slots and not blocked.
+   *  Uses interval merging (O(k log k)) instead of per-minute loop (O(n)). */
   _validateRange(startDayData, endDayData, startDate, endDate, startTime, endTime) {
-    const openSlots = (startDayData && startDayData.openSlots) || [];
-    const bookedSlots = (startDayData && startDayData.bookedSlots) || [];
-    const activitySlots = (startDayData && startDayData.activitySlots) || [];
+    let openSlots = (startDayData && startDayData.openSlots) || [];
+    let bookedSlots = (startDayData && startDayData.bookedSlots) || [];
+    let activitySlots = (startDayData && startDayData.activitySlots) || [];
 
-    // If cross-day, also check end day data
-    let allOpenSlots = [...openSlots];
-    let allBooked = [...bookedSlots];
-    let allActivity = [...activitySlots];
     if (endDate !== startDate && endDayData) {
-      allOpenSlots = [...allOpenSlots, ...(endDayData.openSlots || [])];
-      allBooked = [...allBooked, ...(endDayData.bookedSlots || [])];
-      allActivity = [...allActivity, ...(endDayData.activitySlots || [])];
+      openSlots = [...openSlots, ...(endDayData.openSlots || [])];
+      bookedSlots = [...bookedSlots, ...(endDayData.bookedSlots || [])];
+      activitySlots = [...activitySlots, ...(endDayData.activitySlots || [])];
     }
 
-    const startMin = timeToMin(startTime);
-    const endMin = timeToMin(endTime);
+    const rangeStart = timeToMin(startTime);
+    const rangeEnd = timeToMin(endTime);
 
-    // Check every minute from start to end
-    for (let m = startMin; m < endMin; m++) {
-      if (!isMinInOpen(m, allOpenSlots)) {
-        const h = String(Math.floor(m / 60)).padStart(2, '0');
-        const mi = String(m % 60).padStart(2, '0');
-        return h + ':' + mi + ' 场地不开放，请调整时间';
-      }
-      if (isMinBlocked(m, allBooked, allActivity)) {
-        const h = String(Math.floor(m / 60)).padStart(2, '0');
-        const mi = String(m % 60).padStart(2, '0');
-        return h + ':' + mi + ' 已被占用，请调整时间';
-      }
+    // Merge open intervals → check full coverage
+    const mergedOpen = mergeIntervals(slotsToIntervals(openSlots));
+    const gap = findOpenGap(rangeStart, rangeEnd, mergedOpen);
+    if (gap >= 0) {
+      const h = String(Math.floor(gap / 60)).padStart(2, '0');
+      const mi = String(gap % 60).padStart(2, '0');
+      return h + ':' + mi + ' 场地不开放，请调整时间';
     }
 
-    return null; // OK
+    // Merge blocked intervals → check overlap
+    const mergedBlocked = mergeIntervals([
+      ...slotsToIntervals(bookedSlots),
+      ...slotsToIntervals(activitySlots)
+    ]);
+    const conflict = findBlockedOverlap(rangeStart, rangeEnd, mergedBlocked);
+    if (conflict) {
+      const h = String(Math.floor(conflict.start / 60)).padStart(2, '0');
+      const mi = String(conflict.start % 60).padStart(2, '0');
+      return h + ':' + mi + ' 已被占用，请调整时间';
+    }
+
+    return null;
   },
 
   goMyBookings() {

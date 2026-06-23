@@ -9,21 +9,40 @@ for (let i = 0; i < 60; i++) {
   ALL_MINUTES.push({ value: i, label: String(i).padStart(2, '0') });
 }
 
-function isMinInOpen(min, openSlots) {
-  for (const o of openSlots) {
-    if (min >= timeToMin(o.timeStart) && min < timeToMin(o.timeEnd)) return true;
-  }
-  return false;
+function slotsToIntervals(slots) {
+  return (slots || []).map(s => ({ start: timeToMin(s.timeStart), end: timeToMin(s.timeEnd) }));
 }
 
-function isMinBlocked(min, bookedSlots, activitySlots) {
-  for (const b of bookedSlots) {
-    if (min >= timeToMin(b.timeStart) && min < timeToMin(b.timeEnd)) return true;
+function mergeIntervals(intervals) {
+  if (!intervals.length) return [];
+  const sorted = [...intervals].sort((a, b) => a.start - b.start);
+  const merged = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    if (sorted[i].start <= last.end) {
+      last.end = Math.max(last.end, sorted[i].end);
+    } else {
+      merged.push(sorted[i]);
+    }
   }
-  for (const a of activitySlots) {
-    if (min >= timeToMin(a.timeStart) && min < timeToMin(a.timeEnd)) return true;
+  return merged;
+}
+
+function findOpenGap(rangeStart, rangeEnd, mergedOpen) {
+  let cursor = rangeStart;
+  for (const iv of mergedOpen) {
+    if (iv.start > cursor) return cursor;
+    if (iv.end > cursor) cursor = iv.end;
+    if (cursor >= rangeEnd) return -1;
   }
-  return false;
+  return cursor < rangeEnd ? cursor : -1;
+}
+
+function findBlockedOverlap(rangeStart, rangeEnd, mergedBlocked) {
+  for (const iv of mergedBlocked) {
+    if (iv.start < rangeEnd && iv.end > rangeStart) return iv;
+  }
+  return null;
 }
 
 function timeToMin(t) {
@@ -757,24 +776,26 @@ Page({
     const timeEnd = adminBookingEndDate + 'T' + adminBookingTimeEnd;
     if (timeStart >= timeEnd) { showShortToast('结束时间必须晚于开始时间'); return; }
 
-    // Validate range
+    // Validate range with interval merging
     if (_adminDayData) {
-      const openSlots = _adminDayData.openSlots || [];
-      const bookedSlots = _adminDayData.bookedSlots || [];
-      const activitySlots = _adminDayData.activitySlots || [];
-      const sm = timeToMin(adminBookingTimeStart);
-      const em = timeToMin(adminBookingTimeEnd);
-      for (let m = sm; m < em; m++) {
-        if (!isMinInOpen(m, openSlots)) {
-          const h = String(Math.floor(m / 60)).padStart(2, '0');
-          const mi = String(m % 60).padStart(2, '0');
-          showShortToast(h + ':' + mi + ' 场地不开放'); return;
-        }
-        if (isMinBlocked(m, bookedSlots, activitySlots)) {
-          const h = String(Math.floor(m / 60)).padStart(2, '0');
-          const mi = String(m % 60).padStart(2, '0');
-          showShortToast(h + ':' + mi + ' 已被占用'); return;
-        }
+      const rangeStart = timeToMin(adminBookingTimeStart);
+      const rangeEnd = timeToMin(adminBookingTimeEnd);
+      const mergedOpen = mergeIntervals(slotsToIntervals(_adminDayData.openSlots || []));
+      const gap = findOpenGap(rangeStart, rangeEnd, mergedOpen);
+      if (gap >= 0) {
+        const h = String(Math.floor(gap / 60)).padStart(2, '0');
+        const mi = String(gap % 60).padStart(2, '0');
+        showShortToast(h + ':' + mi + ' 场地不开放'); return;
+      }
+      const mergedBlocked = mergeIntervals([
+        ...slotsToIntervals(_adminDayData.bookedSlots || []),
+        ...slotsToIntervals(_adminDayData.activitySlots || [])
+      ]);
+      const conflict = findBlockedOverlap(rangeStart, rangeEnd, mergedBlocked);
+      if (conflict) {
+        const h = String(Math.floor(conflict.start / 60)).padStart(2, '0');
+        const mi = String(conflict.start % 60).padStart(2, '0');
+        showShortToast(h + ':' + mi + ' 已被占用'); return;
       }
     }
 
