@@ -4,6 +4,7 @@ const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','
 const HOUR_HEIGHT = 64; // rpx per hour
 const BASE_MIN = 0;
 const HEADER_H = 58; // rpx — matches .tt-time-header height
+const TEXT_OFFSET = 22; // rpx — align block top with time-label text (centered 19rpx text in 64rpx row)
 
 const ALL_MINUTES = [];
 for (let i = 0; i < 60; i++) {
@@ -563,14 +564,14 @@ Page({
     if (dayData && dayData.openSlots) {
       for (const o of dayData.openSlots) {
         const { top, height } = calcBlock(o.timeStart, o.timeEnd);
-        openBlocks.push({ top: top + HEADER_H, height });
+        openBlocks.push({ top: top + HEADER_H + TEXT_OFFSET, height });
       }
     }
 
     if (dayData && dayData.activitySlots) {
       for (const a of dayData.activitySlots) {
         const { top, height } = calcBlock(a.timeStart, a.timeEnd);
-        eventBlocks.push({ top: top + HEADER_H, height, status: 'activity', label: a.ruleName || '活动', type: 'activity' });
+        eventBlocks.push({ top: top + HEADER_H + TEXT_OFFSET, height, status: 'activity', label: a.ruleName || '活动', type: 'activity' });
       }
     }
 
@@ -578,7 +579,7 @@ Page({
       for (const b of dayData.bookedSlots) {
         const { top, height } = calcBlock(b.timeStart, b.timeEnd);
         eventBlocks.push({
-          top: top + HEADER_H, height,
+          top: top + HEADER_H + TEXT_OFFSET, height,
           status: b.status === 'pending' ? 'pending' : 'booked',
           label: b.title || '已借用',
           type: 'booking',
@@ -618,9 +619,14 @@ Page({
 
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
-    const top = e.detail.y - e.currentTarget.offsetTop;
-    const hourIdx = Math.floor(top / HOUR_HEIGHT);
-    const hour = HOURS[Math.min(Math.max(hourIdx, 0), HOURS.length - 1)];
+    // Tap Y relative to column, subtract header to get time-area position
+    const tapY = e.detail.y - e.currentTarget.offsetTop - HEADER_H;
+    if (tapY < 0) return; // tapped on header
+    // Round to nearest half-hour
+    const halfHours = Math.round(tapY / (HOUR_HEIGHT / 2));
+    const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
+    const m = (halfHours % 2) * 30;
+    const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     this.setData({
       scheduleVisible: false,
       adminBookingVisible: true,
@@ -628,16 +634,16 @@ Page({
       adminBookingStartDateDisplay: date,
       adminBookingEndDate: date,
       adminBookingEndDateDisplay: date,
-      adminBookingTimeStart: hour,
+      adminBookingTimeStart: time,
       adminBookingTimeEnd: '',
       adminBookingTitle: '',
       adminBookingDesc: '',
       adminDailySlots: [],
-      adminStartHours: [], adminStartHourIdx: 0, adminStartMinIdx: 0,
+      adminStartHours: [], adminStartHourIdx: 0, adminStartMinIdx: m,
       adminEndHours: [], adminEndHourIdx: 0, adminEndMinIdx: 0,
       _adminDayData: null
     });
-    this._loadAdminDailySlots(date);
+    this._loadAdminAvailability(date);
   },
 
   closeBookingDetail() { this.setData({ bookingDetailVisible: false }); },
