@@ -1,45 +1,46 @@
 <view class="page">
+  <!-- Hero -->
   <view class="hero">
-    <view class="hero-badge">场地</view>
+    <view class="hero-badge">MANAGE</view>
     <view class="hero-title">场地管理</view>
     <view class="hero-subtitle">管理场地、开放时间、活动与借用规则</view>
   </view>
 
-  <!-- Quick nav -->
+  <!-- Nav -->
   <view class="header-nav">
-    <text class="header-nav-btn" bindtap="goVenueBookings">📅 借用管理</text>
-    <text class="header-nav-btn" bindtap="openPurposeManager">📝 事由管理</text>
+    <text class="header-nav-btn" bindtap="goVenueBookings">借用管理</text>
+    <text class="header-nav-btn" bindtap="openPurposeManager">事由管理</text>
   </view>
 
   <!-- Venue list -->
   <view class="card">
     <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-    <view class="section-title">场地列表 ({{venues.length}})</view>
-    <button class="primary-btn" wx:if="{{!editing}}" bindtap="startAdd" style="margin-bottom:16rpx;">+ 新增场地</button>
+    <view class="section-title">场地列表</view>
+    <button class="primary-btn" wx:if="{{!editing}}" bindtap="startAdd" style="margin-bottom:16rpx;">新增场地</button>
 
     <!-- Edit form -->
-    <view class="edit-form-card" wx:if="{{editing}}">
+    <view class="edit-box" wx:if="{{editing}}">
       <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
       <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="物理位置"/></view>
       <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
       <view class="button-row"><button class="secondary-btn" bindtap="cancelEdit">取消</button><button class="primary-btn" loading="{{loading}}" bindtap="saveVenue">保存</button></view>
     </view>
 
-    <!-- List -->
+    <!-- Venue items -->
     <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y wx:if="{{!editing}}">
-      <view class="audit-empty-state" wx:if="{{!venues.length}}"><view class="audit-empty-icon">🏟️</view><view class="audit-empty-text">暂无场地，请新增</view></view>
-      <view class="venue-list-item" wx:for="{{venues}}" wx:key="id">
-        <view class="venue-list-avatar">🏟️</view>
-        <view class="venue-list-main">
-          <view class="venue-list-name">{{item.name}}</view>
-          <view class="venue-list-loc" wx:if="{{item.location}}">📍 {{item.location}}</view>
-          <view class="venue-list-desc" wx:if="{{item.description}}">{{item.description}}</view>
+      <view class="empty-state" wx:if="{{!venues.length}}"><view class="empty-text">暂无场地，请新增</view></view>
+      <view class="venue-item" wx:for="{{venues}}" wx:key="id">
+        <view class="venue-avatar">{{item.name[0] || '场'}}</view>
+        <view class="venue-main">
+          <view class="venue-name">{{item.name}}</view>
+          <view class="venue-loc" wx:if="{{item.location}}">{{item.location}}</view>
+          <view class="venue-desc" wx:if="{{item.description}}">{{item.description}}</view>
         </view>
-        <view class="venue-list-actions">
-          <text class="venue-action-btn primary" data-id="{{item.id}}" bindtap="openRules">规则</text>
-          <text class="venue-action-btn" data-id="{{item.id}}" bindtap="openVenueSchedule">安排</text>
-          <text class="venue-action-btn" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
-          <text class="venue-action-btn danger" data-id="{{item.id}}" bindtap="deleteVenue">删除</text>
+        <view class="inline-actions">
+          <text class="link primary" data-id="{{item.id}}" bindtap="openRules">规则</text>
+          <text class="link" data-id="{{item.id}}" bindtap="openVenueSchedule">安排</text>
+          <text class="link" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
+          <text class="link danger" data-id="{{item.id}}" bindtap="deleteVenue">删除</text>
         </view>
       </view>
     </scroll-view>
@@ -55,42 +56,33 @@
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}}" data-tab="booking" bindtap="switchRulesTab">借用规则</view>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
-        <!-- Open -->
+        <!-- Open Rules -->
         <block wx:if="{{rulesTab === 'open'}}">
-          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="open" bindtap="openRuleEditor">+ 新增开放时间规则</button>
-          <view wx:if="{{!openRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则</view>
+          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="open" bindtap="openRuleEditor">新增开放时间</button>
+          <view wx:if="{{!openRules.length}}" class="empty-hint">暂无规则</view>
           <view class="rule-item" wx:for="{{openRules}}" wx:key="id">
             <view><view class="rule-item-name">{{item.name || '开放时间'}}</view>
-              <view class="rule-item-detail">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}}-{{item.time_end || '18:00'}}</view></view>
-            <view class="venue-list-actions">
-              <text class="venue-action-btn" data-type="open" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-              <text class="venue-action-btn danger" data-type="open" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
-            </view>
+              <view class="rule-item-detail">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view></view>
+            <view class="inline-actions"><text class="link" data-type="open" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text><text class="link danger" data-type="open" data-id="{{item.id}}" bindtap="deleteRule">删除</text></view>
           </view>
         </block>
-        <!-- Activity -->
+        <!-- Activity Rules -->
         <block wx:if="{{rulesTab === 'activity'}}">
-          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="activity" bindtap="openRuleEditor">+ 新增活动规则</button>
-          <view wx:if="{{!activityRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则</view>
+          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="activity" bindtap="openRuleEditor">新增活动</button>
+          <view wx:if="{{!activityRules.length}}" class="empty-hint">暂无活动</view>
           <view class="rule-item" wx:for="{{activityRules}}" wx:key="id">
             <view><view class="rule-item-name">{{item.activity_name || '活动'}}</view>
-              <view class="rule-item-detail">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}}-{{item.time_end || '18:00'}}</view></view>
-            <view class="venue-list-actions">
-              <text class="venue-action-btn" data-type="activity" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-              <text class="venue-action-btn danger" data-type="activity" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
-            </view>
+              <view class="rule-item-detail">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view></view>
+            <view class="inline-actions"><text class="link" data-type="activity" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text><text class="link danger" data-type="activity" data-id="{{item.id}}" bindtap="deleteRule">删除</text></view>
           </view>
         </block>
-        <!-- Booking -->
+        <!-- Booking Rules -->
         <block wx:if="{{rulesTab === 'booking'}}">
-          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="booking" bindtap="openRuleEditor">+ 新增借用规则</button>
-          <view wx:if="{{!bookingRules.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无规则（默认需管理员审核）</view>
+          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="booking" bindtap="openRuleEditor">新增借用规则</button>
+          <view wx:if="{{!bookingRules.length}}" class="empty-hint">暂无规则（默认需管理员审核）</view>
           <view class="rule-item" wx:for="{{bookingRules}}" wx:key="id">
             <view><view class="rule-item-name">{{getRuleTypeLabel(item.rule_type)}}</view></view>
-            <view class="venue-list-actions">
-              <text class="venue-action-btn" data-type="booking" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-              <text class="venue-action-btn danger" data-type="booking" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
-            </view>
+            <view class="inline-actions"><text class="link" data-type="booking" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text><text class="link danger" data-type="booking" data-id="{{item.id}}" bindtap="deleteRule">删除</text></view>
           </view>
         </block>
       </scroll-view>
@@ -102,56 +94,56 @@
     <view class="popup-card" catchtap="noop">
       <view class="popup-header"><view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view><text class="popup-close" bindtap="closeRuleEditor">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
-        <view class="detail-popup-form">
+        <view class="form-body">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
             <view class="field"><view class="field-label">周期类型</view>
               <picker range="{{['每天','每周','每月','每年']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : 3))}}" bindchange="onCycleTypeChange">
-                <view class="picker-value">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : '每年'))}}</view></picker></view>
+                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : '每年'))}}</view></picker></view>
 
             <!-- Weekly -->
-            <view wx:if="{{ruleForm.cycleType === 'weekly'}}" style="margin-bottom:12rpx;">
-              <view class="field-label" style="margin-bottom:6rpx;">选择星期（多选，点击切换）</view>
-              <view style="display:flex;flex-wrap:wrap;gap:8rpx;">
+            <view wx:if="{{ruleForm.cycleType === 'weekly'}}" class="chip-section">
+              <view class="field-label">选择星期（多选）</view>
+              <view class="chip-row">
                 <text wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this"
-                      class="cycle-chip {{weeklyChecked[index] ? 'selected' : ''}}"
+                      class="chip {{weeklyChecked[index] ? 'active' : ''}}"
                       data-idx="{{index}}" bindtap="onToggleWeekDay">{{item}}</text>
               </view>
             </view>
             <!-- Monthly -->
-            <view wx:if="{{ruleForm.cycleType === 'monthly'}}" style="margin-bottom:12rpx;">
-              <view class="field-label" style="margin-bottom:6rpx;">选择日期（多选，点击切换）</view>
-              <view style="display:flex;flex-wrap:wrap;gap:4rpx;">
+            <view wx:if="{{ruleForm.cycleType === 'monthly'}}" class="chip-section">
+              <view class="field-label">选择日期（多选）</view>
+              <view class="chip-row small">
                 <text wx:for="{{31}}" wx:key="*this"
-                      class="month-chip {{monthlyChecked[index] ? 'selected' : ''}}"
+                      class="chip sm {{monthlyChecked[index] ? 'active' : ''}}"
                       data-idx="{{index}}" bindtap="onToggleMonthDay">{{index + 1}}</text>
               </view>
             </view>
-            <!-- Yearly — date range picker -->
-            <view wx:if="{{ruleForm.cycleType === 'yearly'}}" style="margin-bottom:12rpx;">
-              <view class="field-label" style="margin-bottom:6rpx;">添加日期范围（批量）</view>
-              <view style="display:flex;flex-wrap:wrap;gap:6rpx;align-items:center;margin-bottom:6rpx;">
-                <text style="font-size:22rpx;color:#64748b;">从</text>
+            <!-- Yearly -->
+            <view wx:if="{{ruleForm.cycleType === 'yearly'}}" class="chip-section">
+              <view class="field-label">添加日期范围</view>
+              <view class="range-row">
+                <text class="range-label">从</text>
                 <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeStartMonth - 1}}" bindchange="onYearlyRangeStartMonthChange">
-                  <view class="picker-value" style="min-width:100rpx;">{{yearlyRangeStartMonth}}月</view></picker>
+                  <view class="picker-sm">{{yearlyRangeStartMonth}}月</view></picker>
                 <picker range="{{yearlyDays}}" value="{{yearlyRangeStartDay - 1}}" bindchange="onYearlyRangeStartDayChange">
-                  <view class="picker-value" style="min-width:100rpx;">{{yearlyRangeStartDay}}日</view></picker>
+                  <view class="picker-sm">{{yearlyRangeStartDay}}日</view></picker>
               </view>
-              <view style="display:flex;flex-wrap:wrap;gap:6rpx;align-items:center;margin-bottom:8rpx;">
-                <text style="font-size:22rpx;color:#64748b;">到</text>
+              <view class="range-row">
+                <text class="range-label">到</text>
                 <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeEndMonth - 1}}" bindchange="onYearlyRangeEndMonthChange">
-                  <view class="picker-value" style="min-width:100rpx;">{{yearlyRangeEndMonth}}月</view></picker>
+                  <view class="picker-sm">{{yearlyRangeEndMonth}}月</view></picker>
                 <picker range="{{yearlyDays}}" value="{{yearlyRangeEndDay - 1}}" bindchange="onYearlyRangeEndDayChange">
-                  <view class="picker-value" style="min-width:100rpx;">{{yearlyRangeEndDay}}日</view></picker>
-                <text class="add-range-btn" bindtap="onAddYearlyRange">+ 添加范围</text>
+                  <view class="picker-sm">{{yearlyRangeEndDay}}日</view></picker>
+                <text class="add-range-btn" bindtap="onAddYearlyRange">添加</text>
               </view>
-              <view wx:if="{{ruleForm.cycleValues.length}}" style="display:flex;flex-wrap:wrap;gap:6rpx;">
+              <view wx:if="{{ruleForm.cycleValues.length}}" class="chip-row">
                 <view wx:for="{{ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip">
                   <text>{{cv.m}}月{{cv.dStart}}日 - {{cv.dEnd}}日</text>
-                  <text class="year-chip-remove" data-idx="{{index}}" bindtap="onRemoveYearlyRange">×</text>
+                  <text class="year-chip-remove" data-idx="{{index}}" bindtap="onRemoveYearlyRange">x</text>
                 </view>
               </view>
-              <view wx:else style="font-size:22rpx;color:#94a3b8;">暂未添加日期范围</view>
+              <view wx:else class="field-hint">暂未添加日期范围</view>
             </view>
 
             <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
@@ -160,59 +152,42 @@
           <block wx:if="{{ruleEditorType === 'booking'}}">
             <view class="field"><view class="field-label">审批类型</view>
               <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm.ruleType === 'admin' ? 0 : (ruleForm.ruleType === 'direct' ? 1 : (ruleForm.ruleType === 'identity' ? 2 : 3))}}" bindchange="onBookingRuleTypeChange">
-                <view class="picker-value">{{getRuleTypeLabel(ruleForm.ruleType)}}</view></picker></view>
+                <view class="picker-display">{{getRuleTypeLabel(ruleForm.ruleType)}}</view></picker></view>
             <view class="field" wx:if="{{ruleForm.ruleType === 'identity'}}"><view class="field-label">审核身份</view>
               <picker range="{{allIdentities}}" range-key="name" value="{{ruleForm.approverIdentityIndex}}" bindchange="onBookingIdentityChange">
-                <view class="picker-value">{{ruleForm.approverIdentityName || '请选择身份'}}</view></picker></view>
+                <view class="picker-display">{{ruleForm.approverIdentityName || '请选择身份'}}</view></picker></view>
             <view class="field" wx:if="{{ruleForm.ruleType === 'person'}}"><view class="field-label">审核人员</view>
               <picker range="{{allHrPersons}}" range-key="name" value="{{ruleForm.approverHrIndex}}" bindchange="onBookingHrChange">
-                <view class="picker-value">{{ruleForm.approverHrName || '请选择人员'}}</view></picker></view>
+                <view class="picker-display">{{ruleForm.approverHrName || '请选择人员'}}</view></picker></view>
           </block>
-          <view class="audit-btn-bar"><button class="primary-btn" bindtap="saveRule">保存</button></view>
+          <button class="primary-btn" bindtap="saveRule">保存</button>
         </view>
       </scroll-view>
     </view>
   </view>
 
-  <!-- ═══ Admin Timetable Popup (proportional blocks) ═══ -->
+  <!-- ═══ Timetable Popup ═══ -->
   <view class="popup-mask" wx:if="{{scheduleVisible}}" bindtap="closeVenueSchedule">
     <view class="popup-card timetable-popup" catchtap="noop">
-      <view class="popup-header">
-        <view class="popup-title">📅 {{scheduleVenueName}}</view>
-        <text class="popup-close" bindtap="closeVenueSchedule">关闭</text>
-      </view>
+      <view class="popup-header"><view class="popup-title">{{scheduleVenueName}}</view><text class="popup-close" bindtap="closeVenueSchedule">关闭</text></view>
       <view class="schedule-nav">
-        <text class="schedule-nav-btn" bindtap="onTimetablePrevWeek">◀</text>
-        <text style="font-size:25rpx;font-weight:700;color:#1e293b;">{{scheduleWeekStart}} 起一周</text>
-        <text class="schedule-nav-btn" bindtap="onTimetableNextWeek">▶</text>
+        <text class="nav-arrow" bindtap="onTimetablePrevWeek">&#8249;</text>
+        <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
+        <text class="nav-arrow" bindtap="onTimetableNextWeek">&#8250;</text>
       </view>
       <scroll-view scroll-x scroll-y class="timetable-scroll" bindscroll="onTimetableScroll">
         <view class="timetable-body">
-          <!-- Time labels column (fixed left) -->
           <view class="tt-time-col">
             <view class="tt-time-header">时间</view>
             <view class="tt-time-label" wx:for="{{timetableHours}}" wx:key="*this">{{item}}</view>
           </view>
-          <!-- Day columns -->
           <view class="tt-col-scroll">
             <view class="tt-cols-row">
               <view class="tt-col" wx:for="{{timetableColumns}}" wx:key="date" wx:for-item="col" data-date="{{col.date}}" bindtap="onTimetableOpenTap">
-                <!-- Day header -->
-                <view class="tt-col-header">{{col.label}}<text style="font-size:17rpx;display:block;font-weight:400;color:#64748b;">{{col.dateDisplay}}</text></view>
-                <!-- Open blocks (background) -->
-                <view class="tt-open-block" wx:for="{{col.openBlocks}}" wx:key="top" wx:for-item="ob"
-                      style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"></view>
-                <!-- Time targets only within open slots (not in closed/booked areas) -->
-                <view wx:for="{{col.timeTargets}}" wx:key="top" wx:for-item="tt"
-                      class="tt-time-target"
-                      style="top:{{tt.top}}rpx;height:{{HOUR_HEIGHT / 2}}rpx;"
-                      data-date="{{col.date}}" data-time="{{tt.time}}"
-                      catchtap="onTimeTargetTap">
-                </view>
-                <!-- Event blocks (bookings + activities) -->
-                <view class="tt-event-block {{eb.status}}" wx:for="{{col.eventBlocks}}" wx:key="top" wx:for-item="eb"
-                      style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;"
-                      data-block="{{eb}}" catchtap="onTimetableBlockTap">
+                <view class="tt-col-header">{{col.label}}<text class="tt-col-sub">{{col.dateDisplay}}</text></view>
+                <view class="tt-open-block" wx:for="{{col.openBlocks}}" wx:key="top" wx:for-item="ob" style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"></view>
+                <view wx:for="{{col.timeTargets}}" wx:key="top" wx:for-item="tt" class="tt-time-target" style="top:{{tt.top}}rpx;height:{{HOUR_HEIGHT / 2}}rpx;" data-date="{{col.date}}" data-time="{{tt.time}}" catchtap="onTimeTargetTap"></view>
+                <view class="tt-event-block {{eb.status}}" wx:for="{{col.eventBlocks}}" wx:key="top" wx:for-item="eb" style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;" data-block="{{eb}}" catchtap="onTimetableBlockTap">
                   <text class="tt-event-label">{{eb.label}}</text>
                 </view>
               </view>
@@ -220,13 +195,12 @@
           </view>
         </view>
       </scroll-view>
-      <!-- Legend -->
-      <view style="display:flex;gap:16rpx;padding:12rpx 16rpx;font-size:20rpx;color:#64748b;">
-        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-open"></view> 空闲</view>
-        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-booked"></view> 已通过</view>
-        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-pending"></view> 待审核</view>
-        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-activity"></view> 活动</view>
-        <view style="display:flex;align-items:center;gap:4rpx;"><view class="tt-legend tt-l-closed"></view> 关闭</view>
+      <view class="tt-legend">
+        <view class="tt-leg-item"><view class="tt-dot open"></view>空闲</view>
+        <view class="tt-leg-item"><view class="tt-dot booked"></view>已借用</view>
+        <view class="tt-leg-item"><view class="tt-dot pending"></view>待审核</view>
+        <view class="tt-leg-item"><view class="tt-dot activity"></view>活动</view>
+        <view class="tt-leg-item"><view class="tt-dot closed"></view>未开放</view>
       </view>
     </view>
   </view>
@@ -235,104 +209,84 @@
   <view class="popup-mask" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
     <view class="popup-card" catchtap="noop">
       <view class="popup-header"><view class="popup-title">借用详情</view><text class="popup-close" bindtap="closeBookingDetail">关闭</text></view>
-      <view style="padding:24rpx;">
-        <view style="font-size:26rpx;font-weight:700;color:#1e293b;margin-bottom:12rpx;">{{bookingDetail.title || '借用'}}</view>
-        <view style="font-size:23rpx;color:#64748b;line-height:1.8;">
-          <view wx:if="{{bookingDetail.userName}}">借用人：{{bookingDetail.userName}}</view>
-          <view wx:if="{{bookingDetail.userDept}}">部门：{{bookingDetail.userDept}}</view>
-          <view wx:if="{{bookingDetail.userIdentity}}">身份：{{bookingDetail.userIdentity}}</view>
-          <view wx:if="{{bookingDetail.userWorkGroup}}">职能组：{{bookingDetail.userWorkGroup}}</view>
-          <view wx:if="{{bookingDetail.timeStart}}">时间：{{bookingDetail.timeStart}} - {{bookingDetail.timeEnd}}</view>
-          <view wx:if="{{bookingDetail.description}}">说明：{{bookingDetail.description}}</view>
-          <view wx:if="{{bookingDetail.status}}">状态：{{bookingDetail.status === 'approved' ? '已通过' : (bookingDetail.status === 'pending' ? '待审核' : bookingDetail.status)}}</view>
-        </view>
+      <view class="detail-body">
+        <view class="detail-title">{{bookingDetail.title || '借用'}}</view>
+        <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-key">借用人</text><text class="detail-val">{{bookingDetail.userName}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userDept}}"><text class="detail-key">部门</text><text class="detail-val">{{bookingDetail.userDept}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userIdentity}}"><text class="detail-key">身份</text><text class="detail-val">{{bookingDetail.userIdentity}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userWorkGroup}}"><text class="detail-key">职能组</text><text class="detail-val">{{bookingDetail.userWorkGroup}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.timeStart}}"><text class="detail-key">时间</text><text class="detail-val">{{bookingDetail.timeStart}} — {{bookingDetail.timeEnd}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.description}}"><text class="detail-key">说明</text><text class="detail-val">{{bookingDetail.description}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.status}}"><text class="detail-key">状态</text><text class="status-tag {{bookingDetail.status}}">{{bookingDetail.status === 'approved' ? '已通过' : (bookingDetail.status === 'pending' ? '待审核' : bookingDetail.status)}}</text></view>
       </view>
     </view>
   </view>
 
-  <!-- ═══ Admin Quick Booking Popup ═══ -->
+  <!-- ═══ Admin Booking Popup ═══ -->
   <view class="popup-mask" wx:if="{{adminBookingVisible}}" bindtap="closeAdminBooking">
     <view class="popup-card" catchtap="noop">
       <view class="popup-header"><view class="popup-title">使用场地 · {{scheduleVenueName}}</view><text class="popup-close" bindtap="closeAdminBooking">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
-        <view class="detail-popup-form">
+        <view class="form-body">
           <view class="field">
-            <view class="field-label">借用事由 <text style="color:#ef4444;">*</text></view>
+            <view class="field-label">借用事由 <text class="required">*</text></view>
             <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="选择或输入借用事由"/>
-            <view class="purpose-chips" wx:if="{{purposes.length}}">
-              <text wx:for="{{purposes}}" wx:key="id"
-                    class="purpose-chip {{adminBookingTitle === item.text ? 'selected' : ''}}"
-                    data-text="{{item.text}}" bindtap="onAdminSelectPurpose">{{item.text}}</text>
+            <view class="chip-row" wx:if="{{purposes.length}}">
+              <text wx:for="{{purposes}}" wx:key="id" class="chip {{adminBookingTitle === item.text ? 'active' : ''}}" data-text="{{item.text}}" bindtap="onAdminSelectPurpose">{{item.text}}</text>
             </view>
           </view>
           <view class="field"><view class="field-label">开始日期</view>
             <picker mode="date" value="{{adminBookingStartDate}}" bindchange="onAdminStartDateChange">
-              <view class="picker-value">{{adminBookingStartDateDisplay || '请选择日期'}}</view>
-            </picker>
+              <view class="picker-display">{{adminBookingStartDateDisplay || '请选择日期'}}</view></picker>
           </view>
           <view class="field"><view class="field-label">结束日期</view>
             <picker mode="date" value="{{adminBookingEndDate}}" bindchange="onAdminEndDateChange">
-              <view class="picker-value">{{adminBookingEndDateDisplay || '请选择日期'}}</view>
-            </picker>
+              <view class="picker-display">{{adminBookingEndDateDisplay || '请选择日期'}}</view></picker>
           </view>
-          <!-- Start time: hour + minute -->
-          <view class="field">
-            <view class="field-label">开始时间</view>
-            <view wx:if="{{adminStartHours.length}}" style="display:flex;gap:10rpx;align-items:center;">
+          <view class="field"><view class="field-label">开始时间</view>
+            <view wx:if="{{adminStartHours.length}}" class="time-picker-row">
               <picker range="{{adminStartHours}}" range-key="label" value="{{adminStartHourIdx}}" bindchange="onAdminStartHourChange">
-                <view class="time-picker-val">{{adminStartHours[adminStartHourIdx] ? adminStartHours[adminStartHourIdx].label : '时'}}</view>
-              </picker>
-              <text style="font-size:28rpx;color:#64748b;">:</text>
+                <view class="time-val">{{adminStartHours[adminStartHourIdx] ? adminStartHours[adminStartHourIdx].label : '时'}}</view></picker>
+              <text class="time-sep">:</text>
               <picker range="{{ALL_MINUTES}}" range-key="label" value="{{adminStartMinIdx}}" bindchange="onAdminStartMinChange">
-                <view class="time-picker-val">{{ALL_MINUTES[adminStartMinIdx] ? ALL_MINUTES[adminStartMinIdx].label : '分'}}</view>
-              </picker>
-              <text wx:if="{{adminBookingTimeStart}}" style="font-size:26rpx;color:#3b82f6;font-weight:600;min-width:100rpx;">{{adminBookingTimeStart}}</text>
+                <view class="time-val">{{ALL_MINUTES[adminStartMinIdx] ? ALL_MINUTES[adminStartMinIdx].label : '分'}}</view></picker>
+              <text wx:if="{{adminBookingTimeStart}}" class="time-result">{{adminBookingTimeStart}}</text>
             </view>
-            <view wx:else style="font-size:22rpx;color:#94a3b8;">{{adminBookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
+            <view wx:else class="field-hint">{{adminBookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
           </view>
-
-          <!-- End time: hour + minute -->
-          <view class="field">
-            <view class="field-label">结束时间</view>
-            <view wx:if="{{adminEndHours.length}}" style="display:flex;gap:10rpx;align-items:center;">
+          <view class="field"><view class="field-label">结束时间</view>
+            <view wx:if="{{adminEndHours.length}}" class="time-picker-row">
               <picker range="{{adminEndHours}}" range-key="label" value="{{adminEndHourIdx}}" bindchange="onAdminEndHourChange">
-                <view class="time-picker-val">{{adminEndHours[adminEndHourIdx] ? adminEndHours[adminEndHourIdx].label : '时'}}</view>
-              </picker>
-              <text style="font-size:28rpx;color:#64748b;">:</text>
+                <view class="time-val">{{adminEndHours[adminEndHourIdx] ? adminEndHours[adminEndHourIdx].label : '时'}}</view></picker>
+              <text class="time-sep">:</text>
               <picker range="{{ALL_MINUTES}}" range-key="label" value="{{adminEndMinIdx}}" bindchange="onAdminEndMinChange">
-                <view class="time-picker-val">{{ALL_MINUTES[adminEndMinIdx] ? ALL_MINUTES[adminEndMinIdx].label : '分'}}</view>
-              </picker>
-              <text wx:if="{{adminBookingTimeEnd}}" style="font-size:26rpx;color:#3b82f6;font-weight:600;min-width:100rpx;">{{adminBookingTimeEnd}}</text>
+                <view class="time-val">{{ALL_MINUTES[adminEndMinIdx] ? ALL_MINUTES[adminEndMinIdx].label : '分'}}</view></picker>
+              <text wx:if="{{adminBookingTimeEnd}}" class="time-result">{{adminBookingTimeEnd}}</text>
             </view>
-            <view wx:else style="font-size:22rpx;color:#94a3b8;">{{adminBookingEndDate ? '请先选择开始时间' : '请先选择结束日期'}}</view>
+            <view wx:else class="field-hint">{{adminBookingEndDate ? '请先选择开始时间' : '请先选择结束日期'}}</view>
           </view>
-          <view class="field"><view class="field-label">描述（可选）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="使用说明"/></view>
-          <view class="audit-btn-bar"><button class="primary-btn" loading="{{loading}}" bindtap="submitAdminBooking">提交使用</button></view>
+          <view class="field"><view class="field-label">备注（选填）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="使用说明"/></view>
+          <button class="primary-btn" loading="{{loading}}" bindtap="submitAdminBooking">提交使用</button>
         </view>
       </scroll-view>
     </view>
   </view>
 
-  <!-- ═══ Purpose Management Popup ═══ -->
+  <!-- ═══ Purpose Management ═══ -->
   <view class="popup-mask" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
     <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">📝 借用事由管理</view><text class="popup-close" bindtap="closePurposeManager">关闭</text></view>
+      <view class="popup-header"><view class="popup-title">借用事由管理</view><text class="popup-close" bindtap="closePurposeManager">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
-        <view class="detail-popup-form">
-          <!-- Add / Edit form -->
+        <view class="form-body">
           <view class="field"><view class="field-label">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
-            <view style="display:flex;gap:10rpx;">
-              <input class="field-input" style="flex:1;" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/>
-              <button class="primary-btn" style="min-height:60rpx;padding:0 24rpx;font-size:22rpx;" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button>
-            </view>
+            <view class="input-row"><input class="field-input" style="flex:1;" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn sm" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button></view>
           </view>
-          <!-- Purpose list -->
-          <view wx:if="{{!purposes.length}}" style="text-align:center;color:#94a3b8;padding:20rpx;">暂无预设事由</view>
+          <view wx:if="{{!purposes.length}}" class="empty-hint">暂无预设事由</view>
           <view class="purpose-item" wx:for="{{purposes}}" wx:key="id">
             <view class="purpose-item-text">{{item.text}}</view>
-            <view class="venue-list-actions">
-              <text class="venue-action-btn" data-id="{{item.id}}" bindtap="startEditPurpose">编辑</text>
-              <text class="venue-action-btn danger" data-id="{{item.id}}" bindtap="deletePurpose">删除</text>
+            <view class="inline-actions">
+              <text class="link" data-id="{{item.id}}" bindtap="startEditPurpose">编辑</text>
+              <text class="link danger" data-id="{{item.id}}" bindtap="deletePurpose">删除</text>
             </view>
           </view>
         </view>
@@ -340,5 +294,5 @@
     </view>
   </view>
 
-  <view class="page-footer"><view class="footer-name">REDSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
+  <view class="page-footer"><view class="footer-name">REDSU 智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
 </view>
