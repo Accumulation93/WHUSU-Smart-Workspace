@@ -32,19 +32,21 @@
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <view class="empty-inline" wx:if="{{!loading && !venues.length}}">暂无场地数据，请新增。</view>
-        <view class="list-item list-item-stacked" wx:for="{{venues}}" wx:key="id" wx:else>
-          <view class="list-main">
-            <view class="list-name">{{item.name}}</view>
-            <view class="list-desc" wx:if="{{item.location}}">{{item.location}}</view>
-            <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
-            <view class="inline-actions list-actions-below">
-              <text class="link" data-id="{{item.id}}" bindtap="openRules">规则</text>
-              <text class="link" data-id="{{item.id}}" bindtap="openVenueSchedule">安排</text>
-              <text class="link" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
-              <text class="link danger" data-id="{{item.id}}" bindtap="deleteVenue">删除</text>
+        <block wx:if="{{venues.length}}">
+          <view class="list-item list-item-stacked" wx:for="{{venues}}" wx:key="id">
+            <view class="list-main">
+              <view class="list-name">{{item.name}}</view>
+              <view class="list-desc" wx:if="{{item.location}}">{{item.location}}</view>
+              <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
+              <view class="inline-actions list-actions-below">
+                <text class="link" data-id="{{item.id}}" bindtap="openRules">规则</text>
+                <text class="link" data-id="{{item.id}}" bindtap="openVenueSchedule">安排</text>
+                <text class="link" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
+                <text class="link danger" data-id="{{item.id}}" bindtap="deleteVenue">删除</text>
+              </view>
             </view>
           </view>
-        </view>
+        </block>
       </scroll-view>
     </view>
   </view>
@@ -62,43 +64,49 @@
         <block wx:if="{{rulesTab === 'open'}}">
           <button class="primary-btn" style="margin-bottom:12rpx;" data-type="open" bindtap="openRuleEditor">新增开放时间</button>
           <view wx:if="{{!openRules.length}}" class="empty-inline">暂无开放时间规则。</view>
-          <view class="list-item list-item-stacked" wx:for="{{openRules}}" wx:key="id" wx:else>
-            <view class="list-main">
-              <view class="list-name">{{item.name || '开放时间'}}</view>
-              <view class="list-desc">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
-              <view class="inline-actions list-actions-below">
-                <text class="link" data-type="open" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-                <text class="link danger" data-type="open" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+          <block wx:if="{{openRules.length}}">
+            <view class="list-item list-item-stacked" wx:for="{{openRules}}" wx:key="id">
+              <view class="list-main">
+                <view class="list-name">{{item.name || '开放时间'}}</view>
+                <view class="list-desc">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
+                <view class="inline-actions list-actions-below">
+                  <text class="link" data-type="open" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+                  <text class="link danger" data-type="open" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+                </view>
               </view>
             </view>
-          </view>
+          </block>
         </block>
         <block wx:if="{{rulesTab === 'activity'}}">
           <button class="primary-btn" style="margin-bottom:12rpx;" data-type="activity" bindtap="openRuleEditor">新增活动</button>
           <view wx:if="{{!activityRules.length}}" class="empty-inline">暂无活动规则。</view>
-          <view class="list-item list-item-stacked" wx:for="{{activityRules}}" wx:key="id" wx:else>
-            <view class="list-main">
-              <view class="list-name">{{item.activity_name || '活动'}}</view>
-              <view class="list-desc">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
-              <view class="inline-actions list-actions-below">
-                <text class="link" data-type="activity" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-                <text class="link danger" data-type="activity" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+          <block wx:if="{{activityRules.length}}">
+            <view class="list-item list-item-stacked" wx:for="{{activityRules}}" wx:key="id">
+              <view class="list-main">
+                <view class="list-name">{{item.activity_name || '活动'}}</view>
+                <view class="list-desc">{{getCycleLabel(item.cycle_type, item.cycle_values)}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
+                <view class="inline-actions list-actions-below">
+                  <text class="link" data-type="activity" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+                  <text class="link danger" data-type="activity" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+                </view>
               </view>
             </view>
-          </view>
+          </block>
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
           <button class="primary-btn" style="margin-bottom:12rpx;" data-type="booking" bindtap="openRuleEditor">新增借用规则</button>
           <view wx:if="{{!bookingRules.length}}" class="empty-inline">暂无借用规则（默认需管理员审核）。</view>
-          <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id" wx:else>
-            <view class="list-main">
-              <view class="list-name">{{getRuleTypeLabel(item.rule_type)}}</view>
-              <view class="inline-actions list-actions-below">
-                <text class="link" data-type="booking" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
-                <text class="link danger" data-type="booking" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+          <block wx:if="{{bookingRules.length}}">
+            <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
+              <view class="list-main">
+                <view class="list-name">{{getRuleTypeLabel(item.rule_type)}}</view>
+                <view class="inline-actions list-actions-below">
+                  <text class="link" data-type="booking" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
+                  <text class="link danger" data-type="booking" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
+                </view>
               </view>
             </view>
-          </view>
+          </block>
         </block>
       </scroll-view>
     </view>
@@ -274,15 +282,17 @@
             <view class="input-row"><input class="field-input" style="flex:1;" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn sm" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button></view>
           </view>
           <view wx:if="{{!purposes.length}}" class="empty-inline">暂无预设事由数据。</view>
-          <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id" wx:else>
-            <view class="list-main">
-              <view class="list-name">{{item.text}}</view>
-              <view class="inline-actions list-actions-below">
-                <text class="link" data-id="{{item.id}}" bindtap="startEditPurpose">编辑</text>
-                <text class="link danger" data-id="{{item.id}}" bindtap="deletePurpose">删除</text>
+          <block wx:if="{{purposes.length}}">
+            <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id">
+              <view class="list-main">
+                <view class="list-name">{{item.text}}</view>
+                <view class="inline-actions list-actions-below">
+                  <text class="link" data-id="{{item.id}}" bindtap="startEditPurpose">编辑</text>
+                  <text class="link danger" data-id="{{item.id}}" bindtap="deletePurpose">删除</text>
+                </view>
               </view>
             </view>
-          </view>
+          </block>
         </view>
       </scroll-view>
     </view>
