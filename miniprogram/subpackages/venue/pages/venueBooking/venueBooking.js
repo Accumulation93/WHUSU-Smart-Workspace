@@ -277,7 +277,8 @@ Page({
     const h = Math.floor(startMin / 60);
     const m = startMin % 60;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    // Show booking form ON TOP of schedule; picker indices synced after hours load
+    // Open booking form first, then load availability with preset time
+    // (time is passed as parameter to avoid async this.data race)
     this.setData({
       bookingVisible: true,
       bookingVenueId: this.data.scheduleVenueId,
@@ -290,17 +291,15 @@ Page({
       bookingTimeEnd: '',
       bookingTitle: '',
       bookingDesc: '',
-      timelineBlocks: [],
-      _startDayData: null, _endDayData: null
+      timelineBlocks: []
     });
-    this.loadDailyAvailability(date);
+    this.loadDailyAvailability(date, time);
   },
 
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
-    // e.detail.y is relative to the bound element (.tt-col)
     const tapY = e.detail.y - HEADER_H;
-    if (tapY < 0) return; // tapped on header
+    if (tapY < 0) return;
     const halfHours = Math.round(tapY / (HOUR_HEIGHT / 2));
     const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
     const m = (halfHours % 2) * 30;
@@ -317,12 +316,9 @@ Page({
       bookingTimeEnd: '',
       bookingTitle: '',
       bookingDesc: '',
-      timelineBlocks: [],
-      startHours: [], startHourIdx: 0, startMinIdx: m,
-      endHours: [], endHourIdx: 0, endMinIdx: 0,
-      _startDayData: null, _endDayData: null
+      timelineBlocks: []
     });
-    this.loadDailyAvailability(date);
+    this.loadDailyAvailability(date, time);
   },
 
   closeBookingDetail() { this.setData({ bookingDetailVisible: false }); },
@@ -372,7 +368,7 @@ Page({
     }
   },
 
-  async loadDailyAvailability(dateStr) {
+  async loadDailyAvailability(dateStr, presetTime) {
     const venueId = this.data.bookingVenueId;
     if (!venueId || !dateStr) return;
     wx.showLoading({ title: '查询空闲...' });
@@ -385,14 +381,14 @@ Page({
         const dayData = (res.dailySchedules || [])[0];
         if (dayData) {
           const result = this._buildTimelineAndOptions(dayData);
-          // Sync picker indices with any already-set start time (from tap handler)
-          const curTime = this.data.bookingTimeStart || '';
-          const curParts = curTime.split(':');
-          const curH = parseInt(curParts[0]) || 0;
-          const curM = parseInt(curParts[1]) || 0;
-          const sHi = Math.max(0, result.startHours.findIndex(h => h.value === curH));
-          const sMi = Math.max(0, ALL_MINUTES.findIndex(m => m.value === curM));
-          this.setData({
+          // Use presetTime (passed directly, avoids async this.data race) or existing value
+          const useTime = presetTime || this.data.bookingTimeStart || '';
+          const parts = useTime.split(':');
+          const useH = parseInt(parts[0]) || 0;
+          const useM = parseInt(parts[1]) || 0;
+          const sHi = Math.max(0, result.startHours.findIndex(h => h.value === useH));
+          const sMi = Math.max(0, ALL_MINUTES.findIndex(m => m.value === useM));
+          const setData = {
             timelineBlocks: result.timelineBlocks,
             startHours: result.startHours,
             startHourIdx: sHi,
@@ -402,7 +398,9 @@ Page({
             endMinIdx: 0,
             _startDayData: dayData,
             _endDayData: dayData
-          });
+          };
+          if (presetTime) setData.bookingTimeStart = presetTime;
+          this.setData(setData);
         } else {
           this.setData({
             timelineBlocks: [], startHours: [], endHours: [],

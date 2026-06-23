@@ -628,7 +628,6 @@ Page({
     const h = Math.floor(startMin / 60);
     const m = startMin % 60;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    // Show booking form ON TOP of schedule; picker indices set after hours load
     this.setData({
       adminBookingVisible: true,
       adminBookingStartDate: date,
@@ -639,17 +638,15 @@ Page({
       adminBookingTimeEnd: '',
       adminBookingTitle: '',
       adminBookingDesc: '',
-      adminDailySlots: [],
-      _adminDayData: null
+      adminDailySlots: []
     });
-    this._loadAdminAvailability(date);
+    this._loadAdminAvailability(date, time);
   },
 
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
-    // e.detail.y is relative to the bound element (.tt-col)
     const tapY = e.detail.y - HEADER_H;
-    if (tapY < 0) return; // tapped on header
+    if (tapY < 0) return;
     const halfHours = Math.round(tapY / (HOUR_HEIGHT / 2));
     const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
     const m = (halfHours % 2) * 30;
@@ -664,12 +661,9 @@ Page({
       adminBookingTimeEnd: '',
       adminBookingTitle: '',
       adminBookingDesc: '',
-      adminDailySlots: [],
-      adminStartHours: [], adminStartHourIdx: 0, adminStartMinIdx: m,
-      adminEndHours: [], adminEndHourIdx: 0, adminEndMinIdx: 0,
-      _adminDayData: null
+      adminDailySlots: []
     });
-    this._loadAdminAvailability(date);
+    this._loadAdminAvailability(date, time);
   },
 
   closeBookingDetail() { this.setData({ bookingDetailVisible: false }); },
@@ -694,7 +688,7 @@ Page({
     this.setData({ adminBookingEndDate: d, adminBookingEndDateDisplay: d, adminBookingTimeEnd: '' });
   },
 
-  async _loadAdminAvailability(dateStr) {
+  async _loadAdminAvailability(dateStr, presetTime) {
     if (!dateStr) return;
     wx.showLoading({ title: '查询空闲...' });
     try {
@@ -717,18 +711,20 @@ Page({
           const sortedHours = Array.from(openHourSet).sort((a, b) => a - b);
           const startHours = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
           const endHoursAll = sortedHours.map(h => ({ value: h, label: String(h).padStart(2, '0') }));
-          // Sync picker indices with any already-set start time (from tap handler)
-          const curTime = this.data.adminBookingTimeStart || '';
-          const curParts = curTime.split(':');
-          const curH = parseInt(curParts[0]) || 0;
-          const curM = parseInt(curParts[1]) || 0;
-          const startHourIdx = Math.max(0, startHours.findIndex(h => h.value === curH));
-          const startMinIdx = Math.max(0, ALL_MINUTES.findIndex(m => m.value === curM));
-          this.setData({
-            adminStartHours: startHours, adminStartHourIdx: startHourIdx, adminStartMinIdx: startMinIdx,
+          // Use presetTime (passed directly) or existing value
+          const useTime = presetTime || this.data.adminBookingTimeStart || '';
+          const parts = useTime.split(':');
+          const useH = parseInt(parts[0]) || 0;
+          const useM = parseInt(parts[1]) || 0;
+          const sHi = Math.max(0, startHours.findIndex(h => h.value === useH));
+          const sMi = Math.max(0, ALL_MINUTES.findIndex(m => m.value === useM));
+          const setData = {
+            adminStartHours: startHours, adminStartHourIdx: sHi, adminStartMinIdx: sMi,
             adminEndHours: endHoursAll, adminEndHourIdx: 0, adminEndMinIdx: 0,
             _adminDayData: dayData
-          });
+          };
+          if (presetTime) setData.adminBookingTimeStart = presetTime;
+          this.setData(setData);
         } else {
           this.setData({
             adminStartHours: [], adminEndHours: [],
