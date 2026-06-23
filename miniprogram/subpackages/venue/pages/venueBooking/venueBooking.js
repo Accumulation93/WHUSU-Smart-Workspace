@@ -80,12 +80,12 @@ Page({
   async checkIsAdmin() {
     try {
       const res = await callFunction({ name: 'listVenues', data: {} });
-      // If admin-only endpoint succeeds, user is admin
-      this.setData({ isAdmin: res.status === 'success' });
+      // Explicit check: admin endpoint returns venues array, non-admin gets forbidden with no venues
+      this.setData({ isAdmin: !!(res && res.status === 'success' && Array.isArray(res.venues)) });
     } catch (_) { this.setData({ isAdmin: false }); }
     this.loadVenues();
     this.loadPurposes();
-    this.loadReferenceData();
+    if (this.data.isAdmin) this.loadReferenceData();
   },
 
   switchTab(e) {
