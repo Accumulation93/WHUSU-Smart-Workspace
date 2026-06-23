@@ -623,8 +623,8 @@ Page({
     const h = Math.floor(startMin / 60);
     const m = startMin % 60;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    // Show booking form ON TOP of schedule (don't close schedule)
     this.setData({
-      scheduleVisible: false,
       adminBookingVisible: true,
       adminBookingStartDate: date,
       adminBookingStartDateDisplay: date,
@@ -644,16 +644,14 @@ Page({
 
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
-    // Tap Y relative to column, subtract header to get time-area position
-    const tapY = e.detail.y - e.currentTarget.offsetTop - HEADER_H;
+    // e.detail.y is relative to the bound element (.tt-col)
+    const tapY = e.detail.y - HEADER_H;
     if (tapY < 0) return; // tapped on header
-    // Round to nearest half-hour
     const halfHours = Math.round(tapY / (HOUR_HEIGHT / 2));
     const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
     const m = (halfHours % 2) * 30;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     this.setData({
-      scheduleVisible: false,
       adminBookingVisible: true,
       adminBookingStartDate: date,
       adminBookingStartDateDisplay: date,
