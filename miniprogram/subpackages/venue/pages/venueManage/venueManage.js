@@ -3,6 +3,7 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64; // rpx per hour
 const BASE_MIN = 0;
+const HEADER_H = 58; // rpx — matches .tt-time-header height
 
 const ALL_MINUTES = [];
 for (let i = 0; i < 60; i++) {
@@ -562,14 +563,14 @@ Page({
     if (dayData && dayData.openSlots) {
       for (const o of dayData.openSlots) {
         const { top, height } = calcBlock(o.timeStart, o.timeEnd);
-        openBlocks.push({ top, height });
+        openBlocks.push({ top: top + HEADER_H, height });
       }
     }
 
     if (dayData && dayData.activitySlots) {
       for (const a of dayData.activitySlots) {
         const { top, height } = calcBlock(a.timeStart, a.timeEnd);
-        eventBlocks.push({ top, height, status: 'activity', label: a.ruleName || '活动', type: 'activity' });
+        eventBlocks.push({ top: top + HEADER_H, height, status: 'activity', label: a.ruleName || '活动', type: 'activity' });
       }
     }
 
@@ -577,7 +578,7 @@ Page({
       for (const b of dayData.bookedSlots) {
         const { top, height } = calcBlock(b.timeStart, b.timeEnd);
         eventBlocks.push({
-          top, height,
+          top: top + HEADER_H, height,
           status: b.status === 'pending' ? 'pending' : 'booked',
           label: b.title || '已借用',
           type: 'booking',
