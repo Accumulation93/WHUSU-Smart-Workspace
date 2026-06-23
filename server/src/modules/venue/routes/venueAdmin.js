@@ -16,6 +16,11 @@ async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
 }
 
+function fmtDatetime(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+    + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
 // ═══════════════════════════════════════════════════
 // Venue CRUD
 // ═══════════════════════════════════════════════════
@@ -265,11 +270,13 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const filters = {
       venueId: safeString(req.body.venueId),
       status: safeString(req.body.status),
-      date: safeString(req.body.date),
-      dateFrom: safeString(req.body.dateFrom),
-      dateTo: safeString(req.body.dateTo),
       userHrId: safeString(req.body.userHrId)
     };
+    // Datetime range filters
+    const timeFrom = safeString(req.body.timeFrom);
+    const timeTo = safeString(req.body.timeTo);
+    if (timeFrom) filters.timeFrom = timeFrom;
+    if (timeTo) filters.timeTo = timeTo;
     const bookings = await venueBookingModel.getAll(filters);
     // Build user name map
     const hrIds = [...new Set(bookings.map(b => b.user_hr_id).filter(Boolean))];
@@ -289,9 +296,8 @@ router.post('/listAllVenueBookings', async (req, res) => {
       userName: nameMap[b.user_hr_id] || b.user_hr_id,
       title: b.title,
       description: b.description,
-      bookingDate: b.booking_date,
-      timeStart: b.time_start,
-      timeEnd: b.time_end,
+      timeStart: fmtDatetime(new Date(b.time_start)),
+      timeEnd: fmtDatetime(new Date(b.time_end)),
       status: b.status,
       approverHrId: b.approver_hr_id,
       approvalComment: b.approval_comment,
@@ -315,7 +321,9 @@ router.post('/approveVenueBooking', async (req, res) => {
     if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
     if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
     // Re-check conflict
-    const conflict = await venueBookingModel.findConflict(booking.venue_id, booking.booking_date, booking.time_start, booking.time_end, id);
+    const timeStart = String(booking.time_start).substring(0, 19);
+    const timeEnd = String(booking.time_end).substring(0, 19);
+    const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id);
     if (conflict) return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     await venueBookingModel.updateStatus(id, 'approved', admin.hr_id || admin.id, comment);
     res.json({ status: 'success', message: '借用已通过' });

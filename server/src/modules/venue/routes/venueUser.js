@@ -21,35 +21,60 @@ async function resolveHrId(openid) {
   return rows[0] ? rows[0].hr_id : null;
 }
 
+/** Format a Date to "YYYY-MM-DD" in local time */
+function fmtLocalDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/** Format a Date to "HH:MM" in local time */
+function fmtLocalTime(d) {
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+/** Format a Date to "YYYY-MM-DD HH:MM:SS" for MySQL DATETIME */
+function fmtDatetime(d) {
+  return fmtLocalDate(d) + ' ' + fmtLocalTime(d) + ':' + String(d.getSeconds()).padStart(2, '0');
+}
+
+/** Parse a date string "YYYY-MM-DD" as local midnight */
+function parseLocalDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** Parse an ISO-like datetime string "YYYY-MM-DDTHH:MM" or "YYYY-MM-DD HH:MM" */
+function parseDatetime(str) {
+  if (!str) return null;
+  const normalized = str.replace('T', ' ');
+  const [datePart, timePart] = normalized.split(' ');
+  const [y, m, d] = (datePart || '').split('-').map(Number);
+  const [hh, mm] = (timePart || '00:00').split(':').map(Number);
+  return new Date(y, m - 1, d, hh || 0, mm || 0, 0);
+}
+
 /**
  * Check if a given date matches a cycle rule.
- * @param {string} dateStr - 'YYYY-MM-DD'
- * @param {string} cycleType - 'daily'|'weekly'|'monthly'|'yearly'
- * @param {Array} cycleValues - parsed JSON array
  */
 function dateMatchesCycle(dateStr, cycleType, cycleValues) {
   if (!cycleValues || !Array.isArray(cycleValues) || !cycleValues.length) {
     return cycleType === 'daily';
   }
-  const d = new Date(dateStr + 'T00:00:00');
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
   switch (cycleType) {
     case 'daily':
       return true;
     case 'weekly': {
-      // cycleValues: [1,3,5] = Mon, Wed, Fri (JS: 0=Sun, 1=Mon, ...)
-      const dow = d.getDay(); // 0=Sun
-      const adjusted = dow === 0 ? 7 : dow; // Convert to 1=Mon..7=Sun
+      const dow = date.getDay(); // 0=Sun
+      const adjusted = dow === 0 ? 7 : dow; // 1=Mon..7=Sun
       return cycleValues.includes(adjusted);
     }
     case 'monthly': {
-      // cycleValues: [1, 15] = 1st and 15th of each month
-      const dom = d.getDate();
-      return cycleValues.includes(dom);
+      return cycleValues.includes(date.getDate());
     }
     case 'yearly': {
-      // cycleValues: [{m:1,d:1}, {m:7,d:1}]
-      const month = d.getMonth() + 1;
-      const day = d.getDate();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
       return cycleValues.some(v => v && Number(v.m) === month && Number(v.d) === day);
     }
     default:
@@ -71,17 +96,13 @@ function getOpenSlots(dateStr, openRules) {
         ruleId: rule.id,
         ruleName: rule.name || '开放时间',
         timeStart: rule.time_start && rule.time_start.length >= 5 ? rule.time_start.substring(0, 5) : '09:00',
-        timeEnd: rule.time_end && rule.time_end.length >= 5 ? rule.time_end.substring(0, 5) : '18:00',
-        type: 'open'
+        timeEnd: rule.time_end && rule.time_end.length >= 5 ? rule.time_end.substring(0, 5) : '18:00'
       });
     }
   }
   return slots;
 }
 
-/**
- * Get activity blocked slots for a venue on a given date.
- */
 function getActivitySlots(dateStr, activityRules) {
   const slots = [];
   for (const rule of activityRules) {
@@ -93,22 +114,44 @@ function getActivitySlots(dateStr, activityRules) {
         ruleId: rule.id,
         ruleName: rule.activity_name || '活动',
         timeStart: rule.time_start && rule.time_start.length >= 5 ? rule.time_start.substring(0, 5) : '09:00',
-        timeEnd: rule.time_end && rule.time_end.length >= 5 ? rule.time_end.substring(0, 5) : '18:00',
-        type: 'activity'
+        timeEnd: rule.time_end && rule.time_end.length >= 5 ? rule.time_end.substring(0, 5) : '18:00'
       });
     }
   }
   return slots;
 }
 
-/** Convert "HH:MM" to minutes since midnight for comparison */
+/** Convert "HH:MM" to minutes since midnight */
 function timeToMin(t) {
   if (!t) return 0;
   const parts = String(t).split(':');
   return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
 }
 
-// listVenueBookingPurposes
+/**
+ * Split a datetime range into per-date segments for open-hours/activity validation.
+ * Returns [{date: "YYYY-MM-DD", timeStart: "HH:MM", timeEnd: "HH:MM"}]
+ */
+function splitByDate(startDate, endDate) {
+  const segments = [];
+  const cur = new Date(startDate);
+  while (cur < endDate) {
+    const segDate = fmtLocalDate(cur);
+    const dayEnd = new Date(cur);
+    dayEnd.setHours(23, 59, 59, 999);
+    const segStart = cur > startDate ? '00:00' : fmtLocalTime(startDate);
+    const segEnd = dayEnd < endDate ? '23:59' : fmtLocalTime(endDate);
+    segments.push({ date: segDate, timeStart: segStart, timeEnd: segEnd });
+    cur.setDate(cur.getDate() + 1);
+    cur.setHours(0, 0, 0, 0);
+  }
+  return segments;
+}
+
+// ═══════════════════════════════════════════════════
+// Purpose list
+// ═══════════════════════════════════════════════════
+
 router.post('/listVenueBookingPurposes', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
@@ -121,31 +164,24 @@ router.post('/listVenueBookingPurposes', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════
-// User: Browse venues
+// Browse venues
 // ═══════════════════════════════════════════════════
 
-// listVenuesForBooking
 router.post('/listVenuesForBooking', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
     const venues = await venueModel.getAll();
-    // For each venue, get booking rules for current org to show approval type
-    const orgId = await getCurrentOrgId();
     const venueList = [];
     for (const v of venues) {
       const rules = await venueBookingRuleModel.getByVenueId(v.id);
       let approvalType = 'unknown';
-      if (!rules.length) approvalType = 'admin'; // default: admin approval
+      if (!rules.length) approvalType = 'admin';
       else if (rules.some(r => r.rule_type === 'direct')) approvalType = 'direct';
-      else approvalType = 'approval'; // needs some form of approval
+      else approvalType = 'approval';
       venueList.push({
-        id: v.id,
-        name: v.name,
-        location: v.location,
-        description: v.description,
-        imageUrl: v.image_url,
-        approvalType
+        id: v.id, name: v.name, location: v.location,
+        description: v.description, imageUrl: v.image_url, approvalType
       });
     }
     res.json({ status: 'success', venues: venueList });
@@ -154,13 +190,16 @@ router.post('/listVenuesForBooking', async (req, res) => {
   }
 });
 
-// getVenueSchedule
+// ═══════════════════════════════════════════════════
+// Schedule
+// ═══════════════════════════════════════════════════
+
 router.post('/getVenueSchedule', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
     const venueId = safeString(req.body.venueId);
-    const dateFrom = safeString(req.body.dateFrom); // YYYY-MM-DD
+    const dateFrom = safeString(req.body.dateFrom);
     const dateTo = safeString(req.body.dateTo);
     if (!venueId || !dateFrom) return res.json({ status: 'invalid_params', message: '请提供场地ID和日期' });
 
@@ -171,51 +210,70 @@ router.post('/getVenueSchedule', async (req, res) => {
     const activityRules = await venueActivityRuleModel.getByVenueId(venueId);
     const endDate = dateTo || dateFrom;
 
-    // Generate daily schedule
-    const dailySchedules = [];
-    const current = new Date(dateFrom + 'T00:00:00');
-    const end = new Date(endDate + 'T00:00:00');
+    // Fetch ALL bookings that overlap with the week range
+    const weekStart = dateFrom + ' 00:00:00';
+    const weekEnd = endDate + ' 23:59:59';
+    const allBookings = await venueBookingModel.getByVenueId(venueId, {
+      timeFrom: weekStart,
+      timeTo: weekEnd
+    });
+    const activeBookings = allBookings.filter(b => b.status === 'approved' || b.status === 'pending');
 
-    while (current <= end) {
-      const dateStr = current.toISOString().substring(0, 10);
+    // Resolve user names
+    const hrIds = [...new Set(activeBookings.map(b => b.user_hr_id).filter(Boolean))];
+    const nameMap = {};
+    if (hrIds.length) {
+      try {
+        const hrList = await hrInfoModel.getByIds(hrIds);
+        (hrList || []).forEach(h => { nameMap[h.id] = h.name || h.id; });
+      } catch (_) {}
+    }
+
+    const dailySchedules = [];
+    const cur = parseLocalDate(dateFrom);
+    const end = parseLocalDate(endDate);
+
+    while (cur <= end) {
+      const dateStr = fmtLocalDate(cur);
       const openSlots = getOpenSlots(dateStr, openRules);
       const activitySlots = getActivitySlots(dateStr, activityRules);
 
-      // Get bookings for this date (both approved and pending are blocking)
-      const allBookings = await venueBookingModel.getByVenueId(venueId, { date: dateStr });
-      // Filter to approved + pending only (exclude rejected/cancelled)
-      const activeBookings = allBookings.filter(b => b.status === 'approved' || b.status === 'pending');
-
-      // Resolve user names from hr_ids
-      const hrIds = [...new Set(activeBookings.map(b => b.user_hr_id).filter(Boolean))];
-      const nameMap = {};
-      if (hrIds.length) {
-        try {
-          const hrList = await hrInfoModel.getByIds(hrIds);
-          (hrList || []).forEach(h => { nameMap[h.id] = h.name || h.id; });
-        } catch (_) {}
-      }
-
-      const bookedSlots = activeBookings.map(b => ({
-        id: b.id,
-        title: b.title,
-        description: b.description,
-        status: b.status,
-        timeStart: b.time_start && b.time_start.length >= 5 ? b.time_start.substring(0, 5) : '',
-        timeEnd: b.time_end && b.time_end.length >= 5 ? b.time_end.substring(0, 5) : '',
-        type: 'booked',
-        userId: b.user_hr_id,
-        userName: nameMap[b.user_hr_id] || b.user_hr_id
-      }));
-
-      dailySchedules.push({
-        date: dateStr,
-        openSlots,
-        activitySlots,
-        bookedSlots
+      // Filter bookings that overlap with this date
+      const dayStart = dateStr + ' 00:00:00';
+      const dayEnd = dateStr + ' 23:59:59';
+      const dayBookings = activeBookings.filter(b => {
+        const bs = String(b.time_start).substring(0, 19);
+        const be = String(b.time_end).substring(0, 19);
+        return bs < dayEnd && be > dayStart;
       });
 
-      current.setDate(current.getDate() + 1);
+      const bookedSlots = dayBookings.map(b => {
+        const ts = String(b.time_start).substring(0, 19);
+        const te = String(b.time_end).substring(0, 19);
+        // Extract just the time portion if the booking is on this date, otherwise clip
+        let displayStart = ts.substring(11, 16);
+        let displayEnd = te.substring(11, 16);
+        // If booking starts before this day, show 00:00
+        if (ts < dayStart) displayStart = '00:00';
+        // If booking ends after this day, show 24:00
+        if (te > dayEnd) displayEnd = '24:00';
+        return {
+          id: b.id,
+          title: b.title,
+          description: b.description,
+          status: b.status,
+          timeStart: displayStart,
+          timeEnd: displayEnd,
+          fullTimeStart: ts,
+          fullTimeEnd: te,
+          type: 'booked',
+          userId: b.user_hr_id,
+          userName: nameMap[b.user_hr_id] || b.user_hr_id
+        };
+      });
+
+      dailySchedules.push({ date: dateStr, openSlots, activitySlots, bookedSlots });
+      cur.setDate(cur.getDate() + 1);
     }
 
     res.json({ status: 'success', venueId, venueName: venue.name, dailySchedules });
@@ -225,10 +283,9 @@ router.post('/getVenueSchedule', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════
-// User: Create Booking
+// Create Booking
 // ═══════════════════════════════════════════════════
 
-// createVenueBooking
 router.post('/createVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
@@ -238,17 +295,22 @@ router.post('/createVenueBooking', async (req, res) => {
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
-    const bookingDate = safeString(req.body.bookingDate);
-    const timeStart = safeString(req.body.timeStart);
-    const timeEnd = safeString(req.body.timeEnd);
+    const timeStartStr = safeString(req.body.timeStart); // "YYYY-MM-DDTHH:MM" or "YYYY-MM-DD HH:MM"
+    const timeEndStr = safeString(req.body.timeEnd);
 
-    if (!venueId || !bookingDate || !timeStart || !timeEnd) {
+    if (!venueId || !timeStartStr || !timeEndStr) {
       return res.json({ status: 'invalid_params', message: '请填写完整信息' });
     }
     if (!title) {
       return res.json({ status: 'invalid_params', message: '请填写借用事由' });
     }
-    if (timeToMin(timeStart) >= timeToMin(timeEnd)) {
+
+    const startDate = parseDatetime(timeStartStr);
+    const endDate = parseDatetime(timeEndStr);
+    if (!startDate || !endDate) {
+      return res.json({ status: 'invalid_params', message: '时间格式不正确' });
+    }
+    if (startDate >= endDate) {
       return res.json({ status: 'invalid_params', message: '结束时间必须晚于开始时间' });
     }
 
@@ -256,40 +318,51 @@ router.post('/createVenueBooking', async (req, res) => {
     const venue = await venueModel.getById(venueId);
     if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '场地不存在或已停用' });
 
-    // Check open rules — venue must be open at this time
+    const dbTimeStart = fmtDatetime(startDate);
+    const dbTimeEnd = fmtDatetime(endDate);
+
+    // Cross-day validation: split into per-date segments and check open hours + activities
     const openRules = await venueOpenRuleModel.getByVenueId(venueId);
-    const openSlots = getOpenSlots(bookingDate, openRules);
-    let isOpen = false;
-    for (const slot of openSlots) {
-      if (timeToMin(timeStart) >= timeToMin(slot.timeStart) && timeToMin(timeEnd) <= timeToMin(slot.timeEnd)) {
-        isOpen = true;
-        break;
-      }
-    }
-    if (!isOpen && openSlots.length > 0) {
-      return res.json({ status: 'invalid_state', message: '该时段场地不开放' });
-    }
-
-    // Check activity conflicts
     const activityRules = await venueActivityRuleModel.getByVenueId(venueId);
-    const activitySlots = getActivitySlots(bookingDate, activityRules);
-    for (const slot of activitySlots) {
-      if (timeToMin(timeStart) < timeToMin(slot.timeEnd) && timeToMin(timeEnd) > timeToMin(slot.timeStart)) {
-        return res.json({ status: 'conflict', message: '该时段有活动占用：' + slot.ruleName });
+    const segments = splitByDate(startDate, endDate);
+
+    for (const seg of segments) {
+      // Check open hours for this date
+      const openSlots = getOpenSlots(seg.date, openRules);
+      if (openSlots.length > 0) {
+        let segOpen = false;
+        for (const slot of openSlots) {
+          if (timeToMin(seg.timeStart) >= timeToMin(slot.timeStart) &&
+              timeToMin(seg.timeEnd) <= timeToMin(slot.timeEnd)) {
+            segOpen = true;
+            break;
+          }
+        }
+        if (!segOpen) {
+          return res.json({ status: 'invalid_state', message: seg.date + ' ' + seg.timeStart + '-' + seg.timeEnd + ' 场地不开放' });
+        }
+      }
+
+      // Check activity conflicts for this date
+      const actSlots = getActivitySlots(seg.date, activityRules);
+      for (const slot of actSlots) {
+        if (timeToMin(seg.timeStart) < timeToMin(slot.timeEnd) &&
+            timeToMin(seg.timeEnd) > timeToMin(slot.timeStart)) {
+          return res.json({ status: 'conflict', message: seg.date + ' ' + seg.timeStart + '-' + seg.timeEnd + ' 有活动占用：' + slot.ruleName });
+        }
       }
     }
 
-    // Check booking conflicts
-    const conflict = await venueBookingModel.findConflict(venueId, bookingDate, timeStart, timeEnd, null, conn);
+    // Check booking conflicts (across full datetime range)
+    const conflict = await venueBookingModel.findConflict(venueId, dbTimeStart, dbTimeEnd, null, conn);
     if (conflict) {
       return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     }
 
-    // Determine approval status
+    // Determine approval
     const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
     let autoApprove = false;
     if (!bookingRules.length) {
-      // Default: admin approval required
       autoApprove = false;
     } else if (bookingRules.some(r => r.rule_type === 'direct')) {
       autoApprove = true;
@@ -300,7 +373,7 @@ router.post('/createVenueBooking', async (req, res) => {
 
     await venueBookingModel.create(id, {
       venueId, userHrId: hrId, title, description,
-      bookingDate, timeStart, timeEnd, status
+      timeStart: dbTimeStart, timeEnd: dbTimeEnd, status
     }, conn);
 
     await conn.commit();
@@ -314,10 +387,9 @@ router.post('/createVenueBooking', async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════
-// User: My Bookings
+// My Bookings
 // ═══════════════════════════════════════════════════
 
-// listMyVenueBookings
 router.post('/listMyVenueBookings', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
@@ -330,9 +402,8 @@ router.post('/listMyVenueBookings', async (req, res) => {
       venueLocation: b.venue_location,
       title: b.title,
       description: b.description,
-      bookingDate: b.booking_date,
-      timeStart: b.time_start && b.time_start.length >= 5 ? b.time_start.substring(0, 5) : '',
-      timeEnd: b.time_end && b.time_end.length >= 5 ? b.time_end.substring(0, 5) : '',
+      timeStart: fmtDatetime(new Date(b.time_start)),
+      timeEnd: fmtDatetime(new Date(b.time_end)),
       status: b.status,
       approvalComment: b.approval_comment,
       createdAt: b.created_at
@@ -343,7 +414,6 @@ router.post('/listMyVenueBookings', async (req, res) => {
   }
 });
 
-// cancelVenueBooking
 router.post('/cancelVenueBooking', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);

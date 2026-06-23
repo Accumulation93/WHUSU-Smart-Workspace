@@ -10,6 +10,14 @@ function timeToMin(t) {
   return (parseInt(parts[0])||0)*60 + (parseInt(parts[1])||0);
 }
 
+function fmtLocalDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function fmtLocalTime(d) {
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
 function calcBlock(timeStart, timeEnd) {
   const s = timeToMin(timeStart);
   const e = timeToMin(timeEnd);
@@ -65,8 +73,10 @@ Page({
     adminBookingVisible: false,
     adminBookingVenueId: '',
     adminBookingVenueName: '',
-    adminBookingDate: '',
-    adminBookingDateDisplay: '',
+    adminBookingStartDate: '',
+    adminBookingStartDateDisplay: '',
+    adminBookingEndDate: '',
+    adminBookingEndDateDisplay: '',
     adminBookingTitle: '',
     adminBookingDesc: '',
     adminBookingTimeStart: '',
@@ -360,8 +370,7 @@ Page({
     const day = now.getDay();
     const monday = new Date(now);
     monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    const ws = monday.getFullYear() + '-' + String(monday.getMonth()+1).padStart(2,'0') + '-' + String(monday.getDate()).padStart(2,'0');
-    this.setData({ scheduleWeekStart: ws });
+    this.setData({ scheduleWeekStart: fmtLocalDate(monday) });
   },
 
   async openVenueSchedule(e) {
@@ -374,10 +383,10 @@ Page({
 
   async loadVenueTimetable() {
     const { scheduleVenueId, scheduleWeekStart } = this.data;
-    const start = new Date(scheduleWeekStart + 'T00:00:00');
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    const dateTo = end.toISOString().substring(0, 10);
+    const [y, m, d] = scheduleWeekStart.split('-').map(Number);
+    const start = new Date(y, m - 1, d);
+    const end = new Date(y, m - 1, d + 6);
+    const dateTo = fmtLocalDate(end);
     wx.showLoading({ title: '加载中...' });
     try {
       const res = await callFunction({
@@ -392,21 +401,22 @@ Page({
   },
 
   _buildAdminTimetable(dailySchedules) {
-    const start = new Date(this.data.scheduleWeekStart + 'T00:00:00');
+    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
+    const start = new Date(y, m - 1, d);
     const weekDayLabels = ['周一','周二','周三','周四','周五','周六','周日'];
     const columns = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      const dateStr = d.toISOString().substring(0, 10);
+      const dd = new Date(y, m - 1, d + i);
+      const dateStr = fmtLocalDate(dd);
+      const dateDisplay = String(dd.getMonth() + 1).padStart(2, '0') + '/' + String(dd.getDate()).padStart(2, '0');
       const dayData = dailySchedules.find(ds => ds.date === dateStr);
-      const col = this._buildDayColumn(dayData, dateStr, weekDayLabels[i]);
+      const col = this._buildDayColumn(dayData, dateStr, weekDayLabels[i], dateDisplay);
       columns.push(col);
     }
     this.setData({ timetableColumns: columns });
   },
 
-  _buildDayColumn(dayData, dateStr, label) {
+  _buildDayColumn(dayData, dateStr, label, dateDisplay) {
     const openBlocks = [];
     const eventBlocks = [];
 
@@ -446,27 +456,27 @@ Page({
             description: b.description,
             userId: b.userId,
             userName: b.userName,
-            timeStart: b.timeStart,
-            timeEnd: b.timeEnd,
+            timeStart: b.fullTimeStart || b.timeStart,
+            timeEnd: b.fullTimeEnd || b.timeEnd,
             status: b.status
           }
         });
       }
     }
 
-    return { date: dateStr, label, openBlocks, eventBlocks };
+    return { date: dateStr, label, dateDisplay, openBlocks, eventBlocks };
   },
 
   onTimetablePrevWeek() {
-    const d = new Date(this.data.scheduleWeekStart + 'T00:00:00');
-    d.setDate(d.getDate() - 7);
-    this.setData({ scheduleWeekStart: d.toISOString().substring(0,10) });
+    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
+    const dt = new Date(y, m - 1, d - 7);
+    this.setData({ scheduleWeekStart: fmtLocalDate(dt) });
     this.loadVenueTimetable();
   },
   onTimetableNextWeek() {
-    const d = new Date(this.data.scheduleWeekStart + 'T00:00:00');
-    d.setDate(d.getDate() + 7);
-    this.setData({ scheduleWeekStart: d.toISOString().substring(0,10) });
+    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
+    const dt = new Date(y, m - 1, d + 7);
+    this.setData({ scheduleWeekStart: fmtLocalDate(dt) });
     this.loadVenueTimetable();
   },
 
@@ -481,14 +491,15 @@ Page({
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
     const top = e.detail.y - e.currentTarget.offsetTop;
-    // Calculate which hour was tapped based on vertical position
     const hourIdx = Math.floor(top / HOUR_HEIGHT);
     const hour = HOURS[Math.min(Math.max(hourIdx, 0), HOURS.length - 1)];
     this.setData({
       scheduleVisible: false,
       adminBookingVisible: true,
-      adminBookingDate: date,
-      adminBookingDateDisplay: date,
+      adminBookingStartDate: date,
+      adminBookingStartDateDisplay: date,
+      adminBookingEndDate: date,
+      adminBookingEndDateDisplay: date,
       adminBookingTimeStart: hour,
       adminBookingTimeEnd: '',
       adminBookingTitle: '',
@@ -503,10 +514,14 @@ Page({
   // ── Admin Quick Booking ──
   closeAdminBooking() { this.setData({ adminBookingVisible: false }); },
 
-  onAdminBookingDateChange(e) {
+  onAdminStartDateChange(e) {
     const d = e.detail.value;
-    this.setData({ adminBookingDate: d, adminBookingDateDisplay: d, adminDailySlots: [], adminBookingTimeStart: '', adminBookingTimeEnd: '' });
+    this.setData({ adminBookingStartDate: d, adminBookingStartDateDisplay: d, adminBookingEndDate: d, adminBookingEndDateDisplay: d, adminDailySlots: [], adminBookingTimeStart: '', adminBookingTimeEnd: '' });
     this._loadAdminDailySlots(d);
+  },
+  onAdminEndDateChange(e) {
+    const d = e.detail.value;
+    this.setData({ adminBookingEndDate: d, adminBookingEndDateDisplay: d });
   },
 
   async _loadAdminDailySlots(dateStr) {
@@ -561,17 +576,20 @@ Page({
   },
 
   async submitAdminBooking() {
-    const { scheduleVenueId, adminBookingDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc } = this.data;
-    if (!scheduleVenueId || !adminBookingDate || !adminBookingTimeStart || !adminBookingTimeEnd) {
+    const { scheduleVenueId, adminBookingStartDate, adminBookingEndDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc } = this.data;
+    if (!scheduleVenueId || !adminBookingStartDate || !adminBookingTimeStart || !adminBookingTimeEnd) {
       showShortToast('请完整填写信息并选择时间段'); return;
     }
     if (!adminBookingTitle) { showShortToast('请填写借用事由'); return; }
+    const timeStart = adminBookingStartDate + 'T' + adminBookingTimeStart;
+    const timeEnd = adminBookingEndDate + 'T' + adminBookingTimeEnd;
+    if (timeStart >= timeEnd) { showShortToast('结束时间必须晚于开始时间'); return; }
     this.setData({ loading: true });
     try {
       const res = await callFunction({
         name: 'createVenueBooking',
         data: { venueId: scheduleVenueId, title: adminBookingTitle, description: adminBookingDesc,
-                bookingDate: adminBookingDate, timeStart: adminBookingTimeStart, timeEnd: adminBookingTimeEnd }
+                timeStart, timeEnd }
       });
       if (res.status === 'success') {
         showShortToast(res.message);

@@ -1,12 +1,25 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 
 const HOURS = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00'];
-const WEEKDAYS = ['周一','周二','周三','周四','周五','周六','周日'];
+const HOUR_HEIGHT = 64;
+const BASE_MIN = 8 * 60;
 
 function timeToMin(t) {
   if (!t) return 0;
   const parts = String(t).split(':');
   return (parseInt(parts[0])||0)*60 + (parseInt(parts[1])||0);
+}
+
+function fmtLocalDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function calcBlock(timeStart, timeEnd) {
+  const s = timeToMin(timeStart);
+  const e = timeToMin(timeEnd);
+  const top = Math.round((s - BASE_MIN) / 60 * HOUR_HEIGHT);
+  const height = Math.max(Math.round((e - s) / 60 * HOUR_HEIGHT), 20);
+  return { top, height };
 }
 
 Page({
@@ -18,29 +31,47 @@ Page({
     scheduleVisible: false,
     scheduleVenueId: '',
     scheduleVenueName: '',
-    scheduleWeekStart: '',  // Monday date
-    timetable: [],           // [{hour, days:[{date, status, info}]}]
+    scheduleWeekStart: '',
+    timetableColumns: [],
+    timetableHours: HOURS,
     bookingDetailVisible: false,
     bookingDetail: null,
 
-    // Booking
+    // Booking form
     bookingVisible: false,
     bookingVenueId: '',
     bookingVenueName: '',
-    bookingDate: '',
-    bookingDateDisplay: '',
+    bookingStartDate: '',
+    bookingStartDateDisplay: '',
+    bookingEndDate: '',
+    bookingEndDateDisplay: '',
     bookingTitle: '',
     bookingDesc: '',
     bookingTimeStart: '',
     bookingTimeEnd: '',
-    dailySlots: [], // available time slots for selected date
-    purposes: []     // preset purposes for autocomplete
+    dailySlots: [],
+    purposes: []
   },
 
   onShow() {
     this.loadVenues();
     this.loadPurposes();
     this._initWeekStart();
+  },
+
+  _initWeekStart() {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+    const today = fmtLocalDate(now);
+    this.setData({
+      scheduleWeekStart: fmtLocalDate(monday),
+      bookingStartDate: today,
+      bookingStartDateDisplay: today,
+      bookingEndDate: today,
+      bookingEndDateDisplay: today
+    });
   },
 
   async loadPurposes() {
@@ -53,16 +84,6 @@ Page({
   onSelectPurpose(e) {
     const text = e.currentTarget.dataset.text;
     this.setData({ bookingTitle: text });
-  },
-
-  _initWeekStart() {
-    const now = new Date();
-    const day = now.getDay(); // 0=Sun
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    const ws = monday.getFullYear() + '-' + String(monday.getMonth()+1).padStart(2,'0') + '-' + String(monday.getDate()).padStart(2,'0');
-    const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-    this.setData({ scheduleWeekStart: ws, bookingDate: today, bookingDateDisplay: today });
   },
 
   async loadVenues() {
@@ -78,18 +99,16 @@ Page({
   async openSchedule(e) {
     const id = e.currentTarget.dataset.id;
     const v = this.data.venues.find(v => v.id === id);
-    this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: v ? v.name : '', timetable: [] });
+    this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: v ? v.name : '', timetableColumns: [] });
     await this.loadTimetable();
   },
   closeSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false }); },
 
   async loadTimetable() {
     const { scheduleVenueId, scheduleWeekStart } = this.data;
-    // Compute 7-day range
-    const start = new Date(scheduleWeekStart + 'T00:00:00');
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    const dateTo = end.toISOString().substring(0, 10);
+    const [y, m, d] = scheduleWeekStart.split('-').map(Number);
+    const end = new Date(y, m - 1, d + 6);
+    const dateTo = fmtLocalDate(end);
     wx.showLoading({ title: '加载中...' });
     try {
       const res = await callFunction({
@@ -104,112 +123,126 @@ Page({
   },
 
   _buildTimetable(dailySchedules) {
-    // Compute day dates from weekStart
-    const start = new Date(this.data.scheduleWeekStart + 'T00:00:00');
-    const dayDates = [];
+    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
+    const weekDayLabels = ['周一','周二','周三','周四','周五','周六','周日'];
+    const columns = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
-      d.setDate(d.getDate() + i);
-      dayDates.push(d.toISOString().substring(0, 10));
+      const dd = new Date(y, m - 1, d + i);
+      const dateStr = fmtLocalDate(dd);
+      const dateDisplay = String(dd.getMonth() + 1).padStart(2, '0') + '/' + String(dd.getDate()).padStart(2, '0');
+      const dayData = dailySchedules.find(ds => ds.date === dateStr);
+      const col = this._buildDayColumn(dayData, dateStr, weekDayLabels[i], dateDisplay);
+      columns.push(col);
     }
-
-    // Build row per hour
-    const timetable = HOURS.map(hour => {
-      const row = { hour, days: [] };
-      for (let di = 0; di < 7; di++) {
-        const dateStr = dayDates[di];
-        const dayData = dailySchedules.find(ds => ds.date === dateStr);
-        row.days.push(this._classifySlot(hour, dayData, dateStr));
-      }
-      return row;
-    });
-
-    this.setData({ timetable, dayDates });
+    this.setData({ timetableColumns: columns });
   },
 
-  _classifySlot(hour, dayData, dateStr) {
-    const hMin = timeToMin(hour);
-    const nextHMin = hMin + 60;
-    if (!dayData) return { status: 'closed', info: '', date: dateStr, hour: hour };
+  _buildDayColumn(dayData, dateStr, label, dateDisplay) {
+    const openBlocks = [];
+    const eventBlocks = [];
 
-    // Check activities first
-    for (const a of (dayData.activitySlots || [])) {
-      if (hMin < timeToMin(a.timeEnd) && nextHMin > timeToMin(a.timeStart)) {
-        return { status: 'activity', info: a.ruleName || '活动', date: dateStr, hour: hour };
+    if (dayData && dayData.openSlots) {
+      for (const o of dayData.openSlots) {
+        const { top, height } = calcBlock(o.timeStart, o.timeEnd);
+        openBlocks.push({ top, height });
       }
     }
-    // Check bookings
-    for (const b of (dayData.bookedSlots || [])) {
-      if (hMin < timeToMin(b.timeEnd) && nextHMin > timeToMin(b.timeStart)) {
-        return { status: b.status === 'pending' ? 'pending' : 'booked', info: b.title || '已借用', booking: b, date: dateStr, hour: hour };
+
+    if (dayData && dayData.activitySlots) {
+      for (const a of dayData.activitySlots) {
+        const { top, height } = calcBlock(a.timeStart, a.timeEnd);
+        eventBlocks.push({ top, height, status: 'activity', label: a.ruleName || '活动', type: 'activity' });
       }
     }
-    // Check open
-    for (const o of (dayData.openSlots || [])) {
-      if (hMin >= timeToMin(o.timeStart) && nextHMin <= timeToMin(o.timeEnd)) {
-        return { status: 'open', info: '可借用', date: dateStr, hour: hour };
+
+    if (dayData && dayData.bookedSlots) {
+      for (const b of dayData.bookedSlots) {
+        const { top, height } = calcBlock(b.timeStart, b.timeEnd);
+        eventBlocks.push({
+          top, height,
+          status: b.status === 'pending' ? 'pending' : 'booked',
+          label: b.title || '已借用',
+          type: 'booking',
+          booking: {
+            id: b.id, title: b.title, description: b.description,
+            userId: b.userId, userName: b.userName,
+            timeStart: b.fullTimeStart || b.timeStart,
+            timeEnd: b.fullTimeEnd || b.timeEnd,
+            status: b.status
+          }
+        });
       }
     }
-    return { status: 'closed', info: '', date: dateStr, hour: hour };
+
+    return { date: dateStr, label, dateDisplay, openBlocks, eventBlocks };
   },
 
   onTimetablePrevWeek() {
-    const d = new Date(this.data.scheduleWeekStart + 'T00:00:00');
-    d.setDate(d.getDate() - 7);
-    this.setData({ scheduleWeekStart: d.toISOString().substring(0,10) });
+    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
+    const dt = new Date(y, m - 1, d - 7);
+    this.setData({ scheduleWeekStart: fmtLocalDate(dt) });
     this.loadTimetable();
   },
   onTimetableNextWeek() {
-    const d = new Date(this.data.scheduleWeekStart + 'T00:00:00');
-    d.setDate(d.getDate() + 7);
-    this.setData({ scheduleWeekStart: d.toISOString().substring(0,10) });
+    const [y, m, d] = this.data.scheduleWeekStart.split('-').map(Number);
+    const dt = new Date(y, m - 1, d + 7);
+    this.setData({ scheduleWeekStart: fmtLocalDate(dt) });
     this.loadTimetable();
   },
 
-  // Tap a timetable cell: booked → detail, open → start booking
-  onTimetableCellTap(e) {
-    const cell = e.currentTarget.dataset.cell;
-    if (!cell) return;
-    if ((cell.status === 'booked' || cell.status === 'pending') && cell.booking) {
-      this.setData({ bookingDetailVisible: true, bookingDetail: cell.booking });
-    } else if (cell.status === 'open') {
-      // Close timetable, open booking with pre-filled date+time
-      const date = cell.date;
-      const timeStart = cell.hour;
-      this.setData({
-        scheduleVisible: false,
-        bookingVisible: true,
-        bookingDate: date,
-        bookingDateDisplay: date,
-        bookingTimeStart: timeStart,
-        bookingTimeEnd: '',
-        bookingTitle: '',
-        bookingDesc: ''
-      });
-      this.loadDailyAvailability(date);
-    }
+  onTimetableBlockTap(e) {
+    const block = e.currentTarget.dataset.block;
+    if (!block || !block.booking) return;
+    this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
   },
+
+  onTimetableOpenTap(e) {
+    const date = e.currentTarget.dataset.date;
+    const top = e.detail.y - e.currentTarget.offsetTop;
+    const hourIdx = Math.floor(top / HOUR_HEIGHT);
+    const hour = HOURS[Math.min(Math.max(hourIdx, 0), HOURS.length - 1)];
+    this.setData({
+      scheduleVisible: false,
+      bookingVisible: true,
+      bookingStartDate: date,
+      bookingStartDateDisplay: date,
+      bookingEndDate: date,
+      bookingEndDateDisplay: date,
+      bookingTimeStart: hour,
+      bookingTimeEnd: '',
+      bookingTitle: '',
+      bookingDesc: '',
+      dailySlots: []
+    });
+    this.loadDailyAvailability(date);
+  },
+
   closeBookingDetail() { this.setData({ bookingDetailVisible: false }); },
 
   // ── Booking ──
   openBooking(e) {
     const id = e.currentTarget.dataset.id;
     const v = this.data.venues.find(v => v.id === id);
+    const today = this.data.bookingStartDate;
     this.setData({
       bookingVisible: true, bookingVenueId: id, bookingVenueName: v ? v.name : '',
+      bookingStartDate: today, bookingStartDateDisplay: today,
+      bookingEndDate: today, bookingEndDateDisplay: today,
       bookingTitle: '', bookingDesc: '', bookingTimeStart: '', bookingTimeEnd: '',
       dailySlots: []
     });
   },
   closeBooking() { this.setData({ bookingVisible: false }); },
 
-  onBookingDateChange(e) {
-    const dateStr = e.detail.value;
-    this.setData({ bookingDate: dateStr, bookingDateDisplay: dateStr, dailySlots: [], bookingTimeStart: '', bookingTimeEnd: '' });
-    this.loadDailyAvailability(dateStr);
+  onStartDateChange(e) {
+    const d = e.detail.value;
+    this.setData({ bookingStartDate: d, bookingStartDateDisplay: d, bookingEndDate: d, bookingEndDateDisplay: d, dailySlots: [], bookingTimeStart: '', bookingTimeEnd: '' });
+    this.loadDailyAvailability(d);
+  },
+  onEndDateChange(e) {
+    this.setData({ bookingEndDate: e.detail.value, bookingEndDateDisplay: e.detail.value });
   },
 
-  // Load available open slots for a specific date
   async loadDailyAvailability(dateStr) {
     const venueId = this.data.bookingVenueId;
     if (!venueId || !dateStr) return;
@@ -222,7 +255,6 @@ Page({
       if (res.status === 'success') {
         const dayData = (res.dailySchedules || [])[0];
         if (dayData) {
-          // Compute free 30-min slots from open slots minus booked/activity
           const slots = this._computeFreeSlots(dayData);
           this.setData({ dailySlots: slots });
         }
@@ -235,8 +267,6 @@ Page({
     const openSlots = dayData.openSlots || [];
     const bookedSlots = dayData.bookedSlots || [];
     const activitySlots = dayData.activitySlots || [];
-
-    // Generate 30-min intervals within open hours, exclude booked/activity
     const free = [];
     for (const o of openSlots) {
       let t = timeToMin(o.timeStart);
@@ -244,16 +274,9 @@ Page({
       while (t + 30 <= end) {
         const ts = String(Math.floor(t/60)).padStart(2,'0') + ':' + String(t%60).padStart(2,'0');
         const te = String(Math.floor((t+30)/60)).padStart(2,'0') + ':' + String((t+30)%60).padStart(2,'0');
-        // Check not overlapped by booked or activity
         let blocked = false;
-        for (const b of bookedSlots) {
-          if (t < timeToMin(b.timeEnd) && t+30 > timeToMin(b.timeStart)) { blocked = true; break; }
-        }
-        if (!blocked) {
-          for (const a of activitySlots) {
-            if (t < timeToMin(a.timeEnd) && t+30 > timeToMin(a.timeStart)) { blocked = true; break; }
-          }
-        }
+        for (const b of bookedSlots) { if (t < timeToMin(b.timeEnd) && t+30 > timeToMin(b.timeStart)) { blocked = true; break; } }
+        if (!blocked) for (const a of activitySlots) { if (t < timeToMin(a.timeEnd) && t+30 > timeToMin(a.timeStart)) { blocked = true; break; } }
         if (!blocked) free.push({ timeStart: ts, timeEnd: te, label: ts + ' - ' + te });
         t += 30;
       }
@@ -261,11 +284,11 @@ Page({
     return free;
   },
 
-  // User clicks a free slot to select it
   onSelectSlot(e) {
-    const ts = e.currentTarget.dataset.ts;
-    const te = e.currentTarget.dataset.te;
-    this.setData({ bookingTimeStart: ts, bookingTimeEnd: te });
+    this.setData({
+      bookingTimeStart: e.currentTarget.dataset.ts,
+      bookingTimeEnd: e.currentTarget.dataset.te
+    });
   },
 
   onFieldInput(e) {
@@ -273,17 +296,20 @@ Page({
   },
 
   async submitBooking() {
-    const { bookingVenueId, bookingDate, bookingTitle, bookingTimeStart, bookingTimeEnd, bookingDesc } = this.data;
-    if (!bookingVenueId || !bookingDate || !bookingTimeStart || !bookingTimeEnd) {
+    const { bookingVenueId, bookingStartDate, bookingEndDate, bookingTitle, bookingTimeStart, bookingTimeEnd, bookingDesc } = this.data;
+    if (!bookingVenueId || !bookingStartDate || !bookingTimeStart || !bookingTimeEnd) {
       showShortToast('请完整填写信息并选择时间段'); return;
     }
     if (!bookingTitle) { showShortToast('请填写借用事由'); return; }
+    const timeStart = bookingStartDate + 'T' + bookingTimeStart;
+    const timeEnd = bookingEndDate + 'T' + bookingTimeEnd;
+    if (timeStart >= timeEnd) { showShortToast('结束时间必须晚于开始时间'); return; }
+
     this.setData({ loading: true });
     try {
       const res = await callFunction({
         name: 'createVenueBooking',
-        data: { venueId: bookingVenueId, title: bookingTitle, description: bookingDesc,
-                bookingDate, timeStart: bookingTimeStart, timeEnd: bookingTimeEnd }
+        data: { venueId: bookingVenueId, title: bookingTitle, description: bookingDesc, timeStart, timeEnd }
       });
       if (res.status === 'success') {
         showShortToast(res.message);
