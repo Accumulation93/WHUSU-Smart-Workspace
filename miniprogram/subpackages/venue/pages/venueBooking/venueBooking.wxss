@@ -66,12 +66,6 @@
   box-shadow:0 6rpx 16rpx rgba(37,99,235,0.18);
 }
 
-/* ═══ Text button ═══ */
-.text-btn {
-  font-size:24rpx; font-weight:600; padding:8rpx 0;
-}
-.text-btn.danger { color:#ef4444; }
-
 /* ═══ Booking items ═══ */
 .booking-item {
   padding:24rpx 22rpx; margin-bottom:14rpx; border-radius:22rpx;

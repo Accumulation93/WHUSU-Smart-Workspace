@@ -54,7 +54,7 @@
           <view class="booking-item-meta">{{item.venueName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
           <view class="booking-item-foot" wx:if="{{item.status === 'pending' || item.status === 'approved'}}">
-            <text class="text-btn danger" data-id="{{item.id}}" bindtap="cancelMyBooking">取消借用</text>
+            <text class="link danger" data-id="{{item.id}}" bindtap="cancelMyBooking">取消借用</text>
           </view>
         </view>
       </scroll-view>
