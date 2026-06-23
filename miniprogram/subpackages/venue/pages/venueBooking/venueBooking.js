@@ -44,6 +44,7 @@ Page({
     endHours: [], endHourIdx: 0, endMinutes: ALL_MINUTES, endMinIdx: 0,
     _startDayData: null, _endDayData: null,
     purposes: [],
+    statusLabels: { pending:'待审核', approved:'已通过', rejected:'已驳回', cancelled:'已取消' },
     HOUR_HEIGHT: HOUR_HEIGHT, HEADER_H: HEADER_H,
 
     // ── Bookings tab ──
@@ -78,14 +79,16 @@ Page({
   },
 
   async checkIsAdmin() {
+    let isAdmin = false;
     try {
       const res = await callFunction({ name: 'listVenues', data: {} });
-      // Explicit check: admin endpoint returns venues array, non-admin gets forbidden with no venues
-      this.setData({ isAdmin: !!(res && res.status === 'success' && Array.isArray(res.venues)) });
-    } catch (_) { this.setData({ isAdmin: false }); }
+      isAdmin = !!(res && res.status === 'success' && Array.isArray(res.venues));
+    } catch (_) { isAdmin = false; }
+    // Use local var, not this.data.isAdmin (setData is async, this.data lags)
+    this.setData({ isAdmin });
     this.loadVenues();
     this.loadPurposes();
-    if (this.data.isAdmin) this.loadReferenceData();
+    if (isAdmin) this.loadReferenceData();
   },
 
   switchTab(e) {
@@ -470,9 +473,6 @@ Page({
   startEditPurpose(e) { const id=e.currentTarget.dataset.id, p=this.data.managePurposes.find(p=>p.id===id); if(p)this.setData({purposeEditId:p.id,purposeEditText:p.text}); },
   async savePurpose() { const {purposeEditId,purposeEditText}=this.data; if(!purposeEditText.trim()){showShortToast('请输入事由内容');return;} try{const res=await callFunction({name:'saveVenueBookingPurpose',data:{id:purposeEditId,text:purposeEditText.trim()}});if(res.status==='success'){showShortToast(res.message);this.setData({purposeEditId:'',purposeEditText:''});this.loadManagePurposes();}else showShortToast(res.message);}catch(e){showShortToast(getErrorText(e,'保存失败'));} },
   async deletePurpose(e) { const id=e.currentTarget.dataset.id; try{const res=await callFunction({name:'deleteVenueBookingPurpose',data:{id}});if(res.status==='success'){showShortToast('已删除');this.loadManagePurposes();}else showShortToast(res.message);}catch(e){showShortToast(getErrorText(e,'删除失败'));} },
-
-  // Status labels
-  statusLabels: { pending:'待审核', approved:'已通过', rejected:'已驳回', cancelled:'已取消' },
 
   noop() {}
 });
