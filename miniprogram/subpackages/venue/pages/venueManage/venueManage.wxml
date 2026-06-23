@@ -199,10 +199,9 @@
               <view class="tt-col" wx:for="{{timetableColumns}}" wx:key="date" wx:for-item="col" data-date="{{col.date}}" bindtap="onTimetableOpenTap">
                 <!-- Day header -->
                 <view class="tt-col-header">{{col.label}}<text style="font-size:17rpx;display:block;font-weight:400;color:#64748b;">{{col.dateDisplay}}</text></view>
-                <!-- Open blocks (clickable → open booking form) -->
+                <!-- Open blocks (taps bubble to column → onTimetableOpenTap) -->
                 <view class="tt-open-block" wx:for="{{col.openBlocks}}" wx:key="top" wx:for-item="ob"
-                      style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"
-                      data-date="{{col.date}}" data-top="{{ob.top}}" data-start-min="{{ob.startMin}}" data-end-min="{{ob.endMin}}" data-duration="{{ob.duration}}" data-height="{{ob.height}}" catchtap="onOpenBlockTap"></view>
+                      style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"></view>
                 <!-- Event blocks (bookings + activities) -->
                 <view class="tt-event-block {{eb.status}}" wx:for="{{col.eventBlocks}}" wx:key="top" wx:for-item="eb"
                       style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;"

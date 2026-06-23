@@ -279,46 +279,14 @@ Page({
     this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
   },
 
-  onOpenBlockTap(e) {
-    const date = e.currentTarget.dataset.date;
-    const startMin = parseInt(e.currentTarget.dataset.startMin) || 0;
-    const endMin = parseInt(e.currentTarget.dataset.endMin) || 0;
-    const duration = endMin - startMin;
-    // Account for scroll: e.detail.y is viewport-relative in px
-    const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
-    const blockTop_rpx = parseFloat(e.currentTarget.dataset.top) || 0;
-    const scrollTop_rpx = _timetableScrollTop * rpxPerPx;
-    const blockViewTop_rpx = blockTop_rpx - scrollTop_rpx;
-    const tapInBlock_rpx = (e.detail.y || 0) * rpxPerPx - blockViewTop_rpx;
-    const blockH = parseFloat(e.currentTarget.dataset.height) || 1;
-    const proportion = Math.max(0, Math.min(1, tapInBlock_rpx / blockH));
-    let minutes = startMin + proportion * duration;
-    const halfHours = Math.round(minutes / 30);
-    const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
-    const m = (halfHours % 2) * 30;
-    const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    this.setData({
-      bookingVisible: true,
-      bookingVenueId: this.data.scheduleVenueId,
-      bookingVenueName: this.data.scheduleVenueName,
-      bookingStartDate: date,
-      bookingStartDateDisplay: date,
-      bookingEndDate: date,
-      bookingEndDateDisplay: date,
-      bookingTimeStart: time,
-      bookingTimeEnd: '',
-      bookingTitle: '',
-      bookingDesc: '',
-      timelineBlocks: []
-    });
-    this.loadDailyAvailability(date, time);
-  },
-
   onTimetableOpenTap(e) {
     const date = e.currentTarget.dataset.date;
-    const tapY = e.detail.y - HEADER_H;
-    if (tapY < 0) return;
-    const halfHours = Math.round(tapY / (HOUR_HEIGHT / 2));
+    // e.detail.y is column-relative in PX. Convert to RPX for time label alignment.
+    const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
+    const tapY_rpx = e.detail.y * rpxPerPx;
+    const timeY_rpx = tapY_rpx - HEADER_H;
+    if (timeY_rpx < 0) return;
+    const halfHours = Math.round(timeY_rpx / (HOUR_HEIGHT / 2));
     const h = Math.min(Math.max(Math.floor(halfHours / 2), 0), 23);
     const m = (halfHours % 2) * 30;
     const time = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
