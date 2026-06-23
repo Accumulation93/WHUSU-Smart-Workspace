@@ -405,15 +405,12 @@ Page({
             endHours: result.endHoursAll,
             endHourIdx: 0,
             endMinIdx: 0,
-            bookingTimeStart: '',
-            bookingTimeEnd: '',
             _startDayData: dayData,
             _endDayData: dayData
           });
         } else {
           this.setData({
             timelineBlocks: [], startHours: [], endHours: [],
-            bookingTimeStart: '', bookingTimeEnd: '',
             _startDayData: null, _endDayData: null
           });
         }

@@ -734,13 +734,11 @@ Page({
           this.setData({
             adminStartHours: startHours, adminStartHourIdx: 0, adminStartMinIdx: 0,
             adminEndHours: endHoursAll, adminEndHourIdx: 0, adminEndMinIdx: 0,
-            adminBookingTimeStart: '', adminBookingTimeEnd: '',
             _adminDayData: dayData
           });
         } else {
           this.setData({
             adminStartHours: [], adminEndHours: [],
-            adminBookingTimeStart: '', adminBookingTimeEnd: '',
             _adminDayData: null
           });
         }
