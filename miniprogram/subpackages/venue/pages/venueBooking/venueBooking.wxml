@@ -1,17 +1,12 @@
 <view class="page">
-  <!-- ═══ Hero ═══ -->
+  <!-- Hero -->
   <view class="hero">
-    <view class="hero-badge">🏟️</view>
+    <view class="hero-badge">VENUE</view>
     <view class="hero-title">场地借用</view>
-    <view class="hero-subtitle">浏览可用时间 · 申请借用</view>
+    <view class="hero-subtitle">浏览可用时段，提交借用申请</view>
   </view>
 
-  <!-- ═══ Nav ═══ -->
-  <view class="header-nav">
-    <text class="header-nav-btn" bindtap="goManage">⚙️ 场地管理</text>
-  </view>
-
-  <!-- ═══ Tab bar ═══ -->
+  <!-- Tab bar -->
   <view class="venue-tab-bar">
     <view class="venue-tab {{activeTab === 'browse' ? 'active' : ''}}" data-tab="browse" bindtap="switchTab">场地浏览</view>
     <view class="venue-tab {{activeTab === 'bookings' ? 'active' : ''}}" data-tab="bookings" bindtap="switchTab">我的借用</view>
@@ -21,19 +16,21 @@
   <view wx:if="{{activeTab === 'browse'}}">
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-      <view class="section-title">可用场地 ({{venues.length}})</view>
+      <view class="section-title">可用场地</view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
-        <view class="audit-empty-state" wx:if="{{!venues.length}}"><view class="audit-empty-icon">🏟️</view><view class="audit-empty-text">暂无可用的场地</view></view>
+        <view class="empty-state" wx:if="{{!venues.length}}">
+          <view class="empty-text">暂无可用的场地</view>
+        </view>
         <view class="venue-card" wx:for="{{venues}}" wx:key="id">
-          <view class="venue-card-avatar">🏟️</view>
-          <view class="venue-card-main">
-            <view class="venue-card-name">{{item.name}}</view>
-            <view class="venue-card-loc" wx:if="{{item.location}}">📍 {{item.location}}</view>
-            <text class="venue-card-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
+          <view class="venue-avatar">{{item.name[0] || '场'}}</view>
+          <view class="venue-main">
+            <view class="venue-name">{{item.name}}</view>
+            <view class="venue-loc" wx:if="{{item.location}}">{{item.location}}</view>
+            <text class="venue-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
           </view>
-          <view class="venue-card-actions">
-            <text class="link" data-id="{{item.id}}" bindtap="openSchedule">📅 安排</text>
-            <text class="link green" data-id="{{item.id}}" bindtap="openBooking">+ 借用</text>
+          <view class="venue-actions">
+            <text class="action-btn" data-id="{{item.id}}" bindtap="openSchedule">日程</text>
+            <text class="action-btn primary" data-id="{{item.id}}" bindtap="openBooking">借用</text>
           </view>
         </view>
       </scroll-view>
@@ -44,18 +41,20 @@
   <view wx:if="{{activeTab === 'bookings'}}">
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-      <view class="section-title">我的借用记录</view>
+      <view class="section-title">借用记录</view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
-        <view class="audit-empty-state" wx:if="{{!myBookings.length}}"><view class="audit-empty-icon">📋</view><view class="audit-empty-text">暂无借用记录</view></view>
+        <view class="empty-state" wx:if="{{!myBookings.length}}">
+          <view class="empty-text">暂无借用记录</view>
+        </view>
         <view class="booking-item" wx:for="{{myBookings}}" wx:key="id">
-          <view class="booking-item-header">
+          <view class="booking-item-head">
             <view class="booking-item-title">{{item.title || '借用申请'}}</view>
-            <text class="status-chip {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
+            <text class="status-tag {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
           </view>
-          <view class="booking-item-meta">🏟️ {{item.venueName}} · 🕐 {{item.timeStart}} 至 {{item.timeEnd}}</view>
-          <view class="booking-item-meta" wx:if="{{item.approvalComment}}">📝 {{item.approvalComment}}</view>
-          <view class="booking-item-actions" wx:if="{{item.status === 'pending' || item.status === 'approved'}}">
-            <text class="link danger" data-id="{{item.id}}" bindtap="cancelMyBooking">取消</text>
+          <view class="booking-item-meta">{{item.venueName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
+          <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
+          <view class="booking-item-foot" wx:if="{{item.status === 'pending' || item.status === 'approved'}}">
+            <text class="text-btn danger" data-id="{{item.id}}" bindtap="cancelMyBooking">取消借用</text>
           </view>
         </view>
       </scroll-view>
@@ -65,11 +64,14 @@
   <!-- ═══════════════════ TIMETABLE POPUP ═══════════════════ -->
   <view class="popup-mask" wx:if="{{scheduleVisible}}" bindtap="closeSchedule">
     <view class="popup-card timetable-popup" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">📅 {{scheduleVenueName}}</view><text class="popup-close" bindtap="closeSchedule">关闭</text></view>
+      <view class="popup-header">
+        <view class="popup-title">{{scheduleVenueName}}</view>
+        <text class="popup-close" bindtap="closeSchedule">关闭</text>
+      </view>
       <view class="schedule-nav">
-        <text class="schedule-nav-btn" bindtap="onTimetablePrevWeek">◀</text>
-        <text class="schedule-week-label">{{scheduleWeekStart}} 起一周</text>
-        <text class="schedule-nav-btn" bindtap="onTimetableNextWeek">▶</text>
+        <text class="nav-arrow" bindtap="onTimetablePrevWeek">&#8249;</text>
+        <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
+        <text class="nav-arrow" bindtap="onTimetableNextWeek">&#8250;</text>
       </view>
       <scroll-view scroll-x scroll-y class="timetable-scroll">
         <view class="timetable-body">
@@ -91,12 +93,12 @@
           </view>
         </view>
       </scroll-view>
-      <view class="tt-legend-row">
+      <view class="tt-legend">
         <view class="tt-leg-item"><view class="tt-dot open"></view>空闲</view>
-        <view class="tt-leg-item"><view class="tt-dot booked"></view>已通过</view>
+        <view class="tt-leg-item"><view class="tt-dot booked"></view>已借用</view>
         <view class="tt-leg-item"><view class="tt-dot pending"></view>待审核</view>
         <view class="tt-leg-item"><view class="tt-dot activity"></view>活动</view>
-        <view class="tt-leg-item"><view class="tt-dot closed"></view>关闭</view>
+        <view class="tt-leg-item"><view class="tt-dot closed"></view>未开放</view>
       </view>
     </view>
   </view>
@@ -104,25 +106,32 @@
   <!-- Booking detail popup -->
   <view class="popup-mask" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
     <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">借用详情</view><text class="popup-close" bindtap="closeBookingDetail">关闭</text></view>
-      <view class="popup-body">
+      <view class="popup-header">
+        <view class="popup-title">借用详情</view>
+        <text class="popup-close" bindtap="closeBookingDetail">关闭</text>
+      </view>
+      <view class="detail-body">
         <view class="detail-title">{{bookingDetail.title || '借用'}}</view>
-        <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-label">借用人</text>{{bookingDetail.userName}}</view>
-        <view class="detail-row" wx:if="{{bookingDetail.userDept}}"><text class="detail-label">部门</text>{{bookingDetail.userDept}}</view>
-        <view class="detail-row" wx:if="{{bookingDetail.userIdentity}}"><text class="detail-label">身份</text>{{bookingDetail.userIdentity}}</view>
-        <view class="detail-row" wx:if="{{bookingDetail.userWorkGroup}}"><text class="detail-label">职能组</text>{{bookingDetail.userWorkGroup}}</view>
-        <view class="detail-row" wx:if="{{bookingDetail.timeStart}}"><text class="detail-label">时间</text>{{bookingDetail.timeStart}} - {{bookingDetail.timeEnd}}</view>
-        <view class="detail-row" wx:if="{{bookingDetail.status}}"><text class="detail-label">状态</text>{{statusLabels[bookingDetail.status] || bookingDetail.status}}</view>
+        <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-key">借用人</text><text class="detail-val">{{bookingDetail.userName}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userDept}}"><text class="detail-key">部门</text><text class="detail-val">{{bookingDetail.userDept}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userIdentity}}"><text class="detail-key">身份</text><text class="detail-val">{{bookingDetail.userIdentity}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userWorkGroup}}"><text class="detail-key">职能组</text><text class="detail-val">{{bookingDetail.userWorkGroup}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.timeStart}}"><text class="detail-key">时间</text><text class="detail-val">{{bookingDetail.timeStart}} — {{bookingDetail.timeEnd}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.status}}"><text class="detail-key">状态</text><text class="status-tag {{bookingDetail.status}}">{{statusLabels[bookingDetail.status] || bookingDetail.status}}</text></view>
       </view>
     </view>
   </view>
 
-  <!-- ═══════════════════ USER BOOKING FORM ═══════════════════ -->
+  <!-- ═══════════════════ BOOKING FORM ═══════════════════ -->
   <view class="popup-mask" wx:if="{{bookingVisible}}" bindtap="closeBooking">
     <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">借用申请 · {{bookingVenueName}}</view><text class="popup-close" bindtap="closeBooking">关闭</text></view>
+      <view class="popup-header">
+        <view class="popup-title">借用申请 · {{bookingVenueName}}</view>
+        <text class="popup-close" bindtap="closeBooking">关闭</text>
+      </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
-        <view class="popup-form">
+        <view class="form-body">
+          <!-- Title -->
           <view class="field">
             <view class="field-label">借用事由 <text class="required">*</text></view>
             <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="选择或输入借用事由"/>
@@ -130,46 +139,70 @@
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{bookingTitle === item.text ? 'active' : ''}}" data-text="{{item.text}}" bindtap="onSelectPurpose">{{item.text}}</text>
             </view>
           </view>
-          <view class="field"><view class="field-label">开始日期</view>
-            <picker mode="date" value="{{bookingStartDate}}" bindchange="onStartDateChange"><view class="picker-value">{{bookingStartDateDisplay || '请选择日期'}}</view></picker>
+          <!-- Start date -->
+          <view class="field">
+            <view class="field-label">开始日期</view>
+            <picker mode="date" value="{{bookingStartDate}}" bindchange="onStartDateChange">
+              <view class="picker-display">{{bookingStartDateDisplay || '请选择日期'}}</view>
+            </picker>
           </view>
           <!-- Timeline -->
           <view wx:if="{{timelineBlocks.length}}" class="timeline-wrap">
             <view class="timeline-bar">
               <view wx:for="{{timelineBlocks}}" wx:key="startMin" wx:if="{{item.width > 0}}" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
             </view>
-            <view class="timeline-ticks"><text>00:00</text><text>06:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
+            <view class="timeline-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
           </view>
-          <!-- Start time picker -->
+          <!-- Start time -->
           <view class="field">
             <view class="field-label">开始时间</view>
             <view wx:if="{{startHours.length}}" class="time-picker-row">
-              <picker range="{{startHours}}" range-key="label" value="{{startHourIdx}}" bindchange="onStartHourChange"><view class="time-picker-val">{{startHours[startHourIdx] ? startHours[startHourIdx].label : '时'}}</view></picker>
+              <picker range="{{startHours}}" range-key="label" value="{{startHourIdx}}" bindchange="onStartHourChange">
+                <view class="time-val">{{startHours[startHourIdx] ? startHours[startHourIdx].label : '时'}}</view>
+              </picker>
               <text class="time-sep">:</text>
-              <picker range="{{startMinutes}}" range-key="label" value="{{startMinIdx}}" bindchange="onStartMinChange"><view class="time-picker-val">{{startMinutes[startMinIdx] ? startMinutes[startMinIdx].label : '分'}}</view></picker>
-              <text wx:if="{{bookingTimeStart}}" class="time-display">{{bookingTimeStart}}</text>
+              <picker range="{{startMinutes}}" range-key="label" value="{{startMinIdx}}" bindchange="onStartMinChange">
+                <view class="time-val">{{startMinutes[startMinIdx] ? startMinutes[startMinIdx].label : '分'}}</view>
+              </picker>
+              <text wx:if="{{bookingTimeStart}}" class="time-result">{{bookingTimeStart}}</text>
             </view>
             <view wx:else class="field-hint">{{bookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
           </view>
-          <view class="field"><view class="field-label">结束日期</view>
-            <picker mode="date" value="{{bookingEndDate}}" bindchange="onEndDateChange"><view class="picker-value">{{bookingEndDateDisplay || '请选择日期'}}</view></picker>
+          <!-- End date -->
+          <view class="field">
+            <view class="field-label">结束日期</view>
+            <picker mode="date" value="{{bookingEndDate}}" bindchange="onEndDateChange">
+              <view class="picker-display">{{bookingEndDateDisplay || '请选择日期'}}</view>
+            </picker>
           </view>
+          <!-- End time -->
           <view class="field">
             <view class="field-label">结束时间</view>
             <view wx:if="{{endHours.length}}" class="time-picker-row">
-              <picker range="{{endHours}}" range-key="label" value="{{endHourIdx}}" bindchange="onEndHourChange"><view class="time-picker-val">{{endHours[endHourIdx] ? endHours[endHourIdx].label : '时'}}</view></picker>
+              <picker range="{{endHours}}" range-key="label" value="{{endHourIdx}}" bindchange="onEndHourChange">
+                <view class="time-val">{{endHours[endHourIdx] ? endHours[endHourIdx].label : '时'}}</view>
+              </picker>
               <text class="time-sep">:</text>
-              <picker range="{{endMinutes}}" range-key="label" value="{{endMinIdx}}" bindchange="onEndMinChange"><view class="time-picker-val">{{endMinutes[endMinIdx] ? endMinutes[endMinIdx].label : '分'}}</view></picker>
-              <text wx:if="{{bookingTimeEnd}}" class="time-display">{{bookingTimeEnd}}</text>
+              <picker range="{{endMinutes}}" range-key="label" value="{{endMinIdx}}" bindchange="onEndMinChange">
+                <view class="time-val">{{endMinutes[endMinIdx] ? endMinutes[endMinIdx].label : '分'}}</view>
+              </picker>
+              <text wx:if="{{bookingTimeEnd}}" class="time-result">{{bookingTimeEnd}}</text>
             </view>
             <view wx:else class="field-hint">请先选择开始时间</view>
           </view>
-          <view class="field"><view class="field-label">描述（可选）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="借用说明"/></view>
+          <!-- Description -->
+          <view class="field">
+            <view class="field-label">备注（选填）</view>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="补充说明"/>
+          </view>
           <button class="primary-btn" loading="{{loading}}" bindtap="submitBooking">提交借用申请</button>
         </view>
       </scroll-view>
     </view>
   </view>
 
-  <view class="page-footer"><view class="footer-name">REDSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
+  <view class="page-footer">
+    <view class="footer-name">REDSU 智慧工作台</view>
+    <view class="footer-org">武汉大学学生会</view>
+  </view>
 </view>

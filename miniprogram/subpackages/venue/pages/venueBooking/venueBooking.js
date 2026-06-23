@@ -291,9 +291,5 @@ Page({
     } catch(e) { showShortToast(getErrorText(e,'取消失败')); }
   },
 
-  goManage() {
-    wx.navigateTo({ url: '/subpackages/venue/pages/venueManage/venueManage' });
-  },
-
   noop() {}
 });
