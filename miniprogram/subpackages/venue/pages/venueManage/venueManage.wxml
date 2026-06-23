@@ -99,7 +99,7 @@
           <block wx:if="{{bookingRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
               <view class="list-main">
-                <view class="list-name">{{getRuleTypeLabel(item.rule_type)}}</view>
+                <view class="list-name">{{item._ruleTypeLabel}}</view>
                 <view class="inline-actions list-actions-below">
                   <text class="link" data-type="booking" data-id="{{item.id}}" bindtap="openRuleEditor">编辑</text>
                   <text class="link danger" data-type="booking" data-id="{{item.id}}" bindtap="deleteRule">删除</text>
@@ -160,8 +160,8 @@
           </block>
           <block wx:if="{{ruleEditorType === 'booking'}}">
             <view class="field"><view class="field-label">审批类型</view>
-              <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm.ruleType === 'admin' ? 0 : (ruleForm.ruleType === 'direct' ? 1 : (ruleForm.ruleType === 'identity' ? 2 : 3))}}" bindchange="onBookingRuleTypeChange">
-                <view class="picker-display">{{getRuleTypeLabel(ruleForm.ruleType)}}</view></picker></view>
+              <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm._ruleTypeIndex}}" bindchange="onBookingRuleTypeChange">
+                <view class="picker-display">{{ruleForm._ruleTypeLabel || '管理员审核'}}</view></picker></view>
             <view class="field" wx:if="{{ruleForm.ruleType === 'identity'}}"><view class="field-label">审核身份</view>
               <picker range="{{allIdentities}}" range-key="name" value="{{ruleForm.approverIdentityIndex}}" bindchange="onBookingIdentityChange">
                 <view class="picker-display">{{ruleForm.approverIdentityName || '请选择身份'}}</view></picker></view>

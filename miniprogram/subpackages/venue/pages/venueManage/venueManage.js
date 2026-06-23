@@ -305,8 +305,11 @@ Page({
   async loadBookingRules() {
     try {
       const res = await callFunction({ name: 'listVenueBookingRules', data: { venueId: this.data.rulesVenueId } });
-      if (res.status === 'success') this.setData({ bookingRules: res.rules || [] });
-      else console.warn('[loadBookingRules] failed:', res.message);
+      if (res.status === 'success') {
+        const labels = { admin: '管理员审核', direct: '直接通过', identity: '指定身份审核', person: '指定人员审核' };
+        const rules = (res.rules || []).map(r => ({ ...r, _ruleTypeLabel: labels[r.rule_type] || r.rule_type || '管理员审核' }));
+        this.setData({ bookingRules: rules });
+      } else console.warn('[loadBookingRules] failed:', res.message);
     } catch (e) { console.error('[loadBookingRules] error:', e); }
   },
 
@@ -334,7 +337,12 @@ Page({
           const { allIdentities, allHrPersons } = this.data;
           const idIdx = allIdentities.findIndex(ident => ident.id === r.approver_identity_id);
           const hrIdx = allHrPersons.findIndex(hr => hr.id === r.approver_hr_id);
-          form = { ...form, ruleType: r.rule_type || 'admin', approverIdentityId: r.approver_identity_id || '', approverHrId: r.approver_hr_id || '', approverIdentityName: idIdx >= 0 ? allIdentities[idIdx].name : '', approverHrName: hrIdx >= 0 ? allHrPersons[hrIdx].name : '', approverIdentityIndex: Math.max(idIdx, 0), approverHrIndex: Math.max(hrIdx, 0) };
+          const rt = r.rule_type || 'admin';
+          const labels = { admin: '管理员审核', direct: '直接通过', identity: '指定身份审核', person: '指定人员审核' };
+          const types = ['admin', 'direct', 'identity', 'person'];
+          form = { ...form, ruleType: rt, _ruleTypeLabel: labels[rt] || rt, _ruleTypeIndex: types.indexOf(rt), approverIdentityId: r.approver_identity_id || '', approverHrId: r.approver_hr_id || '', approverIdentityName: idIdx >= 0 ? allIdentities[idIdx].name : '', approverHrName: hrIdx >= 0 ? allHrPersons[hrIdx].name : '', approverIdentityIndex: Math.max(idIdx, 0), approverHrIndex: Math.max(hrIdx, 0) };
+        } else {
+          form = { ...form, _ruleTypeLabel: '管理员审核', _ruleTypeIndex: 0 };
         }
       }
     }
@@ -372,7 +380,15 @@ Page({
   onBookingRuleTypeChange(e) {
     const types = ['admin', 'direct', 'identity', 'person'];
     const idx = parseInt(e.detail.value);
-    this.setData({ 'ruleForm.ruleType': types[idx] || 'admin' });
+    const rt = types[idx] || 'admin';
+    const labels = { admin: '管理员审核', direct: '直接通过', identity: '指定身份审核', person: '指定人员审核' };
+    this.setData({
+      'ruleForm.ruleType': rt,
+      'ruleForm._ruleTypeLabel': labels[rt] || rt,
+      'ruleForm._ruleTypeIndex': idx,
+      'ruleForm.approverIdentityId': '', 'ruleForm.approverIdentityName': '', 'ruleForm.approverIdentityIndex': 0,
+      'ruleForm.approverHrId': '', 'ruleForm.approverHrName': '', 'ruleForm.approverHrIndex': 0
+    });
   },
 
   onBookingIdentityChange(e) {
