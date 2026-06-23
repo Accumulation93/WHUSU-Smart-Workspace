@@ -6,6 +6,9 @@ const BASE_MIN = 0;
 const HEADER_H = 58;
 const TEXT_OFFSET = 22;
 
+// Synchronous scroll tracking (NOT in this.data — setData is async, can't rely on it)
+let _timetableScrollTop = 0;
+
 function timeToMin(t) {
   if (!t) return 0;
   const parts = String(t).split(':');
@@ -175,7 +178,7 @@ Page({
   closeSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false }); },
 
   onTimetableScroll(e) {
-    this.setData({ timetableScrollTop: e.detail.scrollTop || 0 });
+    _timetableScrollTop = e.detail.scrollTop || 0;
   },
 
   async loadTimetable() {
@@ -284,7 +287,7 @@ Page({
     // Account for scroll: e.detail.y is viewport-relative in px
     const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
     const blockTop_rpx = parseFloat(e.currentTarget.dataset.top) || 0;
-    const scrollTop_rpx = this.data.timetableScrollTop * rpxPerPx;
+    const scrollTop_rpx = _timetableScrollTop * rpxPerPx;
     const blockViewTop_rpx = blockTop_rpx - scrollTop_rpx;
     const tapInBlock_rpx = (e.detail.y || 0) * rpxPerPx - blockViewTop_rpx;
     const blockH = parseFloat(e.currentTarget.dataset.height) || 1;

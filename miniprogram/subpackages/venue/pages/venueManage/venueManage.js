@@ -6,6 +6,9 @@ const BASE_MIN = 0;
 const HEADER_H = 58; // rpx — matches .tt-time-header height
 const TEXT_OFFSET = 22; // rpx — align block top with time-label text (centered 19rpx text in 64rpx row)
 
+// Synchronous scroll tracking (NOT in this.data — setData is async, can't rely on it)
+let _timetableScrollTop = 0;
+
 const ALL_MINUTES = [];
 for (let i = 0; i < 60; i++) {
   ALL_MINUTES.push({ value: i, label: String(i).padStart(2, '0') });
@@ -526,7 +529,7 @@ Page({
   closeVenueSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false }); },
 
   onTimetableScroll(e) {
-    this.setData({ timetableScrollTop: e.detail.scrollTop || 0 });
+    _timetableScrollTop = e.detail.scrollTop || 0;
   },
 
   async loadVenueTimetable() {
@@ -635,7 +638,7 @@ Page({
     // e.detail.y is viewport-relative in px. Account for scroll offset.
     const rpxPerPx = 750 / wx.getSystemInfoSync().windowWidth;
     const blockTop_rpx = parseFloat(e.currentTarget.dataset.top) || 0;
-    const scrollTop_rpx = this.data.timetableScrollTop * rpxPerPx;
+    const scrollTop_rpx = _timetableScrollTop * rpxPerPx;
     // Block's current viewport top (may be negative if scrolled past)
     const blockViewTop_rpx = blockTop_rpx - scrollTop_rpx;
     // Tap Y in viewport (px→rpx), then subtract block's viewport top
