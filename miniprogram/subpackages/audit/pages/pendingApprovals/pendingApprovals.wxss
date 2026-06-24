@@ -44,3 +44,8 @@
   line-height: 1;
 }
 .pending-refresh-btn:active { transform: scale(0.95); opacity: 0.85; }
+
+.audit-empty-tip {
+  font-size: 22rpx; color: #94a3b8; margin-top: 8rpx;
+  text-align: center; line-height: 1.6;
+}

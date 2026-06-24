@@ -48,7 +48,7 @@
         <view class="audit-empty-text">尚未添加审批步骤</view>
       </view>
       <view class="button-row compact-row"><button class="secondary-btn" bindtap="openAdHocStepEditor">添加步骤 (按身份)</button><button class="secondary-btn" bindtap="openPersonPicker">添加步骤 (指定人员)</button></view>
-      <view class="field" style="margin-top:16rpx;">
+      <view class="field field-mt-16">
         <view class="field-label">驳回重提交模式</view>
         <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onResubmitModeChange">
           <view class="picker-value">{{resubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
@@ -59,7 +59,7 @@
     <!-- Template step preview (person override) -->
     <view class="card" wx:if="{{createMode === 'template' && selectedTemplateId && templatePreviewSteps.length}}">
       <view class="section-title">审批步骤预览（共{{templatePreviewSteps.length}}步）</view>
-      <view class="section-desc" style="font-size:21rpx;color:#94a3b8;margin-bottom:12rpx;">默认由模板设定的人员审批，可指定具体人员覆盖</view>
+      <view class="section-desc section-desc-sm">默认由模板设定的人员审批，可指定具体人员覆盖</view>
       <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
         <view class="tpl-step-preview-main">
           <view class="tpl-step-preview-num">第{{item.sortOrder || (index + 1)}}步</view>
@@ -71,13 +71,13 @@
             <block wx:if="{{ovr.stepIndex === item.stepIndex}}">
               <text class="tpl-step-toggle {{ovr.mode === 'specific' ? 'tpl-step-toggle-active' : ''}}" data-step-index="{{item.stepIndex}}" bindtap="onTemplateStepModeToggle">{{ovr.mode === 'auto' ? '按角色' : '已指定'}}</text>
               <!-- Show selected persons when in specific mode -->
-              <view wx:if="{{ovr.mode === 'specific' && ovr.personHrNames.length}}" style="margin-top:4rpx;">
+              <view wx:if="{{ovr.mode === 'specific' && ovr.personHrNames.length}}" class="tpl-step-override-persons">
                 <view class="tpl-step-person-tag" wx:for="{{ovr.personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
                   <text>{{pname}}</text>
                   <text class="tpl-step-person-remove" data-step-index="{{item.stepIndex}}" data-hr-id="{{ovr.personHrIds[pidx]}}" bindtap="removeTemplateStepOverridePerson">×</text>
                 </view>
               </view>
-              <text wx:if="{{ovr.mode === 'specific'}}" class="audit-link-btn" style="font-size:21rpx;margin-top:4rpx;" data-step-index="{{item.stepIndex}}" bindtap="openTemplateStepPersonPicker">{{ovr.personHrIds.length ? '修改人员' : '选择人员'}}</text>
+              <text wx:if="{{ovr.mode === 'specific'}}" class="audit-link-btn tpl-step-override-link" data-step-index="{{item.stepIndex}}" bindtap="openTemplateStepPersonPicker">{{ovr.personHrIds.length ? '修改人员' : '选择人员'}}</text>
             </block>
           </block>
         </view>
@@ -95,7 +95,7 @@
         <view class="field-label">描述</view>
         <textarea class="field-textarea" auto-height maxlength="-1" value="{{createDesc}}" bindinput="onDescInput" placeholder="可选：填写审核描述/说明" ></textarea>
       </view>
-      <view class="section-title" style="margin-top:16rpx;">附件 ({{uploadedFiles.length}}份)</view>
+      <view class="section-title field-mt-16">附件 ({{uploadedFiles.length}}份)</view>
       <view class="file-attach-item" wx:for="{{uploadedFiles}}" wx:key="fileId">
         <view class="file-attach-icon">📎</view>
         <view class="file-attach-name">{{item.fileName}}</view>
@@ -174,7 +174,7 @@
         </scroll-view>
 
         <!-- Filters -->
-        <view class="list-title" style="margin-top:8rpx;">可选人员</view>
+        <view class="list-title field-mt-8">可选人员</view>
         <view class="rule-filter-row">
           <view class="rule-filter-field">
             <view class="field-label">部门</view>
@@ -195,7 +195,7 @@
             </picker>
           </view>
         </view>
-        <view class="field" style="margin-bottom:8rpx;">
+        <view class="field field-mb-8">
           <input class="field-input" placeholder="搜索姓名/学号" value="{{personPickerKeyword}}" bindinput="onPersonPickerSearch"/>
         </view>
 
@@ -215,7 +215,7 @@
         </scroll-view>
 
         <!-- Action type -->
-        <view class="field" style="margin-top:8rpx;">
+        <view class="field field-mt-8">
           <view class="field-label">审批动作</view>
           <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onPersonPickerActionTypeChange">
             <view class="picker-value">{{personPickerStepActionType === 'pass' ? '仅通过' : (personPickerStepActionType === 'sign' ? '签字' : (personPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
@@ -256,7 +256,7 @@
           </view>
         </view>
         <!-- Status context hint — 6 states clearly explained -->
-        <view style="margin-top:16rpx;padding:16rpx 18rpx;border-radius:16rpx;font-size:23rpx;line-height:1.6;color:#64748b;background:rgba(248,251,255,0.7);border:1rpx solid rgba(226,232,240,0.45);">
+        <view class="status-hint-box">
           <block wx:if="{{submission.status === 'draft'}}">📝 草稿 — 尚未提交，完善信息后点击提交即可发起审批。</block>
           <block wx:elif="{{submission.status === 'pending'}}">⏳ 待提交 — 审核尚未进入审批流程，点击下方「重新提交」启动。</block>
           <block wx:elif="{{submission.status === 'in_progress'}}">🔄 审核中 — 当前第{{submission.currentStepIndex || 1}}步正在等待审批人处理。</block>
@@ -267,34 +267,34 @@
       </view>
 
       <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
-      <view class="card" wx:if="{{!editMode && submission.status === 'in_progress' && activeApprovalStepId && userIsApprover}}" style="border:2rpx solid #3b82f6;background:#eff6ff;">
-        <view class="section-title" style="color:#1d4ed8;">📋 审批操作</view>
-        <view style="margin-bottom:6rpx;font-size:23rpx;color:#475569;">
+      <view class="card approval-card" wx:if="{{!editMode && submission.status === 'in_progress' && activeApprovalStepId && userIsApprover}}">
+        <view class="section-title approval-card-title">📋 审批操作</view>
+        <view class="approval-step-info">
           第{{activeApprovalStep.sortOrder}}步 · {{activeApprovalStep.actionLabel}}
-          <text wx:if="{{activeApprovalStep.round > 1}}" style="color:#94a3b8;">（第{{activeApprovalStep.round}}轮）</text>
+          <text wx:if="{{activeApprovalStep.round > 1}}" class="approval-round-note">（第{{activeApprovalStep.round}}轮）</text>
         </view>
-        <view style="margin-bottom:12rpx;font-size:22rpx;color:#64748b;">{{activeApprovalStep.approverDesc}}</view>
+        <view class="approval-step-desc">{{activeApprovalStep.approverDesc}}</view>
 
         <!-- Signature / Stamp section (hidden for pass-only steps) -->
-        <view wx:if="{{activeApprovalStep.actionType !== 'pass'}}" style="margin-bottom:16rpx;padding:12rpx;border:1rpx solid #dbeafe;border-radius:12rpx;background:#f8faff;">
-          <view style="font-size:23rpx;font-weight:600;color:#1d4ed8;margin-bottom:8rpx;">
+        <view wx:if="{{activeApprovalStep.actionType !== 'pass'}}" class="approval-sig-section">
+          <view class="approval-sig-header">
             {{activeApprovalStep.actionType === 'both' ? '✍️ 签名与盖章' : (activeApprovalStep.actionType === 'sign' ? '✍️ 签名' : '🔴 盖章')}}
           </view>
 
           <!-- File list -->
-          <view wx:for="{{files}}" wx:key="id" wx:for-item="f" style="margin-bottom:10rpx;padding:10rpx;border:1rpx solid #e2e8f0;border-radius:10rpx;background:#fff;">
-            <view style="display:flex;align-items:center;justify-content:space-between;">
-              <view style="font-size:22rpx;color:#334155;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 {{f.fileName}}</view>
-              <view style="display:flex;gap:4rpx;flex-shrink:0;margin-left:8rpx;">
-                <text style="font-size:20rpx;color:#64748b;padding:4rpx 10rpx;border:1rpx solid #94a3b8;border-radius:20rpx;"
+          <view wx:for="{{files}}" wx:key="id" wx:for-item="f" class="approval-file-item">
+            <view class="approval-file-row">
+              <view class="approval-file-name">📎 {{f.fileName}}</view>
+              <view class="approval-file-actions">
+                <text class="approval-file-btn-preview"
                       data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
                       bindtap="previewFile">预览</text>
                 <text wx:if="{{activeApprovalStep.actionType === 'sign' || activeApprovalStep.actionType === 'both'}}"
-                      style="font-size:20rpx;color:#3b82f6;padding:4rpx 10rpx;border:1rpx solid #3b82f6;border-radius:20rpx;"
+                      class="approval-file-btn-sign"
                       data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
                       bindtap="addSignatureForFile">签名</text>
                 <text wx:if="{{activeApprovalStep.actionType === 'estamp' || activeApprovalStep.actionType === 'both'}}"
-                      style="font-size:20rpx;color:#8b5cf6;padding:4rpx 10rpx;border:1rpx solid #8b5cf6;border-radius:20rpx;"
+                      class="approval-file-btn-stamp"
                       data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
                       bindtap="addStampForFile">盖章</text>
               </view>
@@ -302,56 +302,52 @@
 
             <!-- Current sigs/stamps on this file -->
             <view wx:for="{{pendingSignatures}}" wx:for-item="sig" wx:key="_idx" wx:if="{{sig.fileId === f.id}}"
-                  style="display:flex;align-items:center;justify-content:space-between;margin-top:6rpx;padding:6rpx 10rpx;background:#f1f5f9;border-radius:8rpx;">
-              <view style="display:flex;align-items:center;gap:6rpx;">
-                <image wx:if="{{sig.imageData}}" src="{{sig.imageData}}" mode="aspectFit" style="width:36rpx;height:36rpx;border-radius:4rpx;border:1rpx solid #cbd5e1;" />
-                <text style="font-size:21rpx;color:#475569;">{{sig.signatureType === 'stamp' ? (sig.stampName || '印章') : '签名'}}</text>
-                <text style="font-size:19rpx;color:#94a3b8;">({{sig.positionX ? Math.round(sig.positionX * 100) : 50}}%, {{sig.positionY ? Math.round(sig.positionY * 100) : 50}}%{{sig.page && sig.page > 1 ? ', 第' + sig.page + '页' : ''}})</text>
+                  class="approval-sig-item">
+              <view class="approval-sig-info">
+                <image wx:if="{{sig.imageData}}" src="{{sig.imageData}}" mode="aspectFit" class="approval-sig-thumb" />
+                <text class="approval-sig-name">{{sig.signatureType === 'stamp' ? (sig.stampName || '印章') : '签名'}}</text>
+                <text class="approval-sig-pos">({{sig.positionX ? Math.round(sig.positionX * 100) : 50}}%, {{sig.positionY ? Math.round(sig.positionY * 100) : 50}}%{{sig.page && sig.page > 1 ? ', 第' + sig.page + '页' : ''}})</text>
               </view>
-              <view style="display:flex;gap:8rpx;">
-                <text style="font-size:19rpx;color:#3b82f6;" data-sig-idx="{{index}}" bindtap="openPlacement">调整位置</text>
-                <text style="font-size:19rpx;color:#ef4444;" data-sig-idx="{{index}}" bindtap="removePendingSign">移除</text>
+              <view class="approval-sig-actions">
+                <text class="approval-sig-action-adjust" data-sig-idx="{{index}}" bindtap="openPlacement">调整位置</text>
+                <text class="approval-sig-action-remove" data-sig-idx="{{index}}" bindtap="removePendingSign">移除</text>
               </view>
             </view>
           </view>
 
           <!-- Warning for incomplete sign+stamp -->
           <view wx:if="{{activeApprovalStep.actionType === 'both' && approvalWarning}}"
-                style="padding:8rpx 12rpx;background:#fef3c7;border-radius:8rpx;font-size:21rpx;color:#d97706;">
+                class="approval-warning">
             ⚠️ {{approvalWarning}}
           </view>
         </view>
 
         <!-- Approval comment -->
-        <view style="margin-bottom:8rpx;">
-          <view style="font-size:23rpx;font-weight:600;color:#475569;margin-bottom:6rpx;">审批意见（可选）</view>
-          <textarea style="width:100%;min-height:100rpx;padding:12rpx;border:1rpx solid #d1d5db;border-radius:10rpx;font-size:23rpx;box-sizing:border-box;" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="填写审批通过时的意见（可选）"></textarea>
-        </view>
+        <view class="approval-field-label">审批意见（可选）</view>
+          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="填写审批通过时的意见（可选）"></textarea>
 
         <!-- Rejection reason -->
-        <view style="margin-bottom:12rpx;">
-          <view style="font-size:23rpx;font-weight:600;color:#475569;margin-bottom:6rpx;">驳回理由</view>
-          <textarea style="width:100%;min-height:100rpx;padding:12rpx;border:1rpx solid #d1d5db;border-radius:10rpx;font-size:23rpx;box-sizing:border-box;" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="填写驳回理由（驳回时必填）"></textarea>
-        </view>
+        <view class="approval-field-label">驳回理由</view>
+          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="填写驳回理由（驳回时必填）"></textarea>
 
         <!-- Designate next-step approvers (optional) -->
-        <view style="margin-bottom:12rpx;">
-          <view style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6rpx;">
-            <view style="font-size:23rpx;font-weight:600;color:#475569;">指定下一步审批人（可选）</view>
-            <text class="audit-link-btn" style="font-size:21rpx;" bindtap="openDesignateNextPersonPicker">{{designatedNextPersons.length ? '修改' : '选择'}}</text>
+        <view class="approval-designate-row">
+          <view class="approval-designate-header">
+            <view class="approval-designate-label">指定下一步审批人（可选）</view>
+            <text class="audit-link-btn approval-designate-link" bindtap="openDesignateNextPersonPicker">{{designatedNextPersons.length ? '修改' : '选择'}}</text>
           </view>
-          <view wx:if="{{!designatedNextPersons.length}}" style="font-size:21rpx;color:#94a3b8;">不指定则由流程规定的审批人审批</view>
-          <view wx:for="{{designatedNextPersons}}" wx:key="id" style="display:inline-flex;align-items:center;margin:2rpx 6rpx 2rpx 0;padding:2rpx 10rpx;background:#dbeafe;border-radius:20rpx;font-size:20rpx;color:#1d4ed8;">
+          <view wx:if="{{!designatedNextPersons.length}}" class="approval-designate-empty">不指定则由流程规定的审批人审批</view>
+          <view wx:for="{{designatedNextPersons}}" wx:key="id" class="approval-designate-tag">
             {{item.name}}
-            <text data-hr-id="{{item.id}}" bindtap="removeDesignatedNextPerson" style="margin-left:4rpx;color:#ef4444;">×</text>
+            <text data-hr-id="{{item.id}}" bindtap="removeDesignatedNextPerson" class="approval-designate-remove">×</text>
           </view>
-          <view wx:if="{{nextStepInfo}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">下一步：第{{nextStepInfo.sortOrder}}步 · {{nextStepInfo.approverDesc}}</view>
+          <view wx:if="{{nextStepInfo}}" class="approval-next-step-info">下一步：第{{nextStepInfo.sortOrder}}步 · {{nextStepInfo.approverDesc}}</view>
         </view>
 
         <!-- Action buttons -->
         <view class="button-row">
-          <button class="primary-btn" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="approve" style="flex:1;background:#10b981;border-color:#10b981;">✓ 通过</button>
-          <button class="secondary-btn danger-btn" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="reject" style="flex:1;">✗ 驳回</button>
+          <button class="primary-btn approval-btn-approve" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="approve">✓ 通过</button>
+          <button class="secondary-btn danger-btn approval-btn-reject" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="reject">✗ 驳回</button>
         </view>
       </view>
 
@@ -361,7 +357,7 @@
 
         <!-- Flow progress summary -->
         <view class="audit-flow-summary">
-          <text style="font-size:23rpx;font-weight:600;color:#475569;white-space:nowrap;">进度</text>
+          <text class="flow-summary-text">进度</text>
           <view class="audit-flow-progress-bar">
             <view class="audit-flow-progress-fill" style="width:{{flowProgressPercent}}%;"></view>
           </view>
@@ -389,19 +385,19 @@
                 <view class="flow-lifecycle-label">{{node.label}}<text class="flow-lifecycle-round" wx:if="{{node.subLabel}}"> {{node.subLabel}}</text></view>
                 <view class="flow-lifecycle-time" wx:if="{{node.time}}">{{node.time}}</view>
                 <!-- Expand indicator -->
-                <view style="font-size:19rpx;color:#94a3b8;margin-top:2rpx;">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                <view class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
                 <!-- Expanded detail -->
-                <view wx:if="{{expandedNodeKey === node._key}}" style="margin-top:8rpx;padding:10rpx 12rpx;background:#f8fafc;border-radius:8rpx;">
-                  <view style="font-size:21rpx;color:#64748b;line-height:1.6;">
-                    <text style="font-weight:600;">操作人：</text>{{node.operatorName || '系统'}}
+                <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
+                  <view class="flow-detail-text">
+                    <text class="flow-detail-label">操作人：</text>{{node.operatorName || '系统'}}
                   </view>
-                  <view wx:if="{{node.comment}}" style="font-size:21rpx;color:#64748b;margin-top:4rpx;line-height:1.6;">
-                    <text style="font-weight:600;">{{node.event === 'approve' ? '审批意见：' : (node.event === 'reject' ? '驳回理由：' : '备注：')}}</text>{{node.comment}}
+                  <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text">
+                    <text class="flow-detail-label">{{node.event === 'approve' ? '审批意见：' : (node.event === 'reject' ? '驳回理由：' : '备注：')}}</text>{{node.comment}}
                   </view>
-                  <view wx:if="{{node.time}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">时间：{{node.time}}</view>
+                  <view wx:if="{{node.time}}" class="flow-detail-meta">时间：{{node.time}}</view>
                 </view>
                 <!-- Collapsed: show comment inline for approve/reject -->
-                <view wx:if="{{expandedNodeKey !== node._key && node.comment && (node.event === 'approve' || node.event === 'reject')}}" style="margin-top:2rpx;font-size:20rpx;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400rpx;">{{node.event === 'approve' ? '💬 ' : '❌ '}}{{node.comment}}</view>
+                <view wx:if="{{expandedNodeKey !== node._key && node.comment && (node.event === 'approve' || node.event === 'reject')}}" class="flow-collapsed-comment">{{node.event === 'approve' ? '💬 ' : '❌ '}}{{node.comment}}</view>
               </view>
             </view>
 
@@ -425,32 +421,32 @@
                   {{node.approverName}} · {{node.processedAt || ''}}
                 </view>
                 <!-- Expand indicator -->
-                <view style="font-size:19rpx;color:#94a3b8;margin-top:2rpx;">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                <view class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
 
                 <!-- Expanded detail section -->
-                <view wx:if="{{expandedNodeKey === node._key}}" style="margin-top:8rpx;padding:10rpx 12rpx;background:#f8fafc;border-radius:8rpx;">
+                <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <!-- Processed info -->
-                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" style="font-size:21rpx;color:#475569;line-height:1.6;">
-                    <text style="font-weight:600;">处理人：</text>{{node.approverName || '未知'}}
+                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-text">
+                    <text class="flow-detail-label">处理人：</text>{{node.approverName || '未知'}}
                   </view>
-                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">
+                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     处理时间：{{node.processedAt || ''}}
                   </view>
                   <!-- Approval comment -->
-                  <view wx:if="{{node.comment && node.flowIcon === 'check'}}" style="font-size:21rpx;color:#475569;margin-top:6rpx;line-height:1.6;">
-                    <text style="font-weight:600;">💬 审批意见：</text>{{node.comment}}
+                  <view wx:if="{{node.comment && node.flowIcon === 'check'}}" class="flow-detail-comment">
+                    <text class="flow-detail-label">💬 审批意见：</text>{{node.comment}}
                   </view>
                   <!-- Rejection reason -->
-                  <view wx:if="{{node.rejectionReason}}" style="font-size:21rpx;color:#dc2626;margin-top:6rpx;line-height:1.6;">
-                    <text style="font-weight:600;">❌ 驳回理由：</text>{{node.rejectionReason}}
+                  <view wx:if="{{node.rejectionReason}}" class="flow-detail-reject">
+                    <text class="flow-detail-label">❌ 驳回理由：</text>{{node.rejectionReason}}
                   </view>
                   <!-- Conditions detail (multi-condition OR logic) -->
-                  <view wx:if="{{node.conditionsDisplay && node.conditionsDisplay.length}}" style="margin-top:6rpx;">
-                    <view style="font-size:20rpx;font-weight:600;color:#64748b;">审批条件：</view>
-                    <view wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">{{condLine}}</view>
+                  <view wx:if="{{node.conditionsDisplay && node.conditionsDisplay.length}}" class="flow-detail-conditions">
+                    <view class="flow-detail-conditions-label">审批条件：</view>
+                    <view wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" class="flow-detail-cond-line">{{condLine}}</view>
                   </view>
                   <!-- Round info -->
-                  <view wx:if="{{node.round > 1}}" style="font-size:20rpx;color:#94a3b8;margin-top:4rpx;">第{{node.round}}轮审批</view>
+                  <view wx:if="{{node.round > 1}}" class="flow-detail-round">第{{node.round}}轮审批</view>
                 </view>
 
                 <!-- Approval action buttons (only for active step + authorized user) -->
@@ -464,13 +460,13 @@
           </block>
         </view>
         <!-- Diagnostic: step count from server -->
-        <view wx:if="{{rawStepCount === 0 && submission.status !== 'draft' && submission.status !== 'pending'}}" style="margin:12rpx 0;padding:16rpx 20rpx;border-radius:16rpx;background:rgba(254,242,242,0.6);border:1rpx solid rgba(252,165,165,0.4);">
-          <text style="font-size:21rpx;color:#dc2626;">⚠ 服务器返回了 0 个审批步骤。请检查：1) 模板是否已配置审批步骤 2) 服务器日志</text>
+        <view wx:if="{{rawStepCount === 0 && submission.status !== 'draft' && submission.status !== 'pending'}}" class="flow-diagnostic">
+          <text class="flow-diagnostic-text">⚠ 服务器返回了 0 个审批步骤。请检查：1) 模板是否已配置审批步骤 2) 服务器日志</text>
         </view>
 
         <!-- Empty state for draft/pending with no events -->
-        <view wx:if="{{!flowTimeline.length && (submission.status === 'draft' || submission.status === 'pending')}}" style="margin:12rpx 0;padding:16rpx 20rpx;border-radius:16rpx;background:rgba(248,251,255,0.7);border:1rpx solid rgba(226,232,240,0.45);">
-          <text style="font-size:23rpx;color:#64748b;">{{submission.status === 'draft' ? '📝 草稿 — 提交后将开始审批流程' : '⏳ 待提交 — 点击下方「重新提交」启动审批流程'}}</text>
+        <view wx:if="{{!flowTimeline.length && (submission.status === 'draft' || submission.status === 'pending')}}" class="flow-empty-draft">
+          <text class="flow-empty-draft-text">{{submission.status === 'draft' ? '📝 草稿 — 提交后将开始审批流程' : '⏳ 待提交 — 点击下方「重新提交」启动审批流程'}}</text>
         </view>
 
         <!-- Empty state when no timeline -->
@@ -503,7 +499,7 @@
       <!-- Description display (view mode) -->
       <view class="card" wx:if="{{submission.description}}">
         <view class="section-title">描述</view>
-        <view style="font-size:24rpx;color:#475569;line-height:1.6;white-space:pre-wrap;">{{submission.description}}</view>
+        <view class="view-desc-text">{{submission.description}}</view>
       </view>
 
       <!-- Actions — submitter-only buttons -->
@@ -520,7 +516,7 @@
       <view wx:if="{{editMode}}">
         <view class="card">
           <view class="section-title">修改审批</view>
-          <view class="section-desc" style="font-size:21rpx;color:#94a3b8;margin-bottom:12rpx;">修改审批类型、审批人和附件，保存后即可重新提交</view>
+          <view class="section-desc section-desc-sm">修改审批类型、审批人和附件，保存后即可重新提交</view>
         </view>
 
         <view class="card">
@@ -552,7 +548,7 @@
               <view class="ad-hoc-step-title">第{{index + 1}}步 · {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
               <view class="ad-hoc-step-desc">{{item.approverDesc || '未配置审批人'}}</view>
               <!-- Show individual condition lines for OR logic -->
-              <view wx:for="{{item.stepConditionsDisplay}}" wx:for-item="cond" wx:key="*this" wx:if="{{item.stepConditionsDisplay.length > 1}}" style="font-size:20rpx;color:#94a3b8;margin-top:2rpx;">{{cond}}</view>
+              <view wx:for="{{item.stepConditionsDisplay}}" wx:for-item="cond" wx:key="*this" wx:if="{{item.stepConditionsDisplay.length > 1}}" class="edit-cond-line">{{cond}}</view>
             </view>
             <view class="list-actions"><text class="audit-link-btn audit-link-danger" data-index="{{index}}" bindtap="removeEditStep">移除</text></view>
           </view>
@@ -563,7 +559,7 @@
             <button class="secondary-btn" bindtap="openEditStepEditor">添加步骤 (按身份)</button>
             <button class="secondary-btn" bindtap="openEditPersonPicker">添加步骤 (指定人员)</button>
           </view>
-          <view class="field" style="margin-top:16rpx;">
+          <view class="field field-mt-16">
             <view class="field-label">驳回重提交模式</view>
             <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onEditResubmitModeChange">
               <view class="picker-value">{{editResubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
@@ -579,7 +575,7 @@
             <view class="file-attach-name">{{item.fileName}}</view>
             <view class="list-actions"><text class="audit-link-btn audit-link-danger" data-index="{{index}}" bindtap="removeEditFile">移除</text></view>
           </view>
-          <view class="section-title" style="margin-top:16rpx;" wx:if="{{editNewFiles.length}}">新增附件 ({{editNewFiles.length}}份)</view>
+          <view class="section-title field-mt-16" wx:if="{{editNewFiles.length}}">新增附件 ({{editNewFiles.length}}份)</view>
           <view class="file-attach-item" wx:for="{{editNewFiles}}" wx:key="fileId">
             <view class="file-attach-icon">📎</view>
             <view class="file-attach-name">{{item.fileName}}</view>
@@ -659,13 +655,13 @@
             </view>
             <view class="empty-inline" wx:if="{{!editPersonPickerSelectedList.length}}">尚未选择任何人</view>
           </scroll-view>
-          <view class="list-title" style="margin-top:8rpx;">可选人员</view>
+          <view class="list-title field-mt-8">可选人员</view>
           <view class="rule-filter-row">
             <view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{personPickerDeptOpts}}" bindchange="onEditPersonPickerDeptChange"><view class="picker-value compact-picker-value">{{editPersonPickerDept}}</view></picker></view>
             <view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{personPickerIdentOpts}}" bindchange="onEditPersonPickerIdentChange"><view class="picker-value compact-picker-value">{{editPersonPickerIdent}}</view></picker></view>
             <view class="rule-filter-field"><view class="field-label">职能组</view><picker range="{{personPickerWgOpts}}" bindchange="onEditPersonPickerWgChange"><view class="picker-value compact-picker-value">{{editPersonPickerWg}}</view></picker></view>
           </view>
-          <view class="field" style="margin-bottom:8rpx;"><input class="field-input" placeholder="搜索姓名/学号" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
+          <view class="field field-mb-8"><input class="field-input" placeholder="搜索姓名/学号" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
             <view wx:if="{{!editPersonPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
             <view class="audit-person-item" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="onEditPersonToggle">
@@ -676,7 +672,7 @@
               </view>
             </view>
           </scroll-view>
-          <view class="field" style="margin-top:8rpx;">
+          <view class="field field-mt-8">
             <view class="field-label">审批动作</view>
             <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onEditPersonPickerActionTypeChange">
               <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? '仅通过' : (editPersonPickerStepActionType === 'sign' ? '签字' : (editPersonPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
@@ -700,15 +696,15 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-popup-form">
-          <view wx:if="{{!availableStamps.length}}" style="text-align:center;padding:40rpx;color:#94a3b8;">暂无可用的印章</view>
+          <view wx:if="{{!availableStamps.length}}" class="stamp-empty">暂无可用的印章</view>
           <view wx:for="{{availableStamps}}" wx:key="id"
-                style="display:flex;align-items:center;gap:16rpx;padding:16rpx;margin-bottom:8rpx;border:1rpx solid #e2e8f0;border-radius:12rpx;"
+                class="stamp-picker-item"
                 data-stamp-id="{{item.id}}" data-stamp-name="{{item.name}}" data-stamp-image="{{item.imageData}}"
                 bindtap="onStampSelect">
-            <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="aspectFit" style="width:60rpx;height:60rpx;border-radius:8rpx;border:1rpx solid #e2e8f0;" />
-            <view wx:else style="width:60rpx;height:60rpx;border-radius:8rpx;background:#f1f5f9;display:flex;align-items:center;justify-content:center;">🔴</view>
-            <text style="font-size:25rpx;color:#334155;flex:1;">{{item.name}}</text>
-            <text style="font-size:20rpx;color:#3b82f6;">选择</text>
+            <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="aspectFit" class="stamp-picker-thumb" />
+            <view wx:else class="stamp-picker-placeholder">🔴</view>
+            <text class="stamp-picker-name">{{item.name}}</text>
+            <text class="stamp-picker-select">选择</text>
           </view>
         </view>
       </scroll-view>
@@ -724,21 +720,21 @@
       </view>
 
       <!-- Hint -->
-      <view style="padding:8rpx 16rpx;font-size:20rpx;color:#64748b;">
+      <view class="placement-hint">
         点击文件区域放置{{placementType === 'stamp' ? '印章' : '签名'}}，可多次点击调整位置
-        <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}" style="color:#3b82f6;">
+        <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}" class="placement-hint-page">
           · 当前：第{{placementCurrentPage}}页
         </text>
       </view>
 
       <!-- Page selector for PDFs -->
       <view wx:if="{{placementFileMime === 'application/pdf' && placementTotalPages > 1}}"
-            style="display:flex;align-items:center;justify-content:center;gap:16rpx;padding:8rpx 16rpx;">
-        <text style="font-size:22rpx;color:#3b82f6;padding:6rpx 16rpx;border:1rpx solid #3b82f6;border-radius:20rpx;"
+            class="placement-page-selector">
+        <text class="placement-page-btn"
               data-dir="prev" bindtap="onPlacementPageChange"
               wx:if="{{placementCurrentPage > 1}}">◀ 上一页</text>
-        <text style="font-size:23rpx;color:#475569;font-weight:600;">第 {{placementCurrentPage}} / {{placementTotalPages}} 页</text>
-        <text style="font-size:22rpx;color:#3b82f6;padding:6rpx 16rpx;border:1rpx solid #3b82f6;border-radius:20rpx;"
+        <text class="placement-page-num">第 {{placementCurrentPage}} / {{placementTotalPages}} 页</text>
+        <text class="placement-page-btn"
               data-dir="next" bindtap="onPlacementPageChange"
               wx:if="{{placementCurrentPage < placementTotalPages}}">下一页 ▶</text>
       </view>
@@ -746,18 +742,18 @@
       <!-- Placement canvas — scrollable to show full file -->
       <scroll-view id="placementCanvas"
             scroll-y="{{true}}"
-            style="position:relative;width:100%;height:700rpx;background:#f8fafc;border:2rpx dashed #cbd5e1;border-radius:8rpx;margin:0 16rpx;box-sizing:border-box;"
+            class="placement-canvas"
             bindtap="onPlacementTap">
         <!-- Loading indicator -->
         <view wx:if="{{placementLoading}}"
-              style="display:flex;align-items:center;justify-content:center;height:700rpx;color:#94a3b8;font-size:23rpx;">
+              class="placement-loading">
           ⏳ 加载文件预览中...
         </view>
         <!-- File preview (image or rendered PDF page) -->
         <block wx:elif="{{placementFileImage}}">
-          <view style="position:relative;display:inline-block;width:100%;">
+          <view class="placement-img-wrap">
             <image id="placementPreviewImage" src="{{placementFileImage}}" mode="widthFix"
-                   style="width:100%;display:block;" />
+                   class="placement-preview-img" />
             <!-- Overlaid signatures/stamps -->
             <block wx:for="{{placementItems}}" wx:key="dispIdx" wx:for-item="item">
               <block wx:if="{{!placementFileMime || placementFileMime.indexOf('pdf') < 0 || item.page === placementCurrentPage}}">
@@ -772,24 +768,24 @@
           </view>
         </block>
         <!-- Fallback: no preview available -->
-        <view wx:else style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:700rpx;color:#94a3b8;font-size:25rpx;">
-          <view style="font-size:48rpx;margin-bottom:12rpx;">📄</view>
+        <view wx:else class="placement-fallback">
+          <view class="placement-fallback-icon">📄</view>
           <view>{{placementFileName}}</view>
-          <view style="font-size:20rpx;margin-top:8rpx;">
+          <view class="placement-fallback-sub">
             {{placementFileMime === 'application/pdf' ? 'PDF文件 · 点击区域放置签名 · 第' + placementCurrentPage + '页' : '点击区域放置' + (placementType === 'stamp' ? '印章' : '签名')}}
           </view>
         </view>
       </scroll-view>
 
       <!-- Position info -->
-      <view wx:if="{{placementPreviewX >= 0 && placementPosText}}" style="padding:8rpx 16rpx;font-size:20rpx;color:#64748b;text-align:center;">
+      <view wx:if="{{placementPreviewX >= 0 && placementPosText}}" class="placement-pos-info">
         位置：{{placementPosText}}
         <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}"> · 第{{placementCurrentPage}}页</text>
       </view>
 
-      <view style="padding:16rpx;display:flex;gap:12rpx;">
-        <button class="secondary-btn" style="flex:1;" bindtap="closePlacement">取消</button>
-        <button class="primary-btn" style="flex:1;" bindtap="confirmPlacement">保存位置</button>
+      <view class="placement-actions">
+        <button class="secondary-btn placement-btn-cancel" bindtap="closePlacement">取消</button>
+        <button class="primary-btn placement-btn-save" bindtap="confirmPlacement">保存位置</button>
       </view>
     </view>
   </view>
@@ -816,7 +812,7 @@
             <view class="button-row compact-row">
               <button class="secondary-btn" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" bindtap="openSignaturePad">签在 {{item.fileName}}</button>
             </view>
-            <view class="field" style="margin-top:12rpx;">
+            <view class="field approval-dialog-field-mt">
               <view class="field-label">审批意见</view>
               <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="可选：填写审批意见" />
             </view>
@@ -847,53 +843,53 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-popup-form">
-          <view style="font-size:22rpx;color:#64748b;margin-bottom:12rpx;">{{sigSourceFileName}}</view>
+          <view class="sig-source-file-name">{{sigSourceFileName}}</view>
 
           <!-- Saved Signatures -->
-          <view wx:if="{{mySignatures.length}}" style="margin-bottom:16rpx;">
-            <view style="font-size:24rpx;font-weight:600;color:#334155;margin-bottom:8rpx;">我的签名</view>
+          <view wx:if="{{mySignatures.length}}" class="sig-source-section">
+            <view class="sig-source-section-title">我的签名</view>
             <view wx:for="{{mySignatures}}" wx:key="id"
-                  style="display:flex;align-items:center;gap:16rpx;padding:14rpx 16rpx;margin-bottom:8rpx;border:1rpx solid #e2e8f0;border-radius:12rpx;background:#fff;"
+                  class="sig-source-item"
                   data-sig-id="{{item.id}}" data-sig-image="{{item.imageData}}"
                   bindtap="onSelectSavedSignature">
               <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="aspectFit"
-                     style="width:80rpx;height:60rpx;border-radius:8rpx;border:1rpx solid #e2e8f0;background:#f8fafc;" />
-              <view wx:else style="width:80rpx;height:60rpx;border-radius:8rpx;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:30rpx;">✍️</view>
-              <view style="flex:1;">
-                <view style="font-size:25rpx;color:#334155;">{{item.name}}</view>
-                <view wx:if="{{item.isDefault}}" style="font-size:20rpx;color:#3b82f6;">默认签名</view>
+                     class="sig-source-thumb" />
+              <view wx:else class="sig-source-thumb-placeholder">✍️</view>
+              <view class="sig-source-item-info">
+                <view class="sig-source-item-name">{{item.name}}</view>
+                <view wx:if="{{item.isDefault}}" class="sig-source-default-badge">默认签名</view>
               </view>
-              <text style="font-size:22rpx;color:#3b82f6;">使用</text>
+              <text class="sig-source-use-btn">使用</text>
             </view>
           </view>
 
           <!-- No saved signatures -->
-          <view wx:if="{{!mySignatures.length}}" style="text-align:center;padding:20rpx;color:#94a3b8;font-size:23rpx;">
+          <view wx:if="{{!mySignatures.length}}" class="sig-source-empty">
             暂无已保存的签名
           </view>
 
           <!-- Divider -->
-          <view style="display:flex;align-items:center;gap:12rpx;margin:16rpx 0;">
-            <view style="flex:1;height:1rpx;background:#e2e8f0;"></view>
-            <text style="font-size:21rpx;color:#94a3b8;">或</text>
-            <view style="flex:1;height:1rpx;background:#e2e8f0;"></view>
+          <view class="sig-source-divider">
+            <view class="sig-source-divider-line"></view>
+            <text class="sig-source-divider-text">或</text>
+            <view class="sig-source-divider-line"></view>
           </view>
 
           <!-- Draw new signature -->
-          <view style="margin-bottom:12rpx;">
-            <view style="font-size:24rpx;font-weight:600;color:#334155;margin-bottom:8rpx;">手写新签名</view>
+          <view class="sig-source-draw-section">
+            <view class="sig-source-draw-title">手写新签名</view>
             <!-- Save option -->
-            <view style="display:flex;align-items:center;gap:8rpx;margin-bottom:8rpx;" bindtap="onSigSaveToggle">
+            <view class="sig-source-save-row" bindtap="onSigSaveToggle">
               <view style="width:36rpx;height:36rpx;border-radius:6rpx;border:2rpx solid {{sigSaveNew ? '#3b82f6' : '#cbd5e1'}};background:{{sigSaveNew ? '#3b82f6' : '#fff'}};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                <text wx:if="{{sigSaveNew}}" style="color:#fff;font-size:22rpx;">✓</text>
+                <text wx:if="{{sigSaveNew}}" class="sig-source-check-icon">✓</text>
               </view>
-              <text style="font-size:23rpx;color:#475569;">保存此签名到我的签名库</text>
+              <text class="sig-source-save-label">保存此签名到我的签名库</text>
             </view>
-            <view wx:if="{{sigSaveNew}}" style="margin-bottom:10rpx;">
-              <input style="width:100%;padding:12rpx;border:1rpx solid #d1d5db;border-radius:8rpx;font-size:23rpx;box-sizing:border-box;"
+            <view wx:if="{{sigSaveNew}}" class="sig-source-save-input-wrap">
+              <input class="sig-source-save-input"
                      placeholder="签名名称（可选）" value="{{sigSaveName}}" bindinput="onSigSaveNameInput" />
             </view>
-            <button class="primary-btn" style="width:100%;" bindtap="onOpenNewSignaturePad">✍️ 手写签名</button>
+            <button class="primary-btn sig-source-draw-btn" bindtap="onOpenNewSignaturePad">✍️ 手写签名</button>
           </view>
         </view>
       </scroll-view>

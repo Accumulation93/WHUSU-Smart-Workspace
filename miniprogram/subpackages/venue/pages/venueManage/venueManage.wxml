@@ -24,7 +24,7 @@
       <view class="button-row"><button class="secondary-btn" bindtap="cancelEdit">取消</button><button class="primary-btn" loading="{{loading}}" bindtap="saveVenue">保存场地</button></view>
     </view>
 
-    <button class="secondary-btn" wx:if="{{!editing}}" bindtap="startAdd" style="margin-bottom:16rpx;">新增场地</button>
+    <button class="secondary-btn venue-add-btn" wx:if="{{!editing}}" bindtap="startAdd">新增场地</button>
 
     <!-- Venue list -->
     <view class="list-card" wx:if="{{!editing}}">
@@ -38,7 +38,7 @@
               <view class="list-name">{{item.name}}</view>
               <view class="list-desc" wx:if="{{item.location}}">{{item.location}}</view>
               <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
-              <view class="inline-actions list-actions-below" style="justify-content:flex-end;">
+              <view class="inline-actions list-actions-below">
                 <text class="link" data-id="{{item.id}}" bindtap="openRules">规则</text>
                 <text class="link" data-id="{{item.id}}" bindtap="openVenueSchedule">安排</text>
                 <text class="link" data-id="{{item.id}}" bindtap="startEdit">编辑</text>
@@ -62,7 +62,7 @@
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">
-          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="open" bindtap="openRuleEditor">新增开放时间</button>
+          <button class="primary-btn rule-add-btn" data-type="open" bindtap="openRuleEditor">新增开放时间</button>
           <view wx:if="{{!openRules.length}}" class="empty-inline">暂无开放时间规则。</view>
           <block wx:if="{{openRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{openRules}}" wx:key="id">
@@ -78,7 +78,7 @@
           </block>
         </block>
         <block wx:if="{{rulesTab === 'activity'}}">
-          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="activity" bindtap="openRuleEditor">新增活动</button>
+          <button class="primary-btn rule-add-btn" data-type="activity" bindtap="openRuleEditor">新增活动</button>
           <view wx:if="{{!activityRules.length}}" class="empty-inline">暂无活动规则。</view>
           <block wx:if="{{activityRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{activityRules}}" wx:key="id">
@@ -94,7 +94,7 @@
           </block>
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
-          <button class="primary-btn" style="margin-bottom:12rpx;" data-type="booking" bindtap="openRuleEditor">新增借用规则</button>
+          <button class="primary-btn rule-add-btn" data-type="booking" bindtap="openRuleEditor">新增借用规则</button>
           <view wx:if="{{!bookingRules.length}}" class="empty-inline">暂无借用规则（默认需管理员审核）。</view>
           <block wx:if="{{bookingRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
@@ -279,7 +279,7 @@
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="form-body">
           <view class="field"><view class="field-label">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
-            <view class="input-row"><input class="field-input" style="flex:1;" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn sm" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button></view>
+            <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn sm" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button></view>
           </view>
           <view wx:if="{{!purposes.length}}" class="empty-inline">暂无预设事由数据。</view>
           <block wx:if="{{purposes.length}}">

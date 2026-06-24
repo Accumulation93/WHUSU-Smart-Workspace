@@ -92,6 +92,14 @@
 
 /* ═══ Input row ═══ */
 .input-row { display:flex; gap:12rpx; }
+.input-row .field-input { flex: 1; }
+
+/* ═══ Rule/venue add buttons with margin ═══ */
+.primary-btn.rule-add-btn { margin-bottom: 12rpx; }
+.secondary-btn.venue-add-btn { margin-bottom: 16rpx; }
+
+/* ═══ Actions-aligned-to-right ═══ */
+.list-actions-below { justify-content: flex-end; }
 
 /* ═══ Primary button sm ═══ */
 .primary-btn.sm { min-height:64rpx; line-height:64rpx; font-size:24rpx; min-width:120rpx; padding:0 24rpx; }
