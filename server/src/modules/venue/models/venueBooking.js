@@ -87,7 +87,7 @@ async function updateStatus(id, status, approverHrId, approvalComment, conn) {
  * @param {string} [excludeId] - booking ID to exclude (for approvals)
  * @param {*} [conn] - transaction connection
  */
-async function findConflict(venueId, timeStart, timeEnd, excludeId, conn) {
+async function findConflict(venueId, timeStart, timeEnd, excludeId, conn, forUpdate) {
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   let sql = `SELECT * FROM venue_bookings
@@ -99,6 +99,7 @@ async function findConflict(venueId, timeStart, timeEnd, excludeId, conn) {
     sql += ' AND id != ?';
     params.push(excludeId);
   }
+  if (forUpdate) sql += ' FOR UPDATE';
   const [rows] = await db.query(sql, params);
   return rows[0] || null;
 }

@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
 const fs = require('fs');
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
@@ -24,6 +23,7 @@ const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const auditEventModel = require('../models/auditEvent');
 const stampAssignmentModel = require('../models/identityStampAssignment');
 const { hashFile, computeSignatureHash } = require('../utils/hashChain');
+const { attachUploadedFiles } = require('../utils/fileSecurity');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
 
@@ -38,8 +38,6 @@ function inCsv(csv, value) {
   if (!csvStr || !valStr) return false;
   return csvStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(valStr);
 }
-
-const UPLOAD_DIR = path.resolve(__dirname, '../../../../uploads/audit');
 
 /**
  * Resolve the current user's HR ID from openid.
@@ -264,37 +262,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       resubmitMode: template.resubmit_mode
     }, conn);
 
-    // Move files from temp to submission directory
-    const submissionDir = path.join(UPLOAD_DIR, submissionId);
-    if (!fs.existsSync(submissionDir)) fs.mkdirSync(submissionDir, { recursive: true });
-
-    for (let i = 0; i < uploadedFiles.length; i++) {
-      const f = uploadedFiles[i];
-      const tmpPath = safeString(f.tmpPath);
-      const fileId = safeString(f.fileId) || generateId();
-      const fileName = safeString(f.fileName);
-      const mimeType = safeString(f.mimeType);
-      const fileSize = parseInt(f.fileSize) || 0;
-      const fileHash = safeString(f.fileHash);
-
-      // Move file from temp to submission directory
-      const ext = path.extname(fileName) || '';
-      const destPath = path.join(submissionDir, fileId + ext);
-
-      if (tmpPath && fs.existsSync(tmpPath)) {
-        fs.renameSync(tmpPath, destPath);
-      }
-
-      await submissionFileModel.create(fileId, {
-        submissionId,
-        fileName,
-        mimeType,
-        filePath: destPath,
-        fileSize,
-        fileHash,
-        sortOrder: i + 1
-      }, conn);
-    }
+    await attachUploadedFiles({ uploadedFiles, submissionId, openid, conn });
 
     // Load conditions for all template steps
     const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
@@ -464,28 +432,9 @@ router.post('/startAdHocAudit', async (req, res) => {
       status: 'in_progress',
       currentStepIndex: 1,
       resubmitMode
-    });
+    }, conn);
 
-    // Move files
-    const submissionDir = path.join(UPLOAD_DIR, submissionId);
-    if (!fs.existsSync(submissionDir)) fs.mkdirSync(submissionDir, { recursive: true });
-
-    for (let i = 0; i < uploadedFiles.length; i++) {
-      const f = uploadedFiles[i];
-      const tmpPath = safeString(f.tmpPath);
-      const fileId = safeString(f.fileId) || generateId();
-      const fileName = safeString(f.fileName);
-      const mimeType = safeString(f.mimeType);
-      const fileSize = parseInt(f.fileSize) || 0;
-      const fileHash = safeString(f.fileHash);
-      const ext = path.extname(fileName) || '';
-      const destPath = path.join(submissionDir, fileId + ext);
-      if (tmpPath && fs.existsSync(tmpPath)) fs.renameSync(tmpPath, destPath);
-
-      await submissionFileModel.create(fileId, {
-        submissionId, fileName, mimeType, filePath: destPath, fileSize, fileHash, sortOrder: i + 1
-      }, conn);
-    }
+    await attachUploadedFiles({ uploadedFiles, submissionId, openid, conn });
 
     // Create user-specified steps
     for (let i = 0; i < steps.length; i++) {
@@ -1133,6 +1082,26 @@ async function checkStepAuthorization(step, submission, hrId) {
 }
 
 // approveStep — Approve current step with optional signature/stamp
+async function validateStepForAction(step, submission, submissionId) {
+  if (step.submission_id !== submissionId) {
+    return { ok: false, status: 'invalid_params', message: '步骤不属于该审批提交' };
+  }
+  if (submission.status !== 'in_progress') {
+    return { ok: false, status: 'invalid_state', message: '提交状态不允许审批' };
+  }
+  if (step.status !== 'pending') {
+    return { ok: false, status: 'invalid_state', message: '该步骤已经处理过' };
+  }
+  if (step.sort_order !== submission.current_step_index) {
+    return { ok: false, status: 'invalid_state', message: '只能处理当前审批步骤' };
+  }
+  const maxRound = await submissionStepModel.getMaxRound(submission.id, step.sort_order);
+  if ((step.round || 1) !== maxRound) {
+    return { ok: false, status: 'invalid_state', message: '只能处理最新一轮审批步骤' };
+  }
+  return { ok: true };
+}
+
 router.post('/approveStep', async (req, res) => {
   const conn = await pool.getConnection();
   try {
@@ -1164,6 +1133,9 @@ router.post('/approveStep', async (req, res) => {
     }
 
     // Check authorization — shared helper
+    const stepState = await validateStepForAction(step, submission, submissionId);
+    if (!stepState.ok) return res.json({ status: stepState.status, message: stepState.message });
+
     const authorized = await checkStepAuthorization(step, submission, hrId);
     if (!authorized) {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
@@ -1276,8 +1248,8 @@ router.post('/approveStep', async (req, res) => {
         }
         var newCondsJson = JSON.stringify(existingConds);
         await conn.query(
-          'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ?',
-          [newCondsJson, nextStep.id]
+          'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
+          [newCondsJson, nextStep.id, orgId]
         );
         console.log('[audit:approveStep] designated ' + designatedNextPersonIds.length +
           ' persons for next step ' + nextStep.id +
@@ -1344,6 +1316,9 @@ router.post('/rejectStep', async (req, res) => {
     }
 
     // Check authorization — shared helper
+    const stepState = await validateStepForAction(step, submission, submissionId);
+    if (!stepState.ok) return res.json({ status: stepState.status, message: stepState.message });
+
     const authorized = await checkStepAuthorization(step, submission, hrId);
     if (!authorized) {
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
@@ -1545,31 +1520,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
       }
       await submissionFileModel.removeBySubmissionId(submissionId, conn);
 
-      const path = require('path');
-      const fs = require('fs');
-      const submissionDir = path.join(UPLOAD_DIR, submissionId);
-      if (!fs.existsSync(submissionDir)) fs.mkdirSync(submissionDir, { recursive: true });
-
-      for (let i = 0; i < uploadedFiles.length; i++) {
-        const f = uploadedFiles[i];
-        const tmpPath = safeString(f.tmpPath);
-        const fileId = safeString(f.fileId) || generateId();
-        const fileName = safeString(f.fileName);
-        const mimeType = safeString(f.mimeType);
-        const fileSize = parseInt(f.fileSize) || 0;
-        const fileHash = safeString(f.fileHash);
-
-        const ext = path.extname(fileName) || '';
-        const destPath = path.join(submissionDir, fileId + ext);
-
-        if (tmpPath && fs.existsSync(tmpPath)) {
-          fs.renameSync(tmpPath, destPath);
-        }
-
-        await submissionFileModel.create(fileId, {
-          submissionId, fileName, mimeType, filePath: destPath, fileSize, fileHash, sortOrder: i + 1
-        }, conn);
-      }
+      await attachUploadedFiles({ uploadedFiles, submissionId, openid, conn });
     }
 
     // Insert edit event

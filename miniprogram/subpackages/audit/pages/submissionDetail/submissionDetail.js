@@ -773,7 +773,8 @@ Page({
             mimeType: uploadRes.mimeType,
             fileSize: uploadRes.fileSize,
             fileHash: uploadRes.fileHash,
-            tmpPath: uploadRes.tmpPath
+            tmpPath: uploadRes.tmpPath,
+            fileToken: uploadRes.fileToken
           });
         }
       }
@@ -2363,7 +2364,8 @@ Page({
           serverNewFiles.push({
             fileId: uploadRes.fileId, fileName: uploadRes.fileName,
             mimeType: uploadRes.mimeType, fileSize: uploadRes.fileSize,
-            fileHash: uploadRes.fileHash, tmpPath: uploadRes.tmpPath
+            fileHash: uploadRes.fileHash, tmpPath: uploadRes.tmpPath,
+            fileToken: uploadRes.fileToken
           });
         }
       }

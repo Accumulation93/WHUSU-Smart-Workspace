@@ -38,13 +38,14 @@ async function create(id, data) {
   );
 }
 
-async function update(id, data) {
+async function update(id, data, hrId) {
   const { name, imageData, isDefault } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
-    'UPDATE signature_templates SET name = ?, image_data = ?, is_default = ? WHERE id = ? AND org_id = ?',
-    [name || '', imageData || null, isDefault ? 1 : 0, id, orgId]
-  );
+  let sql = 'UPDATE signature_templates SET name = ?, image_data = ?, is_default = ? WHERE id = ? AND org_id = ?';
+  const params = [name || '', imageData || null, isDefault ? 1 : 0, id, orgId];
+  if (hrId) { sql += ' AND hr_id = ?'; params.push(hrId); }
+  const [result] = await pool.query(sql, params);
+  return result.affectedRows || 0;
 }
 
 async function clearDefaults(hrId) {
@@ -55,9 +56,13 @@ async function clearDefaults(hrId) {
   );
 }
 
-async function remove(id) {
+async function remove(id, hrId) {
   const orgId = await getCurrentOrgId();
-  await pool.query('DELETE FROM signature_templates WHERE id = ? AND org_id = ?', [id, orgId]);
+  let sql = 'DELETE FROM signature_templates WHERE id = ? AND org_id = ?';
+  const params = [id, orgId];
+  if (hrId) { sql += ' AND hr_id = ?'; params.push(hrId); }
+  const [result] = await pool.query(sql, params);
+  return result.affectedRows || 0;
 }
 
 module.exports = { getByHrId, getById, getDefault, create, update, clearDefaults, remove };

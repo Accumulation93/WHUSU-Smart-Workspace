@@ -72,7 +72,11 @@ router.post('/saveSignature', async (req, res) => {
     }
 
     if (id) {
-      await signatureTemplateModel.update(id, { name, imageData, isDefault });
+      const existing = await signatureTemplateModel.getById(id);
+      if (!existing || existing.hr_id !== hrId) {
+        return res.json({ status: 'forbidden', message: '不能修改他人的签名' });
+      }
+      await signatureTemplateModel.update(id, { name, imageData, isDefault }, hrId);
       res.json({ status: 'success', message: '签名已更新' });
     } else {
       const newId = generateId();
@@ -94,7 +98,11 @@ router.post('/deleteSignature', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供签名ID' });
 
-    await signatureTemplateModel.remove(id);
+    const existing = await signatureTemplateModel.getById(id);
+    if (!existing || existing.hr_id !== hrId) {
+      return res.json({ status: 'forbidden', message: '不能删除他人的签名' });
+    }
+    await signatureTemplateModel.remove(id, hrId);
     res.json({ status: 'success', message: '签名已删除' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -111,8 +119,16 @@ router.post('/setDefaultSignature', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供签名ID' });
 
+    const existing = await signatureTemplateModel.getById(id);
+    if (!existing || existing.hr_id !== hrId) {
+      return res.json({ status: 'forbidden', message: '不能设置他人的签名' });
+    }
     await signatureTemplateModel.clearDefaults(hrId);
-    await signatureTemplateModel.update(id, { isDefault: true });
+    await signatureTemplateModel.update(id, {
+      name: existing.name,
+      imageData: existing.image_data,
+      isDefault: true
+    }, hrId);
     res.json({ status: 'success', message: '已设为默认签名' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

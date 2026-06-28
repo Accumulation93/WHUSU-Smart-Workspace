@@ -2,17 +2,19 @@ const pool = require('../../config/db');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 
 async function getByOpenid(openid) {
-  // Used for admin login — must find root_admin (org_id = '') regardless of current org.
-  // Use raw query without org_id filter.
+  const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM admin_info WHERE openid = ? AND bind_status = ?',
-    [openid, 'active']
+    `SELECT * FROM admin_info
+     WHERE openid = ? AND bind_status = ?
+       AND (org_id = ? OR admin_level = 'root_admin')
+     ORDER BY admin_level = 'root_admin' DESC
+     LIMIT 1`,
+    [openid, 'active', orgId]
   );
   return rows[0] || null;
 }
 
 async function getByOpenidAny(openid) {
-  // Also used for login/check, bypass org filter
   const [rows] = await pool.query('SELECT * FROM admin_info WHERE openid = ?', [openid]);
   return rows[0] || null;
 }
@@ -83,7 +85,6 @@ async function getByInviteCode(code) {
 }
 
 async function getRootAdmin() {
-  // root_admin is global (org_id = ''), no org filter
   const [rows] = await pool.query(
     "SELECT * FROM admin_info WHERE admin_level = 'root_admin' LIMIT 1"
   );

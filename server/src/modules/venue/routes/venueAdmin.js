@@ -16,6 +16,51 @@ async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
 }
 
+async function resolveHrId(openid) {
+  if (!openid) return null;
+  const orgId = await getCurrentOrgId();
+  const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [openid, orgId]);
+  if (userRows[0] && userRows[0].hr_id) return userRows[0].hr_id;
+  const admin = await ensureAdmin(openid);
+  if (admin && admin.student_id) {
+    const [hrRows] = await pool.query('SELECT id FROM hr_info WHERE student_id = ? AND org_id = ? LIMIT 1', [admin.student_id, orgId]);
+    if (hrRows[0]) return hrRows[0].id;
+  }
+  return null;
+}
+
+async function matchesBookingRule(rule, hrId) {
+  if (!hrId) return false;
+  if (rule.rule_type === 'person') return safeString(rule.approver_hr_id) === hrId;
+  if (rule.rule_type !== 'identity') return false;
+
+  const orgId = await getCurrentOrgId();
+  const [rows] = await pool.query(
+    'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+    [hrId, orgId]
+  );
+  const hr = rows[0];
+  if (!hr) return false;
+  if (rule.approver_identity_id && safeString(hr.identity_id) !== safeString(rule.approver_identity_id)) return false;
+  if (rule.scope_department_id && safeString(hr.department_id) !== safeString(rule.scope_department_id)) return false;
+  if (rule.scope_work_group_id && safeString(hr.work_group_id) !== safeString(rule.scope_work_group_id)) return false;
+  return !!rule.approver_identity_id;
+}
+
+async function canReviewVenueBooking(openid, booking) {
+  const admin = await ensureAdmin(openid);
+  const hrId = await resolveHrId(openid);
+  const rules = await venueBookingRuleModel.getByVenueId(booking.venue_id);
+  if (!rules.length) return { ok: !!admin, admin, hrId };
+
+  for (const rule of rules) {
+    if (rule.rule_type === 'direct') return { ok: !!admin, admin, hrId };
+    if (rule.rule_type === 'admin' && admin) return { ok: true, admin, hrId };
+    if (await matchesBookingRule(rule, hrId)) return { ok: true, admin, hrId };
+  }
+  return { ok: false, admin, hrId };
+}
+
 function fmtDatetime(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
     + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
@@ -326,6 +371,57 @@ router.post('/listAllVenueBookings', async (req, res) => {
       createdAt: b.created_at
     }));
     res.json({ status: 'success', bookings: list });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/approveVenueBooking', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const id = safeString(req.body.id);
+    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    const comment = safeString(req.body.comment);
+    const booking = await venueBookingModel.getById(id);
+    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
+    if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
+
+    const review = await canReviewVenueBooking(req.openid, booking);
+    if (!review.ok) return res.json({ status: 'forbidden', message: '没有该场地借用审批权限' });
+
+    await conn.beginTransaction();
+    const timeStart = fmtDatetime(new Date(booking.time_start));
+    const timeEnd = fmtDatetime(new Date(booking.time_end));
+    const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
+    if (conflict) {
+      await conn.rollback();
+      return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
+    }
+    await venueBookingModel.updateStatus(id, 'approved', review.hrId || (review.admin && review.admin.id), comment, conn);
+    await conn.commit();
+    res.json({ status: 'success', message: '借用已通过' });
+  } catch (e) {
+    await conn.rollback();
+    res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/rejectVenueBooking', async (req, res) => {
+  try {
+    const id = safeString(req.body.id);
+    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    const comment = safeString(req.body.comment);
+    const booking = await venueBookingModel.getById(id);
+    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
+    if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
+
+    const review = await canReviewVenueBooking(req.openid, booking);
+    if (!review.ok) return res.json({ status: 'forbidden', message: '没有该场地借用审批权限' });
+
+    await venueBookingModel.updateStatus(id, 'rejected', review.hrId || (review.admin && review.admin.id), comment);
+    res.json({ status: 'success', message: '借用已驳回' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

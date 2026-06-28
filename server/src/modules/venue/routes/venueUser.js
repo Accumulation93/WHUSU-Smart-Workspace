@@ -424,9 +424,12 @@ router.post('/createVenueBooking', async (req, res) => {
       }
     }
 
+    await conn.beginTransaction();
+
     // Check booking conflicts (across full datetime range)
-    const conflict = await venueBookingModel.findConflict(venueId, dbTimeStart, dbTimeEnd, null, conn);
+    const conflict = await venueBookingModel.findConflict(venueId, dbTimeStart, dbTimeEnd, null, conn, true);
     if (conflict) {
+      await conn.rollback();
       return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     }
 
