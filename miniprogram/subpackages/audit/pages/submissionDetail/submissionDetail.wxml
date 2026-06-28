@@ -759,12 +759,13 @@
               <block wx:if="{{!placementFileMime || placementFileMime.indexOf('pdf') < 0 || item.page === placementCurrentPage}}">
                 <image src="{{item.imageData}}"
                        mode="aspectFit"
-                       style="position:absolute;left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;width:80rpx;height:80rpx;transform:translate(-50%,-50%);border:{{placementActiveIdx === item.dispIdx ? '2rpx solid #3b82f6' : 'none'}};border-radius:4rpx;opacity:0.85;" />
+                       class="placement-sign-overlay {{placementActiveIdx === item.dispIdx ? 'placement-sign-overlay-active' : ''}}"
+                       style="left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;" />
               </block>
             </block>
             <!-- Crosshair showing current position -->
-            <view wx:if="{{placementPreviewX >= 0}}" style="position:absolute;left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;width:4rpx;height:36rpx;background:#ef4444;transform:translate(-50%,-50%);"></view>
-            <view wx:if="{{placementPreviewX >= 0}}" style="position:absolute;left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;width:36rpx;height:4rpx;background:#ef4444;transform:translate(-50%,-50%);"></view>
+            <view wx:if="{{placementPreviewX >= 0}}" class="placement-crosshair placement-crosshair-v" style="left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;"></view>
+            <view wx:if="{{placementPreviewX >= 0}}" class="placement-crosshair placement-crosshair-h" style="left:{{placementPreviewX * 100}}%;top:{{placementPreviewY * 100}}%;"></view>
           </view>
         </block>
         <!-- Fallback: no preview available -->

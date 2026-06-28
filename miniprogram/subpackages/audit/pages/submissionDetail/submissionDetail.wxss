@@ -322,6 +322,24 @@
 .placement-loading { display: flex; align-items: center; justify-content: center; height: 700rpx; color: #94a3b8; font-size: 23rpx; }
 .placement-img-wrap { position: relative; display: inline-block; width: 100%; }
 .placement-preview-img { width: 100%; display: block; }
+.placement-sign-overlay {
+  position: absolute;
+  width: 18%;
+  height: 112rpx;
+  transform: translate(-50%, -50%);
+  border-radius: 4rpx;
+  opacity: 0.92;
+  box-sizing: border-box;
+}
+.placement-sign-overlay-active { border: 2rpx solid #3b82f6; }
+.placement-crosshair {
+  position: absolute;
+  background: #ef4444;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2rpx rgba(255,255,255,0.75);
+}
+.placement-crosshair-v { width: 4rpx; height: 36rpx; }
+.placement-crosshair-h { width: 36rpx; height: 4rpx; }
 .placement-fallback {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 700rpx; color: #94a3b8; font-size: 25rpx;

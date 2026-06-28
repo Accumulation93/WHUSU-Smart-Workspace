@@ -1799,24 +1799,38 @@ Page({
   // Handle tap on placement canvas — update position relative to the preview image
   onPlacementTap(e) {
     var that = this;
-    var tapX = e.detail.x;
-    var tapY = e.detail.y;
+    var point = that._getTapClientPoint(e);
+    if (!point) return;
     // Query the preview image element to get its display dimensions (not the scroll container)
     wx.createSelectorQuery().select('#placementPreviewImage').boundingClientRect(function(rect) {
       // Fallback to canvas if image not found (placeholder mode)
       if (!rect) {
         wx.createSelectorQuery().select('#placementCanvas').boundingClientRect(function(canvasRect) {
           if (!canvasRect) return;
-          var px = Math.max(0, Math.min(1, tapX / (canvasRect.width || 1)));
-          var py = Math.max(0, Math.min(1, tapY / (canvasRect.height || 1)));
+          var px = Math.max(0, Math.min(1, (point.x - canvasRect.left) / (canvasRect.width || 1)));
+          var py = Math.max(0, Math.min(1, (point.y - canvasRect.top) / (canvasRect.height || 1)));
           that._applyPlacementPosition(px, py);
         }).exec();
         return;
       }
-      var px = Math.max(0, Math.min(1, tapX / (rect.width || 1)));
-      var py = Math.max(0, Math.min(1, tapY / (rect.height || 1)));
+      var px = Math.max(0, Math.min(1, (point.x - rect.left) / (rect.width || 1)));
+      var py = Math.max(0, Math.min(1, (point.y - rect.top) / (rect.height || 1)));
       that._applyPlacementPosition(px, py);
     }).exec();
+  },
+
+  _getTapClientPoint(e) {
+    var touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+    if (touch) {
+      return {
+        x: touch.clientX != null ? touch.clientX : touch.x,
+        y: touch.clientY != null ? touch.clientY : touch.y
+      };
+    }
+    if (e.detail && e.detail.x != null && e.detail.y != null) {
+      return { x: e.detail.x, y: e.detail.y };
+    }
+    return null;
   },
 
   // Apply placement position to active signature

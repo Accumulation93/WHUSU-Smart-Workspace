@@ -4,7 +4,7 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 async function getBySubmissionId(submissionId) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM audit_submission_signatures WHERE submission_id = ? AND org_id = ? ORDER BY signed_at',
+    'SELECT * FROM audit_submission_signatures WHERE submission_id = ? AND org_id = ? ORDER BY signed_at, id',
     [submissionId, orgId]
   );
   return rows;
@@ -13,7 +13,7 @@ async function getBySubmissionId(submissionId) {
 async function getByStepId(stepId) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM audit_submission_signatures WHERE step_id = ? AND org_id = ? ORDER BY signed_at',
+    'SELECT * FROM audit_submission_signatures WHERE step_id = ? AND org_id = ? ORDER BY signed_at, id',
     [stepId, orgId]
   );
   return rows;
@@ -22,7 +22,7 @@ async function getByStepId(stepId) {
 async function getByFileId(fileId) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM audit_submission_signatures WHERE file_id = ? AND org_id = ? ORDER BY signed_at',
+    'SELECT * FROM audit_submission_signatures WHERE file_id = ? AND org_id = ? ORDER BY signed_at, id',
     [fileId, orgId]
   );
   return rows;
@@ -44,7 +44,7 @@ async function getById(id) {
 async function getChainForVerification(submissionId) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM audit_submission_signatures WHERE submission_id = ? AND org_id = ? ORDER BY round, signed_at',
+    'SELECT * FROM audit_submission_signatures WHERE submission_id = ? AND org_id = ? ORDER BY round, signed_at, id',
     [submissionId, orgId]
   );
   return rows;
@@ -54,25 +54,27 @@ async function getChainForVerification(submissionId) {
  * Get the last signature in a chain for a given file and round.
  * Used to determine the previous_signature_hash for a new signature.
  */
-async function getLastSignature(fileId, round) {
+async function getLastSignature(fileId, round, conn) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const db = conn || pool;
+  const [rows] = await db.query(
     `SELECT * FROM audit_submission_signatures
      WHERE file_id = ? AND round = ? AND org_id = ?
-     ORDER BY signed_at DESC LIMIT 1`,
+     ORDER BY signed_at DESC, id DESC LIMIT 1`,
     [fileId, round, orgId]
   );
   return rows[0] || null;
 }
 
-async function create(id, data) {
+async function create(id, data, conn) {
   const {
     submissionId, stepId, fileId, signatureType, imageData,
     positionX, positionY, page, signerHrId, round,
     previousSignatureHash, documentHashAtSigning, signatureDataHash, signedAt
   } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const db = conn || pool;
+  await db.query(
     `INSERT INTO audit_submission_signatures
      (id, submission_id, step_id, file_id, signature_type, image_data, position_x, position_y, page,
       signer_hr_id, round, previous_signature_hash, document_hash_at_signing, signature_data_hash, signed_at, org_id)

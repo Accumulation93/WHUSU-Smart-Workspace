@@ -24,6 +24,7 @@ const auditEventModel = require('../models/auditEvent');
 const stampAssignmentModel = require('../models/identityStampAssignment');
 const { hashFile, computeSignatureHash } = require('../utils/hashChain');
 const { attachUploadedFiles } = require('../utils/fileSecurity');
+const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
 
@@ -1104,6 +1105,7 @@ async function validateStepForAction(step, submission, submissionId) {
 
 router.post('/approveStep', async (req, res) => {
   const conn = await pool.getConnection();
+  const signedFileBackups = [];
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
@@ -1154,61 +1156,84 @@ router.post('/approveStep', async (req, res) => {
       processedAt: nowISO
     }, conn);
 
-    // Record signatures/stamps
+    // Record signatures/stamps and persist them onto the target files.
+    const signaturesByFile = new Map();
     for (const sigData of signatures) {
-      const sigId = generateId();
       const fileId = safeString(sigData.fileId);
-      const signatureType = safeString(sigData.signatureType) || 'signature';
       const imageData = safeString(sigData.imageData);
-      const positionX = parseFloat(sigData.positionX) || 0;
-      const positionY = parseFloat(sigData.positionY) || 0;
-      const page = parseInt(sigData.page) || 1;
-
-      // Get document hash at signing time
-      let documentHash = '';
-      if (fileId) {
-        const file = await submissionFileModel.getById(fileId);
-        if (file && file.file_path && fs.existsSync(file.file_path)) {
-          documentHash = hashFile(fs.readFileSync(file.file_path));
-        } else if (file) {
-          documentHash = file.file_hash;
-        }
-      }
-
-      // Get previous signature hash for chain linking
-      const lastSig = await submissionSignatureModel.getLastSignature(fileId, currentRound);
-      const previousHash = lastSig ? lastSig.signature_data_hash : null;
-
-      // Compute signature data hash
-      const sigHash = computeSignatureHash({
-        id: sigId,
-        stepId,
-        signerHrId: hrId,
-        positionX,
-        positionY,
-        page,
-        round: currentRound,
-        previousSignatureHash: previousHash,
-        documentHash,
-        signedAt: now.toISOString()
-      });
-
-      await submissionSignatureModel.create(sigId, {
-        submissionId,
-        stepId,
+      if (!fileId || !imageData) continue;
+      const positionX = Math.max(0, Math.min(1, parseFloat(sigData.positionX) || 0));
+      const positionY = Math.max(0, Math.min(1, parseFloat(sigData.positionY) || 0));
+      const normalized = {
+        id: generateId(),
         fileId,
-        signatureType,
+        signatureType: safeString(sigData.signatureType) || 'signature',
         imageData,
         positionX,
         positionY,
-        page,
-        signerHrId: hrId,
-        round: currentRound,
-        previousSignatureHash: previousHash,
-        documentHashAtSigning: documentHash,
-        signatureDataHash: sigHash,
-        signedAt: now
-      });
+        page: Math.max(1, parseInt(sigData.page, 10) || 1)
+      };
+      if (!signaturesByFile.has(fileId)) signaturesByFile.set(fileId, []);
+      signaturesByFile.get(fileId).push(normalized);
+    }
+
+    for (const [fileId, fileSignatures] of signaturesByFile) {
+      const file = await submissionFileModel.getById(fileId);
+      if (!file || file.submission_id !== submissionId) {
+        throw new Error('签名文件不存在或不属于当前审批提交');
+      }
+
+      if (file.file_path && fs.existsSync(file.file_path)) {
+        signedFileBackups.push({
+          filePath: file.file_path,
+          buffer: fs.readFileSync(file.file_path)
+        });
+      }
+      const overlayResult = await overlaySignaturesOnFile(file, fileSignatures);
+      const documentHash = overlayResult
+        ? overlayResult.fileHash
+        : (file.file_path && fs.existsSync(file.file_path) ? hashFile(fs.readFileSync(file.file_path)) : file.file_hash);
+
+      if (overlayResult) {
+        await submissionFileModel.updateMetadata(fileId, overlayResult, conn);
+      }
+
+      fileSignatures.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+      const lastSig = await submissionSignatureModel.getLastSignature(fileId, currentRound, conn);
+      let previousHash = lastSig ? lastSig.signature_data_hash : null;
+
+      for (const sigData of fileSignatures) {
+        const sigHash = computeSignatureHash({
+          id: sigData.id,
+          stepId,
+          signerHrId: hrId,
+          positionX: sigData.positionX,
+          positionY: sigData.positionY,
+          page: sigData.page,
+          round: currentRound,
+          previousSignatureHash: previousHash,
+          documentHash,
+          signedAt: now.toISOString()
+        });
+
+        await submissionSignatureModel.create(sigData.id, {
+          submissionId,
+          stepId,
+          fileId,
+          signatureType: sigData.signatureType,
+          imageData: sigData.imageData,
+          positionX: sigData.positionX,
+          positionY: sigData.positionY,
+          page: sigData.page,
+          signerHrId: hrId,
+          round: currentRound,
+          previousSignatureHash: previousHash,
+          documentHashAtSigning: documentHash,
+          signatureDataHash: sigHash,
+          signedAt: now
+        }, conn);
+        previousHash = sigHash;
+      }
     }
 
     // Check if there are more steps
@@ -1279,6 +1304,13 @@ router.post('/approveStep', async (req, res) => {
     res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
   } catch (e) {
     await conn.rollback();
+    for (const backup of signedFileBackups.reverse()) {
+      try {
+        fs.writeFileSync(backup.filePath, backup.buffer);
+      } catch (restoreErr) {
+        console.error('[audit:approveStep] failed to restore signed file backup:', restoreErr);
+      }
+    }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     if (conn) conn.release();

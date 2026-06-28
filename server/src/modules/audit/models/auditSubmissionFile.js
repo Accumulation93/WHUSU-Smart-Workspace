@@ -41,4 +41,15 @@ async function removeBySubmissionId(submissionId, conn) {
   await db.query('DELETE FROM audit_submission_files WHERE submission_id = ? AND org_id = ?', [submissionId, orgId]);
 }
 
-module.exports = { getBySubmissionId, getById, create, remove, removeBySubmissionId };
+async function updateMetadata(id, data, conn) {
+  const orgId = await getCurrentOrgId();
+  const db = conn || pool;
+  await db.query(
+    `UPDATE audit_submission_files
+     SET file_path = ?, mime_type = ?, file_size = ?, file_hash = ?
+     WHERE id = ? AND org_id = ?`,
+    [data.filePath || '', data.mimeType || null, data.fileSize || 0, data.fileHash || '', id, orgId]
+  );
+}
+
+module.exports = { getBySubmissionId, getById, create, remove, removeBySubmissionId, updateMetadata };

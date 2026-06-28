@@ -94,7 +94,11 @@ function verifySignatureChain(signatures, currentFileHashes = {}) {
     const round = parseInt(roundStr, 10);
 
     // Sort by signed_at ascending
-    sigs.sort((a, b) => new Date(a.signed_at).getTime() - new Date(b.signed_at).getTime());
+    sigs.sort((a, b) => {
+      const timeDiff = new Date(a.signed_at).getTime() - new Date(b.signed_at).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return String(a.id).localeCompare(String(b.id));
+    });
 
     let chainValid = true;
     let brokenAt = null;
@@ -145,22 +149,26 @@ function verifySignatureChain(signatures, currentFileHashes = {}) {
     }
 
     // Track file hash verification
-    if (!fileResults.has(fileId)) {
-      const currentHash = currentFileHashes[fileId] || null;
-      // Check if any signature's document hash matches the current file hash
-      // For now, we flag files whose current hash differs from the last signing hash
-      const lastSig = sigs[sigs.length - 1];
-      const hashMatches = currentHash === lastSig.document_hash_at_signing;
+    const currentHash = currentFileHashes[fileId] || null;
+    const lastSig = sigs[sigs.length - 1];
+    const existingFileResult = fileResults.get(fileId);
+    const existingTime = existingFileResult ? new Date(existingFileResult.signedAt).getTime() : -1;
+    const lastSigTime = new Date(lastSig.signed_at).getTime();
+    if (!existingFileResult || lastSigTime > existingTime ||
+        (lastSigTime === existingTime && String(lastSig.id).localeCompare(String(existingFileResult.signatureId)) > 0)) {
       fileResults.set(fileId, {
         fileId,
-        hashVerified: !currentHash ? null : hashMatches, // null = no current hash to compare
+        signatureId: lastSig.id,
+        signedAt: lastSig.signed_at,
+        hashVerified: !currentHash ? null : currentHash === lastSig.document_hash_at_signing,
         documentHashAtLastSigning: lastSig.document_hash_at_signing,
         currentHash: currentHash || null
       });
-      if (currentHash && !hashMatches) {
-        overallValid = false;
-      }
     }
+  }
+
+  for (const result of fileResults.values()) {
+    if (result.hashVerified === false) overallValid = false;
   }
 
   return {
