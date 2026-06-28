@@ -1504,6 +1504,7 @@ Page({
 
   // Utility: open placement popup for a pending signature at given index
   _openPlacementForIdx(idx) {
+    var that = this;
     var sig = this.data.pendingSignatures[idx];
     if (!sig) return;
     var fileId = sig.fileId;
@@ -1520,6 +1521,7 @@ Page({
         fileItems.push({
           dispIdx: i,
           imageData: s.imageData,
+          previewSrc: s.previewSrc || s.imageData || '',
           positionX: s.positionX,
           positionY: s.positionY,
           page: s.page || 1,
@@ -1547,7 +1549,56 @@ Page({
       placementPosText: sig.positionX != null ? (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%' : ''
     });
 
+    this._preparePlacementItemPreviews(fileItems).then(function(items) {
+      if (that.data.placementVisible && that.data.placementFileId === fileId) {
+        that.setData({ placementItems: items });
+      }
+    });
+
     this.loadFilePreview(fileId, currentPage);
+  },
+
+  _dataUrlToTempFile(dataUrl, prefix) {
+    return new Promise(function(resolve, reject) {
+      if (!dataUrl || typeof dataUrl !== 'string' || dataUrl.indexOf('data:') !== 0) {
+        resolve(dataUrl || '');
+        return;
+      }
+      var match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+      if (!match) {
+        resolve(dataUrl);
+        return;
+      }
+      var mime = match[1];
+      var ext = mime.indexOf('jpeg') >= 0 || mime.indexOf('jpg') >= 0 ? 'jpg'
+        : mime.indexOf('png') >= 0 ? 'png'
+          : mime.indexOf('webp') >= 0 ? 'webp' : 'bin';
+      var filePath = wx.env.USER_DATA_PATH + '/' + prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      wx.getFileSystemManager().writeFile({
+        filePath: filePath,
+        data: match[2],
+        encoding: 'base64',
+        success: function() { resolve(filePath); },
+        fail: reject
+      });
+    });
+  },
+
+  async _preparePlacementItemPreviews(items) {
+    var result = [];
+    for (var i = 0; i < items.length; i++) {
+      var item = Object.assign({}, items[i]);
+      if ((!item.previewSrc || item.previewSrc.indexOf('data:') === 0) && item.imageData) {
+        try {
+          item.previewSrc = await this._dataUrlToTempFile(item.imageData, 'audit_sign_preview');
+        } catch (e) {
+          console.error('[audit] prepare signature preview failed:', e);
+          item.previewSrc = item.imageData;
+        }
+      }
+      result.push(item);
+    }
+    return result;
   },
 
   // Legacy: open signature pad directly (used in old approval dialog)
@@ -1733,7 +1784,13 @@ Page({
           placementLoading: false
         };
         if (res.data) {
-          updateData.placementFileImage = 'data:' + (res.previewMime || 'image/png') + ';base64,' + res.data;
+          var previewDataUrl = 'data:' + (res.previewMime || 'image/png') + ';base64,' + res.data;
+          try {
+            updateData.placementFileImage = await that._dataUrlToTempFile(previewDataUrl, 'audit_file_preview');
+          } catch (writeErr) {
+            console.error('[audit] write preview temp file failed:', writeErr);
+            updateData.placementFileImage = previewDataUrl;
+          }
         } else if (res.fallback) {
           // No preview available — show placeholder
           updateData.placementFileImage = '';
@@ -1748,8 +1805,15 @@ Page({
       try {
         var fallbackRes = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
         if (fallbackRes.status === 'success' && fallbackRes.mimeType && fallbackRes.mimeType.indexOf('image/') === 0) {
+          var fallbackDataUrl = 'data:' + fallbackRes.mimeType + ';base64,' + fallbackRes.data;
+          var fallbackSrc = fallbackDataUrl;
+          try {
+            fallbackSrc = await that._dataUrlToTempFile(fallbackDataUrl, 'audit_file_preview');
+          } catch (writeErr) {
+            console.error('[audit] write fallback preview temp file failed:', writeErr);
+          }
           that.setData({
-            placementFileImage: 'data:' + fallbackRes.mimeType + ';base64,' + fallbackRes.data,
+            placementFileImage: fallbackSrc,
             placementLoading: false
           });
         } else {
@@ -1785,7 +1849,9 @@ Page({
     try {
       var res = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
       if (res.status === 'success' && res.mimeType && res.mimeType.indexOf('image/') === 0) {
-        this.setData({ placementFileImage: 'data:' + res.mimeType + ';base64,' + res.data });
+        var dataUrl = 'data:' + res.mimeType + ';base64,' + res.data;
+        var src = await this._dataUrlToTempFile(dataUrl, 'audit_file_preview').catch(function() { return dataUrl; });
+        this.setData({ placementFileImage: src });
       }
     } catch (e) {
       // Non-fatal; placement works without image preview

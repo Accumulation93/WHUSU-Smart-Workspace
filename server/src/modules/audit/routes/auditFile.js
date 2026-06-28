@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const multer = require('multer');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const { safeString, generateId } = require('../../../utils/helpers');
 const {
   UPLOAD_DIR,
@@ -13,8 +16,44 @@ const {
   getAuthorizedAuditFile
 } = require('../utils/fileSecurity');
 
+const execFileAsync = promisify(execFile);
+
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+async function getPdfPageCount(filePath) {
+  const { PDFDocument } = require('pdf-lib');
+  const pdfDoc = await PDFDocument.load(fs.readFileSync(filePath));
+  return pdfDoc.getPageCount() || 1;
+}
+
+async function renderPdfPageWithPdftoppm(filePath, page) {
+  const prefix = path.join(os.tmpdir(), 'audit_pdf_preview_' + generateId());
+  const exe = process.env.PDFTOPPM_PATH || 'pdftoppm';
+  await execFileAsync(exe, [
+    '-f', String(page),
+    '-l', String(page),
+    '-png',
+    '-singlefile',
+    '-r', '150',
+    filePath,
+    prefix
+  ], { windowsHide: true, timeout: 30000 });
+
+  const outPath = prefix + '.png';
+  const buffer = fs.readFileSync(outPath);
+  try { fs.unlinkSync(outPath); } catch (_) { /* ignore */ }
+  return buffer;
+}
+
+async function renderPdfPage(filePath, page) {
+  try {
+    const sharp = require('sharp');
+    return await sharp(filePath, { page: page - 1, density: 150 }).png().toBuffer();
+  } catch (sharpErr) {
+    return renderPdfPageWithPdftoppm(filePath, page);
+  }
 }
 
 const storage = multer.diskStorage({
@@ -139,18 +178,9 @@ router.post('/getAuditFilePreview', async (req, res) => {
 
     if (mimeType === 'application/pdf') {
       try {
-        const sharp = require('sharp');
-        let totalPages = 1;
-        for (let p = 1; p <= 200; p++) {
-          try {
-            await sharp(file.file_path, { page: p - 1, density: 150 }).metadata();
-            totalPages = p;
-          } catch (_) {
-            break;
-          }
-        }
+        const totalPages = await getPdfPageCount(file.file_path);
         const targetPage = Math.max(1, Math.min(page, totalPages));
-        const pngBuffer = await sharp(file.file_path, { page: targetPage - 1, density: 150 }).png().toBuffer();
+        const pngBuffer = await renderPdfPage(file.file_path, targetPage);
         return res.json({
           status: 'success',
           fileName: file.file_name,
@@ -166,10 +196,11 @@ router.post('/getAuditFilePreview', async (req, res) => {
           fileName: file.file_name,
           mimeType: 'application/pdf',
           previewMime: 'application/pdf',
-          totalPages: 1,
-          page: 1,
+          totalPages: await getPdfPageCount(file.file_path).catch(() => 1),
+          page: page,
           data: null,
-          fallback: true
+          fallback: true,
+          message: 'PDF棰勮鐢熸垚澶辫触'
         });
       }
     }

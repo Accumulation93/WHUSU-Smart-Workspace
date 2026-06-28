@@ -757,7 +757,7 @@
             <!-- Overlaid signatures/stamps -->
             <block wx:for="{{placementItems}}" wx:key="dispIdx" wx:for-item="item">
               <block wx:if="{{!placementFileMime || placementFileMime.indexOf('pdf') < 0 || item.page === placementCurrentPage}}">
-                <image src="{{item.imageData}}"
+                <image src="{{item.previewSrc}}"
                        mode="aspectFit"
                        class="placement-sign-overlay {{placementActiveIdx === item.dispIdx ? 'placement-sign-overlay-active' : ''}}"
                        style="left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;" />
