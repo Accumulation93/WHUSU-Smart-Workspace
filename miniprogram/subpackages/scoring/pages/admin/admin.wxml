@@ -2309,6 +2309,18 @@
         <view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{auditMultiPickerDeptOptions}}" bindchange="onAuditMultiPickerFilterDept"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterDept}}</view></picker></view>
         <view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{auditMultiPickerIdentOptions}}" bindchange="onAuditMultiPickerFilterIdent"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterIdent}}</view></picker></view>
       </view>
+      <!-- Department tabs (for work group picker with specific depts) -->
+      <view class="dept-tab-scroll" wx:if="{{auditMultiPickerDeptTabs.length}}">
+        <scroll-view scroll-x class="dept-tab-scroll-view">
+          <view class="dept-tab-row">
+            <view class="dept-tab {{auditMultiPickerActiveDeptTab === item.deptId ? 'dept-tab-active' : ''}}"
+                  wx:for="{{auditMultiPickerDeptTabs}}" wx:key="deptId"
+                  data-dept="{{item.deptId}}" bindtap="onAuditMultiPickerDeptTab">
+              {{item.deptName}}<text class="dept-tab-count">（已选{{item.selectedCount}}）</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
       <!-- Select-all / Deselect-all -->
       <view class="button-row compact-row" style="padding:0 24rpx 8rpx;">
         <button class="secondary-btn" bindtap="onAuditMultiPickerSelectAll">全选当前</button>

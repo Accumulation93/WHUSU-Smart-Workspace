@@ -69,6 +69,9 @@ module.exports = Behavior({
     auditMultiPickerFilteredList: [],
     auditMultiPickerDeptOptions: ['全部'],
     auditMultiPickerIdentOptions: ['全部'],
+    // Department tabs for work group picker (when specific depts are selected)
+    auditMultiPickerDeptTabs: [],
+    auditMultiPickerActiveDeptTab: '',
 
     // ── Stamps ──
     stamps: [],
@@ -559,7 +562,7 @@ module.exports = Behavior({
           list = (this.data.departmentList || []).map(function(d) { return { id: d.id, name: d.name, extra: d.description || '' }; });
           break;
         case 'specificWorkGroupId':
-          list = (this.data.workGroupList || []).map(function(w) { return { id: w.id, name: w.name, extra: w.departmentName || '' }; });
+          list = (this.data.workGroupList || []).map(function(w) { return { id: w.id, name: w.name, extra: w.departmentName || '', deptId: w.departmentId || '' }; });
           break;
         case 'specificIdentityId':
           list = (this.data.identityList || []).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
@@ -569,6 +572,27 @@ module.exports = Behavior({
           break;
       }
 
+      // Build department tabs for work group picker when specific depts are selected
+      var deptTabs = [];
+      var activeDeptTab = '';
+      if (target === 'specificWorkGroupId') {
+        var condForm = this.data.auditStepConditionForm || {};
+        if (condForm.departmentScope === 'specific' && condForm.specificDepartmentId) {
+          var selectedDeptIds = condForm.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          var deptMap = {};
+          list.forEach(function(wg) {
+            if (wg.deptId && selectedDeptIds.indexOf(wg.deptId) >= 0) {
+              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || wg.deptId, workGroups: [], selectedCount: 0 };
+              deptMap[wg.deptId].workGroups.push(wg);
+            }
+          });
+          deptTabs = selectedDeptIds.map(function(did) {
+            return deptMap[did] || { deptId: did, deptName: did, workGroups: [], selectedCount: 0 };
+          });
+          if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
+        }
+      }
+
       // Pre-populate selected IDs
       var selectedIds = {};
       var currentVal = this.data.auditStepConditionForm[target] || '';
@@ -576,6 +600,14 @@ module.exports = Behavior({
         currentVal.split(',').forEach(function(id) {
           var trimmed = id.trim();
           if (trimmed) selectedIds[String(trimmed)] = true;
+        });
+      }
+
+      // Initialize per-tab selected counts
+      if (deptTabs.length) {
+        deptTabs = deptTabs.map(function(tab) {
+          var count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
+          return Object.assign({}, tab, { selectedCount: count });
         });
       }
 
@@ -590,13 +622,20 @@ module.exports = Behavior({
         auditMultiPickerFilterIdent: '全部',
         auditMultiPickerDeptOptions: deptOpts,
         auditMultiPickerIdentOptions: identOpts,
-        auditMultiPickerFilteredList: []
+        auditMultiPickerFilteredList: [],
+        auditMultiPickerDeptTabs: deptTabs,
+        auditMultiPickerActiveDeptTab: activeDeptTab
       });
       this._applyAuditMultiPickerFilters();
     },
 
     closeAuditMultiPicker() {
       this.setData({ auditMultiPickerVisible: false });
+    },
+
+    onAuditMultiPickerDeptTab(e) {
+      this.setData({ auditMultiPickerActiveDeptTab: e.currentTarget.dataset.dept });
+      this._applyAuditMultiPickerFilters();
     },
 
     onAuditMultiPickerSearch(e) {
@@ -642,6 +681,12 @@ module.exports = Behavior({
         }
       }
 
+      // Department tab filter for work group picker
+      if (target === 'specificWorkGroupId' && this.data.auditMultiPickerDeptTabs.length) {
+        var activeTab = this.data.auditMultiPickerActiveDeptTab;
+        items = items.filter(function(item) { return item.deptId === activeTab; });
+      }
+
       if (keyword) {
         items = items.filter(function(item) {
           return [item.name, item.extra].some(function(v) {
@@ -672,21 +717,79 @@ module.exports = Behavior({
       } else {
         selected[id] = true;
       }
-      this.setData({ auditMultiPickerSelectedIds: selected });
+
+      // Update per-tab selected counts
+      var deptTabs = this.data.auditMultiPickerDeptTabs;
+      if (deptTabs.length) {
+        deptTabs = deptTabs.map(function(tab) {
+          var count = tab.workGroups.filter(function(wg) {
+            return selected[String(wg.id)];
+          }).length;
+          return Object.assign({}, tab, { selectedCount: count });
+        });
+      }
+
+      this.setData({
+        auditMultiPickerSelectedIds: selected,
+        auditMultiPickerSelectedCount: Object.keys(selected).length,
+        auditMultiPickerDeptTabs: deptTabs
+      });
     },
 
     onAuditMultiPickerSelectAll() {
       var filtered = this.data.auditMultiPickerFilteredList;
       if (!filtered.length) return;
-      var selected = {};
+      var selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
       filtered.forEach(function(item) {
         selected[String(item.id)] = true;
       });
-      this.setData({ auditMultiPickerSelectedIds: selected });
+
+      // Update per-tab selected counts
+      var deptTabs = this.data.auditMultiPickerDeptTabs;
+      if (deptTabs.length) {
+        deptTabs = deptTabs.map(function(tab) {
+          var count = tab.workGroups.filter(function(wg) {
+            return selected[String(wg.id)];
+          }).length;
+          return Object.assign({}, tab, { selectedCount: count });
+        });
+      }
+
+      this.setData({
+        auditMultiPickerSelectedIds: selected,
+        auditMultiPickerSelectedCount: Object.keys(selected).length,
+        auditMultiPickerDeptTabs: deptTabs
+      });
     },
 
     onAuditMultiPickerDeselectAll() {
-      this.setData({ auditMultiPickerSelectedIds: {} });
+      // When dept tabs active, only deselect current tab
+      var deptTabs = this.data.auditMultiPickerDeptTabs;
+      var selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
+      if (deptTabs.length) {
+        var activeTab = this.data.auditMultiPickerActiveDeptTab;
+        // Remove selections for the active tab only
+        deptTabs.forEach(function(tab) {
+          if (tab.deptId === activeTab) {
+            tab.workGroups.forEach(function(wg) {
+              delete selected[String(wg.id)];
+            });
+          }
+        });
+        deptTabs = deptTabs.map(function(tab) {
+          var count = tab.workGroups.filter(function(wg) {
+            return selected[String(wg.id)];
+          }).length;
+          return Object.assign({}, tab, { selectedCount: count });
+        });
+      } else {
+        selected = {};
+      }
+      this.setData({
+        auditMultiPickerSelectedIds: selected,
+        auditMultiPickerSelectedCount: Object.keys(selected).length,
+        auditMultiPickerDeptTabs: deptTabs
+      });
     },
 
     confirmAuditMultiPicker() {
@@ -700,6 +803,20 @@ module.exports = Behavior({
       if (!ids.length) {
         showShortToast('请至少选择一项');
         return;
+      }
+
+      // Per-department validation for work group picker with department tabs
+      if (target === 'specificWorkGroupId' && this.data.auditMultiPickerDeptTabs.length) {
+        var tabs = this.data.auditMultiPickerDeptTabs;
+        for (var i = 0; i < tabs.length; i++) {
+          var tab = tabs[i];
+          if (!tab.workGroups.length) continue; // skip empty depts
+          var hasSelection = tab.workGroups.some(function(wg) { return selectedIds[String(wg.id)]; });
+          if (!hasSelection) {
+            showShortToast((tab.deptName || tab.deptId) + ' 至少需要选择一个职能组');
+            return;
+          }
+        }
       }
 
       var names = ids.map(function(id) {
@@ -854,7 +971,7 @@ module.exports = Behavior({
           list = (this.data.departmentList || []).map(function(d) { return { id: d.id, name: d.name, extra: d.description || '' }; });
           break;
         case 'specificWorkGroupId':
-          list = (this.data.workGroupList || []).map(function(w) { return { id: w.id, name: w.name, extra: w.departmentName || '' }; });
+          list = (this.data.workGroupList || []).map(function(w) { return { id: w.id, name: w.name, extra: w.departmentName || '', deptId: w.departmentId || '' }; });
           break;
         case 'specificIdentityId':
           list = (this.data.identityList || []).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
@@ -864,12 +981,41 @@ module.exports = Behavior({
           break;
       }
 
+      // Build department tabs for work group picker when specific depts are selected
+      var deptTabs = [];
+      var activeDeptTab = '';
+      if (target === 'specificWorkGroupId') {
+        var starterForm = this.data.auditStarterConditionForm || {};
+        if (starterForm.departmentScope === 'specific' && starterForm.specificDepartmentId) {
+          var selectedDeptIds = starterForm.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          var deptMap = {};
+          list.forEach(function(wg) {
+            if (wg.deptId && selectedDeptIds.indexOf(wg.deptId) >= 0) {
+              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || wg.deptId, workGroups: [], selectedCount: 0 };
+              deptMap[wg.deptId].workGroups.push(wg);
+            }
+          });
+          deptTabs = selectedDeptIds.map(function(did) {
+            return deptMap[did] || { deptId: did, deptName: did, workGroups: [], selectedCount: 0 };
+          });
+          if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
+        }
+      }
+
       var selectedIds = {};
       var currentVal = this.data.auditStarterConditionForm[target] || '';
       if (currentVal) {
         currentVal.split(',').forEach(function(id) {
           var trimmed = id.trim();
           if (trimmed) selectedIds[String(trimmed)] = true;
+        });
+      }
+
+      // Initialize per-tab selected counts
+      if (deptTabs.length) {
+        deptTabs = deptTabs.map(function(tab) {
+          var count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
+          return Object.assign({}, tab, { selectedCount: count });
         });
       }
 
@@ -885,6 +1031,8 @@ module.exports = Behavior({
         auditMultiPickerDeptOptions: deptOpts,
         auditMultiPickerIdentOptions: identOpts,
         auditMultiPickerFilteredList: [],
+        auditMultiPickerDeptTabs: deptTabs,
+        auditMultiPickerActiveDeptTab: activeDeptTab,
         _auditConditionTarget: 'starter'
       });
       this._applyAuditMultiPickerFilters();

@@ -15,8 +15,7 @@ const PORTAL_CARDS_ADMIN = [
   { key: 'hr', label: '人事信息', icon: '👤', desc: '人事 · 部门 · 职能 · 身份', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
   { key: 'system', label: '系统配置', icon: '⚙️', desc: '管理员 · 基础配置', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
   { key: 'audit', label: '审核', icon: '📋', desc: '模板 · 印章 · 验签', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
-  { key: 'venue', label: '场地管理', icon: '🏟️', desc: '场地 · 规则 · 配置', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false },
-  { key: 'venueBookings', label: '借用管理', icon: '📅', desc: '审批 · 查看 · 管理', url: '/subpackages/venue/pages/venueBookings/venueBookings', disabled: false }
+  { key: 'venue', label: '场地管理', icon: '🏟️', desc: '场地 · 借用 · 审批 · 事由', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false }
 ];
 
 function getDisplayIdentity(user, activeRole) {
