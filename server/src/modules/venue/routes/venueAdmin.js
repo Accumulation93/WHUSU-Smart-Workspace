@@ -53,14 +53,11 @@ async function canReviewVenueBooking(openid, booking) {
   const admin = await ensureAdmin(openid);
   const hrId = await resolveHrId(openid);
 
-  // Flow-based approval
+  // Flow-based approval — only users matching step rules can approve (no admin bypass)
   if (booking.approval_flow_id && booking.approval_total_steps > 0) {
     const currentStep = booking.approval_current_step;
     if (currentStep < 0) return { ok: false, admin, hrId, reason: '该借用已被驳回' };
     if (currentStep >= booking.approval_total_steps) return { ok: false, admin, hrId, reason: '该借用已完成所有审批步骤' };
-
-    // Admin always has permission (backward compat)
-    if (admin) return { ok: true, admin, hrId };
 
     // Get current step rules and check if hrId matches
     const steps = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
@@ -69,15 +66,14 @@ async function canReviewVenueBooking(openid, booking) {
     }
     const step = steps[currentStep];
     if (!step || !step.rules || !step.rules.length) {
-      // No rules — admin only
-      return { ok: false, admin, hrId, reason: '当前步骤未配置审批规则' };
+      return { ok: false, admin, hrId, reason: '当前步骤未配置审批规则，请联系管理员配置' };
     }
 
     const hrInfo = await hrInfoModel.getById(hrId);
     if (!hrInfo) return { ok: false, admin, hrId, reason: '找不到人事信息' };
 
     const matches = venueApprovalFlowStepRuleModel.matchesAnyRule(step.rules, hrInfo);
-    return { ok: matches, admin, hrId, reason: matches ? null : '您不符合当前审批步骤的条件' };
+    return { ok: matches, admin, hrId, reason: matches ? null : '您不符合当前审批步骤的条件（需要匹配部门/职能组/身份）' };
   }
 
   // Legacy rule-based approval
