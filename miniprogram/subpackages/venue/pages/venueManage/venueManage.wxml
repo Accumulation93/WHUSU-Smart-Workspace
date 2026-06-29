@@ -1,18 +1,34 @@
 <view class="page">
-  <view class="hero">
-    <view class="hero-badge">MANAGE</view>
-    <view class="hero-title">场地管理</view>
-    <view class="hero-subtitle">管理场地、开放时间、活动与借用规则</view>
+  <view class="hero hero-admin">
+    <view class="hero-badge">管理端</view>
+    <view class="hero-title">场地管理工作台</view>
+    <view class="hero-subtitle hero-admin-subtitle">管理场地、借用申请与事由预设</view>
   </view>
 
-  <!-- Nav -->
-  <view class="header-nav">
-    <text class="header-nav-btn" bindtap="goVenueBookings">借用管理</text>
-    <text class="header-nav-btn" bindtap="openPurposeManager">事由管理</text>
+  <!-- Main Tabs -->
+  <view class="tabs">
+    <view class="tab {{activeTab === 'venue' ? 'tab-active' : ''}}" data-tab="venue" bindtap="switchTab">场地管理</view>
+    <view class="tab {{activeTab === 'bookings' ? 'tab-active' : ''}}" data-tab="bookings" bindtap="switchTab">借用管理</view>
+    <view class="tab {{activeTab === 'purposes' ? 'tab-active' : ''}}" data-tab="purposes" bindtap="switchTab">事由管理</view>
   </view>
 
-  <!-- ═══ Venue Section ═══ -->
-  <view class="section">
+  <view class="workspace-overview">
+    <view class="overview-item">
+      <view class="overview-value">{{venues.length || 0}}</view>
+      <view class="overview-label">场地</view>
+    </view>
+    <view class="overview-item">
+      <view class="overview-value">{{bookingPendingCount || 0}}</view>
+      <view class="overview-label">待审核</view>
+    </view>
+    <view class="overview-item">
+      <view class="overview-value">{{purposes.length || 0}}</view>
+      <view class="overview-label">事由</view>
+    </view>
+  </view>
+
+  <!-- ═══ Venue Tab ═══ -->
+  <view class="section" wx:if="{{activeTab === 'venue'}}">
     <view class="section-title">场地维护</view>
 
     <!-- Add/Edit form -->
@@ -48,6 +64,100 @@
           </view>
         </block>
       </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Bookings Tab ═══ -->
+  <view class="section" wx:if="{{activeTab === 'bookings'}}">
+    <view class="section-title">借用管理</view>
+    <view class="booking-panel">
+      <view class="card-loading-overlay" wx:if="{{bookingsLoading}}"><view class="card-loading-spinner"></view></view>
+
+      <!-- Time filter row -->
+      <view class="filter-section">
+        <view class="filter-label">时间范围</view>
+        <view class="time-filter-row">
+          <picker mode="date" value="{{timeFrom}}" bindchange="onTimeFromChange">
+            <view class="time-pick">{{timeFromDisplay || '开始日期'}}</view>
+          </picker>
+          <text class="time-to">至</text>
+          <picker mode="date" value="{{timeTo}}" bindchange="onTimeToChange">
+            <view class="time-pick">{{timeToDisplay || '结束日期'}}</view>
+          </picker>
+          <text class="filter-clear" wx:if="{{timeFrom || timeTo}}" bindtap="onClearTime">清除</text>
+        </view>
+      </view>
+
+      <!-- Status filter -->
+      <view class="filter-section">
+        <view class="filter-label">状态</view>
+        <scroll-view scroll-x class="filter-scroll">
+          <view class="filter-row">
+            <text class="filter-chip {{filterStatus === '' ? 'active' : ''}}" data-status="" bindtap="onFilterStatus">全部</text>
+            <text class="filter-chip {{filterStatus === 'pending' ? 'active' : ''}}" data-status="pending" bindtap="onFilterStatus">待审核</text>
+            <text class="filter-chip {{filterStatus === 'approved' ? 'active' : ''}}" data-status="approved" bindtap="onFilterStatus">已通过</text>
+            <text class="filter-chip {{filterStatus === 'inUse' ? 'active' : ''}}" data-status="inUse" bindtap="onFilterStatus">使用中</text>
+            <text class="filter-chip {{filterStatus === 'completed' ? 'active' : ''}}" data-status="completed" bindtap="onFilterStatus">已完成</text>
+            <text class="filter-chip {{filterStatus === 'rejected' ? 'active' : ''}}" data-status="rejected" bindtap="onFilterStatus">已驳回</text>
+            <text class="filter-chip {{filterStatus === 'cancelled' ? 'active' : ''}}" data-status="cancelled" bindtap="onFilterStatus">已取消</text>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- Venue filter -->
+      <view class="filter-section">
+        <view class="filter-label">场地</view>
+        <scroll-view scroll-x class="filter-scroll">
+          <view class="filter-row">
+            <text class="filter-chip {{filterVenueId === '' ? 'active' : ''}}" data-id="" bindtap="onFilterVenue">全部</text>
+            <text class="filter-chip {{filterVenueId === item.id ? 'active' : ''}}" wx:for="{{venues}}" wx:key="id" data-id="{{item.id}}" bindtap="onFilterVenue">{{item.name}}</text>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- Booking list -->
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
+        <view class="empty-inline" wx:if="{{!bookings.length}}">暂无借用记录</view>
+        <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
+          <view class="booking-item-head">
+            <view class="booking-item-title">{{item.title || '借用申请'}}</view>
+            <text class="booking-status {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>
+          </view>
+          <view class="booking-item-meta">{{item.venueName}}<text wx:if="{{item.venueLocation}}"> · {{item.venueLocation}}</text></view>
+          <view class="booking-item-meta">{{item.userName}}<text wx:if="{{item.userDept}}"> · {{item.userDept}}</text></view>
+          <view class="booking-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
+          <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
+          <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
+          <view class="booking-actions" wx:if="{{item.status === 'pending'}}">
+            <button class="approve-btn" data-id="{{item.id}}" bindtap="approve">通过</button>
+            <button class="reject-btn" data-id="{{item.id}}" bindtap="reject">驳回</button>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Purposes Tab ═══ -->
+  <view class="section" wx:if="{{activeTab === 'purposes'}}">
+    <view class="section-title">借用事由管理</view>
+    <view class="edit-box">
+      <view class="list-title">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
+      <view class="field">
+        <view class="field-label">事由内容</view>
+        <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="purpose-save-btn" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button></view>
+      </view>
+      <view wx:if="{{!purposes.length}}" class="empty-inline">暂无预设事由数据。</view>
+      <block wx:if="{{purposes.length}}">
+        <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id">
+          <view class="list-main">
+            <view class="list-name">{{item.text}}</view>
+            <view class="inline-actions list-actions-below">
+              <text class="link" data-id="{{item.id}}" bindtap="startEditPurpose">编辑</text>
+              <text class="link danger" data-id="{{item.id}}" bindtap="deletePurpose">删除</text>
+            </view>
+          </view>
+        </view>
+      </block>
     </view>
   </view>
 
@@ -370,7 +480,7 @@
     </view>
   </view>
 
-  <!-- ═══ Purpose Management ═══ -->
+  <!-- ═══ Purpose Management Popup (kept for backward compat from old links) ═══ -->
   <view class="popup-mask" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
     <view class="popup-card" catchtap="noop">
       <view class="popup-header"><view class="popup-title">借用事由管理</view><text class="popup-close" bindtap="closePurposeManager">关闭</text></view>
@@ -403,6 +513,18 @@
       <!-- Search -->
       <view class="rule-filter-row" style="padding:0 24rpx 12rpx;">
         <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
+      </view>
+      <!-- Department tabs (for work group picker with specific depts) -->
+      <view class="dept-tab-scroll" wx:if="{{condMultiPickerDeptTabs.length}}">
+        <scroll-view scroll-x class="dept-tab-scroll-view">
+          <view class="dept-tab-row">
+            <view class="dept-tab {{condMultiPickerActiveDeptTab === item.deptId ? 'dept-tab-active' : ''}}"
+                  wx:for="{{condMultiPickerDeptTabs}}" wx:key="deptId"
+                  data-dept="{{item.deptId}}" bindtap="onCondMultiPickerDeptTab">
+              {{item.deptName}}<text class="dept-tab-count">（已选{{item.selectedCount}}）</text>
+            </view>
+          </view>
+        </scroll-view>
       </view>
       <!-- Select-all / Deselect-all -->
       <view class="button-row compact-row" style="padding:0 24rpx 8rpx;">

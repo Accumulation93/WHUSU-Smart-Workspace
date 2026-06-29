@@ -64,6 +64,22 @@ function fmtLocalTime(d) {
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
 
+/** Compute display status from db status + time comparison */
+function computeDisplayStatus(item) {
+  if (item.status === 'pending') return 'pending';
+  if (item.status === 'rejected') return 'rejected';
+  if (item.status === 'cancelled') return 'cancelled';
+  if (item.status === 'approved') {
+    const now = new Date();
+    const timeStart = new Date(item.timeStart.replace(' ', 'T'));
+    const timeEnd = new Date(item.timeEnd.replace(' ', 'T'));
+    if (now < timeStart) return 'approved';
+    if (now >= timeEnd) return 'completed';
+    return 'inUse';
+  }
+  return item.status;
+}
+
 function calcBlock(timeStart, timeEnd) {
   const s = timeToMin(timeStart);
   const e = timeToMin(timeEnd);
@@ -93,6 +109,9 @@ function parseCsvArray(str) {
 
 Page({
   data: {
+    // ── Main tab ──
+    activeTab: 'venue',  // 'venue' | 'bookings' | 'purposes'
+
     venues: [],
     loading: false,
     editing: false,
@@ -136,6 +155,8 @@ Page({
     condMultiPickerSelectedCount: 0,
     condMultiPickerSearch: '',
     condMultiPickerFilteredList: [],
+    condMultiPickerDeptTabs: [],
+    condMultiPickerActiveDeptTab: '',
 
     // Rule editor
     ruleEditorVisible: false,
@@ -209,6 +230,18 @@ Page({
     // Shared minute options
     ALL_MINUTES: ALL_MINUTES,
 
+    // ── Bookings tab (borrow management) ──
+    bookings: [],
+    bookingPendingCount: 0,
+    bookingsLoading: false,
+    filterStatus: '',
+    filterVenueId: '',
+    timeFrom: '',
+    timeTo: '',
+    timeFromDisplay: '',
+    timeToDisplay: '',
+    statusLabels: { pending: '待审核', approved: '已通过', rejected: '已驳回', cancelled: '已取消', inUse: '使用中', completed: '已完成' },
+
     // Purpose management
     purposeVisible: false,
     purposes: [],
@@ -216,11 +249,44 @@ Page({
     purposeEditText: ''
   },
 
+  onLoad(options) {
+    // Support ?tab=bookings redirect from old venueBookings page
+    if (options && options.tab) {
+      this.setData({ activeTab: options.tab });
+    }
+  },
+
   onShow() {
     this._initWeekStart();
+    this._initBookingsTimeRange();
     this.loadVenues();
     this.loadReferenceData();
+    this.loadBookingSummary();
     this.loadPurposes();
+    if (this.data.activeTab === 'bookings') {
+      this.loadBookingsData();
+    }
+  },
+
+  _initBookingsTimeRange() {
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    const from = fmtLocalDate(weekAgo);
+    const to = fmtLocalDate(now);
+    this.setData({ timeFrom: from, timeTo: to, timeFromDisplay: from, timeToDisplay: to });
+  },
+
+  // ── Main tab switching ──
+  switchTab(e) {
+    const tab = e.currentTarget.dataset.tab;
+    this.setData({ activeTab: tab });
+    if (tab === 'bookings') {
+      this.loadBookingsData();
+    }
+    if (tab === 'purposes') {
+      this.loadPurposes();
+    }
   },
 
   async loadReferenceData() {
@@ -664,8 +730,118 @@ Page({
     return map[rt] || rt;
   },
 
-  goVenueBookings() {
-    wx.navigateTo({ url: '/subpackages/venue/pages/venueBookings/venueBookings' });
+  // ── Bookings tab (borrow management, ported from venueBookings) ──
+
+  async loadBookingSummary() {
+    try {
+      const res = await callFunction({
+        name: 'listAllVenueBookings',
+        data: { status: 'pending' }
+      });
+      if (res.status === 'success') {
+        this.setData({ bookingPendingCount: (res.bookings || []).length });
+      }
+    } catch (_) {}
+  },
+
+  async loadBookingsData() {
+    this.setData({ bookingsLoading: true });
+    try {
+      const { filterStatus, filterVenueId, timeFrom, timeTo } = this.data;
+
+      // Map computed statuses back to DB status for the API query
+      const computedStatuses = ['inUse', 'completed'];
+      const apiStatus = computedStatuses.includes(filterStatus) ? 'approved' : (filterStatus || undefined);
+
+      // 1. Always fetch ALL pending bookings (regardless of time)
+      const pendingReq = callFunction({
+        name: 'listAllVenueBookings',
+        data: { status: 'pending', venueId: filterVenueId || undefined }
+      });
+
+      // 2. Fetch bookings within time range with optional status filter
+      const timeReq = callFunction({
+        name: 'listAllVenueBookings',
+        data: {
+          status: apiStatus,
+          venueId: filterVenueId || undefined,
+          timeFrom: timeFrom ? timeFrom + ' 00:00' : undefined,
+          timeTo: timeTo ? timeTo + ' 23:59' : undefined
+        }
+      });
+
+      const [pendingRes, timeRes] = await Promise.all([pendingReq, timeReq]);
+
+      const pendingList = (pendingRes.status === 'success' ? pendingRes.bookings : []) || [];
+      const timeList = (timeRes.status === 'success' ? timeRes.bookings : []) || [];
+
+      // Merge: pending at top (deduped), then time-filtered non-pending
+      const pendingIds = new Set(pendingList.map(b => b.id));
+      const nonPending = timeList.filter(b => !pendingIds.has(b.id));
+      let merged = [...pendingList, ...nonPending];
+
+      // Compute display status for each booking
+      let bookings = merged.map(b => ({ ...b, displayStatus: computeDisplayStatus(b) }));
+
+      // Client-side filter for computed statuses (inUse / completed)
+      if (computedStatuses.includes(filterStatus)) {
+        bookings = bookings.filter(b => b.displayStatus === filterStatus);
+      }
+
+      this.setData({
+        bookings,
+        bookingPendingCount: bookings.filter(b => b.status === 'pending' || b.displayStatus === 'pending').length
+      });
+    } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
+    finally { this.setData({ bookingsLoading: false }); }
+  },
+
+  onFilterStatus(e) {
+    this.setData({ filterStatus: e.currentTarget.dataset.status });
+    this.loadBookingsData();
+  },
+  onFilterVenue(e) {
+    this.setData({ filterVenueId: e.currentTarget.dataset.id || '' });
+    this.loadBookingsData();
+  },
+
+  onTimeFromChange(e) {
+    this.setData({ timeFrom: e.detail.value, timeFromDisplay: e.detail.value });
+    this.loadBookingsData();
+  },
+  onTimeToChange(e) {
+    this.setData({ timeTo: e.detail.value, timeToDisplay: e.detail.value });
+    this.loadBookingsData();
+  },
+  onClearTime() {
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    this.setData({
+      timeFrom: fmtLocalDate(weekAgo),
+      timeTo: fmtLocalDate(now),
+      timeFromDisplay: fmtLocalDate(weekAgo),
+      timeToDisplay: fmtLocalDate(now)
+    });
+    this.loadBookingsData();
+  },
+
+  async approve(e) {
+    const id = e.currentTarget.dataset.id;
+    try {
+      const res = await callFunction({ name: 'approveVenueBooking', data: { id } });
+      if (res.status === 'success') { showShortToast('已通过'); this.loadBookingsData(); }
+      else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, '操作失败')); }
+  },
+
+  async reject(e) {
+    const id = e.currentTarget.dataset.id;
+    try {
+      const res = await callFunction({ name: 'rejectVenueBooking', data: { id } });
+      if (res.status === 'success') { showShortToast('已驳回'); this.loadBookingsData(); }
+      else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, '操作失败')); }
   },
 
   // ── Admin Timetable / Schedule ──
@@ -1028,7 +1204,8 @@ Page({
 
   // ── Purpose Management ──
   openPurposeManager() {
-    this.setData({ purposeVisible: true, purposeEditId: '', purposeEditText: '' });
+    // Switch to purposes tab instead of opening popup
+    this.setData({ activeTab: 'purposes', purposeEditId: '', purposeEditText: '' });
     this.loadPurposes();
   },
   closePurposeManager() { this.setData({ purposeVisible: false }); },
@@ -1310,19 +1487,63 @@ Page({
     const selectedIds = {};
     selectedIdsArray.forEach(id => { selectedIds[String(id)] = true; });
 
+    // Build items with deptId for work group target
+    let mappedItems;
+    if (target === 'wg') {
+      mappedItems = items.map(it => ({
+        id: it[idField] || it.id,
+        name: it[nameField] || it.name,
+        extra: it.departmentName || '',
+        deptId: it.departmentId || ''
+      }));
+    } else {
+      mappedItems = items.map(it => ({ id: it[idField] || it.id, name: it[nameField] || it.name, extra: '' }));
+    }
+
+    // Build department tabs if specific departments are selected
+    let deptTabs = [];
+    let activeDeptTab = '';
+    const cond = this.data.ruleForm._editingCondition || {};
+    if (target === 'wg' && cond.deptScope === 'specific' && cond.deptIds && cond.deptIds.length) {
+      const selectedDeptIds = cond.deptIds.map(function(s) { return String(s).trim(); }).filter(Boolean);
+      const deptMap = {};
+      mappedItems.forEach(function(wg) {
+        if (selectedDeptIds.indexOf(wg.deptId) >= 0) {
+          if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || wg.deptId, workGroups: [], selectedCount: 0 };
+          deptMap[wg.deptId].workGroups.push(wg);
+        }
+      });
+      deptTabs = selectedDeptIds.map(function(did) {
+        return deptMap[did] || { deptId: did, deptName: did, workGroups: [], selectedCount: 0 };
+      });
+      // Initialize per-tab selected counts
+      deptTabs = deptTabs.map(function(tab) {
+        var count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
+        return Object.assign({}, tab, { selectedCount: count });
+      });
+      if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
+    }
+
     this.setData({
       condMultiPickerVisible: true,
       condMultiPickerTarget: target,
       condMultiPickerTitle: title,
-      condMultiPickerItems: items.map(it => ({ id: it[idField] || it.id, name: it[nameField] || it.name, extra: '' })),
+      condMultiPickerItems: mappedItems,
       condMultiPickerSelectedIds: selectedIds,
       condMultiPickerSelectedCount: selectedIdsArray.length,
-      condMultiPickerSearch: ''
+      condMultiPickerSearch: '',
+      condMultiPickerDeptTabs: deptTabs,
+      condMultiPickerActiveDeptTab: activeDeptTab
     });
     this._applyCondMultiPickerFilters();
   },
 
   closeCondMultiPicker() { this.setData({ condMultiPickerVisible: false }); },
+
+  onCondMultiPickerDeptTab(e) {
+    this.setData({ condMultiPickerActiveDeptTab: e.currentTarget.dataset.dept });
+    this._applyCondMultiPickerFilters();
+  },
 
   onCondMultiPickerSearch(e) {
     this.setData({ condMultiPickerSearch: e.detail.value });
@@ -1333,25 +1554,78 @@ Page({
     const id = String(e.currentTarget.dataset.id);
     const selected = { ...this.data.condMultiPickerSelectedIds };
     if (selected[id]) { delete selected[id]; } else { selected[id] = true; }
+
+    // Update per-tab selected counts
+    let deptTabs = this.data.condMultiPickerDeptTabs;
+    if (deptTabs.length) {
+      deptTabs = deptTabs.map(tab => ({
+        ...tab,
+        selectedCount: tab.workGroups.filter(wg => selected[String(wg.id)]).length
+      }));
+    }
+
     this.setData({
       condMultiPickerSelectedIds: selected,
-      condMultiPickerSelectedCount: Object.keys(selected).length
+      condMultiPickerSelectedCount: Object.keys(selected).length,
+      condMultiPickerDeptTabs: deptTabs
     });
   },
 
   onCondMultiPickerSelectAll() {
-    const selected = {};
+    const selected = { ...this.data.condMultiPickerSelectedIds };
     this.data.condMultiPickerFilteredList.forEach(item => { selected[String(item.id)] = true; });
-    this.setData({ condMultiPickerSelectedIds: selected, condMultiPickerSelectedCount: Object.keys(selected).length });
+
+    // Update per-tab selected counts
+    let deptTabs = this.data.condMultiPickerDeptTabs;
+    if (deptTabs.length) {
+      deptTabs = deptTabs.map(tab => ({
+        ...tab,
+        selectedCount: tab.workGroups.filter(wg => selected[String(wg.id)]).length
+      }));
+    }
+
+    this.setData({
+      condMultiPickerSelectedIds: selected,
+      condMultiPickerSelectedCount: Object.keys(selected).length,
+      condMultiPickerDeptTabs: deptTabs
+    });
   },
 
   onCondMultiPickerDeselectAll() {
-    this.setData({ condMultiPickerSelectedIds: {}, condMultiPickerSelectedCount: 0 });
+    // When dept tabs active, only deselect current tab
+    let deptTabs = this.data.condMultiPickerDeptTabs;
+    let selected = { ...this.data.condMultiPickerSelectedIds };
+    if (deptTabs.length) {
+      const activeTab = this.data.condMultiPickerActiveDeptTab;
+      deptTabs.forEach(tab => {
+        if (tab.deptId === activeTab) {
+          tab.workGroups.forEach(wg => { delete selected[String(wg.id)]; });
+        }
+      });
+      deptTabs = deptTabs.map(tab => ({
+        ...tab,
+        selectedCount: tab.workGroups.filter(wg => selected[String(wg.id)]).length
+      }));
+    } else {
+      selected = {};
+    }
+    this.setData({
+      condMultiPickerSelectedIds: selected,
+      condMultiPickerSelectedCount: Object.keys(selected).length,
+      condMultiPickerDeptTabs: deptTabs
+    });
   },
 
   _applyCondMultiPickerFilters() {
     const keyword = (this.data.condMultiPickerSearch || '').trim().toLowerCase();
     let filtered = this.data.condMultiPickerItems || [];
+
+    // Department tab filter for work group picker
+    if (this.data.condMultiPickerTarget === 'wg' && this.data.condMultiPickerDeptTabs.length) {
+      const activeTab = this.data.condMultiPickerActiveDeptTab;
+      filtered = filtered.filter(item => item.deptId === activeTab);
+    }
+
     if (keyword) {
       filtered = filtered.filter(item => (item.name || '').toLowerCase().indexOf(keyword) >= 0);
     }
@@ -1375,6 +1649,17 @@ Page({
         condMultiPickerVisible: false
       });
     } else if (target === 'wg') {
+      // Per-department validation when department tabs are active
+      if (this.data.condMultiPickerDeptTabs.length) {
+        for (const tab of this.data.condMultiPickerDeptTabs) {
+          if (!tab.workGroups.length) continue;
+          const hasSelection = tab.workGroups.some(wg => selected[String(wg.id)]);
+          if (!hasSelection) {
+            wx.showToast({ title: (tab.deptName || tab.deptId) + ' 至少需要选择一个职能组', icon: 'none' });
+            return;
+          }
+        }
+      }
       this.setData({
         'ruleForm._editingCondition.wgIds': ids,
         'ruleForm._editingCondition._wgNames': names || '',
