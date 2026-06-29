@@ -1,63 +1,68 @@
 ---
 name: blue-glass-ui
 description: >
-  Design UI for the REDSU scoring mini program using the "Blue Luxury Glass" design system.
-  Use this skill whenever the user asks to design, redesign, or style any page, component, card,
-  button, or layout in this project. Also use it when the user asks for "轻奢玻璃风", "蓝色玻璃风",
-  "和现有风格一致", or similar requests. This skill encodes the exact CSS values, color palette,
-  spacing, and composition patterns found across portal, home, and admin pages.
+  Design or refactor UI for the REDSU mini program in the mature scoring/admin
+  "blue luxury glass" style. Use this whenever the user asks for 蓝色玻璃风,
+  轻奢玻璃风, 和考核评分/人事信息/管理端风格一致, or asks to beautify pages in
+  this project.
 ---
 
-# Blue Luxury Glass — REDSU 考核评分 Design System
+# Blue Glass UI for REDSU Mini Program
 
-## When to use this skill
+This project already has a mature visual language in the scoring admin pages and
+portal/home pages. Follow those pages first. Do not invent a new unrelated
+palette, and do not make the UI look like a generic white SaaS dashboard.
 
-Invoke this skill before writing any WXML or WXSS for this project. It ensures every new UI element matches the
-existing design language exactly — no invented styles, no approximate values.
+Primary references:
+- `miniprogram/subpackages/scoring/pages/admin/admin.wxss`
+- `miniprogram/pages/portal/portal.wxss`
+- `miniprogram/pages/home/home.wxss`
 
-Call it with: `/blue-glass-ui` or describe the task and mention "blue glass" / "轻奢玻璃风".
+## Core Direction
 
----
+The style is blue glass, but restrained:
+- pale blue gradient page background with subtle radial light
+- compact dark-blue or blue-gradient hero for management pages
+- translucent white content cards with blur, light border, and inner highlight
+- blue gradient active states and primary actions
+- small, dense, readable management UI, not oversized marketing UI
 
-## 1. Color Palette
+Avoid these failures:
+- giant empty decorative areas
+- flat white cards with no project personality
+- heavy blue blocks everywhere
+- huge buttons, huge titles inside cards, or fat input rows
+- nested cards inside cards unless the inner item is a repeated list row
+- long explanatory paragraphs where a short label or helper line is enough
 
-### Primary Blues
-| Role | Value | Usage |
-|---|---|---|
-| Deep blue | `#1d4ed8` / `#2563eb` | Active tabs, primary buttons, chip text |
-| Mid blue | `#3b82f6` | Gradients, borders, focus rings |
-| Light blue | `#60a5fa` | Gradient ends, section-title glow |
-| Pale blue bg | `rgba(219,234,254,0.76)` | Chip backgrounds (blue variant) |
-| Pale blue border | `rgba(147,197,253,0.64)` | Chip borders |
+## Colors
 
-### Accent Colors (for chips, badges, tags)
-| Color | Background | Text | Border |
-|---|---|---|---|
-| Green | `rgba(209,250,229,0.78)` | `#15803d` | `rgba(110,231,183,0.58)` |
-| Orange/Warm | `rgba(255,237,213,0.78)` | `#c2410c` | `rgba(253,186,116,0.58)` |
-| Sky blue | `rgba(224,242,254,0.76)` | `#0369a1` | `rgba(56,189,248,0.56)` |
+Use these values unless an existing local component already defines a close match:
 
-### Text & Surface
-| Role | Value |
-|---|---|
-| Primary text | `#0f172a` (headings), `#1e293b` (body) |
-| Secondary text | `#64748b` |
-| Muted text | `#94a3b8` |
-| Card bg | `linear-gradient(135deg, rgba(255,255,255,0.80), rgba(248,251,255,0.72))` |
-| Page bg | `linear-gradient(135deg, #f8fbff, #f1f6fc, #edf3fa)` + radial orbs |
+```css
+--blue-900: #1e3a8a;
+--blue-800: #1d4ed8;
+--blue-700: #2563eb;
+--blue-500: #3b82f6;
+--blue-400: #60a5fa;
+--text-main: #0f172a;
+--text-body: #1e293b;
+--text-muted: #64748b;
+--line-blue: rgba(147, 197, 253, 0.64);
+--line-soft: rgba(226, 237, 247, 0.96);
+--danger: #ef4444;
+```
 
-### Red (danger only)
-| Role | Value |
-|---|---|
-| Danger bg | `linear-gradient(135deg, #ef4444, #f87171)` |
-| Danger text | `#ffffff` |
-| Danger shadow | `rgba(239,68,68,0.16)` |
+Status chip variants:
+- Blue: `rgba(219,234,254,0.76)`, text `#1d4ed8`, border `rgba(147,197,253,0.64)`
+- Green: `rgba(209,250,229,0.78)`, text `#15803d`, border `rgba(110,231,183,0.58)`
+- Orange: `rgba(255,237,213,0.78)`, text `#c2410c`, border `rgba(253,186,116,0.58)`
+- Sky: `rgba(224,242,254,0.76)`, text `#0369a1`, border `rgba(56,189,248,0.56)`
+- Red is for destructive controls only.
 
----
+## Page Base
 
-## 2. Page Background
-
-**Always use this exact pattern for full-page backgrounds:**
+Use the project background, copied from portal/home:
 
 ```css
 page {
@@ -75,114 +80,54 @@ page {
   padding: 30rpx 24rpx 42rpx;
   box-sizing: border-box;
 }
-
-/* Decorative orbs */
-.page::before {
-  content: "";
-  position: fixed;
-  top: -120rpx; right: -90rpx;
-  width: 320rpx; height: 320rpx;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(96, 165, 250, 0.18) 0%, rgba(96, 165, 250, 0) 72%);
-  pointer-events: none;
-}
-
-.page::after {
-  content: "";
-  position: fixed;
-  left: -120rpx; bottom: 150rpx;
-  width: 280rpx; height: 280rpx;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(147, 197, 253, 0.16) 0%, rgba(147, 197, 253, 0) 72%);
-  pointer-events: none;
-}
 ```
 
-**Do NOT use:** solid white backgrounds, dark backgrounds, flat colors without gradient, or any non-blue color for the page base.
+Optional page light orbs are allowed, but keep them subtle and fixed behind
+content. Never use purple/pink/orange blobs.
 
----
+## Hero
 
-## 3. Hero Card (Blue Gradient)
-
-**Only for top-of-page identity/hero sections. Not for content cards.**
+For management pages, prefer the scoring admin hero: compact, dark blue, premium,
+not a huge marketing banner.
 
 ```css
-.hero {
+.hero-admin {
   position: relative;
   overflow: hidden;
-  margin-bottom: 28rpx;
-  padding: 44rpx 34rpx 40rpx;
-  border-radius: 38rpx;
+  margin-bottom: 22rpx;
+  padding: 38rpx 34rpx 34rpx;
+  border-radius: 34rpx;
   background:
-    linear-gradient(135deg, rgba(37, 99, 235, 0.98) 0%, rgba(59, 130, 246, 0.95) 42%, rgba(96, 165, 250, 0.90) 100%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0));
-  border: 1rpx solid rgba(255, 255, 255, 0.24);
+    linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.96) 42%, rgba(37, 99, 235, 0.92) 100%);
+  border: 1rpx solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    0 24rpx 54rpx rgba(37, 99, 235, 0.22),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.24);
-}
-
-/* Decorative circles inside hero */
-.hero::before {
-  content: "";
-  position: absolute;
-  top: -90rpx; right: -35rpx;
-  width: 240rpx; height: 240rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.14);
-}
-
-.hero::after {
-  content: "";
-  position: absolute;
-  left: -90rpx; bottom: -120rpx;
-  width: 280rpx; height: 280rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-}
-```
-
-**Hero child elements (all `position: relative; z-index: 1`):**
-
-```css
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 18rpx;
-  padding: 10rpx 24rpx;
-  border-radius: 999rpx;
-  background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.14));
-  border: 1rpx solid rgba(255,255,255,0.28);
-  color: #f8fbff;
-  font-size: 22rpx;
-  font-weight: 600;
-  letter-spacing: 1rpx;
-  backdrop-filter: blur(14rpx);
+    0 26rpx 54rpx rgba(15, 23, 42, 0.20),
+    0 0 28rpx rgba(37, 99, 235, 0.08),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.14);
 }
 
 .hero-title {
   color: #ffffff;
-  font-size: 50rpx;
-  font-weight: 700;
-  line-height: 1.24;
-  letter-spacing: 1rpx;
-  text-shadow: 0 6rpx 16rpx rgba(0,0,0,0.08);
+  font-size: 44rpx;
+  font-weight: 800;
+  line-height: 1.22;
 }
 
 .hero-subtitle {
   margin-top: 12rpx;
-  color: rgba(255,255,255,0.92);
-  font-size: 26rpx;
-  line-height: 1.72;
+  color: rgba(241, 245, 249, 0.90);
+  font-size: 25rpx;
+  font-weight: 600;
+  line-height: 1.58;
 }
 ```
 
----
+Use the lighter blue-gradient hero from `home.wxss` for portal/home/product
+entry pages. Use the dark admin hero for management workbenches.
 
-## 4. Glass Card (Content Container)
+## Cards
 
-**The primary content container. Use for ALL content sections.**
+Cards should feel like glass surfaces, but content must remain readable:
 
 ```css
 .card {
@@ -190,373 +135,223 @@ page {
   margin-bottom: 24rpx;
   padding: 28rpx 26rpx;
   border-radius: 30rpx;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.80) 0%, rgba(248, 251, 255, 0.72) 100%);
-  border: 1rpx solid rgba(255, 255, 255, 0.62);
+  background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(248,251,255,0.72) 100%);
+  border: 1rpx solid rgba(255,255,255,0.66);
   box-shadow:
-    0 18rpx 36rpx rgba(15, 23, 42, 0.06),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.78);
+    0 18rpx 36rpx rgba(15,23,42,0.06),
+    inset 0 1rpx 0 rgba(255,255,255,0.78);
   backdrop-filter: blur(24rpx);
   -webkit-backdrop-filter: blur(24rpx);
   box-sizing: border-box;
 }
 ```
 
-**Never** change the border-radius, shadow pattern, or background gradient of `.card` — it is the unifying element across all pages.
-
----
-
-## 5. Section Title (with Blue Accent Bar)
-
-**Use for all section headings inside cards.**
+For repeated rows inside cards:
 
 ```css
-.section-title {
-  position: relative;
-  padding-left: 20rpx;
-  color: #0f172a;
-  font-size: 30rpx;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.2rpx;
-}
-
-.section-title::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 8rpx;
-  width: 8rpx; height: 28rpx;
-  border-radius: 999rpx;
-  background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%);
-  box-shadow: 0 0 14rpx rgba(59, 130, 246, 0.24);
-}
-```
-
-WXML pattern:
-```xml
-<view class="info-head">
-  <view class="section-title">标题文字</view>
-</view>
-```
-
----
-
-## 6. Info Grid / Info Blocks
-
-**For displaying labeled data fields inside cards (e.g., profile info, scorer info).**
-
-```css
-.info-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 20rpx;
-}
-
-/* 50% width blocks (side by side) */
-.info-block {
-  width: calc(50% - 10rpx);
-  padding: 24rpx 22rpx;
-  border-radius: 24rpx;
-  background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(248,251,255,0.80));
-  border: 1rpx solid rgba(255,255,255,0.68);
-  box-shadow:
-    0 10rpx 24rpx rgba(15,23,42,0.035),
-    inset 0 1rpx 0 rgba(255,255,255,0.78);
-  box-sizing: border-box;
-}
-
-/* Full-width blocks (for longer content like department) */
-.info-block-full {
-  width: 100%;
-  background: linear-gradient(135deg, rgba(239,246,255,0.6), rgba(219,234,254,0.4));
-  border: 1rpx solid rgba(191,219,254,0.6);
-}
-
-.info-label {
-  margin-bottom: 10rpx;
-  color: #64748b;
-  font-size: 23rpx;
-  line-height: 1.5;
-}
-
-.info-value {
-  color: #0f172a;
-  font-size: 28rpx;
-  font-weight: 700;
-  line-height: 1.5;
-  word-break: break-all;
-}
-```
-
-WXML pattern:
-```xml
-<view class="info-grid">
-  <view class="info-block">
-    <view class="info-label">标签</view>
-    <view class="info-value">值</view>
-  </view>
-  <view class="info-block info-block-full" wx:if="{{...}}">
-    <view class="info-label">标签</view>
-    <view class="info-value">值</view>
-  </view>
-</view>
-```
-
----
-
-## 7. Buttons (Three Variants)
-
-```css
-/* Shared base for all action buttons */
-.actions button {
-  position: relative;
-  overflow: hidden;
-  height: 94rpx;
-  line-height: 94rpx;
-  margin-bottom: 20rpx;
-  border: none;
-  border-radius: 24rpx;
-  font-size: 28rpx;
-  font-weight: 700;
-  letter-spacing: 0.5rpx;
-  box-shadow:
-    0 16rpx 30rpx rgba(15,23,42,0.06),
-    inset 0 1rpx 0 rgba(255,255,255,0.24);
-}
-
-.actions button::after { border: none; }
-
-/* Primary — Blue gradient, white text */
-.primary-btn {
-  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 45%, #60a5fa 100%);
-  color: #ffffff;
-  box-shadow:
-    0 20rpx 34rpx rgba(37,99,235,0.20),
-    inset 0 1rpx 0 rgba(255,255,255,0.24);
-}
-
-/* Secondary — White glass, dark text */
-.secondary-btn {
-  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(246,249,255,0.88));
-  color: #1e293b;
-  border: 1rpx solid rgba(219,229,241,0.96);
-  box-shadow:
-    0 10rpx 22rpx rgba(15,23,42,0.05),
-    inset 0 1rpx 0 rgba(255,255,255,0.84);
-}
-
-/* Danger — Red gradient, white text */
-.danger-btn {
-  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
-  color: #ffffff;
-  box-shadow:
-    0 16rpx 30rpx rgba(239,68,68,0.16),
-    inset 0 1rpx 0 rgba(255,255,255,0.18);
-}
-```
-
-**Rules:**
-- Primary = blue gradient + white text. Use for main CTAs.
-- Secondary = white glass + dark text. Use for back/cancel/secondary actions.
-- Danger = red gradient + white text. Use ONLY for destructive actions (unbind, delete).
-- Never invent new button colors. Never use flat colors without gradient.
-
----
-
-## 8. Preview Chips & Colorful Badges
-
-**For inline tags, score chips, status badges:**
-
-```css
-.preview-chip, .merit-chip, .merit-tag {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 36-38rpx;
-  padding: 5-6rpx 14rpx;
-  border-radius: 999rpx;
-  font-size: 20rpx;
-  font-weight: 700;
-  line-height: 1.35;
-  border: 1rpx solid transparent;
-}
-```
-
-**Approved chip color variants (use these exact values):**
-| Variant | Background | Text | Border |
-|---|---|---|---|
-| Blue | `rgba(219,234,254,0.76)` | `#1d4ed8` | `rgba(147,197,253,0.64)` |
-| Green | `rgba(209,250,229,0.78)` | `#15803d` | `rgba(110,231,183,0.58)` |
-| Orange | `rgba(255,237,213,0.78)` | `#c2410c` | `rgba(253,186,116,0.58)` |
-| Sky | `rgba(224,242,254,0.76)` | `#0369a1` | `rgba(56,189,248,0.56)` |
-
-**Never use:** purple, pink, red (for chips), yellow, or any color not listed above.
-
----
-
-## 9. List Items (Inside Cards)
-
-**For rows within a card (e.g., navigation rows, item lists):**
-
-```css
-.list-item, .nav-row {
-  margin-bottom: 14rpx;       /* gap between rows */
-  padding: 20rpx 18rpx;
+.list-item {
+  margin-bottom: 14rpx;
+  padding: 22rpx 20rpx;
   border-radius: 22rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(249,251,255,0.82));
   border: 1rpx solid rgba(226,237,247,0.96);
   box-shadow:
     0 12rpx 24rpx rgba(15,23,42,0.04),
     inset 0 1rpx 0 rgba(255,255,255,0.78);
-  transition: transform 0.18s ease, box-shadow 0.24s ease;
-}
-
-.list-item:last-child { margin-bottom: 0; }
-```
-
-**Press/active state:**
-```css
-.list-item:active, .nav-row:active {
-  transform: translateY(1rpx) scale(0.992);
 }
 ```
 
----
+## Titles And Panel Heads
 
-## 10. Animations
+Use a compact panel header. Put action buttons in the header when there is one
+primary action, such as "新增".
 
-**Use ONLY this keyframe. Do not create custom animations.**
-
-```css
-@keyframes glassFadeUp {
-  from { opacity: 0; transform: translateY(18rpx); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-```
-
-**Apply to cards/list items with staggered delay:**
 ```xml
-style="animation: glassFadeUp 0.42s {{0.06 * index}}s ease both;"
+<view class="panel-head">
+  <view class="panel-title-group">
+    <view class="section-title">场地列表</view>
+    <view class="panel-note">配置规则、查看排期、维护场地资料</view>
+  </view>
+  <button class="primary-btn panel-add-btn">新增</button>
+</view>
 ```
 
----
-
-## 11. Dialog / Popup
-
 ```css
-.dialog-layer { position: fixed; inset: 0; z-index: 99; }
-
-.dialog-mask {
-  position: absolute; inset: 0;
-  background: rgba(15,23,42,0.34);
-  backdrop-filter: blur(6rpx);
-}
-
-.dialog-panel {
-  position: absolute;
-  left: 56rpx; right: 56rpx; top: 50%;
-  transform: translateY(-50%);
-  padding: 28rpx 26rpx 24rpx;
-  border-radius: 28rpx;
-  background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,251,255,0.9));
-  border: 1rpx solid rgba(255,255,255,0.82);
-  box-shadow: 0 22rpx 44rpx rgba(15,23,42,0.14);
-}
-
-.dialog-badge {
-  display: inline-flex;
+.panel-head {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 10rpx 20rpx;
-  border-radius: 999rpx;
-  background: linear-gradient(135deg, rgba(219,234,254,0.94), rgba(191,219,254,0.86));
-  color: #2563eb;
-  font-size: 22rpx;
-  font-weight: 700;
+  justify-content: space-between;
+  gap: 18rpx;
+  margin-bottom: 20rpx;
 }
 
-.dialog-title  { margin-top: 18rpx; color: #0f172a; font-size: 32rpx; font-weight: 700; }
-.dialog-desc   { margin-top: 12rpx; color: #64748b; font-size: 24rpx; line-height: 1.72; }
-.dialog-actions { display: flex; gap: 14rpx; margin-top: 24rpx; }
-.dialog-btn {
-  flex: 1; height: 82rpx; line-height: 82rpx;
-  margin-bottom: 0; border-radius: 18rpx; font-size: 26rpx;
+.section-title {
+  position: relative;
+  margin: 0;
+  padding-left: 20rpx;
+  color: #0f172a;
+  font-size: 30rpx;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.section-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7rpx;
+  height: 28rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%);
+}
+
+.panel-note {
+  margin-top: 6rpx;
+  color: #64748b;
+  font-size: 23rpx;
+  line-height: 1.55;
 }
 ```
 
----
+## Admin Tabs
 
-## 12. Tab Bar (Admin-style)
+For management pages, use a glass segmented control. Do not use ordinary user
+tabs or large separated pills.
 
 ```css
+.tabs {
+  display: flex;
+  gap: 10rpx;
+  margin: 0 0 20rpx;
+  padding: 8rpx;
+  border-radius: 26rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.72), rgba(248,251,255,0.56));
+  border: 1rpx solid rgba(255,255,255,0.62);
+  box-shadow:
+    0 14rpx 28rpx rgba(15,23,42,0.045),
+    inset 0 1rpx 0 rgba(255,255,255,0.78);
+}
+
 .tab {
+  flex: 1;
+  height: 66rpx;
+  line-height: 66rpx;
+  border-radius: 20rpx;
   color: #49627f;
-  /* base tab: muted blue-gray text, no background */
+  font-size: 24rpx;
+  font-weight: 700;
+  text-align: center;
 }
 
 .tab-active {
   color: #ffffff;
   background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
   box-shadow: 0 16rpx 30rpx rgba(29,78,216,0.22);
-  /* active tab: blue gradient fill, white text, blue glow */
 }
 ```
 
----
+## Controls
 
-## 13. Composition Rules
+Primary button:
+```css
+.primary-btn {
+  color: #ffffff;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
+  box-shadow:
+    0 16rpx 32rpx rgba(29,78,216,0.20),
+    inset 0 1rpx 0 rgba(255,255,255,0.20);
+}
+```
 
-1. **Page structure (top to bottom):**
-   - Hero (blue gradient card with badge + title + subtitle)
-   - Content cards (`.card` with `.section-title` + content)
-   - Actions (`.actions` with `.secondary-btn` and `.danger-btn`)
-   - Footer (centered, muted text)
+Secondary button:
+```css
+.secondary-btn {
+  color: #1e40af;
+  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(246,249,255,0.88));
+  border: 1rpx solid rgba(147,197,253,0.88);
+  box-shadow:
+    0 12rpx 24rpx rgba(29,78,216,0.09),
+    inset 0 1rpx 0 rgba(255,255,255,0.84);
+}
+```
 
-2. **Card hierarchy:**
-   - `.card` is the outermost container
-   - Inside: `.info-head` > `.section-title` (heading)
-   - Below heading: `.info-grid` > `.info-block` (for key-value data) OR `.nav-list` > `.nav-row` (for navigation items)
+Danger button:
+```css
+.danger-btn {
+  color: #ffffff;
+  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  box-shadow:
+    0 16rpx 30rpx rgba(239,68,68,0.16),
+    inset 0 1rpx 0 rgba(255,255,255,0.18);
+}
+```
 
-3. **Spacing:**
-   - Card margin-bottom: `24rpx`
-   - Card padding: `28rpx 26rpx`
-   - Gap between info-blocks: `20rpx`
-   - Gap between list rows: `14rpx`
-   - Page horizontal padding: `24-32rpx`
+Do not make small inline actions full-size buttons. Use compact pill links:
 
-4. **Border radius hierarchy:**
-   - Hero: `38rpx`
-   - Cards: `30rpx`
-   - Info blocks: `24rpx`
-   - List rows: `22rpx`
-   - Buttons: `24rpx`
-   - Chips: `999rpx` (full round)
+```css
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  color: #1d4ed8;
+  font-size: 22rpx;
+  font-weight: 800;
+  background: rgba(219,234,254,0.76);
+  border: 1rpx solid rgba(147,197,253,0.64);
+}
+```
 
-5. **Font weight hierarchy:**
-   - Hero title: `700`
-   - Section titles: `700`
-   - Card headings: `700`
-   - Info values: `700`
-   - Button text: `700`
-   - Labels: `400-500`
-   - Descriptions: `400-500`
+## Forms And Filters
 
-6. **Glass effect** — Every container uses:
-   - `linear-gradient` with `rgba(255,255,255,0.80-0.96)` range
-   - `border: 1rpx solid rgba(255,255,255,0.62-0.96)`
-   - `box-shadow` with BOTH outer shadow AND `inset 0 1rpx 0 rgba(255,255,255,0.78)` (top inner highlight)
-   - `backdrop-filter: blur(24rpx)` (on cards, not on inner blocks)
+Inputs should be readable, not oversized:
 
----
+```css
+.field-input,
+.field-textarea,
+.picker-display,
+.picker-value {
+  min-height: 78rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 20rpx;
+  color: #10233d;
+  font-size: 25rpx;
+  line-height: 1.55;
+  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(246,249,255,0.88));
+  border: 1rpx solid rgba(219,229,241,0.96);
+  box-shadow:
+    0 8rpx 18rpx rgba(15,23,42,0.035),
+    inset 0 1rpx 0 rgba(255,255,255,0.84);
+}
+```
 
-## Checklist — Before writing any WXSS
+Filter blocks can be inner glass panels, but keep them compact:
 
-- [ ] Page background: `#f8fbff → #f1f6fc → #edf3fa` gradient + radial orbs
-- [ ] Cards: exact `.card` style from section 4
-- [ ] Section titles: blue accent bar `::before` pseudo-element
-- [ ] Buttons: primary/secondary/danger only, no custom colors
-- [ ] Chips: only the 4 approved color variants
-- [ ] Animation: only `glassFadeUp`
-- [ ] No purple, pink, flat white, flat black, or dark backgrounds
-- [ ] All containers have `inset 0 1rpx 0 rgba(255,255,255,...)` top highlight
-- [ ] All containers use `linear-gradient` backgrounds, never solid colors
+```css
+.filter-section {
+  margin-bottom: 16rpx;
+  padding: 16rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.78), rgba(248,251,255,0.62));
+  border: 1rpx solid rgba(226,237,247,0.82);
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.76);
+}
+```
+
+## Composition Checklist
+
+Before finishing:
+- Compare against scoring/admin pages, not a generic SaaS template.
+- Hero is compact and premium, not huge.
+- Top tabs are admin segmented tabs.
+- Every major content group is a glass card.
+- Repeated rows use inner list-item cards with lighter shadows.
+- Buttons are sized for work, not marketing.
+- Text is not dense: use short titles and one helper line.
+- No giant empty summary cards unless the numbers directly drive decisions.
+- Red is used only for clear/danger/destructive actions.
+- Run at least `node --check` for touched JS and `git diff --check`.
