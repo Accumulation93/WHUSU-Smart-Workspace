@@ -11,6 +11,7 @@ const venueActivityRuleModel = require('../models/venueActivityRule');
 const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingPurposeModel = require('../models/venueBookingPurpose');
+const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
 const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
 
@@ -303,15 +304,22 @@ router.post('/saveVenueBookingRule', async (req, res) => {
     if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
     const ruleType = safeString(req.body.ruleType) || 'admin';
 
-    // Mutual exclusion: 直接通过 cannot coexist with other rule types
+    // Mutual exclusion + auto-cleanup
     const allRules = await venueBookingRuleModel.getByVenueId(venueId);
     const otherRules = allRules.filter(r => r.id !== id);
 
-    if (ruleType === 'direct' && otherRules.length > 0) {
-      return res.json({ status: 'invalid_params', message: '「直接通过」不能与其他借用规则共存，请先删除其他规则' });
-    }
-    if (ruleType !== 'direct' && otherRules.some(r => r.rule_type === 'direct')) {
-      return res.json({ status: 'invalid_params', message: '该场地已设置「直接通过」，不能同时添加其他规则' });
+    if (ruleType === 'direct') {
+      // User chose direct — auto-delete other rules and any existing flow
+      for (const r of otherRules) {
+        await venueBookingRuleModel.remove(r.id);
+      }
+      const existingFlow = await venueApprovalFlowModel.getByVenueId(venueId);
+      if (existingFlow) {
+        await venueApprovalFlowModel.remove(existingFlow.id);
+      }
+    } else if (otherRules.some(r => r.rule_type === 'direct')) {
+      // Adding a new non-direct rule alongside an existing direct rule — blocked
+      return res.json({ status: 'invalid_params', message: '该场地已设置「直接通过」，不能同时添加其他规则。如需切换类型，请编辑现有规则' });
     }
 
     const data = {

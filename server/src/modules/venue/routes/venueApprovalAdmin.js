@@ -121,13 +121,16 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
 
     if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
 
-    // Mutual exclusion: cannot have flow alongside 'direct' booking rules
-    const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
-    if (bookingRules.some(r => r.rule_type === 'direct')) {
-      return res.json({ status: 'invalid_params', message: '该场地已设置「直接通过」，不能同时配置审批流程。请先删除直接通过规则' });
-    }
-
     await conn.beginTransaction();
+
+    // Clean up conflicting 'direct' booking rules when saving a flow
+    // (user is explicitly choosing flow-based approval over direct)
+    const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
+    for (const rule of bookingRules) {
+      if (rule.rule_type === 'direct') {
+        await venueBookingRuleModel.remove(rule.id, conn);
+      }
+    }
 
     // Upsert flow
     let flow = await flowModel.getByVenueId(venueId);
