@@ -142,7 +142,7 @@
                 </block>
               </view>
             </view>
-          </block>
+          </view>
 
           <view wx:if="{{!approvalFlowSteps.length && !approvalFlow}}" class="field-hint" style="margin-top:8rpx;">暂未配置多步审批流程</view>
 
