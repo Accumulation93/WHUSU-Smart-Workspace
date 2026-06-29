@@ -231,24 +231,46 @@
               <block wx:if="{{ruleForm._editingConditionIdx !== undefined}}">
                 <view class="rule-edit-box" style="margin-top:12rpx;">
                   <view class="section-title-sm">{{ruleForm._editingConditionIdx >= 0 ? '编辑规则' : '新增规则'}}</view>
+
+                  <!-- Dept scope -->
                   <view class="field"><view class="field-label">部门</view>
                     <picker range="{{['全部','同部门','指定部门']}}" value="{{ruleForm._editingCondition.deptScope === 'specific' ? 2 : (ruleForm._editingCondition.deptScope === 'same' ? 1 : 0)}}" bindchange="onCondDeptScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.deptScope === 'specific' ? '指定部门' : (ruleForm._editingCondition.deptScope === 'same' ? '同部门（与申请人同部门）' : '全部')}}</view></picker></view>
-                  <view class="field" wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}">
-                    <picker range="{{allDepartments}}" range-key="name" bindchange="onCondDeptId">
-                      <view class="picker-display">{{ruleForm._editingCondition.deptId ? '已选择' : '请选择部门'}}</view></picker></view>
+                      <view class="picker-display">{{ruleForm._editingCondition.deptScope === 'specific' ? '指定部门（多选）' : (ruleForm._editingCondition.deptScope === 'same' ? '同部门（与申请人同部门）' : '全部')}}</view></picker></view>
+                  <view wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}" class="multi-chip-box">
+                    <scroll-view scroll-y class="multi-chip-scroll">
+                      <view class="chip-row">
+                        <text wx:for="{{allDepartments}}" wx:key="id" class="chip sm {{ruleForm._editingCondition.deptIds && ruleForm._editingCondition.deptIds.indexOf(item.id) >= 0 ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onToggleCondDept">{{item.name}}</text>
+                      </view>
+                    </scroll-view>
+                    <text class="selected-hint" wx:if="{{ruleForm._editingCondition.deptIds && ruleForm._editingCondition.deptIds.length}}">已选 {{ruleForm._editingCondition.deptIds.length}} 个部门</text>
+                  </view>
+
+                  <!-- WG scope -->
                   <view class="field"><view class="field-label">职能组</view>
                     <picker range="{{['全部','同职能组','指定职能组']}}" value="{{ruleForm._editingCondition.wgScope === 'specific' ? 2 : (ruleForm._editingCondition.wgScope === 'same' ? 1 : 0)}}" bindchange="onCondWgScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.wgScope === 'specific' ? '指定职能组' : (ruleForm._editingCondition.wgScope === 'same' ? '同职能组（与申请人同组）' : '全部')}}</view></picker></view>
-                  <view class="field" wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}">
-                    <picker range="{{allWorkGroups}}" range-key="name" bindchange="onCondWgId">
-                      <view class="picker-display">{{ruleForm._editingCondition.wgId ? '已选择' : '请选择职能组'}}</view></picker></view>
+                      <view class="picker-display">{{ruleForm._editingCondition.wgScope === 'specific' ? '指定职能组（多选）' : (ruleForm._editingCondition.wgScope === 'same' ? '同职能组（与申请人同组）' : '全部')}}</view></picker></view>
+                  <view wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}" class="multi-chip-box">
+                    <scroll-view scroll-y class="multi-chip-scroll">
+                      <view class="chip-row">
+                        <text wx:for="{{allWorkGroups}}" wx:key="id" class="chip sm {{ruleForm._editingCondition.wgIds && ruleForm._editingCondition.wgIds.indexOf(item.id) >= 0 ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onToggleCondWg">{{item.name}}</text>
+                      </view>
+                    </scroll-view>
+                    <text class="selected-hint" wx:if="{{ruleForm._editingCondition.wgIds && ruleForm._editingCondition.wgIds.length}}">已选 {{ruleForm._editingCondition.wgIds.length}} 个职能组</text>
+                  </view>
+
+                  <!-- Identity scope -->
                   <view class="field"><view class="field-label">身份</view>
                     <picker range="{{['全部','同身份','指定身份']}}" value="{{ruleForm._editingCondition.identScope === 'specific' ? 2 : (ruleForm._editingCondition.identScope === 'same' ? 1 : 0)}}" bindchange="onCondIdentScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.identScope === 'specific' ? '指定身份' : (ruleForm._editingCondition.identScope === 'same' ? '同身份（与申请人同身份）' : '全部')}}</view></picker></view>
-                  <view class="field" wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}">
-                    <picker range="{{allIdentities}}" range-key="name" bindchange="onCondIdentId">
-                      <view class="picker-display">{{ruleForm._editingCondition.identId ? '已选择' : '请选择身份'}}</view></picker></view>
+                      <view class="picker-display">{{ruleForm._editingCondition.identScope === 'specific' ? '指定身份（多选）' : (ruleForm._editingCondition.identScope === 'same' ? '同身份（与申请人同身份）' : '全部')}}</view></picker></view>
+                  <view wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}" class="multi-chip-box">
+                    <scroll-view scroll-y class="multi-chip-scroll">
+                      <view class="chip-row">
+                        <text wx:for="{{allIdentities}}" wx:key="id" class="chip sm {{ruleForm._editingCondition.identIds && ruleForm._editingCondition.identIds.indexOf(item.id) >= 0 ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onToggleCondIdent">{{item.name}}</text>
+                      </view>
+                    </scroll-view>
+                    <text class="selected-hint" wx:if="{{ruleForm._editingCondition.identIds && ruleForm._editingCondition.identIds.length}}">已选 {{ruleForm._editingCondition.identIds.length}} 个身份</text>
+                  </view>
+
                   <view class="button-row">
                     <button class="secondary-btn" bindtap="cancelRuleFlowCondEdit">取消</button>
                     <button class="primary-btn" bindtap="saveRuleFlowCondition">保存规则</button>

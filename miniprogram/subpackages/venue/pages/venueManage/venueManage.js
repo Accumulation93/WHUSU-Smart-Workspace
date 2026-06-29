@@ -85,6 +85,12 @@ function buildMonthlyChecked(cycleValues) {
   return arr;
 }
 
+/** Parse comma-separated ID string into array */
+function parseCsvArray(str) {
+  if (!str) return [];
+  return String(str).split(',').map(s => s.trim()).filter(Boolean);
+}
+
 Page({
   data: {
     venues: [],
@@ -1186,9 +1192,9 @@ Page({
     this.setData({
       'ruleForm._editingConditionIdx': -1,
       'ruleForm._editingCondition': {
-        deptScope: 'all', deptId: '',
-        wgScope: 'all', wgId: '',
-        identScope: 'all', identId: ''
+        deptScope: 'all', deptIds: [],
+        wgScope: 'all', wgIds: [],
+        identScope: 'all', identIds: []
       }
     });
   },
@@ -1202,11 +1208,11 @@ Page({
       'ruleForm._editingConditionIdx': idx,
       'ruleForm._editingCondition': {
         deptScope: rule.departmentScope || 'all',
-        deptId: rule.specificDepartmentId || '',
+        deptIds: parseCsvArray(rule.specificDepartmentId),
         wgScope: rule.workGroupScope || 'all',
-        wgId: rule.specificWorkGroupId || '',
+        wgIds: parseCsvArray(rule.specificWorkGroupId),
         identScope: rule.identityScope || 'all',
-        identId: rule.specificIdentityId || ''
+        identIds: parseCsvArray(rule.specificIdentityId)
       }
     });
   },
@@ -1224,11 +1230,11 @@ Page({
     const rules = [...(this.data.ruleForm._editingStepRules || [])];
     const ruleData = {
       departmentScope: cond.deptScope || 'all',
-      specificDepartmentId: cond.deptId || '',
+      specificDepartmentId: (cond.deptScope === 'specific' && cond.deptIds) ? cond.deptIds.join(',') : '',
       workGroupScope: cond.wgScope || 'all',
-      specificWorkGroupId: cond.wgId || '',
+      specificWorkGroupId: (cond.wgScope === 'specific' && cond.wgIds) ? cond.wgIds.join(',') : '',
       identityScope: cond.identScope || 'all',
-      specificIdentityId: cond.identId || ''
+      specificIdentityId: (cond.identScope === 'specific' && cond.identIds) ? cond.identIds.join(',') : ''
     };
     const idx = this.data.ruleForm._editingConditionIdx;
     if (idx >= 0 && idx < rules.length) {
@@ -1251,32 +1257,40 @@ Page({
   onCondDeptScope(e) {
     const scopes = ['all', 'same', 'specific'];
     const v = scopes[parseInt(e.detail.value)] || 'all';
-    this.setData({ 'ruleForm._editingCondition.deptScope': v, 'ruleForm._editingCondition.deptId': '' });
-  },
-  onCondDeptId(e) {
-    const idx = parseInt(e.detail.value);
-    const dept = this.data.allDepartments[idx];
-    if (dept) this.setData({ 'ruleForm._editingCondition.deptId': dept.id });
+    this.setData({ 'ruleForm._editingCondition.deptScope': v, 'ruleForm._editingCondition.deptIds': [] });
   },
   onCondWgScope(e) {
     const scopes = ['all', 'same', 'specific'];
     const v = scopes[parseInt(e.detail.value)] || 'all';
-    this.setData({ 'ruleForm._editingCondition.wgScope': v, 'ruleForm._editingCondition.wgId': '' });
-  },
-  onCondWgId(e) {
-    const idx = parseInt(e.detail.value);
-    const wg = this.data.allWorkGroups[idx];
-    if (wg) this.setData({ 'ruleForm._editingCondition.wgId': wg.id });
+    this.setData({ 'ruleForm._editingCondition.wgScope': v, 'ruleForm._editingCondition.wgIds': [] });
   },
   onCondIdentScope(e) {
     const scopes = ['all', 'same', 'specific'];
     const v = scopes[parseInt(e.detail.value)] || 'all';
-    this.setData({ 'ruleForm._editingCondition.identScope': v, 'ruleForm._editingCondition.identId': '' });
+    this.setData({ 'ruleForm._editingCondition.identScope': v, 'ruleForm._editingCondition.identIds': [] });
   },
-  onCondIdentId(e) {
-    const idx = parseInt(e.detail.value);
-    const ident = this.data.allIdentities[idx];
-    if (ident) this.setData({ 'ruleForm._editingCondition.identId': ident.id });
+
+  // Multi-select toggle handlers
+  onToggleCondDept(e) {
+    const id = e.currentTarget.dataset.id;
+    const current = this.data.ruleForm._editingCondition.deptIds || [];
+    const idx = current.indexOf(id);
+    const updated = idx >= 0 ? current.filter((_, i) => i !== idx) : [...current, id];
+    this.setData({ 'ruleForm._editingCondition.deptIds': updated });
+  },
+  onToggleCondWg(e) {
+    const id = e.currentTarget.dataset.id;
+    const current = this.data.ruleForm._editingCondition.wgIds || [];
+    const idx = current.indexOf(id);
+    const updated = idx >= 0 ? current.filter((_, i) => i !== idx) : [...current, id];
+    this.setData({ 'ruleForm._editingCondition.wgIds': updated });
+  },
+  onToggleCondIdent(e) {
+    const id = e.currentTarget.dataset.id;
+    const current = this.data.ruleForm._editingCondition.identIds || [];
+    const idx = current.indexOf(id);
+    const updated = idx >= 0 ? current.filter((_, i) => i !== idx) : [...current, id];
+    this.setData({ 'ruleForm._editingCondition.identIds': updated });
   },
 
   noop() {}
