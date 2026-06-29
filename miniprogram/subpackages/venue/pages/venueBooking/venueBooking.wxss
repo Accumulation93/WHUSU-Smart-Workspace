@@ -87,6 +87,8 @@
 .status-tag.approved { background:#d1fae5; color:#065f46; }
 .status-tag.rejected { background:#fee2e2; color:#991b1b; }
 .status-tag.cancelled { background:#f1f5f9; color:#64748b; }
+.status-tag.inUse { background:#dbeafe; color:#1e40af; }
+.status-tag.completed { background:#e0e7ff; color:#3730a3; }
 
 /* ═══ Empty state ═══ */
 .empty-state { text-align:center; padding:40rpx 20rpx; }

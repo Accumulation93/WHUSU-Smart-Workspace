@@ -36,6 +36,8 @@
           <text class="filter-chip {{filterStatus === '' ? 'active' : ''}}" data-status="" bindtap="onFilterStatus">全部</text>
           <text class="filter-chip {{filterStatus === 'pending' ? 'active' : ''}}" data-status="pending" bindtap="onFilterStatus">待审核</text>
           <text class="filter-chip {{filterStatus === 'approved' ? 'active' : ''}}" data-status="approved" bindtap="onFilterStatus">已通过</text>
+          <text class="filter-chip {{filterStatus === 'inUse' ? 'active' : ''}}" data-status="inUse" bindtap="onFilterStatus">使用中</text>
+          <text class="filter-chip {{filterStatus === 'completed' ? 'active' : ''}}" data-status="completed" bindtap="onFilterStatus">已完成</text>
           <text class="filter-chip {{filterStatus === 'rejected' ? 'active' : ''}}" data-status="rejected" bindtap="onFilterStatus">已驳回</text>
           <text class="filter-chip {{filterStatus === 'cancelled' ? 'active' : ''}}" data-status="cancelled" bindtap="onFilterStatus">已取消</text>
         </view>
@@ -59,7 +61,7 @@
       <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
         <view class="booking-item-head">
           <view class="booking-item-title">{{item.title || '借用申请'}}</view>
-          <text class="booking-status {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
+          <text class="booking-status {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>
         </view>
         <view class="booking-item-meta">{{item.venueName}} · {{item.venueLocation || ''}}</view>
         <view class="booking-item-meta">{{item.userName}}

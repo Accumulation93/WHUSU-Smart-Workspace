@@ -18,6 +18,22 @@ function mergeIntervals(intervals) { if(!intervals.length)return[]; const s=[...
 function findOpenGap(rs,re,mo){let c=rs; for(const iv of mo){if(iv.start>c)return c;if(iv.end>c)c=iv.end;if(c>=re)return-1;}return c<re?c:-1;}
 function findBlockedOverlap(rs,re,mb){for(const iv of mb){if(iv.start<re&&iv.end>rs)return iv;}return null;}
 
+/** Compute display status from db status + time comparison */
+function computeDisplayStatus(item) {
+  if (item.status === 'pending') return 'pending';
+  if (item.status === 'rejected') return 'rejected';
+  if (item.status === 'cancelled') return 'cancelled';
+  if (item.status === 'approved') {
+    const now = new Date();
+    // timeStart/timeEnd from server are formatted as "YYYY-MM-DD HH:MM"
+    const timeStart = new Date(item.timeStart.replace(' ', 'T'));
+    const timeEnd = new Date(item.timeEnd.replace(' ', 'T'));
+    if (now < timeStart) return 'approved';      // 未开始 → 已通过
+    if (now >= timeEnd) return 'completed';       // 已结束 → 已完成
+    return 'inUse';                               // 进行中 → 使用中
+  }
+  return item.status;
+}
 
 Page({
   data: {
@@ -41,7 +57,7 @@ Page({
     endHours: [], endHourIdx: 0, endMinutes: ALL_MINUTES, endMinIdx: 0,
     _startDayData: null, _endDayData: null,
     purposes: [],
-    statusLabels: { pending:'待审核', approved:'已通过', rejected:'已驳回', cancelled:'已取消' },
+    statusLabels: { pending:'待审核', approved:'已通过', rejected:'已驳回', cancelled:'已取消', inUse:'使用中', completed:'已完成' },
     HOUR_HEIGHT: HOUR_HEIGHT, HEADER_H: HEADER_H,
 
     // ── Bookings tab ──
@@ -278,17 +294,55 @@ Page({
     this.setData({loading:true});
     try {
       const res=await callFunction({name:'listMyVenueBookings',data:{}});
-      if(res.status==='success') this.setData({myBookings:res.bookings||[]});
+      if(res.status==='success') {
+        const bookings = (res.bookings||[]).map(b => ({
+          ...b,
+          displayStatus: computeDisplayStatus(b)
+        }));
+        this.setData({myBookings: bookings});
+      }
     } catch(e) { showShortToast(getErrorText(e,'加载失败')); }
     finally { this.setData({loading:false}); }
   },
 
   async cancelMyBooking(e) {
     const id=e.currentTarget.dataset.id;
-    try {
-      const res=await callFunction({name:'cancelVenueBooking',data:{id}});
-      if(res.status==='success'){showShortToast('已取消');this.loadMyBookings();}else showShortToast(res.message);
-    } catch(e) { showShortToast(getErrorText(e,'取消失败')); }
+    const booking = this.data.myBookings.find(b => b.id === id);
+    if (!booking) return;
+    if (booking.displayStatus === 'inUse') {
+      showShortToast('使用中的借用不能取消，请使用"结束使用"');
+      return;
+    }
+    if (booking.displayStatus === 'completed') {
+      showShortToast('已完成的借用不能取消');
+      return;
+    }
+    wx.showModal({
+      title: '确认取消',
+      content: '确定取消该借用申请吗？',
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          const res=await callFunction({name:'cancelVenueBooking',data:{id}});
+          if(res.status==='success'){showShortToast('已取消');this.loadMyBookings();}else showShortToast(res.message);
+        } catch(e) { showShortToast(getErrorText(e,'取消失败')); }
+      }
+    });
+  },
+
+  async endMyBooking(e) {
+    const id=e.currentTarget.dataset.id;
+    wx.showModal({
+      title: '确认结束使用',
+      content: '确定要结束该场地的使用吗？结束时间将更新为当前时间。',
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          const res=await callFunction({name:'endVenueBooking',data:{id}});
+          if(res.status==='success'){showShortToast('使用已结束');this.loadMyBookings();}else showShortToast(res.message);
+        } catch(e) { showShortToast(getErrorText(e,'操作失败')); }
+      }
+    });
   },
 
   noop() {}

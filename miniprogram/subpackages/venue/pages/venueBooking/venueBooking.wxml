@@ -49,12 +49,16 @@
         <view class="booking-item" wx:for="{{myBookings}}" wx:key="id">
           <view class="booking-item-head">
             <view class="booking-item-title">{{item.title || '借用申请'}}</view>
-            <text class="status-tag {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
+            <text class="status-tag {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>
           </view>
           <view class="booking-item-meta">{{item.venueName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
+          <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
-          <view class="booking-item-foot" wx:if="{{item.status === 'pending' || item.status === 'approved'}}">
+          <view class="booking-item-foot" wx:if="{{item.displayStatus === 'pending' || item.displayStatus === 'approved'}}">
             <text class="link danger" data-id="{{item.id}}" bindtap="cancelMyBooking">取消借用</text>
+          </view>
+          <view class="booking-item-foot" wx:if="{{item.displayStatus === 'inUse'}}">
+            <text class="link" data-id="{{item.id}}" bindtap="endMyBooking">结束使用</text>
           </view>
         </view>
       </scroll-view>

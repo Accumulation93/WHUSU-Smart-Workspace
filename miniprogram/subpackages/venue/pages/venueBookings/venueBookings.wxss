@@ -64,6 +64,8 @@
 .booking-status.approved { background:#d1fae5; color:#065f46; }
 .booking-status.rejected { background:#fee2e2; color:#991b1b; }
 .booking-status.cancelled { background:#f1f5f9; color:#94a3b8; }
+.booking-status.inUse { background:#dbeafe; color:#1e40af; }
+.booking-status.completed { background:#e0e7ff; color:#3730a3; }
 
 .booking-actions { display:flex; gap:10rpx; margin-top:14rpx; }
 .booking-actions .approve-btn {

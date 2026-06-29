@@ -498,8 +498,52 @@ router.post('/cancelVenueBooking', async (req, res) => {
     if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
     if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '只能取消自己的借用' });
     if (booking.status === 'cancelled') return res.json({ status: 'invalid_state', message: '该借用已被取消' });
+    if (booking.status === 'rejected') return res.json({ status: 'invalid_state', message: '已驳回的借用不能取消' });
+    // 已通过的借用，如果已经开始（now >= timeStart），不能取消
+    if (booking.status === 'approved') {
+      const now = new Date();
+      const timeStart = new Date(booking.time_start);
+      if (now >= timeStart) {
+        return res.json({ status: 'invalid_state', message: '借用已开始，不能取消，请使用"结束使用"功能' });
+      }
+    }
     await venueBookingModel.updateStatus(id, 'cancelled', null, null);
     res.json({ status: 'success', message: '借用已取消' });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// End Use (提前结束使用)
+// ═══════════════════════════════════════════════════
+
+router.post('/endVenueBooking', async (req, res) => {
+  try {
+    const hrId = await resolveHrId(req.openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const id = safeString(req.body.id);
+    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    const booking = await venueBookingModel.getById(id);
+    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
+    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '只能结束自己的借用' });
+    if (booking.status !== 'approved') return res.json({ status: 'invalid_state', message: '只有已通过的借用才能结束使用' });
+
+    const now = new Date();
+    const timeStart = new Date(booking.time_start);
+    const timeEnd = new Date(booking.time_end);
+
+    if (now < timeStart) {
+      return res.json({ status: 'invalid_state', message: '借用尚未开始，如需取消请使用"取消借用"功能' });
+    }
+    if (now >= timeEnd) {
+      return res.json({ status: 'invalid_state', message: '借用已经结束' });
+    }
+
+    // Set time_end to now (early end)
+    const dbTimeEnd = fmtDatetime(now);
+    await venueBookingModel.updateTimeEnd(id, dbTimeEnd);
+    res.json({ status: 'success', message: '使用已结束' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
