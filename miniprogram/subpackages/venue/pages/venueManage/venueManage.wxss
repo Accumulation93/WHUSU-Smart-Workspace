@@ -233,6 +233,8 @@
 
 .link.sm { font-size:22rpx; padding:4rpx 12rpx; }
 
+.rule-save-bar { padding:16rpx 8rpx 8rpx; }
+
 .flow-divider {
   height:1rpx; margin:20rpx 0 16rpx;
   background:linear-gradient(90deg, transparent, rgba(148,163,184,0.25), transparent);

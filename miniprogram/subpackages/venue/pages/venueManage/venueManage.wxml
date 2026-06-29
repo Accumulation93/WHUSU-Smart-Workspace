@@ -117,7 +117,7 @@
   <view class="popup-mask" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
     <view class="popup-card" catchtap="noop">
       <view class="popup-header"><view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view><text class="popup-close" bindtap="closeRuleEditor">关闭</text></view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="form-body">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
@@ -267,9 +267,9 @@
               </block>
             </block>
           </block>
-          <button class="primary-btn" bindtap="saveRule">保存规则</button>
         </view>
       </scroll-view>
+      <view class="rule-save-bar"><button class="primary-btn" bindtap="saveRule">保存规则</button></view>
     </view>
   </view>
 
