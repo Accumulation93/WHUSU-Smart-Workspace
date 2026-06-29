@@ -12,21 +12,6 @@
     <view class="tab {{activeTab === 'purposes' ? 'tab-active' : ''}}" data-tab="purposes" bindtap="switchTab">事由管理</view>
   </view>
 
-  <view class="workspace-overview">
-    <view class="overview-item">
-      <view class="overview-value">{{venues.length || 0}}</view>
-      <view class="overview-label">场地</view>
-    </view>
-    <view class="overview-item">
-      <view class="overview-value">{{bookingPendingCount || 0}}</view>
-      <view class="overview-label">待审核</view>
-    </view>
-    <view class="overview-item">
-      <view class="overview-value">{{purposes.length || 0}}</view>
-      <view class="overview-label">事由</view>
-    </view>
-  </view>
-
   <!-- ═══ Venue Tab ═══ -->
   <view class="section" wx:if="{{activeTab === 'venue'}}">
     <view class="section-title">场地维护</view>
@@ -144,7 +129,7 @@
       <view class="list-title">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
       <view class="field">
         <view class="field-label">事由内容</view>
-        <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="purpose-save-btn" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button></view>
+        <view class="input-row purpose-input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="purpose-save-btn" bindtap="savePurpose">{{purposeEditId ? '更新' : '添加'}}</button></view>
       </view>
       <view wx:if="{{!purposes.length}}" class="empty-inline">暂无预设事由数据。</view>
       <block wx:if="{{purposes.length}}">

@@ -232,7 +232,6 @@ Page({
 
     // ── Bookings tab (borrow management) ──
     bookings: [],
-    bookingPendingCount: 0,
     bookingsLoading: false,
     filterStatus: '',
     filterVenueId: '',
@@ -261,7 +260,6 @@ Page({
     this._initBookingsTimeRange();
     this.loadVenues();
     this.loadReferenceData();
-    this.loadBookingSummary();
     this.loadPurposes();
     if (this.data.activeTab === 'bookings') {
       this.loadBookingsData();
@@ -732,18 +730,6 @@ Page({
 
   // ── Bookings tab (borrow management, ported from venueBookings) ──
 
-  async loadBookingSummary() {
-    try {
-      const res = await callFunction({
-        name: 'listAllVenueBookings',
-        data: { status: 'pending' }
-      });
-      if (res.status === 'success') {
-        this.setData({ bookingPendingCount: (res.bookings || []).length });
-      }
-    } catch (_) {}
-  },
-
   async loadBookingsData() {
     this.setData({ bookingsLoading: true });
     try {
@@ -788,10 +774,7 @@ Page({
         bookings = bookings.filter(b => b.displayStatus === filterStatus);
       }
 
-      this.setData({
-        bookings,
-        bookingPendingCount: bookings.filter(b => b.status === 'pending' || b.displayStatus === 'pending').length
-      });
+      this.setData({ bookings });
     } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
     finally { this.setData({ bookingsLoading: false }); }
   },
