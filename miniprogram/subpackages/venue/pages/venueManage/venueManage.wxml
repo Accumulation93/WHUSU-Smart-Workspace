@@ -235,40 +235,28 @@
                   <!-- Dept scope -->
                   <view class="field"><view class="field-label">部门</view>
                     <picker range="{{['全部','同部门','指定部门']}}" value="{{ruleForm._editingCondition.deptScope === 'specific' ? 2 : (ruleForm._editingCondition.deptScope === 'same' ? 1 : 0)}}" bindchange="onCondDeptScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.deptScope === 'specific' ? '指定部门（多选）' : (ruleForm._editingCondition.deptScope === 'same' ? '同部门（与申请人同部门）' : '全部')}}</view></picker></view>
-                  <view wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}" class="multi-chip-box">
-                    <scroll-view scroll-y class="multi-chip-scroll">
-                      <view class="chip-row">
-                        <text wx:for="{{allDepartments}}" wx:key="id" class="chip sm {{ruleForm._editingCondition.deptIds && ruleForm._editingCondition.deptIds.indexOf(item.id) >= 0 ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onToggleCondDept">{{item.name}}</text>
-                      </view>
-                    </scroll-view>
-                    <text class="selected-hint" wx:if="{{ruleForm._editingCondition.deptIds && ruleForm._editingCondition.deptIds.length}}">已选 {{ruleForm._editingCondition.deptIds.length}} 个部门</text>
+                      <view class="picker-display">{{ruleForm._editingCondition.deptScope === 'specific' ? '指定部门（可多选）' : (ruleForm._editingCondition.deptScope === 'same' ? '同部门（与申请人同部门）' : '全部')}}</view></picker></view>
+                  <view class="field" wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}">
+                    <view class="picker-value" data-target="dept" bindtap="openCondMultiPicker">{{ruleForm._editingCondition._deptNames || '点击选择部门'}}</view>
+                    <text class="link" wx:if="{{ruleForm._editingCondition._deptNames}}" bindtap="onCondFieldClear" data-field="dept" style="font-size:22rpx;color:#ef4444;">清除</text>
                   </view>
 
                   <!-- WG scope -->
                   <view class="field"><view class="field-label">职能组</view>
                     <picker range="{{['全部','同职能组','指定职能组']}}" value="{{ruleForm._editingCondition.wgScope === 'specific' ? 2 : (ruleForm._editingCondition.wgScope === 'same' ? 1 : 0)}}" bindchange="onCondWgScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.wgScope === 'specific' ? '指定职能组（多选）' : (ruleForm._editingCondition.wgScope === 'same' ? '同职能组（与申请人同组）' : '全部')}}</view></picker></view>
-                  <view wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}" class="multi-chip-box">
-                    <scroll-view scroll-y class="multi-chip-scroll">
-                      <view class="chip-row">
-                        <text wx:for="{{allWorkGroups}}" wx:key="id" class="chip sm {{ruleForm._editingCondition.wgIds && ruleForm._editingCondition.wgIds.indexOf(item.id) >= 0 ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onToggleCondWg">{{item.name}}</text>
-                      </view>
-                    </scroll-view>
-                    <text class="selected-hint" wx:if="{{ruleForm._editingCondition.wgIds && ruleForm._editingCondition.wgIds.length}}">已选 {{ruleForm._editingCondition.wgIds.length}} 个职能组</text>
+                      <view class="picker-display">{{ruleForm._editingCondition.wgScope === 'specific' ? '指定职能组（可多选）' : (ruleForm._editingCondition.wgScope === 'same' ? '同职能组（与申请人同组）' : '全部')}}</view></picker></view>
+                  <view class="field" wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}">
+                    <view class="picker-value" data-target="wg" bindtap="openCondMultiPicker">{{ruleForm._editingCondition._wgNames || '点击选择职能组'}}</view>
+                    <text class="link" wx:if="{{ruleForm._editingCondition._wgNames}}" bindtap="onCondFieldClear" data-field="wg" style="font-size:22rpx;color:#ef4444;">清除</text>
                   </view>
 
                   <!-- Identity scope -->
                   <view class="field"><view class="field-label">身份</view>
                     <picker range="{{['全部','同身份','指定身份']}}" value="{{ruleForm._editingCondition.identScope === 'specific' ? 2 : (ruleForm._editingCondition.identScope === 'same' ? 1 : 0)}}" bindchange="onCondIdentScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.identScope === 'specific' ? '指定身份（多选）' : (ruleForm._editingCondition.identScope === 'same' ? '同身份（与申请人同身份）' : '全部')}}</view></picker></view>
-                  <view wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}" class="multi-chip-box">
-                    <scroll-view scroll-y class="multi-chip-scroll">
-                      <view class="chip-row">
-                        <text wx:for="{{allIdentities}}" wx:key="id" class="chip sm {{ruleForm._editingCondition.identIds && ruleForm._editingCondition.identIds.indexOf(item.id) >= 0 ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onToggleCondIdent">{{item.name}}</text>
-                      </view>
-                    </scroll-view>
-                    <text class="selected-hint" wx:if="{{ruleForm._editingCondition.identIds && ruleForm._editingCondition.identIds.length}}">已选 {{ruleForm._editingCondition.identIds.length}} 个身份</text>
+                      <view class="picker-display">{{ruleForm._editingCondition.identScope === 'specific' ? '指定身份（可多选）' : (ruleForm._editingCondition.identScope === 'same' ? '同身份（与申请人同身份）' : '全部')}}</view></picker></view>
+                  <view class="field" wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}">
+                    <view class="picker-value" data-target="ident" bindtap="openCondMultiPicker">{{ruleForm._editingCondition._identNames || '点击选择身份'}}</view>
+                    <text class="link" wx:if="{{ruleForm._editingCondition._identNames}}" bindtap="onCondFieldClear" data-field="ident" style="font-size:22rpx;color:#ef4444;">清除</text>
                   </view>
 
                   <view class="button-row">
@@ -405,6 +393,38 @@
           </block>
         </view>
       </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Condition Multi-Picker (replicates audit multi-picker pattern) ═══ -->
+  <view class="popup-mask" wx:if="{{condMultiPickerVisible}}" bindtap="closeCondMultiPicker">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close" bindtap="closeCondMultiPicker">关闭</text></view>
+      <!-- Search -->
+      <view class="rule-filter-row" style="padding:0 24rpx 12rpx;">
+        <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
+      </view>
+      <!-- Select-all / Deselect-all -->
+      <view class="button-row compact-row" style="padding:0 24rpx 8rpx;">
+        <button class="secondary-btn" bindtap="onCondMultiPickerSelectAll">全选</button>
+        <button class="secondary-btn" bindtap="onCondMultiPickerDeselectAll">取消全选</button>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="inner-scroll large-scroll" style="max-height:600rpx;">
+        <view class="list-item" wx:for="{{condMultiPickerFilteredList}}" wx:key="id" data-id="{{item.id}}" bindtap="onCondMultiPickerToggle">
+          <view class="list-main">
+            <view class="list-name">
+              <view class="select-chip select-chip-inline {{condMultiPickerSelectedIds[item.id] ? 'select-chip-active' : ''}}">{{condMultiPickerSelectedIds[item.id] ? '已选' : '选择'}}</view>
+              {{item.name}}
+            </view>
+            <view class="list-desc" wx:if="{{item.extra}}">{{item.extra}}</view>
+          </view>
+        </view>
+        <view class="empty-inline" wx:if="{{!condMultiPickerFilteredList.length}}">没有匹配的选项</view>
+      </scroll-view>
+      <view class="button-row">
+        <button class="secondary-btn" bindtap="closeCondMultiPicker">取消</button>
+        <button class="primary-btn" bindtap="confirmCondMultiPicker">确定选择（已选{{condMultiPickerSelectedCount}}项）</button>
+      </view>
     </view>
   </view>
 

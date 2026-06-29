@@ -238,10 +238,15 @@
   background:linear-gradient(90deg, transparent, rgba(148,163,184,0.25), transparent);
 }
 
-/* Multi-select chip box */
+/* Multi-chip box (legacy, kept for compatibility) */
 .multi-chip-box {
   margin:6rpx 0 10rpx; padding:10rpx; border-radius:14rpx;
   background:rgba(248,250,252,0.7); border:1rpx solid rgba(203,213,225,0.35);
 }
 .multi-chip-scroll { max-height:240rpx; }
 .selected-hint { font-size:22rpx; color:#2563eb; font-weight:600; margin-top:6rpx; text-align:right; }
+
+/* Compact button row */
+.compact-row { gap: 10rpx; }
+.compact-row .secondary-btn,
+.compact-row .primary-btn { padding: 12rpx 16rpx; font-size: 22rpx; min-height: 60rpx; }

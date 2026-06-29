@@ -127,6 +127,16 @@ Page({
     allDepartments: [],
     allWorkGroups: [],
 
+    // Condition multi-picker
+    condMultiPickerVisible: false,
+    condMultiPickerTarget: '',
+    condMultiPickerTitle: '',
+    condMultiPickerItems: [],
+    condMultiPickerSelectedIds: {},
+    condMultiPickerSelectedCount: 0,
+    condMultiPickerSearch: '',
+    condMultiPickerFilteredList: [],
+
     // Rule editor
     ruleEditorVisible: false,
     ruleEditId: '',
@@ -1204,17 +1214,28 @@ Page({
     const rules = this.data.ruleForm._editingStepRules || [];
     const rule = rules[idx];
     if (!rule) return;
+    const deptIds = parseCsvArray(rule.specificDepartmentId);
+    const wgIds = parseCsvArray(rule.specificWorkGroupId);
+    const identIds = parseCsvArray(rule.specificIdentityId);
     this.setData({
       'ruleForm._editingConditionIdx': idx,
       'ruleForm._editingCondition': {
         deptScope: rule.departmentScope || 'all',
-        deptIds: parseCsvArray(rule.specificDepartmentId),
+        deptIds, _deptNames: this._resolveNames(deptIds, this.data.allDepartments),
         wgScope: rule.workGroupScope || 'all',
-        wgIds: parseCsvArray(rule.specificWorkGroupId),
+        wgIds, _wgNames: this._resolveNames(wgIds, this.data.allWorkGroups),
         identScope: rule.identityScope || 'all',
-        identIds: parseCsvArray(rule.specificIdentityId)
+        identIds, _identNames: this._resolveNames(identIds, this.data.allIdentities)
       }
     });
+  },
+
+  _resolveNames(idArray, sourceList) {
+    if (!idArray || !idArray.length || !sourceList || !sourceList.length) return '';
+    return idArray.map(id => {
+      const item = sourceList.find(it => it.id === id);
+      return item ? item.name : id;
+    }).join('、');
   },
 
   removeRuleFlowCondition(e) {
@@ -1270,27 +1291,113 @@ Page({
     this.setData({ 'ruleForm._editingCondition.identScope': v, 'ruleForm._editingCondition.identIds': [] });
   },
 
-  // Multi-select toggle handlers
-  onToggleCondDept(e) {
-    const id = e.currentTarget.dataset.id;
-    const current = this.data.ruleForm._editingCondition.deptIds || [];
-    const idx = current.indexOf(id);
-    const updated = idx >= 0 ? current.filter((_, i) => i !== idx) : [...current, id];
-    this.setData({ 'ruleForm._editingCondition.deptIds': updated });
+  // ── Condition Multi-Picker (replicates audit multi-picker pattern) ──
+
+  openCondMultiPicker(e) {
+    const target = e.currentTarget.dataset.target; // 'dept' | 'wg' | 'ident'
+    let title, items, idField, nameField, selectedIdsArray;
+    if (target === 'dept') {
+      title = '选择部门'; items = this.data.allDepartments; idField = 'id'; nameField = 'name';
+      selectedIdsArray = this.data.ruleForm._editingCondition.deptIds || [];
+    } else if (target === 'wg') {
+      title = '选择职能组'; items = this.data.allWorkGroups; idField = 'id'; nameField = 'name';
+      selectedIdsArray = this.data.ruleForm._editingCondition.wgIds || [];
+    } else {
+      title = '选择身份'; items = this.data.allIdentities; idField = 'id'; nameField = 'name';
+      selectedIdsArray = this.data.ruleForm._editingCondition.identIds || [];
+    }
+
+    const selectedIds = {};
+    selectedIdsArray.forEach(id => { selectedIds[String(id)] = true; });
+
+    this.setData({
+      condMultiPickerVisible: true,
+      condMultiPickerTarget: target,
+      condMultiPickerTitle: title,
+      condMultiPickerItems: items.map(it => ({ id: it[idField] || it.id, name: it[nameField] || it.name, extra: '' })),
+      condMultiPickerSelectedIds: selectedIds,
+      condMultiPickerSelectedCount: selectedIdsArray.length,
+      condMultiPickerSearch: ''
+    });
+    this._applyCondMultiPickerFilters();
   },
-  onToggleCondWg(e) {
-    const id = e.currentTarget.dataset.id;
-    const current = this.data.ruleForm._editingCondition.wgIds || [];
-    const idx = current.indexOf(id);
-    const updated = idx >= 0 ? current.filter((_, i) => i !== idx) : [...current, id];
-    this.setData({ 'ruleForm._editingCondition.wgIds': updated });
+
+  closeCondMultiPicker() { this.setData({ condMultiPickerVisible: false }); },
+
+  onCondMultiPickerSearch(e) {
+    this.setData({ condMultiPickerSearch: e.detail.value });
+    this._applyCondMultiPickerFilters();
   },
-  onToggleCondIdent(e) {
-    const id = e.currentTarget.dataset.id;
-    const current = this.data.ruleForm._editingCondition.identIds || [];
-    const idx = current.indexOf(id);
-    const updated = idx >= 0 ? current.filter((_, i) => i !== idx) : [...current, id];
-    this.setData({ 'ruleForm._editingCondition.identIds': updated });
+
+  onCondMultiPickerToggle(e) {
+    const id = String(e.currentTarget.dataset.id);
+    const selected = { ...this.data.condMultiPickerSelectedIds };
+    if (selected[id]) { delete selected[id]; } else { selected[id] = true; }
+    this.setData({
+      condMultiPickerSelectedIds: selected,
+      condMultiPickerSelectedCount: Object.keys(selected).length
+    });
+  },
+
+  onCondMultiPickerSelectAll() {
+    const selected = {};
+    this.data.condMultiPickerFilteredList.forEach(item => { selected[String(item.id)] = true; });
+    this.setData({ condMultiPickerSelectedIds: selected, condMultiPickerSelectedCount: Object.keys(selected).length });
+  },
+
+  onCondMultiPickerDeselectAll() {
+    this.setData({ condMultiPickerSelectedIds: {}, condMultiPickerSelectedCount: 0 });
+  },
+
+  _applyCondMultiPickerFilters() {
+    const keyword = (this.data.condMultiPickerSearch || '').trim().toLowerCase();
+    let filtered = this.data.condMultiPickerItems || [];
+    if (keyword) {
+      filtered = filtered.filter(item => (item.name || '').toLowerCase().indexOf(keyword) >= 0);
+    }
+    this.setData({ condMultiPickerFilteredList: filtered });
+  },
+
+  confirmCondMultiPicker() {
+    const target = this.data.condMultiPickerTarget;
+    const selected = this.data.condMultiPickerSelectedIds || {};
+    const ids = Object.keys(selected);
+    const items = this.data.condMultiPickerItems || [];
+    const names = ids.map(id => {
+      const item = items.find(it => String(it.id) === id);
+      return item ? item.name : id;
+    }).join('、');
+
+    if (target === 'dept') {
+      this.setData({
+        'ruleForm._editingCondition.deptIds': ids,
+        'ruleForm._editingCondition._deptNames': names || '',
+        condMultiPickerVisible: false
+      });
+    } else if (target === 'wg') {
+      this.setData({
+        'ruleForm._editingCondition.wgIds': ids,
+        'ruleForm._editingCondition._wgNames': names || '',
+        condMultiPickerVisible: false
+      });
+    } else {
+      this.setData({
+        'ruleForm._editingCondition.identIds': ids,
+        'ruleForm._editingCondition._identNames': names || '',
+        condMultiPickerVisible: false
+      });
+    }
+  },
+
+  onCondFieldClear(e) {
+    const field = e.currentTarget.dataset.field;
+    if (field === 'dept') {
+      this.setData({ 'ruleForm._editingCondition.deptIds': [], 'ruleForm._editingCondition._deptNames': '' });
+    } else if (field === 'wg') {
+      this.setData({ 'ruleForm._editingCondition.wgIds': [], 'ruleForm._editingCondition._wgNames': '' });
+    } else {
+      this.setData({ 'ruleForm._editingCondition.identIds': [], 'ruleForm._editingCondition._identNames': '' });
+    }
   },
 
   noop() {}
