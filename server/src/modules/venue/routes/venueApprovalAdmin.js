@@ -274,13 +274,19 @@ async function canApproveCurrentStep(booking, approverHrId) {
   }
 
   // Get the approver's HR info
-  const hrInfo = await hrInfoModel.getById(approverHrId);
-  if (!hrInfo) {
+  const approverHrInfo = await hrInfoModel.getById(approverHrId);
+  if (!approverHrInfo) {
     return { ok: false, reason: '找不到审批人的人事信息' };
   }
 
+  // Load applicant's HR info for 'same' scope matching
+  let applicantHrInfo = null;
+  if (booking.user_hr_id) {
+    applicantHrInfo = await hrInfoModel.getById(booking.user_hr_id);
+  }
+
   // Check if any rule matches
-  const matches = ruleModel.matchesAnyRule(step.rules, hrInfo);
+  const matches = ruleModel.matchesAnyRule(step.rules, approverHrInfo, applicantHrInfo);
   if (!matches) {
     return { ok: false, reason: '您不符合当前审批步骤的审批条件' };
   }

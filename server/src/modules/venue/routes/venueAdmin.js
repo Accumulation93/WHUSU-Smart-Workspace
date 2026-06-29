@@ -69,10 +69,16 @@ async function canReviewVenueBooking(openid, booking) {
       return { ok: false, admin, hrId, reason: '当前步骤未配置审批规则，请联系管理员配置' };
     }
 
-    const hrInfo = await hrInfoModel.getById(hrId);
-    if (!hrInfo) return { ok: false, admin, hrId, reason: '找不到人事信息' };
+    const approverHrInfo = await hrInfoModel.getById(hrId);
+    if (!approverHrInfo) return { ok: false, admin, hrId, reason: '找不到审批人人事信息' };
 
-    const matches = venueApprovalFlowStepRuleModel.matchesAnyRule(step.rules, hrInfo);
+    // Load applicant's HR info for 'same' scope matching
+    let applicantHrInfo = null;
+    if (booking.user_hr_id) {
+      applicantHrInfo = await hrInfoModel.getById(booking.user_hr_id);
+    }
+
+    const matches = venueApprovalFlowStepRuleModel.matchesAnyRule(step.rules, approverHrInfo, applicantHrInfo);
     return { ok: matches, admin, hrId, reason: matches ? null : '您不符合当前审批步骤的条件（需要匹配部门/职能组/身份）' };
   }
 

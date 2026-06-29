@@ -1249,7 +1249,8 @@ Page({
   // ── Condition picker handlers ──
 
   onCondDeptScope(e) {
-    const v = parseInt(e.detail.value) === 0 ? 'all' : 'specific';
+    const scopes = ['all', 'same', 'specific'];
+    const v = scopes[parseInt(e.detail.value)] || 'all';
     this.setData({ 'ruleForm._editingCondition.deptScope': v, 'ruleForm._editingCondition.deptId': '' });
   },
   onCondDeptId(e) {
@@ -1258,7 +1259,8 @@ Page({
     if (dept) this.setData({ 'ruleForm._editingCondition.deptId': dept.id });
   },
   onCondWgScope(e) {
-    const v = parseInt(e.detail.value) === 0 ? 'all' : 'specific';
+    const scopes = ['all', 'same', 'specific'];
+    const v = scopes[parseInt(e.detail.value)] || 'all';
     this.setData({ 'ruleForm._editingCondition.wgScope': v, 'ruleForm._editingCondition.wgId': '' });
   },
   onCondWgId(e) {
@@ -1267,7 +1269,8 @@ Page({
     if (wg) this.setData({ 'ruleForm._editingCondition.wgId': wg.id });
   },
   onCondIdentScope(e) {
-    const v = parseInt(e.detail.value) === 0 ? 'all' : 'specific';
+    const scopes = ['all', 'same', 'specific'];
+    const v = scopes[parseInt(e.detail.value)] || 'all';
     this.setData({ 'ruleForm._editingCondition.identScope': v, 'ruleForm._editingCondition.identId': '' });
   },
   onCondIdentId(e) {

@@ -32,42 +32,69 @@ async function getById(id) {
 }
 
 /**
- * Check if a given hrId matches a rule's scope conditions.
+ * Check if a given approver matches a rule's scope conditions.
  * All 3 layers must match (AND logic within a rule).
  * @param {object} rule - The rule row from DB
- * @param {object} hrInfo - { department_id, work_group_id, identity_id }
+ * @param {object} approverHrInfo - { department_id, work_group_id, identity_id } of the approver
+ * @param {object} [applicantHrInfo] - { department_id, work_group_id, identity_id } of the booking applicant (needed for 'same' scope)
  */
-function matchesRule(rule, hrInfo) {
-  if (!rule || !hrInfo) return false;
+function matchesRule(rule, approverHrInfo, applicantHrInfo) {
+  if (!rule || !approverHrInfo) return false;
 
   // Department scope
-  if (rule.department_scope === 'specific') {
-    const deptIds = parseCsvIds(rule.specific_department_id);
-    if (deptIds.length > 0 && !deptIds.includes(hrInfo.department_id)) return false;
+  switch (rule.department_scope) {
+    case 'specific': {
+      const deptIds = parseCsvIds(rule.specific_department_id);
+      if (deptIds.length > 0 && !deptIds.includes(approverHrInfo.department_id)) return false;
+      break;
+    }
+    case 'same':
+      if (!applicantHrInfo || !applicantHrInfo.department_id) return false;
+      if (approverHrInfo.department_id !== applicantHrInfo.department_id) return false;
+      break;
+    // 'all' — any department matches
   }
-  // 'all' means any department matches
 
   // Work group scope
-  if (rule.work_group_scope === 'specific') {
-    const wgIds = parseCsvIds(rule.specific_work_group_id);
-    if (wgIds.length > 0 && !wgIds.includes(hrInfo.work_group_id)) return false;
+  switch (rule.work_group_scope) {
+    case 'specific': {
+      const wgIds = parseCsvIds(rule.specific_work_group_id);
+      if (wgIds.length > 0 && !wgIds.includes(approverHrInfo.work_group_id)) return false;
+      break;
+    }
+    case 'same':
+      if (!applicantHrInfo || !applicantHrInfo.work_group_id) return false;
+      if (approverHrInfo.work_group_id !== applicantHrInfo.work_group_id) return false;
+      break;
+    // 'all' — any work group matches
   }
 
   // Identity scope
-  if (rule.identity_scope === 'specific') {
-    const identIds = parseCsvIds(rule.specific_identity_id);
-    if (identIds.length > 0 && !identIds.includes(hrInfo.identity_id)) return false;
+  switch (rule.identity_scope) {
+    case 'specific': {
+      const identIds = parseCsvIds(rule.specific_identity_id);
+      if (identIds.length > 0 && !identIds.includes(approverHrInfo.identity_id)) return false;
+      break;
+    }
+    case 'same':
+      if (!applicantHrInfo || !applicantHrInfo.identity_id) return false;
+      if (approverHrInfo.identity_id !== applicantHrInfo.identity_id) return false;
+      break;
+    // 'all' — any identity matches
   }
 
   return true;
 }
 
 /**
- * Check if any rule in a step's rule list matches the given hrInfo.
+ * Check if any rule in a step's rule list matches the given approver.
  * OR logic: if any rule matches, the step can be approved by this person.
+ * @param {object[]} rules
+ * @param {object} approverHrInfo
+ * @param {object} [applicantHrInfo]
  */
-function matchesAnyRule(rules, hrInfo) {
-  return (rules || []).some(rule => matchesRule(rule, hrInfo));
+function matchesAnyRule(rules, approverHrInfo, applicantHrInfo) {
+  return (rules || []).some(rule => matchesRule(rule, approverHrInfo, applicantHrInfo));
 }
 
 function parseCsvIds(str) {
