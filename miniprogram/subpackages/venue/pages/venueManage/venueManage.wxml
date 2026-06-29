@@ -17,9 +17,9 @@
     <!-- Add/Edit form -->
     <view class="edit-box" wx:if="{{editing}}">
       <view class="panel-head">
-        <view class="panel-title-wrap">
+        <view class="panel-title-group">
           <view class="section-title">{{editId ? '编辑场地' : '新增场地'}}</view>
-          <view class="panel-subtitle">维护场地名称、位置和说明信息</view>
+          <view class="panel-note">基础信息会展示在用户预约和管理排期中</view>
         </view>
       </view>
       <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
@@ -31,11 +31,11 @@
     <!-- Venue list -->
     <view class="list-card" wx:if="{{!editing}}">
       <view class="panel-head">
-        <view class="panel-title-wrap">
+        <view class="panel-title-group">
           <view class="section-title">场地列表</view>
-          <view class="panel-subtitle">管理开放规则、借用安排和场地基础信息</view>
+          <view class="panel-note">配置规则、查看排期、维护场地资料</view>
         </view>
-        <button class="primary-btn panel-action-btn" bindtap="startAdd">新增</button>
+        <button class="primary-btn panel-add-btn" bindtap="startAdd">新增</button>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
@@ -63,9 +63,9 @@
   <view class="section" wx:if="{{activeTab === 'bookings'}}">
     <view class="booking-panel">
       <view class="panel-head">
-        <view class="panel-title-wrap">
+        <view class="panel-title-group">
           <view class="section-title">借用管理</view>
-          <view class="panel-subtitle">筛选、查看并处理场地借用申请</view>
+          <view class="panel-note">按时间、状态和场地筛选申请</view>
         </view>
       </view>
       <view class="card-loading-overlay" wx:if="{{bookingsLoading}}"><view class="card-loading-spinner"></view></view>
@@ -138,9 +138,9 @@
   <view class="section" wx:if="{{activeTab === 'purposes'}}">
     <view class="edit-box">
       <view class="panel-head">
-        <view class="panel-title-wrap">
+        <view class="panel-title-group">
           <view class="section-title">借用事由管理</view>
-          <view class="panel-subtitle">{{purposeEditId ? '正在编辑常用事由' : '维护用户提交借用时可直接选择的常用事由'}}</view>
+          <view class="panel-note">{{purposeEditId ? '正在编辑常用事由' : '维护用户可选的常用借用事由'}}</view>
         </view>
       </view>
       <view class="field">
