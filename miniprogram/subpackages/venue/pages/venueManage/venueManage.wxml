@@ -59,7 +59,6 @@
         <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}}" data-tab="open" bindtap="switchRulesTab">开放时间</view>
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}}" data-tab="activity" bindtap="switchRulesTab">活动时间</view>
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}}" data-tab="booking" bindtap="switchRulesTab">借用规则</view>
-        <view class="rules-tab {{rulesTab === 'flow' ? 'active' : ''}}" data-tab="flow" bindtap="switchRulesTab">审批流程</view>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">
@@ -95,8 +94,9 @@
           </block>
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
+          <!-- Simple rules (直接通过 / 管理员审核) -->
           <button class="primary-btn rule-add-btn" data-type="booking" bindtap="openRuleEditor">新增借用规则</button>
-          <view wx:if="{{!bookingRules.length}}" class="empty-inline">暂无借用规则（默认需管理员审核）。</view>
+          <view wx:if="{{!bookingRules.length && !approvalFlowSteps.length && !approvalFlow}}" class="empty-inline">暂无借用规则（默认需管理员审核）。</view>
           <block wx:if="{{bookingRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
               <view class="list-main">
@@ -108,19 +108,18 @@
               </view>
             </view>
           </block>
-        </block>
-        <block wx:if="{{rulesTab === 'flow'}}">
-          <!-- Flow info bar -->
+
+          <!-- Divider and flow section -->
+          <view class="flow-divider" wx:if="{{bookingRules.length && (approvalFlow || approvalFlowSteps.length)}}"></view>
+          <view class="section-title-sm" wx:if="{{bookingRules.length}}">审批流程（多步审核）</view>
+
           <view wx:if="{{approvalFlow}}" class="flow-info-bar">
             <text class="flow-info-text">{{approvalFlow.name || '审批流程'}} · {{approvalFlowSteps.length}}步</text>
             <text class="link danger" bindtap="deleteApprovalFlow">删除流程</text>
           </view>
-          <view wx:else class="empty-inline">暂无审批流程配置，请添加步骤后保存。</view>
 
-          <!-- Steps list -->
-          <view class="section-title-sm">审批步骤</view>
-          <view wx:if="{{!approvalFlowSteps.length}}" class="empty-inline">暂无步骤。</view>
-          <block wx:if="{{approvalFlowSteps.length}}">
+          <!-- Steps list (shown whether or not flow is saved yet) -->
+          <view wx:if="{{approvalFlowSteps.length}}">
             <view class="flow-step-card" wx:for="{{approvalFlowSteps}}" wx:key="index" wx:for-index="si">
               <view class="flow-step-head">
                 <view class="flow-step-badge">第{{si + 1}}步</view>
@@ -145,8 +144,10 @@
             </view>
           </block>
 
-          <button class="secondary-btn rule-add-btn" bindtap="openAddStep">新增步骤</button>
-          <button class="primary-btn" style="margin-top: 10rpx;" loading="{{loading}}" bindtap="saveApprovalFlow">保存审批流程</button>
+          <view wx:if="{{!approvalFlowSteps.length && !approvalFlow}}" class="field-hint" style="margin-top:8rpx;">暂未配置多步审批流程</view>
+
+          <button class="secondary-btn rule-add-btn" bindtap="openAddStep">新增审批步骤</button>
+          <button class="primary-btn" style="margin-top: 10rpx;" loading="{{loading}}" bindtap="saveApprovalFlow" wx:if="{{approvalFlowSteps.length}}">保存审批流程</button>
         </block>
       </scroll-view>
     </view>
@@ -200,14 +201,9 @@
           </block>
           <block wx:if="{{ruleEditorType === 'booking'}}">
             <view class="field"><view class="field-label">审批类型</view>
-              <picker range="{{['管理员审核','直接通过','指定身份审核','指定人员审核']}}" value="{{ruleForm._ruleTypeIndex}}" bindchange="onBookingRuleTypeChange">
-                <view class="picker-display">{{ruleForm._ruleTypeLabel || '管理员审核'}}</view></picker></view>
-            <view class="field" wx:if="{{ruleForm.ruleType === 'identity'}}"><view class="field-label">审核身份</view>
-              <picker range="{{allIdentities}}" range-key="name" value="{{ruleForm.approverIdentityIndex}}" bindchange="onBookingIdentityChange">
-                <view class="picker-display">{{ruleForm.approverIdentityName || '请选择身份'}}</view></picker></view>
-            <view class="field" wx:if="{{ruleForm.ruleType === 'person'}}"><view class="field-label">审核人员</view>
-              <picker range="{{allHrPersons}}" range-key="name" value="{{ruleForm.approverHrIndex}}" bindchange="onBookingHrChange">
-                <view class="picker-display">{{ruleForm.approverHrName || '请选择人员'}}</view></picker></view>
+              <picker range="{{['管理员审核','直接通过']}}" value="{{ruleForm.ruleType === 'direct' ? 1 : 0}}" bindchange="onBookingRuleTypeChange">
+                <view class="picker-display">{{ruleForm.ruleType === 'direct' ? '直接通过' : '管理员审核'}}</view></picker></view>
+            <view class="field-hint">如需指定身份/部门/职能组的多步审批，请在下方「审批流程」中配置。</view>
           </block>
           <button class="primary-btn" bindtap="saveRule">保存规则</button>
         </view>

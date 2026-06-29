@@ -287,6 +287,7 @@ Page({
     this.loadOpenRules();
     this.loadActivityRules();
     this.loadBookingRules();
+    this.loadApprovalFlow();
   },
 
   closeRules() { this.setData({ rulesVisible: false }); },
@@ -294,7 +295,6 @@ Page({
   switchRulesTab(e) {
     const tab = e.currentTarget.dataset.tab;
     this.setData({ rulesTab: tab });
-    if (tab === 'flow') this.loadApprovalFlow();
   },
 
   async loadOpenRules() {
@@ -353,15 +353,10 @@ Page({
       } else if (type === 'booking') {
         const r = this.data.bookingRules.find(r => r.id === ruleId);
         if (r) {
-          const { allIdentities, allHrPersons } = this.data;
-          const idIdx = allIdentities.findIndex(ident => ident.id === r.approver_identity_id);
-          const hrIdx = allHrPersons.findIndex(hr => hr.id === r.approver_hr_id);
           const rt = r.rule_type || 'admin';
-          const labels = { admin: '管理员审核', direct: '直接通过', identity: '指定身份审核', person: '指定人员审核' };
-          const types = ['admin', 'direct', 'identity', 'person'];
-          form = { ...form, ruleType: rt, _ruleTypeLabel: labels[rt] || rt, _ruleTypeIndex: types.indexOf(rt), approverIdentityId: r.approver_identity_id || '', approverHrId: r.approver_hr_id || '', approverIdentityName: idIdx >= 0 ? allIdentities[idIdx].name : '', approverHrName: hrIdx >= 0 ? allHrPersons[hrIdx].name : '', approverIdentityIndex: Math.max(idIdx, 0), approverHrIndex: Math.max(hrIdx, 0) };
+          form = { ...form, ruleType: rt, _ruleTypeIndex: rt === 'direct' ? 1 : 0 };
         } else {
-          form = { ...form, _ruleTypeLabel: '管理员审核', _ruleTypeIndex: 0 };
+          form = { ...form, ruleType: 'admin', _ruleTypeIndex: 0 };
         }
       }
     }
@@ -397,16 +392,11 @@ Page({
   },
 
   onBookingRuleTypeChange(e) {
-    const types = ['admin', 'direct', 'identity', 'person'];
     const idx = parseInt(e.detail.value);
-    const rt = types[idx] || 'admin';
-    const labels = { admin: '管理员审核', direct: '直接通过', identity: '指定身份审核', person: '指定人员审核' };
+    const rt = idx === 1 ? 'direct' : 'admin';
     this.setData({
       'ruleForm.ruleType': rt,
-      'ruleForm._ruleTypeLabel': labels[rt] || rt,
-      'ruleForm._ruleTypeIndex': idx,
-      'ruleForm.approverIdentityId': '', 'ruleForm.approverIdentityName': '', 'ruleForm.approverIdentityIndex': 0,
-      'ruleForm.approverHrId': '', 'ruleForm.approverHrName': '', 'ruleForm.approverHrIndex': 0
+      'ruleForm._ruleTypeIndex': idx
     });
   },
 
@@ -514,7 +504,7 @@ Page({
       data = { id: ruleEditId, venueId: rulesVenueId, activityName: ruleForm.name, cycleType: ruleForm.cycleType, cycleValues: ruleForm.cycleValues, timeStart: ruleForm.timeStart, timeEnd: ruleForm.timeEnd };
     } else {
       endpoint = 'saveVenueBookingRule';
-      data = { id: ruleEditId, venueId: rulesVenueId, ruleType: ruleForm.ruleType, approverIdentityId: ruleForm.approverIdentityId || '', approverHrId: ruleForm.approverHrId || '', scopeDepartmentId: '', scopeWorkGroupId: '' };
+      data = { id: ruleEditId, venueId: rulesVenueId, ruleType: ruleForm.ruleType || 'admin' };
     }
     try {
       const res = await callFunction({ name: endpoint, data });
