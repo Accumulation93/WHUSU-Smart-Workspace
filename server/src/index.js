@@ -150,6 +150,7 @@ app.use('/api', require('./modules/audit/routes/auditFile'));
 // ---------- Venue Booking ----------
 app.use('/api', require('./modules/venue/routes/venueAdmin'));
 app.use('/api', require('./modules/venue/routes/venueUser'));
+app.use('/api', require('./modules/venue/routes/venueApprovalAdmin'));
 
 // ---------- 404 handler (fail fast for unknown routes) ----------
 app.use('/api', (req, res) => {

@@ -58,14 +58,16 @@ async function getById(id) {
 }
 
 async function create(id, data, conn) {
-  const { venueId, userHrId, title, description, timeStart, timeEnd, status } = data;
+  const { venueId, userHrId, title, description, timeStart, timeEnd, status, approvalFlowId, approvalTotalSteps } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, org_id, title, description, time_start, time_end, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, org_id, title, description, time_start, time_end, status,
+      approval_flow_id, approval_current_step, approval_total_steps)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, venueId, userHrId, orgId, title || '', description || '',
-     timeStart, timeEnd, status || 'pending']
+     timeStart, timeEnd, status || 'pending',
+     approvalFlowId || null, 0, approvalTotalSteps || 0]
   );
 }
 

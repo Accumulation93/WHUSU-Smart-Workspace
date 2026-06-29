@@ -11,6 +11,8 @@ const venueActivityRuleModel = require('../models/venueActivityRule');
 const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingPurposeModel = require('../models/venueBookingPurpose');
+const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
+const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -50,6 +52,35 @@ async function matchesBookingRule(rule, hrId) {
 async function canReviewVenueBooking(openid, booking) {
   const admin = await ensureAdmin(openid);
   const hrId = await resolveHrId(openid);
+
+  // Flow-based approval
+  if (booking.approval_flow_id && booking.approval_total_steps > 0) {
+    const currentStep = booking.approval_current_step;
+    if (currentStep < 0) return { ok: false, admin, hrId, reason: '该借用已被驳回' };
+    if (currentStep >= booking.approval_total_steps) return { ok: false, admin, hrId, reason: '该借用已完成所有审批步骤' };
+
+    // Admin always has permission (backward compat)
+    if (admin) return { ok: true, admin, hrId };
+
+    // Get current step rules and check if hrId matches
+    const steps = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
+    if (!steps.length || currentStep >= steps.length) {
+      return { ok: false, admin, hrId, reason: '审批步骤配置异常' };
+    }
+    const step = steps[currentStep];
+    if (!step || !step.rules || !step.rules.length) {
+      // No rules — admin only
+      return { ok: false, admin, hrId, reason: '当前步骤未配置审批规则' };
+    }
+
+    const hrInfo = await hrInfoModel.getById(hrId);
+    if (!hrInfo) return { ok: false, admin, hrId, reason: '找不到人事信息' };
+
+    const matches = venueApprovalFlowStepRuleModel.matchesAnyRule(step.rules, hrInfo);
+    return { ok: matches, admin, hrId, reason: matches ? null : '您不符合当前审批步骤的条件' };
+  }
+
+  // Legacy rule-based approval
   const rules = await venueBookingRuleModel.getByVenueId(booking.venue_id);
   if (!rules.length) return { ok: !!admin, admin, hrId };
 
@@ -368,7 +399,19 @@ router.post('/listAllVenueBookings', async (req, res) => {
       status: b.status,
       approverHrId: b.approver_hr_id,
       approvalComment: b.approval_comment,
-      createdAt: b.created_at
+      createdAt: b.created_at,
+      approvalProgress: (b.approval_flow_id && b.approval_total_steps > 0) ? {
+        flowId: b.approval_flow_id,
+        currentStep: b.approval_current_step,
+        totalSteps: b.approval_total_steps,
+        isApproved: b.approval_current_step >= b.approval_total_steps,
+        isRejected: b.approval_current_step < 0,
+        rejectStep: b.approval_reject_step,
+        snapshots: (() => {
+          try { return b.approval_snapshots_json ? JSON.parse(b.approval_snapshots_json) : []; }
+          catch (_) { return []; }
+        })()
+      } : null
     }));
     res.json({ status: 'success', bookings: list });
   } catch (e) {
@@ -387,9 +430,58 @@ router.post('/approveVenueBooking', async (req, res) => {
     if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
 
     const review = await canReviewVenueBooking(req.openid, booking);
-    if (!review.ok) return res.json({ status: 'forbidden', message: '没有该场地借用审批权限' });
+    if (!review.ok) return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
 
     await conn.beginTransaction();
+
+    // Flow-based approval
+    if (booking.approval_flow_id && booking.approval_total_steps > 0) {
+      const currentStep = booking.approval_current_step;
+      const newStepIndex = currentStep + 1;
+      const isLastStep = newStepIndex >= booking.approval_total_steps;
+
+      if (isLastStep) {
+        const timeStart = fmtDatetime(new Date(booking.time_start));
+        const timeEnd = fmtDatetime(new Date(booking.time_end));
+        const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
+        if (conflict) {
+          await conn.rollback();
+          return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
+        }
+      }
+
+      // Build approval snapshot
+      let snapshots = [];
+      try { snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : []; } catch (_) {}
+      const steps = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
+      const stepName = (steps[currentStep] && steps[currentStep].name) || ('步骤' + (currentStep + 1));
+      snapshots.push({
+        stepIndex: currentStep,
+        stepName,
+        approverHrId: review.hrId,
+        comment: comment || '',
+        approvedAt: fmtDatetime(new Date())
+      });
+
+      const newStatus = isLastStep ? 'approved' : 'pending';
+      await conn.query(
+        `UPDATE venue_bookings SET approval_current_step = ?, approval_snapshots_json = ?, status = ?, approver_hr_id = ?, approval_comment = ? WHERE id = ?`,
+        [newStepIndex, JSON.stringify(snapshots), newStatus,
+         isLastStep ? review.hrId : booking.approver_hr_id,
+         isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
+         id]
+      );
+
+      await conn.commit();
+      res.json({
+        status: 'success',
+        message: isLastStep ? '所有步骤审批完成，借用已通过' : ('步骤 ' + (currentStep + 1) + ' 审批通过，进入下一步'),
+        approvalProgress: { currentStep: newStepIndex, totalSteps: booking.approval_total_steps, isApproved: isLastStep }
+      });
+      return;
+    }
+
+    // Legacy approval
     const timeStart = fmtDatetime(new Date(booking.time_start));
     const timeEnd = fmtDatetime(new Date(booking.time_end));
     const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
@@ -418,17 +510,25 @@ router.post('/rejectVenueBooking', async (req, res) => {
     if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
 
     const review = await canReviewVenueBooking(req.openid, booking);
-    if (!review.ok) return res.json({ status: 'forbidden', message: '没有该场地借用审批权限' });
+    if (!review.ok) return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
 
-    await venueBookingModel.updateStatus(id, 'rejected', review.hrId || (review.admin && review.admin.id), comment);
+    // Flow-based rejection: record which step was rejected
+    if (booking.approval_flow_id && booking.approval_total_steps > 0) {
+      await pool.query(
+        'UPDATE venue_bookings SET status = ?, approver_hr_id = ?, approval_comment = ?, approval_current_step = -1, approval_reject_step = ? WHERE id = ?',
+        ['rejected', review.hrId || (review.admin && review.admin.id), comment, booking.approval_current_step, id]
+      );
+    } else {
+      await venueBookingModel.updateStatus(id, 'rejected', review.hrId || (review.admin && review.admin.id), comment);
+    }
     res.json({ status: 'success', message: '借用已驳回' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
 
-// approveVenueBooking
-router.post('/approveVenueBooking', async (req, res) => {
+// approveVenueBooking (admin-only fallback — delegates to flow-based when applicable)
+router.post('/approveVenueBookingAdmin', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
@@ -450,8 +550,8 @@ router.post('/approveVenueBooking', async (req, res) => {
   }
 });
 
-// rejectVenueBooking
-router.post('/rejectVenueBooking', async (req, res) => {
+// rejectVenueBookingAdmin
+router.post('/rejectVenueBookingAdmin', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });

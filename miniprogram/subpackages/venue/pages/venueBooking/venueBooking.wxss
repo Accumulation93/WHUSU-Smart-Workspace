@@ -214,3 +214,19 @@
 
 /* ═══ Inner scroll ═══ */
 .inner-scroll { max-height:700rpx; }
+
+/* ═══ Approval Progress ═══ */
+.approval-progress-bar {
+  margin-top:8rpx; padding:12rpx 16rpx; border-radius:14rpx;
+  background:rgba(241,245,249,0.7); border:1rpx solid rgba(203,213,225,0.5);
+}
+.ap-steps { display:flex; justify-content:space-between; align-items:center; }
+.ap-label { font-size:22rpx; color:#64748b; font-weight:600; }
+.ap-step-info { font-size:22rpx; color:#2563eb; font-weight:700; }
+.ap-snapshots { margin-top:6rpx; }
+.ap-snapshot {
+  display:flex; justify-content:space-between; font-size:20rpx; color:#94a3b8;
+  padding:2rpx 0;
+}
+.ap-snapshot-step { font-weight:500; }
+.ap-snapshot-time { color:#cbd5e1; }

@@ -59,6 +59,7 @@
         <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}}" data-tab="open" bindtap="switchRulesTab">开放时间</view>
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}}" data-tab="activity" bindtap="switchRulesTab">活动时间</view>
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}}" data-tab="booking" bindtap="switchRulesTab">借用规则</view>
+        <view class="rules-tab {{rulesTab === 'flow' ? 'active' : ''}}" data-tab="flow" bindtap="switchRulesTab">审批流程</view>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">
@@ -107,6 +108,45 @@
               </view>
             </view>
           </block>
+        </block>
+        <block wx:if="{{rulesTab === 'flow'}}">
+          <!-- Flow info bar -->
+          <view wx:if="{{approvalFlow}}" class="flow-info-bar">
+            <text class="flow-info-text">{{approvalFlow.name || '审批流程'}} · {{approvalFlowSteps.length}}步</text>
+            <text class="link danger" bindtap="deleteApprovalFlow">删除流程</text>
+          </view>
+          <view wx:else class="empty-inline">暂无审批流程配置，请添加步骤后保存。</view>
+
+          <!-- Steps list -->
+          <view class="section-title-sm">审批步骤</view>
+          <view wx:if="{{!approvalFlowSteps.length}}" class="empty-inline">暂无步骤。</view>
+          <block wx:if="{{approvalFlowSteps.length}}">
+            <view class="flow-step-card" wx:for="{{approvalFlowSteps}}" wx:key="index" wx:for-index="si">
+              <view class="flow-step-head">
+                <view class="flow-step-badge">第{{si + 1}}步</view>
+                <view class="flow-step-name">{{item.name || '未命名'}}</view>
+                <view class="flow-step-actions">
+                  <text class="link sm" wx:if="{{si > 0}}" data-idx="{{si}}" bindtap="moveFlowStepUp">上移</text>
+                  <text class="link sm" wx:if="{{si < approvalFlowSteps.length - 1}}" data-idx="{{si}}" bindtap="moveFlowStepDown">下移</text>
+                  <text class="link" data-idx="{{si}}" bindtap="editFlowStep">编辑</text>
+                  <text class="link danger" data-idx="{{si}}" bindtap="removeFlowStep">删除</text>
+                </view>
+              </view>
+              <view class="flow-step-rules-summary">
+                <text wx:if="{{!item.rules || !item.rules.length}}" class="field-hint">无审批规则（仅管理员可审批）</text>
+                <block wx:else>
+                  <view class="flow-rule-tag" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
+                    {{rule.department_scope === 'all' ? '任意部门' : ('指定部门')}} /
+                    {{rule.work_group_scope === 'all' ? '任意职能组' : ('指定职能组')}} /
+                    {{rule.identity_scope === 'all' ? '任意身份' : ('指定身份')}}
+                  </view>
+                </block>
+              </view>
+            </view>
+          </block>
+
+          <button class="secondary-btn rule-add-btn" bindtap="openAddStep">新增步骤</button>
+          <button class="primary-btn" style="margin-top: 10rpx;" loading="{{loading}}" bindtap="saveApprovalFlow">保存审批流程</button>
         </block>
       </scroll-view>
     </view>
@@ -293,6 +333,91 @@
               </view>
             </view>
           </block>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Flow Step Editor Popup ═══ -->
+  <view class="popup-mask" wx:if="{{flowEditorVisible}}" bindtap="closeFlowEditor">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">{{flowEditStepIdx >= 0 ? '编辑步骤' : '新增步骤'}}</view>
+        <text class="popup-close" bindtap="closeFlowEditor">关闭</text>
+      </view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="form-body">
+          <view class="field">
+            <view class="field-label">步骤名称</view>
+            <input class="field-input" value="{{flowEditStepName}}" data-field="flowEditStepName" bindinput="onAdminFieldInput" placeholder="如：部门负责人审批"/>
+          </view>
+
+          <view class="field">
+            <view class="field-label">审批规则
+              <text class="field-hint-sm">（多规则之间为"或"的关系，任一匹配即可审批）</text>
+            </view>
+            <view wx:if="{{flowEditStepRules.length}}">
+              <view class="flow-rule-card" wx:for="{{flowEditStepRules}}" wx:key="index" wx:for-index="ri">
+                <view class="flow-rule-summary">
+                  <text>{{item.departmentScope === 'all' ? '任意部门' : '指定部门'}} / {{item.workGroupScope === 'all' ? '任意职能组' : '指定职能组'}} / {{item.identityScope === 'all' ? '任意身份' : '指定身份'}}</text>
+                </view>
+                <view class="inline-actions">
+                  <text class="link" data-idx="{{ri}}" bindtap="editFlowRule">编辑</text>
+                  <text class="link danger" data-idx="{{ri}}" bindtap="removeFlowRule">删除</text>
+                </view>
+              </view>
+            </view>
+            <view wx:else class="field-hint">暂未添加规则，仅管理员可审批</view>
+            <button class="secondary-btn sm" style="margin-top:8rpx;" bindtap="openAddRule">添加规则</button>
+          </view>
+
+          <!-- Inline rule editor -->
+          <view wx:if="{{flowEditRuleIdx !== -2}}" class="rule-edit-box">
+            <view class="section-title-sm">{{flowEditRuleIdx >= 0 ? '编辑规则' : '新增规则'}}</view>
+
+            <view class="field">
+              <view class="field-label">部门</view>
+              <picker range="{{['全部','指定部门']}}" value="{{flowEditRuleForm.departmentScope === 'all' ? 0 : 1}}" bindchange="onFlowRuleDeptScope">
+                <view class="picker-display">{{flowEditRuleForm.departmentScope === 'all' ? '全部' : '指定部门'}}</view>
+              </picker>
+            </view>
+            <view class="field" wx:if="{{flowEditRuleForm.departmentScope === 'specific'}}">
+              <picker range="{{allDepartments}}" range-key="name" bindchange="onFlowRuleDeptId">
+                <view class="picker-display">{{flowEditRuleForm.specificDepartmentId ? '已选择' : '请选择部门'}}</view>
+              </picker>
+            </view>
+
+            <view class="field">
+              <view class="field-label">职能组</view>
+              <picker range="{{['全部','指定职能组']}}" value="{{flowEditRuleForm.workGroupScope === 'all' ? 0 : 1}}" bindchange="onFlowRuleWgScope">
+                <view class="picker-display">{{flowEditRuleForm.workGroupScope === 'all' ? '全部' : '指定职能组'}}</view>
+              </picker>
+            </view>
+            <view class="field" wx:if="{{flowEditRuleForm.workGroupScope === 'specific'}}">
+              <picker range="{{allWorkGroups}}" range-key="name" bindchange="onFlowRuleWgId">
+                <view class="picker-display">{{flowEditRuleForm.specificWorkGroupId ? '已选择' : '请选择职能组'}}</view>
+              </picker>
+            </view>
+
+            <view class="field">
+              <view class="field-label">身份</view>
+              <picker range="{{['全部','指定身份']}}" value="{{flowEditRuleForm.identityScope === 'all' ? 0 : 1}}" bindchange="onFlowRuleIdentScope">
+                <view class="picker-display">{{flowEditRuleForm.identityScope === 'all' ? '全部' : '指定身份'}}</view>
+              </picker>
+            </view>
+            <view class="field" wx:if="{{flowEditRuleForm.identityScope === 'specific'}}">
+              <picker range="{{allIdentities}}" range-key="name" bindchange="onFlowRuleIdentId">
+                <view class="picker-display">{{flowEditRuleForm.specificIdentityId ? '已选择' : '请选择身份'}}</view>
+              </picker>
+            </view>
+
+            <view class="button-row">
+              <button class="secondary-btn" bindtap="cancelEditRule">取消</button>
+              <button class="primary-btn" bindtap="saveFlowRule">保存规则</button>
+            </view>
+          </view>
+
+          <button class="primary-btn" style="margin-top:20rpx;" bindtap="saveFlowStep">保存步骤</button>
         </view>
       </scroll-view>
     </view>

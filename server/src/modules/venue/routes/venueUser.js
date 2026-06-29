@@ -9,6 +9,8 @@ const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
 const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingModel = require('../models/venueBooking');
+const venueApprovalFlowModel = require('../models/venueApprovalFlow');
+const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -433,13 +435,36 @@ router.post('/createVenueBooking', async (req, res) => {
       return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     }
 
-    // Determine approval
-    const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
+    // Determine approval — prefer flow-based over rule-based
+    const approvalFlow = await venueApprovalFlowModel.getByVenueId(venueId);
     let autoApprove = false;
-    if (!bookingRules.length) {
-      autoApprove = false;
-    } else if (bookingRules.some(r => r.rule_type === 'direct')) {
-      autoApprove = true;
+    let approvalFlowId = null;
+    let approvalTotalSteps = 0;
+
+    if (approvalFlow) {
+      // Flow-based approval: booking starts as 'pending', advances through steps
+      const steps = await venueApprovalFlowStepModel.getByFlowId(approvalFlow.id);
+      if (steps.length) {
+        approvalFlowId = approvalFlow.id;
+        approvalTotalSteps = steps.length;
+        autoApprove = false; // must go through steps
+      } else {
+        // Flow exists but has no steps — fall through to rule-based
+        const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
+        if (!bookingRules.length) {
+          autoApprove = false;
+        } else if (bookingRules.some(r => r.rule_type === 'direct')) {
+          autoApprove = true;
+        }
+      }
+    } else {
+      // No flow — legacy rule-based behavior
+      const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
+      if (!bookingRules.length) {
+        autoApprove = false;
+      } else if (bookingRules.some(r => r.rule_type === 'direct')) {
+        autoApprove = true;
+      }
     }
 
     const id = generateId();
@@ -447,11 +472,16 @@ router.post('/createVenueBooking', async (req, res) => {
 
     await venueBookingModel.create(id, {
       venueId, userHrId: hrId, title, description,
-      timeStart: dbTimeStart, timeEnd: dbTimeEnd, status
+      timeStart: dbTimeStart, timeEnd: dbTimeEnd, status,
+      approvalFlowId, approvalTotalSteps
     }, conn);
 
     await conn.commit();
-    res.json({ status: 'success', id, bookingStatus: status, message: autoApprove ? '借用成功（直接通过）' : '借用申请已提交，等待审核' });
+    res.json({
+      status: 'success', id, bookingStatus: status,
+      message: autoApprove ? '借用成功（直接通过）'
+        : (approvalFlowId ? ('借用申请已提交，共 ' + approvalTotalSteps + ' 步审批') : '借用申请已提交，等待审核')
+    });
   } catch (e) {
     await conn.rollback();
     res.json({ status: 'error', message: safeString(e.message) });
@@ -480,7 +510,19 @@ router.post('/listMyVenueBookings', async (req, res) => {
       timeEnd: fmtDatetime(new Date(b.time_end)),
       status: b.status,
       approvalComment: b.approval_comment,
-      createdAt: b.created_at
+      createdAt: b.created_at,
+      approvalProgress: (b.approval_flow_id && b.approval_total_steps > 0) ? {
+        flowId: b.approval_flow_id,
+        currentStep: b.approval_current_step,
+        totalSteps: b.approval_total_steps,
+        isApproved: b.approval_current_step >= b.approval_total_steps,
+        isRejected: b.approval_current_step < 0,
+        rejectStep: b.approval_reject_step,
+        snapshots: (() => {
+          try { return b.approval_snapshots_json ? JSON.parse(b.approval_snapshots_json) : []; }
+          catch (_) { return []; }
+        })()
+      } : null
     }));
     res.json({ status: 'success', bookings: list });
   } catch (e) {

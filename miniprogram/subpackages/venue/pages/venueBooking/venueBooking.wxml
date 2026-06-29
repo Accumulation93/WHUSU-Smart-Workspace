@@ -54,6 +54,19 @@
           <view class="booking-item-meta">{{item.venueName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
+          <!-- Approval progress -->
+          <view wx:if="{{item.approvalProgress}}" class="approval-progress-bar">
+            <view class="ap-steps">
+              <text class="ap-label">审批进度</text>
+              <text class="ap-step-info">{{item.approvalProgress.isRejected ? '已驳回' : (item.approvalProgress.isApproved ? '已完成' : (item.approvalProgress.currentStep + 1 + '/' + item.approvalProgress.totalSteps))}}</text>
+            </view>
+            <view class="ap-snapshots" wx:if="{{item.approvalProgress.snapshots && item.approvalProgress.snapshots.length}}">
+              <view class="ap-snapshot" wx:for="{{item.approvalProgress.snapshots}}" wx:key="stepIndex">
+                <text class="ap-snapshot-step">{{item.stepName || ('步骤' + (item.stepIndex + 1))}}</text>
+                <text class="ap-snapshot-time">{{item.approvedAt || ''}}</text>
+              </view>
+            </view>
+          </view>
           <view class="booking-item-foot" wx:if="{{item.displayStatus === 'pending' || item.displayStatus === 'approved'}}">
             <text class="link danger" data-id="{{item.id}}" bindtap="cancelMyBooking">取消借用</text>
           </view>

@@ -99,10 +99,27 @@ Page({
     rulesVisible: false,
     rulesVenueId: '',
     rulesVenueName: '',
-    rulesTab: 'open', // 'open' | 'activity' | 'booking'
+    rulesTab: 'open', // 'open' | 'activity' | 'booking' | 'flow'
     openRules: [],
     activityRules: [],
     bookingRules: [],
+
+    // Approval flow management
+    approvalFlow: null,
+    approvalFlowSteps: [],
+    flowEditorVisible: false,
+    flowEditStepIdx: -1,       // -1 = adding new step at end
+    flowEditStepName: '',
+    flowEditStepRules: [],     // [{ deptScope:'all', deptIds:'', wgScope:'all', wgIds:'', identScope:'all', identIds:'' }]
+    flowEditRuleIdx: -1,       // -1 = adding new rule at end, -2 = not editing rule
+    flowEditRuleForm: {
+      departmentScope: 'all', specificDepartmentId: '',
+      workGroupScope: 'all', specificWorkGroupId: '',
+      identityScope: 'all', specificIdentityId: ''
+    },
+    // Reference data for pickers (loaded from API)
+    allDepartments: [],
+    allWorkGroups: [],
 
     // Rule editor
     ruleEditorVisible: false,
@@ -275,7 +292,9 @@ Page({
   closeRules() { this.setData({ rulesVisible: false }); },
 
   switchRulesTab(e) {
-    this.setData({ rulesTab: e.currentTarget.dataset.tab });
+    const tab = e.currentTarget.dataset.tab;
+    this.setData({ rulesTab: tab });
+    if (tab === 'flow') this.loadApprovalFlow();
   },
 
   async loadOpenRules() {
@@ -952,6 +971,252 @@ Page({
       if (res.status === 'success') { showShortToast('已删除'); this.loadPurposes(); }
       else showShortToast(res.message);
     } catch (e) { showShortToast(getErrorText(e, '删除失败')); }
+  },
+
+  // ═══════════════ APPROVAL FLOW MANAGEMENT ═══════════════
+
+  async loadApprovalFlow() {
+    const venueId = this.data.rulesVenueId;
+    if (!venueId) return;
+    try {
+      const res = await callFunction({ name: 'getVenueApprovalFlow', data: { venueId } });
+      if (res.status === 'success') {
+        this.setData({
+          approvalFlow: res.flow,
+          approvalFlowSteps: res.steps || []
+        });
+        // Load reference data for pickers
+        if (!this.data.allDepartments.length || !this.data.allWorkGroups.length) {
+          this.loadFlowReferenceData();
+        }
+      }
+    } catch (_) {}
+  },
+
+  async loadFlowReferenceData() {
+    try {
+      const [deptRes, wgRes] = await Promise.all([
+        callFunction({ name: 'listDepartments', data: {} }),
+        callFunction({ name: 'listWorkGroups', data: {} })
+      ]);
+      this.setData({
+        allDepartments: (deptRes.status === 'success' ? deptRes.departments : []) || [],
+        allWorkGroups: (wgRes.status === 'success' ? wgRes.workGroups : []) || []
+      });
+    } catch (_) {}
+  },
+
+  async saveApprovalFlow() {
+    const { rulesVenueId, approvalFlowSteps } = this.data;
+    if (!rulesVenueId) return;
+    const stepsData = approvalFlowSteps.map((s, i) => ({
+      name: s.name || ('第' + (i + 1) + '步'),
+      sortOrder: i + 1,
+      rules: (s.rules || []).map(r => ({
+        departmentScope: r.department_scope || r.departmentScope || 'all',
+        specificDepartmentId: r.specific_department_id || r.specificDepartmentId || '',
+        workGroupScope: r.work_group_scope || r.workGroupScope || 'all',
+        specificWorkGroupId: r.specific_work_group_id || r.specificWorkGroupId || '',
+        identityScope: r.identity_scope || r.identityScope || 'all',
+        specificIdentityId: r.specific_identity_id || r.specificIdentityId || ''
+      }))
+    }));
+    this.setData({ loading: true });
+    try {
+      const res = await callFunction({
+        name: 'saveVenueApprovalWholeFlow',
+        data: { venueId: rulesVenueId, flowName: '场地审批流程', steps: stepsData }
+      });
+      if (res.status === 'success') {
+        showShortToast(res.message);
+        this.loadApprovalFlow();
+      } else showShortToast(res.message);
+    } catch (e) { showShortToast(getErrorText(e, '保存失败')); }
+    finally { this.setData({ loading: false }); }
+  },
+
+  // ── Step editor ──
+
+  openAddStep() {
+    this.setData({
+      flowEditorVisible: true,
+      flowEditStepIdx: -1,
+      flowEditStepName: '',
+      flowEditStepRules: []
+    });
+  },
+
+  editFlowStep(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const step = this.data.approvalFlowSteps[idx];
+    if (!step) return;
+    const rules = (step.rules || []).map(r => ({
+      id: r.id,
+      departmentScope: r.department_scope || 'all',
+      specificDepartmentId: r.specific_department_id || '',
+      workGroupScope: r.work_group_scope || 'all',
+      specificWorkGroupId: r.specific_work_group_id || '',
+      identityScope: r.identity_scope || 'all',
+      specificIdentityId: r.specific_identity_id || ''
+    }));
+    this.setData({
+      flowEditorVisible: true,
+      flowEditStepIdx: idx,
+      flowEditStepName: step.name || '',
+      flowEditStepRules: rules
+    });
+  },
+
+  removeFlowStep(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const steps = [...this.data.approvalFlowSteps];
+    steps.splice(idx, 1);
+    this.setData({ approvalFlowSteps: steps });
+  },
+
+  moveFlowStepUp(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    if (idx <= 0) return;
+    const steps = [...this.data.approvalFlowSteps];
+    [steps[idx - 1], steps[idx]] = [steps[idx], steps[idx - 1]];
+    this.setData({ approvalFlowSteps: steps });
+  },
+
+  moveFlowStepDown(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    if (idx >= this.data.approvalFlowSteps.length - 1) return;
+    const steps = [...this.data.approvalFlowSteps];
+    [steps[idx], steps[idx + 1]] = [steps[idx + 1], steps[idx]];
+    this.setData({ approvalFlowSteps: steps });
+  },
+
+  saveFlowStep() {
+    const { flowEditStepIdx, flowEditStepName, flowEditStepRules } = this.data;
+    if (!flowEditStepName.trim()) { showShortToast('请输入步骤名称'); return; }
+    const steps = [...this.data.approvalFlowSteps];
+    const stepData = {
+      name: flowEditStepName.trim(),
+      rules: flowEditStepRules.map(r => ({
+        department_scope: r.departmentScope || 'all',
+        specific_department_id: r.specificDepartmentId || '',
+        work_group_scope: r.workGroupScope || 'all',
+        specific_work_group_id: r.specificWorkGroupId || '',
+        identity_scope: r.identityScope || 'all',
+        specific_identity_id: r.specificIdentityId || ''
+      }))
+    };
+    if (flowEditStepIdx >= 0 && flowEditStepIdx < steps.length) {
+      steps[flowEditStepIdx] = { ...steps[flowEditStepIdx], ...stepData };
+    } else {
+      steps.push({ ...stepData });
+    }
+    this.setData({ approvalFlowSteps: steps, flowEditorVisible: false });
+  },
+
+  closeFlowEditor() { this.setData({ flowEditorVisible: false, flowEditRuleIdx: -2 }); },
+
+  // ── Rule editor within step ──
+
+  openAddRule() {
+    this.setData({
+      flowEditRuleIdx: -1,
+      flowEditRuleForm: {
+        departmentScope: 'all', specificDepartmentId: '',
+        workGroupScope: 'all', specificWorkGroupId: '',
+        identityScope: 'all', specificIdentityId: ''
+      }
+    });
+  },
+
+  editFlowRule(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const rule = this.data.flowEditStepRules[idx];
+    if (!rule) return;
+    this.setData({
+      flowEditRuleIdx: idx,
+      flowEditRuleForm: {
+        departmentScope: rule.departmentScope || 'all',
+        specificDepartmentId: rule.specificDepartmentId || '',
+        workGroupScope: rule.workGroupScope || 'all',
+        specificWorkGroupId: rule.specificWorkGroupId || '',
+        identityScope: rule.identityScope || 'all',
+        specificIdentityId: rule.specificIdentityId || ''
+      }
+    });
+  },
+
+  removeFlowRule(e) {
+    const idx = parseInt(e.currentTarget.dataset.idx);
+    const rules = [...this.data.flowEditStepRules];
+    rules.splice(idx, 1);
+    this.setData({ flowEditStepRules: rules });
+  },
+
+  saveFlowRule() {
+    const { flowEditRuleIdx, flowEditRuleForm, flowEditStepRules } = this.data;
+    const rules = [...flowEditStepRules];
+    const ruleData = { ...flowEditRuleForm };
+    if (flowEditRuleIdx >= 0 && flowEditRuleIdx < rules.length) {
+      rules[flowEditRuleIdx] = { ...rules[flowEditRuleIdx], ...ruleData };
+    } else {
+      rules.push(ruleData);
+    }
+    this.setData({ flowEditStepRules: rules, flowEditRuleIdx: -2 });
+  },
+
+  cancelEditRule() { this.setData({ flowEditRuleIdx: -2 }); },
+
+  onFlowRuleFormField(e) {
+    const f = e.currentTarget.dataset.field;
+    this.setData({ ['flowEditRuleForm.' + f]: e.detail.value });
+  },
+
+  // Flow rule form picker handlers
+  onFlowRuleDeptScope(e) {
+    const v = parseInt(e.detail.value) === 0 ? 'all' : 'specific';
+    this.setData({ 'flowEditRuleForm.departmentScope': v, 'flowEditRuleForm.specificDepartmentId': '' });
+  },
+  onFlowRuleDeptId(e) {
+    const idx = parseInt(e.detail.value);
+    const dept = this.data.allDepartments[idx];
+    if (dept) this.setData({ 'flowEditRuleForm.specificDepartmentId': dept.id });
+  },
+  onFlowRuleWgScope(e) {
+    const v = parseInt(e.detail.value) === 0 ? 'all' : 'specific';
+    this.setData({ 'flowEditRuleForm.workGroupScope': v, 'flowEditRuleForm.specificWorkGroupId': '' });
+  },
+  onFlowRuleWgId(e) {
+    const idx = parseInt(e.detail.value);
+    const wg = this.data.allWorkGroups[idx];
+    if (wg) this.setData({ 'flowEditRuleForm.specificWorkGroupId': wg.id });
+  },
+  onFlowRuleIdentScope(e) {
+    const v = parseInt(e.detail.value) === 0 ? 'all' : 'specific';
+    this.setData({ 'flowEditRuleForm.identityScope': v, 'flowEditRuleForm.specificIdentityId': '' });
+  },
+  onFlowRuleIdentId(e) {
+    const idx = parseInt(e.detail.value);
+    const ident = this.data.allIdentities[idx];
+    if (ident) this.setData({ 'flowEditRuleForm.specificIdentityId': ident.id });
+  },
+
+  // Delete entire flow
+  async deleteApprovalFlow() {
+    const { rulesVenueId } = this.data;
+    wx.showModal({
+      title: '确认删除',
+      content: '确定删除该场地的审批流程吗？',
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          const res = await callFunction({ name: 'deleteVenueApprovalFlow', data: { venueId: rulesVenueId } });
+          if (res.status === 'success') {
+            showShortToast('已删除');
+            this.setData({ approvalFlow: null, approvalFlowSteps: [] });
+          } else showShortToast(res.message);
+        } catch (e) { showShortToast(getErrorText(e, '删除失败')); }
+      }
+    });
   },
 
   noop() {}
