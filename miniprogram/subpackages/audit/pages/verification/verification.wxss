@@ -1,3 +1,4 @@
 @import '../../../../pages/home/home.wxss';
+@import '../../styles/blue-polish.wxss';
 
 .danger-text { color:#ef4444; font-size:24rpx; margin-top:4rpx; }
