@@ -1562,8 +1562,8 @@ Page({
           dispIdx: i,
           imageData: s.imageData,
           previewSrc: s.previewSrc || s.imageData || '',
-          positionX: s.positionX,
-          positionY: s.positionY,
+          positionX: s.positionX != null ? s.positionX : 0.5,
+          positionY: s.positionY != null ? s.positionY : 0.3,
           page: s.page || 1,
           signatureType: s.signatureType
         });
@@ -1902,6 +1902,31 @@ Page({
     this.setData({ placementVisible: false });
   },
 
+  onPlacementItemTap(e) {
+    var idx = parseInt(e.currentTarget.dataset.sigIdx);
+    var sigs = this.data.pendingSignatures || [];
+    var sig = sigs[idx];
+    if (!sig) return;
+
+    var oldPage = this.data.placementCurrentPage;
+    var px = sig.positionX != null ? sig.positionX : 0.5;
+    var py = sig.positionY != null ? sig.positionY : 0.3;
+    var page = sig.page || oldPage || 1;
+    this.setData({
+      placementActiveIdx: idx,
+      placementType: sig.signatureType || this.data.placementType,
+      placementPreviewX: px,
+      placementPreviewY: py,
+      placementCurrentPage: page,
+      placementPosText: (px * 100).toFixed(1) + '%, ' + (py * 100).toFixed(1) + '%'
+    });
+
+    if (this.data.placementFileMime === 'application/pdf' && page !== oldPage) {
+      this.setData({ placementFileImage: '', placementLoading: true });
+      this.loadFilePreview(this.data.placementFileId, page);
+    }
+  },
+
   // Handle tap on placement canvas — update position relative to the preview image
   onPlacementTap(e) {
     var that = this;
@@ -1923,6 +1948,60 @@ Page({
       var py = Math.max(0, Math.min(1, (point.y - rect.top) / (rect.height || 1)));
       that._applyPlacementPosition(px, py);
     }).exec();
+  },
+
+  addPlacementCopy() {
+    var baseIdx = this.data.placementActiveIdx;
+    var sigs = [...(this.data.pendingSignatures || [])];
+    var base = sigs[baseIdx];
+    if (!base) {
+      showShortToast('请先选择一个签名或印章');
+      return;
+    }
+
+    var px = this.data.placementPreviewX >= 0
+      ? this.data.placementPreviewX
+      : (base.positionX != null ? base.positionX : 0.5);
+    var py = this.data.placementPreviewY >= 0
+      ? this.data.placementPreviewY
+      : (base.positionY != null ? base.positionY : 0.3);
+    var page = this.data.placementCurrentPage || base.page || 1;
+    var newSig = Object.assign({}, base, {
+      _idx: (base.signatureType || 'signature') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      positionX: px,
+      positionY: py,
+      page: page
+    });
+    sigs.push(newSig);
+
+    var newIdx = sigs.length - 1;
+    var items = [...(this.data.placementItems || []), {
+      dispIdx: newIdx,
+      imageData: newSig.imageData,
+      previewSrc: newSig.previewSrc || newSig.imageData || '',
+      positionX: px,
+      positionY: py,
+      page: page,
+      signatureType: newSig.signatureType
+    }];
+
+    this.setData({
+      pendingSignatures: sigs,
+      placementItems: items,
+      placementActiveIdx: newIdx,
+      placementType: newSig.signatureType || this.data.placementType,
+      placementPreviewX: px,
+      placementPreviewY: py,
+      placementPosText: (px * 100).toFixed(1) + '%, ' + (py * 100).toFixed(1) + '%',
+      approvalWarning: ''
+    });
+
+    this._preparePlacementItemPreviews(items).then((prepared) => {
+      if (this.data.placementVisible) {
+        this.setData({ placementItems: prepared });
+      }
+    });
+    this.updateApprovalWarning();
   },
 
   _getTapClientPoint(e) {

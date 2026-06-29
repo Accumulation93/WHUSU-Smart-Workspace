@@ -46,13 +46,74 @@ async function renderPdfPageWithPdftoppm(filePath, page) {
   return buffer;
 }
 
+async function renderPdfPageWithPdfjs(filePath, page) {
+  const { createCanvas, DOMMatrix, Path2D, ImageData } = require('@napi-rs/canvas');
+  global.DOMMatrix = global.DOMMatrix || DOMMatrix;
+  global.Path2D = global.Path2D || Path2D;
+  global.ImageData = global.ImageData || ImageData;
+  const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+  const canvasFactory = {
+    create(width, height) {
+      const canvas = createCanvas(width, height);
+      return { canvas, context: canvas.getContext('2d') };
+    },
+    reset(canvasAndContext, width, height) {
+      canvasAndContext.canvas.width = width;
+      canvasAndContext.canvas.height = height;
+    },
+    destroy(canvasAndContext) {
+      canvasAndContext.canvas.width = 0;
+      canvasAndContext.canvas.height = 0;
+      canvasAndContext.canvas = null;
+      canvasAndContext.context = null;
+    }
+  };
+  const data = new Uint8Array(fs.readFileSync(filePath));
+  const loadingTask = pdfjsLib.getDocument({
+    data,
+    disableWorker: true,
+    isEvalSupported: false,
+    useSystemFonts: true,
+    canvasFactory
+  });
+  const pdfDoc = await loadingTask.promise;
+  const pdfPage = await pdfDoc.getPage(page);
+  const viewport = pdfPage.getViewport({ scale: 2 });
+  const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+  const canvasContext = canvas.getContext('2d');
+  await pdfPage.render({ canvasContext, viewport, canvasFactory }).promise;
+  const pngBuffer = canvas.toBuffer('image/png');
+  await pdfDoc.destroy();
+  return pngBuffer;
+}
+
 async function renderPdfPage(filePath, page) {
+  const errors = [];
   try {
     const sharp = require('sharp');
-    return await sharp(filePath, { page: page - 1, density: 150 }).png().toBuffer();
+    const buffer = await sharp(filePath, { page: page - 1, density: 150 }).png().toBuffer();
+    return { buffer, renderer: 'sharp' };
   } catch (sharpErr) {
-    return renderPdfPageWithPdftoppm(filePath, page);
+    errors.push('sharp: ' + sharpErr.message);
   }
+
+  try {
+    const buffer = await renderPdfPageWithPdfjs(filePath, page);
+    return { buffer, renderer: 'pdfjs' };
+  } catch (pdfjsErr) {
+    errors.push('pdfjs: ' + pdfjsErr.message);
+  }
+
+  try {
+    const buffer = await renderPdfPageWithPdftoppm(filePath, page);
+    return { buffer, renderer: 'pdftoppm' };
+  } catch (pdftoppmErr) {
+    errors.push('pdftoppm: ' + pdftoppmErr.message);
+  }
+
+  const err = new Error('PDF preview render failed: ' + errors.join('; '));
+  err.renderErrors = errors;
+  throw err;
 }
 
 const storage = multer.diskStorage({
@@ -175,7 +236,7 @@ router.post('/getAuditFilePreview', async (req, res) => {
       try {
         const totalPages = await getPdfPageCount(file.file_path);
         const targetPage = Math.max(1, Math.min(page, totalPages));
-        const pngBuffer = await renderPdfPage(file.file_path, targetPage);
+        const rendered = await renderPdfPage(file.file_path, targetPage);
         return res.json({
           status: 'success',
           fileName: file.file_name,
@@ -183,7 +244,8 @@ router.post('/getAuditFilePreview', async (req, res) => {
           previewMime: 'image/png',
           totalPages,
           page: targetPage,
-          data: pngBuffer.toString('base64')
+          data: rendered.buffer.toString('base64'),
+          renderer: rendered.renderer
         });
       } catch (e) {
         return res.json({
@@ -195,7 +257,8 @@ router.post('/getAuditFilePreview', async (req, res) => {
           page: page,
           data: null,
           fallback: true,
-          message: 'PDF棰勮鐢熸垚澶辫触'
+          message: 'PDF预览生成失败，请检查服务器 PDF 渲染依赖',
+          renderError: safeString(e.message)
         });
       }
     }

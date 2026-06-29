@@ -759,6 +759,8 @@
               <block wx:if="{{!placementFileMime || placementFileMime.indexOf('pdf') < 0 || item.page === placementCurrentPage}}">
                 <image src="{{item.previewSrc}}"
                        mode="aspectFit"
+                       data-sig-idx="{{item.dispIdx}}"
+                       catchtap="onPlacementItemTap"
                        class="placement-sign-overlay {{placementActiveIdx === item.dispIdx ? 'placement-sign-overlay-active' : ''}}"
                        style="left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;" />
               </block>
@@ -786,6 +788,7 @@
 
       <view class="placement-actions">
         <button class="secondary-btn placement-btn-cancel" bindtap="closePlacement">取消</button>
+        <button class="secondary-btn placement-btn-copy" bindtap="addPlacementCopy">新增一处</button>
         <button class="primary-btn placement-btn-save" bindtap="confirmPlacement">保存位置</button>
       </view>
     </view>
