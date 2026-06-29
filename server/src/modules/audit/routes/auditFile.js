@@ -10,7 +10,6 @@ const { safeString, generateId } = require('../../../utils/helpers');
 const {
   UPLOAD_DIR,
   MAX_FILE_SIZE,
-  ALLOWED_MIMES,
   assertAllowedFile,
   createTempUpload,
   getAuthorizedAuditFile
@@ -70,11 +69,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: MAX_FILE_SIZE },
-  fileFilter: (req, file, cb) => {
-    if (ALLOWED_MIMES.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('不支持的文件类型：' + file.mimetype));
-  }
+  limits: { fileSize: MAX_FILE_SIZE }
 });
 
 router.post('/uploadAuditFile', function(req, res, next) {

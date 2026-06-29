@@ -16,6 +16,14 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 
+function normalizeMime(mimeType) {
+  const mime = safeString(mimeType).toLowerCase();
+  if (mime === 'image/jpg') return 'image/jpeg';
+  if (mime === 'application/x-pdf') return 'application/pdf';
+  if (mime === 'application/octet-stream' || mime === 'binary/octet-stream') return '';
+  return mime;
+}
+
 function detectMime(buffer) {
   if (!buffer || buffer.length < 4) return '';
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return 'image/png';
@@ -37,8 +45,8 @@ function extForMime(mimeType) {
 
 function assertAllowedFile(buffer, declaredMime) {
   const detectedMime = detectMime(buffer);
-  const mimeType = detectedMime || safeString(declaredMime);
-  if (!ALLOWED_MIMES.includes(mimeType) || (detectedMime && declaredMime && detectedMime !== declaredMime)) {
+  const mimeType = detectedMime || normalizeMime(declaredMime);
+  if (!ALLOWED_MIMES.includes(mimeType)) {
     const err = new Error('不支持的文件类型或文件内容与类型不匹配');
     err.status = 'invalid_params';
     throw err;

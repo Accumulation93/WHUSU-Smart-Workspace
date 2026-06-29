@@ -1,5 +1,8 @@
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 
+const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+const AUDIT_MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 Page({
   data: {
     submissionId: '',
@@ -669,6 +672,35 @@ Page({
     return '全体';
   },
 
+  inferAuditFileMime(fileName, base64) {
+    var head = String(base64 || '').slice(0, 16);
+    if (head.indexOf('iVBOR') === 0) return 'image/png';
+    if (head.indexOf('/9j') === 0) return 'image/jpeg';
+    if (head.indexOf('UklGR') === 0) return 'image/webp';
+    if (head.indexOf('JVBER') === 0) return 'application/pdf';
+
+    var lowerName = String(fileName || '').toLowerCase();
+    if (lowerName.endsWith('.png')) return 'image/png';
+    if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) return 'image/jpeg';
+    if (lowerName.endsWith('.webp')) return 'image/webp';
+    if (lowerName.endsWith('.pdf')) return 'application/pdf';
+    return '';
+  },
+
+  validateAuditUploadFile(fileName, fileSize, base64) {
+    var mimeType = this.inferAuditFileMime(fileName, base64);
+    if (!mimeType || AUDIT_ALLOWED_MIMES.indexOf(mimeType) < 0) {
+      return { ok: false, message: '仅支持 PNG/JPG/WEBP 图片或 PDF 文件' };
+    }
+    if ((fileSize || 0) > AUDIT_MAX_FILE_SIZE) {
+      return { ok: false, message: '文件过大，最大支持 10MB' };
+    }
+    if (String(base64 || '').length > Math.ceil(AUDIT_MAX_FILE_SIZE * 4 / 3) + 1024) {
+      return { ok: false, message: '文件过大，最大支持 10MB' };
+    }
+    return { ok: true, mimeType: mimeType };
+  },
+
   // File upload
   chooseFile() {
     const that = this;
@@ -704,6 +736,7 @@ Page({
     const that = this;
     const uploaded = [...this.data.uploadedFiles];
     let errorCount = 0;
+    let firstError = '';
 
     // Use async readFile per file, handled sequentially
     for (let i = 0; i < tempFiles.length; i++) {
@@ -718,10 +751,14 @@ Page({
           });
         });
         const fileId = 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        const validation = this.validateAuditUploadFile(tf.name, tf.size || 0, base64);
+        if (!validation.ok) {
+          throw new Error((tf.name || '文件') + ': ' + validation.message);
+        }
         uploaded.push({
           fileId: fileId,
           fileName: tf.name || 'unknown',
-          mimeType: tf.name ? (tf.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg') : 'image/jpeg',
+          mimeType: validation.mimeType,
           fileSize: tf.size || 0,
           fileHash: '',
           tmpPath: tf.path,
@@ -729,6 +766,7 @@ Page({
         });
       } catch (e) {
         errorCount++;
+        if (!firstError) firstError = getErrorText(e, '文件读取失败');
         console.error('文件读取失败:', tf.name, e);
       }
     }
@@ -736,7 +774,7 @@ Page({
     if (uploaded.length > this.data.uploadedFiles.length) {
       this.setData({ uploadedFiles: uploaded });
     } else if (errorCount > 0) {
-      showShortToast('文件读取失败，请重试');
+      showShortToast(firstError || '文件读取失败，请重试');
     }
     this.setData({ uploading: false });
   },
@@ -776,11 +814,13 @@ Page({
             tmpPath: uploadRes.tmpPath,
             fileToken: uploadRes.fileToken
           });
+        } else {
+          throw new Error(uploadRes.message || '文件上传失败');
         }
       }
     } catch (e) {
       this.setData({ loading: false });
-      showShortToast('文件上传失败');
+      showShortToast(getErrorText(e, '文件上传失败'));
       return;
     }
 
@@ -2387,6 +2427,7 @@ Page({
     if (!tempFiles || !tempFiles.length) return;
     this.setData({ editUploading: true });
     var newFiles = [...this.data.editNewFiles];
+    var firstError = '';
     for (var i = 0; i < tempFiles.length; i++) {
       var tf = tempFiles[i];
       try {
@@ -2398,14 +2439,22 @@ Page({
           });
         });
         var fileId = 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        var validation = this.validateAuditUploadFile(tf.name, tf.size || 0, base64);
+        if (!validation.ok) {
+          throw new Error((tf.name || '文件') + ': ' + validation.message);
+        }
         newFiles.push({
           fileId: fileId, fileName: tf.name || 'unknown',
-          mimeType: tf.name ? (tf.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg') : 'image/jpeg',
+          mimeType: validation.mimeType,
           fileSize: tf.size || 0, fileHash: '', tmpPath: tf.path, base64: base64
         });
       } catch (e) {
+        if (!firstError) firstError = getErrorText(e, '文件读取失败');
         console.error('文件读取失败:', tf.name, e);
       }
+    }
+    if (firstError && newFiles.length === this.data.editNewFiles.length) {
+      showShortToast(firstError);
     }
     this.setData({ editNewFiles: newFiles, editUploading: false });
   },
@@ -2447,6 +2496,8 @@ Page({
             fileHash: uploadRes.fileHash, tmpPath: uploadRes.tmpPath,
             fileToken: uploadRes.fileToken
           });
+        } else {
+          throw new Error(uploadRes.message || '文件上传失败');
         }
       }
 
