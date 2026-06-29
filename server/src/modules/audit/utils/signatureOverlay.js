@@ -10,6 +10,12 @@ function clamp01(value, fallback) {
   return Math.max(0, Math.min(1, n));
 }
 
+function clampNumber(value, fallback, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
 function getImageBuffer(imageData) {
   if (!imageData || typeof imageData !== 'string') return null;
   const base64Data = imageData.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '');
@@ -34,9 +40,14 @@ async function overlayOnImage(filePath, signatures) {
   const composites = [];
 
   for (const sig of signatures) {
-    const targetSigWidth = Math.max(48, Math.min(Math.round(imgWidth * 0.18), 240));
-    const sigPng = await buildSignaturePng(sig, targetSigWidth);
+    const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
+    const rotation = clampNumber(sig.rotation, 0, -180, 180);
+    const targetSigWidth = Math.max(48, Math.min(Math.round(imgWidth * 0.18 * size), Math.round(imgWidth * 0.55), 520));
+    let sigPng = await buildSignaturePng(sig, targetSigWidth);
     if (!sigPng) continue;
+    if (rotation) {
+      sigPng = await sharp(sigPng).rotate(rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer();
+    }
 
     const sigMeta = await sharp(sigPng).metadata();
     const sigWidth = sigMeta.width || targetSigWidth;
@@ -70,16 +81,21 @@ async function overlayOnPdf(filePath, signatures) {
     const pageIndex = Math.max(0, Math.min(pageNum - 1, pages.length - 1));
     const page = pages[pageIndex];
     const pageSize = page.getSize();
+    const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
+    const rotation = clampNumber(sig.rotation, 0, -180, 180);
+    const embedBuffer = rotation
+      ? await sharp(sigBuffer).rotate(rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer()
+      : sigBuffer;
 
     let pdfImage;
     try {
-      pdfImage = await pdfDoc.embedPng(sigBuffer);
+      pdfImage = await pdfDoc.embedPng(embedBuffer);
     } catch (_) {
-      const jpegBuffer = await sharp(sigBuffer).jpeg().toBuffer();
+      const jpegBuffer = await sharp(embedBuffer).jpeg().toBuffer();
       pdfImage = await pdfDoc.embedJpg(jpegBuffer);
     }
 
-    const sigWidth = Math.max(48, Math.min(pageSize.width * 0.18, 140));
+    const sigWidth = Math.max(48, Math.min(pageSize.width * 0.18 * size, pageSize.width * 0.55, 300));
     const sigHeight = (pdfImage.height / pdfImage.width) * sigWidth;
     const posX = clamp01(sig.positionX, 0.5) * pageSize.width;
     const posY = clamp01(sig.positionY, 0.5) * pageSize.height;

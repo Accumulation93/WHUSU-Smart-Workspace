@@ -979,6 +979,9 @@ router.post('/getSubmissionDetail', async (req, res) => {
         imageData: sig.image_data || '',
         positionX: parseFloat(sig.position_x) || 0,
         positionY: parseFloat(sig.position_y) || 0,
+        size: parseFloat(sig.signature_size) || 1,
+        rotation: parseFloat(sig.rotation_degrees) || 0,
+        page: sig.page || 1,
         signerHrId: safeString(sig.signer_hr_id),
         signerName: hrMap[sig.signer_hr_id] || '未知',
         round: sig.round,
@@ -1164,6 +1167,8 @@ router.post('/approveStep', async (req, res) => {
       if (!fileId || !imageData) continue;
       const positionX = Math.max(0, Math.min(1, parseFloat(sigData.positionX) || 0));
       const positionY = Math.max(0, Math.min(1, parseFloat(sigData.positionY) || 0));
+      const size = Math.max(0.5, Math.min(2.2, parseFloat(sigData.size) || 1));
+      const rotation = Math.max(-180, Math.min(180, parseFloat(sigData.rotation) || 0));
       const normalized = {
         id: generateId(),
         fileId,
@@ -1171,6 +1176,8 @@ router.post('/approveStep', async (req, res) => {
         imageData,
         positionX,
         positionY,
+        size,
+        rotation,
         page: Math.max(1, parseInt(sigData.page, 10) || 1)
       };
       if (!signaturesByFile.has(fileId)) signaturesByFile.set(fileId, []);
@@ -1209,6 +1216,8 @@ router.post('/approveStep', async (req, res) => {
           signerHrId: hrId,
           positionX: sigData.positionX,
           positionY: sigData.positionY,
+          size: sigData.size,
+          rotation: sigData.rotation,
           page: sigData.page,
           round: currentRound,
           previousSignatureHash: previousHash,
@@ -1224,6 +1233,8 @@ router.post('/approveStep', async (req, res) => {
           imageData: sigData.imageData,
           positionX: sigData.positionX,
           positionY: sigData.positionY,
+          size: sigData.size,
+          rotation: sigData.rotation,
           page: sigData.page,
           signerHrId: hrId,
           round: currentRound,
@@ -1661,13 +1672,26 @@ router.post('/resubmitAudit', async (req, res) => {
       maxExistingRound = Math.max(maxExistingRound, allSteps[ri].round || 1);
     }
     const newRound = maxExistingRound + 1;
+    const latestStepBySortOrder = {};
+    allSteps
+      .slice()
+      .sort(function(a, b) {
+        if ((a.round || 1) !== (b.round || 1)) return (a.round || 1) - (b.round || 1);
+        return String(a.id).localeCompare(String(b.id));
+      })
+      .forEach(function(s) {
+        latestStepBySortOrder[s.sort_order] = s;
+      });
+    const canonicalSteps = Object.keys(latestStepBySortOrder)
+      .map(function(k) { return latestStepBySortOrder[k]; })
+      .sort(function(a, b) { return a.sort_order - b.sort_order; });
 
     if (!isWithdrawn && resubmitMode === 'from_rejector') {
       // Create new round entries for all steps from reject step onwards.
       // Recreating only the reject step would leave subsequent steps stranded
       // in the old round, causing the flow to terminate prematurely.
-      const remainingSteps = allSteps
-        .filter(function(s) { return s.sort_order >= rejectStepIndex && s.round === newRound - 1; })
+      const remainingSteps = canonicalSteps
+        .filter(function(s) { return s.sort_order >= rejectStepIndex; })
         .sort(function(a, b) { return a.sort_order - b.sort_order; });
       for (var rsi = 0; rsi < remainingSteps.length; rsi++) {
         var rs = remainingSteps[rsi];
@@ -1686,7 +1710,7 @@ router.post('/resubmitAudit', async (req, res) => {
       }
     } else {
       // Fresh mode: create new round entries for ALL steps
-      const templateSteps = allSteps.filter((s) => s.round === newRound - 1).sort((a, b) => a.sort_order - b.sort_order);
+      const templateSteps = canonicalSteps;
       for (const ts of templateSteps) {
         const stepId = generateId();
         await submissionStepModel.create(stepId, {

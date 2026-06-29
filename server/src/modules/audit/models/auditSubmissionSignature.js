@@ -69,19 +69,19 @@ async function getLastSignature(fileId, round, conn) {
 async function create(id, data, conn) {
   const {
     submissionId, stepId, fileId, signatureType, imageData,
-    positionX, positionY, page, signerHrId, round,
+    positionX, positionY, size, rotation, page, signerHrId, round,
     previousSignatureHash, documentHashAtSigning, signatureDataHash, signedAt
   } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
     `INSERT INTO audit_submission_signatures
-     (id, submission_id, step_id, file_id, signature_type, image_data, position_x, position_y, page,
+     (id, submission_id, step_id, file_id, signature_type, image_data, position_x, position_y, signature_size, rotation_degrees, page,
       signer_hr_id, round, previous_signature_hash, document_hash_at_signing, signature_data_hash, signed_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, submissionId, stepId, fileId, signatureType || 'signature', imageData || null,
-      positionX || 0, positionY || 0, page || 1, signerHrId, round || 1,
+      positionX || 0, positionY || 0, size || 1, rotation || 0, page || 1, signerHrId, round || 1,
       previousSignatureHash || null, documentHashAtSigning || '', signatureDataHash || '', signedAt || new Date(), orgId
     ]
   );

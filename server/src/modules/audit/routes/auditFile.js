@@ -27,6 +27,12 @@ async function getPdfPageCount(filePath) {
   return pdfDoc.getPageCount() || 1;
 }
 
+function clampNumber(value, fallback, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
 async function renderPdfPageWithPdftoppm(filePath, page) {
   const prefix = path.join(os.tmpdir(), 'audit_pdf_preview_' + generateId());
   const exe = process.env.PDFTOPPM_PATH || 'pdftoppm';
@@ -306,14 +312,22 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
         if (!sig.imageData) continue;
         const base64Data = sig.imageData.replace(/^data:image\/\w+;base64,/, '');
         const sigBuffer = Buffer.from(base64Data, 'base64');
-        const targetSigWidth = Math.min(Math.round(imgWidth * 0.18), 200);
-        const sigResized = await sharp(sigBuffer).resize({ width: targetSigWidth, fit: 'inside' }).png().toBuffer();
+        const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
+        const rotation = clampNumber(sig.rotation, 0, -180, 180);
+        const targetSigWidth = Math.max(48, Math.min(Math.round(imgWidth * 0.18 * size), Math.round(imgWidth * 0.55), 520));
+        let sigResized = await sharp(sigBuffer).resize({ width: targetSigWidth, fit: 'inside' }).png().toBuffer();
+        if (rotation) {
+          sigResized = await sharp(sigResized).rotate(rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer();
+        }
+        const sigMeta = await sharp(sigResized).metadata();
+        const sigWidth = sigMeta.width || targetSigWidth;
+        const sigHeight = sigMeta.height || Math.round(targetSigWidth * 0.45);
         const posX = Math.round((parseFloat(sig.positionX) || 0.5) * imgWidth);
         const posY = Math.round((parseFloat(sig.positionY) || 0.5) * imgHeight);
         composites.push({
           input: sigResized,
-          top: Math.max(0, posY - Math.round(targetSigWidth / 4)),
-          left: Math.max(0, posX - Math.round(targetSigWidth / 2))
+          top: Math.max(0, Math.min(imgHeight - sigHeight, posY - Math.round(sigHeight / 2))),
+          left: Math.max(0, Math.min(imgWidth - sigWidth, posX - Math.round(sigWidth / 2)))
         });
       }
 
@@ -346,20 +360,25 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
         const { width: pageWidth, height: pageHeight } = page.getSize();
         const base64Data = sig.imageData.replace(/^data:image\/\w+;base64,/, '');
         const sigBuffer = Buffer.from(base64Data, 'base64');
+        const size = clampNumber(sig.size || sig.signatureSize, 1, 0.5, 2.2);
+        const rotation = clampNumber(sig.rotation, 0, -180, 180);
+        const embedBuffer = rotation
+          ? await sharp(sigBuffer).rotate(rotation, { background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer()
+          : sigBuffer;
 
         let pdfImage;
         try {
-          pdfImage = await pdfDoc.embedPng(sigBuffer);
+          pdfImage = await pdfDoc.embedPng(embedBuffer);
         } catch (_) {
           try {
-            const jpegBuffer = await sharp(sigBuffer).jpeg().toBuffer();
+            const jpegBuffer = await sharp(embedBuffer).jpeg().toBuffer();
             pdfImage = await pdfDoc.embedJpg(jpegBuffer);
           } catch (__) {
             continue;
           }
         }
 
-        const sigWidth = Math.min(pageWidth * 0.18, 120);
+        const sigWidth = Math.max(48, Math.min(pageWidth * 0.18 * size, pageWidth * 0.55, 300));
         const sigHeight = (pdfImage.height / pdfImage.width) * sigWidth;
         const posX = (parseFloat(sig.positionX) || 0.5) * pageWidth;
         const posY = (parseFloat(sig.positionY) || 0.5) * pageHeight;

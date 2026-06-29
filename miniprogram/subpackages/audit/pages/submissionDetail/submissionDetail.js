@@ -138,6 +138,8 @@ Page({
     placementCurrentPage: 1,     // current page being shown
     placementLoading: false,     // loading page preview
     placementPosText: '',        // formatted position text for display
+    placementSize: 100,          // selected signature/stamp size percentage
+    placementRotation: 0,        // selected signature/stamp rotation degrees
 
     // User role flags
     userIsSubmitter: false,
@@ -977,6 +979,9 @@ Page({
             var untilIdx = resubmitEvtIdx >= 0 ? resubmitEvtIdx : lifecycleEvents.length;
             for (var eiPre = nextEventIdx; eiPre < untilIdx; eiPre++) {
               var interEvt = lifecycleEvents[eiPre];
+              if (interEvt.eventType === 'approve' || interEvt.eventType === 'reject') {
+                continue;
+              }
               var interIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
               var interLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
               var interStepLabel = '';
@@ -1084,6 +1089,8 @@ Page({
 
             var actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
             var actionLabel = actionMap[step.actionType] || step.actionType || '仅通过';
+            var completedStepLabelMap = { pass: '✓ 步骤已通过', sign: '✓ 已签字', estamp: '✓ 已盖章', both: '✓ 已签字盖章' };
+            var completedStepLabel = completedStepLabelMap[step.actionType] || '✓ 步骤已处理';
 
             if (step.status === 'rejected') {
               flowNodeClass = 'flow-node-rejected';
@@ -1095,7 +1102,7 @@ Page({
               flowNodeClass = 'flow-node-done';
               flowDotClass = 'flow-dot-done';
               flowIcon = 'check';
-              flowStatusLabel = '✓ 已通过';
+              flowStatusLabel = completedStepLabel;
               flowTagClass = 'flow-tag-done';
             } else if (submissionStatus === 'pending' || submissionStatus === 'draft') {
               flowNodeClass = 'flow-node-pending';
@@ -1107,7 +1114,7 @@ Page({
               flowNodeClass = 'flow-node-done';
               flowDotClass = 'flow-dot-done';
               flowIcon = 'check';
-              flowStatusLabel = '✓ 已通过';
+              flowStatusLabel = completedStepLabel;
               flowTagClass = 'flow-tag-done';
             } else if (step.sortOrder === currentStepIndex && step.status === 'pending' && submissionStatus === 'in_progress') {
               flowNodeClass = 'flow-node-active';
@@ -1119,7 +1126,7 @@ Page({
               flowNodeClass = 'flow-node-done';
               flowDotClass = 'flow-dot-done';
               flowIcon = 'check';
-              flowStatusLabel = '✓ 已通过';
+              flowStatusLabel = completedStepLabel;
               flowTagClass = 'flow-tag-done';
             } else {
               flowNodeClass = 'flow-node-pending';
@@ -1205,6 +1212,9 @@ Page({
         var lateLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
         for (var ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
           var lateEvt = lifecycleEvents[ei4];
+          if (lateEvt.eventType === 'approve' || lateEvt.eventType === 'reject') {
+            continue;
+          }
           flowTimeline.push({
             _key: 'lifecycle_late_' + lateEvt.id,
             type: 'lifecycle',
@@ -1215,6 +1225,27 @@ Page({
             icon: lateIconMap[lateEvt.eventType] || '📌',
             operatorName: lateEvt.operatorName || '',
             comment: lateEvt.comment || ''
+          });
+        }
+
+        if (submissionStatus === 'approved') {
+          var lastApproveEvt = null;
+          for (var lai = lifecycleEvents.length - 1; lai >= 0; lai--) {
+            if (lifecycleEvents[lai].eventType === 'approve') {
+              lastApproveEvt = lifecycleEvents[lai];
+              break;
+            }
+          }
+          flowTimeline.push({
+            _key: 'lifecycle_final_approved',
+            type: 'lifecycle',
+            event: 'approved',
+            label: '审批通过',
+            subLabel: '全部流程已完成',
+            time: lastApproveEvt ? formatAuditTime(lastApproveEvt.createdAt) : '',
+            icon: '✅',
+            operatorName: lastApproveEvt ? (lastApproveEvt.operatorName || '') : '',
+            comment: lastApproveEvt ? (lastApproveEvt.comment || '') : ''
           });
         }
 
@@ -1456,6 +1487,8 @@ Page({
       imageData: sigImage,
       positionX: 0.5,
       positionY: 0.3,
+      size: 1,
+      rotation: 0,
       page: 1
     });
     this.setData({
@@ -1524,6 +1557,8 @@ Page({
       imageData: imageData,
       positionX: 0.5,
       positionY: 0.3,
+      size: 1,
+      rotation: 0,
       page: 1
     });
     this.setData({
@@ -1564,6 +1599,8 @@ Page({
           previewSrc: s.previewSrc || s.imageData || '',
           positionX: s.positionX != null ? s.positionX : 0.5,
           positionY: s.positionY != null ? s.positionY : 0.3,
+          size: s.size || 1,
+          rotation: s.rotation || 0,
           page: s.page || 1,
           signatureType: s.signatureType
         });
@@ -1582,6 +1619,8 @@ Page({
       placementActiveIdx: idx,
       placementPreviewX: sig.positionX != null ? sig.positionX : -1,
       placementPreviewY: sig.positionY != null ? sig.positionY : -1,
+      placementSize: Math.round((sig.size || 1) * 100),
+      placementRotation: sig.rotation || 0,
       placementCurrentPage: currentPage,
       placementTotalPages: 1,
       placementFileImage: '',
@@ -1776,6 +1815,8 @@ Page({
       imageData: stampImage,
       positionX: 0.5,
       positionY: 0.3,
+      size: 1,
+      rotation: 0,
       page: 1
     });
     this.setData({
@@ -1917,6 +1958,8 @@ Page({
       placementType: sig.signatureType || this.data.placementType,
       placementPreviewX: px,
       placementPreviewY: py,
+      placementSize: Math.round((sig.size || 1) * 100),
+      placementRotation: sig.rotation || 0,
       placementCurrentPage: page,
       placementPosText: (px * 100).toFixed(1) + '%, ' + (py * 100).toFixed(1) + '%'
     });
@@ -1970,6 +2013,8 @@ Page({
       _idx: (base.signatureType || 'signature') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       positionX: px,
       positionY: py,
+      size: base.size || (this.data.placementSize / 100) || 1,
+      rotation: base.rotation != null ? base.rotation : (this.data.placementRotation || 0),
       page: page
     });
     sigs.push(newSig);
@@ -1981,6 +2026,8 @@ Page({
       previewSrc: newSig.previewSrc || newSig.imageData || '',
       positionX: px,
       positionY: py,
+      size: newSig.size,
+      rotation: newSig.rotation,
       page: page,
       signatureType: newSig.signatureType
     }];
@@ -2051,6 +2098,51 @@ Page({
     });
   },
 
+  _applyPlacementTransform(size, rotation) {
+    var idx = this.data.placementActiveIdx;
+    var sigs = [...this.data.pendingSignatures];
+    var items = [...this.data.placementItems];
+    var safeSize = Math.max(0.5, Math.min(2.2, Number(size) || 1));
+    var safeRotation = Math.max(-180, Math.min(180, Number(rotation) || 0));
+
+    if (idx >= 0 && idx < sigs.length) {
+      sigs[idx].size = safeSize;
+      sigs[idx].rotation = safeRotation;
+    }
+
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].dispIdx === idx) {
+        items[i].size = safeSize;
+        items[i].rotation = safeRotation;
+        break;
+      }
+    }
+
+    this.setData({
+      placementSize: Math.round(safeSize * 100),
+      placementRotation: Math.round(safeRotation),
+      pendingSignatures: sigs,
+      placementItems: items
+    });
+  },
+
+  onPlacementSizeChange(e) {
+    this._applyPlacementTransform((Number(e.detail.value) || 100) / 100, this.data.placementRotation || 0);
+  },
+
+  onPlacementRotationChange(e) {
+    this._applyPlacementTransform((this.data.placementSize || 100) / 100, Number(e.detail.value) || 0);
+  },
+
+  nudgePlacementRotation(e) {
+    var delta = Number(e.currentTarget.dataset.delta) || 0;
+    this._applyPlacementTransform((this.data.placementSize || 100) / 100, (this.data.placementRotation || 0) + delta);
+  },
+
+  resetPlacementTransform() {
+    this._applyPlacementTransform(1, 0);
+  },
+
   // Save the adjusted position and page
   confirmPlacement() {
     var idx = this.data.placementActiveIdx;
@@ -2066,6 +2158,8 @@ Page({
       sigs[idx].positionX = px;
       sigs[idx].positionY = py;
       sigs[idx].page = page;
+      sigs[idx].size = (this.data.placementSize || 100) / 100;
+      sigs[idx].rotation = this.data.placementRotation || 0;
     }
     this.setData({
       pendingSignatures: sigs,
@@ -2167,6 +2261,8 @@ Page({
             imageData: s.imageData,
             positionX: s.positionX,
             positionY: s.positionY,
+            size: s.size || 1,
+            rotation: s.rotation || 0,
             page: s.page || 1
           };
         });

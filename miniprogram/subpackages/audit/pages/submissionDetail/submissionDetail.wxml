@@ -762,7 +762,7 @@
                        data-sig-idx="{{item.dispIdx}}"
                        catchtap="onPlacementItemTap"
                        class="placement-sign-overlay {{placementActiveIdx === item.dispIdx ? 'placement-sign-overlay-active' : ''}}"
-                       style="left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;" />
+                       style="left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;width:{{18 * (item.size || 1)}}%;height:{{112 * (item.size || 1)}}rpx;transform:translate(-50%, -50%) rotate({{item.rotation || 0}}deg);" />
               </block>
             </block>
             <!-- Crosshair showing current position -->
@@ -784,6 +784,22 @@
       <view wx:if="{{placementPreviewX >= 0 && placementPosText}}" class="placement-pos-info">
         位置：{{placementPosText}}
         <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}"> · 第{{placementCurrentPage}}页</text>
+      </view>
+
+      <view class="placement-transform-panel" wx:if="{{placementActiveIdx >= 0}}">
+        <view class="placement-transform-row">
+          <text class="placement-transform-label">大小 {{placementSize}}%</text>
+          <slider class="placement-slider" min="50" max="220" step="5" value="{{placementSize}}" activeColor="#2563eb" backgroundColor="#dbeafe" block-size="18" bindchanging="onPlacementSizeChange" bindchange="onPlacementSizeChange" />
+        </view>
+        <view class="placement-transform-row">
+          <text class="placement-transform-label">旋转 {{placementRotation}}°</text>
+          <slider class="placement-slider" min="-180" max="180" step="5" value="{{placementRotation}}" activeColor="#2563eb" backgroundColor="#dbeafe" block-size="18" bindchanging="onPlacementRotationChange" bindchange="onPlacementRotationChange" />
+        </view>
+        <view class="placement-rotate-actions">
+          <button class="secondary-btn placement-mini-btn" data-delta="-15" bindtap="nudgePlacementRotation">左转</button>
+          <button class="secondary-btn placement-mini-btn" bindtap="resetPlacementTransform">重置</button>
+          <button class="secondary-btn placement-mini-btn" data-delta="15" bindtap="nudgePlacementRotation">右转</button>
+        </view>
       </view>
 
       <view class="placement-actions">

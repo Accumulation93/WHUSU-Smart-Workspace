@@ -355,10 +355,30 @@
 .placement-fallback-icon { font-size: 48rpx; margin-bottom: 12rpx; }
 .placement-fallback-sub { font-size: 20rpx; margin-top: 8rpx; }
 .placement-pos-info { padding: 10rpx 16rpx; font-size: 22rpx; color: #64748b; text-align: center; }
-.placement-actions { padding: 16rpx; display: flex; gap: 12rpx; }
-.placement-btn-cancel { flex: 1; }
-.placement-btn-copy { flex: 1; }
-.placement-btn-save { flex: 1; }
+.placement-transform-panel {
+  margin: 12rpx 16rpx 0;
+  padding: 18rpx 18rpx 14rpx;
+  border-radius: 22rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.94), rgba(248,251,255,0.82));
+  border: 1rpx solid rgba(226,237,247,0.96);
+  box-shadow: 0 12rpx 24rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.78);
+}
+.placement-transform-row { display: flex; align-items: center; gap: 14rpx; margin-bottom: 10rpx; }
+.placement-transform-label { flex: 0 0 142rpx; color: #1e293b; font-size: 22rpx; font-weight: 700; }
+.placement-slider { flex: 1; margin: 0; }
+.placement-rotate-actions { display: flex; gap: 10rpx; padding-top: 4rpx; }
+.placement-mini-btn {
+  flex: 1; height: 58rpx; line-height: 58rpx; margin: 0;
+  border-radius: 18rpx; font-size: 22rpx; font-weight: 700;
+}
+.placement-actions { padding: 16rpx; display: flex; flex-wrap: wrap; gap: 12rpx; box-sizing: border-box; }
+.placement-actions button {
+  min-width: 0; height: 72rpx; line-height: 72rpx; margin: 0;
+  border-radius: 20rpx; font-size: 24rpx; font-weight: 700;
+}
+.placement-btn-cancel { flex: 1 1 0; }
+.placement-btn-copy { flex: 1 1 0; }
+.placement-btn-save { flex: 1 1 0; }
 
 /* ═══ Approval dialog ═══ */
 .approval-dialog-field-mt { margin-top: 12rpx; }

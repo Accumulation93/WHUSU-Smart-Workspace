@@ -32,13 +32,34 @@ function hashFile(buffer) {
  * @param {number} params.positionX - X position (fraction 0-1)
  * @param {number} params.positionY - Y position (fraction 0-1)
  * @param {number} params.page - Page number (for PDF files, defaults to 1)
+ * @param {number} params.size - Signature/stamp scale multiplier
+ * @param {number} params.rotation - Signature/stamp rotation degrees
  * @param {number} params.round - Round number
  * @param {string|null} params.previousSignatureHash - Previous signature hash in chain
  * @param {string} params.documentHash - Document hash at signing time
  * @param {string} params.signedAt - ISO 8601 timestamp of signing
  * @returns {string} Hex-encoded SHA-256 hash
  */
-function computeSignatureHash({ id, stepId, signerHrId, positionX, positionY, page, round, previousSignatureHash, documentHash, signedAt }) {
+function computeSignatureHash({ id, stepId, signerHrId, positionX, positionY, page, size, rotation, round, previousSignatureHash, documentHash, signedAt }) {
+  const canonical = [
+    id,
+    stepId,
+    signerHrId,
+    String(positionX),
+    String(positionY),
+    String(page || 1),
+    String(size == null ? 1 : size),
+    String(rotation == null ? 0 : rotation),
+    String(round),
+    previousSignatureHash || '',
+    documentHash,
+    signedAt
+  ].join('|');
+
+  return crypto.createHash('sha256').update(canonical, 'utf8').digest('hex');
+}
+
+function computeLegacySignatureHash({ id, stepId, signerHrId, positionX, positionY, page, round, previousSignatureHash, documentHash, signedAt }) {
   const canonical = [
     id,
     stepId,
@@ -124,13 +145,27 @@ function verifySignatureChain(signatures, currentFileHashes = {}) {
         positionX: parseFloat(current.position_x) || 0,
         positionY: parseFloat(current.position_y) || 0,
         page: current.page || 1,
+        size: parseFloat(current.signature_size) || 1,
+        rotation: parseFloat(current.rotation_degrees) || 0,
+        round: current.round,
+        previousSignatureHash: current.previous_signature_hash,
+        documentHash: current.document_hash_at_signing,
+        signedAt: typeof current.signed_at === 'string' ? current.signed_at : new Date(current.signed_at).toISOString()
+      });
+      const legacyHash = computeLegacySignatureHash({
+        id: current.id,
+        stepId: current.step_id,
+        signerHrId: current.signer_hr_id,
+        positionX: parseFloat(current.position_x) || 0,
+        positionY: parseFloat(current.position_y) || 0,
+        page: current.page || 1,
         round: current.round,
         previousSignatureHash: current.previous_signature_hash,
         documentHash: current.document_hash_at_signing,
         signedAt: typeof current.signed_at === 'string' ? current.signed_at : new Date(current.signed_at).toISOString()
       });
 
-      if (computedHash !== current.signature_data_hash) {
+      if (computedHash !== current.signature_data_hash && legacyHash !== current.signature_data_hash) {
         chainValid = false;
         brokenAt = current.id;
         overallValid = false;
@@ -192,6 +227,8 @@ function buildCanonicalString(sig) {
     String(sig.position_x),
     String(sig.position_y),
     String(sig.page || 1),
+    String(sig.signature_size == null ? 1 : sig.signature_size),
+    String(sig.rotation_degrees == null ? 0 : sig.rotation_degrees),
     String(sig.round),
     sig.previous_signature_hash || '',
     sig.document_hash_at_signing,
@@ -202,6 +239,7 @@ function buildCanonicalString(sig) {
 module.exports = {
   hashFile,
   computeSignatureHash,
+  computeLegacySignatureHash,
   verifySignatureChain,
   buildCanonicalString
 };

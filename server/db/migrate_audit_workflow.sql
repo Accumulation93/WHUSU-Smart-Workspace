@@ -183,6 +183,8 @@ CREATE TABLE IF NOT EXISTS audit_submission_signatures (
   image_data LONGTEXT,
   position_x DECIMAL(10,4) NOT NULL DEFAULT 0,
   position_y DECIMAL(10,4) NOT NULL DEFAULT 0,
+  signature_size DECIMAL(6,3) NOT NULL DEFAULT 1,
+  rotation_degrees DECIMAL(7,2) NOT NULL DEFAULT 0,
   signer_hr_id VARCHAR(64) NOT NULL,
   round INT NOT NULL DEFAULT 1,
   previous_signature_hash VARCHAR(64) DEFAULT NULL,
