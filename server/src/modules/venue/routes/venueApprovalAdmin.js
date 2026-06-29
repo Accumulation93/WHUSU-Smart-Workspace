@@ -8,6 +8,7 @@ const flowModel = require('../models/venueApprovalFlow');
 const stepModel = require('../models/venueApprovalFlowStep');
 const ruleModel = require('../models/venueApprovalFlowStepRule');
 const venueBookingModel = require('../models/venueBooking');
+const venueBookingRuleModel = require('../models/venueBookingRule');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -119,6 +120,12 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
     const stepsData = req.body.steps || []; // [{ name, sortOrder, rules: [{ deptScope, deptId, wgScope, wgId, identScope, identId }] }]
 
     if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+
+    // Mutual exclusion: cannot have flow alongside 'direct' booking rules
+    const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
+    if (bookingRules.some(r => r.rule_type === 'direct')) {
+      return res.json({ status: 'invalid_params', message: '该场地已设置「直接通过」，不能同时配置审批流程。请先删除直接通过规则' });
+    }
 
     await conn.beginTransaction();
 

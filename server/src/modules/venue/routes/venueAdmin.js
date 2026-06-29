@@ -81,7 +81,7 @@ async function canReviewVenueBooking(openid, booking) {
   if (!rules.length) return { ok: !!admin, admin, hrId };
 
   for (const rule of rules) {
-    if (rule.rule_type === 'direct') return { ok: !!admin, admin, hrId };
+    if (rule.rule_type === 'direct') return { ok: false, admin, hrId, reason: '该场地为直接通过，无需审批' };
     if (rule.rule_type === 'admin' && admin) return { ok: true, admin, hrId };
     if (await matchesBookingRule(rule, hrId)) return { ok: true, admin, hrId };
   }
@@ -295,9 +295,22 @@ router.post('/saveVenueBookingRule', async (req, res) => {
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    const ruleType = safeString(req.body.ruleType) || 'admin';
+
+    // Mutual exclusion: 直接通过 cannot coexist with other rule types
+    const allRules = await venueBookingRuleModel.getByVenueId(venueId);
+    const otherRules = allRules.filter(r => r.id !== id);
+
+    if (ruleType === 'direct' && otherRules.length > 0) {
+      return res.json({ status: 'invalid_params', message: '「直接通过」不能与其他借用规则共存，请先删除其他规则' });
+    }
+    if (ruleType !== 'direct' && otherRules.some(r => r.rule_type === 'direct')) {
+      return res.json({ status: 'invalid_params', message: '该场地已设置「直接通过」，不能同时添加其他规则' });
+    }
+
     const data = {
       venueId,
-      ruleType: safeString(req.body.ruleType) || 'admin',
+      ruleType,
       approverIdentityId: safeString(req.body.approverIdentityId),
       approverHrId: safeString(req.body.approverHrId),
       scopeDepartmentId: safeString(req.body.scopeDepartmentId),

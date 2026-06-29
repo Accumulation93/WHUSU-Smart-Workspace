@@ -435,36 +435,32 @@ router.post('/createVenueBooking', async (req, res) => {
       return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     }
 
-    // Determine approval — prefer flow-based over rule-based
-    const approvalFlow = await venueApprovalFlowModel.getByVenueId(venueId);
+    // Determine approval priority:
+    //   1. direct rule → auto-approve (highest priority)
+    //   2. approval flow → multi-step user approval
+    //   3. admin rule or no rules → admin approval (default)
+    const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
+    const hasDirect = bookingRules.some(r => r.rule_type === 'direct');
+
     let autoApprove = false;
     let approvalFlowId = null;
     let approvalTotalSteps = 0;
 
-    if (approvalFlow) {
-      // Flow-based approval: booking starts as 'pending', advances through steps
-      const steps = await venueApprovalFlowStepModel.getByFlowId(approvalFlow.id);
-      if (steps.length) {
-        approvalFlowId = approvalFlow.id;
-        approvalTotalSteps = steps.length;
-        autoApprove = false; // must go through steps
-      } else {
-        // Flow exists but has no steps — fall through to rule-based
-        const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
-        if (!bookingRules.length) {
-          autoApprove = false;
-        } else if (bookingRules.some(r => r.rule_type === 'direct')) {
-          autoApprove = true;
-        }
-      }
+    if (hasDirect) {
+      // Direct: no approval needed at all
+      autoApprove = true;
     } else {
-      // No flow — legacy rule-based behavior
-      const bookingRules = await venueBookingRuleModel.getByVenueId(venueId);
-      if (!bookingRules.length) {
-        autoApprove = false;
-      } else if (bookingRules.some(r => r.rule_type === 'direct')) {
-        autoApprove = true;
+      // Check for approval flow (user review)
+      const approvalFlow = await venueApprovalFlowModel.getByVenueId(venueId);
+      if (approvalFlow) {
+        const steps = await venueApprovalFlowStepModel.getByFlowId(approvalFlow.id);
+        if (steps.length) {
+          approvalFlowId = approvalFlow.id;
+          approvalTotalSteps = steps.length;
+        }
+        // If flow has no steps, fall through to admin default
       }
+      // If no flow or empty flow → admin approval (autoApprove stays false)
     }
 
     const id = generateId();
