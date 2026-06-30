@@ -14,22 +14,8 @@
 
   <!-- ═══ Venue Tab ═══ -->
   <view class="section" wx:if="{{activeTab === 'venue'}}">
-    <!-- Add/Edit form -->
-    <view class="edit-box" wx:if="{{editing}}">
-      <view class="panel-head">
-        <view class="panel-title-group">
-          <view class="section-title">{{editId ? '编辑场地' : '新增场地'}}</view>
-          <view class="panel-note">基础信息会展示在用户预约和管理排期中</view>
-        </view>
-      </view>
-      <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
-      <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="物理位置"/></view>
-      <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
-      <view class="button-row"><button class="secondary-btn" bindtap="cancelEdit">取消</button><button class="primary-btn" loading="{{loading}}" bindtap="saveVenue">保存场地</button></view>
-    </view>
-
     <!-- Venue list -->
-    <view class="list-card" wx:if="{{!editing}}">
+    <view class="list-card">
       <view class="panel-head">
         <view class="panel-title-group">
           <view class="section-title">场地列表</view>
@@ -56,6 +42,30 @@
           </view>
         </block>
       </scroll-view>
+    </view>
+  </view>
+
+  <!-- Venue editor popup -->
+  <view class="popup-mask" wx:if="{{editing}}" bindtap="cancelEdit">
+    <view class="popup-card venue-edit-popup" catchtap="noop">
+      <view class="popup-header">
+        <view>
+          <view class="popup-title">{{editId ? '编辑场地' : '新增场地'}}</view>
+          <view class="popup-subtitle">基础信息会展示在用户预约和管理排期中</view>
+        </view>
+        <text class="popup-close" bindtap="cancelEdit">关闭</text>
+      </view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll venue-edit-scroll" scroll-y>
+        <view class="form-body">
+          <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
+          <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="物理位置"/></view>
+          <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
+        </view>
+      </scroll-view>
+      <view class="venue-edit-actions">
+        <button class="secondary-btn" bindtap="cancelEdit">取消</button>
+        <button class="primary-btn" loading="{{loading}}" bindtap="saveVenue">保存场地</button>
+      </view>
     </view>
   </view>
 
