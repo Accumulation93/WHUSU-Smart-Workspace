@@ -241,6 +241,9 @@ Page({
     timeToDisplay: '',
     statusLabels: { pending: '待审核', approved: '已通过', rejected: '已驳回', cancelled: '已取消', inUse: '使用中', completed: '已完成' },
 
+    // Pending approvals badge
+    pendingApprovalCount: 0,
+
     // Approval popup (step-aware approve/reject)
     approvalPopupVisible: false,
     approvalPopupId: '',
@@ -268,9 +271,19 @@ Page({
     this.loadVenues();
     this.loadReferenceData();
     this.loadPurposes();
+    this.loadPendingCount();
     if (this.data.activeTab === 'bookings') {
       this.loadBookingsData();
     }
+  },
+
+  async loadPendingCount() {
+    try {
+      const res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
+      if (res.status === 'success') {
+        this.setData({ pendingApprovalCount: (res.pending || []).length });
+      }
+    } catch (_) {}
   },
 
   _initBookingsTimeRange() {

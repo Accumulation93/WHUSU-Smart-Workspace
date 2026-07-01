@@ -42,8 +42,13 @@
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
       <view class="section-title">借用记录</view>
-      <view class="pending-entry-row" wx:if="{{myBookings.length}}">
-        <text class="pending-entry-btn" bindtap="goPendingApprovals">待我审批 ›</text>
+      <view class="pending-entry-bar" bindtap="goPendingApprovals">
+        <view class="pending-entry-left">
+          <text class="pending-entry-icon">📋</text>
+          <text class="pending-entry-label">待我审批</text>
+          <view class="pending-entry-badge" wx:if="{{pendingApprovalCount > 0}}">{{pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}}</view>
+        </view>
+        <text class="pending-entry-arrow">›</text>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
         <view class="empty-state" wx:if="{{!myBookings.length}}">

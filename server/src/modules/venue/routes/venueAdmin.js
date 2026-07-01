@@ -436,6 +436,97 @@ router.post('/listAllVenueBookings', async (req, res) => {
         })()
       } : null
     }));
+
+    // ── Determine userCanApprove for each pending flow-based booking ──
+    try {
+      const orgId = await getCurrentOrgId();
+
+      // Resolve admin's HR ID
+      const [userRows] = await pool.query(
+        'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
+        [req.openid, orgId]
+      );
+      let approverHrId = (userRows[0] && userRows[0].hr_id) || null;
+      if (!approverHrId && admin && admin.student_id) {
+        const [hrRows] = await pool.query(
+          'SELECT id FROM hr_info WHERE student_id = ? AND org_id = ? LIMIT 1',
+          [admin.student_id, orgId]
+        );
+        if (hrRows[0]) approverHrId = hrRows[0].id;
+      }
+
+      if (approverHrId) {
+        const approverHrInfo = await hrInfoModel.getById(approverHrId);
+        if (approverHrInfo) {
+          // Filter pending flow-based bookings
+          const pendingFlowBookings = list.filter(
+            lb => lb.status === 'pending' && lb.approvalProgress && lb.approvalProgress.flowId
+          );
+
+          if (pendingFlowBookings.length) {
+            // Bulk-load applicant HR info (needed for 'same' scope matching)
+            const applicantIds = [...new Set(pendingFlowBookings.map(b => b.userHrId).filter(Boolean))];
+            const applicantMap = {};
+            if (applicantIds.length) {
+              const hrList = await hrInfoModel.getByIds(applicantIds);
+              (hrList || []).forEach(h => { applicantMap[h.id] = h; });
+            }
+
+            // Collect unique flow IDs and bulk-load all steps + rules
+            const flowIds = [...new Set(pendingFlowBookings.map(b => b.approvalProgress.flowId))];
+            const flowStepsMap = {};
+
+            for (const flowId of flowIds) {
+              const [steps] = await pool.query(
+                'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
+                [flowId, orgId]
+              );
+              for (const step of steps) {
+                const [rules] = await pool.query(
+                  'SELECT * FROM venue_approval_flow_step_rules WHERE step_id = ? AND org_id = ? ORDER BY sort_order',
+                  [step.id, orgId]
+                );
+                step.rules = rules;
+              }
+              flowStepsMap[flowId] = steps;
+            }
+
+            // Check each pending booking
+            for (const lb of pendingFlowBookings) {
+              const prog = lb.approvalProgress;
+              const steps = flowStepsMap[prog.flowId] || [];
+              const curIdx = prog.currentStep;
+
+              if (curIdx >= 0 && curIdx < steps.length) {
+                const step = steps[curIdx];
+                if (step.rules && step.rules.length) {
+                  const applicantHr = applicantMap[lb.userHrId] || null;
+                  lb.userCanApprove = venueApprovalFlowStepRuleModel.matchesAnyRule(
+                    step.rules, approverHrInfo, applicantHr
+                  );
+                } else {
+                  // No rules — anyone can approve
+                  lb.userCanApprove = true;
+                }
+              } else {
+                lb.userCanApprove = false;
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // Silently ignore — userCanApprove stays undefined/falsy, buttons hidden
+    }
+
+    // For non-flow pending bookings, admin can always approve (legacy behavior)
+    for (const lb of list) {
+      if (lb.status === 'pending' && lb.userCanApprove === undefined
+        && !(lb.approvalProgress && lb.approvalProgress.flowId)) {
+        lb.userCanApprove = true;
+      }
+    }
+
     res.json({ status: 'success', bookings: list });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

@@ -62,12 +62,23 @@ Page({
 
     // ── Bookings tab ──
     myBookings: [],
+    pendingApprovalCount: 0,
   },
 
   onShow() {
     this._initWeekStart();
     this.loadVenues();
     this.loadPurposes();
+    this.loadPendingCount();
+  },
+
+  async loadPendingCount() {
+    try {
+      const res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
+      if (res.status === 'success') {
+        this.setData({ pendingApprovalCount: (res.pending || []).length });
+      }
+    } catch (_) {}
   },
 
   switchTab(e) {
