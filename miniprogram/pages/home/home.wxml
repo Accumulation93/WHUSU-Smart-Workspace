@@ -467,6 +467,16 @@
           <view class="audit-home-card-badge audit-home-card-badge-pending" wx:if="{{auditPendingCount > 0}}">{{auditPendingCount}}</view>
           <view class="audit-home-card-arrow">›</view>
         </view>
+        <!-- 我的审批记录 -->
+        <view class="audit-home-card" bindtap="goMyApprovalHistory">
+          <view class="audit-home-card-icon">📋</view>
+          <view class="audit-home-card-content">
+            <view class="audit-home-card-title">我的审批记录</view>
+            <view class="audit-home-card-desc">我参与过审批的申请</view>
+          </view>
+          <view class="audit-home-card-badge audit-home-card-badge-history" wx:if="{{auditApprovalHistoryCount > 0}}">{{auditApprovalHistoryCount}}</view>
+          <view class="audit-home-card-arrow">›</view>
+        </view>
       </view>
     </view>
   </view>

@@ -19,13 +19,19 @@
     </view>
 
     <view class="card">
-      <view class="section-title">审核列表</view>
+      <view class="section-title-row">
+        <view class="section-title">审核列表</view>
+        <text class="mark-all-read" bindtap="markAllRead">全部已读</text>
+      </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>
-        <view class="audit-submission-item" wx:for="{{submissions}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail">
+        <view class="audit-submission-item {{item.isUnread ? 'audit-submission-unread' : ''}}" wx:for="{{submissions}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail">
           <view class="audit-submission-main">
-            <view class="audit-submission-name">{{item.title || item.submissionNumber}}</view>
+            <view class="audit-submission-name">
+              <view class="unread-dot" wx:if="{{item.isUnread}}"></view>
+              {{item.title || item.submissionNumber}}
+            </view>
             <view class="audit-submission-desc-text" wx:if="{{item.description}}">{{item.description}}</view>
             <view class="audit-submission-meta">
               <view class="audit-chip {{item.status === 'approved' ? 'audit-chip-approved' : (item.status === 'rejected' ? 'audit-chip-rejected' : (item.status === 'in_progress' ? 'audit-chip-progress' : (item.status === 'draft' ? 'audit-chip-draft' : (item.status === 'withdrawn' ? 'audit-chip-withdrawn' : 'audit-chip-pending'))))}}">

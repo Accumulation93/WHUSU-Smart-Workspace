@@ -1389,6 +1389,9 @@ Page({
           userIsAdmin: res.userIsAdmin || false,
           expandedNodeKey: ''
         });
+
+        // Mark as read (non-blocking — silently records read cursor)
+        callFunction({ name: 'markSubmissionRead', data: { submissionId: res.submission.id } }).catch(() => {});
       } else {
         showShortToast(res.message || '加载失败');
       }

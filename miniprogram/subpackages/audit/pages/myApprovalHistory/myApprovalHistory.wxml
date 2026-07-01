@@ -1,0 +1,43 @@
+<!-- Inherits styles from home.wxss via the sub-app page pattern -->
+<view class="page">
+  <view class="hero">
+    <view class="hero-badge">审核</view>
+    <view class="hero-title">我的审批记录</view>
+    <view class="hero-subtitle">我参与过审批的申请记录</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">审批记录</view>
+    <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+    <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
+      <view class="empty-state" wx:if="{{!items.length && !loading}}">
+        <view class="empty-text">暂无审批记录</view>
+      </view>
+      <view class="audit-submission-item {{item.isUnread ? 'audit-submission-unread' : ''}}" wx:for="{{items}}" wx:key="id" bindtap="viewDetail" data-id="{{item.id}}">
+        <view class="audit-submission-main">
+          <view class="audit-submission-name">
+            <view class="unread-dot" wx:if="{{item.isUnread}}"></view>
+            {{item.title || '无标题'}}
+          </view>
+          <view class="audit-submission-meta">
+            <text class="status-tag {{item.status}}">{{item.status === 'in_progress' ? '审核中' : (item.status === 'approved' ? '已完成' : (item.status === 'rejected' ? '已驳回' : (item.status === 'withdrawn' ? '已撤回' : item.status)))}}</text>
+            <text>{{item.submitterName}} · {{item.submissionNumber}}</text>
+          </view>
+          <view class="audit-submission-meta" wx:if="{{item.mySteps.length}}">
+            我处理的步骤：
+            <text wx:for="{{item.mySteps}}" wx:key="sortOrder" wx:for-item="st">
+              {{st.status === 'approved' ? '✓' : '✗'}}第{{st.sortOrder + 1}}步{{st.sortOrder < item.mySteps.length - 1 ? '、' : ''}}
+            </text>
+          </view>
+          <view class="audit-submission-date" wx:if="{{item.myLastActionAt}}">最后操作：{{item.myLastActionAt}}</view>
+        </view>
+        <view class="audit-list-arrow">›</view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="page-footer">
+    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-org">武汉大学学生会</view>
+  </view>
+</view>

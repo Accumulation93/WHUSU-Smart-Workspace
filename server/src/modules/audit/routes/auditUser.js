@@ -72,18 +72,35 @@ router.post('/listMySubmissions', async (req, res) => {
     };
 
     const submissions = await submissionModel.getAll(filters);
-    const result = submissions.map((s) => ({
-      id: safeString(s.id),
-      submissionNumber: safeString(s.submission_number),
-      title: safeString(s.title),
-      description: safeString(s.description),
-      type: safeString(s.type),
-      status: safeString(s.status),
-      currentStepIndex: s.current_step_index,
-      resubmitMode: safeString(s.resubmit_mode),
-      createdAt: s.created_at,
-      updatedAt: s.updated_at
-    }));
+    const submissionIds = submissions.map(s => s.id);
+
+    // Get read cursors
+    let cursorMap = {};
+    if (submissionIds.length) {
+      const [cursors] = await pool.query(
+        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
+        [hrId, submissionIds]
+      );
+      cursors.forEach(c => { cursorMap[c.submission_id] = c; });
+    }
+
+    const result = submissions.map((s) => {
+      const c = cursorMap[s.id];
+      const isUnread = !c || c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index;
+      return {
+        id: safeString(s.id),
+        submissionNumber: safeString(s.submission_number),
+        title: safeString(s.title),
+        description: safeString(s.description),
+        type: safeString(s.type),
+        status: safeString(s.status),
+        currentStepIndex: s.current_step_index,
+        resubmitMode: safeString(s.resubmit_mode),
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+        isUnread
+      };
+    });
 
     res.json({ status: 'success', submissions: result });
   } catch (e) {
@@ -2033,6 +2050,254 @@ router.post('/listMyStamps', async (req, res) => {
     }));
 
     res.json({ status: 'success', stamps });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// Read Status Tracking
+// ═══════════════════════════════════════════════════
+
+async function ensureReadCursorsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_read_cursors (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      hr_id INT NOT NULL,
+      submission_id VARCHAR(64) NOT NULL,
+      last_read_status VARCHAR(32) NOT NULL DEFAULT '',
+      last_read_step_index INT NOT NULL DEFAULT -1,
+      read_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_hr_submission (hr_id, submission_id),
+      INDEX idx_hr_id (hr_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+ensureReadCursorsTable().catch(e => console.error('[audit] Failed to create read_cursors table:', e.message));
+
+// getUnreadCounts — returns unread counts for my submissions + pending count
+router.post('/getUnreadCounts', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    // Pending count (keep existing logic — items needing my action)
+    const pendingSteps = await submissionStepModel.getPendingByApprover(hrId);
+    const pendingCount = pendingSteps.length;
+
+    // My submissions unread count
+    const mySubs = await submissionModel.getAll({ submittedBy: hrId, limit: 200 });
+    const mySubmissionIds = mySubs.map(s => s.id);
+    let mySubmissionsUnread = 0;
+
+    if (mySubmissionIds.length) {
+      // Get read cursors for all my submissions
+      const [cursors] = await pool.query(
+        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
+        [hrId, mySubmissionIds]
+      );
+      const cursorMap = {};
+      cursors.forEach(c => { cursorMap[c.submission_id] = c; });
+
+      for (const s of mySubs) {
+        const c = cursorMap[s.id];
+        if (!c) {
+          // Never read — count as unread
+          mySubmissionsUnread++;
+        } else if (c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index) {
+          // State changed since last read
+          mySubmissionsUnread++;
+        }
+      }
+    }
+
+    // My approval history unread count
+    const [myApprovedRows] = await pool.query(
+      `SELECT DISTINCT s.id, s.status, s.current_step_index
+       FROM audit_submissions s
+       JOIN audit_submission_steps st ON s.id = st.submission_id
+       WHERE st.approver_hr_id = ? AND st.status IN ('approved','rejected')
+       ORDER BY s.updated_at DESC LIMIT 200`,
+      [hrId]
+    );
+    let myApprovalHistoryUnread = 0;
+    if (myApprovedRows.length) {
+      const approvedIds = myApprovedRows.map(r => r.id);
+      const [cursors2] = await pool.query(
+        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
+        [hrId, approvedIds]
+      );
+      const cursorMap2 = {};
+      cursors2.forEach(c => { cursorMap2[c.submission_id] = c; });
+      for (const s of myApprovedRows) {
+        const c = cursorMap2[s.id];
+        if (!c || c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index) {
+          myApprovalHistoryUnread++;
+        }
+      }
+    }
+
+    res.json({ status: 'success', mySubmissionsUnread, myApprovalHistoryUnread, pendingCount });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// markSubmissionRead — mark a single submission as read (upsert cursor)
+router.post('/markSubmissionRead', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const submissionId = safeString(req.body.submissionId);
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '缺少提交ID' });
+
+    // Get current submission state
+    const sub = await submissionModel.getById(submissionId);
+    if (!sub) return res.json({ status: 'not_found', message: '提交不存在' });
+
+    await pool.query(
+      `INSERT INTO audit_read_cursors (hr_id, submission_id, last_read_status, last_read_step_index, read_at)
+       VALUES (?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE last_read_status = VALUES(last_read_status), last_read_step_index = VALUES(last_read_step_index), read_at = NOW()`,
+      [hrId, submissionId, sub.status, sub.current_step_index]
+    );
+
+    res.json({ status: 'success' });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// markAllSubmissionsRead — batch mark all user's submissions as read
+router.post('/markAllSubmissionsRead', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    // Mark all "my submissions" as read
+    const mySubs = await submissionModel.getAll({ submittedBy: hrId, limit: 500 });
+    for (const s of mySubs) {
+      await pool.query(
+        `INSERT INTO audit_read_cursors (hr_id, submission_id, last_read_status, last_read_step_index, read_at)
+         VALUES (?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE last_read_status = VALUES(last_read_status), last_read_step_index = VALUES(last_read_step_index), read_at = NOW()`,
+        [hrId, s.id, s.status, s.current_step_index]
+      );
+    }
+
+    // Also mark approval history as read
+    const [approved] = await pool.query(
+      `SELECT DISTINCT s.id, s.status, s.current_step_index
+       FROM audit_submissions s
+       JOIN audit_submission_steps st ON s.id = st.submission_id
+       WHERE st.approver_hr_id = ? AND st.status IN ('approved','rejected')`,
+      [hrId]
+    );
+    for (const s of approved) {
+      await pool.query(
+        `INSERT INTO audit_read_cursors (hr_id, submission_id, last_read_status, last_read_step_index, read_at)
+         VALUES (?, ?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE last_read_status = VALUES(last_read_status), last_read_step_index = VALUES(last_read_step_index), read_at = NOW()`,
+        [hrId, s.id, s.status, s.current_step_index]
+      );
+    }
+
+    res.json({ status: 'success' });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// listMyApprovalHistory — submissions where the current user has approved/rejected a step
+router.post('/listMyApprovalHistory', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const limit = parseInt(req.body.limit) || 50;
+    const offset = parseInt(req.body.offset) || 0;
+
+    // Get submissions where user has at least one approved/rejected step
+    const [rows] = await pool.query(
+      `SELECT DISTINCT s.*,
+        (SELECT MAX(st2.processed_at) FROM audit_submission_steps st2
+         WHERE st2.submission_id = s.id AND st2.approver_hr_id = ? AND st2.status IN ('approved','rejected')
+        ) AS my_last_action_at
+       FROM audit_submissions s
+       JOIN audit_submission_steps st ON s.id = st.submission_id
+       WHERE st.approver_hr_id = ?
+         AND st.status IN ('approved','rejected')
+       ORDER BY my_last_action_at DESC
+       LIMIT ? OFFSET ?`,
+      [hrId, hrId, limit, offset]
+    );
+
+    // Get the steps I handled for each submission
+    const submissionIds = rows.map(r => r.id);
+    let myStepsMap = {};
+    if (submissionIds.length) {
+      const [mySteps] = await pool.query(
+        `SELECT submission_id, sort_order, status, processed_at, comment, approver_hr_id
+         FROM audit_submission_steps
+         WHERE submission_id IN (?) AND approver_hr_id = ? AND status IN ('approved','rejected')
+         ORDER BY processed_at DESC`,
+        [submissionIds, hrId]
+      );
+      mySteps.forEach(st => {
+        if (!myStepsMap[st.submission_id]) myStepsMap[st.submission_id] = [];
+        myStepsMap[st.submission_id].push({
+          sortOrder: st.sort_order,
+          status: safeString(st.status),
+          processedAt: st.processed_at,
+          comment: safeString(st.comment || '')
+        });
+      });
+    }
+
+    // Load submitter names
+    const submitterIds = [...new Set(rows.map(r => r.submitted_by))];
+    const hrMap = {};
+    if (submitterIds.length) {
+      const hrRows = await hrInfoModel.getByIds(submitterIds);
+      hrRows.forEach(hr => { hrMap[hr.id] = safeString(hr.name); });
+    }
+
+    // Get read cursors
+    let cursorMap = {};
+    if (submissionIds.length) {
+      const [cursors] = await pool.query(
+        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
+        [hrId, submissionIds]
+      );
+      cursors.forEach(c => { cursorMap[c.submission_id] = c; });
+    }
+
+    const result = rows.map(s => {
+      const c = cursorMap[s.id];
+      const isUnread = !c || c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index;
+      return {
+        id: safeString(s.id),
+        submissionNumber: safeString(s.submission_number),
+        title: safeString(s.title),
+        type: safeString(s.type),
+        status: safeString(s.status),
+        currentStepIndex: s.current_step_index,
+        submittedBy: safeString(s.submitted_by),
+        submitterName: hrMap[s.submitted_by] || '未知',
+        createdAt: s.created_at,
+        updatedAt: s.updated_at,
+        mySteps: myStepsMap[s.id] || [],
+        myLastActionAt: s.my_last_action_at,
+        isUnread
+      };
+    });
+
+    res.json({ status: 'success', items: result });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

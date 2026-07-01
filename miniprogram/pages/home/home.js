@@ -291,6 +291,7 @@ Page({
     // Audit badge counts
     auditPendingCount: 0,
     auditMyCount: 0,
+    auditApprovalHistoryCount: 0,
   },
 
   noop() {},
@@ -850,16 +851,22 @@ Page({
     });
   },
 
+  goMyApprovalHistory() {
+    wx.navigateTo({
+      url: '/subpackages/audit/pages/myApprovalHistory/myApprovalHistory'
+    });
+  },
+
   async loadAuditBadgeCounts() {
     try {
-      const [myRes, pendingRes] = await Promise.all([
-        callFunction({ name: 'listMySubmissions', data: { limit: 1 } }),
-        callFunction({ name: 'listPendingApprovals', data: {} })
-      ]);
-      this.setData({
-        auditMyCount: (myRes.status === 'success' ? (myRes.submissions || []).length : 0),
-        auditPendingCount: (pendingRes.status === 'success' ? (pendingRes.pending || []).length : 0)
-      });
+      const res = await callFunction({ name: 'getUnreadCounts', data: {} });
+      if (res.status === 'success') {
+        this.setData({
+          auditMyCount: res.mySubmissionsUnread || 0,
+          auditPendingCount: res.pendingCount || 0,
+          auditApprovalHistoryCount: res.myApprovalHistoryUnread || 0
+        });
+      }
     } catch (_) {
       // Non-critical; badges just won't show counts
     }

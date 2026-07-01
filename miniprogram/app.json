@@ -27,6 +27,7 @@
         "pages/mySubmissions/mySubmissions",
         "pages/submissionDetail/submissionDetail",
         "pages/pendingApprovals/pendingApprovals",
+        "pages/myApprovalHistory/myApprovalHistory",
         "pages/signatureManager/signatureManager",
         "pages/verification/verification"
       ]
