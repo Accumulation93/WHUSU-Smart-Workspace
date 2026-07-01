@@ -2145,13 +2145,13 @@ router.post('/getUnreadCounts', async (req, res) => {
     console.error('[getUnreadCounts] mySubmissionsUnread failed:', e.message);
   }
 
-  // ── My approval history unread count ──
+  // ── My approval history unread count (from audit_events for accurate operator matching) ──
   try {
     const [myApprovedRows] = await pool.query(
       `SELECT DISTINCT s.id, s.status, s.current_step_index
        FROM audit_submissions s
-       JOIN audit_submission_steps st ON s.id = st.submission_id
-       WHERE st.approver_hr_id = ? AND st.status IN ('approved','rejected')
+       JOIN audit_events e ON s.id = e.submission_id
+       WHERE e.operator_hr_id = ? AND e.event_type IN ('approve', 'reject')
        ORDER BY s.updated_at DESC LIMIT 200`,
       [hrId]
     );
@@ -2222,12 +2222,12 @@ router.post('/markAllSubmissionsRead', async (req, res) => {
       );
     }
 
-    // Also mark approval history as read
+    // Also mark approval history as read (from audit_events for accurate operator matching)
     const [approved] = await pool.query(
       `SELECT DISTINCT s.id, s.status, s.current_step_index
        FROM audit_submissions s
-       JOIN audit_submission_steps st ON s.id = st.submission_id
-       WHERE st.approver_hr_id = ? AND st.status IN ('approved','rejected')`,
+       JOIN audit_events e ON s.id = e.submission_id
+       WHERE e.operator_hr_id = ? AND e.event_type IN ('approve', 'reject')`,
       [hrId]
     );
     for (const s of approved) {
@@ -2246,6 +2246,9 @@ router.post('/markAllSubmissionsRead', async (req, res) => {
 });
 
 // listMyApprovalHistory — submissions where the current user has approved/rejected a step
+// QUERY SOURCE: audit_events table (records actual operator, not template-defined approver_hr_id).
+// This correctly captures identity-matched approvers and multi-select approvers that the old
+// st.approver_hr_id = ? query missed.
 router.post('/listMyApprovalHistory', async (req, res) => {
   try {
     const openid = req.openid;
@@ -2255,37 +2258,38 @@ router.post('/listMyApprovalHistory', async (req, res) => {
     const limit = parseInt(req.body.limit) || 50;
     const offset = parseInt(req.body.offset) || 0;
 
-    // Get submissions where user has at least one approved/rejected step
+    // Get submissions where user has approve/reject events
     const [rows] = await pool.query(
-      `SELECT DISTINCT s.*,
-        (SELECT MAX(st2.processed_at) FROM audit_submission_steps st2
-         WHERE st2.submission_id = s.id AND st2.approver_hr_id = ? AND st2.status IN ('approved','rejected')
-        ) AS my_last_action_at
+      `SELECT s.*, MAX(e.created_at) AS my_last_action_at
        FROM audit_submissions s
-       JOIN audit_submission_steps st ON s.id = st.submission_id
-       WHERE st.approver_hr_id = ?
-         AND st.status IN ('approved','rejected')
+       JOIN audit_events e ON s.id = e.submission_id
+       WHERE e.operator_hr_id = ?
+         AND e.event_type IN ('approve', 'reject')
+       GROUP BY s.id
        ORDER BY my_last_action_at DESC
        LIMIT ? OFFSET ?`,
-      [hrId, hrId, limit, offset]
+      [hrId, limit, offset]
     );
 
-    // Get the steps I handled for each submission
+    // Get the steps I handled for each submission (from audit_events)
     const submissionIds = rows.map(r => r.id);
     let myStepsMap = {};
     if (submissionIds.length) {
       const [mySteps] = await pool.query(
-        `SELECT submission_id, sort_order, status, processed_at, comment, approver_hr_id
-         FROM audit_submission_steps
-         WHERE submission_id IN (?) AND approver_hr_id = ? AND status IN ('approved','rejected')
-         ORDER BY processed_at DESC`,
+        `SELECT e.submission_id, e.step_index AS sort_order,
+           e.event_type, e.created_at AS processed_at, e.comment
+         FROM audit_events e
+         WHERE e.submission_id IN (?)
+           AND e.operator_hr_id = ?
+           AND e.event_type IN ('approve', 'reject')
+         ORDER BY e.created_at DESC`,
         [submissionIds, hrId]
       );
       mySteps.forEach(st => {
         if (!myStepsMap[st.submission_id]) myStepsMap[st.submission_id] = [];
         myStepsMap[st.submission_id].push({
           sortOrder: st.sort_order,
-          status: safeString(st.status),
+          status: st.event_type === 'approve' ? 'approved' : 'rejected',
           processedAt: st.processed_at,
           comment: safeString(st.comment || '')
         });
