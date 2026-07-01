@@ -2076,23 +2076,35 @@ async function ensureReadCursorsTable() {
 ensureReadCursorsTable().catch(e => console.error('[audit] Failed to create read_cursors table:', e.message));
 
 // getUnreadCounts — returns unread counts for my submissions + pending count
+// Each section is independently fault-tolerant: one failure won't zero out the others
 router.post('/getUnreadCounts', async (req, res) => {
+  const openid = req.openid;
+  let hrId;
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    hrId = await resolveHrId(openid);
+  } catch (e) {
+    return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+  }
+  if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
-    // Pending count (keep existing logic — items needing my action)
+  let pendingCount = 0;
+  let mySubmissionsUnread = 0;
+  let myApprovalHistoryUnread = 0;
+
+  // ── Pending count (items needing my action) ──
+  try {
     const pendingSteps = await submissionStepModel.getPendingByApprover(hrId);
-    const pendingCount = pendingSteps.length;
+    pendingCount = pendingSteps.length;
+  } catch (e) {
+    console.error('[getUnreadCounts] pendingCount failed:', e.message);
+  }
 
-    // My submissions unread count
+  // ── My submissions unread count ──
+  try {
     const mySubs = await submissionModel.getAll({ submittedBy: hrId, limit: 200 });
     const mySubmissionIds = mySubs.map(s => s.id);
-    let mySubmissionsUnread = 0;
 
     if (mySubmissionIds.length) {
-      // Get read cursors for all my submissions
       const [cursors] = await pool.query(
         'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
         [hrId, mySubmissionIds]
@@ -2102,17 +2114,18 @@ router.post('/getUnreadCounts', async (req, res) => {
 
       for (const s of mySubs) {
         const c = cursorMap[s.id];
-        if (!c) {
-          // Never read — count as unread
-          mySubmissionsUnread++;
-        } else if (c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index) {
-          // State changed since last read
+        if (!c || c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index) {
           mySubmissionsUnread++;
         }
       }
     }
+    console.log('[getUnreadCounts] mySubmissionsUnread=' + mySubmissionsUnread + ' total=' + mySubs.length);
+  } catch (e) {
+    console.error('[getUnreadCounts] mySubmissionsUnread failed:', e.message);
+  }
 
-    // My approval history unread count
+  // ── My approval history unread count ──
+  try {
     const [myApprovedRows] = await pool.query(
       `SELECT DISTINCT s.id, s.status, s.current_step_index
        FROM audit_submissions s
@@ -2121,7 +2134,6 @@ router.post('/getUnreadCounts', async (req, res) => {
        ORDER BY s.updated_at DESC LIMIT 200`,
       [hrId]
     );
-    let myApprovalHistoryUnread = 0;
     if (myApprovedRows.length) {
       const approvedIds = myApprovedRows.map(r => r.id);
       const [cursors2] = await pool.query(
@@ -2137,11 +2149,11 @@ router.post('/getUnreadCounts', async (req, res) => {
         }
       }
     }
-
-    res.json({ status: 'success', mySubmissionsUnread, myApprovalHistoryUnread, pendingCount });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[getUnreadCounts] myApprovalHistoryUnread failed:', e.message);
   }
+
+  res.json({ status: 'success', mySubmissionsUnread, myApprovalHistoryUnread, pendingCount });
 });
 
 // markSubmissionRead — mark a single submission as read (upsert cursor)

@@ -449,6 +449,9 @@ Page({
     if (tab === 'profile' && this.data.activeRole === 'user' && !this.data.hrProfile.loaded) {
       this.loadUserHrProfile();
     }
+    if (tab === 'audit') {
+      this.loadAuditBadgeCounts();
+    }
     if (tab === 'results' || tab === 'meritList') {
       this.checkPublication();
     }
@@ -866,9 +869,11 @@ Page({
           auditPendingCount: res.pendingCount || 0,
           auditApprovalHistoryCount: res.myApprovalHistoryUnread || 0
         });
+      } else {
+        console.warn('[home] getUnreadCounts returned:', res.status, res.message);
       }
-    } catch (_) {
-      // Non-critical; badges just won't show counts
+    } catch (e) {
+      console.error('[home] getUnreadCounts failed:', e);
     }
   },
 
