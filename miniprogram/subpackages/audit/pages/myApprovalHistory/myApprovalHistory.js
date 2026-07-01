@@ -1,4 +1,4 @@
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 
 Page({
   data: {
@@ -18,7 +18,13 @@ Page({
         data: { limit: 100, offset: 0 }
       });
       if (res.status === 'success') {
-        this.setData({ items: res.items || [] });
+        const items = (res.items || []).map(item => ({
+          ...item,
+          createdAt: formatAuditTime(item.createdAt),
+          updatedAt: formatAuditTime(item.updatedAt),
+          myLastActionAt: formatAuditTime(item.myLastActionAt)
+        }));
+        this.setData({ items });
       } else {
         showShortToast(res.message || '加载失败');
       }
@@ -32,5 +38,22 @@ Page({
   viewDetail(e) {
     const id = e.currentTarget.dataset.id;
     wx.navigateTo({ url: `/subpackages/audit/pages/submissionDetail/submissionDetail?id=${id}` });
+  },
+
+  async markAllRead() {
+    wx.showLoading({ title: '处理中...' });
+    try {
+      const res = await callFunction({ name: 'markAllSubmissionsRead', data: {} });
+      if (res.status === 'success') {
+        showShortToast('已全部设为已读', 'success');
+        this.loadData();
+      } else {
+        showShortToast(res.message || '操作失败');
+      }
+    } catch (e) {
+      showShortToast(getErrorText(e, '操作失败'));
+    } finally {
+      wx.hideLoading();
+    }
   }
 });

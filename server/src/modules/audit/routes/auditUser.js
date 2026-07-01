@@ -2285,9 +2285,10 @@ router.post('/listMyApprovalHistory', async (req, res) => {
          ORDER BY e.created_at DESC`,
         [submissionIds, hrId]
       );
-      mySteps.forEach(st => {
+      mySteps.forEach((st, stIdx) => {
         if (!myStepsMap[st.submission_id]) myStepsMap[st.submission_id] = [];
         myStepsMap[st.submission_id].push({
+          _key: stIdx,
           sortOrder: st.sort_order,
           status: st.event_type === 'approve' ? 'approved' : 'rejected',
           processedAt: st.processed_at,
@@ -2321,6 +2322,7 @@ router.post('/listMyApprovalHistory', async (req, res) => {
         id: safeString(s.id),
         submissionNumber: safeString(s.submission_number),
         title: safeString(s.title),
+        description: safeString(s.description),
         type: safeString(s.type),
         status: safeString(s.status),
         currentStepIndex: s.current_step_index,

@@ -1,6 +1,20 @@
 @import '../../../../pages/home/home.wxss';
 @import '../../styles/blue-polish.wxss';
 
+/* ── Section title with action ── */
+.section-title-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6rpx;
+}
+.section-title-row .section-title { margin-bottom: 0; }
+.mark-all-read {
+  flex-shrink: 0; padding: 8rpx 18rpx; border-radius: 999rpx;
+  font-size: 22rpx; font-weight: 700; color: #2563eb;
+  background: rgba(219,234,254,0.7); border: 1rpx solid rgba(147,197,253,0.45);
+  transition: transform 0.12s ease;
+}
+.mark-all-read:active { transform: scale(0.95); }
+
 /* ── List items ── */
 .audit-submission-item {
   display: flex; align-items: center; gap: 18rpx;
@@ -13,28 +27,56 @@
 }
 .audit-submission-item:last-child { margin-bottom: 4rpx; }
 .audit-submission-item:active { transform: translateY(1rpx) scale(0.992); }
+
 .audit-submission-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
 .audit-submission-name { color: #0f172a; font-size: 28rpx; font-weight: 700; line-height: 1.4; display: flex; align-items: center; }
+
 .audit-submission-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10rpx; }
+.audit-submission-meta-text { color: #94a3b8; font-size: 21rpx; font-weight: 500; }
 .audit-submission-date { color: #94a3b8; font-size: 22rpx; }
+
+.audit-submission-desc-text {
+  font-size: 22rpx; color: #94a3b8; margin-top: 4rpx;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 .audit-list-arrow {
   flex-shrink: 0; width: 48rpx; height: 48rpx; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: rgba(241,245,249,0.7); color: #94a3b8; font-size: 32rpx; font-weight: 600;
 }
 
-/* unread dot */
+/* ── Unread indicator ── */
 .unread-dot {
-  display: inline-block; width: 14rpx; height: 14rpx;
-  border-radius: 50%;
-  background: #ef4444;
-  margin-right: 10rpx;
-  vertical-align: middle;
+  display: inline-block; width: 14rpx; height: 14rpx; border-radius: 50%;
+  background: #ef4444; margin-right: 10rpx; vertical-align: middle;
   box-shadow: 0 0 8rpx rgba(239,68,68,0.35);
 }
-
-/* unread item highlight */
 .audit-submission-unread {
   border-left: 6rpx solid #ef4444;
   background: linear-gradient(135deg, rgba(254,242,242,0.30) 0%, rgba(255,255,255,0.90) 100%);
+}
+
+/* ── My steps display ── */
+.audit-submission-steps {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8rpx;
+  margin-top: 2rpx;
+}
+.audit-steps-label {
+  color: #64748b; font-size: 21rpx; font-weight: 600;
+}
+.audit-step-chip {
+  display: inline-flex; align-items: center;
+  padding: 4rpx 12rpx; border-radius: 999rpx;
+  font-size: 19rpx; font-weight: 700; line-height: 1.5;
+}
+.audit-step-approved {
+  color: #15803d;
+  background: rgba(220,252,231,0.7);
+  border: 1rpx solid rgba(134,239,172,0.45);
+}
+.audit-step-rejected {
+  color: #dc2626;
+  background: rgba(254,242,242,0.7);
+  border: 1rpx solid rgba(252,165,165,0.4);
 }
