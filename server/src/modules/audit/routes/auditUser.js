@@ -2063,7 +2063,7 @@ async function ensureReadCursorsTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS audit_read_cursors (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      hr_id INT NOT NULL,
+      hr_id VARCHAR(64) NOT NULL,
       submission_id VARCHAR(64) NOT NULL,
       last_read_status VARCHAR(32) NOT NULL DEFAULT '',
       last_read_step_index INT NOT NULL DEFAULT -1,
@@ -2072,6 +2072,27 @@ async function ensureReadCursorsTable() {
       INDEX idx_hr_id (hr_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // Migrate: hr_id was originally INT but hr_info.id / user_info.hr_id are VARCHAR(64).
+  // If the column is still INT, alter it to VARCHAR so long HR IDs (e.g. student IDs like 202330100123)
+  // are not truncated to INT range (max ~2.1 billion).
+  try {
+    const [cols] = await pool.query(
+      `SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'audit_read_cursors' AND COLUMN_NAME = 'hr_id'`
+    );
+    if (cols.length && String(cols[0].COLUMN_TYPE).toLowerCase().startsWith('int')) {
+      await pool.query(
+        `ALTER TABLE audit_read_cursors
+         MODIFY COLUMN hr_id VARCHAR(64) NOT NULL,
+         DROP INDEX uk_hr_submission,
+         ADD UNIQUE KEY uk_hr_submission (hr_id, submission_id)`
+      );
+      console.log('[audit] Migrated audit_read_cursors.hr_id from INT to VARCHAR(64)');
+    }
+  } catch (e) {
+    console.warn('[audit] audit_read_cursors.hr_id migration check failed:', e.message);
+  }
 }
 ensureReadCursorsTable().catch(e => console.error('[audit] Failed to create read_cursors table:', e.message));
 
