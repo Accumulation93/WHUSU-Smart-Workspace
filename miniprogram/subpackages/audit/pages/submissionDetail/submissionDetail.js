@@ -1390,8 +1390,15 @@ Page({
           expandedNodeKey: ''
         });
 
-        // Mark as read (non-blocking — silently records read cursor)
-        callFunction({ name: 'markSubmissionRead', data: { submissionId: res.submission.id } }).catch(() => {});
+        // Mark as read — awaited to ensure the cursor is updated before the user navigates back
+        try {
+          const markRes = await callFunction({ name: 'markSubmissionRead', data: { submissionId: res.submission.id } });
+          if (markRes.status !== 'success') {
+            console.warn('[audit] markSubmissionRead returned:', markRes.status, markRes.message);
+          }
+        } catch (e) {
+          console.warn('[audit] markSubmissionRead network error:', e);
+        }
       } else {
         showShortToast(res.message || '加载失败');
       }
