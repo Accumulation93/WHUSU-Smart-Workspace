@@ -521,6 +521,30 @@ router.post('/listMyVenueBookings', async (req, res) => {
         })()
       } : null
     }));
+    // ── Batch-resolve approver names from snapshots ──
+    const approverHrIdSet = new Set();
+    for (const item of list) {
+      if (item.approvalProgress && item.approvalProgress.snapshots) {
+        for (const snap of item.approvalProgress.snapshots) {
+          if (snap.approverHrId) approverHrIdSet.add(snap.approverHrId);
+        }
+      }
+    }
+    if (approverHrIdSet.size) {
+      try {
+        const approverHrList = await hrInfoModel.getByIds([...approverHrIdSet]);
+        const nameMap = {};
+        (approverHrList || []).forEach(h => { nameMap[h.id] = h.name || ''; });
+        for (const item of list) {
+          if (item.approvalProgress && item.approvalProgress.snapshots) {
+            for (const snap of item.approvalProgress.snapshots) {
+              snap.approverName = snap.approverName || nameMap[snap.approverHrId] || '';
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
     // Attach flow step definitions to each booking's approvalProgress
     try {
       const flowBookings = list.filter(b => b.approvalProgress && b.approvalProgress.flowId);
@@ -657,6 +681,30 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         snapshots: snapshots,
         createdAt: booking.created_at
       });
+    }
+
+    // ── Batch-resolve approver names from snapshots ──
+    const pendingSnapshotHrIds = new Set();
+    for (const item of pending) {
+      if (item.snapshots) {
+        for (const snap of item.snapshots) {
+          if (snap.approverHrId) pendingSnapshotHrIds.add(snap.approverHrId);
+        }
+      }
+    }
+    if (pendingSnapshotHrIds.size) {
+      try {
+        const approverHrList = await hrInfoModel.getByIds([...pendingSnapshotHrIds]);
+        const nameMap = {};
+        (approverHrList || []).forEach(h => { nameMap[h.id] = h.name || ''; });
+        for (const item of pending) {
+          if (item.snapshots) {
+            for (const snap of item.snapshots) {
+              snap.approverName = snap.approverName || nameMap[snap.approverHrId] || '';
+            }
+          }
+        }
+      } catch (_) {}
     }
 
     res.json({ status: 'success', pending });

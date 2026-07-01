@@ -1,4 +1,5 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { buildFlowTimeline } = require('../../utils/flowTimeline');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64;
@@ -35,70 +36,6 @@ function computeDisplayStatus(item) {
   return item.status;
 }
 
-/**
- * Build a full flow timeline array for rendering in WXML.
- * Pre-computes all state classes, icons, labels so WXML stays clean.
- */
-function buildFlowTimeline(prog) {
-  if (!prog || !prog.totalSteps) return null;
-  var totalSteps = prog.totalSteps;
-  var currentStep = prog.currentStep;
-  var rejectStep = prog.isRejected ? (prog.rejectStep >= 0 ? prog.rejectStep : 0) : -1;
-  var flowSteps = prog.flowSteps || [];
-  var snapshots = prog.snapshots || [];
-
-  // Build snapshot lookup by stepIndex
-  var snapMap = {};
-  snapshots.forEach(function(s) {
-    var idx = s.stepIndex != null ? s.stepIndex : s.step_index;
-    if (idx != null) snapMap[idx] = s;
-  });
-
-  var timeline = [];
-  for (var si = 0; si < totalSteps; si++) {
-    var state, icon, label;
-    var stepName = (flowSteps[si] && flowSteps[si].name) || ('第' + (si + 1) + '步');
-    var snap = snapMap[si] || null;
-
-    if (prog.isRejected) {
-      if (si < rejectStep)      { state = 'done';     icon = '✓'; label = '✓ 已通过'; }
-      else if (si === rejectStep) { state = 'rejected'; icon = '✗'; label = '✗ 已驳回'; }
-      else                       { state = 'pending';  icon = String(si + 1); label = '○ 未到达'; }
-    } else if (prog.isApproved) {
-      state = 'done'; icon = '✓'; label = '✓ 已通过';
-    } else {
-      if (si < currentStep)      { state = 'done';   icon = '✓'; label = '✓ 已通过'; }
-      else if (si === currentStep) { state = 'active';  icon = String(si + 1); label = '● 待处理'; }
-      else                       { state = 'pending'; icon = String(si + 1); label = '○ 未到达'; }
-    }
-
-    // Description line
-    var meta = '';
-    if (state === 'done' && snap && snap.approvedAt) {
-      meta = snap.approvedAt;
-    } else if (state === 'active') {
-      meta = '等待审批';
-    } else if (state === 'rejected') {
-      meta = '已驳回';
-    }
-
-    var comment = (snap && snap.comment) || '';
-
-    timeline.push({
-      state: state,
-      nodeClass: 'flow-node flow-node-' + state,
-      dotClass: 'flow-dot flow-dot-' + state,
-      icon: icon,
-      stepName: stepName,
-      label: label,
-      meta: meta,
-      comment: comment,
-      isLast: si === totalSteps - 1
-    });
-  }
-  return timeline;
-}
-
 Page({
   data: {
     activeTab: 'browse', // 'browse' | 'bookings'
@@ -127,9 +64,32 @@ Page({
     // ── Bookings tab ──
     myBookings: [],
     pendingApprovalCount: 0,
+
+    // ── Expandable flow ──
+    expandedNodeKey: '',
+
+    // ── Hero user info (matches home page pattern) ──
+    heroName: '场地借用',
+    heroIdentity: '加载中',
+    heroSubtitle: '欢迎使用REDSU智慧工作台系统 · 场地借用',
+  },
+
+  _loadUserInfo() {
+    try {
+      var roleProfiles = wx.getStorageSync('roleProfiles');
+      var user = roleProfiles && roleProfiles.user;
+      if (user) {
+        this.setData({
+          heroName: user.name || '场地借用',
+          heroIdentity: user.identity || '未设置身份',
+          heroSubtitle: '欢迎使用REDSU智慧工作台系统 · 场地借用'
+        });
+      }
+    } catch (_) {}
   },
 
   onShow() {
+    this._loadUserInfo();
     this._initWeekStart();
     this.loadVenues();
     this.loadPurposes();
@@ -185,7 +145,7 @@ Page({
     this.setData({ scheduleVisible:true, scheduleVenueId:id, scheduleVenueName:v?v.name:'', timetableColumns:[] });
     await this.loadTimetable();
   },
-  closeSchedule() { this.setData({ scheduleVisible:false, bookingDetailVisible:false }); },
+  closeSchedule() { this.setData({ scheduleVisible:false, bookingDetailVisible:false, expandedNodeKey:'' }); },
 
   async loadTimetable() {
     const {scheduleVenueId,scheduleWeekStart}=this.data;
@@ -244,7 +204,14 @@ Page({
   onTimetablePrevWeek() { const [y,m,d]=this.data.scheduleWeekStart.split('-').map(Number); this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d-7))}); this.loadTimetable(); },
   onTimetableNextWeek() { const [y,m,d]=this.data.scheduleWeekStart.split('-').map(Number); this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d+7))}); this.loadTimetable(); },
   onTimetableBlockTap(e) { const b=e.currentTarget.dataset.block; if(!b||!b.booking)return; this.setData({bookingDetailVisible:true,bookingDetail:b.booking}); },
-  closeBookingDetail() { this.setData({bookingDetailVisible:false}); },
+  closeBookingDetail() { this.setData({bookingDetailVisible:false, expandedNodeKey:''}); },
+
+  viewMyBookingDetail(e) {
+    var id = e.currentTarget.dataset.id;
+    var item = this.data.myBookings.find(function(b) { return b.id === id; });
+    if (!item) return;
+    this.setData({ bookingDetailVisible: true, bookingDetail: item, expandedNodeKey: '' });
+  },
 
   onTimeTargetTap(e) {
     const date=e.currentTarget.dataset.date, time=e.currentTarget.dataset.time;
@@ -434,6 +401,12 @@ Page({
 
   goPendingApprovals() {
     wx.navigateTo({ url: '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals' });
+  },
+
+  // ── Expandable flow ──
+  toggleFlowNode(e) {
+    var key = e.currentTarget.dataset.nodeKey;
+    this.setData({ expandedNodeKey: this.data.expandedNodeKey === key ? '' : key });
   },
 
   noop() {}

@@ -128,7 +128,6 @@ textarea {
   white-space: pre-wrap;
 }
 
-.venue-tab-bar,
 .header-nav,
 .rules-tabs {
   display: flex;
@@ -136,7 +135,6 @@ textarea {
   margin-bottom: 24rpx;
 }
 
-.venue-tab,
 .header-nav-btn,
 .filter-chip,
 .chip,
@@ -174,7 +172,6 @@ textarea {
   transition: all 0.2s;
 }
 
-.venue-tab.active,
 .filter-chip.active,
 .chip.active {
   color: #ffffff;

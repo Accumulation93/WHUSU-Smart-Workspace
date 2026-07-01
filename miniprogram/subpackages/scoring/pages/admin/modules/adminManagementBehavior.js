@@ -2,6 +2,7 @@
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const { emptyAdminForm, createLocalInviteCode } = utils;
+const { writeAndOpen } = require('../../../../../utils/filePreview');
 
 module.exports = Behavior({
   methods: {
@@ -254,27 +255,7 @@ module.exports = Behavior({
         }
   
         const filePath = `${wx.env.USER_DATA_PATH}/admin_info_export_${Date.now()}.csv`;
-        await new Promise((resolve, reject) => {
-          wx.getFileSystemManager().writeFile({
-            filePath,
-            data: result.csvContent,
-            encoding: 'utf8',
-            success: resolve,
-            fail: reject
-          });
-        });
-  
-        wx.openDocument({
-          filePath,
-          fileType: 'csv',
-          showMenu: true,
-          fail: () => {
-            wx.showToast({
-              title: '已导出到本地文件',
-              icon: 'none'
-            });
-          }
-        });
+        writeAndOpen({ filePath, data: result.csvContent, encoding: 'utf8', fileType: 'csv' });
       } catch (error) {
         wx.showToast({
           title: '导出管理员失败',

@@ -3,24 +3,6 @@
 
 .page { padding-bottom: 60rpx; }
 
-/* ═══ Tab bar ═══ */
-.venue-tab-bar { display:flex; gap:20rpx; margin-bottom:28rpx; }
-.venue-tab {
-  flex:1; text-align:center; padding:24rpx 20rpx; border-radius:24rpx;
-  font-size:28rpx; font-weight:700; color:#53708e;
-  background:linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(246,249,255,0.82) 100%);
-  border:1rpx solid rgba(219,229,241,0.92);
-  box-shadow:0 10rpx 22rpx rgba(15,23,42,0.04);
-  transition:all 0.2s;
-}
-.venue-tab.active {
-  color:#fff;
-  background:linear-gradient(135deg, #2563eb 0%, #3b82f6 44%, #60a5fa 100%);
-  border-color:transparent;
-  box-shadow:0 18rpx 34rpx rgba(37,99,235,0.20);
-}
-.venue-tab:active { transform:scale(0.96); }
-
 /* ═══ Venue cards ═══ */
 .venue-card {
   display:flex; align-items:center; gap:24rpx;
@@ -306,44 +288,6 @@ page {
   margin-top: 10rpx;
   font-size: 25rpx;
   line-height: 1.62;
-}
-
-.venue-tab-bar {
-  display: flex;
-  gap: 10rpx;
-  margin: 0 0 20rpx;
-  padding: 8rpx;
-  border-radius: 26rpx;
-  background: linear-gradient(135deg, rgba(255,255,255,0.72), rgba(248,251,255,0.56));
-  border: 1rpx solid rgba(255,255,255,0.62);
-  box-shadow:
-    0 14rpx 28rpx rgba(15,23,42,0.045),
-    inset 0 1rpx 0 rgba(255,255,255,0.78);
-  box-sizing: border-box;
-}
-
-.venue-tab {
-  flex: 1;
-  min-width: 0;
-  height: 66rpx;
-  line-height: 66rpx;
-  padding: 0 8rpx;
-  border-radius: 20rpx;
-  color: #49627f;
-  font-size: 24rpx;
-  font-weight: 800;
-  text-align: center;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-}
-
-.venue-tab.active {
-  color: #ffffff;
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
-  box-shadow:
-    0 16rpx 30rpx rgba(29,78,216,0.22),
-    inset 0 1rpx 0 rgba(255,255,255,0.20);
 }
 
 .card {

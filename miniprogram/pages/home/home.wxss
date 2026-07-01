@@ -1792,6 +1792,12 @@ scroll-view {
   background: linear-gradient(180deg, rgba(239,68,68,0.5) 0%, rgba(239,68,68,0.15) 100%);
 }
 
+/* ── Right column: info card + expand detail stacked vertically ── */
+.flow-right-col {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+}
+
 /* ── Step info card (right of dot) ── */
 .flow-info {
   flex: 1; min-width: 0;
@@ -1951,4 +1957,44 @@ scroll-view {
   background: rgba(241,245,249,0.55);
   border: 1rpx solid rgba(226,232,240,0.5);
   letter-spacing: 0.5rpx;
+}
+
+/* ── Expandable flow nodes ── */
+.flow-node-tap {
+  opacity: 0.92;
+  transform: scale(0.99);
+}
+.flow-node-expanded .flow-info {
+  background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(248,250,252,0.80)) !important;
+  border: 1rpx solid rgba(203,213,225,0.40) !important;
+  box-shadow: 0 8rpx 32rpx rgba(15,23,42,0.08);
+}
+.flow-expand-hint {
+  font-size: 20rpx;
+  color: #2563eb;
+  font-weight: 600;
+  margin-top: 4rpx;
+  letter-spacing: 0.2rpx;
+}
+.flow-expand-detail {
+  margin-top: 0;
+  margin-bottom: 8rpx;
+  padding: 14rpx 18rpx;
+  border-radius: 16rpx;
+  background: rgba(255,255,255,0.82);
+  border: 1rpx solid rgba(191,219,254,0.45);
+  box-shadow: 0 4rpx 16rpx rgba(15,23,42,0.04);
+}
+.flow-detail-text {
+  font-size: 22rpx;
+  color: #334155;
+  line-height: 1.75;
+}
+.flow-detail-label {
+  color: #64748b;
+  font-weight: 600;
+}
+.flow-detail-comment-text {
+  font-style: italic;
+  color: #64748b;
 }

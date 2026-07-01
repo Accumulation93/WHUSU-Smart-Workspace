@@ -5,7 +5,7 @@
  */
 const utils = require('./adminUtils');
 const { formatAuditTime } = require('../../../../../utils/api');
-
+const { openAuditFile } = require('../../../../../utils/filePreview');
 const { showShortToast, getErrorText } = utils;
 
 module.exports = Behavior({
@@ -1563,50 +1563,11 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
       }
     },
 
-    async previewAuditFile(e) {
+    previewAuditFile(e) {
       const fileId = e.currentTarget.dataset.fileId;
       const fileName = e.currentTarget.dataset.fileName || '';
       if (!fileId) return;
-
-      wx.showLoading({ title: '加载中...' });
-      try {
-        const res = await this.callCloud('getAuditFile', { fileId: fileId });
-        if (res.status !== 'success' || !res.data) {
-          wx.hideLoading();
-          showShortToast(res.message || '文件加载失败');
-          return;
-        }
-        const fs = wx.getFileSystemManager();
-        const ext = (res.fileName || fileName).split('.').pop() || 'bin';
-        const tmpPath = `${wx.env.USER_DATA_PATH}/${fileId}.${ext}`;
-        fs.writeFile({
-          filePath: tmpPath,
-          data: res.data,
-          encoding: 'base64',
-          success: () => {
-            wx.hideLoading();
-            const mime = res.mimeType || '';
-            if (mime.startsWith('image/')) {
-              wx.previewImage({ urls: [tmpPath], current: tmpPath });
-            } else {
-              wx.openDocument({
-                filePath: tmpPath, showMenu: true,
-                fail: () => {
-                  wx.showModal({
-                    title: '文件信息',
-                    content: `文件名：${res.fileName}\n类型：${res.mimeType}\n大小：${(res.fileSize / 1024).toFixed(1)} KB`,
-                    showCancel: false
-                  });
-                }
-              });
-            }
-          },
-          fail: () => { wx.hideLoading(); showShortToast('文件写入失败'); }
-        });
-      } catch (err) {
-        wx.hideLoading();
-        showShortToast(getErrorText(err, '预览失败'));
-      }
+      openAuditFile({ fileId: fileId, fileName: fileName });
     },
 
     closeAuditSubmissionDetail() {

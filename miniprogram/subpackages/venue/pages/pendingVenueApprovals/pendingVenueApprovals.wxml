@@ -59,15 +59,23 @@
 
           <!-- Full flow timeline -->
           <view wx:if="{{approvalTarget._flowTimeline && approvalTarget._flowTimeline.length}}" class="audit-flow">
-            <view class="{{node.nodeClass}}" wx:for="{{approvalTarget._flowTimeline}}" wx:key="*this" wx:for-item="node">
+            <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:for="{{approvalTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" bindtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="flow-node-tap">
               <view class="flow-left-col">
                 <view class="{{node.dotClass}}">{{node.icon}}</view>
                 <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
               </view>
-              <view class="flow-info">
-                <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
-                <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
-                <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+              <view class="flow-right-col">
+                <view class="flow-info">
+                  <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                  <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
+                  <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+                  <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                </view>
+                <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
+                  <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">审批人：</text>{{node.approverName}}</view>
+                  <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">审批时间：</text>{{node.approvedAt}}</view>
+                  <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">审批意见：</text>{{node.comment}}</view>
+                </view>
               </view>
             </view>
           </view>

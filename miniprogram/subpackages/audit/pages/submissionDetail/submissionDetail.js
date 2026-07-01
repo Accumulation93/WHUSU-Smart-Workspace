@@ -1,4 +1,5 @@
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
+const { openAuditFile } = require('../../../../utils/filePreview');
 
 const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const AUDIT_MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -2745,65 +2746,11 @@ Page({
   },
 
   // ── File preview ──
-  async previewFile(e) {
+  previewFile(e) {
     const fileId = e.currentTarget.dataset.fileId;
     const fileName = e.currentTarget.dataset.fileName || '';
     if (!fileId) return;
-
-    wx.showLoading({ title: '加载中...' });
-    try {
-      const res = await callFunction({
-        name: 'getAuditFile',
-        data: { fileId: fileId }
-      });
-      if (res.status !== 'success' || !res.data) {
-        wx.hideLoading();
-        showShortToast(res.message || '文件加载失败');
-        return;
-      }
-
-      // Write base64 to temp file
-      const fs = wx.getFileSystemManager();
-      const ext = (res.fileName || fileName).split('.').pop() || 'bin';
-      const tmpPath = `${wx.env.USER_DATA_PATH}/${fileId}.${ext}`;
-
-      fs.writeFile({
-        filePath: tmpPath,
-        data: res.data,
-        encoding: 'base64',
-        success: () => {
-          wx.hideLoading();
-          // Open with appropriate viewer
-          const mime = res.mimeType || '';
-          if (mime.startsWith('image/')) {
-            wx.previewImage({
-              urls: [tmpPath],
-              current: tmpPath
-            });
-          } else {
-            wx.openDocument({
-              filePath: tmpPath,
-              showMenu: true,
-              fail: () => {
-                // Fallback: show file info
-                wx.showModal({
-                  title: '文件信息',
-                  content: `文件名：${res.fileName}\n类型：${res.mimeType}\n大小：${(res.fileSize / 1024).toFixed(1)} KB`,
-                  showCancel: false
-                });
-              }
-            });
-          }
-        },
-        fail: () => {
-          wx.hideLoading();
-          showShortToast('文件写入失败');
-        }
-      });
-    } catch (e) {
-      wx.hideLoading();
-      showShortToast(getErrorText(e, '预览失败'));
-    }
+    openAuditFile({ fileId: fileId, fileName: fileName });
   },
 
   // Withdraw

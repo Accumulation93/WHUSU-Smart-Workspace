@@ -211,6 +211,45 @@ router.post('/getAuditFile', async (req, res) => {
   }
 });
 
+// Direct binary download — avoids base64 overhead and USER_DATA_PATH quota issues.
+// Used by wx.downloadFile → wx.openDocument for reliable file opening.
+router.get('/downloadAuditFile', async (req, res) => {
+  try {
+    const fileId = safeString(req.query.fileId);
+    if (!fileId) return res.status(400).json({ status: 'invalid_params', message: '请提供文件ID' });
+
+    const auth = await getAuthorizedAuditFile(fileId, req.openid);
+    if (auth.status !== 'success') {
+      const code = auth.status === 'forbidden' ? 403 : 404;
+      return res.status(code).json(auth);
+    }
+    const file = auth.file;
+
+    if (!fs.existsSync(file.file_path)) {
+      return res.status(404).json({ status: 'not_found', message: '文件已被清理或不存在' });
+    }
+
+    const mime = file.mime_type || 'application/octet-stream';
+    const encodedName = encodeURIComponent(file.file_name);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodedName}`);
+    res.setHeader('Content-Length', String(file.file_size));
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+
+    const readStream = fs.createReadStream(file.file_path);
+    readStream.on('error', (streamErr) => {
+      if (!res.headersSent) {
+        res.status(500).json({ status: 'error', message: safeString(streamErr.message) });
+      }
+    });
+    readStream.pipe(res);
+  } catch (e) {
+    if (!res.headersSent) {
+      res.status(500).json({ status: 'error', message: safeString(e.message) });
+    }
+  }
+});
+
 router.post('/getAuditFilePreview', async (req, res) => {
   try {
     const fileId = safeString(req.body.fileId);

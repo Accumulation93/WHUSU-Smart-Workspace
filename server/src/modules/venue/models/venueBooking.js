@@ -89,6 +89,15 @@ async function updateTimeEnd(id, timeEnd, conn) {
   );
 }
 
+async function updateTimeStart(id, timeStart, conn) {
+  const orgId = await getCurrentOrgId();
+  const db = conn || pool;
+  await db.query(
+    'UPDATE venue_bookings SET time_start = ? WHERE id = ? AND org_id = ?',
+    [timeStart, id, orgId]
+  );
+}
+
 /**
  * Check for booking conflicts — overlapping datetime range on the same venue.
  * Two bookings conflict if: existing.time_start < new.time_end AND existing.time_end > new.time_start
@@ -115,4 +124,4 @@ async function findConflict(venueId, timeStart, timeEnd, excludeId, conn, forUpd
   return rows[0] || null;
 }
 
-module.exports = { getByVenueId, getByUserId, getAll, getById, create, updateStatus, updateTimeEnd, findConflict };
+module.exports = { getByVenueId, getByUserId, getAll, getById, create, updateStatus, updateTimeEnd, updateTimeStart, findConflict };

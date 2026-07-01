@@ -437,6 +437,30 @@ router.post('/listAllVenueBookings', async (req, res) => {
       } : null
     }));
 
+    // ── Batch-resolve approver names from snapshots ──
+    const allSnapshotHrIds = new Set();
+    for (const item of list) {
+      if (item.approvalProgress && item.approvalProgress.snapshots) {
+        for (const snap of item.approvalProgress.snapshots) {
+          if (snap.approverHrId) allSnapshotHrIds.add(snap.approverHrId);
+        }
+      }
+    }
+    if (allSnapshotHrIds.size) {
+      try {
+        const approverHrList = await hrInfoModel.getByIds([...allSnapshotHrIds]);
+        const approverNameMap = {};
+        (approverHrList || []).forEach(h => { approverNameMap[h.id] = h.name || ''; });
+        for (const item of list) {
+          if (item.approvalProgress && item.approvalProgress.snapshots) {
+            for (const snap of item.approvalProgress.snapshots) {
+              snap.approverName = snap.approverName || approverNameMap[snap.approverHrId] || '';
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
     // ── Load flow step definitions for ALL flow-based bookings ──
     const allFlowBookings = list.filter(lb => lb.approvalProgress && lb.approvalProgress.flowId);
     const flowStepsMap = {}; // flowId → [{sort_order, name, action_type, rules}]
@@ -574,7 +598,20 @@ router.post('/approveVenueBooking', async (req, res) => {
       const isLastStep = newStepIndex >= booking.approval_total_steps;
 
       if (isLastStep) {
-        const timeStart = fmtDatetime(new Date(booking.time_start));
+        const approvedAt = new Date();
+        const bookingTimeEnd = new Date(booking.time_end);
+
+        // If approved after booking end, cancel instead
+        if (approvedAt > bookingTimeEnd) {
+          await venueBookingModel.updateStatus(id, 'cancelled', review.hrId, '审批通过时已超过借用结束时间，自动取消', conn);
+          await conn.commit();
+          return res.json({ status: 'expired', message: '审批通过时已超过借用结束时间，借用已自动取消' });
+        }
+
+        // Approval within booking window - adjust start time to approval moment
+        await venueBookingModel.updateTimeStart(id, fmtDatetime(approvedAt), conn);
+
+        const timeStart = fmtDatetime(approvedAt);
         const timeEnd = fmtDatetime(new Date(booking.time_end));
         const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
         if (conflict) {
@@ -588,10 +625,18 @@ router.post('/approveVenueBooking', async (req, res) => {
       try { snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : []; } catch (_) {}
       const steps = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
       const stepName = (steps[currentStep] && steps[currentStep].name) || ('步骤' + (currentStep + 1));
+      // Resolve approver name
+      let snapApproverName = '';
+      try {
+        const approverHrInfoForSnap = await hrInfoModel.getById(review.hrId);
+        snapApproverName = approverHrInfoForSnap ? (approverHrInfoForSnap.name || '') : '';
+      } catch (_) {}
+
       snapshots.push({
         stepIndex: currentStep,
         stepName,
         approverHrId: review.hrId,
+        approverName: snapApproverName,
         comment: comment || '',
         approvedAt: fmtDatetime(new Date())
       });
@@ -615,14 +660,28 @@ router.post('/approveVenueBooking', async (req, res) => {
     }
 
     // Legacy approval
-    const timeStart = fmtDatetime(new Date(booking.time_start));
+    const approvedAt = new Date();
+    const bookingTimeEnd = new Date(booking.time_end);
+    const approverId = review.hrId || (review.admin && review.admin.id);
+
+    // If approved after booking end, cancel instead
+    if (approvedAt > bookingTimeEnd) {
+      await venueBookingModel.updateStatus(id, 'cancelled', approverId, '审批通过时已超过借用结束时间，自动取消', conn);
+      await conn.commit();
+      return res.json({ status: 'expired', message: '审批通过时已超过借用结束时间，借用已自动取消' });
+    }
+
+    // Approval within booking window - adjust start time
+    await venueBookingModel.updateTimeStart(id, fmtDatetime(approvedAt), conn);
+
+    const timeStart = fmtDatetime(approvedAt);
     const timeEnd = fmtDatetime(new Date(booking.time_end));
     const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
     if (conflict) {
       await conn.rollback();
       return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     }
-    await venueBookingModel.updateStatus(id, 'approved', review.hrId || (review.admin && review.admin.id), comment, conn);
+    await venueBookingModel.updateStatus(id, 'approved', approverId, comment, conn);
     await conn.commit();
     res.json({ status: 'success', message: '借用已通过' });
   } catch (e) {

@@ -129,8 +129,8 @@ page {
 
 .tab-active {
   color: #ffffff;
-  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
-  box-shadow: 0 16rpx 30rpx rgba(37, 99, 235, 0.18);
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
+  box-shadow: 0 16rpx 30rpx rgba(29, 78, 216, 0.22);
 }
 
 .tab:active {
@@ -1145,9 +1145,6 @@ page {
   box-shadow: 0 4rpx 10rpx rgba(239,68,68,0.18);
 }
 .pending-entry-arrow { font-size: 32rpx; font-weight: 600; color: #2563eb; }
-
-/* No-permission hint */
-.no-perm-hint { color: #94a3b8; font-size: 20rpx; font-style: italic; }
 
 /* ═══ Flow info (audit-style timeline inside booking cards / popups) ═══ */
 .flow-info-title { font-size: 22rpx; font-weight: 700; color: #0f172a; line-height: 1.4; }
