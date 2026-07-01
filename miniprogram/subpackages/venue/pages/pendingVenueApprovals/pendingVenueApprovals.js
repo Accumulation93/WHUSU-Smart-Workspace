@@ -85,6 +85,37 @@ Page({
           } else {
             item._approvalPercent = 0;
           }
+          // Build full flow timeline
+          var totalSteps = item.approvalTotalSteps;
+          var curStep = item.approvalCurrentStep;
+          var flowSteps = item.flowSteps || [];
+          var snapshots = item.snapshots || [];
+          var snapMap = {};
+          snapshots.forEach(function(s) {
+            var idx = s.stepIndex != null ? s.stepIndex : s.step_index;
+            if (idx != null) snapMap[idx] = s;
+          });
+          var timeline = [];
+          for (var si = 0; si < totalSteps; si++) {
+            var state, icon, label;
+            var stepName = (flowSteps[si] && flowSteps[si].name) || ('第' + (si + 1) + '步');
+            var snap = snapMap[si] || null;
+            if (si < curStep)          { state = 'done';   icon = '✓'; label = '✓ 已通过'; }
+            else if (si === curStep)   { state = 'active';  icon = String(si + 1); label = '● 待处理'; }
+            else                       { state = 'pending'; icon = String(si + 1); label = '○ 未到达'; }
+            var meta = '';
+            if (state === 'done' && snap && snap.approvedAt) meta = snap.approvedAt;
+            else if (state === 'active') meta = '等待审批';
+            var comment = (snap && snap.comment) || '';
+            timeline.push({
+              state: state,
+              nodeClass: 'flow-node flow-node-' + state,
+              dotClass: 'flow-dot flow-dot-' + state,
+              icon: icon, stepName: stepName, label: label,
+              meta: meta, comment: comment, isLast: si === totalSteps - 1
+            });
+          }
+          item._flowTimeline = timeline;
           return item;
         });
         this.setData({

@@ -80,6 +80,68 @@ function computeDisplayStatus(item) {
   return item.status;
 }
 
+/**
+ * Build a full flow timeline array for rendering in WXML.
+ * Pre-computes all state classes, icons, labels so WXML stays clean.
+ */
+function buildFlowTimeline(prog) {
+  if (!prog || !prog.totalSteps) return null;
+  var totalSteps = prog.totalSteps;
+  var currentStep = prog.currentStep;
+  var rejectStep = prog.isRejected ? (prog.rejectStep >= 0 ? prog.rejectStep : 0) : -1;
+  var flowSteps = prog.flowSteps || [];
+  var snapshots = prog.snapshots || [];
+
+  var snapMap = {};
+  snapshots.forEach(function(s) {
+    var idx = s.stepIndex != null ? s.stepIndex : s.step_index;
+    if (idx != null) snapMap[idx] = s;
+  });
+
+  var timeline = [];
+  for (var si = 0; si < totalSteps; si++) {
+    var state, icon, label;
+    var stepName = (flowSteps[si] && flowSteps[si].name) || ('第' + (si + 1) + '步');
+    var snap = snapMap[si] || null;
+
+    if (prog.isRejected) {
+      if (si < rejectStep)      { state = 'done';     icon = '✓'; label = '✓ 已通过'; }
+      else if (si === rejectStep) { state = 'rejected'; icon = '✗'; label = '✗ 已驳回'; }
+      else                       { state = 'pending';  icon = String(si + 1); label = '○ 未到达'; }
+    } else if (prog.isApproved) {
+      state = 'done'; icon = '✓'; label = '✓ 已通过';
+    } else {
+      if (si < currentStep)      { state = 'done';   icon = '✓'; label = '✓ 已通过'; }
+      else if (si === currentStep) { state = 'active';  icon = String(si + 1); label = '● 待处理'; }
+      else                       { state = 'pending'; icon = String(si + 1); label = '○ 未到达'; }
+    }
+
+    var meta = '';
+    if (state === 'done' && snap && snap.approvedAt) {
+      meta = snap.approvedAt;
+    } else if (state === 'active') {
+      meta = '等待审批';
+    } else if (state === 'rejected') {
+      meta = '已驳回';
+    }
+
+    var comment = (snap && snap.comment) || '';
+
+    timeline.push({
+      state: state,
+      nodeClass: 'flow-node flow-node-' + state,
+      dotClass: 'flow-dot flow-dot-' + state,
+      icon: icon,
+      stepName: stepName,
+      label: label,
+      meta: meta,
+      comment: comment,
+      isLast: si === totalSteps - 1
+    });
+  }
+  return timeline;
+}
+
 function calcBlock(timeStart, timeEnd) {
   const s = timeToMin(timeStart);
   const e = timeToMin(timeEnd);
@@ -793,15 +855,17 @@ Page({
       // Compute display status and approval percent for each booking
       let bookings = merged.map(b => {
         var item = Object.assign({}, b, { displayStatus: computeDisplayStatus(b) });
-        // Pre-compute approval percent for WXML (WXML doesn't support .toFixed)
         if (item.approvalProgress) {
           if (item.approvalProgress.isRejected) {
             item._approvalPercent = 0;
+            item._approvalBarColor = 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);';
           } else if (item.approvalProgress.isApproved) {
             item._approvalPercent = 100;
           } else {
             item._approvalPercent = Math.round(item.approvalProgress.currentStep / item.approvalProgress.totalSteps * 100);
           }
+          // Pre-compute full flow timeline for WXML
+          item._flowTimeline = buildFlowTimeline(item.approvalProgress);
         }
         return item;
       });

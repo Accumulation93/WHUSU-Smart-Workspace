@@ -521,6 +521,28 @@ router.post('/listMyVenueBookings', async (req, res) => {
         })()
       } : null
     }));
+    // Attach flow step definitions to each booking's approvalProgress
+    try {
+      const flowBookings = list.filter(b => b.approvalProgress && b.approvalProgress.flowId);
+      if (flowBookings.length) {
+        const flowIds = [...new Set(flowBookings.map(b => b.approvalProgress.flowId))];
+        const flowStepsMap = {};
+        for (const flowId of flowIds) {
+          try {
+            const steps = await venueApprovalFlowStepModel.getByFlowId(flowId);
+            flowStepsMap[flowId] = steps.map(s => ({
+              sortOrder: s.sort_order,
+              name: s.name,
+              actionType: s.action_type
+            }));
+          } catch (_) { flowStepsMap[flowId] = []; }
+        }
+        for (const b of flowBookings) {
+          b.approvalProgress.flowSteps = flowStepsMap[b.approvalProgress.flowId] || [];
+        }
+      }
+    } catch (_) { /* silently ignore — flow timeline won't render full step names */ }
+
     res.json({ status: 'success', bookings: list });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -607,6 +629,13 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : [];
       } catch (_) {}
 
+      // Build flowSteps array for timeline rendering
+      const flowStepNames = flowSteps.map(s => ({
+        sortOrder: s.sort_order,
+        name: s.name,
+        actionType: s.action_type
+      }));
+
       pending.push({
         id: booking.id,
         venueId: booking.venue_id,
@@ -624,6 +653,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         approvalTotalSteps: booking.approval_total_steps,
         currentStepName: step.name || ('第' + (currentStep + 1) + '步'),
         currentStepIndex: currentStep,
+        flowSteps: flowStepNames,
         snapshots: snapshots,
         createdAt: booking.created_at
       });

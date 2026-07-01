@@ -57,32 +57,17 @@
             <text class="audit-flow-progress-text">{{approvalTarget.approvalCurrentStep}}/{{approvalTarget.approvalTotalSteps}}</text>
           </view>
 
-          <!-- Flow timeline -->
-          <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow">
-            <view class="flow-node {{si < approvalTarget.approvalCurrentStep ? 'flow-node-done' : (si === approvalTarget.approvalCurrentStep ? 'flow-node-active' : 'flow-node-pending')}}" wx:for="{{approvalTarget.approvalTotalSteps}}" wx:key="*this" wx:for-index="si">
+          <!-- Full flow timeline -->
+          <view wx:if="{{approvalTarget._flowTimeline && approvalTarget._flowTimeline.length}}" class="audit-flow">
+            <view class="{{node.nodeClass}}" wx:for="{{approvalTarget._flowTimeline}}" wx:key="*this" wx:for-item="node">
               <view class="flow-left-col">
-                <view class="flow-dot {{si < approvalTarget.approvalCurrentStep ? 'flow-dot-done' : (si === approvalTarget.approvalCurrentStep ? 'flow-dot-active' : 'flow-dot-pending')}}">
-                  <text wx:if="{{si < approvalTarget.approvalCurrentStep}}">✓</text>
-                  <text wx:elif="{{si === approvalTarget.approvalCurrentStep}}">{{si + 1}}</text>
-                  <text wx:else>{{si + 1}}</text>
-                </view>
-                <view class="flow-connector" wx:if="{{si < approvalTarget.approvalTotalSteps - 1}}"></view>
+                <view class="{{node.dotClass}}">{{node.icon}}</view>
+                <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
               </view>
               <view class="flow-info">
-                <view class="flow-info-title">
-                  第{{si + 1}}步
-                  <text wx:if="{{si < approvalTarget.approvalCurrentStep && approvalTarget.snapshots && approvalTarget.snapshots[si]}}"> · {{approvalTarget.snapshots[si].stepName}}</text>
-                  <text wx:elif="{{si === approvalTarget.approvalCurrentStep}}"> · {{approvalTarget.currentStepName}}</text>
-                </view>
-                <view class="flow-info-desc" wx:if="{{si < approvalTarget.approvalCurrentStep && approvalTarget.snapshots && approvalTarget.snapshots[si]}}">
-                  {{approvalTarget.snapshots[si].approvedAt || ''}}
-                </view>
-                <view class="flow-info-desc" wx:elif="{{si === approvalTarget.approvalCurrentStep}}">
-                  等待审批
-                </view>
-                <view class="flow-info-desc" wx:else>
-                  待进行
-                </view>
+                <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
+                <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
               </view>
             </view>
           </view>

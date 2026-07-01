@@ -437,6 +437,46 @@ router.post('/listAllVenueBookings', async (req, res) => {
       } : null
     }));
 
+    // ── Load flow step definitions for ALL flow-based bookings ──
+    const allFlowBookings = list.filter(lb => lb.approvalProgress && lb.approvalProgress.flowId);
+    const flowStepsMap = {}; // flowId → [{sort_order, name, action_type, rules}]
+    if (allFlowBookings.length) {
+      try {
+        const orgId = await getCurrentOrgId();
+        const flowIds = [...new Set(allFlowBookings.map(b => b.approvalProgress.flowId))];
+        for (const flowId of flowIds) {
+          const [steps] = await pool.query(
+            'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
+            [flowId, orgId]
+          );
+          // Load rules for all steps in this flow (needed for userCanApprove later)
+          const stepIds = steps.map(s => s.id);
+          if (stepIds.length) {
+            const [allRules] = await pool.query(
+              'SELECT * FROM venue_approval_flow_step_rules WHERE step_id IN (?) AND org_id = ? ORDER BY sort_order',
+              [stepIds, orgId]
+            );
+            const ruleMap = {};
+            for (const r of allRules) {
+              if (!ruleMap[r.step_id]) ruleMap[r.step_id] = [];
+              ruleMap[r.step_id].push(r);
+            }
+            for (const step of steps) { step.rules = ruleMap[step.id] || []; }
+          }
+          flowStepsMap[flowId] = steps;
+        }
+        // Attach display-only flowSteps to each booking's approvalProgress
+        for (const lb of allFlowBookings) {
+          const steps = flowStepsMap[lb.approvalProgress.flowId] || [];
+          lb.approvalProgress.flowSteps = steps.map(s => ({
+            sortOrder: s.sort_order,
+            name: s.name,
+            actionType: s.action_type
+          }));
+        }
+      } catch (_) { /* silently ignore — flowSteps won't be attached */ }
+    }
+
     // ── Determine userCanApprove for each pending flow-based booking ──
     try {
       const orgId = await getCurrentOrgId();
@@ -458,7 +498,6 @@ router.post('/listAllVenueBookings', async (req, res) => {
       if (approverHrId) {
         const approverHrInfo = await hrInfoModel.getById(approverHrId);
         if (approverHrInfo) {
-          // Filter pending flow-based bookings
           const pendingFlowBookings = list.filter(
             lb => lb.status === 'pending' && lb.approvalProgress && lb.approvalProgress.flowId
           );
@@ -472,26 +511,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
               (hrList || []).forEach(h => { applicantMap[h.id] = h; });
             }
 
-            // Collect unique flow IDs and bulk-load all steps + rules
-            const flowIds = [...new Set(pendingFlowBookings.map(b => b.approvalProgress.flowId))];
-            const flowStepsMap = {};
-
-            for (const flowId of flowIds) {
-              const [steps] = await pool.query(
-                'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
-                [flowId, orgId]
-              );
-              for (const step of steps) {
-                const [rules] = await pool.query(
-                  'SELECT * FROM venue_approval_flow_step_rules WHERE step_id = ? AND org_id = ? ORDER BY sort_order',
-                  [step.id, orgId]
-                );
-                step.rules = rules;
-              }
-              flowStepsMap[flowId] = steps;
-            }
-
-            // Check each pending booking
+            // Check each pending booking using already-loaded flow steps
             for (const lb of pendingFlowBookings) {
               const prog = lb.approvalProgress;
               const steps = flowStepsMap[prog.flowId] || [];
@@ -505,7 +525,6 @@ router.post('/listAllVenueBookings', async (req, res) => {
                     step.rules, approverHrInfo, applicantHr
                   );
                 } else {
-                  // No rules — anyone can approve
                   lb.userCanApprove = true;
                 }
               } else {

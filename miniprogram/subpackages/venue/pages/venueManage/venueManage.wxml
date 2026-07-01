@@ -145,12 +145,26 @@
           <view class="booking-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
-          <!-- Flow approval progress bar (shown for flow-based bookings) -->
+          <!-- Flow approval progress bar + full timeline -->
           <view wx:if="{{item.approvalProgress}}" class="audit-flow-summary" style="margin-top:8rpx;">
             <view class="audit-flow-progress-bar">
-              <view class="audit-flow-progress-fill" style="width:{{item._approvalPercent}}%;"></view>
+              <view class="audit-flow-progress-fill" style="width:{{item._approvalPercent}}%;{{item._approvalBarColor || ''}}"></view>
             </view>
             <text class="audit-flow-progress-text">{{item.approvalProgress.isRejected ? '已驳回' : (item.approvalProgress.isApproved ? '已完成' : (item.approvalProgress.currentStep + '/' + item.approvalProgress.totalSteps))}}</text>
+          </view>
+          <!-- Full flow timeline -->
+          <view wx:if="{{item._flowTimeline && item._flowTimeline.length}}" class="audit-flow" style="margin-top:6rpx;">
+            <view class="{{node.nodeClass}}" wx:for="{{item._flowTimeline}}" wx:key="*this" wx:for-item="node">
+              <view class="flow-left-col">
+                <view class="{{node.dotClass}}">{{node.icon}}</view>
+                <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
+              </view>
+              <view class="flow-info">
+                <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
+                <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+              </view>
+            </view>
           </view>
           <view class="booking-actions" wx:if="{{item.status === 'pending' && item.userCanApprove}}">
             <button class="approve-btn" data-id="{{item.id}}" bindtap="openApprovePopup">通过</button>
@@ -595,12 +609,26 @@
             <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalPopupTarget.venueName}}</text></view>
             <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalPopupTarget.userName}}<text wx:if="{{approvalPopupTarget.userDept}}"> · {{approvalPopupTarget.userDept}}</text></text></view>
             <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalPopupTarget.timeStart}} — {{approvalPopupTarget.timeEnd}}</text></view>
-            <!-- Flow progress -->
+            <!-- Flow progress bar -->
             <view wx:if="{{approvalPopupTarget.approvalProgress}}" class="audit-flow-summary" style="margin-top:8rpx;">
               <view class="audit-flow-progress-bar">
-                <view class="audit-flow-progress-fill" style="width:{{approvalPopupTarget._approvalPercent}}%;"></view>
+                <view class="audit-flow-progress-fill" style="width:{{approvalPopupTarget._approvalPercent}}%;{{approvalPopupTarget._approvalBarColor || ''}}"></view>
               </view>
-              <text class="audit-flow-progress-text">{{approvalPopupTarget.approvalProgress.currentStep}}/{{approvalPopupTarget.approvalProgress.totalSteps}}</text>
+              <text class="audit-flow-progress-text">{{approvalPopupTarget.approvalProgress.isRejected ? '已驳回' : (approvalPopupTarget.approvalProgress.isApproved ? '已完成' : (approvalPopupTarget.approvalProgress.currentStep + '/' + approvalPopupTarget.approvalProgress.totalSteps))}}</text>
+            </view>
+            <!-- Full flow timeline -->
+            <view wx:if="{{approvalPopupTarget._flowTimeline && approvalPopupTarget._flowTimeline.length}}" class="audit-flow" style="margin-top:6rpx;">
+              <view class="{{node.nodeClass}}" wx:for="{{approvalPopupTarget._flowTimeline}}" wx:key="*this" wx:for-item="node">
+                <view class="flow-left-col">
+                  <view class="{{node.dotClass}}">{{node.icon}}</view>
+                  <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
+                </view>
+                <view class="flow-info">
+                  <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                  <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
+                  <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+                </view>
+              </view>
             </view>
           </view>
           <view class="field" style="margin-top:16rpx;">
