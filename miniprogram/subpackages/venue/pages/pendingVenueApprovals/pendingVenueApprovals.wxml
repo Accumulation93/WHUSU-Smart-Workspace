@@ -1,0 +1,119 @@
+<view class="page">
+  <view class="hero">
+    <view class="hero-badge">场地审批</view>
+    <view class="hero-title">待我审批</view>
+    <view class="hero-subtitle">需要我处理的场地借用申请</view>
+  </view>
+
+  <view class="section">
+    <view class="card">
+      <view class="section-title">待审批列表</view>
+      <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">
+        <text class="pending-update-time">更新于 {{lastUpdateTime}}</text>
+        <text class="pending-refresh-btn" bindtap="loadData">⟳ 刷新</text>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
+        <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+        <block wx:else>
+        <view class="pending-item" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail">
+          <view class="pending-item-main">
+            <view class="pending-item-name">{{item.title || '借用申请'}}</view>
+            <view class="pending-item-meta">
+              <view class="audit-chip audit-chip-progress">待我处理</view>
+              <view class="pending-item-step">第{{item.currentStepIndex + 1}}步 · {{item.currentStepName}}</view>
+              <view class="pending-item-step" wx:if="{{item.approvalCurrentStep > 0}}">{{item.approvalCurrentStep}}/{{item.approvalTotalSteps}} 已完成</view>
+            </view>
+            <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
+          </view>
+          <view class="pending-actions-col">
+            <text class="pending-action-link approve" data-id="{{item.id}}" catchtap="openApprove">通过</text>
+            <text class="pending-action-link reject" data-id="{{item.id}}" catchtap="openReject">驳回</text>
+          </view>
+        </view>
+        <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
+          <view class="audit-empty-icon">✅</view>
+          <view class="audit-empty-text">暂无待审批的场地借用</view>
+          <view class="audit-empty-tip">当其他成员借用场地并需要你审批时，<br/>待处理的申请将显示在这里。</view>
+        </view>
+        </block>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══ Approval / Detail Popup ═══ -->
+  <view class="popup-mask" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>
+        <text class="popup-close" bindtap="closeApproval">关闭</text>
+      </view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="detail-body">
+          <!-- Flow progress bar -->
+          <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow-summary">
+            <view class="audit-flow-progress-bar">
+              <view class="audit-flow-progress-fill" style="width:{{approvalTarget._approvalPercent}}%;"></view>
+            </view>
+            <text class="audit-flow-progress-text">{{approvalTarget.approvalCurrentStep}}/{{approvalTarget.approvalTotalSteps}}</text>
+          </view>
+
+          <!-- Flow timeline -->
+          <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow">
+            <view class="flow-node {{si < approvalTarget.approvalCurrentStep ? 'flow-node-done' : (si === approvalTarget.approvalCurrentStep ? 'flow-node-active' : 'flow-node-pending')}}" wx:for="{{approvalTarget.approvalTotalSteps}}" wx:key="*this" wx:for-index="si">
+              <view class="flow-left-col">
+                <view class="flow-dot {{si < approvalTarget.approvalCurrentStep ? 'flow-dot-done' : (si === approvalTarget.approvalCurrentStep ? 'flow-dot-active' : 'flow-dot-pending')}}">
+                  <text wx:if="{{si < approvalTarget.approvalCurrentStep}}">✓</text>
+                  <text wx:elif="{{si === approvalTarget.approvalCurrentStep}}">{{si + 1}}</text>
+                  <text wx:else>{{si + 1}}</text>
+                </view>
+                <view class="flow-connector" wx:if="{{si < approvalTarget.approvalTotalSteps - 1}}"></view>
+              </view>
+              <view class="flow-info">
+                <view class="flow-info-title">
+                  第{{si + 1}}步
+                  <text wx:if="{{si < approvalTarget.approvalCurrentStep && approvalTarget.snapshots && approvalTarget.snapshots[si]}}"> · {{approvalTarget.snapshots[si].stepName}}</text>
+                  <text wx:elif="{{si === approvalTarget.approvalCurrentStep}}"> · {{approvalTarget.currentStepName}}</text>
+                </view>
+                <view class="flow-info-desc" wx:if="{{si < approvalTarget.approvalCurrentStep && approvalTarget.snapshots && approvalTarget.snapshots[si]}}">
+                  {{approvalTarget.snapshots[si].approvedAt || ''}}
+                </view>
+                <view class="flow-info-desc" wx:elif="{{si === approvalTarget.approvalCurrentStep}}">
+                  等待审批
+                </view>
+                <view class="flow-info-desc" wx:else>
+                  待进行
+                </view>
+              </view>
+            </view>
+          </view>
+
+          <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalTarget.venueName}}<text wx:if="{{approvalTarget.venueLocation}}"> · {{approvalTarget.venueLocation}}</text></text></view>
+          <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalTarget.userName}}</text></view>
+          <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalTarget.timeStart}} — {{approvalTarget.timeEnd}}</text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.description}}"><text class="detail-key">说明</text><text class="detail-val">{{approvalTarget.description}}</text></view>
+          <view class="detail-row"><text class="detail-key">状态</text><text class="status-tag pending">待审核</text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.approvalCurrentStep >= 0}}"><text class="detail-key">当前步骤</text><text class="detail-val">第{{approvalTarget.currentStepIndex + 1}}步 · {{approvalTarget.currentStepName}}</text></view>
+
+          <!-- Approval action area -->
+          <view wx:if="{{approvalAction}}" class="approval-action-area">
+            <view class="field" style="margin-top:16rpx;">
+              <view class="field-label">审批意见（选填）</view>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
+            </view>
+            <view class="button-row" style="margin-top:16rpx;">
+              <button class="secondary-btn" bindtap="closeApproval">取消</button>
+              <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}}" loading="{{approvalSubmitting}}" bindtap="submitApproval">
+                {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
+              </button>
+            </view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <view class="page-footer">
+    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-org">武汉大学学生会</view>
+  </view>
+</view>

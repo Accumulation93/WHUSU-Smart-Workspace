@@ -1124,6 +1124,25 @@ page {
   margin-bottom: 18rpx;
 }
 
+/* ═══ Pending approvals entry ═══ */
+.pending-entry-row {
+  display: flex; justify-content: flex-end; padding: 0;
+}
+.pending-entry-btn {
+  display: inline-flex; align-items: center; gap: 6rpx;
+  font-size: 22rpx; font-weight: 700; color: #ffffff;
+  padding: 10rpx 22rpx; border-radius: 999rpx;
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+  box-shadow: 0 10rpx 22rpx rgba(37,99,235,0.16);
+  line-height: 1; letter-spacing: 0.5rpx;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.pending-entry-btn:active { transform: scale(0.95); opacity: 0.88; }
+
+/* ═══ Flow info (audit-style timeline inside booking cards / popups) ═══ */
+.flow-info-title { font-size: 22rpx; font-weight: 700; color: #0f172a; line-height: 1.4; }
+.flow-info-desc { font-size: 20rpx; color: #64748b; margin-top: 4rpx; }
+
 /* ═══ Page footer ═══ */
 .page-footer {
   display: flex; flex-direction: column; align-items: center;

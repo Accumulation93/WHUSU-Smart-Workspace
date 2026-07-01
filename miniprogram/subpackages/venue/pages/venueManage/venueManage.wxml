@@ -122,6 +122,11 @@
         </scroll-view>
       </view>
 
+      <!-- Pending approvals entry -->
+      <view class="pending-entry-row" style="padding:0 0 10rpx;" wx:if="{{bookings.length}}">
+        <text class="pending-entry-btn" bindtap="goPendingApprovals">待我审批 ›</text>
+      </view>
+
       <!-- Booking list -->
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="empty-inline" wx:if="{{!bookings.length}}">暂无借用记录</view>
@@ -135,9 +140,16 @@
           <view class="booking-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
+          <!-- Flow approval progress bar (shown for flow-based bookings) -->
+          <view wx:if="{{item.approvalProgress}}" class="audit-flow-summary" style="margin-top:8rpx;">
+            <view class="audit-flow-progress-bar">
+              <view class="audit-flow-progress-fill" style="width:{{item._approvalPercent}}%;"></view>
+            </view>
+            <text class="audit-flow-progress-text">{{item.approvalProgress.isRejected ? '已驳回' : (item.approvalProgress.isApproved ? '已完成' : (item.approvalProgress.currentStep + '/' + item.approvalProgress.totalSteps))}}</text>
+          </view>
           <view class="booking-actions" wx:if="{{item.status === 'pending'}}">
-            <button class="approve-btn" data-id="{{item.id}}" bindtap="approve">通过</button>
-            <button class="reject-btn" data-id="{{item.id}}" bindtap="reject">驳回</button>
+            <button class="approve-btn" data-id="{{item.id}}" bindtap="openApprovePopup">通过</button>
+            <button class="reject-btn" data-id="{{item.id}}" bindtap="openRejectPopup">驳回</button>
           </view>
         </view>
       </scroll-view>
@@ -558,6 +570,43 @@
         <button class="secondary-btn" bindtap="closeCondMultiPicker">取消</button>
         <button class="primary-btn" bindtap="confirmCondMultiPicker">确定选择（已选{{condMultiPickerSelectedCount}}项）</button>
       </view>
+    </view>
+  </view>
+
+  <!-- ═══ Approval Popup (step-aware approve/reject with comment) ═══ -->
+  <view class="popup-mask" wx:if="{{approvalPopupVisible}}" bindtap="closeApprovalPopup">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">{{approvalPopupAction === 'approve' ? '通过借用申请' : '驳回借用申请'}}</view>
+        <text class="popup-close" bindtap="closeApprovalPopup">关闭</text>
+      </view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="detail-body">
+          <view wx:if="{{approvalPopupTarget}}">
+            <view class="detail-title">{{approvalPopupTarget.title || '借用申请'}}</view>
+            <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalPopupTarget.venueName}}</text></view>
+            <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalPopupTarget.userName}}<text wx:if="{{approvalPopupTarget.userDept}}"> · {{approvalPopupTarget.userDept}}</text></text></view>
+            <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalPopupTarget.timeStart}} — {{approvalPopupTarget.timeEnd}}</text></view>
+            <!-- Flow progress -->
+            <view wx:if="{{approvalPopupTarget.approvalProgress}}" class="audit-flow-summary" style="margin-top:8rpx;">
+              <view class="audit-flow-progress-bar">
+                <view class="audit-flow-progress-fill" style="width:{{approvalPopupTarget._approvalPercent}}%;"></view>
+              </view>
+              <text class="audit-flow-progress-text">{{approvalPopupTarget.approvalProgress.currentStep}}/{{approvalPopupTarget.approvalProgress.totalSteps}}</text>
+            </view>
+          </view>
+          <view class="field" style="margin-top:16rpx;">
+            <view class="field-label">审批意见（选填）</view>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalPopupComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalPopupAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
+          </view>
+          <view class="button-row" style="margin-top:16rpx;">
+            <button class="secondary-btn" bindtap="closeApprovalPopup">取消</button>
+            <button class="{{approvalPopupAction === 'approve' ? 'primary-btn' : 'danger-btn'}}" loading="{{loading}}" bindtap="submitApprovalAction">
+              {{approvalPopupAction === 'approve' ? '✓ 确认通过' : '✗ 确认驳回'}}
+            </button>
+          </view>
+        </view>
+      </scroll-view>
     </view>
   </view>
 

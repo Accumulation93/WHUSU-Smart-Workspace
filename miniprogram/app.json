@@ -38,7 +38,8 @@
         "pages/venueManage/venueManage",
         "pages/venueBookings/venueBookings",
         "pages/venueBooking/venueBooking",
-        "pages/myVenueBookings/myVenueBookings"
+        "pages/myVenueBookings/myVenueBookings",
+        "pages/pendingVenueApprovals/pendingVenueApprovals"
       ]
     }
   ],

@@ -42,6 +42,9 @@
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
       <view class="section-title">借用记录</view>
+      <view class="pending-entry-row" wx:if="{{myBookings.length}}">
+        <text class="pending-entry-btn" bindtap="goPendingApprovals">待我审批 ›</text>
+      </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
         <view class="empty-state" wx:if="{{!myBookings.length}}">
           <view class="empty-text">暂无借用记录</view>
@@ -54,16 +57,33 @@
           <view class="booking-item-meta">{{item.venueName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
-          <!-- Approval progress -->
-          <view wx:if="{{item.approvalProgress}}" class="approval-progress-bar">
-            <view class="ap-steps">
-              <text class="ap-label">审批进度</text>
-              <text class="ap-step-info">{{item.approvalProgress.isRejected ? '已驳回' : (item.approvalProgress.isApproved ? '已完成' : (item.approvalProgress.currentStep + 1 + '/' + item.approvalProgress.totalSteps))}}</text>
+          <!-- Approval flow progress bar (audit-style) -->
+          <view wx:if="{{item.approvalProgress}}" class="audit-flow-summary" style="margin-top:6rpx;">
+            <view class="audit-flow-progress-bar">
+              <view class="audit-flow-progress-fill" style="width:{{item._approvalPercent}}%;{{item._approvalBarColor || ''}}"></view>
             </view>
-            <view class="ap-snapshots" wx:if="{{item.approvalProgress.snapshots && item.approvalProgress.snapshots.length}}">
-              <view class="ap-snapshot" wx:for="{{item.approvalProgress.snapshots}}" wx:key="stepIndex">
-                <text class="ap-snapshot-step">{{item.stepName || ('步骤' + (item.stepIndex + 1))}}</text>
-                <text class="ap-snapshot-time">{{item.approvedAt || ''}}</text>
+            <text class="audit-flow-progress-text">{{item.approvalProgress.isRejected ? '已驳回' : (item.approvalProgress.isApproved ? '已完成' : (item.approvalProgress.currentStep + '/' + item.approvalProgress.totalSteps))}}</text>
+          </view>
+          <!-- Flow snapshots timeline -->
+          <view wx:if="{{item.approvalProgress && item.approvalProgress.snapshots && item.approvalProgress.snapshots.length}}" class="audit-flow" style="margin-top:4rpx;">
+            <view class="flow-node flow-node-done" wx:for="{{item.approvalProgress.snapshots}}" wx:key="stepIndex" wx:for-item="snap">
+              <view class="flow-left-col">
+                <view class="flow-dot flow-dot-done">✓</view>
+                <view class="flow-connector" wx:if="{{index < item.approvalProgress.snapshots.length - 1 || !item.approvalProgress.isApproved}}"></view>
+              </view>
+              <view class="flow-info">
+                <view class="flow-info-title">{{snap.stepName || ('步骤' + (snap.stepIndex + 1))}}</view>
+                <view class="flow-info-desc" wx:if="{{snap.approvedAt}}">{{snap.approvedAt}}</view>
+                <view class="flow-info-desc" wx:if="{{snap.comment}}">{{snap.comment}}</view>
+              </view>
+            </view>
+            <!-- Final step if approved and no snapshot for it yet -->
+            <view class="flow-node flow-node-done" wx:if="{{item.approvalProgress.isApproved && !item.approvalProgress.snapshots.length}}">
+              <view class="flow-left-col">
+                <view class="flow-dot flow-dot-done">✓</view>
+              </view>
+              <view class="flow-info">
+                <view class="flow-info-title">全部通过</view>
               </view>
             </view>
           </view>

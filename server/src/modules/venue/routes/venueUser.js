@@ -11,6 +11,7 @@ const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingModel = require('../models/venueBooking');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
+const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -521,6 +522,114 @@ router.post('/listMyVenueBookings', async (req, res) => {
       } : null
     }));
     res.json({ status: 'success', bookings: list });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// Pending Approvals (for current user)
+// ═══════════════════════════════════════════════════
+
+router.post('/listPendingVenueApprovals', async (req, res) => {
+  try {
+    const hrId = await resolveHrId(req.openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const approverHrInfo = await hrInfoModel.getById(hrId);
+    if (!approverHrInfo) return res.json({ status: 'forbidden', message: '未找到人事信息' });
+
+    const orgId = await getCurrentOrgId();
+
+    // Find all pending bookings with an approval flow
+    const [bookings] = await pool.query(
+      `SELECT b.*, v.name AS venue_name, v.location AS venue_location
+       FROM venue_bookings b
+       JOIN venues v ON v.id = b.venue_id AND v.org_id = b.org_id
+       WHERE b.status = 'pending'
+         AND b.approval_flow_id IS NOT NULL
+         AND b.approval_total_steps > 0
+         AND b.org_id = ?
+       ORDER BY b.created_at DESC`,
+      [orgId]
+    );
+
+    if (!bookings.length) {
+      return res.json({ status: 'success', pending: [] });
+    }
+
+    // Get the applicant HR info for all bookings
+    const applicantHrIds = [...new Set(bookings.map(b => b.user_hr_id).filter(Boolean))];
+    const applicantMap = {};
+    if (applicantHrIds.length) {
+      const hrList = await hrInfoModel.getByIds(applicantHrIds);
+      (hrList || []).forEach(h => { applicantMap[h.id] = h; });
+    }
+
+    // For each booking, check if the current step's rules match the approver
+    const pending = [];
+    for (const booking of bookings) {
+      const currentStep = booking.approval_current_step;
+      if (currentStep < 0 || currentStep >= booking.approval_total_steps) continue;
+
+      // Get flow steps
+      const [flowSteps] = await pool.query(
+        'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
+        [booking.approval_flow_id, orgId]
+      );
+
+      if (!flowSteps.length || currentStep >= flowSteps.length) continue;
+
+      const step = flowSteps[currentStep];
+      if (!step) continue;
+
+      // Get rules for this step
+      const [stepRules] = await pool.query(
+        'SELECT * FROM venue_approval_flow_step_rules WHERE step_id = ? AND org_id = ? ORDER BY sort_order',
+        [step.id, orgId]
+      );
+
+      const applicantHrInfo = applicantMap[booking.user_hr_id] || null;
+
+      // If no rules defined, anyone can approve (backward compat)
+      let canApprove = true;
+      if (stepRules.length) {
+        canApprove = venueApprovalFlowStepRuleModel.matchesAnyRule(
+          stepRules, approverHrInfo, applicantHrInfo
+        );
+      }
+
+      if (!canApprove) continue;
+
+      // Build snapshot info
+      let snapshots = [];
+      try {
+        snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : [];
+      } catch (_) {}
+
+      pending.push({
+        id: booking.id,
+        venueId: booking.venue_id,
+        venueName: booking.venue_name,
+        venueLocation: booking.venue_location,
+        title: booking.title,
+        description: booking.description,
+        userName: (applicantHrInfo && applicantHrInfo.name) || booking.user_hr_id,
+        userDept: (applicantHrInfo && applicantHrInfo.department_id) || '',
+        timeStart: fmtDatetime(new Date(booking.time_start)),
+        timeEnd: fmtDatetime(new Date(booking.time_end)),
+        status: booking.status,
+        approvalFlowId: booking.approval_flow_id,
+        approvalCurrentStep: booking.approval_current_step,
+        approvalTotalSteps: booking.approval_total_steps,
+        currentStepName: step.name || ('第' + (currentStep + 1) + '步'),
+        currentStepIndex: currentStep,
+        snapshots: snapshots,
+        createdAt: booking.created_at
+      });
+    }
+
+    res.json({ status: 'success', pending });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

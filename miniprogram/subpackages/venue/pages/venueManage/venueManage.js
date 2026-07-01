@@ -241,6 +241,13 @@ Page({
     timeToDisplay: '',
     statusLabels: { pending: '待审核', approved: '已通过', rejected: '已驳回', cancelled: '已取消', inUse: '使用中', completed: '已完成' },
 
+    // Approval popup (step-aware approve/reject)
+    approvalPopupVisible: false,
+    approvalPopupId: '',
+    approvalPopupAction: '',  // 'approve' | 'reject'
+    approvalPopupComment: '',
+    approvalPopupTarget: null,
+
     // Purpose management
     purposeVisible: false,
     purposes: [],
@@ -273,6 +280,10 @@ Page({
     const from = fmtLocalDate(weekAgo);
     const to = fmtLocalDate(now);
     this.setData({ timeFrom: from, timeTo: to, timeFromDisplay: from, timeToDisplay: to });
+  },
+
+  goPendingApprovals() {
+    wx.navigateTo({ url: '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals' });
   },
 
   // ── Main tab switching ──
@@ -766,8 +777,21 @@ Page({
       const nonPending = timeList.filter(b => !pendingIds.has(b.id));
       let merged = [...pendingList, ...nonPending];
 
-      // Compute display status for each booking
-      let bookings = merged.map(b => ({ ...b, displayStatus: computeDisplayStatus(b) }));
+      // Compute display status and approval percent for each booking
+      let bookings = merged.map(b => {
+        var item = Object.assign({}, b, { displayStatus: computeDisplayStatus(b) });
+        // Pre-compute approval percent for WXML (WXML doesn't support .toFixed)
+        if (item.approvalProgress) {
+          if (item.approvalProgress.isRejected) {
+            item._approvalPercent = 0;
+          } else if (item.approvalProgress.isApproved) {
+            item._approvalPercent = 100;
+          } else {
+            item._approvalPercent = Math.round(item.approvalProgress.currentStep / item.approvalProgress.totalSteps * 100);
+          }
+        }
+        return item;
+      });
 
       // Client-side filter for computed statuses (inUse / completed)
       if (computedStatuses.includes(filterStatus)) {
@@ -809,22 +833,73 @@ Page({
     this.loadBookingsData();
   },
 
-  async approve(e) {
+  // ── Step-aware approve/reject (with confirmation popup) ──
+
+  openApprovePopup(e) {
     const id = e.currentTarget.dataset.id;
-    try {
-      const res = await callFunction({ name: 'approveVenueBooking', data: { id } });
-      if (res.status === 'success') { showShortToast('已通过'); this.loadBookingsData(); }
-      else showShortToast(res.message);
-    } catch (e) { showShortToast(getErrorText(e, '操作失败')); }
+    const booking = this.data.bookings.find(b => b.id === id);
+    if (!booking) return;
+    this.setData({
+      approvalPopupVisible: true,
+      approvalPopupId: id,
+      approvalPopupAction: 'approve',
+      approvalPopupComment: '',
+      approvalPopupTarget: booking
+    });
   },
 
-  async reject(e) {
+  openRejectPopup(e) {
     const id = e.currentTarget.dataset.id;
+    const booking = this.data.bookings.find(b => b.id === id);
+    if (!booking) return;
+    this.setData({
+      approvalPopupVisible: true,
+      approvalPopupId: id,
+      approvalPopupAction: 'reject',
+      approvalPopupComment: '',
+      approvalPopupTarget: booking
+    });
+  },
+
+  closeApprovalPopup() {
+    this.setData({
+      approvalPopupVisible: false,
+      approvalPopupId: '',
+      approvalPopupAction: '',
+      approvalPopupComment: '',
+      approvalPopupTarget: null
+    });
+  },
+
+  onApprovalCommentInput(e) {
+    this.setData({ approvalPopupComment: e.detail.value });
+  },
+
+  async submitApprovalAction() {
+    const { approvalPopupId, approvalPopupAction, approvalPopupComment } = this.data;
+    if (!approvalPopupId || !approvalPopupAction) return;
+
+    const endpoint = approvalPopupAction === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
+    const label = approvalPopupAction === 'approve' ? '已通过' : '已驳回';
+
+    this.setData({ loading: true });
     try {
-      const res = await callFunction({ name: 'rejectVenueBooking', data: { id } });
-      if (res.status === 'success') { showShortToast('已驳回'); this.loadBookingsData(); }
-      else showShortToast(res.message);
-    } catch (e) { showShortToast(getErrorText(e, '操作失败')); }
+      const res = await callFunction({
+        name: endpoint,
+        data: { id: approvalPopupId, comment: approvalPopupComment }
+      });
+      if (res.status === 'success') {
+        showShortToast(label);
+        this.closeApprovalPopup();
+        this.loadBookingsData();
+      } else {
+        showShortToast(res.message);
+      }
+    } catch (e) {
+      showShortToast(getErrorText(e, '操作失败'));
+    } finally {
+      this.setData({ loading: false });
+    }
   },
 
   // ── Admin Timetable / Schedule ──

@@ -295,10 +295,21 @@ Page({
     try {
       const res=await callFunction({name:'listMyVenueBookings',data:{}});
       if(res.status==='success') {
-        const bookings = (res.bookings||[]).map(b => ({
-          ...b,
-          displayStatus: computeDisplayStatus(b)
-        }));
+        const bookings = (res.bookings||[]).map(b => {
+          var item = Object.assign({}, b, { displayStatus: computeDisplayStatus(b) });
+          // Pre-compute approval percent for WXML (WXML doesn't support .toFixed)
+          if (item.approvalProgress) {
+            if (item.approvalProgress.isRejected) {
+              item._approvalPercent = 0;
+              item._approvalBarColor = 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);';
+            } else if (item.approvalProgress.isApproved) {
+              item._approvalPercent = 100;
+            } else {
+              item._approvalPercent = Math.round(item.approvalProgress.currentStep / item.approvalProgress.totalSteps * 100);
+            }
+          }
+          return item;
+        });
         this.setData({myBookings: bookings});
       }
     } catch(e) { showShortToast(getErrorText(e,'加载失败')); }
@@ -343,6 +354,10 @@ Page({
         } catch(e) { showShortToast(getErrorText(e,'操作失败')); }
       }
     });
+  },
+
+  goPendingApprovals() {
+    wx.navigateTo({ url: '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals' });
   },
 
   noop() {}
