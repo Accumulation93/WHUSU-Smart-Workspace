@@ -36,6 +36,7 @@
 /* Time filter */
 .time-filter-row { display:flex; gap:10rpx; align-items:center; }
 .time-pick {
+  min-height:auto; width:auto;
   padding:14rpx 24rpx; border-radius:18rpx; font-size:24rpx; font-weight:600; color:#1e293b;
   background:rgba(255,255,255,0.84); border:1rpx solid rgba(203,213,225,0.6);
   box-shadow:0 4rpx 10rpx rgba(15,23,42,0.03);

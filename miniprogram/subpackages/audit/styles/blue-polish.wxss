@@ -180,3 +180,33 @@ textarea {
   border: 1rpx dashed rgba(147,197,253,0.46);
   color: #64748b;
 }
+
+/* ── Shared utility classes (used across multiple audit pages) ── */
+.compact-row { margin-top: 10rpx; }
+
+.large-scroll { max-height: 820rpx; }
+
+.card-loading-overlay {
+  display: flex;
+  align-items: center; justify-content: center;
+  padding: 32rpx 0;
+}
+
+.card-loading-spinner {
+  width: 40rpx; height: 40rpx;
+  border: 5rpx solid rgba(37, 99, 235, 0.16);
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: auditSpin 0.7s linear infinite;
+}
+
+@keyframes auditSpin {
+  to { transform: rotate(360deg); }
+}
+
+.list-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8rpx;
+}

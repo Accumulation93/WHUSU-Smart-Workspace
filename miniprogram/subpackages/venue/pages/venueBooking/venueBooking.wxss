@@ -59,6 +59,7 @@
   background:linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(248,251,255,0.80) 100%);
   border:1rpx solid rgba(226,237,247,0.92);
   box-shadow:0 10rpx 22rpx rgba(15,23,42,0.035), inset 0 1rpx 0 rgba(255,255,255,0.74);
+  animation:glassFadeUp 0.36s ease both;
 }
 .booking-item-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10rpx; }
 .booking-item-title { font-size:28rpx; font-weight:700; color:#0f172a; }
@@ -305,6 +306,7 @@ page {
     inset 0 1rpx 0 rgba(255,255,255,0.78);
   backdrop-filter: blur(24rpx);
   -webkit-backdrop-filter: blur(24rpx);
+  animation: glassFadeUp 0.42s ease both;
 }
 
 .section-title {

@@ -2094,72 +2094,10 @@ scroll-view {
   background: rgba(34, 197, 94, 0.14);
 }
 
-.tab {
-  color: #49627f;
-}
-
-.tab-active {
-  color: #ffffff;
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
-  box-shadow: 0 16rpx 30rpx rgba(29, 78, 216, 0.22);
-}
-
-.section-title,
-.list-title {
-  color: #10233d;
-}
-
-.field-label {
-  color: #52647c;
-}
-
-.field-input,
-.picker-value,
-.field-textarea {
-  border: 1rpx solid rgba(203, 213, 225, 0.82);
-  box-shadow:
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.82),
-    0 8rpx 18rpx rgba(15, 23, 42, 0.035);
-}
-
-.field-input:focus,
-.field-textarea:focus {
-  border-color: rgba(59, 130, 246, 0.96);
-  box-shadow:
-    0 14rpx 28rpx rgba(29, 78, 216, 0.12),
-    0 0 0 4rpx rgba(191, 219, 254, 0.62),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
-}
-
-.picker-value:active {
-  border-color: rgba(59, 130, 246, 0.96);
-  box-shadow:
-    0 12rpx 24rpx rgba(29, 78, 216, 0.12),
-    0 0 0 4rpx rgba(191, 219, 254, 0.52),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
-}
-
-.primary-btn {
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
-  box-shadow: 0 16rpx 32rpx rgba(29, 78, 216, 0.20);
-}
-
-.secondary-btn {
-  color: #1e40af;
-  border: 1rpx solid rgba(147, 197, 253, 0.88);
-  box-shadow: 0 12rpx 24rpx rgba(29, 78, 216, 0.09);
-}
-
-.current-chip,
-.select-chip {
-  color: #1e40af;
-  border: 1rpx solid rgba(96, 165, 250, 0.86);
-}
-
-.template-section-tip {
-  color: #51657f;
-  border: 1rpx solid rgba(147, 197, 253, 0.76);
-}
+/* ── Shared utility classes ── */
+.danger-link { color: #dc2626; }
+.list-actions { display: flex; flex-shrink: 0; align-items: center; gap: 8rpx; }
+.popup-body { padding: 0 4rpx; }
 
 @media (max-width: 360px) {
   .hero-admin {
@@ -2252,11 +2190,12 @@ scroll-view {
 }
 
 .search-input {
-  border: 1rpx solid #e2e8f0;
-  border-radius: 12rpx;
-  padding: 16rpx 20rpx;
-  background: #f8fafc;
-  font-size: 28rpx;
+  border: 1rpx solid rgba(203, 213, 225, 0.82);
+  border-radius: 22rpx;
+  padding: 14rpx 22rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(248,251,255,0.78));
+  font-size: 26rpx;
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.82), 0 8rpx 18rpx rgba(15,23,42,0.035);
 }
 
 .list-card-header {
@@ -3191,15 +3130,6 @@ scroll-view {
   color: #ef4444; font-size: 21rpx; font-weight: 700; margin: 2rpx 8rpx;
 }
 
-/* ── Audit submission list items (admin view) ── */
-.audit-submission-admin-item {
-  padding: 22rpx 20rpx !important; border-radius: 20rpx !important;
-  margin-bottom: 10rpx !important;
-  background: linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(248,251,255,0.78) 100%) !important;
-  border: 1rpx solid rgba(226,237,247,0.88) !important;
-  box-shadow: 0 8rpx 20rpx rgba(15,23,42,0.03), inset 0 1rpx 0 rgba(255,255,255,0.76) !important;
-}
-
 /* ── Audit progress detail popup (submission detail view) ── */
 .audit-progress-header {
   padding: 20rpx 18rpx; margin-bottom: 16rpx; border-radius: 20rpx;
@@ -3295,10 +3225,3 @@ scroll-view {
   display: flex; align-items: center; justify-content: center;
   background: rgba(241,245,249,0.7); color: #94a3b8; font-size: 32rpx; font-weight: 600;
 }
-
-/* ─── Admin audit progress popup header ─── */
-.audit-progress-header {
-  padding: 16rpx 4rpx 12rpx; margin-bottom: 8rpx;
-  border-bottom: 1rpx solid rgba(226,232,240,0.5);
-}
-

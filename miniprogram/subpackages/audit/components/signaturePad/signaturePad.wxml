@@ -9,7 +9,7 @@
     bindtouchend="onTouchEnd"
   ></canvas>
   <view class="sigpad-actions">
-    <button class="secondary-btn sigpad-btn" bindtap="onClear">清除</button>
-    <button class="primary-btn sigpad-btn" bindtap="onConfirm">确认签名</button>
+    <button class="sigpad-btn sigpad-btn-secondary" bindtap="onClear">清除</button>
+    <button class="sigpad-btn sigpad-btn-primary" bindtap="onConfirm">确认签名</button>
   </view>
 </view>

@@ -644,18 +644,20 @@ scroll-view {
   margin-top: 12rpx;
 }
 
-.empty-title {
-  color: #0f172a;
-  font-size: 34rpx;
-  font-weight: 700;
-  line-height: 1.5;
+/* ── Shared utility classes for cross-page use ── */
+.danger-link {
+  color: #dc2626;
 }
 
-.empty-desc {
-  margin-top: 14rpx;
-  color: #64748b;
-  font-size: 25rpx;
-  line-height: 1.72;
+.list-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.popup-body {
+  padding: 0 4rpx;
 }
 
 .actions {
@@ -1367,9 +1369,9 @@ scroll-view {
 .rule-filter-field { flex: 1; min-width: 0; }
 .compact-picker-value { min-height: 70rpx; padding: 0 18rpx; font-size: 23rpx; border-radius: 18rpx; }
 .field-label { color: #52647c; font-size: 24rpx; margin-bottom: 4rpx; }
-.field-input { width: 100%; padding: 12rpx 16rpx; border-radius: 16rpx; background: rgba(255,255,255,0.7); border: 1rpx solid rgba(203,213,225,0.82); font-size: 24rpx; box-sizing: border-box; }
+.desig-popup-card .field-input { width: 100%; padding: 12rpx 16rpx; border-radius: 16rpx; background: rgba(255,255,255,0.7); border: 1rpx solid rgba(203,213,225,0.82); font-size: 24rpx; box-sizing: border-box; }
 .inline-actions { display: flex; flex-wrap: wrap; gap: 12rpx; align-items: center; }
-.list-actions-below { margin-top: 12rpx; }
+.list-actions-below { margin-top: 12rpx; display: flex; gap: 12rpx; }
 .list-title { position: relative; padding-left: 18rpx; margin-bottom: 10rpx; color: #0f172a; font-size: 26rpx; font-weight: 700; }
 .list-title::before { content: ""; position: absolute; left: 0; top: 6rpx; width: 8rpx; height: 24rpx; border-radius: 999rpx; background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%); box-shadow: 0 0 14rpx rgba(59,130,246,0.24); }
 .link { display: inline-flex; align-items: center; justify-content: center; padding: 10rpx 20rpx; border-radius: 999rpx; font-size: 24rpx; font-weight: 600; line-height: 1; background: rgba(219,234,254,0.65); color: #1d4ed8; border: 1rpx solid rgba(147,197,253,0.45); }
@@ -1377,7 +1379,6 @@ scroll-view {
 .danger { background: rgba(254,226,226,0.65); color: #dc2626; border-color: rgba(252,165,165,0.45); }
 .button-row { display: flex; flex-wrap: wrap; gap: 14rpx; }
 .button-row button { flex: 1; min-width: 160rpx; }
-.desig-current-item { background: rgba(255,255,255,0.85); }
 .inner-scroll { max-height: 100%; overflow-y: auto; }
 .small-scroll { max-height: 200rpx; }
 
@@ -1969,8 +1970,8 @@ scroll-view {
   transform: scale(0.99);
 }
 .flow-node-expanded .flow-info {
-  background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(248,250,252,0.80)) !important;
-  border: 1rpx solid rgba(203,213,225,0.40) !important;
+  background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(248,250,252,0.80));
+  border: 1rpx solid rgba(203,213,225,0.40);
   box-shadow: 0 8rpx 32rpx rgba(15,23,42,0.08);
 }
 .flow-expand-hint {

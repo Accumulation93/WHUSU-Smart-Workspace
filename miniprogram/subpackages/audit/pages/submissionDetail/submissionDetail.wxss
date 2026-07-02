@@ -253,6 +253,7 @@
   border-radius: 10rpx; font-size: 23rpx; box-sizing: border-box;
 }
 .approval-designate-row { margin-bottom: 12rpx; }
+.approval-designate-label { font-size: 23rpx; font-weight: 600; color: #475569; margin-bottom: 6rpx; }
 .approval-designate-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6rpx; }
 .approval-designate-link { font-size: 21rpx; }
 .approval-designate-empty { font-size: 21rpx; color: #94a3b8; }
