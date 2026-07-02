@@ -331,23 +331,49 @@ router.post('/startAuditSubmission', async (req, res) => {
       // Build resolved conditions JSON from template step conditions
       const conditions = stepConditionMap[ts.id] || [];
 
-      // Apply person overrides from submitter (specific person selection)
+      // Apply person overrides from submitter (specific person selection).
+      // NARROW the scope: only designated persons can approve this step,
+      // but they must be eligible under the original conditions (can't expand).
       const stepOverride = stepOverrides.find(function(o) {
         return o.stepIndex === i;
       });
       if (stepOverride && stepOverride.personHrIds && stepOverride.personHrIds.length) {
-        // Merge override person conditions — they are OR-ed with existing identity conditions
+        // Validate each designated person against original conditions
+        const validPersonIds = [];
         for (var pi = 0; pi < stepOverride.personHrIds.length; pi++) {
-          conditions.push({
-            conditionType: 'person',
-            personHrIds: String(stepOverride.personHrIds[pi]),
-            departmentScope: null,
-            specificDepartmentId: null,
-            workGroupScope: null,
-            specificWorkGroupId: null,
-            identityScope: null,
-            specificIdentityId: null
-          });
+          const pid = String(stepOverride.personHrIds[pi]);
+          // If no original conditions (fully open), anyone is eligible
+          if (!conditions.length) {
+            validPersonIds.push(pid);
+            continue;
+          }
+          // Check eligibility against original conditions
+          const [personRows] = await pool.query(
+            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+            [pid, orgId]
+          );
+          const person = personRows[0];
+          if (person && matchesAnyCondition(conditions, person, submitterFull)) {
+            validPersonIds.push(pid);
+          } else {
+            console.log('[audit:startSubmission] step[' + i + '] designated person ' + pid + ' not eligible, skipped');
+          }
+        }
+        // Replace original conditions with person-only conditions (narrow scope)
+        if (validPersonIds.length > 0) {
+          conditions.length = 0; // clear existing identity conditions
+          for (var vpi = 0; vpi < validPersonIds.length; vpi++) {
+            conditions.push({
+              conditionType: 'person',
+              personHrIds: validPersonIds[vpi],
+              departmentScope: null,
+              specificDepartmentId: null,
+              workGroupScope: null,
+              specificWorkGroupId: null,
+              identityScope: null,
+              specificIdentityId: null
+            });
+          }
         }
       }
 
@@ -1285,36 +1311,78 @@ router.post('/approveStep', async (req, res) => {
 
     if (nextStep) {
       // If the approver designated specific people for the next step,
-      // add them as person-type conditions to the next step
+      // NARROW the scope: only designated persons can approve, BUT they
+      // must also be eligible under the original step conditions (can't expand scope).
       if (designatedNextPersonIds.length > 0) {
-        let existingConds = [];
+        // Parse original next-step conditions (before modification)
+        let originalConds = [];
         if (nextStep.step_conditions_json) {
           try {
-            existingConds = JSON.parse(nextStep.step_conditions_json);
-            if (!Array.isArray(existingConds)) existingConds = [];
-          } catch (_) { existingConds = []; }
+            originalConds = JSON.parse(nextStep.step_conditions_json);
+            if (!Array.isArray(originalConds)) originalConds = [];
+          } catch (_) { originalConds = []; }
         }
-        // Add person conditions for each designated person
-        for (var dni = 0; dni < designatedNextPersonIds.length; dni++) {
-          existingConds.push({
-            conditionType: 'person',
-            personHrIds: designatedNextPersonIds[dni],
-            departmentScope: null,
-            specificDepartmentId: null,
-            workGroupScope: null,
-            specificWorkGroupId: null,
-            identityScope: null,
-            specificIdentityId: null
-          });
+        // Fallback: load from template
+        if (!originalConds.length && nextStep.template_step_id) {
+          try {
+            const tplConds2 = await submissionStepModel.getTemplateStepConditions(nextStep.template_step_id);
+            if (tplConds2) originalConds = tplConds2;
+          } catch (_) {}
         }
-        var newCondsJson = JSON.stringify(existingConds);
-        await conn.query(
-          'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
-          [newCondsJson, nextStep.id, orgId]
+
+        // Validate each designated person against original conditions (cannot expand scope)
+        const [subRows2] = await pool.query(
+          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [submission.submitted_by, orgId]
         );
-        console.log('[audit:approveStep] designated ' + designatedNextPersonIds.length +
-          ' persons for next step ' + nextStep.id +
-          ' new conditions=' + newCondsJson.substring(0, 300));
+        const submitter2 = subRows2[0] || null;
+
+        const validPersonIds = [];
+        for (var dni = 0; dni < designatedNextPersonIds.length; dni++) {
+          const pid = designatedNextPersonIds[dni];
+          // If no original conditions (fully open scope), anyone is eligible
+          if (!originalConds.length) {
+            validPersonIds.push(pid);
+            continue;
+          }
+          // Check this person against original conditions
+          const [personRows] = await pool.query(
+            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+            [pid, orgId]
+          );
+          const person = personRows[0];
+          if (person && matchesAnyCondition(originalConds, person, submitter2)) {
+            validPersonIds.push(pid);
+          } else {
+            console.log('[audit:approveStep] designated person ' + pid + ' not eligible under original conditions, skipped');
+          }
+        }
+
+        if (validPersonIds.length > 0) {
+          // Replace conditions entirely: ONLY designated (and eligible) persons can approve
+          var newConds = validPersonIds.map(function(pid) {
+            return {
+              conditionType: 'person',
+              personHrIds: pid,
+              departmentScope: null,
+              specificDepartmentId: null,
+              workGroupScope: null,
+              specificWorkGroupId: null,
+              identityScope: null,
+              specificIdentityId: null
+            };
+          });
+          var newCondsJson = JSON.stringify(newConds);
+          await conn.query(
+            'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
+            [newCondsJson, nextStep.id, orgId]
+          );
+          console.log('[audit:approveStep] designated ' + validPersonIds.length +
+            ' persons for next step ' + nextStep.id +
+            ' (narrowed from ' + designatedNextPersonIds.length + ' nominated)');
+        } else {
+          console.log('[audit:approveStep] all designated persons ineligible, keeping original conditions');
+        }
       }
       // Move to next step
       await submissionModel.update(submissionId, { currentStepIndex: nextStep.sort_order }, conn);
