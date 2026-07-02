@@ -435,8 +435,7 @@ page {
 
 .field-input,
 .field-textarea,
-.picker-display,
-.time-val {
+.picker-display {
   min-height: 78rpx;
   padding: 18rpx 20rpx;
   border-radius: 20rpx;
@@ -447,6 +446,26 @@ page {
   box-shadow:
     0 8rpx 18rpx rgba(15,23,42,0.035),
     inset 0 1rpx 0 rgba(255,255,255,0.84);
+}
+
+/* ── textarea：独立 min-height + 行高，修复文字偏上 ── */
+.field-textarea {
+  min-height: 156rpx;
+  line-height: 1.6;
+}
+
+/* ── picker-display：flex 居中，修复文字偏位 ── */
+.picker-display {
+  display: flex;
+  align-items: center;
+}
+
+/* ── time-val：line-height 精确居中，禁止垂直 padding 干扰 ── */
+.time-val {
+  min-height: auto;
+  height: 68rpx;
+  line-height: 68rpx;
+  padding: 0 14rpx;
 }
 
 .chip {
