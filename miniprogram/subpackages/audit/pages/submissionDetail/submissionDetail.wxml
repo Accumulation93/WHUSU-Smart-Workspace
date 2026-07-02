@@ -422,7 +422,7 @@
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
-                  {{node.approverName}} · {{node.processedAt || ''}}
+                  {{node.operatorName || node.approverName || '未知'}} · {{node.processedAt || ''}}
                 </view>
                 <!-- Expand indicator -->
                 <view class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
@@ -431,7 +431,7 @@
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <!-- Processed info -->
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-text">
-                    <text class="flow-detail-label">处理人：</text>{{node.approverName || '未知'}}
+                    <text class="flow-detail-label">处理人：</text>{{node.operatorName || node.approverName || '未知'}}
                   </view>
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     处理时间：{{node.processedAt || ''}}
