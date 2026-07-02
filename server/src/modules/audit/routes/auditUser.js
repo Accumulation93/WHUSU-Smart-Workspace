@@ -729,17 +729,19 @@ router.post('/getSubmissionDetail', async (req, res) => {
         for (const s of steps) {
           if (s.status !== 'pending') continue;
           if (s.sort_order !== submission.current_step_index) continue;
+          let stepHasExplicitConds = false;
           // Check step_conditions_json
           if (s.step_conditions_json) {
+            stepHasExplicitConds = true;
             try {
               const conds = JSON.parse(s.step_conditions_json);
               if (matchesAnyCondition(conds, approverInfo, submitterInfo)) {
                 isApprover = true; break;
               }
-            } catch (_) {}
+            } catch (_) { stepHasExplicitConds = false; }
           }
-          // Fallback: template step conditions
-          if (!isApprover && s.template_step_id && templateConditionMap[s.template_step_id]) {
+          // Fallback: template step conditions (only when NO explicit conditions)
+          if (!isApprover && !stepHasExplicitConds && s.template_step_id && templateConditionMap[s.template_step_id]) {
             if (matchesAnyCondition(templateConditionMap[s.template_step_id], approverInfo, submitterInfo)) {
               isApprover = true; break;
             }
@@ -1070,8 +1072,11 @@ async function checkStepAuthorization(step, submission, hrId) {
     return false;
   }
 
+  let hasExplicitConditions = false;
+
   // 1. Check step_conditions_json first (new multi-condition model)
   if (step.step_conditions_json) {
+    hasExplicitConditions = true;
     try {
       const conditions = JSON.parse(step.step_conditions_json);
       const [approverRows] = await pool.query(
@@ -1087,12 +1092,14 @@ async function checkStepAuthorization(step, submission, hrId) {
         const submitter = subRows[0] || null;
         if (matchesAnyCondition(conditions, approver, submitter)) return true;
       }
-    } catch (_) { /* fall through */ }
+    } catch (_) { hasExplicitConditions = false; /* parse error → allow fallback */ }
   }
 
   // 2. Fallback: load conditions from template step (covers legacy submissions
-  //    or steps created before conditions were properly serialized)
-  if (step.template_step_id) {
+  //    or steps created before conditions were properly serialized).
+  //    Only when NO explicit conditions exist — if step_conditions_json was parsed
+  //    successfully (even if it didn't match), it is the sole authority.
+  if (!hasExplicitConditions && step.template_step_id) {
     try {
       const tplConds = await submissionStepModel.getTemplateStepConditions(step.template_step_id);
       if (tplConds) {

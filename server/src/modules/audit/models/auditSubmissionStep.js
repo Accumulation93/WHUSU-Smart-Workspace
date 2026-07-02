@@ -177,8 +177,11 @@ async function getPendingByApprover(hrId) {
 
     const submitter = submitterMap[row.submitted_by] || null;
 
+    let hasExplicitConditions = false;
+
     // Check new step_conditions_json first
     if (row.step_conditions_json) {
+      hasExplicitConditions = true;
       try {
         const conditions = JSON.parse(row.step_conditions_json);
         const matched = matchesAnyCondition(conditions, approver, submitter);
@@ -193,6 +196,7 @@ async function getPendingByApprover(hrId) {
           continue;
         }
       } catch (e) {
+        hasExplicitConditions = false; // parse error → allow fallback
         console.log('[audit:getPendingByApprover] step=' + row.id +
           ' JSON parse error: ' + e.message);
       }
@@ -205,10 +209,11 @@ async function getPendingByApprover(hrId) {
         ' legacy_ident=' + (row.approver_identity_id || 'none'));
     }
 
-    // Fallback: if submission step has no conditions or they failed to match,
-    // try template step conditions (e.g., legacy submissions or steps created
-    // before conditions were properly serialized)
-    if (row.template_step_id && templateConditionMap[row.template_step_id]) {
+    // Fallback: only when NO explicit conditions exist (e.g., legacy submissions).
+    // If step_conditions_json was parsed successfully (even if it didn't match),
+    // don't fall back to template conditions — the explicit conditions are the
+    // sole authority (e.g., narrowed person list from designated approvers).
+    if (!hasExplicitConditions && row.template_step_id && templateConditionMap[row.template_step_id]) {
       const tplConds = templateConditionMap[row.template_step_id];
       const tplMatched = matchesAnyCondition(tplConds, approver, submitter);
       console.log('[audit:getPendingByApprover] step=' + row.id +
