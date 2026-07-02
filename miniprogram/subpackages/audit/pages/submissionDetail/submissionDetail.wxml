@@ -857,7 +857,7 @@
       </view>
       <signature-pad bindconfirm="onSignatureConfirm" />
     </view>
-  </view>
+  </view>
 
     <!-- ═══ Person picker popup (multi-select) ═══ -->
     <view class="popup-mask" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
@@ -921,8 +921,8 @@
           </view>
         </scroll-view>
 
-        <!-- Action type -->
-        <view class="field field-mt-8">
+        <!-- Action type (only for ad-hoc mode; template/designate-next modes inherit step definition) -->
+        <view class="field field-mt-8" wx:if="{{templateOverrideStepIndex < 0 && personPickerMode !== 'designateNext'}}">
           <view class="field-label">审批动作</view>
           <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onPersonPickerActionTypeChange">
             <view class="picker-value">{{personPickerStepActionType === 'pass' ? '仅通过' : (personPickerStepActionType === 'sign' ? '签字' : (personPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
