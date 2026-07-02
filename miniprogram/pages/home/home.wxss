@@ -1830,7 +1830,7 @@ scroll-view {
 }
 
 .flow-step-label {
-  font-size: 20rpx; font-weight: 600; color: #94a3b8; letter-spacing: 1rpx;
+  font-size: 24rpx; font-weight: 700; color: #1e293b; letter-spacing: 0;
   margin-bottom: 2rpx;
 }
 .flow-step-title {
