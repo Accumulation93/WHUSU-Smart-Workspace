@@ -31,7 +31,7 @@ Component({
     _initCanvas() {
       this.createSelectorQuery()
         .select('#sigCanvas')
-        .fields({ node: true, size: true, rect: true })
+        .fields({ node: true, size: true })
         .exec((res) => {
           if (!res || !res[0] || !res[0].node) {
             console.error('[sigPad] Canvas node not found:', res);
@@ -41,32 +41,29 @@ Component({
 
           const canvas = res[0].node;
           const ctx = canvas.getContext('2d');
-          const dpr = wx.getSystemInfoSync().pixelRatio || 1;
           const width = res[0].width || 1;
           const height = res[0].height || 1;
 
-          canvas.width = width * dpr;
-          canvas.height = height * dpr;
-          ctx.scale(dpr, dpr);
+          // 1:1 mapping: canvas buffer = CSS display size, no DPR scaling.
+          // Eliminates touch-to-draw coordinate mismatches across devices.
+          canvas.width = width;
+          canvas.height = height;
 
           this._canvas = canvas;
           this._ctx = ctx;
           this._canvasWidth = width;
           this._canvasHeight = height;
-          this._dpr = dpr;
-          this._canvasRect = {
-            left: res[0].left || 0,
-            top: res[0].top || 0,
-            width,
-            height
-          };
 
           ctx.clearRect(0, 0, width, height);
-          this.setData({ canvasReady: true });
 
-          if (this.properties.initialImage) {
-            this._loadInitialImage(width, height);
-          }
+          // Delay setData + image load until bounding rect is refreshed,
+          // so the cached rect is accurate for the first touch.
+          this._refreshCanvasRect(() => {
+            this.setData({ canvasReady: true });
+            if (this.properties.initialImage) {
+              this._loadInitialImage(width, height);
+            }
+          });
         });
     },
 
@@ -101,14 +98,22 @@ Component({
       const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!touch) return null;
 
+      const rect = this._canvasRect;
+      if (!rect) return null;
+
       const width = this._canvasWidth || 1;
       const height = this._canvasHeight || 1;
 
-      // For Canvas 2D, touch.x and touch.y are relative to the canvas element.
-      // Use them directly to avoid coordinate mismatches caused by
-      // boundingClientRect inaccuracy in scroll views / popups.
-      let x = touch.x != null ? touch.x : (touch.clientX || 0) - ((this._canvasRect && this._canvasRect.left) || 0);
-      let y = touch.y != null ? touch.y : (touch.clientY || 0) - ((this._canvasRect && this._canvasRect.top) || 0);
+      // clientX/clientY are always in CSS pixels — more reliable than
+      // touch.x/touch.y which may return physical pixels on some devices.
+      var x = (touch.clientX || 0) - (rect.left || 0);
+      var y = (touch.clientY || 0) - (rect.top || 0);
+
+      // Graceful fallback: if clientX produces out-of-range, try touch.x
+      if ((x < 0 || x > width || y < 0 || y > height) && touch.x != null && touch.y != null) {
+        x = touch.x;
+        y = touch.y;
+      }
 
       return {
         x: Math.max(0, Math.min(width, x)),
@@ -192,8 +197,8 @@ Component({
           fileType: 'png',
           width: this._canvasWidth,
           height: this._canvasHeight,
-          destWidth: this._canvasWidth * (this._dpr || 1),
-          destHeight: this._canvasHeight * (this._dpr || 1),
+          destWidth: this._canvasWidth,
+          destHeight: this._canvasHeight,
           success: (res) => {
             wx.getFileSystemManager().readFile({
               filePath: res.tempFilePath,
