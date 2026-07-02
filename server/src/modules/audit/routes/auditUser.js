@@ -223,8 +223,13 @@ router.post('/startAuditSubmission', async (req, res) => {
     if (template.starter_conditions_json) {
       try { starterConditions = JSON.parse(template.starter_conditions_json); } catch (_) {}
     }
+    if (!Array.isArray(starterConditions)) starterConditions = [];
 
     if (starterConditions.length) {
+      if (!submitterFull) {
+        conn.release();
+        return res.json({ status: 'forbidden', message: '您没有绑定人事信息，无法发起此审核流程' });
+      }
       // Multi-condition check: user must match at least one condition
       let starterMatch = false;
       for (const cond of starterConditions) {
@@ -1885,16 +1890,22 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
       if (t.starter_conditions_json) {
         try { starterConditions = JSON.parse(t.starter_conditions_json); } catch (_) {}
       }
+      if (!Array.isArray(starterConditions)) starterConditions = [];
 
-      if (starterConditions.length && submitterFull) {
-        // Multi-condition OR match
-        for (const cond of starterConditions) {
-          if (cond.conditionType === 'person') {
-            const personIds = (cond.personHrIds || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-            if (personIds.includes(hrId)) { eligible = true; break; }
-          } else {
-            if (matchesIdentityScopeCondition(cond, submitterFull, submitterFull)) {
-              eligible = true; break;
+      if (starterConditions.length) {
+        // Must have HR binding to verify starter conditions
+        if (!submitterFull) {
+          eligible = false;
+        } else {
+          // Multi-condition OR match
+          for (const cond of starterConditions) {
+            if (cond.conditionType === 'person') {
+              const personIds = (cond.personHrIds || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+              if (personIds.includes(hrId)) { eligible = true; break; }
+            } else {
+              if (matchesIdentityScopeCondition(cond, submitterFull, submitterFull)) {
+                eligible = true; break;
+              }
             }
           }
         }
