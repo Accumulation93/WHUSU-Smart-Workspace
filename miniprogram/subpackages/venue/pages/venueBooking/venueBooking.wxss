@@ -3,50 +3,54 @@
 
 .page { padding-bottom: 60rpx; }
 
-/* ═══ Venue cards ═══ */
+/* ═══ Venue cards — 参考 mySubmissions 审核列表卡片样式 ═══ */
 .venue-card {
-  display:flex; align-items:center; gap:24rpx;
-  padding:28rpx 24rpx; margin-bottom:16rpx; border-radius:24rpx;
+  display:flex; align-items:center; gap:18rpx;
+  padding:24rpx 22rpx; margin-bottom:12rpx; border-radius:22rpx;
   background:linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(248,251,255,0.80) 100%);
-  border:1rpx solid rgba(226,237,247,0.92);
-  box-shadow:0 12rpx 28rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.74);
-  animation:glassFadeUp 0.38s ease both;
+  border:1rpx solid rgba(226,237,247,0.94);
+  box-shadow:0 10rpx 24rpx rgba(15,23,42,0.035), inset 0 1rpx 0 rgba(255,255,255,0.78);
+  box-sizing:border-box; transition:transform 0.18s ease, box-shadow 0.22s ease;
+  animation:glassFadeUp 0.36s ease both;
 }
 .venue-card:active { transform:translateY(1rpx) scale(0.992); }
 
-.venue-avatar {
-  width:80rpx; height:80rpx; border-radius:22rpx; flex-shrink:0;
-  background:linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
-  display:flex; align-items:center; justify-content:center;
-  color:#fff; font-size:34rpx; font-weight:700;
-  box-shadow:0 10rpx 22rpx rgba(37,99,235,0.25);
-}
+.venue-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:8rpx; }
+.venue-name { color:#0f172a; font-size:28rpx; font-weight:700; line-height:1.4; }
+.venue-loc { color:#64748b; font-size:23rpx; }
 
-.venue-main { flex:1; min-width:0; }
-.venue-name { color:#0f172a; font-size:30rpx; font-weight:700; line-height:1.4; }
-.venue-loc { color:#64748b; font-size:24rpx; margin-top:4rpx; }
+.venue-meta { display:flex; flex-wrap:wrap; align-items:center; gap:10rpx; }
 .venue-tag {
-  display:inline-block; font-size:22rpx; padding:6rpx 14rpx; border-radius:14rpx;
-  font-weight:600; margin-top:8rpx;
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:38rpx; padding:6rpx 14rpx; border-radius:999rpx;
+  font-size:20rpx; font-weight:700; line-height:1.35;
+  border:1rpx solid transparent;
 }
-.venue-tag.direct { background:#d1fae5; color:#065f46; }
-.venue-tag.approval { background:#fef3c7; color:#92400e; }
+.venue-tag.direct {
+  color:#15803d; background:rgba(209,250,229,0.78);
+  border-color:rgba(110,231,183,0.58);
+}
+.venue-tag.approval {
+  color:#c2410c; background:rgba(255,237,213,0.78);
+  border-color:rgba(253,186,116,0.58);
+}
 
-.venue-actions { display:flex; flex-direction:column; gap:10rpx; flex-shrink:0; }
+.venue-actions { display:flex; flex-direction:row; gap:12rpx; flex-shrink:0; align-items:center; }
 
-/* Action buttons */
+/* Action buttons — 参考管理端部门卡片 .link 药丸按钮样式 */
 .action-btn {
   display:inline-flex; align-items:center; justify-content:center;
-  padding:14rpx 28rpx; border-radius:999rpx; font-size:26rpx; font-weight:600;
-  background:rgba(241,245,249,0.85); color:#475569;
-  border:1rpx solid rgba(203,213,225,0.55);
+  padding:10rpx 20rpx; border-radius:999rpx; font-size:24rpx; font-weight:600;
+  line-height:1; white-space:nowrap;
+  background:rgba(219,234,254,0.65); color:#1d4ed8;
+  border:1rpx solid rgba(147,197,253,0.45);
   transition:transform 0.12s ease, opacity 0.12s ease;
 }
 .action-btn:active { transform:scale(0.94); opacity:0.85; }
 .action-btn.primary {
-  background:linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  background:linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
   color:#fff; border-color:transparent;
-  box-shadow:0 6rpx 16rpx rgba(37,99,235,0.18);
+  box-shadow:0 8rpx 18rpx rgba(29,78,216,0.18);
 }
 
 /* ═══ Booking items ═══ */
@@ -329,20 +333,9 @@ page {
 }
 
 .venue-card {
-  gap: 20rpx;
-  padding: 24rpx 20rpx;
-  border-radius: 24rpx;
-}
-
-.venue-avatar {
-  width: 76rpx;
-  height: 76rpx;
+  gap: 18rpx;
+  padding: 24rpx 22rpx;
   border-radius: 22rpx;
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #60a5fa 100%);
-  box-shadow:
-    0 12rpx 24rpx rgba(37,99,235,0.22),
-    inset 0 1rpx 0 rgba(255,255,255,0.22);
-  font-size: 32rpx;
 }
 
 .venue-name,
@@ -400,25 +393,31 @@ page {
 }
 
 .venue-actions {
-  gap: 10rpx;
+  gap: 12rpx;
+  flex-direction: row;
 }
 
 .action-btn,
 .link {
-  min-height: 42rpx;
-  padding: 6rpx 16rpx;
+  min-height: auto;
+  padding: 10rpx 20rpx;
   border-radius: 999rpx;
   color: #1d4ed8;
-  font-size: 22rpx;
-  font-weight: 800;
-  background: rgba(219,234,254,0.76);
-  border: 1rpx solid rgba(147,197,253,0.64);
+  font-size: 24rpx;
+  font-weight: 600;
+  line-height: 1;
+  background: rgba(219,234,254,0.65);
+  border: 1rpx solid rgba(147,197,253,0.45);
+  transition: transform 0.12s ease, opacity 0.12s ease;
 }
+
+.action-btn:active { transform: scale(0.94); opacity: 0.85; }
 
 .action-btn.primary {
   color: #ffffff;
   background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
-  box-shadow: 0 12rpx 22rpx rgba(29,78,216,0.16);
+  box-shadow: 0 8rpx 18rpx rgba(29,78,216,0.18);
+  border-color: transparent;
 }
 
 .link.danger {

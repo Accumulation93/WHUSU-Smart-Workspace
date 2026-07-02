@@ -22,11 +22,12 @@
           <view class="empty-text">暂无可用的场地</view>
         </view>
         <view class="venue-card" wx:for="{{venues}}" wx:key="id">
-          <view class="venue-avatar">{{item.name[0] || '场'}}</view>
           <view class="venue-main">
             <view class="venue-name">{{item.name}}</view>
             <view class="venue-loc" wx:if="{{item.location}}">{{item.location}}</view>
-            <text class="venue-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
+            <view class="venue-meta">
+              <text class="venue-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
+            </view>
           </view>
           <view class="venue-actions">
             <text class="action-btn" data-id="{{item.id}}" bindtap="openSchedule">日程</text>
