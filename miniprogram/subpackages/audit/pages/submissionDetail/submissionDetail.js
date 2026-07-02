@@ -1677,7 +1677,10 @@ Page({
     var windowHeight = sysInfo.windowHeight || 667;
     var windowWidth = sysInfo.windowWidth || 375;
     var popupMaxH = windowHeight * 0.88; // 88vh popup max
-    var fixedRpx = 540; // header + hint + page-selector + pos-info + transform + actions (conservative)
+    // Fixed elements (rpx): popup-card padding(48) + header(66) + hint(51)
+    //   + page-selector(48, conditional) + pos-info(50, conditional)
+    //   + transform-panel(200, conditional) + actions(104) + safety margin(33)
+    var fixedRpx = 600; // conservative estimate for all elements visible
     var fixedPx = fixedRpx * (windowWidth / 750);
     var canvasMaxH = Math.max(200, Math.floor(popupMaxH - fixedPx - 16));
 

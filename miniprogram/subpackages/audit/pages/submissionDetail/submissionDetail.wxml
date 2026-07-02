@@ -647,7 +647,7 @@
   <view class="popup-mask" wx:if="{{placementVisible}}" bindtap="closePlacement">
     <view class="popup-card placement-popup" catchtap="noop">
       <view class="popup-header">
-        <view class="popup-title">预览 &amp; 定位 - {{placementFileName}}</view>
+        <view class="popup-title">预览 · 定位 - {{placementFileName}}</view>
         <text class="popup-close" bindtap="closePlacement">关闭</text>
       </view>
 
