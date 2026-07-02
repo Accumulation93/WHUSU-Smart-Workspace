@@ -26,6 +26,7 @@ module.exports = Behavior({
       steps: []
     },
     auditTemplateStepForm: {
+      name: '',
       conditions: [],          // [{ conditionType, personHrIds, personHrNames, departmentScope, ... }]
       actionType: 'sign',
       editingIndex: -1
@@ -223,6 +224,12 @@ module.exports = Behavior({
       this.setData({ ['auditTemplateForm.' + field]: value });
     },
 
+    onAuditTemplateStepField(e) {
+      const field = e.currentTarget.dataset.field;
+      const value = e.detail.value;
+      this.setData({ ['auditTemplateStepForm.' + field]: value });
+    },
+
     startCreateAuditTemplate() {
       this.setData({
         auditTemplateForm: {
@@ -295,6 +302,7 @@ module.exports = Behavior({
         const step = this.data.auditTemplateForm.steps[index];
         this.setData({
           auditTemplateStepForm: {
+            name: step.name || '',
             conditions: (step.conditions || []).map(function(c) { return Object.assign({}, c); }),
             actionType: step.actionType || 'sign',
             editingIndex: index
@@ -304,6 +312,7 @@ module.exports = Behavior({
       } else {
         this.setData({
           auditTemplateStepForm: {
+            name: '',
             conditions: [],
             actionType: 'sign',
             editingIndex: -1
@@ -323,6 +332,11 @@ module.exports = Behavior({
 
     confirmAuditTemplateStep() {
       const step = this.data.auditTemplateStepForm;
+      const stepName = (step.name || '').trim();
+      if (!stepName) {
+        showShortToast('请输入步骤名称');
+        return;
+      }
       if (!step.conditions || !step.conditions.length) {
         showShortToast('请至少添加一个审批条件');
         return;
@@ -330,6 +344,7 @@ module.exports = Behavior({
 
       const steps = [...this.data.auditTemplateForm.steps];
       const newStep = {
+        name: stepName,
         conditions: step.conditions.map(function(c) { return Object.assign({}, c); }),
         actionType: step.actionType || 'sign'
       };
@@ -1070,6 +1085,7 @@ module.exports = Behavior({
       try {
         var stepsToSend = form.steps.map(function(s) {
           return {
+            name: s.name || '',
             conditions: s.conditions.map(function(c) {
               var cond = { conditionType: c.conditionType };
               if (c.conditionType === 'person') {

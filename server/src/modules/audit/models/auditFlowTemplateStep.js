@@ -44,12 +44,12 @@ async function getById(id) {
 }
 
 async function create(id, data) {
-  const { templateId, sortOrder, actionType } = data;
+  const { templateId, sortOrder, actionType, name } = data;
   const orgId = await getCurrentOrgId();
   await pool.query(
-    `INSERT INTO audit_flow_template_steps (id, template_id, sort_order, action_type, org_id)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, templateId, sortOrder || 1, actionType || 'sign', orgId]
+    `INSERT INTO audit_flow_template_steps (id, template_id, sort_order, action_type, name, org_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, templateId, sortOrder || 1, actionType || 'sign', name || '', orgId]
   );
 }
 

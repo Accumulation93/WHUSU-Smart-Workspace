@@ -70,6 +70,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
         steps: steps.map((s) => ({
           id: safeString(s.id),
           sortOrder: s.sort_order,
+          name: s.name || '',
           approverType: safeString(s.approver_type),
           approverIdentityId: safeString(s.approver_identity_id),
           approverHrId: safeString(s.approver_hr_id),
@@ -204,7 +205,8 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
         await flowTemplateStepModel.create(stepId, {
           templateId,
           sortOrder: i + 1,
-          actionType: safeString(step.actionType) || 'sign'
+          actionType: safeString(step.actionType) || 'sign',
+          name: safeString(step.name) || ''
         });
 
         // Create conditions for this step

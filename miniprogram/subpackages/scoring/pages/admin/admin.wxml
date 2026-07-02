@@ -1773,7 +1773,7 @@
         <view class="list-title" style="margin-top: 20rpx;">审批步骤（{{auditTemplateForm.steps.length}}步）</view>
         <view class="list-item" wx:for="{{auditTemplateForm.steps}}" wx:key="index">
           <view class="list-main">
-            <view class="list-name">第{{index + 1}}步 — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+            <view class="list-name">{{item.name || ('第' + (index + 1) + '步')}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
             <!-- Each condition as separate bubble chips, OR-separated -->
             <view wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="margin-top:6rpx;display:flex;flex-wrap:wrap;align-items:center;">
               <block wx:if="{{cond.conditionType === 'person'}}">
@@ -1885,6 +1885,11 @@
         <view class="popup-card" catchtap="noop" style="max-height:90vh;">
           <view class="popup-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? '编辑步骤' : '添加步骤'}}</view><text class="popup-close" bindtap="closeAuditTemplateStepEditor">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="popup-scroll">
+            <!-- Step name -->
+            <view class="field" style="padding:0 24rpx;">
+              <view class="field-label">步骤名称</view>
+              <input class="field-input" value="{{auditTemplateStepForm.name}}" data-field="name" bindinput="onAuditTemplateStepField" placeholder="如：部门负责人审批"/>
+            </view>
             <!-- Conditions list -->
             <view class="list-title" style="padding:0 24rpx;">审批条件（满足任一即可 · OR关系）</view>
             <view class="list-item" wx:for="{{auditTemplateStepForm.conditions}}" wx:key="index" wx:for-item="cond">

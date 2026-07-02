@@ -384,6 +384,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         approverHrId,
         approverIdentityId: ts.approver_identity_id,
         actionType: ts.action_type,
+        stepName: ts.name || '',
         round: 1,
         stepConditionsJson
       }, conn);
@@ -504,6 +505,7 @@ router.post('/startAdHocAudit', async (req, res) => {
         approverHrId: safeString(s.approverHrId) || null,
         approverIdentityId: safeString(s.approverIdentityId) || null,
         actionType: safeString(s.actionType) || 'sign',
+        stepName: safeString(s.name) || '',
         round: 1,
         stepConditionsJson
       }, conn);
@@ -959,6 +961,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         return {
         id: safeString(s.id),
         sortOrder: s.sort_order,
+        stepName: safeString(s.step_name || s.name || ''),
         approverType: safeString(s.approver_type),
         approverHrId: safeString(s.approver_hr_id),
         approverName: approverNameDisplay,
@@ -1504,6 +1507,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
         templateStepId: ts.id,
         sortOrder: idx + 1,
         actionType: ts.action_type || 'sign',
+        name: ts.name || '',
         conditions: stepConditionMap[ts.id] || []
       }));
     } else if (newSteps && newSteps.length) {
@@ -1542,6 +1546,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
           approverHrId: safeString(s.approverHrId) || null,
           approverIdentityId: safeString(s.approverIdentityId) || null,
           actionType: safeString(s.actionType) || 'sign',
+          name: safeString(s.name) || '',
           conditions
         };
       });
@@ -1560,6 +1565,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
           approverHrId: s.approverHrId || null,
           approverIdentityId: s.approverIdentityId || null,
           actionType: s.actionType || 'sign',
+          stepName: s.name || s.stepName || '',
           round: 1,
           stepConditionsJson
         }, conn);
@@ -1721,6 +1727,7 @@ router.post('/resubmitAudit', async (req, res) => {
           approverHrId: rs.approver_hr_id,
           approverIdentityId: rs.approver_identity_id,
           actionType: rs.action_type,
+          stepName: rs.step_name || rs.name || '',
           round: newRound,
           stepConditionsJson: rs.step_conditions_json
         }, conn);
@@ -1738,6 +1745,7 @@ router.post('/resubmitAudit', async (req, res) => {
           approverHrId: ts.approver_hr_id,
           approverIdentityId: ts.approver_identity_id,
           actionType: ts.action_type,
+          stepName: ts.step_name || ts.name || '',
           round: newRound,
           stepConditionsJson: ts.step_conditions_json
         }, conn);
@@ -2005,6 +2013,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
       return {
         stepIndex: idx,
         sortOrder: idx + 1,
+        name: ts.name || '',
         actionType: ts.action_type || 'sign',
         actionLabel: actionLabel,
         displayParts: display.displayParts,

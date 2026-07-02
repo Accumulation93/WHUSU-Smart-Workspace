@@ -25,7 +25,7 @@ Page({
     createDesc: '',
     uploadedFiles: [], // { fileId, fileName, mimeType, fileSize, fileHash, tmpPath }
     adHocSteps: [],
-    adHocStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
+    adHocStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
     adHocStepEditorVisible: false,
     resubmitMode: 'fresh',
 
@@ -77,7 +77,7 @@ Page({
     editFiles: [],       // current files (display)
     editNewFiles: [],    // newly uploaded files
     editStepEditorVisible: false,
-    editStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
+    editStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
     editIdentityPickerScopeIndex: 0,
     editIdentityPickerDeptIndex: 0,
     editIdentityPickerWgIndex: 0,
@@ -365,7 +365,7 @@ Page({
   openAdHocStepEditor() {
     this.setData({
       adHocStepEditorVisible: true,
-      adHocStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
+      adHocStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
       identityPickerScopeIndex: 0,
       identityPickerDeptIndex: 0,
       identityPickerWgIndex: 0,
@@ -375,6 +375,11 @@ Page({
 
   closeAdHocStepEditor() {
     this.setData({ adHocStepEditorVisible: false, personPickerVisible: false });
+  },
+
+  onAdHocStepField(e) {
+    const field = e.currentTarget.dataset.field;
+    this.setData({ ['adHocStepForm.' + field]: e.detail.value });
   },
 
   onAdHocStepTypeChange(e) {
@@ -529,6 +534,7 @@ Page({
     const actionType = this.data.personPickerStepActionType;
     for (const p of selected) {
       steps.push({
+        name: (this.data.adHocStepForm.name || '').trim() || (p.name + '审批'),
         approverType: 'specific_person',
         approverHrId: p.id,
         approverHrName: p.name,
@@ -608,6 +614,7 @@ Page({
 
     const steps = [...this.data.adHocSteps];
     steps.push({
+      name: (sf.name || '').trim(),
       approverType: 'identity',
       approverIdentityId: identity.id,
       approverIdentityName: identity.name,
@@ -623,7 +630,7 @@ Page({
 
     this.setData({
       adHocSteps: steps,
-      adHocStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
+      adHocStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
       adHocStepEditorVisible: false,
       identityPickerScopeIndex: 0,
       identityPickerDeptIndex: 0,
@@ -843,6 +850,7 @@ Page({
         if (!adHocSteps.length) { showShortToast('请添加审批步骤'); this.setData({ loading: false }); return; }
         // Strip display-only fields before sending
         const cleanSteps = adHocSteps.map(s => ({
+          name: s.name || '',
           approverType: s.approverType,
           approverIdentityId: s.approverIdentityId || '',
           approverHrId: s.approverHrId || '',
@@ -1155,6 +1163,7 @@ Page({
               type: 'step',
               id: step.id,
               sortOrder: step.sortOrder || (si2 + 1),
+              stepName: step.stepName || step.name || '',
               approverType: step.approverType,
               approverHrId: step.approverHrId,
               approverName: step.approverName,
@@ -2341,6 +2350,7 @@ Page({
       editTemplateId: submission.templateId || '',
       editSteps: submission.type === 'ad_hoc' ? steps.map(function(s) {
         return {
+          name: s.stepName || s.name || '',
           approverType: s.approverType || 'identity',
           approverHrId: s.approverHrId || '',
           approverHrName: s.approverName || '',
@@ -2388,7 +2398,7 @@ Page({
   openEditStepEditor() {
     this.setData({
       editStepEditorVisible: true,
-      editStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
+      editStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' },
       editIdentityPickerScopeIndex: 0,
       editIdentityPickerDeptIndex: 0,
       editIdentityPickerWgIndex: 0,
@@ -2398,6 +2408,11 @@ Page({
 
   closeEditStepEditor() {
     this.setData({ editStepEditorVisible: false, editPersonPickerVisible: false });
+  },
+
+  onEditStepFieldInput(e) {
+    const field = e.currentTarget.dataset.field;
+    this.setData({ ['editStepForm.' + field]: e.detail.value });
   },
 
   onEditStepTypeChange(e) {
@@ -2462,6 +2477,7 @@ Page({
 
     var steps = [...this.data.editSteps];
     steps.push({
+      name: (sf.name || '').trim(),
       approverType: 'identity',
       approverIdentityId: identity.id,
       approverIdentityName: identity.name,
@@ -2478,7 +2494,7 @@ Page({
     this.setData({
       editSteps: steps,
       editStepEditorVisible: false,
-      editStepForm: { approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' }
+      editStepForm: { name: '', approverType: 'identity', approverIdentityId: '', approverIdentityName: '', approverHrId: '', approverHrName: '', actionType: 'pass', scopeType: 'all', scopeDepartmentId: '', scopeDepartmentName: '', scopeWorkGroupId: '', scopeWorkGroupName: '' }
     });
   },
 
@@ -2565,6 +2581,7 @@ Page({
     for (var i = 0; i < selected.length; i++) {
       var p = selected[i];
       steps.push({
+        name: (this.data.editStepForm.name || '').trim() || (p.name + '审批'),
         approverType: 'specific_person',
         approverHrId: p.id,
         approverHrName: p.name,
@@ -2692,6 +2709,7 @@ Page({
       if (this.data.editType === 'ad_hoc' && this.data.editSteps.length) {
         stepsData = this.data.editSteps.map(function(s) {
           return {
+            name: s.name || '',
             approverType: s.approverType,
             approverIdentityId: s.approverIdentityId || '',
             approverHrId: s.approverHrId || '',
