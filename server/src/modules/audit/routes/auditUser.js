@@ -746,8 +746,8 @@ router.post('/getSubmissionDetail', async (req, res) => {
               isApprover = true; break;
             }
           }
-          // Legacy check
-          if (!isApprover && s.approver_type === 'identity' && s.approver_identity_id) {
+          // Legacy check (only when NO explicit conditions — legacy fields may be stale)
+          if (!isApprover && !stepHasExplicitConds && s.approver_type === 'identity' && s.approver_identity_id) {
             if (inCsv(s.approver_identity_id, approverInfo.identity_id)) {
               if (matchesScope(s, approverInfo, submitterInfo)) {
                 isApprover = true; break;
@@ -1120,23 +1120,26 @@ async function checkStepAuthorization(step, submission, hrId) {
     } catch (_) { /* fall through */ }
   }
 
-  // 3. Legacy check — uses inCsv() to handle comma-separated multi-ID fields
-  if (step.approver_type === 'specific_person' && step.approver_hr_id) {
-    if (inCsv(step.approver_hr_id, hrId)) return true;
-  } else if (step.approver_type === 'identity' && step.approver_identity_id) {
-    const [approverRows] = await pool.query(
-      'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-      [hrId, orgId]
-    );
-    const approver = approverRows[0];
-    if (approver && inCsv(step.approver_identity_id, approver.identity_id)) {
-      let submitter = null;
-      const [subRows] = await pool.query(
-        'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [submission.submitted_by, orgId]
+  // 3. Legacy check — uses inCsv() to handle comma-separated multi-ID fields.
+  //    Only when NO explicit conditions exist (legacy fields may be stale).
+  if (!hasExplicitConditions) {
+    if (step.approver_type === 'specific_person' && step.approver_hr_id) {
+      if (inCsv(step.approver_hr_id, hrId)) return true;
+    } else if (step.approver_type === 'identity' && step.approver_identity_id) {
+      const [approverRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [hrId, orgId]
       );
-      submitter = subRows[0] || null;
-      if (matchesScope(step, approver, submitter)) return true;
+      const approver = approverRows[0];
+      if (approver && inCsv(step.approver_identity_id, approver.identity_id)) {
+        let submitter = null;
+        const [subRows] = await pool.query(
+          'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [submission.submitted_by, orgId]
+        );
+        submitter = subRows[0] || null;
+        if (matchesScope(step, approver, submitter)) return true;
+      }
     }
   }
 

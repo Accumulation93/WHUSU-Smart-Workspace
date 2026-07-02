@@ -226,9 +226,10 @@ async function getPendingByApprover(hrId) {
       }
     }
 
-    // Legacy check: approver_type='identity' with approver_identity_id match
-    // Use inCsv() to handle comma-separated multi-identity fields
-    if (row.approver_type === 'identity' && row.approver_identity_id) {
+    // Legacy check: approver_type='identity' with approver_identity_id match.
+    // Only used when NO explicit conditions exist — if step_conditions_json is
+    // present, it is the sole authority (legacy fields may be stale).
+    if (!hasExplicitConditions && row.approver_type === 'identity' && row.approver_identity_id) {
       const identMatch = inCsv(row.approver_identity_id, approver.identity_id);
       const scopeMatch = identMatch ? matchesScope(row, approver, submitter) : false;
       console.log('[audit:getPendingByApprover] step=' + row.id +
