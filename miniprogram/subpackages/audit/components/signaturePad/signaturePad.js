@@ -101,21 +101,14 @@ Component({
       const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!touch) return null;
 
-      const rect = this._canvasRect || { left: 0, top: 0, width: this._canvasWidth || 1, height: this._canvasHeight || 1 };
-      const width = this._canvasWidth || rect.width || 1;
-      const height = this._canvasHeight || rect.height || 1;
-      const rawX = touch.clientX != null ? touch.clientX : touch.x;
-      const rawY = touch.clientY != null ? touch.clientY : touch.y;
+      const width = this._canvasWidth || 1;
+      const height = this._canvasHeight || 1;
 
-      let x = rawX - rect.left;
-      let y = rawY - rect.top;
-      if ((x < -4 || x > width + 4 || y < -4 || y > height + 4) &&
-          touch.x != null && touch.y != null &&
-          touch.x >= -4 && touch.x <= width + 4 &&
-          touch.y >= -4 && touch.y <= height + 4) {
-        x = touch.x;
-        y = touch.y;
-      }
+      // For Canvas 2D, touch.x and touch.y are relative to the canvas element.
+      // Use them directly to avoid coordinate mismatches caused by
+      // boundingClientRect inaccuracy in scroll views / popups.
+      let x = touch.x != null ? touch.x : (touch.clientX || 0) - ((this._canvasRect && this._canvasRect.left) || 0);
+      let y = touch.y != null ? touch.y : (touch.clientY || 0) - ((this._canvasRect && this._canvasRect.top) || 0);
 
       return {
         x: Math.max(0, Math.min(width, x)),
