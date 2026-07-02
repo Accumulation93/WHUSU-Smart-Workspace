@@ -1674,6 +1674,9 @@ Page({
 
     var currentPage = sig.page || 1;
 
+    // ★ 快照：保存打开前的 pendingSignatures，取消时完整还原
+    this._placementSnapshot = JSON.parse(JSON.stringify(this.data.pendingSignatures));
+
     this.setData({
       placementVisible: true,
       placementAutoOpened: !!autoOpened,
@@ -2036,16 +2039,13 @@ Page({
   },
 
   closePlacement() {
-    // If placement was auto-opened for a newly created signature/stamp,
-    // canceling means the user doesn't want this record → remove it.
-    if (this.data.placementAutoOpened) {
-      var idx = this.data.placementActiveIdx;
-      if (idx >= 0) {
-        var sigs = [...this.data.pendingSignatures];
-        sigs.splice(idx, 1);
-        this.setData({ pendingSignatures: sigs });
-        this.updateApprovalWarning();
-      }
+    // ★ 还原快照：本轮所有修改（位置/大小/旋转/新增副本）全部丢弃
+    if (this._placementSnapshot) {
+      this.setData({
+        pendingSignatures: JSON.parse(JSON.stringify(this._placementSnapshot))
+      });
+      this._placementSnapshot = null;
+      this.updateApprovalWarning();
     }
     this.setData({ placementVisible: false, placementAutoOpened: false });
   },
@@ -2269,6 +2269,7 @@ Page({
     var py = this.data.placementPreviewY;
     var page = this.data.placementCurrentPage;
     if (idx < 0 || px < 0 || py < 0) {
+      this._placementSnapshot = null;
       this.setData({ placementVisible: false, placementAutoOpened: false });
       return;
     }
@@ -2281,6 +2282,7 @@ Page({
       sigs[idx].rotation = this.data.placementRotation || 0;
       sigs[idx].posText = this._computeSigPosText(sigs[idx]);
     }
+    this._placementSnapshot = null; // 确认保存，清除快照
     this.setData({
       pendingSignatures: sigs,
       placementVisible: false,
