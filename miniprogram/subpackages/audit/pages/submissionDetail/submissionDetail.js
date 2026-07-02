@@ -143,6 +143,7 @@ Page({
     placementCanvasMaxHeight: 300, // computed max canvas height in px
     placementSize: 100,          // selected signature/stamp size percentage
     placementRotation: 0,        // selected signature/stamp rotation degrees
+    placementAutoOpened: false,  // true = placement was auto-opened for a new sig; cancel removes it
 
     // User role flags
     userIsSubmitter: false,
@@ -1551,9 +1552,9 @@ Page({
     });
     this.updateApprovalWarning();
 
-    // Auto-open placement popup for positioning
+    // Auto-open placement popup for positioning (autoOpened: cancel removes the sig)
     wx.nextTick(() => {
-      that._openPlacementForIdx(newSigIdx);
+      that._openPlacementForIdx(newSigIdx, true);
     });
   },
 
@@ -1626,9 +1627,9 @@ Page({
     });
     this.updateApprovalWarning();
 
-    // Auto-open placement popup for this new signature
+    // Auto-open placement popup for this new signature (autoOpened: cancel removes it)
     wx.nextTick(() => {
-      that._openPlacementForIdx(newSigIdx);
+      that._openPlacementForIdx(newSigIdx, true);
     });
   },
 
@@ -1641,7 +1642,8 @@ Page({
   },
 
   // Utility: open placement popup for a pending signature at given index
-  _openPlacementForIdx(idx) {
+  // autoOpened: true when auto-opened after creating a new signature (cancel removes it)
+  _openPlacementForIdx(idx, autoOpened) {
     var that = this;
     var sig = this.data.pendingSignatures[idx];
     if (!sig) return;
@@ -1686,6 +1688,7 @@ Page({
 
     this.setData({
       placementVisible: true,
+      placementAutoOpened: !!autoOpened,
       placementType: sig.signatureType,
       placementFileName: fileName,
       placementFileId: fileId,
@@ -1932,9 +1935,9 @@ Page({
     });
     this.updateApprovalWarning();
 
-    // Auto-open placement popup
+    // Auto-open placement popup (autoOpened: cancel removes the stamp)
     wx.nextTick(() => {
-      that._openPlacementForIdx(newSigIdx);
+      that._openPlacementForIdx(newSigIdx, true);
     });
   },
 
@@ -2046,7 +2049,18 @@ Page({
   },
 
   closePlacement() {
-    this.setData({ placementVisible: false });
+    // If placement was auto-opened for a newly created signature/stamp,
+    // canceling means the user doesn't want this record → remove it.
+    if (this.data.placementAutoOpened) {
+      var idx = this.data.placementActiveIdx;
+      if (idx >= 0) {
+        var sigs = [...this.data.pendingSignatures];
+        sigs.splice(idx, 1);
+        this.setData({ pendingSignatures: sigs });
+        this.updateApprovalWarning();
+      }
+    }
+    this.setData({ placementVisible: false, placementAutoOpened: false });
   },
 
   onPlacementItemTap(e) {
@@ -2076,26 +2090,31 @@ Page({
     }
   },
 
-  // Handle tap on placement canvas — update position relative to the preview image
+  // Handle tap on placement canvas — update position relative to the preview image.
+  // ★ Coordinates are unified to viewport (absolute) before computing the ratio,
+  //    so scroll state and element nesting never cause drift.
   onPlacementTap(e) {
     var that = this;
     var point = that._getTapClientPoint(e);
     if (!point) return;
-    // Query the preview image element to get its display dimensions (not the scroll container)
-    wx.createSelectorQuery().select('#placementPreviewImage').boundingClientRect(function(rect) {
-      // Fallback to canvas if image not found (placeholder mode)
-      if (!rect) {
-        wx.createSelectorQuery().select('#placementCanvas').boundingClientRect(function(canvasRect) {
-          if (!canvasRect) return;
-          var px = Math.max(0, Math.min(1, (point.x - canvasRect.left) / (canvasRect.width || 1)));
-          var py = Math.max(0, Math.min(1, (point.y - canvasRect.top) / (canvasRect.height || 1)));
-          that._applyPlacementPosition(px, py);
-        }).exec();
-        return;
-      }
-      var px = Math.max(0, Math.min(1, (point.x - rect.left) / (rect.width || 1)));
-      var py = Math.max(0, Math.min(1, (point.y - rect.top) / (rect.height || 1)));
-      that._applyPlacementPosition(px, py);
+
+    // Step 1: get scroll-view rect to resolve element-relative coords
+    wx.createSelectorQuery().select('#placementCanvas').boundingClientRect(function(canvasRect) {
+      if (!canvasRect) return;
+
+      // Step 2: unify to viewport-absolute CSS pixels
+      var absX = point.isAbsolute ? point.x : (canvasRect.left + point.x);
+      var absY = point.isAbsolute ? point.y : (canvasRect.top + point.y);
+
+      // Step 3: get preview image rect (viewport-absolute)
+      wx.createSelectorQuery().select('#placementPreviewImage').boundingClientRect(function(imgRect) {
+        // Fallback to scroll-view if image not found (placeholder / loading)
+        var ref = (imgRect && imgRect.width > 0) ? imgRect : canvasRect;
+
+        var px = Math.max(0, Math.min(1, (absX - ref.left) / (ref.width || 1)));
+        var py = Math.max(0, Math.min(1, (absY - ref.top) / (ref.height || 1)));
+        that._applyPlacementPosition(px, py);
+      }).exec();
     }).exec();
   },
 
@@ -2158,16 +2177,21 @@ Page({
     this.updateApprovalWarning();
   },
 
+  // Extract tap/touch coordinates.
+  // Returns {x, y, isAbsolute} where isAbsolute=true means viewport coords (clientX/Y),
+  // isAbsolute=false means element-relative coords (e.detail.x/y from bindtap).
   _getTapClientPoint(e) {
     var touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
     if (touch) {
       return {
         x: touch.clientX != null ? touch.clientX : touch.x,
-        y: touch.clientY != null ? touch.clientY : touch.y
+        y: touch.clientY != null ? touch.clientY : touch.y,
+        isAbsolute: true   // clientX/Y are viewport-relative CSS pixels
       };
     }
+    // bindtap events: e.detail.x/y are relative to the tapped element
     if (e.detail && e.detail.x != null && e.detail.y != null) {
-      return { x: e.detail.x, y: e.detail.y };
+      return { x: e.detail.x, y: e.detail.y, isAbsolute: false };
     }
     return null;
   },
@@ -2258,7 +2282,7 @@ Page({
     var py = this.data.placementPreviewY;
     var page = this.data.placementCurrentPage;
     if (idx < 0 || px < 0 || py < 0) {
-      this.setData({ placementVisible: false });
+      this.setData({ placementVisible: false, placementAutoOpened: false });
       return;
     }
     var sigs = [...this.data.pendingSignatures];
@@ -2272,7 +2296,8 @@ Page({
     }
     this.setData({
       pendingSignatures: sigs,
-      placementVisible: false
+      placementVisible: false,
+      placementAutoOpened: false
     });
   },
 

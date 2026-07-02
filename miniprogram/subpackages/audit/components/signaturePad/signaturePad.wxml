@@ -1,13 +1,17 @@
 <view class="sigpad-wrap">
-  <canvas
-    type="2d"
-    id="sigCanvas"
-    class="sigpad-canvas"
-    disable-scroll="{{true}}"
-    bindtouchstart="onTouchStart"
-    bindtouchmove="onTouchMove"
-    bindtouchend="onTouchEnd"
-  ></canvas>
+  <!-- ★ 白板边框放在 wrapper 上，canvas 本身无边框 —
+       确保触摸坐标系原点 = 绘制区域原点，消除 border 偏移 -->
+  <view class="sigpad-canvas-border">
+    <canvas
+      type="2d"
+      id="sigCanvas"
+      class="sigpad-canvas"
+      disable-scroll="{{true}}"
+      bindtouchstart="onTouchStart"
+      bindtouchmove="onTouchMove"
+      bindtouchend="onTouchEnd"
+    ></canvas>
+  </view>
   <view class="sigpad-actions">
     <button class="sigpad-btn sigpad-btn-secondary" bindtap="onClear">清除</button>
     <button class="sigpad-btn sigpad-btn-primary" bindtap="onConfirm">确认签名</button>

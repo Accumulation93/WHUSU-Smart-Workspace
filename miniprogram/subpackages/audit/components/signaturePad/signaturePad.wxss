@@ -5,15 +5,24 @@
   padding: 12rpx 4rpx 8rpx;
 }
 
-.sigpad-canvas {
+/* ★ 边框 wrapper：将视觉边框从 canvas 分离，
+     确保 canvas 的 boundingClientRect 与绘制区域严格对齐 */
+.sigpad-canvas-border {
   width: 100%;
-  height: 360rpx;
-  background: #ffffff;
   border: 2rpx solid rgba(203,213,225,0.7);
   border-radius: 20rpx;
   box-shadow:
     inset 0 2rpx 8rpx rgba(15,23,42,0.04),
     0 4rpx 16rpx rgba(15,23,42,0.04);
+  box-sizing: border-box;
+}
+
+.sigpad-canvas {
+  display: block;
+  width: 100%;
+  height: 360rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
 }
 
 .sigpad-actions {
