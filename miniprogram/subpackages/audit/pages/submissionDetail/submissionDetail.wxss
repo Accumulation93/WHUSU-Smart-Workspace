@@ -324,11 +324,17 @@
 .placement-popup .popup-header { flex-shrink: 0; }
 /* Ensure "关闭" stays on one line */
 .placement-popup .popup-close { white-space: nowrap; flex-shrink: 0; }
+/* ★ 鲁棒约束：flex 自动分配空间，min-height:0 允许真正收缩，overflow:hidden 裁剪溢出内容。
+     预览区永远在 header/hint 下方、pos-info/transform/actions 上方，绝不会挤出或遮挡底部按钮。 */
 .placement-canvas {
-  position: relative; flex: 0 0 auto; /* 高度由 JS 精确计算，不参与 flex 空间分配 */
-  width: calc(100% - 32rpx); min-height: 160rpx;
+  position: relative;
+  flex: 1 1 0%;        /* 占据剩余空间，可增长也可收缩 */
+  min-height: 0;       /* ★ 关键：覆盖 flex 默认 min-height:auto，允许收缩到比内容小 */
+  overflow: hidden;    /* 内容由内部 scroll-view 滚动 */
+  width: calc(100% - 32rpx);
   background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(248,251,255,0.80));
-  border: 1rpx solid rgba(191,219,254,0.68); border-radius: 24rpx; margin: 0 16rpx; box-sizing: border-box;
+  border: 1rpx solid rgba(191,219,254,0.68); border-radius: 24rpx;
+  margin: 0 16rpx; box-sizing: border-box;
   box-shadow: 0 12rpx 28rpx rgba(15,23,42,0.05), inset 0 1rpx 0 rgba(255,255,255,0.78);
 }
 .placement-loading { display: flex; align-items: center; justify-content: center; height: 100%; min-height: 240rpx; color: #94a3b8; font-size: 23rpx; }
@@ -381,15 +387,15 @@
   flex: 1; min-width: 0; height: 58rpx; line-height: 58rpx; margin: 0;
   border-radius: 18rpx; font-size: 22rpx; font-weight: 700;
 }
-.placement-actions { flex-shrink: 0; padding: 12rpx 16rpx; display: flex; flex-wrap: wrap; gap: 10rpx; box-sizing: border-box; }
+/* ★ 三按钮同一排，绝不换行 */
+.placement-actions { flex-shrink: 0; padding: 12rpx 16rpx; display: flex; flex-wrap: nowrap; gap: 10rpx; box-sizing: border-box; }
 .placement-actions button {
-  flex: 1 1 auto; min-width: 0; height: 72rpx; line-height: 72rpx; margin: 0; padding: 0 8rpx;
+  flex: 1 1 0; min-width: 0; height: 72rpx; line-height: 72rpx; margin: 0; padding: 0 6rpx;
   border-radius: 20rpx; font-size: 22rpx; font-weight: 700;
-  white-space: nowrap;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-sizing: border-box;
 }
-.placement-btn-cancel { flex: 1 1 0; }
-.placement-btn-copy { flex: 1 1 0; }
-.placement-btn-save { flex: 1 1 0; }
+/* 三个按钮均分宽度，flex: 1 1 0 已覆盖 */
 
 /* ═══ Approval dialog ═══ */
 .approval-dialog-field-mt { margin-top: 12rpx; }

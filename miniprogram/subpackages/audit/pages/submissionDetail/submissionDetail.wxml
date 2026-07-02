@@ -675,7 +675,6 @@
       <scroll-view id="placementCanvas"
             scroll-y="{{true}}"
             class="placement-canvas"
-            style="height:{{placementCanvasMaxHeight}}px;"
             bindtap="onPlacementTap">
         <!-- Loading indicator -->
         <view wx:if="{{placementLoading}}"
