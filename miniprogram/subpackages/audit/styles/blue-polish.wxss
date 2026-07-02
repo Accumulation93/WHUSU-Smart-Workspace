@@ -160,6 +160,11 @@ textarea {
   line-height: 1.42;
 }
 
+.popup-close {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .primary-btn,
 .secondary-btn,
 .danger-btn {

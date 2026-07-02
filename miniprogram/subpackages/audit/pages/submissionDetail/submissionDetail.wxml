@@ -234,7 +234,7 @@
               <view class="approval-sig-info">
                 <image wx:if="{{sig.imageData}}" src="{{sig.imageData}}" mode="aspectFit" class="approval-sig-thumb" />
                 <text class="approval-sig-name">{{sig.signatureType === 'stamp' ? (sig.stampName || '印章') : '签名'}}</text>
-                <text class="approval-sig-pos">({{sig.positionX ? Math.round(sig.positionX * 100) : 50}}%, {{sig.positionY ? Math.round(sig.positionY * 100) : 50}}%{{sig.page && sig.page > 1 ? ', 第' + sig.page + '页' : ''}})</text>
+                <text class="approval-sig-pos">{{sig.posText || '等待定位'}}</text>
               </view>
               <view class="approval-sig-actions">
                 <text class="approval-sig-action-adjust" data-sig-idx="{{index}}" bindtap="openPlacement">调整位置</text>
@@ -675,6 +675,7 @@
       <scroll-view id="placementCanvas"
             scroll-y="{{true}}"
             class="placement-canvas"
+            style="max-height:{{placementCanvasMaxHeight}}px;"
             bindtap="onPlacementTap">
         <!-- Loading indicator -->
         <view wx:if="{{placementLoading}}"

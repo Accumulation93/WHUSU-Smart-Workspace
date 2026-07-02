@@ -140,6 +140,7 @@ Page({
     placementCurrentPage: 1,     // current page being shown
     placementLoading: false,     // loading page preview
     placementPosText: '',        // formatted position text for display
+    placementCanvasMaxHeight: 300, // computed max canvas height in px
     placementSize: 100,          // selected signature/stamp size percentage
     placementRotation: 0,        // selected signature/stamp rotation degrees
 
@@ -1528,7 +1529,7 @@ Page({
     var fileId = this.data.sigSourceFileId;
     var sigs = [...this.data.pendingSignatures];
     var newSigIdx = sigs.length;
-    sigs.push({
+    var newSig = {
       _idx: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       fileId: fileId,
       signatureType: 'signature',
@@ -1540,7 +1541,9 @@ Page({
       size: 1,
       rotation: 0,
       page: 1
-    });
+    };
+    newSig.posText = this._computeSigPosText(newSig);
+    sigs.push(newSig);
     this.setData({
       pendingSignatures: sigs,
       sigSourcePickerVisible: false,
@@ -1598,7 +1601,7 @@ Page({
     var newIdx = '_sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     var sigs = [...this.data.pendingSignatures];
     var newSigIdx = sigs.length;
-    sigs.push({
+    var newSig = {
       _idx: newIdx,
       fileId: fileId,
       signatureType: 'signature',
@@ -1610,7 +1613,9 @@ Page({
       size: 1,
       rotation: 0,
       page: 1
-    });
+    };
+    newSig.posText = this._computeSigPosText(newSig);
+    sigs.push(newSig);
     this.setData({
       pendingSignatures: sigs,
       signaturePadVisible: false,
@@ -1625,6 +1630,14 @@ Page({
     wx.nextTick(() => {
       that._openPlacementForIdx(newSigIdx);
     });
+  },
+
+  // Compute display text for signature/stamp position (used in approval dialog list)
+  _computeSigPosText: function (sig) {
+    if (!sig || sig.positionX == null || sig.positionY == null) return '';
+    var text = (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%';
+    if (sig.page && sig.page > 1) text += ', 第' + sig.page + '页';
+    return text;
   },
 
   // Utility: open placement popup for a pending signature at given index
@@ -1659,6 +1672,15 @@ Page({
 
     var currentPage = sig.page || 1;
 
+    // Compute max canvas height from available screen space
+    var sysInfo = wx.getSystemInfoSync();
+    var windowHeight = sysInfo.windowHeight || 667;
+    var windowWidth = sysInfo.windowWidth || 375;
+    var popupMaxH = windowHeight * 0.88; // 88vh popup max
+    var fixedRpx = 540; // header + hint + page-selector + pos-info + transform + actions (conservative)
+    var fixedPx = fixedRpx * (windowWidth / 750);
+    var canvasMaxH = Math.max(200, Math.floor(popupMaxH - fixedPx - 16));
+
     this.setData({
       placementVisible: true,
       placementType: sig.signatureType,
@@ -1675,7 +1697,8 @@ Page({
       placementTotalPages: 1,
       placementFileImage: '',
       placementLoading: true,
-      placementPosText: sig.positionX != null ? (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%' : ''
+      placementPosText: sig.positionX != null ? (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%' : '',
+      placementCanvasMaxHeight: canvasMaxH
     });
 
     this._preparePlacementItemPreviews(fileItems).then(function(items) {
@@ -1884,7 +1907,7 @@ Page({
     var fileId = this.data.stampPickFileId;
     var sigs = [...this.data.pendingSignatures];
     var newSigIdx = sigs.length;
-    sigs.push({
+    var newStampSig = {
       _idx: 'stamp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       fileId: fileId,
       signatureType: 'stamp',
@@ -1896,7 +1919,9 @@ Page({
       size: 1,
       rotation: 0,
       page: 1
-    });
+    };
+    newStampSig.posText = this._computeSigPosText(newStampSig);
+    sigs.push(newStampSig);
     this.setData({
       pendingSignatures: sigs,
       stampPickerVisible: false,
@@ -2095,6 +2120,7 @@ Page({
       rotation: base.rotation != null ? base.rotation : (this.data.placementRotation || 0),
       page: page
     });
+    newSig.posText = this._computeSigPosText(newSig);
     sigs.push(newSig);
 
     var newIdx = sigs.length - 1;
@@ -2155,6 +2181,7 @@ Page({
       sigs[idx].positionX = px;
       sigs[idx].positionY = py;
       sigs[idx].page = page;
+      sigs[idx].posText = this._computeSigPosText(sigs[idx]);
     }
 
     // Update placementItems for visual preview
@@ -2238,6 +2265,7 @@ Page({
       sigs[idx].page = page;
       sigs[idx].size = (this.data.placementSize || 100) / 100;
       sigs[idx].rotation = this.data.placementRotation || 0;
+      sigs[idx].posText = this._computeSigPosText(sigs[idx]);
     }
     this.setData({
       pendingSignatures: sigs,
