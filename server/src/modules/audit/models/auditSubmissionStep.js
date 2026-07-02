@@ -303,7 +303,13 @@ function inCsv(csv, value) {
 }
 
 /**
- * Check whether the approver matches ANY condition in the conditions array (OR logic).
+ * Check whether the approver matches ANY condition in the conditions array.
+ *
+ * IMPORTANT: If ANY person-type conditions exist, they represent a narrowed scope
+ * (someone explicitly designated specific approvers). In that case, ONLY person
+ * conditions are checked — identity_scope conditions are stale and MUST be ignored.
+ * If no person conditions exist, identity_scope conditions apply as usual.
+ *
  * @param {Array} conditions - Parsed JSON array of approver conditions
  * @param {object} approver - Candidate approver HR info
  * @param {object} submitter - Submission submitter HR info
@@ -311,6 +317,16 @@ function inCsv(csv, value) {
  */
 function matchesAnyCondition(conditions, approver, submitter) {
   if (!Array.isArray(conditions) || !conditions.length) return false;
+
+  // If any person-type condition exists, the scope has been narrowed.
+  // ONLY check person conditions; ignore identity_scope conditions.
+  var hasPersonCondition = false;
+  for (var ci = 0; ci < conditions.length; ci++) {
+    if (conditions[ci].conditionType === 'person') {
+      hasPersonCondition = true;
+      break;
+    }
+  }
 
   for (const cond of conditions) {
     if (cond.conditionType === 'person') {
@@ -320,8 +336,8 @@ function matchesAnyCondition(conditions, approver, submitter) {
       console.log('[audit:matchesAnyCondition] personCond hrId=' + approver.id +
         ' personIds=[' + personIds.join(',') + '] match=' + personMatch);
       if (personMatch) return true;
-    } else {
-      // identity_scope or unknown type — treat as identity_scope
+    } else if (!hasPersonCondition) {
+      // Only check identity_scope when scope has NOT been narrowed
       console.log('[audit:matchesAnyCondition] checking identity_scope cond:' +
         ' deptScope=' + (cond.departmentScope || 'all') +
         ' specDept=' + (cond.specificDepartmentId || 'none') +
@@ -333,6 +349,7 @@ function matchesAnyCondition(conditions, approver, submitter) {
       console.log('[audit:matchesAnyCondition] identity_scope result=' + identMatch);
       if (identMatch) return true;
     }
+    // else: hasPersonCondition is true but this isn't a person condition → SKIP
   }
 
   return false;
