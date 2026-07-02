@@ -1674,17 +1674,9 @@ Page({
 
     var currentPage = sig.page || 1;
 
-    // Compute max canvas height from available screen space
-    var sysInfo = wx.getSystemInfoSync();
-    var windowHeight = sysInfo.windowHeight || 667;
-    var windowWidth = sysInfo.windowWidth || 375;
-    var popupMaxH = windowHeight * 0.88; // 88vh popup max
-    // Fixed elements (rpx): popup-card padding(48) + header(66) + hint(51)
-    //   + page-selector(48, conditional) + pos-info(50, conditional)
-    //   + transform-panel(200, conditional) + actions(104) + safety margin(33)
-    var fixedRpx = 600; // conservative estimate for all elements visible
-    var fixedPx = fixedRpx * (windowWidth / 750);
-    var canvasMaxH = Math.max(200, Math.floor(popupMaxH - fixedPx - 16));
+    var hasPageSelector = (fileMime === 'application/pdf');
+    var hasPosInfo = (sig.positionX != null);
+    var hasTransform = true; // placementActiveIdx >= 0 when opened via this path
 
     this.setData({
       placementVisible: true,
@@ -1703,9 +1695,11 @@ Page({
       placementTotalPages: 1,
       placementFileImage: '',
       placementLoading: true,
-      placementPosText: sig.positionX != null ? (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%' : '',
-      placementCanvasMaxHeight: canvasMaxH
+      placementPosText: sig.positionX != null ? (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%' : ''
     });
+
+    // ★ 精确计算 canvas 高度，条件变化时重新调用 _syncPlacementCanvasHeight()
+    this._syncPlacementCanvasHeight();
 
     this._preparePlacementItemPreviews(fileItems).then(function(items) {
       if (that.data.placementVisible && that.data.placementFileId === fileId) {
@@ -1714,6 +1708,58 @@ Page({
     });
 
     this.loadFilePreview(fileId, currentPage);
+  },
+
+  // ★ 精确计算 placement canvas 高度，保证不溢出遮挡底部控件。
+  //    当条件元素（pos-info / page-selector / transform-panel）显隐变化时
+  //    需要重新调此方法。
+  _syncPlacementCanvasHeight() {
+    var sysInfo = wx.getSystemInfoSync();
+    var ww = sysInfo.windowWidth || 375;
+    var wh = sysInfo.windowHeight || 667;
+    // rpx → px（基于 750 设计稿）
+    var r = function(rpx) { return Math.ceil(rpx * ww / 750); };
+
+    // popup-mask padding（上下）
+    var maskPadTB = r(80);               // 40rpx × 2
+
+    // popup-card padding（上下）
+    var cardPadTB = r(48);               // 24rpx × 2
+
+    // header: font 32rpx + margin-bottom 18rpx + 内部余量
+    var headerH = r(66);
+
+    // hint: padding 16rpx + 文字行 ~35rpx
+    var hintH = r(51);
+
+    // page-selector（仅 PDF 多页时显示）
+    var hasPageSel = this.data.placementFileMime === 'application/pdf'
+                     && this.data.placementTotalPages > 1;
+    var pageSelH = hasPageSel ? r(51) : 0;
+
+    // pos-info（仅当位置已选时显示）
+    var hasPosInfo = this.data.placementPreviewX >= 0 && !!this.data.placementPosText;
+    var posInfoH = hasPosInfo ? r(50) : 0;
+
+    // transform-panel（placementActiveIdx >= 0 时显示）
+    var hasTransform = this.data.placementActiveIdx >= 0;
+    var transformH = hasTransform ? r(214) : 0;
+
+    // action buttons
+    var actionsH = r(96);
+
+    // 安全余量（避免圆角裁切 / 滚动条占用）
+    var safety = r(24);
+
+    var popupMaxH = wh * 0.88;                     // 88vh
+    var usableH = popupMaxH - maskPadTB - cardPadTB; // 弹窗卡片内容可用高度
+    var fixedH = headerH + hintH + pageSelH + posInfoH + transformH + actionsH + safety;
+    var canvasH = usableH - fixedH;
+
+    // 下限保护：canvas 至少 200px
+    canvasH = Math.max(200, Math.floor(canvasH));
+
+    this.setData({ placementCanvasMaxHeight: canvasH });
   },
 
   _dataUrlToTempFile(dataUrl, prefix) {
@@ -2228,6 +2274,8 @@ Page({
       pendingSignatures: sigs,
       placementItems: items
     });
+    // pos-info 可能刚从隐藏变为可见 → 重算 canvas 高度
+    that._syncPlacementCanvasHeight();
   },
 
   _applyPlacementTransform(size, rotation) {
