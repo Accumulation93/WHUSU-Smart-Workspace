@@ -2362,4 +2362,151 @@ router.post('/listMyApprovalHistory', async (req, res) => {
   }
 });
 
+// listEligibleApprovers — Return eligible approvers matching a step's conditions
+// Used by both Create mode (template step preview) and View mode (designate next approver)
+router.post('/listEligibleApprovers', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const hrId = await resolveHrId(openid);
+    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+
+    const orgId = await getCurrentOrgId();
+    const submissionId = safeString(req.body.submissionId);
+    const templateId = safeString(req.body.templateId);
+    const stepIndex = parseInt(req.body.stepIndex) || 0;
+
+    let conditions = [];
+    let submitterInfo = null;
+
+    if (submissionId) {
+      // View mode: resolve next step's conditions from the submission
+      const submission = await submissionModel.getById(submissionId);
+      if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+
+      const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
+      const currentIdx = submission.current_step_index || 0;
+      const currentRound = Math.max(...allSteps.map(function(s) { return s.round || 1; }));
+      const currentRoundSteps = allSteps
+        .filter(function(s) { return (s.round || 1) === currentRound; })
+        .sort(function(a, b) { return a.sort_order - b.sort_order; });
+      const nextStep = currentRoundSteps.find(function(s) { return s.sort_order === currentIdx + 1; });
+
+      if (!nextStep) {
+        return res.json({ status: 'success', approvers: [], message: '已是最后一步，无需指定下一步审批人' });
+      }
+
+      // Parse next step's conditions
+      if (nextStep.step_conditions_json) {
+        try { conditions = JSON.parse(nextStep.step_conditions_json); } catch (_) {}
+        if (!Array.isArray(conditions)) conditions = [];
+      }
+
+      // Fallback: template step conditions
+      if (!conditions.length && nextStep.template_step_id) {
+        const tplConds = await submissionStepModel.getTemplateStepConditions(nextStep.template_step_id);
+        if (tplConds) conditions = tplConds;
+      }
+
+      // Load submitter for 'own' scope resolution
+      const [subRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [submission.submitted_by, orgId]
+      );
+      submitterInfo = subRows[0] || null;
+    } else if (templateId && stepIndex > 0) {
+      // Create mode: resolve template step conditions
+      const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
+      const targetStep = templateSteps.find(function(s) { return s.sort_order === stepIndex; });
+      if (!targetStep) {
+        return res.json({ status: 'not_found', message: '模板步骤不存在' });
+      }
+
+      const tplConds = await submissionStepModel.getTemplateStepConditions(targetStep.id);
+      if (tplConds) conditions = tplConds;
+
+      // For Create mode, use the current user as submitter (for 'own' scope)
+      const [subRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [hrId, orgId]
+      );
+      submitterInfo = subRows[0] || null;
+    } else {
+      return res.json({ status: 'invalid_params', message: '请提供 submissionId 或 templateId + stepIndex' });
+    }
+
+    // If no conditions or all conditions are "all" scope, return all HR
+    if (!conditions.length) {
+      const [allHr] = await pool.query(
+        `SELECT h.id, h.name, h.student_id AS studentId,
+                h.department_id AS departmentId, d.name AS department,
+                h.identity_id AS identityId, i.name AS identity,
+                h.work_group_id AS workGroupId, wg.name AS workGroup
+         FROM hr_info h
+         LEFT JOIN departments d ON h.department_id = d.id
+         LEFT JOIN identities i ON h.identity_id = i.id
+         LEFT JOIN work_groups wg ON h.work_group_id = wg.id
+         WHERE h.org_id = ? ORDER BY h.name`,
+        [orgId]
+      );
+      return res.json({ status: 'success', approvers: allHr });
+    }
+
+    // Check if all conditions are effectively "all" (identity_scope with all scopes = 'all')
+    const allAreOpen = conditions.every(function(c) {
+      if (c.conditionType === 'person') return false;
+      return (c.departmentScope || 'all') === 'all' &&
+             (c.workGroupScope || 'all') === 'all' &&
+             (c.identityScope || 'all') === 'all';
+    });
+    if (allAreOpen) {
+      const [allHr] = await pool.query(
+        `SELECT h.id, h.name, h.student_id AS studentId,
+                h.department_id AS departmentId, d.name AS department,
+                h.identity_id AS identityId, i.name AS identity,
+                h.work_group_id AS workGroupId, wg.name AS workGroup
+         FROM hr_info h
+         LEFT JOIN departments d ON h.department_id = d.id
+         LEFT JOIN identities i ON h.identity_id = i.id
+         LEFT JOIN work_groups wg ON h.work_group_id = wg.id
+         WHERE h.org_id = ? ORDER BY h.name`,
+        [orgId]
+      );
+      return res.json({ status: 'success', approvers: allHr });
+    }
+
+    // Load all HR records and filter in JS with matchesAnyCondition
+    const [allHr] = await pool.query(
+      `SELECT h.id, h.name, h.student_id AS studentId,
+              h.department_id AS departmentId, d.name AS department,
+              h.identity_id AS identityId, i.name AS identity,
+              h.work_group_id AS workGroupId, wg.name AS workGroup
+       FROM hr_info h
+       LEFT JOIN departments d ON h.department_id = d.id
+       LEFT JOIN identities i ON h.identity_id = i.id
+       LEFT JOIN work_groups wg ON h.work_group_id = wg.id
+       WHERE h.org_id = ? ORDER BY h.name`,
+      [orgId]
+    );
+
+    const eligible = allHr.filter(function(hr) {
+      const approver = {
+        id: hr.id,
+        department_id: hr.departmentId || '',
+        identity_id: hr.identityId || '',
+        work_group_id: hr.workGroupId || ''
+      };
+      return matchesAnyCondition(conditions, approver, submitterInfo);
+    });
+
+    console.log('[audit:listEligibleApprovers] total=' + allHr.length +
+      ' conditions=' + JSON.stringify(conditions).substring(0, 200) +
+      ' eligible=' + eligible.length);
+
+    res.json({ status: 'success', approvers: eligible });
+  } catch (e) {
+    console.error('[audit:listEligibleApprovers] error:', e);
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
 module.exports = router;

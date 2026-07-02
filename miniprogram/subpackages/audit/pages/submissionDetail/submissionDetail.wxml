@@ -156,82 +156,6 @@
       </view>
     </view>
 
-    <!-- ═══ Person picker popup (multi-select) ═══ -->
-    <view class="popup-mask" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
-      <view class="popup-card desig-popup-card" catchtap="noop">
-        <view class="popup-header"><view class="popup-title">指定审批人员</view><text class="popup-close" bindtap="closePersonPicker">关闭</text></view>
-
-        <!-- Selected persons -->
-        <view class="list-title">已选人员（{{personPickerSelectedIds.length}}人）</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll">
-          <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="id">
-            <view class="audit-person-avatar">{{item.name[0]}}</view>
-            <view class="audit-person-info">
-              <view class="audit-person-name">{{item.name}}</view>
-              <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
-            </view>
-            <view class="inline-actions list-actions-below">
-              <text class="audit-link-btn audit-link-danger" data-hr-id="{{item.id}}" bindtap="onPersonToggle">移除</text>
-            </view>
-          </view>
-          <view class="empty-inline" wx:if="{{!personPickerSelectedList.length}}">尚未选择任何人</view>
-        </scroll-view>
-
-        <!-- Filters -->
-        <view class="list-title field-mt-8">可选人员</view>
-        <view class="rule-filter-row">
-          <view class="rule-filter-field">
-            <view class="field-label">部门</view>
-            <picker range="{{personPickerDeptOpts}}" bindchange="onPersonPickerDeptChange">
-              <view class="picker-value compact-picker-value">{{personPickerDept}}</view>
-            </picker>
-          </view>
-          <view class="rule-filter-field">
-            <view class="field-label">身份</view>
-            <picker range="{{personPickerIdentOpts}}" bindchange="onPersonPickerIdentChange">
-              <view class="picker-value compact-picker-value">{{personPickerIdent}}</view>
-            </picker>
-          </view>
-          <view class="rule-filter-field">
-            <view class="field-label">职能组</view>
-            <picker range="{{personPickerWgOpts}}" bindchange="onPersonPickerWgChange">
-              <view class="picker-value compact-picker-value">{{personPickerWg}}</view>
-            </picker>
-          </view>
-        </view>
-        <view class="field field-mb-8">
-          <input class="field-input" placeholder="搜索姓名/学号" value="{{personPickerKeyword}}" bindinput="onPersonPickerSearch"/>
-        </view>
-
-        <!-- Candidate list -->
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
-          <view wx:if="{{!personPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
-          <view class="audit-person-item" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="onPersonToggle">
-            <view class="audit-person-avatar">{{item.name[0]}}</view>
-            <view class="audit-person-info">
-              <view class="audit-person-name">
-                <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>
-                {{item.name}}
-              </view>
-              <view class="audit-person-detail">{{item.studentId}} · {{item.department}} · {{item.identity}}<text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
-            </view>
-          </view>
-        </scroll-view>
-
-        <!-- Action type -->
-        <view class="field field-mt-8">
-          <view class="field-label">审批动作</view>
-          <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onPersonPickerActionTypeChange">
-            <view class="picker-value">{{personPickerStepActionType === 'pass' ? '仅通过' : (personPickerStepActionType === 'sign' ? '签字' : (personPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
-          </picker>
-        </view>
-
-        <view class="button-row">
-          <button class="secondary-btn" bindtap="closePersonPicker">取消</button>
-          <button class="primary-btn" bindtap="confirmPersonPicker">添加 {{personPickerSelectedIds.length}} 人</button>
-        </view>
-      </view>
-    </view>
   </view>
 
   <!-- ═══════════ View Mode ═══════════ -->
@@ -933,7 +857,84 @@
       </view>
       <signature-pad bindconfirm="onSignatureConfirm" />
     </view>
-  </view>
+  </view>
+
+    <!-- ═══ Person picker popup (multi-select) ═══ -->
+    <view class="popup-mask" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
+      <view class="popup-card desig-popup-card" catchtap="noop">
+        <view class="popup-header"><view class="popup-title">指定审批人员</view><text class="popup-close" bindtap="closePersonPicker">关闭</text></view>
+
+        <!-- Selected persons -->
+        <view class="list-title">已选人员（{{personPickerSelectedIds.length}}人）</view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll">
+          <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="id">
+            <view class="audit-person-avatar">{{item.name[0]}}</view>
+            <view class="audit-person-info">
+              <view class="audit-person-name">{{item.name}}</view>
+              <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
+            </view>
+            <view class="inline-actions list-actions-below">
+              <text class="audit-link-btn audit-link-danger" data-hr-id="{{item.id}}" bindtap="onPersonToggle">移除</text>
+            </view>
+          </view>
+          <view class="empty-inline" wx:if="{{!personPickerSelectedList.length}}">尚未选择任何人</view>
+        </scroll-view>
+
+        <!-- Filters -->
+        <view class="list-title field-mt-8">可选人员</view>
+        <view class="rule-filter-row">
+          <view class="rule-filter-field">
+            <view class="field-label">部门</view>
+            <picker range="{{personPickerDeptOpts}}" bindchange="onPersonPickerDeptChange">
+              <view class="picker-value compact-picker-value">{{personPickerDept}}</view>
+            </picker>
+          </view>
+          <view class="rule-filter-field">
+            <view class="field-label">身份</view>
+            <picker range="{{personPickerIdentOpts}}" bindchange="onPersonPickerIdentChange">
+              <view class="picker-value compact-picker-value">{{personPickerIdent}}</view>
+            </picker>
+          </view>
+          <view class="rule-filter-field">
+            <view class="field-label">职能组</view>
+            <picker range="{{personPickerWgOpts}}" bindchange="onPersonPickerWgChange">
+              <view class="picker-value compact-picker-value">{{personPickerWg}}</view>
+            </picker>
+          </view>
+        </view>
+        <view class="field field-mb-8">
+          <input class="field-input" placeholder="搜索姓名/学号" value="{{personPickerKeyword}}" bindinput="onPersonPickerSearch"/>
+        </view>
+
+        <!-- Candidate list -->
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
+          <view wx:if="{{!personPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
+          <view class="audit-person-item" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="onPersonToggle">
+            <view class="audit-person-avatar">{{item.name[0]}}</view>
+            <view class="audit-person-info">
+              <view class="audit-person-name">
+                <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>
+                {{item.name}}
+              </view>
+              <view class="audit-person-detail">{{item.studentId}} · {{item.department}} · {{item.identity}}<text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
+            </view>
+          </view>
+        </scroll-view>
+
+        <!-- Action type -->
+        <view class="field field-mt-8">
+          <view class="field-label">审批动作</view>
+          <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onPersonPickerActionTypeChange">
+            <view class="picker-value">{{personPickerStepActionType === 'pass' ? '仅通过' : (personPickerStepActionType === 'sign' ? '签字' : (personPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+          </picker>
+        </view>
+
+        <view class="button-row">
+          <button class="secondary-btn" bindtap="closePersonPicker">取消</button>
+          <button class="primary-btn" bindtap="confirmPersonPicker">添加 {{personPickerSelectedIds.length}} 人</button>
+        </view>
+      </view>
+    </view>
 
   <view class="page-footer">
     <view class="footer-name">REDSU智慧工作台</view>

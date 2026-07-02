@@ -65,6 +65,7 @@ Page({
     personPickerSelectedList: [],
     personPickerStepActionType: 'sign',
     personPickerMode: '',  // '' | 'designateNext'
+    personPickerEligibleList: [],  // API-loaded eligible approvers for current step
 
     // Edit mode (for editable submissions)
     editMode: false,
@@ -165,6 +166,7 @@ Page({
     } else if (options.id) {
       this.setData({ submissionId: options.id, action: 'view' });
       this.loadDetail();
+      this.loadReferenceData();  // Load dept/ident/wg opts for person picker filters
     }
   },
 
@@ -279,15 +281,43 @@ Page({
   },
 
   // Open person picker for a specific template step override
-  openTemplateStepPersonPicker(e) {
+  async openTemplateStepPersonPicker(e) {
     var stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+    // Load eligible approvers from server (stepIndex is 1-based in UI)
+    var eligibleList = [];
+    try {
+      var res = await callFunction({ name: 'listEligibleApprovers', data: { templateId: this.data.selectedTemplateId, stepIndex: stepIndex } });
+      if (res.status === 'success') {
+        eligibleList = res.approvers || [];
+        // Attach department/identity/workGroup names for filter compatibility
+        var deptMap = {};
+        var identMap = {};
+        var wgMap = {};
+        (this.data.allDepartments || []).forEach(function(d) { deptMap[d.id] = d.name; });
+        (this.data.allIdentities || []).forEach(function(i) { identMap[i.id] = i.name; });
+        (this.data.allWorkGroups || []).forEach(function(w) { wgMap[w.id] = w.name; });
+        eligibleList = eligibleList.map(function(p) {
+          return {
+            ...p,
+            department: deptMap[p.departmentId] || p.department || '',
+            identity: identMap[p.identityId] || p.identity || '',
+            workGroup: wgMap[p.workGroupId] || p.workGroup || '',
+            studentId: p.studentId || ''
+          };
+        });
+      }
+    } catch (err) {
+      console.error('[audit] listEligibleApprovers (template) failed:', err);
+    }
+    this.setData({ personPickerEligibleList: eligibleList });
+
     // Pre-populate selected persons from existing override
     var entry = (this.data.templateStepOverrides || []).find(function(o) { return o.stepIndex === stepIndex; });
     var preSelectedIds = [];
     var preSelectedList = [];
     if (entry && entry.personHrIds && entry.personHrIds.length) {
       preSelectedIds = entry.personHrIds.slice();
-      preSelectedList = this.data.allHrPersons.filter(function(p) {
+      preSelectedList = eligibleList.filter(function(p) {
         return preSelectedIds.indexOf(p.id) >= 0;
       });
     }
@@ -465,7 +495,7 @@ Page({
   },
 
   applyPersonPickerFilters() {
-    let list = [...this.data.allHrPersons];
+    let list = [...this.data.personPickerEligibleList];
     const dept = this.data.personPickerDept;
     const ident = this.data.personPickerIdent;
     const wg = this.data.personPickerWg;
@@ -1759,10 +1789,38 @@ Page({
 
   // ── Next-step person designation ──
 
-  openDesignateNextPersonPicker() {
+  async openDesignateNextPersonPicker() {
+    // Load eligible approvers from server
+    var eligibleList = [];
+    try {
+      var res = await callFunction({ name: 'listEligibleApprovers', data: { submissionId: this.data.submissionId } });
+      if (res.status === 'success') {
+        eligibleList = res.approvers || [];
+        // Attach department/identity/workGroup names for filter compatibility
+        var deptMap = {};
+        var identMap = {};
+        var wgMap = {};
+        (this.data.allDepartments || []).forEach(function(d) { deptMap[d.id] = d.name; });
+        (this.data.allIdentities || []).forEach(function(i) { identMap[i.id] = i.name; });
+        (this.data.allWorkGroups || []).forEach(function(w) { wgMap[w.id] = w.name; });
+        eligibleList = eligibleList.map(function(p) {
+          return {
+            ...p,
+            department: deptMap[p.departmentId] || p.department || '',
+            identity: identMap[p.identityId] || p.identity || '',
+            workGroup: wgMap[p.workGroupId] || p.workGroup || '',
+            studentId: p.studentId || ''
+          };
+        });
+      }
+    } catch (err) {
+      console.error('[audit] listEligibleApprovers (submission) failed:', err);
+    }
+    this.setData({ personPickerEligibleList: eligibleList });
+
     // Pre-populate with current designation
     var preIds = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
-    var preList = this.data.allHrPersons.filter(function(p) {
+    var preList = eligibleList.filter(function(p) {
       return preIds.indexOf(p.id) >= 0;
     });
     this.setData({
