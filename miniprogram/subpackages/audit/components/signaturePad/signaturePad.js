@@ -35,40 +35,73 @@ Component({
 
   lifetimes: {
     attached() {
+      // 延迟初始化：确保父级 wx:if 展开后布局已稳定
       wx.nextTick(() => {
-        this._initCanvas();
+        this._initCanvas(0);
       });
+    },
+    detached() {
+      // 清理实例状态，避免 wx:if 重建时残留
+      this._canvas = null;
+      this._ctx = null;
+      this._canvasRect = null;
+      this._drawing = false;
+      this._exporting = false;
     }
   },
 
   methods: {
 
     // ═══════════════════════════════════════════════════════════════
-    // 初始化
+    // 初始化（带重试，防止布局未完成时取到 0 尺寸）
     // ═══════════════════════════════════════════════════════════════
 
-    _initCanvas() {
+    _initCanvas(retryCount) {
+      const MAX_RETRIES = 8;
       const that = this;
+
+      // 防止重复初始化
+      if (this._canvas) {
+        this._canvas = null;
+        this._ctx = null;
+        this._canvasRect = null;
+      }
+
       const query = wx.createSelectorQuery().in(this);
       query.select('#sigCanvas')
         .fields({ node: true, size: true })
         .exec(function (res) {
+          // Canvas 节点尚未创建（wx:if 展开中）
           if (!res || !res[0] || !res[0].node) {
-            console.error('[sigPad] Canvas node not found:', res);
-            wx.showToast({ title: '签名画板加载失败，请重试', icon: 'none' });
+            if (retryCount < MAX_RETRIES) {
+              console.warn('[sigPad] Canvas node not ready, retry', retryCount + 1);
+              setTimeout(() => that._initCanvas(retryCount + 1), 60);
+            } else {
+              console.error('[sigPad] Canvas init failed after', MAX_RETRIES, 'retries');
+              wx.showToast({ title: '签名画板加载失败，请重试', icon: 'none' });
+            }
+            return;
+          }
+
+          const cssW = res[0].width;
+          const cssH = res[0].height;
+
+          // ★ 尺寸为 0：布局未完成，重试
+          if ((!cssW || cssW <= 0 || !cssH || cssH <= 0) && retryCount < MAX_RETRIES) {
+            console.warn('[sigPad] Canvas zero size (w=' + cssW + ' h=' + cssH + '), retry', retryCount + 1);
+            setTimeout(() => that._initCanvas(retryCount + 1), 60);
             return;
           }
 
           const canvas = res[0].node;
           const ctx = canvas.getContext('2d');
           const dpr = wx.getSystemInfoSync().pixelRatio || 1;
-          const cssW = res[0].width || 300;
-          const cssH = res[0].height || 180;
 
-          // 离屏 buffer = CSS 尺寸 × DPR（保证 Retina 清晰度）
-          canvas.width = Math.round(cssW * dpr);
-          canvas.height = Math.round(cssH * dpr);
-          // ★ 核心：缩放上下文使所有绘制坐标使用 CSS 像素
+          // ★ 使用 rect 校验过的真实尺寸设置 buffer
+          const bufferW = Math.round(cssW * dpr);
+          const bufferH = Math.round(cssH * dpr);
+          canvas.width = bufferW;
+          canvas.height = bufferH;
           ctx.scale(dpr, dpr);
 
           that._canvas = canvas;
@@ -77,9 +110,9 @@ Component({
           that._cssHeight = cssH;
           that._dpr = dpr;
 
-          ctx.clearRect(0, 0, cssW, cssHeight);
+          ctx.clearRect(0, 0, cssW, cssH);
 
-          // 等布局稳定后测量 canvas 的页面绝对位置，然后才允许绘制
+          // 等布局稳定后测量 canvas 的页面绝对位置
           that._refreshCanvasRect(function () {
             that.setData({ canvasReady: true });
             if (that.properties.initialImage) {
@@ -171,8 +204,11 @@ Component({
     },
 
     /**
-     * 刷新 canvas 在页面中的绝对位置。
+     * 刷新 canvas 在页面中的绝对位置 + 自动修正 buffer/display 尺寸偏差。
      * 仅在 touchStart 时调用 — 一笔之内 canvas 不会移动。
+     *
+     * ★ 自动修正：如果 rect.width ≠ canvas.width/dpr（即 buffer 与显示不匹配），
+     *    重新设置 buffer 并重设变换矩阵。仅在画板无内容时执行（不会丢弃笔迹）。
      */
     _refreshCanvasRect(callback) {
       const that = this;
@@ -188,6 +224,23 @@ Component({
             };
             that._cssWidth = rect.width;
             that._cssHeight = rect.height;
+
+            // ★ 安全网：buffer 尺寸与 CSS 显示尺寸不匹配 → 自动修正
+            if (that._canvas && that._dpr && !that.data.hasContent) {
+              var expectedW = Math.round(rect.width * that._dpr);
+              var expectedH = Math.round(rect.height * that._dpr);
+              if (that._canvas.width !== expectedW || that._canvas.height !== expectedH) {
+                console.warn('[sigPad] Buffer/display mismatch, auto-correcting:', {
+                  bufferW: that._canvas.width, bufferH: that._canvas.height,
+                  displayW: rect.width, displayH: rect.height,
+                  expectedW: expectedW, expectedH: expectedH
+                });
+                that._canvas.width = expectedW;
+                that._canvas.height = expectedH;
+                // 重设缩放变换（先重置再 scale）
+                that._ctx.setTransform(that._dpr, 0, 0, that._dpr, 0, 0);
+              }
+            }
           }
           if (typeof callback === 'function') callback();
         })
