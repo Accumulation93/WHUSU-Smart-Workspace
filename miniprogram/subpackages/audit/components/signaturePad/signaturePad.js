@@ -68,6 +68,19 @@ Component({
               if (rect && rect.width > 0 && rect.height > 0) {
                 cssW = rect.width;
                 cssH = rect.height;
+                // ★ 安全检测：如果宽高超过屏幕尺寸，可能是 rpx → 转为 px
+                var screenW = wx.getSystemInfoSync().windowWidth;
+                if (Math.max(cssW, cssH) > screenW * 1.2) {
+                  var scale = screenW / 750;
+                  console.log('[sigPad] init: likely rpx, converting ' + cssW + 'x' + cssH +
+                    ' → ' + (cssW * scale).toFixed(1) + 'x' + (cssH * scale).toFixed(1) +
+                    ' (screenW=' + screenW + ' scale=' + scale + ')');
+                  cssW = cssW * scale;
+                  cssH = cssH * scale;
+                  // 也修正 left/top
+                  if (rect.left) rect.left = rect.left * scale;
+                  if (rect.top) rect.top = rect.top * scale;
+                }
                 console.log('[sigPad] init size: fields=' + fieldsW + 'x' + fieldsH +
                   ' rect=' + cssW + 'x' + cssH + ' dpr=' + dpr);
               } else {
@@ -131,20 +144,22 @@ Component({
       wx.createSelectorQuery().in(this).select('#sigCanvas')
         .boundingClientRect(function (rect) {
           if (rect && rect.width > 0 && rect.height > 0) {
+            var rw = rect.width, rh = rect.height, rl = rect.left || 0, rt = rect.top || 0;
+            // ★ 安全检测：rpx → px 转换
+            var screenW = wx.getSystemInfoSync().windowWidth;
+            if (Math.max(rw, rh) > screenW * 1.2) {
+              var scale = screenW / 750;
+              rw = rw * scale; rh = rh * scale; rl = rl * scale; rt = rt * scale;
+            }
             // 更新 left/top（首次触摸时布局绝对稳定，最准确）
-            that._canvasRect = {
-              left: rect.left || 0,
-              top: rect.top || 0,
-              width: rect.width,
-              height: rect.height
-            };
-            that._cssWidth = rect.width;
-            that._cssHeight = rect.height;
+            that._canvasRect = { left: rl, top: rt, width: rw, height: rh };
+            that._cssWidth = rw;
+            that._cssHeight = rh;
 
             // ★ 二次验证 buffer/display 对齐
             if (that._canvas && that._dpr && !that.data.hasContent) {
-              var ew = Math.round(rect.width * that._dpr);
-              var eh = Math.round(rect.height * that._dpr);
+              var ew = Math.round(rw * that._dpr);
+              var eh = Math.round(rh * that._dpr);
               if (that._canvas.width !== ew || that._canvas.height !== eh) {
                 console.warn('[sigPad] touch-time buffer correction:',
                   ' buffer=' + that._canvas.width + 'x' + that._canvas.height,
@@ -155,8 +170,8 @@ Component({
               }
             }
 
-            console.log('[sigPad] touch-time rect: left=' + rect.left + ' top=' + rect.top +
-              ' w=' + rect.width + ' h=' + rect.height);
+            console.log('[sigPad] touch-time rect: left=' + rl + ' top=' + rt +
+              ' w=' + rw + ' h=' + rh);
           }
           if (cb) cb();
         }).exec();
