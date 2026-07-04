@@ -849,8 +849,9 @@
   </view>
 
   <!-- Signature Pad Popup (with save-to-library controls) -->
-  <view class="popup-mask" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad">
-    <view class="popup-card" catchtap="noop">
+  <!-- ★ catchtouchmove="noop" 阻止触摸滑动穿透到底层页面，防止签名时页面翻动 -->
+  <view class="popup-mask" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad" catchtouchmove="noop">
+    <view class="popup-card" catchtap="noop" catchtouchmove="noop">
       <view class="popup-header">
         <view class="popup-title">手写签名</view>
         <text class="popup-close" bindtap="closeSignaturePad">关闭</text>

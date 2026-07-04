@@ -1674,8 +1674,16 @@ Page({
 
     var currentPage = sig.page || 1;
 
-    // ★ 快照：保存打开前的 pendingSignatures，取消时完整还原
-    this._placementSnapshot = JSON.parse(JSON.stringify(this.data.pendingSignatures));
+    // ★ 快照：取消时完整还原到打开前的状态
+    //    autoOpened: 快照不含新建的签名 → 取消则签名消失
+    //    manual:    快照含全部 → 取消则还原位置/大小/旋转
+    if (autoOpened) {
+      var sigsBefore = JSON.parse(JSON.stringify(this.data.pendingSignatures));
+      sigsBefore.splice(idx, 1);  // 移除新建的签名
+      this._placementSnapshot = sigsBefore;
+    } else {
+      this._placementSnapshot = JSON.parse(JSON.stringify(this.data.pendingSignatures));
+    }
 
     this.setData({
       placementVisible: true,
