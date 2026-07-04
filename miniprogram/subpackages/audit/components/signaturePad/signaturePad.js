@@ -1,15 +1,30 @@
 /**
- * 签名板组件 — 鲁棒坐标系统
+ * 签名板组件 — 终极鲁棒坐标系统 v3
  *
- * 坐标核心原理（为什么永不越界）：
- *   所有坐标操作使用单一坐标系：CSS 像素。
- *   1. touch.clientX/Y  — 微信保证始终是 CSS 像素（相对于可显示区域左上角）
- *   2. boundingClientRect — 同样返回 CSS 像素（相对于同一可显示区域左上角）
- *   3. clientX - rect.left = canvas 内 CSS 像素位置
- *   4. ctx.scale(dpr, dpr) 后，moveTo/lineTo 期望的正是 CSS 像素
- *
- *   这个链条中没有任何位置需要 DPR 换算或启发式探测。
- *   → 一笔一划永远跟在手指下方，无论窗口、设备、DPR 怎么变。
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ ★ 核心原理：使用 Canvas 2D 原生 touch.x / touch.y             │
+ * │                                                                  │
+ * │ 为什么 touch.x 比 clientX - boundingClientRect 更鲁棒？        │
+ * │   touch.x 是手指相对 Canvas 元素自身左上角的距离（W3C 标准），  │
+ * │   与页面滚动位置、视口偏移、弹窗定位完全无关。                   │
+ * │   — 无论页面怎么滚、弹窗怎么弹，touch.x 始终精确反映手指在     │
+ * │     Canvas 上的位置。                                            │
+ * │                                                                  │
+ * │ 为什么废弃 clientX - rect.left？                                 │
+ * │   boundingClientRect 在微信中可能受页面滚动影响，               │
+ * │   返回 page-relative 坐标而非 viewport-relative 坐标。          │
+ * │   → 页面滚动后 clientX - rect.left 偏移整个滚动量。             │
+ * │                                                                  │
+ * │ touch.x 单位检测（一次性，首次触摸时完成）：                     │
+ * │   大部分设备 touch.x 是 CSS 像素，少数旧设备是物理像素。        │
+ * │   策略 1: touchX 超出 CSS 宽度 → 必为物理像素                   │
+ * │   策略 2: 用 clientX 与 canvasRect 交叉验证，看哪个更匹配       │
+ * │   一旦判定，整个会话期间不再改变。                               │
+ * │                                                                  │
+ * │ 坐标系全程 CSS 像素：                                            │
+ * │   ctx.scale(dpr, dpr) 后，moveTo/lineTo 参数为 CSS 像素。      │
+ * │   touch.x(CSS) → 直接使用；touch.x(物理) → ÷ dpr 转 CSS。     │
+ * └─────────────────────────────────────────────────────────────────┘
  */
 
 Component({
@@ -41,12 +56,16 @@ Component({
       });
     },
     detached() {
-      // 清理实例状态，避免 wx:if 重建时残留
       this._canvas = null;
       this._ctx = null;
       this._canvasRect = null;
       this._drawing = false;
       this._exporting = false;
+      this._touchUnitValidated = undefined;
+      this._touchIsPhysical = undefined;
+      this._cssWidth = undefined;
+      this._cssHeight = undefined;
+      this._dpr = undefined;
     }
   },
 
@@ -57,25 +76,26 @@ Component({
     // ═══════════════════════════════════════════════════════════════
 
     _initCanvas(retryCount) {
-      const MAX_RETRIES = 8;
-      const that = this;
+      var MAX_RETRIES = 8;
+      var that = this;
 
       // 防止重复初始化
       if (this._canvas) {
         this._canvas = null;
         this._ctx = null;
         this._canvasRect = null;
+        this._touchUnitValidated = undefined;
+        this._touchIsPhysical = undefined;
       }
 
-      const query = wx.createSelectorQuery().in(this);
+      var query = wx.createSelectorQuery().in(this);
       query.select('#sigCanvas')
         .fields({ node: true, size: true })
         .exec(function (res) {
-          // Canvas 节点尚未创建（wx:if 展开中）
           if (!res || !res[0] || !res[0].node) {
             if (retryCount < MAX_RETRIES) {
               console.warn('[sigPad] Canvas node not ready, retry', retryCount + 1);
-              setTimeout(() => that._initCanvas(retryCount + 1), 60);
+              setTimeout(function () { that._initCanvas(retryCount + 1); }, 60);
             } else {
               console.error('[sigPad] Canvas init failed after', MAX_RETRIES, 'retries');
               wx.showToast({ title: '签名画板加载失败，请重试', icon: 'none' });
@@ -83,37 +103,36 @@ Component({
             return;
           }
 
-          const cssW = res[0].width;
-          const cssH = res[0].height;
+          var cssW = res[0].width;
+          var cssH = res[0].height;
 
-          // ★ 尺寸为 0：布局未完成，重试
           if ((!cssW || cssW <= 0 || !cssH || cssH <= 0) && retryCount < MAX_RETRIES) {
             console.warn('[sigPad] Canvas zero size (w=' + cssW + ' h=' + cssH + '), retry', retryCount + 1);
-            setTimeout(() => that._initCanvas(retryCount + 1), 60);
+            setTimeout(function () { that._initCanvas(retryCount + 1); }, 60);
             return;
           }
 
-          const canvas = res[0].node;
-          const ctx = canvas.getContext('2d');
-          const dpr = wx.getSystemInfoSync().pixelRatio || 1;
+          var canvas = res[0].node;
+          var ctx = canvas.getContext('2d');
+          var dpr = wx.getSystemInfoSync().pixelRatio || 1;
 
-          // ★ 使用 rect 校验过的真实尺寸设置 buffer
-          const bufferW = Math.round(cssW * dpr);
-          const bufferH = Math.round(cssH * dpr);
+          // ★ 缓存关键参数
+          that._cssWidth = cssW;
+          that._cssHeight = cssH;
+          that._dpr = dpr;
+
+          var bufferW = Math.round(cssW * dpr);
+          var bufferH = Math.round(cssH * dpr);
           canvas.width = bufferW;
           canvas.height = bufferH;
           ctx.scale(dpr, dpr);
 
           that._canvas = canvas;
           that._ctx = ctx;
-          that._cssWidth = cssW;
-          that._cssHeight = cssH;
-          that._dpr = dpr;
-
           ctx.clearRect(0, 0, cssW, cssH);
 
-          // 等布局稳定后测量 canvas 的页面绝对位置
-          that._refreshCanvasRect(function () {
+          // ★ 仅测量一次 canvas 位置（用于单位检测交叉验证 + buffer 自动修正）
+          that._measureCanvasRectOnce(function () {
             that.setData({ canvasReady: true });
             if (that.properties.initialImage) {
               that._loadInitialImage(cssW, cssH);
@@ -122,97 +141,14 @@ Component({
         });
     },
 
-    _loadInitialImage(width, height) {
-      if (!this._canvas) return;
-      const img = this._canvas.createImage();
-      img.onload = () => {
-        this._ctx.drawImage(img, 0, 0, width, height);
-        this.setData({ hasContent: true });
-      };
-      img.onerror = () => {
-        console.error('[sigPad] Failed to load initial image');
-      };
-      img.src = this.properties.initialImage;
-    },
-
-    // ═══════════════════════════════════════════════════════════════
-    // 坐标转换（单一数据源：clientX/Y - canvasRect）
-    // ═══════════════════════════════════════════════════════════════
-
     /**
-     * 将 touch.clientX/clientY 转换为 canvas 内 CSS 像素坐标。
-     *
-     * 为什么不用 touch.x / touch.y？
-     *   - 不同微信版本/设备上，touch.x 可能返回 CSS 像素也可能返回物理像素
-     *   - 微信文档未明确保证其单位，实测存在不一致
-     *   - clientX/Y 是 W3C 标准，微信严格保证其语义：CSS 像素、视口相对
-     *
-     * 为什么不用 DPR 参与计算？
-     *   - ctx.scale(dpr, dpr) 已将 canvas 坐标系缩放为 CSS 像素
-     *   - 所有 moveTo/lineTo 参数直接写 CSS 像素值即可
-     *   - 强行引入 DPR 只会破坏这个一致性
-     *
-     * @param {number} clientX — touch.clientX
-     * @param {number} clientY — touch.clientY
-     * @returns {{x: number, y: number}|null}
+     * 一次性测量 canvas 在视口中的位置。
+     * canvas 在 position:fixed 弹窗内，其 viewport 位置理论上永不改变。
+     * 此方法仅在初始化时调用一次，后续不再查询 boundingClientRect。
      */
-    _clientToCanvas(clientX, clientY) {
-      const rect = this._canvasRect;
-      if (!rect || rect.width <= 0 || rect.height <= 0) {
-        console.warn('[sigPad] canvasRect not ready');
-        return null;
-      }
-
-      // 直接相减：同一个坐标系（视口 CSS 像素）下的差值
-      const rawX = clientX - rect.left;
-      const rawY = clientY - rect.top;
-
-      // 安全裁剪到 canvas 区域（容忍轻微越界以保持边缘笔画连续）
-      const margin = 80;
-      if (rawX < -margin || rawX > rect.width + margin ||
-          rawY < -margin || rawY > rect.height + margin) {
-        // 严重越界 → rect 可能过期，记日志但不中断笔画
-        console.warn('[sigPad] Touch far outside canvas:', {
-          clientX, clientY,
-          canvasLeft: rect.left, canvasTop: rect.top,
-          canvasW: rect.width, canvasH: rect.height,
-          computedX: rawX, computedY: rawY
-        });
-      }
-
-      return {
-        x: Math.max(0, Math.min(rect.width, rawX)),
-        y: Math.max(0, Math.min(rect.height, rawY))
-      };
-    },
-
-    // ═══════════════════════════════════════════════════════════════
-    // Touch 事件处理
-    // ═══════════════════════════════════════════════════════════════
-
-    /**
-     * 同步捕获触摸数据。
-     * ★ 必须在任何异步操作之前调用 — 微信会回收事件对象
-     */
-    _captureTouch(e) {
-      const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
-      if (!t) return null;
-      return {
-        clientX: t.clientX,
-        clientY: t.clientY
-      };
-    },
-
-    /**
-     * 刷新 canvas 在页面中的绝对位置 + 自动修正 buffer/display 尺寸偏差。
-     * 仅在 touchStart 时调用 — 一笔之内 canvas 不会移动。
-     *
-     * ★ 自动修正：如果 rect.width ≠ canvas.width/dpr（即 buffer 与显示不匹配），
-     *    重新设置 buffer 并重设变换矩阵。仅在画板无内容时执行（不会丢弃笔迹）。
-     */
-    _refreshCanvasRect(callback) {
-      const that = this;
-      const query = wx.createSelectorQuery().in(this);
+    _measureCanvasRectOnce(callback) {
+      var that = this;
+      var query = wx.createSelectorQuery().in(this);
       query.select('#sigCanvas')
         .boundingClientRect(function (rect) {
           if (rect && rect.width > 0 && rect.height > 0) {
@@ -222,22 +158,25 @@ Component({
               width: rect.width,
               height: rect.height
             };
+            // 同步 CSS 尺寸
             that._cssWidth = rect.width;
             that._cssHeight = rect.height;
 
-            // ★ 安全网：buffer 尺寸与 CSS 显示尺寸不匹配 → 自动修正
+            // ★ 安全网：buffer 与 CSS 显示尺寸不匹配 → 自动修正
             if (that._canvas && that._dpr && !that.data.hasContent) {
               var expectedW = Math.round(rect.width * that._dpr);
               var expectedH = Math.round(rect.height * that._dpr);
               if (that._canvas.width !== expectedW || that._canvas.height !== expectedH) {
-                console.warn('[sigPad] Buffer/display mismatch, auto-correcting:', {
-                  bufferW: that._canvas.width, bufferH: that._canvas.height,
-                  displayW: rect.width, displayH: rect.height,
-                  expectedW: expectedW, expectedH: expectedH
+                console.warn('[sigPad] Init buffer/display mismatch, correcting:', {
+                  bufferW: that._canvas.width,
+                  bufferH: that._canvas.height,
+                  displayW: rect.width,
+                  displayH: rect.height,
+                  expectedW: expectedW,
+                  expectedH: expectedH
                 });
                 that._canvas.width = expectedW;
                 that._canvas.height = expectedH;
-                // 重设缩放变换（先重置再 scale）
                 that._ctx.setTransform(that._dpr, 0, 0, that._dpr, 0, 0);
               }
             }
@@ -247,37 +186,139 @@ Component({
         .exec();
     },
 
+    _loadInitialImage(width, height) {
+      if (!this._canvas) return;
+      var img = this._canvas.createImage();
+      var that = this;
+      img.onload = function () {
+        that._ctx.drawImage(img, 0, 0, width, height);
+        that.setData({ hasContent: true });
+      };
+      img.onerror = function () {
+        console.error('[sigPad] Failed to load initial image');
+      };
+      img.src = this.properties.initialImage;
+    },
+
+    // ═══════════════════════════════════════════════════════════════
+    // 坐标核心：Canvas 2D 原生 touch.x/y → CSS 像素
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * 将 Canvas 2D 原生 touch.x / touch.y 转换为 canvas 内 CSS 像素坐标。
+     *
+     * ★ touch.x / touch.y 是 W3C 标准属性：手指相对于 Canvas 元素
+     *   自身左上角的距离。与页面滚动、视口偏移完全无关。
+     *
+     * Unit detection（首次 touchStart 时一次性完成）：
+     *   策略 1: touchX 超出 CSS 宽度 → 必为物理像素 (touchX in [0, cssW*dpr])
+     *   策略 2: clientX 与 canvasRect 交叉验证，看 touchX 还是 touchX/dpr
+     *           更接近 clientX - canvasRect.left
+     *
+     * @param {number} touchX — e.touches[0].x (Canvas 2D 原生)
+     * @param {number} touchY — e.touches[0].y
+     * @param {number} [clientX] — e.touches[0].clientX (仅首次 touchStart 用于交叉验证)
+     * @param {number} [clientY] — e.touches[0].clientY
+     * @returns {{x: number, y: number}|null}
+     */
+    _touchToCanvas(touchX, touchY, clientX, clientY) {
+      if (touchX == null || touchY == null) return null;
+
+      var w = this._cssWidth || 300;
+      var h = this._cssHeight || 180;
+      var dpr = this._dpr || 1;
+
+      // ——— 一次性单位检测（仅在首次 touchStart 时执行）———
+      if (this._touchUnitValidated === undefined) {
+        // 策略 1: touchX 超出 CSS 宽度 → 必为物理像素
+        if (dpr > 1 && touchX > w * 1.05) {
+          this._touchIsPhysical = true;
+          this._touchUnitValidated = true;
+          console.log('[sigPad] Unit detected (overflow): physical, dpr=' + dpr);
+        }
+        // 策略 2: clientX 交叉验证
+        else if (this._canvasRect && clientX != null) {
+          var refX = clientX - this._canvasRect.left;
+          if (refX >= 0 && refX <= w) {
+            var diffDirect = Math.abs(touchX - refX);
+            var diffDivided = dpr > 1 ? Math.abs(touchX / dpr - refX) : Infinity;
+            if (diffDivided < diffDirect * 0.5) {
+              this._touchIsPhysical = true;
+              console.log('[sigPad] Unit detected (cross-ref): physical, dpr=' + dpr);
+            } else {
+              this._touchIsPhysical = false;
+              console.log('[sigPad] Unit detected (cross-ref): CSS');
+            }
+            this._touchUnitValidated = true;
+          }
+        }
+      }
+
+      // ——— 转换为 CSS 像素 ———
+      var cssX, cssY;
+      if (this._touchIsPhysical && dpr > 1) {
+        cssX = touchX / dpr;
+        cssY = touchY / dpr;
+      } else {
+        cssX = touchX;
+        cssY = touchY;
+      }
+
+      // ——— 裁剪到 canvas 区域内 ———
+      return {
+        x: Math.max(0, Math.min(w, cssX)),
+        y: Math.max(0, Math.min(h, cssY))
+      };
+    },
+
+    // ═══════════════════════════════════════════════════════════════
+    // Touch 事件处理（★ 全同步，无异步查询）
+    // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * 同步捕获触摸数据。
+     * ★ 必须在任何异步操作之前调用 — 微信会回收事件对象。
+     */
+    _captureTouch(e) {
+      var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      if (!t) return null;
+      return {
+        x: t.x,             // Canvas 2D 原生：相对 canvas 左上角
+        y: t.y,             // Canvas 2D 原生：相对 canvas 左上角
+        clientX: t.clientX, // 视口绝对坐标（仅用于首次交叉验证）
+        clientY: t.clientY
+      };
+    },
+
     onTouchStart(e) {
       if (!this._ctx) return;
 
-      // ★ 同步捕获 → 事件对象安全
-      const cap = this._captureTouch(e);
+      // ★ 同步捕获
+      var cap = this._captureTouch(e);
       if (!cap) return;
 
-      const that = this;
-      // 刷新位置 → 即便窗口/布局在上次触摸后变化了也能纠正
-      this._refreshCanvasRect(function () {
-        const pt = that._clientToCanvas(cap.clientX, cap.clientY);
-        if (!pt) return;
+      // ★ 使用 Canvas 原生 touch.x/y — 全同步，不查 boundingClientRect
+      //    clientX/Y 仅传入用于首次单位交叉验证
+      var pt = this._touchToCanvas(cap.x, cap.y, cap.clientX, cap.clientY);
+      if (!pt) return;
 
-        that._drawing = true;
-        that._ctx.beginPath();
-        that._ctx.moveTo(pt.x, pt.y);
-        that._ctx.strokeStyle = that.properties.penColor;
-        that._ctx.lineWidth = that.properties.penWidth;
-        that._ctx.lineCap = 'round';
-        that._ctx.lineJoin = 'round';
-      });
+      this._drawing = true;
+      this._ctx.beginPath();
+      this._ctx.moveTo(pt.x, pt.y);
+      this._ctx.strokeStyle = this.properties.penColor;
+      this._ctx.lineWidth = this.properties.penWidth;
+      this._ctx.lineCap = 'round';
+      this._ctx.lineJoin = 'round';
     },
 
     onTouchMove(e) {
       if (!this._drawing || !this._ctx) return;
 
-      // touchMove 期间 canvas 位置不变 → 不需要刷新 rect
-      const cap = this._captureTouch(e);
+      var cap = this._captureTouch(e);
       if (!cap) return;
 
-      const pt = this._clientToCanvas(cap.clientX, cap.clientY);
+      // unit 已在上次 touchStart 完成验证，此处跳过 clientX/Y
+      var pt = this._touchToCanvas(cap.x, cap.y);
       if (!pt) return;
 
       this._ctx.lineTo(pt.x, pt.y);
@@ -300,7 +341,9 @@ Component({
 
     onClear() {
       if (!this._ctx) return;
-      this._ctx.clearRect(0, 0, this._cssWidth, this._cssHeight);
+      var w = this._cssWidth || 300;
+      var h = this._cssHeight || 180;
+      this._ctx.clearRect(0, 0, w, h);
       this.setData({ hasContent: false });
     },
 
@@ -314,8 +357,8 @@ Component({
       this._exporting = true;
       wx.showLoading({ title: '确认签名中...' });
       try {
-        const imageData = await this.toDataURL();
-        this.triggerEvent('confirm', { imageData });
+        var imageData = await this.toDataURL();
+        this.triggerEvent('confirm', { imageData: imageData });
       } catch (err) {
         console.error('[sigPad] export failed:', err);
         wx.showToast({ title: '导出签名失败，请重试', icon: 'none' });
@@ -326,16 +369,16 @@ Component({
     },
 
     toDataURL() {
-      const that = this;
+      var that = this;
       return new Promise(function (resolve, reject) {
         if (!that._canvas) {
           reject(new Error('Canvas not initialized'));
           return;
         }
 
-        const cssW = that._cssWidth || 300;
-        const cssH = that._cssHeight || 180;
-        const dpr = that._dpr || 1;
+        var cssW = that._cssWidth || 300;
+        var cssH = that._cssHeight || 180;
+        var dpr = that._dpr || 1;
 
         wx.canvasToTempFilePath({
           canvas: that._canvas,
