@@ -1,29 +1,27 @@
 /**
- * 签名板组件 — 终极鲁棒坐标系统 v3
+ * 签名板组件 — 鲁棒坐标系统 v4
  *
  * ┌─────────────────────────────────────────────────────────────────┐
- * │ ★ 核心原理：使用 Canvas 2D 原生 touch.x / touch.y             │
+ * │ ★ 核心原理：clientX/Y - canvasRect（canvasRect 仅测量一次）    │
  * │                                                                  │
- * │ 为什么 touch.x 比 clientX - boundingClientRect 更鲁棒？        │
- * │   touch.x 是手指相对 Canvas 元素自身左上角的距离（W3C 标准），  │
- * │   与页面滚动位置、视口偏移、弹窗定位完全无关。                   │
- * │   — 无论页面怎么滚、弹窗怎么弹，touch.x 始终精确反映手指在     │
- * │     Canvas 上的位置。                                            │
+ * │ 坐标系：                                                        │
+ * │   1. touch.clientX/clientY — W3C 标准，微信保证始终是 CSS 像素  │
+ * │   2. canvasRect (boundingClientRect) — 视口相对坐标，           │
+ * │      仅在组件初始化时测量一次，存入 _canvasRect                  │
+ * │   3. clientX - _canvasRect.left = canvas 内 CSS 像素位置        │
+ * │   4. ctx.scale(dpr, dpr) 后 moveTo/lineTo 正好接受 CSS 像素     │
  * │                                                                  │
- * │ 为什么废弃 clientX - rect.left？                                 │
- * │   boundingClientRect 在微信中可能受页面滚动影响，               │
- * │   返回 page-relative 坐标而非 viewport-relative 坐标。          │
- * │   → 页面滚动后 clientX - rect.left 偏移整个滚动量。             │
+ * │ ★ 为什么不再每次 touchStart 重新测量 canvasRect？               │
+ * │   canvas 在 position:fixed 弹窗内，其视口位置永不改变。         │
+ * │   重新测量 boundingClientRect 可能在页面有滚动时返回            │
+ * │   page-relative 坐标（微信 bug），导致 clientX - rect.left      │
+ * │   偏移整个滚动量，造成笔迹错位。                                 │
+ * │   → 一次测量，永久复用，彻底免疫页面滚动。                      │
  * │                                                                  │
- * │ touch.x 单位检测（一次性，首次触摸时完成）：                     │
- * │   大部分设备 touch.x 是 CSS 像素，少数旧设备是物理像素。        │
- * │   策略 1: touchX 超出 CSS 宽度 → 必为物理像素                   │
- * │   策略 2: 用 clientX 与 canvasRect 交叉验证，看哪个更匹配       │
- * │   一旦判定，整个会话期间不再改变。                               │
- * │                                                                  │
- * │ 坐标系全程 CSS 像素：                                            │
- * │   ctx.scale(dpr, dpr) 后，moveTo/lineTo 参数为 CSS 像素。      │
- * │   touch.x(CSS) → 直接使用；touch.x(物理) → ÷ dpr 转 CSS。     │
+ * │ ★ 为什么不用 touch.x / touch.y？                                │
+ * │   不同微信版本/设备上，touch.x 可能返回 CSS 像素或物理像素，    │
+ * │   且在不超出 canvas CSS 宽度时无法可靠区分。                    │
+ * │   clientX/clientY 是唯一保证始终为 CSS 像素的坐标源。          │
  * └─────────────────────────────────────────────────────────────────┘
  */
 
@@ -61,8 +59,6 @@ Component({
       this._canvasRect = null;
       this._drawing = false;
       this._exporting = false;
-      this._touchUnitValidated = undefined;
-      this._touchIsPhysical = undefined;
       this._cssWidth = undefined;
       this._cssHeight = undefined;
       this._dpr = undefined;
@@ -84,8 +80,6 @@ Component({
         this._canvas = null;
         this._ctx = null;
         this._canvasRect = null;
-        this._touchUnitValidated = undefined;
-        this._touchIsPhysical = undefined;
       }
 
       var query = wx.createSelectorQuery().in(this);
@@ -116,7 +110,6 @@ Component({
           var ctx = canvas.getContext('2d');
           var dpr = wx.getSystemInfoSync().pixelRatio || 1;
 
-          // ★ 缓存关键参数
           that._cssWidth = cssW;
           that._cssHeight = cssH;
           that._dpr = dpr;
@@ -131,7 +124,7 @@ Component({
           that._ctx = ctx;
           ctx.clearRect(0, 0, cssW, cssH);
 
-          // ★ 仅测量一次 canvas 位置（用于单位检测交叉验证 + buffer 自动修正）
+          // ★ 一次性测量 canvas 视口位置，后续永不更新
           that._measureCanvasRectOnce(function () {
             that.setData({ canvasReady: true });
             if (that.properties.initialImage) {
@@ -142,9 +135,11 @@ Component({
     },
 
     /**
-     * 一次性测量 canvas 在视口中的位置。
-     * canvas 在 position:fixed 弹窗内，其 viewport 位置理论上永不改变。
-     * 此方法仅在初始化时调用一次，后续不再查询 boundingClientRect。
+     * 一次性测量 canvas 在视口中的位置 + buffer/display 自动修正。
+     *
+     * ★ canvas 在 position:fixed 弹窗内，其 viewport 位置永不改变。
+     *   此方法仅在初始化时调用一次，_canvasRect 后续不再更新。
+     *   这彻底避免了页面滚动后 boundingClientRect 返回错误值的问题。
      */
     _measureCanvasRectOnce(callback) {
       var that = this;
@@ -158,11 +153,10 @@ Component({
               width: rect.width,
               height: rect.height
             };
-            // 同步 CSS 尺寸
             that._cssWidth = rect.width;
             that._cssHeight = rect.height;
 
-            // ★ 安全网：buffer 与 CSS 显示尺寸不匹配 → 自动修正
+            // ★ 安全网：buffer 尺寸与 CSS 显示尺寸不匹配 → 自动修正
             if (that._canvas && that._dpr && !that.data.hasContent) {
               var expectedW = Math.round(rect.width * that._dpr);
               var expectedH = Math.round(rect.height * that._dpr);
@@ -201,73 +195,33 @@ Component({
     },
 
     // ═══════════════════════════════════════════════════════════════
-    // 坐标核心：Canvas 2D 原生 touch.x/y → CSS 像素
+    // 坐标转换
     // ═══════════════════════════════════════════════════════════════
 
     /**
-     * 将 Canvas 2D 原生 touch.x / touch.y 转换为 canvas 内 CSS 像素坐标。
+     * 将 touch.clientX/clientY 转换为 canvas 内 CSS 像素坐标。
      *
-     * ★ touch.x / touch.y 是 W3C 标准属性：手指相对于 Canvas 元素
-     *   自身左上角的距离。与页面滚动、视口偏移完全无关。
+     * 为什么这个方法是可靠的：
+     *   clientX/Y — W3C 标准 CSS 像素、视口相对坐标（微信保证）
+     *   _canvasRect — 初始化时一次性测量（position:fixed 弹窗内，永不改变）
+     *   两者在同一坐标系（视口 CSS 像素），直接相减得到精确的 canvas 内位置。
      *
-     * Unit detection（首次 touchStart 时一次性完成）：
-     *   策略 1: touchX 超出 CSS 宽度 → 必为物理像素 (touchX in [0, cssW*dpr])
-     *   策略 2: clientX 与 canvasRect 交叉验证，看 touchX 还是 touchX/dpr
-     *           更接近 clientX - canvasRect.left
-     *
-     * @param {number} touchX — e.touches[0].x (Canvas 2D 原生)
-     * @param {number} touchY — e.touches[0].y
-     * @param {number} [clientX] — e.touches[0].clientX (仅首次 touchStart 用于交叉验证)
-     * @param {number} [clientY] — e.touches[0].clientY
+     * @param {number} clientX — touch.clientX
+     * @param {number} clientY — touch.clientY
      * @returns {{x: number, y: number}|null}
      */
-    _touchToCanvas(touchX, touchY, clientX, clientY) {
-      if (touchX == null || touchY == null) return null;
-
-      var w = this._cssWidth || 300;
-      var h = this._cssHeight || 180;
-      var dpr = this._dpr || 1;
-
-      // ——— 一次性单位检测（仅在首次 touchStart 时执行）———
-      if (this._touchUnitValidated === undefined) {
-        // 策略 1: touchX 超出 CSS 宽度 → 必为物理像素
-        if (dpr > 1 && touchX > w * 1.05) {
-          this._touchIsPhysical = true;
-          this._touchUnitValidated = true;
-          console.log('[sigPad] Unit detected (overflow): physical, dpr=' + dpr);
-        }
-        // 策略 2: clientX 交叉验证
-        else if (this._canvasRect && clientX != null) {
-          var refX = clientX - this._canvasRect.left;
-          if (refX >= 0 && refX <= w) {
-            var diffDirect = Math.abs(touchX - refX);
-            var diffDivided = dpr > 1 ? Math.abs(touchX / dpr - refX) : Infinity;
-            if (diffDivided < diffDirect * 0.5) {
-              this._touchIsPhysical = true;
-              console.log('[sigPad] Unit detected (cross-ref): physical, dpr=' + dpr);
-            } else {
-              this._touchIsPhysical = false;
-              console.log('[sigPad] Unit detected (cross-ref): CSS');
-            }
-            this._touchUnitValidated = true;
-          }
-        }
+    _clientToCanvas(clientX, clientY) {
+      var rect = this._canvasRect;
+      if (!rect || rect.width <= 0 || rect.height <= 0) {
+        return null;
       }
 
-      // ——— 转换为 CSS 像素 ———
-      var cssX, cssY;
-      if (this._touchIsPhysical && dpr > 1) {
-        cssX = touchX / dpr;
-        cssY = touchY / dpr;
-      } else {
-        cssX = touchX;
-        cssY = touchY;
-      }
+      var rawX = clientX - rect.left;
+      var rawY = clientY - rect.top;
 
-      // ——— 裁剪到 canvas 区域内 ———
       return {
-        x: Math.max(0, Math.min(w, cssX)),
-        y: Math.max(0, Math.min(h, cssY))
+        x: Math.max(0, Math.min(rect.width, rawX)),
+        y: Math.max(0, Math.min(rect.height, rawY))
       };
     },
 
@@ -283,9 +237,7 @@ Component({
       var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!t) return null;
       return {
-        x: t.x,             // Canvas 2D 原生：相对 canvas 左上角
-        y: t.y,             // Canvas 2D 原生：相对 canvas 左上角
-        clientX: t.clientX, // 视口绝对坐标（仅用于首次交叉验证）
+        clientX: t.clientX,
         clientY: t.clientY
       };
     },
@@ -293,13 +245,11 @@ Component({
     onTouchStart(e) {
       if (!this._ctx) return;
 
-      // ★ 同步捕获
       var cap = this._captureTouch(e);
       if (!cap) return;
 
-      // ★ 使用 Canvas 原生 touch.x/y — 全同步，不查 boundingClientRect
-      //    clientX/Y 仅传入用于首次单位交叉验证
-      var pt = this._touchToCanvas(cap.x, cap.y, cap.clientX, cap.clientY);
+      // ★ 全同步：不查 boundingClientRect，直接用缓存的 _canvasRect
+      var pt = this._clientToCanvas(cap.clientX, cap.clientY);
       if (!pt) return;
 
       this._drawing = true;
@@ -317,8 +267,7 @@ Component({
       var cap = this._captureTouch(e);
       if (!cap) return;
 
-      // unit 已在上次 touchStart 完成验证，此处跳过 clientX/Y
-      var pt = this._touchToCanvas(cap.x, cap.y);
+      var pt = this._clientToCanvas(cap.clientX, cap.clientY);
       if (!pt) return;
 
       this._ctx.lineTo(pt.x, pt.y);
