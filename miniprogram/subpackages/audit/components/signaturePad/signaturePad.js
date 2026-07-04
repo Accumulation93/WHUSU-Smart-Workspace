@@ -1,13 +1,17 @@
 /**
- * 签名板组件 — 极简坐标系统 v7
+ * 签名板组件 — 缓冲/显示精确对齐 v8
  *
- * 核心：clientX/Y - canvasRect（唯一坐标源，纯 CSS 像素，零歧义）
+ * 核心问题：buffer 尺寸与 CSS 显示尺寸必须完全匹配。
+ *   canvas.width  = cssWidth  * dpr（必须严格相等）
+ *   canvas.height = cssHeight * dpr（必须严格相等）
+ *   任何偏差都会被浏览器缩放，导致笔迹偏离手指。
  *
- * canvasRect 测量策略：
- *   首次 touchStart 时通过 boundingClientRect 测量，之后永久缓存。
- *   首次触摸时布局已完全稳定，测量值最可靠。
- *   缓存的 canvasRect 不受后续页面滚动影响（canvas 在 fixed 弹窗内位置不变）。
+ * 解决方案：双源验证。
+ *   fields({size:true}) 和 boundingClientRect 可能在不同设备返回不同值。
+ *   初始化时两个都测，以 boundingClientRect 为准修正 buffer。
+ *   touchStart 时再次验证，确保万无一失。
  */
+
 Component({
   properties: {
     initialImage: { type: String, value: '' },
@@ -20,10 +24,13 @@ Component({
     detached() {
       this._canvas = null; this._ctx = null; this._canvasRect = null;
       this._drawing = false; this._exporting = false;
-      this._cssWidth = undefined; this._cssHeight = undefined; this._dpr = undefined;
     }
   },
   methods: {
+
+    // ═══════════════════════════════════════════════════════════════
+    // 初始化：双源测量，确保 buffer = display * dpr
+    // ═══════════════════════════════════════════════════════════════
 
     _initCanvas(retryCount) {
       var MAX_RETRIES = 8, that = this;
@@ -40,67 +47,137 @@ Component({
             }
             return;
           }
-          var cssW = res[0].width, cssH = res[0].height;
-          if ((!cssW || cssW <= 0 || !cssH || cssH <= 0) && retryCount < MAX_RETRIES) {
+
+          var fieldsW = res[0].width;
+          var fieldsH = res[0].height;
+
+          if ((!fieldsW || fieldsW <= 0 || !fieldsH || fieldsH <= 0) && retryCount < MAX_RETRIES) {
             setTimeout(function () { that._initCanvas(retryCount + 1); }, 60);
             return;
           }
 
-          var canvas = res[0].node, ctx = canvas.getContext('2d');
+          var canvas = res[0].node;
+          var ctx = canvas.getContext('2d');
           var dpr = wx.getSystemInfoSync().pixelRatio || 1;
-          that._cssWidth = cssW; that._cssHeight = cssH; that._dpr = dpr;
 
-          canvas.width = Math.round(cssW * dpr);
-          canvas.height = Math.round(cssH * dpr);
-          ctx.scale(dpr, dpr);
-          that._canvas = canvas; that._ctx = ctx;
-          ctx.clearRect(0, 0, cssW, cssH);
+          // ★ 同时用 boundingClientRect 测量真实 CSS 显示尺寸
+          wx.createSelectorQuery().in(that).select('#sigCanvas')
+            .boundingClientRect(function (rect) {
+              // 以 boundingClientRect 为准（真实的 CSS 布局尺寸）
+              var cssW, cssH;
+              if (rect && rect.width > 0 && rect.height > 0) {
+                cssW = rect.width;
+                cssH = rect.height;
+                console.log('[sigPad] init size: fields=' + fieldsW + 'x' + fieldsH +
+                  ' rect=' + cssW + 'x' + cssH + ' dpr=' + dpr);
+              } else {
+                // boundingClientRect 不可用，回退到 fields
+                cssW = fieldsW;
+                cssH = fieldsH;
+                console.log('[sigPad] init size: fields only ' + cssW + 'x' + cssH + ' dpr=' + dpr);
+              }
 
-          that.setData({ canvasReady: true });
-          if (that.properties.initialImage) { that._loadInitialImage(cssW, cssH); }
+              that._cssWidth = cssW;
+              that._cssHeight = cssH;
+              that._dpr = dpr;
+
+              // ★ 严格对齐 buffer = display * dpr
+              var bufferW = Math.round(cssW * dpr);
+              var bufferH = Math.round(cssH * dpr);
+              canvas.width = bufferW;
+              canvas.height = bufferH;
+              ctx.scale(dpr, dpr);
+
+              that._canvas = canvas;
+              that._ctx = ctx;
+              ctx.clearRect(0, 0, cssW, cssH);
+
+              // 保存 canvasRect（可能含滚动偏移的 left/top，但宽高是准确的）
+              if (rect && rect.width > 0) {
+                that._canvasRect = {
+                  left: rect.left || 0,
+                  top: rect.top || 0,
+                  width: rect.width,
+                  height: rect.height
+                };
+              }
+
+              that.setData({ canvasReady: true });
+              if (that.properties.initialImage) {
+                that._loadInitialImage(cssW, cssH);
+              }
+            }).exec();
         });
     },
 
     _loadInitialImage(width, height) {
       if (!this._canvas) return;
       var img = this._canvas.createImage(), that = this;
-      img.onload = function () { that._ctx.drawImage(img, 0, 0, width, height); that.setData({ hasContent: true }); };
+      img.onload = function () {
+        that._ctx.drawImage(img, 0, 0, width, height);
+        that.setData({ hasContent: true });
+      };
       img.onerror = function () { console.error('[sigPad] Failed to load initial image'); };
       img.src = this.properties.initialImage;
     },
 
-    // 首次触摸时测量 canvasRect，之后永久缓存
-    _ensureCanvasRect(cb) {
+    // ═══════════════════════════════════════════════════════════════
+    // 首次触摸时二次验证 canvasRect + 自动修正
+    // ═══════════════════════════════════════════════════════════════
+
+    _verifyCanvasRect(cb) {
       var that = this;
-      if (this._canvasRect) { if (cb) cb(); return; }
 
       wx.createSelectorQuery().in(this).select('#sigCanvas')
         .boundingClientRect(function (rect) {
           if (rect && rect.width > 0 && rect.height > 0) {
-            that._canvasRect = { left: rect.left || 0, top: rect.top || 0, width: rect.width, height: rect.height };
-            that._cssWidth = rect.width; that._cssHeight = rect.height;
+            // 更新 left/top（首次触摸时布局绝对稳定，最准确）
+            that._canvasRect = {
+              left: rect.left || 0,
+              top: rect.top || 0,
+              width: rect.width,
+              height: rect.height
+            };
+            that._cssWidth = rect.width;
+            that._cssHeight = rect.height;
 
-            // buffer 自动修正
+            // ★ 二次验证 buffer/display 对齐
             if (that._canvas && that._dpr && !that.data.hasContent) {
-              var ew = Math.round(rect.width * that._dpr), eh = Math.round(rect.height * that._dpr);
+              var ew = Math.round(rect.width * that._dpr);
+              var eh = Math.round(rect.height * that._dpr);
               if (that._canvas.width !== ew || that._canvas.height !== eh) {
-                that._canvas.width = ew; that._canvas.height = eh;
+                console.warn('[sigPad] touch-time buffer correction:',
+                  ' buffer=' + that._canvas.width + 'x' + that._canvas.height,
+                  ' → expected=' + ew + 'x' + eh);
+                that._canvas.width = ew;
+                that._canvas.height = eh;
                 that._ctx.setTransform(that._dpr, 0, 0, that._dpr, 0, 0);
               }
             }
-            console.log('[sigPad] canvasRect: left=' + rect.left + ' top=' + rect.top +
-              ' w=' + rect.width + ' h=' + rect.height + ' dpr=' + that._dpr);
+
+            console.log('[sigPad] touch-time rect: left=' + rect.left + ' top=' + rect.top +
+              ' w=' + rect.width + ' h=' + rect.height);
           }
           if (cb) cb();
         }).exec();
     },
 
-    // 唯一坐标转换：clientX/Y - canvasRect（纯 CSS 像素）
-    _clientToCanvas(clientX, clientY) {
+    // ═══════════════════════════════════════════════════════════════
+    // 坐标转换：clientX/Y - canvasRect
+    // ═══════════════════════════════════════════════════════════════
+
+    _toCanvas(clientX, clientY) {
       var r = this._canvasRect;
       if (!r || r.width <= 0) return null;
-      return { x: Math.max(0, Math.min(r.width, clientX - r.left)), y: Math.max(0, Math.min(r.height, clientY - r.top)) };
+      return {
+        x: Math.max(0, Math.min(r.width, clientX - r.left)),
+        y: Math.max(0, Math.min(r.height, clientY - r.top))
+      };
     },
+
+    // ═══════════════════════════════════════════════════════════════
+    // Touch 事件
+    // ═══════════════════════════════════════════════════════════════
 
     onTouchStart(e) {
       if (!this._ctx) return;
@@ -108,10 +185,13 @@ Component({
       if (!t) return;
       var cx = t.clientX, cy = t.clientY, that = this;
 
-      this._ensureCanvasRect(function () {
-        var pt = that._clientToCanvas(cx, cy);
+      // ★ 首次触摸时二次验证 canvasRect（此时布局绝对稳定）
+      this._verifyCanvasRect(function () {
+        var pt = that._toCanvas(cx, cy);
         if (!pt) return;
-        console.log('[sigPad] touchStart: client=(' + cx + ',' + cy + ') → canvas=(' + pt.x.toFixed(1) + ',' + pt.y.toFixed(1) + ')');
+        console.log('[sigPad] touchStart: client=(' + cx + ',' + cy +
+          ') rect=(' + that._canvasRect.left + ',' + that._canvasRect.top +
+          ') → canvas=(' + pt.x.toFixed(1) + ',' + pt.y.toFixed(1) + ')');
         that._drawing = true;
         that._ctx.beginPath(); that._ctx.moveTo(pt.x, pt.y);
         that._ctx.strokeStyle = that.properties.penColor;
@@ -124,7 +204,7 @@ Component({
       if (!this._drawing || !this._ctx) return;
       var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!t) return;
-      var pt = this._clientToCanvas(t.clientX, t.clientY);
+      var pt = this._toCanvas(t.clientX, t.clientY);
       if (!pt) return;
       this._ctx.lineTo(pt.x, pt.y); this._ctx.stroke();
       this._ctx.beginPath(); this._ctx.moveTo(pt.x, pt.y);
@@ -132,6 +212,10 @@ Component({
     },
 
     onTouchEnd() { this._drawing = false; },
+
+    // ═══════════════════════════════════════════════════════════════
+    // 公开方法
+    // ═══════════════════════════════════════════════════════════════
 
     onClear() {
       if (!this._ctx) return;
