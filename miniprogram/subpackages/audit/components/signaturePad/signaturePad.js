@@ -200,8 +200,17 @@ Component({
       if (!t) return;
       var cx = t.clientX, cy = t.clientY, that = this;
 
+      // ★ 确保 transform 生效（setData 可能重置 Canvas 上下文，丢失 scale）
+      if (this._dpr) {
+        this._ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+      }
+
       // ★ 首次触摸时二次验证 canvasRect（此时布局绝对稳定）
       this._verifyCanvasRect(function () {
+        // 再次确保（verify 里可能改了 canvas 尺寸重置上下文）
+        if (that._dpr) {
+          that._ctx.setTransform(that._dpr, 0, 0, that._dpr, 0, 0);
+        }
         var pt = that._toCanvas(cx, cy);
         if (!pt) return;
         console.log('[sigPad] touchStart: client=(' + cx + ',' + cy +
@@ -219,6 +228,10 @@ Component({
       if (!this._drawing || !this._ctx) return;
       var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!t) return;
+      // ★ 确保 transform 有效（防御 setData 重置上下文）
+      if (this._dpr) {
+        this._ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+      }
       var pt = this._toCanvas(t.clientX, t.clientY);
       if (!pt) return;
       this._ctx.lineTo(pt.x, pt.y); this._ctx.stroke();
@@ -234,6 +247,9 @@ Component({
 
     onClear() {
       if (!this._ctx) return;
+      if (this._dpr) {
+        this._ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+      }
       this._ctx.clearRect(0, 0, this._cssWidth || 300, this._cssHeight || 180);
       this.setData({ hasContent: false });
     },
