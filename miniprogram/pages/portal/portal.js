@@ -1,4 +1,4 @@
-const { callFunction } = require('../../utils/api');
+const { callFunction, formatAuditTime } = require('../../utils/api');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
@@ -45,12 +45,19 @@ Page({
     activeRole: '',
     organizationName: '',
     showUnbindDialog: false,
-    unbindLoading: false
+    unbindLoading: false,
+    notificationCount: 0,
+    notifications: [],
+    notificationLoading: false
   },
 
   onShow() {
     this.refreshCurrentUser();
     this.loadOrganizationName();
+    if (this.data.hasUser) {
+      this.loadNotificationCount();
+      this.loadRecentNotifications();
+    }
   },
 
   refreshCurrentUser() {
@@ -112,6 +119,44 @@ Page({
       return;
     }
     wx.navigateTo({ url: card.url });
+  },
+
+  // ── Notification methods ──
+  async loadNotificationCount() {
+    try {
+      const res = await callFunction({ name: 'getNotificationUnreadCount', data: {} });
+      if (res.status === 'success') {
+        this.setData({ notificationCount: res.count || 0 });
+      }
+    } catch (e) {
+      console.error('[portal] loadNotificationCount failed:', e);
+    }
+  },
+
+  async loadRecentNotifications() {
+    this.setData({ notificationLoading: true });
+    try {
+      const res = await callFunction({ name: 'listNotifications', data: { limit: 5, offset: 0 } });
+      if (res.status === 'success') {
+        const items = (res.items || []).map(function(item) {
+          return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt) });
+        });
+        this.setData({ notifications: items });
+      }
+    } catch (e) {
+      console.error('[portal] loadRecentNotifications failed:', e);
+    } finally {
+      this.setData({ notificationLoading: false });
+    }
+  },
+
+  onNotificationTap(e) {
+    var dataset = e.currentTarget.dataset;
+    var url = dataset.url;
+    var id = dataset.id;
+    if (!url) return;
+    var sep = url.indexOf('?') === -1 ? '?' : '&';
+    wx.navigateTo({ url: url + sep + 'from=notification&notificationId=' + id });
   },
 
   goLogin() {

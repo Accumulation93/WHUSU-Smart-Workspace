@@ -27,6 +27,7 @@ const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
+const { createSubmissionStatusNotification, createPendingApprovalNotifications } = require('../utils/notificationHelper');
 
 /**
  * Helper: check if a value exists in a comma-separated list.
@@ -434,6 +435,8 @@ router.post('/startAuditSubmission', async (req, res) => {
     }, conn);
 
     await conn.commit();
+    // Notify first-step approvers (fire-and-forget)
+    createPendingApprovalNotifications(submissionId, 1).catch(e => console.error('[audit:startAuditSubmission] notification failed:', e.message));
     res.json({
       status: 'success',
       id: submissionId,
@@ -556,6 +559,8 @@ router.post('/startAdHocAudit', async (req, res) => {
     }, conn);
 
     await conn.commit();
+    // Notify first-step approvers (fire-and-forget)
+    createPendingApprovalNotifications(submissionId, 1).catch(e => console.error('[audit:startAdHocAudit] notification failed:', e.message));
     res.json({ status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' });
   } catch (e) {
     await conn.rollback();
@@ -1415,6 +1420,19 @@ router.post('/approveStep', async (req, res) => {
     }, conn);
 
     await conn.commit();
+    // ★ Notifications (fire-and-forget)
+    if (!nextStep) {
+      // Final step approved → notify submitter
+      createSubmissionStatusNotification(submission, submission.submitted_by, {
+        type: 'submission_approved',
+        title: '工单审批通过',
+        description: '您提交的「' + (submission.title || submission.submission_number) + '」已审批通过',
+        targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
+      }).catch(e => console.error('[audit:approveStep] notification(approved) failed:', e.message));
+    } else {
+      // Advanced to next step → notify next-step approvers
+      createPendingApprovalNotifications(submissionId, nextStep.sort_order).catch(e => console.error('[audit:approveStep] notification(pending) failed:', e.message));
+    }
     res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
   } catch (e) {
     await conn.rollback();
@@ -1501,6 +1519,13 @@ router.post('/rejectStep', async (req, res) => {
     }, conn);
 
     await conn.commit();
+    // Notify submitter of rejection (fire-and-forget)
+    createSubmissionStatusNotification(submission, submission.submitted_by, {
+      type: 'submission_rejected',
+      title: '工单被驳回',
+      description: '您提交的「' + (submission.title || submission.submission_number) + '」已被驳回',
+      targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
+    }).catch(e => console.error('[audit:rejectStep] notification failed:', e.message));
     res.json({ status: 'success', message: '已驳回，提交人将收到通知' });
   } catch (e) {
     await conn.rollback();
@@ -1763,6 +1788,8 @@ router.post('/resubmitAudit', async (req, res) => {
       }, conn);
 
       await conn.commit();
+      // Notify first-step approvers (fire-and-forget)
+      createPendingApprovalNotifications(submissionId, 1).catch(e => console.error('[audit:resubmitAudit:branchA] notification failed:', e.message));
       return res.json({
         status: 'success',
         message: '审核已提交，审批流程已启动'
@@ -1855,6 +1882,8 @@ router.post('/resubmitAudit', async (req, res) => {
     }, conn);
 
     await conn.commit();
+    // Notify approvers at the start step (fire-and-forget)
+    createPendingApprovalNotifications(submissionId, startStepIndex).catch(e => console.error('[audit:resubmitAudit:branchB] notification failed:', e.message));
     res.json({
       status: 'success',
       message: isWithdrawn
@@ -2243,34 +2272,8 @@ router.post('/getUnreadCounts', async (req, res) => {
     console.error('[getUnreadCounts] mySubmissionsUnread failed:', e.message);
   }
 
-  // ── My approval history unread count (from audit_events for accurate operator matching) ──
-  try {
-    const [myApprovedRows] = await pool.query(
-      `SELECT DISTINCT s.id, s.status, s.current_step_index
-       FROM audit_submissions s
-       JOIN audit_events e ON s.id = e.submission_id
-       WHERE e.operator_hr_id = ? AND e.event_type IN ('approve', 'reject')
-       ORDER BY s.updated_at DESC LIMIT 200`,
-      [hrId]
-    );
-    if (myApprovedRows.length) {
-      const approvedIds = myApprovedRows.map(r => r.id);
-      const [cursors2] = await pool.query(
-        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
-        [hrId, approvedIds]
-      );
-      const cursorMap2 = {};
-      cursors2.forEach(c => { cursorMap2[c.submission_id] = c; });
-      for (const s of myApprovedRows) {
-        const c = cursorMap2[s.id];
-        if (!c || c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index) {
-          myApprovalHistoryUnread++;
-        }
-      }
-    }
-  } catch (e) {
-    console.error('[getUnreadCounts] myApprovalHistoryUnread failed:', e.message);
-  }
+  // myApprovalHistoryUnread is always 0 — approval history no longer uses read/unread
+  // (only mySubmissions retains read/unread functionality)
 
   res.json({ status: 'success', mySubmissionsUnread, myApprovalHistoryUnread, pendingCount });
 });
@@ -2309,26 +2312,9 @@ router.post('/markAllSubmissionsRead', async (req, res) => {
     const hrId = await resolveHrId(openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
-    // Mark all "my submissions" as read
+    // Only mark "my submissions" as read — approval history no longer uses read/unread
     const mySubs = await submissionModel.getAll({ submittedBy: hrId, limit: 500 });
     for (const s of mySubs) {
-      await pool.query(
-        `INSERT INTO audit_read_cursors (hr_id, submission_id, last_read_status, last_read_step_index, read_at)
-         VALUES (?, ?, ?, ?, NOW())
-         ON DUPLICATE KEY UPDATE last_read_status = VALUES(last_read_status), last_read_step_index = VALUES(last_read_step_index), read_at = NOW()`,
-        [hrId, s.id, s.status, s.current_step_index]
-      );
-    }
-
-    // Also mark approval history as read (from audit_events for accurate operator matching)
-    const [approved] = await pool.query(
-      `SELECT DISTINCT s.id, s.status, s.current_step_index
-       FROM audit_submissions s
-       JOIN audit_events e ON s.id = e.submission_id
-       WHERE e.operator_hr_id = ? AND e.event_type IN ('approve', 'reject')`,
-      [hrId]
-    );
-    for (const s of approved) {
       await pool.query(
         `INSERT INTO audit_read_cursors (hr_id, submission_id, last_read_status, last_read_step_index, read_at)
          VALUES (?, ?, ?, ?, NOW())
@@ -2403,19 +2389,8 @@ router.post('/listMyApprovalHistory', async (req, res) => {
       hrRows.forEach(hr => { hrMap[hr.id] = safeString(hr.name); });
     }
 
-    // Get read cursors
-    let cursorMap = {};
-    if (submissionIds.length) {
-      const [cursors] = await pool.query(
-        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
-        [hrId, submissionIds]
-      );
-      cursors.forEach(c => { cursorMap[c.submission_id] = c; });
-    }
-
+    // Note: isUnread intentionally omitted — approval history no longer uses read/unread
     const result = rows.map(s => {
-      const c = cursorMap[s.id];
-      const isUnread = !c || c.last_read_status !== s.status || c.last_read_step_index !== s.current_step_index;
       return {
         id: safeString(s.id),
         submissionNumber: safeString(s.submission_number),
@@ -2429,8 +2404,7 @@ router.post('/listMyApprovalHistory', async (req, res) => {
         createdAt: s.created_at,
         updatedAt: s.updated_at,
         mySteps: myStepsMap[s.id] || [],
-        myLastActionAt: s.my_last_action_at,
-        isUnread
+        myLastActionAt: s.my_last_action_at
       };
     });
 

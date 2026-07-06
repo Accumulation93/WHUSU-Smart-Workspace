@@ -66,6 +66,35 @@
     </view>
   </view>
 
+  <!-- ═══ Notification Card ═══ -->
+  <view class="card" wx:if="{{hasUser}}">
+    <view class="info-head">
+      <view class="section-title">待办通知</view>
+      <view class="notification-badge" wx:if="{{notificationCount > 0}}">{{notificationCount > 99 ? '99+' : notificationCount}}</view>
+    </view>
+    <view class="notification-list">
+      <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading}}">
+        <text class="notification-empty-text">暂无待办通知</text>
+      </view>
+      <view class="notification-item" wx:for="{{notifications}}" wx:key="id"
+            data-url="{{item.targetUrl}}" data-id="{{item.id}}" bindtap="onNotificationTap">
+        <view class="notification-icon">
+          <text wx:if="{{item.type === 'pending_approval'}}">⏳</text>
+          <text wx:elif="{{item.type === 'submission_approved'}}">✅</text>
+          <text wx:elif="{{item.type === 'submission_rejected'}}">❌</text>
+          <text wx:else>🔔</text>
+        </view>
+        <view class="notification-body">
+          <view class="notification-title">{{item.title}}</view>
+          <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
+          <view class="notification-time">{{item.createdAt}}</view>
+        </view>
+        <view class="notification-unread-dot" wx:if="{{!item.isRead}}"></view>
+        <text class="nav-row-arrow">›</text>
+      </view>
+    </view>
+  </view>
+
   <!-- ═══ Actions (same as home page) ═══ -->
   <view class="actions">
     <button class="secondary-btn" bindtap="goLogin">切换身份</button>

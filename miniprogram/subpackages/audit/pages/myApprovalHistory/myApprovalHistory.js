@@ -40,20 +40,4 @@ Page({
     wx.navigateTo({ url: `/subpackages/audit/pages/submissionDetail/submissionDetail?id=${id}` });
   },
 
-  async markAllRead() {
-    wx.showLoading({ title: '处理中...' });
-    try {
-      const res = await callFunction({ name: 'markAllSubmissionsRead', data: {} });
-      if (res.status === 'success') {
-        showShortToast('已全部设为已读', 'success');
-        this.loadData();
-      } else {
-        showShortToast(res.message || '操作失败');
-      }
-    } catch (e) {
-      showShortToast(getErrorText(e, '操作失败'));
-    } finally {
-      wx.hideLoading();
-    }
-  }
 });

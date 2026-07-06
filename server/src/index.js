@@ -146,6 +146,7 @@ app.use('/api', require('./modules/audit/routes/auditAdmin'));
 app.use('/api', require('./modules/audit/routes/auditUser'));
 app.use('/api', require('./modules/audit/routes/auditSignature'));
 app.use('/api', require('./modules/audit/routes/auditFile'));
+app.use('/api', require('./modules/audit/routes/notification'));
 
 // ---------- Venue Booking ----------
 app.use('/api', require('./modules/venue/routes/venueAdmin'));
