@@ -517,7 +517,15 @@ Page({
       }
     }
 
-    this.setData({ bookingTimeStart: timeStr, timeStartInput: timeStr });
+    var w0 = this.data._timelineWidth;
+    var smin0 = parseInt(timeStr.split(':')[1]) || 0;
+    var sh0 = parseInt(timeStr.split(':')[0]) || 0;
+    var upd0 = {
+      bookingTimeStart: timeStr, timeStartInput: timeStr,
+      _startHourVal: sh0, startMinIdx: MINUTE_OPTS.indexOf(smin0 - (smin0 % 10))
+    };
+    if (w0) upd0.startHandleX = Math.round(startMin / TOTAL_MIN * w0);
+    this.setData(upd0);
 
     // Check if current end time is still valid
     var curEnd = this.data.bookingTimeEnd;
@@ -802,7 +810,9 @@ Page({
     }
     if (!inOpen) return false;
     for (var j = 0; j < m.blockedMerged.length; j++) {
-      if (min >= m.blockedMerged[j].start && min < m.blockedMerged[j].end) return false;
+      var bj = m.blockedMerged[j];
+      // blocked=[s,e): start (≥s,<e) blocked; end (>s,<e) blocked — allows end at blocked.start
+      if (min >= bj.start && min < bj.end) return false;
     }
     return true;
   },
@@ -821,34 +831,19 @@ Page({
 
     if (isStart) {
       var sm = rawMin;
-      // Snap to free open slot (skip blocked — only check on touchend)
       if (m) sm = this._snapToFree(sm, true, m);
       var st = minToTime(sm);
-      var upd = {
+      this.setData({
         startHandleX: Math.round(sm / TOTAL_MIN * w),
         bookingTimeStart: st, timeStartInput: st
-      };
-      // Auto-adjust end when it becomes invalid
-      if (m) {
-        var em = timeToMin(this.data.bookingTimeEnd);
-        if (em <= sm || !isEndStillValid(sm, em, m.openMerged, m.blockedMerged)) {
-          var ne = findSmartEnd(sm, m.openMerged, m.blockedMerged);
-          upd.bookingTimeEnd = minToTime(ne);
-          upd.timeEndInput = minToTime(ne);
-          upd.endHandleX = Math.round(ne / TOTAL_MIN * w);
-        }
-      }
-      this.setData(upd);
+      });
     } else {
       var curStart = timeToMin(this.data.bookingTimeStart);
       var es = rawMin;
-      if (es <= curStart) es = curStart + 1;
+      if (es <= curStart) es = curStart + SNAP;
       if (m) {
         es = this._snapToFree(es, false, m);
-        if (es <= curStart) es = curStart + 1;
-        if (!isEndStillValid(curStart, es, m.openMerged, m.blockedMerged)) {
-          es = findSmartEnd(curStart, m.openMerged, m.blockedMerged);
-        }
+        if (es <= curStart) es = curStart + SNAP;
       }
       var et = minToTime(es);
       this.setData({
@@ -869,21 +864,28 @@ Page({
 
     if (h === 'start') {
       if (!this._setStartTime(this.data.bookingTimeStart, {silent: true})) {
+        // Validation failed: restore pre-drag values
         this.setData({
           bookingTimeStart: ps || '', timeStartInput: ps || '',
           bookingTimeEnd: pe || '', timeEndInput: pe || ''
         });
+        this._updateChipState();
+        this._updateHandlePositions();
+        this._updateTimelineRange();
       }
+      // On success, _setStartTime already updated range/handles/chips
     } else {
       if (!this._setEndTime(this.data.bookingTimeEnd, {silent: true})) {
+        // Validation failed: restore pre-drag values
         this.setData({
           bookingTimeEnd: pe || '', timeEndInput: pe || ''
         });
+        this._updateChipState();
+        this._updateHandlePositions();
+        this._updateTimelineRange();
       }
+      // On success, _setEndTime already updated range/handles/chips
     }
-    this._updateChipState();
-    this._updateHandlePositions();
-    this._updateTimelineRange();
   },
 
   // ═══════════════════ Text input ═══════════════════
