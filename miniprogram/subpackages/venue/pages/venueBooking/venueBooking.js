@@ -359,25 +359,72 @@ Page({
     var startMin = presetTime ? timeToMin(presetTime) : findDefaultStartMin(dayData, dateStr);
     var startTime = startMin >= 0 ? minToTime(startMin) : '';
 
-    // Ensure _timelineWidth has a fallback value so handles get positions immediately
-    if (!this.data._timelineWidth) {
+    // Compute fallback timeline width (avoid deprecated getSystemInfoSync)
+    var fallbackW = this.data._timelineWidth;
+    if (!fallbackW) {
       try {
-        var sys = wx.getSystemInfoSync();
-        if (sys.windowWidth) this.setData({ _timelineWidth: sys.windowWidth - 64 });
-      } catch(e) {}
+        var winInfo = wx.getWindowInfo ? wx.getWindowInfo() : null;
+        fallbackW = (winInfo && winInfo.windowWidth) ? winInfo.windowWidth - 64 : 311;
+      } catch(e) { fallbackW = 311; }
     }
 
-    this.setData({
+    // Compute smart end + selection + chip state — all in one pass for a single setData
+    var setObj = {
       timelineBlocks: timeline,
       bookingTimeStart: startTime, timeStartInput: startTime,
-      startHours: openHours, _dayData: dayData
-    });
+      startHours: openHours, _dayData: dayData,
+      _timelineWidth: fallbackW
+    };
 
     if (startTime) {
-      this._autoSetEnd();
+      var sm = startMin;
+      var bm = buildBlockedIntervals(dayData);
+      var om = mergeIntervals(slotsToIntervals(dayData.openSlots || []));
+      var endMin = findSmartEnd(sm, om, bm);
+      if (endMin > sm) {
+        setObj.bookingTimeEnd = minToTime(endMin);
+        setObj.timeEndInput = minToTime(endMin);
+      }
+      // Handle positions
+      var w = fallbackW;
+      setObj.startHandleX = Math.round(sm / TOTAL_MIN * w);
+      var em2 = endMin > sm ? endMin : sm;
+      setObj.endHandleX = Math.round(em2 / TOTAL_MIN * w);
+      // Selection overlay
+      if (endMin > sm) {
+        var dur = endMin - sm;
+        var dh = Math.floor(dur / 60), dm = dur % 60;
+        setObj._durationText = dh > 0 ? (dh + '小时' + (dm > 0 ? dm + '分钟' : '')) : (dm + '分钟');
+        setObj._activeDuration = dur;
+        setObj.timelineSelection = {
+          left: (sm / TOTAL_MIN * 100).toFixed(2),
+          width: ((endMin - sm) / TOTAL_MIN * 100).toFixed(2)
+        };
+      }
+      // Chip highlights
+      var sh = parseInt(startTime.split(':')[0]) || 0;
+      var smin = parseInt(startTime.split(':')[1]) || 0;
+      setObj._startHourVal = sh;
+      setObj.startMinIdx = MINUTE_OPTS.indexOf(smin - (smin % 10));
+      if (setObj.bookingTimeEnd) {
+        var eh = parseInt(setObj.bookingTimeEnd.split(':')[0]) || 0;
+        var emin = parseInt(setObj.bookingTimeEnd.split(':')[1]) || 0;
+        setObj._endHourVal = eh;
+        setObj.endMinIdx = MINUTE_OPTS.indexOf(emin - (emin % 10));
+        setObj.endHours = [];
+        for (var i = 0; i < openHours.length; i++) {
+          if (openHours[i].value >= (sh >= 0 ? sh : 0))
+            setObj.endHours.push({ label: openHours[i].label, value: openHours[i].value });
+        }
+      } else {
+        setObj._endHourVal = -1;
+        setObj.endMinIdx = -1;
+      }
     }
-    this._updateChipState();
-    this._updateTimelineRange();
+
+    this.setData(setObj);
+
+    // Async accurate width measurement
     var self = this;
     wx.nextTick(function() { self._queryTimelineWidth(); });
   },
@@ -484,12 +531,12 @@ Page({
     }
 
     if (!kept) {
-      this._autoSetEnd();
+      this._autoSetEnd(); // already updates timeline/handles/chips in one setData
+    } else {
+      this._updateTimelineRange();
+      this._updateHandlePositions();
+      this._updateChipState();
     }
-
-    this._updateTimelineRange();
-    this._updateHandlePositions();
-    this._updateChipState();
     return true;
   },
 
@@ -536,10 +583,32 @@ Page({
       }
     }
 
-    this.setData({ bookingTimeEnd: timeStr, timeEndInput: timeStr });
-    this._updateTimelineRange();
-    this._updateHandlePositions();
-    this._updateChipState();
+    // Consolidate into one setData
+    var w = this.data._timelineWidth;
+    var dur2 = endMin - startMin;
+    var dh2 = Math.floor(dur2 / 60), dm2 = dur2 % 60;
+    var o2 = {
+      bookingTimeEnd: timeStr, timeEndInput: timeStr,
+      _durationText: dh2 > 0 ? (dh2 + '小时' + (dm2 > 0 ? dm2 + '分钟' : '')) : (dm2 + '分钟'),
+      _activeDuration: dur2,
+      timelineSelection: { left: (startMin / TOTAL_MIN * 100).toFixed(2), width: (dur2 / TOTAL_MIN * 100).toFixed(2) }
+    };
+    if (w) {
+      o2.endHandleX = Math.round(endMin / TOTAL_MIN * w);
+    }
+    // Chip state
+    var eh2 = parseInt(timeStr.split(':')[0]) || 0;
+    var em3 = parseInt(timeStr.split(':')[1]) || 0;
+    o2._endHourVal = eh2;
+    o2.endMinIdx = MINUTE_OPTS.indexOf(em3 - (em3 % 10));
+    var sh2 = parseInt(this.data.bookingTimeStart.split(':')[0]) || 0;
+    o2.endHours = [];
+    var shs = this.data.startHours;
+    for (var i2 = 0; i2 < shs.length; i2++) {
+      if (shs[i2].value >= (sh2 >= 0 ? sh2 : 0))
+        o2.endHours.push({ label: shs[i2].label, value: shs[i2].value });
+    }
+    this.setData(o2);
     return true;
   },
 
@@ -551,13 +620,34 @@ Page({
     var blockedMerged = buildBlockedIntervals(dayData);
     var openMerged = mergeIntervals(slotsToIntervals(dayData.openSlots || []));
     var endMin = findSmartEnd(startMin, openMerged, blockedMerged);
-    if (endMin > startMin) {
-      var endTime = minToTime(endMin);
-      this.setData({ bookingTimeEnd: endTime, timeEndInput: endTime });
-      this._updateTimelineRange();
-      this._updateHandlePositions();
-      this._updateChipState();
+    if (endMin <= startMin) return;
+    var endTime = minToTime(endMin);
+    var w = this.data._timelineWidth;
+    // Consolidate into one setData
+    var o = { bookingTimeEnd: endTime, timeEndInput: endTime };
+    if (w) {
+      o.endHandleX = Math.round(endMin / TOTAL_MIN * w);
+      o.startHandleX = Math.round(startMin / TOTAL_MIN * w);
     }
+    // Timeline selection
+    var dur = endMin - startMin;
+    var dh = Math.floor(dur / 60), dm = dur % 60;
+    o._durationText = dh > 0 ? (dh + '小时' + (dm > 0 ? dm + '分钟' : '')) : (dm + '分钟');
+    o._activeDuration = dur;
+    o.timelineSelection = { left: (startMin / TOTAL_MIN * 100).toFixed(2), width: (dur / TOTAL_MIN * 100).toFixed(2) };
+    // Chip highlights for end
+    var sh = parseInt(this.data.bookingTimeStart.split(':')[0]) || 0;
+    var eh = parseInt(endTime.split(':')[0]) || 0;
+    var emin = parseInt(endTime.split(':')[1]) || 0;
+    o._endHourVal = eh;
+    o.endMinIdx = MINUTE_OPTS.indexOf(emin - (emin % 10));
+    o.endHours = [];
+    var shours = this.data.startHours;
+    for (var i = 0; i < shours.length; i++) {
+      if (shours[i].value >= (sh >= 0 ? sh : 0))
+        o.endHours.push({ label: shours[i].label, value: shours[i].value });
+    }
+    this.setData(o);
   },
 
   // ═══════════════════ Timeline dimension & rendering ═══════════════════
@@ -574,8 +664,9 @@ Page({
       } else {
         // Fallback: use window width minus estimated padding
         try {
-          var sys = wx.getSystemInfoSync();
-          self.setData({ _timelineWidth: sys.windowWidth - 64 });
+          var wInfo = wx.getWindowInfo ? wx.getWindowInfo() : null;
+          var ww = wInfo ? wInfo.windowWidth : 375;
+          self.setData({ _timelineWidth: ww - 64 });
           self._updateHandlePositions();
         } catch(e) {}
       }
