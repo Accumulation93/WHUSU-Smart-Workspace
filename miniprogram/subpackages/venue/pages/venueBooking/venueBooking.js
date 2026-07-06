@@ -655,10 +655,12 @@ Page({
   // ═══════════════════ Drag handlers ═══════════════════
 
   onHandleTouchStart(e) {
-    this._dragHandle = e.currentTarget.dataset.handle;
-    var touch = e.touches[0];
-    this._dragStartClientX = touch.clientX;
-    this._dragStartPx = this._dragHandle === 'start' ? this.data.startHandleX : this.data.endHandleX;
+    var h = e.currentTarget.dataset.handle;
+    var t = e.touches[0];
+    console.log('[drag] touchstart handle=', h, 'clientX=', t && t.clientX, 'startHandleX=', this.data.startHandleX, 'endHandleX=', this.data.endHandleX, 'w=', this.data._timelineWidth);
+    this._dragHandle = h;
+    this._dragStartClientX = t.clientX;
+    this._dragStartPx = h === 'start' ? this.data.startHandleX : this.data.endHandleX;
     this._preDragStartTime = this.data.bookingTimeStart;
     this._preDragEndTime = this.data.bookingTimeEnd;
   },
@@ -705,15 +707,16 @@ Page({
   },
 
   onHandleTouchMove(e) {
-    if (!this._dragHandle || !this.data._timelineWidth) return;
+    console.log('[drag] touchmove handle=', this._dragHandle, 'w=', this.data._timelineWidth);
+    if (!this._dragHandle || !this.data._timelineWidth) { console.log('[drag] touchmove EARLY RETURN'); return; }
     var touch = e.touches[0];
     var dx = touch.clientX - this._dragStartClientX;
     var newPx = Math.max(0, Math.min(this.data._timelineWidth, this._dragStartPx + dx));
+    console.log('[drag] dx=', dx, 'newPx=', newPx, 'startPx=', this._dragStartPx);
 
-    // _snapPxToValid handles null m internally — handle always moves
     if (this._dragHandle === 'start') {
       var snappedMin = this._snapPxToValid(newPx, true);
-      var timeStr = minToTime(snappedMin);
+      console.log('[drag] start snappedMin=', snappedMin, 'time=', minToTime(snappedMin));
 
       // Check whether current end is still valid; only if we have interval data
       var m = this._getMergedIntervals();
