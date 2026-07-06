@@ -117,48 +117,114 @@
   background:rgba(239,246,255,0.72);
 }
 
-/* ═══ Time picker ═══ */
-.time-section { display:flex; flex-direction:column; gap:12rpx; }
-.time-picker-row { display:flex; gap:12rpx; align-items:center; }
-.time-val {
-  min-width:100rpx; height:68rpx; line-height:68rpx; text-align:center;
-  font-size:30rpx; font-weight:700; color:#1e293b;
-  background:linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(247,250,255,0.84) 100%);
-  border-radius:16rpx; border:1rpx solid rgba(203,213,225,0.68); padding:0 14rpx;
-}
-.time-sep { font-size:30rpx; color:#64748b; font-weight:500; }
+/* ═══ ★ Time slot grid (modern card-based) ★ ═══ */
+.time-section { display:flex; flex-direction:column; gap:10rpx; }
 
-/* 已选时间蓝色标签 + 值 */
-.time-result-wrap { display:flex; align-items:center; gap:8rpx; margin-left:4rpx; }
-.time-result-label {
-  font-size:20rpx; font-weight:600; color:#fff;
-  background:linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  padding:4rpx 12rpx; border-radius:999rpx; line-height:1.4;
+/* Selected time result row */
+.time-result-row {
+  display:flex; align-items:center; gap:10rpx;
+  padding:14rpx 20rpx; border-radius:18rpx;
+  background:linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(59,130,246,0.05) 100%);
+  border:1rpx solid rgba(37,99,235,0.18);
 }
-.time-result { font-size:28rpx; color:#2563eb; font-weight:700; min-width:100rpx; }
+.time-result-icon { font-size:22rpx; color:#2563eb; }
+.time-result-val { font-size:30rpx; font-weight:800; color:#2563eb; }
+.time-result-suffix { font-size:22rpx; color:#64748b; margin-left:auto; }
 
-/* ── 自定义时间输入 ── */
-.time-input-row { display:flex; align-items:center; gap:12rpx; }
-.time-input-hint { font-size:22rpx; color:#94a3b8; white-space:nowrap; flex-shrink:0; }
-.time-input {
-  flex:1; height:64rpx; padding:0 18rpx; border-radius:14rpx; font-size:26rpx; font-weight:600; color:#1e293b;
-  background:rgba(255,255,255,0.85); border:1rpx solid rgba(203,213,225,0.65);
+/* End time context */
+.end-context {
+  display:flex; align-items:center; gap:8rpx;
+  padding:8rpx 16rpx; font-size:22rpx;
+}
+.end-context-label { color:#94a3b8; }
+.end-context-time { color:#2563eb; font-weight:700; }
+.end-context-arrow { color:#94a3b8; margin:0 4rpx; }
+
+.end-result .time-result-icon { color:#059669; }
+.end-result .time-result-val { color:#059669; }
+.end-result { border-color:rgba(5,150,105,0.22); background:linear-gradient(135deg, rgba(5,150,105,0.06) 0%, rgba(16,185,129,0.04) 100%); }
+
+/* Scrollable grid container */
+.time-grid-scroll { max-height:420rpx; }
+
+/* Grid row: 4 cards per row */
+.time-grid-row {
+  display:flex; gap:10rpx; margin-bottom:10rpx;
+}
+
+/* Individual time slot card */
+.time-slot-card {
+  flex:1; min-width:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:14rpx 6rpx; border-radius:16rpx;
+  border:2rpx solid transparent;
+  transition:all 0.15s ease;
   box-sizing:border-box;
 }
+.time-slot-card:active { transform:scale(0.94); }
 
-/* ── 智能时间片建议 ── */
-.time-slots-hint { display:flex; align-items:center; gap:8rpx; }
-.slots-hint-label { font-size:20rpx; color:#94a3b8; white-space:nowrap; flex-shrink:0; }
-.slots-scroll { flex:1; white-space:nowrap; }
-.slot-chip {
-  display:inline-block; font-size:22rpx; padding:6rpx 16rpx; margin-right:8rpx; border-radius:999rpx; font-weight:600;
-  color:#475569; background:rgba(241,245,249,0.85); border:1rpx solid rgba(203,213,225,0.55);
+.slot-time { font-size:26rpx; font-weight:800; line-height:1.3; }
+.slot-label { font-size:18rpx; font-weight:600; line-height:1.3; margin-top:2rpx; }
+
+/* Status color variants */
+.slot-free {
+  background:rgba(209,250,229,0.55);
+  border-color:rgba(110,231,183,0.45);
 }
-.slot-chip-active {
-  color:#fff;
+.slot-free .slot-time { color:#065f46; }
+.slot-free .slot-label { color:#059669; }
+
+.slot-pending {
+  background:rgba(254,243,199,0.60);
+  border-color:rgba(252,211,77,0.50);
+}
+.slot-pending .slot-time { color:#92400e; }
+.slot-pending .slot-label { color:#b45309; }
+
+.slot-booked {
+  background:rgba(254,226,226,0.50);
+  border-color:rgba(252,165,165,0.40);
+}
+.slot-booked .slot-time { color:#991b1b; }
+.slot-booked .slot-label { color:#b91c1c; }
+
+.slot-activity {
+  background:rgba(237,233,254,0.50);
+  border-color:rgba(196,181,253,0.45);
+}
+.slot-activity .slot-time { color:#5b21b6; }
+.slot-activity .slot-label { color:#7c3aed; }
+
+/* Selected card */
+.slot-active {
+  transform:scale(1.02);
+  box-shadow:0 4rpx 16rpx rgba(37,99,235,0.22);
+}
+.slot-active.slot-free {
   background:linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  border-color:transparent;
-  box-shadow:0 4rpx 10rpx rgba(37,99,235,0.18);
+  border-color:#2563eb;
+}
+.slot-active.slot-free .slot-time,
+.slot-active.slot-free .slot-label { color:#fff; }
+
+.slot-active.slot-pending {
+  background:linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+  border-color:#d97706;
+}
+.slot-active.slot-pending .slot-time,
+.slot-active.slot-pending .slot-label { color:#fff; }
+
+/* Disabled / unselectable cards */
+.slot-disabled { opacity:0.40; }
+.slot-disabled:active { transform:none; }
+
+/* Keyboard input row */
+.time-input-row { display:flex; align-items:center; gap:12rpx; padding-top:4rpx; }
+.time-input-hint { font-size:20rpx; color:#94a3b8; white-space:nowrap; flex-shrink:0; padding:4rpx 12rpx; background:rgba(241,245,249,0.55); border-radius:8rpx; }
+.time-input {
+  flex:1; height:60rpx; padding:0 18rpx; border-radius:14rpx; font-size:24rpx; font-weight:600; color:#1e293b;
+  background:rgba(255,255,255,0.85); border:1rpx solid rgba(203,213,225,0.65);
+  box-sizing:border-box;
 }
 
 /* ── 无可用时段提示 ── */
@@ -504,13 +570,6 @@ page {
   align-items: center;
 }
 
-/* ── time-val：line-height 精确居中，禁止垂直 padding 干扰 ── */
-.time-val {
-  min-height: auto;
-  height: 68rpx;
-  line-height: 68rpx;
-  padding: 0 14rpx;
-}
 
 .chip {
   border-radius: 999rpx;
