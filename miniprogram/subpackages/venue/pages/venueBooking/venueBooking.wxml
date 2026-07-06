@@ -204,13 +204,13 @@
               </view>
               <!-- Start handle -->
               <view class="tl-handle-wrap" style="left:{{startHandleX}}px; z-index:2;" data-handle="start"
-                    catchtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" catchtouchend="onHandleTouchEnd">
+                    bindtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" bindtouchend="onHandleTouchEnd">
                 <view class="tl-knob"></view>
                 <view class="tl-tag tl-tag-start">{{bookingTimeStart || '开始'}}</view>
               </view>
               <!-- End handle -->
               <view class="tl-handle-wrap" style="left:{{endHandleX}}px;" data-handle="end"
-                    catchtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" catchtouchend="onHandleTouchEnd">
+                    bindtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" bindtouchend="onHandleTouchEnd">
                 <view class="tl-knob end-knob"></view>
                 <view class="tl-tag tl-tag-end">{{bookingTimeEnd || '结束'}}</view>
               </view>

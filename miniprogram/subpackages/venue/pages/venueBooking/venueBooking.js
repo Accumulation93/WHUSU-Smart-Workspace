@@ -672,33 +672,28 @@ Page({
 
   // ═══════════════════ Drag handlers ═══════════════════
 
+  // ═══════════════════ Touch / drag ═══════════════════
+
   onHandleTouchStart(e) {
-    var h = e.currentTarget.dataset.handle;
-    var t = e.touches[0];
-    this._dragHandle = h;
-    this._dragStartClientX = t.clientX;
-    this._dragStartPx = h === 'start' ? this.data.startHandleX : this.data.endHandleX;
-    this._preDragStartTime = this.data.bookingTimeStart;
-    this._preDragEndTime = this.data.bookingTimeEnd;
+    this._dragHandle = e.currentTarget.dataset.handle;
+    this._dragStartX = e.touches[0].clientX;
+    this._dragStartPx = this.data[this._dragHandle === 'start' ? 'startHandleX' : 'endHandleX'];
+    this._preStart = this.data.bookingTimeStart;
+    this._preEnd = this.data.bookingTimeEnd;
   },
 
-  /** Snap a px position to a valid minute (in open, not blocked). */
-  _snapPxToValid(px, isStart) {
-    var min = snapMin(this._pxToMin(px));
-    var m = this._getMergedIntervals();
-    if (!m) return min;
-    // Try current position
+  /** Spiral-search for the nearest valid minute. */
+  _snapToFree(min, isStart, m) {
     if (this._isMinValid(min, isStart, m)) return min;
-    // Spiral outward
     for (var d = SNAP; d < TOTAL_MIN; d += SNAP) {
-      var t1 = snapMin(Math.max(0, min + d));
-      var t2 = snapMin(Math.max(0, min - d));
+      var a = snapMin(Math.max(0, min + d));
+      var b = snapMin(Math.max(0, min - d));
       if (isStart) {
-        if (this._isMinValid(t1, true, m)) return t1;
-        if (this._isMinValid(t2, true, m)) return t2;
+        if (this._isMinValid(a, true, m)) return a;
+        if (this._isMinValid(b, true, m)) return b;
       } else {
-        if (this._isMinValid(t2, false, m)) return t2;
-        if (this._isMinValid(t1, false, m)) return t1;
+        if (this._isMinValid(b, false, m)) return b;
+        if (this._isMinValid(a, false, m)) return a;
       }
     }
     return min;
@@ -706,7 +701,6 @@ Page({
 
   _isMinValid(min, isStart, m) {
     if (min < 0 || min > TOTAL_MIN) return false;
-    // In open?
     var inOpen = false;
     for (var i = 0; i < m.openMerged.length; i++) {
       if (isStart) {
@@ -716,7 +710,6 @@ Page({
       }
     }
     if (!inOpen) return false;
-    // Not in blocked?
     for (var j = 0; j < m.blockedMerged.length; j++) {
       if (min >= m.blockedMerged[j].start && min < m.blockedMerged[j].end) return false;
     }
@@ -724,49 +717,52 @@ Page({
   },
 
   onHandleTouchMove(e) {
-    if (!this._dragHandle || !this.data._timelineWidth) return;
-    var touch = e.touches[0];
-    var dx = touch.clientX - this._dragStartClientX;
-    var newPx = Math.max(0, Math.min(this.data._timelineWidth, this._dragStartPx + dx));
+    if (!this._dragHandle) return;
+    var w = this.data._timelineWidth;
+    if (!w) return;
 
-    if (this._dragHandle === 'start') {
-      var snappedMin = this._snapPxToValid(newPx, true);
+    var dx = e.touches[0].clientX - this._dragStartX;
+    var px = Math.max(0, Math.min(w, this._dragStartPx + dx));
+    var rawMin = snapMin(Math.round(px / w * TOTAL_MIN));
 
-      // Check whether current end is still valid; only if we have interval data
-      var m = this._getMergedIntervals();
-      var endMin = timeToMin(this.data.bookingTimeEnd);
-      var endValid = m && endMin > snappedMin && isEndStillValid(snappedMin, endMin, m.openMerged, m.blockedMerged);
+    var m = this._getMergedIntervals();
+    var isStart = this._dragHandle === 'start';
 
-      var updates = {
-        startHandleX: this._minToPx(snappedMin),
-        bookingTimeStart: timeStr, timeStartInput: timeStr
+    if (isStart) {
+      var sm = rawMin;
+      // Snap to free open slot (skip blocked — only check on touchend)
+      if (m) sm = this._snapToFree(sm, true, m);
+      var st = minToTime(sm);
+      var upd = {
+        startHandleX: Math.round(sm / TOTAL_MIN * w),
+        bookingTimeStart: st, timeStartInput: st
       };
-
-      if (m && !endValid) {
-        var smartEnd = findSmartEnd(snappedMin, m.openMerged, m.blockedMerged);
-        updates.bookingTimeEnd = minToTime(smartEnd);
-        updates.timeEndInput = minToTime(smartEnd);
-        updates.endHandleX = this._minToPx(smartEnd);
+      // Auto-adjust end when it becomes invalid
+      if (m) {
+        var em = timeToMin(this.data.bookingTimeEnd);
+        if (em <= sm || !isEndStillValid(sm, em, m.openMerged, m.blockedMerged)) {
+          var ne = findSmartEnd(sm, m.openMerged, m.blockedMerged);
+          upd.bookingTimeEnd = minToTime(ne);
+          upd.timeEndInput = minToTime(ne);
+          upd.endHandleX = Math.round(ne / TOTAL_MIN * w);
+        }
       }
-
-      this.setData(updates);
+      this.setData(upd);
     } else {
-      var startMin = timeToMin(this.data.bookingTimeStart);
-      var endSnap = this._snapPxToValid(newPx, false);
-
-      // End must be strictly after start
-      if (endSnap <= startMin) endSnap = startMin + 1;
-
-      // Ensure range is valid (only if interval data is available)
-      var m2 = this._getMergedIntervals();
-      if (m2 && !isEndStillValid(startMin, endSnap, m2.openMerged, m2.blockedMerged)) {
-        endSnap = findSmartEnd(startMin, m2.openMerged, m2.blockedMerged);
+      var curStart = timeToMin(this.data.bookingTimeStart);
+      var es = rawMin;
+      if (es <= curStart) es = curStart + 1;
+      if (m) {
+        es = this._snapToFree(es, false, m);
+        if (es <= curStart) es = curStart + 1;
+        if (!isEndStillValid(curStart, es, m.openMerged, m.blockedMerged)) {
+          es = findSmartEnd(curStart, m.openMerged, m.blockedMerged);
+        }
       }
-
-      var endTimeStr = minToTime(endSnap);
+      var et = minToTime(es);
       this.setData({
-        endHandleX: this._minToPx(endSnap),
-        bookingTimeEnd: endTimeStr, timeEndInput: endTimeStr
+        endHandleX: Math.round(es / TOTAL_MIN * w),
+        bookingTimeEnd: et, timeEndInput: et
       });
     }
     this._updateTimelineRange();
@@ -775,25 +771,22 @@ Page({
 
   onHandleTouchEnd() {
     if (!this._dragHandle) return;
-    var handle = this._dragHandle;
-    var prevStart = this._preDragStartTime;
-    var prevEnd = this._preDragEndTime;
+    var h = this._dragHandle;
+    var ps = this._preStart;
+    var pe = this._preEnd;
     this._dragHandle = null;
 
-    // Safety-net: full validation — if touchmove did its job, this is a no-op
-    if (handle === 'start') {
-      var ok = this._setStartTime(this.data.bookingTimeStart, {silent: true});
-      if (!ok) {
+    if (h === 'start') {
+      if (!this._setStartTime(this.data.bookingTimeStart, {silent: true})) {
         this.setData({
-          bookingTimeStart: prevStart || '', timeStartInput: prevStart || '',
-          bookingTimeEnd: prevEnd || '', timeEndInput: prevEnd || ''
+          bookingTimeStart: ps || '', timeStartInput: ps || '',
+          bookingTimeEnd: pe || '', timeEndInput: pe || ''
         });
       }
     } else {
-      var ok2 = this._setEndTime(this.data.bookingTimeEnd, {silent: true});
-      if (!ok2) {
+      if (!this._setEndTime(this.data.bookingTimeEnd, {silent: true})) {
         this.setData({
-          bookingTimeEnd: prevEnd || '', timeEndInput: prevEnd || ''
+          bookingTimeEnd: pe || '', timeEndInput: pe || ''
         });
       }
     }
