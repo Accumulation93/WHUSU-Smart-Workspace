@@ -359,6 +359,14 @@ Page({
     var startMin = presetTime ? timeToMin(presetTime) : findDefaultStartMin(dayData, dateStr);
     var startTime = startMin >= 0 ? minToTime(startMin) : '';
 
+    // Ensure _timelineWidth has a fallback value so handles get positions immediately
+    if (!this.data._timelineWidth) {
+      try {
+        var sys = wx.getSystemInfoSync();
+        if (sys.windowWidth) this.setData({ _timelineWidth: sys.windowWidth - 64 });
+      } catch(e) {}
+    }
+
     this.setData({
       timelineBlocks: timeline,
       bookingTimeStart: startTime, timeStartInput: startTime,
@@ -554,12 +562,22 @@ Page({
 
   // ═══════════════════ Timeline dimension & rendering ═══════════════════
 
-  _queryTimelineWidth() {
+  _queryTimelineWidth(retries) {
+    retries = retries || 0;
     var self = this;
-    wx.createSelectorQuery().in(this).select('.timeline-drag-container').boundingClientRect().exec(function(rects) {
+    wx.createSelectorQuery().select('.timeline-drag-container').boundingClientRect().exec(function(rects) {
       if (rects && rects[0] && rects[0].width) {
         self.setData({ _timelineWidth: rects[0].width });
         self._updateHandlePositions();
+      } else if (retries < 8) {
+        setTimeout(function() { self._queryTimelineWidth(retries + 1); }, 150);
+      } else {
+        // Fallback: use window width minus estimated padding
+        try {
+          var sys = wx.getSystemInfoSync();
+          self.setData({ _timelineWidth: sys.windowWidth - 64 });
+          self._updateHandlePositions();
+        } catch(e) {}
       }
     });
   },
@@ -657,7 +675,6 @@ Page({
   onHandleTouchStart(e) {
     var h = e.currentTarget.dataset.handle;
     var t = e.touches[0];
-    console.log('[drag] touchstart handle=', h, 'clientX=', t && t.clientX, 'startHandleX=', this.data.startHandleX, 'endHandleX=', this.data.endHandleX, 'w=', this.data._timelineWidth);
     this._dragHandle = h;
     this._dragStartClientX = t.clientX;
     this._dragStartPx = h === 'start' ? this.data.startHandleX : this.data.endHandleX;
@@ -707,16 +724,13 @@ Page({
   },
 
   onHandleTouchMove(e) {
-    console.log('[drag] touchmove handle=', this._dragHandle, 'w=', this.data._timelineWidth);
-    if (!this._dragHandle || !this.data._timelineWidth) { console.log('[drag] touchmove EARLY RETURN'); return; }
+    if (!this._dragHandle || !this.data._timelineWidth) return;
     var touch = e.touches[0];
     var dx = touch.clientX - this._dragStartClientX;
     var newPx = Math.max(0, Math.min(this.data._timelineWidth, this._dragStartPx + dx));
-    console.log('[drag] dx=', dx, 'newPx=', newPx, 'startPx=', this._dragStartPx);
 
     if (this._dragHandle === 'start') {
       var snappedMin = this._snapPxToValid(newPx, true);
-      console.log('[drag] start snappedMin=', snappedMin, 'time=', minToTime(snappedMin));
 
       // Check whether current end is still valid; only if we have interval data
       var m = this._getMergedIntervals();
