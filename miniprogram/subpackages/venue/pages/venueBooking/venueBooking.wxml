@@ -202,17 +202,17 @@
                 <!-- Selected range -->
                 <view wx:if="{{timelineSelection}}" class="timeline-selection" style="left:{{timelineSelection.left}}%;width:{{timelineSelection.width}}%;"></view>
               </view>
-              <!-- Start handle -->
-              <view class="tl-handle-wrap" style="left:{{startHandleX}}px; z-index:4;" data-handle="start"
+              <!-- Start handle (above bar) -->
+              <view class="tl-handle-wrap tl-handle-start" style="left:{{startHandleX}}px;" data-handle="start"
                     bindtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" bindtouchend="onHandleTouchEnd">
-                <view class="tl-knob"></view>
-                <view class="tl-tag tl-tag-start">{{bookingTimeStart || '开始'}}</view>
+                <view class="tl-tag tl-tag-start">{{bookingTimeStart ? bookingTimeStart + '开始' : '开始'}}</view>
+                <text class="tl-arrow tl-arrow-down">▼</text>
               </view>
-              <!-- End handle -->
-              <view class="tl-handle-wrap" style="left:{{endHandleX}}px;" data-handle="end"
+              <!-- End handle (below bar) -->
+              <view class="tl-handle-wrap tl-handle-end" style="left:{{endHandleX}}px;" data-handle="end"
                     bindtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" bindtouchend="onHandleTouchEnd">
-                <view class="tl-knob end-knob"></view>
-                <view class="tl-tag tl-tag-end">{{bookingTimeEnd || '结束'}}</view>
+                <text class="tl-arrow tl-arrow-up">▲</text>
+                <view class="tl-tag tl-tag-end">{{bookingTimeEnd ? bookingTimeEnd + '结束' : '结束'}}</view>
               </view>
             </view>
             <view class="timeline-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>

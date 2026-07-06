@@ -126,12 +126,12 @@
 
 /* ── Drag container ── */
 .timeline-drag-container {
-  position:relative; height:100rpx;
+  position:relative; height:120rpx;
 }
 
 /* Timeline bar (behind handles) */
 .timeline-drag-container .timeline-bar {
-  position:absolute; left:0; right:0; top:28rpx; height:44rpx;
+  position:absolute; left:0; right:0; top:38rpx; height:44rpx;
   border-radius:22rpx; background:#f1f5f9; overflow:hidden;
 }
 
@@ -142,35 +142,48 @@
   border-radius:0; pointer-events:none; z-index:1;
 }
 
-/* ── Drag handle wrap ── */
+/* ── Drag handles ── */
 .tl-handle-wrap {
-  position:absolute; top:0;
+  position:absolute;
   display:flex; flex-direction:column; align-items:center;
-  width:52rpx; height:100rpx; margin-left:-26rpx;
-  z-index:3;
+  width:52rpx; margin-left:-26rpx;
 }
 
-/* Circular knob */
-.tl-knob {
-  width:44rpx; height:44rpx; border-radius:50%;
-  background:#fff;
-  border:4rpx solid #2563eb;
-  box-shadow:0 4rpx 14rpx rgba(37,99,235,0.30), 0 0 0 6rpx rgba(37,99,235,0.08);
-  flex-shrink:0; margin-top:30rpx;
+/* Start handle — above the bar, ▼ arrow points down to bar top */
+.tl-handle-start {
+  top:-18rpx; z-index:4;
 }
-.end-knob {
-  border-color:#059669;
-  box-shadow:0 4rpx 14rpx rgba(5,150,105,0.30), 0 0 0 6rpx rgba(5,150,105,0.08);
+
+/* End handle — below the bar, ▲ arrow points up to bar bottom */
+.tl-handle-end {
+  top:54rpx; z-index:3;
+}
+
+/* Arrow indicators */
+.tl-arrow {
+  font-size:28rpx; line-height:1; flex-shrink:0;
+}
+.tl-arrow-down {
+  color:#2563eb;
+}
+.tl-arrow-up {
+  color:#059669;
 }
 
 /* Handle time label */
 .tl-tag {
   font-size:20rpx; font-weight:700; white-space:nowrap;
-  padding:4rpx 12rpx; border-radius:999rpx; margin-top:6rpx;
+  padding:4rpx 12rpx; border-radius:999rpx;
   pointer-events:none;
 }
-.tl-tag-start { color:#2563eb; background:rgba(219,234,254,0.85); }
-.tl-tag-end { color:#059669; background:rgba(209,250,229,0.85); }
+.tl-tag-start {
+  color:#2563eb; background:rgba(219,234,254,0.85);
+  margin-bottom:2rpx;
+}
+.tl-tag-end {
+  color:#059669; background:rgba(209,250,229,0.85);
+  margin-top:2rpx;
+}
 
 /* ── Timeline legend ── */
 .timeline-legend {
