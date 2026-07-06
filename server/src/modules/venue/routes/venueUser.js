@@ -12,6 +12,7 @@ const venueBookingModel = require('../models/venueBooking');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
 const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
+const { createVenueApprovalNotifications } = require('../utils/venueNotificationHelper');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -474,6 +475,13 @@ router.post('/createVenueBooking', async (req, res) => {
     }, conn);
 
     await conn.commit();
+
+    // Fire-and-forget: notify step 1 approvers
+    if (approvalFlowId && approvalTotalSteps > 0) {
+      createVenueApprovalNotifications(id, 0).catch(e =>
+        console.error('[venueUser] notification creation failed:', e.message));
+    }
+
     res.json({
       status: 'success', id, bookingStatus: status,
       message: autoApprove ? '借用成功（直接通过）'

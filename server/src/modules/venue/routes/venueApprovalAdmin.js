@@ -9,6 +9,7 @@ const stepModel = require('../models/venueApprovalFlowStep');
 const ruleModel = require('../models/venueApprovalFlowStepRule');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingRuleModel = require('../models/venueBookingRule');
+const { createVenueApprovalNotifications, createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -413,6 +414,21 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     ]);
 
     await conn.commit();
+
+    // Fire-and-forget: create notifications for next step or submitter
+    if (isLastStep) {
+      const venueName = booking.venue_name || '';
+      createVenueBookingStatusNotification(
+        booking,
+        'booking_approved',
+        '场地借用已通过',
+        '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过'
+      ).catch(e => console.error('[venueApproval] status notification failed:', e.message));
+    } else {
+      createVenueApprovalNotifications(id, newStepIndex).catch(e =>
+        console.error('[venueApproval] approval notification failed:', e.message));
+    }
+
     res.json({
       status: 'success',
       message: isLastStep ? '所有步骤审批完成，借用已通过' : ('步骤 ' + (currentStep + 1) + ' 审批完成，进入下一步'),
@@ -467,6 +483,16 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
       SET approval_current_step = -1, approval_reject_step = ?, approval_comment = ?
       WHERE id = ?`;
     await pool.query(setSql, [check.stepIndex, comment || '驳回', id]);
+
+    // Fire-and-forget: notify submitter of rejection
+    const venueName = booking.venue_name || '';
+    createVenueBookingStatusNotification(
+      booking,
+      'booking_rejected',
+      '场地借用被驳回',
+      '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已被驳回' +
+        (comment ? '，原因：' + comment : '')
+    ).catch(e => console.error('[venueApproval] rejection notification failed:', e.message));
 
     res.json({ status: 'success', message: '借用已驳回' });
   } catch (e) {
