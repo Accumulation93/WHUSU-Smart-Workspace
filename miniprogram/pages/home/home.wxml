@@ -476,16 +476,6 @@
           </view>
           <view class="audit-home-card-arrow">›</view>
         </view>
-        <!-- 待办通知 -->
-        <view class="audit-home-card" bindtap="goPortal">
-          <view class="audit-home-card-icon">🔔</view>
-          <view class="audit-home-card-content">
-            <view class="audit-home-card-title">待办通知</view>
-            <view class="audit-home-card-desc">查看系统通知和待办事项</view>
-          </view>
-          <view class="audit-home-card-badge audit-home-card-badge-pending" wx:if="{{notificationCount > 0}}">{{notificationCount > 99 ? '99+' : notificationCount}}</view>
-          <view class="audit-home-card-arrow">›</view>
-        </view>
       </view>
     </view>
   </view>

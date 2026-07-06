@@ -292,7 +292,6 @@ Page({
     auditPendingCount: 0,
     auditMyCount: 0,
     auditApprovalHistoryCount: 0,
-    notificationCount: 0,
   },
 
   noop() {},
@@ -875,15 +874,6 @@ Page({
       }
     } catch (e) {
       console.error('[home] getUnreadCounts failed:', e);
-    }
-    // Also load notification unread count (non-critical)
-    try {
-      const notifRes = await callFunction({ name: 'getNotificationUnreadCount', data: {} });
-      if (notifRes.status === 'success') {
-        this.setData({ notificationCount: notifRes.count || 0 });
-      }
-    } catch (e) {
-      // Non-critical — notification count loading failure should not affect audit badges
     }
   },
 
