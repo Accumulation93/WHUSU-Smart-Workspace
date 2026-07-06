@@ -110,8 +110,15 @@
   background:rgba(255,255,255,0.72); border:1rpx solid rgba(203,213,225,0.75);
   font-size:28rpx; color:#1e293b; box-sizing:border-box;
 }
+/* 已选择日期 → 蓝色强调 */
+.picker-has-value {
+  color:#2563eb; font-weight:700;
+  border-color:rgba(37,99,235,0.32);
+  background:rgba(239,246,255,0.72);
+}
 
 /* ═══ Time picker ═══ */
+.time-section { display:flex; flex-direction:column; gap:12rpx; }
 .time-picker-row { display:flex; gap:12rpx; align-items:center; }
 .time-val {
   min-width:100rpx; height:68rpx; line-height:68rpx; text-align:center;
@@ -120,7 +127,42 @@
   border-radius:16rpx; border:1rpx solid rgba(203,213,225,0.68); padding:0 14rpx;
 }
 .time-sep { font-size:30rpx; color:#64748b; font-weight:500; }
+
+/* 已选时间蓝色标签 + 值 */
+.time-result-wrap { display:flex; align-items:center; gap:8rpx; margin-left:4rpx; }
+.time-result-label {
+  font-size:20rpx; font-weight:600; color:#fff;
+  background:linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  padding:4rpx 12rpx; border-radius:999rpx; line-height:1.4;
+}
 .time-result { font-size:28rpx; color:#2563eb; font-weight:700; min-width:100rpx; }
+
+/* ── 自定义时间输入 ── */
+.time-input-row { display:flex; align-items:center; gap:12rpx; }
+.time-input-hint { font-size:22rpx; color:#94a3b8; white-space:nowrap; flex-shrink:0; }
+.time-input {
+  flex:1; height:64rpx; padding:0 18rpx; border-radius:14rpx; font-size:26rpx; font-weight:600; color:#1e293b;
+  background:rgba(255,255,255,0.85); border:1rpx solid rgba(203,213,225,0.65);
+  box-sizing:border-box;
+}
+
+/* ── 智能时间片建议 ── */
+.time-slots-hint { display:flex; align-items:center; gap:8rpx; }
+.slots-hint-label { font-size:20rpx; color:#94a3b8; white-space:nowrap; flex-shrink:0; }
+.slots-scroll { flex:1; white-space:nowrap; }
+.slot-chip {
+  display:inline-block; font-size:22rpx; padding:6rpx 16rpx; margin-right:8rpx; border-radius:999rpx; font-weight:600;
+  color:#475569; background:rgba(241,245,249,0.85); border:1rpx solid rgba(203,213,225,0.55);
+}
+.slot-chip-active {
+  color:#fff;
+  background:linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  border-color:transparent;
+  box-shadow:0 4rpx 10rpx rgba(37,99,235,0.18);
+}
+
+/* ── 无可用时段提示 ── */
+.field-hint { font-size:24rpx; color:#94a3b8; padding:18rpx 20rpx; }
 
 /* ═══ Schedule / Timetable ═══ */
 .schedule-nav { display:flex; align-items:center; justify-content:center; gap:28rpx; padding:8rpx 16rpx 16rpx; }

@@ -189,7 +189,7 @@
           <view class="field">
             <view class="field-label">开始日期</view>
             <picker mode="date" value="{{bookingStartDate}}" bindchange="onStartDateChange">
-              <view class="picker-display">{{bookingStartDateDisplay || '请选择日期'}}</view>
+              <view class="picker-display {{bookingStartDate ? 'picker-has-value' : ''}}">{{bookingStartDateDisplay || '请选择日期'}}</view>
             </picker>
           </view>
           <!-- Timeline -->
@@ -201,16 +201,31 @@
           </view>
           <!-- Start time -->
           <view class="field">
-            <view class="field-label">开始时间</view>
-            <view wx:if="{{startHours.length}}" class="time-picker-row">
-              <picker range="{{startHours}}" range-key="label" value="{{startHourIdx}}" bindchange="onStartHourChange">
-                <view class="time-val">{{startHours[startHourIdx] ? startHours[startHourIdx].label : '时'}}</view>
-              </picker>
-              <text class="time-sep">:</text>
-              <picker range="{{startMinutes}}" range-key="label" value="{{startMinIdx}}" bindchange="onStartMinChange">
-                <view class="time-val">{{startMinutes[startMinIdx] ? startMinutes[startMinIdx].label : '分'}}</view>
-              </picker>
-              <text wx:if="{{bookingTimeStart}}" class="time-result">{{bookingTimeStart}}</text>
+            <view class="field-label">开始时间 <text class="required">*</text></view>
+            <view wx:if="{{startHours.length}}" class="time-section">
+              <view class="time-picker-row">
+                <picker range="{{startHours}}" range-key="label" value="{{startHourIdx}}" bindchange="onStartHourChange">
+                  <view class="time-val">{{startHours[startHourIdx] ? startHours[startHourIdx].label : '时'}}</view>
+                </picker>
+                <text class="time-sep">:</text>
+                <picker range="{{startMinutes}}" range-key="label" value="{{startMinIdx}}" bindchange="onStartMinChange">
+                  <view class="time-val">{{startMinutes[startMinIdx] ? startMinutes[startMinIdx].label : '分'}}</view>
+                </picker>
+                <view wx:if="{{bookingTimeStart}}" class="time-result-wrap">
+                  <text class="time-result-label">已选</text>
+                  <text class="time-result">{{bookingTimeStart}}</text>
+                </view>
+              </view>
+              <view class="time-input-row">
+                <text class="time-input-hint">或直接输入：</text>
+                <input class="time-input" value="{{timeStartInput}}" placeholder="如 14:30" bindinput="onTimeStartInput" bindblur="onTimeStartInputBlur" maxlength="5"/>
+              </view>
+              <view class="time-slots-hint" wx:if="{{availableStartSlots.length}}">
+                <text class="slots-hint-label">可选：</text>
+                <scroll-view scroll-x class="slots-scroll">
+                  <text class="slot-chip {{bookingTimeStart === item.time ? 'slot-chip-active' : ''}}" wx:for="{{availableStartSlots}}" wx:key="time" data-time="{{item.time}}" catchtap="onStartSlotTap">{{item.time}}</text>
+                </scroll-view>
+              </view>
             </view>
             <view wx:else class="field-hint">{{bookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
           </view>
@@ -218,23 +233,32 @@
           <view class="field">
             <view class="field-label">结束日期</view>
             <picker mode="date" value="{{bookingEndDate}}" bindchange="onEndDateChange">
-              <view class="picker-display">{{bookingEndDateDisplay || '请选择日期'}}</view>
+              <view class="picker-display {{bookingEndDate ? 'picker-has-value' : ''}}">{{bookingEndDateDisplay || '请选择日期'}}</view>
             </picker>
           </view>
           <!-- End time -->
           <view class="field">
-            <view class="field-label">结束时间</view>
-            <view wx:if="{{endHours.length}}" class="time-picker-row">
-              <picker range="{{endHours}}" range-key="label" value="{{endHourIdx}}" bindchange="onEndHourChange">
-                <view class="time-val">{{endHours[endHourIdx] ? endHours[endHourIdx].label : '时'}}</view>
-              </picker>
-              <text class="time-sep">:</text>
-              <picker range="{{endMinutes}}" range-key="label" value="{{endMinIdx}}" bindchange="onEndMinChange">
-                <view class="time-val">{{endMinutes[endMinIdx] ? endMinutes[endMinIdx].label : '分'}}</view>
-              </picker>
-              <text wx:if="{{bookingTimeEnd}}" class="time-result">{{bookingTimeEnd}}</text>
+            <view class="field-label">结束时间 <text class="required">*</text></view>
+            <view wx:if="{{endHours.length}}" class="time-section">
+              <view class="time-picker-row">
+                <picker range="{{endHours}}" range-key="label" value="{{endHourIdx}}" bindchange="onEndHourChange">
+                  <view class="time-val">{{endHours[endHourIdx] ? endHours[endHourIdx].label : '时'}}</view>
+                </picker>
+                <text class="time-sep">:</text>
+                <picker range="{{endMinutes}}" range-key="label" value="{{endMinIdx}}" bindchange="onEndMinChange">
+                  <view class="time-val">{{endMinutes[endMinIdx] ? endMinutes[endMinIdx].label : '分'}}</view>
+                </picker>
+                <view wx:if="{{bookingTimeEnd}}" class="time-result-wrap">
+                  <text class="time-result-label">已选</text>
+                  <text class="time-result">{{bookingTimeEnd}}</text>
+                </view>
+              </view>
+              <view class="time-input-row">
+                <text class="time-input-hint">或直接输入：</text>
+                <input class="time-input" value="{{timeEndInput}}" placeholder="如 15:30" bindinput="onTimeEndInput" bindblur="onTimeEndInputBlur" maxlength="5"/>
+              </view>
             </view>
-            <view wx:else class="field-hint">请先选择开始时间</view>
+            <view wx:else class="field-hint">{{bookingTimeStart ? '该开始时间后无可用时段' : '请先选择开始时间'}}</view>
           </view>
           <!-- Description -->
           <view class="field">
