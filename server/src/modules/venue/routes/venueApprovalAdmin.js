@@ -10,6 +10,7 @@ const ruleModel = require('../models/venueApprovalFlowStepRule');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingRuleModel = require('../models/venueBookingRule');
 const { createVenueApprovalNotifications, createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
+const notificationModel = require('../../audit/models/notification');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -415,6 +416,9 @@ router.post('/approveVenueBookingStep', async (req, res) => {
 
     await conn.commit();
 
+    // Clear old pending_approval notifications for this booking
+    notificationModel.markReadByTarget('booking', id).catch(e => console.error('[venueApproval] cleanup failed:', e.message));
+
     // Fire-and-forget: create notifications for next step or submitter
     if (isLastStep) {
       const venueName = booking.venue_name || '';
@@ -483,6 +487,9 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
       SET approval_current_step = -1, approval_reject_step = ?, approval_comment = ?
       WHERE id = ?`;
     await pool.query(setSql, [check.stepIndex, comment || '驳回', id]);
+
+    // Clear old pending_approval notifications for this booking
+    notificationModel.markReadByTarget('booking', id).catch(e => console.error('[venueApproval] reject cleanup failed:', e.message));
 
     // Fire-and-forget: notify submitter of rejection
     const venueName = booking.venue_name || '';

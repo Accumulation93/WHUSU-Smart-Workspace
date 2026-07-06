@@ -28,6 +28,7 @@ const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
 const { createSubmissionStatusNotification, createPendingApprovalNotifications } = require('../utils/notificationHelper');
+const notificationModel = require('../models/notification');
 
 /**
  * Helper: check if a value exists in a comma-separated list.
@@ -1146,6 +1147,14 @@ async function checkStepAuthorization(step, submission, hrId) {
         if (matchesScope(step, approver, submitter)) return true;
       }
     }
+    // 4. Fallback: if step has NO conditions (no step_conditions_json, no template_step_id,
+    //    no approver_hr_id, no approver_identity_id), default to open — anyone can approve.
+    //    This covers ad-hoc audits with scopeType='all' and no specific identity.
+    if (!step.step_conditions_json && !step.template_step_id &&
+        !step.approver_hr_id && !step.approver_identity_id) {
+      console.log('[audit:checkStepAuthorization] step has no conditions — defaulting to open (anyone can approve)');
+      return true;
+    }
   }
 
   return false;
@@ -1420,6 +1429,8 @@ router.post('/approveStep', async (req, res) => {
     }, conn);
 
     await conn.commit();
+    // Clear old pending_approval notifications for this submission
+    notificationModel.markReadByTarget('submission', submissionId).catch(e => console.error('[audit:approveStep] cleanup failed:', e.message));
     // ★ Notifications (fire-and-forget)
     if (!nextStep) {
       // Final step approved → notify submitter
@@ -1519,6 +1530,8 @@ router.post('/rejectStep', async (req, res) => {
     }, conn);
 
     await conn.commit();
+    // Clear old pending_approval notifications for this submission
+    notificationModel.markReadByTarget('submission', submissionId).catch(e => console.error('[audit:rejectStep] cleanup failed:', e.message));
     // Notify submitter of rejection (fire-and-forget)
     createSubmissionStatusNotification(submission, submission.submitted_by, {
       type: 'submission_rejected',
@@ -1788,6 +1801,8 @@ router.post('/resubmitAudit', async (req, res) => {
       }, conn);
 
       await conn.commit();
+      // Clear old pending_approval notifications
+      notificationModel.markReadByTarget('submission', submissionId).catch(e => console.error('[audit:resubmitAudit:branchA] cleanup failed:', e.message));
       // Notify first-step approvers (fire-and-forget)
       createPendingApprovalNotifications(submissionId, 1).catch(e => console.error('[audit:resubmitAudit:branchA] notification failed:', e.message));
       return res.json({
@@ -1882,6 +1897,8 @@ router.post('/resubmitAudit', async (req, res) => {
     }, conn);
 
     await conn.commit();
+    // Clear old pending_approval notifications
+    notificationModel.markReadByTarget('submission', submissionId).catch(e => console.error('[audit:resubmitAudit:branchB] cleanup failed:', e.message));
     // Notify approvers at the start step (fire-and-forget)
     createPendingApprovalNotifications(submissionId, startStepIndex).catch(e => console.error('[audit:resubmitAudit:branchB] notification failed:', e.message));
     res.json({

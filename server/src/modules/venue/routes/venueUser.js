@@ -13,6 +13,7 @@ const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
 const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
 const { createVenueApprovalNotifications } = require('../utils/venueNotificationHelper');
+const notificationModel = require('../../audit/models/notification');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -713,6 +714,16 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
           }
         }
       } catch (_) {}
+    }
+
+    // Self-healing: ensure notifications exist for found pending bookings (fire-and-forget)
+    for (const p of pending) {
+      notificationModel.hasPendingApprovalNotification('booking', p.id, hrId).then(has => {
+        if (!has) {
+          createVenueApprovalNotifications(p.id, p.currentStepIndex).catch(e =>
+            console.error('[venueUser:reconcile] notification creation failed:', e.message));
+        }
+      }).catch(() => {});
     }
 
     res.json({ status: 'success', pending });

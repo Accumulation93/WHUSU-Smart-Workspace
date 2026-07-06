@@ -119,6 +119,34 @@ async function markAllRead(hrId) {
   );
 }
 
+/**
+ * Mark all pending_approval notifications for a given target as read.
+ * Called when an approval progresses (next step) or completes (approved/rejected).
+ * @param {string} targetType — e.g. 'submission' | 'booking'
+ * @param {string} targetId
+ * @param {object} [conn] — optional transaction connection
+ */
+async function markReadByTarget(targetType, targetId, conn) {
+  const db = conn || pool;
+  await db.query(
+    'UPDATE notifications SET is_read = 1 WHERE target_type = ? AND target_id = ? AND type = ?',
+    [targetType, targetId, 'pending_approval']
+  );
+}
+
+/**
+ * Check if a pending_approval notification exists for a given target and hrId.
+ * Used for self-healing reconciliation.
+ * @returns {boolean}
+ */
+async function hasPendingApprovalNotification(targetType, targetId, hrId) {
+  const [[{ count }]] = await pool.query(
+    'SELECT COUNT(*) AS count FROM notifications WHERE target_type = ? AND target_id = ? AND hr_id = ? AND type = ? AND is_read = 0',
+    [targetType, targetId, hrId, 'pending_approval']
+  );
+  return count > 0;
+}
+
 module.exports = {
   ensureTable,
   create,
@@ -126,7 +154,9 @@ module.exports = {
   listByHrId,
   getUnreadCount,
   markRead,
-  markAllRead
+  markAllRead,
+  markReadByTarget,
+  hasPendingApprovalNotification
 };
 
 // Auto-create table on module load (non-blocking)
