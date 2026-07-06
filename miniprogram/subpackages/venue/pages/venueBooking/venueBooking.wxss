@@ -117,110 +117,77 @@
   background:rgba(239,246,255,0.72);
 }
 
-/* ═══ ★ Time slot grid (modern card-based) ★ ═══ */
-.time-section { display:flex; flex-direction:column; gap:10rpx; }
+/* ═══ ★ Timeline + time inputs ★ ═══ */
 
-/* Selected time result row */
-.time-result-row {
-  display:flex; align-items:center; gap:10rpx;
-  padding:14rpx 20rpx; border-radius:18rpx;
-  background:linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(59,130,246,0.05) 100%);
-  border:1rpx solid rgba(37,99,235,0.18);
-}
-.time-result-icon { font-size:22rpx; color:#2563eb; }
-.time-result-val { font-size:30rpx; font-weight:800; color:#2563eb; }
-.time-result-suffix { font-size:22rpx; color:#64748b; margin-left:auto; }
-
-/* End time context */
-.end-context {
-  display:flex; align-items:center; gap:8rpx;
-  padding:8rpx 16rpx; font-size:22rpx;
-}
-.end-context-label { color:#94a3b8; }
-.end-context-time { color:#2563eb; font-weight:700; }
-.end-context-arrow { color:#94a3b8; margin:0 4rpx; }
-
-.end-result .time-result-icon { color:#059669; }
-.end-result .time-result-val { color:#059669; }
-.end-result { border-color:rgba(5,150,105,0.22); background:linear-gradient(135deg, rgba(5,150,105,0.06) 0%, rgba(16,185,129,0.04) 100%); }
-
-/* Scrollable grid container */
-.time-grid-scroll { max-height:420rpx; }
-
-/* Grid row: 4 cards per row */
-.time-grid-row {
-  display:flex; gap:10rpx; margin-bottom:10rpx;
+/* Hint above timeline */
+.timeline-hint {
+  font-size:20rpx; color:#94a3b8; padding:0 0 8rpx 4rpx;
 }
 
-/* Individual time slot card */
-.time-slot-card {
-  flex:1; min-width:0;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  padding:14rpx 6rpx; border-radius:16rpx;
-  border:2rpx solid transparent;
-  transition:all 0.15s ease;
+/* Selected range overlay on timeline */
+.timeline-range {
+  position:absolute; top:0; height:100%;
+  background:rgba(37,99,235,0.32);
+  border-left:3rpx solid #2563eb;
+  border-right:3rpx solid #2563eb;
+  border-radius:0;
+  pointer-events:none;
+  z-index:2;
+}
+
+/* Time text input field */
+.time-input-wrap {
+  display:flex; align-items:center; gap:12rpx;
+}
+.time-field-input {
+  flex:1; height:78rpx; padding:0 22rpx; border-radius:18rpx;
+  font-size:30rpx; font-weight:800; color:#1e293b; letter-spacing:2rpx;
+  background:linear-gradient(135deg, rgba(255,255,255,0.96), rgba(246,249,255,0.88));
+  border:1rpx solid rgba(219,229,241,0.96);
+  box-shadow:0 8rpx 18rpx rgba(15,23,42,0.035), inset 0 1rpx 0 rgba(255,255,255,0.84);
   box-sizing:border-box;
 }
-.time-slot-card:active { transform:scale(0.94); }
-
-.slot-time { font-size:26rpx; font-weight:800; line-height:1.3; }
-.slot-label { font-size:18rpx; font-weight:600; line-height:1.3; margin-top:2rpx; }
-
-/* Status color variants */
-.slot-free {
-  background:rgba(209,250,229,0.55);
-  border-color:rgba(110,231,183,0.45);
+.time-field-input:focus {
+  border-color:rgba(37,99,235,0.45);
+  box-shadow:0 0 0 6rpx rgba(37,99,235,0.06);
 }
-.slot-free .slot-time { color:#065f46; }
-.slot-free .slot-label { color:#059669; }
 
-.slot-pending {
-  background:rgba(254,243,199,0.60);
-  border-color:rgba(252,211,77,0.50);
+/* Green check badge when valid time is set */
+.time-valid-badge {
+  display:flex; align-items:center; justify-content:center;
+  width:44rpx; height:44rpx; border-radius:50%;
+  background:#10b981; color:#fff; font-size:24rpx; font-weight:700;
+  flex-shrink:0;
 }
-.slot-pending .slot-time { color:#92400e; }
-.slot-pending .slot-label { color:#b45309; }
+.end-badge { background:#059669; }
 
-.slot-booked {
-  background:rgba(254,226,226,0.50);
-  border-color:rgba(252,165,165,0.40);
+/* Duration chips */
+.duration-row {
+  display:flex; flex-wrap:wrap; gap:10rpx;
 }
-.slot-booked .slot-time { color:#991b1b; }
-.slot-booked .slot-label { color:#b91c1c; }
-
-.slot-activity {
-  background:rgba(237,233,254,0.50);
-  border-color:rgba(196,181,253,0.45);
+.duration-chip {
+  font-size:24rpx; padding:12rpx 24rpx; border-radius:999rpx; font-weight:600;
+  background:rgba(241,245,249,0.85); color:#475569;
+  border:1rpx solid rgba(203,213,225,0.55);
+  transition:all 0.12s ease;
 }
-.slot-activity .slot-time { color:#5b21b6; }
-.slot-activity .slot-label { color:#7c3aed; }
-
-/* Selected card */
-.slot-active {
-  transform:scale(1.02);
-  box-shadow:0 4rpx 16rpx rgba(37,99,235,0.22);
-}
-.slot-active.slot-free {
+.duration-chip:active { transform:scale(0.94); }
+.duration-chip-active {
   background:linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  border-color:#2563eb;
+  color:#fff; border-color:transparent;
+  box-shadow:0 6rpx 16rpx rgba(37,99,235,0.20);
 }
-.slot-active.slot-free .slot-time,
-.slot-active.slot-free .slot-label { color:#fff; }
 
-.slot-active.slot-pending {
-  background:linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
-  border-color:#d97706;
+/* Summary row showing selected time range */
+.time-summary {
+  display:flex; align-items:center; gap:10rpx;
+  padding:18rpx 22rpx; margin-top:8rpx; border-radius:20rpx;
+  background:linear-gradient(135deg, rgba(37,99,235,0.06) 0%, rgba(59,130,246,0.04) 100%);
+  border:1rpx solid rgba(37,99,235,0.14);
 }
-.slot-active.slot-pending .slot-time,
-.slot-active.slot-pending .slot-label { color:#fff; }
-
-/* Disabled / unselectable cards */
-.slot-disabled { opacity:0.40; }
-.slot-disabled:active { transform:none; }
-
-/* Keyboard input row */
-.time-input-row { display:flex; align-items:center; gap:12rpx; padding-top:4rpx; }
-.time-input-hint { font-size:20rpx; color:#94a3b8; white-space:nowrap; flex-shrink:0; padding:4rpx 12rpx; background:rgba(241,245,249,0.55); border-radius:8rpx; }
+.time-summary-icon { font-size:28rpx; }
+.time-summary-text { font-size:28rpx; font-weight:800; color:#2563eb; }
+.time-summary-dur { font-size:24rpx; color:#64748b; margin-left:auto; }
 .time-input {
   flex:1; height:60rpx; padding:0 18rpx; border-radius:14rpx; font-size:24rpx; font-weight:600; color:#1e293b;
   background:rgba(255,255,255,0.85); border:1rpx solid rgba(203,213,225,0.65);

@@ -192,45 +192,35 @@
               <view class="picker-display {{bookingStartDate ? 'picker-has-value' : ''}}">{{bookingStartDateDisplay || '请选择日期'}}</view>
             </picker>
           </view>
-          <!-- Timeline -->
+          <!-- ★ Timeline bar ★ -->
           <view wx:if="{{timelineBlocks.length}}" class="timeline-wrap">
-            <view class="timeline-bar">
-              <view wx:for="{{timelineBlocks}}" wx:key="startMin" wx:if="{{item.width > 0}}" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
+            <view class="timeline-hint">点击色条选择时间 · 绿色=空闲 · 红色=已占</view>
+            <view class="timeline-bar" bindtap="onTimelineTap">
+              <view wx:for="{{timelineBlocks}}" wx:key="*this" wx:if="{{item.width > 0}}" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
+              <!-- Selected range overlay -->
+              <view wx:if="{{timelineRange}}" class="timeline-range" style="left:{{timelineRange.left}}%;width:{{timelineRange.width}}%;"></view>
             </view>
             <view class="timeline-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
           </view>
-          <!-- ★ Start time grid ★ -->
+
+          <!-- ★ Start time ★ -->
           <view class="field">
             <view class="field-label">开始时间 <text class="required">*</text></view>
-            <view wx:if="{{startGrid.length}}" class="time-section">
-              <!-- Result display -->
-              <view wx:if="{{bookingTimeStart}}" class="time-result-row">
-                <text class="time-result-icon">▶</text>
-                <text class="time-result-val">{{bookingTimeStart}}</text>
-                <text class="time-result-suffix">开始</text>
-              </view>
-              <!-- Time grid -->
-              <scroll-view scroll-y class="time-grid-scroll">
-                <view class="time-grid-row" wx:for="{{startGrid}}" wx:key="*this" wx:for-item="row">
-                  <view
-                    class="time-slot-card slot-{{item.status}} {{item.active ? 'slot-active' : ''}} {{item.selectable ? '' : 'slot-disabled'}}"
-                    wx:for="{{row}}" wx:key="time" wx:for-item="item"
-                    data-time="{{item.time}}" data-status="{{item.status}}"
-                    catchtap="onStartSlotTap"
-                  >
-                    <text class="slot-time">{{item.time}}</text>
-                    <text class="slot-label">{{item.label}}</text>
-                  </view>
-                </view>
-              </scroll-view>
-              <!-- Keyboard input fallback -->
-              <view class="time-input-row">
-                <text class="time-input-hint">键盘输入</text>
-                <input class="time-input" value="{{timeStartInput}}" placeholder="如 14:30" bindinput="onTimeStartInput" bindblur="onTimeStartInputBlur" maxlength="5"/>
-              </view>
+            <view wx:if="{{timelineBlocks.length}}" class="time-input-wrap">
+              <input class="time-field-input" value="{{timeStartInput}}" placeholder="点击色条或输入 HH:MM" bindinput="onTimeStartInput" bindblur="onTimeStartInputBlur" maxlength="5"/>
+              <text wx:if="{{bookingTimeStart}}" class="time-valid-badge">✓</text>
             </view>
             <view wx:else class="field-hint">{{bookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
           </view>
+
+          <!-- ★ Quick duration chips ★ -->
+          <view wx:if="{{bookingTimeStart && timelineBlocks.length}}" class="field">
+            <view class="field-label">快捷时长</view>
+            <view class="duration-row">
+              <text class="duration-chip {{bookingTimeEnd && item.minutes === _activeDuration ? 'duration-chip-active' : ''}}" wx:for="{{durationChips}}" wx:key="label" data-minutes="{{item.minutes}}" catchtap="onDurationTap">{{item.label}}</text>
+            </view>
+          </view>
+
           <!-- End date -->
           <view class="field">
             <view class="field-label">结束日期</view>
@@ -238,43 +228,22 @@
               <view class="picker-display {{bookingEndDate ? 'picker-has-value' : ''}}">{{bookingEndDateDisplay || '请选择日期'}}</view>
             </picker>
           </view>
-          <!-- ★ End time grid ★ -->
+
+          <!-- ★ End time ★ -->
           <view class="field">
             <view class="field-label">结束时间 <text class="required">*</text></view>
-            <view wx:if="{{endGrid.length}}" class="time-section">
-              <!-- Context: start time indicator -->
-              <view wx:if="{{bookingTimeStart}}" class="end-context">
-                <text class="end-context-label">始于</text>
-                <text class="end-context-time">{{bookingTimeStart}}</text>
-                <text class="end-context-arrow">→</text>
-              </view>
-              <!-- Result display -->
-              <view wx:if="{{bookingTimeEnd}}" class="time-result-row end-result">
-                <text class="time-result-icon">■</text>
-                <text class="time-result-val">{{bookingTimeEnd}}</text>
-                <text class="time-result-suffix">结束</text>
-              </view>
-              <!-- Time grid -->
-              <scroll-view scroll-y class="time-grid-scroll">
-                <view class="time-grid-row" wx:for="{{endGrid}}" wx:key="*this" wx:for-item="row">
-                  <view
-                    class="time-slot-card slot-{{item.status}} {{item.active ? 'slot-active' : ''}} {{item.selectable ? '' : 'slot-disabled'}}"
-                    wx:for="{{row}}" wx:key="time" wx:for-item="item"
-                    data-time="{{item.time}}" data-selectable="{{item.selectable}}"
-                    catchtap="onEndSlotTap"
-                  >
-                    <text class="slot-time">{{item.time}}</text>
-                    <text class="slot-label">{{item.selectable ? item.label : '✕'}}</text>
-                  </view>
-                </view>
-              </scroll-view>
-              <!-- Keyboard input fallback -->
-              <view class="time-input-row">
-                <text class="time-input-hint">键盘输入</text>
-                <input class="time-input" value="{{timeEndInput}}" placeholder="如 15:30" bindinput="onTimeEndInput" bindblur="onTimeEndInputBlur" maxlength="5"/>
-              </view>
+            <view wx:if="{{timelineBlocks.length && bookingTimeStart}}" class="time-input-wrap">
+              <input class="time-field-input" value="{{timeEndInput}}" placeholder="输入 HH:MM 或点击快捷时长" bindinput="onTimeEndInput" bindblur="onTimeEndInputBlur" maxlength="5"/>
+              <text wx:if="{{bookingTimeEnd}}" class="time-valid-badge end-badge">✓</text>
             </view>
-            <view wx:else class="field-hint">{{bookingTimeStart ? '该开始时间后无可用时段' : '请先选择开始时间'}}</view>
+            <view wx:else class="field-hint">{{bookingTimeStart ? '' : '请先选择开始时间'}}</view>
+          </view>
+
+          <!-- Selected summary -->
+          <view wx:if="{{bookingTimeStart && bookingTimeEnd}}" class="time-summary">
+            <text class="time-summary-icon">🕐</text>
+            <text class="time-summary-text">{{bookingTimeStart}} → {{bookingTimeEnd}}</text>
+            <text class="time-summary-dur">（{{_durationText}}）</text>
           </view>
           <!-- Description -->
           <view class="field">
