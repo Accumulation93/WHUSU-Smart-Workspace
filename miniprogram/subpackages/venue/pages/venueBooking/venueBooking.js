@@ -709,24 +709,23 @@ Page({
     var touch = e.touches[0];
     var dx = touch.clientX - this._dragStartClientX;
     var newPx = Math.max(0, Math.min(this.data._timelineWidth, this._dragStartPx + dx));
-    var m = this._getMergedIntervals();
-    if (!m) return;
 
+    // _snapPxToValid handles null m internally — handle always moves
     if (this._dragHandle === 'start') {
-      // Snap start to nearest valid point (in open, not blocked)
       var snappedMin = this._snapPxToValid(newPx, true);
       var timeStr = minToTime(snappedMin);
 
-      // Check whether current end is still valid with the new start
+      // Check whether current end is still valid; only if we have interval data
+      var m = this._getMergedIntervals();
       var endMin = timeToMin(this.data.bookingTimeEnd);
-      var endValid = endMin > snappedMin && isEndStillValid(snappedMin, endMin, m.openMerged, m.blockedMerged);
+      var endValid = m && endMin > snappedMin && isEndStillValid(snappedMin, endMin, m.openMerged, m.blockedMerged);
 
       var updates = {
         startHandleX: this._minToPx(snappedMin),
         bookingTimeStart: timeStr, timeStartInput: timeStr
       };
 
-      if (!endValid) {
+      if (m && !endValid) {
         var smartEnd = findSmartEnd(snappedMin, m.openMerged, m.blockedMerged);
         updates.bookingTimeEnd = minToTime(smartEnd);
         updates.timeEndInput = minToTime(smartEnd);
@@ -741,9 +740,10 @@ Page({
       // End must be strictly after start
       if (endSnap <= startMin) endSnap = startMin + 1;
 
-      // Ensure the whole [start, end] range is valid (no gaps, no blocked spans)
-      if (!isEndStillValid(startMin, endSnap, m.openMerged, m.blockedMerged)) {
-        endSnap = findSmartEnd(startMin, m.openMerged, m.blockedMerged);
+      // Ensure range is valid (only if interval data is available)
+      var m2 = this._getMergedIntervals();
+      if (m2 && !isEndStillValid(startMin, endSnap, m2.openMerged, m2.blockedMerged)) {
+        endSnap = findSmartEnd(startMin, m2.openMerged, m2.blockedMerged);
       }
 
       var endTimeStr = minToTime(endSnap);
