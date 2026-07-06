@@ -198,7 +198,7 @@
             <view class="timeline-drag-container">
               <!-- Background blocks -->
               <view class="timeline-bar">
-                <view wx:for="{{timelineBlocks}}" wx:key="*this" wx:if="{{item.width > 0}}" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
+                <view wx:for="{{timelineBlocks}}" wx:key="left" wx:if="{{item.width > 0}}" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
                 <!-- Selected range -->
                 <view wx:if="{{timelineSelection}}" class="timeline-selection" style="left:{{timelineSelection.left}}%;width:{{timelineSelection.width}}%;"></view>
               </view>
