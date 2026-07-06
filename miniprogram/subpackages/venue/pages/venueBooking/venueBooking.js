@@ -709,38 +709,43 @@ Page({
     var touch = e.touches[0];
     var dx = touch.clientX - this._dragStartClientX;
     var newPx = Math.max(0, Math.min(this.data._timelineWidth, this._dragStartPx + dx));
+    var m = this._getMergedIntervals();
+    if (!m) return;
 
     if (this._dragHandle === 'start') {
+      // Snap start to nearest valid point (in open, not blocked)
       var snappedMin = this._snapPxToValid(newPx, true);
       var timeStr = minToTime(snappedMin);
-      this.setData({
+
+      // Check whether current end is still valid with the new start
+      var endMin = timeToMin(this.data.bookingTimeEnd);
+      var endValid = endMin > snappedMin && isEndStillValid(snappedMin, endMin, m.openMerged, m.blockedMerged);
+
+      var updates = {
         startHandleX: this._minToPx(snappedMin),
         bookingTimeStart: timeStr, timeStartInput: timeStr
-      });
-      // If end is now <= start, push end forward
-      var endMin = timeToMin(this.data.bookingTimeEnd);
-      if (endMin <= snappedMin) {
-        var newEnd = this._snapPxToValid(this._minToPx(snappedMin + SNAP), false);
-        this.setData({
-          bookingTimeEnd: minToTime(newEnd), timeEndInput: minToTime(newEnd),
-          endHandleX: this._minToPx(newEnd)
-        });
+      };
+
+      if (!endValid) {
+        var smartEnd = findSmartEnd(snappedMin, m.openMerged, m.blockedMerged);
+        updates.bookingTimeEnd = minToTime(smartEnd);
+        updates.timeEndInput = minToTime(smartEnd);
+        updates.endHandleX = this._minToPx(smartEnd);
       }
-      // If end was valid before but now [start,end] crosses blocked, push end back
-      if (endMin > snappedMin) {
-        var blockedMerged = (this._getMergedIntervals() || {}).blockedMerged;
-        if (blockedMerged && findBlockedOverlap(snappedMin, endMin, blockedMerged)) {
-          var fixedEnd = this._snapPxToValid(this._minToPx(endMin), false);
-          this.setData({
-            bookingTimeEnd: minToTime(fixedEnd), timeEndInput: minToTime(fixedEnd),
-            endHandleX: this._minToPx(fixedEnd)
-          });
-        }
-      }
+
+      this.setData(updates);
     } else {
       var startMin = timeToMin(this.data.bookingTimeStart);
       var endSnap = this._snapPxToValid(newPx, false);
-      if (endSnap <= startMin) endSnap = this._snapPxToValid(this._minToPx(startMin + SNAP), false);
+
+      // End must be strictly after start
+      if (endSnap <= startMin) endSnap = startMin + 1;
+
+      // Ensure the whole [start, end] range is valid (no gaps, no blocked spans)
+      if (!isEndStillValid(startMin, endSnap, m.openMerged, m.blockedMerged)) {
+        endSnap = findSmartEnd(startMin, m.openMerged, m.blockedMerged);
+      }
+
       var endTimeStr = minToTime(endSnap);
       this.setData({
         endHandleX: this._minToPx(endSnap),
@@ -758,17 +763,21 @@ Page({
     var prevEnd = this._preDragEndTime;
     this._dragHandle = null;
 
+    // Safety-net: full validation — if touchmove did its job, this is a no-op
     if (handle === 'start') {
-      var ok = this._setStartTime(this.data.bookingTimeStart, {silent:true});
+      var ok = this._setStartTime(this.data.bookingTimeStart, {silent: true});
       if (!ok) {
-        this.setData({ bookingTimeStart: prevStart || '', timeStartInput: prevStart || '' });
-        if (prevEnd) this.setData({ bookingTimeEnd: prevEnd, timeEndInput: prevEnd });
+        this.setData({
+          bookingTimeStart: prevStart || '', timeStartInput: prevStart || '',
+          bookingTimeEnd: prevEnd || '', timeEndInput: prevEnd || ''
+        });
       }
-      // _setStartTime already handled end adjustment
     } else {
-      var ok2 = this._setEndTime(this.data.bookingTimeEnd, {silent:true});
+      var ok2 = this._setEndTime(this.data.bookingTimeEnd, {silent: true});
       if (!ok2) {
-        this.setData({ bookingTimeEnd: prevEnd || '', timeEndInput: prevEnd || '' });
+        this.setData({
+          bookingTimeEnd: prevEnd || '', timeEndInput: prevEnd || ''
+        });
       }
     }
     this._updateChipState();
