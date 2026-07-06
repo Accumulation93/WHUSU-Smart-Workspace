@@ -203,7 +203,7 @@
                 <view wx:if="{{timelineSelection}}" class="timeline-selection" style="left:{{timelineSelection.left}}%;width:{{timelineSelection.width}}%;"></view>
               </view>
               <!-- Start handle -->
-              <view class="tl-handle-wrap" style="left:{{startHandleX}}px; z-index:2;" data-handle="start"
+              <view class="tl-handle-wrap" style="left:{{startHandleX}}px; z-index:4;" data-handle="start"
                     bindtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" bindtouchend="onHandleTouchEnd">
                 <view class="tl-knob"></view>
                 <view class="tl-tag tl-tag-start">{{bookingTimeStart || '开始'}}</view>
