@@ -7,6 +7,8 @@ const BASE_MIN = 0;
 const HEADER_H = 58;
 const TEXT_OFFSET = 22;
 const TOTAL_MIN = 24 * 60;
+const SNAP_MIN = 10; // snap to 10-min grid
+const MINUTE_OPTS = [0,10,20,30,40,50];
 
 function timeToMin(t) { if (!t) return 0; const p = String(t).split(':'); return (parseInt(p[0])||0)*60 + (parseInt(p[1])||0); }
 function fmtLocalDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -15,7 +17,8 @@ function slotsToIntervals(slots) { return (slots||[]).map(s=>({start:timeToMin(s
 function mergeIntervals(intervals) { if(!intervals.length)return[]; const s=[...intervals].sort((a,b)=>a.start-b.start),m=[s[0]]; for(let i=1;i<s.length;i++){const l=m[m.length-1]; if(s[i].start<=l.end)l.end=Math.max(l.end,s[i].end); else m.push(s[i]);} return m; }
 function findOpenGap(rs,re,mo){let c=rs; for(const iv of mo){if(iv.start>c)return c;if(iv.end>c)c=iv.end;if(c>=re)return-1;}return c<re?c:-1;}
 function findBlockedOverlap(rs,re,mb){for(const iv of mb){if(iv.start<re&&iv.end>rs)return iv;}return null;}
-function minToTime(min) { if (min < 0) return '00:00'; if (min >= 1440) return '24:00'; var h = Math.floor(min / 60), m = min % 60; return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
+function minToTime(min) { if (min < 0) return '00:00'; if (min >= TOTAL_MIN) return '24:00'; var h = Math.floor(min / 60), m = min % 60; return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
+function snapMin(min) { return Math.round(min / SNAP_MIN) * SNAP_MIN; }
 
 function computeDisplayStatus(item) {
   if (item.status === 'pending') return 'pending';
@@ -32,11 +35,6 @@ function computeDisplayStatus(item) {
   return item.status;
 }
 
-/**
- * Build merged blocked intervals from dayData.
- * Blocked = booked (any status including pending) + activity slots.
- * Returns merged intervals [{start, end}].
- */
 function buildBlockedIntervals(dayData) {
   var blocked = [];
   if (dayData) {
@@ -52,42 +50,65 @@ function buildBlockedIntervals(dayData) {
   return mergeIntervals(blocked);
 }
 
-/**
- * Find default start time: first open slot's start that is >= now (if today), else first open slot start.
- */
-function findDefaultStart(dayData, dateStr) {
-  if (!dayData || !dayData.openSlots || !dayData.openSlots.length) return '';
-  var now = new Date();
-  var today = fmtLocalDate(now);
-  var currentMin = now.getHours() * 60 + now.getMinutes();
-  var openSlots = dayData.openSlots;
-  for (var i = 0; i < openSlots.length; i++) {
-    var s = timeToMin(openSlots[i].timeStart);
-    var e = timeToMin(openSlots[i].timeEnd);
-    if (dateStr === today) {
-      if (e <= currentMin) continue;
-      var startMin = Math.max(s, currentMin);
-      return minToTime(startMin);
-    } else {
-      return openSlots[i].timeStart;
+/** Collect hours where any open slot covers ≥10 min. */
+function computeOpenHours(openSlots) {
+  var hours = [];
+  for (var h = 0; h < 24; h++) {
+    var hs = h * 60, he = hs + 60;
+    for (var i = 0; i < openSlots.length; i++) {
+      var ss = timeToMin(openSlots[i].timeStart), se = timeToMin(openSlots[i].timeEnd);
+      if (ss < he && se > hs && Math.min(se, he) - Math.max(ss, hs) >= 10) {
+        hours.push({ label: String(h), value: h }); break;
+      }
     }
   }
-  return openSlots[0].timeStart;
+  return hours;
 }
 
-/**
- * Find a valid end time. Defaults to start+1h, adjusts if blocked.
- */
-function findDefaultEnd(startMin, blockedMerged) {
-  var ideal = startMin + 60;
+/** Find a valid start minute: first open moment ≥ now (today) or first open. */
+function findDefaultStartMin(dayData, dateStr) {
+  var openSlots = dayData.openSlots || [];
+  if (!openSlots.length) return -1;
+  var now = new Date(), today = fmtLocalDate(now), cur = now.getHours() * 60 + now.getMinutes();
+  for (var i = 0; i < openSlots.length; i++) {
+    var s = timeToMin(openSlots[i].timeStart), e = timeToMin(openSlots[i].timeEnd);
+    if (dateStr === today) {
+      if (e <= cur) continue;
+      return snapMin(Math.max(s, cur));
+    } else {
+      return snapMin(s);
+    }
+  }
+  return snapMin(timeToMin(openSlots[0].timeStart));
+}
+
+/** Find a free end minute: start + 60min, adjust if blocked. */
+function findDefaultEndMin(startMin, blockedMerged, openMerged) {
+  var ideal = snapMin(startMin + 60);
   if (ideal > TOTAL_MIN) ideal = TOTAL_MIN;
-  // See if [startMin, ideal] overlaps any blocked interval
+  // Check not across open gap
+  for (var oi = 0; oi < openMerged.length; oi++) {
+    if (startMin >= openMerged[oi].start && startMin < openMerged[oi].end) {
+      ideal = Math.min(ideal, openMerged[oi].end);
+      break;
+    }
+  }
+  // Check blocked
   var conflict = findBlockedOverlap(startMin, ideal, blockedMerged);
-  if (!conflict) return minToTime(ideal);
-  // Jump to end of conflict
-  var end = conflict.end;
-  if (end >= TOTAL_MIN) return '';
-  return minToTime(end);
+  if (conflict) ideal = snapMin(conflict.start);
+  if (ideal <= startMin) {
+    // Look for next open segment after start
+    for (var j = 0; j < openMerged.length; j++) {
+      if (openMerged[j].start > startMin) {
+        ideal = snapMin(openMerged[j].start + 60);
+        var conf2 = findBlockedOverlap(openMerged[j].start, ideal, blockedMerged);
+        if (conf2) ideal = snapMin(conf2.start);
+        if (ideal <= openMerged[j].start) ideal = openMerged[j].end;
+        break;
+      }
+    }
+  }
+  return Math.min(ideal, TOTAL_MIN);
 }
 
 Page({
@@ -106,7 +127,14 @@ Page({
     bookingTimeStart: '', bookingTimeEnd: '',
     timeStartInput: '', timeEndInput: '',
     timelineBlocks: [],
-    timelineRange: null,
+    // Drag handles
+    startHandleX: 0, endHandleX: 0,
+    timelineSelection: null,
+    _timelineWidth: 0,
+    // Chip selectors
+    startHours: [], startMinIdx: -1,
+    endHours: [], endMinIdx: -1,
+    minuteOpts: [{label:'00',value:0},{label:'10',value:10},{label:'20',value:20},{label:'30',value:30},{label:'40',value:40},{label:'50',value:50}],
     durationChips: [
       { label: '30分钟', minutes: 30 },
       { label: '1小时', minutes: 60 },
@@ -118,8 +146,7 @@ Page({
     statusLabels: { pending:'待审核', approved:'已通过', rejected:'已驳回', cancelled:'已取消', inUse:'使用中', completed:'已完成' },
     HOUR_HEIGHT: HOUR_HEIGHT, HEADER_H: HEADER_H,
     // Bookings tab
-    myBookings: [], pendingApprovalCount: 0,
-    expandedNodeKey: '',
+    myBookings: [], pendingApprovalCount: 0, expandedNodeKey: '',
     // Hero
     heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '欢迎使用REDSU智慧工作台系统 · 场地借用',
   },
@@ -276,7 +303,9 @@ Page({
       bookingVisible: true, bookingVenueId: this.data.scheduleVenueId, bookingVenueName: this.data.scheduleVenueName,
       bookingStartDate: date, bookingStartDateDisplay: date, bookingEndDate: date, bookingEndDateDisplay: date,
       bookingTimeStart: '', bookingTimeEnd: '', timeStartInput: '', timeEndInput: '',
-      bookingTitle: '', bookingDesc: '', timelineBlocks: [], timelineRange: null,
+      bookingTitle: '', bookingDesc: '', timelineBlocks: [], timelineSelection: null,
+      startHandleX: 0, endHandleX: 0, _timelineWidth: 0,
+      startHours: [], endHours: [], startMinIdx: -1, endMinIdx: -1,
       _dayData: null
     });
     this._loadScheduleForDate(date, presetTime);
@@ -291,7 +320,9 @@ Page({
       bookingVisible: true, bookingVenueId: id, bookingVenueName: v ? v.name : '',
       bookingStartDate: today, bookingStartDateDisplay: today, bookingEndDate: today, bookingEndDateDisplay: today,
       bookingTitle: '', bookingDesc: '', bookingTimeStart: '', bookingTimeEnd: '',
-      timeStartInput: '', timeEndInput: '', timelineBlocks: [], timelineRange: null,
+      timeStartInput: '', timeEndInput: '', timelineBlocks: [], timelineSelection: null,
+      startHandleX: 0, endHandleX: 0, _timelineWidth: 0,
+      startHours: [], endHours: [], startMinIdx: -1, endMinIdx: -1,
       _dayData: null
     });
     this._loadScheduleForDate(today);
@@ -309,47 +340,45 @@ Page({
         if (dayData) {
           this._applyDateSchedule(dayData, dateStr, presetTime);
         } else {
-          this.setData({ timelineBlocks: [], timelineRange: null, _dayData: null });
+          this.setData({ timelineBlocks: [], timelineSelection: null, _dayData: null });
         }
       } else { showShortToast(res.message || '加载时段失败'); }
     } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
     finally { wx.hideLoading(); }
   },
 
-  /** Process schedule data: build timeline and set smart defaults. */
   _applyDateSchedule(dayData, dateStr, presetTime) {
     var timeline = this._buildTimeline(dayData);
     var blockedMerged = buildBlockedIntervals(dayData);
+    var openMerged = mergeIntervals(slotsToIntervals(dayData.openSlots || []));
+    var openHours = computeOpenHours(dayData.openSlots || []);
 
-    // Default start time
-    var startTime = presetTime || '';
-    if (!startTime) {
-      startTime = findDefaultStart(dayData, dateStr);
-    }
+    var startMin = presetTime ? timeToMin(presetTime) : findDefaultStartMin(dayData, dateStr);
+    var endMin = startMin >= 0 ? findDefaultEndMin(startMin, blockedMerged, openMerged) : -1;
 
-    // Default end time
-    var endTime = '';
-    if (startTime) {
-      endTime = findDefaultEnd(timeToMin(startTime), blockedMerged);
-    }
+    var startTime = startMin >= 0 ? minToTime(startMin) : '';
+    var endTime = endMin > startMin ? minToTime(endMin) : '';
 
     this.setData({
       timelineBlocks: timeline,
       bookingTimeStart: startTime, bookingTimeEnd: endTime,
       timeStartInput: startTime, timeEndInput: endTime,
+      startHours: openHours, endHours: openHours,
       _dayData: dayData
     });
 
     this._updateTimelineRange();
+    this._updateChipState();
+    // Query timeline width for drag handles
+    var self = this;
+    wx.nextTick(function() { self._queryTimelineWidth(); });
   },
 
-  /** Build the 0-24h timeline bar with colors. Pending = blocked (same as booked). */
   _buildTimeline(dayData) {
     var openSlots = dayData.openSlots || [];
     var bookedSlots = dayData.bookedSlots || [];
     var activitySlots = dayData.activitySlots || [];
-    var blocks = [];
-    var t = 0;
+    var blocks = [], t = 0;
     while (t + 30 <= TOTAL_MIN) {
       var inOpen = false;
       for (var oi = 0; oi < openSlots.length; oi++) {
@@ -360,9 +389,7 @@ Page({
         status = 'free';
         for (var bi = 0; bi < bookedSlots.length; bi++) {
           if (t < timeToMin(bookedSlots[bi].timeEnd) && t + 30 > timeToMin(bookedSlots[bi].timeStart)) {
-            // pending = blocked, no distinction needed on timeline
-            status = 'booked';
-            break;
+            status = 'booked'; break;
           }
         }
         if (status === 'free') {
@@ -379,35 +406,246 @@ Page({
       t += 30;
     }
     return blocks.map(function(b) {
-      return {
-        left: ((b.startMin) / TOTAL_MIN * 100).toFixed(2),
-        width: ((b.endMin - b.startMin) / TOTAL_MIN * 100).toFixed(2),
-        status: b.status
-      };
+      return { left: (b.startMin / TOTAL_MIN * 100).toFixed(2), width: ((b.endMin - b.startMin) / TOTAL_MIN * 100).toFixed(2), status: b.status };
     });
   },
 
-  /** Compute the selected range overlay + duration info. */
+  // ── Timeline dimension query ──
+  _queryTimelineWidth() {
+    var self = this;
+    var query = wx.createSelectorQuery().in(this);
+    query.select('.timeline-drag-container').boundingClientRect();
+    query.exec(function(rects) {
+      if (rects && rects[0] && rects[0].width) {
+        self.setData({ _timelineWidth: rects[0].width });
+        self._updateHandlePositions();
+      }
+    });
+  },
+
+  /** Convert minute → handle x (handle center at minute position). Handle is 52rpx wide. */
+  _minToPx(min) {
+    var w = this.data._timelineWidth;
+    if (!w) return 0;
+    return Math.round(min / TOTAL_MIN * w);
+  },
+  _pxToMin(px) {
+    var w = this.data._timelineWidth;
+    if (!w) return 0;
+    return Math.round(px / w * TOTAL_MIN);
+  },
+
+  /** Update both handle x positions from current times. */
+  _updateHandlePositions() {
+    var sm = timeToMin(this.data.bookingTimeStart);
+    var em = timeToMin(this.data.bookingTimeEnd);
+    this.setData({
+      startHandleX: this._minToPx(sm),
+      endHandleX: this._minToPx(em || sm)
+    });
+  },
+
+  /** Update timeline selection + duration info. */
   _updateTimelineRange() {
-    var st = this.data.bookingTimeStart;
-    var et = this.data.bookingTimeEnd;
+    var st = this.data.bookingTimeStart, et = this.data.bookingTimeEnd;
     if (!st || !et) {
-      this.setData({ timelineRange: null, _durationText: '', _activeDuration: 0 });
+      this.setData({ timelineSelection: null, _durationText: '', _activeDuration: 0 });
       return;
     }
     var sm = timeToMin(st), em = timeToMin(et);
-    if (em <= sm) { this.setData({ timelineRange: null, _durationText: '', _activeDuration: 0 }); return; }
+    if (em <= sm) { this.setData({ timelineSelection: null, _durationText: '', _activeDuration: 0 }); return; }
     var dur = em - sm;
     var h = Math.floor(dur / 60), m = dur % 60;
     var durText = h > 0 ? (h + '小时' + (m > 0 ? m + '分钟' : '')) : (m + '分钟');
     this.setData({
-      timelineRange: {
-        left: (sm / TOTAL_MIN * 100).toFixed(2),
-        width: ((em - sm) / TOTAL_MIN * 100).toFixed(2)
-      },
+      timelineSelection: { left: (sm / TOTAL_MIN * 100).toFixed(2), width: ((em - sm) / TOTAL_MIN * 100).toFixed(2) },
       _durationText: durText,
       _activeDuration: dur
     });
+  },
+
+  /** Update chip active states from current times. */
+  _updateChipState() {
+    var st = this.data.bookingTimeStart, et = this.data.bookingTimeEnd;
+    var sh = st ? parseInt(st.split(':')[0]) : -1;
+    var sm = st ? parseInt(st.split(':')[1]) : -1;
+    var smIdx = MINUTE_OPTS.indexOf(sm);
+
+    var eh = et ? parseInt(et.split(':')[0]) : -1;
+    var em = et ? parseInt(et.split(':')[1]) : -1;
+    var emIdx = MINUTE_OPTS.indexOf(em);
+
+    var endHours = [];
+    var startHours = this.data.startHours;
+    for (var i = 0; i < startHours.length; i++) {
+      if (startHours[i].value >= (sh >= 0 ? sh : 0)) {
+        endHours.push({ label: startHours[i].label, value: startHours[i].value });
+      }
+    }
+
+    this.setData({
+      startMinIdx: smIdx, _startHourVal: sh,
+      endHours: endHours, endMinIdx: emIdx, _endHourVal: eh
+    });
+  },
+
+  // ── Chip tap handlers ──
+  onStartHourTap(e) {
+    var h = parseInt(e.currentTarget.dataset.value);
+    var curMin = this.data.bookingTimeStart;
+    var m = curMin ? parseInt(curMin.split(':')[1]) : 0;
+    m = MINUTE_OPTS.indexOf(m) >= 0 ? m : 0; // round to valid minute
+    var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+    this._validateAndSetStart(timeStr);
+    this._updateChipState();
+    this._updateHandlePositions();
+  },
+
+  onStartMinTap(e) {
+    var m = parseInt(e.currentTarget.dataset.value);
+    var curTime = this.data.bookingTimeStart;
+    var h = curTime ? parseInt(curTime.split(':')[0]) : (this.data.startHours.length ? this.data.startHours[0].value : 8);
+    var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+    this._validateAndSetStart(timeStr);
+    this._updateChipState();
+    this._updateHandlePositions();
+  },
+
+  onEndHourTap(e) {
+    var h = parseInt(e.currentTarget.dataset.value);
+    var curMin = this.data.bookingTimeEnd;
+    var m = curMin ? parseInt(curMin.split(':')[1]) : 0;
+    m = MINUTE_OPTS.indexOf(m) >= 0 ? m : 0;
+    var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+    this._validateAndSetEnd(timeStr);
+    this._updateChipState();
+    this._updateHandlePositions();
+  },
+
+  onEndMinTap(e) {
+    var m = parseInt(e.currentTarget.dataset.value);
+    var curTime = this.data.bookingTimeEnd || this.data.bookingTimeStart;
+    var h = curTime ? parseInt(curTime.split(':')[0]) : (this.data.endHours.length ? this.data.endHours[0].value : 9);
+    var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+    this._validateAndSetEnd(timeStr);
+    this._updateChipState();
+    this._updateHandlePositions();
+  },
+
+  // ── ★ Custom touch drag handlers ──
+  onHandleTouchStart(e) {
+    var handle = e.currentTarget.dataset.handle;
+    var touch = e.touches[0];
+    this._dragHandle = handle;
+    this._dragStartClientX = touch.clientX;
+    this._dragStartPx = handle === 'start' ? this.data.startHandleX : this.data.endHandleX;
+    this._preDragStartTime = this.data.bookingTimeStart;
+    this._preDragEndTime = this.data.bookingTimeEnd;
+  },
+
+  onHandleTouchMove(e) {
+    if (!this._dragHandle || !this.data._timelineWidth) return;
+    var touch = e.touches[0];
+    var dx = touch.clientX - this._dragStartClientX;
+    var newPx = Math.max(0, Math.min(this.data._timelineWidth, this._dragStartPx + dx));
+    var rawMin = this._pxToMin(newPx);
+    var snappedMin = snapMin(rawMin);
+
+    if (this._dragHandle === 'start') {
+      var endMin = timeToMin(this.data.bookingTimeEnd);
+      if (endMin > 0 && snappedMin >= endMin - SNAP_MIN) snappedMin = Math.max(0, endMin - SNAP_MIN);
+      snappedMin = this._snapToFree(snappedMin, true);
+      var timeStr = minToTime(snappedMin);
+      this.setData({
+        startHandleX: this._minToPx(snappedMin),
+        bookingTimeStart: timeStr, timeStartInput: timeStr
+      });
+      if (endMin > 0 && snappedMin >= endMin) {
+        var newEnd = this._snapToFree(snapMin(snappedMin + SNAP_MIN), false);
+        this.setData({
+          bookingTimeEnd: minToTime(newEnd), timeEndInput: minToTime(newEnd),
+          endHandleX: this._minToPx(newEnd)
+        });
+      }
+    } else {
+      var startMin = timeToMin(this.data.bookingTimeStart);
+      if (snappedMin <= startMin + SNAP_MIN) snappedMin = startMin + SNAP_MIN;
+      if (snappedMin < 0) snappedMin = SNAP_MIN;
+      snappedMin = this._snapToFree(snappedMin, false);
+      var endTimeStr = minToTime(snappedMin);
+      this.setData({
+        endHandleX: this._minToPx(snappedMin),
+        bookingTimeEnd: endTimeStr, timeEndInput: endTimeStr
+      });
+    }
+    this._updateTimelineRange();
+    this._updateChipState();
+  },
+
+  onHandleTouchEnd() {
+    if (!this._dragHandle) return;
+    var handle = this._dragHandle;
+    var prevStart = this._preDragStartTime;
+    var prevEnd = this._preDragEndTime;
+    this._dragHandle = null;
+
+    if (handle === 'start') {
+      var ok = this._validateAndSetStart(this.data.bookingTimeStart);
+      if (!ok && prevStart) {
+        // Restore pre-drag state
+        this.setData({ bookingTimeStart: prevStart, timeStartInput: prevStart });
+        if (prevEnd) this.setData({ bookingTimeEnd: prevEnd, timeEndInput: prevEnd });
+      }
+      if (ok) this._autoSetEnd();
+    } else {
+      var ok2 = this._validateAndSetEnd(this.data.bookingTimeEnd);
+      if (!ok2 && prevEnd) {
+        this.setData({ bookingTimeEnd: prevEnd, timeEndInput: prevEnd });
+      }
+    }
+    this._updateChipState();
+    this._updateHandlePositions();
+    this._updateTimelineRange();
+  },
+
+  /** Snap a minute value to nearest "free" position (not in blocked/closed interval). */
+  _snapToFree(min, isStart) {
+    var dayData = this.data._dayData;
+    if (!dayData) return min;
+    var openSlots = dayData.openSlots || [];
+    var blocked = buildBlockedIntervals(dayData);
+
+    // Helper: check if a minute position is valid (in open, not blocked)
+    var isValid = function(m) {
+      var inO = false;
+      for (var oi = 0; oi < openSlots.length; oi++) {
+        if (m >= timeToMin(openSlots[oi].timeStart) && m < timeToMin(openSlots[oi].timeEnd)) { inO = true; break; }
+      }
+      if (!inO) return false;
+      for (var bi = 0; bi < blocked.length; bi++) {
+        if (m >= blocked[bi].start && m < blocked[bi].end) return false;
+      }
+      return true;
+    };
+
+    if (isValid(min)) return min;
+
+    // Search outward for nearest valid position
+    for (var d = 0; d < TOTAL_MIN; d += SNAP_MIN) {
+      // Try: current - d (prefer earlier for end, later for start)
+      var t1 = isStart ? min + d : min - d;
+      var t2 = isStart ? min - d : min + d;
+      t1 = snapMin(Math.max(0, Math.min(TOTAL_MIN, t1)));
+      t2 = snapMin(Math.max(0, Math.min(TOTAL_MIN, t2)));
+      if (isStart) {
+        if (isValid(t1)) return t1;
+        if (isValid(t2)) return t2;
+      } else {
+        if (isValid(t2)) return t2;
+        if (isValid(t1)) return t1;
+      }
+    }
+    return min;
   },
 
   // ── Date pickers ──
@@ -416,7 +654,9 @@ Page({
     this.setData({
       bookingStartDate: d, bookingStartDateDisplay: d, bookingEndDate: d, bookingEndDateDisplay: d,
       bookingTimeStart: '', bookingTimeEnd: '', timeStartInput: '', timeEndInput: '',
-      timelineBlocks: [], timelineRange: null, _dayData: null
+      timelineBlocks: [], timelineSelection: null, _timelineWidth: 0,
+      startHandleX: 0, endHandleX: 0, startHours: [], endHours: [], startMinIdx: -1, endMinIdx: -1,
+      _dayData: null
     });
     this._loadScheduleForDate(d);
   },
@@ -427,38 +667,54 @@ Page({
     this.setData({ bookingEndDate: d, bookingEndDateDisplay: d });
   },
 
-  // ── ★ Timeline tap → set start time ──
-  onTimelineTap(e) {
-    var self = this;
-    var query = wx.createSelectorQuery().in(this);
-    query.select('.timeline-bar').boundingClientRect();
-    query.exec(function(rects) {
-      if (!rects || !rects[0]) return;
-      var x = e.detail.x;
-      var width = rects[0].width;
-      if (!width) return;
-      var fraction = Math.max(0, Math.min(1, x / width));
-      var totalMin = Math.round(fraction * TOTAL_MIN);
-      var timeStr = minToTime(totalMin);
-      self._validateAndSetStart(timeStr);
-    });
+  // ── Text input ──
+  onTimeStartInput(e) { this.setData({ timeStartInput: e.detail.value }); },
+  onTimeStartInputBlur() {
+    var val = (this.data.timeStartInput || '').trim();
+    if (!val) return;
+    var match = val.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) { showShortToast('格式不正确，请使用 HH:MM'); this.setData({ timeStartInput: this.data.bookingTimeStart || '' }); return; }
+    var h = parseInt(match[1]), m = parseInt(match[2]);
+    if (h < 0 || h > 23 || m < 0 || m > 59) { showShortToast('时间范围不正确'); this.setData({ timeStartInput: this.data.bookingTimeStart || '' }); return; }
+    var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+    this._validateAndSetStart(timeStr);
+    if (this.data.bookingTimeStart !== timeStr) {
+      this.setData({ timeStartInput: this.data.bookingTimeStart || '' });
+    } else {
+      this._updateChipState();
+      this._updateHandlePositions();
+    }
   },
 
-  /** Validate and set start time. Rejects if in blocked interval, past, or outside open hours. */
+  onTimeEndInput(e) { this.setData({ timeEndInput: e.detail.value }); },
+  onTimeEndInputBlur() {
+    var val = (this.data.timeEndInput || '').trim();
+    if (!val) return;
+    var match = val.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) { showShortToast('格式不正确，请使用 HH:MM'); this.setData({ timeEndInput: this.data.bookingTimeEnd || '' }); return; }
+    var h = parseInt(match[1]), m = parseInt(match[2]);
+    if (h < 0 || h > 23 || m < 0 || m > 59) { showShortToast('时间范围不正确'); this.setData({ timeEndInput: this.data.bookingTimeEnd || '' }); return; }
+    var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+    this._validateAndSetEnd(timeStr);
+    if (this.data.bookingTimeEnd !== timeStr) {
+      this.setData({ timeEndInput: this.data.bookingTimeEnd || '' });
+    } else {
+      this._updateChipState();
+      this._updateHandlePositions();
+    }
+  },
+
+  // ── Validation (return true on success, false on failure) ──
   _validateAndSetStart(timeStr) {
     var startMin = timeToMin(timeStr);
     var dateStr = this.data.bookingStartDate;
     var dayData = this.data._dayData;
 
-    // 1. Past check
-    var now = new Date();
-    var today = fmtLocalDate(now);
+    var now = new Date(), today = fmtLocalDate(now);
     if (dateStr === today && startMin < now.getHours() * 60 + now.getMinutes()) {
-      showShortToast('不能选择过去的时间'); return;
+      showShortToast('不能选择过去的时间'); return false;
     }
-
-    // 2. Must be within an open slot
-    if (!dayData || !dayData.openSlots) { showShortToast('请先选择日期'); return; }
+    if (!dayData || !dayData.openSlots) { showShortToast('请先选择日期'); return false; }
     var inOpen = false;
     var openSlots = dayData.openSlots;
     for (var oi = 0; oi < openSlots.length; oi++) {
@@ -466,125 +722,74 @@ Page({
         inOpen = true; break;
       }
     }
-    if (!inOpen) { showShortToast('该时间不在开放时段内'); return; }
+    if (!inOpen) { showShortToast('该时间不在开放时段内'); return false; }
 
-    // 3. Must not be inside a blocked (booked/pending/activity) interval
     var blockedMerged = buildBlockedIntervals(dayData);
     for (var bi = 0; bi < blockedMerged.length; bi++) {
       if (startMin >= blockedMerged[bi].start && startMin < blockedMerged[bi].end) {
-        showShortToast('该时段已被占用'); return;
+        showShortToast('该时段已被占用'); return false;
       }
     }
 
-    // Valid: set start, clear end
-    this.setData({ bookingTimeStart: timeStr, timeStartInput: timeStr, bookingTimeEnd: '', timeEndInput: '' });
+    this.setData({
+      bookingTimeStart: timeStr, timeStartInput: timeStr,
+      bookingTimeEnd: '', timeEndInput: ''
+    });
     this._updateTimelineRange();
+    this._updateHandlePositions();
     this._autoSetEnd();
+    return true;
   },
 
-  /** Auto-set a smart end time after start changes. */
-  _autoSetEnd() {
-    var startMin = timeToMin(this.data.bookingTimeStart);
-    var dayData = this.data._dayData;
-    if (!dayData) return;
-    var blockedMerged = buildBlockedIntervals(dayData);
-    var endTime = findDefaultEnd(startMin, blockedMerged);
-    if (endTime) {
-      this.setData({ bookingTimeEnd: endTime, timeEndInput: endTime });
-      this._updateTimelineRange();
-    }
-  },
-
-  // ── ★ Time text inputs (minute precision) ──
-  onTimeStartInput(e) { this.setData({ timeStartInput: e.detail.value }); },
-
-  onTimeStartInputBlur() {
-    var val = (this.data.timeStartInput || '').trim();
-    if (!val) return;
-    // Parse HH:MM or H:MM
-    var match = val.match(/^(\d{1,2}):(\d{2})$/);
-    if (!match) {
-      showShortToast('格式不正确，请使用 HH:MM');
-      this.setData({ timeStartInput: this.data.bookingTimeStart || '' });
-      return;
-    }
-    var h = parseInt(match[1]), m = parseInt(match[2]);
-    if (h < 0 || h > 23 || m < 0 || m > 59) {
-      showShortToast('时间范围不正确');
-      this.setData({ timeStartInput: this.data.bookingTimeStart || '' });
-      return;
-    }
-    var timeStr = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    this._validateAndSetStart(timeStr);
-    if (this.data.bookingTimeStart !== timeStr) {
-      // _validateAndSetStart rejected it — revert display
-      this.setData({ timeStartInput: this.data.bookingTimeStart || '' });
-    }
-  },
-
-  onTimeEndInput(e) { this.setData({ timeEndInput: e.detail.value }); },
-
-  onTimeEndInputBlur() {
-    var val = (this.data.timeEndInput || '').trim();
-    if (!val) return;
-    var match = val.match(/^(\d{1,2}):(\d{2})$/);
-    if (!match) {
-      showShortToast('格式不正确，请使用 HH:MM');
-      this.setData({ timeEndInput: this.data.bookingTimeEnd || '' });
-      return;
-    }
-    var h = parseInt(match[1]), m = parseInt(match[2]);
-    if (h < 0 || h > 23 || m < 0 || m > 59) {
-      showShortToast('时间范围不正确');
-      this.setData({ timeEndInput: this.data.bookingTimeEnd || '' });
-      return;
-    }
-    var timeStr = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    this._validateAndSetEnd(timeStr);
-    if (this.data.bookingTimeEnd !== timeStr) {
-      this.setData({ timeEndInput: this.data.bookingTimeEnd || '' });
-    }
-  },
-
-  /** Validate and set end time at minute precision. */
   _validateAndSetEnd(timeStr) {
     var endMin = timeToMin(timeStr);
     var startMin = timeToMin(this.data.bookingTimeStart);
     var dayData = this.data._dayData;
 
-    if (!this.data.bookingTimeStart) { showShortToast('请先选择开始时间'); return; }
-    if (endMin <= startMin) { showShortToast('结束时间必须晚于开始时间'); return; }
+    if (!this.data.bookingTimeStart) { showShortToast('请先选择开始时间'); return false; }
+    if (endMin <= startMin) { showShortToast('结束时间必须晚于开始时间'); return false; }
 
     if (dayData && dayData.openSlots) {
-      // Must be within an open slot
       var inOpen = false;
       for (var oi = 0; oi < dayData.openSlots.length; oi++) {
         if (endMin > timeToMin(dayData.openSlots[oi].timeStart) && endMin <= timeToMin(dayData.openSlots[oi].timeEnd)) {
           inOpen = true; break;
         }
       }
-      if (!inOpen) { showShortToast('结束时间不在开放时段内'); return; }
+      if (!inOpen) { showShortToast('结束时间不在开放时段内'); return false; }
 
-      // Range must not cross blocked intervals
       var openMerged = mergeIntervals(slotsToIntervals(dayData.openSlots));
       var gap = findOpenGap(startMin, endMin, openMerged);
-      if (gap >= 0) {
-        showShortToast(minToTime(gap) + ' 场地不开放');
-        return;
-      }
+      if (gap >= 0) { showShortToast(minToTime(gap) + ' 场地不开放'); return false; }
+
       var blockedMerged = buildBlockedIntervals(dayData);
       var conflict = findBlockedOverlap(startMin, endMin, blockedMerged);
-      if (conflict) {
-        showShortToast(minToTime(conflict.start) + ' 已被占用，无法跨越');
-        return;
-      }
+      if (conflict) { showShortToast(minToTime(conflict.start) + ' 已被占用，无法跨越'); return false; }
     }
 
     this.setData({ bookingTimeEnd: timeStr, timeEndInput: timeStr });
     this._updateTimelineRange();
+    this._updateHandlePositions();
+    return true;
   },
 
-  // ── ★ Quick duration chips ──
+  _autoSetEnd() {
+    var startMin = timeToMin(this.data.bookingTimeStart);
+    var dayData = this.data._dayData;
+    if (!dayData || startMin < 0) return;
+    var blockedMerged = buildBlockedIntervals(dayData);
+    var openMerged = mergeIntervals(slotsToIntervals(dayData.openSlots || []));
+    var endMin = findDefaultEndMin(startMin, blockedMerged, openMerged);
+    if (endMin > startMin) {
+      var endTime = minToTime(endMin);
+      this.setData({ bookingTimeEnd: endTime, timeEndInput: endTime });
+      this._updateTimelineRange();
+      this._updateHandlePositions();
+      this._updateChipState();
+    }
+  },
+
+  // ── Duration chips ──
   onDurationTap(e) {
     var minutes = parseInt(e.currentTarget.dataset.minutes);
     if (!minutes) return;
@@ -595,6 +800,8 @@ Page({
     var endTime = minToTime(endMin);
     this._validateAndSetEnd(endTime);
     this.setData({ timeEndInput: this.data.bookingTimeEnd || endTime });
+    this._updateChipState();
+    this._updateHandlePositions();
   },
 
   // ── Other form ──
@@ -605,8 +812,7 @@ Page({
         st = _a.bookingTimeStart, et = _a.bookingTimeEnd, title = _a.bookingTitle, desc = _a.bookingDesc, dd = _a._dayData;
     if(!vid||!sd||!st||!et){showShortToast('请完整填写信息并选择时间段');return;}
     if(!title){showShortToast('请填写借用事由');return;}
-    var now = new Date();
-    var today = fmtLocalDate(now);
+    var now = new Date(), today = fmtLocalDate(now);
     if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast('开始时间不能是过去的时间'); return; }
     var ts = sd+'T'+st, te = ed+'T'+et;
     if(ts >= te) { showShortToast('结束时间必须晚于开始时间'); return; }
@@ -620,26 +826,17 @@ Page({
     finally { this.setData({loading:false}); }
   },
 
-  /** Final validation before submit. Pending IS blocked. */
   _validateRange(dayData, sd, ed, st, et) {
     var openSlots = dayData ? (dayData.openSlots||[]) : [];
     var bookedSlots = dayData ? (dayData.bookedSlots||[]) : [];
     var activitySlots = dayData ? (dayData.activitySlots||[]) : [];
     var rs = timeToMin(st), re = timeToMin(et);
-
-    // Must be within open hours
     var mo = mergeIntervals(slotsToIntervals(openSlots));
     var gap = findOpenGap(rs, re, mo);
-    if(gap >= 0) {
-      return minToTime(gap) + ' 场地不开放';
-    }
-
-    // Must not overlap any booked/pending/activity slot
+    if(gap >= 0) { return minToTime(gap) + ' 场地不开放'; }
     var mb = mergeIntervals([].concat(slotsToIntervals(bookedSlots), slotsToIntervals(activitySlots)));
     var conflict = findBlockedOverlap(rs, re, mb);
-    if(conflict) {
-      return minToTime(conflict.start) + ' 已被占用';
-    }
+    if(conflict) { return minToTime(conflict.start) + ' 已被占用'; }
     return null;
   },
 
