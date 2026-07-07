@@ -27,8 +27,6 @@ const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
-const { createSubmissionStatusNotification, createPendingApprovalNotifications } = require('../utils/notificationHelper');
-const notificationModel = require('../models/notification');
 
 /**
  * Helper: check if a value exists in a comma-separated list.
@@ -436,8 +434,6 @@ router.post('/startAuditSubmission', async (req, res) => {
     }, conn);
 
     await conn.commit();
-    // Notify first-step approvers (fire-and-forget)
-    createPendingApprovalNotifications(submissionId, 1).catch(e => console.error('[audit:startAuditSubmission] notification failed:', e.message));
     res.json({
       status: 'success',
       id: submissionId,
@@ -560,8 +556,6 @@ router.post('/startAdHocAudit', async (req, res) => {
     }, conn);
 
     await conn.commit();
-    // Notify first-step approvers (fire-and-forget)
-    createPendingApprovalNotifications(submissionId, 1).catch(e => console.error('[audit:startAdHocAudit] notification failed:', e.message));
     res.json({ status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' });
   } catch (e) {
     await conn.rollback();
@@ -1429,20 +1423,11 @@ router.post('/approveStep', async (req, res) => {
     }, conn);
 
     await conn.commit();
-    // Clear old pending_approval notifications for this submission
-    notificationModel.markReadByTarget('submission', submissionId).catch(e => console.error('[audit:approveStep] cleanup failed:', e.message));
     // ★ Notifications (fire-and-forget)
     if (!nextStep) {
       // Final step approved → notify submitter
-      createSubmissionStatusNotification(submission, submission.submitted_by, {
-        type: 'submission_approved',
-        title: '工单审批通过',
-        description: '您提交的「' + (submission.title || submission.submission_number) + '」已审批通过',
-        targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
-      }).catch(e => console.error('[audit:approveStep] notification(approved) failed:', e.message));
     } else {
       // Advanced to next step → notify next-step approvers
-      createPendingApprovalNotifications(submissionId, nextStep.sort_order).catch(e => console.error('[audit:approveStep] notification(pending) failed:', e.message));
     }
     res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
   } catch (e) {
@@ -1530,15 +1515,7 @@ router.post('/rejectStep', async (req, res) => {
     }, conn);
 
     await conn.commit();
-    // Clear old pending_approval notifications for this submission
-    notificationModel.markReadByTarget('submission', submissionId).catch(e => console.error('[audit:rejectStep] cleanup failed:', e.message));
     // Notify submitter of rejection (fire-and-forget)
-    createSubmissionStatusNotification(submission, submission.submitted_by, {
-      type: 'submission_rejected',
-      title: '工单被驳回',
-      description: '您提交的「' + (submission.title || submission.submission_number) + '」已被驳回',
-      targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
-    }).catch(e => console.error('[audit:rejectStep] notification failed:', e.message));
     res.json({ status: 'success', message: '已驳回，提交人将收到通知' });
   } catch (e) {
     await conn.rollback();
@@ -1801,10 +1778,6 @@ router.post('/resubmitAudit', async (req, res) => {
       }, conn);
 
       await conn.commit();
-      // Clear old pending_approval notifications
-      notificationModel.markReadByTarget('submission', submissionId).catch(e => console.error('[audit:resubmitAudit:branchA] cleanup failed:', e.message));
-      // Notify first-step approvers (fire-and-forget)
-      createPendingApprovalNotifications(submissionId, 1).catch(e => console.error('[audit:resubmitAudit:branchA] notification failed:', e.message));
       return res.json({
         status: 'success',
         message: '审核已提交，审批流程已启动'
@@ -1897,10 +1870,7 @@ router.post('/resubmitAudit', async (req, res) => {
     }, conn);
 
     await conn.commit();
-    // Clear old pending_approval notifications
-    notificationModel.markReadByTarget('submission', submissionId).catch(e => console.error('[audit:resubmitAudit:branchB] cleanup failed:', e.message));
     // Notify approvers at the start step (fire-and-forget)
-    createPendingApprovalNotifications(submissionId, startStepIndex).catch(e => console.error('[audit:resubmitAudit:branchB] notification failed:', e.message));
     res.json({
       status: 'success',
       message: isWithdrawn

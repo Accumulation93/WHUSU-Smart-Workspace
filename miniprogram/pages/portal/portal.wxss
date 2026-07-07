@@ -455,12 +455,6 @@ button, input, textarea, picker, view, text, scroll-view {
   color: #94a3b8; font-size: 19rpx; margin-top: 4rpx;
 }
 
-.notification-unread-dot {
-  flex-shrink: 0; width: 12rpx; height: 12rpx; border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 6rpx rgba(239,68,68,0.3);
-}
-
 .notification-empty {
   text-align: center; padding: 24rpx 0;
 }

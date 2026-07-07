@@ -122,6 +122,8 @@ Page({
   },
 
   // ── Notification methods ──
+  // Real-time query: notifications reflect current pending steps only.
+  // No persistent storage, no read/unread — processed items disappear automatically.
   async loadNotificationCount() {
     try {
       const res = await callFunction({ name: 'getNotificationUnreadCount', data: {} });
@@ -151,12 +153,9 @@ Page({
   },
 
   onNotificationTap(e) {
-    var dataset = e.currentTarget.dataset;
-    var url = dataset.url;
-    var id = dataset.id;
+    var url = e.currentTarget.dataset.url;
     if (!url) return;
-    var sep = url.indexOf('?') === -1 ? '?' : '&';
-    wx.navigateTo({ url: url + sep + 'from=notification&notificationId=' + id });
+    wx.navigateTo({ url: url });
   },
 
   goLogin() {

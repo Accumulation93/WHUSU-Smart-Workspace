@@ -161,14 +161,6 @@ Page({
   noop() {},
 
   onLoad(options) {
-    // Auto-mark notification as read if coming from notification
-    if (options.from === 'notification' && options.notificationId) {
-      callFunction({
-        name: 'markNotificationRead',
-        data: { notificationId: options.notificationId }
-      }).catch(function() {});
-    }
-
     if (options.action === 'create') {
       this.setData({ action: 'create' });
       this.loadFlowTemplates();
