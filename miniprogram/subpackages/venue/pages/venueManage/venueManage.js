@@ -92,13 +92,15 @@ function calcBlock(timeStart, timeEnd) {
 /** Build checked arrays from cycleValues (WXML can't call indexOf) */
 function buildWeeklyChecked(cycleValues) {
   const arr = [false, false, false, false, false, false, false];
-  (cycleValues || []).forEach(v => { const n = Number(v); if (n >= 1 && n <= 7) arr[n - 1] = true; });
+  if (!Array.isArray(cycleValues)) return arr;
+  cycleValues.forEach(v => { const n = Number(v); if (n >= 1 && n <= 7) arr[n - 1] = true; });
   return arr;
 }
 
 function buildMonthlyChecked(cycleValues) {
   const arr = Array(31).fill(false);
-  (cycleValues || []).forEach(v => { const n = Number(v); if (n >= 1 && n <= 31) arr[n - 1] = true; });
+  if (!Array.isArray(cycleValues)) return arr;
+  cycleValues.forEach(v => { const n = Number(v); if (n >= 1 && n <= 31) arr[n - 1] = true; });
   return arr;
 }
 
@@ -521,12 +523,12 @@ Page({
   },
 
   onCycleTypeChange(e) {
-    const types = ['daily', 'weekly', 'monthly', 'yearly'];
+    const types = ['daily', 'weekly', 'monthly', 'yearly', 'range'];
     const idx = parseInt(e.detail.value);
     const ct = types[idx] || 'weekly';
     this.setData({
       'ruleForm.cycleType': ct,
-      'ruleForm.cycleValues': [],
+      'ruleForm.cycleValues': ct === 'range' ? { startDate: '', endDate: '' } : [],
       weeklyChecked: [false, false, false, false, false, false, false],
       monthlyChecked: Array(31).fill(false)
     });
@@ -657,6 +659,21 @@ Page({
     this.setData({ 'ruleForm.cycleValues': vals });
   },
 
+  // ── Range cycle type date handlers ──
+  onRangeStartDateChange(e) {
+    const d = e.detail.value;
+    const cv = Object.assign({}, this.data.ruleForm.cycleValues || {});
+    cv.startDate = d;
+    this.setData({ 'ruleForm.cycleValues': cv });
+  },
+
+  onRangeEndDateChange(e) {
+    const d = e.detail.value;
+    const cv = Object.assign({}, this.data.ruleForm.cycleValues || {});
+    cv.endDate = d;
+    this.setData({ 'ruleForm.cycleValues': cv });
+  },
+
   async saveRule() {
     const { ruleEditId, ruleEditorType, ruleForm, rulesVenueId } = this.data;
     let endpoint, data;
@@ -740,15 +757,20 @@ Page({
   // ── Cycle helpers ──
   getCycleLabel(type, values) {
     if (type === 'daily') return '每天';
-    const v = typeof values === 'string' ? (() => { try { return JSON.parse(values); } catch (_) { return []; } })() : (values || []);
+    const v = typeof values === 'string' ? (() => { try { return JSON.parse(values); } catch (_) { return {}; } })() : (values || {});
+    if (type === 'range') {
+      if (v && v.startDate && v.endDate) return v.startDate + ' 至 ' + v.endDate;
+      return '日期范围未设置';
+    }
+    const arr = Array.isArray(v) ? v : [];
     const weekNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    if (type === 'weekly') return v.map(i => weekNames[Number(i)] || i).join('、') || '未设置';
-    if (type === 'monthly') return '每月' + v.map(i => Number(i)).join('、') + '日';
-    if (type === 'yearly') return v.map(c => {
+    if (type === 'weekly') return arr.map(i => weekNames[Number(i)] || i).join('、') || '未设置';
+    if (type === 'monthly') return '每月' + arr.map(i => Number(i)).join('、') + '日';
+    if (type === 'yearly') return arr.map(c => {
       if (c.dEnd !== undefined) return (c.m || '?') + '月' + (c.dStart || '?') + '日-' + (c.dEnd || '?') + '日';
       return (c.m || '?') + '月' + (c.d || '?') + '日';
     }).join('、');
-    return JSON.stringify(v || []);
+    return JSON.stringify(arr);
   },
 
   getRuleTypeLabel(rt) {
@@ -1120,10 +1142,6 @@ Page({
     });
     this._loadAdminAvailability(d);
   },
-  onAdminEndDateChange(e) {
-    const d = e.detail.value;
-    this.setData({ adminBookingEndDate: d, adminBookingEndDateDisplay: d, adminBookingTimeEnd: '' });
-  },
 
   async _loadAdminAvailability(dateStr, presetTime) {
     if (!dateStr) return;
@@ -1239,13 +1257,13 @@ Page({
   },
 
   async submitAdminBooking() {
-    const { scheduleVenueId, adminBookingStartDate, adminBookingEndDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc, _adminDayData } = this.data;
+    const { scheduleVenueId, adminBookingStartDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc, _adminDayData } = this.data;
     if (!scheduleVenueId || !adminBookingStartDate || !adminBookingTimeStart || !adminBookingTimeEnd) {
       showShortToast('请完整填写信息并选择时间段'); return;
     }
     if (!adminBookingTitle) { showShortToast('请填写借用事由'); return; }
     const timeStart = adminBookingStartDate + 'T' + adminBookingTimeStart;
-    const timeEnd = adminBookingEndDate + 'T' + adminBookingTimeEnd;
+    const timeEnd = adminBookingStartDate + 'T' + adminBookingTimeEnd;
     if (timeStart >= timeEnd) { showShortToast('结束时间必须晚于开始时间'); return; }
 
     // Validate range with interval merging

@@ -253,8 +253,8 @@
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
             <view class="field"><view class="field-label">周期类型</view>
-              <picker range="{{['每天','每周','每月','每年']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : 3))}}" bindchange="onCycleTypeChange">
-                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : '每年'))}}</view></picker></view>
+              <picker range="{{['每天','每周','每月','每年','日期范围']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : (ruleForm.cycleType === 'yearly' ? 3 : 4)))}}" bindchange="onCycleTypeChange">
+                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : (ruleForm.cycleType === 'yearly' ? '每年' : '日期范围')))}}</view></picker></view>
 
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" class="chip-section">
               <view class="field-label">选择星期（多选）</view>
@@ -285,6 +285,23 @@
                 <view wx:for="{{ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip"><text>{{cv.m}}月{{cv.dStart}}日 - {{cv.dEnd}}日</text><text class="year-chip-remove" data-idx="{{index}}" bindtap="onRemoveYearlyRange">x</text></view>
               </view>
               <view wx:else class="field-hint">暂未添加日期范围</view>
+            </view>
+
+            <!-- Range type: date range picker -->
+            <view wx:if="{{ruleForm.cycleType === 'range'}}" class="field">
+              <view class="field-label">日期范围</view>
+              <view class="range-row">
+                <text class="range-label">从</text>
+                <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" bindchange="onRangeStartDateChange">
+                  <view class="picker-display {{ruleForm.cycleValues.startDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.startDate || '开始日期'}}</view>
+                </picker>
+              </view>
+              <view class="range-row">
+                <text class="range-label">到</text>
+                <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" bindchange="onRangeEndDateChange">
+                  <view class="picker-display {{ruleForm.cycleValues.endDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.endDate || '结束日期'}}</view>
+                </picker>
+              </view>
             </view>
 
             <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
@@ -503,10 +520,8 @@
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{adminBookingTitle === item.text ? 'active' : ''}}" data-text="{{item.text}}" bindtap="onAdminSelectPurpose">{{item.text}}</text>
             </view>
           </view>
-          <view class="field"><view class="field-label">开始日期</view>
+          <view class="field"><view class="field-label">借用日期</view>
             <picker mode="date" value="{{adminBookingStartDate}}" bindchange="onAdminStartDateChange"><view class="picker-display">{{adminBookingStartDateDisplay || '请选择日期'}}</view></picker></view>
-          <view class="field"><view class="field-label">结束日期</view>
-            <picker mode="date" value="{{adminBookingEndDate}}" bindchange="onAdminEndDateChange"><view class="picker-display">{{adminBookingEndDateDisplay || '请选择日期'}}</view></picker></view>
           <view class="field"><view class="field-label">开始时间</view>
             <view wx:if="{{adminStartHours.length}}" class="time-picker-row">
               <picker range="{{adminStartHours}}" range-key="label" value="{{adminStartHourIdx}}" bindchange="onAdminStartHourChange"><view class="time-val">{{adminStartHours[adminStartHourIdx] ? adminStartHours[adminStartHourIdx].label : '时'}}</view></picker>

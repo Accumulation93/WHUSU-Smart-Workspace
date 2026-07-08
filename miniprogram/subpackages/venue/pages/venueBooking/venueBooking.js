@@ -829,30 +829,88 @@ Page({
     var m = this._getMergedIntervals();
     var isStart = this._dragHandle === 'start';
 
+    // Compute time values (same logic as before)
+    var sm, st, em, et;
     if (isStart) {
-      var sm = rawMin;
+      sm = rawMin;
       if (m) sm = this._snapToFree(sm, true, m);
-      var st = minToTime(sm);
-      this.setData({
-        startHandleX: Math.round(sm / TOTAL_MIN * w),
-        bookingTimeStart: st, timeStartInput: st
-      });
+      st = minToTime(sm);
+      em = timeToMin(this.data.bookingTimeEnd);
+      et = this.data.bookingTimeEnd;
     } else {
       var curStart = timeToMin(this.data.bookingTimeStart);
-      var es = rawMin;
-      if (es <= curStart) es = curStart + SNAP;
+      em = rawMin;
+      if (em <= curStart) em = curStart + SNAP;
       if (m) {
-        es = this._snapToFree(es, false, m);
-        if (es <= curStart) es = curStart + SNAP;
+        em = this._snapToFree(em, false, m);
+        if (em <= curStart) em = curStart + SNAP;
       }
-      var et = minToTime(es);
-      this.setData({
-        endHandleX: Math.round(es / TOTAL_MIN * w),
-        bookingTimeEnd: et, timeEndInput: et
+      et = minToTime(em);
+      sm = timeToMin(this.data.bookingTimeStart);
+      st = this.data.bookingTimeStart;
+    }
+
+    // Build a single merged setData object with ALL fields from the original
+    // three setData calls (handle position + timelineRange + chipState)
+    var upd = {};
+
+    if (isStart) {
+      upd.startHandleX = Math.round(sm / TOTAL_MIN * w);
+      upd.bookingTimeStart = st;
+      upd.timeStartInput = st;
+    } else {
+      upd.endHandleX = Math.round(em / TOTAL_MIN * w);
+      upd.bookingTimeEnd = et;
+      upd.timeEndInput = et;
+    }
+
+    // ── Inline _updateTimelineRange ──
+    if (sm < em) {
+      var dur = em - sm;
+      var dh = Math.floor(dur / 60), dm = dur % 60;
+      upd._durationText = dh > 0 ? (dh + '小时' + (dm > 0 ? dm + '分钟' : '')) : (dm + '分钟');
+      upd._activeDuration = dur;
+      upd.timelineSelection = {
+        left: (sm / TOTAL_MIN * 100).toFixed(2),
+        width: ((em - sm) / TOTAL_MIN * 100).toFixed(2)
+      };
+    }
+
+    // ── Inline _updateChipState ──
+    var sh = st ? parseInt(st.split(':')[0]) : -1;
+    var smin = st ? parseInt(st.split(':')[1]) : -1;
+    var smIdx = MINUTE_OPTS.indexOf(smin);
+    var eh2 = et ? parseInt(et.split(':')[0]) : -1;
+    var emin = et ? parseInt(et.split(':')[1]) : -1;
+    var emIdx = MINUTE_OPTS.indexOf(emin);
+    var endHours = [];
+    var startHours = this.data.startHours;
+    for (var i = 0; i < startHours.length; i++) {
+      if (startHours[i].value >= (sh >= 0 ? sh : 0)) {
+        endHours.push({ label: startHours[i].label, value: startHours[i].value });
+      }
+    }
+    upd.startMinIdx = smIdx;
+    upd._startHourVal = sh;
+    upd.endHours = endHours;
+    upd.endMinIdx = emIdx;
+    upd._endHourVal = eh2;
+
+    // ══ Frame throttling via wx.nextTick ══
+    // Store latest computed values; only schedule one nextTick per frame
+    this._pendingSetData = upd;
+    if (!this._rafPending) {
+      this._rafPending = true;
+      var self = this;
+      wx.nextTick(function () {
+        self._rafPending = false;
+        if (self._pendingSetData) {
+          var final = self._pendingSetData;
+          self._pendingSetData = null;
+          self.setData(final);
+        }
       });
     }
-    this._updateTimelineRange();
-    this._updateChipState();
   },
 
   onHandleTouchEnd() {
@@ -902,12 +960,6 @@ Page({
     this._loadScheduleForDate(d);
   },
 
-  onEndDateChange(e) {
-    var d = e.detail.value;
-    if (d < this.data.bookingStartDate) { showShortToast('结束日期不能早于开始日期'); return; }
-    this.setData({ bookingEndDate: d, bookingEndDateDisplay: d });
-  },
-
   onTimeStartInput(e) { this.setData({ timeStartInput: e.detail.value }); },
   onTimeStartInputBlur() {
     var val = (this.data.timeStartInput || '').trim();
@@ -953,15 +1005,15 @@ Page({
   onFieldInput(e) { this.setData({[e.currentTarget.dataset.field]:e.detail.value}); },
 
   async submitBooking() {
-    var _a = this.data, vid = _a.bookingVenueId, sd = _a.bookingStartDate, ed = _a.bookingEndDate,
+    var _a = this.data, vid = _a.bookingVenueId, sd = _a.bookingStartDate,
         st = _a.bookingTimeStart, et = _a.bookingTimeEnd, title = _a.bookingTitle, desc = _a.bookingDesc, dd = _a._dayData;
     if(!vid||!sd||!st||!et){showShortToast('请完整填写信息并选择时间段');return;}
     if(!title){showShortToast('请填写借用事由');return;}
     var now = new Date(), today = fmtLocalDate(now);
     if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast('开始时间不能是过去的时间'); return; }
-    var ts = sd+'T'+st, te = ed+'T'+et;
+    var ts = sd+'T'+st, te = sd+'T'+et;
     if(ts >= te) { showShortToast('结束时间必须晚于开始时间'); return; }
-    var err = this._validateRange(dd, sd, ed, st, et);
+    var err = this._validateRange(dd, sd, st, et);
     if(err) { showShortToast(err); return; }
     this.setData({loading:true});
     try {
@@ -971,7 +1023,7 @@ Page({
     finally { this.setData({loading:false}); }
   },
 
-  _validateRange(dayData, sd, ed, st, et) {
+  _validateRange(dayData, sd, st, et) {
     var openSlots = dayData ? (dayData.openSlots||[]) : [];
     var bookedSlots = dayData ? (dayData.bookedSlots||[]) : [];
     var activitySlots = dayData ? (dayData.activitySlots||[]) : [];

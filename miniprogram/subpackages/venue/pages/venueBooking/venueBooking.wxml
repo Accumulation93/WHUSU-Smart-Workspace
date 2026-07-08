@@ -185,9 +185,9 @@
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{bookingTitle === item.text ? 'active' : ''}}" data-text="{{item.text}}" bindtap="onSelectPurpose">{{item.text}}</text>
             </view>
           </view>
-          <!-- Start date -->
+          <!-- Date (same-day only) -->
           <view class="field">
-            <view class="field-label">开始日期</view>
+            <view class="field-label">借用日期</view>
             <picker mode="date" value="{{bookingStartDate}}" bindchange="onStartDateChange">
               <view class="picker-display {{bookingStartDate ? 'picker-has-value' : ''}}">{{bookingStartDateDisplay || '请选择日期'}}</view>
             </picker>
@@ -255,14 +255,6 @@
             <view class="duration-row">
               <text class="duration-chip {{bookingTimeEnd && item.minutes === _activeDuration ? 'duration-chip-active' : ''}}" wx:for="{{durationChips}}" wx:key="label" data-minutes="{{item.minutes}}" catchtap="onDurationTap">{{item.label}}</text>
             </view>
-          </view>
-
-          <!-- End date -->
-          <view class="field">
-            <view class="field-label">结束日期</view>
-            <picker mode="date" value="{{bookingEndDate}}" bindchange="onEndDateChange">
-              <view class="picker-display {{bookingEndDate ? 'picker-has-value' : ''}}">{{bookingEndDateDisplay || '请选择日期'}}</view>
-            </picker>
           </view>
 
           <!-- ★ End time ★ -->

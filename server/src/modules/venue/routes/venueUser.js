@@ -62,7 +62,21 @@ function parseDatetime(str) {
 function dateMatchesCycle(dateStr, cycleType, cycleValues) {
   // daily always matches, even without cycleValues
   if (cycleType === 'daily') return true;
-  if (!cycleValues || !Array.isArray(cycleValues) || !cycleValues.length) {
+  if (!cycleValues) return false;
+
+  // range: date range (inclusive)
+  if (cycleType === 'range') {
+    var cvRange = cycleValues;
+    if (typeof cvRange === 'string') {
+      try { cvRange = JSON.parse(cvRange); } catch (_) { cvRange = {}; }
+    }
+    var rangeStart = cvRange && cvRange.startDate;
+    var rangeEnd = cvRange && cvRange.endDate;
+    if (!rangeStart || !rangeEnd) return false;
+    return dateStr >= rangeStart && dateStr <= rangeEnd;
+  }
+
+  if (!Array.isArray(cycleValues) || !cycleValues.length) {
     return false;
   }
   // Parse date as local time (timezone-safe: uses local getters, not ISO strings)
@@ -387,6 +401,11 @@ router.post('/createVenueBooking', async (req, res) => {
     }
     if (startDate >= endDate) {
       return res.json({ status: 'invalid_params', message: '结束时间必须晚于开始时间' });
+    }
+
+    // Reject cross-day bookings
+    if (fmtLocalDate(startDate) !== fmtLocalDate(endDate)) {
+      return res.json({ status: 'invalid_params', message: '借用时间不能跨天，请选择同一天' });
     }
 
     // Check venue
