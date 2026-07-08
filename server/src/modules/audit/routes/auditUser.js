@@ -25,6 +25,7 @@ const stampAssignmentModel = require('../models/identityStampAssignment');
 const { hashFile, computeSignatureHash } = require('../utils/hashChain');
 const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
+const { createNotification } = require('../utils/notificationHelper');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
 
@@ -1423,11 +1424,36 @@ router.post('/approveStep', async (req, res) => {
     }, conn);
 
     await conn.commit();
-    // ★ Notifications (fire-and-forget)
+    // ★ Notifications (fire-and-forget) — notify submitter of progress
+    var submitterNameForNotify = '';
+    try {
+      var [snRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [submission.submitted_by, orgId]);
+      submitterNameForNotify = (snRows[0] && snRows[0].name) || '';
+    } catch (_) {}
     if (!nextStep) {
       // Final step approved → notify submitter
+      createNotification({
+        hrId: submission.submitted_by,
+        type: 'submission_approved',
+        title: '审核已通过',
+        description: '您提交的「' + (submission.title || submission.submission_number) + '」已通过全部审核',
+        category: 'audit',
+        targetType: 'submission',
+        targetId: submissionId,
+        targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
+      });
     } else {
-      // Advanced to next step → notify next-step approvers
+      // Advanced to next step → notify submitter of progress
+      createNotification({
+        hrId: submission.submitted_by,
+        type: 'submission_progress',
+        title: '审核进度更新',
+        description: '您提交的「' + (submission.title || submission.submission_number) + '」已通过第' + step.sort_order + '步，进入第' + nextStep.sort_order + '步',
+        category: 'audit',
+        targetType: 'submission',
+        targetId: submissionId,
+        targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
+      });
     }
     res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
   } catch (e) {
@@ -1516,6 +1542,16 @@ router.post('/rejectStep', async (req, res) => {
 
     await conn.commit();
     // Notify submitter of rejection (fire-and-forget)
+    createNotification({
+      hrId: submission.submitted_by,
+      type: 'submission_rejected',
+      title: '审核被驳回',
+      description: '您提交的「' + (submission.title || submission.submission_number) + '」在第' + step.sort_order + '步被驳回' + (rejectionReason ? '：' + rejectionReason : ''),
+      category: 'audit',
+      targetType: 'submission',
+      targetId: submissionId,
+      targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
+    });
     res.json({ status: 'success', message: '已驳回，提交人将收到通知' });
   } catch (e) {
     await conn.rollback();

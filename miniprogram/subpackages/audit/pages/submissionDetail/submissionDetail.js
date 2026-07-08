@@ -1803,7 +1803,40 @@ Page({
       if (res.status === 'success') {
         showShortToast(res.message || '操作成功');
         this.closeApproval();
-        this.loadDetail();
+
+        // Optimistic UI: update local state immediately, sync in background
+        if (approvalAction === 'approve') {
+          var timeline = (this.data.flowTimeline || []).slice();
+          var stepNode = timeline.find(function(s) { return s.type === 'step' && s.id === approvalStepId; });
+          if (stepNode) {
+            stepNode.flowNodeClass = 'flow-node-done';
+            stepNode.flowDotClass = 'flow-dot-done';
+            stepNode.flowIcon = 'check';
+            stepNode.flowStatusLabel = stepNode.actionType === 'pass' ? '✓ 步骤已通过' : '✓ 已签字盖章';
+            stepNode.flowTagClass = 'flow-tag-done';
+          }
+          var stepCount = this.data.rawStepCount || (this.data.flowProgressPercent ? Math.round(100 / (100 - this.data.flowProgressPercent)) : 1);
+          var newPercent = Math.min(100, (this.data.flowProgressPercent || 0) + Math.round(100 / Math.max(stepCount, 1)));
+          this.setData({
+            flowTimeline: timeline,
+            flowProgressPercent: newPercent,
+            activeApprovalStepId: '',
+            activeApprovalStep: null,
+            approvalWarning: ''
+          });
+
+          // Notify portal to refresh notification badge
+          require('../../../../utils/eventBus').emit('approval:done');
+
+          // Background sync to ensure consistency
+          var self = this;
+          setTimeout(function() { self.loadDetail(); }, 500);
+        } else {
+          // Reject: navigate back after short delay
+          var self2 = this;
+          require('../../../../utils/eventBus').emit('approval:done');
+          setTimeout(function() { wx.navigateBack(); }, 800);
+        }
       } else {
         showShortToast(res.message || '操作失败');
       }
@@ -2417,6 +2450,7 @@ Page({
       if (res.status === 'success') {
         showShortToast(res.message || '操作成功');
         this.setData({ approvalComment: '', rejectionReason: '', designatedNextPersons: [], nextStepInfo: null });
+        require('../../../../utils/eventBus').emit('approval:done');
         this.loadDetail();
       } else {
         showShortToast(res.message || '操作失败');

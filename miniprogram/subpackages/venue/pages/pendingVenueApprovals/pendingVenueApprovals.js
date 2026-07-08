@@ -178,7 +178,55 @@ Page({
       if (res.status === 'success') {
         showShortToast(res.message || ('已' + actionLabel));
         that.closeApproval();
-        that.loadData();
+
+        // Optimistic UI: update local state immediately, sync in background
+        var targetId = target.id;
+        var pending = that.data.pending.slice();
+
+        if (action === 'approve' && res.approvalProgress) {
+          if (res.approvalProgress.isApproved) {
+            // Last step approved → remove from list
+            pending = pending.filter(function(p) { return p.id !== targetId; });
+          } else {
+            // Middle step → update step info in place
+            var idx = -1;
+            for (var pi = 0; pi < pending.length; pi++) {
+              if (pending[pi].id === targetId) { idx = pi; break; }
+            }
+            if (idx >= 0) {
+              var updated = Object.assign({}, pending[idx], {
+                approvalCurrentStep: res.approvalProgress.currentStep,
+                _approvalPercent: Math.round(res.approvalProgress.currentStep / pending[idx].approvalTotalSteps * 100)
+              });
+              // Rebuild flow timeline
+              updated._flowTimeline = buildFlowTimeline({
+                totalSteps: updated.approvalTotalSteps,
+                currentStep: res.approvalProgress.currentStep,
+                isApproved: false,
+                isRejected: false,
+                rejectStep: -1,
+                flowSteps: updated.flowSteps || [],
+                snapshots: updated.snapshots || []
+              });
+              pending[idx] = updated;
+            }
+          }
+        } else {
+          // Reject → remove from list
+          pending = pending.filter(function(p) { return p.id !== targetId; });
+        }
+
+        that.setData({
+          pending: pending,
+          lastPendingCount: pending.length,
+          lastUpdateTime: that._formatTime()
+        });
+
+        // Notify portal to refresh notification badge
+        require('../../../../utils/eventBus').emit('approval:done');
+
+        // Background sync to ensure consistency
+        setTimeout(function() { that.loadData(); }, 2000);
       } else {
         showShortToast(res.message || '操作失败');
       }

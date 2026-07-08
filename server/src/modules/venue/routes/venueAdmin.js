@@ -14,6 +14,8 @@ const venueBookingPurposeModel = require('../models/venueBookingPurpose');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
 const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
+const { createVenueApprovalNotifications, createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
+const notificationModel = require('../../audit/models/notification');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -651,6 +653,24 @@ router.post('/approveVenueBooking', async (req, res) => {
       );
 
       await conn.commit();
+
+      // Clear old pending_approval notifications for this booking (true DELETE)
+      notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] notification cleanup failed:', e.message));
+
+      // Fire-and-forget: create notifications for next step or submitter
+      if (isLastStep) {
+        const venueName = booking.venue_name || '';
+        createVenueBookingStatusNotification(
+          booking,
+          'booking_approved',
+          '场地借用已通过',
+          '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过'
+        ).catch(e => console.error('[venueAdmin] status notification failed:', e.message));
+      } else {
+        createVenueApprovalNotifications(id, newStepIndex).catch(e =>
+          console.error('[venueAdmin] approval notification failed:', e.message));
+      }
+
       res.json({
         status: 'success',
         message: isLastStep ? '所有步骤审批完成，借用已通过' : ('步骤 ' + (currentStep + 1) + ' 审批通过，进入下一步'),
@@ -683,6 +703,17 @@ router.post('/approveVenueBooking', async (req, res) => {
     }
     await venueBookingModel.updateStatus(id, 'approved', approverId, comment, conn);
     await conn.commit();
+
+    // Clear old pending_approval notifications + notify submitter
+    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] legacy approve notification cleanup failed:', e.message));
+    const venueName = booking.venue_name || '';
+    createVenueBookingStatusNotification(
+      booking,
+      'booking_approved',
+      '场地借用已通过',
+      '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过'
+    ).catch(e => console.error('[venueAdmin] legacy approve status notification failed:', e.message));
+
     res.json({ status: 'success', message: '借用已通过' });
   } catch (e) {
     await conn.rollback();
@@ -713,6 +744,18 @@ router.post('/rejectVenueBooking', async (req, res) => {
     } else {
       await venueBookingModel.updateStatus(id, 'rejected', review.hrId || (review.admin && review.admin.id), comment);
     }
+
+    // Clear old pending_approval notifications + notify submitter
+    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] reject notification cleanup failed:', e.message));
+    const venueNameRej = booking.venue_name || '';
+    createVenueBookingStatusNotification(
+      booking,
+      'booking_rejected',
+      '场地借用被驳回',
+      '您申请的「' + (booking.title || '场地借用') + '」' + (venueNameRej ? '（' + venueNameRej + '）' : '') + '已被驳回' +
+        (comment ? '，原因：' + comment : '')
+    ).catch(e => console.error('[venueAdmin] rejection notification failed:', e.message));
+
     res.json({ status: 'success', message: '借用已驳回' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -736,6 +779,17 @@ router.post('/approveVenueBookingAdmin', async (req, res) => {
     const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id);
     if (conflict) return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     await venueBookingModel.updateStatus(id, 'approved', admin.hr_id || admin.id, comment);
+
+    // Clear old pending_approval notifications + notify submitter
+    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] admin approve notification cleanup failed:', e.message));
+    const vnAdmin = booking.venue_name || '';
+    createVenueBookingStatusNotification(
+      booking,
+      'booking_approved',
+      '场地借用已通过',
+      '您申请的「' + (booking.title || '场地借用') + '」' + (vnAdmin ? '（' + vnAdmin + '）' : '') + '已审批通过（管理员审批）'
+    ).catch(e => console.error('[venueAdmin] admin approve status notification failed:', e.message));
+
     res.json({ status: 'success', message: '借用已通过' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -754,6 +808,18 @@ router.post('/rejectVenueBookingAdmin', async (req, res) => {
     if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
     if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
     await venueBookingModel.updateStatus(id, 'rejected', admin.hr_id || admin.id, comment);
+
+    // Clear old pending_approval notifications + notify submitter
+    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] admin reject notification cleanup failed:', e.message));
+    const vnRejAdmin = booking.venue_name || '';
+    createVenueBookingStatusNotification(
+      booking,
+      'booking_rejected',
+      '场地借用被驳回',
+      '您申请的「' + (booking.title || '场地借用') + '」' + (vnRejAdmin ? '（' + vnRejAdmin + '）' : '') + '已被驳回（管理员审批）' +
+        (comment ? '，原因：' + comment : '')
+    ).catch(e => console.error('[venueAdmin] admin reject notification failed:', e.message));
+
     res.json({ status: 'success', message: '借用已驳回' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

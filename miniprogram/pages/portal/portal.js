@@ -1,4 +1,5 @@
 const { callFunction, formatAuditTime } = require('../../utils/api');
+const eventBus = require('../../utils/eventBus');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
@@ -51,13 +52,33 @@ Page({
     notificationLoading: false
   },
 
+  _pollTimer: null,
+  _isPageVisible: true,
+
   onShow() {
+    this._isPageVisible = true;
     this.refreshCurrentUser();
     this.loadOrganizationName();
     if (this.data.hasUser) {
       this.loadNotificationCount();
       this.loadRecentNotifications();
     }
+    this.startPolling();
+    this._boundOnApprovalDone = this._onApprovalDone.bind(this);
+    eventBus.on('approval:done', this._boundOnApprovalDone);
+  },
+
+  onHide() {
+    this._isPageVisible = false;
+    this.stopPolling();
+    if (this._boundOnApprovalDone) {
+      eventBus.off('approval:done', this._boundOnApprovalDone);
+      this._boundOnApprovalDone = null;
+    }
+  },
+
+  onUnload() {
+    this.stopPolling();
   },
 
   refreshCurrentUser() {
@@ -156,6 +177,33 @@ Page({
     var url = e.currentTarget.dataset.url;
     if (!url) return;
     wx.navigateTo({ url: url });
+  },
+
+  // ── Polling: auto-refresh notification count every 30s ──
+  startPolling() {
+    this.stopPolling();
+    var that = this;
+    this._pollTimer = setInterval(function() {
+      if (that._isPageVisible && that.data.hasUser) {
+        that.loadNotificationCount();
+        that.loadRecentNotifications();
+      }
+    }, 30000);
+  },
+
+  stopPolling() {
+    if (this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+    }
+  },
+
+  // ── Event bus: triggered when an approval action completes ──
+  _onApprovalDone: function() {
+    if (this._isPageVisible && this.data.hasUser) {
+      this.loadNotificationCount();
+      this.loadRecentNotifications();
+    }
   },
 
   goLogin() {

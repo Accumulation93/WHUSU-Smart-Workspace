@@ -147,6 +147,37 @@ async function hasPendingApprovalNotification(targetType, targetId, hrId) {
   return count > 0;
 }
 
+/**
+ * Delete all pending_approval notifications for a given target.
+ * Called after approval action to truly remove (not just mark read) notifications.
+ * @param {string} targetType — e.g. 'submission' | 'booking'
+ * @param {string} targetId
+ * @param {object} [conn] — optional transaction connection
+ */
+async function deleteByTarget(targetType, targetId, conn) {
+  const db = conn || pool;
+  await db.query(
+    'DELETE FROM notifications WHERE target_type = ? AND target_id = ? AND type = ?',
+    [targetType, targetId, 'pending_approval']
+  );
+}
+
+/**
+ * Delete a specific user's pending_approval notification for a target.
+ * Used by dismissNotification endpoint for optimistic-update cleanup.
+ * @param {string} targetType
+ * @param {string} targetId
+ * @param {string} hrId
+ * @param {object} [conn] — optional transaction connection
+ */
+async function deleteByTargetAndHrId(targetType, targetId, hrId, conn) {
+  const db = conn || pool;
+  await db.query(
+    'DELETE FROM notifications WHERE target_type = ? AND target_id = ? AND hr_id = ? AND type = ?',
+    [targetType, targetId, hrId, 'pending_approval']
+  );
+}
+
 module.exports = {
   ensureTable,
   create,
@@ -156,7 +187,9 @@ module.exports = {
   markRead,
   markAllRead,
   markReadByTarget,
-  hasPendingApprovalNotification
+  hasPendingApprovalNotification,
+  deleteByTarget,
+  deleteByTargetAndHrId
 };
 
 // Auto-create table on module load (non-blocking)

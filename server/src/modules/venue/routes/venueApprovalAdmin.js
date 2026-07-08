@@ -296,6 +296,16 @@ async function canApproveCurrentStep(booking, approverHrId) {
     return { ok: false, reason: '您不符合当前审批步骤的审批条件' };
   }
 
+  // Separation of duties: same person cannot approve multiple steps in the same flow
+  let snapshots = [];
+  try {
+    snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : [];
+  } catch (_) {}
+  const alreadyApproved = snapshots.some(s => s.approverHrId === approverHrId);
+  if (alreadyApproved) {
+    return { ok: false, reason: '您已审批过该借用的前置步骤，为保障职责分离，请由其他审批人处理当前步骤' };
+  }
+
   return { ok: true, stepIndex: currentStep, stepName: step.name, totalSteps: steps.length };
 }
 
@@ -416,8 +426,8 @@ router.post('/approveVenueBookingStep', async (req, res) => {
 
     await conn.commit();
 
-    // Clear old pending_approval notifications for this booking
-    notificationModel.markReadByTarget('booking', id).catch(e => console.error('[venueApproval] cleanup failed:', e.message));
+    // Clear old pending_approval notifications for this booking (true DELETE, not markRead)
+    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueApproval] cleanup failed:', e.message));
 
     // Fire-and-forget: create notifications for next step or submitter
     if (isLastStep) {
@@ -452,6 +462,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
 
 // rejectVenueBookingStep — reject at the current step
 router.post('/rejectVenueBookingStep', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
@@ -479,17 +490,21 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
       return res.json({ status: 'forbidden', message: check.reason });
     }
 
-    // Reject: set step to -1
-    await venueBookingModel.updateStatus(id, 'rejected', approverHrId, comment || '驳回');
+    await conn.beginTransaction();
 
-    // Update approval tracking
+    // Reject: set step to -1, update status atomically within transaction
+    await venueBookingModel.updateStatus(id, 'rejected', approverHrId, comment || '驳回', conn);
+
+    // Update approval tracking (same transaction)
     const setSql = `UPDATE venue_bookings
       SET approval_current_step = -1, approval_reject_step = ?, approval_comment = ?
       WHERE id = ?`;
-    await pool.query(setSql, [check.stepIndex, comment || '驳回', id]);
+    await conn.query(setSql, [check.stepIndex, comment || '驳回', id]);
 
-    // Clear old pending_approval notifications for this booking
-    notificationModel.markReadByTarget('booking', id).catch(e => console.error('[venueApproval] reject cleanup failed:', e.message));
+    await conn.commit();
+
+    // Clear old pending_approval notifications for this booking (true DELETE)
+    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueApproval] reject cleanup failed:', e.message));
 
     // Fire-and-forget: notify submitter of rejection
     const venueName = booking.venue_name || '';
@@ -503,7 +518,10 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
 
     res.json({ status: 'success', message: '借用已驳回' });
   } catch (e) {
+    await conn.rollback();
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    conn.release();
   }
 });
 
