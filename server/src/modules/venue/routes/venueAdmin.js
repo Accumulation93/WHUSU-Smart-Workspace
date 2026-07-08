@@ -24,14 +24,9 @@ async function ensureAdmin(openid) {
 async function resolveHrId(openid) {
   if (!openid) return null;
   const orgId = await getCurrentOrgId();
+  // Only resolve from user_info — admin and regular user identities are strictly separate
   const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [openid, orgId]);
-  if (userRows[0] && userRows[0].hr_id) return userRows[0].hr_id;
-  const admin = await ensureAdmin(openid);
-  if (admin && admin.student_id) {
-    const [hrRows] = await pool.query('SELECT id FROM hr_info WHERE student_id = ? AND org_id = ? LIMIT 1', [admin.student_id, orgId]);
-    if (hrRows[0]) return hrRows[0].id;
-  }
-  return null;
+  return (userRows[0] && userRows[0].hr_id) || null;
 }
 
 async function matchesBookingRule(rule, hrId) {
@@ -507,19 +502,12 @@ router.post('/listAllVenueBookings', async (req, res) => {
     try {
       const orgId = await getCurrentOrgId();
 
-      // Resolve admin's HR ID
+      // Resolve approver HR ID — only from user_info (admin/regular user identities are separate)
       const [userRows] = await pool.query(
         'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
         [req.openid, orgId]
       );
-      let approverHrId = (userRows[0] && userRows[0].hr_id) || null;
-      if (!approverHrId && admin && admin.student_id) {
-        const [hrRows] = await pool.query(
-          'SELECT id FROM hr_info WHERE student_id = ? AND org_id = ? LIMIT 1',
-          [admin.student_id, orgId]
-        );
-        if (hrRows[0]) approverHrId = hrRows[0].id;
-      }
+      const approverHrId = (userRows[0] && userRows[0].hr_id) || null;
 
       if (approverHrId) {
         const approverHrInfo = await hrInfoModel.getById(approverHrId);

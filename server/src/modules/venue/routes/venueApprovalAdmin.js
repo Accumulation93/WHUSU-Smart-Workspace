@@ -334,16 +334,11 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
     const comment = safeString(req.body.comment);
 
-    // Resolve approver hrId
+    // Resolve approver hrId — only from user_info (admin/regular user identities are separate)
     const admin = await ensureAdmin(req.openid);
     const orgId = await require('../../../utils/orgContext').getCurrentOrgId();
-    // Get hrId from user_info join
     const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [req.openid, orgId]);
-    let approverHrId = (userRows[0] && userRows[0].hr_id) || null;
-    if (!approverHrId && admin && admin.student_id) {
-      const [hrRows] = await pool.query('SELECT id FROM hr_info WHERE student_id = ? AND org_id = ? LIMIT 1', [admin.student_id, orgId]);
-      if (hrRows[0]) approverHrId = hrRows[0].id;
-    }
+    const approverHrId = (userRows[0] && userRows[0].hr_id) || null;
     if (!approverHrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
     const booking = await venueBookingModel.getById(id);
@@ -467,16 +462,10 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
     const comment = safeString(req.body.comment);
 
+    // Resolve approver hrId — only from user_info (admin/regular user identities are separate)
     const orgId = await require('../../../utils/orgContext').getCurrentOrgId();
     const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [req.openid, orgId]);
-    let approverHrId = (userRows[0] && userRows[0].hr_id) || null;
-    if (!approverHrId) {
-      const admin = await ensureAdmin(req.openid);
-      if (admin && admin.student_id) {
-        const [hrRows] = await pool.query('SELECT id FROM hr_info WHERE student_id = ? AND org_id = ? LIMIT 1', [admin.student_id, orgId]);
-        if (hrRows[0]) approverHrId = hrRows[0].id;
-      }
-    }
+    const approverHrId = (userRows[0] && userRows[0].hr_id) || null;
     if (!approverHrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
     const booking = await venueBookingModel.getById(id);
