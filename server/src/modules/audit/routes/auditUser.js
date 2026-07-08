@@ -1059,20 +1059,6 @@ router.post('/getSubmissionDetail', async (req, res) => {
 async function checkStepAuthorization(step, submission, hrId) {
   const orgId = await getCurrentOrgId();
 
-  // 0. Separation of duties: check if user already approved a step in this round.
-  //    Prevents the same person from approving multiple consecutive steps.
-  const [prevApproval] = await pool.query(
-    'SELECT step_index FROM audit_events WHERE submission_id = ? AND event_type = ? AND operator_hr_id = ? AND round = ? AND org_id = ? LIMIT 1',
-    [submission.id, 'approve', hrId, step.round || 1, orgId]
-  );
-  if (prevApproval.length > 0) {
-    console.log('[audit:checkStepAuthorization] DENIED: user hrId=' + hrId +
-      ' already approved step ' + prevApproval[0].step_index +
-      ' in round ' + (step.round || 1) +
-      ' — cannot approve step ' + step.sort_order);
-    return false;
-  }
-
   let hasExplicitConditions = false;
 
   // 1. Check step_conditions_json first (new multi-condition model)
