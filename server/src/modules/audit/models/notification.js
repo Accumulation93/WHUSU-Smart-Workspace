@@ -78,11 +78,11 @@ async function listByHrId(hrId, opts) {
   const limit = parseInt(opts.limit) || 20;
   const offset = parseInt(opts.offset) || 0;
   const [[{ count }]] = await pool.query(
-    'SELECT COUNT(*) AS count FROM notifications WHERE hr_id = ?',
+    'SELECT COUNT(*) AS count FROM notifications WHERE hr_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)',
     [hrId]
   );
   const [rows] = await pool.query(
-    'SELECT * FROM notifications WHERE hr_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+    'SELECT * FROM notifications WHERE hr_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) ORDER BY created_at DESC LIMIT ? OFFSET ?',
     [hrId, limit, offset]
   );
   return { items: rows, total: count };
@@ -106,6 +106,20 @@ async function markRead(notificationId, hrId) {
   await pool.query(
     'UPDATE notifications SET is_read = 1 WHERE id = ? AND hr_id = ?',
     [notificationId, hrId]
+  );
+}
+
+async function deleteById(notificationId, hrId) {
+  await pool.query(
+    'DELETE FROM notifications WHERE id = ? AND hr_id = ?',
+    [notificationId, hrId]
+  );
+}
+
+async function cleanupOld(days) {
+  const keepDays = Math.max(parseInt(days, 10) || 14, 1);
+  await pool.query(
+    'DELETE FROM notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL ' + keepDays + ' DAY)'
   );
 }
 
@@ -185,6 +199,8 @@ module.exports = {
   listByHrId,
   getUnreadCount,
   markRead,
+  deleteById,
+  cleanupOld,
   markAllRead,
   markReadByTarget,
   hasPendingApprovalNotification,
@@ -192,5 +208,7 @@ module.exports = {
   deleteByTargetAndHrId
 };
 
-// Auto-create table on module load (non-blocking)
-ensureTable().catch(e => console.error('[notification] Failed to create table:', e.message));
+// Auto-create table on module load (non-blocking), then clear expired rows.
+ensureTable()
+  .then(() => cleanupOld(14))
+  .catch(e => console.error('[notification] Failed to initialize table:', e.message));

@@ -47,6 +47,9 @@ Page({
     organizationName: '',
     showUnbindDialog: false,
     unbindLoading: false,
+    todoCount: 0,
+    todos: [],
+    todoLoading: false,
     notificationCount: 0,
     notifications: [],
     notificationLoading: false
@@ -60,7 +63,9 @@ Page({
     this.refreshCurrentUser();
     this.loadOrganizationName();
     if (this.data.hasUser) {
-      this.loadNotificationCount();
+      this.loadTodoCount();
+      this.loadRecentTodos();
+      this.loadNotificationUnreadCount();
       this.loadRecentNotifications();
     }
     this.startPolling();
@@ -163,14 +168,42 @@ Page({
   // ── Notification methods ──
   // Real-time query: notifications reflect current pending steps only.
   // No persistent storage, no read/unread — processed items disappear automatically.
-  async loadNotificationCount() {
+  async loadTodoCount() {
+    try {
+      const res = await callFunction({ name: 'getTodoCount', data: {} });
+      if (res.status === 'success') {
+        this.setData({ todoCount: res.count || 0 });
+      }
+    } catch (e) {
+      console.error('[portal] loadTodoCount failed:', e);
+    }
+  },
+
+  async loadRecentTodos() {
+    this.setData({ todoLoading: true });
+    try {
+      const res = await callFunction({ name: 'listTodos', data: { limit: 5, offset: 0 } });
+      if (res.status === 'success') {
+        const items = (res.items || []).map(function(item) {
+          return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt), _showDelete: false });
+        });
+        this.setData({ todos: items, todoCount: res.total || items.length });
+      }
+    } catch (e) {
+      console.error('[portal] loadRecentTodos failed:', e);
+    } finally {
+      this.setData({ todoLoading: false });
+    }
+  },
+
+  async loadNotificationUnreadCount() {
     try {
       const res = await callFunction({ name: 'getNotificationUnreadCount', data: {} });
       if (res.status === 'success') {
         this.setData({ notificationCount: res.count || 0 });
       }
     } catch (e) {
-      console.error('[portal] loadNotificationCount failed:', e);
+      console.error('[portal] loadNotificationUnreadCount failed:', e);
     }
   },
 
@@ -191,10 +224,62 @@ Page({
     }
   },
 
-  onNotificationTap(e) {
+  onTodoTap(e) {
     var url = e.currentTarget.dataset.url;
     if (!url) return;
     wx.navigateTo({ url: url });
+  },
+
+  async onNotificationTap(e) {
+    if (this._notificationSwiping) return;
+    var id = e.currentTarget.dataset.id;
+    var url = e.currentTarget.dataset.url;
+    if (id) {
+      var notifications = this.data.notifications.map(function(item) {
+        return item.id === id ? Object.assign({}, item, { isRead: true, _showDelete: false }) : item;
+      });
+      this.setData({ notifications: notifications });
+      this.loadNotificationUnreadCount();
+      callFunction({ name: 'markNotificationRead', data: { id: id } }).catch(function(err) {
+        console.error('[portal] markNotificationRead failed:', err);
+      });
+    }
+    if (!url) return;
+    wx.navigateTo({ url: url });
+  },
+
+  onNotificationTouchStart(e) {
+    this._notificationTouchStartX = e.touches && e.touches[0] ? e.touches[0].clientX : 0;
+  },
+
+  onNotificationTouchEnd(e) {
+    var startX = this._notificationTouchStartX || 0;
+    var endX = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : startX;
+    var id = e.currentTarget.dataset.id;
+    if (!id || Math.abs(endX - startX) < 40) return;
+    this._notificationSwiping = true;
+    var that = this;
+    setTimeout(function() { that._notificationSwiping = false; }, 250);
+    var showDelete = endX < startX;
+    var notifications = this.data.notifications.map(function(item) {
+      return Object.assign({}, item, { _showDelete: item.id === id ? showDelete : false });
+    });
+    this.setData({ notifications: notifications });
+  },
+
+  async deleteNotification(e) {
+    var id = e.currentTarget.dataset.id;
+    if (!id) return;
+    var notifications = this.data.notifications.filter(function(item) { return item.id !== id; });
+    this.setData({ notifications: notifications });
+    this.loadNotificationUnreadCount();
+    try {
+      await callFunction({ name: 'deleteNotification', data: { id: id } });
+    } catch (err) {
+      console.error('[portal] deleteNotification failed:', err);
+      this.loadRecentNotifications();
+      this.loadNotificationUnreadCount();
+    }
   },
 
   // ── Polling: auto-refresh notification count every 30s ──
@@ -203,7 +288,9 @@ Page({
     var that = this;
     this._pollTimer = setInterval(function() {
       if (that._isPageVisible && that.data.hasUser) {
-        that.loadNotificationCount();
+        that.loadTodoCount();
+        that.loadRecentTodos();
+        that.loadNotificationUnreadCount();
         that.loadRecentNotifications();
       }
     }, 30000);
@@ -219,7 +306,9 @@ Page({
   // ── Event bus: triggered when an approval action completes ──
   _onApprovalDone: function() {
     if (this._isPageVisible && this.data.hasUser) {
-      this.loadNotificationCount();
+      this.loadTodoCount();
+      this.loadRecentTodos();
+      this.loadNotificationUnreadCount();
       this.loadRecentNotifications();
     }
   },

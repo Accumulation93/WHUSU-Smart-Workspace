@@ -1,12 +1,10 @@
 <view class="page">
-  <!-- ═══ Hero (blue gradient - same as home page hero) ═══ -->
   <view class="hero">
     <view class="hero-badge">{{heroIdentity}}</view>
     <view class="hero-title">{{heroName}}</view>
-    <view class="hero-subtitle">欢迎使用REDSU智慧工作台系统</view>
+    <view class="hero-subtitle">欢迎使用 REDSU 智慧工作台系统</view>
   </view>
 
-  <!-- ═══ Organization Card (same .card style as home) ═══ -->
   <view class="card" wx:if="{{organizationName}}">
     <view class="info-head">
       <view class="section-title">当前组织</view>
@@ -14,7 +12,6 @@
     <view class="activity-name">{{organizationName}}</view>
   </view>
 
-  <!-- ═══ Profile Info Card (same as 评分人信息 in home) ═══ -->
   <view class="card" wx:if="{{hasUser}}">
     <view class="info-head">
       <view class="section-title">个人信息</view>
@@ -39,7 +36,6 @@
     </view>
   </view>
 
-  <!-- ═══ Sub-app Navigation Cards (same .card style as home) ═══ -->
   <view class="card">
     <view class="info-head">
       <view class="section-title">应用服务</view>
@@ -66,18 +62,17 @@
     </view>
   </view>
 
-  <!-- ═══ Notification Card ═══ -->
   <view class="card" wx:if="{{hasUser}}">
     <view class="info-head">
-      <view class="section-title">待办通知</view>
-      <view class="notification-badge" wx:if="{{notificationCount > 0}}">{{notificationCount > 99 ? '99+' : notificationCount}}</view>
+      <view class="section-title">待办事项</view>
+      <view class="todo-count" wx:if="{{todoCount > 0}}">共 {{todoCount > 99 ? '99+' : todoCount}} 条</view>
     </view>
     <view class="notification-list">
-      <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading}}">
-        <text class="notification-empty-text">暂无待办通知</text>
+      <view class="notification-empty" wx:if="{{!todos.length && !todoLoading}}">
+        <text class="notification-empty-text">暂无待处理事项</text>
       </view>
-      <view class="notification-item" wx:for="{{notifications}}" wx:key="targetId"
-            data-url="{{item.targetUrl}}" bindtap="onNotificationTap">
+      <view class="notification-item todo-item" wx:for="{{todos}}" wx:key="targetId"
+            data-url="{{item.targetUrl}}" bindtap="onTodoTap">
         <view class="notification-icon">{{item.category === 'venue' ? '🏟️' : '⏳'}}</view>
         <view class="notification-body">
           <view class="notification-title">
@@ -92,19 +87,48 @@
     </view>
   </view>
 
-  <!-- ═══ Actions (same as home page) ═══ -->
+  <view class="card" wx:if="{{hasUser}}">
+    <view class="info-head">
+      <view class="section-title">通知</view>
+      <view class="notification-badge" wx:if="{{notificationCount > 0}}">{{notificationCount > 99 ? '99+' : notificationCount}}</view>
+    </view>
+    <view class="notification-list">
+      <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading}}">
+        <text class="notification-empty-text">暂无通知</text>
+      </view>
+      <view class="notification-swipe-row" wx:for="{{notifications}}" wx:key="id">
+        <view class="notification-item {{item.isRead ? 'notification-read' : 'notification-unread'}} {{item._showDelete ? 'notification-shifted' : ''}}"
+              data-id="{{item.id}}" data-url="{{item.targetUrl}}"
+              bindtap="onNotificationTap"
+              bindtouchstart="onNotificationTouchStart"
+              bindtouchend="onNotificationTouchEnd">
+          <view class="notification-dot" wx:if="{{!item.isRead}}"></view>
+          <view class="notification-icon">{{item.category === 'venue' ? '🏟️' : (item.category === 'scoring' ? '📊' : '🔔')}}</view>
+          <view class="notification-body">
+            <view class="notification-title">
+              <text class="notification-tag notification-tag-{{item.category}}">{{item.category === 'venue' ? '场地' : (item.category === 'scoring' ? '考核' : '通知')}}</text>
+              {{item.title}}
+            </view>
+            <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
+            <view class="notification-time">{{item.createdAt}}</view>
+          </view>
+          <text class="nav-row-arrow">›</text>
+        </view>
+        <view class="notification-delete" wx:if="{{item._showDelete}}" data-id="{{item.id}}" catchtap="deleteNotification">删除</view>
+      </view>
+    </view>
+  </view>
+
   <view class="actions">
     <button class="secondary-btn" bindtap="goLogin">切换身份</button>
     <button class="danger-btn" wx:if="{{hasUser}}" bindtap="openUnbindDialog">解绑当前身份</button>
   </view>
 
-  <!-- ═══ Footer ═══ -->
   <view class="page-footer">
-    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-name">REDSU 智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
-  <!-- ═══ Unbind Dialog (same as home page) ═══ -->
   <view class="dialog-layer" wx:if="{{showUnbindDialog}}">
     <view class="dialog-mask" bindtap="closeUnbindDialog"></view>
     <view class="dialog-panel">
