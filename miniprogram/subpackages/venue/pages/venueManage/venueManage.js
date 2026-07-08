@@ -1,5 +1,6 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
+const eventBus = require('../../../../utils/eventBus');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64; // rpx per hour
@@ -931,9 +932,12 @@ Page({
         data: { id: approvalPopupId, comment: approvalPopupComment }
       });
       if (res.status === 'success') {
-        showShortToast(label);
+        showShortToast(res.message || label);
         this.closeApprovalPopup();
         this.loadBookingsData();
+        if (this.data.scheduleVisible) this.loadVenueTimetable();
+        eventBus.emit('venue:changed', { reason: approvalPopupAction, bookingId: approvalPopupId });
+        eventBus.emit('approval:done');
       } else {
         showShortToast(res.message);
       }

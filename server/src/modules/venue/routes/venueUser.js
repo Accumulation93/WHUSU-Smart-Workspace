@@ -56,6 +56,12 @@ function parseDatetime(str) {
   return new Date(y, m - 1, d, hh || 0, mm || 0, 0);
 }
 
+function daysBetweenInclusive(dateFrom, dateTo) {
+  const start = parseLocalDate(dateFrom);
+  const end = parseLocalDate(dateTo);
+  return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+}
+
 /**
  * Check if a given date matches a cycle rule.
  */
@@ -266,6 +272,9 @@ router.post('/getVenueSchedule', async (req, res) => {
     const dateFrom = safeString(req.body.dateFrom);
     const dateTo = safeString(req.body.dateTo);
     if (!venueId || !dateFrom) return res.json({ status: 'invalid_params', message: '请提供场地ID和日期' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || (dateTo && !/^\d{4}-\d{2}-\d{2}$/.test(dateTo))) {
+      return res.json({ status: 'invalid_params', message: '日期格式不正确' });
+    }
 
     const venue = await venueModel.getById(venueId);
     if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '场地不存在或已停用' });
@@ -273,6 +282,9 @@ router.post('/getVenueSchedule', async (req, res) => {
     const openRules = await venueOpenRuleModel.getByVenueId(venueId);
     const activityRules = await venueActivityRuleModel.getByVenueId(venueId);
     const endDate = dateTo || dateFrom;
+    if (daysBetweenInclusive(dateFrom, endDate) < 1 || daysBetweenInclusive(dateFrom, endDate) > 31) {
+      return res.json({ status: 'invalid_params', message: '一次最多查询31天' });
+    }
 
     // Fetch ALL bookings that overlap with the week range
     const weekStart = dateFrom + ' 00:00';
@@ -392,6 +404,10 @@ router.post('/createVenueBooking', async (req, res) => {
     }
     if (!title) {
       return res.json({ status: 'invalid_params', message: '请填写借用事由' });
+    }
+
+    if (title.length > 100 || description.length > 1000) {
+      return res.json({ status: 'invalid_params', message: '借用事由或说明过长' });
     }
 
     const startDate = parseDatetime(timeStartStr);
@@ -771,6 +787,7 @@ router.post('/cancelVenueBooking', async (req, res) => {
       }
     }
     await venueBookingModel.updateStatus(id, 'cancelled', null, null);
+    await notificationModel.deleteByTarget('booking', id);
     res.json({ status: 'success', message: '借用已取消' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

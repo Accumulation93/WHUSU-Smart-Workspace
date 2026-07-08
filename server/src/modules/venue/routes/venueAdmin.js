@@ -655,7 +655,7 @@ router.post('/approveVenueBooking', async (req, res) => {
       await conn.commit();
 
       // Clear old pending_approval notifications for this booking (true DELETE)
-      notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] notification cleanup failed:', e.message));
+      await notificationModel.deleteByTarget('booking', id);
 
       // Fire-and-forget: create notifications for next step or submitter
       if (isLastStep) {
@@ -667,8 +667,7 @@ router.post('/approveVenueBooking', async (req, res) => {
           '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过'
         ).catch(e => console.error('[venueAdmin] status notification failed:', e.message));
       } else {
-        createVenueApprovalNotifications(id, newStepIndex).catch(e =>
-          console.error('[venueAdmin] approval notification failed:', e.message));
+        await createVenueApprovalNotifications(id, newStepIndex);
       }
 
       res.json({
@@ -705,7 +704,7 @@ router.post('/approveVenueBooking', async (req, res) => {
     await conn.commit();
 
     // Clear old pending_approval notifications + notify submitter
-    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] legacy approve notification cleanup failed:', e.message));
+    await notificationModel.deleteByTarget('booking', id);
     const venueName = booking.venue_name || '';
     createVenueBookingStatusNotification(
       booking,
@@ -746,7 +745,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
     }
 
     // Clear old pending_approval notifications + notify submitter
-    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] reject notification cleanup failed:', e.message));
+    await notificationModel.deleteByTarget('booking', id);
     const venueNameRej = booking.venue_name || '';
     createVenueBookingStatusNotification(
       booking,
@@ -781,7 +780,7 @@ router.post('/approveVenueBookingAdmin', async (req, res) => {
     await venueBookingModel.updateStatus(id, 'approved', admin.hr_id || admin.id, comment);
 
     // Clear old pending_approval notifications + notify submitter
-    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] admin approve notification cleanup failed:', e.message));
+    await notificationModel.deleteByTarget('booking', id);
     const vnAdmin = booking.venue_name || '';
     createVenueBookingStatusNotification(
       booking,
@@ -810,7 +809,7 @@ router.post('/rejectVenueBookingAdmin', async (req, res) => {
     await venueBookingModel.updateStatus(id, 'rejected', admin.hr_id || admin.id, comment);
 
     // Clear old pending_approval notifications + notify submitter
-    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueAdmin] admin reject notification cleanup failed:', e.message));
+    await notificationModel.deleteByTarget('booking', id);
     const vnRejAdmin = booking.venue_name || '';
     createVenueBookingStatusNotification(
       booking,

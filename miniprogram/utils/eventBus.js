@@ -7,6 +7,7 @@ var events = {};
 
 function on(event, callback) {
   if (!events[event]) events[event] = [];
+  if (events[event].indexOf(callback) !== -1) return;
   events[event].push(callback);
 }
 

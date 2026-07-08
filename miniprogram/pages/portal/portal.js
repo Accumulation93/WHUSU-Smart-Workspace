@@ -64,8 +64,14 @@ Page({
       this.loadRecentNotifications();
     }
     this.startPolling();
-    this._boundOnApprovalDone = this._onApprovalDone.bind(this);
-    eventBus.on('approval:done', this._boundOnApprovalDone);
+    if (!this._boundOnApprovalDone) {
+      this._boundOnApprovalDone = this._onApprovalDone.bind(this);
+      eventBus.on('approval:done', this._boundOnApprovalDone);
+    }
+    if (!this._boundOnVenueChanged) {
+      this._boundOnVenueChanged = this._onApprovalDone.bind(this);
+      eventBus.on('venue:changed', this._boundOnVenueChanged);
+    }
   },
 
   onHide() {
@@ -75,10 +81,22 @@ Page({
       eventBus.off('approval:done', this._boundOnApprovalDone);
       this._boundOnApprovalDone = null;
     }
+    if (this._boundOnVenueChanged) {
+      eventBus.off('venue:changed', this._boundOnVenueChanged);
+      this._boundOnVenueChanged = null;
+    }
   },
 
   onUnload() {
     this.stopPolling();
+    if (this._boundOnApprovalDone) {
+      eventBus.off('approval:done', this._boundOnApprovalDone);
+      this._boundOnApprovalDone = null;
+    }
+    if (this._boundOnVenueChanged) {
+      eventBus.off('venue:changed', this._boundOnVenueChanged);
+      this._boundOnVenueChanged = null;
+    }
   },
 
   refreshCurrentUser() {

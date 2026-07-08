@@ -1,5 +1,6 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
+const eventBus = require('../../../../utils/eventBus');
 
 Page({
   data: {
@@ -7,6 +8,7 @@ Page({
     loading: false,
     lastUpdateTime: '',
     lastPendingCount: 0,
+    lastPendingSignature: '',
 
     // Approval popup
     approvalVisible: false,
@@ -26,15 +28,44 @@ Page({
     this._isPageVisible = true;
     this.loadData();
     this.startPolling();
+    if (!this._boundVenueChanged) {
+      this._boundVenueChanged = this._onVenueChanged.bind(this);
+      eventBus.on('venue:changed', this._boundVenueChanged);
+    }
   },
 
   onHide() {
     this._isPageVisible = false;
     this.stopPolling();
+    if (this._boundVenueChanged) {
+      eventBus.off('venue:changed', this._boundVenueChanged);
+      this._boundVenueChanged = null;
+    }
   },
 
   onUnload() {
     this.stopPolling();
+    if (this._boundVenueChanged) {
+      eventBus.off('venue:changed', this._boundVenueChanged);
+      this._boundVenueChanged = null;
+    }
+  },
+
+  _onVenueChanged() {
+    if (this._isPageVisible) this.loadData();
+  },
+
+  _buildPendingSignature(pending) {
+    return (pending || []).map(function(item) {
+      return [
+        item.id,
+        item.status,
+        item.approvalCurrentStep,
+        item.approvalTotalSteps,
+        item.currentStepName,
+        item.createdAt
+      ].join(':');
+    }).sort().join('|');
   },
 
   onPullDownRefresh() {
@@ -66,8 +97,10 @@ Page({
     try {
       var res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
       if (res.status === 'success') {
-        var count = (res.pending || []).length;
-        if (count !== this.data.lastPendingCount) {
+        var pending = res.pending || [];
+        var count = pending.length;
+        var signature = this._buildPendingSignature(pending);
+        if (count !== this.data.lastPendingCount || signature !== this.data.lastPendingSignature) {
           this.loadData();
         } else if (count > 0) {
           this.setData({ lastUpdateTime: this._formatTime() });
@@ -104,6 +137,7 @@ Page({
         this.setData({
           pending: pending,
           lastPendingCount: pending.length,
+          lastPendingSignature: this._buildPendingSignature(pending),
           lastUpdateTime: this._formatTime()
         });
       } else if (res.status === 'forbidden') {
@@ -219,11 +253,12 @@ Page({
         that.setData({
           pending: pending,
           lastPendingCount: pending.length,
+          lastPendingSignature: that._buildPendingSignature(pending),
           lastUpdateTime: that._formatTime()
         });
 
-        // Notify portal to refresh notification badge
-        require('../../../../utils/eventBus').emit('approval:done');
+        eventBus.emit('venue:changed', { reason: action, bookingId: targetId });
+        eventBus.emit('approval:done');
 
         // Background sync to ensure consistency
         setTimeout(function() { that.loadData(); }, 2000);

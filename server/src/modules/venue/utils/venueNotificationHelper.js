@@ -85,7 +85,8 @@ async function findEligibleApprovers(booking, stepIndex, orgId) {
 
 /**
  * Create pending_approval notifications for all eligible approvers of a venue booking step.
- * Fire-and-forget: errors are logged, never thrown.
+ * Errors are logged and not re-thrown so callers can use it synchronously
+ * without failing the approval transaction after commit.
  *
  * @param {string} bookingId
  * @param {number} stepIndex — 0-based step index
@@ -144,6 +145,7 @@ async function createVenueApprovalNotifications(bookingId, stepIndex) {
       targetUrl
     }));
 
+    await notificationModel.deleteByTarget('booking', bookingId);
     await notificationModel.batchCreate(items);
     console.log('[venueNotification] created ' + items.length + ' notifications for booking ' + bookingId + ' step ' + stepLabel);
   } catch (e) {

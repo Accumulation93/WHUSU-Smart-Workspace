@@ -427,7 +427,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     await conn.commit();
 
     // Clear old pending_approval notifications for this booking (true DELETE, not markRead)
-    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueApproval] cleanup failed:', e.message));
+    await notificationModel.deleteByTarget('booking', id);
 
     // Fire-and-forget: create notifications for next step or submitter
     if (isLastStep) {
@@ -439,8 +439,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
         '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过'
       ).catch(e => console.error('[venueApproval] status notification failed:', e.message));
     } else {
-      createVenueApprovalNotifications(id, newStepIndex).catch(e =>
-        console.error('[venueApproval] approval notification failed:', e.message));
+      await createVenueApprovalNotifications(id, newStepIndex);
     }
 
     res.json({
@@ -504,7 +503,7 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     await conn.commit();
 
     // Clear old pending_approval notifications for this booking (true DELETE)
-    notificationModel.deleteByTarget('booking', id).catch(e => console.error('[venueApproval] reject cleanup failed:', e.message));
+    await notificationModel.deleteByTarget('booking', id);
 
     // Fire-and-forget: notify submitter of rejection
     const venueName = booking.venue_name || '';

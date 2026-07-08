@@ -55,9 +55,21 @@ router.post('/listNotifications', async (req, res) => {
     }));
 
     // ── Venue: persistent notifications from notifications table ──
+    const limit = Math.max(1, Math.min(parseInt(req.body.limit, 10) || 20, 50));
+    const currentOrgId = await getCurrentOrgId();
     const [venueRows] = await pool.query(
-      'SELECT * FROM notifications WHERE hr_id = ? AND is_read = 0 AND category = ? ORDER BY created_at DESC',
-      [hrId, 'venue']
+      `SELECT n.*
+       FROM notifications n
+       WHERE n.hr_id = ? AND n.is_read = 0 AND n.category = ?
+         AND (
+           n.type <> 'pending_approval'
+           OR EXISTS (
+             SELECT 1 FROM venue_bookings b
+             WHERE b.id = n.target_id AND b.org_id = ? AND b.status = 'pending'
+           )
+         )
+       ORDER BY n.created_at DESC LIMIT ?`,
+      [hrId, 'venue', currentOrgId, limit]
     );
     const venueItems = venueRows.map(r => ({
       type: safeString(r.type),
@@ -77,7 +89,7 @@ router.post('/listNotifications', async (req, res) => {
       return tb - ta;
     });
 
-    res.json({ status: 'success', items, total: items.length });
+    res.json({ status: 'success', items: items.slice(0, limit), total: items.length });
   } catch (e) {
     console.error('[notification:list] error:', e);
     res.json({ status: 'error', message: safeString(e.message) });
@@ -96,10 +108,17 @@ router.post('/getNotificationUnreadCount', async (req, res) => {
     const steps = await submissionStepModel.getPendingByApprover(hrId);
     const auditCount = steps.length;
 
-    // Venue: unread persistent notifications count
+    // Venue: only actionable pending approvals count toward the badge.
+    const currentOrgId = await getCurrentOrgId();
     const [[{ count: venueCount }]] = await pool.query(
-      'SELECT COUNT(*) AS count FROM notifications WHERE hr_id = ? AND is_read = 0',
-      [hrId]
+      `SELECT COUNT(*) AS count
+       FROM notifications n
+       WHERE n.hr_id = ? AND n.is_read = 0 AND n.category = ? AND n.type = ?
+         AND EXISTS (
+           SELECT 1 FROM venue_bookings b
+           WHERE b.id = n.target_id AND b.org_id = ? AND b.status = 'pending'
+         )`,
+      [hrId, 'venue', 'pending_approval', currentOrgId]
     );
 
     res.json({ status: 'success', count: auditCount + venueCount });

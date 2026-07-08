@@ -1,5 +1,6 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
+const eventBus = require('../../../../utils/eventBus');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64;
@@ -172,7 +173,43 @@ Page({
     } catch (_) {}
   },
 
-  onShow() { this._loadUserInfo(); this._initWeekStart(); this.loadVenues(); this.loadPurposes(); this.loadPendingCount(); },
+  onShow() {
+    this._loadUserInfo();
+    this._initWeekStart();
+    this.loadVenues();
+    this.loadPurposes();
+    this.loadPendingCount();
+    if (this.data.activeTab === 'bookings') this.loadMyBookings();
+    if (!this._boundVenueChanged) {
+      this._boundVenueChanged = this._onVenueChanged.bind(this);
+      eventBus.on('venue:changed', this._boundVenueChanged);
+    }
+  },
+
+  onHide() {
+    if (this._boundVenueChanged) {
+      eventBus.off('venue:changed', this._boundVenueChanged);
+      this._boundVenueChanged = null;
+    }
+  },
+
+  onUnload() {
+    if (this._boundVenueChanged) {
+      eventBus.off('venue:changed', this._boundVenueChanged);
+      this._boundVenueChanged = null;
+    }
+  },
+
+  _onVenueChanged() {
+    this.loadPendingCount();
+    if (this.data.activeTab === 'bookings') this.loadMyBookings();
+    if (this.data.scheduleVisible) this.loadTimetable();
+  },
+
+  _emitVenueChanged(reason, bookingId) {
+    eventBus.emit('venue:changed', { reason: reason || '', bookingId: bookingId || '' });
+    eventBus.emit('approval:done');
+  },
 
   async loadPendingCount() {
     try {
@@ -1018,7 +1055,14 @@ Page({
     this.setData({loading:true});
     try {
       var res = await callFunction({name:'createVenueBooking',data:{venueId:vid,title:title,description:desc,timeStart:ts,timeEnd:te}});
-      if(res.status==='success'){showShortToast(res.message);this.setData({bookingVisible:false});}else showShortToast(res.message);
+      if(res.status==='success'){
+        showShortToast(res.message);
+        this.setData({bookingVisible:false});
+        this.loadPendingCount();
+        if (this.data.activeTab === 'bookings') this.loadMyBookings();
+        if (this.data.scheduleVisible) this.loadTimetable();
+        this._emitVenueChanged('create', res.id);
+      }else showShortToast(res.message);
     } catch(e) { showShortToast(getErrorText(e,'借用失败')); }
     finally { this.setData({loading:false}); }
   },
@@ -1067,6 +1111,7 @@ Page({
 
   async cancelMyBooking(e) {
     var id = e.currentTarget.dataset.id;
+    var that = this;
     var booking = this.data.myBookings.find(function(b){return b.id===id;});
     if (!booking) return;
     if (booking.displayStatus === 'inUse') { showShortToast('使用中的借用不能取消，请使用"结束使用"'); return; }
@@ -1077,7 +1122,16 @@ Page({
         if (!r.confirm) return;
         try {
           var res = await callFunction({name:'cancelVenueBooking',data:{id:id}});
-          if(res.status==='success'){showShortToast('已取消');}else showShortToast(res.message);
+          if(res.status==='success'){
+            showShortToast(res.message || '已取消');
+            var bookings = that.data.myBookings.map(function(b) {
+              return b.id === id ? Object.assign({}, b, { status: 'cancelled', displayStatus: 'cancelled' }) : b;
+            });
+            that.setData({ myBookings: bookings });
+            that.loadMyBookings();
+            that.loadPendingCount();
+            that._emitVenueChanged('cancel', id);
+          }else showShortToast(res.message);
         } catch(e) { showShortToast(getErrorText(e,'取消失败')); }
       }
     });
@@ -1085,13 +1139,19 @@ Page({
 
   async endMyBooking(e) {
     var id = e.currentTarget.dataset.id;
+    var that = this;
     wx.showModal({
       title: '确认结束使用', content: '确定要结束该场地的使用吗？结束时间将更新为当前时间。',
       success: async function(r) {
         if (!r.confirm) return;
         try {
           var res = await callFunction({name:'endVenueBooking',data:{id:id}});
-          if(res.status==='success'){showShortToast('使用已结束');}else showShortToast(res.message);
+          if(res.status==='success'){
+            showShortToast(res.message || '使用已结束');
+            that.loadMyBookings();
+            that.loadPendingCount();
+            that._emitVenueChanged('end', id);
+          }else showShortToast(res.message);
         } catch(e) { showShortToast(getErrorText(e,'操作失败')); }
       }
     });
