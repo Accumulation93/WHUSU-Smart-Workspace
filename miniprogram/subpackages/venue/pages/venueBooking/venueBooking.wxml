@@ -10,6 +10,10 @@
   <view class="tabs-card">
     <view class="feature-tab {{activeTab === 'browse' ? 'feature-tab-active' : ''}}" data-tab="browse" bindtap="switchTab">场地浏览</view>
     <view class="feature-tab {{activeTab === 'bookings' ? 'feature-tab-active' : ''}}" data-tab="bookings" bindtap="switchTab">我的借用</view>
+    <view class="feature-tab {{activeTab === 'approvals' ? 'feature-tab-active' : ''}} feature-tab-approvals" data-tab="approvals" bindtap="switchTab">
+      待我审批
+      <text class="approval-tab-badge" wx:if="{{pendingApprovalCount > 0}}">{{pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}}</text>
+    </view>
   </view>
 
   <!-- ═══════════════════ BROWSE TAB ═══════════════════ -->
@@ -43,14 +47,6 @@
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
       <view class="section-title">借用记录</view>
-      <view class="pending-entry-bar" bindtap="goPendingApprovals">
-        <view class="pending-entry-left">
-          <text class="pending-entry-icon">📋</text>
-          <text class="pending-entry-label">待我审批</text>
-          <view class="pending-entry-badge" wx:if="{{pendingApprovalCount > 0}}">{{pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}}</view>
-        </view>
-        <text class="pending-entry-arrow">›</text>
-      </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
         <view class="empty-state" wx:if="{{!myBookings.length}}">
           <view class="empty-text">暂无借用记录</view>
@@ -69,6 +65,40 @@
           <view class="booking-item-foot" wx:if="{{item.displayStatus === 'inUse'}}">
             <text class="link" data-id="{{item.id}}" catchtap="endMyBooking">结束使用</text>
           </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══════════════════ APPROVALS TAB ═══════════════════ -->
+  <view wx:if="{{activeTab === 'approvals'}}">
+    <view class="card">
+      <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+      <view class="section-title">待我审批</view>
+      <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">
+        <text class="pending-update-time">更新于 {{lastUpdateTime}}</text>
+        <text class="pending-refresh-btn" bindtap="loadPendingData">⟳ 刷新</text>
+      </view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
+        <view class="pending-item" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewApprovalDetail">
+          <view class="pending-item-main">
+            <view class="pending-item-name">{{item.title || '借用申请'}}</view>
+            <view class="pending-item-meta">
+              <view class="audit-chip audit-chip-progress">待我处理</view>
+              <view class="pending-item-step">第{{item.currentStepIndex + 1}}步 · {{item.currentStepName}}</view>
+              <view class="pending-item-step" wx:if="{{item.approvalCurrentStep > 0}}">{{item.approvalCurrentStep}}/{{item.approvalTotalSteps}} 已完成</view>
+            </view>
+            <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
+          </view>
+          <view class="pending-actions-col">
+            <text class="pending-action-link approve" data-id="{{item.id}}" catchtap="openApprove">通过</text>
+            <text class="pending-action-link reject" data-id="{{item.id}}" catchtap="openReject">驳回</text>
+          </view>
+        </view>
+        <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
+          <view class="audit-empty-icon">✅</view>
+          <view class="audit-empty-text">暂无待审批的场地借用</view>
+          <view class="audit-empty-tip">当其他成员借用场地并需要你审批时，<br/>待处理的申请将显示在这里。</view>
         </view>
       </scroll-view>
     </view>
@@ -293,6 +323,71 @@
             <textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="补充说明"/>
           </view>
           <button class="primary-btn" loading="{{loading}}" bindtap="submitBooking">提交借用申请</button>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- ═══════════════════ APPROVAL / DETAIL POPUP ═══════════════════ -->
+  <view class="popup-mask" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="popup-card" catchtap="noop">
+      <view class="popup-header">
+        <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>
+        <text class="popup-close" bindtap="closeApproval">关闭</text>
+      </view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+        <view class="detail-body">
+          <!-- Flow progress bar -->
+          <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow-summary">
+            <view class="audit-flow-progress-bar">
+              <view class="audit-flow-progress-fill" style="width:{{approvalTarget._approvalPercent}}%;"></view>
+            </view>
+            <text class="audit-flow-progress-text">{{approvalTarget.approvalCurrentStep}}/{{approvalTarget.approvalTotalSteps}}</text>
+          </view>
+
+          <!-- Full flow timeline -->
+          <view wx:if="{{approvalTarget._flowTimeline && approvalTarget._flowTimeline.length}}" class="audit-flow">
+            <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:for="{{approvalTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" bindtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="flow-node-tap">
+              <view class="flow-left-col">
+                <view class="{{node.dotClass}}">{{node.icon}}</view>
+                <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
+              </view>
+              <view class="flow-right-col">
+                <view class="flow-info">
+                  <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                  <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
+                  <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+                  <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                </view>
+                <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
+                  <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">审批人：</text>{{node.approverName}}</view>
+                  <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">审批时间：</text>{{node.approvedAt}}</view>
+                  <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">审批意见：</text>{{node.comment}}</view>
+                </view>
+              </view>
+            </view>
+          </view>
+
+          <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalTarget.venueName}}<text wx:if="{{approvalTarget.venueLocation}}"> · {{approvalTarget.venueLocation}}</text></text></view>
+          <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalTarget.userName}}</text></view>
+          <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalTarget.timeStart}} — {{approvalTarget.timeEnd}}</text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.description}}"><text class="detail-key">说明</text><text class="detail-val">{{approvalTarget.description}}</text></view>
+          <view class="detail-row"><text class="detail-key">状态</text><text class="status-tag pending">待审核</text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.approvalCurrentStep >= 0}}"><text class="detail-key">当前步骤</text><text class="detail-val">第{{approvalTarget.currentStepIndex + 1}}步 · {{approvalTarget.currentStepName}}</text></view>
+
+          <!-- Approval action area -->
+          <view wx:if="{{approvalAction}}" class="approval-action-area">
+            <view class="field" style="margin-top:16rpx;">
+              <view class="field-label">审批意见（选填）</view>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
+            </view>
+            <view class="button-row" style="margin-top:16rpx;">
+              <button class="secondary-btn" bindtap="closeApproval">取消</button>
+              <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}}" loading="{{approvalSubmitting}}" bindtap="submitApproval">
+                {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
+              </button>
+            </view>
+          </view>
         </view>
       </scroll-view>
     </view>

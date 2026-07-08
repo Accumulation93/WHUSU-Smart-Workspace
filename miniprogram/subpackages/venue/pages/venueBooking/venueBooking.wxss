@@ -714,3 +714,113 @@ page {
   box-shadow: 0 4rpx 10rpx rgba(239, 68, 68, 0.30);
   vertical-align: middle;
 }
+
+/* ═══ Approvals tab ═══ */
+
+/* ── Pending approval list items ── */
+.pending-item {
+  display: flex; align-items: center; gap: 18rpx;
+  padding: 24rpx 22rpx; margin-bottom: 12rpx; border-radius: 22rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(248,251,255,0.80) 100%);
+  border: 1rpx solid rgba(226,237,247,0.94);
+  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.035), inset 0 1rpx 0 rgba(255,255,255,0.78);
+  box-sizing: border-box; transition: transform 0.18s ease, box-shadow 0.22s ease;
+  animation: glassFadeUp 0.36s ease both;
+}
+.pending-item:last-child { margin-bottom: 4rpx; }
+.pending-item:active { transform: translateY(1rpx) scale(0.992); }
+
+.pending-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
+.pending-item-name { color: #0f172a; font-size: 28rpx; font-weight: 700; line-height: 1.4; }
+
+.pending-item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10rpx; }
+.pending-item-step {
+  font-size: 21rpx; font-weight: 600; color: #475569;
+  padding: 4rpx 12rpx; border-radius: 999rpx;
+  background: rgba(241,245,249,0.7); border: 1rpx solid rgba(148,163,184,0.2);
+}
+.pending-item-info { color: #94a3b8; font-size: 22rpx; }
+
+/* Action links column */
+.pending-actions-col {
+  display: flex; flex-direction: column; gap: 10rpx; flex-shrink: 0;
+}
+.pending-action-link {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 80rpx; height: 48rpx; border-radius: 999rpx;
+  font-size: 22rpx; font-weight: 700; line-height: 48rpx;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.pending-action-link:active { transform: scale(0.94); opacity: 0.85; }
+.pending-action-link.approve {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+  box-shadow: 0 8rpx 18rpx rgba(37,99,235,0.16);
+}
+.pending-action-link.reject {
+  color: #dc2626;
+  background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(254,226,226,0.56) 100%);
+  border: 1rpx solid rgba(252,165,165,0.45);
+  box-shadow: 0 6rpx 14rpx rgba(239,68,68,0.06);
+}
+
+/* ── Update header ── */
+.pending-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 0 14rpx 0;
+}
+.pending-update-time { font-size: 20rpx; color: #94a3b8; }
+.pending-refresh-btn {
+  display: inline-flex; align-items: center; gap: 6rpx;
+  font-size: 21rpx; font-weight: 600; color: #2563eb;
+  padding: 6rpx 18rpx; border-radius: 999rpx;
+  background: rgba(219,234,254,0.65); border: 1rpx solid rgba(147,197,253,0.4);
+  line-height: 1;
+}
+.pending-refresh-btn:active { transform: scale(0.95); opacity: 0.85; }
+
+/* ── Approval action area ── */
+.approval-action-area {
+  margin-top: 8rpx; padding-top: 12rpx;
+  border-top: 1rpx solid rgba(226,232,240,0.5);
+}
+
+/* ── Button row ── */
+.button-row { display: flex; gap: 14rpx; }
+.button-row button {
+  flex: 1; height: 84rpx; line-height: 84rpx; border-radius: 999rpx;
+  font-size: 24rpx; font-weight: 700; border: none;
+  box-shadow: 0 16rpx 32rpx rgba(37,99,235,0.18);
+}
+.button-row button::after { border: none; }
+
+/* ── Danger button ── */
+.danger-btn {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  color: #ffffff;
+}
+
+/* ── Audit chip ── */
+.audit-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4rpx 14rpx; border-radius: 999rpx; font-size: 20rpx; font-weight: 700;
+}
+.audit-chip-progress {
+  background: rgba(255,237,213,0.78); color: #c2410c;
+  border: 1rpx solid rgba(253,186,116,0.58);
+}
+
+/* ── Empty state ── */
+.audit-empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 40rpx 20rpx;
+}
+.audit-empty-icon { font-size: 56rpx; margin-bottom: 16rpx; }
+.audit-empty-text { font-size: 26rpx; font-weight: 700; color: #475569; margin-bottom: 6rpx; }
+.audit-empty-tip {
+  font-size: 22rpx; color: #94a3b8; margin-top: 8rpx;
+  text-align: center; line-height: 1.6;
+}
+
+/* ── Large scroll area for approvals ── */
+.large-scroll { max-height: 900rpx; }

@@ -156,6 +156,17 @@ Page({
     statusLabels: { pending:'待审核', approved:'已通过', rejected:'已驳回', cancelled:'已取消', inUse:'使用中', completed:'已完成' },
     HOUR_HEIGHT: HOUR_HEIGHT, HEADER_H: HEADER_H,
     myBookings: [], pendingApprovalCount: 0, expandedNodeKey: '',
+
+    // ── Approvals tab ──
+    pending: [],
+    lastUpdateTime: '',
+    lastPendingCount: 0,
+    lastPendingSignature: '',
+    approvalVisible: false,
+    approvalTarget: null,
+    approvalAction: '',
+    approvalComment: '',
+    approvalSubmitting: false,
     heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '欢迎使用REDSU智慧工作台系统 · 场地借用',
   },
 
@@ -174,12 +185,15 @@ Page({
   },
 
   onShow() {
+    this._isPageVisible = true;
     this._loadUserInfo();
     this._initWeekStart();
     this.loadVenues();
     this.loadPurposes();
     this.loadPendingCount();
     if (this.data.activeTab === 'bookings') this.loadMyBookings();
+    if (this.data.activeTab === 'approvals') this.loadPendingData();
+    this.startPolling();
     if (!this._boundVenueChanged) {
       this._boundVenueChanged = this._onVenueChanged.bind(this);
       eventBus.on('venue:changed', this._boundVenueChanged);
@@ -187,6 +201,8 @@ Page({
   },
 
   onHide() {
+    this._isPageVisible = false;
+    this.stopPolling();
     if (this._boundVenueChanged) {
       eventBus.off('venue:changed', this._boundVenueChanged);
       this._boundVenueChanged = null;
@@ -194,6 +210,7 @@ Page({
   },
 
   onUnload() {
+    this.stopPolling();
     if (this._boundVenueChanged) {
       eventBus.off('venue:changed', this._boundVenueChanged);
       this._boundVenueChanged = null;
@@ -203,6 +220,7 @@ Page({
   _onVenueChanged() {
     this.loadPendingCount();
     if (this.data.activeTab === 'bookings') this.loadMyBookings();
+    if (this.data.activeTab === 'approvals') this.loadPendingData();
     if (this.data.scheduleVisible) this.loadTimetable();
   },
 
@@ -222,6 +240,7 @@ Page({
     var tab = e.currentTarget.dataset.tab;
     this.setData({ activeTab: tab });
     if (tab === 'bookings') this.loadMyBookings();
+    if (tab === 'approvals') this.loadPendingData();
   },
 
   // ═══ Browse ═══
@@ -1157,7 +1176,210 @@ Page({
     });
   },
 
-  goPendingApprovals() { wx.navigateTo({ url: '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals' }); },
+  // ═══════════════ Approvals tab ═══════════════
+
+  _buildPendingSignature(pending) {
+    return (pending || []).map(function(item) {
+      return [
+        item.id, item.status, item.approvalCurrentStep,
+        item.approvalTotalSteps, item.currentStepName, item.createdAt
+      ].join(':');
+    }).sort().join('|');
+  },
+
+  _formatTime() {
+    var now = new Date();
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  },
+
+  async loadPendingData() {
+    this.setData({ loading: true });
+    try {
+      var res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
+      if (res.status === 'success') {
+        var pending = (res.pending || []).map(function(item) {
+          if (item.approvalTotalSteps > 0) {
+            item._approvalPercent = Math.round(item.approvalCurrentStep / item.approvalTotalSteps * 100);
+          } else {
+            item._approvalPercent = 0;
+          }
+          item._flowTimeline = buildFlowTimeline({
+            totalSteps: item.approvalTotalSteps,
+            currentStep: item.approvalCurrentStep,
+            isApproved: item.approvalCurrentStep >= item.approvalTotalSteps,
+            isRejected: false,
+            rejectStep: -1,
+            flowSteps: item.flowSteps || [],
+            snapshots: item.snapshots || []
+          });
+          return item;
+        });
+        this.setData({
+          pending: pending,
+          pendingApprovalCount: pending.length,
+          lastPendingCount: pending.length,
+          lastPendingSignature: this._buildPendingSignature(pending),
+          lastUpdateTime: this._formatTime()
+        });
+      } else if (res.status === 'forbidden') {
+        showShortToast(res.message || '请先绑定人事信息');
+      } else {
+        showShortToast(res.message || '加载失败');
+      }
+    } catch (e) {
+      showShortToast(getErrorText(e, '加载失败'));
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  async checkForUpdates() {
+    if (this.data.activeTab !== 'approvals') return;
+    try {
+      var res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
+      if (res.status === 'success') {
+        var pending = res.pending || [];
+        var count = pending.length;
+        var signature = this._buildPendingSignature(pending);
+        if (count !== this.data.lastPendingCount || signature !== this.data.lastPendingSignature) {
+          this.loadPendingData();
+        } else if (count > 0) {
+          this.setData({ lastUpdateTime: this._formatTime() });
+        }
+        if (count !== this.data.pendingApprovalCount) {
+          this.setData({ pendingApprovalCount: count });
+        }
+      }
+    } catch (e) {}
+  },
+
+  startPolling() {
+    this.stopPolling();
+    var that = this;
+    this._pollTimer = setInterval(function() {
+      if (that._isPageVisible) that.checkForUpdates();
+    }, 30000);
+  },
+
+  stopPolling() {
+    if (this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+    }
+  },
+
+  onPullDownRefresh() {
+    var that = this;
+    if (this.data.activeTab === 'approvals') {
+      this.loadPendingData().then(function() { wx.stopPullDownRefresh(); });
+    } else {
+      wx.stopPullDownRefresh();
+    }
+  },
+
+  // ── Approval actions ──
+
+  openApprove(e) {
+    var id = e.currentTarget.dataset.id;
+    var item = this.data.pending.find(function(p) { return p.id === id; });
+    if (!item) return;
+    this.setData({ approvalVisible: true, approvalTarget: item, approvalAction: 'approve', approvalComment: '' });
+  },
+
+  openReject(e) {
+    var id = e.currentTarget.dataset.id;
+    var item = this.data.pending.find(function(p) { return p.id === id; });
+    if (!item) return;
+    this.setData({ approvalVisible: true, approvalTarget: item, approvalAction: 'reject', approvalComment: '' });
+  },
+
+  closeApproval() {
+    this.setData({ approvalVisible: false, approvalTarget: null, approvalAction: '', approvalComment: '', expandedNodeKey: '' });
+  },
+
+  onApprovalCommentInput(e) {
+    this.setData({ approvalComment: e.detail.value });
+  },
+
+  async submitApproval() {
+    var that = this;
+    var target = this.data.approvalTarget;
+    var action = this.data.approvalAction;
+    var comment = this.data.approvalComment;
+    if (!target || !action) return;
+
+    var endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
+    var actionLabel = action === 'approve' ? '通过' : '驳回';
+
+    this.setData({ approvalSubmitting: true });
+    try {
+      var res = await callFunction({ name: endpoint, data: { id: target.id, comment: comment } });
+      if (res.status === 'success') {
+        showShortToast(res.message || ('已' + actionLabel));
+        that.closeApproval();
+
+        var targetId = target.id;
+        var pending = that.data.pending.slice();
+
+        if (action === 'approve' && res.approvalProgress) {
+          if (res.approvalProgress.isApproved) {
+            pending = pending.filter(function(p) { return p.id !== targetId; });
+          } else {
+            var idx = -1;
+            for (var pi = 0; pi < pending.length; pi++) {
+              if (pending[pi].id === targetId) { idx = pi; break; }
+            }
+            if (idx >= 0) {
+              var updated = Object.assign({}, pending[idx], {
+                approvalCurrentStep: res.approvalProgress.currentStep,
+                _approvalPercent: Math.round(res.approvalProgress.currentStep / pending[idx].approvalTotalSteps * 100)
+              });
+              updated._flowTimeline = buildFlowTimeline({
+                totalSteps: updated.approvalTotalSteps,
+                currentStep: res.approvalProgress.currentStep,
+                isApproved: false,
+                isRejected: false,
+                rejectStep: -1,
+                flowSteps: updated.flowSteps || [],
+                snapshots: updated.snapshots || []
+              });
+              pending[idx] = updated;
+            }
+          }
+        } else {
+          pending = pending.filter(function(p) { return p.id !== targetId; });
+        }
+
+        that.setData({
+          pending: pending,
+          pendingApprovalCount: pending.length,
+          lastPendingCount: pending.length,
+          lastPendingSignature: that._buildPendingSignature(pending),
+          lastUpdateTime: that._formatTime()
+        });
+
+        that._emitVenueChanged(action, targetId);
+
+        setTimeout(function() { that.loadPendingData(); }, 2000);
+      } else {
+        showShortToast(res.message || '操作失败');
+      }
+    } catch (e) {
+      showShortToast(getErrorText(e, '操作失败'));
+    } finally {
+      this.setData({ approvalSubmitting: false });
+    }
+  },
+
+  viewApprovalDetail(e) {
+    var id = e.currentTarget.dataset.id;
+    var item = this.data.pending.find(function(p) { return p.id === id; });
+    if (item) {
+      this.setData({ approvalVisible: true, approvalTarget: item, approvalAction: '', approvalComment: '' });
+    }
+  },
+
   toggleFlowNode(e) { var key = e.currentTarget.dataset.nodeKey; this.setData({ expandedNodeKey: this.data.expandedNodeKey === key ? '' : key }); },
   noop() {}
 });
