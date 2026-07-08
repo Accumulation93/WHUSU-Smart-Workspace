@@ -5,6 +5,8 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const notificationModel = require('../models/notification');
+const hrInfoModel = require('../../../core/models/hrInfo');
+const venueApprovalFlowStepRuleModel = require('../../venue/models/venueApprovalFlowStepRule');
 
 /**
  * Resolve hrId from the authenticated user's openid.
@@ -17,6 +19,74 @@ async function resolveHrId(openid) {
     [openid, orgId]
   );
   return rows[0] ? rows[0].hr_id : null;
+}
+
+async function listPendingVenueNotificationItems(hrId, orgId) {
+  const approverHrInfo = await hrInfoModel.getById(hrId);
+  if (!approverHrInfo) return [];
+
+  const [bookings] = await pool.query(
+    `SELECT b.*, v.name AS venue_name, v.location AS venue_location
+     FROM venue_bookings b
+     JOIN venues v ON v.id = b.venue_id AND v.org_id = b.org_id
+     WHERE b.status = 'pending'
+       AND b.approval_flow_id IS NOT NULL
+       AND b.approval_total_steps > 0
+       AND b.org_id = ?
+     ORDER BY b.created_at DESC`,
+    [orgId]
+  );
+  if (!bookings.length) return [];
+
+  const applicantHrIds = [...new Set(bookings.map(b => b.user_hr_id).filter(Boolean))];
+  const applicantMap = {};
+  if (applicantHrIds.length) {
+    const hrList = await hrInfoModel.getByIds(applicantHrIds);
+    (hrList || []).forEach(h => { applicantMap[h.id] = h; });
+  }
+
+  const items = [];
+  for (const booking of bookings) {
+    const currentStep = booking.approval_current_step;
+    if (currentStep < 0 || currentStep >= booking.approval_total_steps) continue;
+
+    const [flowSteps] = await pool.query(
+      'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
+      [booking.approval_flow_id, orgId]
+    );
+    if (!flowSteps.length || currentStep >= flowSteps.length) continue;
+
+    const step = flowSteps[currentStep];
+    if (!step) continue;
+
+    const [stepRules] = await pool.query(
+      'SELECT * FROM venue_approval_flow_step_rules WHERE step_id = ? AND org_id = ? ORDER BY sort_order',
+      [step.id, orgId]
+    );
+
+    const applicantHrInfo = applicantMap[booking.user_hr_id] || null;
+    const canApprove = !stepRules.length || venueApprovalFlowStepRuleModel.matchesAnyRule(
+      stepRules,
+      approverHrInfo,
+      applicantHrInfo
+    );
+    if (!canApprove) continue;
+
+    const venueName = safeString(booking.venue_name || '');
+    const applicantName = safeString((applicantHrInfo && applicantHrInfo.name) || booking.user_hr_id || '');
+    items.push({
+      type: 'pending_approval',
+      title: safeString(booking.title || '场地借用'),
+      description: '场地' + (venueName ? '：' + venueName : '') + ' | 提交人 ' + (applicantName || '未知') + ' | ' + safeString(step.name || ('第' + (currentStep + 1) + '步')),
+      category: 'venue',
+      targetType: 'booking',
+      targetId: safeString(booking.id),
+      targetUrl: '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals',
+      createdAt: booking.created_at
+    });
+  }
+
+  return items;
 }
 
 // ─── listNotifications ───
@@ -57,19 +127,13 @@ router.post('/listNotifications', async (req, res) => {
     // ── Venue: persistent notifications from notifications table ──
     const limit = Math.max(1, Math.min(parseInt(req.body.limit, 10) || 20, 50));
     const currentOrgId = await getCurrentOrgId();
+    const venuePendingItems = await listPendingVenueNotificationItems(hrId, currentOrgId);
     const [venueRows] = await pool.query(
       `SELECT n.*
        FROM notifications n
-       WHERE n.hr_id = ? AND n.is_read = 0 AND n.category = ?
-         AND (
-           n.type <> 'pending_approval'
-           OR EXISTS (
-             SELECT 1 FROM venue_bookings b
-             WHERE b.id = n.target_id AND b.org_id = ? AND b.status = 'pending'
-           )
-         )
+       WHERE n.hr_id = ? AND n.is_read = 0 AND n.category = ? AND n.type <> ?
        ORDER BY n.created_at DESC LIMIT ?`,
-      [hrId, 'venue', currentOrgId, limit]
+      [hrId, 'venue', 'pending_approval', limit]
     );
     const venueItems = venueRows.map(r => ({
       type: safeString(r.type),
@@ -83,7 +147,7 @@ router.post('/listNotifications', async (req, res) => {
     }));
 
     // ── Merge & sort by createdAt DESC ──
-    const items = [...auditItems, ...venueItems].sort((a, b) => {
+    const items = [...auditItems, ...venuePendingItems, ...venueItems].sort((a, b) => {
       const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return tb - ta;
@@ -110,16 +174,7 @@ router.post('/getNotificationUnreadCount', async (req, res) => {
 
     // Venue: only actionable pending approvals count toward the badge.
     const currentOrgId = await getCurrentOrgId();
-    const [[{ count: venueCount }]] = await pool.query(
-      `SELECT COUNT(*) AS count
-       FROM notifications n
-       WHERE n.hr_id = ? AND n.is_read = 0 AND n.category = ? AND n.type = ?
-         AND EXISTS (
-           SELECT 1 FROM venue_bookings b
-           WHERE b.id = n.target_id AND b.org_id = ? AND b.status = 'pending'
-         )`,
-      [hrId, 'venue', 'pending_approval', currentOrgId]
-    );
+    const venueCount = (await listPendingVenueNotificationItems(hrId, currentOrgId)).length;
 
     res.json({ status: 'success', count: auditCount + venueCount });
   } catch (e) {
