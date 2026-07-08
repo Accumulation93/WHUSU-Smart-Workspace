@@ -435,6 +435,7 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .notification-item {
   position: relative;
+  z-index: 1;
   display: flex; align-items: center; gap: 14rpx;
   padding: 18rpx 16rpx; border-radius: 16rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(246,249,255,0.72) 100%);
@@ -453,7 +454,7 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .notification-shifted {
-  transform: translateX(-116rpx);
+  transform: translateX(-72px);
 }
 
 .notification-delete {
@@ -461,7 +462,7 @@ button, input, textarea, picker, view, text, scroll-view {
   right: 0;
   top: 0;
   bottom: 0;
-  width: 104rpx;
+  width: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -495,6 +496,10 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .notification-item:active {
   transform: translateY(1rpx) scale(0.992);
+}
+
+.notification-swipe-row .notification-item[style*="translateX"]:active {
+  opacity: 0.96;
 }
 
 .notification-icon {

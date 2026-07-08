@@ -2,6 +2,7 @@ const { callFunction, formatAuditTime } = require('../../utils/api');
 const eventBus = require('../../utils/eventBus');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
+const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
 
 const PORTAL_CARDS_USER = [
@@ -185,7 +186,7 @@ Page({
       const res = await callFunction({ name: 'listTodos', data: { limit: 5, offset: 0 } });
       if (res.status === 'success') {
         const items = (res.items || []).map(function(item) {
-          return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt), _showDelete: false });
+          return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt) });
         });
         this.setData({ todos: items, todoCount: res.total || items.length });
       }
@@ -213,7 +214,7 @@ Page({
       const res = await callFunction({ name: 'listNotifications', data: { limit: 5, offset: 0 } });
       if (res.status === 'success') {
         const items = (res.items || []).map(function(item) {
-          return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt) });
+          return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt), _showDelete: false, _swipeX: 0 });
         });
         this.setData({ notifications: items });
       }
@@ -249,22 +250,62 @@ Page({
   },
 
   onNotificationTouchStart(e) {
-    this._notificationTouchStartX = e.touches && e.touches[0] ? e.touches[0].clientX : 0;
+    var touch = e.touches && e.touches[0] ? e.touches[0] : null;
+    var id = e.currentTarget.dataset.id;
+    var current = (this.data.notifications || []).find(function(item) { return item.id === id; });
+    this._notificationTouch = {
+      id: id,
+      startX: touch ? touch.clientX : 0,
+      startY: touch ? touch.clientY : 0,
+      baseX: current && current._showDelete ? -NOTIFICATION_DELETE_WIDTH_PX : 0,
+      moving: false
+    };
+  },
+
+  onNotificationTouchMove(e) {
+    var touchState = this._notificationTouch || {};
+    var touch = e.touches && e.touches[0] ? e.touches[0] : null;
+    var id = touchState.id;
+    if (!id || !touch) return;
+
+    var dx = touch.clientX - touchState.startX;
+    var dy = touch.clientY - touchState.startY;
+    if (!touchState.moving && Math.abs(dx) < 8) return;
+    if (!touchState.moving && Math.abs(dy) > Math.abs(dx)) return;
+
+    touchState.moving = true;
+    this._notificationTouch = touchState;
+
+    var nextX = Math.max(-NOTIFICATION_DELETE_WIDTH_PX, Math.min(0, touchState.baseX + dx));
+    var notifications = this.data.notifications.map(function(item) {
+      if (item.id !== id) return Object.assign({}, item, { _showDelete: false, _swipeX: 0 });
+      return Object.assign({}, item, { _swipeX: nextX, _showDelete: nextX <= -NOTIFICATION_DELETE_WIDTH_PX / 2 });
+    });
+    this.setData({ notifications: notifications });
   },
 
   onNotificationTouchEnd(e) {
-    var startX = this._notificationTouchStartX || 0;
-    var endX = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : startX;
-    var id = e.currentTarget.dataset.id;
-    if (!id || Math.abs(endX - startX) < 40) return;
+    var touchState = this._notificationTouch || {};
+    var touch = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
+    var id = touchState.id || e.currentTarget.dataset.id;
+    if (!id || !touchState.moving) return;
+
     this._notificationSwiping = true;
     var that = this;
     setTimeout(function() { that._notificationSwiping = false; }, 250);
-    var showDelete = endX < startX;
+
+    var current = (this.data.notifications || []).find(function(item) { return item.id === id; }) || {};
+    var currentX = typeof current._swipeX === 'number' ? current._swipeX : 0;
+    var dx = touch ? (touch.clientX - touchState.startX) : 0;
+    var showDelete = currentX <= -NOTIFICATION_DELETE_WIDTH_PX / 2 || dx < -40;
     var notifications = this.data.notifications.map(function(item) {
-      return Object.assign({}, item, { _showDelete: item.id === id ? showDelete : false });
+      return Object.assign({}, item, {
+        _showDelete: item.id === id ? showDelete : false,
+        _swipeX: item.id === id && showDelete ? -NOTIFICATION_DELETE_WIDTH_PX : 0
+      });
     });
     this.setData({ notifications: notifications });
+    this._notificationTouch = null;
   },
 
   async deleteNotification(e) {

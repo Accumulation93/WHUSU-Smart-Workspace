@@ -98,9 +98,11 @@
       </view>
       <view class="notification-swipe-row" wx:for="{{notifications}}" wx:key="id">
         <view class="notification-item {{item.isRead ? 'notification-read' : 'notification-unread'}} {{item._showDelete ? 'notification-shifted' : ''}}"
+              style="transform: translateX({{item._swipeX || 0}}px);"
               data-id="{{item.id}}" data-url="{{item.targetUrl}}"
               bindtap="onNotificationTap"
               bindtouchstart="onNotificationTouchStart"
+              bindtouchmove="onNotificationTouchMove"
               bindtouchend="onNotificationTouchEnd">
           <view class="notification-dot" wx:if="{{!item.isRead}}"></view>
           <view class="notification-icon">{{item.category === 'venue' ? '🏟️' : (item.category === 'scoring' ? '📊' : '🔔')}}</view>
