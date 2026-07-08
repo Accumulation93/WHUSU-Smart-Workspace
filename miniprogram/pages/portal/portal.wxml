@@ -132,7 +132,6 @@
             bindtap="onCardTap">
         <view class="app-grid-icon">{{item.icon}}</view>
         <view class="app-grid-label">{{item.label}}</view>
-        <view class="app-grid-desc">{{item.desc}}</view>
         <view class="app-grid-badge" wx:if="{{item.disabled}}">开发中</view>
       </view>
     </view>
@@ -152,7 +151,6 @@
         <view class="nav-row-icon">{{item.icon}}</view>
         <view class="nav-row-body">
           <view class="nav-row-label">{{item.label}}</view>
-          <view class="nav-row-desc">{{item.desc}}</view>
         </view>
         <view class="nav-row-badge" wx:if="{{item.disabled}}">开发中</view>
         <text class="nav-row-arrow" wx:if="{{!item.disabled}}">›</text>

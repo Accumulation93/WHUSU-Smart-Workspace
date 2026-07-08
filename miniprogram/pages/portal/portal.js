@@ -6,18 +6,18 @@ const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
 
 const PORTAL_CARDS_USER = [
-  { key: 'scoring', label: '考核评分', icon: '📊', desc: '考核 · 评分', url: '/pages/home/home?subApp=scoring', disabled: false },
-  { key: 'hr', label: '人事信息', icon: '👤', desc: '人事 · 档案', url: '/pages/home/home?subApp=hr', disabled: false },
-  { key: 'audit', label: '审核', icon: '📋', desc: '发起 · 审批', url: '/pages/home/home?subApp=audit', disabled: false },
-  { key: 'venue', label: '场地借用', icon: '🏟️', desc: '场地 · 借用', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
+  { key: 'scoring', label: '考核评分', icon: '📊', url: '/pages/home/home?subApp=scoring', disabled: false },
+  { key: 'hr', label: '人事信息', icon: '👤', url: '/pages/home/home?subApp=hr', disabled: false },
+  { key: 'audit', label: '审核', icon: '📋', url: '/pages/home/home?subApp=audit', disabled: false },
+  { key: 'venue', label: '场地借用', icon: '🏟️', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
 ];
 
 const PORTAL_CARDS_ADMIN = [
-  { key: 'scoring', label: '考核评分', icon: '📊', desc: '考核 · 管理', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
-  { key: 'hr', label: '人事信息', icon: '👤', desc: '人事 · 管理', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
-  { key: 'system', label: '系统配置', icon: '⚙️', desc: '系统 · 配置', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
-  { key: 'audit', label: '审核', icon: '📋', desc: '审核 · 管理', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
-  { key: 'venue', label: '场地管理', icon: '🏟️', desc: '场地 · 管理', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false }
+  { key: 'scoring', label: '考核评分', icon: '📊', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
+  { key: 'hr', label: '人事信息', icon: '👤', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
+  { key: 'system', label: '系统配置', icon: '⚙️', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
+  { key: 'audit', label: '审核', icon: '📋', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
+  { key: 'venue', label: '场地管理', icon: '🏟️', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false }
 ];
 
 function getDisplayIdentity(user, activeRole) {
@@ -206,8 +206,7 @@ Page({
     }
     var filtered = cards.filter(function(c) {
       var label = (c.label || '').toLowerCase();
-      var desc = (c.desc || '').toLowerCase();
-      return label.indexOf(keyword) >= 0 || desc.indexOf(keyword) >= 0;
+      return label.indexOf(keyword) >= 0;
     });
     this.setData({ filteredPortalCards: filtered });
   },
