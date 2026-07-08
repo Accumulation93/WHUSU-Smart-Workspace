@@ -692,3 +692,25 @@ page {
   border: 1rpx solid rgba(255,255,255,0.82);
   box-shadow: 0 24rpx 52rpx rgba(15,23,42,0.16);
 }
+
+/* ── 待我审批 tab badge ── */
+.feature-tab-approvals {
+  position: relative;
+}
+
+.approval-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36rpx;
+  height: 36rpx;
+  padding: 0 8rpx;
+  margin-left: 6rpx;
+  border-radius: 18rpx;
+  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 800;
+  box-shadow: 0 4rpx 10rpx rgba(239, 68, 68, 0.30);
+  vertical-align: middle;
+}
