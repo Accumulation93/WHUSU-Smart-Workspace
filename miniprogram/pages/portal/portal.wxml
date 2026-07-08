@@ -36,32 +36,6 @@
     </view>
   </view>
 
-  <view class="card">
-    <view class="info-head">
-      <view class="section-title">应用服务</view>
-    </view>
-    <view class="nav-list">
-      <view
-        class="nav-row {{item.disabled ? 'nav-row-disabled' : ''}}"
-        wx:for="{{portalCards}}"
-        wx:key="key"
-        wx:for-item="item"
-        wx:for-index="i"
-        style="animation: glassFadeUp 0.42s {{0.06 * i}}s ease both;"
-        data-key="{{item.key}}"
-        bindtap="onCardTap"
-      >
-        <view class="nav-row-icon">{{item.icon}}</view>
-        <view class="nav-row-body">
-          <view class="nav-row-label">{{item.label}}</view>
-          <view class="nav-row-desc">{{item.desc}}</view>
-        </view>
-        <view class="nav-row-badge" wx:if="{{item.disabled}}">开发中</view>
-        <text class="nav-row-arrow" wx:if="{{!item.disabled}}">›</text>
-      </view>
-    </view>
-  </view>
-
   <view class="card" wx:if="{{hasUser}}">
     <view class="info-head">
       <view class="section-title">待办事项</view>
@@ -117,6 +91,32 @@
           <text class="nav-row-arrow">›</text>
         </view>
         <view class="notification-delete" wx:if="{{item._showDelete}}" data-id="{{item.id}}" catchtap="deleteNotification">删除</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="info-head">
+      <view class="section-title">应用服务</view>
+    </view>
+    <view class="nav-list">
+      <view
+        class="nav-row {{item.disabled ? 'nav-row-disabled' : ''}}"
+        wx:for="{{portalCards}}"
+        wx:key="key"
+        wx:for-item="item"
+        wx:for-index="i"
+        style="animation: glassFadeUp 0.42s {{0.06 * i}}s ease both;"
+        data-key="{{item.key}}"
+        bindtap="onCardTap"
+      >
+        <view class="nav-row-icon">{{item.icon}}</view>
+        <view class="nav-row-body">
+          <view class="nav-row-label">{{item.label}}</view>
+          <view class="nav-row-desc">{{item.desc}}</view>
+        </view>
+        <view class="nav-row-badge" wx:if="{{item.disabled}}">开发中</view>
+        <text class="nav-row-arrow" wx:if="{{!item.disabled}}">›</text>
       </view>
     </view>
   </view>
