@@ -98,11 +98,50 @@
   <view class="card">
     <view class="info-head">
       <view class="section-title">应用服务</view>
+      <view class="app-view-tabs">
+        <view class="app-view-tab {{appViewMode === 'grid' ? 'app-view-tab-active' : ''}}"
+              data-mode="grid" bindtap="switchAppView">宫格</view>
+        <view class="app-view-tab {{appViewMode === 'list' ? 'app-view-tab-active' : ''}}"
+              data-mode="list" bindtap="switchAppView">列表</view>
+      </view>
     </view>
-    <view class="nav-list">
+
+    <!-- Search bar -->
+    <view class="app-search-bar">
+      <view class="app-search-icon">🔍</view>
+      <input class="app-search-input"
+             placeholder="搜索应用…"
+             value="{{appSearchKeyword}}"
+             bindinput="onAppSearchInput"
+             confirm-type="search"/>
+      <view class="app-search-clear" wx:if="{{appSearchKeyword}}" bindtap="clearAppSearch">✕</view>
+    </view>
+
+    <!-- No results -->
+    <view class="notification-empty" wx:if="{{!filteredPortalCards.length}}">
+      <text class="notification-empty-text">{{appSearchKeyword ? '没有匹配的应用' : '暂无应用'}}</text>
+    </view>
+
+    <!-- ═══ Grid View (宫格) ═══ -->
+    <view class="app-grid" wx:if="{{appViewMode === 'grid' && filteredPortalCards.length}}">
+      <view class="app-grid-item {{item.disabled ? 'app-grid-item-disabled' : ''}}"
+            wx:for="{{filteredPortalCards}}" wx:key="key"
+            wx:for-item="item" wx:for-index="i"
+            style="animation: glassFadeUp 0.42s {{0.05 * i}}s ease both;"
+            data-key="{{item.key}}"
+            bindtap="onCardTap">
+        <view class="app-grid-icon">{{item.icon}}</view>
+        <view class="app-grid-label">{{item.label}}</view>
+        <view class="app-grid-desc">{{item.desc}}</view>
+        <view class="app-grid-badge" wx:if="{{item.disabled}}">开发中</view>
+      </view>
+    </view>
+
+    <!-- ═══ List View (列表) ═══ -->
+    <view class="nav-list" wx:if="{{appViewMode === 'list' && filteredPortalCards.length}}">
       <view
         class="nav-row {{item.disabled ? 'nav-row-disabled' : ''}}"
-        wx:for="{{portalCards}}"
+        wx:for="{{filteredPortalCards}}"
         wx:key="key"
         wx:for-item="item"
         wx:for-index="i"

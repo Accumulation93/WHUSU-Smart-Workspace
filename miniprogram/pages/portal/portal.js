@@ -53,7 +53,12 @@ Page({
     todoLoading: false,
     notificationCount: 0,
     notifications: [],
-    notificationLoading: false
+    notificationLoading: false,
+
+    // App services view & search
+    appViewMode: 'grid',        // 'grid' | 'list'
+    appSearchKeyword: '',
+    filteredPortalCards: []
   },
 
   _pollTimer: null,
@@ -61,6 +66,11 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
+    // Restore saved view mode preference
+    var savedView = wx.getStorageSync('appViewMode');
+    if (savedView && (savedView === 'grid' || savedView === 'list')) {
+      this.setData({ appViewMode: savedView });
+    }
     this.refreshCurrentUser();
     this.loadOrganizationName();
     if (this.data.hasUser) {
@@ -137,6 +147,7 @@ Page({
       showWorkGroup: shouldShowWorkGroup(user),
       portalCards: portalCards
     });
+    this._applyAppFilter();
   },
 
   loadOrganizationName() {
@@ -156,14 +167,49 @@ Page({
   },
 
   onCardTap(e) {
-    const { key } = e.currentTarget.dataset;
-    const card = this.data.portalCards.find(c => c.key === key);
+    var key = e.currentTarget.dataset.key;
+    var source = this.data.filteredPortalCards.length ? this.data.filteredPortalCards : this.data.portalCards;
+    var card = source.find(function(c) { return c.key === key; });
     if (!card) return;
     if (card.disabled) {
       wx.showToast({ title: card.disabledReason || '暂不可用', icon: 'none' });
       return;
     }
     wx.navigateTo({ url: card.url });
+  },
+
+  // ── App Services View & Search ──
+
+  switchAppView(e) {
+    var mode = e.currentTarget.dataset.mode;
+    if (!mode || mode === this.data.appViewMode) return;
+    wx.setStorageSync('appViewMode', mode);
+    this.setData({ appViewMode: mode });
+  },
+
+  onAppSearchInput(e) {
+    this.setData({ appSearchKeyword: e.detail.value });
+    this._applyAppFilter();
+  },
+
+  clearAppSearch() {
+    this.setData({ appSearchKeyword: '' });
+    this._applyAppFilter();
+  },
+
+  _applyAppFilter() {
+    var keyword = (this.data.appSearchKeyword || '').trim().toLowerCase();
+    var cards = this.data.portalCards || [];
+    if (!keyword) {
+      this.setData({ filteredPortalCards: cards });
+      return;
+    }
+    var filtered = cards.filter(function(c) {
+      var label = (c.label || '').toLowerCase();
+      var desc = (c.desc || '').toLowerCase();
+      return label.indexOf(keyword) >= 0 || desc.indexOf(keyword) >= 0;
+    });
+    this.setData({ filteredPortalCards: filtered });
   },
 
   // ── Notification methods ──
