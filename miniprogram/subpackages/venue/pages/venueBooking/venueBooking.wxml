@@ -235,6 +235,12 @@ module.exports = { hour: hour, min: min };
               <view class="picker-display {{bookingStartDate ? 'picker-has-value' : ''}}">{{bookingStartDateDisplay || '请选择日期'}}</view>
             </picker>
           </view>
+          <!-- Selected summary -->
+          <view wx:if="{{bookingTimeStart && bookingTimeEnd}}" class="time-summary">
+            <text class="time-summary-icon">🕐</text>
+            <text class="time-summary-text">{{bookingTimeStart}} → {{bookingTimeEnd}}</text>
+            <text class="time-summary-dur">（{{_durationText}}）</text>
+          </view>
           <!-- ★ Draggable timeline ★ -->
           <view wx:if="{{timelineBlocks.length}}" class="timeline-wrap">
             <view class="timeline-hint">拖动圆形滑块选择时间范围</view>
@@ -303,12 +309,6 @@ module.exports = { hour: hour, min: min };
             <view wx:else class="field-hint">{{bookingTimeStart ? '' : '请先选择开始时间'}}</view>
           </view>
 
-          <!-- Selected summary -->
-          <view wx:if="{{bookingTimeStart && bookingTimeEnd}}" class="time-summary">
-            <text class="time-summary-icon">🕐</text>
-            <text class="time-summary-text">{{bookingTimeStart}} → {{bookingTimeEnd}}</text>
-            <text class="time-summary-dur">（{{_durationText}}）</text>
-          </view>
           <!-- Description -->
           <view class="field">
             <view class="field-label">备注（选填）</view>

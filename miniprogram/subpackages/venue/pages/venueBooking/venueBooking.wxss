@@ -176,7 +176,7 @@
   color:#2563eb;
 }
 .tl-arrow-up {
-  color:#2563eb;
+  color:#059669;
 }
 
 /* Handle time label */
@@ -190,7 +190,7 @@
   margin-bottom:2rpx;
 }
 .tl-tag-end {
-  color:#2563eb; background:rgba(219,234,254,0.85);
+  color:#059669; background:rgba(209,250,229,0.85);
   margin-top:2rpx;
 }
 
@@ -206,7 +206,7 @@
 
 /* ── New time section (chips + input) ── */
 .time-section-new {
-  display:flex; flex-direction:column; gap:12rpx;
+  display:flex; flex-direction:column; gap:8rpx;
 }
 
 /* ── Chip selector rows ── */
@@ -278,7 +278,7 @@
   background:#10b981; color:#fff; font-size:22rpx; font-weight:700;
   flex-shrink:0;
 }
-.end-badge { background:#059669; }
+.end-badge {}
 
 /* ── Duration chips ── */
 .duration-row {
@@ -711,66 +711,58 @@ page {
 }
 
 .booking-form-popup .field {
-  margin-bottom: 16rpx;           /* 24→16 */
+  margin-bottom: 10rpx;           /* 24→16→10 */
 }
 .booking-form-popup .field-label {
-  margin-bottom: 6rpx;            /* 10→6 */
-  font-size: 22rpx;
+  margin-bottom: 4rpx;            /* 10→6→4 */
+  font-size: 20rpx;
 }
 .booking-form-popup .field-input {
-  min-height: 68rpx;              /* 78→68 */
-  padding: 14rpx 18rpx;           /* 18/20→14/18 */
-  font-size: 24rpx;
+  min-height: 56rpx;              /* 78→68→56 */
+  padding: 10rpx 14rpx;
+  font-size: 22rpx;
 }
 .booking-form-popup .picker-display {
-  padding: 16rpx 18rpx;           /* 24/20→16/18 */
-  min-height: 68rpx;
-  font-size: 26rpx;
+  padding: 10rpx 14rpx;           /* 24/20→16/18→10/14 */
+  min-height: 56rpx;
+  font-size: 24rpx;
 }
 .booking-form-popup .field-textarea {
-  min-height: 120rpx;             /* 156→120 */
+  min-height: 96rpx;              /* 156→120→96 */
 }
 .booking-form-popup .chip {
-  font-size: 22rpx;
-  padding: 8rpx 18rpx;            /* 10/22→8/18 */
+  font-size: 20rpx;
+  padding: 6rpx 14rpx;
 }
 .booking-form-popup .chip-row {
-  margin-top: 8rpx;
-  gap: 8rpx;
+  margin-top: 6rpx;
+  gap: 6rpx;
 }
 .booking-form-popup .timeline-drag-container {
-  height: 100rpx;                 /* 120→100 */
+  height: 88rpx;                  /* 120→100→88 */
 }
 .booking-form-popup .timeline-hint {
-  font-size: 18rpx;
-  padding: 0 0 6rpx 4rpx;
+  font-size: 16rpx;
+  padding: 0 0 4rpx 4rpx;
 }
 .booking-form-popup .time-field-input {
-  height: 64rpx;                  /* 72→64 */
-  font-size: 26rpx;
+  height: 56rpx;                  /* 72→64→56 */
+  font-size: 24rpx;
 }
 .booking-form-popup .duration-chip {
-  font-size: 22rpx;
-  padding: 10rpx 20rpx;           /* 12/24→10/20 */
+  font-size: 20rpx;
+  padding: 8rpx 16rpx;            /* 12/24→10/20→8/16 */
 }
 .booking-form-popup .time-summary {
-  padding: 14rpx 18rpx;           /* 18/22→14/18 */
+  padding: 10rpx 14rpx;           /* 18/22→14/18→10/14 */
 }
 .booking-form-popup .primary-btn {
-  min-height: 68rpx;              /* 78→68 */
-  line-height: 68rpx;
-  font-size: 25rpx;
-}
-.booking-form-popup .hour-chip {
-  font-size: 22rpx;
-  padding: 8rpx 16rpx;
-}
-.booking-form-popup .min-chip {
-  font-size: 22rpx;
-  padding: 8rpx 0;
+  min-height: 60rpx;              /* 78→68→60 */
+  line-height: 60rpx;
+  font-size: 24rpx;
 }
 .booking-form-popup .form-body {
-  padding: 2rpx 8rpx 16rpx;       /* 4/8/20→2/8/16 */
+  padding: 0 8rpx 10rpx;          /* 4/8/20→2/8/16→0/8/10 */
 }
 
 /* ═══ Custom time keyboard ═══ */
@@ -780,16 +772,16 @@ page {
   display: flex; align-items: center; gap: 8rpx;
 }
 .time-kb-display-box {
-  width: 96rpx; height: 72rpx;
+  width: 88rpx; height: 64rpx;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 18rpx;
+  border-radius: 16rpx;
   background: rgba(255,255,255,0.82);
   border: 1rpx solid rgba(203,213,225,0.75);
-  font-size: 32rpx; font-weight: 800; color: #0f172a;
+  font-size: 28rpx; font-weight: 800; color: #0f172a;
   font-variant-numeric: tabular-nums;
 }
 .time-kb-display-colon {
-  font-size: 32rpx; font-weight: 800; color: #64748b;
+  font-size: 28rpx; font-weight: 800; color: #64748b;
 }
 .time-kb-display-active {
   border-color: #2563eb;
