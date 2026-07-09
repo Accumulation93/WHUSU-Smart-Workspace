@@ -856,6 +856,11 @@ Page({
 
   _isMinValid(min, isStart, m) {
     if (min < 0 || min > TOTAL_MIN) return false;
+    // ★ 今天不能停在已过去的时间
+    var now = new Date(), today = fmtLocalDate(now);
+    if (this.data.bookingStartDate === today && min < now.getHours() * 60 + now.getMinutes()) {
+      return false;
+    }
     var inOpen = false;
     for (var i = 0; i < m.openMerged.length; i++) {
       if (isStart) {
@@ -890,6 +895,12 @@ Page({
     if (isStart) {
       sm = rawMin;
       if (m) sm = this._snapToFree(sm, true, m);
+      // ★ start 不能超过 end
+      var curEnd2 = timeToMin(this.data.bookingTimeEnd);
+      if (curEnd2 && sm >= curEnd2) {
+        sm = Math.max(0, curEnd2 - SNAP);
+        if (m) sm = this._snapToFree(sm, true, m);
+      }
       st = minToTime(sm);
       em = timeToMin(this.data.bookingTimeEnd);
       et = this.data.bookingTimeEnd;
@@ -899,6 +910,12 @@ Page({
       if (em <= curStart) em = curStart + SNAP;
       if (m) {
         em = this._snapToFree(em, false, m);
+        if (em <= curStart) em = curStart + SNAP;
+        // ★ 确保 [start, end] 区间不跨越 blocked 或 open gap
+        var conflict2 = findBlockedOverlap(curStart, em, m.blockedMerged);
+        if (conflict2) em = snapMin(conflict2.start);
+        var gap2 = findOpenGap(curStart, em, m.openMerged);
+        if (gap2 >= 0) em = snapMin(gap2);
         if (em <= curStart) em = curStart + SNAP;
       }
       et = minToTime(em);
@@ -1006,6 +1023,16 @@ Page({
 
   onStartDateChange(e) {
     var d = e.detail.value;
+    // ★ 拒绝过去的日期
+    var today = fmtLocalDate(new Date());
+    if (d < today) {
+      showShortToast('不能选择过去的日期');
+      this.setData({
+        bookingStartDate: this.data.bookingStartDate,
+        bookingStartDateDisplay: this.data.bookingStartDateDisplay
+      });
+      return;
+    }
     this.setData({
       bookingStartDate: d, bookingStartDateDisplay: d, bookingEndDate: d, bookingEndDateDisplay: d,
       bookingTimeStart: '', bookingTimeEnd: '', timeStartInput: '', timeEndInput: '',

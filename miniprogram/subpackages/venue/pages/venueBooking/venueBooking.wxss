@@ -702,6 +702,77 @@ page {
   box-shadow: 0 24rpx 52rpx rgba(15,23,42,0.16);
 }
 
+/* ═══ Booking form popup — 增高 + 压缩 ═══ */
+.booking-form-popup {
+  max-height: 88vh;   /* 74vh → 88vh */
+}
+.booking-form-popup .popup-scroll {
+  max-height: 72vh;   /* 58vh → 72vh */
+}
+
+.booking-form-popup .field {
+  margin-bottom: 16rpx;           /* 24→16 */
+}
+.booking-form-popup .field-label {
+  margin-bottom: 6rpx;            /* 10→6 */
+  font-size: 22rpx;
+}
+.booking-form-popup .field-input {
+  min-height: 68rpx;              /* 78→68 */
+  padding: 14rpx 18rpx;           /* 18/20→14/18 */
+  font-size: 24rpx;
+}
+.booking-form-popup .picker-display {
+  padding: 16rpx 18rpx;           /* 24/20→16/18 */
+  min-height: 68rpx;
+  font-size: 26rpx;
+}
+.booking-form-popup .field-textarea {
+  min-height: 120rpx;             /* 156→120 */
+}
+.booking-form-popup .chip {
+  font-size: 22rpx;
+  padding: 8rpx 18rpx;            /* 10/22→8/18 */
+}
+.booking-form-popup .chip-row {
+  margin-top: 8rpx;
+  gap: 8rpx;
+}
+.booking-form-popup .timeline-drag-container {
+  height: 100rpx;                 /* 120→100 */
+}
+.booking-form-popup .timeline-hint {
+  font-size: 18rpx;
+  padding: 0 0 6rpx 4rpx;
+}
+.booking-form-popup .time-field-input {
+  height: 64rpx;                  /* 72→64 */
+  font-size: 26rpx;
+}
+.booking-form-popup .duration-chip {
+  font-size: 22rpx;
+  padding: 10rpx 20rpx;           /* 12/24→10/20 */
+}
+.booking-form-popup .time-summary {
+  padding: 14rpx 18rpx;           /* 18/22→14/18 */
+}
+.booking-form-popup .primary-btn {
+  min-height: 68rpx;              /* 78→68 */
+  line-height: 68rpx;
+  font-size: 25rpx;
+}
+.booking-form-popup .hour-chip {
+  font-size: 22rpx;
+  padding: 8rpx 16rpx;
+}
+.booking-form-popup .min-chip {
+  font-size: 22rpx;
+  padding: 8rpx 0;
+}
+.booking-form-popup .form-body {
+  padding: 2rpx 8rpx 16rpx;       /* 4/8/20→2/8/16 */
+}
+
 /* ── 待我审批 tab badge ── */
 .feature-tab-approvals {
   position: relative;

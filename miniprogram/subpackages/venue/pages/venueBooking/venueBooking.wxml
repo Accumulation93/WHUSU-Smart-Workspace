@@ -200,7 +200,7 @@
 
   <!-- ═══════════════════ BOOKING FORM ═══════════════════ -->
   <view class="popup-mask" wx:if="{{bookingVisible}}" bindtap="closeBooking">
-    <view class="popup-card" catchtap="noop">
+    <view class="popup-card booking-form-popup" catchtap="noop">
       <view class="popup-header">
         <view class="popup-title">借用申请 · {{bookingVenueName}}</view>
         <text class="popup-close" bindtap="closeBooking">关闭</text>
