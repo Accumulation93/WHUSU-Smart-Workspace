@@ -905,57 +905,56 @@ Page({
     var px = Math.max(0, Math.min(w, this._dragStartPx + dx));
     var rawMin = snapMin(Math.round(px / w * TOTAL_MIN));
 
-    var m = this._getMergedIntervals();
     var isStart = this._dragHandle === 'start';
+    var now = new Date(), today = fmtLocalDate(now);
+    var nowMin = now.getHours() * 60 + now.getMinutes();
 
-    // Compute time values (same logic as before)
     var sm, st, em, et;
     if (isStart) {
+      // ── Start handle: only hard-limit past time (today) ──
       sm = rawMin;
-      if (m) sm = this._snapToFree(sm, true, m);
-      // ★ start 不能超过 end
+      if (sm < 0) sm = 0;
+      if (sm > TOTAL_MIN) sm = TOTAL_MIN;
+      if (this.data.bookingStartDate === today && sm < nowMin) sm = nowMin;
+      st = minToTime(sm);
+      // If start reached/passed end, auto-extend end to start + 1hr
       var curEnd2 = timeToMin(this.data.bookingTimeEnd);
       if (curEnd2 && sm >= curEnd2) {
-        sm = Math.max(0, curEnd2 - SNAP);
-        if (m) sm = this._snapToFree(sm, true, m);
+        em = Math.min(TOTAL_MIN, sm + 60);
+        et = minToTime(em);
+      } else {
+        em = curEnd2;
+        et = this.data.bookingTimeEnd;
       }
-      st = minToTime(sm);
-      em = timeToMin(this.data.bookingTimeEnd);
-      et = this.data.bookingTimeEnd;
     } else {
+      // ── End handle: only hard-limit end > start ──
       var curStart = timeToMin(this.data.bookingTimeStart);
       em = rawMin;
       if (em <= curStart) em = curStart + SNAP;
-      if (m) {
-        em = this._snapToFree(em, false, m);
-        if (em <= curStart) em = curStart + SNAP;
-        // ★ 确保 [start, end] 区间不跨越 blocked 或 open gap
-        var conflict2 = findBlockedOverlap(curStart, em, m.blockedMerged);
-        if (conflict2) em = snapMin(conflict2.start);
-        var gap2 = findOpenGap(curStart, em, m.openMerged);
-        if (gap2 >= 0) em = snapMin(gap2);
-        if (em <= curStart) em = curStart + SNAP;
-      }
+      if (em > TOTAL_MIN) em = TOTAL_MIN;
       et = minToTime(em);
-      sm = timeToMin(this.data.bookingTimeStart);
+      sm = curStart;
       st = this.data.bookingTimeStart;
     }
 
-    // Build a single merged setData object with ALL fields from the original
-    // three setData calls (handle position + timelineRange + chipState)
+    // Build setData
     var upd = {};
-
     if (isStart) {
       upd.startHandleX = Math.round(sm / TOTAL_MIN * w);
       upd.bookingTimeStart = st;
       upd.timeStartInput = st;
+      if (et) {
+        upd.endHandleX = Math.round(em / TOTAL_MIN * w);
+        upd.bookingTimeEnd = et;
+        upd.timeEndInput = et;
+      }
     } else {
       upd.endHandleX = Math.round(em / TOTAL_MIN * w);
       upd.bookingTimeEnd = et;
       upd.timeEndInput = et;
     }
 
-    // ── Inline _updateTimelineRange ──
+    // Timeline selection
     if (sm < em) {
       var dur = em - sm;
       var dh = Math.floor(dur / 60), dm = dur % 60;
@@ -967,7 +966,7 @@ Page({
       };
     }
 
-    // ── Inline _updateChipState ──
+    // Chip state
     var sh = st ? parseInt(st.split(':')[0]) : -1;
     var smin = st ? parseInt(st.split(':')[1]) : -1;
     var smIdx = MINUTE_OPTS.indexOf(smin);
@@ -978,7 +977,7 @@ Page({
     var startHours = this.data.startHours;
     for (var i = 0; i < startHours.length; i++) {
       if (startHours[i].value >= (sh >= 0 ? sh : 0)) {
-        endHours.push({ label: startHours[i].label, value: startHours[i].value });
+        endHours.push({ label: startHours[i].value, value: startHours[i].value });
       }
     }
     upd.startMinIdx = smIdx;
