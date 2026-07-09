@@ -176,7 +176,7 @@
   color:#2563eb;
 }
 .tl-arrow-up {
-  color:#059669;
+  color:#2563eb;
 }
 
 /* Handle time label */
@@ -190,7 +190,7 @@
   margin-bottom:2rpx;
 }
 .tl-tag-end {
-  color:#059669; background:rgba(209,250,229,0.85);
+  color:#2563eb; background:rgba(219,234,254,0.85);
   margin-top:2rpx;
 }
 
@@ -704,10 +704,10 @@ page {
 
 /* ═══ Booking form popup — 增高 + 压缩 ═══ */
 .booking-form-popup {
-  max-height: 88vh;   /* 74vh → 88vh */
+  max-height: 96vh;   /* 74vh → 88vh → 96vh */
 }
 .booking-form-popup .popup-scroll {
-  max-height: 72vh;   /* 58vh → 72vh */
+  max-height: 84vh;   /* 58vh → 72vh → 84vh */
 }
 
 .booking-form-popup .field {
