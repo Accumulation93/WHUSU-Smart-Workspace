@@ -207,6 +207,7 @@ Page({
     _kbField: 'hour',     // 'hour' | 'min' — active sub-field
     _kbHourVal: '',       // hour digits being edited
     _kbMinVal: '',        // minute digits being edited
+    _kbSelected: false,   // true when field is in "select-all" mode (any key replaces content)
     _kbGray: {},          // {digit: true} for grayed-out numpad keys
   },
 
@@ -1137,12 +1138,9 @@ Page({
     var h = '', m = '';
     if (curTime) { var p = curTime.split(':'); h = p[0]; m = p[1]; }
     var field = target.indexOf('Hour') >= 0 ? 'hour' : 'min';
-    // Clear the target field so the user can type fresh (like "select all")
-    if (field === 'hour') h = '';
-    else m = '';
     this.setData({
       _kbVisible: true, _kbTarget: target, _kbField: field,
-      _kbHourVal: h, _kbMinVal: m
+      _kbHourVal: h, _kbMinVal: m, _kbSelected: true
     });
     this._computeGrayKeys();
   },
@@ -1160,13 +1158,24 @@ Page({
     if (this.data._kbGray[key]) return; // grayed out
     var field = this.data._kbField;
     var val = field === 'hour' ? this.data._kbHourVal : this.data._kbMinVal;
+    // If selected (全选态), clear → replace with new key
+    if (this.data._kbSelected) {
+      val = key;
+      var upd2 = field === 'hour' ? { _kbHourVal: val, _kbSelected: false } : { _kbMinVal: val, _kbSelected: false };
+      this.setData(upd2);
+      this._computeGrayKeys();
+      return;
+    }
     if (val.length >= 2) return; // max 2 digits
     val = val + key;
     var upd = field === 'hour' ? { _kbHourVal: val } : { _kbMinVal: val };
     this.setData(upd);
-    // Auto-switch: 2-digit hour → jump to minute
+    // Auto-switch: 2-digit hour → jump to minute (with select-all)
     if (field === 'hour' && val.length === 2) {
-      this.setData({ _kbField: 'min' });
+      this.data._kbField = 'min';
+      this.data._kbSelected = true;
+      this._computeGrayKeys('min', true);
+      return;
     }
     this._computeGrayKeys();
   },
@@ -1176,7 +1185,9 @@ Page({
     if (this.data._kbField === 'hour') {
       var h = this.data._kbHourVal;
       if (h.length === 1) h = '0' + h;
-      this.setData({ _kbField: 'min', _kbHourVal: h });
+      if (h !== this.data._kbHourVal) this.data._kbHourVal = h;
+      this.data._kbField = 'min';
+      this.data._kbSelected = true;
       this._computeGrayKeys();
     }
     // In minute field, colon does nothing
@@ -1184,6 +1195,11 @@ Page({
 
   /** Backspace key. */
   onKbBackspace() {
+    // If selected (全选态), first backspace just deselects — keeps content
+    if (this.data._kbSelected) {
+      this._computeGrayKeys(null, false);
+      return;
+    }
     var field = this.data._kbField;
     var val = field === 'hour' ? this.data._kbHourVal : this.data._kbMinVal;
     if (!val) return;
@@ -1193,11 +1209,17 @@ Page({
     this._computeGrayKeys();
   },
 
-  /** Switch active field (tap hour/min display box in keyboard). */
+  /** Switch active field (tap hour/min display box in keyboard).
+   *  Same field → toggle select-all. Different field → switch + select-all. */
   onKbSwitchField(e) {
     var f = e.currentTarget.dataset.field; // 'hour' | 'min'
-    if (f === this.data._kbField) return;
-    this._computeGrayKeys(f);  // pass field override, single setData
+    if (f === this.data._kbField) {
+      // Toggle select-all on same field
+      this._computeGrayKeys(null, !this.data._kbSelected);
+      return;
+    }
+    // Switch to new field with select-all
+    this._computeGrayKeys(f, true);
   },
 
   /** Confirm: validate, call _setStartTime/_setEndTime, close. */
@@ -1236,12 +1258,19 @@ Page({
   },
 
   /** Compute which numpad keys should be grayed out.
-   *  @param {string=} fieldOverride — if provided, use this instead of data._kbField (avoids extra setData) */
-  _computeGrayKeys(fieldOverride) {
+   *  @param {string=} fieldOverride — if provided, use this instead of data._kbField (avoids extra setData)
+   *  @param {boolean=} kbSelected — if provided, overrides _kbSelected for this computation */
+  _computeGrayKeys(fieldOverride, kbSelected) {
     var target = this.data._kbTarget;
     var field = fieldOverride || this.data._kbField;
     var hVal = this.data._kbHourVal;
     var mVal = this.data._kbMinVal;
+    // When "selected" (全选态), treat active field as empty for gray — any key will replace content
+    var sel = kbSelected !== undefined ? kbSelected : (fieldOverride ? true : this.data._kbSelected);
+    if (sel) {
+      if (field === 'hour') hVal = '';
+      else mVal = '';
+    }
     var curVal = field === 'hour' ? hVal : mVal;
     var maxVal = field === 'hour' ? 23 : 59;
     var gray = {};
@@ -1263,8 +1292,7 @@ Page({
       this._applyEndSemanticGray(gray, target, field, hVal, mVal);
     }
 
-    var upd = { _kbGray: gray };
-    if (fieldOverride) upd._kbField = fieldOverride;
+    var upd = { _kbGray: gray, _kbField: field, _kbSelected: sel };
     this.setData(upd);
   },
 

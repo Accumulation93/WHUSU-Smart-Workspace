@@ -833,6 +833,11 @@ page {
   color: #2563eb;
   box-shadow: 0 0 0 3rpx rgba(37,99,235,0.22);
 }
+.time-kb-box-selected {
+  background: #2563eb !important;
+  color: #fff !important;
+  box-shadow: 0 0 0 4rpx rgba(37,99,235,0.35) !important;
+}
 .time-kb-colon {
   font-size: 34rpx; font-weight: 800; color: #64748b;
   width: 32rpx; text-align: center;

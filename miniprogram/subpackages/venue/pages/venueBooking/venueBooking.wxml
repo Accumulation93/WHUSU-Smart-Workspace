@@ -418,9 +418,9 @@ module.exports = { hour: hour, min: min };
   <!-- ★ Custom time keyboard ★ (page-level fixed bottom) -->
   <view class="time-keyboard" wx:if="{{_kbVisible}}" catchtap="noop">
     <view class="time-kb-display">
-      <view class="time-kb-box {{_kbField === 'hour' ? 'time-kb-box-active' : ''}}" data-field="hour" catchtap="onKbSwitchField">{{_kbHourVal || '--'}}</view>
+      <view class="time-kb-box {{_kbField === 'hour' ? 'time-kb-box-active' : ''}} {{_kbField === 'hour' && _kbSelected ? 'time-kb-box-selected' : ''}}" data-field="hour" catchtap="onKbSwitchField">{{_kbHourVal || '--'}}</view>
       <text class="time-kb-colon">:</text>
-      <view class="time-kb-box {{_kbField === 'min' ? 'time-kb-box-active' : ''}}" data-field="min" catchtap="onKbSwitchField">{{_kbMinVal || '--'}}</view>
+      <view class="time-kb-box {{_kbField === 'min' ? 'time-kb-box-active' : ''}} {{_kbField === 'min' && _kbSelected ? 'time-kb-box-selected' : ''}}" data-field="min" catchtap="onKbSwitchField">{{_kbMinVal || '--'}}</view>
       <view class="time-kb-confirm" catchtap="onKbConfirm">确认</view>
     </view>
     <view class="time-kb-numpad">
