@@ -1,3 +1,16 @@
+<wxs module="fmt">
+function hour(t) {
+  if (!t) return '--';
+  var p = (''+t).split(':');
+  return p[0] || '--';
+}
+function min(t) {
+  if (!t) return '--';
+  var p = (''+t).split(':');
+  return p[1] || '--';
+}
+module.exports = { hour: hour, min: min };
+</wxs>
 <view class="page">
   <!-- Hero -->
   <view class="hero">
@@ -200,7 +213,7 @@
 
   <!-- ═══════════════════ BOOKING FORM ═══════════════════ -->
   <view class="popup-mask" wx:if="{{bookingVisible}}" bindtap="closeBooking">
-    <view class="popup-card booking-form-popup {{_kbVisible ? 'popup-card-with-kb' : ''}}" catchtap="noop">
+    <view class="popup-card booking-form-popup" catchtap="noop">
       <view class="popup-header">
         <view class="popup-title">借用申请 · {{bookingVenueName}}</view>
         <text class="popup-close" bindtap="closeBooking">关闭</text>
@@ -272,9 +285,9 @@
               </view>
               <!-- Custom keyboard display -->
               <view class="time-kb-display-row">
-                <view class="time-kb-display-box {{_kbTarget === 'startHour' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="startHour" catchtap="onKbOpen">{{bookingTimeStart ? bookingTimeStart.split(':')[0] : '--'}}</view>
+                <view class="time-kb-display-box {{_kbTarget === 'startHour' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="startHour" catchtap="onKbOpen">{{fmt.hour(bookingTimeStart)}}</view>
                 <text class="time-kb-display-colon">:</text>
-                <view class="time-kb-display-box {{_kbTarget === 'startMin' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="startMin" catchtap="onKbOpen">{{bookingTimeStart ? bookingTimeStart.split(':')[1] : '--'}}</view>
+                <view class="time-kb-display-box {{_kbTarget === 'startMin' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="startMin" catchtap="onKbOpen">{{fmt.min(bookingTimeStart)}}</view>
                 <text wx:if="{{bookingTimeStart}}" class="time-valid-badge">✓</text>
               </view>
             </view>
@@ -306,9 +319,9 @@
                 </view>
               </view>
               <view class="time-kb-display-row">
-                <view class="time-kb-display-box {{_kbTarget === 'endHour' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="endHour" catchtap="onKbOpen">{{bookingTimeEnd ? bookingTimeEnd.split(':')[0] : '--'}}</view>
+                <view class="time-kb-display-box {{_kbTarget === 'endHour' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="endHour" catchtap="onKbOpen">{{fmt.hour(bookingTimeEnd)}}</view>
                 <text class="time-kb-display-colon">:</text>
-                <view class="time-kb-display-box {{_kbTarget === 'endMin' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="endMin" catchtap="onKbOpen">{{bookingTimeEnd ? bookingTimeEnd.split(':')[1] : '--'}}</view>
+                <view class="time-kb-display-box {{_kbTarget === 'endMin' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="endMin" catchtap="onKbOpen">{{fmt.min(bookingTimeEnd)}}</view>
                 <text wx:if="{{bookingTimeEnd}}" class="time-valid-badge end-badge">✓</text>
               </view>
             </view>
@@ -329,37 +342,6 @@
           <button class="primary-btn" loading="{{loading}}" bindtap="submitBooking">提交借用申请</button>
         </view>
       </scroll-view>
-    </view>
-    <!-- ★ Custom time keyboard ★ -->
-    <view class="time-keyboard" wx:if="{{_kbVisible}}" catchtap="noop">
-      <view class="time-kb-display">
-        <view class="time-kb-box {{_kbField === 'hour' ? 'time-kb-box-active' : ''}}" data-field="hour" catchtap="onKbSwitchField">{{_kbHourVal || '--'}}</view>
-        <text class="time-kb-colon">:</text>
-        <view class="time-kb-box {{_kbField === 'min' ? 'time-kb-box-active' : ''}}" data-field="min" catchtap="onKbSwitchField">{{_kbMinVal || '--'}}</view>
-        <view class="time-kb-confirm" catchtap="onKbConfirm">确认</view>
-      </view>
-      <view class="time-kb-numpad">
-        <view class="time-kb-row">
-          <view class="time-kb-key {{_kbGray[1] ? 'time-kb-key-gray' : ''}}" data-key="1" catchtap="onKbKey">1</view>
-          <view class="time-kb-key {{_kbGray[2] ? 'time-kb-key-gray' : ''}}" data-key="2" catchtap="onKbKey">2</view>
-          <view class="time-kb-key {{_kbGray[3] ? 'time-kb-key-gray' : ''}}" data-key="3" catchtap="onKbKey">3</view>
-        </view>
-        <view class="time-kb-row">
-          <view class="time-kb-key {{_kbGray[4] ? 'time-kb-key-gray' : ''}}" data-key="4" catchtap="onKbKey">4</view>
-          <view class="time-kb-key {{_kbGray[5] ? 'time-kb-key-gray' : ''}}" data-key="5" catchtap="onKbKey">5</view>
-          <view class="time-kb-key {{_kbGray[6] ? 'time-kb-key-gray' : ''}}" data-key="6" catchtap="onKbKey">6</view>
-        </view>
-        <view class="time-kb-row">
-          <view class="time-kb-key {{_kbGray[7] ? 'time-kb-key-gray' : ''}}" data-key="7" catchtap="onKbKey">7</view>
-          <view class="time-kb-key {{_kbGray[8] ? 'time-kb-key-gray' : ''}}" data-key="8" catchtap="onKbKey">8</view>
-          <view class="time-kb-key {{_kbGray[9] ? 'time-kb-key-gray' : ''}}" data-key="9" catchtap="onKbKey">9</view>
-        </view>
-        <view class="time-kb-row">
-          <view class="time-kb-key time-kb-key-colon {{_kbGray[':'] ? 'time-kb-key-gray' : ''}}" data-key=":" catchtap="onKbKey">:</view>
-          <view class="time-kb-key {{_kbGray[0] ? 'time-kb-key-gray' : ''}}" data-key="0" catchtap="onKbKey">0</view>
-          <view class="time-kb-key time-kb-key-bs" catchtap="onKbBackspace">⌫</view>
-        </view>
-      </view>
     </view>
   </view>
 
@@ -431,5 +413,37 @@
   <view class="page-footer">
     <view class="footer-name">REDSU智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
+  </view>
+
+  <!-- ★ Custom time keyboard ★ (page-level fixed bottom) -->
+  <view class="time-keyboard" wx:if="{{_kbVisible}}" catchtap="noop">
+    <view class="time-kb-display">
+      <view class="time-kb-box {{_kbField === 'hour' ? 'time-kb-box-active' : ''}}" data-field="hour" catchtap="onKbSwitchField">{{_kbHourVal || '--'}}</view>
+      <text class="time-kb-colon">:</text>
+      <view class="time-kb-box {{_kbField === 'min' ? 'time-kb-box-active' : ''}}" data-field="min" catchtap="onKbSwitchField">{{_kbMinVal || '--'}}</view>
+      <view class="time-kb-confirm" catchtap="onKbConfirm">确认</view>
+    </view>
+    <view class="time-kb-numpad">
+      <view class="time-kb-row">
+        <view class="time-kb-key {{_kbGray[1] ? 'time-kb-key-gray' : ''}}" data-key="1" catchtap="onKbKey">1</view>
+        <view class="time-kb-key {{_kbGray[2] ? 'time-kb-key-gray' : ''}}" data-key="2" catchtap="onKbKey">2</view>
+        <view class="time-kb-key {{_kbGray[3] ? 'time-kb-key-gray' : ''}}" data-key="3" catchtap="onKbKey">3</view>
+      </view>
+      <view class="time-kb-row">
+        <view class="time-kb-key {{_kbGray[4] ? 'time-kb-key-gray' : ''}}" data-key="4" catchtap="onKbKey">4</view>
+        <view class="time-kb-key {{_kbGray[5] ? 'time-kb-key-gray' : ''}}" data-key="5" catchtap="onKbKey">5</view>
+        <view class="time-kb-key {{_kbGray[6] ? 'time-kb-key-gray' : ''}}" data-key="6" catchtap="onKbKey">6</view>
+      </view>
+      <view class="time-kb-row">
+        <view class="time-kb-key {{_kbGray[7] ? 'time-kb-key-gray' : ''}}" data-key="7" catchtap="onKbKey">7</view>
+        <view class="time-kb-key {{_kbGray[8] ? 'time-kb-key-gray' : ''}}" data-key="8" catchtap="onKbKey">8</view>
+        <view class="time-kb-key {{_kbGray[9] ? 'time-kb-key-gray' : ''}}" data-key="9" catchtap="onKbKey">9</view>
+      </view>
+      <view class="time-kb-row">
+        <view class="time-kb-key time-kb-key-colon {{_kbGray[':'] ? 'time-kb-key-gray' : ''}}" data-key=":" catchtap="onKbKey">:</view>
+        <view class="time-kb-key {{_kbGray[0] ? 'time-kb-key-gray' : ''}}" data-key="0" catchtap="onKbKey">0</view>
+        <view class="time-kb-key time-kb-key-bs" catchtap="onKbBackspace">⌫</view>
+      </view>
+    </view>
   </view>
 </view>
