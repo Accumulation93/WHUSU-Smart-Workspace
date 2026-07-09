@@ -165,7 +165,7 @@
 
 /* End handle — below the bar, ▲ arrow points up to bar bottom */
 .tl-handle-end {
-  top:54rpx; z-index:3;
+  top:80rpx; z-index:3;
 }
 
 /* Arrow indicators */
