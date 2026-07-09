@@ -719,9 +719,9 @@ page {
 }
 .booking-form-popup .field-input {
   min-height: 64rpx;
-  padding: 12rpx 16rpx;
+  padding: 14rpx 18rpx;
   font-size: 24rpx;
-  line-height: 40rpx;
+  line-height: 36rpx;
   display: block;
   box-sizing: border-box;
 }
