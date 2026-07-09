@@ -722,6 +722,8 @@ page {
   padding: 12rpx 16rpx;
   font-size: 24rpx;
   line-height: 40rpx;
+  display: block;
+  box-sizing: border-box;
 }
 .booking-form-popup .picker-display {
   padding: 10rpx 14rpx;           /* 24/20→16/18→10/14 */

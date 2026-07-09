@@ -223,7 +223,7 @@ module.exports = { hour: hour, min: min };
           <!-- Title -->
           <view class="field">
             <view class="field-label">借用事由 <text class="required">*</text></view>
-            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="选择或输入借用事由"/>
+            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="选择或输入借用事由" placeholder-style="font-size:24rpx;line-height:40rpx;color:#94a3b8;"/>
             <view class="chip-row" wx:if="{{purposes.length}}">
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{bookingTitle === item.text ? 'active' : ''}}" data-text="{{item.text}}" bindtap="onSelectPurpose">{{item.text}}</text>
             </view>
