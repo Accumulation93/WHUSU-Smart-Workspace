@@ -1137,6 +1137,9 @@ Page({
     var h = '', m = '';
     if (curTime) { var p = curTime.split(':'); h = p[0]; m = p[1]; }
     var field = target.indexOf('Hour') >= 0 ? 'hour' : 'min';
+    // Clear the target field so the user can type fresh (like "select all")
+    if (field === 'hour') h = '';
+    else m = '';
     this.setData({
       _kbVisible: true, _kbTarget: target, _kbField: field,
       _kbHourVal: h, _kbMinVal: m
