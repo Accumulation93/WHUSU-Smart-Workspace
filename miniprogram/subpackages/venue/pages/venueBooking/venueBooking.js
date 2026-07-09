@@ -1194,8 +1194,7 @@ Page({
   onKbSwitchField(e) {
     var f = e.currentTarget.dataset.field; // 'hour' | 'min'
     if (f === this.data._kbField) return;
-    this.setData({ _kbField: f });
-    this._computeGrayKeys();
+    this._computeGrayKeys(f);  // pass field override, single setData
   },
 
   /** Confirm: validate, call _setStartTime/_setEndTime, close. */
@@ -1233,10 +1232,11 @@ Page({
     this._computeGrayKeys();
   },
 
-  /** Compute which numpad keys should be grayed out. */
-  _computeGrayKeys() {
+  /** Compute which numpad keys should be grayed out.
+   *  @param {string=} fieldOverride — if provided, use this instead of data._kbField (avoids extra setData) */
+  _computeGrayKeys(fieldOverride) {
     var target = this.data._kbTarget;
-    var field = this.data._kbField;
+    var field = fieldOverride || this.data._kbField;
     var hVal = this.data._kbHourVal;
     var mVal = this.data._kbMinVal;
     var curVal = field === 'hour' ? hVal : mVal;
@@ -1260,7 +1260,9 @@ Page({
       this._applyEndSemanticGray(gray, target, field, hVal, mVal);
     }
 
-    this.setData({ _kbGray: gray });
+    var upd = { _kbGray: gray };
+    if (fieldOverride) upd._kbField = fieldOverride;
+    this.setData(upd);
   },
 
   /** Semantic gray for start time: past / blocked / closed checks. */
@@ -1280,9 +1282,16 @@ Page({
           if (result <= 23 && result < nowHour) gray[d] = true;
         }
       }
-      // When empty: if it's already late (e.g. 22:xx), single-digit hours 0-9 are all past
-      if (hVal === '' && nowHour >= 10) {
-        for (var d2 = 0; d2 <= 9; d2++) gray[d2] = true;
+      // When empty: gray first digits that can't form ANY valid future hour
+      if (hVal === '') {
+        for (var d = 0; d <= 9; d++) {
+          var anyValid = false;
+          for (var ds = 0; ds <= 9; ds++) {
+            var fullH = d * 10 + ds;
+            if (fullH <= 23 && fullH >= nowHour) { anyValid = true; break; }
+          }
+          if (!anyValid) gray[d] = true;
+        }
       }
     }
 
@@ -1322,6 +1331,17 @@ Page({
         var prefix = parseInt(hVal);
         for (var d = 0; d <= 9; d++) {
           if (prefix * 10 + d < sH) gray[d] = true;
+        }
+      }
+      // When empty: gray first digits that can't form ANY valid end hour (> startHour)
+      if (hVal === '') {
+        for (var d = 0; d <= 9; d++) {
+          var anyValid = false;
+          for (var ds = 0; ds <= 9; ds++) {
+            var fullH = d * 10 + ds;
+            if (fullH <= 23 && fullH > sH) { anyValid = true; break; }
+          }
+          if (!anyValid) gray[d] = true;
         }
       }
     }
