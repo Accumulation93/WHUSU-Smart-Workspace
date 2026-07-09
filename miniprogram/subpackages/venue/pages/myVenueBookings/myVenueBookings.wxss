@@ -110,13 +110,13 @@ page {
   min-height: 52rpx;
   padding: 8rpx 20rpx;
   border-radius: 999rpx;
-  color: #1d4ed8;
+  color: #2563eb;
   font-size: 22rpx;
   font-weight: 800;
   background: rgba(219,234,254,0.76);
   border: 1rpx solid rgba(147,197,253,0.64);
   box-shadow:
-    0 10rpx 22rpx rgba(29,78,216,0.08),
+    0 10rpx 22rpx rgba(37,99,235,0.08),
     inset 0 1rpx 0 rgba(255,255,255,0.78);
 }
 
@@ -237,4 +237,45 @@ page {
 
 .inner-scroll.large-scroll {
   max-height: 780rpx;
+}
+
+/* Final status polish */
+.booking-status {
+  box-shadow:
+    0 6rpx 14rpx rgba(15,23,42,0.035),
+    inset 0 1rpx 0 rgba(255,255,255,0.56);
+}
+
+.booking-status.pending {
+  background: linear-gradient(135deg, rgba(255,247,237,0.96), rgba(254,215,170,0.84));
+}
+
+.booking-status.approved {
+  background: linear-gradient(135deg, rgba(220,252,231,0.96), rgba(167,243,208,0.84));
+}
+
+.booking-status.rejected,
+.booking-status.cancelled {
+  background: linear-gradient(135deg, rgba(248,250,252,0.96), rgba(226,232,240,0.84));
+}
+
+.cancel-btn {
+  background: linear-gradient(135deg, rgba(254,242,242,0.92), rgba(254,226,226,0.78));
+  box-shadow:
+    0 8rpx 18rpx rgba(239,68,68,0.06),
+    inset 0 1rpx 0 rgba(255,255,255,0.68);
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.cancel-btn:active {
+  transform: translateY(1rpx) scale(0.985);
+  opacity: 0.9;
+}
+
+/* Final local motion: booking rows are containers for child actions here. */
+.card:active,
+.section:active,
+.booking-item:active {
+  transform: none !important;
+  filter: none !important;
 }

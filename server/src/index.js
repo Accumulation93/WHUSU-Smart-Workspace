@@ -15,6 +15,10 @@ const startTime = Date.now();
 const REQUEST_TIMEOUT_MS = 30000;
 const MAX_JSON_BODY_BYTES = 500000;
 const MAX_UPLOAD_JSON_BODY_BYTES = 15 * 1024 * 1024;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_DEFAULT_MAX = 180;
+const RATE_LIMIT_LOGIN_MAX = 30;
+const rateLimitBuckets = new Map();
 
 // Trust the Nginx reverse proxy for correct client IP / protocol detection
 app.set('trust proxy', 1);
@@ -89,6 +93,34 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+app.use((req, res, next) => {
+  const now = Date.now();
+  const isLoginPath = req.path === '/api/userLogin' || req.path === '/api/adminLogin';
+  const maxRequests = isLoginPath ? RATE_LIMIT_LOGIN_MAX : RATE_LIMIT_DEFAULT_MAX;
+  const key = (req.ip || '-') + ':' + req.path;
+  const bucket = rateLimitBuckets.get(key) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+
+  if (bucket.resetAt <= now) {
+    bucket.count = 0;
+    bucket.resetAt = now + RATE_LIMIT_WINDOW_MS;
+  }
+
+  bucket.count += 1;
+  rateLimitBuckets.set(key, bucket);
+
+  if (rateLimitBuckets.size > 5000) {
+    for (const [bucketKey, value] of rateLimitBuckets.entries()) {
+      if (value.resetAt <= now) rateLimitBuckets.delete(bucketKey);
+    }
+  }
+
+  if (bucket.count > maxRequests) {
+    return res.status(429).json({ status: 'rate_limited', message: 'Too many requests, please try again later' });
+  }
+
+  next();
+});
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: false }));
 

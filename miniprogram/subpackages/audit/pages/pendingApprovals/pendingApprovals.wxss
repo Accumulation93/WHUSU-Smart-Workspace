@@ -14,6 +14,23 @@
 .pending-item:last-child { margin-bottom: 4rpx; }
 .pending-item:active { transform: translateY(1rpx) scale(0.992); }
 
+/* Final page motion: only hover-class drives the held press. */
+.section:active,
+.card:active,
+.pending-item:active {
+  transform: none !important;
+  filter: none !important;
+}
+
+.pending-item.control-pressing {
+  transform: translate3d(0, 2rpx, 0) scale(0.992) !important;
+  opacity: 0.975 !important;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.78, 0.22, 1),
+    box-shadow 0.20s ease,
+    opacity 0.18s ease !important;
+}
+
 .pending-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
 .pending-item-name { color: #0f172a; font-size: 28rpx; font-weight: 700; line-height: 1.4; }
 

@@ -7,8 +7,18 @@ function callFunction(options) {
   const fail = options.fail;
   const complete = options.complete;
 
+  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name)) {
+    const invalidNameError = { errMsg: 'request:fail invalid api name' };
+    if (fail) fail(invalidNameError);
+    if (complete) complete();
+    const rejected = Promise.reject(invalidNameError);
+    if (success || fail || complete) rejected.catch(function() {});
+    return rejected;
+  }
+
   var settled = false;
   var timer = null;
+  var requestTask = null;
 
   var promise = new Promise(function(resolve, reject) {
     function settle(err, result) {
@@ -23,12 +33,13 @@ function callFunction(options) {
       // gets caught by WeChat's WAServiceMainContext and surfaced as "Error: timeout"
       try {
         settle({ errMsg: 'request:fail timeout', timedOut: true });
+        if (requestTask && requestTask.abort) requestTask.abort();
       } catch (e) {
         // Silently swallow — prevents WAServiceMainContext "Error: timeout"
       }
     }, 15000);
 
-    wx.request({
+    requestTask = wx.request({
       url: API_BASE + '/' + name,
       method: 'POST',
       header: {
@@ -48,6 +59,9 @@ function callFunction(options) {
         if (settled) return;
         console.error('[API] Request failed:', name, JSON.stringify(err));
         settle(err);
+      },
+      complete: function() {
+        requestTask = null;
       }
     });
   });

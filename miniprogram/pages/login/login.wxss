@@ -6,7 +6,17 @@ page {
     radial-gradient(circle at 18% 88%, rgba(125, 211, 252, 0.10) 0%, transparent 22%),
     linear-gradient(135deg, #f8fbff 0%, #f1f6fc 48%, #edf3fa 100%);
   color: #1f2a37;
-  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+}
+
+button,
+input,
+textarea,
+picker,
+view,
+text,
+scroll-view {
+  font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
 }
 
 .page {
@@ -176,8 +186,13 @@ page {
   backdrop-filter: blur(24rpx);
   -webkit-backdrop-filter: blur(24rpx);
   box-sizing: border-box;
-  transition: transform 0.18s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+  transition: box-shadow 0.24s ease, border-color 0.24s ease;
   animation: glassFadeUp 0.5s ease both;
+}
+
+.card:active {
+  transform: none !important;
+  filter: none !important;
 }
 
 .section-title {

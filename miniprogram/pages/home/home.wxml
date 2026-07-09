@@ -448,7 +448,7 @@
       <view class="section-title">审核中心</view>
       <view class="audit-home-cards">
         <!-- 我的审核 -->
-        <view class="audit-home-card" bindtap="goMySubmissions">
+        <view class="audit-home-card" bindtap="goMySubmissions" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
           <view class="audit-home-card-icon">📄</view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">我的审核</view>
@@ -458,7 +458,7 @@
           <view class="audit-home-card-arrow">›</view>
         </view>
         <!-- 待我审批 -->
-        <view class="audit-home-card" bindtap="goPendingApprovals">
+        <view class="audit-home-card" bindtap="goPendingApprovals" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
           <view class="audit-home-card-icon">✍️</view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">待我审批</view>
@@ -468,7 +468,7 @@
           <view class="audit-home-card-arrow">›</view>
         </view>
         <!-- 我的审批记录 -->
-        <view class="audit-home-card" bindtap="goMyApprovalHistory">
+        <view class="audit-home-card" bindtap="goMyApprovalHistory" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
           <view class="audit-home-card-icon">📋</view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">我的审批记录</view>

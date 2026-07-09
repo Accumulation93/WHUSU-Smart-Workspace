@@ -135,7 +135,7 @@
       <!-- Booking list -->
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="empty-inline" wx:if="{{!bookings.length}}">暂无借用记录</view>
-        <view class="booking-item" wx:for="{{bookings}}" wx:key="id" bindtap="viewBookingDetail" data-id="{{item.id}}">
+        <view class="booking-item" wx:for="{{bookings}}" wx:key="id" bindtap="viewBookingDetail" data-id="{{item.id}}" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
           <view class="booking-item-head">
             <view class="booking-item-title">{{item.title || '借用申请'}}</view>
             <text class="booking-status {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>

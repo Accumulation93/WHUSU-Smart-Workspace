@@ -68,6 +68,9 @@
           id="question-{{index}}"
           data-index="{{index}}"
           bindtap="focusQuestion"
+          hover-class="control-pressing"
+          hover-start-time="0"
+          hover-stay-time="180"
         >
           <view class="question-title">{{index + 1}}. {{item.question}}（{{item.maxValue}}分）</view>
           <view class="question-meta" wx:if="{{item.scoreLabel}}">{{item.scoreLabel}}</view>

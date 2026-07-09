@@ -138,7 +138,7 @@ textarea {
   line-height: 1.35;
   border: 1rpx solid rgba(147,197,253,0.64);
   background: rgba(219,234,254,0.76);
-  color: #1d4ed8;
+  color: #2563eb;
 }
 
 .popup-mask {
@@ -215,3 +215,156 @@ textarea {
   align-items: center;
   gap: 8rpx;
 }
+
+/* Shared motion and glass progress surfaces */
+.card:active,
+.section:active,
+.my-filter-box:active,
+.edit-box:active,
+.list-card:active,
+.audit-submission-item:active,
+.pending-item:active,
+.audit-sig-card:active,
+.file-attach-item:active,
+.ad-hoc-step-item:active,
+.template-select-item:active,
+.tpl-step-preview-item:active,
+.sign-file-card:active,
+.list-item:active,
+.nav-row:active {
+  transform: translateY(1rpx) scale(0.992);
+  box-shadow:
+    0 12rpx 24rpx rgba(37, 99, 235, 0.07),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.82);
+}
+
+.primary-btn:active,
+.secondary-btn:active,
+.danger-btn:active,
+.audit-chip:active,
+.preview-chip:active,
+.merit-chip:active,
+.filter-chip:active,
+.chip:active {
+  transform: translateY(1rpx) scale(0.985);
+  opacity: 0.92;
+  filter: saturate(1.03);
+}
+
+.audit-flow-progress-bar,
+.progress-track {
+  background: linear-gradient(135deg, rgba(226, 237, 247, 0.78), rgba(248, 251, 255, 0.68));
+  border: 1rpx solid rgba(255, 255, 255, 0.66);
+  box-shadow:
+    inset 0 1rpx 5rpx rgba(15, 23, 42, 0.08),
+    0 8rpx 18rpx rgba(15, 23, 42, 0.025);
+}
+
+.audit-flow-progress-fill,
+.progress-fill {
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 54%, #60a5fa 100%);
+  box-shadow: 0 0 18rpx rgba(37, 99, 235, 0.24);
+}
+
+/* Interaction isolation: never animate container shells when child controls are touched. */
+.card:active,
+.section:active,
+.my-filter-box:active,
+.edit-box:active,
+.list-card:active {
+  transform: none !important;
+  filter: none !important;
+}
+
+.audit-submission-item:active,
+.pending-item:active,
+.audit-sig-card:active,
+.file-attach-item:active,
+.ad-hoc-step-item:active,
+.template-select-item:active,
+.tpl-step-preview-item:active,
+.sign-file-card:active,
+.list-item:active,
+.nav-row:active {
+  transform: none !important;
+}
+
+.audit-submission-item.control-pressing,
+.pending-item.control-pressing,
+.audit-sig-card.control-pressing,
+.file-attach-item.control-pressing,
+.ad-hoc-step-item.control-pressing,
+.template-select-item.control-pressing,
+.tpl-step-preview-item.control-pressing,
+.sign-file-card.control-pressing,
+.list-item.control-pressing,
+.nav-row.control-pressing {
+  transform: translate3d(0, 2rpx, 0) scale(0.992) !important;
+  opacity: 0.97 !important;
+  filter: saturate(1.02) brightness(1.005) !important;
+  transition:
+    transform 0.18s cubic-bezier(0.22, 0.8, 0.26, 1),
+    box-shadow 0.20s ease,
+    opacity 0.16s ease,
+    filter 0.20s ease !important;
+}
+
+.green-chip,
+.blue-chip,
+.orange-chip,
+.gray-chip,
+.red-chip {
+  border-radius: 999rpx;
+  border: 1rpx solid transparent;
+  box-shadow:
+    0 6rpx 14rpx rgba(15, 23, 42, 0.035),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.56);
+}
+
+.green-chip {
+  color: #15803d;
+  background: linear-gradient(135deg, rgba(220, 252, 231, 0.96), rgba(167, 243, 208, 0.84));
+  border-color: rgba(110, 231, 183, 0.58);
+}
+
+.blue-chip {
+  color: #2563eb;
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.96), rgba(191, 219, 254, 0.84));
+  border-color: rgba(147, 197, 253, 0.64);
+}
+
+.orange-chip {
+  color: #c2410c;
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.96), rgba(254, 215, 170, 0.84));
+  border-color: rgba(253, 186, 116, 0.58);
+}
+
+.gray-chip {
+  color: #64748b;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(226, 232, 240, 0.84));
+  border-color: rgba(203, 213, 225, 0.58);
+}
+
+.red-chip {
+  color: #dc2626;
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.96), rgba(254, 202, 202, 0.84));
+  border-color: rgba(252, 165, 165, 0.58);
+}
+
+/* Popup close is plain text plus x, not a pill button. */
+.popup-close {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8rpx !important;
+  padding: 4rpx 0 4rpx 16rpx !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #475569 !important;
+  font-size: 24rpx !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+.popup-close::before { display: none !important; content: none !important; }
+.popup-close::after { content: "×" !important; color: #2563eb !important; font-size: 28rpx !important; font-weight: 800 !important; line-height: 1 !important; }

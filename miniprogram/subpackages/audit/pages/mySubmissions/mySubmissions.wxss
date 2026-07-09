@@ -71,3 +71,41 @@
   transition: transform 0.12s ease;
 }
 .mark-all-read:active { transform: scale(0.95); }
+
+/* Final page motion: no wrapper wobble, held feedback on real targets. */
+.section:active,
+.card:active,
+.my-filter-box:active {
+  transform: none !important;
+  filter: none !important;
+}
+
+.audit-submission-item:active {
+  transform: none !important;
+}
+
+.primary-btn.button-pressing {
+  transform: translate3d(0, 2rpx, 0) scale(0.984) !important;
+  opacity: 0.98 !important;
+  box-shadow:
+    0 6rpx 14rpx rgba(37,99,235,0.12),
+    inset 0 3rpx 10rpx rgba(15,23,42,0.07),
+    inset 0 1rpx 0 rgba(255,255,255,0.74) !important;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.78, 0.22, 1),
+    box-shadow 0.20s ease,
+    opacity 0.16s ease !important;
+}
+
+.audit-submission-item.control-pressing {
+  transform: translate3d(0, 2rpx, 0) scale(0.992) !important;
+  opacity: 0.975 !important;
+  box-shadow:
+    0 7rpx 16rpx rgba(37,99,235,0.10),
+    inset 0 2rpx 8rpx rgba(15,23,42,0.052),
+    inset 0 1rpx 0 rgba(255,255,255,0.76) !important;
+  transition:
+    transform 0.20s cubic-bezier(0.2, 0.78, 0.22, 1),
+    box-shadow 0.22s ease,
+    opacity 0.18s ease !important;
+}

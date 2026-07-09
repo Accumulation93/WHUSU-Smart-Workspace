@@ -736,6 +736,9 @@
             wx:key="scorerKey"
             data-record-id="{{item.recordId}}"
             bindtap="openScoreRecordDetail"
+            hover-class="{{item.canViewDetail ? 'control-pressing' : 'none'}}"
+            hover-start-time="0"
+            hover-stay-time="90"
           >
             <view class="list-main">
               <view class="scorer-card-title">
@@ -2449,7 +2452,7 @@
             <view class="result-col result-col-target-detail">具体信息</view>
             <view class="result-col result-col-popup-status">状态</view>
           </view>
-          <view class="result-table-row {{item.status === 'submitted' ? 'result-table-row-clickable' : ''}}" wx:for="{{scorerTargetPopupRows}}" wx:key="targetId" data-record-id="{{item.recordId}}" bindtap="openScorerTargetRecordDetail">
+          <view class="result-table-row {{item.status === 'submitted' ? 'result-table-row-clickable' : ''}}" wx:for="{{scorerTargetPopupRows}}" wx:key="targetId" data-record-id="{{item.recordId}}" bindtap="openScorerTargetRecordDetail" hover-class="{{item.status === 'submitted' ? 'control-pressing' : 'none'}}" hover-start-time="0" hover-stay-time="180">
             <view class="result-col result-col-target-name">
               <view class="result-name">{{item.targetName}}</view>
               <view class="result-meta">{{item.targetStudentId}}</view>
@@ -2495,7 +2498,7 @@
             <view class="list-desc">{{recordDetail.submittedAt}}</view>
             <view class="detail-action-row">
               <button
-                class="secondary-btn danger-btn compact-action-btn"
+                class="secondary-btn compact-action-btn revoke-score-btn"
                 data-id="{{recordDetail.recordId}}"
                 bindtap="revokeScoreRecord"
               >撤销这条评分</button>

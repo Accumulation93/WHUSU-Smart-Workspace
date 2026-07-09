@@ -21,6 +21,23 @@
 .audit-submission-item:last-child { margin-bottom: 4rpx; }
 .audit-submission-item:active { transform: translateY(1rpx) scale(0.992); }
 
+/* Final page motion: avoid parent shell motion on fast taps. */
+.section:active,
+.card:active,
+.audit-submission-item:active {
+  transform: none !important;
+  filter: none !important;
+}
+
+.audit-submission-item.control-pressing {
+  transform: translate3d(0, 2rpx, 0) scale(0.992) !important;
+  opacity: 0.975 !important;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.78, 0.22, 1),
+    box-shadow 0.20s ease,
+    opacity 0.18s ease !important;
+}
+
 .audit-submission-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
 .audit-submission-name { color: #0f172a; font-size: 28rpx; font-weight: 700; line-height: 1.4; display: flex; align-items: center; }
 
@@ -38,4 +55,3 @@
   display: flex; align-items: center; justify-content: center;
   background: rgba(241,245,249,0.7); color: #94a3b8; font-size: 32rpx; font-weight: 600;
 }
-

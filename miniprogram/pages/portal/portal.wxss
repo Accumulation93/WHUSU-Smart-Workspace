@@ -135,6 +135,11 @@ button, input, textarea, picker, view, text, scroll-view {
   animation: glassFadeUp 0.46s ease both;
 }
 
+.card:active {
+  transform: none !important;
+  filter: none !important;
+}
+
 /* ── Info-head + section-title (exact copy from home.wxss) ── */
 .info-head {
   position: relative;
@@ -249,12 +254,7 @@ button, input, textarea, picker, view, text, scroll-view {
   border-radius: 18rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(246, 249, 255, 0.78) 100%);
   border: 1rpx solid rgba(219, 229, 241, 0.82);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-}
-
-.nav-row:active {
-  transform: translateY(1rpx) scale(0.992);
-  box-shadow: 0 4rpx 12rpx rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.16s ease;
 }
 
 .nav-row-disabled {
@@ -440,7 +440,7 @@ button, input, textarea, picker, view, text, scroll-view {
   padding: 18rpx 16rpx; border-radius: 16rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(246,249,255,0.72) 100%);
   border: 1rpx solid rgba(219,229,241,0.76);
-  transition: transform 0.14s ease;
+  transition: box-shadow 0.14s ease;
 }
 
 .todo-item {
@@ -598,11 +598,11 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .dialog-btn {
   flex: 1;
-  height: 82rpx !important;
-  line-height: 82rpx !important;
+  height: 84rpx !important;
+  line-height: 84rpx !important;
   margin-bottom: 0 !important;
-  border-radius: 18rpx !important;
-  font-size: 26rpx !important;
+  border-radius: 999rpx !important;
+  font-size: 25rpx !important;
 }
 
 /* ── Animation (exact copy from home.wxss) ── */
@@ -764,4 +764,16 @@ button, input, textarea, picker, view, text, scroll-view {
   padding: 2rpx 10rpx;
   border-radius: 999rpx;
   border: 1rpx solid rgba(253, 186, 116, 0.44);
+}
+
+@keyframes serviceCardIn {
+  from {
+    opacity: 0.01;
+    filter: blur(1rpx) saturate(0.98);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0) saturate(1);
+  }
 }

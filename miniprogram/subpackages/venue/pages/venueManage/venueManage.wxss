@@ -129,8 +129,8 @@ page {
 
 .tab-active {
   color: #ffffff;
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
-  box-shadow: 0 16rpx 30rpx rgba(29, 78, 216, 0.22);
+  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  box-shadow: 0 16rpx 30rpx rgba(37, 99, 235, 0.22);
 }
 
 .tab:active {
@@ -273,7 +273,7 @@ page {
   transform: translateY(1rpx) scale(0.992);
   border-color: rgba(96, 165, 250, 0.92);
   box-shadow:
-    0 12rpx 24rpx rgba(29, 78, 216, 0.12),
+    0 12rpx 24rpx rgba(37, 99, 235, 0.12),
     0 0 0 4rpx rgba(191, 219, 254, 0.62);
 }
 
@@ -301,7 +301,7 @@ page {
 }
 
 .secondary-btn {
-  color: #1d4ed8;
+  color: #2563eb;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(235, 243, 255, 0.86) 100%);
   border: 1rpx solid rgba(191, 219, 254, 0.8);
   box-shadow: 0 12rpx 24rpx rgba(37, 99, 235, 0.08);
@@ -449,7 +449,7 @@ page {
   font-size: 24rpx; font-weight: 600;
   line-height: 1;
   background: rgba(219, 234, 254, 0.65);
-  color: #1d4ed8;
+  color: #2563eb;
   border: 1rpx solid rgba(147, 197, 253, 0.45);
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
@@ -467,6 +467,17 @@ page {
 
 .link.sm {
   font-size: 20rpx; padding: 6rpx 14rpx;
+}
+
+/* Final small-control motion: reduce harsh link compression. */
+.link:active,
+.pending-entry-bar:active {
+  transform: translate3d(0, 1rpx, 0) scale(0.984) !important;
+  opacity: 0.94 !important;
+  transition:
+    transform 0.16s cubic-bezier(0.2, 0.78, 0.22, 1),
+    opacity 0.16s ease,
+    box-shadow 0.18s ease !important;
 }
 
 .inline-actions {
@@ -529,7 +540,7 @@ page {
   font-size: 22rpx; font-weight: 700;
   line-height: 1.35;
   background: rgba(219, 234, 254, 0.76);
-  color: #1d4ed8;
+  color: #2563eb;
   border: 1rpx solid rgba(147, 197, 253, 0.64);
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
@@ -537,8 +548,8 @@ page {
 .filter-chip.active,
 .chip.active {
   color: #ffffff;
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #3b82f6 100%);
-  box-shadow: 0 10rpx 22rpx rgba(29, 78, 216, 0.20);
+  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  box-shadow: 0 10rpx 22rpx rgba(37, 99, 235, 0.20);
   border-color: transparent;
 }
 
@@ -598,7 +609,7 @@ page {
   border-radius: 999rpx;
   font-size: 20rpx; font-weight: 700;
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.90) 100%);
-  color: #1d4ed8;
+  color: #2563eb;
   border: 1rpx solid rgba(147, 197, 253, 0.8);
 }
 
@@ -710,7 +721,7 @@ page {
   display: inline-flex; align-items: center; gap: 6rpx;
   font-size: 22rpx; padding: 10rpx 18rpx; border-radius: 999rpx; margin: 3rpx;
   background: linear-gradient(135deg, rgba(219, 234, 254, 0.96) 0%, rgba(191, 219, 254, 0.88) 100%);
-  color: #1d4ed8; border: 1rpx solid rgba(147, 197, 253, 0.7);
+  color: #2563eb; border: 1rpx solid rgba(147, 197, 253, 0.7);
 }
 
 .year-chip-remove {
@@ -1162,3 +1173,109 @@ page {
 
 .page-footer .footer-name { font-size: 20rpx; color: #8b9bb5; letter-spacing: 4rpx; }
 .page-footer .footer-org { font-size: 26rpx; font-weight: 600; color: #506380; }
+
+/* Admin venue final polish: glass segmented tabs and timetable surfaces */
+.rules-tabs {
+  gap: 10rpx;
+  padding: 8rpx;
+  border-radius: 26rpx;
+  border-bottom: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(248, 251, 255, 0.56));
+  border: 1rpx solid rgba(255, 255, 255, 0.62);
+  box-shadow:
+    0 14rpx 28rpx rgba(15, 23, 42, 0.045),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.78);
+}
+
+.rules-tab {
+  min-height: 64rpx;
+  padding: 0 18rpx;
+  border-radius: 20rpx;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rules-tab.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  box-shadow: 0 16rpx 30rpx rgba(37, 99, 235, 0.22);
+  border-bottom-color: transparent;
+}
+
+.rule-switch-row,
+.rule-empty,
+.multi-chip-box,
+.flow-info-bar,
+.rule-template-row,
+.merit-summary-filter-value,
+.picker-sm {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(248, 251, 255, 0.76));
+  border-color: rgba(226, 237, 247, 0.82);
+  box-shadow:
+    0 8rpx 18rpx rgba(15, 23, 42, 0.03),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.76);
+}
+
+.tt-time-header,
+.tt-col-header,
+.tt-time-label {
+  background: linear-gradient(135deg, rgba(248, 251, 255, 0.95), rgba(239, 246, 255, 0.84));
+  border-color: rgba(226, 237, 247, 0.76);
+}
+
+.tt-open-block {
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.42), rgba(239, 246, 255, 0.34));
+  border-radius: 10rpx;
+}
+
+.tt-event-block {
+  border-radius: 10rpx;
+  box-shadow:
+    0 5rpx 12rpx rgba(15, 23, 42, 0.04),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.54);
+}
+
+.tt-event-block.booked {
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.88), rgba(254, 215, 170, 0.76));
+}
+
+.tt-event-block.pending {
+  background: linear-gradient(135deg, rgba(255, 237, 213, 0.88), rgba(253, 186, 116, 0.72));
+}
+
+.tt-event-block.activity {
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.88), rgba(191, 219, 254, 0.74));
+  border-color: rgba(147, 197, 253, 0.46);
+}
+
+.tt-dot {
+  border-radius: 999rpx;
+  box-shadow:
+    0 5rpx 12rpx rgba(15, 23, 42, 0.035),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.56);
+}
+
+.tt-dot.open { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+.tt-dot.booked { background: linear-gradient(135deg, #fff7ed, #fed7aa); }
+.tt-dot.pending { background: linear-gradient(135deg, #ffedd5, #fdba74); }
+.tt-dot.activity { background: linear-gradient(135deg, #dbeafe, #93c5fd); border-color: #93c5fd; }
+.tt-dot.closed { background: linear-gradient(135deg, #f8fafc, #e2e8f0); }
+
+/* Popup close is plain text plus x, not a pill button. */
+.popup-close {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8rpx !important;
+  padding: 4rpx 0 4rpx 16rpx !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #475569 !important;
+  font-size: 24rpx !important;
+  font-weight: 700 !important;
+}
+
+.popup-close::before { display: none !important; content: none !important; }
+.popup-close::after { content: "×" !important; color: #2563eb !important; font-size: 28rpx !important; font-weight: 800 !important; line-height: 1 !important; }

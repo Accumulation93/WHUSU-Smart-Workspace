@@ -65,7 +65,7 @@
 .booking-status.approved { background:#d1fae5; color:#065f46; }
 .booking-status.rejected { background:#fee2e2; color:#991b1b; }
 .booking-status.cancelled { background:#f1f5f9; color:#94a3b8; }
-.booking-status.inUse { background:#dbeafe; color:#1e40af; }
+.booking-status.inUse { background:#dbeafe; color:#2563eb; }
 .booking-status.completed { background:#e0e7ff; color:#3730a3; }
 
 .booking-actions { display:flex; gap:10rpx; margin-top:14rpx; }
@@ -83,3 +83,68 @@
 
 /* ═══ Empty state ═══ */
 .empty-inline { text-align:center; padding:40rpx 20rpx; font-size:26rpx; color:#94a3b8; }
+
+/* Final list polish */
+.header-nav-btn,
+.filter-chip,
+.time-pick {
+  background: linear-gradient(135deg, rgba(255,255,255,0.94), rgba(247,250,255,0.84));
+  border-color: rgba(147,197,253,0.50);
+  box-shadow:
+    0 8rpx 18rpx rgba(37,99,235,0.07),
+    inset 0 1rpx 0 rgba(255,255,255,0.78);
+}
+
+.booking-status {
+  border-radius: 999rpx;
+  border: 1rpx solid transparent;
+  box-shadow:
+    0 6rpx 14rpx rgba(15,23,42,0.035),
+    inset 0 1rpx 0 rgba(255,255,255,0.56);
+}
+
+.booking-status.pending {
+  color: #c2410c;
+  background: linear-gradient(135deg, rgba(255,247,237,0.96), rgba(254,215,170,0.84));
+  border-color: rgba(253,186,116,0.58);
+}
+
+.booking-status.approved {
+  color: #15803d;
+  background: linear-gradient(135deg, rgba(220,252,231,0.96), rgba(167,243,208,0.84));
+  border-color: rgba(110,231,183,0.58);
+}
+
+.booking-status.rejected {
+  color: #dc2626;
+  background: linear-gradient(135deg, rgba(254,242,242,0.96), rgba(254,202,202,0.84));
+  border-color: rgba(252,165,165,0.58);
+}
+
+.booking-status.cancelled {
+  color: #64748b;
+  background: linear-gradient(135deg, rgba(248,250,252,0.96), rgba(226,232,240,0.84));
+  border-color: rgba(203,213,225,0.58);
+}
+
+.booking-status.inUse,
+.booking-status.completed {
+  color: #0369a1;
+  background: linear-gradient(135deg, rgba(224,242,254,0.96), rgba(186,230,253,0.84));
+  border-color: rgba(56,189,248,0.56);
+}
+
+.booking-actions .approve-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  box-shadow:
+    0 14rpx 28rpx rgba(37,99,235,0.18),
+    inset 0 1rpx 0 rgba(255,255,255,0.18);
+}
+
+/* Final local motion: booking rows contain action buttons and should not wobble. */
+.card:active,
+.section:active,
+.booking-item:active {
+  transform: none !important;
+  filter: none !important;
+}

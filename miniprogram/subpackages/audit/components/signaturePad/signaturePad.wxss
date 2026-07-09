@@ -9,20 +9,27 @@
      确保 canvas 的 boundingClientRect 与绘制区域严格对齐 */
 .sigpad-canvas-border {
   width: 100%;
-  border: 2rpx solid rgba(203,213,225,0.7);
-  border-radius: 20rpx;
+  padding: 8rpx;
+  border: 1rpx solid rgba(191,219,254,0.72);
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.78), rgba(239,246,255,0.62));
   box-shadow:
-    inset 0 2rpx 8rpx rgba(15,23,42,0.04),
-    0 4rpx 16rpx rgba(15,23,42,0.04);
+    0 12rpx 26rpx rgba(37,99,235,0.07),
+    inset 0 1rpx 0 rgba(255,255,255,0.78);
   box-sizing: border-box;
+  backdrop-filter: blur(18rpx);
+  -webkit-backdrop-filter: blur(18rpx);
 }
 
 .sigpad-canvas {
   display: block;
   width: 100%;
   height: 360rpx;
-  background: #ffffff;
-  border-radius: 20rpx;
+  background: rgba(255,255,255,0.98);
+  border-radius: 18rpx;
+  box-shadow:
+    inset 0 1rpx 8rpx rgba(15,23,42,0.035),
+    inset 0 0 0 1rpx rgba(226,237,247,0.86);
 }
 
 .sigpad-actions {

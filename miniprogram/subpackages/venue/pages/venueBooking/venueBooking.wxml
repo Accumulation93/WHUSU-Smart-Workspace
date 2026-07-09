@@ -51,7 +51,7 @@
         <view class="empty-state" wx:if="{{!myBookings.length}}">
           <view class="empty-text">暂无借用记录</view>
         </view>
-        <view class="booking-item" wx:for="{{myBookings}}" wx:key="id" bindtap="viewMyBookingDetail" data-id="{{item.id}}">
+        <view class="booking-item" wx:for="{{myBookings}}" wx:key="id" bindtap="viewMyBookingDetail" data-id="{{item.id}}" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
           <view class="booking-item-head">
             <view class="booking-item-title">{{item.title || '借用申请'}}</view>
             <text class="status-tag {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>
@@ -80,7 +80,7 @@
         <text class="pending-refresh-btn" bindtap="loadPendingData">⟳ 刷新</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="pending-item" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewApprovalDetail">
+        <view class="pending-item" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewApprovalDetail" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
           <view class="pending-item-main">
             <view class="pending-item-name">{{item.title || '借用申请'}}</view>
             <view class="pending-item-meta">

@@ -15,6 +15,8 @@ if (!WECHAT_APPID || !WECHAT_SECRET) {
   throw new Error('WECHAT_APPID and WECHAT_SECRET environment variables are required');
 }
 
+const ALLOW_DEV_OPENID_LOGIN = process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_OPENID_LOGIN === '1';
+
 // userLogin - 微信登录（普通用户）
 router.post('/userLogin', async (req, res) => {
   try {
@@ -25,7 +27,7 @@ router.post('/userLogin', async (req, res) => {
       const code = safeString(req.body.code);
 
       // Exchange code for openid via WeChat API (or use dev fallback)
-      openid = safeString(req.body.openid);
+      openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
       if (!openid && code) {
         try {
           const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
@@ -109,7 +111,7 @@ router.post('/adminLogin', async (req, res) => {
         return res.json({ status: 'invalid_params', message: '缺少登录凭证code' });
       }
 
-      openid = safeString(req.body.openid);
+      openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
       if (!openid && code) {
         try {
           const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
