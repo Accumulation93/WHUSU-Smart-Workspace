@@ -773,6 +773,126 @@ page {
   padding: 2rpx 8rpx 16rpx;       /* 4/8/20→2/8/16 */
 }
 
+/* ═══ Custom time keyboard ═══ */
+
+/* ── Display row (replaces text input) ── */
+.time-kb-display-row {
+  display: flex; align-items: center; gap: 8rpx;
+}
+.time-kb-display-box {
+  width: 96rpx; height: 72rpx;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 18rpx;
+  background: rgba(255,255,255,0.82);
+  border: 1rpx solid rgba(203,213,225,0.75);
+  font-size: 32rpx; font-weight: 800; color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+.time-kb-display-colon {
+  font-size: 32rpx; font-weight: 800; color: #64748b;
+}
+.time-kb-display-active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3rpx rgba(37,99,235,0.18);
+}
+
+/* ── Keyboard panel ── */
+.time-keyboard {
+  width: 100%; flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(248,250,252,0.98), rgba(241,245,249,0.96));
+  border-radius: 24rpx;
+  border: 1rpx solid rgba(226,232,240,0.8);
+  padding: 20rpx 20rpx 28rpx;
+  box-shadow: 0 -8rpx 28rpx rgba(15,23,42,0.08);
+}
+
+/* ── Display inside keyboard ── */
+.time-kb-display {
+  display: flex; align-items: center; gap: 10rpx;
+  margin-bottom: 16rpx; padding: 12rpx 16rpx;
+  border-radius: 18rpx;
+  background: rgba(255,255,255,0.72);
+  border: 1rpx solid rgba(203,213,225,0.55);
+}
+.time-kb-box {
+  flex: 1; height: 68rpx;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14rpx;
+  background: rgba(241,245,249,0.72);
+  font-size: 34rpx; font-weight: 800; color: #334155;
+  transition: background 0.12s, box-shadow 0.12s;
+}
+.time-kb-box-active {
+  background: rgba(255,255,255,0.95);
+  color: #2563eb;
+  box-shadow: 0 0 0 3rpx rgba(37,99,235,0.22);
+}
+.time-kb-colon {
+  font-size: 34rpx; font-weight: 800; color: #64748b;
+  width: 32rpx; text-align: center;
+}
+.time-kb-confirm {
+  height: 68rpx; padding: 0 28rpx;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 16rpx;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #fff; font-size: 24rpx; font-weight: 800;
+  box-shadow: 0 8rpx 18rpx rgba(37,99,235,0.20);
+  flex-shrink: 0;
+}
+.time-kb-confirm:active {
+  transform: scale(0.96); opacity: 0.9;
+}
+
+/* ── Numpad ── */
+.time-kb-numpad {
+  /* container */
+}
+.time-kb-row {
+  display: flex; gap: 14rpx; margin-bottom: 14rpx;
+}
+.time-kb-row:last-child { margin-bottom: 0; }
+.time-kb-key {
+  flex: 1; height: 88rpx;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 18rpx;
+  background: rgba(255,255,255,0.88);
+  border: 1rpx solid rgba(203,213,225,0.55);
+  font-size: 32rpx; font-weight: 700; color: #1e293b;
+  box-shadow: 0 3rpx 8rpx rgba(15,23,42,0.04);
+  transition: transform 0.08s, background 0.08s;
+}
+.time-kb-key:active {
+  transform: scale(0.94);
+  background: rgba(241,245,249,0.92);
+}
+.time-kb-key-gray {
+  background: rgba(241,245,249,0.55);
+  color: #cbd5e1;
+  border-color: rgba(226,232,240,0.35);
+  box-shadow: none;
+}
+.time-kb-key-gray:active {
+  transform: none;
+  background: rgba(241,245,249,0.55);
+}
+.time-kb-key-colon {
+  color: #2563eb; font-size: 36rpx;
+}
+.time-kb-key-bs {
+  background: rgba(239,246,255,0.78);
+  border-color: rgba(147,197,253,0.42);
+  color: #2563eb; font-size: 28rpx;
+}
+
+/* ── Popup card shrinks when keyboard is open ── */
+.booking-form-popup.popup-card-with-kb {
+  max-height: 56vh;
+}
+.booking-form-popup.popup-card-with-kb .popup-scroll {
+  max-height: 44vh;
+}
+
 /* ── 待我审批 tab badge ── */
 .feature-tab-approvals {
   position: relative;

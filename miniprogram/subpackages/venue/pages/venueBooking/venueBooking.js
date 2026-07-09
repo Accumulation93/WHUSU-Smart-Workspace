@@ -81,6 +81,38 @@ function findDefaultStartMin(dayData, dateStr) {
   return snapMin(timeToMin(openSlots[0].timeStart));
 }
 
+/** Find the nearest valid start minute ≥ now (or ≥ 0 for future dates), skipping blocked/closed. */
+function findNearestValidStartMin(dateStr, dayData) {
+  var now = new Date(), today = fmtLocalDate(now);
+  var openSlots = dayData.openSlots || [];
+  if (!openSlots.length) return -1;
+  var curMin = now.getHours() * 60 + now.getMinutes();
+  var blockedMerged = buildBlockedIntervals(dayData);
+  var startMin;
+  if (dateStr === today) {
+    startMin = snapMin(curMin);
+    if (startMin <= curMin) startMin += SNAP;
+  } else {
+    startMin = snapMin(timeToMin(openSlots[0].timeStart));
+  }
+  for (var attempt = 0; attempt < TOTAL_MIN / SNAP; attempt++) {
+    var candidate = startMin + attempt * SNAP;
+    if (candidate >= TOTAL_MIN) break;
+    var inOpen = false;
+    for (var oi = 0; oi < openSlots.length; oi++) {
+      if (candidate >= timeToMin(openSlots[oi].timeStart) && candidate < timeToMin(openSlots[oi].timeEnd)) { inOpen = true; break; }
+    }
+    if (!inOpen) continue;
+    var blocked = false;
+    for (var bi = 0; bi < blockedMerged.length; bi++) {
+      if (candidate >= blockedMerged[bi].start && candidate < blockedMerged[bi].end) { blocked = true; break; }
+    }
+    if (blocked) continue;
+    return candidate;
+  }
+  return -1;
+}
+
 /**
  * Find a smart end time after startMin.
  * Default: start + 1h. If blocked, push BACKWARD to just before the block.
@@ -168,6 +200,14 @@ Page({
     approvalComment: '',
     approvalSubmitting: false,
     heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '欢迎使用REDSU智慧工作台系统 · 场地借用',
+
+    // ── Custom time keyboard ──
+    _kbVisible: false,
+    _kbTarget: '',        // 'startHour' | 'startMin' | 'endHour' | 'endMin'
+    _kbField: 'hour',     // 'hour' | 'min' — active sub-field
+    _kbHourVal: '',       // hour digits being edited
+    _kbMinVal: '',        // minute digits being edited
+    _kbGray: {},          // {digit: true} for grayed-out numpad keys
   },
 
   _loadUserInfo() {
@@ -389,7 +429,7 @@ Page({
     });
     this._loadScheduleForDate(today);
   },
-  closeBooking() { this.setData({ bookingVisible: false }); },
+  closeBooking() { if (this.data._kbVisible) { this.onKbClose(); return; } this.setData({ bookingVisible: false }); },
 
   async _loadScheduleForDate(dateStr, presetTime) {
     var venueId = this.data.bookingVenueId;
@@ -544,10 +584,17 @@ Page({
     var dayData = this.data._dayData;
     var now = new Date(), today = fmtLocalDate(now);
 
-    // 1. Past check
+    // 1. Past check → auto-correct
     if (dateStr === today && startMin < now.getHours() * 60 + now.getMinutes()) {
-      if (!opts.silent) showShortToast('不能选择过去的时间');
-      return false;
+      var corrected = findNearestValidStartMin(dateStr, dayData);
+      if (corrected >= 0) {
+        if (!opts.silent) showShortToast('已自动修正为最近可用时间');
+        startMin = corrected;
+        timeStr = minToTime(startMin);
+      } else {
+        if (!opts.silent) showShortToast('今天已无可用时段');
+        return false;
+      }
     }
     // 2. Must be in open slot
     if (!dayData || !dayData.openSlots) {
@@ -1019,54 +1066,289 @@ Page({
     }
   },
 
+  // ═══════════════════ Date / time auto-correct ═══════════════════
+
+  /** Search within 30 days for the nearest date with open slots. */
+  async _findNearestAvailableDate() {
+    var now = new Date();
+    for (var i = 0; i < 30; i++) {
+      var d = new Date(now);
+      d.setDate(d.getDate() + i);
+      var ds = fmtLocalDate(d);
+      try {
+        var res = await callFunction({ name: 'getVenueSchedule', data: { venueId: this.data.bookingVenueId, dateFrom: ds, dateTo: ds } });
+        if (res.status === 'success') {
+          var dayData = (res.dailySchedules || [])[0];
+          if (dayData && dayData.openSlots && dayData.openSlots.length) {
+            return { date: ds, dayData: dayData };
+          }
+        }
+      } catch (_) {}
+    }
+    return null;
+  },
+
   // ═══════════════════ Text input ═══════════════════
 
-  onStartDateChange(e) {
+  async onStartDateChange(e) {
     var d = e.detail.value;
-    // ★ 拒绝过去的日期
     var today = fmtLocalDate(new Date());
     if (d < today) {
-      showShortToast('不能选择过去的日期');
-      this.setData({
-        bookingStartDate: this.data.bookingStartDate,
-        bookingStartDateDisplay: this.data.bookingStartDateDisplay
-      });
-      return;
+      var prevDate = this.data.bookingStartDate;
+      // Previous date was valid → restore it
+      if (prevDate && prevDate >= today) {
+        showShortToast('不能选择过去的日期');
+        this.setData({
+          bookingStartDate: prevDate,
+          bookingStartDateDisplay: this.data.bookingStartDateDisplay
+        });
+        return;
+      }
+      // Previous date also invalid → search nearest available
+      showShortToast('不能选择过去的日期，正在查找最近可用时段');
+      wx.showLoading({ title: '查找中...' });
+      var nearest = await this._findNearestAvailableDate();
+      wx.hideLoading();
+      if (nearest) {
+        d = nearest.date;
+        this.setData({ _dayData: nearest.dayData });
+      } else {
+        showShortToast('30天内无可用时段');
+        return;
+      }
     }
     this.setData({
       bookingStartDate: d, bookingStartDateDisplay: d, bookingEndDate: d, bookingEndDateDisplay: d,
       bookingTimeStart: '', bookingTimeEnd: '', timeStartInput: '', timeEndInput: '',
       timelineBlocks: [], timelineSelection: null, _timelineWidth: 0,
       startHandleX: 0, endHandleX: 0, startHours: [], endHours: [], startMinIdx: -1, endMinIdx: -1,
-      _dayData: null
+      _kbVisible: false
     });
     this._loadScheduleForDate(d);
   },
 
-  onTimeStartInput(e) { this.setData({ timeStartInput: e.detail.value }); },
-  onTimeStartInputBlur() {
-    var val = (this.data.timeStartInput || '').trim();
-    if (!val) return;
-    var match = val.match(/^(\d{1,2}):(\d{2})$/);
-    if (!match) { showShortToast('格式不正确，请使用 HH:MM'); this.setData({ timeStartInput: this.data.bookingTimeStart || '' }); return; }
-    var h = parseInt(match[1]), m = parseInt(match[2]);
-    if (h < 0 || h > 23 || m < 0 || m > 59) { showShortToast('时间范围不正确'); this.setData({ timeStartInput: this.data.bookingTimeStart || '' }); return; }
-    var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-    var ok = this._setStartTime(timeStr);
-    if (!ok) this.setData({ timeStartInput: this.data.bookingTimeStart || '' });
+  // ═══════════════════ Custom time keyboard ═══════════════════
+
+  /** Open keyboard for a time field. e.currentTarget.dataset.target = 'startHour'|'startMin'|'endHour'|'endMin' */
+  onKbOpen(e) {
+    var target = e.currentTarget.dataset.target;
+    var isStart = target.indexOf('start') === 0;
+    var curTime = isStart ? this.data.bookingTimeStart : this.data.bookingTimeEnd;
+    var h = '', m = '';
+    if (curTime) { var p = curTime.split(':'); h = p[0]; m = p[1]; }
+    var field = target.indexOf('Hour') >= 0 ? 'hour' : 'min';
+    this.setData({
+      _kbVisible: true, _kbTarget: target, _kbField: field,
+      _kbHourVal: h, _kbMinVal: m
+    });
+    this._computeGrayKeys();
   },
 
-  onTimeEndInput(e) { this.setData({ timeEndInput: e.detail.value }); },
-  onTimeEndInputBlur() {
-    var val = (this.data.timeEndInput || '').trim();
+  /** Close keyboard (submit on close). */
+  onKbClose() {
+    if (this.data._kbVisible) this._commitKb();
+    this.setData({ _kbVisible: false });
+  },
+
+  /** Numpad key press. */
+  onKbKey(e) {
+    var key = e.currentTarget.dataset.key;
+    if (key === ':') { this._onKbColon(); return; }
+    if (this.data._kbGray[key]) return; // grayed out
+    var field = this.data._kbField;
+    var val = field === 'hour' ? this.data._kbHourVal : this.data._kbMinVal;
+    if (val.length >= 2) return; // max 2 digits
+    val = val + key;
+    var upd = field === 'hour' ? { _kbHourVal: val } : { _kbMinVal: val };
+    this.setData(upd);
+    // Auto-switch: 2-digit hour → jump to minute
+    if (field === 'hour' && val.length === 2) {
+      this.setData({ _kbField: 'min' });
+    }
+    this._computeGrayKeys();
+  },
+
+  /** Colon key: switch hour→min, pad single-digit hour. */
+  _onKbColon() {
+    if (this.data._kbField === 'hour') {
+      var h = this.data._kbHourVal;
+      if (h.length === 1) h = '0' + h;
+      this.setData({ _kbField: 'min', _kbHourVal: h });
+      this._computeGrayKeys();
+    }
+    // In minute field, colon does nothing
+  },
+
+  /** Backspace key. */
+  onKbBackspace() {
+    var field = this.data._kbField;
+    var val = field === 'hour' ? this.data._kbHourVal : this.data._kbMinVal;
     if (!val) return;
-    var match = val.match(/^(\d{1,2}):(\d{2})$/);
-    if (!match) { showShortToast('格式不正确，请使用 HH:MM'); this.setData({ timeEndInput: this.data.bookingTimeEnd || '' }); return; }
-    var h = parseInt(match[1]), m = parseInt(match[2]);
-    if (h < 0 || h > 23 || m < 0 || m > 59) { showShortToast('时间范围不正确'); this.setData({ timeEndInput: this.data.bookingTimeEnd || '' }); return; }
-    var timeStr = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-    var ok = this._setEndTime(timeStr);
-    if (!ok) this.setData({ timeEndInput: this.data.bookingTimeEnd || '' });
+    val = val.slice(0, -1);
+    var upd = field === 'hour' ? { _kbHourVal: val } : { _kbMinVal: val };
+    this.setData(upd);
+    this._computeGrayKeys();
+  },
+
+  /** Switch active field (tap hour/min display box in keyboard). */
+  onKbSwitchField(e) {
+    var f = e.currentTarget.dataset.field; // 'hour' | 'min'
+    if (f === this.data._kbField) return;
+    this.setData({ _kbField: f });
+    this._computeGrayKeys();
+  },
+
+  /** Confirm: validate, call _setStartTime/_setEndTime, close. */
+  onKbConfirm() {
+    this._commitKb();
+    this.setData({ _kbVisible: false });
+  },
+
+  /** Commit current keyboard value to the target time field. */
+  _commitKb() {
+    var target = this.data._kbTarget;
+    if (!target) return;
+    var h = this.data._kbHourVal, m = this.data._kbMinVal;
+    // Pad to valid HH:MM
+    if (!h) h = '00';
+    if (h.length === 1) h = '0' + h;
+    if (!m) m = '00';
+    if (m.length === 1) m = '0' + m;
+    var timeStr = h + ':' + m;
+    if (target.indexOf('start') === 0) {
+      this._setStartTime(timeStr);
+    } else {
+      this._setEndTime(timeStr);
+    }
+  },
+
+  /** Load keyboard values from current booking data. */
+  _loadKbFromCurrent() {
+    var target = this.data._kbTarget;
+    var isStart = target && target.indexOf('start') === 0;
+    var curTime = isStart ? this.data.bookingTimeStart : this.data.bookingTimeEnd;
+    var h = '', m = '';
+    if (curTime) { var p = curTime.split(':'); h = p[0]; m = p[1]; }
+    this.setData({ _kbHourVal: h, _kbMinVal: m });
+    this._computeGrayKeys();
+  },
+
+  /** Compute which numpad keys should be grayed out. */
+  _computeGrayKeys() {
+    var target = this.data._kbTarget;
+    var field = this.data._kbField;
+    var hVal = this.data._kbHourVal;
+    var mVal = this.data._kbMinVal;
+    var curVal = field === 'hour' ? hVal : mVal;
+    var maxVal = field === 'hour' ? 23 : 59;
+    var gray = {};
+
+    // ── Structural: digit limit ──
+    if (curVal.length >= 2) {
+      for (var d = 0; d <= 9; d++) gray[d] = true;
+    } else if (curVal.length === 1) {
+      var prefix = parseInt(curVal);
+      for (var d2 = 0; d2 <= 9; d2++) {
+        if (prefix * 10 + d2 > maxVal) gray[d2] = true;
+      }
+    }
+
+    // ── Semantic: deep validation ──
+    if (target && target.indexOf('start') === 0) {
+      this._applyStartSemanticGray(gray, target, field, hVal, mVal);
+    } else if (target && target.indexOf('end') === 0) {
+      this._applyEndSemanticGray(gray, target, field, hVal, mVal);
+    }
+
+    this.setData({ _kbGray: gray });
+  },
+
+  /** Semantic gray for start time: past / blocked / closed checks. */
+  _applyStartSemanticGray(gray, target, field, hVal, mVal) {
+    var now = new Date(), today = fmtLocalDate(now);
+    if (this.data.bookingStartDate !== today) return;
+    var nowHour = now.getHours(), nowMin = now.getMinutes();
+    var dayData = this.data._dayData;
+    if (!dayData) return;
+
+    if (target === 'startHour' && field === 'hour') {
+      // Only check when we know the final hour (checking second digit or single-digit complete)
+      if (hVal.length === 1) {
+        var prefix = parseInt(hVal);
+        for (var d = 0; d <= 9; d++) {
+          var result = prefix * 10 + d;
+          if (result <= 23 && result < nowHour) gray[d] = true;
+        }
+      }
+      // When empty: if it's already late (e.g. 22:xx), single-digit hours 0-9 are all past
+      if (hVal === '' && nowHour >= 10) {
+        for (var d2 = 0; d2 <= 9; d2++) gray[d2] = true;
+      }
+    }
+
+    if (target === 'startMin' && field === 'min') {
+      var curH = parseInt(hVal);
+      if (isNaN(curH) || curH > nowHour) return;
+      if (curH < nowHour) return;
+      // Same hour: gray minutes ≤ nowMin, or not in open slot, or blocked
+      var blockedMerged = buildBlockedIntervals(dayData);
+      var openSlots = dayData.openSlots || [];
+      for (var m = 0; m < 60; m++) {
+        if (m <= nowMin) { this._markGrayForMin(gray, m, mVal); continue; }
+        var absMin = curH * 60 + m;
+        var inOpen = false;
+        for (var oi = 0; oi < openSlots.length; oi++) {
+          if (absMin >= timeToMin(openSlots[oi].timeStart) && absMin < timeToMin(openSlots[oi].timeEnd)) { inOpen = true; break; }
+        }
+        if (!inOpen) { this._markGrayForMin(gray, m, mVal); continue; }
+        for (var bi = 0; bi < blockedMerged.length; bi++) {
+          if (absMin >= blockedMerged[bi].start && absMin < blockedMerged[bi].end) { this._markGrayForMin(gray, m, mVal); break; }
+        }
+      }
+    }
+  },
+
+  /** Semantic gray for end time: must be > start, no blocked/gap crossing. */
+  _applyEndSemanticGray(gray, target, field, hVal, mVal) {
+    var startTime = this.data.bookingTimeStart;
+    if (!startTime) return;
+    var sH = parseInt(startTime.split(':')[0]);
+    var sM = parseInt(startTime.split(':')[1]);
+    var dayData = this.data._dayData;
+    if (!dayData) return;
+
+    if (target === 'endHour' && field === 'hour') {
+      if (hVal.length === 1) {
+        var prefix = parseInt(hVal);
+        for (var d = 0; d <= 9; d++) {
+          if (prefix * 10 + d < sH) gray[d] = true;
+        }
+      }
+    }
+
+    if (target === 'endMin' && field === 'min') {
+      var curH = parseInt(hVal);
+      if (isNaN(curH) || curH < sH) return;
+      var startMinAbs = sH * 60 + sM;
+      var blockedMerged = buildBlockedIntervals(dayData);
+      var openMerged = mergeIntervals(slotsToIntervals(dayData.openSlots || []));
+      for (var m = 0; m < 60; m++) {
+        if (curH === sH && m <= sM) { this._markGrayForMin(gray, m, mVal); continue; }
+        var absEnd = curH * 60 + m;
+        if (findBlockedOverlap(startMinAbs, absEnd, blockedMerged)) { this._markGrayForMin(gray, m, mVal); continue; }
+        if (findOpenGap(startMinAbs, absEnd, openMerged) >= 0) { this._markGrayForMin(gray, m, mVal); continue; }
+      }
+    }
+  },
+
+  /** Gray a minute digit key based on current minute input state. */
+  _markGrayForMin(gray, m, curMinVal) {
+    if (curMinVal === '') {
+      if (m < 10) gray[m] = true;
+    } else if (curMinVal.length === 1) {
+      var tens = parseInt(curMinVal);
+      if (m >= tens * 10 && m < (tens + 1) * 10) gray[m % 10] = true;
+    }
   },
 
   // ═══════════════════ Duration chips ═══════════════════
