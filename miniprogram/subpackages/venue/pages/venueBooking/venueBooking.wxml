@@ -270,19 +270,6 @@ module.exports = { hour: hour, min: min };
           <view class="field">
             <view class="field-label">开始时间 <text class="required">*</text></view>
             <view wx:if="{{timelineBlocks.length}}" class="time-section-new">
-              <!-- Chip selectors -->
-              <view class="chip-select-row">
-                <text class="chip-select-label">时</text>
-                <scroll-view scroll-x class="chip-scroll">
-                  <text class="hour-chip {{bookingTimeStart && item.value === _startHourVal ? 'hour-chip-active' : ''}}" wx:for="{{startHours}}" wx:key="value" data-value="{{item.value}}" catchtap="onStartHourTap">{{item.label}}</text>
-                </scroll-view>
-              </view>
-              <view class="chip-select-row">
-                <text class="chip-select-label">分</text>
-                <view class="min-chip-row">
-                  <text class="min-chip {{startMinIdx === index ? 'min-chip-active' : ''}}" wx:for="{{minuteOpts}}" wx:key="value" wx:for-index="index" data-value="{{item.value}}" catchtap="onStartMinTap">{{item.label}}</text>
-                </view>
-              </view>
               <!-- Custom keyboard display -->
               <view class="time-kb-display-row">
                 <view class="time-kb-display-box {{_kbTarget === 'startHour' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="startHour" catchtap="onKbOpen">{{fmt.hour(bookingTimeStart)}}</view>
@@ -306,18 +293,6 @@ module.exports = { hour: hour, min: min };
           <view class="field">
             <view class="field-label">结束时间 <text class="required">*</text></view>
             <view wx:if="{{timelineBlocks.length && bookingTimeStart}}" class="time-section-new">
-              <view class="chip-select-row">
-                <text class="chip-select-label">时</text>
-                <scroll-view scroll-x class="chip-scroll">
-                  <text class="hour-chip {{bookingTimeEnd && item.value === _endHourVal ? 'hour-chip-active' : ''}}" wx:for="{{endHours}}" wx:key="value" data-value="{{item.value}}" catchtap="onEndHourTap">{{item.label}}</text>
-                </scroll-view>
-              </view>
-              <view class="chip-select-row">
-                <text class="chip-select-label">分</text>
-                <view class="min-chip-row">
-                  <text class="min-chip {{endMinIdx === index ? 'min-chip-active' : ''}}" wx:for="{{minuteOpts}}" wx:key="value" wx:for-index="index" data-value="{{item.value}}" catchtap="onEndMinTap">{{item.label}}</text>
-                </view>
-              </view>
               <view class="time-kb-display-row">
                 <view class="time-kb-display-box {{_kbTarget === 'endHour' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="endHour" catchtap="onKbOpen">{{fmt.hour(bookingTimeEnd)}}</view>
                 <text class="time-kb-display-colon">:</text>

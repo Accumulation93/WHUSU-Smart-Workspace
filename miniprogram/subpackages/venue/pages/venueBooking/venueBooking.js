@@ -843,36 +843,6 @@ Page({
 
   // ═══════════════════ Chip selectors ═══════════════════
 
-  onStartHourTap(e) {
-    var h = parseInt(e.currentTarget.dataset.value);
-    var cur = this.data.bookingTimeStart;
-    var m = cur ? parseInt(cur.split(':')[1]) : 0;
-    m = MINUTE_OPTS.indexOf(m) >= 0 ? m : 0;
-    this._setStartTime(String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'));
-  },
-
-  onStartMinTap(e) {
-    var m = parseInt(e.currentTarget.dataset.value);
-    var cur = this.data.bookingTimeStart;
-    var h = cur ? parseInt(cur.split(':')[0]) : (this.data.startHours.length ? this.data.startHours[0].value : 8);
-    this._setStartTime(String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'));
-  },
-
-  onEndHourTap(e) {
-    var h = parseInt(e.currentTarget.dataset.value);
-    var cur = this.data.bookingTimeEnd || this.data.bookingTimeStart;
-    var m = cur ? parseInt(cur.split(':')[1]) : 0;
-    m = MINUTE_OPTS.indexOf(m) >= 0 ? m : 0;
-    this._setEndTime(String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'));
-  },
-
-  onEndMinTap(e) {
-    var m = parseInt(e.currentTarget.dataset.value);
-    var cur = this.data.bookingTimeEnd || this.data.bookingTimeStart;
-    var h = cur ? parseInt(cur.split(':')[0]) : (this.data.endHours.length ? this.data.endHours[0].value : 9);
-    this._setEndTime(String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'));
-  },
-
   // ═══════════════════ Drag handlers ═══════════════════
 
   // ═══════════════════ Touch / drag ═══════════════════
