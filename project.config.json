@@ -2,7 +2,7 @@
   "miniprogramRoot": "miniprogram/",
   "setting": {
     "urlCheck": true,
-    "es6": true,
+    "es6": false,
     "enhance": true,
     "postcss": true,
     "preloadBackgroundData": false,
