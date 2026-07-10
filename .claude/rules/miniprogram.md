@@ -4,54 +4,27 @@ paths: "miniprogram/**"
 
 # CLAUDE.md — 微信小程序前端
 
-> 本文件覆盖前端通用规范。项目级规范（代码风格、设计系统、Git 工作流等）见根目录 `CLAUDE.md`。
+> 本文件覆盖前端通用规范。项目级规范见根目录 `CLAUDE.md`。
 
 ---
 
-## 1. 文件组织
+## 1. 文件组织与注册
 
-每个页面 **必须** 是独立目录，4 个同名文件：
-```
-pages/<pageName>/
-├── <pageName>.js      # Page({}) 逻辑
-├── <pageName>.wxml    # 模板
-├── <pageName>.wxss    # 样式（页面级覆写）
-└── <pageName>.json    # 页面配置
-```
+每个页面/组件必须是独立目录，含 4 个同名文件（`.js`/`.wxml`/`.wxss`/`.json`）。
 
-每个组件同理：4 个同名文件在组件目录下。
+### 新增页面
 
-### 1.1 新增页面/分包
+1. 创建 4 个文件
+2. 在 `app.json` 注册：主包→`pages` 数组，分包→`subPackages[].pages` 数组
+3. 分包 root 路径规范：`"root": "subpackages/<模块名>"`
 
-**新增页面步骤：**
+**关键约束：** 主包 ≤2MB，单分包 ≤2MB，全部分包 ≤20MB。用 `lazyCodeLoading: "requiredComponents"`。
 
-1. 在对应目录下创建 4 个文件（js/wxml/wxss/json）
-2. 在 `app.json` 中注册：
-   - 主包页面 → `pages` 数组
-   - 分包页面 → `subPackages[].pages` 数组
-3. 分包 root 路径规范：
-   ```json
-   {
-     "root": "subpackages/<模块名>",
-     "name": "<模块名>",
-     "pages": ["pages/<页面名>/<页面名>"]
-   }
-   ```
-
-**关键约束：**
-- 主包总大小 ≤ 2MB
-- 单个分包 ≤ 2MB
-- 所有分包总大小 ≤ 20MB
-- 尽量用 `lazyCodeLoading: "requiredComponents"`
-
-### 1.2 app.js 的特殊 require
+### app.js 的特殊 require
 
 ```javascript
-// app.js
-require('./utils/tableFile.js');  // ⚠️ 必须保留！
+require('./utils/tableFile.js');  // ⚠️ 绝对不能删除！
 ```
-
-即使 `onLaunch` 是空的，这个 `require` **绝对不能删除**。
 
 ---
 
@@ -62,64 +35,196 @@ require('./utils/tableFile.js');  // ⚠️ 必须保留！
 | 文件 | 关键选择器 | 影响范围 |
 |------|-----------|----------|
 | `app.wxss` | popup 框架、全局 reset | 所有页面 |
-| `pages/home/home.wxss` | `.field-input` (`display: flex`)、`.card`、`.hero` | import 它的所有页面 |
-| `subpackages/audit/styles/blue-polish.wxss` | `.field-input` (`padding: 22rpx`)、`.card`、`.chip` | audit 所有页面 |
-| `subpackages/venue/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip`、`.section-title` | venue 所有页面 |
+| `pages/home/home.wxss` | `.field-input` (`display: flex`) | import 它的页面 |
+| `subpackages/audit/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip` | audit 所有页面 |
+| `subpackages/venue/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip` | venue 所有页面 |
 
-**规则：**
-- **绝不修改** `app.wxss`、`home.wxss`、`blue-polish.wxss`
-- 页面级覆写使用更具体的选择器
+**规则：绝不修改 `app.wxss`、`home.wxss`、`blue-polish.wxss`。** 用更具体的选择器覆盖。
 
 ---
 
-## 3. Page 生命周期规范
+## 3. 已知坑点大全
 
-```javascript
-Page({
-  onLoad(options) { /* 一次性初始化 */ },
-  onShow() { /* 每次显示时刷新数据 */ },
-  onHide() { /* 停止轮询、清理定时器 */ },
-  onUnload() { /* 清理 EventBus 监听 */ }
-});
+> 实际踩过的坑，不是理论风险。每次写代码前必须阅读。
+
+### 3.1 WXS 模块 — 模板中无法调用 JS 方法
+
+WXML 不支持 `.split()`、`.replace()`、`.map()` 等原生 JS 方法。**必须用 WXS 模块。**
+
+```xml
+<!-- ❌ 错误 -->
+<text>{{time.split(':')[0]}}</text>
+
+<!-- ✅ 正确 -->
+<wxs module="fmt">
+function hour(t) { if (!t) return '--'; var p = (''+t).split(':'); return p[0] || '--'; }
+module.exports = { hour: hour };
+</wxs>
+<text>{{fmt.hour(time)}}</text>
 ```
 
+> ⚠️ WXS 不支持 `let`/`const`，必须保留 `var`。
+
+### 3.2 WeChat 原生 `<input>` — 不支持 `display: flex`
+
+设置 `display: flex` 后文字垂直居中失效、placeholder 位置异常、输入时跳动。
+
+**解决：** `display: block; box-sizing: border-box;` + `line-height` + `padding` 垂直居中。
+
+```css
+.field-input {
+  display: block; box-sizing: border-box;
+  min-height: 64rpx; padding: 10rpx 16rpx;
+  font-size: 24rpx; line-height: 44rpx;
+}
+```
+
+### 3.3 `position: fixed` 在 scroll-view 中的行为
+
+`position: fixed` 元素若放在 `scroll-view` 内部，iOS 上可能不跟随视口。**所有浮层必须放在 scroll-view 外部。**
+
+```xml
+<scroll-view>...</scroll-view>
+<view class="kb-panel" wx:if="{{_kbVisible}}">...</view>  <!-- 在外部！ -->
+```
+
+### 3.4 `popup-mask` + flexbox 居中 → 子元素位置异常
+
+`popup-mask` 用 `display: flex; align-items: center; justify-content: center` 居中弹窗。若把 `position: fixed; bottom: 0` 元素放在其内部，flex 布局会把它也居中。**固定在底部的元素不要放在 popup-mask 内。**
+
+### 3.5 setData 批处理 — 必须一次调用
+
+每次 `setData()` 触发一次渲染。连续多次 → 卡顿。
+
+```javascript
+// ❌ 两次 setData
+this.setData({ _kbField: 'min' }); this.setData({ _kbGray: gray });
+
+// ✅ 单次合并
+this.setData({ _kbField: 'min', _kbGray: gray, _kbSelected: true });
+```
+
+### 3.6 `scroll-view` 的 `scroll-y` 不能动态关闭
+
+`scroll-y="{{false}}"` 会使 scroll-view 忽略 `scroll-top` 程序化更新。用 `catchtouchmove` 阻止事件冒泡代替。
+
+### 3.7 `clientY` vs `pageY`
+
+- `pageY` 含 scroll-view 内部滚动偏移
+- `clientY` 相对视口
+
+`position: fixed` 元素（ghost card、拖拽手柄）**必须用 `clientY`**。
+
+### 3.8 `showToast` 限制 7 个中文字符
+
+`wx.showToast({ title })` 超 7 个中文字符会被截断。**用 `showShortToast()`（已内置自动截断+省略号）。**
+
+### 3.9 `picker mode="date"` start 属性不可靠
+
+某些设备不遵守 `start` 属性。**必须在 JS 层做兜底校验**，拒绝非法日期并恢复原值。
+
+### 3.10 `wx.createSelectorQuery()` — 拖拽中必须节流
+
+touchmove 中每秒 ~60 次 `createSelectorQuery().exec()` 会导致回调节点积压+卡顿。**拖拽场景节流到 ~30fps（33ms）：**
+
+```javascript
+if (self._lastUpdateTime && now - self._lastUpdateTime < 33) return;
+self._lastUpdateTime = now;
+```
+
+### 3.11 WXML 中 `data-*` 属性值类型
+
+`dataset` 中的值始终是**字符串**。比较时必须 `Number(e.currentTarget.dataset.index)`。
+
+### 3.12 `hidden` vs `wx:if`
+
+- `wx:if` — 不满足时不创建 DOM。用于不频繁切换的内容。
+- `hidden` — 始终创建 DOM，切换 `display`。用于频繁显示/隐藏。
+
+键盘面板、Ghost card 使用 `wx:if`。
+
+### 3.13 Canvas DPR 坐标漂移
+
+不同设备的 DPR 差异导致触摸坐标偏移。签名板五层防御详见 `.claude/rules/audit.md` §3。
+
 ---
 
-## 4. EventBus
+## 4. API 调用
+
+```javascript
+const { callFunction } = require('../../utils/api');
+
+// Promise 风格（推荐）
+const result = await callFunction({ name: 'getScoreFormData', data: { targetId } });
+
+// 回调风格（向后兼容）
+callFunction({ name: 'userLogin', data: { code }, success: res => { ... }, fail: err => { ... } });
+```
+
+- 自动添加 `Authorization: Bearer <token>` 请求头
+- 15 秒超时，超时自动 abort
+- 所有业务 API 均为 POST，名称正则校验 `/^[A-Za-z][A-Za-z0-9_]*$/`
+
+### 响应格式
+
+```json
+{ "status": "success", "data": { ... } }
+{ "status": "login_success", "token": "...", "user": { ... } }
+{ "status": "need_bind", "token": "..." }
+{ "status": "error", "message": "错误描述" }
+```
+
+### 认证流程
+
+1. `wx.login()` → 2. POST `/api/userLogin` 或 `/api/adminLogin` → 3. 服务端优先 JWT，其次微信 code2session → 4. 前端处理 `login_success` / `need_bind` / error
+
+---
+
+## 5. EventBus — 跨页面通信
 
 ```javascript
 const eventBus = require('../../utils/eventBus');
 eventBus.on('venue:changed', this._handler);   // onShow 注册
-eventBus.off('venue:changed', this._handler);  // onUnload 注销
+eventBus.off('venue:changed', this._handler);  // onUnload 注销（必须！）
 eventBus.emit('venue:changed', { reason });
 ```
 
 ---
 
-## 5. API 调用
+## 6. Page 生命周期
 
 ```javascript
-const { callFunction } = require('../../utils/api');
-const result = await callFunction({ name: 'getScoreFormData', data: { targetId } });
+Page({
+  onLoad(options)  { /* 一次性初始化 */ },
+  onShow()         { /* 每次显示时刷新数据、重启轮询 */ },
+  onHide()         { /* 停止轮询、清理定时器 */ },
+  onUnload()       { /* 清理 EventBus 监听、清理定时器 */ }
+});
 ```
 
 ---
 
-## 6. 页面跳转规范
+## 7. 关键工具函数
 
-```javascript
-wx.navigateTo({ url: '/subpackages/venue/pages/venueBooking/venueBooking' });
-wx.redirectTo({ url: '/subpackages/venue/pages/venueManage/venueManage?tab=bookings' });
-```
+| 函数 | 来源 | 用途 |
+|------|------|------|
+| `callFunction({ name, data })` | api.js | 通用 API，返回 Promise |
+| `showShortToast(title, icon)` | api.js | Toast（自动截断 ≤7 中文字符） |
+| `formatAuditTime(raw)` | api.js | 审核时间格式化 |
+| `getErrorText(error, fallback)` | api.js | 提取错误文本 |
+| `eventBus.on/off/emit` | eventBus.js | 跨页面事件 |
+| `parseCsvContent/buildCsv/buildExcelXml` | tableFile.js | CSV/Excel 解析导出 |
 
 ---
 
-## 7. 关键禁止事项（前端专属）
+## 8. 前端禁止事项
 
 - ❌ WXML 中直接调用 `.split()` / `.replace()` / `.map()` → 用 WXS
 - ❌ `<input>` 上设置 `display: flex` → 用 `display: block` + `line-height`
 - ❌ `popup-mask` 内放 `position: fixed; bottom: 0` 元素
-- ❌ 多次 `setData()` 调用 → 合并为一次
+- ❌ 多次 `setData()` 不合并
 - ❌ `wx.showToast` title 超 7 中文字符
-- ❌ 修改全局样式文件（app.wxss / home.wxss / blue-polish.wxss）
-- ❌ 拖拽 touchmove 中不节流 `createSelectorQuery`
+- ❌ 修改全局样式文件
+- ❌ 拖拽 touchmove 不节流 `createSelectorQuery`
+- ❌ `onUnload` 中忘记 `eventBus.off`
+- ❌ 忘记在 `onHide`/`onUnload` 中清理定时器
