@@ -108,7 +108,7 @@ async loadActivityList() {
 
 ---
 
-## 5. adminUtils.js — 工具函数速查
+## 5. adminUtils.js — 工具函数速查（1267 行）
 
 **常量：**
 - `STORAGE_KEY` = `'roleProfiles'`
@@ -116,13 +116,51 @@ async loadActivityList() {
 - `TIMEZONE_OPTIONS`、`RULE_SCOPE_OPTIONS`、`VIEW_SCOPE_OPTIONS`
 - `PROFILE_EDIT_MODE_OPTIONS`、`PROFILE_FIELD_TYPE_OPTIONS`
 
-**表单工厂：** `emptyActivityForm()`, `emptyTemplateForm()`, `emptyRuleForm()`, `emptyHrForm()`, `emptyDepartmentForm()`, `emptyWorkGroupForm()`, `emptyIdentityForm()`, `createEmptyQuestion()`, `createEmptyProfileField()`
+**表单工厂：** 所有工厂返回全新空对象，用于初始化编辑表单
+```javascript
+emptyActivityForm()         // → { name, startDate, endDate, isPaused }
+emptyTemplateForm()         // → { name, description, questions: [] }
+emptyRuleForm()             // → { scorerKey, clauses: [] }
+emptyHrForm()               // → { name, studentId, departmentId, identityId, workGroupId }
+emptyDepartmentForm()       // → { name, description }
+emptyWorkGroupForm()        // → { name, departmentId }
+emptyIdentityForm()         // → { name, description }
+createEmptyQuestion()       // → { question, scoreLabel, minValue, startValue, maxValue, stepValue }
+createEmptyProfileField()   // → { label, type, required, visible, ... }
+```
 
-**数据转换：** `toNumber()`, `clampNumber()`, `formatScoreFixed3()`, `getProgressColor()`, `buildProgressFillStyle()`, `moveItem()`
+**数据转换：**
+```javascript
+toNumber(val, fallback)              // 安全数字转换，NaN 返回 fallback
+clampNumber(val, min, max)           // 夹紧到 [min, max]
+formatScoreFixed3(val)               // 四舍五入 3 位小数
+getProgressColor(ratePercent)        // HSL 渐变: 红→橙→黄→绿，返回 CSS 颜色
+buildProgressFillStyle(ratePercent)   // 返回 inline style 字符串
+moveItem(list, fromIndex, toIndex)   // 数组元素移动（深拷贝，不修改原数组）
+```
 
-**CSV 导入：** `autoMapCsvColumn()`, `jaccardCharSimilarity()`, `buildCsvColumnMapping()`, `detectFieldTypeFromValues()`, `validateCsvValueAgainstField()`
+**CSV 导入（核心逻辑）：**
+```javascript
+// 自动列映射 — 用 Jaccard 字符相似度匹配 CSV 表头到目标字段
+autoMapCsvColumn(headers, fields)    // → { columnIndex → fieldKey }
+jaccardCharSimilarity(a, b)          // 字符级 Jaccard 相似度，用于中文表头模糊匹配
+buildCsvColumnMapping(headers, fields) // 构建映射配置
+detectFieldTypeFromValues(values)    // 从样本值自动推断字段类型
+validateCsvValueAgainstField(value, field) // 校验单个值是否符合字段规则
+normalizeEmptyValue(val)             // 统一空值表示（null/undefined/'N/A'/'-' → ''）
+tryParseDateValue(raw)               // 灵活的日期解析器
+```
 
-**规则引擎：** `createTemplateConfig()`, `normalizeClauseForEdit()`, `buildRuleListItem()`, `buildRuleClauseText()`, `buildRuleClausesForSave()`
+**规则引擎：**
+```javascript
+createTemplateConfig()                // 创建空模板配置
+normalizeClauseForEdit(clause)        // 规范化 clause 为编辑态
+buildRuleListItem(rule)               // 构建列表项（含 display text）
+buildRuleClauseText(clause)           // 生成 clause 的可读文本
+buildRuleClausesForSave(clauses)      // 序列化 clause 为保存格式
+filterRuleList(rules, filters)        // 按条件过滤规则列表
+buildRuleFilterOptions(rules)         // 构建过滤 UI 选项
+```
 
 ---
 
@@ -160,7 +198,23 @@ var COLOR_MAP = {
 
 ---
 
-## 8. 评分页面（score.js）关键模式
+## 8. scorerTasks 页面（评分人任务完成度）
+
+**文件：** `scorerTasks.js` (346 行)
+
+**功能：** 管理端查看每个评分人的完成进度。
+
+**数据流：**
+1. `onLoad` → `loadTaskStatus()` 调用 `getScorerTaskStatus`（支持分页）
+2. 支持按部门/身份/分组过滤（`filters: { departmentId, identityId, workGroupId }`）
+3. 每条记录显示：评分人姓名、所属部门、评分进度（已完成/总数）、完成率
+4. `exportScorerTaskStatus` → 导出 CSV/Excel
+
+**WXSS：** `@import "../admin/admin.wxss"` 继承所有管理端样式，仅追加 task-table 专属样式（表格行交替背景色）。
+
+---
+
+## 9. 评分页面（score.js）关键模式
 
 **双键盘系统：**
 - 自定义屏幕键盘（quick-score chip 网格 + numpad）
@@ -174,7 +228,7 @@ var COLOR_MAP = {
 
 ---
 
-## 9. 评分结果导出
+## 10. 评分结果导出
 
 `resultBehavior.js` 支持：
 - 按部门/身份/分组过滤
@@ -183,7 +237,7 @@ var COLOR_MAP = {
 
 ---
 
-## 10. 模块特定禁止事项
+## 11. 模块特定禁止事项
 
 - ❌ 在 admin.js 主文件中添加大段业务逻辑 → 放 Behavior
 - ❌ Behavior 中不调用 `this.setLoading()` → 由 admin.js 提供

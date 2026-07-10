@@ -30,6 +30,19 @@ venue/
 | 预约 | 用户自己的预约，含 `computeDisplayStatus()` 状态机 + flowTimeline |
 | 审批 | 当前用户待审批项，30s 轮询 + 签名检测 |
 
+**Display 状态机 (`computeDisplayStatus`)：** 将 DB `status` 映射为 UI displayStatus，涉及当前时间比较：
+
+| DB status | displayStatus | 条件 |
+|-----------|--------------|------|
+| `pending` | `pending` | — |
+| `rejected` | `rejected` | — |
+| `cancelled` | `cancelled` | — |
+| `approved` | `inUse` | now 在 [time_start, time_end] 范围内 |
+| `approved` | `completed` | now > time_end |
+| `approved` | `approved` | now < time_start（尚未开始） |
+
+**规则：** 修改预约状态相关逻辑时，必须确认这 6 个 displayStatus 的转换都正确。
+
 ### 2.2 拖拽时间轴
 
 **这是场地模块最复杂的交互。**
@@ -115,7 +128,15 @@ Rules Popup
 ├── 规则编辑器弹窗
 │   ├── 周期类型选择 (daily/weekly/monthly/yearly/range)
 │   ├── 时间字段
-│   └── 预约规则类型: admin/flow/direct
+│   └── 预约规则类型: direct | identity | person | admin | flow
+│       │
+│       │  ⚠️ 互斥关系：direct 类型与其他所有类型互斥
+│       │     - direct: 提交即自动通过
+│       │     - identity: 特定身份可审批（含 scope 条件）
+│       │     - person: 指定具体人员审批
+│       │     - admin: 任意管理员审批
+│       │     - flow: 多步骤审批流（见下方编辑器）
+│       │
 │       └── 审批流编辑器（仅 flow 类型）
 │           ├── 步骤列表（可上下排序）
 │           └── 步骤条件
@@ -150,6 +171,8 @@ buildFlowTimeline(approvalProgress) → Array<{
 ```
 
 预计算所有渲染数据，WXML 零逻辑。**三个页面共用此工具**（venueBooking、venueManage、pendingVenueApprovals）。
+
+> ⚠️ 注意：`audit` 模块的 `submissionDetail.js` 有**自己独立的** flowTimeline 构建逻辑（内联在页面 JS 中），与 venue 的 `utils/flowTimeline.js` 是两个不同的实现，不可混用。
 
 ---
 

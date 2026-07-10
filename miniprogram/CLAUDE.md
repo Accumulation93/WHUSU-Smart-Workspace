@@ -17,6 +17,39 @@ pages/<pageName>/
 
 每个组件同理：4 个同名文件在组件目录下。
 
+### 1.1 新增页面/分包
+
+**新增页面步骤：**
+
+1. 在对应目录下创建 4 个文件（js/wxml/wxss/json）
+2. 在 `app.json` 中注册：
+   - 主包页面 → `pages` 数组
+   - 分包页面 → `subPackages[].pages` 数组
+3. 分包 root 路径规范：
+   ```json
+   {
+     "root": "subpackages/<模块名>",
+     "name": "<模块名>",
+     "pages": ["pages/<页面名>/<页面名>"]
+   }
+   ```
+   ⚠️ `root` 和 `pages` 路径共用前缀时不需要重复（如 `root: "subpackages/audit"`，page: `"pages/mySubmissions/mySubmissions"`）
+
+**关键约束：**
+- 主包总大小 ≤ 2MB（微信强制限制）
+- 单个分包 ≤ 2MB
+- 所有分包总大小 ≤ 20MB
+- 尽量用 `lazyCodeLoading: "requiredComponents"`（已在 app.json 中启用）
+
+### 1.2 app.js 的特殊 require
+
+```javascript
+// app.js
+require('./utils/tableFile.js');  // ⚠️ 必须保留！
+```
+
+即使 `onLaunch` 是空的，这个 `require` **绝对不能删除**。`tableFile.js` 导出的 CSV/Excel 解析功能被多处间接引用，删除会导致编译通过但运行时异常。
+
 ---
 
 ## 2. 全局样式冲突 — 最高优先级注意事项

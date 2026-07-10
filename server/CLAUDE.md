@@ -27,8 +27,15 @@ server/src/
 ├── middleware/
 │   ├── auth.js               # JWT Bearer → req.openid
 │   └── requestContext.js     # UUID 请求 ID
-├── routes/                   # 15 个路由文件（全部 POST，Router()）
-├── models/                   # 20 个 Model 文件（原生 SQL）
+├── core/                     # 核心模块：认证、组织、部门、身份、分组、HR、系统
+│   ├── routes/               # 12 个核心路由
+│   └── models/               # 12 个核心 Model
+├── modules/
+│   ├── scoring/ {routes, models, utils}/
+│   ├── audit/   {routes, models, utils}/
+│   └── venue/   {routes, models, utils}/
+├── routes/                   # （空，历史遗留 — 所有路由已迁移到 core/ 或 modules/）
+├── models/                   # （空，历史遗留）
 ├── utils/
 │   ├── helpers.js            # safeString, generateId, toNumber, roundScore
 │   ├── csv.js                # CSV 解析
@@ -110,7 +117,25 @@ module.exports = { getById, create };
 **规则：**
 - 所有查询通过 `pool.query()`（参数化查询防 SQL 注入）
 - 所有数据由 `org_id` 隔离：`WHERE org_id = ?`
-- `generateId()` 生成 64 位 base-62 随机主键
+- `generateId()` 生成 64 位十六进制随机主键（`crypto.randomBytes(32).toString('hex')`）
+- **事务支持：** Model 函数接受可选的 `conn` 参数，传入则使用该连接（事务内），不传则使用 pool
+
+### 4.3 事务模式 (withTransaction)
+
+```javascript
+// config/db.js 提供 withTransaction 辅助函数
+const { withTransaction } = require('../config/db');
+
+await withTransaction(async (conn) => {
+  // conn 是一个独立连接，已 BEGIN TRANSACTION
+  const id = await someModel.create(data, conn);      // 传入 conn
+  await anotherModel.update(otherId, changes, conn);  // 传入 conn
+  // 成功 → 自动 COMMIT，失败 → 自动 ROLLBACK
+  // 无论成功或失败 → 自动 release 连接
+});
+```
+
+**规则：** 涉及多表写入的操作必须使用事务。Model 层所有写操作都接受可选的 `conn` 参数。
 
 ---
 
@@ -136,9 +161,14 @@ PUBLIC_PATHS = ['/api/ping', '/api/health', '/api/userLogin', '/api/adminLogin']
 // config/db.js — mysql2/promise 连接池
 const pool = mysql.createPool({
   host, port, user, password, database,
-  connectionLimit: 10,
-  charset: 'utf8mb4'
+  connectionLimit: 50,        // 最大连接数
+  queueLimit: 200,            // 排队上限
+  charset: 'utf8mb4',
+  timezone: '+08:00',
+  connectTimeout: 5000,
+  enableKeepAlive: true
 });
+// 每个新连接执行：SET SESSION max_execution_time = 15000 (15s 查询超时)
 ```
 
 **所有 SQL 查询必须参数化：**
@@ -180,7 +210,62 @@ logger.info(msg, { event, ... })   // 结构化 JSON 日志
 
 ---
 
-## 9. 上传文件处理
+## 9. 关键服务端模块
+
+### 9.1 组织上下文 (`utils/orgContext.js`)
+
+```javascript
+const orgId = await getCurrentOrgId();
+// 30 秒 TTL 内存缓存，从 system_config.current_organization 读取
+// clearOrgCache() 在组织切换后调用
+```
+
+**所有 org-scoped Model 必须先 `await getCurrentOrgId()` 再查询。**
+
+### 9.2 评分计算引擎 (`modules/scoring/utils/scoreCalc.js` — 658 行)
+
+**管理端和用户端共用的评分计算核心。** 关键保证：
+
+1. 评分人的**当前**身份/部门必须匹配 `rate_target_rule`（身份变更使旧记录失效）
+2. 模板配置签名必须与当前配置一致（过时记录标记但不排除；无签名记录自动修复）
+3. `requireAllComplete` 规则 — 不完整的 scorer-clause 组合被排除
+4. 分数按 (targetId, scorerCategoryKey, templateId) 三维分组
+5. 计算方式：`weighted_average` 或 `trim_extremes`，管理端和用户端完全一致
+6. Legacy → structured 签名自动规范化
+
+### 9.3 共享缓存 (`modules/scoring/utils/sharedCache.js`)
+
+```sql
+-- MySQL 背书的跨 PM2 实例缓存
+CREATE TABLE _shared_cache (
+  cache_key VARCHAR(255) PRIMARY KEY,
+  cache_data LONGTEXT,      -- JSON 序列化
+  expires_at DATETIME
+);
+```
+
+- 自动建表，每 5 分钟过期清理
+- `pubCache.js` 包装 5 分钟 TTL + Map ↔ JSON 序列化
+- 新评分提交后自动失效
+
+### 9.4 文件安全 (`modules/audit/utils/fileSecurity.js`)
+
+- 上传目录 `server/uploads/audit/` + `_tmp/` 临时目录
+- 最大 10MB，仅 PNG/JPEG/WEBP/PDF
+- **Magic-byte 检测**（不仅校验声明的 MIME 类型）
+- HMAC-SHA256 签名上传 token（30 分钟 TTL，timing-safe 比较）
+- 多层授权：admin / submitter / approver / verification permission
+
+### 9.5 哈希链 (`modules/audit/utils/hashChain.js`)
+
+- `hashFile(buffer)` — SHA-256 文件哈希
+- `computeSignatureHash()` — 绑定签名元数据（位置/页面/大小/旋转/轮次/前一哈希/文档哈希）
+- `verifySignatureChain()` — 按 (file_id, round) 分组，验证链式完整性 + 哈希一致性
+- 同时支持当前和 legacy 哈希算法（向后兼容）
+
+---
+
+## 10. 上传文件处理
 
 - `uploadAuditFile` 使用 multer 处理 multipart 文件
 - 文件大小限制 15MB（`MAX_UPLOAD_JSON_BODY_BYTES`）
@@ -188,7 +273,7 @@ logger.info(msg, { event, ... })   // 结构化 JSON 日志
 
 ---
 
-## 10. 部署相关
+## 11. 部署相关
 
 **PM2：** `ecosystem.config.js` — 2 个集群实例 + 备份守护进程，最大内存 512MB
 
@@ -200,7 +285,7 @@ logger.info(msg, { event, ... })   // 结构化 JSON 日志
 
 ---
 
-## 11. 模块业务路由速查
+## 12. 模块业务路由速查
 
 | 路由文件 | 挂载路径 | 功能 |
 |----------|---------|------|
@@ -220,7 +305,7 @@ logger.info(msg, { event, ... })   // 结构化 JSON 日志
 
 ---
 
-## 12. 服务端特定禁止事项
+## 13. 服务端特定禁止事项
 
 - ❌ SQL 字符串拼接 → 只用参数化查询
 - ❌ 响应格式不一致 → 统一 `{ status: 'success'|'error', ... }`

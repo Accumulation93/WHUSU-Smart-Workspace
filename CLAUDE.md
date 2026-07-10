@@ -352,6 +352,18 @@ const index = Number(e.currentTarget.dataset.index);
 
 **键盘面板使用 `wx:if`**（不显示时不创建），减少 DOM 节点。Ghost card 也使用 `wx:if`。
 
+### 5.14 微信 Canvas 的 DPR 坐标漂移
+
+WeChat Canvas 在不同设备上存在 DPR（device pixel ratio）差异，导致触摸坐标与实际绘制位置偏移。项目中最复杂的 Canvas 使用场景是 signaturePad 组件，其五层防御策略：
+
+1. **双源测量** — `fields({ node: true, size: true })` + `boundingClientRect`，以 boundingClientRect 为准
+2. **rpx 自动检测和转换** — rect 尺寸超过 `screenWidth * 1.2` 则假定为 rpx
+3. **touchStart 时重验证** — 首次触摸时重新测量，确保布局已稳定
+4. **每次绘制前重设 transform** — `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)`，防御 WeChat setData 重置 context
+5. **边框在 wrapper 上** — Canvas 本身的 `boundingClientRect` 精确匹配可绘制区域
+
+**规则：** 任何 Canvas 操作前，必须用 `boundingClientRect` + DPR 做坐标对齐。详见 `miniprogram/subpackages/audit/CLAUDE.md` 第 3 节。
+
 ---
 
 ## 6. API 契约
@@ -480,6 +492,34 @@ refactor(notification): 通知模块从持久化改为实时查询
 - [ ] 无 JS 运行时错误
 - [ ] setData 调用不发送多余字段
 - [ ] 微信开发者工具中可见组件渲染正确
+
+### 8.4 跨模块影响速查
+
+**修改以下文件时，必须同步检查受影响的模块：**
+
+| 修改文件 | 必须检查的文件 |
+|----------|---------------|
+| `venueBooking.js` | `venueManage.js`、`myVenueBookings.js`、`pendingVenueApprovals.js`（共享区间算法和 flowTimeline） |
+| `venueManage.js` | `venueBooking.js`（共享时间验证逻辑）、`venueBookings.js`（重定向目标） |
+| `flowTimeline.js`（venue） | `venueBooking.wxml`、`venueManage.wxml`、`pendingVenueApprovals.wxml`（三页面共用） |
+| `submissionDetail.js`（audit） | `pendingApprovals.js`、`myApprovalHistory.js`（审批操作后刷新列表） |
+| `adminUtils.js`（scoring） | 所有 12 个 Behavior 文件（每个都可能引用 adminUtils 的函数） |
+| `sharedApi.js`（scoring） | 所有 11 个 Behavior 文件（依赖 `callCloud()`） |
+| `api.js`（全局） | 所有页面和 Behavior（callFunction 是所有 API 调用的入口） |
+| `eventBus.js`（全局） | `portal.js`、`venueBooking.js`、`myVenueBookings.js`、`pendingVenueApprovals.js` |
+| `app.wxss` / `home.wxss` | **不得修改** — 影响所有页面 |
+| `blue-polish.wxss`（audit/venue） | **不得修改** — 影响整个 audit 或 venue 模块 |
+
+### 8.5 高频修改陷阱
+
+| 场景 | 常见遗漏 |
+|------|---------|
+| 新增页面 | 忘记在 `app.json` 的 `subPackages[].pages` 数组注册 |
+| 新增 API | 只改前端 `callFunction` 调用，忘记后端注册路由到 `index.js` |
+| 修改 setData 字段名 | 只改 JS，忘记同步改 WXML 中的绑定 |
+| 删除函数 | 只删定义，忘记搜索所有调用处 |
+| 修改函数签名 | 忘记更新所有 Behavior 和页面中的调用 |
+| 拖拽相关修改 | 忘记测试 `dragActive: false` 重置（否则页面滚动永久禁用） |
 
 ---
 

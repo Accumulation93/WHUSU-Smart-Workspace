@@ -44,10 +44,22 @@ audit/
 
 1. 加载 `getSubmissionDetail` → 返回 submission + steps + files + signatures + 角色标志
 2. 构建 `flowTimeline`（按 round 分组，含状态节点样式）
+
+> ⚠️ 此处的 flowTimeline 构建逻辑在 `submissionDetail.js` **内部**实现，与 venue 模块的 `utils/flowTimeline.js` 是独立的两个实现。不要尝试用 venue 的版本替换。
 3. 检测 `activeApprovalStepId` → 高亮当前审批步骤
 4. **两种审批路径：**
    - **弹窗审批**（`openApprove`/`openReject`）— 传统弹窗 + 评论
    - **内联审批**（`confirmApprovalDirect`）— 直接页面内操作，主 UX 路径
+
+**Round（轮次）概念：** 审核流程支持多次提交。每次驳回后重新提交（resubmit），round 递增。timeline 按 round 分组，已完成的前一轮步骤折叠隐藏。
+
+**Resubmit 两种模式：**
+| 模式 | 行为 |
+|------|------|
+| `fresh` | 从第 1 步重新开始（全新审核） |
+| `from_rejector` | 从驳回步骤继续（仅驳回步骤的审批人重新审批） |
+
+**Step 状态：** `pending` → `approved` ✓ / `rejected` ✗ / `superseded`（被新 round 覆盖）
 
 ### 2.4 签名/签章定位系统
 
@@ -148,7 +160,46 @@ wx.chooseImage({ count: 1 });
 
 ---
 
-## 7. 状态枚举（本地定义，无共享枚举文件）
+## 7. 通知系统
+
+审核模块有完整的通知系统（`server/src/modules/audit/routes/notification.js`，260 行）：
+
+**通知类型（7 种）：**
+| 类型 | 触发时机 |
+|------|---------|
+| `pending_approval` | 有新的待审批项需要处理 |
+| `submission_approved` | 提交被通过 |
+| `submission_rejected` | 提交被驳回 |
+| `submission_progress` | 提交进度更新（步骤推进） |
+| `booking_approved` | 场地预约通过 |
+| `booking_rejected` | 场地预约被驳回 |
+| 其他 | — |
+
+**关键机制：**
+- **14 天自动清理** — 过期通知自动删除
+- **自愈对账** — `hasPendingApprovalNotification()` 检查是否存在对应通知，不存在则自动创建
+- **批量创建** — `batchCreate()` 上限 200 条
+- **定向删除** — `deleteByTarget()` 审批操作后清理旧通知
+
+---
+
+## 8. 未读标记（Read Cursors）
+
+`mySubmissions` 的未读状态是通过**服务端 read cursors 机制**实现的，不是客户端本地状态：
+
+```javascript
+// 查看详情时自动标记已读
+await callFunction({ name: 'markSubmissionRead', data: { submissionId } });
+
+// 一键标记全部已读
+await callFunction({ name: 'markAllSubmissionsRead' });
+```
+
+**规则：** 每次打开 submissionDetail 后必须调用 `markSubmissionRead`。未读标记（红点 + 左边框强调色）由服务端返回的 `isUnread` 字段控制。
+
+---
+
+## 9. 状态枚举（本地定义，无共享枚举文件）
 
 每个页面硬编码自己的 status→label 映射：
 
@@ -163,7 +214,7 @@ wx.chooseImage({ count: 1 });
 
 ---
 
-## 8. 模块特定禁止事项
+## 10. 模块特定禁止事项
 
 - ❌ 修改 `submissionDetail` 不测试创建和审批两条完整路径
 - ❌ 改动 signaturePad 不测试 iOS 和 Android 双端（Canvas DPR 差异）
