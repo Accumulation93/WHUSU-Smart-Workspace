@@ -13,6 +13,9 @@ async function ensureAdmin(openid) {
 // listWorkGroups
 router.post('/listWorkGroups', async (req, res) => {
   try {
+    const openid = req.openid;
+    if (!openid) return res.json({ status: 'forbidden', message: '未登录' });
+
     const departments = await departmentModel.getAll();
     const departmentsById = new Map(departments.map((d) => [d.id, safeString(d.name)]));
 

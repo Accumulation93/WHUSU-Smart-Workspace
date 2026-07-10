@@ -538,8 +538,9 @@ module.exports = Behavior({
       const field = e.currentTarget.dataset.field;
       const options = field === 'identity' ? this.data.desigFilterIdentOptions : this.data.desigFilterDeptOptions;
       const value = options[Number(e.detail.value)] || '全部';
-      if (field === 'department') this.setData({ desigFilterDept: value }); else this.setData({ desigFilterIdent: value });
-      this.setData({ designationPickerFilteredList: this.applyDesigFilters() });
+      const patch = { designationPickerFilteredList: this.applyDesigFilters() };
+      if (field === 'department') patch.desigFilterDept = value; else patch.desigFilterIdent = value;
+      this.setData(patch);
     },
 
     onDesigSearchInput(e) { this.setData({ desigSearchKeyword: e.detail.value, designationPickerFilteredList: this.applyDesigFilters() }); },

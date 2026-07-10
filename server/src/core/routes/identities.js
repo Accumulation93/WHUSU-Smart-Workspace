@@ -12,6 +12,9 @@ async function ensureAdmin(openid) {
 // listIdentities
 router.post('/listIdentities', async (req, res) => {
   try {
+    const openid = req.openid;
+    if (!openid) return res.json({ status: 'forbidden', message: '未登录' });
+
     const rows = await identityModel.getAll();
     const identities = rows.map((item) => ({
       id: safeString(item.id),

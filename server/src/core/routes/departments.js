@@ -12,6 +12,9 @@ async function ensureAdmin(openid) {
 // listDepartments
 router.post('/listDepartments', async (req, res) => {
   try {
+    const openid = req.openid;
+    if (!openid) return res.json({ status: 'forbidden', message: '未登录' });
+
     const rows = await departmentModel.getAll();
     const departments = rows.map((item) => ({
       id: safeString(item.id),

@@ -82,6 +82,10 @@ const TEMPLATE_KEY = 'default_hr_profile_template';
 // listHrInfo
 router.post('/listHrInfo', async (req, res) => {
   try {
+    const openid = req.openid;
+    const admin = await adminInfoModel.getByOpenid(openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+
     const orgId = await getCurrentOrgId();
     const [rows] = await pool.query(
       `SELECT h.*, d.name as department_name, i.name as identity_name, wg.name as work_group_name
@@ -113,6 +117,10 @@ router.post('/listHrInfo', async (req, res) => {
 // saveHrInfo
 router.post('/saveHrInfo', async (req, res) => {
   try {
+    const openid = req.openid;
+    const admin = await adminInfoModel.getByOpenid(openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
@@ -143,6 +151,10 @@ router.post('/saveHrInfo', async (req, res) => {
 // deleteHrInfo
 router.post('/deleteHrInfo', async (req, res) => {
   try {
+    const openid = req.openid;
+    const admin = await adminInfoModel.getByOpenid(openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供人事ID' });
     await hrInfoModel.remove(id);

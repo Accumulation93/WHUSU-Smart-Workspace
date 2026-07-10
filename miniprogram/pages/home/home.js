@@ -1298,14 +1298,14 @@ Page({
     const field = e.currentTarget.dataset.field;
     const options = field === 'identity' ? this.data.userDesigFilterIdentOptions : this.data.userDesigFilterDeptOptions;
     const value = options[Number(e.detail.value)] || '全部';
-    if (field === 'department') this.setData({ userDesigFilterDept: value });
-    else this.setData({ userDesigFilterIdent: value });
-    this.setData({ userDesigFilteredList: this.applyUserDesigFilters() });
+    const patch = { userDesigFilteredList: this.applyUserDesigFilters() };
+    if (field === 'department') patch.userDesigFilterDept = value;
+    else patch.userDesigFilterIdent = value;
+    this.setData(patch);
   },
 
   onUserDesigSearchInput(e) {
-    this.setData({ userDesigSearchKeyword: e.detail.value });
-    this.setData({ userDesigFilteredList: this.applyUserDesigFilters() });
+    this.setData({ userDesigSearchKeyword: e.detail.value, userDesigFilteredList: this.applyUserDesigFilters() });
   },
 
   async saveUserDesignations() {

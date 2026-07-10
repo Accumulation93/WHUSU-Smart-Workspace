@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { safeString, toNumber } = require('../../utils/helpers');
 const systemConfigModel = require('../models/systemConfig');
+const adminInfoModel = require('../models/adminInfo');
 
 // getSystemConfig
 router.post('/getSystemConfig', async (req, res) => {
@@ -22,6 +23,10 @@ router.post('/getSystemConfig', async (req, res) => {
 // saveSystemConfig
 router.post('/saveSystemConfig', async (req, res) => {
   try {
+    const openid = req.openid;
+    const admin = await adminInfoModel.getByOpenid(openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+
     const timezone = toNumber(req.body.timezone, 8);
     const currentOrganization = safeString(req.body.currentOrganization);
 
