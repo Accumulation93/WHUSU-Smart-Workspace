@@ -1566,7 +1566,6 @@ module.exports = Behavior({
 
           this.setData({
             auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
-auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
             auditSubmissionDetailVisible: true
           });
         } else {
