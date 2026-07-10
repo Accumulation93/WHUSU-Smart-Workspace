@@ -69,7 +69,7 @@ Page({
   },
 
   onPullDownRefresh() {
-    var that = this;
+    let that = this;
     this.loadData().then(function() {
       wx.stopPullDownRefresh();
     });
@@ -78,7 +78,7 @@ Page({
   // ═══ Polling ═══
   startPolling() {
     this.stopPolling();
-    var that = this;
+    let that = this;
     this._pollTimer = setInterval(function() {
       if (that._isPageVisible) {
         that.checkForUpdates();
@@ -95,11 +95,11 @@ Page({
 
   async checkForUpdates() {
     try {
-      var res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
+      let res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
       if (res.status === 'success') {
-        var pending = res.pending || [];
-        var count = pending.length;
-        var signature = this._buildPendingSignature(pending);
+        let pending = res.pending || [];
+        let count = pending.length;
+        let signature = this._buildPendingSignature(pending);
         if (count !== this.data.lastPendingCount || signature !== this.data.lastPendingSignature) {
           this.loadData();
         } else if (count > 0) {
@@ -114,9 +114,9 @@ Page({
   async loadData() {
     this.setData({ loading: true });
     try {
-      var res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
+      let res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
       if (res.status === 'success') {
-        var pending = (res.pending || []).map(function(item) {
+        let pending = (res.pending || []).map(function(item) {
           if (item.approvalTotalSteps > 0) {
             item._approvalPercent = Math.round(item.approvalCurrentStep / item.approvalTotalSteps * 100);
           } else {
@@ -153,16 +153,16 @@ Page({
   },
 
   _formatTime() {
-    var now = new Date();
-    var pad = function(n) { return String(n).padStart(2, '0'); };
+    let now = new Date();
+    let pad = function(n) { return String(n).padStart(2, '0'); };
     return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
   },
 
   // ═══ Approval actions ═══
 
   openApprove(e) {
-    var id = e.currentTarget.dataset.id;
-    var item = this.data.pending.find(function(p) { return p.id === id; });
+    let id = e.currentTarget.dataset.id;
+    let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
     this.setData({
       approvalVisible: true,
@@ -173,8 +173,8 @@ Page({
   },
 
   openReject(e) {
-    var id = e.currentTarget.dataset.id;
-    var item = this.data.pending.find(function(p) { return p.id === id; });
+    let id = e.currentTarget.dataset.id;
+    let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
     this.setData({
       approvalVisible: true,
@@ -193,19 +193,19 @@ Page({
   },
 
   async submitApproval() {
-    var that = this;
-    var target = this.data.approvalTarget;
-    var action = this.data.approvalAction;
-    var comment = this.data.approvalComment;
+    let that = this;
+    let target = this.data.approvalTarget;
+    let action = this.data.approvalAction;
+    let comment = this.data.approvalComment;
 
     if (!target || !action) return;
 
-    var endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
-    var actionLabel = action === 'approve' ? '通过' : '驳回';
+    let endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
+    let actionLabel = action === 'approve' ? '通过' : '驳回';
 
     this.setData({ approvalSubmitting: true });
     try {
-      var res = await callFunction({
+      let res = await callFunction({
         name: endpoint,
         data: { id: target.id, comment: comment }
       });
@@ -214,8 +214,8 @@ Page({
         that.closeApproval();
 
         // Optimistic UI: update local state immediately, sync in background
-        var targetId = target.id;
-        var pending = that.data.pending.slice();
+        let targetId = target.id;
+        let pending = that.data.pending.slice();
 
         if (action === 'approve' && res.approvalProgress) {
           if (res.approvalProgress.isApproved) {
@@ -223,12 +223,12 @@ Page({
             pending = pending.filter(function(p) { return p.id !== targetId; });
           } else {
             // Middle step → update step info in place
-            var idx = -1;
-            for (var pi = 0; pi < pending.length; pi++) {
+            let idx = -1;
+            for (let pi = 0; pi < pending.length; pi++) {
               if (pending[pi].id === targetId) { idx = pi; break; }
             }
             if (idx >= 0) {
-              var updated = Object.assign({}, pending[idx], {
+              let updated = Object.assign({}, pending[idx], {
                 approvalCurrentStep: res.approvalProgress.currentStep,
                 _approvalPercent: Math.round(res.approvalProgress.currentStep / pending[idx].approvalTotalSteps * 100)
               });
@@ -275,8 +275,8 @@ Page({
   // ═══ Navigation ═══
 
   viewDetail(e) {
-    var id = e.currentTarget.dataset.id;
-    var item = this.data.pending.find(function(p) { return p.id === id; });
+    let id = e.currentTarget.dataset.id;
+    let item = this.data.pending.find(function(p) { return p.id === id; });
     if (item) {
       this.setData({
         approvalVisible: true,
@@ -289,7 +289,7 @@ Page({
 
   // ── Expandable flow ──
   toggleFlowNode(e) {
-    var key = e.currentTarget.dataset.nodeKey;
+    let key = e.currentTarget.dataset.nodeKey;
     this.setData({ expandedNodeKey: this.data.expandedNodeKey === key ? '' : key });
   },
 

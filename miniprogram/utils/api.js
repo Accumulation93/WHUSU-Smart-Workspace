@@ -16,11 +16,11 @@ function callFunction(options) {
     return rejected;
   }
 
-  var settled = false;
-  var timer = null;
-  var requestTask = null;
+  let settled = false;
+  let timer = null;
+  let requestTask = null;
 
-  var promise = new Promise(function(resolve, reject) {
+  const promise = new Promise(function(resolve, reject) {
     function settle(err, result) {
       if (settled) return;
       settled = true;
@@ -85,11 +85,12 @@ function callFunction(options) {
 
 function showShortToast(title, icon) {
   if (!icon) icon = 'none';
-  wx.showToast({ title: title, icon: icon });
+  const t = String(title || '');
+  wx.showToast({ title: t.length > 7 ? t.slice(0, 7) + '…' : t, icon: icon });
 }
 
 function getErrorText(error, fallback) {
-  var text = String((error && (error.errMsg || error.message)) || '').trim();
+  const text = String((error && (error.errMsg || error.message)) || '').trim();
   return text || fallback;
 }
 
@@ -101,7 +102,7 @@ function getErrorText(error, fallback) {
 function formatAuditTime(raw) {
   if (!raw) return '';
   try {
-    var d;
+    let d;
     if (raw.indexOf('T') !== -1) {
       // ISO 8601 — parse as UTC, display in local
       d = new Date(raw);
@@ -110,7 +111,7 @@ function formatAuditTime(raw) {
       d = new Date(raw.replace(' ', 'T') + '+08:00');
     }
     if (isNaN(d.getTime())) return raw;
-    var pad = function(n) { return String(n).padStart(2, '0'); };
+    const pad = function(n) { return String(n).padStart(2, '0'); };
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
   } catch (_) {
     return raw;

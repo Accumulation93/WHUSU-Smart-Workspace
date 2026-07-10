@@ -154,7 +154,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     let starterConditionsJson = null;
     if (starterConditions.length) {
       starterConditionsJson = JSON.stringify(starterConditions.map(function(c) {
-        var cond = { conditionType: c.conditionType };
+        let cond = { conditionType: c.conditionType };
         if (c.conditionType === 'person') {
           cond.personHrIds = c.personHrIds || '';
         } else {
@@ -216,8 +216,8 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           ' conditionsProvided=' + conditions.length +
           ' hasLegacyType=' + !!(step.approverType || step.approverIdentityId || step.approverHrId));
         if (conditions.length) {
-          for (var ci2 = 0; ci2 < conditions.length; ci2++) {
-            var cc = conditions[ci2];
+          for (let ci2 = 0; ci2 < conditions.length; ci2++) {
+            let cc = conditions[ci2];
             console.log('[audit:saveTemplate] step[' + i + '] cond[' + ci2 + '] type=' + cc.conditionType +
               ' deptScope=' + (cc.departmentScope || 'all') +
               ' specDept=' + (cc.specificDepartmentId || 'none') +
@@ -416,6 +416,8 @@ router.post('/saveStampAssignments', async (req, res) => {
 // listIdentityStamps — Get stamps available for an identity
 router.post('/listIdentityStamps', async (req, res) => {
   try {
+    const openid = req.openid;
+    const admin = await ensureAdmin(openid);
     const identityId = safeString(req.body.identityId);
     if (!identityId) {
       return res.json({ status: 'invalid_params', message: '请提供身份ID' });

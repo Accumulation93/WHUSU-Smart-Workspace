@@ -228,9 +228,9 @@ Page({
   },
 
   onTemplateSelect(e) {
-    var id = e.currentTarget.dataset.id;
+    let id = e.currentTarget.dataset.id;
     // Toggle: tap selected item to deselect
-    var newId = this.data.selectedTemplateId === id ? '' : id;
+    let newId = this.data.selectedTemplateId === id ? '' : id;
     this.setData({
       selectedTemplateId: newId,
       templatePreviewSteps: [],
@@ -244,11 +244,11 @@ Page({
   // Load template steps preview for step-level person override
   async loadTemplatePreview(templateId) {
     try {
-      var res = await callFunction({ name: 'previewTemplateSteps', data: { templateId: templateId } });
+      let res = await callFunction({ name: 'previewTemplateSteps', data: { templateId: templateId } });
       if (res.status === 'success') {
-        var steps = res.steps || [];
+        let steps = res.steps || [];
         // Initialize overrides: auto mode for all steps
-        var overrides = steps.map(function(s) {
+        let overrides = steps.map(function(s) {
           return {
             stepIndex: s.stepIndex,
             mode: 'auto',
@@ -269,9 +269,9 @@ Page({
 
   // Toggle step override mode between 'auto' (anyone with role) and 'specific' (chosen persons)
   onTemplateStepModeToggle(e) {
-    var stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
-    var overrides = [...this.data.templateStepOverrides];
-    var entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
+    let stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+    let overrides = [...this.data.templateStepOverrides];
+    let entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
     if (entry) {
       entry.mode = entry.mode === 'auto' ? 'specific' : 'auto';
       if (entry.mode === 'auto') {
@@ -284,17 +284,17 @@ Page({
 
   // Open person picker for a specific template step override
   async openTemplateStepPersonPicker(e) {
-    var stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+    let stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
     // Load eligible approvers from server (stepIndex is 1-based in UI)
-    var eligibleList = [];
+    let eligibleList = [];
     try {
-      var res = await callFunction({ name: 'listEligibleApprovers', data: { templateId: this.data.selectedTemplateId, stepIndex: stepIndex } });
+      let res = await callFunction({ name: 'listEligibleApprovers', data: { templateId: this.data.selectedTemplateId, stepIndex: stepIndex } });
       if (res.status === 'success') {
         eligibleList = res.approvers || [];
         // Attach department/identity/workGroup names for filter compatibility
-        var deptMap = {};
-        var identMap = {};
-        var wgMap = {};
+        let deptMap = {};
+        let identMap = {};
+        let wgMap = {};
         (this.data.allDepartments || []).forEach(function(d) { deptMap[d.id] = d.name; });
         (this.data.allIdentities || []).forEach(function(i) { identMap[i.id] = i.name; });
         (this.data.allWorkGroups || []).forEach(function(w) { wgMap[w.id] = w.name; });
@@ -314,9 +314,9 @@ Page({
     this.setData({ personPickerEligibleList: eligibleList });
 
     // Pre-populate selected persons from existing override
-    var entry = (this.data.templateStepOverrides || []).find(function(o) { return o.stepIndex === stepIndex; });
-    var preSelectedIds = [];
-    var preSelectedList = [];
+    let entry = (this.data.templateStepOverrides || []).find(function(o) { return o.stepIndex === stepIndex; });
+    let preSelectedIds = [];
+    let preSelectedList = [];
     if (entry && entry.personHrIds && entry.personHrIds.length) {
       preSelectedIds = entry.personHrIds.slice();
       preSelectedList = eligibleList.filter(function(p) {
@@ -339,11 +339,11 @@ Page({
 
   // Confirm person picker for template step override
   confirmTemplateStepPersonPicker() {
-    var selected = this.data.personPickerSelectedList;
-    var stepIndex = this.data.templateOverrideStepIndex;
+    let selected = this.data.personPickerSelectedList;
+    let stepIndex = this.data.templateOverrideStepIndex;
     if (stepIndex < 0) return;
-    var overrides = [...this.data.templateStepOverrides];
-    var entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
+    let overrides = [...this.data.templateStepOverrides];
+    let entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
     if (!entry) {
       entry = { stepIndex: stepIndex, mode: 'specific', personHrIds: [], personHrNames: [] };
       overrides.push(entry);
@@ -359,12 +359,12 @@ Page({
 
   // Remove a person from a template step override
   removeTemplateStepOverridePerson(e) {
-    var stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
-    var hrId = e.currentTarget.dataset.hrId;
-    var overrides = [...this.data.templateStepOverrides];
-    var entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
+    let stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+    let hrId = e.currentTarget.dataset.hrId;
+    let overrides = [...this.data.templateStepOverrides];
+    let entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
     if (entry) {
-      var idx = entry.personHrIds.indexOf(hrId);
+      let idx = entry.personHrIds.indexOf(hrId);
       if (idx >= 0) {
         entry.personHrIds.splice(idx, 1);
         entry.personHrNames.splice(idx, 1);
@@ -547,7 +547,7 @@ Page({
 
     // If we're in next-step designation mode, save to designatedNextPersons
     if (this.data.personPickerMode === 'designateNext') {
-      var designatedList = this.data.personPickerSelectedList;
+      let designatedList = this.data.personPickerSelectedList;
       this.setData({
         designatedNextPersons: designatedList.map(function(p) { return { id: p.id, name: p.name }; }),
         personPickerVisible: false,
@@ -715,13 +715,13 @@ Page({
   },
 
   inferAuditFileMime(fileName, base64) {
-    var head = String(base64 || '').slice(0, 16);
+    let head = String(base64 || '').slice(0, 16);
     if (head.indexOf('iVBOR') === 0) return 'image/png';
     if (head.indexOf('/9j') === 0) return 'image/jpeg';
     if (head.indexOf('UklGR') === 0) return 'image/webp';
     if (head.indexOf('JVBER') === 0) return 'application/pdf';
 
-    var lowerName = String(fileName || '').toLowerCase();
+    let lowerName = String(fileName || '').toLowerCase();
     if (lowerName.endsWith('.png')) return 'image/png';
     if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg')) return 'image/jpeg';
     if (lowerName.endsWith('.webp')) return 'image/webp';
@@ -730,7 +730,7 @@ Page({
   },
 
   validateAuditUploadFile(fileName, fileSize, base64) {
-    var mimeType = this.inferAuditFileMime(fileName, base64);
+    let mimeType = this.inferAuditFileMime(fileName, base64);
     if (!mimeType || AUDIT_ALLOWED_MIMES.indexOf(mimeType) < 0) {
       return { ok: false, message: '仅支持 PNG/JPG/WEBP 图片或 PDF 文件' };
     }
@@ -871,7 +871,7 @@ Page({
       if (createMode === 'template') {
         if (!selectedTemplateId) { showShortToast('请选择审核流模板'); this.setData({ loading: false }); return; }
         // Collect step overrides from template step preview
-        var stepOverrides = (this.data.templateStepOverrides || [])
+        let stepOverrides = (this.data.templateStepOverrides || [])
           .filter(function(o) { return o.mode === 'specific' && o.personHrIds && o.personHrIds.length; })
           .map(function(o) { return { stepIndex: o.stepIndex, personHrIds: o.personHrIds }; });
         res = await callFunction({
@@ -926,16 +926,16 @@ Page({
         const currentStepIndex = res.submission.currentStepIndex || 0;
 
         // Build flow timeline from server events + steps
-        var serverEvents = res.events || [];
-        var rawSteps = res.steps || [];
-        var flowTimeline = [];
+        let serverEvents = res.events || [];
+        let rawSteps = res.steps || [];
+        let flowTimeline = [];
 
         console.log('[audit:loadDetail] submissionId=' + this.data.submissionId +
           ' rawSteps.length=' + rawSteps.length +
           ' serverEvents.length=' + serverEvents.length +
           ' diag=' + JSON.stringify(res._diag || {}));
         // Debug: log sortOrder of first few steps
-        for (var dsi = 0; dsi < Math.min(rawSteps.length, 4); dsi++) {
+        for (let dsi = 0; dsi < Math.min(rawSteps.length, 4); dsi++) {
           console.log('[audit:loadDetail] rawStep[' + dsi + '] sortOrder=' + rawSteps[dsi].sortOrder +
             ' sort_order=' + rawSteps[dsi].sort_order +
             ' round=' + rawSteps[dsi].round +
@@ -945,15 +945,15 @@ Page({
 
         // 1. Build lifecycle nodes from ALL server events — no filtering
         //    Every event (submit/withdraw/resubmit/approve/reject/edit) is part of the audit trail
-        var lifecycleEvents = serverEvents;
+        let lifecycleEvents = serverEvents;
 
         // Build a lookup map: key = round_stepIndex_eventType → operatorName
         // Used to resolve the ACTUAL operator (not the designated approver) for step nodes
-        var eventOperatorMap = {};
-        for (var eomi = 0; eomi < lifecycleEvents.length; eomi++) {
-          var eo = lifecycleEvents[eomi];
+        let eventOperatorMap = {};
+        for (let eomi = 0; eomi < lifecycleEvents.length; eomi++) {
+          let eo = lifecycleEvents[eomi];
           if ((eo.eventType === 'approve' || eo.eventType === 'reject') && eo.stepIndex != null) {
-            var eoKey = (eo.round || 1) + '_' + eo.stepIndex + '_' + eo.eventType;
+            let eoKey = (eo.round || 1) + '_' + eo.stepIndex + '_' + eo.eventType;
             eventOperatorMap[eoKey] = {
               operatorName: eo.operatorName || '',
               comment: eo.comment || '',
@@ -963,19 +963,19 @@ Page({
         }
 
         // 2. Group steps by round
-        var rounds = {};
-        for (var si = 0; si < rawSteps.length; si++) {
-          var s = rawSteps[si];
-          var r = s.round || 1;
+        let rounds = {};
+        for (let si = 0; si < rawSteps.length; si++) {
+          let s = rawSteps[si];
+          let r = s.round || 1;
           if (!rounds[r]) rounds[r] = [];
           rounds[r].push(s);
         }
-        var roundKeys = Object.keys(rounds).sort(function(a, b) { return Number(a) - Number(b); });
+        let roundKeys = Object.keys(rounds).sort(function(a, b) { return Number(a) - Number(b); });
 
         // 3. Find the first submit event (round 1)
-        var initialSubmit = null;
-        var usedEventIdx = 0;
-        for (var ei2 = 0; ei2 < lifecycleEvents.length; ei2++) {
+        let initialSubmit = null;
+        let usedEventIdx = 0;
+        for (let ei2 = 0; ei2 < lifecycleEvents.length; ei2++) {
           if (lifecycleEvents[ei2].eventType === 'submit' && lifecycleEvents[ei2].round === 1) {
             initialSubmit = lifecycleEvents[ei2];
             usedEventIdx = ei2 + 1;
@@ -998,17 +998,17 @@ Page({
         }
 
         // 4. For each round, show steps with lifecycle events between
-        var nextEventIdx = usedEventIdx;
+        let nextEventIdx = usedEventIdx;
 
-        for (var ri = 0; ri < roundKeys.length; ri++) {
-          var round = Number(roundKeys[ri]);
-          var roundSteps = rounds[round].sort(function(a, b) { return a.sortOrder - b.sortOrder; });
+        for (let ri = 0; ri < roundKeys.length; ri++) {
+          let round = Number(roundKeys[ri]);
+          let roundSteps = rounds[round].sort(function(a, b) { return a.sortOrder - b.sortOrder; });
 
           // If round > 1, show ALL lifecycle events between previous round and this round's resubmit
           if (round > 1) {
             // Find the resubmit event index for this round
-            var resubmitEvtIdx = -1;
-            for (var ei3 = nextEventIdx; ei3 < lifecycleEvents.length; ei3++) {
+            let resubmitEvtIdx = -1;
+            for (let ei3 = nextEventIdx; ei3 < lifecycleEvents.length; ei3++) {
               if (lifecycleEvents[ei3].eventType === 'resubmit' && lifecycleEvents[ei3].round === round) {
                 resubmitEvtIdx = ei3;
                 break;
@@ -1017,15 +1017,15 @@ Page({
 
             // Show ALL events BEFORE the resubmit (e.g., withdraw, edit)
             // that happened between the previous round and this resubmit
-            var untilIdx = resubmitEvtIdx >= 0 ? resubmitEvtIdx : lifecycleEvents.length;
-            for (var eiPre = nextEventIdx; eiPre < untilIdx; eiPre++) {
-              var interEvt = lifecycleEvents[eiPre];
+            let untilIdx = resubmitEvtIdx >= 0 ? resubmitEvtIdx : lifecycleEvents.length;
+            for (let eiPre = nextEventIdx; eiPre < untilIdx; eiPre++) {
+              let interEvt = lifecycleEvents[eiPre];
               if (interEvt.eventType === 'approve' || interEvt.eventType === 'reject') {
                 continue;
               }
-              var interIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
-              var interLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
-              var interStepLabel = '';
+              let interIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
+              let interLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
+              let interStepLabel = '';
               if ((interEvt.eventType === 'approve' || interEvt.eventType === 'reject') && interEvt.stepIndex) {
                 interStepLabel = '第' + interEvt.stepIndex + '步';
               }
@@ -1043,7 +1043,7 @@ Page({
             }
 
             if (resubmitEvtIdx >= 0) {
-              var resubmitEvt = lifecycleEvents[resubmitEvtIdx];
+              let resubmitEvt = lifecycleEvents[resubmitEvtIdx];
               flowTimeline.push({
                 _key: 'lifecycle_resubmit_r' + round,
                 type: 'lifecycle',
@@ -1072,15 +1072,15 @@ Page({
             }
           }
 
-          var hasProcessedSteps = false;
-          var hasFutureSteps = false;
+          let hasProcessedSteps = false;
+          let hasFutureSteps = false;
 
           // Determine the max round for hiding stale pending steps
-          var maxRoundForSteps = Math.max.apply(null, roundKeys.map(function(k) { return Number(k); }));
+          let maxRoundForSteps = Math.max.apply(null, roundKeys.map(function(k) { return Number(k); }));
 
-          for (var si2 = 0; si2 < roundSteps.length; si2++) {
-            var step = roundSteps[si2];
-            var flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
+          for (let si2 = 0; si2 < roundSteps.length; si2++) {
+            let step = roundSteps[si2];
+            let flowNodeClass, flowDotClass, flowIcon, flowStatusLabel, flowTagClass;
 
             // For non-last rounds, skip pending steps that were never reached
             // (they belong to a completed/abandoned round and would show as confusing "○ 未到达")
@@ -1090,8 +1090,8 @@ Page({
               continue;
             }
 
-            var approverDesc = step.approverDesc || '';
-            var conditionsDisplay = step.stepConditionsDisplay || [];
+            let approverDesc = step.approverDesc || '';
+            let conditionsDisplay = step.stepConditionsDisplay || [];
 
             // If the server approverDesc is empty or looks incomplete (no actual names),
             // try to build a better description from individual fields or conditions display
@@ -1105,8 +1105,8 @@ Page({
                 if (step.approverType === 'specific_person' || (step.approverName && step.approverName !== '未指定')) {
                   approverDesc = '由 ' + (step.approverName || '未指定') + ' 审批';
                 } else {
-                  var identName = step.approverIdentityName || '未指定身份';
-                  var scopeType = step.scopeType || 'all';
+                  let identName = step.approverIdentityName || '未指定身份';
+                  let scopeType = step.scopeType || 'all';
                   if (scopeType === 'all' || !scopeType) {
                     approverDesc = '由 全体 ' + identName + ' 审批';
                   } else if (scopeType === 'same_department') {
@@ -1114,12 +1114,12 @@ Page({
                   } else if (scopeType === 'same_work_group') {
                     approverDesc = '由 同职能组 ' + identName + ' 审批';
                   } else if (scopeType === 'specific_department') {
-                    var deptName = step.scopeDepartmentName || step.scopeDepartmentId || '指定部门';
+                    let deptName = step.scopeDepartmentName || step.scopeDepartmentId || '指定部门';
                     approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
                   } else if (scopeType === 'specific_work_group') {
-                    var deptName2 = step.scopeDepartmentName || '';
-                    var wgName = step.scopeWorkGroupName || '';
-                    var location = [deptName2, wgName].filter(Boolean).join('·') || '指定职能组';
+                    let deptName2 = step.scopeDepartmentName || '';
+                    let wgName = step.scopeWorkGroupName || '';
+                    let location = [deptName2, wgName].filter(Boolean).join('·') || '指定职能组';
                     approverDesc = '由 ' + location + ' ' + identName + ' 审批';
                   } else {
                     approverDesc = '由 ' + identName + ' 审批';
@@ -1128,10 +1128,10 @@ Page({
               }
             }
 
-            var actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
-            var actionLabel = actionMap[step.actionType] || step.actionType || '仅通过';
-            var completedStepLabelMap = { pass: '✓ 步骤已通过', sign: '✓ 已签字', estamp: '✓ 已盖章', both: '✓ 已签字盖章' };
-            var completedStepLabel = completedStepLabelMap[step.actionType] || '✓ 步骤已处理';
+            let actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+            let actionLabel = actionMap[step.actionType] || step.actionType || '仅通过';
+            let completedStepLabelMap = { pass: '✓ 步骤已通过', sign: '✓ 已签字', estamp: '✓ 已盖章', both: '✓ 已签字盖章' };
+            let completedStepLabel = completedStepLabelMap[step.actionType] || '✓ 步骤已处理';
 
             if (step.status === 'rejected') {
               flowNodeClass = 'flow-node-rejected';
@@ -1184,11 +1184,11 @@ Page({
             }
 
             // Look up the ACTUAL operator from the audit event (not the designated approver)
-            var eventKey = (step.round || 1) + '_' + step.sortOrder + '_' + (step.status === 'approved' ? 'approve' : 'reject');
-            var eventInfo = eventOperatorMap[eventKey] || {};
-            var actualOperatorName = eventInfo.operatorName || '';
-            var actualComment = eventInfo.comment || step.comment || '';
-            var actualProcessedAt = eventInfo.time || (step.processedAt ? formatAuditTime(step.processedAt) : '');
+            let eventKey = (step.round || 1) + '_' + step.sortOrder + '_' + (step.status === 'approved' ? 'approve' : 'reject');
+            let eventInfo = eventOperatorMap[eventKey] || {};
+            let actualOperatorName = eventInfo.operatorName || '';
+            let actualComment = eventInfo.comment || step.comment || '';
+            let actualProcessedAt = eventInfo.time || (step.processedAt ? formatAuditTime(step.processedAt) : '');
 
             flowTimeline.push({
               _key: 'step_' + step.id,
@@ -1225,14 +1225,14 @@ Page({
           }
 
           // Inject separator — only for the LAST round
-          var maxRound = Math.max.apply(null, roundKeys.map(function(k) { return Number(k); }));
+          let maxRound = Math.max.apply(null, roundKeys.map(function(k) { return Number(k); }));
           if (hasProcessedSteps && hasFutureSteps && round === maxRound) {
-            var remainingCount = roundSteps.filter(function(rs) {
+            let remainingCount = roundSteps.filter(function(rs) {
               return rs.status === 'pending' && rs.sortOrder > currentStepIndex;
             }).length;
             if (remainingCount > 0) {
-              var insertIdx = -1;
-              for (var fi = 0; fi < flowTimeline.length; fi++) {
+              let insertIdx = -1;
+              for (let fi = 0; fi < flowTimeline.length; fi++) {
                 if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === '○ 未到达') {
                   insertIdx = fi;
                   break;
@@ -1250,10 +1250,10 @@ Page({
         }
 
         // 5. Remaining lifecycle events after last round — show ALL event types
-        var lateIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
-        var lateLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
-        for (var ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
-          var lateEvt = lifecycleEvents[ei4];
+        let lateIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
+        let lateLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
+        for (let ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
+          let lateEvt = lifecycleEvents[ei4];
           if (lateEvt.eventType === 'approve' || lateEvt.eventType === 'reject') {
             continue;
           }
@@ -1271,8 +1271,8 @@ Page({
         }
 
         if (submissionStatus === 'approved') {
-          var lastApproveEvt = null;
-          for (var lai = lifecycleEvents.length - 1; lai >= 0; lai--) {
+          let lastApproveEvt = null;
+          for (let lai = lifecycleEvents.length - 1; lai >= 0; lai--) {
             if (lifecycleEvents[lai].eventType === 'approve') {
               lastApproveEvt = lifecycleEvents[lai];
               break;
@@ -1293,25 +1293,25 @@ Page({
 
 
         // ── Store diagnostic data for debugging ──
-        var diagInfo = res._diag || {};
+        let diagInfo = res._diag || {};
         console.log('[audit:loadDetail] DIAG: stepCount=' + diagInfo.stepCount +
           ' submissionStatus=' + diagInfo.submissionStatus +
           ' currentStepIndex=' + diagInfo.currentStepIndex);
 
         // ── Compute flow progress ──
         // Use unique sortOrders (steps per round), not total row count across all rounds
-        var sortOrderSet = new Set();
-        for (var spi = 0; spi < rawSteps.length; spi++) {
+        let sortOrderSet = new Set();
+        for (let spi = 0; spi < rawSteps.length; spi++) {
           sortOrderSet.add(rawSteps[spi].sortOrder);
         }
-        var stepsPerRound = sortOrderSet.size || 1;
+        let stepsPerRound = sortOrderSet.size || 1;
         // Count approved steps from the latest round only
-        var maxRound = 0;
-        for (var sri = 0; sri < rawSteps.length; sri++) {
+        let maxRound = 0;
+        for (let sri = 0; sri < rawSteps.length; sri++) {
           maxRound = Math.max(maxRound, rawSteps[sri].round || 1);
         }
-        var currentRoundApproved = 0;
-        for (var sri2 = 0; sri2 < rawSteps.length; sri2++) {
+        let currentRoundApproved = 0;
+        for (let sri2 = 0; sri2 < rawSteps.length; sri2++) {
           if ((rawSteps[sri2].round || 1) === maxRound && rawSteps[sri2].status === 'approved') {
             currentRoundApproved++;
           }
@@ -1339,8 +1339,8 @@ Page({
 
         // Debug: log step nodes in flowTimeline
         console.log('[audit:loadDetail] flowTimeline built, total nodes=' + flowTimeline.length);
-        for (var fti = 0; fti < flowTimeline.length; fti++) {
-          var ftn = flowTimeline[fti];
+        for (let fti = 0; fti < flowTimeline.length; fti++) {
+          let ftn = flowTimeline[fti];
           if (ftn.type === 'step') {
             console.log('[audit:loadDetail] flowTimeline[' + fti + '] step sortOrder=' + ftn.sortOrder +
               ' flowNodeClass=' + ftn.flowNodeClass +
@@ -1350,9 +1350,9 @@ Page({
         }
 
         // Detect active step for inline approval UI
-        var activeApprovalStep = null;
-        var nextStepInfo = null;
-        for (var fi = 0; fi < flowTimeline.length; fi++) {
+        let activeApprovalStep = null;
+        let nextStepInfo = null;
+        for (let fi = 0; fi < flowTimeline.length; fi++) {
           if (flowTimeline[fi].type === 'step') {
             if (flowTimeline[fi].flowNodeClass === 'flow-node-active') {
               activeApprovalStep = flowTimeline[fi];
@@ -1369,17 +1369,17 @@ Page({
 
         // Fallback: if active step not found via flowTimeline, find it from rawSteps
         // (handles edge cases where the flowTimeline filtering skips the active step)
-        var computedActiveStepId = activeApprovalStep ? activeApprovalStep.id : '';
+        let computedActiveStepId = activeApprovalStep ? activeApprovalStep.id : '';
         if (!activeApprovalStep && rawSteps.length > 0 && submissionStatus === 'in_progress') {
-          var actionMap2 = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+          let actionMap2 = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
           // Find max round first
-          var maxRound2 = 0;
-          for (var si3 = 0; si3 < rawSteps.length; si3++) {
+          let maxRound2 = 0;
+          for (let si3 = 0; si3 < rawSteps.length; si3++) {
             maxRound2 = Math.max(maxRound2, rawSteps[si3].round || 1);
           }
           // Find pending step matching currentStepIndex from latest round
-          for (var si4 = 0; si4 < rawSteps.length; si4++) {
-            var rawStep = rawSteps[si4];
+          for (let si4 = 0; si4 < rawSteps.length; si4++) {
+            let rawStep = rawSteps[si4];
             if ((rawStep.round || 1) === maxRound2 &&
                 rawStep.sortOrder === currentStepIndex &&
                 rawStep.status === 'pending') {
@@ -1494,8 +1494,8 @@ Page({
 
   // Open signature source picker for a specific file
   addSignatureForFile(e) {
-    var fileId = e.currentTarget.dataset.fileId;
-    var fileName = e.currentTarget.dataset.fileName;
+    let fileId = e.currentTarget.dataset.fileId;
+    let fileName = e.currentTarget.dataset.fileName;
     this.setData({
       sigSourceFileId: fileId,
       sigSourceFileName: fileName,
@@ -1513,7 +1513,7 @@ Page({
   // Load user's saved signatures
   async loadMySignatures() {
     try {
-      var res = await callFunction({ name: 'listMySignatures', data: {} });
+      let res = await callFunction({ name: 'listMySignatures', data: {} });
       if (res.status === 'success') {
         this.setData({ mySignatures: res.signatures || [] });
       }
@@ -1525,12 +1525,12 @@ Page({
 
   // User selected a saved signature template — auto-open placement
   onSelectSavedSignature(e) {
-    var that = this;
-    var sigImage = e.currentTarget.dataset.sigImage;
-    var fileId = this.data.sigSourceFileId;
-    var sigs = [...this.data.pendingSignatures];
-    var newSigIdx = sigs.length;
-    var newSig = {
+    let that = this;
+    let sigImage = e.currentTarget.dataset.sigImage;
+    let fileId = this.data.sigSourceFileId;
+    let sigs = [...this.data.pendingSignatures];
+    let newSigIdx = sigs.length;
+    let newSig = {
       _idx: 'sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       fileId: fileId,
       signatureType: 'signature',
@@ -1560,7 +1560,7 @@ Page({
 
   // User wants to draw a new signature — open signature pad from picker
   onOpenNewSignaturePad() {
-    var fileId = this.data.sigSourceFileId;
+    let fileId = this.data.sigSourceFileId;
     this.setData({
       currentSignatureFileId: fileId,
       signaturePadVisible: true,
@@ -1580,13 +1580,13 @@ Page({
 
   // Signature drawing confirmed — auto-open placement popup
   onSignatureConfirm(e) {
-    var that = this;
-    var imageData = e.detail.imageData;
-    var fileId = this.data.currentSignatureFileId;
+    let that = this;
+    let imageData = e.detail.imageData;
+    let fileId = this.data.currentSignatureFileId;
 
     // If user wants to save this signature to library
     if (this.data.sigSaveNew) {
-      var saveName = this.data.sigSaveName || ('签名 ' + new Date().toLocaleDateString());
+      let saveName = this.data.sigSaveName || ('签名 ' + new Date().toLocaleDateString());
       callFunction({
         name: 'saveSignature',
         data: { id: '', name: saveName, imageData: imageData }
@@ -1599,10 +1599,10 @@ Page({
       });
     }
 
-    var newIdx = '_sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-    var sigs = [...this.data.pendingSignatures];
-    var newSigIdx = sigs.length;
-    var newSig = {
+    let newIdx = '_sig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    let sigs = [...this.data.pendingSignatures];
+    let newSigIdx = sigs.length;
+    let newSig = {
       _idx: newIdx,
       fileId: fileId,
       signatureType: 'signature',
@@ -1636,7 +1636,7 @@ Page({
   // Compute display text for signature/stamp position (used in approval dialog list)
   _computeSigPosText: function (sig) {
     if (!sig || sig.positionX == null || sig.positionY == null) return '';
-    var text = (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%';
+    let text = (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%';
     if (sig.page && sig.page > 1) text += ', 第' + sig.page + '页';
     return text;
   },
@@ -1644,19 +1644,19 @@ Page({
   // Utility: open placement popup for a pending signature at given index
   // autoOpened: true when auto-opened after creating a new signature (cancel removes it)
   _openPlacementForIdx(idx, autoOpened) {
-    var that = this;
-    var sig = this.data.pendingSignatures[idx];
+    let that = this;
+    let sig = this.data.pendingSignatures[idx];
     if (!sig) return;
-    var fileId = sig.fileId;
-    var files = this.data.files || [];
-    var file = files.find(function(f) { return f.id === fileId; });
-    var fileName = file ? file.fileName : '未知文件';
-    var fileMime = file ? file.mimeType : '';
+    let fileId = sig.fileId;
+    let files = this.data.files || [];
+    let file = files.find(function(f) { return f.id === fileId; });
+    let fileName = file ? file.fileName : '未知文件';
+    let fileMime = file ? file.mimeType : '';
 
     // Collect all sigs/stamps on the same file
-    var fileItems = [];
-    for (var i = 0; i < this.data.pendingSignatures.length; i++) {
-      var s = this.data.pendingSignatures[i];
+    let fileItems = [];
+    for (let i = 0; i < this.data.pendingSignatures.length; i++) {
+      let s = this.data.pendingSignatures[i];
       if (s.fileId === fileId) {
         fileItems.push({
           dispIdx: i,
@@ -1672,13 +1672,13 @@ Page({
       }
     }
 
-    var currentPage = sig.page || 1;
+    let currentPage = sig.page || 1;
 
     // ★ 快照：取消时完整还原到打开前的状态
     //    autoOpened: 快照不含新建的签名 → 取消则签名消失
     //    manual:    快照含全部 → 取消则还原位置/大小/旋转
     if (autoOpened) {
-      var sigsBefore = JSON.parse(JSON.stringify(this.data.pendingSignatures));
+      let sigsBefore = JSON.parse(JSON.stringify(this.data.pendingSignatures));
       sigsBefore.splice(idx, 1);  // 移除新建的签名
       this._placementSnapshot = sigsBefore;
     } else {
@@ -1720,16 +1720,16 @@ Page({
         resolve(dataUrl || '');
         return;
       }
-      var match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+      let match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
       if (!match) {
         resolve(dataUrl);
         return;
       }
-      var mime = match[1];
-      var ext = mime.indexOf('jpeg') >= 0 || mime.indexOf('jpg') >= 0 ? 'jpg'
+      let mime = match[1];
+      let ext = mime.indexOf('jpeg') >= 0 || mime.indexOf('jpg') >= 0 ? 'jpg'
         : mime.indexOf('png') >= 0 ? 'png'
           : mime.indexOf('webp') >= 0 ? 'webp' : 'bin';
-      var filePath = wx.env.USER_DATA_PATH + '/' + prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      let filePath = wx.env.USER_DATA_PATH + '/' + prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
       wx.getFileSystemManager().writeFile({
         filePath: filePath,
         data: match[2],
@@ -1741,9 +1741,9 @@ Page({
   },
 
   async _preparePlacementItemPreviews(items) {
-    var result = [];
-    for (var i = 0; i < items.length; i++) {
-      var item = Object.assign({}, items[i]);
+    let result = [];
+    for (let i = 0; i < items.length; i++) {
+      let item = Object.assign({}, items[i]);
       if ((!item.previewSrc || item.previewSrc.indexOf('data:') === 0) && item.imageData) {
         try {
           item.previewSrc = await this._dataUrlToTempFile(item.imageData, 'audit_sign_preview');
@@ -1806,8 +1806,8 @@ Page({
 
         // Optimistic UI: update local state immediately, sync in background
         if (approvalAction === 'approve') {
-          var timeline = (this.data.flowTimeline || []).slice();
-          var stepNode = timeline.find(function(s) { return s.type === 'step' && s.id === approvalStepId; });
+          let timeline = (this.data.flowTimeline || []).slice();
+          let stepNode = timeline.find(function(s) { return s.type === 'step' && s.id === approvalStepId; });
           if (stepNode) {
             stepNode.flowNodeClass = 'flow-node-done';
             stepNode.flowDotClass = 'flow-dot-done';
@@ -1815,8 +1815,8 @@ Page({
             stepNode.flowStatusLabel = stepNode.actionType === 'pass' ? '✓ 步骤已通过' : '✓ 已签字盖章';
             stepNode.flowTagClass = 'flow-tag-done';
           }
-          var stepCount = this.data.rawStepCount || (this.data.flowProgressPercent ? Math.round(100 / (100 - this.data.flowProgressPercent)) : 1);
-          var newPercent = Math.min(100, (this.data.flowProgressPercent || 0) + Math.round(100 / Math.max(stepCount, 1)));
+          let stepCount = this.data.rawStepCount || (this.data.flowProgressPercent ? Math.round(100 / (100 - this.data.flowProgressPercent)) : 1);
+          let newPercent = Math.min(100, (this.data.flowProgressPercent || 0) + Math.round(100 / Math.max(stepCount, 1)));
           this.setData({
             flowTimeline: timeline,
             flowProgressPercent: newPercent,
@@ -1829,11 +1829,11 @@ Page({
           require('../../../../utils/eventBus').emit('approval:done');
 
           // Background sync to ensure consistency
-          var self = this;
+          let self = this;
           setTimeout(function() { self.loadDetail(); }, 500);
         } else {
           // Reject: navigate back after short delay
-          var self2 = this;
+          let self2 = this;
           require('../../../../utils/eventBus').emit('approval:done');
           setTimeout(function() { wx.navigateBack(); }, 800);
         }
@@ -1851,15 +1851,15 @@ Page({
 
   async openDesignateNextPersonPicker() {
     // Load eligible approvers from server
-    var eligibleList = [];
+    let eligibleList = [];
     try {
-      var res = await callFunction({ name: 'listEligibleApprovers', data: { submissionId: this.data.submissionId } });
+      let res = await callFunction({ name: 'listEligibleApprovers', data: { submissionId: this.data.submissionId } });
       if (res.status === 'success') {
         eligibleList = res.approvers || [];
         // Attach department/identity/workGroup names for filter compatibility
-        var deptMap = {};
-        var identMap = {};
-        var wgMap = {};
+        let deptMap = {};
+        let identMap = {};
+        let wgMap = {};
         (this.data.allDepartments || []).forEach(function(d) { deptMap[d.id] = d.name; });
         (this.data.allIdentities || []).forEach(function(i) { identMap[i.id] = i.name; });
         (this.data.allWorkGroups || []).forEach(function(w) { wgMap[w.id] = w.name; });
@@ -1879,8 +1879,8 @@ Page({
     this.setData({ personPickerEligibleList: eligibleList });
 
     // Pre-populate with current designation
-    var preIds = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
-    var preList = eligibleList.filter(function(p) {
+    let preIds = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
+    let preList = eligibleList.filter(function(p) {
       return preIds.indexOf(p.id) >= 0;
     });
     this.setData({
@@ -1898,8 +1898,8 @@ Page({
   },
 
   removeDesignatedNextPerson(e) {
-    var hrId = e.currentTarget.dataset.hrId;
-    var list = (this.data.designatedNextPersons || []).filter(function(p) { return p.id !== hrId; });
+    let hrId = e.currentTarget.dataset.hrId;
+    let list = (this.data.designatedNextPersons || []).filter(function(p) { return p.id !== hrId; });
     this.setData({ designatedNextPersons: list });
   },
 
@@ -1909,8 +1909,8 @@ Page({
 
   // Open stamp picker for a specific file
   addStampForFile(e) {
-    var fileId = e.currentTarget.dataset.fileId;
-    var fileName = e.currentTarget.dataset.fileName;
+    let fileId = e.currentTarget.dataset.fileId;
+    let fileName = e.currentTarget.dataset.fileName;
     this.setData({
       stampPickFileId: fileId,
       stampPickFileName: fileName,
@@ -1922,7 +1922,7 @@ Page({
   // Load stamps available to the current user
   async loadAvailableStamps() {
     try {
-      var res = await callFunction({ name: 'listMyStamps', data: {} });
+      let res = await callFunction({ name: 'listMyStamps', data: {} });
       if (res.status === 'success') {
         this.setData({ availableStamps: res.stamps || [] });
       }
@@ -1937,14 +1937,14 @@ Page({
 
   // User selected a stamp from the picker
   onStampSelect(e) {
-    var that = this;
-    var stampId = e.currentTarget.dataset.stampId;
-    var stampName = e.currentTarget.dataset.stampName;
-    var stampImage = e.currentTarget.dataset.stampImage;
-    var fileId = this.data.stampPickFileId;
-    var sigs = [...this.data.pendingSignatures];
-    var newSigIdx = sigs.length;
-    var newStampSig = {
+    let that = this;
+    let stampId = e.currentTarget.dataset.stampId;
+    let stampName = e.currentTarget.dataset.stampName;
+    let stampImage = e.currentTarget.dataset.stampImage;
+    let fileId = this.data.stampPickFileId;
+    let sigs = [...this.data.pendingSignatures];
+    let newSigIdx = sigs.length;
+    let newStampSig = {
       _idx: 'stamp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       fileId: fileId,
       signatureType: 'stamp',
@@ -1974,8 +1974,8 @@ Page({
 
   // Remove a pending signature/stamp
   removePendingSign(e) {
-    var idx = parseInt(e.currentTarget.dataset.sigIdx);
-    var sigs = [...this.data.pendingSignatures];
+    let idx = parseInt(e.currentTarget.dataset.sigIdx);
+    let sigs = [...this.data.pendingSignatures];
     if (idx >= 0 && idx < sigs.length) {
       sigs.splice(idx, 1);
     }
@@ -1985,27 +1985,27 @@ Page({
 
   // Open placement popup (called from "调整位置" button on pending signatures)
   openPlacement(e) {
-    var idx = parseInt(e.currentTarget.dataset.sigIdx);
+    let idx = parseInt(e.currentTarget.dataset.sigIdx);
     this._openPlacementForIdx(idx);
   },
 
   // Load file preview (image or PDF page) from server
   async loadFilePreview(fileId, page) {
-    var that = this;
+    let that = this;
     try {
-      var res = await callFunction({
+      let res = await callFunction({
         name: 'getAuditFilePreview',
         data: { fileId: fileId, page: page || 1 }
       });
       if (res.status === 'success') {
-        var updateData = {
+        let updateData = {
           placementTotalPages: res.totalPages || 1,
           placementCurrentPage: res.page || 1,
           placementFileMime: res.mimeType || that.data.placementFileMime,
           placementLoading: false
         };
         if (res.data) {
-          var previewDataUrl = 'data:' + (res.previewMime || 'image/png') + ';base64,' + res.data;
+          let previewDataUrl = 'data:' + (res.previewMime || 'image/png') + ';base64,' + res.data;
           try {
             updateData.placementFileImage = await that._dataUrlToTempFile(previewDataUrl, 'audit_file_preview');
           } catch (writeErr) {
@@ -2024,10 +2024,10 @@ Page({
       console.error('[audit] loadFilePreview failed:', e);
       // Fall back to old method for images
       try {
-        var fallbackRes = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
+        let fallbackRes = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
         if (fallbackRes.status === 'success' && fallbackRes.mimeType && fallbackRes.mimeType.indexOf('image/') === 0) {
-          var fallbackDataUrl = 'data:' + fallbackRes.mimeType + ';base64,' + fallbackRes.data;
-          var fallbackSrc = fallbackDataUrl;
+          let fallbackDataUrl = 'data:' + fallbackRes.mimeType + ';base64,' + fallbackRes.data;
+          let fallbackSrc = fallbackDataUrl;
           try {
             fallbackSrc = await that._dataUrlToTempFile(fallbackDataUrl, 'audit_file_preview');
           } catch (writeErr) {
@@ -2048,8 +2048,8 @@ Page({
 
   // Switch PDF page in placement preview
   onPlacementPageChange(e) {
-    var direction = e.currentTarget.dataset.dir; // 'prev' or 'next'
-    var newPage = this.data.placementCurrentPage;
+    let direction = e.currentTarget.dataset.dir; // 'prev' or 'next'
+    let newPage = this.data.placementCurrentPage;
     if (direction === 'prev') {
       newPage = Math.max(1, newPage - 1);
     } else {
@@ -2068,10 +2068,10 @@ Page({
   // Legacy: load file for placement (called from openPlacement)
   async loadFileForPlacement(fileId) {
     try {
-      var res = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
+      let res = await callFunction({ name: 'getAuditFile', data: { fileId: fileId } });
       if (res.status === 'success' && res.mimeType && res.mimeType.indexOf('image/') === 0) {
-        var dataUrl = 'data:' + res.mimeType + ';base64,' + res.data;
-        var src = await this._dataUrlToTempFile(dataUrl, 'audit_file_preview').catch(function() { return dataUrl; });
+        let dataUrl = 'data:' + res.mimeType + ';base64,' + res.data;
+        let src = await this._dataUrlToTempFile(dataUrl, 'audit_file_preview').catch(function() { return dataUrl; });
         this.setData({ placementFileImage: src });
       }
     } catch (e) {
@@ -2092,15 +2092,15 @@ Page({
   },
 
   onPlacementItemTap(e) {
-    var idx = parseInt(e.currentTarget.dataset.sigIdx);
-    var sigs = this.data.pendingSignatures || [];
-    var sig = sigs[idx];
+    let idx = parseInt(e.currentTarget.dataset.sigIdx);
+    let sigs = this.data.pendingSignatures || [];
+    let sig = sigs[idx];
     if (!sig) return;
 
-    var oldPage = this.data.placementCurrentPage;
-    var px = sig.positionX != null ? sig.positionX : 0.5;
-    var py = sig.positionY != null ? sig.positionY : 0.3;
-    var page = sig.page || oldPage || 1;
+    let oldPage = this.data.placementCurrentPage;
+    let px = sig.positionX != null ? sig.positionX : 0.5;
+    let py = sig.positionY != null ? sig.positionY : 0.3;
+    let page = sig.page || oldPage || 1;
     this.setData({
       placementActiveIdx: idx,
       placementType: sig.signatureType || this.data.placementType,
@@ -2122,8 +2122,8 @@ Page({
   // ★ Coordinates are unified to viewport (absolute) before computing the ratio,
   //    so scroll state and element nesting never cause drift.
   onPlacementTap(e) {
-    var that = this;
-    var point = that._getTapClientPoint(e);
+    let that = this;
+    let point = that._getTapClientPoint(e);
     if (!point) return;
 
     // Step 1: get scroll-view rect to resolve element-relative coords
@@ -2131,38 +2131,38 @@ Page({
       if (!canvasRect) return;
 
       // Step 2: unify to viewport-absolute CSS pixels
-      var absX = point.isAbsolute ? point.x : (canvasRect.left + point.x);
-      var absY = point.isAbsolute ? point.y : (canvasRect.top + point.y);
+      let absX = point.isAbsolute ? point.x : (canvasRect.left + point.x);
+      let absY = point.isAbsolute ? point.y : (canvasRect.top + point.y);
 
       // Step 3: get preview image rect (viewport-absolute)
       wx.createSelectorQuery().select('#placementPreviewImage').boundingClientRect(function(imgRect) {
         // Fallback to scroll-view if image not found (placeholder / loading)
-        var ref = (imgRect && imgRect.width > 0) ? imgRect : canvasRect;
+        let ref = (imgRect && imgRect.width > 0) ? imgRect : canvasRect;
 
-        var px = Math.max(0, Math.min(1, (absX - ref.left) / (ref.width || 1)));
-        var py = Math.max(0, Math.min(1, (absY - ref.top) / (ref.height || 1)));
+        let px = Math.max(0, Math.min(1, (absX - ref.left) / (ref.width || 1)));
+        let py = Math.max(0, Math.min(1, (absY - ref.top) / (ref.height || 1)));
         that._applyPlacementPosition(px, py);
       }).exec();
     }).exec();
   },
 
   addPlacementCopy() {
-    var baseIdx = this.data.placementActiveIdx;
-    var sigs = [...(this.data.pendingSignatures || [])];
-    var base = sigs[baseIdx];
+    let baseIdx = this.data.placementActiveIdx;
+    let sigs = [...(this.data.pendingSignatures || [])];
+    let base = sigs[baseIdx];
     if (!base) {
       showShortToast('请先选择一个签名或印章');
       return;
     }
 
-    var px = this.data.placementPreviewX >= 0
+    let px = this.data.placementPreviewX >= 0
       ? this.data.placementPreviewX
       : (base.positionX != null ? base.positionX : 0.5);
-    var py = this.data.placementPreviewY >= 0
+    let py = this.data.placementPreviewY >= 0
       ? this.data.placementPreviewY
       : (base.positionY != null ? base.positionY : 0.3);
-    var page = this.data.placementCurrentPage || base.page || 1;
-    var newSig = Object.assign({}, base, {
+    let page = this.data.placementCurrentPage || base.page || 1;
+    let newSig = Object.assign({}, base, {
       _idx: (base.signatureType || 'signature') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       positionX: px,
       positionY: py,
@@ -2173,8 +2173,8 @@ Page({
     newSig.posText = this._computeSigPosText(newSig);
     sigs.push(newSig);
 
-    var newIdx = sigs.length - 1;
-    var items = [...(this.data.placementItems || []), {
+    let newIdx = sigs.length - 1;
+    let items = [...(this.data.placementItems || []), {
       dispIdx: newIdx,
       imageData: newSig.imageData,
       previewSrc: newSig.previewSrc || newSig.imageData || '',
@@ -2209,7 +2209,7 @@ Page({
   // Returns {x, y, isAbsolute} where isAbsolute=true means viewport coords (clientX/Y),
   // isAbsolute=false means element-relative coords (e.detail.x/y from bindtap).
   _getTapClientPoint(e) {
-    var touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+    let touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
     if (touch) {
       return {
         x: touch.clientX != null ? touch.clientX : touch.x,
@@ -2226,11 +2226,11 @@ Page({
 
   // Apply placement position to active signature
   _applyPlacementPosition(px, py) {
-    var that = this;
-    var idx = that.data.placementActiveIdx;
-    var sigs = [...that.data.pendingSignatures];
-    var items = [...that.data.placementItems];
-    var page = that.data.placementCurrentPage;
+    let that = this;
+    let idx = that.data.placementActiveIdx;
+    let sigs = [...that.data.pendingSignatures];
+    let items = [...that.data.placementItems];
+    let page = that.data.placementCurrentPage;
 
     if (idx >= 0 && idx < sigs.length) {
       sigs[idx].positionX = px;
@@ -2240,7 +2240,7 @@ Page({
     }
 
     // Update placementItems for visual preview
-    for (var i = 0; i < items.length; i++) {
+    for (let i = 0; i < items.length; i++) {
       if (items[i].dispIdx === idx) {
         items[i].positionX = px;
         items[i].positionY = py;
@@ -2259,18 +2259,18 @@ Page({
   },
 
   _applyPlacementTransform(size, rotation) {
-    var idx = this.data.placementActiveIdx;
-    var sigs = [...this.data.pendingSignatures];
-    var items = [...this.data.placementItems];
-    var safeSize = Math.max(0.5, Math.min(2.2, Number(size) || 1));
-    var safeRotation = Math.max(-180, Math.min(180, Number(rotation) || 0));
+    let idx = this.data.placementActiveIdx;
+    let sigs = [...this.data.pendingSignatures];
+    let items = [...this.data.placementItems];
+    let safeSize = Math.max(0.5, Math.min(2.2, Number(size) || 1));
+    let safeRotation = Math.max(-180, Math.min(180, Number(rotation) || 0));
 
     if (idx >= 0 && idx < sigs.length) {
       sigs[idx].size = safeSize;
       sigs[idx].rotation = safeRotation;
     }
 
-    for (var i = 0; i < items.length; i++) {
+    for (let i = 0; i < items.length; i++) {
       if (items[i].dispIdx === idx) {
         items[i].size = safeSize;
         items[i].rotation = safeRotation;
@@ -2295,7 +2295,7 @@ Page({
   },
 
   nudgePlacementRotation(e) {
-    var delta = Number(e.currentTarget.dataset.delta) || 0;
+    let delta = Number(e.currentTarget.dataset.delta) || 0;
     this._applyPlacementTransform((this.data.placementSize || 100) / 100, (this.data.placementRotation || 0) + delta);
   },
 
@@ -2305,16 +2305,16 @@ Page({
 
   // Save the adjusted position and page
   confirmPlacement() {
-    var idx = this.data.placementActiveIdx;
-    var px = this.data.placementPreviewX;
-    var py = this.data.placementPreviewY;
-    var page = this.data.placementCurrentPage;
+    let idx = this.data.placementActiveIdx;
+    let px = this.data.placementPreviewX;
+    let py = this.data.placementPreviewY;
+    let page = this.data.placementCurrentPage;
     if (idx < 0 || px < 0 || py < 0) {
       this._placementSnapshot = null;
       this.setData({ placementVisible: false, placementAutoOpened: false });
       return;
     }
-    var sigs = [...this.data.pendingSignatures];
+    let sigs = [...this.data.pendingSignatures];
     if (idx < sigs.length) {
       sigs[idx].positionX = px;
       sigs[idx].positionY = py;
@@ -2333,11 +2333,11 @@ Page({
 
   // Check if signature/stamp requirements are met and set warning
   updateApprovalWarning() {
-    var actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
-    var sigs = this.data.pendingSignatures || [];
-    var hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
-    var hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
-    var warning = '';
+    let actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
+    let sigs = this.data.pendingSignatures || [];
+    let hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
+    let hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
+    let warning = '';
     if (actionType === 'both') {
       if (!hasSignature && !hasStamp) {
         warning = '此环节需要签名和盖章，请至少添加一项';
@@ -2354,26 +2354,26 @@ Page({
 
   // Toggle flow node detail expansion
   toggleFlowNode(e) {
-    var key = e.currentTarget.dataset.nodeKey;
-    var current = this.data.expandedNodeKey;
+    let key = e.currentTarget.dataset.nodeKey;
+    let current = this.data.expandedNodeKey;
     this.setData({ expandedNodeKey: current === key ? '' : key });
   },
 
   // Direct approval from the inline approval card (no popup)
   async confirmApprovalDirect(e) {
-    var action = e.currentTarget.dataset.action;
-    var stepId = this.data.activeApprovalStepId;
-    var comment = this.data.approvalComment;
-    var reason = this.data.rejectionReason;
+    let action = e.currentTarget.dataset.action;
+    let stepId = this.data.activeApprovalStepId;
+    let comment = this.data.approvalComment;
+    let reason = this.data.rejectionReason;
 
     // Fallback: if activeApprovalStepId is not set, find the pending step from latest round
     if (!stepId) {
-      var steps = this.data.steps || [];
-      var submission = this.data.submission;
+      let steps = this.data.steps || [];
+      let submission = this.data.submission;
       if (submission && steps.length && submission.status === 'in_progress') {
-        var maxRound = 0;
-        for (var i = 0; i < steps.length; i++) maxRound = Math.max(maxRound, steps[i].round || 1);
-        for (var i = 0; i < steps.length; i++) {
+        let maxRound = 0;
+        for (let i = 0; i < steps.length; i++) maxRound = Math.max(maxRound, steps[i].round || 1);
+        for (let i = 0; i < steps.length; i++) {
           if ((steps[i].round || 1) === maxRound &&
               steps[i].sortOrder === submission.currentStepIndex &&
               steps[i].status === 'pending') {
@@ -2397,14 +2397,14 @@ Page({
     // Check approval warning for sign+stamp steps
     if (action === 'approve') {
       this.updateApprovalWarning();
-      var warn = this.data.approvalWarning;
+      let warn = this.data.approvalWarning;
       if (warn && warn.indexOf('不强制') < 0) {
         // Only block if neither signature nor stamp was added to a "both" step
-        var actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
+        let actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
         if (actionType === 'both') {
-          var sigs = this.data.pendingSignatures || [];
-          var hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
-          var hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
+          let sigs = this.data.pendingSignatures || [];
+          let hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
+          let hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
           if (!hasSignature && !hasStamp) {
             showShortToast('此环节需要签名和盖章，请至少添加签名或盖章');
             return;
@@ -2415,10 +2415,10 @@ Page({
 
     this.setData({ loading: true });
     try {
-      var res;
+      let res;
       if (action === 'approve') {
-        var designatedPersons = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
-        var sigs = (this.data.pendingSignatures || []).map(function(s) {
+        let designatedPersons = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
+        let sigs = (this.data.pendingSignatures || []).map(function(s) {
           return {
             fileId: s.fileId,
             signatureType: s.signatureType,
@@ -2472,9 +2472,9 @@ Page({
   },
 
   enterEditMode() {
-    var submission = this.data.submission;
-    var files = this.data.files || [];
-    var steps = this.data.steps || [];
+    let submission = this.data.submission;
+    let files = this.data.files || [];
+    let steps = this.data.steps || [];
 
     if (!this.isEditableStatus(submission.status)) {
       showShortToast('当前状态不允许编辑');
@@ -2561,7 +2561,7 @@ Page({
   },
 
   onEditStepTypeChange(e) {
-    var type = ['identity', 'specific_person'][e.detail.value] || 'identity';
+    let type = ['identity', 'specific_person'][e.detail.value] || 'identity';
     this.setData({
       'editStepForm.approverType': type,
       'editStepForm.approverIdentityId': '',
@@ -2572,7 +2572,7 @@ Page({
   },
 
   onEditActionTypeChange(e) {
-    var val = ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'pass';
+    let val = ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'pass';
     this.setData({ 'editStepForm.actionType': val });
   },
 
@@ -2582,45 +2582,45 @@ Page({
   onEditIdentityIdentChange(e) { this.setData({ editIdentityPickerIdentIndex: parseInt(e.detail.value) }); },
 
   confirmEditIdentityStep() {
-    var sf = this.data.editStepForm;
-    var identities = this.data.allIdentities;
-    var departments = this.data.allDepartments;
-    var workGroups = this.data.allWorkGroups;
-    var identIdx = this.data.editIdentityPickerIdentIndex;
-    var identOpts = this.data.identityPickerIdentOptions;
-    var scopeIdx = this.data.editIdentityPickerScopeIndex;
-    var scopeValues = this.data.identityPickerScopeValues;
+    let sf = this.data.editStepForm;
+    let identities = this.data.allIdentities;
+    let departments = this.data.allDepartments;
+    let workGroups = this.data.allWorkGroups;
+    let identIdx = this.data.editIdentityPickerIdentIndex;
+    let identOpts = this.data.identityPickerIdentOptions;
+    let scopeIdx = this.data.editIdentityPickerScopeIndex;
+    let scopeValues = this.data.identityPickerScopeValues;
 
     if (identIdx <= 0) { showShortToast('请选择身份'); return; }
-    var identName = identOpts[identIdx];
-    var identity = identities.find(function(i) { return i.name === identName; });
+    let identName = identOpts[identIdx];
+    let identity = identities.find(function(i) { return i.name === identName; });
     if (!identity) { showShortToast('身份数据异常，请重试'); return; }
 
-    var scopeType = scopeValues[scopeIdx] || 'all';
-    var scopeDepartmentId = '', scopeDepartmentName = '', scopeWorkGroupId = '', scopeWorkGroupName = '';
+    let scopeType = scopeValues[scopeIdx] || 'all';
+    let scopeDepartmentId = '', scopeDepartmentName = '', scopeWorkGroupId = '', scopeWorkGroupName = '';
 
     if (scopeType === 'specific_department' || scopeType === 'specific_work_group') {
-      var deptIdx = this.data.editIdentityPickerDeptIndex;
-      var deptOpts = this.data.identityPickerDeptOptions;
+      let deptIdx = this.data.editIdentityPickerDeptIndex;
+      let deptOpts = this.data.identityPickerDeptOptions;
       if (deptIdx <= 0) { showShortToast('请选择部门'); return; }
-      var deptName = deptOpts[deptIdx];
-      var dept = departments.find(function(d) { return d.name === deptName; });
+      let deptName = deptOpts[deptIdx];
+      let dept = departments.find(function(d) { return d.name === deptName; });
       if (!dept) { showShortToast('部门数据异常'); return; }
       scopeDepartmentId = dept.id;
       scopeDepartmentName = dept.name;
     }
     if (scopeType === 'specific_work_group') {
-      var wgIdx = this.data.editIdentityPickerWgIndex;
-      var wgOpts = this.data.identityPickerWgOptions;
+      let wgIdx = this.data.editIdentityPickerWgIndex;
+      let wgOpts = this.data.identityPickerWgOptions;
       if (wgIdx <= 0) { showShortToast('请选择职能组'); return; }
-      var wgName = wgOpts[wgIdx];
-      var wg = workGroups.find(function(w) { return w.name === wgName; });
+      let wgName = wgOpts[wgIdx];
+      let wg = workGroups.find(function(w) { return w.name === wgName; });
       if (!wg) { showShortToast('职能组数据异常'); return; }
       scopeWorkGroupId = wg.id;
       scopeWorkGroupName = wg.name;
     }
 
-    var steps = [...this.data.editSteps];
+    let steps = [...this.data.editSteps];
     steps.push({
       name: (sf.name || '').trim(),
       approverType: 'identity',
@@ -2662,19 +2662,19 @@ Page({
   closeEditPersonPicker() { this.setData({ editPersonPickerVisible: false }); },
 
   onEditPersonPickerDeptChange(e) {
-    var opts = this.data.personPickerDeptOpts;
+    let opts = this.data.personPickerDeptOpts;
     this.setData({ editPersonPickerDept: opts[parseInt(e.detail.value)] || '全部' });
     this.applyEditPersonPickerFilters();
   },
 
   onEditPersonPickerIdentChange(e) {
-    var opts = this.data.personPickerIdentOpts;
+    let opts = this.data.personPickerIdentOpts;
     this.setData({ editPersonPickerIdent: opts[parseInt(e.detail.value)] || '全部' });
     this.applyEditPersonPickerFilters();
   },
 
   onEditPersonPickerWgChange(e) {
-    var opts = this.data.personPickerWgOpts;
+    let opts = this.data.personPickerWgOpts;
     this.setData({ editPersonPickerWg: opts[parseInt(e.detail.value)] || '全部' });
     this.applyEditPersonPickerFilters();
   },
@@ -2685,11 +2685,11 @@ Page({
   },
 
   applyEditPersonPickerFilters() {
-    var list = [...this.data.allHrPersons];
-    var dept = this.data.editPersonPickerDept;
-    var ident = this.data.editPersonPickerIdent;
-    var wg = this.data.editPersonPickerWg;
-    var kw = (this.data.editPersonPickerKeyword || '').trim().toLowerCase();
+    let list = [...this.data.allHrPersons];
+    let dept = this.data.editPersonPickerDept;
+    let ident = this.data.editPersonPickerIdent;
+    let wg = this.data.editPersonPickerWg;
+    let kw = (this.data.editPersonPickerKeyword || '').trim().toLowerCase();
 
     if (dept !== '全部') list = list.filter(function(p) { return p.department === dept; });
     if (ident !== '全部') list = list.filter(function(p) { return p.identity === ident; });
@@ -2698,17 +2698,17 @@ Page({
       return (p.name || '').toLowerCase().includes(kw) || (p.studentId || '').toLowerCase().includes(kw);
     });
 
-    var selectedIds = this.data.editPersonPickerSelectedIds;
-    var candidates = list.map(function(p) { return { ...p, isSelected: selectedIds.indexOf(p.id) >= 0 }; });
-    var selectedList = candidates.filter(function(p) { return p.isSelected; });
+    let selectedIds = this.data.editPersonPickerSelectedIds;
+    let candidates = list.map(function(p) { return { ...p, isSelected: selectedIds.indexOf(p.id) >= 0 }; });
+    let selectedList = candidates.filter(function(p) { return p.isSelected; });
 
     this.setData({ editPersonPickerCandidates: candidates, editPersonPickerSelectedList: selectedList });
   },
 
   onEditPersonToggle(e) {
-    var hrId = e.currentTarget.dataset.hrId;
-    var sel = [...this.data.editPersonPickerSelectedIds];
-    var idx = sel.indexOf(hrId);
+    let hrId = e.currentTarget.dataset.hrId;
+    let sel = [...this.data.editPersonPickerSelectedIds];
+    let idx = sel.indexOf(hrId);
     if (idx >= 0) sel.splice(idx, 1); else sel.push(hrId);
     this.setData({ editPersonPickerSelectedIds: sel });
     this.applyEditPersonPickerFilters();
@@ -2719,12 +2719,12 @@ Page({
   },
 
   confirmEditPersonPicker() {
-    var selected = this.data.editPersonPickerSelectedList;
+    let selected = this.data.editPersonPickerSelectedList;
     if (!selected.length) { showShortToast('请至少选择一个人'); return; }
-    var steps = [...this.data.editSteps];
-    var actionType = this.data.editPersonPickerStepActionType;
-    for (var i = 0; i < selected.length; i++) {
-      var p = selected[i];
+    let steps = [...this.data.editSteps];
+    let actionType = this.data.editPersonPickerStepActionType;
+    for (let i = 0; i < selected.length; i++) {
+      let p = selected[i];
       steps.push({
         name: (this.data.editStepForm.name || '').trim() || (p.name + '审批'),
         approverType: 'specific_person',
@@ -2739,8 +2739,8 @@ Page({
   },
 
   removeEditStep(e) {
-    var idx = e.currentTarget.dataset.index;
-    var steps = [...this.data.editSteps];
+    let idx = e.currentTarget.dataset.index;
+    let steps = [...this.data.editSteps];
     steps.splice(idx, 1);
     this.setData({ editSteps: steps });
   },
@@ -2748,7 +2748,7 @@ Page({
   // ── Edit: File management ──
 
   editChooseFile() {
-    var that = this;
+    let that = this;
     wx.chooseMessageFile({
       count: 3,
       type: 'file',
@@ -2757,13 +2757,13 @@ Page({
   },
 
   editChooseImage() {
-    var that = this;
+    let that = this;
     wx.chooseImage({
       count: 3,
       sizeType: ['original', 'compressed'],
       sourceType: ['album', 'camera'],
       success: function(res) {
-        var tempFiles = res.tempFilePaths.map(function(p, i) {
+        let tempFiles = res.tempFilePaths.map(function(p, i) {
           return { path: p, name: 'image_' + Date.now() + '_' + i + '.jpg', size: res.tempFiles ? (res.tempFiles[i] ? res.tempFiles[i].size : 0) : 0 };
         });
         that.uploadEditFiles(tempFiles);
@@ -2774,20 +2774,20 @@ Page({
   async uploadEditFiles(tempFiles) {
     if (!tempFiles || !tempFiles.length) return;
     this.setData({ editUploading: true });
-    var newFiles = [...this.data.editNewFiles];
-    var firstError = '';
-    for (var i = 0; i < tempFiles.length; i++) {
-      var tf = tempFiles[i];
+    let newFiles = [...this.data.editNewFiles];
+    let firstError = '';
+    for (let i = 0; i < tempFiles.length; i++) {
+      let tf = tempFiles[i];
       try {
-        var base64 = await new Promise(function(resolve, reject) {
+        let base64 = await new Promise(function(resolve, reject) {
           wx.getFileSystemManager().readFile({
             filePath: tf.path, encoding: 'base64',
             success: function(r) { resolve(r.data); },
             fail: function(err) { reject(err); }
           });
         });
-        var fileId = 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-        var validation = this.validateAuditUploadFile(tf.name, tf.size || 0, base64);
+        let fileId = 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        let validation = this.validateAuditUploadFile(tf.name, tf.size || 0, base64);
         if (!validation.ok) {
           throw new Error((tf.name || '文件') + ': ' + validation.message);
         }
@@ -2808,32 +2808,32 @@ Page({
   },
 
   removeEditFile(e) {
-    var idx = e.currentTarget.dataset.index;
-    var files = [...this.data.editFiles];
+    let idx = e.currentTarget.dataset.index;
+    let files = [...this.data.editFiles];
     files.splice(idx, 1);
     this.setData({ editFiles: files });
   },
 
   removeEditNewFile(e) {
-    var idx = e.currentTarget.dataset.index;
-    var files = [...this.data.editNewFiles];
+    let idx = e.currentTarget.dataset.index;
+    let files = [...this.data.editNewFiles];
     files.splice(idx, 1);
     this.setData({ editNewFiles: files });
   },
 
   async saveEdit() {
-    var _editTitle = this.data.editTitle;
+    let _editTitle = this.data.editTitle;
     if (!_editTitle) { showShortToast('请输入标题'); return; }
 
     this.setData({ loading: true });
 
     try {
       // Upload new files first
-      var serverNewFiles = [];
-      var editNewFiles = this.data.editNewFiles;
-      for (var i = 0; i < editNewFiles.length; i++) {
-        var uf = editNewFiles[i];
-        var uploadRes = await callFunction({
+      let serverNewFiles = [];
+      let editNewFiles = this.data.editNewFiles;
+      for (let i = 0; i < editNewFiles.length; i++) {
+        let uf = editNewFiles[i];
+        let uploadRes = await callFunction({
           name: 'uploadAuditFile',
           data: { fileBase64: uf.base64, fileName: uf.fileName, mimeType: uf.mimeType }
         });
@@ -2850,7 +2850,7 @@ Page({
       }
 
       // Build steps data
-      var stepsData = null;
+      let stepsData = null;
       if (this.data.editType === 'ad_hoc' && this.data.editSteps.length) {
         stepsData = this.data.editSteps.map(function(s) {
           return {
@@ -2867,9 +2867,9 @@ Page({
       }
 
       // All files to send (existing + new)
-      var allFiles = serverNewFiles.length > 0 ? serverNewFiles : null;
+      let allFiles = serverNewFiles.length > 0 ? serverNewFiles : null;
 
-      var res = await callFunction({
+      let res = await callFunction({
         name: 'updateAuditSubmission',
         data: {
           submissionId: this.data.submissionId,

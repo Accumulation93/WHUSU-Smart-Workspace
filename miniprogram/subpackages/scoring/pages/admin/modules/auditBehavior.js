@@ -186,8 +186,8 @@ module.exports = Behavior({
       try {
         const res = await this.callCloud('listAuditFlowTemplates', {});
         if (res.status === 'success') {
-          var that = this;
-          var templates = (res.templates || []).map(function (t) {
+          let that = this;
+          let templates = (res.templates || []).map(function (t) {
             t.steps = (t.steps || []).map(function (s) {
               // Always resolve names from master lists
               s._approverIdentityName = that._auditIdentityName(s.approverIdentityId);
@@ -255,9 +255,9 @@ module.exports = Behavior({
       const id = e.currentTarget.dataset.id;
       const template = this.data.auditFlowTemplates.find(function (t) { return t.id === id; });
       if (!template) return;
-      var that = this;
+      let that = this;
       // Resolve starter conditions
-      var starterConds = (template.starterConditions || []).map(function(c) { return that._auditResolveCondition(c); });
+      let starterConds = (template.starterConditions || []).map(function(c) { return that._auditResolveCondition(c); });
       this.setData({
         auditTemplateForm: {
           id: template.id,
@@ -416,16 +416,16 @@ module.exports = Behavior({
     },
 
     onConditionScopeChange(e) {
-      var field = e.currentTarget.dataset.field;
-      var scopes = ['all', 'specific', 'own'];
-      var scopeLabels = ['全部', '指定', '自己所在'];
-      var idx = parseInt(e.detail.value);
+      let field = e.currentTarget.dataset.field;
+      let scopes = ['all', 'specific', 'own'];
+      let scopeLabels = ['全部', '指定', '自己所在'];
+      let idx = parseInt(e.detail.value);
       this.setData({ ['auditStepConditionForm.' + field]: scopes[idx] || 'all' });
     },
 
     confirmStepCondition() {
-      var cond = this.data.auditStepConditionForm;
-      var newCond = {
+      let cond = this.data.auditStepConditionForm;
+      let newCond = {
         conditionType: cond.conditionType
       };
 
@@ -436,7 +436,7 @@ module.exports = Behavior({
         }
         newCond.personHrIds = cond.personHrIds;
         // Resolve names from master hrList
-        var ids = cond.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        let ids = cond.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
         newCond.personHrNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this)).join('、');
         newCond._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this));
       } else {
@@ -444,21 +444,21 @@ module.exports = Behavior({
         newCond.departmentScope = cond.departmentScope;
         newCond.specificDepartmentId = cond.departmentScope === 'specific' ? cond.specificDepartmentId : '';
         if (newCond.specificDepartmentId) {
-          var deptIds = newCond.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let deptIds = newCond.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           newCond._deptNames = deptIds.map(function(did) { return this._auditDeptName(did); }.bind(this)).filter(Boolean);
           newCond._deptName = newCond._deptNames.join('、');
         } else { newCond._deptNames = []; newCond._deptName = ''; }
         newCond.workGroupScope = cond.workGroupScope;
         newCond.specificWorkGroupId = cond.workGroupScope === 'specific' ? cond.specificWorkGroupId : '';
         if (newCond.specificWorkGroupId) {
-          var wgIds = newCond.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let wgIds = newCond.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           newCond._wgNames = wgIds.map(function(wid) { return this._auditWgName(wid); }.bind(this)).filter(Boolean);
           newCond._wgName = newCond._wgNames.join('、');
         } else { newCond._wgNames = []; newCond._wgName = ''; }
         newCond.identityScope = cond.identityScope;
         newCond.specificIdentityId = cond.identityScope === 'specific' ? cond.specificIdentityId : '';
         if (newCond.specificIdentityId) {
-          var identIds = newCond.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let identIds = newCond.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           newCond._identNames = identIds.map(function(iid) { return this._auditIdentityName(iid); }.bind(this)).filter(Boolean);
           newCond._identName = newCond._identNames.join('、');
         } else { newCond._identNames = []; newCond._identName = ''; }
@@ -466,7 +466,7 @@ module.exports = Behavior({
       // Pre-compute display summary
       newCond._summary = this._auditConditionSummary(newCond);
 
-      var conditions = [...this.data.auditTemplateStepForm.conditions];
+      let conditions = [...this.data.auditTemplateStepForm.conditions];
       if (this.data.auditStepConditionEditingIndex >= 0) {
         conditions[this.data.auditStepConditionEditingIndex] = newCond;
       } else {
@@ -480,8 +480,8 @@ module.exports = Behavior({
     },
 
     removeStepCondition(e) {
-      var index = parseInt(e.currentTarget.dataset.index);
-      var conditions = [...this.data.auditTemplateStepForm.conditions];
+      let index = parseInt(e.currentTarget.dataset.index);
+      let conditions = [...this.data.auditTemplateStepForm.conditions];
       conditions.splice(index, 1);
       this.setData({ 'auditTemplateStepForm.conditions': conditions });
     },
@@ -491,7 +491,7 @@ module.exports = Behavior({
       if (!c) return '未知条件';
       if (c.conditionType === 'person') {
         if (c.personHrIds) {
-          var names = c.personHrIds.split(',').map(function (hid) {
+          let names = c.personHrIds.split(',').map(function (hid) {
             return this._auditHrName(hid.trim());
           }.bind(this)).filter(function (n) { return n; });
           return names.length ? names.join('、') : '未选择人员';
@@ -499,7 +499,7 @@ module.exports = Behavior({
         return '未设置人员';
       }
       // identity_scope — only show what's restricted, skip 'all'
-      var parts = [];
+      let parts = [];
       if (c.departmentScope === 'own') {
         parts.push('同部门');
       } else if (c.departmentScope === 'specific' && c.specificDepartmentId) {
@@ -525,10 +525,10 @@ module.exports = Behavior({
      * Returns a new object suitable for WXML bubble rendering.
      */
     _auditResolveCondition(c) {
-      var r = Object.assign({}, c);
+      let r = Object.assign({}, c);
       if (c.conditionType === 'person') {
         if (c.personHrIds) {
-          var ids = c.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+          let ids = c.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
           r._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this)).filter(Boolean);
         } else {
           r._personNames = [];
@@ -536,7 +536,7 @@ module.exports = Behavior({
       } else {
         // Handle comma-separated IDs for specific fields
         if (c.departmentScope === 'specific' && c.specificDepartmentId) {
-          var deptIds = c.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let deptIds = c.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           r._deptNames = deptIds.map(function(did) { return this._auditDeptName(did); }.bind(this)).filter(Boolean);
           r._deptName = r._deptNames.join('、');
         } else {
@@ -544,7 +544,7 @@ module.exports = Behavior({
           r._deptName = '';
         }
         if (c.workGroupScope === 'specific' && c.specificWorkGroupId) {
-          var wgIds = c.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let wgIds = c.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           r._wgNames = wgIds.map(function(wid) { return this._auditWgName(wid); }.bind(this)).filter(Boolean);
           r._wgName = r._wgNames.join('、');
         } else {
@@ -552,7 +552,7 @@ module.exports = Behavior({
           r._wgName = '';
         }
         if (c.identityScope === 'specific' && c.specificIdentityId) {
-          var identIds = c.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let identIds = c.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           r._identNames = identIds.map(function(iid) { return this._auditIdentityName(iid); }.bind(this)).filter(Boolean);
           r._identName = r._identNames.join('、');
         } else {
@@ -565,11 +565,11 @@ module.exports = Behavior({
 
     // ── Open unified multi-picker for step condition fields ──
     openStepConditionPicker(e) {
-      var target = e.currentTarget.dataset.target;
-      var title = e.currentTarget.dataset.title || '选择';
-      var list = [];
-      var deptOpts = this._auditBuildDeptOptions();
-      var identOpts = this._auditBuildIdentOptions();
+      let target = e.currentTarget.dataset.target;
+      let title = e.currentTarget.dataset.title || '选择';
+      let list = [];
+      let deptOpts = this._auditBuildDeptOptions();
+      let identOpts = this._auditBuildIdentOptions();
 
       // Determine which list to show
       switch (target) {
@@ -588,13 +588,13 @@ module.exports = Behavior({
       }
 
       // Build department tabs for work group picker when specific depts are selected
-      var deptTabs = [];
-      var activeDeptTab = '';
+      let deptTabs = [];
+      let activeDeptTab = '';
       if (target === 'specificWorkGroupId') {
-        var condForm = this.data.auditStepConditionForm || {};
+        let condForm = this.data.auditStepConditionForm || {};
         if (condForm.departmentScope === 'specific' && condForm.specificDepartmentId) {
-          var selectedDeptIds = condForm.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          var deptMap = {};
+          let selectedDeptIds = condForm.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let deptMap = {};
           list.forEach(function(wg) {
             if (wg.deptId && selectedDeptIds.indexOf(wg.deptId) >= 0) {
               if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || wg.deptId, workGroups: [], selectedCount: 0 };
@@ -609,11 +609,11 @@ module.exports = Behavior({
       }
 
       // Pre-populate selected IDs
-      var selectedIds = {};
-      var currentVal = this.data.auditStepConditionForm[target] || '';
+      let selectedIds = {};
+      let currentVal = this.data.auditStepConditionForm[target] || '';
       if (currentVal) {
         currentVal.split(',').forEach(function(id) {
-          var trimmed = id.trim();
+          let trimmed = id.trim();
           if (trimmed) selectedIds[String(trimmed)] = true;
         });
       }
@@ -621,7 +621,7 @@ module.exports = Behavior({
       // Initialize per-tab selected counts
       if (deptTabs.length) {
         deptTabs = deptTabs.map(function(tab) {
-          var count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
+          let count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
           return Object.assign({}, tab, { selectedCount: count });
         });
       }
@@ -659,38 +659,38 @@ module.exports = Behavior({
     },
 
     onAuditMultiPickerFilterDept(e) {
-      var idx = e.detail.value;
-      var options = this.data.auditMultiPickerDeptOptions;
+      let idx = e.detail.value;
+      let options = this.data.auditMultiPickerDeptOptions;
       this.setData({ auditMultiPickerFilterDept: options[idx] || '全部' });
       this._applyAuditMultiPickerFilters();
     },
 
     onAuditMultiPickerFilterIdent(e) {
-      var idx = e.detail.value;
-      var options = this.data.auditMultiPickerIdentOptions;
+      let idx = e.detail.value;
+      let options = this.data.auditMultiPickerIdentOptions;
       this.setData({ auditMultiPickerFilterIdent: options[idx] || '全部' });
       this._applyAuditMultiPickerFilters();
     },
 
     _applyAuditMultiPickerFilters() {
-      var items = this.data.auditMultiPickerItems;
-      var target = this.data.auditMultiPickerTarget;
-      var keyword = (this.data.auditMultiPickerSearchKeyword || '').trim().toLowerCase();
-      var filterDept = this.data.auditMultiPickerFilterDept;
-      var filterIdent = this.data.auditMultiPickerFilterIdent;
+      let items = this.data.auditMultiPickerItems;
+      let target = this.data.auditMultiPickerTarget;
+      let keyword = (this.data.auditMultiPickerSearchKeyword || '').trim().toLowerCase();
+      let filterDept = this.data.auditMultiPickerFilterDept;
+      let filterIdent = this.data.auditMultiPickerFilterIdent;
 
       // Department/identity filters only apply to personnel picker
       if (target === 'personHrIds') {
-        var hrList = this.data.hrList || [];
+        let hrList = this.data.hrList || [];
         if (filterDept !== '全部') {
-          var deptId = this._auditDeptIdByName(filterDept);
-          var filteredIds = {};
+          let deptId = this._auditDeptIdByName(filterDept);
+          let filteredIds = {};
           hrList.filter(function(h) { return h.departmentId === deptId; }).forEach(function(h) { filteredIds[h.id] = true; });
           items = items.filter(function(item) { return filteredIds[item.id]; });
         }
         if (filterIdent !== '全部') {
-          var identId = this._auditIdentIdByName(filterIdent);
-          var filteredIds2 = {};
+          let identId = this._auditIdentIdByName(filterIdent);
+          let filteredIds2 = {};
           hrList.filter(function(h) { return h.identityId === identId; }).forEach(function(h) { filteredIds2[h.id] = true; });
           items = items.filter(function(item) { return filteredIds2[item.id]; });
         }
@@ -698,7 +698,7 @@ module.exports = Behavior({
 
       // Department tab filter for work group picker
       if (target === 'specificWorkGroupId' && this.data.auditMultiPickerDeptTabs.length) {
-        var activeTab = this.data.auditMultiPickerActiveDeptTab;
+        let activeTab = this.data.auditMultiPickerActiveDeptTab;
         items = items.filter(function(item) { return item.deptId === activeTab; });
       }
 
@@ -714,18 +714,18 @@ module.exports = Behavior({
     },
 
     _auditDeptIdByName(name) {
-      var found = (this.data.departmentList || []).find(function(d) { return d.name === name; });
+      let found = (this.data.departmentList || []).find(function(d) { return d.name === name; });
       return found ? found.id : '';
     },
 
     _auditIdentIdByName(name) {
-      var found = (this.data.identityList || []).find(function(i) { return i.name === name; });
+      let found = (this.data.identityList || []).find(function(i) { return i.name === name; });
       return found ? found.id : '';
     },
 
     onAuditMultiPickerToggle(e) {
-      var id = String(e.currentTarget.dataset.id);
-      var selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
+      let id = String(e.currentTarget.dataset.id);
+      let selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
       // All pickers support multi-select
       if (selected[id]) {
         delete selected[id];
@@ -734,10 +734,10 @@ module.exports = Behavior({
       }
 
       // Update per-tab selected counts
-      var deptTabs = this.data.auditMultiPickerDeptTabs;
+      let deptTabs = this.data.auditMultiPickerDeptTabs;
       if (deptTabs.length) {
         deptTabs = deptTabs.map(function(tab) {
-          var count = tab.workGroups.filter(function(wg) {
+          let count = tab.workGroups.filter(function(wg) {
             return selected[String(wg.id)];
           }).length;
           return Object.assign({}, tab, { selectedCount: count });
@@ -752,18 +752,18 @@ module.exports = Behavior({
     },
 
     onAuditMultiPickerSelectAll() {
-      var filtered = this.data.auditMultiPickerFilteredList;
+      let filtered = this.data.auditMultiPickerFilteredList;
       if (!filtered.length) return;
-      var selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
+      let selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
       filtered.forEach(function(item) {
         selected[String(item.id)] = true;
       });
 
       // Update per-tab selected counts
-      var deptTabs = this.data.auditMultiPickerDeptTabs;
+      let deptTabs = this.data.auditMultiPickerDeptTabs;
       if (deptTabs.length) {
         deptTabs = deptTabs.map(function(tab) {
-          var count = tab.workGroups.filter(function(wg) {
+          let count = tab.workGroups.filter(function(wg) {
             return selected[String(wg.id)];
           }).length;
           return Object.assign({}, tab, { selectedCount: count });
@@ -779,10 +779,10 @@ module.exports = Behavior({
 
     onAuditMultiPickerDeselectAll() {
       // When dept tabs active, only deselect current tab
-      var deptTabs = this.data.auditMultiPickerDeptTabs;
-      var selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
+      let deptTabs = this.data.auditMultiPickerDeptTabs;
+      let selected = Object.assign({}, this.data.auditMultiPickerSelectedIds);
       if (deptTabs.length) {
-        var activeTab = this.data.auditMultiPickerActiveDeptTab;
+        let activeTab = this.data.auditMultiPickerActiveDeptTab;
         // Remove selections for the active tab only
         deptTabs.forEach(function(tab) {
           if (tab.deptId === activeTab) {
@@ -792,7 +792,7 @@ module.exports = Behavior({
           }
         });
         deptTabs = deptTabs.map(function(tab) {
-          var count = tab.workGroups.filter(function(wg) {
+          let count = tab.workGroups.filter(function(wg) {
             return selected[String(wg.id)];
           }).length;
           return Object.assign({}, tab, { selectedCount: count });
@@ -808,12 +808,12 @@ module.exports = Behavior({
     },
 
     confirmAuditMultiPicker() {
-      var target = this.data.auditMultiPickerTarget;
-      var selectedIds = this.data.auditMultiPickerSelectedIds;
-      var ids = Object.keys(selectedIds);
-      var items = this.data.auditMultiPickerItems;
-      var condTarget = this.data._auditConditionTarget || 'step';
-      var formPrefix = condTarget === 'starter' ? 'auditStarterConditionForm' : 'auditStepConditionForm';
+      let target = this.data.auditMultiPickerTarget;
+      let selectedIds = this.data.auditMultiPickerSelectedIds;
+      let ids = Object.keys(selectedIds);
+      let items = this.data.auditMultiPickerItems;
+      let condTarget = this.data._auditConditionTarget || 'step';
+      let formPrefix = condTarget === 'starter' ? 'auditStarterConditionForm' : 'auditStepConditionForm';
 
       if (!ids.length) {
         showShortToast('请至少选择一项');
@@ -822,11 +822,11 @@ module.exports = Behavior({
 
       // Per-department validation for work group picker with department tabs
       if (target === 'specificWorkGroupId' && this.data.auditMultiPickerDeptTabs.length) {
-        var tabs = this.data.auditMultiPickerDeptTabs;
-        for (var i = 0; i < tabs.length; i++) {
-          var tab = tabs[i];
+        let tabs = this.data.auditMultiPickerDeptTabs;
+        for (let i = 0; i < tabs.length; i++) {
+          let tab = tabs[i];
           if (!tab.workGroups.length) continue; // skip empty depts
-          var hasSelection = tab.workGroups.some(function(wg) { return selectedIds[String(wg.id)]; });
+          let hasSelection = tab.workGroups.some(function(wg) { return selectedIds[String(wg.id)]; });
           if (!hasSelection) {
             showShortToast((tab.deptName || tab.deptId) + ' 至少需要选择一个职能组');
             return;
@@ -834,12 +834,12 @@ module.exports = Behavior({
         }
       }
 
-      var names = ids.map(function(id) {
-        var found = items.find(function(item) { return String(item.id) === String(id); });
+      let names = ids.map(function(id) {
+        let found = items.find(function(item) { return String(item.id) === String(id); });
         return found ? found.name : '';
       }).filter(Boolean).join('、');
 
-      var updateObj = {};
+      let updateObj = {};
       updateObj[formPrefix + '.' + target] = ids.join(',');
       updateObj[formPrefix + '.' + target.replace('Id', 'Name')] = names;
       this.setData(updateObj);
@@ -848,8 +848,8 @@ module.exports = Behavior({
 
     // Clear a field in the condition form (e.g., personHrIds)
     onStepConditionFieldClear(e) {
-      var field = e.currentTarget.dataset.field;
-      var update = {};
+      let field = e.currentTarget.dataset.field;
+      let update = {};
       update['auditStepConditionForm.' + field] = '';
       update['auditStepConditionForm.' + field.replace('Id', 'Name')] = '';
       this.setData(update);
@@ -868,9 +868,9 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════
 
     openStarterConditionEditor(e) {
-      var index = e && e.currentTarget ? parseInt(e.currentTarget.dataset.index) : -1;
+      let index = e && e.currentTarget ? parseInt(e.currentTarget.dataset.index) : -1;
       if (index >= 0 && this.data.auditTemplateForm.starterConditions[index]) {
-        var c = this.data.auditTemplateForm.starterConditions[index];
+        let c = this.data.auditTemplateForm.starterConditions[index];
         this.setData({
           auditStarterConditionForm: {
             conditionType: c.conditionType || 'identity_scope',
@@ -914,47 +914,47 @@ module.exports = Behavior({
     },
 
     onStarterConditionScopeChange(e) {
-      var field = e.currentTarget.dataset.field;
-      var scopes = ['all', 'specific']; // starter has no 'own' — starter IS the submitter
-      var idx = parseInt(e.detail.value);
+      let field = e.currentTarget.dataset.field;
+      let scopes = ['all', 'specific']; // starter has no 'own' — starter IS the submitter
+      let idx = parseInt(e.detail.value);
       this.setData({ ['auditStarterConditionForm.' + field]: scopes[idx] || 'all' });
     },
 
     confirmStarterCondition() {
-      var cond = this.data.auditStarterConditionForm;
-      var newCond = { conditionType: cond.conditionType };
+      let cond = this.data.auditStarterConditionForm;
+      let newCond = { conditionType: cond.conditionType };
 
       if (cond.conditionType === 'person') {
         if (!cond.personHrIds) { showShortToast('请选择人员'); return; }
         newCond.personHrIds = cond.personHrIds;
-        var ids = cond.personHrIds.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        let ids = cond.personHrIds.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
         newCond.personHrNames = ids.map(function(hid) { return this._auditHrName(hid); }.bind(this)).join('、');
         newCond._personNames = ids.map(function(hid) { return this._auditHrName(hid); }.bind(this));
       } else {
         newCond.departmentScope = cond.departmentScope;
         newCond.specificDepartmentId = cond.departmentScope === 'specific' ? cond.specificDepartmentId : '';
         if (newCond.specificDepartmentId) {
-          var deptIds = newCond.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let deptIds = newCond.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           newCond._deptNames = deptIds.map(function(did) { return this._auditDeptName(did); }.bind(this)).filter(Boolean);
           newCond._deptName = newCond._deptNames.join('、');
         } else { newCond._deptNames = []; newCond._deptName = ''; }
         newCond.workGroupScope = cond.workGroupScope;
         newCond.specificWorkGroupId = cond.workGroupScope === 'specific' ? cond.specificWorkGroupId : '';
         if (newCond.specificWorkGroupId) {
-          var wgIds = newCond.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let wgIds = newCond.specificWorkGroupId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           newCond._wgNames = wgIds.map(function(wid) { return this._auditWgName(wid); }.bind(this)).filter(Boolean);
           newCond._wgName = newCond._wgNames.join('、');
         } else { newCond._wgNames = []; newCond._wgName = ''; }
         newCond.identityScope = cond.identityScope;
         newCond.specificIdentityId = cond.identityScope === 'specific' ? cond.specificIdentityId : '';
         if (newCond.specificIdentityId) {
-          var identIds = newCond.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let identIds = newCond.specificIdentityId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
           newCond._identNames = identIds.map(function(iid) { return this._auditIdentityName(iid); }.bind(this)).filter(Boolean);
           newCond._identName = newCond._identNames.join('、');
         } else { newCond._identNames = []; newCond._identName = ''; }
       }
 
-      var conditions = [...this.data.auditTemplateForm.starterConditions];
+      let conditions = [...this.data.auditTemplateForm.starterConditions];
       if (this.data.auditStarterConditionEditingIndex >= 0) {
         conditions[this.data.auditStarterConditionEditingIndex] = newCond;
       } else {
@@ -967,19 +967,19 @@ module.exports = Behavior({
     },
 
     removeStarterCondition(e) {
-      var index = parseInt(e.currentTarget.dataset.index);
-      var conditions = [...this.data.auditTemplateForm.starterConditions];
+      let index = parseInt(e.currentTarget.dataset.index);
+      let conditions = [...this.data.auditTemplateForm.starterConditions];
       conditions.splice(index, 1);
       this.setData({ 'auditTemplateForm.starterConditions': conditions });
     },
 
     // Open the unified multi-picker for a starter condition field
     openStarterConditionPicker(e) {
-      var target = e.currentTarget.dataset.target;
-      var title = e.currentTarget.dataset.title || '选择';
-      var list = [];
-      var deptOpts = this._auditBuildDeptOptions();
-      var identOpts = this._auditBuildIdentOptions();
+      let target = e.currentTarget.dataset.target;
+      let title = e.currentTarget.dataset.title || '选择';
+      let list = [];
+      let deptOpts = this._auditBuildDeptOptions();
+      let identOpts = this._auditBuildIdentOptions();
 
       switch (target) {
         case 'specificDepartmentId':
@@ -997,13 +997,13 @@ module.exports = Behavior({
       }
 
       // Build department tabs for work group picker when specific depts are selected
-      var deptTabs = [];
-      var activeDeptTab = '';
+      let deptTabs = [];
+      let activeDeptTab = '';
       if (target === 'specificWorkGroupId') {
-        var starterForm = this.data.auditStarterConditionForm || {};
+        let starterForm = this.data.auditStarterConditionForm || {};
         if (starterForm.departmentScope === 'specific' && starterForm.specificDepartmentId) {
-          var selectedDeptIds = starterForm.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          var deptMap = {};
+          let selectedDeptIds = starterForm.specificDepartmentId.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+          let deptMap = {};
           list.forEach(function(wg) {
             if (wg.deptId && selectedDeptIds.indexOf(wg.deptId) >= 0) {
               if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || wg.deptId, workGroups: [], selectedCount: 0 };
@@ -1017,11 +1017,11 @@ module.exports = Behavior({
         }
       }
 
-      var selectedIds = {};
-      var currentVal = this.data.auditStarterConditionForm[target] || '';
+      let selectedIds = {};
+      let currentVal = this.data.auditStarterConditionForm[target] || '';
       if (currentVal) {
         currentVal.split(',').forEach(function(id) {
-          var trimmed = id.trim();
+          let trimmed = id.trim();
           if (trimmed) selectedIds[String(trimmed)] = true;
         });
       }
@@ -1029,7 +1029,7 @@ module.exports = Behavior({
       // Initialize per-tab selected counts
       if (deptTabs.length) {
         deptTabs = deptTabs.map(function(tab) {
-          var count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
+          let count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
           return Object.assign({}, tab, { selectedCount: count });
         });
       }
@@ -1055,8 +1055,8 @@ module.exports = Behavior({
 
     // Clear a field in the starter condition form
     onStarterConditionFieldClear(e) {
-      var field = e.currentTarget.dataset.field;
-      var update = {};
+      let field = e.currentTarget.dataset.field;
+      let update = {};
       update['auditStarterConditionForm.' + field] = '';
       update['auditStarterConditionForm.' + field.replace('Id', 'Name')] = '';
       this.setData(update);
@@ -1064,7 +1064,7 @@ module.exports = Behavior({
 
     // Build a human-readable summary for starter conditions
     _auditStarterSummary() {
-      var conds = this.data.auditTemplateForm.starterConditions;
+      let conds = this.data.auditTemplateForm.starterConditions;
       if (!conds || !conds.length) return '任何人';
       return conds.map(function(c) { return this._auditConditionSummary(c); }.bind(this)).join(' 或 ');
     },
@@ -1074,7 +1074,7 @@ module.exports = Behavior({
       if (!form.name) { showShortToast('请输入模板名称'); return; }
       if (!form.steps.length) { showShortToast('请至少添加一个步骤'); return; }
       // Validate each step has at least one condition
-      for (var i = 0; i < form.steps.length; i++) {
+      for (let i = 0; i < form.steps.length; i++) {
         if (!form.steps[i].conditions || !form.steps[i].conditions.length) {
           showShortToast('第' + (i + 1) + '步至少需要一个审批条件');
           return;
@@ -1083,11 +1083,11 @@ module.exports = Behavior({
 
       this.setLoading('saveAuditTemplate', true);
       try {
-        var stepsToSend = form.steps.map(function(s) {
+        let stepsToSend = form.steps.map(function(s) {
           return {
             name: s.name || '',
             conditions: s.conditions.map(function(c) {
-              var cond = { conditionType: c.conditionType };
+              let cond = { conditionType: c.conditionType };
               if (c.conditionType === 'person') {
                 cond.personHrIds = c.personHrIds;
               } else {
@@ -1104,8 +1104,8 @@ module.exports = Behavior({
           };
         });
 
-        var starterCondsToSend = (form.starterConditions || []).map(function(c) {
-          var cond = { conditionType: c.conditionType };
+        let starterCondsToSend = (form.starterConditions || []).map(function(c) {
+          let cond = { conditionType: c.conditionType };
           if (c.conditionType === 'person') {
             cond.personHrIds = c.personHrIds;
           } else {
@@ -1169,8 +1169,8 @@ module.exports = Behavior({
 
     // Toggle expand/collapse of a template to show step details
     toggleAuditTemplateExpand(e) {
-      var id = e.currentTarget.dataset.id;
-      var current = this.data.auditExpandedTemplateId;
+      let id = e.currentTarget.dataset.id;
+      let current = this.data.auditExpandedTemplateId;
       this.setData({ auditExpandedTemplateId: current === id ? '' : id });
     },
 
@@ -1371,13 +1371,13 @@ module.exports = Behavior({
           const rawSteps = res.steps || [];
 
           // Build flow timeline from server events + steps
-          var serverEvents = res.events || [];
+          let serverEvents = res.events || [];
           const flowTimeline = [];
 
           // 1. Build lifecycle nodes from REAL server events
-          var lifecycleEvents = [];
-          for (var ei = 0; ei < serverEvents.length; ei++) {
-            var evt = serverEvents[ei];
+          let lifecycleEvents = [];
+          for (let ei = 0; ei < serverEvents.length; ei++) {
+            let evt = serverEvents[ei];
             if (evt.eventType === 'submit' || evt.eventType === 'withdraw' || evt.eventType === 'resubmit') {
               lifecycleEvents.push(evt);
             }
@@ -1393,9 +1393,9 @@ module.exports = Behavior({
           const roundKeys = Object.keys(rounds).sort((a, b) => Number(a) - Number(b));
 
           // 3. Find the first submit event (round 1)
-          var initialSubmit = null;
-          var usedEventIdx = 0;
-          for (var ei2 = 0; ei2 < lifecycleEvents.length; ei2++) {
+          let initialSubmit = null;
+          let usedEventIdx = 0;
+          for (let ei2 = 0; ei2 < lifecycleEvents.length; ei2++) {
             if (lifecycleEvents[ei2].eventType === 'submit' && lifecycleEvents[ei2].round === 1) {
               initialSubmit = lifecycleEvents[ei2];
               usedEventIdx = ei2 + 1;
@@ -1413,15 +1413,15 @@ module.exports = Behavior({
           }
 
           // 4. For each round, show steps with lifecycle events between
-          var nextEventIdx = usedEventIdx;
+          let nextEventIdx = usedEventIdx;
 
           for (let ri = 0; ri < roundKeys.length; ri++) {
             const round = Number(roundKeys[ri]);
             const roundSteps = rounds[round].sort((a, b) => a.sort_order - b.sort_order);
 
             if (round > 1) {
-              var resubmitEvt = null;
-              for (var ei3 = nextEventIdx; ei3 < lifecycleEvents.length; ei3++) {
+              let resubmitEvt = null;
+              for (let ei3 = nextEventIdx; ei3 < lifecycleEvents.length; ei3++) {
                 if (lifecycleEvents[ei3].eventType === 'resubmit' && lifecycleEvents[ei3].round === round) {
                   resubmitEvt = lifecycleEvents[ei3];
                   nextEventIdx = ei3 + 1;
@@ -1523,12 +1523,12 @@ module.exports = Behavior({
 
             // Inject separator
             if (hasProcessedSteps && hasFutureSteps) {
-              var remainingCount = roundSteps.filter(function(rs) {
+              let remainingCount = roundSteps.filter(function(rs) {
                 return rs.status === 'pending' && rs.sort_order > currentStepIndex;
               }).length;
               if (remainingCount > 0) {
-                var insertIdx = -1;
-                for (var fi = 0; fi < flowTimeline.length; fi++) {
+                let insertIdx = -1;
+                for (let fi = 0; fi < flowTimeline.length; fi++) {
                   if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === '○ 未到达') {
                     insertIdx = fi;
                     break;
@@ -1546,8 +1546,8 @@ module.exports = Behavior({
           }
 
           // 5. Remaining lifecycle events after last round
-          for (var ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
-            var lateEvt = lifecycleEvents[ei4];
+          for (let ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
+            let lateEvt = lifecycleEvents[ei4];
             if (lateEvt.eventType === 'withdraw') {
               flowTimeline.push({
                 _key: 'lifecycle_withdraw_' + lateEvt.id,
@@ -1697,24 +1697,24 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
     },
 
     onVerificationModeChange(e) {
-      var modes = ['number', 'id', 'file'];
+      let modes = ['number', 'id', 'file'];
       this.setData({ verificationMode: modes[e.detail.value] || 'number' });
     },
 
     async verifySubmissionChain() {
-      var params = {};
-      var mode = this.data.verificationMode || 'number';
+      let params = {};
+      let mode = this.data.verificationMode || 'number';
 
       if (mode === 'number') {
-        var number = this.data.verificationInputNumber;
+        let number = this.data.verificationInputNumber;
         if (!number) { showShortToast('请输入提交编号'); return; }
         params.submissionNumber = number;
       } else if (mode === 'id') {
-        var sid = this.data.verificationInputId;
+        let sid = this.data.verificationInputId;
         if (!sid) { showShortToast('请输入提交ID'); return; }
         params.submissionId = sid;
       } else if (mode === 'file') {
-        var fileB64 = this.data.verificationFileBase64;
+        let fileB64 = this.data.verificationFileBase64;
         if (!fileB64) { showShortToast('请选择要验签的文件'); return; }
         params.fileBase64 = fileB64;
       }
@@ -1743,7 +1743,7 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
       const label = e.currentTarget.dataset.label || '选择人员';
 
       // Pre-populate selectedId from the current target field
-      var selectedId = '';
+      let selectedId = '';
       if (target === 'starterHrId') selectedId = this.data.auditTemplateForm.starterHrId;
       else if (target === 'stepHrId') selectedId = this.data.auditTemplateStepForm.approverHrId;
       else if (target === 'grantHrId') selectedId = this.data.verificationGrantHrId;
@@ -1772,26 +1772,26 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
     },
 
     onAuditPersonnelFilterDept(e) {
-      var idx = e.detail.value;
-      var options = this.data.auditPersonnelDeptOptions;
+      let idx = e.detail.value;
+      let options = this.data.auditPersonnelDeptOptions;
       this.setData({ auditPersonnelFilterDept: options[idx] || '全部' });
       this._applyAuditPersonnelFilters();
     },
 
     onAuditPersonnelFilterIdent(e) {
-      var idx = e.detail.value;
-      var options = this.data.auditPersonnelIdentOptions;
+      let idx = e.detail.value;
+      let options = this.data.auditPersonnelIdentOptions;
       this.setData({ auditPersonnelFilterIdent: options[idx] || '全部' });
       this._applyAuditPersonnelFilters();
     },
 
     _applyAuditPersonnelFilters() {
-      var hrList = this.data.hrList || [];
-      var keyword = (this.data.auditPersonnelSearchKeyword || '').trim().toLowerCase();
-      var filterDept = this.data.auditPersonnelFilterDept;
-      var filterIdent = this.data.auditPersonnelFilterIdent;
+      let hrList = this.data.hrList || [];
+      let keyword = (this.data.auditPersonnelSearchKeyword || '').trim().toLowerCase();
+      let filterDept = this.data.auditPersonnelFilterDept;
+      let filterIdent = this.data.auditPersonnelFilterIdent;
 
-      var filtered = hrList;
+      let filtered = hrList;
       if (filterDept !== '全部') {
         filtered = filtered.filter(function (item) { return item.department === filterDept; });
       }
@@ -1810,25 +1810,25 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
     },
 
     onAuditPersonnelToggle(e) {
-      var hrId = String(e.currentTarget.dataset.hrId);
-      var current = this.data.auditPersonnelPickerSelectedId;
+      let hrId = String(e.currentTarget.dataset.hrId);
+      let current = this.data.auditPersonnelPickerSelectedId;
       // Toggle: if already selected, deselect; otherwise select
       this.setData({ auditPersonnelPickerSelectedId: current === hrId ? '' : hrId });
     },
 
     confirmAuditPersonnelPicker() {
-      var selectedId = this.data.auditPersonnelPickerSelectedId;
+      let selectedId = this.data.auditPersonnelPickerSelectedId;
       if (!selectedId) {
         showShortToast('请先选择一名人员');
         return;
       }
 
-      var hrList = this.data.hrList || [];
-      var person = hrList.find(function (item) { return String(item.id) === String(selectedId); });
-      var hrId = String(selectedId);
-      var hrName = person ? person.name : selectedId;
+      let hrList = this.data.hrList || [];
+      let person = hrList.find(function (item) { return String(item.id) === String(selectedId); });
+      let hrId = String(selectedId);
+      let hrName = person ? person.name : selectedId;
 
-      var target = this.data.auditPersonnelPickerTarget;
+      let target = this.data.auditPersonnelPickerTarget;
       switch (target) {
         case 'starterHrId':
           this.setData({
@@ -1854,7 +1854,7 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
     },
 
     clearAuditPersonnel(e) {
-      var target = e.currentTarget.dataset.target;
+      let target = e.currentTarget.dataset.target;
       switch (target) {
         case 'starterHrId':
           this.setData({
@@ -1882,13 +1882,13 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
     // ═══════════════════════════════════════════════════════
 
     openAuditIdentityPicker(e) {
-      var target = e.currentTarget.dataset.target;
-      var label = e.currentTarget.dataset.label || '选择身份';
-      var multi = e.currentTarget.dataset.multi === 'true';
+      let target = e.currentTarget.dataset.target;
+      let label = e.currentTarget.dataset.label || '选择身份';
+      let multi = e.currentTarget.dataset.multi === 'true';
 
       // Pre-populate selected IDs from the current target field
-      var selectedIds = {};
-      var currentIds = '';
+      let selectedIds = {};
+      let currentIds = '';
       if (target === 'starterIdentityId') {
         currentIds = this.data.auditTemplateForm.starterIdentityId || '';
       } else if (target === 'stepIdentityId') {
@@ -1896,7 +1896,7 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
       }
       if (currentIds) {
         currentIds.split(',').forEach(function (id) {
-          var trimmed = id.trim();
+          let trimmed = id.trim();
           if (trimmed) selectedIds[trimmed] = true;
         });
       }
@@ -1920,8 +1920,8 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
     },
 
     onAuditIdentityToggle(e) {
-      var id = String(e.currentTarget.dataset.id);
-      var selectedIds = Object.assign({}, this.data.auditIdentityPickerSelectedIds);
+      let id = String(e.currentTarget.dataset.id);
+      let selectedIds = Object.assign({}, this.data.auditIdentityPickerSelectedIds);
 
       if (this.data.auditIdentityPickerMulti) {
         if (selectedIds[id]) {
@@ -1944,18 +1944,18 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
     },
 
     confirmAuditIdentityPicker() {
-      var selectedIds = this.data.auditIdentityPickerSelectedIds;
-      var identityList = this.data.identityList || [];
-      var target = this.data.auditIdentityPickerTarget;
-      var ids = Object.keys(selectedIds);
+      let selectedIds = this.data.auditIdentityPickerSelectedIds;
+      let identityList = this.data.identityList || [];
+      let target = this.data.auditIdentityPickerTarget;
+      let ids = Object.keys(selectedIds);
 
       if (!ids.length) {
         showShortToast('请至少选择一个身份');
         return;
       }
 
-      var names = ids.map(function (id) {
-        var found = identityList.find(function (item) { return String(item.id) === id; });
+      let names = ids.map(function (id) {
+        let found = identityList.find(function (item) { return String(item.id) === id; });
         return found ? found.name : id;
       }).join('、');
 
@@ -1979,7 +1979,7 @@ auditSubmissionDetail: { ...res, flowTimeline: flowTimeline },
     },
 
     clearAuditIdentity(e) {
-      var target = e.currentTarget.dataset.target;
+      let target = e.currentTarget.dataset.target;
       if (target === 'starterIdentityId') {
         this.setData({
           'auditTemplateForm.starterIdentityId': '',

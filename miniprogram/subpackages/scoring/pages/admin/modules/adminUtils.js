@@ -884,17 +884,17 @@ function validateProfileField(field = {}, rawValue) {
 }
 
 function tryParseDateValue(value) {
-  var v = String(value || '').trim();
+  let v = String(value || '').trim();
   if (!v) return null;
 
   // YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD with optional time
-  var m1 = v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  let m1 = v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
   if (m1) {
-    var year = Number(m1[1]);
-    var month = Number(m1[2]);
-    var day = Number(m1[3]);
+    let year = Number(m1[1]);
+    let month = Number(m1[2]);
+    let day = Number(m1[3]);
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      var dt = new Date(year, month - 1, day);
+      let dt = new Date(year, month - 1, day);
       if (dt.getFullYear() === year && dt.getMonth() + 1 === month && dt.getDate() === day) {
         return { year: year, month: month, day: day };
       }
@@ -902,13 +902,13 @@ function tryParseDateValue(value) {
   }
 
   // DD/MM/YYYY or DD-MM-YYYY
-  var m2 = v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  let m2 = v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})(?:[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
   if (m2) {
-    var d = Number(m2[1]);
-    var mo = Number(m2[2]);
-    var y = Number(m2[3]);
+    let d = Number(m2[1]);
+    let mo = Number(m2[2]);
+    let y = Number(m2[3]);
     if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
-      var dt2 = new Date(y, mo - 1, d);
+      let dt2 = new Date(y, mo - 1, d);
       if (dt2.getFullYear() === y && dt2.getMonth() + 1 === mo && dt2.getDate() === d) {
         return { year: y, month: mo, day: d };
       }
@@ -916,11 +916,11 @@ function tryParseDateValue(value) {
   }
 
   // Fallback to native Date
-  var d3 = new Date(v);
+  let d3 = new Date(v);
   if (!isNaN(d3.getTime()) && d3.getFullYear() > 1900) {
     return { year: d3.getFullYear(), month: d3.getMonth() + 1, day: d3.getDate() };
   }
-  var d4 = new Date(v.replace(' ', 'T'));
+  let d4 = new Date(v.replace(' ', 'T'));
   if (!isNaN(d4.getTime()) && d4.getFullYear() > 1900) {
     return { year: d4.getFullYear(), month: d4.getMonth() + 1, day: d4.getDate() };
   }
@@ -928,16 +928,16 @@ function tryParseDateValue(value) {
 }
 
 function detectFieldTypeFromValues(values) {
-  var nonEmpty = (values || []).filter(function (v) { return String(v || '').trim() !== ''; });
+  let nonEmpty = (values || []).filter(function (v) { return String(v || '').trim() !== ''; });
   if (!nonEmpty.length) return 'text';
 
-  var allDate = true;
-  var allPhone = true;
-  var allEmail = true;
-  var allNumber = true;
+  let allDate = true;
+  let allPhone = true;
+  let allEmail = true;
+  let allNumber = true;
 
-  for (var i = 0; i < nonEmpty.length; i++) {
-    var v = String(nonEmpty[i]).trim();
+  for (let i = 0; i < nonEmpty.length; i++) {
+    let v = String(nonEmpty[i]).trim();
     if (!tryParseDateValue(v)) allDate = false;
     if (!/^1[3-9]\d{9}$/.test(v)) allPhone = false;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) allEmail = false;
@@ -951,18 +951,18 @@ function detectFieldTypeFromValues(values) {
   return 'text';
 }
 
-var EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
+let EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
 
 function normalizeEmptyValue(value) {
-  var v = String(value == null ? '' : value).trim();
+  let v = String(value == null ? '' : value).trim();
   if (!v) return '';
   if (EMPTY_VALUE_ALIASES.indexOf(v) !== -1) return '';
   return v;
 }
 
 function getFieldTypeDisplayName(fieldDef) {
-  var ft = (fieldDef && fieldDef.type) || 'text';
-  var option = PROFILE_FIELD_TYPE_OPTIONS.find(function (item) { return item.value === ft; });
+  let ft = (fieldDef && fieldDef.type) || 'text';
+  let option = PROFILE_FIELD_TYPE_OPTIONS.find(function (item) { return item.value === ft; });
   return option ? option.label : '文本';
 }
 
@@ -972,17 +972,17 @@ function getFieldTypeLabelForTarget(target, templateFields) {
       || target === 'identity' || target === 'workGroup') {
     return '文本';
   }
-  var fields = templateFields || [];
-  for (var i = 0; i < fields.length; i++) {
+  let fields = templateFields || [];
+  for (let i = 0; i < fields.length; i++) {
     if (fields[i].id === target) return getFieldTypeDisplayName(fields[i]);
   }
   return '文本';
 }
 
 function validateCsvValueAgainstField(value, fieldDef) {
-  var v = normalizeEmptyValue(value);
-  var fieldType = (fieldDef && fieldDef.type) || 'text';
-  var typeLabel = getFieldTypeDisplayName(fieldDef);
+  let v = normalizeEmptyValue(value);
+  let fieldType = (fieldDef && fieldDef.type) || 'text';
+  let typeLabel = getFieldTypeDisplayName(fieldDef);
 
   if (!v) return { ok: true };
 
@@ -1000,10 +1000,10 @@ function validateCsvValueAgainstField(value, fieldDef) {
     if (fieldDef.allowDecimal === false && !/^[+-]?\d+$/.test(v)) {
       return { ok: false, reason: '必须是整数', fieldType: typeLabel };
     }
-    var num = Number(v);
+    let num = Number(v);
     if (!isFinite(num)) return { ok: false, reason: '不是有效数字', fieldType: typeLabel };
     if (fieldDef.numberRule === 'length_range') {
-      var nlen = String(v).replace(/^[+-]/, '').replace('.', '').length;
+      let nlen = String(v).replace(/^[+-]/, '').replace('.', '').length;
       if (fieldDef.minDigits && nlen < Number(fieldDef.minDigits)) {
         return { ok: false, reason: '长度不能少于' + fieldDef.minDigits, fieldType: typeLabel };
       }
@@ -1022,7 +1022,7 @@ function validateCsvValueAgainstField(value, fieldDef) {
   }
 
   if (fieldType === 'sequence') {
-    var optionsArr = [];
+    let optionsArr = [];
     if (Array.isArray(fieldDef.options)) {
       optionsArr = fieldDef.options;
     } else if (fieldDef.optionsText) {
@@ -1053,17 +1053,17 @@ function validateCsvValueAgainstField(value, fieldDef) {
 }
 
 function jaccardCharSimilarity(a, b) {
-  var sa = String(a || '').trim().toLowerCase();
-  var sb = String(b || '').trim().toLowerCase();
+  let sa = String(a || '').trim().toLowerCase();
+  let sb = String(b || '').trim().toLowerCase();
   if (!sa || !sb) return 0;
-  var setA = {}, setB = {};
-  for (var i = 0; i < sa.length; i++) { setA[sa[i]] = true; }
-  for (var i = 0; i < sb.length; i++) { setB[sb[i]] = true; }
-  var intersection = 0, union = 0;
-  var seen = {};
-  for (var k in setA) { seen[k] = true; }
-  for (var k in setB) { seen[k] = true; }
-  for (var k in seen) {
+  let setA = {}, setB = {};
+  for (let i = 0; i < sa.length; i++) { setA[sa[i]] = true; }
+  for (let i = 0; i < sb.length; i++) { setB[sb[i]] = true; }
+  let intersection = 0, union = 0;
+  let seen = {};
+  for (let k in setA) { seen[k] = true; }
+  for (let k in setB) { seen[k] = true; }
+  for (let k in seen) {
     if (setA[k] && setB[k]) intersection++;
     union++;
   }
@@ -1071,11 +1071,11 @@ function jaccardCharSimilarity(a, b) {
 }
 
 function autoMapCsvColumn(headerName, templateFields) {
-  var h = String(headerName || '').trim().toLowerCase();
+  let h = String(headerName || '').trim().toLowerCase();
   if (!h) return 'ignore';
-  var MIN_SIMILARITY = 0.4;
+  let MIN_SIMILARITY = 0.4;
 
-  var basicCandidates = [
+  let basicCandidates = [
     { target: 'name', aliases: ['姓名', 'name'] },
     { target: 'studentId', aliases: ['学号', 'studentid', 'student id'] },
     { target: 'department', aliases: ['所属部门', '部门', '学院', 'department'] },
@@ -1084,14 +1084,14 @@ function autoMapCsvColumn(headerName, templateFields) {
   ];
 
   function scoreCandidates(candidates, source) {
-    var best = null;
-    for (var i = 0; i < candidates.length; i++) {
-      var cand = candidates[i];
-      var aliases = cand.aliases || [cand.label || ''];
-      for (var j = 0; j < aliases.length; j++) {
-        var alias = String(aliases[j] || '').trim().toLowerCase();
+    let best = null;
+    for (let i = 0; i < candidates.length; i++) {
+      let cand = candidates[i];
+      let aliases = cand.aliases || [cand.label || ''];
+      for (let j = 0; j < aliases.length; j++) {
+        let alias = String(aliases[j] || '').trim().toLowerCase();
         if (!alias) continue;
-        var score = 0;
+        let score = 0;
         if (h === alias) {
           score = 1.0;
         } else if (h.indexOf(alias) >= 0 || alias.indexOf(h) >= 0) {
@@ -1111,16 +1111,16 @@ function autoMapCsvColumn(headerName, templateFields) {
     return best;
   }
 
-  var bestBasic = scoreCandidates(basicCandidates, 'basic');
+  let bestBasic = scoreCandidates(basicCandidates, 'basic');
 
-  var extCandidates = [];
-  var fields = templateFields || [];
-  for (var i = 0; i < fields.length; i++) {
+  let extCandidates = [];
+  let fields = templateFields || [];
+  for (let i = 0; i < fields.length; i++) {
     extCandidates.push({ target: fields[i].id, aliases: [fields[i].label] });
   }
-  var bestExt = scoreCandidates(extCandidates, 'ext');
+  let bestExt = scoreCandidates(extCandidates, 'ext');
 
-  var winner = null;
+  let winner = null;
   if (bestBasic && bestExt) {
     if (bestExt.score > bestBasic.score) {
       winner = bestExt;
@@ -1137,10 +1137,10 @@ function autoMapCsvColumn(headerName, templateFields) {
 }
 
 function buildCsvMappingOptions(templateFields) {
-  var labels = ['— 忽略 —', '→ 姓名（基础字段）', '→ 学号（基础字段）', '→ 所属部门（基础字段）', '→ 身份（基础字段）', '→ 工作分工（基础字段）'];
-  var values = ['ignore', 'name', 'studentId', 'department', 'identity', 'workGroup'];
-  var fields = templateFields || [];
-  for (var i = 0; i < fields.length; i++) {
+  let labels = ['— 忽略 —', '→ 姓名（基础字段）', '→ 学号（基础字段）', '→ 所属部门（基础字段）', '→ 身份（基础字段）', '→ 工作分工（基础字段）'];
+  let values = ['ignore', 'name', 'studentId', 'department', 'identity', 'workGroup'];
+  let fields = templateFields || [];
+  for (let i = 0; i < fields.length; i++) {
     labels.push('→ ' + fields[i].label + '（扩展字段）');
     values.push(fields[i].id);
   }
@@ -1148,30 +1148,30 @@ function buildCsvMappingOptions(templateFields) {
 }
 
 function getOptionIndex(values, target) {
-  for (var i = 0; i < values.length; i++) {
+  for (let i = 0; i < values.length; i++) {
     if (values[i] === target) return i;
   }
   return 0;
 }
 
 function buildCsvColumnMapping(headers, samples, templateFields) {
-  var mapping = buildCsvMappingOptions(templateFields);
-  var labels = mapping.labels;
-  var values = mapping.values;
-  var rows = [];
+  let mapping = buildCsvMappingOptions(templateFields);
+  let labels = mapping.labels;
+  let values = mapping.values;
+  let rows = [];
 
-  for (var i = 0; i < headers.length; i++) {
-    var header = headers[i];
-    var sampleValues = [];
+  for (let i = 0; i < headers.length; i++) {
+    let header = headers[i];
+    let sampleValues = [];
     // samples[0] = header row, samples[1..N] = data rows, aligned by index
-    for (var r = 1; r < Math.min(samples.length, 6); r++) {
-      var dr = samples[r] || [];
+    for (let r = 1; r < Math.min(samples.length, 6); r++) {
+      let dr = samples[r] || [];
       sampleValues.push(dr[i] || '');
     }
 
-    var target = autoMapCsvColumn(header, templateFields);
-    var fieldTypeLabel = getFieldTypeLabelForTarget(target, templateFields);
-    var optIdx = getOptionIndex(values, target);
+    let target = autoMapCsvColumn(header, templateFields);
+    let fieldTypeLabel = getFieldTypeLabelForTarget(target, templateFields);
+    let optIdx = getOptionIndex(values, target);
 
     rows.push({
       header: header,

@@ -190,10 +190,10 @@ router.post('/getRateTargets', async (req, res) => {
     }
 
     // Validate current date is within activity date range
-    var now = new Date();
-    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let now = new Date();
+    let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (currentActivity.start_date) {
-      var startDate = new Date(currentActivity.start_date);
+      let startDate = new Date(currentActivity.start_date);
       if (today < startDate) {
         return res.json({
           status: 'activity_not_started',
@@ -205,7 +205,7 @@ router.post('/getRateTargets', async (req, res) => {
       }
     }
     if (currentActivity.end_date) {
-      var endDate = new Date(currentActivity.end_date);
+      let endDate = new Date(currentActivity.end_date);
       if (today > endDate) {
         return res.json({
           status: 'activity_ended',
@@ -324,16 +324,16 @@ router.post('/getScoreFormData', async (req, res) => {
       return res.json({ status: 'activity_paused', message: '当前评分活动已暂停' });
     }
 
-    var now = new Date();
-    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let now = new Date();
+    let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (activity.start_date) {
-      var startDate = new Date(activity.start_date);
+      let startDate = new Date(activity.start_date);
       if (today < startDate) {
         return res.json({ status: 'activity_not_started', message: '当前评分活动尚未开始' });
       }
     }
     if (activity.end_date) {
-      var endDate = new Date(activity.end_date);
+      let endDate = new Date(activity.end_date);
       if (today > endDate) {
         return res.json({ status: 'activity_ended', message: '当前评分活动已结束' });
       }
@@ -515,16 +515,16 @@ router.post('/submitScoreRecord', async (req, res) => {
     if (activity.is_paused) {
       return res.json({ status: 'activity_paused', message: '当前评分活动已暂停，无法提交评分' });
     }
-    var now = new Date();
-    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let now = new Date();
+    let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (activity.start_date) {
-      var startDate = new Date(activity.start_date);
+      let startDate = new Date(activity.start_date);
       if (today < startDate) {
         return res.json({ status: 'activity_not_started', message: '当前评分活动尚未开始，无法提交评分' });
       }
     }
     if (activity.end_date) {
-      var endDate = new Date(activity.end_date);
+      let endDate = new Date(activity.end_date);
       if (today > endDate) {
         return res.json({ status: 'activity_ended', message: '当前评分活动已结束，无法提交评分' });
       }
@@ -867,17 +867,17 @@ router.post('/getScorerTaskStatus', async (req, res) => {
 const XLSX = require('xlsx');
 
 function buildExportCsv(headers, rows) {
-  var escapeCsv = function (v) { var t = String(v == null ? '' : v); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-  var csvText = '﻿' + headers.map(function (h) { return escapeCsv(h.label); }).join(',') + '\r\n' +
+  let escapeCsv = function (v) { let t = String(v == null ? '' : v); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  let csvText = '﻿' + headers.map(function (h) { return escapeCsv(h.label); }).join(',') + '\r\n' +
     rows.map(function (r) { return headers.map(function (h) { return escapeCsv(r[h.key]); }).join(','); }).join('\r\n');
   return Buffer.from(csvText, 'utf-8').toString('base64');
 }
 
 function buildExportXlsx(sheetName, headers, rows) {
-  var headerLabels = headers.map(function (h) { return h.label; });
-  var dataRows = rows.map(function (row) { return headers.map(function (h) { return row[h.key]; }); });
-  var ws = XLSX.utils.aoa_to_sheet([headerLabels].concat(dataRows));
-  var wb = XLSX.utils.book_new();
+  let headerLabels = headers.map(function (h) { return h.label; });
+  let dataRows = rows.map(function (row) { return headers.map(function (h) { return row[h.key]; }); });
+  let ws = XLSX.utils.aoa_to_sheet([headerLabels].concat(dataRows));
+  let wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }).toString('base64');
 }
@@ -1030,7 +1030,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
       }
     });
 
-    var rows = Array.from(scorerMap.values())
+    let rows = Array.from(scorerMap.values())
       .map(item => {
         const expectedCount = item.expectedTargets.size;
         const submittedCount = Array.from(item.submittedTargetIds)

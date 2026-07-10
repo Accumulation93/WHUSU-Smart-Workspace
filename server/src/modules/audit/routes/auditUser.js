@@ -35,8 +35,8 @@ const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = sub
  */
 function inCsv(csv, value) {
   if (csv == null || value == null) return false;
-  var csvStr = String(csv).trim();
-  var valStr = String(value).trim();
+  let csvStr = String(csv).trim();
+  let valStr = String(value).trim();
   if (!csvStr || !valStr) return false;
   return csvStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(valStr);
 }
@@ -341,7 +341,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       if (stepOverride && stepOverride.personHrIds && stepOverride.personHrIds.length) {
         // Validate each designated person against original conditions
         const validPersonIds = [];
-        for (var pi = 0; pi < stepOverride.personHrIds.length; pi++) {
+        for (let pi = 0; pi < stepOverride.personHrIds.length; pi++) {
           const pid = String(stepOverride.personHrIds[pi]);
           // If no original conditions (fully open), anyone is eligible
           if (!conditions.length) {
@@ -363,7 +363,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         // Replace original conditions with person-only conditions (narrow scope)
         if (validPersonIds.length > 0) {
           conditions.length = 0; // clear existing identity conditions
-          for (var vpi = 0; vpi < validPersonIds.length; vpi++) {
+          for (let vpi = 0; vpi < validPersonIds.length; vpi++) {
             conditions.push({
               conditionType: 'person',
               personHrIds: validPersonIds[vpi],
@@ -382,7 +382,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       // This ensures steps always have approvers — prevents orphan steps with no approver
       if (conditions.length === 0 && starterConditions.length > 0) {
         console.log('[audit:startSubmission] step[' + i + '] no conditions — falling back to starter conditions');
-        for (var sci = 0; sci < starterConditions.length; sci++) {
+        for (let sci = 0; sci < starterConditions.length; sci++) {
           conditions.push(Object.assign({}, starterConditions[sci]));
         }
       }
@@ -769,10 +769,10 @@ router.post('/getSubmissionDetail', async (req, res) => {
 
     // Build diagnostic info about steps
     const stepDiag = steps.map(function(s) {
-      var hasConds = !!s.step_conditions_json;
-      var condCount = 0;
+      let hasConds = !!s.step_conditions_json;
+      let condCount = 0;
       if (hasConds) {
-        try { var p = JSON.parse(s.step_conditions_json); condCount = Array.isArray(p) ? p.length : 0; } catch(_) {}
+        try { let p = JSON.parse(s.step_conditions_json); condCount = Array.isArray(p) ? p.length : 0; } catch(_) {}
       }
       return {
         id: s.id,
@@ -816,7 +816,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
     function addCsvToSet(csv, targetSet) {
       if (!csv) return;
       String(csv).split(',').forEach(function(id) {
-        var tid = id.trim();
+        let tid = id.trim();
         if (tid) targetSet.add(tid);
       });
     }
@@ -977,18 +977,18 @@ router.post('/getSubmissionDetail', async (req, res) => {
         }
 
         // Resolve multi-select names for legacy flat fields
-        var approverNameDisplay = '未指定';
-        var rawHrId2 = (s.approver_hr_id || '').trim();
+        let approverNameDisplay = '未指定';
+        let rawHrId2 = (s.approver_hr_id || '').trim();
         if (rawHrId2) {
-          var hrIds2 = rawHrId2.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
-          var hrNames2 = hrIds2.map(function(id) { return hrMap[id] || id; }).filter(Boolean);
+          let hrIds2 = rawHrId2.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
+          let hrNames2 = hrIds2.map(function(id) { return hrMap[id] || id; }).filter(Boolean);
           approverNameDisplay = hrNames2.join('、');
         }
-        var approverIdentityNameDisplay = '';
-        var rawIdentId2 = (s.approver_identity_id || '').trim();
+        let approverIdentityNameDisplay = '';
+        let rawIdentId2 = (s.approver_identity_id || '').trim();
         if (rawIdentId2) {
-          var identIds2 = rawIdentId2.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
-          var identNames2 = identIds2.map(function(id) { return identityMap[id] || id; }).filter(Boolean);
+          let identIds2 = rawIdentId2.split(',').map(function(id) { return id.trim(); }).filter(Boolean);
+          let identNames2 = identIds2.map(function(id) { return identityMap[id] || id; }).filter(Boolean);
           approverIdentityNameDisplay = identNames2.join('、');
         }
 
@@ -1343,7 +1343,7 @@ router.post('/approveStep', async (req, res) => {
         const submitter2 = subRows2[0] || null;
 
         const validPersonIds = [];
-        for (var dni = 0; dni < designatedNextPersonIds.length; dni++) {
+        for (let dni = 0; dni < designatedNextPersonIds.length; dni++) {
           const pid = designatedNextPersonIds[dni];
           // If no original conditions (fully open scope), anyone is eligible
           if (!originalConds.length) {
@@ -1365,7 +1365,7 @@ router.post('/approveStep', async (req, res) => {
 
         if (validPersonIds.length > 0) {
           // Replace conditions entirely: ONLY designated (and eligible) persons can approve
-          var newConds = validPersonIds.map(function(pid) {
+          let newConds = validPersonIds.map(function(pid) {
             return {
               conditionType: 'person',
               personHrIds: pid,
@@ -1377,7 +1377,7 @@ router.post('/approveStep', async (req, res) => {
               specificIdentityId: null
             };
           });
-          var newCondsJson = JSON.stringify(newConds);
+          let newCondsJson = JSON.stringify(newConds);
           await conn.query(
             'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
             [newCondsJson, nextStep.id, orgId]
@@ -1411,9 +1411,9 @@ router.post('/approveStep', async (req, res) => {
 
     await conn.commit();
     // ★ Notifications (fire-and-forget) — notify submitter of progress
-    var submitterNameForNotify = '';
+    let submitterNameForNotify = '';
     try {
-      var [snRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [submission.submitted_by, orgId]);
+      let [snRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [submission.submitted_by, orgId]);
       submitterNameForNotify = (snRows[0] && snRows[0].name) || '';
     } catch (_) {}
     if (!nextStep) {
@@ -1594,8 +1594,8 @@ router.post('/updateAuditSubmission', async (req, res) => {
 
     // Compute max round BEFORE removing old steps (for edit event logging)
     const oldSteps = await submissionStepModel.getBySubmissionId(submissionId);
-    var editEventRound = 1;
-    for (var osi = 0; osi < oldSteps.length; osi++) {
+    let editEventRound = 1;
+    for (let osi = 0; osi < oldSteps.length; osi++) {
       editEventRound = Math.max(editEventRound, oldSteps[osi].round || 1);
     }
 
@@ -1810,8 +1810,8 @@ router.post('/resubmitAudit', async (req, res) => {
     const rejectStepIndex = isWithdrawn ? 1 : (submission.previous_reject_step_index || 1);
     // Use MAX round across ALL steps (not just the first one) to ensure
     // round numbers only ever increase, never decrease or repeat.
-    var maxExistingRound = 1;
-    for (var ri = 0; ri < allSteps.length; ri++) {
+    let maxExistingRound = 1;
+    for (let ri = 0; ri < allSteps.length; ri++) {
       maxExistingRound = Math.max(maxExistingRound, allSteps[ri].round || 1);
     }
     const newRound = maxExistingRound + 1;
@@ -1836,9 +1836,9 @@ router.post('/resubmitAudit', async (req, res) => {
       const remainingSteps = canonicalSteps
         .filter(function(s) { return s.sort_order >= rejectStepIndex; })
         .sort(function(a, b) { return a.sort_order - b.sort_order; });
-      for (var rsi = 0; rsi < remainingSteps.length; rsi++) {
-        var rs = remainingSteps[rsi];
-        var stepId = generateId();
+      for (let rsi = 0; rsi < remainingSteps.length; rsi++) {
+        let rs = remainingSteps[rsi];
+        let stepId = generateId();
         await submissionStepModel.create(stepId, {
           submissionId,
           templateStepId: safeString(rs.template_step_id),
@@ -1943,8 +1943,8 @@ router.post('/withdrawSubmission', async (req, res) => {
 
     // Insert withdraw event with actual current round (not hardcoded 1)
     const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
-    var currentRound = 1;
-    for (var wi = 0; wi < allSteps.length; wi++) {
+    let currentRound = 1;
+    for (let wi = 0; wi < allSteps.length; wi++) {
       currentRound = Math.max(currentRound, allSteps[wi].round || 1);
     }
     const [withdrawNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);

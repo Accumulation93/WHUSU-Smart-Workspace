@@ -514,17 +514,17 @@ Page({
 
     const currentUser = result.scorer || this.data.user;
 
-    var targets = result.targets || [];
-    var groupMap = {};
-    var scoredCount = 0;
-    for (var i = 0; i < targets.length; i++) {
-      var identity = targets[i].identity || '未分类';
+    const targets = result.targets || [];
+    const groupMap = {};
+    let scoredCount = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const identity = targets[i].identity || '未分类';
       if (!groupMap[identity]) { groupMap[identity] = []; }
       groupMap[identity].push(targets[i]);
       if (targets[i].scoreStatus === 'scored') scoredCount++;
     }
-    var groupKeys = Object.keys(groupMap);
-    var targetGroups = groupKeys.map(function (identity) {
+    const groupKeys = Object.keys(groupMap);
+    const targetGroups = groupKeys.map(function (identity) {
       return { identity: identity, targets: groupMap[identity] };
     });
 
@@ -767,19 +767,19 @@ Page({
       wx.showToast({ title: '当前评分活动已暂停', icon: 'none' });
       return;
     }
-    var activity = this.data.currentActivity;
+    const activity = this.data.currentActivity;
     if (activity) {
-      var now = new Date();
-      var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       if (activity.startDate) {
-        var startDate = new Date(activity.startDate.replace(/-/g, '/'));
+        const startDate = new Date(activity.startDate.replace(/-/g, '/'));
         if (today < startDate) {
           wx.showToast({ title: '当前评分活动尚未开始', icon: 'none' });
           return;
         }
       }
       if (activity.endDate) {
-        var endDate = new Date(activity.endDate.replace(/-/g, '/'));
+        const endDate = new Date(activity.endDate.replace(/-/g, '/'));
         if (today > endDate) {
           wx.showToast({ title: '当前评分活动已结束', icon: 'none' });
           return;

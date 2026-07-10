@@ -350,7 +350,7 @@ Page({
 
     // Audit sub-app: load reference lists first, then templates (names depend on lists)
     if (this._subApp === 'audit') {
-      var that = this;
+      let that = this;
       // Load reference data lists in parallel, then templates after they're ready
       Promise.all([
         that.loadDepartmentList(),
@@ -578,7 +578,7 @@ Page({
   },
 
   escapeCsvCell(value) {
-    var s = String(value == null ? '' : value);
+    let s = String(value == null ? '' : value);
     if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) {
       s = '"' + s.replace(/"/g, '""') + '"';
     }

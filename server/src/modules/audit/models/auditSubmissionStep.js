@@ -246,10 +246,10 @@ async function getPendingByApprover(hrId) {
   // Deduplicate by submission_id: keep only the MAX round per submission.
   // After resubmission, old rounds' pending steps still exist in the DB,
   // but the approver should only see the latest round's pending step.
-  var bestBySubmission = {};
-  for (var ri = 0; ri < rows.length; ri++) {
-    var r = rows[ri];
-    var sid = r.submission_id;
+  let bestBySubmission = {};
+  for (let ri = 0; ri < rows.length; ri++) {
+    let r = rows[ri];
+    let sid = r.submission_id;
     if (!bestBySubmission[sid] || r.round > bestBySubmission[sid].round) {
       bestBySubmission[sid] = r;
     }
@@ -269,8 +269,8 @@ async function getPendingByApprover(hrId) {
  */
 function inCsv(csv, value) {
   if (csv == null || value == null) return false;
-  var csvStr = String(csv).trim();
-  var valStr = String(value).trim();
+  let csvStr = String(csv).trim();
+  let valStr = String(value).trim();
   if (!csvStr || !valStr) return false;
   return csvStr.split(',').map(function(s) { return s.trim(); }).filter(Boolean).includes(valStr);
 }
@@ -293,8 +293,8 @@ function matchesAnyCondition(conditions, approver, submitter) {
 
   // If any person-type condition exists, the scope has been narrowed.
   // ONLY check person conditions; ignore identity_scope conditions.
-  var hasPersonCondition = false;
-  for (var ci = 0; ci < conditions.length; ci++) {
+  let hasPersonCondition = false;
+  for (let ci = 0; ci < conditions.length; ci++) {
     if (conditions[ci].conditionType === 'person') {
       hasPersonCondition = true;
       break;
@@ -304,8 +304,8 @@ function matchesAnyCondition(conditions, approver, submitter) {
   for (const cond of conditions) {
     if (cond.conditionType === 'person') {
       // Person condition: approver must be in the personHrIds list
-      var personIds = (cond.personHrIds || '').toString().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-      var personMatch = personIds.includes(String(approver.id));
+      let personIds = (cond.personHrIds || '').toString().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      let personMatch = personIds.includes(String(approver.id));
       console.log('[audit:matchesAnyCondition] personCond hrId=' + approver.id +
         ' personIds=[' + personIds.join(',') + '] match=' + personMatch);
       if (personMatch) return true;
@@ -318,7 +318,7 @@ function matchesAnyCondition(conditions, approver, submitter) {
         ' specWg=' + (cond.specificWorkGroupId || 'none') +
         ' identScope=' + (cond.identityScope || 'all') +
         ' specIdent=' + (cond.specificIdentityId || 'none'));
-      var identMatch = matchesIdentityScopeCondition(cond, approver, submitter);
+      let identMatch = matchesIdentityScopeCondition(cond, approver, submitter);
       console.log('[audit:matchesAnyCondition] identity_scope result=' + identMatch);
       if (identMatch) return true;
     }
@@ -338,18 +338,18 @@ function matchesAnyCondition(conditions, approver, submitter) {
  */
 function matchesIdentityScopeCondition(cond, approver, submitter) {
   // Department check
-  var deptScope = cond.departmentScope || 'all';
+  let deptScope = cond.departmentScope || 'all';
   if (deptScope === 'specific') {
-    var specificDeptId = (cond.specificDepartmentId || '').trim();
+    let specificDeptId = (cond.specificDepartmentId || '').trim();
     // Treat 'specific' with no IDs as 'all' (malformed condition fallback)
     if (specificDeptId) {
-      var deptMatch = inCsv(specificDeptId, approver.department_id);
+      let deptMatch = inCsv(specificDeptId, approver.department_id);
       console.log('[audit:matchesIdentityScope] deptScope=specific approverDept=' + (approver.department_id || 'none') +
         ' condDeptIds=' + specificDeptId + ' match=' + deptMatch);
       if (!deptMatch) return false;
     }
   } else if (deptScope === 'own') {
-    var deptOwnMatch = submitter && String(approver.department_id) === String(submitter.department_id);
+    let deptOwnMatch = submitter && String(approver.department_id) === String(submitter.department_id);
     console.log('[audit:matchesIdentityScope] deptScope=own approverDept=' + (approver.department_id || 'none') +
       ' submitterDept=' + (submitter ? submitter.department_id : 'none') + ' match=' + deptOwnMatch);
     if (!deptOwnMatch) return false;
@@ -357,33 +357,33 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
   // 'all' or 'specific' with no IDs means any department → pass
 
   // Work group check
-  var wgScope = cond.workGroupScope || 'all';
+  let wgScope = cond.workGroupScope || 'all';
   if (wgScope === 'specific') {
-    var specificWgId = (cond.specificWorkGroupId || '').trim();
+    let specificWgId = (cond.specificWorkGroupId || '').trim();
     if (specificWgId) {
-      var wgMatch = inCsv(specificWgId, approver.work_group_id);
+      let wgMatch = inCsv(specificWgId, approver.work_group_id);
       console.log('[audit:matchesIdentityScope] wgScope=specific approverWg=' + (approver.work_group_id || 'none') +
         ' condWg=' + specificWgId + ' match=' + wgMatch);
       if (!wgMatch) return false;
     }
   } else if (wgScope === 'own') {
-    var wgOwnMatch = submitter && String(approver.work_group_id) === String(submitter.work_group_id);
+    let wgOwnMatch = submitter && String(approver.work_group_id) === String(submitter.work_group_id);
     if (!wgOwnMatch) return false;
   }
   // 'all' or 'specific' with no IDs means any work group → pass
 
   // Identity check
-  var identScope = cond.identityScope || 'all';
+  let identScope = cond.identityScope || 'all';
   if (identScope === 'specific') {
-    var specificIdentId = (cond.specificIdentityId || '').trim();
+    let specificIdentId = (cond.specificIdentityId || '').trim();
     if (specificIdentId) {
-      var identMatch = inCsv(specificIdentId, approver.identity_id);
+      let identMatch = inCsv(specificIdentId, approver.identity_id);
       console.log('[audit:matchesIdentityScope] identScope=specific approverIdent=' + (approver.identity_id || 'none') +
         ' condIdentIds=' + specificIdentId + ' match=' + identMatch);
       if (!identMatch) return false;
     }
   } else if (identScope === 'own') {
-    var identOwnMatch = submitter && String(approver.identity_id) === String(submitter.identity_id);
+    let identOwnMatch = submitter && String(approver.identity_id) === String(submitter.identity_id);
     if (!identOwnMatch) return false;
   }
   // 'all' or 'specific' with no IDs means any identity → pass

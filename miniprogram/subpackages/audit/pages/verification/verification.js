@@ -14,7 +14,7 @@ Page({
   },
 
   onVerifyModeChange(e) {
-    var modes = ['number', 'id', 'file'];
+    let modes = ['number', 'id', 'file'];
     this.setData({ verifyMode: modes[e.detail.value] || 'number' });
   },
 
@@ -27,12 +27,12 @@ Page({
   },
 
   chooseVerifyFile() {
-    var that = this;
+    let that = this;
     wx.chooseMessageFile({
       count: 1,
       type: 'all',
       success: function(res) {
-        var file = res.tempFiles[0];
+        let file = res.tempFiles[0];
         wx.getFileSystemManager().readFile({
           filePath: file.path,
           encoding: 'base64',
@@ -53,19 +53,19 @@ Page({
   },
 
   async verify() {
-    var params = {};
-    var mode = this.data.verifyMode;
+    let params = {};
+    let mode = this.data.verifyMode;
 
     if (mode === 'number') {
-      var number = this.data.submissionNumber.trim();
+      let number = this.data.submissionNumber.trim();
       if (!number) { showShortToast('请输入提交编号'); return; }
       params.submissionNumber = number;
     } else if (mode === 'id') {
-      var sid = this.data.submissionId.trim();
+      let sid = this.data.submissionId.trim();
       if (!sid) { showShortToast('请输入提交ID'); return; }
       params.submissionId = sid;
     } else if (mode === 'file') {
-      var fileB64 = this.data.fileBase64;
+      let fileB64 = this.data.fileBase64;
       if (!fileB64) { showShortToast('请选择要验签的文件'); return; }
       params.fileBase64 = fileB64;
     }

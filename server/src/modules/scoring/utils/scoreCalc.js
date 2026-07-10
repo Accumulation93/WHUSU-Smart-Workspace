@@ -28,12 +28,12 @@ const { logger } = require('../../../utils/logger');
 function buildTemplateSignature(configs, templatesById) {
   return (configs || [])
     .map(function(config) {
-      var template = templatesById.get(safeString(config.template_id));
+      let template = templatesById.get(safeString(config.template_id));
       if (!template || !Array.isArray(template.questions) || !template.questions.length) return '';
-      var qCount = template.questions.length;
-      var method = safeString(config.calculation_method || 'weighted_average');
-      var trimH = Number(config.trim_high_count || 0);
-      var trimL = Number(config.trim_low_count || 0);
+      let qCount = template.questions.length;
+      let method = safeString(config.calculation_method || 'weighted_average');
+      let trimH = Number(config.trim_high_count || 0);
+      let trimL = Number(config.trim_low_count || 0);
       return safeString(config.template_id) + '[' + qCount + '|' + method + '|' + trimH + '|' + trimL + ']';
     })
     .filter(Boolean)
@@ -47,25 +47,25 @@ function buildTemplateSignature(configs, templatesById) {
  */
 function normalizeSignatureToStructure(sig) {
   if (!sig) return null;
-  var parts = [];
-  var depth = 0, start = 0;
-  for (var i = 0; i < sig.length; i++) {
+  let parts = [];
+  let depth = 0, start = 0;
+  for (let i = 0; i < sig.length; i++) {
     if (sig[i] === '[') depth++;
     else if (sig[i] === ']') depth--;
     else if (sig[i] === '|' && depth === 0) { parts.push(sig.substring(start, i)); start = i + 1; }
   }
   parts.push(sig.substring(start));
 
-  var normalized = parts.map(function(part) {
-    var bracketIdx = part.indexOf('[');
+  let normalized = parts.map(function(part) {
+    let bracketIdx = part.indexOf('[');
     if (bracketIdx === -1) return part;
-    var templateId = part.substring(0, bracketIdx);
-    var inner = part.substring(bracketIdx + 1, part.length - 1);
-    var innerParts = inner.split('|');
+    let templateId = part.substring(0, bracketIdx);
+    let inner = part.substring(bracketIdx + 1, part.length - 1);
+    let innerParts = inner.split('|');
     if (innerParts.length < 4) return part;
-    var methodAndTrim = innerParts.slice(-3).join('|');
-    var beforeMethod = innerParts.slice(0, -3).join('|');
-    var questionCount;
+    let methodAndTrim = innerParts.slice(-3).join('|');
+    let beforeMethod = innerParts.slice(0, -3).join('|');
+    let questionCount;
     if (beforeMethod.indexOf(':') !== -1) {
       questionCount = beforeMethod.split(',').filter(function(s) { return s.indexOf(':') !== -1; }).length;
     } else {
@@ -225,11 +225,11 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   if (options.includeCounts) {
 
   // Pre-index HR for O(1) scope candidate lookup
-  var hrByDept = new Map();
-  var hrByIdentity = new Map();
+  let hrByDept = new Map();
+  let hrByIdentity = new Map();
   hrRows.forEach(function (h) {
-    var did = safeString(h.department_id);
-    var iid = safeString(h.identity_id);
+    let did = safeString(h.department_id);
+    let iid = safeString(h.identity_id);
     if (!hrByDept.has(did)) hrByDept.set(did, []);
     hrByDept.get(did).push(h);
     if (!hrByIdentity.has(iid)) hrByIdentity.set(iid, []);
@@ -237,78 +237,78 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   });
 
   // Index HR by rule key (department::identity) for O(1) scorer lookup
-  var hrByRuleKey = new Map();
+  let hrByRuleKey = new Map();
   hrRows.forEach(function (h) {
-    var key = safeString(h.department_id) + '::' + safeString(h.identity_id);
+    let key = safeString(h.department_id) + '::' + safeString(h.identity_id);
     if (!hrByRuleKey.has(key)) hrByRuleKey.set(key, []);
     hrByRuleKey.get(key).push(safeString(h.id));
   });
 
   // Index HR by (department, work_group) for per-WG scope resolution
-  var hrByDeptWGMap = new Map();
+  let hrByDeptWGMap = new Map();
   hrRows.forEach(function (h) {
-    var did = safeString(h.department_id);
-    var wid = safeString(h.work_group_id);
+    let did = safeString(h.department_id);
+    let wid = safeString(h.work_group_id);
     if (!hrByDeptWGMap.has(did)) hrByDeptWGMap.set(did, new Map());
-    var inner = hrByDeptWGMap.get(did);
+    let inner = hrByDeptWGMap.get(did);
     if (!inner.has(wid)) inner.set(wid, []);
     inner.get(wid).push(safeString(h.id));
   });
 
   ruleRows.forEach(function (r) {
-    var deptId = safeString(r.scorer_department_id);
-    var identId = safeString(r.scorer_identity_id);
-    var ruleKey = deptId + '::' + identId;
-    var rule = ruleByKey.get(ruleKey);
+    let deptId = safeString(r.scorer_department_id);
+    let identId = safeString(r.scorer_identity_id);
+    let ruleKey = deptId + '::' + identId;
+    let rule = ruleByKey.get(ruleKey);
     if (!rule) return;
 
-    var scorerIds = hrByRuleKey.get(ruleKey) || [];
+    let scorerIds = hrByRuleKey.get(ruleKey) || [];
     if (!scorerIds.length) return;
-    var scorerIdSet = new Set(scorerIds);
-    var allowSelf = rule.allowSelfAssessment;
+    let scorerIdSet = new Set(scorerIds);
+    let allowSelf = rule.allowSelfAssessment;
 
     rule.clauses.forEach(function (clause) {
-      var st = clause.scopeType;
-      var targetIdentityId = clause.targetIdentityId;
+      let st = clause.scopeType;
+      let targetIdentityId = clause.targetIdentityId;
 
       // ── Work-group scopes: handle per-WG (O(unique_WGs × (targets + scorers))) ──
       if (st === 'same_work_group_identity' || st === 'same_work_group_all') {
-        var wgInner = hrByDeptWGMap.get(deptId);
+        let wgInner = hrByDeptWGMap.get(deptId);
         if (!wgInner) return;
         wgInner.forEach(function (wgMemberIds, wgId) {
           // Scorers in this WG
-          var wgScorerIds = [];
+          let wgScorerIds = [];
           scorerIds.forEach(function (sid) {
-            var h = hrById.get(sid);
+            let h = hrById.get(sid);
             if (h && safeString(h.work_group_id) === wgId) wgScorerIds.push(sid);
           });
           if (!wgScorerIds.length) return;
 
           // Targets in this WG (filter by identity if scope requires)
-          var wgTargetIds = wgMemberIds;
+          let wgTargetIds = wgMemberIds;
           if (st === 'same_work_group_identity' && targetIdentityId) {
             wgTargetIds = wgTargetIds.filter(function (tid) {
-              var h = hrById.get(tid);
+              let h = hrById.get(tid);
               return h && safeString(h.identity_id) === targetIdentityId;
             });
           }
           if (!wgTargetIds.length) return;
 
-          var wgScorerSet = new Set(wgScorerIds);
-          var wgTargetSet = new Set(wgTargetIds);
-          var scorerN = wgScorerIds.length;
-          var targetN = wgTargetIds.length;
+          let wgScorerSet = new Set(wgScorerIds);
+          let wgTargetSet = new Set(wgTargetIds);
+          let scorerN = wgScorerIds.length;
+          let targetN = wgTargetIds.length;
 
           // O(targets): per-target count = N_scorers_in_WG (minus self if applicable)
           wgTargetIds.forEach(function (tid) {
-            var cnt = scorerN;
+            let cnt = scorerN;
             if (!allowSelf && wgScorerSet.has(tid)) cnt--;
             expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
           });
 
           // O(scorers): per-scorer count = N_targets_in_WG (minus self if applicable)
           wgScorerIds.forEach(function (sid) {
-            var cnt = targetN;
+            let cnt = targetN;
             if (!allowSelf && wgTargetSet.has(sid)) cnt--;
             scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
           });
@@ -317,7 +317,7 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
       }
 
       // ── Non-work-group scopes: O(targets + scorers) ──
-      var targets;
+      let targets;
       if (st === 'all_people') {
         targets = hrRows;
       } else if (st === 'identity_only') {
@@ -338,23 +338,23 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
         targets = targets.filter(function (hr) { return safeString(hr.identity_id) === targetIdentityId; });
       }
 
-      var targetIds = targets.map(function (h) { return safeString(h.id); });
+      let targetIds = targets.map(function (h) { return safeString(h.id); });
       if (!targetIds.length) return;
 
-      var targetIdSet = new Set(targetIds);
-      var scorerN = scorerIds.length;
-      var targetN = targetIds.length;
+      let targetIdSet = new Set(targetIds);
+      let scorerN = scorerIds.length;
+      let targetN = targetIds.length;
 
       // O(targets): per-target count = N_scorers (minus self if applicable)
       targetIds.forEach(function (tid) {
-        var cnt = scorerN;
+        let cnt = scorerN;
         if (!allowSelf && scorerIdSet.has(tid)) cnt--;
         expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
       });
 
       // O(scorers): per-scorer count = N_targets (minus self if applicable)
       scorerIds.forEach(function (sid) {
-        var cnt = targetN;
+        let cnt = targetN;
         if (!allowSelf && targetIdSet.has(sid)) cnt--;
         scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
       });

@@ -819,7 +819,7 @@ Page({
 
       // Compute display status and approval percent for each booking
       let bookings = merged.map(b => {
-        var item = Object.assign({}, b, { displayStatus: computeDisplayStatus(b) });
+        let item = Object.assign({}, b, { displayStatus: computeDisplayStatus(b) });
         if (item.approvalProgress) {
           if (item.approvalProgress.isRejected) {
             item._approvalPercent = 0;
@@ -1125,8 +1125,8 @@ Page({
   closeBookingDetail() { this.setData({ bookingDetailVisible: false, expandedNodeKey: '' }); },
 
   viewBookingDetail(e) {
-    var id = e.currentTarget.dataset.id;
-    var item = this.data.bookings.find(function(b) { return b.id === id; });
+    let id = e.currentTarget.dataset.id;
+    let item = this.data.bookings.find(function(b) { return b.id === id; });
     if (!item) return;
     this.setData({ bookingDetailVisible: true, bookingDetail: item, expandedNodeKey: '' });
   },
@@ -1625,7 +1625,7 @@ Page({
       });
       // Initialize per-tab selected counts
       deptTabs = deptTabs.map(function(tab) {
-        var count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
+        let count = tab.workGroups.filter(function(wg) { return selectedIds[String(wg.id)]; }).length;
         return Object.assign({}, tab, { selectedCount: count });
       });
       if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
@@ -1794,7 +1794,7 @@ Page({
 
   // ── Expandable flow ──
   toggleFlowNode(e) {
-    var key = e.currentTarget.dataset.nodeKey;
+    let key = e.currentTarget.dataset.nodeKey;
     this.setData({ expandedNodeKey: this.data.expandedNodeKey === key ? '' : key });
   },
 

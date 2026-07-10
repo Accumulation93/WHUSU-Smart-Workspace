@@ -885,24 +885,24 @@ module.exports = Behavior({
     },
 
     chooseTable() {
-      var self = this;
+      let self = this;
       self._csvImportActive = true;
   
       chooseTableFile(self.callCloud.bind(self)).then(function (tableData) {
         if (!tableData) { self._csvImportActive = false; return; }
   
-        var headers = tableData.headers;
-        var rows = tableData.rows;
-        var rawContent = tableData.rawContent;
-        var fileName = tableData.fileName;
+        let headers = tableData.headers;
+        let rows = tableData.rows;
+        let rawContent = tableData.rawContent;
+        let fileName = tableData.fileName;
   
-        var samples = [headers];
-        for (var r = 0; r < Math.min(rows.length, 6); r++) {
+        let samples = [headers];
+        for (let r = 0; r < Math.min(rows.length, 6); r++) {
           samples.push(rows[r]);
         }
   
-        var templateFields = (self.data.hrProfileTemplateForm || {}).fields || [];
-        var result = buildCsvColumnMapping(headers, samples, templateFields);
+        let templateFields = (self.data.hrProfileTemplateForm || {}).fields || [];
+        let result = buildCsvColumnMapping(headers, samples, templateFields);
   
         self.setData({
           showCsvMappingDialog: true,
@@ -922,13 +922,13 @@ module.exports = Behavior({
     },
 
     parseCsvLine(line) {
-      var result = [];
-      var current = '';
-      var inQuotes = false;
-      var text = String(line || '');
-      for (var i = 0; i < text.length; i++) {
-        var ch = text[i];
-        var next = text[i + 1];
+      let result = [];
+      let current = '';
+      let inQuotes = false;
+      let text = String(line || '');
+      for (let i = 0; i < text.length; i++) {
+        let ch = text[i];
+        let next = text[i + 1];
         if (ch === '"') {
           if (inQuotes && next === '"') { current += '"'; i++; continue; }
           inQuotes = !inQuotes;
@@ -951,11 +951,11 @@ module.exports = Behavior({
     },
 
     buildValidationErrorCards(flatErrors) {
-      var cards = [];
-      var cardMap = {};
-      for (var i = 0; i < flatErrors.length; i++) {
-        var e = flatErrors[i];
-        var key = e.studentId || '__no_id__';
+      let cards = [];
+      let cardMap = {};
+      for (let i = 0; i < flatErrors.length; i++) {
+        let e = flatErrors[i];
+        let key = e.studentId || '__no_id__';
         if (!cardMap[key]) {
           cardMap[key] = { name: e.name, studentId: e.studentId, errors: [] };
           cards.push(cardMap[key]);
@@ -971,8 +971,8 @@ module.exports = Behavior({
     },
 
     downloadErrorTable() {
-      var self = this;
-      var errors = self.data.validationErrors || [];
+      let self = this;
+      let errors = self.data.validationErrors || [];
       if (!errors.length) {
         wx.showToast({ title: '没有错误数据可导出', icon: 'none' });
         return;
@@ -980,8 +980,8 @@ module.exports = Behavior({
       wx.showActionSheet({
         itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
         success: function (res) {
-          var format = res.tapIndex === 0 ? 'csv' : 'excel';
-          var headers = [
+          let format = res.tapIndex === 0 ? 'csv' : 'excel';
+          let headers = [
             { key: 'name', label: '姓名' },
             { key: 'studentId', label: '学号' },
             { key: 'fieldName', label: '字段名' },
@@ -989,7 +989,7 @@ module.exports = Behavior({
             { key: 'errorValue', label: '错误值' },
             { key: 'errorReason', label: '错误原因' }
           ];
-          var rows = errors.map(function (e) {
+          let rows = errors.map(function (e) {
             return {
               name: e.name || '',
               studentId: e.studentId || '',
@@ -1021,19 +1021,19 @@ module.exports = Behavior({
     },
 
     onCsvMappingTargetChange(e) {
-      var rowIndex = Number(e.currentTarget.dataset.index);
-      var values = this.data.csvImportMappingValues || [];
-      var labels = this.data.csvImportMappingLabels || [];
-      var optionIndex = Number(e.detail.value);
-      var targetValue = values[optionIndex];
+      let rowIndex = Number(e.currentTarget.dataset.index);
+      let values = this.data.csvImportMappingValues || [];
+      let labels = this.data.csvImportMappingLabels || [];
+      let optionIndex = Number(e.detail.value);
+      let targetValue = values[optionIndex];
       if (isNaN(rowIndex) || targetValue === undefined) return;
   
-      var newFieldTypeLabel = getFieldTypeLabelForTarget(
+      let newFieldTypeLabel = getFieldTypeLabelForTarget(
         targetValue,
         (this.data.hrProfileTemplateForm || {}).fields || []
       );
   
-      var rows = this.data.csvImportRows.slice();
+      let rows = this.data.csvImportRows.slice();
       rows[rowIndex] = {
         header: rows[rowIndex].header,
         target: targetValue,
@@ -1046,27 +1046,27 @@ module.exports = Behavior({
     },
 
     async confirmCsvMapping() {
-      var self = this;
-      var rows = self.data.csvImportRows || [];
-      var columnMapping = {};
-      var extensionFields = {};
+      let self = this;
+      let rows = self.data.csvImportRows || [];
+      let columnMapping = {};
+      let extensionFields = {};
   
       // Build field ID → label lookup for extension fields
-      var tplFields = (self.data.hrProfileTemplateForm || {}).fields || [];
-      var fieldIdToLabel = {};
-      for (var j = 0; j < tplFields.length; j++) {
+      let tplFields = (self.data.hrProfileTemplateForm || {}).fields || [];
+      let fieldIdToLabel = {};
+      for (let j = 0; j < tplFields.length; j++) {
         fieldIdToLabel[tplFields[j].id] = tplFields[j].label;
       }
   
-      for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
+      for (let i = 0; i < rows.length; i++) {
+        let row = rows[i];
         if (!row || row.target === 'ignore') continue;
   
         if (row.target === 'name' || row.target === 'studentId' || row.target === 'department'
           || row.target === 'identity' || row.target === 'workGroup') {
           columnMapping[row.target] = row.header;
         } else {
-          var label = fieldIdToLabel[row.target];
+          let label = fieldIdToLabel[row.target];
           if (label) {
             extensionFields[row.header] = label;
           }
@@ -1074,17 +1074,17 @@ module.exports = Behavior({
       }
   
       // Require all 5 basic fields to be mapped
-      var requiredBasicFields = ['name', 'studentId', 'department', 'identity', 'workGroup'];
-      var missingBasicFields = [];
-      for (var k = 0; k < requiredBasicFields.length; k++) {
+      let requiredBasicFields = ['name', 'studentId', 'department', 'identity', 'workGroup'];
+      let missingBasicFields = [];
+      for (let k = 0; k < requiredBasicFields.length; k++) {
         if (!columnMapping[requiredBasicFields[k]]) {
           missingBasicFields.push(requiredBasicFields[k]);
         }
       }
       if (missingBasicFields.length > 0) {
-        var fieldNameMap = { name: '姓名', studentId: '学号', department: '所属部门', identity: '身份', workGroup: '工作分工' };
-        var missingNames = [];
-        for (var k2 = 0; k2 < missingBasicFields.length; k2++) {
+        let fieldNameMap = { name: '姓名', studentId: '学号', department: '所属部门', identity: '身份', workGroup: '工作分工' };
+        let missingNames = [];
+        for (let k2 = 0; k2 < missingBasicFields.length; k2++) {
           missingNames.push(fieldNameMap[missingBasicFields[k2]] || missingBasicFields[k2]);
         }
         wx.showModal({
@@ -1097,20 +1097,20 @@ module.exports = Behavior({
         return;
       }
   
-      var skipInvalid = self.data.csvImportSkipInvalid;
+      let skipInvalid = self.data.csvImportSkipInvalid;
   
       // --- Pre-validation (only when NOT skipping invalid fields) ---
-      var validationErrors = [];
-      var csvLines = self.data.csvImportContent.split(/\r?\n/);
+      let validationErrors = [];
+      let csvLines = self.data.csvImportContent.split(/\r?\n/);
   
       if (!skipInvalid) {
         // Validate ALL data rows against field definitions
-        var tplFields = (self.data.hrProfileTemplateForm || {}).fields || [];
+        let tplFields = (self.data.hrProfileTemplateForm || {}).fields || [];
   
         // Build index: CSV column index → field definition
-        var colFieldMap = [];
-        for (var r = 0; r < rows.length; r++) {
-          var mappingRow = rows[r];
+        let colFieldMap = [];
+        for (let r = 0; r < rows.length; r++) {
+          let mappingRow = rows[r];
           if (!mappingRow || mappingRow.target === 'ignore') {
             colFieldMap[r] = null;
             continue;
@@ -1120,28 +1120,28 @@ module.exports = Behavior({
             || mappingRow.target === 'workGroup') {
             colFieldMap[r] = { type: 'basic', name: mappingRow.target, csvHeader: mappingRow.header };
           } else {
-            var found = tplFields.find(function (f) { return f.id === mappingRow.target; });
+            let found = tplFields.find(function (f) { return f.id === mappingRow.target; });
             colFieldMap[r] = { type: 'ext', csvHeader: mappingRow.header, fieldDef: found || { type: 'text' } };
           }
         }
   
-        var studentIdColIndex = -1;
-        var nameColIndex = -1;
-        for (var c = 0; c < colFieldMap.length; c++) {
+        let studentIdColIndex = -1;
+        let nameColIndex = -1;
+        for (let c = 0; c < colFieldMap.length; c++) {
           if (colFieldMap[c] && colFieldMap[c].type === 'basic') {
             if (colFieldMap[c].name === 'studentId') studentIdColIndex = c;
             if (colFieldMap[c].name === 'name') nameColIndex = c;
           }
         }
   
-        for (var rowIdx = 1; rowIdx < csvLines.length; rowIdx++) {
-          var rowCells = self.parseCsvLine(csvLines[rowIdx] || '');
+        for (let rowIdx = 1; rowIdx < csvLines.length; rowIdx++) {
+          let rowCells = self.parseCsvLine(csvLines[rowIdx] || '');
           if (!rowCells.length) continue;
   
-          var studentId = normalizeEmptyValue(rowCells[studentIdColIndex]);
+          let studentId = normalizeEmptyValue(rowCells[studentIdColIndex]);
           if (!studentId) continue;
   
-          var name = normalizeEmptyValue(rowCells[nameColIndex]);
+          let name = normalizeEmptyValue(rowCells[nameColIndex]);
   
           if (!name && nameColIndex >= 0) {
             validationErrors.push({
@@ -1155,11 +1155,11 @@ module.exports = Behavior({
             });
           }
   
-          for (var c = 0; c < colFieldMap.length; c++) {
-            var map = colFieldMap[c];
+          for (let c = 0; c < colFieldMap.length; c++) {
+            let map = colFieldMap[c];
             if (!map || map.type !== 'ext') continue;
-            var cellValue = normalizeEmptyValue(rowCells[c]);
-            var check = validateCsvValueAgainstField(cellValue, map.fieldDef);
+            let cellValue = normalizeEmptyValue(rowCells[c]);
+            let check = validateCsvValueAgainstField(cellValue, map.fieldDef);
             if (!check.ok) {
               validationErrors.push({
                 rowNumber: rowIdx + 1,
@@ -1175,9 +1175,9 @@ module.exports = Behavior({
         }
   
         if (validationErrors.length > 0) {
-          var errorRecordCount = 0;
-          var seenStudentIds = {};
-          for (var ei = 0; ei < validationErrors.length; ei++) {
+          let errorRecordCount = 0;
+          let seenStudentIds = {};
+          for (let ei = 0; ei < validationErrors.length; ei++) {
             if (!seenStudentIds[validationErrors[ei].studentId]) {
               seenStudentIds[validationErrors[ei].studentId] = true;
               errorRecordCount++;
@@ -1198,11 +1198,11 @@ module.exports = Behavior({
       self.setData({ showCsvMappingDialog: false, csvImportLoading: true });
   
       try {
-        var startIndex = 1;
-        var totalCount = 0;
-        var hasMore = true;
-        var skipInvalidFlag = skipInvalid;
-        var skippedNoStudentIdTotal = 0;
+        let startIndex = 1;
+        let totalCount = 0;
+        let hasMore = true;
+        let skipInvalidFlag = skipInvalid;
+        let skippedNoStudentIdTotal = 0;
   
         while (hasMore) {
           wx.showLoading({
@@ -1210,7 +1210,7 @@ module.exports = Behavior({
             mask: true
           });
   
-          var result = await this.callCloud('importHrCsv', {
+          let result = await this.callCloud('importHrCsv', {
             csvContent: self.data.csvImportContent,
             startIndex: startIndex,
             batchSize: 100,
@@ -1222,12 +1222,12 @@ module.exports = Behavior({
           if (result.status === 'validation_errors') {
             // Backend rejected the batch (skipInvalid is off and there are validation errors).
             // Collect errors so they can be displayed after all batches are processed.
-            var errors = result.errors || [];
-            var flatErrors = [];
-            for (var ei = 0; ei < errors.length; ei++) {
-              var errRec = errors[ei];
-              for (var fi = 0; fi < errRec.errors.length; fi++) {
-                var e = errRec.errors[fi];
+            let errors = result.errors || [];
+            let flatErrors = [];
+            for (let ei = 0; ei < errors.length; ei++) {
+              let errRec = errors[ei];
+              for (let fi = 0; fi < errRec.errors.length; fi++) {
+                let e = errRec.errors[fi];
                 flatErrors.push({
                   rowNumber: 0,
                   name: errRec.name || '',
@@ -1264,8 +1264,8 @@ module.exports = Behavior({
             skippedNoStudentIdTotal += Number(result.skippedNoStudentId);
           }
           startIndex = Number(result.nextIndex || startIndex + 100);
-          var successBatchHadRows = Number(result.count || 0) > 0;
-          var successFrontendHasMore = startIndex < csvLines.length;
+          let successBatchHadRows = Number(result.count || 0) > 0;
+          let successFrontendHasMore = startIndex < csvLines.length;
           if (result.hasMore !== undefined) {
             hasMore = !!result.hasMore || (successBatchHadRows && successFrontendHasMore);
           } else {
@@ -1274,11 +1274,11 @@ module.exports = Behavior({
   
           // Collect any skipped-field errors from this batch
           if (result.errors && result.errors.length) {
-            var batchFlatErrors = [];
-            for (var bei = 0; bei < result.errors.length; bei++) {
-              var ber = result.errors[bei];
-              for (var bfi = 0; bfi < ber.errors.length; bfi++) {
-                var be = ber.errors[bfi];
+            let batchFlatErrors = [];
+            for (let bei = 0; bei < result.errors.length; bei++) {
+              let ber = result.errors[bei];
+              for (let bfi = 0; bfi < ber.errors.length; bfi++) {
+                let be = ber.errors[bfi];
                 batchFlatErrors.push({
                   rowNumber: 0,
                   name: ber.name || '',
@@ -1300,28 +1300,28 @@ module.exports = Behavior({
         await self.loadHrList();
         self.loadHrProfileAdminData();
   
-        var toastTitle = '导入成功，共 ' + totalCount + ' 条';
+        let toastTitle = '导入成功，共 ' + totalCount + ' 条';
         if (skippedNoStudentIdTotal > 0) {
           toastTitle += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
         }
         if (validationErrors.length > 0) {
-          var errRecordCount = 0;
-          var errSeen = {};
-          for (var ie = 0; ie < validationErrors.length; ie++) {
+          let errRecordCount = 0;
+          let errSeen = {};
+          for (let ie = 0; ie < validationErrors.length; ie++) {
             if (!errSeen[validationErrors[ie].studentId]) {
               errSeen[validationErrors[ie].studentId] = true;
               errRecordCount++;
             }
           }
           if (totalCount > 0) {
-            var summary = '已导入 ' + totalCount + ' 条，共 ' + errRecordCount + ' 条记录 ' + validationErrors.length + ' 个字段因格式问题跳过';
+            let summary = '已导入 ' + totalCount + ' 条，共 ' + errRecordCount + ' 条记录 ' + validationErrors.length + ' 个字段因格式问题跳过';
             if (skippedNoStudentIdTotal > 0) {
               summary += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
             }
             toastTitle += '（部分字段已跳过）';
             wx.showToast({ title: toastTitle, icon: 'none', duration: 2500 });
           } else {
-            var summary = '导入失败，' + errRecordCount + ' 条记录存在 ' + validationErrors.length + ' 个字段格式错误，请修正后重新导入，或开启「字段无效时仍然导入」';
+            let summary = '导入失败，' + errRecordCount + ' 条记录存在 ' + validationErrors.length + ' 个字段格式错误，请修正后重新导入，或开启「字段无效时仍然导入」';
             if (skippedNoStudentIdTotal > 0) {
               summary += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
             }

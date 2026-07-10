@@ -14,32 +14,32 @@ function alignScoreValue(v) {
 }
 
 function getQuickScores(minValue, maxValue, startValue, stepValue) {
-  var min = Number(minValue);
-  var max = Number(maxValue);
-  var start = Number(startValue);
-  var step = Number(stepValue);
+  let min = Number(minValue);
+  let max = Number(maxValue);
+  let start = Number(startValue);
+  let step = Number(stepValue);
 
   if (!Number.isFinite(start) || !Number.isFinite(max) || !Number.isFinite(step) || step <= 0 || start > max) {
     return [];
   }
 
-  var allScores = [];
-  for (var v = start; v <= max + 1e-8; v += step) {
-    var aligned = alignScoreValue(v);
+  let allScores = [];
+  for (let v = start; v <= max + 1e-8; v += step) {
+    let aligned = alignScoreValue(v);
     if (aligned >= min && aligned <= max) {
       allScores.push(aligned);
     }
     if (allScores.length >= 500) break;
   }
 
-  var total = allScores.length;
+  let total = allScores.length;
   if (total === 0) return [];
   if (total <= 25) return allScores.map(String);
 
   // More than 25: prioritize integers, then fill remaining slots with decimals
-  var intScores = [];
-  var decScores = [];
-  for (var i = 0; i < allScores.length; i++) {
+  let intScores = [];
+  let decScores = [];
+  for (let i = 0; i < allScores.length; i++) {
     if (Math.abs(allScores[i] - Math.round(allScores[i])) < 1e-8) {
       intScores.push(allScores[i]);
     } else {
@@ -47,10 +47,10 @@ function getQuickScores(minValue, maxValue, startValue, stepValue) {
     }
   }
 
-  var result = [];
-  var seen = {};
+  let result = [];
+  let seen = {};
   function add(val) {
-    var key = String(val);
+    let key = String(val);
     if (!seen[key]) {
       seen[key] = true;
       result.push(val);
@@ -58,20 +58,20 @@ function getQuickScores(minValue, maxValue, startValue, stepValue) {
   }
 
   // Add all integers first (up to 25)
-  for (var i = 0; i < intScores.length && result.length < 25; i++) {
+  for (let i = 0; i < intScores.length && result.length < 25; i++) {
     add(intScores[i]);
   }
 
   // Fill remaining slots with evenly distributed decimals
-  var remaining = 25 - result.length;
+  let remaining = 25 - result.length;
   if (remaining > 0 && decScores.length > 0) {
     if (decScores.length <= remaining) {
-      for (var i = 0; i < decScores.length; i++) {
+      for (let i = 0; i < decScores.length; i++) {
         add(decScores[i]);
       }
     } else {
-      for (var i = 0; i < remaining; i++) {
-        var idx = Math.round((i / (remaining - 1)) * (decScores.length - 1));
+      for (let i = 0; i < remaining; i++) {
+        let idx = Math.round((i / (remaining - 1)) * (decScores.length - 1));
         if (idx >= 0 && idx < decScores.length) {
           add(decScores[idx]);
         }
@@ -85,12 +85,12 @@ function getQuickScores(minValue, maxValue, startValue, stepValue) {
 
 function validateQuestion(question) {
   question = question || {};
-  var rawScore = String(question.score == null ? '' : question.score).trim();
+  let rawScore = String(question.score == null ? '' : question.score).trim();
   if (!rawScore) {
     return { ok: false, errorText: '请填写分值' };
   }
 
-  var score = Number(rawScore);
+  let score = Number(rawScore);
   if (Number.isNaN(score)) {
     return { ok: false, errorText: '请输入有效数字' };
   }
@@ -134,11 +134,11 @@ function normalizeQuestion(item) {
 }
 
 function computeSummaries(questionList) {
-  var templateMap = {};
-  var templateOrder = [];
-  for (var i = 0; i < questionList.length; i++) {
-    var q = questionList[i];
-    var tid = q.templateId;
+  let templateMap = {};
+  let templateOrder = [];
+  for (let i = 0; i < questionList.length; i++) {
+    let q = questionList[i];
+    let tid = q.templateId;
     if (!templateMap[tid]) {
       templateMap[tid] = {
         templateId: tid,
@@ -150,7 +150,7 @@ function computeSummaries(questionList) {
       };
       templateOrder.push(tid);
     }
-    var s = Number(q.score);
+    let s = Number(q.score);
     if (!Number.isNaN(s) && String(q.score).trim() !== '') {
       templateMap[tid].totalScore += alignScoreValue(s);
     }
@@ -158,12 +158,12 @@ function computeSummaries(questionList) {
     templateMap[tid].lastIndex = i;
   }
 
-  var newList = [];
-  for (var i = 0; i < questionList.length; i++) {
-    var q = questionList[i];
-    var newQ = {};
-    var keys = Object.keys(q);
-    for (var k = 0; k < keys.length; k++) {
+  let newList = [];
+  for (let i = 0; i < questionList.length; i++) {
+    let q = questionList[i];
+    let newQ = {};
+    let keys = Object.keys(q);
+    for (let k = 0; k < keys.length; k++) {
       newQ[keys[k]] = q[keys[k]];
     }
     newQ.showTemplateFooter = false;
@@ -172,12 +172,12 @@ function computeSummaries(questionList) {
     newList.push(newQ);
   }
 
-  var templateSummaries = [];
-  var pageTotalScore = 0;
-  var pageTotalMax = 0;
+  let templateSummaries = [];
+  let pageTotalScore = 0;
+  let pageTotalMax = 0;
 
-  for (var t = 0; t < templateOrder.length; t++) {
-    var info = templateMap[templateOrder[t]];
+  for (let t = 0; t < templateOrder.length; t++) {
+    let info = templateMap[templateOrder[t]];
     if (info.lastIndex >= 0) {
       newList[info.lastIndex].showTemplateFooter = true;
       newList[info.lastIndex].templateFooterScore = info.totalScore;
@@ -229,27 +229,27 @@ Page({
   },
 
   syncCurrentQuestion: function () {
-    var idx = this.data.currentQuestionIndex;
-    var list = this.data.questionList;
-    var q = (list && idx >= 0 && list[idx]) || null;
-    var rows = [];
+    let idx = this.data.currentQuestionIndex;
+    let list = this.data.questionList;
+    let q = (list && idx >= 0 && list[idx]) || null;
+    let rows = [];
     if (q) {
-      var scores = q.quickScores || [];
-      var total = scores.length;
+      let scores = q.quickScores || [];
+      let total = scores.length;
       if (total > 0) {
-        var maxPerRow = 5;
-        var rowCount = Math.ceil(total / maxPerRow);
-        var baseSize = Math.floor(total / rowCount);
-        var remainder = total % rowCount;
-        var pos = 0;
-        for (var r = 0; r < rowCount; r++) {
-          var size = baseSize + (r < remainder ? 1 : 0);
+        let maxPerRow = 5;
+        let rowCount = Math.ceil(total / maxPerRow);
+        let baseSize = Math.floor(total / rowCount);
+        let remainder = total % rowCount;
+        let pos = 0;
+        for (let r = 0; r < rowCount; r++) {
+          let size = baseSize + (r < remainder ? 1 : 0);
           rows.push(scores.slice(pos, pos + size));
           pos += size;
         }
       }
     }
-    var updates = {
+    let updates = {
       currentQuestion: q,
       quickScoreRows: rows,
       keyboardCollapsed: q ? false : this.data.keyboardCollapsed
@@ -257,7 +257,7 @@ Page({
     if (this._physicalKeyboardEnabled) {
       updates.physicalInputFocus = !updates.keyboardCollapsed && !!q;
       if (q) {
-        var syncedScore = String(q.score != null ? q.score : '').trim();
+        let syncedScore = String(q.score != null ? q.score : '').trim();
         this._physicalBuffer = syncedScore;
         updates.physicalInputValue = syncedScore;
       }
@@ -278,11 +278,11 @@ Page({
 
   expandKeyboard: function () {
     if (this.data.keyboardCollapsed && this.data.questionList.length > 0) {
-      var idx = this.data.currentQuestionIndex;
+      let idx = this.data.currentQuestionIndex;
       if (idx < 0 || idx >= this.data.questionList.length) {
         idx = 0;
       }
-      var updates = {
+      let updates = {
         currentQuestionIndex: idx,
         keyboardCollapsed: false,
         keyboardMode: 'quick'
@@ -296,18 +296,32 @@ Page({
   },
 
   toggleKeyboardMode: function () {
-    var nextMode = this.data.keyboardMode === 'numpad' ? 'quick' : 'numpad';
+    let nextMode = this.data.keyboardMode === 'numpad' ? 'quick' : 'numpad';
     this.setData({ keyboardMode: nextMode });
   },
 
   onLoad: function (options) {
-    var deviceInfo = wx.getDeviceInfo();
+    let deviceInfo = wx.getDeviceInfo();
     this._physicalKeyboardEnabled = deviceInfo.platform === 'devtools' || deviceInfo.platform === 'mac' || deviceInfo.platform === 'windows';
     this._physicalBuffer = '';
     this._shiftDown = false;
     this._keydownSupported = false;
     this.targetId = String((options && options.targetId) || '').trim();
     this.loadScoreForm();
+  },
+
+  onHide: function () {
+    if (this._clearKeyTimer) {
+      clearTimeout(this._clearKeyTimer);
+      this._clearKeyTimer = null;
+    }
+  },
+
+  onUnload: function () {
+    if (this._clearKeyTimer) {
+      clearTimeout(this._clearKeyTimer);
+      this._clearKeyTimer = null;
+    }
   },
 
   onReady: function () {
@@ -326,7 +340,7 @@ Page({
     if (this._stickyObserver) {
       this._stickyObserver.disconnect();
     }
-    var self = this;
+    let self = this;
     this._stickyObserver = this.createIntersectionObserver({ nativeMode: true });
     this._stickyObserver
       .relativeToViewport({ top: 0 })
@@ -336,7 +350,7 @@ Page({
   },
 
   loadScoreForm: function () {
-    var self = this;
+    let self = this;
     if (!self.targetId) {
       wx.showToast({ title: '缺少评分信息', icon: 'none' });
       self.redirectHome();
@@ -349,7 +363,7 @@ Page({
       name: 'getScoreFormData',
       data: { targetId: self.targetId },
       success: function (res) {
-        var result = res.result || {};
+        let result = res.result || {};
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || '评分页加载失败', icon: 'none' });
           self.setData({ loading: false, loadFailed: true });
@@ -357,7 +371,7 @@ Page({
           return;
         }
 
-        var rawQuestionList = (result.templateBundle.questions || []).map(function (item) {
+        let rawQuestionList = (result.templateBundle.questions || []).map(function (item) {
           return normalizeQuestion(item);
         });
 
@@ -365,16 +379,16 @@ Page({
         self.activityName = result.currentActivity ? result.currentActivity.name : '';
         self.templateConfigSignature = result.rule ? result.rule.templateConfigSignature : '';
 
-        var hasExistingRecord = !!result.existingRecord;
-        var existingRecordText = hasExistingRecord ? '已自动加载上次评分，可以直接修改后重新提交' : '';
+        let hasExistingRecord = !!result.existingRecord;
+        let existingRecordText = hasExistingRecord ? '已自动加载上次评分，可以直接修改后重新提交' : '';
 
-        var summaries = computeSummaries(rawQuestionList);
-        var questionList = summaries.questionList;
+        let summaries = computeSummaries(rawQuestionList);
+        let questionList = summaries.questionList;
 
-        var initialIndex = 0;
+        let initialIndex = 0;
         if (questionList.length) {
-          var firstEmpty = -1;
-          for (var i = 0; i < questionList.length; i++) {
+          let firstEmpty = -1;
+          for (let i = 0; i < questionList.length; i++) {
             if (questionList[i].score == null || String(questionList[i].score).trim() === '') {
               firstEmpty = i;
               break;
@@ -414,25 +428,25 @@ Page({
   },
 
   updateQuestion: function (index, nextValues) {
-    var questions = this.data.questionList.slice();
+    let questions = this.data.questionList.slice();
     if (!questions[index]) return;
 
-    var nextQuestion = {};
-    var keys = Object.keys(questions[index]);
-    for (var k = 0; k < keys.length; k++) {
+    let nextQuestion = {};
+    let keys = Object.keys(questions[index]);
+    for (let k = 0; k < keys.length; k++) {
       nextQuestion[keys[k]] = questions[index][keys[k]];
     }
-    var nvKeys = Object.keys(nextValues || {});
-    for (var j = 0; j < nvKeys.length; j++) {
+    let nvKeys = Object.keys(nextValues || {});
+    for (let j = 0; j < nvKeys.length; j++) {
       nextQuestion[nvKeys[j]] = nextValues[nvKeys[j]];
     }
 
-    var validation = validateQuestion(nextQuestion);
+    let validation = validateQuestion(nextQuestion);
     nextQuestion.errorText = validation.errorText;
     questions[index] = nextQuestion;
 
-    var summaries = computeSummaries(questions);
-    var data = {
+    let summaries = computeSummaries(questions);
+    let data = {
       questionList: summaries.questionList,
       templateSummaries: summaries.templateSummaries,
       pageTotalScore: summaries.pageTotalScore,
@@ -445,7 +459,7 @@ Page({
   },
 
   focusQuestion: function (e) {
-    var index = Number(e.currentTarget.dataset.index);
+    let index = Number(e.currentTarget.dataset.index);
     if (!Number.isInteger(index) || index < 0) return;
     this.setData({ currentQuestionIndex: index, keyboardCollapsed: false });
     this.syncCurrentQuestion();
@@ -453,14 +467,14 @@ Page({
   },
 
   onKeyboardTap: function (e) {
-    var key = String(e.currentTarget.dataset.key || '');
+    let key = String(e.currentTarget.dataset.key || '');
     if (!key) return;
 
-    var index = this.data.currentQuestionIndex;
-    var question = this.data.questionList[index];
+    let index = this.data.currentQuestionIndex;
+    let question = this.data.questionList[index];
     if (!question) return;
 
-    var current = String(question.score == null ? '' : question.score).trim();
+    let current = String(question.score == null ? '' : question.score).trim();
 
     if (key === '.') {
       if (current === '' || current === '-') {
@@ -492,11 +506,11 @@ Page({
   },
 
   onKeyboardBackspace: function () {
-    var index = this.data.currentQuestionIndex;
-    var question = this.data.questionList[index];
+    let index = this.data.currentQuestionIndex;
+    let question = this.data.questionList[index];
     if (!question) return;
 
-    var current = String(question.score == null ? '' : question.score).trim();
+    let current = String(question.score == null ? '' : question.score).trim();
     if (current.length > 0) {
       current = current.substring(0, current.length - 1);
     }
@@ -506,7 +520,7 @@ Page({
   },
 
   flashKey: function (key) {
-    var self = this;
+    let self = this;
     if (self._clearKeyTimer) clearTimeout(self._clearKeyTimer);
     self.setData({ physicalKeyActive: key });
     self._clearKeyTimer = setTimeout(function () {
@@ -516,11 +530,11 @@ Page({
   },
 
   processPhysicalChar: function (ch) {
-    var index = this.data.currentQuestionIndex;
-    var question = this.data.questionList[index];
+    let index = this.data.currentQuestionIndex;
+    let question = this.data.questionList[index];
     if (!question) return;
 
-    var current = String(question.score == null ? '' : question.score).trim();
+    let current = String(question.score == null ? '' : question.score).trim();
 
     if (ch === '.') {
       if (current === '' || current === '-') {
@@ -554,32 +568,32 @@ Page({
     if (!this._physicalKeyboardEnabled) return;
     if (this.data.keyboardCollapsed) return;
 
-    var newValue = e.detail.value || '';
-    var oldValue = this._physicalBuffer || '';
+    let newValue = e.detail.value || '';
+    let oldValue = this._physicalBuffer || '';
 
     if (newValue === oldValue) return;
 
-    var minLen = Math.min(oldValue.length, newValue.length);
-    var splitPos = 0;
+    let minLen = Math.min(oldValue.length, newValue.length);
+    let splitPos = 0;
     while (splitPos < minLen && oldValue[splitPos] === newValue[splitPos]) {
       splitPos++;
     }
 
-    var removeCount = oldValue.length - splitPos;
+    let removeCount = oldValue.length - splitPos;
 
-    for (var i = 0; i < removeCount; i++) {
+    for (let i = 0; i < removeCount; i++) {
       this.onKeyboardBackspace();
     }
 
-    for (var i = splitPos; i < newValue.length; i++) {
+    for (let i = splitPos; i < newValue.length; i++) {
       this.processPhysicalChar(newValue[i]);
     }
 
     this._physicalBuffer = newValue;
 
     if (this._physicalBuffer.length > 15) {
-      var self = this;
-    var currentScore = String(((self.data.questionList[self.data.currentQuestionIndex] || {}).score != null ? (self.data.questionList[self.data.currentQuestionIndex] || {}).score : '')).trim();
+      let self = this;
+    let currentScore = String(((self.data.questionList[self.data.currentQuestionIndex] || {}).score != null ? (self.data.questionList[self.data.currentQuestionIndex] || {}).score : '')).trim();
       this._physicalBuffer = currentScore;
       self.setData({ physicalInputValue: currentScore });
     }
@@ -588,7 +602,7 @@ Page({
   onPhysicalInputBlur: function () {
     if (!this._physicalKeyboardEnabled) return;
     if (this.data.keyboardCollapsed) return;
-    var self = this;
+    let self = this;
     wx.nextTick(function () {
       self._ensureInputFocus();
     });
@@ -599,10 +613,10 @@ Page({
     if (this.data.keyboardCollapsed) return;
     this._keydownSupported = true;
 
-    var detail = e.detail || {};
-    var keyCode = detail.keyCode;
-    var key = detail.key || '';
-    var shiftHeld = detail.shiftKey || this._shiftDown;
+    let detail = e.detail || {};
+    let keyCode = detail.keyCode;
+    let key = detail.key || '';
+    let shiftHeld = detail.shiftKey || this._shiftDown;
 
     // Track Shift via keydown (may not fire on all platforms)
     if (keyCode === 16 || key === 'Shift') {
@@ -630,8 +644,8 @@ Page({
         this.flashKey('prev');
         this.goToPrevious();
       } else {
-        var idx = this.data.currentQuestionIndex;
-        var total = this.data.questionList.length;
+        let idx = this.data.currentQuestionIndex;
+        let total = this.data.questionList.length;
         if (idx >= total - 1) {
           this.flashKey('submit');
           this.submitScore();
@@ -644,7 +658,7 @@ Page({
   },
 
   onPhysicalKeyUp: function (e) {
-    var detail = e.detail || {};
+    let detail = e.detail || {};
     if (detail.keyCode === 16 || detail.key === 'Shift') {
       this._shiftDown = false;
     }
@@ -653,8 +667,8 @@ Page({
   onPhysicalConfirm: function () {
     if (!this._physicalKeyboardEnabled) return;
     if (this._keydownSupported) return;
-    var idx = this.data.currentQuestionIndex;
-    var total = this.data.questionList.length;
+    let idx = this.data.currentQuestionIndex;
+    let total = this.data.questionList.length;
     if (idx >= total - 1) {
       this.flashKey('submit');
       this.submitScore();
@@ -665,46 +679,46 @@ Page({
   },
 
   onQuickScoreTap: function (e) {
-    var value = String(e.currentTarget.dataset.value || '');
+    let value = String(e.currentTarget.dataset.value || '');
     if (!value) return;
 
-    var index = this.data.currentQuestionIndex;
+    let index = this.data.currentQuestionIndex;
     this._physicalBuffer = value;
     this.updateQuestion(index, { score: value, touched: true });
     this.goToNext();
   },
 
   goToPrevious: function () {
-    var index = this.data.currentQuestionIndex;
+    let index = this.data.currentQuestionIndex;
     if (index <= 0) return;
-    var newIndex = index - 1;
+    let newIndex = index - 1;
     this.setData({ currentQuestionIndex: newIndex, keyboardCollapsed: false });
     this.syncCurrentQuestion();
     this.scrollToQuestion(newIndex);
   },
 
   goToNext: function () {
-    var index = this.data.currentQuestionIndex;
-    var total = this.data.questionList.length;
+    let index = this.data.currentQuestionIndex;
+    let total = this.data.questionList.length;
     if (index >= total - 1) {
       return;
     }
-    var newIndex = index + 1;
+    let newIndex = index + 1;
     this.setData({ currentQuestionIndex: newIndex, keyboardCollapsed: false });
     this.syncCurrentQuestion();
     this.scrollToQuestion(newIndex);
   },
 
   validateAnswers: function () {
-    var nextQuestions = this.data.questionList.slice();
-    var answers = [];
-    var hasError = false;
-    var firstMessage = '';
-    var firstInvalidIndex = -1;
+    let nextQuestions = this.data.questionList.slice();
+    let answers = [];
+    let hasError = false;
+    let firstMessage = '';
+    let firstInvalidIndex = -1;
 
-    for (var i = 0; i < nextQuestions.length; i++) {
-      var item = nextQuestions[i];
-      var validation = validateQuestion(item);
+    for (let i = 0; i < nextQuestions.length; i++) {
+      let item = nextQuestions[i];
+      let validation = validateQuestion(item);
       nextQuestions[i] = {
         id: item.id,
         index: item.index,
@@ -747,8 +761,8 @@ Page({
   },
 
   submitScore: function () {
-    var self = this;
-    var validation = self.validateAnswers();
+    let self = this;
+    let validation = self.validateAnswers();
     if (!validation.ok) {
       if (Number.isInteger(validation.firstInvalidIndex) && validation.firstInvalidIndex >= 0) {
         self.setData({ currentQuestionIndex: validation.firstInvalidIndex, keyboardCollapsed: false });
@@ -761,7 +775,7 @@ Page({
 
     self.setData({ submitting: true });
 
-    var scorer = self.data.scorer || {};
+    let scorer = self.data.scorer || {};
     callFunction({
       name: 'submitScoreRecord',
       data: {
@@ -773,7 +787,7 @@ Page({
         answers: validation.answers
       },
       success: function (res) {
-        var result = res.result || {};
+        let result = res.result || {};
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || '提交评分失败', icon: 'none' });
           self.setData({ submitting: false });
@@ -790,22 +804,23 @@ Page({
             name: 'getScoreFormData',
             data: { targetId: self.targetId },
             success: function (checkRes) {
-              var checkResult = checkRes.result || {};
+              let checkResult = checkRes.result || {};
               if (checkResult.status === 'success' && checkResult.existingRecord) {
                 wx.showToast({ title: '提交成功', icon: 'success' });
                 setTimeout(function () {
                   wx.navigateBack({ fail: function () { self.redirectHome(); } });
                 }, 1200);
-                return;
+              } else {
+                wx.showToast({ title: '提交评分失败', icon: 'none' });
               }
-              wx.showToast({ title: '提交评分失败', icon: 'none' });
+              self.setData({ submitting: false });
             },
             fail: function () {
               wx.showToast({ title: '提交评分失败', icon: 'none' });
+              self.setData({ submitting: false });
             }
           });
         }, 500);
-        self.setData({ submitting: false });
       }
     });
   },
@@ -818,22 +833,22 @@ Page({
     if (this.data.keyboardCollapsed) return 88;
     if (this.data.keyboardMode === 'numpad') return 594;
     // Quick mode: nav(80) + action(80) + rows + safe-area(34)
-    var rowCount = this.data.quickScoreRows.length;
-    var quickContent = Math.min(rowCount * 94 + 4, 420);
+    let rowCount = this.data.quickScoreRows.length;
+    let quickContent = Math.min(rowCount * 94 + 4, 420);
     return 160 + quickContent + 34;
   },
 
   scrollToQuestion: function (index) {
-    var self = this;
-    var selector = '#question-' + index;
+    let self = this;
+    let selector = '#question-' + index;
     wx.createSelectorQuery()
       .select(selector)
       .boundingClientRect()
       .selectViewport()
       .scrollOffset()
       .exec(function (res) {
-        var rect = res[0];
-        var scrollInfo = res[1];
+        let rect = res[0];
+        let scrollInfo = res[1];
         if (!rect || !scrollInfo) {
           wx.pageScrollTo({
             selector: selector,
@@ -845,16 +860,16 @@ Page({
           return;
         }
 
-        var windowInfo = wx.getWindowInfo();
-        var windowHeight = windowInfo.windowHeight;
-        var windowWidth = windowInfo.windowWidth;
-        var keyboardRpx = self.getKeyboardHeightRpx();
-        var keyboardPx = (windowWidth / 750) * keyboardRpx;
-        var visibleHeight = windowHeight - keyboardPx;
-        var targetTop = (visibleHeight - rect.height) / 2;
+        let windowInfo = wx.getWindowInfo();
+        let windowHeight = windowInfo.windowHeight;
+        let windowWidth = windowInfo.windowWidth;
+        let keyboardRpx = self.getKeyboardHeightRpx();
+        let keyboardPx = (windowWidth / 750) * keyboardRpx;
+        let visibleHeight = windowHeight - keyboardPx;
+        let targetTop = (visibleHeight - rect.height) / 2;
         if (targetTop < 0) targetTop = 0;
 
-        var newScrollTop = Math.max(0, scrollInfo.scrollTop + rect.top - targetTop);
+        let newScrollTop = Math.max(0, scrollInfo.scrollTop + rect.top - targetTop);
         wx.pageScrollTo({
           scrollTop: newScrollTop,
           duration: 280,
@@ -865,7 +880,7 @@ Page({
   },
 
   _checkSticky: function () {
-    var self = this;
+    let self = this;
     if (!self.data.target || !self.data.target.name) return;
     wx.createSelectorQuery()
       .select('.target-name-anchor')

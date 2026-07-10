@@ -72,12 +72,12 @@ function dateMatchesCycle(dateStr, cycleType, cycleValues) {
 
   // range: date range (inclusive)
   if (cycleType === 'range') {
-    var cvRange = cycleValues;
+    let cvRange = cycleValues;
     if (typeof cvRange === 'string') {
       try { cvRange = JSON.parse(cvRange); } catch (_) { cvRange = {}; }
     }
-    var rangeStart = cvRange && cvRange.startDate;
-    var rangeEnd = cvRange && cvRange.endDate;
+    let rangeStart = cvRange && cvRange.startDate;
+    let rangeEnd = cvRange && cvRange.endDate;
     if (!rangeStart || !rangeEnd) return false;
     return dateStr >= rangeStart && dateStr <= rangeEnd;
   }

@@ -33,7 +33,7 @@ Component({
     // ═══════════════════════════════════════════════════════════════
 
     _initCanvas(retryCount) {
-      var MAX_RETRIES = 8, that = this;
+      let MAX_RETRIES = 8, that = this;
       if (this._canvas) { this._canvas = null; this._ctx = null; this._canvasRect = null; }
 
       wx.createSelectorQuery().in(this).select('#sigCanvas')
@@ -48,30 +48,30 @@ Component({
             return;
           }
 
-          var fieldsW = res[0].width;
-          var fieldsH = res[0].height;
+          let fieldsW = res[0].width;
+          let fieldsH = res[0].height;
 
           if ((!fieldsW || fieldsW <= 0 || !fieldsH || fieldsH <= 0) && retryCount < MAX_RETRIES) {
             setTimeout(function () { that._initCanvas(retryCount + 1); }, 60);
             return;
           }
 
-          var canvas = res[0].node;
-          var ctx = canvas.getContext('2d');
-          var dpr = wx.getSystemInfoSync().pixelRatio || 1;
+          let canvas = res[0].node;
+          let ctx = canvas.getContext('2d');
+          let dpr = wx.getSystemInfoSync().pixelRatio || 1;
 
           // ★ 同时用 boundingClientRect 测量真实 CSS 显示尺寸
           wx.createSelectorQuery().in(that).select('#sigCanvas')
             .boundingClientRect(function (rect) {
               // 以 boundingClientRect 为准（真实的 CSS 布局尺寸）
-              var cssW, cssH;
+              let cssW, cssH;
               if (rect && rect.width > 0 && rect.height > 0) {
                 cssW = rect.width;
                 cssH = rect.height;
                 // ★ 安全检测：如果宽高超过屏幕尺寸，可能是 rpx → 转为 px
-                var screenW = wx.getSystemInfoSync().windowWidth;
+                let screenW = wx.getSystemInfoSync().windowWidth;
                 if (Math.max(cssW, cssH) > screenW * 1.2) {
-                  var scale = screenW / 750;
+                  let scale = screenW / 750;
                   console.log('[sigPad] init: likely rpx, converting ' + cssW + 'x' + cssH +
                     ' → ' + (cssW * scale).toFixed(1) + 'x' + (cssH * scale).toFixed(1) +
                     ' (screenW=' + screenW + ' scale=' + scale + ')');
@@ -95,8 +95,8 @@ Component({
               that._dpr = dpr;
 
               // ★ 严格对齐 buffer = display * dpr
-              var bufferW = Math.round(cssW * dpr);
-              var bufferH = Math.round(cssH * dpr);
+              let bufferW = Math.round(cssW * dpr);
+              let bufferH = Math.round(cssH * dpr);
               canvas.width = bufferW;
               canvas.height = bufferH;
               ctx.scale(dpr, dpr);
@@ -125,7 +125,7 @@ Component({
 
     _loadInitialImage(width, height) {
       if (!this._canvas) return;
-      var img = this._canvas.createImage(), that = this;
+      let img = this._canvas.createImage(), that = this;
       img.onload = function () {
         that._ctx.drawImage(img, 0, 0, width, height);
         that.setData({ hasContent: true });
@@ -139,16 +139,16 @@ Component({
     // ═══════════════════════════════════════════════════════════════
 
     _verifyCanvasRect(cb) {
-      var that = this;
+      let that = this;
 
       wx.createSelectorQuery().in(this).select('#sigCanvas')
         .boundingClientRect(function (rect) {
           if (rect && rect.width > 0 && rect.height > 0) {
-            var rw = rect.width, rh = rect.height, rl = rect.left || 0, rt = rect.top || 0;
+            let rw = rect.width, rh = rect.height, rl = rect.left || 0, rt = rect.top || 0;
             // ★ 安全检测：rpx → px 转换
-            var screenW = wx.getSystemInfoSync().windowWidth;
+            let screenW = wx.getSystemInfoSync().windowWidth;
             if (Math.max(rw, rh) > screenW * 1.2) {
-              var scale = screenW / 750;
+              let scale = screenW / 750;
               rw = rw * scale; rh = rh * scale; rl = rl * scale; rt = rt * scale;
             }
             // 更新 left/top（首次触摸时布局绝对稳定，最准确）
@@ -158,8 +158,8 @@ Component({
 
             // ★ 二次验证 buffer/display 对齐
             if (that._canvas && that._dpr && !that.data.hasContent) {
-              var ew = Math.round(rw * that._dpr);
-              var eh = Math.round(rh * that._dpr);
+              let ew = Math.round(rw * that._dpr);
+              let eh = Math.round(rh * that._dpr);
               if (that._canvas.width !== ew || that._canvas.height !== eh) {
                 console.warn('[sigPad] touch-time buffer correction:',
                   ' buffer=' + that._canvas.width + 'x' + that._canvas.height,
@@ -182,7 +182,7 @@ Component({
     // ═══════════════════════════════════════════════════════════════
 
     _toCanvas(clientX, clientY) {
-      var r = this._canvasRect;
+      let r = this._canvasRect;
       if (!r || r.width <= 0) return null;
       return {
         x: Math.max(0, Math.min(r.width, clientX - r.left)),
@@ -196,9 +196,9 @@ Component({
 
     onTouchStart(e) {
       if (!this._ctx) return;
-      var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      let t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!t) return;
-      var cx = t.clientX, cy = t.clientY, that = this;
+      let cx = t.clientX, cy = t.clientY, that = this;
 
       // ★ 确保 transform 生效（setData 可能重置 Canvas 上下文，丢失 scale）
       if (this._dpr) {
@@ -211,7 +211,7 @@ Component({
         if (that._dpr) {
           that._ctx.setTransform(that._dpr, 0, 0, that._dpr, 0, 0);
         }
-        var pt = that._toCanvas(cx, cy);
+        let pt = that._toCanvas(cx, cy);
         if (!pt) return;
         console.log('[sigPad] touchStart: client=(' + cx + ',' + cy +
           ') rect=(' + that._canvasRect.left + ',' + that._canvasRect.top +
@@ -226,13 +226,13 @@ Component({
 
     onTouchMove(e) {
       if (!this._drawing || !this._ctx) return;
-      var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      let t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!t) return;
       // ★ 确保 transform 有效（防御 setData 重置上下文）
       if (this._dpr) {
         this._ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
       }
-      var pt = this._toCanvas(t.clientX, t.clientY);
+      let pt = this._toCanvas(t.clientX, t.clientY);
       if (!pt) return;
       this._ctx.lineTo(pt.x, pt.y); this._ctx.stroke();
       this._ctx.beginPath(); this._ctx.moveTo(pt.x, pt.y);
@@ -258,16 +258,16 @@ Component({
       if (!this._canvas) { wx.showToast({ title: '画板未就绪', icon: 'none' }); return; }
       if (this._exporting) return;
       this._exporting = true; wx.showLoading({ title: '确认签名中...' });
-      try { var d = await this.toDataURL(); this.triggerEvent('confirm', { imageData: d }); }
+      try { let d = await this.toDataURL(); this.triggerEvent('confirm', { imageData: d }); }
       catch (e) { console.error('[sigPad] export:', e); wx.showToast({ title: '导出失败', icon: 'none' }); }
       finally { this._exporting = false; wx.hideLoading(); }
     },
 
     toDataURL() {
-      var that = this;
+      let that = this;
       return new Promise(function (resolve, reject) {
         if (!that._canvas) { reject(new Error('no canvas')); return; }
-        var w = that._cssWidth || 300, h = that._cssHeight || 180, d = that._dpr || 1;
+        let w = that._cssWidth || 300, h = that._cssHeight || 180, d = that._dpr || 1;
         wx.canvasToTempFilePath({
           canvas: that._canvas, fileType: 'png', width: w, height: h,
           destWidth: Math.round(w * d), destHeight: Math.round(h * d),

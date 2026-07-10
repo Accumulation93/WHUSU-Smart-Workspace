@@ -3,7 +3,7 @@
  * Used to notify portal page of approval actions from detail/list pages
  * so the notification badge updates without a full page reload.
  */
-var events = {};
+const events = {};
 
 function on(event, callback) {
   if (!events[event]) events[event] = [];

@@ -28,7 +28,7 @@ Page({
 
   // Pull-to-refresh handler
   onPullDownRefresh() {
-    var that = this;
+    let that = this;
     this.loadData().then(function() {
       wx.stopPullDownRefresh();
     });
@@ -37,7 +37,7 @@ Page({
   // ═══ Polling: check every 30s for new pending approvals ═══
   startPolling() {
     this.stopPolling();
-    var that = this;
+    let that = this;
     this._pollTimer = setInterval(function() {
       if (that._isPageVisible) {
         that.checkForUpdates();
@@ -54,7 +54,7 @@ Page({
 
   async checkForUpdates() {
     try {
-      var res = await callFunction({ name: 'checkPendingCount', data: {} });
+      let res = await callFunction({ name: 'checkPendingCount', data: {} });
       if (res.status === 'success') {
         if (res.count !== this.data.lastPendingCount) {
           // Count changed — full reload
@@ -74,9 +74,9 @@ Page({
   async loadData() {
     this.setData({ loading: true });
     try {
-      var res = await callFunction({ name: 'listPendingApprovals', data: {} });
+      let res = await callFunction({ name: 'listPendingApprovals', data: {} });
       if (res.status === 'success') {
-        var pending = res.pending || [];
+        let pending = res.pending || [];
         this.setData({
           pending: pending,
           lastPendingCount: pending.length,
@@ -95,13 +95,13 @@ Page({
   },
 
   _formatTime() {
-    var now = new Date();
-    var pad = function(n) { return String(n).padStart(2, '0'); };
+    let now = new Date();
+    let pad = function(n) { return String(n).padStart(2, '0'); };
     return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
   },
 
   viewDetail(e) {
-    var submissionId = e.currentTarget.dataset.submissionId;
+    let submissionId = e.currentTarget.dataset.submissionId;
     wx.navigateTo({ url: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId });
   }
 });

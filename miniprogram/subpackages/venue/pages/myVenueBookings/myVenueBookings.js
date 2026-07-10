@@ -53,7 +53,7 @@ Page({
           const res = await callFunction({ name: 'cancelVenueBooking', data: { id } });
           if (res.status === 'success') {
             showShortToast(res.message || '已取消');
-            var bookings = that.data.bookings.map(function(b) {
+            let bookings = that.data.bookings.map(function(b) {
               return b.id === id ? Object.assign({}, b, { status: 'cancelled' }) : b;
             });
             that.setData({ bookings: bookings });

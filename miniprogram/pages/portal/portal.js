@@ -67,7 +67,7 @@ Page({
   onShow() {
     this._isPageVisible = true;
     // Restore saved view mode preference
-    var savedView = wx.getStorageSync('appViewMode');
+    const savedView = wx.getStorageSync('appViewMode');
     if (savedView && (savedView === 'grid' || savedView === 'list')) {
       this.setData({ appViewMode: savedView });
     }
@@ -167,9 +167,9 @@ Page({
   },
 
   onCardTap(e) {
-    var key = e.currentTarget.dataset.key;
-    var source = this.data.filteredPortalCards.length ? this.data.filteredPortalCards : this.data.portalCards;
-    var card = source.find(function(c) { return c.key === key; });
+    const key = e.currentTarget.dataset.key;
+    const source = this.data.filteredPortalCards.length ? this.data.filteredPortalCards : this.data.portalCards;
+    const card = source.find(function(c) { return c.key === key; });
     if (!card) return;
     if (card.disabled) {
       wx.showToast({ title: card.disabledReason || '暂不可用', icon: 'none' });
@@ -181,7 +181,7 @@ Page({
   // ── App Services View & Search ──
 
   switchAppView(e) {
-    var mode = e.currentTarget.dataset.mode;
+    const mode = e.currentTarget.dataset.mode;
     if (!mode || mode === this.data.appViewMode) return;
     wx.setStorageSync('appViewMode', mode);
     this.setData({ appViewMode: mode });
@@ -198,14 +198,14 @@ Page({
   },
 
   _applyAppFilter() {
-    var keyword = (this.data.appSearchKeyword || '').trim().toLowerCase();
-    var cards = this.data.portalCards || [];
+    const keyword = (this.data.appSearchKeyword || '').trim().toLowerCase();
+    const cards = this.data.portalCards || [];
     if (!keyword) {
       this.setData({ filteredPortalCards: cards });
       return;
     }
-    var filtered = cards.filter(function(c) {
-      var label = (c.label || '').toLowerCase();
+    const filtered = cards.filter(function(c) {
+      const label = (c.label || '').toLowerCase();
       return label.indexOf(keyword) >= 0;
     });
     this.setData({ filteredPortalCards: filtered });
@@ -271,17 +271,17 @@ Page({
   },
 
   onTodoTap(e) {
-    var url = e.currentTarget.dataset.url;
+    const url = e.currentTarget.dataset.url;
     if (!url) return;
     wx.navigateTo({ url: url });
   },
 
   async onNotificationTap(e) {
     if (this._notificationSwiping) return;
-    var id = e.currentTarget.dataset.id;
-    var url = e.currentTarget.dataset.url;
+    const id = e.currentTarget.dataset.id;
+    const url = e.currentTarget.dataset.url;
     if (id) {
-      var notifications = this.data.notifications.map(function(item) {
+      const notifications = this.data.notifications.map(function(item) {
         return item.id === id ? Object.assign({}, item, { isRead: true, _showDelete: false }) : item;
       });
       this.setData({ notifications: notifications });
@@ -295,9 +295,9 @@ Page({
   },
 
   onNotificationTouchStart(e) {
-    var touch = e.touches && e.touches[0] ? e.touches[0] : null;
-    var id = e.currentTarget.dataset.id;
-    var current = (this.data.notifications || []).find(function(item) { return item.id === id; });
+    const touch = e.touches && e.touches[0] ? e.touches[0] : null;
+    const id = e.currentTarget.dataset.id;
+    const current = (this.data.notifications || []).find(function(item) { return item.id === id; });
     this._notificationTouch = {
       id: id,
       startX: touch ? touch.clientX : 0,
@@ -308,21 +308,21 @@ Page({
   },
 
   onNotificationTouchMove(e) {
-    var touchState = this._notificationTouch || {};
-    var touch = e.touches && e.touches[0] ? e.touches[0] : null;
-    var id = touchState.id;
+    const touchState = this._notificationTouch || {};
+    const touch = e.touches && e.touches[0] ? e.touches[0] : null;
+    const id = touchState.id;
     if (!id || !touch) return;
 
-    var dx = touch.clientX - touchState.startX;
-    var dy = touch.clientY - touchState.startY;
+    const dx = touch.clientX - touchState.startX;
+    const dy = touch.clientY - touchState.startY;
     if (!touchState.moving && Math.abs(dx) < 8) return;
     if (!touchState.moving && Math.abs(dy) > Math.abs(dx)) return;
 
     touchState.moving = true;
     this._notificationTouch = touchState;
 
-    var nextX = Math.max(-NOTIFICATION_DELETE_WIDTH_PX, Math.min(0, touchState.baseX + dx));
-    var notifications = this.data.notifications.map(function(item) {
+    const nextX = Math.max(-NOTIFICATION_DELETE_WIDTH_PX, Math.min(0, touchState.baseX + dx));
+    const notifications = this.data.notifications.map(function(item) {
       if (item.id !== id) return Object.assign({}, item, { _showDelete: false, _swipeX: 0 });
       return Object.assign({}, item, { _swipeX: nextX, _showDelete: nextX <= -NOTIFICATION_DELETE_WIDTH_PX / 2 });
     });
@@ -330,20 +330,20 @@ Page({
   },
 
   onNotificationTouchEnd(e) {
-    var touchState = this._notificationTouch || {};
-    var touch = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
-    var id = touchState.id || e.currentTarget.dataset.id;
+    const touchState = this._notificationTouch || {};
+    const touch = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
+    const id = touchState.id || e.currentTarget.dataset.id;
     if (!id || !touchState.moving) return;
 
     this._notificationSwiping = true;
-    var that = this;
+    const that = this;
     setTimeout(function() { that._notificationSwiping = false; }, 250);
 
-    var current = (this.data.notifications || []).find(function(item) { return item.id === id; }) || {};
-    var currentX = typeof current._swipeX === 'number' ? current._swipeX : 0;
-    var dx = touch ? (touch.clientX - touchState.startX) : 0;
-    var showDelete = currentX <= -NOTIFICATION_DELETE_WIDTH_PX / 2 || dx < -40;
-    var notifications = this.data.notifications.map(function(item) {
+    const current = (this.data.notifications || []).find(function(item) { return item.id === id; }) || {};
+    const currentX = typeof current._swipeX === 'number' ? current._swipeX : 0;
+    const dx = touch ? (touch.clientX - touchState.startX) : 0;
+    const showDelete = currentX <= -NOTIFICATION_DELETE_WIDTH_PX / 2 || dx < -40;
+    const notifications = this.data.notifications.map(function(item) {
       return Object.assign({}, item, {
         _showDelete: item.id === id ? showDelete : false,
         _swipeX: item.id === id && showDelete ? -NOTIFICATION_DELETE_WIDTH_PX : 0
@@ -354,9 +354,9 @@ Page({
   },
 
   async deleteNotification(e) {
-    var id = e.currentTarget.dataset.id;
+    const id = e.currentTarget.dataset.id;
     if (!id) return;
-    var notifications = this.data.notifications.filter(function(item) { return item.id !== id; });
+    const notifications = this.data.notifications.filter(function(item) { return item.id !== id; });
     this.setData({ notifications: notifications });
     this.loadNotificationUnreadCount();
     try {
@@ -371,7 +371,7 @@ Page({
   // ── Polling: auto-refresh notification count every 30s ──
   startPolling() {
     this.stopPolling();
-    var that = this;
+    const that = this;
     this._pollTimer = setInterval(function() {
       if (that._isPageVisible && that.data.hasUser) {
         that.loadTodoCount();

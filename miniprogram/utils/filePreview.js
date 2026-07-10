@@ -33,8 +33,8 @@ function toast(title) {
  */
 function mimeFromName(fileName) {
   if (!fileName) return '';
-  var ext = (fileName.split('.').pop() || '').toLowerCase();
-  var map = {
+  const ext = (fileName.split('.').pop() || '').toLowerCase();
+  const map = {
     pdf: 'application/pdf',
     doc: 'application/msword',
     docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -62,7 +62,7 @@ function mimeFromName(fileName) {
  * Handles images with previewImage (better UX) and all other types with openDocument.
  */
 function openLocalFile(filePath, fileName) {
-  var mime = mimeFromName(fileName);
+  const mime = mimeFromName(fileName);
   if (mime.startsWith('image/')) {
     wx.previewImage({ urls: [filePath], current: filePath });
   } else {
@@ -102,11 +102,11 @@ function fallbackDownload(fileId, fileName, callback) {
         return;
       }
 
-      var result = res.data;
-      var ext = (result.fileName || fileName || 'file').split('.').pop() || 'bin';
-      var tmpPath = wx.env.USER_DATA_PATH + '/af_' + fileId + '.' + ext;
+      const result = res.data;
+      const ext = (result.fileName || fileName || 'file').split('.').pop() || 'bin';
+      const tmpPath = wx.env.USER_DATA_PATH + '/af_' + fileId + '.' + ext;
 
-      var fs = wx.getFileSystemManager();
+      const fs = wx.getFileSystemManager();
 
       // Clean up stale temp file first
       try { fs.accessSync(tmpPath); fs.unlinkSync(tmpPath); } catch (_) {}
@@ -125,7 +125,7 @@ function fallbackDownload(fileId, fileName, callback) {
           console.error('[filePreview] async writeFile failed:', writeErr);
           // Last resort: sync write
           try {
-            var altPath = wx.env.USER_DATA_PATH + '/af_fb_' + Date.now() + '.' + ext;
+            const altPath = wx.env.USER_DATA_PATH + '/af_fb_' + Date.now() + '.' + ext;
             fs.writeFileSync(altPath, result.data, 'base64');
             openLocalFile(altPath, result.fileName || fileName);
             if (callback) callback(null);
@@ -165,8 +165,8 @@ function openAuditFile(options) {
     return;
   }
 
-  var fileId = options.fileId;
-  var fileName = options.fileName || '';
+  const fileId = options.fileId;
+  const fileName = options.fileName || '';
 
   showLoading();
 
@@ -214,13 +214,13 @@ function writeAndOpen(options) {
     return;
   }
 
-  var filePath = options.filePath;
-  var data = options.data;
-  var encoding = options.encoding || 'utf8';
-  var fileName = options.fileName || '';
-  var fileType = options.fileType || undefined;
+  const filePath = options.filePath;
+  const data = options.data;
+  const encoding = options.encoding || 'utf8';
+  const fileName = options.fileName || '';
+  const fileType = options.fileType || undefined;
 
-  var fs = wx.getFileSystemManager();
+  const fs = wx.getFileSystemManager();
 
   // Clean up old file first
   try { fs.accessSync(filePath); fs.unlinkSync(filePath); } catch (_) {}

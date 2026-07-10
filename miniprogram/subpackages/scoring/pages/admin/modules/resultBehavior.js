@@ -491,23 +491,23 @@ module.exports = Behavior({
     },
 
     buildWorkGroupFilterOptions(department) {
-      var dept = department;
+      let dept = department;
       if (dept === undefined) {
         dept = this.data.resultFilters.department;
       }
-      var workGroupList = this.data.workGroupList || [];
+      let workGroupList = this.data.workGroupList || [];
       if (!dept || dept === '全部') {
         return ['请先选择所属部门'];
       }
-      var deptId = '';
-      var deptList = this.data.departmentList || [];
-      for (var i = 0; i < deptList.length; i++) {
+      let deptId = '';
+      let deptList = this.data.departmentList || [];
+      for (let i = 0; i < deptList.length; i++) {
         if (deptList[i].name === dept) {
           deptId = deptList[i].id || deptList[i]._id || '';
           break;
         }
       }
-      var filtered = workGroupList
+      let filtered = workGroupList
         .filter(function (item) {
           return item.departmentId === deptId || item.departmentName === dept;
         })

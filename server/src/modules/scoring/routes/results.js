@@ -156,27 +156,27 @@ function buildTemplateConfigSignature(templateConfigs, templatesById) {
 function normalizeSignatureToStructure(sig) {
   if (!sig) return null;
   // Split by top-level '|' (outside brackets) to get per-template entries
-  var parts = [];
-  var depth = 0, start = 0;
-  for (var i = 0; i < sig.length; i++) {
+  let parts = [];
+  let depth = 0, start = 0;
+  for (let i = 0; i < sig.length; i++) {
     if (sig[i] === '[') depth++;
     else if (sig[i] === ']') depth--;
     else if (sig[i] === '|' && depth === 0) { parts.push(sig.substring(start, i)); start = i + 1; }
   }
   parts.push(sig.substring(start));
 
-  var normalized = parts.map(function(part) {
-    var bracketIdx = part.indexOf('[');
+  let normalized = parts.map(function(part) {
+    let bracketIdx = part.indexOf('[');
     if (bracketIdx === -1) return part;
-    var templateId = part.substring(0, bracketIdx);
-    var inner = part.substring(bracketIdx + 1, part.length - 1);
+    let templateId = part.substring(0, bracketIdx);
+    let inner = part.substring(bracketIdx + 1, part.length - 1);
     // Inner format: questionData|method|trimH|trimL
     // Split by ALL '|' — last 3 parts are method, trimH, trimL
-    var innerParts = inner.split('|');
+    let innerParts = inner.split('|');
     if (innerParts.length < 4) return part;
-    var methodAndTrim = innerParts.slice(-3).join('|');
-    var beforeMethod = innerParts.slice(0, -3).join('|');
-    var questionCount;
+    let methodAndTrim = innerParts.slice(-3).join('|');
+    let beforeMethod = innerParts.slice(0, -3).join('|');
+    let questionCount;
     if (beforeMethod.indexOf(':') !== -1) {
       // Legacy format: min:start:max:step,min:start:max:step,...
       questionCount = beforeMethod.split(',').filter(function(s) { return s.indexOf(':') !== -1; }).length;
@@ -449,19 +449,19 @@ function computeScorerCompletionData(members, rules, records) {
   // Pre-index members by rule key for scorer lookup
   const membersByRuleKey = new Map();
   members.forEach(function (m) {
-    var key = getMemberRuleKey(m);
+    let key = getMemberRuleKey(m);
     if (!membersByRuleKey.has(key)) membersByRuleKey.set(key, []);
     membersByRuleKey.get(key).push(safeString(m.id));
   });
 
   // Pre-index members by department, identity, and dept+workGroup
-  var membersByDept = new Map();
-  var membersByIdentity = new Map();
-  var hrByDeptWGMap = new Map();
+  let membersByDept = new Map();
+  let membersByIdentity = new Map();
+  let hrByDeptWGMap = new Map();
   members.forEach(function (m) {
-    var did = safeString(m.departmentId);
-    var iid = safeString(m.identityId);
-    var wid = safeString(m.workGroupId);
+    let did = safeString(m.departmentId);
+    let iid = safeString(m.identityId);
+    let wid = safeString(m.workGroupId);
 
     if (!membersByDept.has(did)) membersByDept.set(did, []);
     membersByDept.get(did).push(safeString(m.id));
@@ -471,63 +471,63 @@ function computeScorerCompletionData(members, rules, records) {
 
     // For WG scopes: dept → wgId → [memberIds]
     if (!hrByDeptWGMap.has(did)) hrByDeptWGMap.set(did, new Map());
-    var inner = hrByDeptWGMap.get(did);
+    let inner = hrByDeptWGMap.get(did);
     if (!inner.has(wid)) inner.set(wid, []);
     inner.get(wid).push(safeString(m.id));
   });
 
   // memberId → member for fast lookup
-  var memberById = new Map(members.map(function (m) { return [safeString(m.id), m]; }));
+  let memberById = new Map(members.map(function (m) { return [safeString(m.id), m]; }));
 
   // ── Arithmetic expected counts (same algorithm as computeValidScoreMap) ──
-  var scorerExpectedCount = new Map(); // scorerKey → number
-  var expectedByCount = new Map();     // targetId → number
+  let scorerExpectedCount = new Map(); // scorerKey → number
+  let expectedByCount = new Map();     // targetId → number
 
   rules.forEach(function (rule) {
-    var ruleKey = makeOrgRuleKey(rule.scorerDepartmentId, rule.scorerIdentityId);
-    var scorerIds = membersByRuleKey.get(ruleKey) || [];
+    let ruleKey = makeOrgRuleKey(rule.scorerDepartmentId, rule.scorerIdentityId);
+    let scorerIds = membersByRuleKey.get(ruleKey) || [];
     if (!scorerIds.length) return;
-    var scorerIdSet = new Set(scorerIds);
-    var allowSelf = rule.allowSelfAssessment;
+    let scorerIdSet = new Set(scorerIds);
+    let allowSelf = rule.allowSelfAssessment;
 
     rule.clauses.forEach(function (clause) {
       if (!clause.templateConfigs.length) return;
-      var st = safeString(clause.scopeType);
-      var targetIdentityId = safeString(clause.targetIdentityId);
+      let st = safeString(clause.scopeType);
+      let targetIdentityId = safeString(clause.targetIdentityId);
 
       // ── Work-group scopes: per-WG arithmetic ──
       if (st === 'same_work_group_identity' || st === 'same_work_group_all') {
-        var wgInner = hrByDeptWGMap.get(safeString(rule.scorerDepartmentId));
+        let wgInner = hrByDeptWGMap.get(safeString(rule.scorerDepartmentId));
         if (!wgInner) return;
         wgInner.forEach(function (wgMemberIds, wgId) {
-          var wgScorerIds = [];
+          let wgScorerIds = [];
           scorerIds.forEach(function (sid) {
-            var m = memberById.get(sid);
+            let m = memberById.get(sid);
             if (m && safeString(m.workGroupId) === wgId) wgScorerIds.push(sid);
           });
           if (!wgScorerIds.length) return;
 
-          var wgTargetIds = wgMemberIds;
+          let wgTargetIds = wgMemberIds;
           if (st === 'same_work_group_identity' && targetIdentityId) {
             wgTargetIds = wgTargetIds.filter(function (tid) {
-              var m = memberById.get(tid);
+              let m = memberById.get(tid);
               return m && safeString(m.identityId) === targetIdentityId;
             });
           }
           if (!wgTargetIds.length) return;
 
-          var wgScorerSet = new Set(wgScorerIds);
-          var wgTargetSet = new Set(wgTargetIds);
-          var scorerN = wgScorerIds.length;
-          var targetN = wgTargetIds.length;
+          let wgScorerSet = new Set(wgScorerIds);
+          let wgTargetSet = new Set(wgTargetIds);
+          let scorerN = wgScorerIds.length;
+          let targetN = wgTargetIds.length;
 
           wgTargetIds.forEach(function (tid) {
-            var cnt = scorerN;
+            let cnt = scorerN;
             if (!allowSelf && wgScorerSet.has(tid)) cnt--;
             expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
           });
           wgScorerIds.forEach(function (sid) {
-            var cnt = targetN;
+            let cnt = targetN;
             if (!allowSelf && wgTargetSet.has(sid)) cnt--;
             scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
           });
@@ -536,7 +536,7 @@ function computeScorerCompletionData(members, rules, records) {
       }
 
       // ── Non-work-group scopes: O(targets + scorers) ──
-      var targetIds;
+      let targetIds;
       if (st === 'all_people') {
         targetIds = members.map(function (m) { return safeString(m.id); });
       } else if (st === 'identity_only') {
@@ -545,7 +545,7 @@ function computeScorerCompletionData(members, rules, records) {
         targetIds = membersByDept.get(safeString(rule.scorerDepartmentId)) || [];
         if (targetIdentityId) {
           targetIds = targetIds.filter(function (tid) {
-            var m = memberById.get(tid);
+            let m = memberById.get(tid);
             return m && safeString(m.identityId) === targetIdentityId;
           });
         }
@@ -558,27 +558,27 @@ function computeScorerCompletionData(members, rules, records) {
       // Global targetIdentityId filter for scopes that don't pre-filter
       if (targetIdentityId && (st === 'all_people' || st === 'same_department_all')) {
         targetIds = targetIds.filter(function (tid) {
-          var m = memberById.get(tid);
+          let m = memberById.get(tid);
           return m && safeString(m.identityId) === targetIdentityId;
         });
       }
 
       if (!targetIds.length) return;
 
-      var targetIdSet = new Set(targetIds);
-      var scorerN = scorerIds.length;
-      var targetN = targetIds.length;
+      let targetIdSet = new Set(targetIds);
+      let scorerN = scorerIds.length;
+      let targetN = targetIds.length;
 
       // O(targets): per-target count = N_scorers (minus self)
       targetIds.forEach(function (tid) {
-        var cnt = scorerN;
+        let cnt = scorerN;
         if (!allowSelf && scorerIdSet.has(tid)) cnt--;
         expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
       });
 
       // O(scorers): per-scorer count = N_targets (minus self)
       scorerIds.forEach(function (sid) {
-        var cnt = targetN;
+        let cnt = targetN;
         if (!allowSelf && targetIdSet.has(sid)) cnt--;
         scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
       });
@@ -586,12 +586,12 @@ function computeScorerCompletionData(members, rules, records) {
   });
 
   // ── Count submitted from records (unique scorer→target pairs) ──
-  var submittedByScorer = new Map();
-  var submittedByTarget = new Map();
+  let submittedByScorer = new Map();
+  let submittedByTarget = new Map();
 
   records.forEach(function (record) {
-    var sk = resolveScorerKey(record);
-    var tid = safeString(record.targetId);
+    let sk = resolveScorerKey(record);
+    let tid = safeString(record.targetId);
     if (!sk || !tid) return;
 
     if (!submittedByScorer.has(sk)) submittedByScorer.set(sk, new Set());
@@ -602,11 +602,11 @@ function computeScorerCompletionData(members, rules, records) {
   });
 
   // ── Build scorer task rows (O(M): direct member→row mapping, no .find()) ──
-  var scorerTaskRows = members.map(function (member) {
-    var sk = getScorerUniqueKey(member);
-    var exp = scorerExpectedCount.get(sk) || 0;
-    var subSet = submittedByScorer.get(sk) || new Set();
-    var sub = subSet.size;
+  let scorerTaskRows = members.map(function (member) {
+    let sk = getScorerUniqueKey(member);
+    let exp = scorerExpectedCount.get(sk) || 0;
+    let subSet = submittedByScorer.get(sk) || new Set();
+    let sub = subSet.size;
     return {
       scorerKey: sk,
       scorerId: member.id,
@@ -806,15 +806,15 @@ function sliceRowsBySize(rows, offset, basePayload, fieldName) {
 function applyCalcMethod(scores, weight, method, trimH, trimL) {
   if (!scores.length) return { averageScore: 0, contributionScore: 0 };
   if (method === 'trim_extremes') {
-    var totalTrim = (trimH || 0) + (trimL || 0);
+    let totalTrim = (trimH || 0) + (trimL || 0);
     if (scores.length < totalTrim) return { averageScore: 0, contributionScore: 0 };
-    var sorted = scores.slice().sort(function(a, b) { return a - b; });
-    var trimmed = sorted.slice(trimL || 0, scores.length - (trimH || 0));
+    let sorted = scores.slice().sort(function(a, b) { return a - b; });
+    let trimmed = sorted.slice(trimL || 0, scores.length - (trimH || 0));
     if (!trimmed.length) return { averageScore: 0, contributionScore: 0 };
-    var avg = trimmed.reduce(function(s, v) { return s + v; }, 0) / trimmed.length;
+    let avg = trimmed.reduce(function(s, v) { return s + v; }, 0) / trimmed.length;
     return { averageScore: roundScore(avg), contributionScore: roundScore(avg * weight) };
   }
-  var avg = scores.reduce(function(s, v) { return s + v; }, 0) / scores.length;
+  let avg = scores.reduce(function(s, v) { return s + v; }, 0) / scores.length;
   return { averageScore: roundScore(avg), contributionScore: roundScore(avg * weight) };
 }
 
@@ -874,11 +874,11 @@ router.post('/getScoreResults', async (req, res) => {
 
       // Build overview rows from unified engine results
       const overviewRows = mems.map(function (member) {
-        var scoreData = finalScoreMap.get(member.id);
-        var finalScore = scoreData ? scoreData.finalScore : 0;
-        var expCount = expectedByCount.get(member.id) || 0;
-        var sub = submittedByTarget.get(member.id) || new Set();
-        var submittedCount = sub.size;
+        let scoreData = finalScoreMap.get(member.id);
+        let finalScore = scoreData ? scoreData.finalScore : 0;
+        let expCount = expectedByCount.get(member.id) || 0;
+        let sub = submittedByTarget.get(member.id) || new Set();
+        let submittedCount = sub.size;
         expCount = Math.max(expCount, submittedCount);
         return {
           id: member.id, targetId: member.id,
@@ -894,50 +894,50 @@ router.post('/getScoreResults', async (req, res) => {
       });
 
       // Apply filters
-      var deptFv = safeString(filters.department);
-      var identFv = safeString(filters.identity);
-      var wgFv = safeString(filters.workGroup);
-      var matchFv = function (row) {
+      let deptFv = safeString(filters.department);
+      let identFv = safeString(filters.identity);
+      let wgFv = safeString(filters.workGroup);
+      let matchFv = function (row) {
         if (!isAllFilter(deptFv) && safeString(row.department) !== deptFv) return false;
         if (!isAllFilter(identFv) && safeString(row.identity) !== identFv) return false;
         if (!isAllFilter(wgFv) && safeString(row.workGroup || DEFAULT_WORK_GROUP) !== wgFv) return false;
         return true;
       };
 
-      var filteredRows = overviewRows.filter(matchFv);
+      let filteredRows = overviewRows.filter(matchFv);
 
       // Filter options
-      var filterOpts = {
+      let filterOpts = {
         departments: [...new Set(filteredRows.map(function (i) { return i.department; }).filter(Boolean))].sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); }),
         identities: [...new Set(filteredRows.map(function (i) { return i.identity; }).filter(Boolean))].sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); }),
         workGroups: [...new Set(filteredRows.map(function (i) { return i.workGroup || DEFAULT_WORK_GROUP; }).filter(Boolean))].sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); })
       };
 
       // Stats
-      var scoredIds = new Set();
+      let scoredIds = new Set();
       submittedByTarget.forEach(function (scorers, tid) { if (scorers.size > 0) scoredIds.add(tid); });
-      var recCount = 0;
-      var midSet = new Set(mems.map(function (m) { return m.id; }));
-      var memById = new Map(mems.map(function (m) { return [m.id, m]; }));
+      let recCount = 0;
+      let midSet = new Set(mems.map(function (m) { return m.id; }));
+      let memById = new Map(mems.map(function (m) { return [m.id, m]; }));
       submittedByTarget.forEach(function (scorers, tid) {
         if (!midSet.has(tid)) return;
-        var tm = memById.get(tid);
+        let tm = memById.get(tid);
         if (tm && matchFv({ department: tm.department, identity: tm.identity, workGroup: tm.workGroup || DEFAULT_WORK_GROUP })) {
           recCount += scorers.size;
         }
       });
 
       // Compute completedMembers (scorers who finished all expected tasks)
-      var scorerSub = new Map();
+      let scorerSub = new Map();
       submittedByTarget.forEach(function (scorers) {
         scorers.forEach(function (sk) { scorerSub.set(sk, (scorerSub.get(sk) || 0) + 1); });
       });
-      var completed = 0;
+      let completed = 0;
       scorerExpectedCount.forEach(function (expCount, sk) {
         if ((scorerSub.get(sk) || 0) >= expCount) completed++;
       });
 
-      var overviewStats = {
+      let overviewStats = {
         totalMembers: filteredRows.length,
         scoredMembers: filteredRows.filter(function (r) { return scoredIds.has(safeString(r.targetId || r.id)); }).length,
         recordCount: recCount,
@@ -981,8 +981,8 @@ router.post('/getScoreResults', async (req, res) => {
     // ── Conditional data building ──
     // 'completion' uses the lightweight arithmetic counter (O(targets+scorers) per clause).
     // Other types need full buildTaskData for expectedPairs detail.
-    var taskData = null;
-    var completionData = null;
+    let taskData = null;
+    let completionData = null;
     if (dataType === 'completion') {
       completionData = computeScorerCompletionData(members, rules, records);
     } else {
@@ -996,11 +996,11 @@ router.post('/getScoreResults', async (req, res) => {
 
     // ── Pre-build lookup Maps to replace O(N) linear searches with O(1) ──
     // ruleByScorerKey: "deptId::identityId" → rule (replaces for...of rules loop in catch-all)
-    var ruleByScorerKey = new Map();
+    let ruleByScorerKey = new Map();
     rules.forEach(function (r) { ruleByScorerKey.set(safeString(r.scorerKey), r); });
 
     // pairTaskByKey: "ruleId::targetId::scorerKey" → expectedPair (replaces findExpectedPairTask)
-    var pairTaskByKey = new Map();
+    let pairTaskByKey = new Map();
     if (taskData && taskData.expectedPairs) {
       taskData.expectedPairs.forEach(function (task) {
         pairTaskByKey.set(task.ruleId + '::' + task.targetId + '::' + task.scorerKey, task);
@@ -1012,22 +1012,22 @@ router.post('/getScoreResults', async (req, res) => {
 
     // ── Inline findExpectedPairTask (O(1) Map lookup) ──
     function lookupExpectedTask(record, scorerKey) {
-      var rId = safeString(record.ruleId);
-      var tId = safeString(record.targetId);
+      let rId = safeString(record.ruleId);
+      let tId = safeString(record.targetId);
       return pairTaskByKey.get(rId + '::' + tId + '::' + scorerKey)
         || pairTaskByKey.get(rId + '::' + tId + '::' + safeString(record.scorerId))
         || null;
     }
 
     function lookupClauseKey(record, scorerKey) {
-      var task = lookupExpectedTask(record, scorerKey);
-      var rId = safeString(record.ruleId);
-      var sk = safeString(task ? task.scorerKey || scorerKey : scorerKey);
+      let task = lookupExpectedTask(record, scorerKey);
+      let rId = safeString(record.ruleId);
+      let sk = safeString(task ? task.scorerKey || scorerKey : scorerKey);
       return rId + '::' + toNumber(task && task.clauseIndex, 0) + '::' + sk;
     }
 
     // ── Unified activity-level stats (same meaning across all dataType views) ──
-    var invalidScorerClauseKeys = dataType === 'completion' ? new Set() : new Set((taskData && taskData.invalidScorerClauseKeys) || []);
+    let invalidScorerClauseKeys = dataType === 'completion' ? new Set() : new Set((taskData && taskData.invalidScorerClauseKeys) || []);
     const scoredTargetIds = new Set();
     if (dataType === 'completion') {
       // Completion: scored targets come from submittedByTarget Set
@@ -1459,10 +1459,10 @@ router.post('/exportScoreResults', async (req, res) => {
       const { finalScoreMap, submittedByTarget, expectedByCount } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
 
       rows = members.map(function (m) {
-        var scoreData = finalScoreMap.get(m.id);
-        var finalScore = scoreData ? scoreData.finalScore : 0;
-        var expCount = expectedByCount.get(m.id) || 0;
-        var sub = submittedByTarget.get(m.id) || new Set();
+        let scoreData = finalScoreMap.get(m.id);
+        let finalScore = scoreData ? scoreData.finalScore : 0;
+        let expCount = expectedByCount.get(m.id) || 0;
+        let sub = submittedByTarget.get(m.id) || new Set();
         expCount = Math.max(expCount, sub.size);
         return {
           name: m.name, studentId: m.studentId, department: m.department,

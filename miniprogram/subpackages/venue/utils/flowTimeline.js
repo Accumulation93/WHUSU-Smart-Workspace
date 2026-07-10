@@ -8,24 +8,24 @@
  */
 function buildFlowTimeline(prog) {
   if (!prog || !prog.totalSteps) return null;
-  var totalSteps = prog.totalSteps;
-  var currentStep = prog.currentStep;
-  var rejectStep = prog.isRejected ? (prog.rejectStep >= 0 ? prog.rejectStep : 0) : -1;
-  var flowSteps = prog.flowSteps || [];
-  var snapshots = prog.snapshots || [];
+  let totalSteps = prog.totalSteps;
+  let currentStep = prog.currentStep;
+  let rejectStep = prog.isRejected ? (prog.rejectStep >= 0 ? prog.rejectStep : 0) : -1;
+  let flowSteps = prog.flowSteps || [];
+  let snapshots = prog.snapshots || [];
 
   // Build snapshot lookup by stepIndex
-  var snapMap = {};
+  let snapMap = {};
   snapshots.forEach(function(s) {
-    var idx = s.stepIndex != null ? s.stepIndex : s.step_index;
+    let idx = s.stepIndex != null ? s.stepIndex : s.step_index;
     if (idx != null) snapMap[idx] = s;
   });
 
-  var timeline = [];
-  for (var si = 0; si < totalSteps; si++) {
-    var state, icon, label;
-    var stepName = (flowSteps[si] && flowSteps[si].name) || ('第' + (si + 1) + '步');
-    var snap = snapMap[si] || null;
+  let timeline = [];
+  for (let si = 0; si < totalSteps; si++) {
+    let state, icon, label;
+    let stepName = (flowSteps[si] && flowSteps[si].name) || ('第' + (si + 1) + '步');
+    let snap = snapMap[si] || null;
 
     if (prog.isRejected) {
       if (si < rejectStep)           { state = 'done';     icon = '✓';     label = '✓ 已通过'; }
@@ -40,7 +40,7 @@ function buildFlowTimeline(prog) {
     }
 
     // Description line for collapsed view
-    var meta = '';
+    let meta = '';
     if (state === 'done' && snap && snap.approvedAt) {
       meta = snap.approvedAt;
     } else if (state === 'active') {
@@ -49,9 +49,9 @@ function buildFlowTimeline(prog) {
       meta = '已驳回';
     }
 
-    var comment = (snap && snap.comment) || '';
-    var approverName = (snap && snap.approverName) || '';
-    var approvedAt = (snap && snap.approvedAt) || '';
+    let comment = (snap && snap.comment) || '';
+    let approverName = (snap && snap.approverName) || '';
+    let approvedAt = (snap && snap.approvedAt) || '';
 
     timeline.push({
       _key: 'step-' + si,   // unique key for expand toggle tracking

@@ -56,9 +56,9 @@ module.exports = Behavior({
     onTemplateQuestionBlur(e) {
       const { index, field } = e.currentTarget.dataset;
       const questionIndex = Number(index);
-      var inputValues = this.data.questionInputValues;
+      let inputValues = this.data.questionInputValues;
       if (!inputValues[questionIndex] || inputValues[questionIndex][field] === undefined) return;
-      var value = inputValues[questionIndex][field];
+      let value = inputValues[questionIndex][field];
       // Sync the cached value back to the real question data on blur
       this.setData({
         [`templateForm.questions[${questionIndex}].${field}`]: value
@@ -66,8 +66,8 @@ module.exports = Behavior({
     },
 
     addTemplateQuestion() {
-      var questions = [...this.data.templateForm.questions, createEmptyQuestion()];
-      var newIndex = questions.length - 1;
+      let questions = [...this.data.templateForm.questions, createEmptyQuestion()];
+      let newIndex = questions.length - 1;
       this.setData({
         templateForm: { ...this.data.templateForm, questions: questions },
         expandedQuestionIndex: newIndex,
@@ -78,11 +78,11 @@ module.exports = Behavior({
     },
 
     _flushQuestionInputs() {
-      var inputCache = this.data.questionInputValues;
+      let inputCache = this.data.questionInputValues;
       if (!inputCache || !Object.keys(inputCache).length) return;
-      var updates = {};
-      for (var qi in inputCache) {
-        for (var f in inputCache[qi]) {
+      let updates = {};
+      for (let qi in inputCache) {
+        for (let f in inputCache[qi]) {
           updates['templateForm.questions[' + qi + '].' + f] = inputCache[qi][f];
         }
       }
@@ -93,7 +93,7 @@ module.exports = Behavior({
       const index = Number(e.currentTarget.dataset.index);
       this._flushQuestionInputs();
       const questions = this.data.templateForm.questions.filter((_, questionIndex) => questionIndex !== index);
-      var expandedIndex = this.data.expandedQuestionIndex;
+      let expandedIndex = this.data.expandedQuestionIndex;
       if (expandedIndex === index) {
         expandedIndex = -1;
       } else if (expandedIndex > index) {
@@ -123,11 +123,11 @@ module.exports = Behavior({
     },
 
     moveQuestionUp(e) {
-      var index = Number(e.currentTarget.dataset.index);
+      let index = Number(e.currentTarget.dataset.index);
       if (Number.isNaN(index) || index <= 0) return;
       this._flushQuestionInputs();
-      var questions = moveItem(this.data.templateForm.questions, index, index - 1);
-      var expandedIndex = this.data.expandedQuestionIndex;
+      let questions = moveItem(this.data.templateForm.questions, index, index - 1);
+      let expandedIndex = this.data.expandedQuestionIndex;
       if (expandedIndex === index) expandedIndex = index - 1;
       else if (expandedIndex === index - 1) expandedIndex = index;
       this.setData({
@@ -140,12 +140,12 @@ module.exports = Behavior({
     },
 
     moveQuestionDown(e) {
-      var index = Number(e.currentTarget.dataset.index);
-      var questions = this.data.templateForm.questions;
+      let index = Number(e.currentTarget.dataset.index);
+      let questions = this.data.templateForm.questions;
       if (Number.isNaN(index) || index >= questions.length - 1) return;
       this._flushQuestionInputs();
       questions = moveItem(questions, index, index + 1);
-      var expandedIndex = this.data.expandedQuestionIndex;
+      let expandedIndex = this.data.expandedQuestionIndex;
       if (expandedIndex === index) expandedIndex = index + 1;
       else if (expandedIndex === index + 1) expandedIndex = index;
       this.setData({
@@ -161,17 +161,17 @@ module.exports = Behavior({
       const index = Number(e.currentTarget.dataset.index);
       const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!touch || Number.isNaN(index)) return;
-      var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+      let touchY = touch.clientY != null ? touch.clientY : touch.pageY;
       this._dragStartY = touchY;
       this._questionDragState = { currentIndex: index };
       this._dragLastScrollTime = 0;
       this._dragEffectiveScrollTop = this.data.templateQuestionScrollTop || 0;
       this.setData({ dragActive: true, draggingQuestionIndex: index, dragInsertIndex: index, questionValidationErrors: {} });
-      var self = this;
+      let self = this;
       wx.createSelectorQuery().selectAll('.question-card').boundingClientRect(function(rects) {
         if (rects && rects.length) {
           self._questionCardRects = rects;
-          var cardRect = rects[index];
+          let cardRect = rects[index];
           if (cardRect) {
             self._dragCardOriginalTop = cardRect.top;
             self._dragCardLeft = cardRect.left;
@@ -193,31 +193,31 @@ module.exports = Behavior({
 
     onQuestionDragMove(e) {
       if (!this._questionDragState || this.data.draggingQuestionIndex < 0) return;
-      var touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      let touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!touch) return;
   
-      var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+      let touchY = touch.clientY != null ? touch.clientY : touch.pageY;
       this._dragLastY = touchY;
-      var self = this;
-      var now = Date.now();
+      let self = this;
+      let now = Date.now();
   
       // Accumulate scroll delta every frame based on finger position relative to scroll view edges.
       // Middle zone (between middleTop and middleBottom) = no scroll at all.
-      var sr = this._questionDragScrollRect;
+      let sr = this._questionDragScrollRect;
       if (sr) {
-        var viewHeight = sr.bottom - sr.top;
-        var edgeSize = Math.min(70, viewHeight * 0.22);
-        var middleTop = sr.top + edgeSize;
-        var middleBottom = sr.bottom - edgeSize;
-        var scrollDelta = 0;
+        let viewHeight = sr.bottom - sr.top;
+        let edgeSize = Math.min(70, viewHeight * 0.22);
+        let middleTop = sr.top + edgeSize;
+        let middleBottom = sr.bottom - edgeSize;
+        let scrollDelta = 0;
   
         if (touchY < middleTop) {
-          var distIntoEdge = middleTop - touchY;
-          var factor = Math.min(distIntoEdge / edgeSize, 3);
+          let distIntoEdge = middleTop - touchY;
+          let factor = Math.min(distIntoEdge / edgeSize, 3);
           scrollDelta = -Math.round(5 * factor);
         } else if (touchY > middleBottom) {
-          var distIntoEdge = touchY - middleBottom;
-          var factor = Math.min(distIntoEdge / edgeSize, 3);
+          let distIntoEdge = touchY - middleBottom;
+          let factor = Math.min(distIntoEdge / edgeSize, 3);
           scrollDelta = Math.round(5 * factor);
         }
   
@@ -235,32 +235,32 @@ module.exports = Behavior({
         if (!rects || !rects.length || !self._questionDragState) return;
         self._questionCardRects = rects;
   
-        var y = self._dragLastY;
+        let y = self._dragLastY;
         if (y == null) return;
   
-        var newInsertIndex = rects.length;
-        for (var i = 0; i < rects.length; i++) {
+        let newInsertIndex = rects.length;
+        for (let i = 0; i < rects.length; i++) {
           if (y < rects[i].top + rects[i].height / 2) {
             newInsertIndex = i;
             break;
           }
         }
   
-        var sr = self._questionDragScrollRect;
-        var ghostTop;
+        let sr = self._questionDragScrollRect;
+        let ghostTop;
         if (self._fingerOffsetInCard != null) {
           ghostTop = y - self._fingerOffsetInCard;
         } else if (self._dragCardOriginalTop != null && self._dragStartY != null) {
           ghostTop = self._dragCardOriginalTop + (y - self._dragStartY);
         }
         if (sr) {
-          var draggedRect = rects[self._questionDragState.currentIndex];
-          var ghostHeight = draggedRect ? draggedRect.height : 80;
+          let draggedRect = rects[self._questionDragState.currentIndex];
+          let ghostHeight = draggedRect ? draggedRect.height : 80;
           ghostTop = Math.max(sr.top, Math.min(sr.bottom - ghostHeight, ghostTop));
         }
   
         // Single batched setData for all visual updates
-        var update = {};
+        let update = {};
         if (newInsertIndex !== self.data.dragInsertIndex) update.dragInsertIndex = newInsertIndex;
         if (ghostTop !== self.data.dragGhostTop) update.dragGhostTop = ghostTop;
         if (self._dragEffectiveScrollTop != null) update.templateQuestionScrollTop = self._dragEffectiveScrollTop;
@@ -269,15 +269,15 @@ module.exports = Behavior({
     },
 
     endQuestionDrag() {
-      var state = this._questionDragState;
+      let state = this._questionDragState;
       if (!state) return;
-      var fromIndex = state.currentIndex;
-      var insertIndex = this.data.dragInsertIndex;
+      let fromIndex = state.currentIndex;
+      let insertIndex = this.data.dragInsertIndex;
       // Adjust: if inserting after dragged item, account for its removal
-      var toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
+      let toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
       if (toIndex !== fromIndex && toIndex >= 0 && toIndex < this.data.templateForm.questions.length) {
-        var questions = moveItem(this.data.templateForm.questions, fromIndex, toIndex);
-        var expandedIndex = this.data.expandedQuestionIndex;
+        let questions = moveItem(this.data.templateForm.questions, fromIndex, toIndex);
+        let expandedIndex = this.data.expandedQuestionIndex;
         if (expandedIndex === fromIndex) {
           expandedIndex = toIndex;
         } else if (fromIndex < toIndex) {
@@ -312,16 +312,16 @@ module.exports = Behavior({
     toggleQuestionExpand(e) {
       const index = Number(e.currentTarget.dataset.index);
       if (Number.isNaN(index)) return;
-      var isExpanded = this.data.expandedQuestionIndex === index;
-      var updates = {
+      let isExpanded = this.data.expandedQuestionIndex === index;
+      let updates = {
         expandedQuestionIndex: isExpanded ? -1 : index,
         questionFocusIndex: -1
       };
       // When collapsing, flush any pending input values to the question data
       if (isExpanded) {
-        var inputCache = this.data.questionInputValues;
+        let inputCache = this.data.questionInputValues;
         if (inputCache[index]) {
-          for (var f in inputCache[index]) {
+          for (let f in inputCache[index]) {
             updates['templateForm.questions[' + index + '].' + f] = inputCache[index][f];
           }
         }
@@ -344,9 +344,9 @@ module.exports = Behavior({
       // Flush any pending question input values before saving
       this._flushQuestionInputs();
   
-      var form = this.data.templateForm || emptyTemplateForm();
-      var name = String(form.name || '').trim();
-      var description = String(form.description || '');
+      let form = this.data.templateForm || emptyTemplateForm();
+      let name = String(form.name || '').trim();
+      let description = String(form.description || '');
   
       if (!name) {
         wx.showToast({ title: '请填写评分问题名称', icon: 'none' });
@@ -354,13 +354,13 @@ module.exports = Behavior({
       }
   
       // Validate each question
-      var validationErrors = {};
-      var firstInvalidIndex = -1;
-      var rawQuestions = form.questions || [];
-      var questions = [];
-      for (var qi = 0; qi < rawQuestions.length; qi++) {
-        var question = rawQuestions[qi];
-        var q = {
+      let validationErrors = {};
+      let firstInvalidIndex = -1;
+      let rawQuestions = form.questions || [];
+      let questions = [];
+      for (let qi = 0; qi < rawQuestions.length; qi++) {
+        let question = rawQuestions[qi];
+        let q = {
           question: String(question.question || '').trim(),
           scoreLabel: String(question.scoreLabel || ''),
           minValue: String(question.minValue == null ? '0' : question.minValue).trim(),
@@ -373,9 +373,9 @@ module.exports = Behavior({
           validationErrors[qi] = { field: 'question', msg: '问题内容不能为空' };
           if (firstInvalidIndex === -1) firstInvalidIndex = qi;
         }
-        var min = parseFloat(q.minValue);
-        var max = parseFloat(q.maxValue);
-        var step = parseFloat(q.stepValue);
+        let min = parseFloat(q.minValue);
+        let max = parseFloat(q.maxValue);
+        let step = parseFloat(q.stepValue);
         if (isNaN(max) || max <= 0) {
           if (!validationErrors[qi]) {
             validationErrors[qi] = { field: 'maxValue', msg: '最高分必须为正数' };
@@ -402,7 +402,7 @@ module.exports = Behavior({
       }
   
       if (firstInvalidIndex >= 0) {
-        var err = validationErrors[firstInvalidIndex];
+        let err = validationErrors[firstInvalidIndex];
         wx.showToast({ title: '第' + (firstInvalidIndex + 1) + '题：' + err.msg, icon: 'none', duration: 2500 });
         this.setData({
           questionValidationErrors: validationErrors,
@@ -821,16 +821,16 @@ module.exports = Behavior({
       const index = Number(e.currentTarget.dataset.index);
       const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!touch || Number.isNaN(index)) return;
-      var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+      let touchY = touch.clientY != null ? touch.clientY : touch.pageY;
       this._templateConfigDragStartY = touchY;
       this._templateConfigDragState = { currentIndex: index };
       this._templateConfigEffectiveScrollTop = this.data.templateConfigScrollTop || 0;
       this.setData({ dragActive: true, draggingClauseTemplateIndex: index, dragTemplateInsertIndex: index, dragTemplateGhostVisible: false });
-      var self = this;
+      let self = this;
       wx.createSelectorQuery().selectAll('.template-config-card').boundingClientRect(function(rects) {
         if (rects && rects.length) {
           self._templateConfigCardRects = rects;
-          var cardRect = rects[index];
+          let cardRect = rects[index];
           if (cardRect) {
             self._templateConfigCardOriginalTop = cardRect.top;
             self._templateConfigCardLeft = cardRect.left;
@@ -852,27 +852,27 @@ module.exports = Behavior({
 
     onTemplateConfigDragMove(e) {
       if (!this._templateConfigDragState || this.data.draggingClauseTemplateIndex < 0) return;
-      var touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+      let touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
       if (!touch) return;
-      var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+      let touchY = touch.clientY != null ? touch.clientY : touch.pageY;
       this._templateConfigDragLastY = touchY;
-      var self = this;
-      var now = Date.now();
+      let self = this;
+      let now = Date.now();
   
-      var sr = this._templateConfigDragScrollRect;
+      let sr = this._templateConfigDragScrollRect;
       if (sr) {
-        var viewHeight = sr.bottom - sr.top;
-        var edgeSize = Math.min(70, viewHeight * 0.22);
-        var middleTop = sr.top + edgeSize;
-        var middleBottom = sr.bottom - edgeSize;
-        var scrollDelta = 0;
+        let viewHeight = sr.bottom - sr.top;
+        let edgeSize = Math.min(70, viewHeight * 0.22);
+        let middleTop = sr.top + edgeSize;
+        let middleBottom = sr.bottom - edgeSize;
+        let scrollDelta = 0;
         if (touchY < middleTop) {
-          var distIntoEdge = middleTop - touchY;
-          var factor = Math.min(distIntoEdge / edgeSize, 3);
+          let distIntoEdge = middleTop - touchY;
+          let factor = Math.min(distIntoEdge / edgeSize, 3);
           scrollDelta = -Math.round(5 * factor);
         } else if (touchY > middleBottom) {
-          var distIntoEdge = touchY - middleBottom;
-          var factor = Math.min(distIntoEdge / edgeSize, 3);
+          let distIntoEdge = touchY - middleBottom;
+          let factor = Math.min(distIntoEdge / edgeSize, 3);
           scrollDelta = Math.round(5 * factor);
         }
         if (scrollDelta !== 0) {
@@ -886,31 +886,31 @@ module.exports = Behavior({
       wx.createSelectorQuery().selectAll('.template-config-card').boundingClientRect(function(rects) {
         if (!rects || !rects.length || !self._templateConfigDragState) return;
         self._templateConfigCardRects = rects;
-        var y = self._templateConfigDragLastY;
+        let y = self._templateConfigDragLastY;
         if (y == null) return;
   
-        var newInsertIndex = rects.length;
-        for (var i = 0; i < rects.length; i++) {
+        let newInsertIndex = rects.length;
+        for (let i = 0; i < rects.length; i++) {
           if (y < rects[i].top + rects[i].height / 2) {
             newInsertIndex = i;
             break;
           }
         }
   
-        var sr = self._templateConfigDragScrollRect;
-        var ghostTop;
+        let sr = self._templateConfigDragScrollRect;
+        let ghostTop;
         if (self._templateConfigFingerOffsetInCard != null) {
           ghostTop = y - self._templateConfigFingerOffsetInCard;
         } else if (self._templateConfigCardOriginalTop != null && self._templateConfigDragStartY != null) {
           ghostTop = self._templateConfigCardOriginalTop + (y - self._templateConfigDragStartY);
         }
         if (sr) {
-          var draggedRect = rects[self._templateConfigDragState.currentIndex];
-          var ghostHeight = draggedRect ? draggedRect.height : 60;
+          let draggedRect = rects[self._templateConfigDragState.currentIndex];
+          let ghostHeight = draggedRect ? draggedRect.height : 60;
           ghostTop = Math.max(sr.top, Math.min(sr.bottom - ghostHeight, ghostTop));
         }
   
-        var update = {};
+        let update = {};
         if (newInsertIndex !== self.data.dragTemplateInsertIndex) update.dragTemplateInsertIndex = newInsertIndex;
         if (ghostTop !== self.data.dragTemplateGhostTop) update.dragTemplateGhostTop = ghostTop;
         if (self._templateConfigEffectiveScrollTop != null) update.templateConfigScrollTop = self._templateConfigEffectiveScrollTop;
@@ -919,13 +919,13 @@ module.exports = Behavior({
     },
 
     endTemplateConfigDrag() {
-      var state = this._templateConfigDragState;
+      let state = this._templateConfigDragState;
       if (!state) return;
-      var fromIndex = state.currentIndex;
-      var insertIndex = this.data.dragTemplateInsertIndex;
-      var toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
+      let fromIndex = state.currentIndex;
+      let insertIndex = this.data.dragTemplateInsertIndex;
+      let toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
       if (toIndex !== fromIndex && toIndex >= 0 && toIndex <= this.data.ruleForm.clauseTemplateConfigs.length - 1) {
-        var configs = refreshTemplateConfigSortOrder(moveItem(this.data.ruleForm.clauseTemplateConfigs, fromIndex, toIndex));
+        let configs = refreshTemplateConfigSortOrder(moveItem(this.data.ruleForm.clauseTemplateConfigs, fromIndex, toIndex));
         this.setData({
           ruleForm: { ...this.data.ruleForm, clauseTemplateConfigs: configs }
         });

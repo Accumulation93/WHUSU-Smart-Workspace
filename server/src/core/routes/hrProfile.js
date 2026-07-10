@@ -43,20 +43,20 @@ function normalizeTemplateField(field) {
 function tryParseDate(rawValue) {
   const value = (rawValue == null ? '' : String(rawValue)).trim();
   if (!value) return null;
-  var match = value.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  let match = value.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
   if (match) {
-    var year = parseInt(match[1], 10);
-    var month = parseInt(match[2], 10);
-    var day = parseInt(match[3], 10);
+    let year = parseInt(match[1], 10);
+    let month = parseInt(match[2], 10);
+    let day = parseInt(match[3], 10);
     if (month >= 1 && month <= 12 && day >= 1) {
-      var daysInMonth = new Date(year, month, 0).getDate();
+      let daysInMonth = new Date(year, month, 0).getDate();
       if (day <= daysInMonth) {
         return year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
       }
     }
     return null;
   }
-  var d = new Date(value);
+  let d = new Date(value);
   if (isNaN(d.getTime())) {
     d = new Date(value.replace(' ', 'T'));
   }
