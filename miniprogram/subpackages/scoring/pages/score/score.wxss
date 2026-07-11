@@ -1008,3 +1008,21 @@ page {
     transform: translateY(0);
   }
 }
+
+/* ═══ 平板竖屏适配（≥520px）═══ */
+/* 评分页不 import home.wxss，需独立添加平板约束 */
+@media (min-width: 520px) {
+  .page {
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .info-block {
+    max-width: 215px;
+  }
+  .info-grid {
+    justify-content: center;
+  }
+}

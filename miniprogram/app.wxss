@@ -1656,29 +1656,75 @@ button.button-pressing,
 }
 
 /* ═══════════════════════════════════════════════════════════
-   平板适配 — 屏幕宽度 ≥520px 时约束控件尺寸
-   rpx 随屏幕宽度等比放大，在平板上会导致按钮过宽、卡片过大。
-   通过 max-width + flex 约束保持控件比例接近手机端。
-   520px 断点：覆盖所有平板竖屏（iPad 768px+），不触发任何手机。
+   平板适配 — 用 px 约束控件，保持与手机一致的比例
+   关键：此处必须用 px 而非 rpx。rpx 在平板(768px)上是手机(375px)
+   的 2.048 倍，用 rpx 设 max-width 无法真正约束尺寸。
+   520px 断点：覆盖全部平板竖屏，不触发任何手机(最大~430px)。
    ═══════════════════════════════════════════════════════════ */
 @media (min-width: 520px) {
-  /* ── 主按钮：限制最大宽度，防止撑满整行 ── */
+  /* ── 主按钮：px 固定高度，恢复手机端长宽比 ── */
   .primary-btn, .secondary-btn, .danger-btn,
   .approve-btn, .reject-btn,
   .profile-submit-btn, .page-submit-btn,
-  .template-save-btn, .purpose-save-btn {
-    max-width: 380rpx !important;
+  .template-save-btn, .purpose-save-btn,
+  .dialog-btn, .sigpad-btn {
+    min-height: 48px !important;
+    height: 48px !important;
+    line-height: 48px !important;
+    font-size: 15px !important;
+    padding-left: 26px !important;
+    padding-right: 26px !important;
   }
 
-  /* ── 按钮行：居中排列，按钮不自动拉伸 ── */
+  /* ── 操作区大按钮 ── */
+  .actions button {
+    height: 54px !important;
+    line-height: 54px !important;
+    font-size: 17px !important;
+  }
+  .profile-submit-btn {
+    height: 54px !important;
+    line-height: 54px !important;
+    font-size: 17px !important;
+  }
+
+  /* ── 小型按钮 / Chip：固定高度 ── */
+  .link, .action-btn, .pill-link, .pill-close,
+  .header-nav-btn, .mini-action-btn, .compact-action-btn,
+  .order-btn, .filter-chip, .chip, .audit-link-btn,
+  .flow-action-btn, .step-action-link, .pending-action-link,
+  .cancel-btn, .placement-mini-btn, .placement-page-btn,
+  .approval-file-btn-preview, .approval-file-btn-sign,
+  .approval-file-btn-stamp, .stamp-picker-select,
+  .sig-source-use-btn, .mark-all-read {
+    min-height: 30px !important;
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+  }
+
+  /* ── Tab 切换 ── */
+  .tab, .feature-tab, .rules-tab, .app-view-tab {
+    font-size: 14px !important;
+    padding: 10px 16px !important;
+  }
+
+  /* ── 面板添加按钮 ── */
+  .panel-add-btn {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 20px !important;
+    font-size: 14px !important;
+  }
+
+  /* ── 按钮行：居中，按钮不拉伸 ── */
   .button-row {
     justify-content: center !important;
   }
   .button-row button {
     flex: 0 1 auto !important;
-    min-width: 220rpx;
-    padding-left: 48rpx !important;
-    padding-right: 48rpx !important;
+    min-width: 130px;
+    padding-left: 28px !important;
+    padding-right: 28px !important;
   }
 
   /* ── Dialog 按钮 ── */
@@ -1687,15 +1733,9 @@ button.button-pressing,
   }
   .dialog-btn {
     flex: 0 1 auto !important;
-    min-width: 180rpx;
-    padding-left: 48rpx !important;
-    padding-right: 48rpx !important;
-  }
-
-  /* ── Actions 区域按钮居中 ── */
-  .actions button {
-    max-width: 480rpx;
-    align-self: center;
+    min-width: 110px;
+    padding-left: 28px !important;
+    padding-right: 28px !important;
   }
 
   /* ── 审核按钮栏 ── */
@@ -1704,13 +1744,18 @@ button.button-pressing,
   }
   .audit-btn-bar button {
     flex: 0 1 auto !important;
-    min-width: 200rpx;
+    min-width: 120px;
   }
 
-  /* ── 弹窗宽度限制 ── */
+  /* ── 弹窗宽度 ── */
   .popup-card {
-    max-width: 560px;
+    max-width: 480px;
     margin-left: auto;
     margin-right: auto;
+  }
+
+  /* ── Inline 操作区 ── */
+  .inline-actions {
+    justify-content: center;
   }
 }
