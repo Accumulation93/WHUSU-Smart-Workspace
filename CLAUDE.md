@@ -132,6 +132,15 @@ page {
 - 圆角：Hero `38rpx`，卡片 `30rpx`，按钮 `24rpx`，Chip `999rpx`
 - **禁止新增**按钮颜色、chip 颜色、自定义动画
 
+### 4.7 响应式布局（平板适配）
+
+`rpx` 随屏幕等比缩放，平板竖屏（≥520px）上控件过度放大。**必须在 `@media (min-width: 520px)` 中约束：**
+- `.page` 设 `max-width: 520px; margin: 0 auto`（防止内容区无限拉伸）
+- 按钮设 `flex: 0 1 auto; max-width: 380rpx`（防止撑满整行）
+- flex-wrap 卡片网格设 `max-width: 320rpx; justify-content: center`
+- 弹窗设 `max-width: 560px`
+- 适配块写在各 `.wxss` 文件末尾，520px 断点覆盖全部平板竖屏不触发任何手机
+
 ---
 
 ## 5. 已知坑点 TOP 5
@@ -197,4 +206,5 @@ page {
 - ❌ 在 `main` 分支直接提交
 - ❌ Toast 超过 7 个中文字符
 - ❌ 修改后不 commit + push
+- ❌ 平板端不设 max-width 约束 → 按钮/卡片过度放大
 - ❌ 忽视关联代码的完整性校验

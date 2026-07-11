@@ -777,3 +777,43 @@ button, input, textarea, picker, view, text, scroll-view {
     filter: blur(0) saturate(1);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   平板适配 — portal 页面独立适配（不 import home.wxss）
+   ═══════════════════════════════════════════════════════════ */
+@media (min-width: 520px) {
+  /* ── 页面容器 ── */
+  .page {
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 40rpx;
+    padding-right: 40rpx;
+  }
+
+  /* ── 二列信息网格 ── */
+  .info-block {
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 320rpx;
+  }
+  .info-grid {
+    justify-content: center;
+  }
+
+  /* ── 按钮 ── */
+  .primary-btn, .secondary-btn, .danger-btn {
+    flex: 0 1 auto !important;
+    max-width: 380rpx;
+  }
+
+  /* ── 宫格（三列→保持三列但限制卡片宽度）── */
+  .app-grid {
+    justify-content: center;
+  }
+  .app-grid-item {
+    width: auto;
+    flex: 0 1 auto;
+    max-width: 220rpx;
+  }
+}

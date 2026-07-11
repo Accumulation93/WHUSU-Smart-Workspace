@@ -2051,3 +2051,76 @@ scroll-view {
 
 .popup-close::before { display: none !important; content: none !important; }
 .popup-close::after { content: "×" !important; color: #2563eb !important; font-size: 28rpx !important; font-weight: 800 !important; line-height: 1 !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   平板适配 — 页面容器 + 网格布局约束
+   520px 断点覆盖所有平板竖屏，不触发任何手机（手机最大 ~430px）。
+   ═══════════════════════════════════════════════════════════ */
+@media (min-width: 520px) {
+  /* ── 页面容器：限制最大宽度，居中 ── */
+  .page {
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 40rpx;
+    padding-right: 40rpx;
+  }
+
+  /* ── 二列信息网格：限制卡片最大宽度 ── */
+  .info-block {
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 320rpx;
+  }
+  .field-grid, .info-grid {
+    justify-content: center;
+  }
+
+  /* ── 评优卡片网格：保持二列但限制宽度 ── */
+  .merit-card-item {
+    width: auto;
+    flex: 0 1 auto;
+    max-width: 320rpx;
+  }
+  .merit-card-row {
+    justify-content: center;
+  }
+
+  /* ── 审核信息块 ── */
+  .audit-info-block {
+    flex: 0 1 auto;
+    max-width: 320rpx;
+  }
+  .audit-info-grid {
+    justify-content: center;
+  }
+
+  /* ── 统计条：保持三列但限制宽度 ── */
+  .stat-item {
+    max-width: 200rpx;
+  }
+  .stats-bar {
+    justify-content: center;
+  }
+
+  /* ── 文件附件卡片 ── */
+  .file-attach-item, .audit-file-item {
+    max-width: 500rpx;
+  }
+
+  /* ── 审核模板选择项 ── */
+  .audit-template-item {
+    max-width: 500rpx;
+  }
+
+  /* ── 审核导航卡片 ── */
+  .audit-home-card {
+    max-width: 500rpx;
+    align-self: center;
+  }
+
+  /* ── 人员选择项 ── */
+  .audit-person-item {
+    max-width: 500rpx;
+  }
+}

@@ -1654,3 +1654,63 @@ button.button-pressing,
   box-shadow: none !important;
   color: #2563eb !important;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   平板适配 — 屏幕宽度 ≥520px 时约束控件尺寸
+   rpx 随屏幕宽度等比放大，在平板上会导致按钮过宽、卡片过大。
+   通过 max-width + flex 约束保持控件比例接近手机端。
+   520px 断点：覆盖所有平板竖屏（iPad 768px+），不触发任何手机。
+   ═══════════════════════════════════════════════════════════ */
+@media (min-width: 520px) {
+  /* ── 主按钮：限制最大宽度，防止撑满整行 ── */
+  .primary-btn, .secondary-btn, .danger-btn,
+  .approve-btn, .reject-btn,
+  .profile-submit-btn, .page-submit-btn,
+  .template-save-btn, .purpose-save-btn {
+    max-width: 380rpx !important;
+  }
+
+  /* ── 按钮行：居中排列，按钮不自动拉伸 ── */
+  .button-row {
+    justify-content: center !important;
+  }
+  .button-row button {
+    flex: 0 1 auto !important;
+    min-width: 220rpx;
+    padding-left: 48rpx !important;
+    padding-right: 48rpx !important;
+  }
+
+  /* ── Dialog 按钮 ── */
+  .dialog-actions {
+    justify-content: center;
+  }
+  .dialog-btn {
+    flex: 0 1 auto !important;
+    min-width: 180rpx;
+    padding-left: 48rpx !important;
+    padding-right: 48rpx !important;
+  }
+
+  /* ── Actions 区域按钮居中 ── */
+  .actions button {
+    max-width: 480rpx;
+    align-self: center;
+  }
+
+  /* ── 审核按钮栏 ── */
+  .audit-btn-bar {
+    justify-content: center;
+  }
+  .audit-btn-bar button {
+    flex: 0 1 auto !important;
+    min-width: 200rpx;
+  }
+
+  /* ── 弹窗宽度限制 ── */
+  .popup-card {
+    max-width: 560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
