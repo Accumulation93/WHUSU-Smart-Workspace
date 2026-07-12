@@ -133,17 +133,19 @@ async function buildAvailableOrgs(openid, adminRecords) {
     }
   }
 
-  // 3. admin_info 绑定
-  const adminRecs = adminRecords || await adminInfoModel.getByOpenidAcrossOrgs(openid);
-  for (const r of adminRecs) {
-    orgMap.set(r.org_id, { role: 'admin' });
-  }
+  // 3. admin_info 绑定（仅管理端调用；普通用户端传 null 跳过）
+  if (adminRecords !== null) {
+    const adminRecs = adminRecords || await adminInfoModel.getByOpenidAcrossOrgs(openid);
+    for (const r of adminRecs) {
+      orgMap.set(r.org_id, { role: 'admin' });
+    }
 
-  // root_admin 可以看到所有组织
-  const isRoot = adminRecs.some(r => r.admin_level === 'root_admin');
-  if (isRoot) {
-    for (const org of allOrgs) {
-      if (!orgMap.has(org.id)) orgMap.set(org.id, { role: 'admin' });
+    // root_admin 可以看到所有组织
+    const isRoot = adminRecs.some(r => r.admin_level === 'root_admin');
+    if (isRoot) {
+      for (const org of allOrgs) {
+        if (!orgMap.has(org.id)) orgMap.set(org.id, { role: 'admin' });
+      }
     }
   }
 
@@ -392,8 +394,7 @@ router.post('/listMyOrganizations', async (req, res) => {
     const openid = req.openid;
     if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
 
-    const adminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
-    const availableOrgs = await buildAvailableOrgs(openid, adminRecords);
+    const availableOrgs = await buildAvailableOrgs(openid, null);
     res.json({ status: 'success', organizations: availableOrgs });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
