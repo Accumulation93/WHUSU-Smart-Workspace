@@ -188,31 +188,27 @@ Page({
 
     if (result.status === 'login_success') {
       this.saveProfile(role, result.user);
-      // 保存组织信息
+      // 保存组织信息 — 系统默认组织优先
       if (result.availableOrgs && result.availableOrgs.length > 0) {
         wx.setStorageSync('availableOrgs', result.availableOrgs);
-        // 使用系统默认组织作为活跃组织
-        const defaultOrgId = wx.getStorageSync('activeOrgId') || '';
-        const defaultOrg = result.availableOrgs.find(o => o.id === defaultOrgId);
-        if (defaultOrg) {
-          wx.setStorageSync('activeOrgName', defaultOrg.name);
-        } else if (result.availableOrgs[0]) {
+        // 系统默认组织始终优先
+        const prevOrgId = wx.getStorageSync('activeOrgId') || '';
+        const matchedOrg = result.availableOrgs.find(o => o.id === prevOrgId);
+        if (matchedOrg) {
+          wx.setStorageSync('activeOrgId', matchedOrg.id);
+          wx.setStorageSync('activeOrgName', matchedOrg.name);
+        } else {
+          // 之前的 activeOrgId 不在可用列表中 → 使用第一个可用组织
           wx.setStorageSync('activeOrgId', result.availableOrgs[0].id);
           wx.setStorageSync('activeOrgName', result.availableOrgs[0].name);
         }
       }
-      wx.showToast({
-        title: '登录成功',
-        icon: 'success'
-      });
-      wx.redirectTo({
-        url: '/pages/portal/portal'
-      });
+      wx.showToast({ title: '登录成功', icon: 'success' });
+      wx.redirectTo({ url: '/pages/portal/portal' });
       return;
     }
 
     if (result.status === 'auto_bind_available') {
-      // 弹窗确认自动绑定
       const sourceName = result.sourceOrg ? result.sourceOrg.name : '其他组织';
       const targetName = result.targetOrg ? result.targetOrg.name : '当前组织';
       wx.showModal({
@@ -224,18 +220,17 @@ Page({
           if (modalRes.confirm) {
             await this.confirmAutoBind(result);
           } else {
-            // 用户拒绝自动绑定，尝试以原组织登录
-            this.handleLoginResult(role, {
-              status: 'login_success',
-              token: result.token,
-              user: result.candidateHrInfo ? {
-                id: result.candidateHrInfo.id,
-                hrId: result.candidateHrInfo.id,
-                name: result.candidateHrInfo.name,
-                studentId: result.candidateHrInfo.studentId
-              } : null,
-              availableOrgs: result.availableOrgs
-            });
+            // 用户拒绝自动绑定 — 使用原组织信息直接进入
+            wx.setStorageSync('token', result.token);
+            wx.setStorageSync('availableOrgs', result.availableOrgs || []);
+            if (result.availableOrgs && result.availableOrgs[0]) {
+              wx.setStorageSync('activeOrgId', result.availableOrgs[0].id);
+              wx.setStorageSync('activeOrgName', result.availableOrgs[0].name);
+            }
+            if (result.sourceUser) {
+              this.saveProfile(role, result.sourceUser);
+            }
+            wx.redirectTo({ url: '/pages/portal/portal' });
           }
         }
       });
@@ -354,10 +349,14 @@ Page({
       });
       if (res.status === 'success') {
         showShortToast('同步成功');
-        // 以系统默认组织重新登录
+        // 绑定成功 → 使用系统默认组织重新进入
+        wx.setStorageSync('token', result.token);
         wx.setStorageSync('activeOrgId', result.targetOrg.id);
         wx.setStorageSync('activeOrgName', result.targetOrg.name);
-        this.onLogin();
+        if (result.sourceUser) {
+          this.saveProfile(this.data.activeRole, result.sourceUser);
+        }
+        wx.redirectTo({ url: '/pages/portal/portal' });
       } else {
         showShortToast(res.message || '同步失败');
       }

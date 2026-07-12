@@ -68,18 +68,55 @@ async function buildUserProfileCrossOrg(hrRecord, orgId) {
   };
 }
 
-// 构建用户可用的组织列表（user_info + admin_info 去重，标注角色）
+// 直接读取系统默认组织（不受 ALS/X-Active-Org 影响）
+async function getSystemDefaultOrgId() {
+  const [rows] = await pool.query(
+    "SELECT current_organization FROM system_config WHERE id = 'default'"
+  );
+  return (rows && rows.length && rows[0].current_organization) || '';
+}
+
+// 构建用户可用的组织列表（user_info + hr_info 匹配 + admin_info 去重，标注角色）
 async function buildAvailableOrgs(openid, adminRecords) {
   const orgMap = new Map();
   const allOrgs = await organizationModel.getAll();
 
-  // user_info 绑定
+  // 1. user_info 绑定 — 直接关联的组织
   const userRecords = await userInfoModel.getByOpenidGlobal(openid);
   for (const r of userRecords) {
     orgMap.set(r.org_id, { role: 'user' });
   }
 
-  // admin_info 绑定
+  // 2. hr_info 匹配 — 跨组织身份识别
+  // 收集用户在所有组织中的身份标识（学号+姓名），用于跨组织匹配
+  const hrIds = userRecords.filter(r => safeString(r.hr_id)).map(r => r.hr_id);
+  if (hrIds.length > 0) {
+    const placeholders = hrIds.map(() => '?').join(',');
+    const [identityRows] = await pool.query(
+      `SELECT DISTINCT student_id, name FROM hr_info WHERE id IN (${placeholders})`,
+      hrIds
+    );
+
+    if (identityRows.length > 0) {
+      // 在所有组织中搜索匹配的 hr_info（相同 studentId + name）
+      const conditions = identityRows.map(() => '(h.student_id = ? AND h.name = ?)').join(' OR ');
+      const params = [];
+      identityRows.forEach(r => { params.push(r.student_id, r.name); });
+      const orgPlaceholders = allOrgs.map(() => '?').join(',');
+      const [hrRows] = await pool.query(
+        `SELECT DISTINCT org_id FROM hr_info h WHERE org_id IN (${orgPlaceholders}) AND (${conditions})`,
+        [...allOrgs.map(o => o.id), ...params]
+      );
+
+      for (const row of hrRows) {
+        if (!orgMap.has(row.org_id)) {
+          orgMap.set(row.org_id, { role: 'user' });
+        }
+      }
+    }
+  }
+
+  // 3. admin_info 绑定
   const adminRecs = adminRecords || await adminInfoModel.getByOpenidAcrossOrgs(openid);
   for (const r of adminRecs) {
     orgMap.set(r.org_id, { role: 'admin' });
@@ -131,23 +168,28 @@ router.post('/userLogin', async (req, res) => {
 
     const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
 
-    // ====== 第 1 层：当前 org 上下文查找（来自 X-Active-Org 或系统默认） ======
-    const userRecord = await userInfoModel.getByOpenid(openid);
-    if (userRecord && safeString(userRecord.hr_id)) {
-      const hrRecord = await hrInfoModel.getById(userRecord.hr_id);
-      if (hrRecord) {
-        return res.json({
-          status: 'login_success',
-          token,
-          user: await buildUserProfile(hrRecord),
-          availableOrgs: await buildAvailableOrgs(openid, null)
-        });
+    const systemDefaultOrgId = await getSystemDefaultOrgId();
+
+    // ====== 第 1 层：系统默认组织（最高优先级，直接读 system_config，不受 X-Active-Org 影响） ======
+    if (systemDefaultOrgId) {
+      const userRecord = await userInfoModel.getByOpenidInOrg(openid, systemDefaultOrgId);
+      if (userRecord && safeString(userRecord.hr_id)) {
+        const hrRecord = await hrInfoModel.getByIdInOrg(userRecord.hr_id, systemDefaultOrgId);
+        if (hrRecord) {
+          return res.json({
+            status: 'login_success',
+            token,
+            user: await buildUserProfileCrossOrg(hrRecord, systemDefaultOrgId),
+            availableOrgs: await buildAvailableOrgs(openid, null)
+          });
+        }
       }
     }
 
-    // ====== 第 2 层：全组织扫描（按 created_at DESC） ======
+    // ====== 第 2 层：全组织扫描（按 created_at DESC，跳过系统默认） ======
     const allOrgs = await organizationModel.getAll();
     for (const org of allOrgs) {
+      if (org.id === systemDefaultOrgId) continue; // 第 1 层已检查
       const record = await userInfoModel.getByOpenidInOrg(openid, org.id);
       if (record && safeString(record.hr_id)) {
         const hrRecord = await hrInfoModel.getByIdInOrg(record.hr_id, org.id);
@@ -162,10 +204,9 @@ router.post('/userLogin', async (req, res) => {
       }
     }
 
-    // ====== 第 3 层：跨组织自动绑定检测 ======
+    // ====== 第 3 层：跨组织自动绑定检测（目标：系统默认组织） ======
     const globalRecords = await userInfoModel.getByOpenidGlobal(openid);
     if (globalRecords.length > 0) {
-      // 找到任意一条有效绑定，提取 studentId 和 name
       for (const record of globalRecords) {
         if (!safeString(record.hr_id)) continue;
         const sourceOrgId = record.org_id;
@@ -177,19 +218,23 @@ router.post('/userLogin', async (req, res) => {
         if (!studentId || !name) continue;
 
         // 检查系统默认组织中是否有相同学号+姓名的人事记录
-        const defaultOrgId = await getCurrentOrgId();
-        if (defaultOrgId === sourceOrgId) continue; // 同一组织，跳过
+        if (!systemDefaultOrgId || systemDefaultOrgId === sourceOrgId) continue;
 
-        const targetHr = await hrInfoModel.getByStudentIdInOrg(studentId, defaultOrgId);
+        const targetHr = await hrInfoModel.getByStudentIdInOrg(studentId, systemDefaultOrgId);
         if (targetHr && safeString(targetHr.name) === name) {
-          // 匹配！返回 auto_bind_available 状态，由前端弹窗确认
           const sourceOrgName = (allOrgs.find(o => o.id === sourceOrgId) || {}).name || sourceOrgId;
-          const targetOrgName = (allOrgs.find(o => o.id === defaultOrgId) || {}).name || defaultOrgId;
+          const targetOrgName = (allOrgs.find(o => o.id === systemDefaultOrgId) || {}).name || systemDefaultOrgId;
           return res.json({
             status: 'auto_bind_available',
             token,
             sourceOrg: { id: sourceOrgId, name: sourceOrgName },
-            targetOrg: { id: defaultOrgId, name: targetOrgName },
+            targetOrg: { id: systemDefaultOrgId, name: targetOrgName },
+            sourceUser: {
+              id: sourceHr.id,
+              hrId: sourceHr.id,
+              name: sourceHr.name,
+              studentId: sourceHr.student_id
+            },
             candidateHrInfo: {
               id: targetHr.id,
               name: targetHr.name,
@@ -266,23 +311,25 @@ router.post('/adminLogin', async (req, res) => {
       });
     }
 
-    // 非 root_admin：优先匹配当前 org（来自 ALS 或系统默认）
-    const currentOrgId = await getCurrentOrgId();
-    const matchInCurrentOrg = allAdminRecords.find(r => r.org_id === currentOrgId);
-    if (matchInCurrentOrg) {
-      const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
-      return res.json({
-        status: 'login_success',
-        token,
-        user: buildAdminUser(matchInCurrentOrg),
-        availableOrgs
-      });
+    // 非 root_admin：优先系统默认组织（直接读 system_config）
+    const systemDefaultOrgId = await getSystemDefaultOrgId();
+    if (systemDefaultOrgId) {
+      const matchInDefaultOrg = allAdminRecords.find(r => r.org_id === systemDefaultOrgId);
+      if (matchInDefaultOrg) {
+        const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
+        return res.json({
+          status: 'login_success',
+          token,
+          user: buildAdminUser(matchInDefaultOrg),
+          availableOrgs
+        });
+      }
     }
 
-    // 当前 org 不匹配 → 扫描其他组织（按 created_at DESC）
+    // 系统默认不匹配 → 扫描其他组织（按 created_at DESC）
     const allOrgs = await organizationModel.getAll();
     for (const org of allOrgs) {
-      if (org.id === currentOrgId) continue;
+      if (org.id === systemDefaultOrgId) continue;
       const match = allAdminRecords.find(r => r.org_id === org.id);
       if (match) {
         return res.json({
