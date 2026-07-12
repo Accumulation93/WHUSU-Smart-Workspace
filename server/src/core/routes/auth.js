@@ -195,11 +195,13 @@ router.post('/userLogin', async (req, res) => {
       if (userRecord && safeString(userRecord.hr_id)) {
         const hrRecord = await hrInfoModel.getByIdInOrg(userRecord.hr_id, systemDefaultOrgId);
         if (hrRecord) {
+          const availableOrgs = await buildAvailableOrgs(openid, null);
           return res.json({
             status: 'login_success',
             token,
             user: await buildUserProfileCrossOrg(hrRecord, systemDefaultOrgId),
-            availableOrgs: await buildAvailableOrgs(openid, null)
+            availableOrgs,
+            activeOrg: availableOrgs[0] || null
           });
         }
       }
@@ -213,11 +215,13 @@ router.post('/userLogin', async (req, res) => {
       if (record && safeString(record.hr_id)) {
         const hrRecord = await hrInfoModel.getByIdInOrg(record.hr_id, org.id);
         if (hrRecord) {
+          const availableOrgs = await buildAvailableOrgs(openid, null);
           return res.json({
             status: 'login_success',
             token,
             user: await buildUserProfileCrossOrg(hrRecord, org.id),
-            availableOrgs: await buildAvailableOrgs(openid, null)
+            availableOrgs,
+            activeOrg: availableOrgs[0] || null
           });
         }
       }
@@ -335,7 +339,8 @@ router.post('/adminLogin', async (req, res) => {
         status: 'login_success',
         token,
         user: buildAdminUser(rootAdmin),
-        availableOrgs
+        availableOrgs,
+        activeOrg: availableOrgs[0] || null
       });
     }
 
@@ -345,11 +350,20 @@ router.post('/adminLogin', async (req, res) => {
       const matchInDefaultOrg = allAdminRecords.find(r => r.org_id === systemDefaultOrgId);
       if (matchInDefaultOrg) {
         const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
+        // system_config 组织排在第一位
+        if (systemDefaultOrgId) {
+          availableOrgs.sort((a, b) => {
+            if (a.id === systemDefaultOrgId) return -1;
+            if (b.id === systemDefaultOrgId) return 1;
+            return 0;
+          });
+        }
         return res.json({
           status: 'login_success',
           token,
           user: buildAdminUser(matchInDefaultOrg),
-          availableOrgs
+          availableOrgs,
+          activeOrg: availableOrgs[0] || null
         });
       }
     }
@@ -360,11 +374,13 @@ router.post('/adminLogin', async (req, res) => {
       if (org.id === systemDefaultOrgId) continue;
       const match = allAdminRecords.find(r => r.org_id === org.id);
       if (match) {
+        const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
         return res.json({
           status: 'login_success',
           token,
           user: buildAdminUser(match),
-          availableOrgs: await buildAvailableOrgs(openid, allAdminRecords)
+          availableOrgs,
+          activeOrg: availableOrgs[0] || null
         });
       }
     }

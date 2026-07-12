@@ -31,7 +31,8 @@ function callFunction(options) {
       header: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + (wx.getStorageSync('token') || ''),
-        'X-Active-Org': wx.getStorageSync('activeOrgId') || ''
+        'X-Active-Org': wx.getStorageSync('activeOrgId') || '',
+        'X-Role': wx.getStorageSync('activeRole') || ''
       },
       data: data,
       success: function(res) {

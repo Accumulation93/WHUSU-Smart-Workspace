@@ -188,20 +188,13 @@ Page({
 
     if (result.status === 'login_success') {
       this.saveProfile(role, result.user);
-      // 保存组织信息 — 系统默认组织优先
+      // 保存组织信息 — 后端决定默认组织（activeOrg 优先于 availableOrgs[0]）
       if (result.availableOrgs && result.availableOrgs.length > 0) {
         wx.setStorageSync('availableOrgs', result.availableOrgs);
-        // 系统默认组织始终优先
-        const prevOrgId = wx.getStorageSync('activeOrgId') || '';
-        const matchedOrg = result.availableOrgs.find(o => o.id === prevOrgId);
-        if (matchedOrg) {
-          wx.setStorageSync('activeOrgId', matchedOrg.id);
-          wx.setStorageSync('activeOrgName', matchedOrg.name);
-        } else {
-          // 之前的 activeOrgId 不在可用列表中 → 使用第一个可用组织
-          wx.setStorageSync('activeOrgId', result.availableOrgs[0].id);
-          wx.setStorageSync('activeOrgName', result.availableOrgs[0].name);
-        }
+        // 使用后端返回的 activeOrg，确保与系统默认组织一致
+        const defaultOrg = result.activeOrg || result.availableOrgs[0];
+        wx.setStorageSync('activeOrgId', defaultOrg.id);
+        wx.setStorageSync('activeOrgName', defaultOrg.name);
       }
       wx.showToast({ title: '登录成功', icon: 'success' });
       wx.redirectTo({ url: '/pages/portal/portal' });

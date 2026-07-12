@@ -19,8 +19,13 @@ const pool = require('../config/db');
 const _userOrgCache = new Map();
 const USER_ORG_CACHE_TTL = 120000;
 
-function _isAdminRoute(path) {
-  return path && path.startsWith('/api/admin');
+function _isAdminRoute(req) {
+  // 1. 前端显式指定 X-Role: admin
+  const roleHeader = (req.headers['x-role'] || '').toLowerCase();
+  if (roleHeader === 'admin') return true;
+  // 2. 兼容：路径以 /api/admin 开头
+  if (req.path && req.path.startsWith('/api/admin')) return true;
+  return false;
 }
 
 async function _userCanAccessOrg(openid, orgId) {
@@ -116,7 +121,7 @@ async function orgContextMiddleware(req, res, next) {
   }
 
   // 按路由类型选择不同的权限校验
-  const allowed = _isAdminRoute(req.path)
+  const allowed = _isAdminRoute(req)
     ? await _adminCanAccessOrg(openid, orgId)
     : await _userCanAccessOrg(openid, orgId);
 
