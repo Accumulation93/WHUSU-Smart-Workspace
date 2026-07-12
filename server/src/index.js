@@ -159,6 +159,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// ---------- 诊断：拦截并记录所有错误响应 ----------
+app.use((req, res, next) => {
+  const _json = res.json.bind(res);
+  res.json = function (body) {
+    if (body && body.status === 'error' && body.message) {
+      logger.error('Route error response', {
+        event: 'route.error',
+        path: req.path,
+        method: req.method,
+        message: body.message,
+        openid: (req.openid || '').slice(0, 12) || undefined,
+        requestId: req.requestId,
+        stack: new Error().stack
+      });
+    }
+    return _json(body);
+  };
+  next();
+});
+
 // ---------- business routes ----------
 app.use('/api', require('./core/routes/auth'));
 app.use('/api', require('./core/routes/org'));

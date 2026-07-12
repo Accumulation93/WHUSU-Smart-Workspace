@@ -1,5 +1,6 @@
 const { callFunction } = require('../../../../utils/api');
 const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
+const eventBus = require('../../../../utils/eventBus');
 const utils = require('./modules/adminUtils');
 const { STORAGE_KEY, TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
 
@@ -290,6 +291,26 @@ Page({
     if (activeOrgName && activeOrgName !== this.data.currentOrganizationName) {
       this.setData({ currentOrganizationName: activeOrgName });
     }
+    // 监听组织切换事件（匹配 portal 页模式）
+    if (!this._boundOnOrgChanged) {
+      this._boundOnOrgChanged = this._onOrgChanged.bind(this);
+      eventBus.on('org:changed', this._boundOnOrgChanged);
+    }
+    this.bootstrapPage();
+  },
+
+  onHide() {
+    // 页面隐藏时移除监听，避免重复注册
+    if (this._boundOnOrgChanged) {
+      eventBus.off('org:changed', this._boundOnOrgChanged);
+      this._boundOnOrgChanged = null;
+    }
+  },
+
+  _onOrgChanged() {
+    // 组织切换后刷新页面数据
+    const activeOrgName = wx.getStorageSync('activeOrgName') || '';
+    this.setData({ currentOrganizationName: activeOrgName });
     this.bootstrapPage();
   },
 
