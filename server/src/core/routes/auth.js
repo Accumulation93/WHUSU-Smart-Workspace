@@ -318,10 +318,19 @@ router.post('/adminLogin', async (req, res) => {
       });
     }
 
-    // root_admin 直接登录
+    // root_admin 直接登录（默认组织按 system_config 优先级）
     const rootAdmin = allAdminRecords.find(r => r.admin_level === 'root_admin');
     if (rootAdmin) {
       const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
+      // system_config 组织排在第一位，确保前端默认选中
+      const systemDefaultOrgId = await getSystemDefaultOrgId();
+      if (systemDefaultOrgId) {
+        availableOrgs.sort((a, b) => {
+          if (a.id === systemDefaultOrgId) return -1;
+          if (b.id === systemDefaultOrgId) return 1;
+          return 0;
+        });
+      }
       return res.json({
         status: 'login_success',
         token,
@@ -388,13 +397,39 @@ function buildAdminUser(admin) {
   };
 }
 
-// listMyOrganizations — 返回当前用户有绑定的所有组织
+// listMyOrganizations — 返回当前用户有绑定的所有组织（普通用户端）
 router.post('/listMyOrganizations', async (req, res) => {
   try {
     const openid = req.openid;
     if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
 
     const availableOrgs = await buildAvailableOrgs(openid, null);
+    res.json({ status: 'success', organizations: availableOrgs });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// listMyOrganizations — 管理端专用，只查 admin_info
+router.post('/admin/listMyOrganizations', async (req, res) => {
+  try {
+    const openid = req.openid;
+    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
+
+    // 获取管理员绑定记录
+    const adminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
+    const availableOrgs = await buildAvailableOrgs(openid, adminRecords);
+
+    // system_config 组织排在第一位
+    const systemDefaultOrgId = await getSystemDefaultOrgId();
+    if (systemDefaultOrgId) {
+      availableOrgs.sort((a, b) => {
+        if (a.id === systemDefaultOrgId) return -1;
+        if (b.id === systemDefaultOrgId) return 1;
+        return 0;
+      });
+    }
+
     res.json({ status: 'success', organizations: availableOrgs });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

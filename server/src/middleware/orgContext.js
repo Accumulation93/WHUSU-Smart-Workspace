@@ -45,8 +45,35 @@ async function _userCanAccessOrg(openid, orgId) {
   return allowed;
 }
 
+// root_admin 全局权限缓存（独立 key，跨组织共享）
+const _rootAdminCache = new Map();
+const ROOT_ADMIN_CACHE_TTL = 300000; // 5 分钟
+
+async function _isRootAdmin(openid) {
+  if (!openid) return false;
+  const cached = _rootAdminCache.get(openid);
+  if (cached && (Date.now() - cached.at) < ROOT_ADMIN_CACHE_TTL) {
+    return cached.value;
+  }
+  let value = false;
+  try {
+    const [[rows]] = await Promise.all([
+      pool.query("SELECT 1 FROM admin_info WHERE openid = ? AND admin_level = 'root_admin' AND bind_status = 'active' LIMIT 1", [openid])
+    ]);
+    value = rows && rows.length > 0;
+  } catch (_) {
+    value = false;
+  }
+  _rootAdminCache.set(openid, { value, at: Date.now() });
+  return value;
+}
+
 async function _adminCanAccessOrg(openid, orgId) {
   if (!openid || !orgId) return false;
+
+  // root_admin 可以访问所有组织
+  if (await _isRootAdmin(openid)) return true;
+
   const key = 'admin::' + openid + '::' + orgId;
   const cached = _userOrgCache.get(key);
   if (cached && (Date.now() - cached.at) < USER_ORG_CACHE_TTL) {

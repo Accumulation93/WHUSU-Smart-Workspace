@@ -7,7 +7,7 @@ function callFunction(options) {
   const fail = options.fail;
   const complete = options.complete;
 
-  if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name)) {
+  if (!/^[A-Za-z][A-Za-z0-9_\/]*$/.test(name)) {
     const invalidNameError = { errMsg: 'request:fail invalid api name' };
     if (fail) fail(invalidNameError);
     if (complete) complete();

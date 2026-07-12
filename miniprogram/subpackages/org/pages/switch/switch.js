@@ -15,8 +15,10 @@ Page({
   async loadOrganizations() {
     this.setData({ loading: true });
     try {
+      const activeRole = wx.getStorageSync('activeRole') || 'user';
+      const apiName = activeRole === 'admin' ? 'admin/listMyOrganizations' : 'listMyOrganizations';
       let activeOrgId = wx.getStorageSync('activeOrgId') || '';
-      const res = await callFunction({ name: 'listMyOrganizations' });
+      const res = await callFunction({ name: apiName });
 
       if (res.status === 'success' && res.organizations && res.organizations.length > 0) {
         // 兜底：如果 storage 中的 activeOrgId 不在可用列表中，使用第一个
