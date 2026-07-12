@@ -82,9 +82,26 @@ async function buildAvailableOrgs(openid, adminRecords) {
   const allOrgs = await organizationModel.getAll();
 
   // 1. user_info 绑定 — 直接关联的组织
+  // 必须校验 hr_id 有效（防止空 hr_id 的僵尸记录泄漏组织访问权）
   const userRecords = await userInfoModel.getByOpenidGlobal(openid);
-  for (const r of userRecords) {
-    orgMap.set(r.org_id, { role: 'user' });
+  const validUserRecords = userRecords.filter(r => safeString(r.hr_id));
+  // 批量校验 hr_id 确实存在于对应组织的 hr_info 表中
+  if (validUserRecords.length > 0) {
+    const hrCheckParams = [];
+    const hrCheckConds = validUserRecords.map(r => {
+      hrCheckParams.push(r.hr_id, r.org_id);
+      return '(id = ? AND org_id = ?)';
+    }).join(' OR ');
+    const [validHrRows] = await pool.query(
+      `SELECT id, org_id FROM hr_info WHERE ${hrCheckConds}`,
+      hrCheckParams
+    );
+    const validOrgIds = new Set(validHrRows.map(r => r.org_id));
+    for (const r of validUserRecords) {
+      if (validOrgIds.has(r.org_id)) {
+        orgMap.set(r.org_id, { role: 'user' });
+      }
+    }
   }
 
   // 2. hr_info 匹配 — 跨组织身份识别

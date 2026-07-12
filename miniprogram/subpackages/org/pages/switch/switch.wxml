@@ -14,8 +14,7 @@
       class="org-item {{activeOrgId === item.id ? 'org-item--active' : ''}}"
       wx:for="{{organizations}}"
       wx:key="id"
-      data-id="{{item.id}}"
-      data-name="{{item.name}}"
+      data-index="{{index}}"
       bindtap="onOrgTap"
     >
       <view class="org-info">

@@ -25,7 +25,7 @@ async function userCanAccessOrg(openid, orgId) {
   try {
     // 检查三种关联方式：user_info、admin_info、hr_info 匹配
     const [[userRows], [adminRows]] = await Promise.all([
-      pool.query('SELECT 1 FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1', [openid, orgId]),
+      pool.query("SELECT 1 FROM user_info WHERE openid = ? AND org_id = ? AND hr_id != '' LIMIT 1", [openid, orgId]),
       pool.query("SELECT 1 FROM admin_info WHERE openid = ? AND org_id = ? AND bind_status = 'active' LIMIT 1", [openid, orgId])
     ]);
 
