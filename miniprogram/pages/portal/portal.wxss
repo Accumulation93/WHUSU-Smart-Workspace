@@ -234,7 +234,8 @@ button, input, textarea, picker, view, text, scroll-view {
   font-size: 28rpx;
   font-weight: 700;
   line-height: 1.5;
-  word-break: break-all;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* ── Navigation rows inside card ── */
@@ -632,7 +633,7 @@ button, input, textarea, picker, view, text, scroll-view {
   font-weight: 600;
   color: #64748b;
   line-height: 1;
-  transition: all 0.18s ease;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease;
 }
 
 .app-view-tab-active {
@@ -785,26 +786,125 @@ button, input, textarea, picker, view, text, scroll-view {
 @media (min-width: 520px) {
   /* ── 页面容器 ── */
   .page {
-    max-width: 480px;
+    max-width: 760px;
     margin-left: auto;
     margin-right: auto;
     padding-left: 20px;
     padding-right: 20px;
   }
 
-  /* ── 二列信息网格 ── */
-  .info-block {
-    max-width: 215px;
-  }
+  /* ── 二列信息网格：铺满卡片，不再二次居中限宽 ── */
   .info-grid {
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 16px;
   }
 
-  /* ── 宫格（三列，限制每项最大宽度）── */
-  .app-grid {
-    justify-content: center;
+  .info-block {
+    width: auto;
+    max-width: none;
   }
+
+  .info-block-full {
+    grid-column: 1 / -1;
+  }
+
+  /* ── 宫格：三列等分并铺满应用中心 ── */
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 12px;
+  }
+
   .app-grid-item {
-    max-width: 140px;
+    width: auto;
+    max-width: none;
+  }
+
+  .info-label,
+  .nav-row-desc,
+  .notification-desc,
+  .notification-time,
+  .app-grid-desc {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+  }
+
+  .info-value,
+  .nav-row-label,
+  .notification-title,
+  .app-grid-label {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .activity-name {
+    font-size: 20px !important;
+    line-height: 1.45 !important;
+  }
+
+  .app-search-input {
+    font-size: 14px !important;
+    line-height: 1.55 !important;
+  }
+
+  .app-view-tab {
+    font-size: 13px !important;
+    line-height: 18px !important;
+  }
+
+  .app-grid-badge {
+    font-size: 11px !important;
+    line-height: 16px !important;
+  }
+
+  .dialog-btn,
+  .primary-btn {
+    min-height: 48px !important;
+    height: auto !important;
+    padding: 12px 18px !important;
+    font-size: 15px !important;
+    line-height: 20px !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .page {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 20px;
+    max-width: 1180px;
+    padding: 28px 32px 40px;
+  }
+
+  .page > .hero,
+  .page > .portal-profile-card,
+  .page > .portal-services-card,
+  .page > .actions,
+  .page > .page-footer,
+  .page > .dialog-layer {
+    grid-column: 1 / -1;
+  }
+
+  .page > .card,
+  .page > .hero,
+  .page > .actions,
+  .page > .page-footer {
+    margin-bottom: 0;
+  }
+
+  .portal-services-card .app-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .portal-services-card .app-grid-item {
+    width: auto;
+    max-width: none;
+    min-height: 118px;
+    justify-content: center;
   }
 }

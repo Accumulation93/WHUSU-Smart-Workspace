@@ -3,7 +3,7 @@
   "setting": {
     "urlCheck": true,
     "es6": false,
-    "enhance": true,
+    "enhance": false,
     "postcss": true,
     "preloadBackgroundData": false,
     "minified": true,
@@ -41,7 +41,7 @@
     "useCompilerPlugins": false,
     "condition": false,
     "swc": false,
-    "disableSWC": false
+    "disableSWC": true
   },
   "appid": "wxa0946295a962ee2e",
   "projectname": "quickstart-wx-cloud",

@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">签名</view>
     <view class="hero-title">我的签名</view>
@@ -9,12 +9,12 @@
     <view class="card" wx:if="{{creating}}">
       <view class="section-title">{{editingSignature ? '编辑签名' : '新建签名'}}</view>
       <signature-pad initialImage="{{editingSignature.imageData || ''}}" bindconfirm="onSignatureDrawConfirm" />
-      <view class="audit-btn-bar"><button class="secondary-btn" bindtap="cancelCreate">取消</button></view>
+      <view class="audit-btn-bar"><button class="secondary-btn ui-motion-button" bindtap="cancelCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button></view>
     </view>
 
     <view class="card" wx:if="{{!creating}}">
       <view class="audit-btn-bar">
-        <button class="primary-btn" bindtap="startCreate">新建签名</button>
+        <button class="primary-btn ui-motion-button" bindtap="startCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建签名</button>
       </view>
     </view>
 
@@ -27,9 +27,9 @@
           <view class="list-name">{{item.name}} <text wx:if="{{item.isDefault}}" class="audit-chip audit-chip-approved" style="margin-left:8rpx;">默认</text></view>
           <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-sig-preview" />
           <view class="inline-actions list-actions-below">
-            <text class="audit-link-btn" data-id="{{item.id}}" bindtap="editSignature">编辑</text>
-            <text class="audit-link-btn" wx:if="{{!item.isDefault}}" data-id="{{item.id}}" bindtap="setDefault">设默认</text>
-            <text class="audit-link-btn audit-link-danger" data-id="{{item.id}}" bindtap="deleteSignature">删除</text>
+            <text class="audit-link-btn ui-motion-chip" data-id="{{item.id}}" bindtap="editSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
+            <text class="audit-link-btn ui-motion-chip" wx:if="{{!item.isDefault}}" data-id="{{item.id}}" bindtap="setDefault" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">设默认</text>
+            <text class="audit-link-btn audit-link-danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
           </view>
         </view>
         <view class="audit-empty-state" wx:if="{{!signatures.length}}">

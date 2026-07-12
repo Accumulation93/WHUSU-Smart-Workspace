@@ -120,8 +120,8 @@ async function createVenueApprovalNotifications(bookingId, stepIndex) {
     let venueName = '';
     try {
       const [venueRows] = await pool.query(
-        'SELECT name FROM venues WHERE id = ? AND org_id = ?',
-        [booking.venue_id, orgId]
+        'SELECT name FROM venues WHERE id = ?',
+        [booking.venue_id]
       );
       venueName = (venueRows[0] && venueRows[0].name) || '';
     } catch (_) {}

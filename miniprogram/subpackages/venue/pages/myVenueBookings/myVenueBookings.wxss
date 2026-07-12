@@ -24,11 +24,12 @@
 }
 .booking-item:active { transform:translateY(1rpx) scale(0.992); }
 
-.booking-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8rpx; }
-.booking-title { font-size:27rpx; font-weight:700; color:#0f172a; }
+.booking-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12rpx; margin-bottom:8rpx; }
+.booking-title { flex:1; min-width:0; font-size:27rpx; font-weight:700; color:#0f172a; overflow-wrap:anywhere; }
 .booking-meta { font-size:22rpx; color:#64748b; line-height:1.7; }
 
 .booking-status {
+  flex-shrink: 0;
   font-size:21rpx; font-weight:700; padding:6rpx 16rpx; border-radius:16rpx; white-space:nowrap;
 }
 .booking-status.pending { background:#fef3c7; color:#92400e; }
@@ -160,10 +161,13 @@ page {
 }
 
 .booking-title {
+  flex: 1;
+  min-width: 0;
   color: #0f172a;
   font-size: 28rpx;
   font-weight: 800;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .booking-meta {

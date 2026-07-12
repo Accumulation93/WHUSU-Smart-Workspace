@@ -1,0 +1,7 @@
+<image
+  class="ui-icon ui-icon-{{tone}}"
+  src="{{src}}"
+  mode="aspectFit"
+  style="width: {{size}}rpx; height: {{size}}rpx;"
+  aria-label="{{ariaLabel}}"
+/>

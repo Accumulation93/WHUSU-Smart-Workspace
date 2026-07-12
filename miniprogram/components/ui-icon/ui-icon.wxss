@@ -1,0 +1,9 @@
+.ui-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.ui-icon-primary { filter: none; }
+.ui-icon-muted { filter: grayscale(1) saturate(0.2) opacity(0.72); }
+.ui-icon-white { filter: brightness(0) invert(1); }
+.ui-icon-danger { filter: hue-rotate(112deg) saturate(1.9) brightness(0.98); }

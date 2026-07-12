@@ -1,7 +1,7 @@
 # CLAUDE.md — REDSU Scoring System
 
 > AI 编程全局指南。子模块专属规范见 `.claude/rules/` 目录。
-> 最后更新：2026-07-10
+> 最后更新：2026-07-11
 
 ---
 
@@ -134,24 +134,26 @@ page {
 
 ### 4.7 响应式布局（平板适配）
 
-`rpx` 随屏幕等比缩放，平板竖屏（≥520px）上控件过度放大。**必须在 `@media (min-width: 520px)` 中约束：**
-- `.page` 设 `max-width: 520px; margin: 0 auto`（防止内容区无限拉伸）
-- 按钮设 `flex: 0 1 auto; max-width: 380rpx`（防止撑满整行）
-- flex-wrap 卡片网格设 `max-width: 320rpx; justify-content: center`
-- 弹窗设 `max-width: 560px`
-- 适配块写在各 `.wxss` 文件末尾，520px 断点覆盖全部平板竖屏不触发任何手机
+`rpx` 随屏幕等比缩放，平板上不能继续沿用手机尺寸。统一断点和尺寸策略：
+- 手机 `<520px`：使用手机端 `rpx` 令牌与单列布局。
+- Pad 竖屏 `520-899px`：控件高度、字号、行高、间距改用受控 `px` 令牌；窄页面使用 `.page-narrow` 约束内容宽度。
+- Pad 横屏 `>=900px`：管理页可使用侧栏与主工作区，内容卡片按信息关系分栏，禁止单纯把手机页面等比放大。
+- Pad 大按钮统一 `48px` 最小高度和舒适的上下内边距，小按钮统一 `36px`；文字默认不强制换行，长文本容器必须允许自身收缩和安全断行。
+- 弹窗同时受视口宽高约束；签名、键盘、时间表等专用控件使用独立 Pad 尺寸，不得保留超大固定 `rpx` 高度。
 
 ---
 
-## 5. 已知坑点 TOP 5
+## 5. 已知坑点 TOP 7
 
 > 全部坑点见 `.claude/rules/miniprogram.md` §3。"坑点大全"。
 
 1. **WXS 必须用于模板中字符串操作** — WXML 不支持 `.split()`/`.map()`，必须写 WXS 模块
 2. **`<input>` 禁用 `display: flex`** — 用 `display: block` + `line-height` + `padding` 居中
-3. **禁止修改全局样式** — `app.wxss`、`home.wxss`、`blue-polish.wxss` 影响所有页面
+3. **共享样式修改必须审计影响面** — `app.wxss`、`home.wxss`、`blue-polish.wxss` 影响所有页面；仅在明确的全局统一任务中修改，并运行全页 UI 审计
 4. **`setData` 必须合并为一次调用** — 多次 setData → 重复渲染 → 卡顿
 5. **Toast ≤7 中文字符** — 超长会被微信截断。用 `showShortToast()`（已内置截断）
+6. **编译器必须完整关闭隐式 runtime 路径** — 保持 `nodeModules: false`、`es6: false`、`enhance: false`、`swc: false`、`disableSWC: true`，并在 `project.private.config.json` 保持 `compileHotReLoad: false`。否则 SWC/Babel 可能生成未打包 helper，热重载还可能遗漏递归依赖，导致页面无法注册并连带出现 `wx://not-found`
+7. **禁止正则批量改写 WXML** — `wx:if="{{a > b}}"` 等属性包含 `>`；必须使用识别引号和 Mustache 的扫描器或逐文件结构化修改
 
 ---
 
@@ -163,6 +165,7 @@ page {
 3. 文件内其他函数是否受影响
 4. WXML/WXSS 修改后渲染无误
 5. 完整用户操作链无断点
+6. 小程序改动运行 `node scripts/miniprogram-compat-audit.js`，并用微信开发者工具真实编译主包及全部分包
 
 **目标：代码可直接推送到生产环境。**
 
@@ -180,7 +183,7 @@ page {
 | `adminUtils.js` | 所有 12 个 Behavior |
 | `flowTimeline.js` (venue) | 3 个 venue 页面的 WXML |
 | `submissionDetail.js` | `pendingApprovals.js`、`myApprovalHistory.js` |
-| `app.wxss` / `home.wxss` / `blue-polish.wxss` | **禁止修改** |
+| `app.wxss` / `home.wxss` / `blue-polish.wxss` | 检查全部页面、组件、断点和选择器覆盖顺序 |
 
 ### 高频陷阱
 
@@ -199,7 +202,7 @@ page {
 - ❌ 英文注释
 - ❌ 纯色背景（必须 linear-gradient）
 - ❌ 新增按钮颜色 / chip 颜色 / 自定义动画
-- ❌ 修改全局 CSS（`app.wxss` / `home.wxss` / `blue-polish.wxss`）
+- ❌ 在非全局任务中无审计地修改共享 CSS，或用追加补丁覆盖未知页面
 - ❌ 多次 `setData` 调用不合并
 - ❌ `popup-mask` 内放 `position: fixed; bottom: 0` 元素
 - ❌ WXML 中直接调用 `.split()` / `.replace()` / `.map()`
@@ -207,4 +210,10 @@ page {
 - ❌ Toast 超过 7 个中文字符
 - ❌ 修改后不 commit + push
 - ❌ 平板端不设 max-width 约束 → 按钮/卡片过度放大
+- ❌ 用 `Page(wrapper({...}))`、全局装饰器或公共开发夹具包装生产页面
+- ❌ 在 `nodeModules: false` 的原生小程序中直接依赖 `@swc/runtime` / `@babel/runtime`
+- ❌ 配置 `swc: false` 却同时配置 `disableSWC: false`；后者会实际启用 SWC
+- ❌ 开启 `enhance`、`es6` 或 `compileHotReLoad` 后只验证登录页；私有配置会覆盖公共配置，必须冷启动并逐页验证全部注册页面
+- ❌ 用正则表达式批量插入、删除或重排 WXML 标签属性
+- ❌ 只运行 `node --check` 就认定小程序编译兼容；必须再运行兼容性审计和微信开发者工具编译
 - ❌ 忽视关联代码的完整性校验

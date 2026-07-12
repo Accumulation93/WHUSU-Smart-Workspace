@@ -13,7 +13,7 @@
     ></canvas>
   </view>
   <view class="sigpad-actions">
-    <button class="sigpad-btn sigpad-btn-secondary" bindtap="onClear">清除</button>
-    <button class="sigpad-btn sigpad-btn-primary" bindtap="onConfirm">确认签名</button>
+    <button class="sigpad-btn sigpad-btn-secondary ui-motion-button" bindtap="onClear" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</button>
+    <button class="sigpad-btn sigpad-btn-primary ui-motion-button" bindtap="onConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认签名</button>
   </view>
 </view>

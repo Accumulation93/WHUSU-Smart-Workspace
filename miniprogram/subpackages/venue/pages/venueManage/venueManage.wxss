@@ -248,10 +248,20 @@ page {
 .picker-value,
 .picker-display {
   min-height: 88rpx;
-  padding: 0 24rpx;
   font-size: 26rpx;
+}
+
+.field-input {
+  display: block;
+  padding: 18rpx 24rpx;
+  line-height: 52rpx;
+}
+
+.picker-value,
+.picker-display {
   display: flex;
   align-items: center;
+  padding: 0 24rpx;
 }
 
 .field-textarea {
@@ -836,7 +846,7 @@ page {
   font-size: 26rpx; color: #53687f;
   border-bottom: 3rpx solid transparent;
   font-weight: 600;
-  transition: all 0.2s;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.24s ease, transform 0.2s ease;
   background: transparent; border-radius: 0;
   box-shadow: none;
   min-height: auto;
@@ -1033,7 +1043,7 @@ page {
 .nav-label { font-size: 26rpx; font-weight: 700; color: #1e293b; }
 
 .timetable-popup { max-height: 95vh; width: 96vw; }
-.timetable-scroll { width: 100%; height: 1100rpx; }
+.timetable-scroll { width: 100%; height: 68vh; min-height: 520rpx; max-height: 760rpx; }
 .timetable-body { display: flex; }
 
 .tt-time-col { width: 64rpx; min-width: 64rpx; flex-shrink: 0; }
@@ -1051,9 +1061,9 @@ page {
 }
 
 .tt-col-scroll { flex: 1; overflow-x: visible; }
-.tt-cols-row { display: flex; }
+.tt-cols-row { display: flex; min-width: 700rpx; }
 
-.tt-col { flex: 1; min-width: 0; position: relative; }
+.tt-col { flex: 0 0 100rpx; min-width: 100rpx; position: relative; }
 
 .tt-col-header {
   height: 58rpx; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1105,13 +1115,101 @@ page {
   font-size: 22rpx; padding: 10rpx 18rpx; border-radius: 20rpx; font-weight: 600;
   background: rgba(241, 245, 249, 0.85); color: #475569;
   border: 1rpx solid rgba(203, 213, 225, 0.55);
-  transition: all 0.2s;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.24s ease, transform 0.2s ease;
 }
 
 .dept-tab-active {
   background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
   color: #fff; border-color: transparent;
   box-shadow: 0 6rpx 16rpx rgba(37, 99, 235, 0.20);
+}
+
+@media (min-width: 520px) {
+  .page {
+    max-width: 760px;
+  }
+
+  .timetable-popup {
+    width: calc(100vw - 48px);
+    width: min(920px, calc(100vw - 48px));
+  }
+
+  .timetable-scroll {
+    height: calc(90vh - 190px);
+    min-height: 420px;
+    max-height: 720px;
+  }
+
+  .tt-time-col {
+    width: 56px;
+    min-width: 56px;
+  }
+
+  .tt-cols-row {
+    min-width: 504px;
+  }
+
+  .tt-col {
+    flex: 0 0 72px;
+    min-width: 72px;
+  }
+
+  .tt-time-header,
+  .tt-time-label,
+  .tt-col-header,
+  .tt-col-sub,
+  .tt-event-label,
+  .tt-legend {
+    font-size: 12px;
+  }
+
+  .inner-scroll,
+  .large-scroll {
+    max-height: 65vh !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .page {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
+    max-width: 1180px;
+  }
+
+  .page > .hero,
+  .page > .page-footer {
+    grid-column: 1 / -1;
+  }
+
+  .page > .tabs {
+    position: sticky;
+    top: 20px;
+    z-index: 24;
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    padding: 10px;
+    border-radius: 22px;
+  }
+
+  .page > .tabs .tab {
+    width: 100%;
+    min-height: 46px;
+    justify-content: flex-start;
+    padding: 10px 14px;
+    border-bottom: 0;
+    border-radius: 14px;
+    text-align: left;
+  }
+
+  .page > .section {
+    grid-column: 2;
+    min-width: 0;
+    margin-bottom: 0;
+  }
 }
 
 .dept-tab-count { font-size: 20rpx; opacity: 0.85; }

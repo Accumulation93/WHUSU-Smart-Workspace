@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">验签</view>
     <view class="hero-title">签名验证</view>
@@ -32,12 +32,12 @@
       <!-- File mode -->
       <view class="field" wx:if="{{verifyMode === 'file'}}">
         <view class="field-label">选择文件</view>
-        <view class="picker-value" bindtap="chooseVerifyFile">{{fileName || '点击选择要验签的文件'}}</view>
+        <view class="picker-value ui-motion-chip" bindtap="chooseVerifyFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fileName || '点击选择要验签的文件'}}</view>
         <view class="list-desc" wx:if="{{fileSize > 0}}" style="font-size:22rpx;color:#64748b;margin-top:6rpx;">{{fileName}} · {{fileSize}} 字节</view>
       </view>
 
       <view class="audit-btn-bar">
-        <button class="primary-btn" loading="{{loading}}" bindtap="verify">验证签名链</button>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="verify" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">验证签名链</button>
       </view>
     </view>
 

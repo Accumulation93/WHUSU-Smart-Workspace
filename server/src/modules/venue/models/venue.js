@@ -1,40 +1,33 @@
 const pool = require('../../../config/db');
-const { getCurrentOrgId } = require('../../../utils/orgContext');
 
+// 场地已解绑组织 — 所有场地为跨组织全局数据
 async function getAll() {
-  const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM venues WHERE org_id = ? AND is_active = 1 ORDER BY name',
-    [orgId]
+    'SELECT * FROM venues WHERE is_active = 1 ORDER BY name'
   );
   return rows;
 }
 
-async function getAllByOrg(orgId) {
-  const [rows] = await pool.query(
-    'SELECT * FROM venues WHERE org_id = ? AND is_active = 1 ORDER BY name',
-    [orgId]
-  );
-  return rows;
+async function getAllByOrg(_orgId) {
+  // 保留此方法签名以兼容旧调用方，但不再按组织过滤
+  return getAll();
 }
 
 async function getById(id) {
-  const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT * FROM venues WHERE id = ? AND org_id = ?',
-    [id, orgId]
+    'SELECT * FROM venues WHERE id = ?',
+    [id]
   );
   return rows[0] || null;
 }
 
 async function create(id, data, conn) {
   const { name, location, description, imageUrl } = data;
-  const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    `INSERT INTO venues (id, name, location, description, image_url, org_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, name || '', location || '', description || '', imageUrl || '', orgId]
+    `INSERT INTO venues (id, name, location, description, image_url)
+     VALUES (?, ?, ?, ?, ?)`,
+    [id, name || '', location || '', description || '', imageUrl || '']
   );
 }
 
@@ -50,15 +43,12 @@ async function update(id, data, conn) {
   if (isActive !== undefined) { fields.push('is_active = ?'); values.push(isActive ? 1 : 0); }
   if (!fields.length) return;
   values.push(id);
-  const orgId = await getCurrentOrgId();
-  values.push(orgId);
-  await db.query(`UPDATE venues SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, values);
+  await db.query(`UPDATE venues SET ${fields.join(', ')} WHERE id = ?`, values);
 }
 
 async function remove(id, conn) {
   const db = conn || pool;
-  const orgId = await getCurrentOrgId();
-  await db.query('UPDATE venues SET is_active = 0 WHERE id = ? AND org_id = ?', [id, orgId]);
+  await db.query('UPDATE venues SET is_active = 0 WHERE id = ?', [id]);
 }
 
 module.exports = { getAll, getAllByOrg, getById, create, update, remove };

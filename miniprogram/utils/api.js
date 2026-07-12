@@ -17,31 +17,17 @@ function callFunction(options) {
   }
 
   let settled = false;
-  let timer = null;
-  let requestTask = null;
-
   const promise = new Promise(function(resolve, reject) {
     function settle(err, result) {
       if (settled) return;
       settled = true;
-      if (timer) { clearTimeout(timer); timer = null; }
       if (err) { reject(err); } else { resolve(result); }
     }
 
-    timer = setTimeout(function() {
-      // Wrap in try-catch: any synchronous throw inside a setTimeout callback
-      // gets caught by WeChat's WAServiceMainContext and surfaced as "Error: timeout"
-      try {
-        settle({ errMsg: 'request:fail timeout', timedOut: true });
-        if (requestTask && requestTask.abort) requestTask.abort();
-      } catch (e) {
-        // Silently swallow — prevents WAServiceMainContext "Error: timeout"
-      }
-    }, 15000);
-
-    requestTask = wx.request({
+    wx.request({
       url: API_BASE + '/' + name,
       method: 'POST',
+      timeout: 15000,
       header: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + (wx.getStorageSync('token') || '')
@@ -55,13 +41,10 @@ function callFunction(options) {
         }
       },
       fail: function(err) {
-        // Ignore abort errors caused by our own timeout settlement
-        if (settled) return;
         console.error('[API] Request failed:', name, JSON.stringify(err));
-        settle(err);
-      },
-      complete: function() {
-        requestTask = null;
+        const requestError = err || { errMsg: 'request:fail unknown' };
+        if (/timeout/i.test(requestError.errMsg || '')) requestError.timedOut = true;
+        settle(requestError);
       }
     });
   });

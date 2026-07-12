@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">场地</view>
     <view class="hero-title">我的借用</view>
@@ -7,7 +7,7 @@
 
   <!-- Quick nav -->
   <view class="header-nav">
-    <text class="header-nav-btn" bindtap="goVenueBooking">浏览场地</text>
+    <text class="header-nav-btn ui-motion-chip" bindtap="goVenueBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">浏览场地</text>
   </view>
 
   <view class="card">
@@ -24,7 +24,7 @@
         <view class="booking-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
         <view class="booking-meta" wx:if="{{item.description}}">{{item.description}}</view>
         <view class="booking-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
-        <text wx:if="{{item.status === 'pending' || item.status === 'approved'}}" class="cancel-btn" data-id="{{item.id}}" bindtap="cancelBooking">取消借用</text>
+        <text wx:if="{{item.status === 'pending' || item.status === 'approved'}}" class="cancel-btn ui-motion-chip" data-id="{{item.id}}" bindtap="cancelBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消借用</text>
       </view>
     </scroll-view>
   </view>

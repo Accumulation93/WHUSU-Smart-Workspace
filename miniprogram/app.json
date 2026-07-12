@@ -6,19 +6,13 @@
   ],
   "subPackages": [
     {
-      "root": "subpackages/scoring/pages/score",
+      "root": "subpackages/scoring",
       "name": "scoring",
-      "pages": ["score"]
-    },
-    {
-      "root": "subpackages/scoring/pages/admin",
-      "name": "admin",
-      "pages": ["admin"]
-    },
-    {
-      "root": "subpackages/scoring/pages/scorerTasks",
-      "name": "scorerTasks",
-      "pages": ["scorerTasks"]
+      "pages": [
+        "pages/score/score",
+        "pages/admin/admin",
+        "pages/scorerTasks/scorerTasks"
+      ]
     },
     {
       "root": "subpackages/audit",

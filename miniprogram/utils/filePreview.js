@@ -11,6 +11,16 @@
  */
 
 const API_BASE = 'https://accumulation93.com/api';
+const MAX_BASE64_LENGTH = 36 * 1024 * 1024;
+
+function safeFileToken(value) {
+  return String(value || '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80) || 'file';
+}
+
+function safeExtension(fileName) {
+  const extension = String(fileName || '').split('.').pop().toLowerCase();
+  return /^[a-z0-9]{1,10}$/.test(extension) ? extension : 'bin';
+}
 
 function getToken() {
   try { return wx.getStorageSync('token') || ''; } catch (_) { return ''; }
@@ -103,8 +113,15 @@ function fallbackDownload(fileId, fileName, callback) {
       }
 
       const result = res.data;
-      const ext = (result.fileName || fileName || 'file').split('.').pop() || 'bin';
-      const tmpPath = wx.env.USER_DATA_PATH + '/af_' + fileId + '.' + ext;
+      if (typeof result.data !== 'string' || result.data.length > MAX_BASE64_LENGTH) {
+        toast('文件过大或内容无效');
+        if (callback) callback(new Error('invalid file payload'));
+        return;
+      }
+
+      const ext = safeExtension(result.fileName || fileName);
+      const fileToken = safeFileToken(fileId);
+      const tmpPath = wx.env.USER_DATA_PATH + '/af_' + fileToken + '.' + ext;
 
       const fs = wx.getFileSystemManager();
 
@@ -125,7 +142,7 @@ function fallbackDownload(fileId, fileName, callback) {
           console.error('[filePreview] async writeFile failed:', writeErr);
           // Last resort: sync write
           try {
-            const altPath = wx.env.USER_DATA_PATH + '/af_fb_' + Date.now() + '.' + ext;
+            const altPath = wx.env.USER_DATA_PATH + '/af_fb_' + Date.now() + '_' + fileToken + '.' + ext;
             fs.writeFileSync(altPath, result.data, 'base64');
             openLocalFile(altPath, result.fileName || fileName);
             if (callback) callback(null);

@@ -120,6 +120,11 @@ page {
   box-sizing: border-box;
 }
 
+input.field-input,
+textarea.field-textarea {
+  display: block;
+}
+
 /* Compact picker chips — not full-width inputs */
 .time-pick, .picker-sm {
   width: auto;
@@ -181,7 +186,7 @@ textarea {
   border: 1rpx solid rgba(203,213,225,0.48);
   background: rgba(248,250,252,0.88);
   color: #64748b;
-  transition: all 0.2s;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.24s ease, transform 0.2s ease;
 }
 
 .filter-chip.active,
@@ -252,22 +257,7 @@ textarea {
 }
 @keyframes venueSpin { to { transform: rotate(360deg); } }
 
-/* Unified pressed glass motion and non-flat status surfaces */
-.card:active,
-.section:active,
-.edit-box:active,
-.list-card:active,
-.venue-card:active,
-.booking-item:active,
-.pending-item:active,
-.list-item:active,
-.nav-row:active {
-  transform: translateY(1rpx) scale(0.992);
-  box-shadow:
-    0 12rpx 24rpx rgba(37, 99, 235, 0.07),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.82);
-}
-
+/* Non-flat status surfaces. Press feedback is driven by each target's hover-class. */
 .booking-status.pending,
 .status-tag.pending {
   color: #c2410c;
@@ -334,25 +324,6 @@ textarea {
     inset 0 1rpx 0 rgba(255, 255, 255, 0.56);
 }
 
-/* Final venue motion: container shells stay still; only explicit tap targets animate. */
-.card:active,
-.section:active,
-.edit-box:active,
-.list-card:active,
-.popup-card:active,
-.modal-card:active {
-  transform: none !important;
-  filter: none !important;
-}
-
-.venue-card:active,
-.booking-item:active,
-.pending-item:active,
-.list-item:active,
-.nav-row:active {
-  transform: none !important;
-}
-
 .venue-card.control-pressing,
 .booking-item.control-pressing,
 .pending-item.control-pressing,
@@ -366,4 +337,39 @@ textarea {
     box-shadow 0.20s ease,
     opacity 0.18s ease,
     filter 0.20s ease !important;
+}
+
+@media (min-width: 520px) {
+  .large-scroll {
+    max-height: 65vh;
+  }
+
+  .venue-card,
+  .booking-item,
+  .pending-item,
+  .list-item,
+  .nav-row {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .venue-card-title,
+  .booking-title,
+  .pending-item-name,
+  .list-item-title,
+  .nav-row-label {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .venue-card-meta,
+  .booking-meta,
+  .pending-item-meta,
+  .list-item-meta,
+  .nav-row-desc,
+  .time-pick,
+  .picker-sm {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+  }
 }

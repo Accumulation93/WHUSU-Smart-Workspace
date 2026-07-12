@@ -148,9 +148,14 @@ page {
 }
 
 .target-sticky-name {
+  flex: 1;
+  min-width: 0;
   color: #0f172a;
   font-size: 26rpx;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card {
@@ -434,12 +439,18 @@ page {
 }
 
 .summary-name {
+  flex: 1;
+  min-width: 0;
   color: #334155;
   font-size: 26rpx;
   font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .summary-score {
+  flex-shrink: 0;
+  margin-left: 16rpx;
   color: #2563eb;
   font-size: 28rpx;
   font-weight: 700;
@@ -1013,16 +1024,236 @@ page {
 /* 评分页不 import home.wxss，需独立添加平板约束 */
 @media (min-width: 520px) {
   .page {
-    max-width: 480px;
+    max-width: 760px;
     margin-left: auto;
     margin-right: auto;
     padding-left: 20px;
     padding-right: 20px;
   }
-  .info-block {
-    max-width: 215px;
-  }
   .info-grid {
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 16px;
+  }
+
+  .info-block {
+    width: auto;
+    max-width: none;
+  }
+
+  .info-block-full {
+    grid-column: 1 / -1;
+  }
+
+  .question-title,
+  .template-title,
+  .section-title {
+    font-size: 18px !important;
+    line-height: 1.45 !important;
+  }
+
+  .info-value,
+  .score-display-number,
+  .target-name {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .question-desc,
+  .template-desc,
+  .score-display-label {
+    font-size: 14px !important;
+    line-height: 1.55 !important;
+  }
+
+  .info-label,
+  .question-meta,
+  .template-meta {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+  }
+
+  .target-sticky {
+    height: auto;
+    min-height: 52px;
+    padding: 10px 24px;
+  }
+
+  .target-sticky-label {
+    flex-shrink: 0;
+    margin-right: 10px;
+    font-size: 13px;
+  }
+
+  .target-sticky-name {
+    font-size: 15px;
+    line-height: 20px;
+  }
+
+  .summary-name {
+    font-size: 15px;
+  }
+
+  .summary-score,
+  .template-footer-score {
+    font-size: 16px;
+  }
+
+  .summary-total-label {
+    font-size: 17px;
+  }
+
+  .summary-total-score {
+    font-size: 22px;
+  }
+
+  .kb-nav-row {
+    gap: 6px;
+    padding: 8px 8px 5px;
+  }
+
+  .kb-action-row {
+    gap: 6px;
+    padding: 5px 8px 8px;
+  }
+
+  .kb-action-row > view:first-child {
+    flex: 0 1 150px;
+    min-width: 0;
+  }
+
+  .kb-action-row .kb-nav-btn-submit {
+    max-width: 220px;
+  }
+
+  .kb-action-row > view:last-child {
+    flex: 0 0 96px;
+  }
+
+  .kb-nav-btn {
+    flex-basis: 100px;
+    height: 44px;
+    gap: 3px;
+    border-radius: 12px;
+  }
+
+  .kb-nav-btn-submit {
+    flex-basis: 84px;
+  }
+
+  .kb-nav-display {
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .kb-nav-label,
+  .kb-nav-arrow,
+  .kb-nav-display-hint {
+    font-size: 13px;
+    line-height: 18px;
+    white-space: nowrap;
+  }
+
+  .kb-nav-display-number {
+    font-size: 20px;
+  }
+
+  .kb-nav-display-unit {
+    font-size: 12px;
+  }
+
+  .kb-quick-row {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .kb-quick-btn {
+    min-width: 44px;
+    height: 48px;
+    line-height: 48px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .kb-numpad {
+    padding: 6px 8px 8px;
+  }
+
+  .kb-row {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .kb-key {
+    height: 52px;
+    line-height: 52px;
+    border-radius: 12px;
+    font-size: 20px;
+  }
+
+  .kb-backspace-icon {
+    font-size: 22px;
+  }
+
+  .kb-collapse-btn,
+  .kb-toggle-btn {
+    height: 44px;
+    border-radius: 12px;
+  }
+
+  .kb-toggle-btn {
+    gap: 6px;
+    padding: 0 10px;
+  }
+
+  .kb-toggle-label,
+  .kb-collapse-icon {
+    font-size: 13px;
+    line-height: 18px;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 900px) {
+  .page.page-with-keyboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    align-items: start;
+    gap: 24px;
+    max-width: 1180px;
+    padding: 28px 32px 40px;
+  }
+
+  .page-with-keyboard > .hero,
+  .page-with-keyboard > .target-sticky {
+    grid-column: 1 / -1;
+  }
+
+  .page-with-keyboard > .score-workspace,
+  .page-with-keyboard > .page-footer,
+  .page-with-keyboard > .card {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .page-with-keyboard > .custom-keyboard {
+    position: sticky;
+    grid-column: 2;
+    grid-row: 2 / span 4;
+    top: 24px;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    border: 1px solid rgba(147, 197, 253, 0.52);
+    border-radius: 24px;
+    box-shadow: 0 22px 48px rgba(37, 99, 235, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  }
+
+  .page-with-keyboard > .custom-keyboard .kb-collapsed-bar {
+    border-radius: 24px;
   }
 }

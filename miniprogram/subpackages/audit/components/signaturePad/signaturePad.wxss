@@ -41,8 +41,10 @@
 
 .sigpad-btn {
   flex: 1;
-  min-height: 76rpx;
-  line-height: 76rpx;
+  min-height: 88rpx;
+  height: auto;
+  padding: 14rpx 22rpx;
+  line-height: 1.35;
   font-size: 24rpx;
   font-weight: 700;
   border-radius: 22rpx;
@@ -68,4 +70,39 @@
 .sigpad-btn:active {
   transform: translateY(1rpx) scale(0.985);
   opacity: 0.92;
+}
+
+@media (min-width: 520px) {
+  .sigpad-wrap {
+    padding: 10px 4px 8px;
+  }
+
+  .sigpad-canvas-border {
+    padding: 8px;
+    border-radius: 18px;
+  }
+
+  .sigpad-canvas {
+    height: 280px;
+    border-radius: 14px;
+  }
+
+  .sigpad-actions {
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .sigpad-btn {
+    min-height: 48px;
+    padding: 12px 18px;
+    border-radius: 14px;
+    font-size: 15px;
+    line-height: 20px;
+  }
+}
+
+@media (min-width: 900px) {
+  .sigpad-canvas {
+    height: 320px;
+  }
 }

@@ -229,18 +229,24 @@ function arrayBufferToBase64(buffer) {
  */
 function saveAndShareFile(content, fileName, extension) {
   let fs = wx.getFileSystemManager();
+  const safeName = String(fileName || 'export')
+    .replace(/[\\/:*?"<>|\x00-\x1F]/g, '_')
+    .replace(/\.\.+/g, '_')
+    .trim()
+    .slice(0, 60) || 'export';
+  const safeExtension = /^[a-z0-9]{1,8}$/i.test(String(extension || '')) ? String(extension).toLowerCase() : 'bin';
 
   // Client-side buildCsv produces raw text (starts with BOM) → base64 encode
   if (extension === 'csv' && content.indexOf('﻿') === 0) {
     content = stringToBase64(content);
   }
 
-  let filePath = wx.env.USER_DATA_PATH + '/' + fileName + '_' + Date.now() + '.' + extension;
+  let filePath = wx.env.USER_DATA_PATH + '/' + safeName + '_' + Date.now() + '.' + safeExtension;
   fs.writeFileSync(filePath, content, 'base64');
 
   wx.shareFileMessage({
     filePath: filePath,
-    fileName: fileName + '.' + extension,
+    fileName: safeName + '.' + safeExtension,
     fail: function (err) {
       if (err && err.errMsg && err.errMsg.indexOf('cancel') === -1) {
         wx.showToast({ title: '保存失败，请重试', icon: 'none' });

@@ -635,7 +635,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     const [bookings] = await pool.query(
       `SELECT b.*, v.name AS venue_name, v.location AS venue_location
        FROM venue_bookings b
-       JOIN venues v ON v.id = b.venue_id AND v.org_id = b.org_id
+       JOIN venues v ON v.id = b.venue_id
        WHERE b.status = 'pending'
          AND b.approval_flow_id IS NOT NULL
          AND b.approval_total_steps > 0

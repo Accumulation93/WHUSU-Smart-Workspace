@@ -12,7 +12,7 @@
     <view class="activity-name">{{organizationName}}</view>
   </view>
 
-  <view class="card" wx:if="{{hasUser}}">
+  <view class="card portal-profile-card" wx:if="{{hasUser}}">
     <view class="info-head">
       <view class="section-title">个人信息</view>
     </view>
@@ -45,9 +45,9 @@
       <view class="notification-empty" wx:if="{{!todos.length && !todoLoading}}">
         <text class="notification-empty-text">暂无待处理事项</text>
       </view>
-      <view class="notification-item todo-item" wx:for="{{todos}}" wx:key="targetId"
-            data-url="{{item.targetUrl}}" bindtap="onTodoTap">
-        <view class="notification-icon">{{item.category === 'venue' ? '🏟️' : '⏳'}}</view>
+      <view class="notification-item todo-item ui-motion-card" wx:for="{{todos}}" wx:key="targetId"
+            data-url="{{item.targetUrl}}" bindtap="onTodoTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+        <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : 'clock'}}" tone="primary" size="40" ariaLabel="待办类型" /></view>
         <view class="notification-body">
           <view class="notification-title">
             <text class="notification-tag notification-tag-{{item.category}}">{{item.category === 'venue' ? '场地' : '审核'}}</text>
@@ -56,7 +56,7 @@
           <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="notification-time">{{item.createdAt}}</view>
         </view>
-        <text class="nav-row-arrow">›</text>
+        <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" />
       </view>
     </view>
   </view>
@@ -71,15 +71,15 @@
         <text class="notification-empty-text">暂无通知</text>
       </view>
       <view class="notification-swipe-row" wx:for="{{notifications}}" wx:key="id">
-        <view class="notification-item {{item.isRead ? 'notification-read' : 'notification-unread'}} {{item._showDelete ? 'notification-shifted' : ''}}"
+        <view class="notification-item {{item.isRead ? 'notification-read' : 'notification-unread'}} {{item._showDelete ? 'notification-shifted' : ''}} ui-motion-card"
               style="transform: translateX({{item._swipeX || 0}}px);"
               data-id="{{item.id}}" data-url="{{item.targetUrl}}"
               bindtap="onNotificationTap"
               bindtouchstart="onNotificationTouchStart"
               bindtouchmove="onNotificationTouchMove"
-              bindtouchend="onNotificationTouchEnd">
+              bindtouchend="onNotificationTouchEnd" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="notification-dot" wx:if="{{!item.isRead}}"></view>
-          <view class="notification-icon">{{item.category === 'venue' ? '🏟️' : (item.category === 'scoring' ? '📊' : '🔔')}}</view>
+          <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : (item.category === 'scoring' ? 'grid' : 'bell')}}" tone="primary" size="40" ariaLabel="通知类型" /></view>
           <view class="notification-body">
             <view class="notification-title">
               <text class="notification-tag notification-tag-{{item.category}}">{{item.category === 'venue' ? '场地' : (item.category === 'scoring' ? '考核' : '通知')}}</text>
@@ -88,33 +88,33 @@
             <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
             <view class="notification-time">{{item.createdAt}}</view>
           </view>
-          <text class="nav-row-arrow">›</text>
+          <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" />
         </view>
-        <view class="notification-delete" wx:if="{{item._showDelete}}" data-id="{{item.id}}" catchtap="deleteNotification">删除</view>
+        <view class="notification-delete ui-motion-chip" wx:if="{{item._showDelete}}" data-id="{{item.id}}" catchtap="deleteNotification" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</view>
       </view>
     </view>
   </view>
 
-  <view class="card">
+  <view class="card portal-services-card">
     <view class="info-head">
       <view class="section-title">应用服务</view>
       <view class="app-view-tabs">
-        <view class="app-view-tab {{appViewMode === 'grid' ? 'app-view-tab-active' : ''}}"
-              data-mode="grid" bindtap="switchAppView">宫格</view>
-        <view class="app-view-tab {{appViewMode === 'list' ? 'app-view-tab-active' : ''}}"
-              data-mode="list" bindtap="switchAppView">列表</view>
+        <view class="app-view-tab {{appViewMode === 'grid' ? 'app-view-tab-active' : ''}} ui-motion-chip"
+              data-mode="grid" bindtap="switchAppView" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">宫格</view>
+        <view class="app-view-tab {{appViewMode === 'list' ? 'app-view-tab-active' : ''}} ui-motion-chip"
+              data-mode="list" bindtap="switchAppView" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">列表</view>
       </view>
     </view>
 
     <!-- Search bar -->
     <view class="app-search-bar">
-      <view class="app-search-icon">🔍</view>
+      <view class="app-search-icon"><ui-icon name="search" tone="muted" size="34" ariaLabel="搜索" /></view>
       <input class="app-search-input"
              placeholder="搜索应用…"
              value="{{appSearchKeyword}}"
              bindinput="onAppSearchInput"
              confirm-type="search"/>
-      <view class="app-search-clear" wx:if="{{appSearchKeyword}}" bindtap="clearAppSearch">✕</view>
+      <view class="app-search-clear ui-motion-chip" wx:if="{{appSearchKeyword}}" bindtap="clearAppSearch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="30" ariaLabel="清除搜索" /></view>
     </view>
 
     <!-- No results -->
@@ -124,16 +124,16 @@
 
     <!-- ═══ Grid View (宫格) ═══ -->
     <view class="app-grid" wx:if="{{appViewMode === 'grid' && filteredPortalCards.length}}">
-      <view class="app-grid-item {{item.disabled ? 'app-grid-item-disabled' : ''}}"
+      <view class="app-grid-item {{item.disabled ? 'app-grid-item-disabled' : ''}} ui-motion-card"
             wx:for="{{filteredPortalCards}}" wx:key="key"
             wx:for-item="item" wx:for-index="i"
             style="animation: serviceCardIn 0.28s {{0.04 * i}}s ease-out both;"
             data-key="{{item.key}}"
             bindtap="onCardTap"
-            hover-class="control-pressing"
+            hover-class="ui-press-card"
             hover-start-time="0"
-            hover-stay-time="180">
-        <view class="app-grid-icon">{{item.icon}}</view>
+            hover-stay-time="160" hover-stop-propagation="{{true}}">
+        <view class="app-grid-icon"><ui-icon name="{{item.iconName}}" tone="primary" size="48" ariaLabel="{{item.label}}" /></view>
         <view class="app-grid-label">{{item.label}}</view>
         <view class="app-grid-badge" wx:if="{{item.disabled}}">开发中</view>
       </view>
@@ -142,7 +142,7 @@
     <!-- ═══ List View (列表) ═══ -->
     <view class="nav-list" wx:if="{{appViewMode === 'list' && filteredPortalCards.length}}">
       <view
-        class="nav-row {{item.disabled ? 'nav-row-disabled' : ''}}"
+        class="nav-row {{item.disabled ? 'nav-row-disabled' : ''}} ui-motion-card"
         wx:for="{{filteredPortalCards}}"
         wx:key="key"
         wx:for-item="item"
@@ -150,23 +150,23 @@
         style="animation: serviceCardIn 0.28s {{0.04 * i}}s ease-out both;"
         data-key="{{item.key}}"
         bindtap="onCardTap"
-        hover-class="control-pressing"
+        hover-class="ui-press-card"
         hover-start-time="0"
-        hover-stay-time="180"
-      >
-        <view class="nav-row-icon">{{item.icon}}</view>
+        hover-stay-time="160"
+       hover-stop-propagation="{{true}}">
+        <view class="nav-row-icon"><ui-icon name="{{item.iconName}}" tone="primary" size="40" ariaLabel="{{item.label}}" /></view>
         <view class="nav-row-body">
           <view class="nav-row-label">{{item.label}}</view>
         </view>
         <view class="nav-row-badge" wx:if="{{item.disabled}}">开发中</view>
-        <text class="nav-row-arrow" wx:if="{{!item.disabled}}">›</text>
+        <ui-icon wx:if="{{!item.disabled}}" name="chevron-right" tone="muted" size="32" ariaLabel="进入" />
       </view>
     </view>
   </view>
 
   <view class="actions">
-    <button class="secondary-btn" bindtap="goLogin">切换身份</button>
-    <button class="danger-btn" wx:if="{{hasUser}}" bindtap="openUnbindDialog">解绑当前身份</button>
+    <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">切换身份</button>
+    <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="openUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑当前身份</button>
   </view>
 
   <view class="page-footer">
@@ -181,8 +181,8 @@
       <view class="dialog-title">确认解绑当前身份？</view>
       <view class="dialog-desc">解绑后会立即移除当前身份的登录状态，后续如需进入，需要重新完成验证。</view>
       <view class="dialog-actions">
-        <button class="secondary-btn dialog-btn" bindtap="closeUnbindDialog">再想想</button>
-        <button class="danger-btn dialog-btn" loading="{{unbindLoading}}" bindtap="confirmUnbind">确认解绑</button>
+        <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">再想想</button>
+        <button class="danger-btn dialog-btn ui-motion-button" loading="{{unbindLoading}}" bindtap="confirmUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认解绑</button>
       </view>
     </view>
   </view>

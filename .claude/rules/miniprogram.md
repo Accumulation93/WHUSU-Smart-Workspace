@@ -147,6 +147,22 @@ self._lastUpdateTime = now;
 
 不同设备的 DPR 差异导致触摸坐标偏移。签名板五层防御详见 `.claude/rules/audit.md` §3。
 
+### 3.14 编译器 runtime helper 缺失
+
+原生小程序当前设置为 `nodeModules: false`，运行时不会自动提供 `@swc/runtime` 或 `@babel/runtime`。本项目曾同时配置 `"swc": false` 与 `"disableSWC": false`；开发者工具实际以 `disableSWC === false` 为准启用 SWC，含对象展开、计算属性、async 等语法的页面被转换为未打包的 runtime helper。关闭 SWC 后，Babel enhance 与热重载组合又曾生成 `@babel/runtime/helpers/*`，并遗漏 `unsupportedIterableToArray` 等 helper 的递归依赖。两类故障都会造成主包和分包页面无法注册。全局 `Page(uiPreview.attach({...}))` 曾扩大过影响范围，但不是唯一触发条件。
+
+**强制规则：**
+
+- 页面保持直接 `Page({ ... })` 注册，禁止全局装饰器、代理或夹具包装。
+- 开发态视觉夹具放在 `scripts/` 或专用预览页面，由开发者工具自动化在页面加载后注入数据；不得进入生产页面的 `require` 依赖图。
+- 不得直接引用 `@swc/runtime/*`、`@babel/runtime/*` 或假设编译器 helper 会自动存在。
+- `project.config.json` 必须保持 `nodeModules: false`、`es6: false`、`enhance: false`、`swc: false`、`disableSWC: true`；`disableSWC: false` 会实际开启 SWC，不能被 `swc: false` 抵消。
+- `project.private.config.json` 必须保持 `compileHotReLoad: false`。私有配置会覆盖公共配置，审计时必须按合并后的有效配置判断。
+- 不随意修改 `useCompilerPlugins`、`useCompilerModule`；确需修改时必须逐页编译验证。
+- `node --check` 只验证 JavaScript 语法，不能替代微信编译器验证；热重载成功也不能替代清缓存后的冷启动验证。
+
+**错误排查顺序：**先处理首个 `module ... is not defined`，再看 `wx://not-found`；后者通常是页面或组件脚本未注册的次生错误。最后单独检查接口 `timeout`，不要把网络超时误判为组件路径错误。
+
 ---
 
 ## 4. API 调用
@@ -163,6 +179,7 @@ callFunction({ name: 'userLogin', data: { code }, success: res => { ... }, fail:
 
 - 自动添加 `Authorization: Bearer <token>` 请求头
 - 15 秒超时，超时自动 abort
+- 超时使用 `wx.request({ timeout: 15000 })` 原生能力，不使用 `setTimeout + requestTask.abort()` 模拟
 - 所有业务 API 均为 POST，名称正则校验 `/^[A-Za-z][A-Za-z0-9_]*$/`
 
 ### 响应格式
@@ -224,7 +241,11 @@ Page({
 - ❌ `popup-mask` 内放 `position: fixed; bottom: 0` 元素
 - ❌ 多次 `setData()` 不合并
 - ❌ `wx.showToast` title 超 7 中文字符
-- ❌ 修改全局样式文件
+- ❌ 在没有全页影响面审计时修改共享样式文件
 - ❌ 拖拽 touchmove 不节流 `createSelectorQuery`
 - ❌ `onUnload` 中忘记 `eventBus.off`
 - ❌ 忘记在 `onHide`/`onUnload` 中清理定时器
+- ❌ 用公共模块包装所有 `Page({})` 或把开发夹具注入生产页面依赖图
+- ❌ 依赖未打包的 `@swc/runtime` / `@babel/runtime` helper
+- ❌ 仅用 `node --check` 代替 `node scripts/miniprogram-compat-audit.js` 和微信开发者工具编译
+- ❌ 用正则批量改写 WXML 标签或属性；`wx:if="{{a > b}}"` 中的 `>` 不是标签结束符，工具必须识别引号、Mustache 和 WXS

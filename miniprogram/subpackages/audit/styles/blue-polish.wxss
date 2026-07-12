@@ -87,6 +87,11 @@ page {
   box-sizing: border-box;
 }
 
+input.field-input,
+textarea.field-textarea {
+  display: block;
+}
+
 .field-textarea,
 textarea {
   min-height: 156rpx;
@@ -216,41 +221,7 @@ textarea {
   gap: 8rpx;
 }
 
-/* Shared motion and glass progress surfaces */
-.card:active,
-.section:active,
-.my-filter-box:active,
-.edit-box:active,
-.list-card:active,
-.audit-submission-item:active,
-.pending-item:active,
-.audit-sig-card:active,
-.file-attach-item:active,
-.ad-hoc-step-item:active,
-.template-select-item:active,
-.tpl-step-preview-item:active,
-.sign-file-card:active,
-.list-item:active,
-.nav-row:active {
-  transform: translateY(1rpx) scale(0.992);
-  box-shadow:
-    0 12rpx 24rpx rgba(37, 99, 235, 0.07),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.82);
-}
-
-.primary-btn:active,
-.secondary-btn:active,
-.danger-btn:active,
-.audit-chip:active,
-.preview-chip:active,
-.merit-chip:active,
-.filter-chip:active,
-.chip:active {
-  transform: translateY(1rpx) scale(0.985);
-  opacity: 0.92;
-  filter: saturate(1.03);
-}
-
+/* Shared glass progress surfaces. Press feedback is driven by each target's hover-class. */
 .audit-flow-progress-bar,
 .progress-track {
   background: linear-gradient(135deg, rgba(226, 237, 247, 0.78), rgba(248, 251, 255, 0.68));
@@ -264,29 +235,6 @@ textarea {
 .progress-fill {
   background: linear-gradient(90deg, #2563eb 0%, #3b82f6 54%, #60a5fa 100%);
   box-shadow: 0 0 18rpx rgba(37, 99, 235, 0.24);
-}
-
-/* Interaction isolation: never animate container shells when child controls are touched. */
-.card:active,
-.section:active,
-.my-filter-box:active,
-.edit-box:active,
-.list-card:active {
-  transform: none !important;
-  filter: none !important;
-}
-
-.audit-submission-item:active,
-.pending-item:active,
-.audit-sig-card:active,
-.file-attach-item:active,
-.ad-hoc-step-item:active,
-.template-select-item:active,
-.tpl-step-preview-item:active,
-.sign-file-card:active,
-.list-item:active,
-.nav-row:active {
-  transform: none !important;
 }
 
 .audit-submission-item.control-pressing,
@@ -368,3 +316,53 @@ textarea {
 
 .popup-close::before { display: none !important; content: none !important; }
 .popup-close::after { content: "×" !important; color: #2563eb !important; font-size: 28rpx !important; font-weight: 800 !important; line-height: 1 !important; }
+
+@media (min-width: 520px) {
+  .large-scroll {
+    max-height: 65vh;
+  }
+
+  .audit-submission-item,
+  .pending-item,
+  .audit-sig-card,
+  .template-select-item {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .popup-close {
+    min-height: 36px !important;
+    padding: 8px 0 8px 14px !important;
+    font-size: 13px !important;
+    line-height: 20px !important;
+  }
+
+  .popup-close::after {
+    font-size: 18px !important;
+  }
+
+  .audit-submission-name,
+  .pending-item-name,
+  .detail-title,
+  .template-select-name,
+  .audit-sig-name {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+  }
+
+  .audit-submission-meta,
+  .pending-item-meta,
+  .detail-meta,
+  .template-select-desc,
+  .audit-sig-meta {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+  }
+
+  .detail-status-chip,
+  .status-chip,
+  .audit-chip {
+    font-size: 12px !important;
+    line-height: 18px !important;
+  }
+}

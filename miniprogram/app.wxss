@@ -1,888 +1,37 @@
-.container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-sizing: border-box;
-}
-
-button {
-  background: initial;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 0 30rpx;
-}
-
-button:focus {
-  outline: 0;
-}
-
-button::after {
-  border: none;
-}
+/* REDSU 统一蓝色轻奢玻璃设计系统 */
 
 page {
+  --ui-blue-700: #2563eb;
+  --ui-blue-500: #3b82f6;
+  --ui-blue-400: #60a5fa;
+  --ui-text: #0f172a;
+  --ui-text-body: #334155;
+  --ui-text-muted: #64748b;
+  --ui-text-soft: #94a3b8;
+  --ui-line: rgba(226, 237, 247, 0.96);
+  --ui-line-blue: rgba(147, 197, 253, 0.64);
+  --ui-danger: #ef4444;
+  --ui-font-xs: 20rpx;
+  --ui-font-sm: 22rpx;
+  --ui-font-md: 25rpx;
+  --ui-font-lg: 30rpx;
+  --ui-font-xl: 46rpx;
+  --ui-line-control: 1.35;
+  --ui-control-height: 82rpx;
+  --ui-control-padding-y: 16rpx;
+  --ui-control-padding-x: 28rpx;
+  --ui-compact-height: 52rpx;
   min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  color: #0f172a;
+  color: var(--ui-text, #0f172a);
+  font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
   background:
-    radial-gradient(circle at 12% 10%, rgba(96, 165, 250, 0.14), transparent 28%),
-    radial-gradient(circle at 86% 16%, rgba(191, 219, 254, 0.18), transparent 24%),
-    linear-gradient(180deg, #f8fbff 0%, #eef5ff 48%, #edf4fb 100%);
-  color: #163047;
+    radial-gradient(circle at 12% 10%, rgba(96, 165, 250, 0.16) 0%, transparent 26%),
+    radial-gradient(circle at 86% 18%, rgba(191, 219, 254, 0.22) 0%, transparent 24%),
+    radial-gradient(circle at 18% 88%, rgba(125, 211, 252, 0.10) 0%, transparent 22%),
+    linear-gradient(135deg, #f8fbff 0%, #f1f6fc 48%, #edf3fa 100%);
 }
 
-input,
-textarea {
-  box-sizing: border-box;
-}
-
-@keyframes glassFadeUp {
-  from {
-    opacity: 0.01;
-    transform: translateY(18rpx) scale(0.992);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.page-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48rpx 30rpx 36rpx;
-  margin-top: 40rpx;
-  color: #7b8ba3;
-  font-size: 24rpx;
-  line-height: 1.8;
-  letter-spacing: 2rpx;
-}
-
-.page-footer .footer-name {
-  font-size: 20rpx;
-  color: #8b9bb5;
-  letter-spacing: 4rpx;
-}
-
-.page-footer .footer-org {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #506380;
-}
-
-/* Global glass UI baseline */
-.card,
-.section,
-.edit-box,
-.list-card,
-.filter-section,
-.booking-panel,
-.popup-card {
-  box-sizing: border-box;
-}
-
-.card,
-.section,
-.edit-box,
-.list-card,
-.filter-section {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82) 0%, rgba(248, 251, 255, 0.70) 100%);
-  border: 1rpx solid rgba(255, 255, 255, 0.64);
-  box-shadow:
-    0 18rpx 36rpx rgba(15, 23, 42, 0.06),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(24rpx);
-  -webkit-backdrop-filter: blur(24rpx);
-}
-
-.list-item,
-.nav-row,
-.booking-item,
-.pending-item,
-.task-table,
-.popup-table,
-.question-card,
-.audit-submission-item,
-.file-attach-item {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(249, 251, 255, 0.82) 100%);
-  border: 1rpx solid rgba(226, 237, 247, 0.96);
-  box-shadow:
-    0 12rpx 24rpx rgba(15, 23, 42, 0.04),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.78);
-}
-
-.primary-btn,
-.secondary-btn,
-.danger-btn,
-.approve-btn,
-.reject-btn,
-.link,
-.action-btn,
-.filter-chip,
-.chip,
-.header-nav-btn,
-.pending-action-link {
-  transition: transform 0.14s ease, box-shadow 0.2s ease, opacity 0.14s ease, filter 0.2s ease;
-}
-
-.primary-btn:active,
-.secondary-btn:active,
-.danger-btn:active,
-.approve-btn:active,
-.reject-btn:active,
-.link:active,
-.action-btn:active,
-.filter-chip:active,
-.chip:active,
-.header-nav-btn:active,
-.pending-action-link:active {
-  transform: translateY(1rpx) scale(0.985);
-  opacity: 0.92;
-  filter: saturate(1.03);
-}
-
-.status-tag,
-.booking-status,
-.audit-chip,
-.green-chip,
-.blue-chip,
-.orange-chip,
-.gray-chip,
-.red-chip,
-.mode-chip,
-.venue-tag {
-  border-radius: 999rpx;
-  box-shadow:
-    0 6rpx 14rpx rgba(15, 23, 42, 0.035),
-    inset 0 1rpx 0 rgba(255, 255, 255, 0.56);
-}
-
-.progress-track,
-.audit-flow-progress-bar,
-.timeline-bar {
-  background: linear-gradient(135deg, rgba(226, 237, 247, 0.78) 0%, rgba(248, 251, 255, 0.68) 100%);
-  border: 1rpx solid rgba(255, 255, 255, 0.62);
-  box-shadow:
-    inset 0 1rpx 4rpx rgba(15, 23, 42, 0.08),
-    0 8rpx 18rpx rgba(15, 23, 42, 0.025);
-}
-
-.progress-fill,
-.audit-flow-progress-fill,
-.timeline-selection {
-  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 54%, #60a5fa 100%);
-  box-shadow: 0 0 18rpx rgba(37, 99, 235, 0.24);
-}
-
-/* Global button interaction system */
-button,
-.primary-btn,
-.secondary-btn,
-.danger-btn,
-.approve-btn,
-.reject-btn,
-.profile-submit-btn,
-.page-submit-btn,
-.template-save-btn,
-.purpose-save-btn,
-.dialog-btn,
-.sigpad-btn,
-.placement-mini-btn,
-.flow-action-btn,
-.audit-link-btn,
-.step-action-link,
-.pending-action-link,
-.action-btn,
-.link,
-.pill-link,
-.pill-close,
-.header-nav-btn,
-.panel-add-btn,
-.mini-action-btn,
-.compact-action-btn,
-.order-btn,
-.filter-chip,
-.chip,
-.feature-tab,
-.tab,
-.rules-tab,
-.app-view-tab,
-.kb-nav-btn,
-.kb-quick-btn,
-.kb-key,
-.kb-collapse-btn,
-.kb-toggle-btn,
-.popup-close,
-.modal-close,
-.cancel-btn,
-.mark-all-read,
-.placement-page-btn,
-.approval-file-btn-preview,
-.approval-file-btn-sign,
-.approval-file-btn-stamp,
-.stamp-picker-select,
-.sig-source-use-btn {
-  position: relative !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-  border-style: solid !important;
-  border-width: 1rpx !important;
-  transform: translateZ(0);
-  transition:
-    transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.22s ease,
-    opacity 0.16s ease,
-    filter 0.22s ease,
-    background 0.22s ease,
-    border-color 0.22s ease !important;
-  will-change: transform, box-shadow, opacity;
-}
-
-button::before,
-.primary-btn::before,
-.secondary-btn::before,
-.danger-btn::before,
-.approve-btn::before,
-.reject-btn::before,
-.profile-submit-btn::before,
-.page-submit-btn::before,
-.template-save-btn::before,
-.purpose-save-btn::before,
-.dialog-btn::before,
-.sigpad-btn::before,
-.placement-mini-btn::before,
-.flow-action-btn::before,
-.audit-link-btn::before,
-.step-action-link::before,
-.pending-action-link::before,
-.action-btn::before,
-.link::before,
-.pill-link::before,
-.pill-close::before,
-.header-nav-btn::before,
-.panel-add-btn::before,
-.mini-action-btn::before,
-.compact-action-btn::before,
-.order-btn::before,
-.filter-chip::before,
-.chip::before,
-.feature-tab::before,
-.tab::before,
-.rules-tab::before,
-.app-view-tab::before,
-.kb-nav-btn::before,
-.kb-quick-btn::before,
-.kb-key::before,
-.kb-collapse-btn::before,
-.kb-toggle-btn::before,
-.popup-close::before,
-.modal-close::before,
-.cancel-btn::before,
-.mark-all-read::before,
-.placement-page-btn::before,
-.approval-file-btn-preview::before,
-.approval-file-btn-sign::before,
-.approval-file-btn-stamp::before,
-.stamp-picker-select::before,
-.sig-source-use-btn::before {
-  content: "";
-  position: absolute;
-  left: -72%;
-  top: -46%;
-  width: 58%;
-  height: 192%;
-  transform: rotate(18deg);
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.32) 50%, rgba(255,255,255,0) 100%);
-  opacity: 0;
-  pointer-events: none;
-}
-
-button:active::before,
-.primary-btn:active::before,
-.secondary-btn:active::before,
-.danger-btn:active::before,
-.approve-btn:active::before,
-.reject-btn:active::before,
-.profile-submit-btn:active::before,
-.page-submit-btn:active::before,
-.template-save-btn:active::before,
-.purpose-save-btn:active::before,
-.dialog-btn:active::before,
-.sigpad-btn:active::before,
-.placement-mini-btn:active::before,
-.flow-action-btn:active::before,
-.audit-link-btn:active::before,
-.step-action-link:active::before,
-.pending-action-link:active::before,
-.action-btn:active::before,
-.link:active::before,
-.pill-link:active::before,
-.pill-close:active::before,
-.header-nav-btn:active::before,
-.panel-add-btn:active::before,
-.mini-action-btn:active::before,
-.compact-action-btn:active::before,
-.order-btn:active::before,
-.filter-chip:active::before,
-.chip:active::before,
-.feature-tab:active::before,
-.tab:active::before,
-.rules-tab:active::before,
-.app-view-tab:active::before,
-.kb-nav-btn:active::before,
-.kb-quick-btn:active::before,
-.kb-key:active::before,
-.kb-collapse-btn:active::before,
-.kb-toggle-btn:active::before,
-.popup-close:active::before,
-.modal-close:active::before,
-.cancel-btn:active::before,
-.mark-all-read:active::before,
-.placement-page-btn:active::before,
-.approval-file-btn-preview:active::before,
-.approval-file-btn-sign:active::before,
-.approval-file-btn-stamp:active::before,
-.stamp-picker-select:active::before,
-.sig-source-use-btn:active::before {
-  opacity: 1;
-  animation: buttonSweep 0.42s ease both;
-}
-
-.primary-btn,
-.approve-btn,
-.profile-submit-btn,
-.page-submit-btn,
-.template-save-btn,
-.purpose-save-btn,
-.sigpad-btn-primary,
-.pending-action-link.approve,
-.action-btn.primary,
-.flow-action-btn,
-.approval-btn-approve,
-.booking-actions .approve-btn,
-.kb-nav-btn-next,
-.kb-nav-btn-submit {
-  color: #ffffff !important;
-  background:
-    radial-gradient(circle at 26% 8%, rgba(255,255,255,0.32) 0%, transparent 24%),
-    linear-gradient(135deg, #2563eb 0%, #3b82f6 52%, #60a5fa 100%) !important;
-  border-color: rgba(147,197,253,0.56) !important;
-  box-shadow:
-    0 18rpx 34rpx rgba(37,99,235,0.22),
-    0 0 22rpx rgba(96,165,250,0.12),
-    inset 0 1rpx 0 rgba(255,255,255,0.26) !important;
-}
-
-.secondary-btn,
-.sigpad-btn-secondary,
-.dialog-btn,
-.placement-mini-btn,
-.header-nav-btn,
-.mini-action-btn,
-.compact-action-btn,
-.order-btn,
-.popup-close,
-.modal-close,
-.mark-all-read,
-.placement-page-btn,
-.approval-file-btn-preview,
-.approval-file-btn-sign,
-.approval-file-btn-stamp,
-.stamp-picker-select,
-.sig-source-use-btn {
-  color: #2563eb !important;
-  background:
-    radial-gradient(circle at 22% 0%, rgba(96,165,250,0.16) 0%, transparent 30%),
-    linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.82)) !important;
-  border-color: rgba(147,197,253,0.66) !important;
-  box-shadow:
-    0 12rpx 24rpx rgba(37,99,235,0.10),
-    inset 0 1rpx 0 rgba(255,255,255,0.84) !important;
-}
-
-.danger-btn,
-.reject-btn,
-.pill-close,
-.link.danger,
-.cancel-btn,
-.audit-link-danger,
-.flow-action-danger,
-.step-action-danger,
-.pending-action-link.reject,
-.order-btn-delete,
-.approval-btn-reject,
-.booking-actions .reject-btn {
-  color: #dc2626 !important;
-  background:
-    radial-gradient(circle at 22% 0%, rgba(255,255,255,0.28) 0%, transparent 28%),
-    linear-gradient(135deg, rgba(255,255,255,0.96), rgba(254,226,226,0.78)) !important;
-  border-color: rgba(252,165,165,0.62) !important;
-  box-shadow:
-    0 12rpx 24rpx rgba(239,68,68,0.10),
-    inset 0 1rpx 0 rgba(255,255,255,0.82) !important;
-}
-
-.danger-btn,
-.reject-btn {
-  color: #ffffff !important;
-  background:
-    radial-gradient(circle at 26% 8%, rgba(255,255,255,0.28) 0%, transparent 24%),
-    linear-gradient(135deg, #dc2626 0%, #ef4444 56%, #f87171 100%) !important;
-  border-color: rgba(252,165,165,0.58) !important;
-  box-shadow:
-    0 16rpx 30rpx rgba(239,68,68,0.18),
-    inset 0 1rpx 0 rgba(255,255,255,0.22) !important;
-}
-
-.primary-btn,
-.secondary-btn,
-.danger-btn,
-.approve-btn,
-.reject-btn,
-.profile-submit-btn,
-.page-submit-btn,
-.template-save-btn,
-.dialog-btn,
-.sigpad-btn,
-.button-row button,
-.actions button,
-.audit-btn-bar button,
-.placement-actions button {
-  min-height: 84rpx !important;
-  height: 84rpx !important;
-  line-height: 84rpx !important;
-  padding: 0 34rpx !important;
-  border-radius: 999rpx !important;
-  font-size: 25rpx !important;
-  font-weight: 800 !important;
-  letter-spacing: 0 !important;
-}
-
-.link,
-.action-btn,
-.pill-link,
-.pill-close,
-.header-nav-btn,
-.panel-add-btn,
-.purpose-save-btn,
-.mini-action-btn,
-.compact-action-btn,
-.order-btn,
-.filter-chip,
-.chip,
-.audit-link-btn,
-.flow-action-btn,
-.step-action-link,
-.pending-action-link,
-.popup-close,
-.modal-close,
-.cancel-btn,
-.placement-mini-btn,
-.placement-page-btn,
-.approval-file-btn-preview,
-.approval-file-btn-sign,
-.approval-file-btn-stamp,
-.stamp-picker-select,
-.sig-source-use-btn,
-.mark-all-read {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-height: 46rpx !important;
-  height: auto !important;
-  line-height: 1.2 !important;
-  padding: 8rpx 18rpx !important;
-  border-radius: 999rpx !important;
-  font-size: 22rpx !important;
-  font-weight: 800 !important;
-  color: #2563eb !important;
-  background:
-    radial-gradient(circle at 22% 0%, rgba(96,165,250,0.16) 0%, transparent 30%),
-    linear-gradient(135deg, rgba(255,255,255,0.92), rgba(219,234,254,0.72)) !important;
-  border-color: rgba(147,197,253,0.60) !important;
-  box-shadow:
-    0 8rpx 18rpx rgba(37,99,235,0.09),
-    inset 0 1rpx 0 rgba(255,255,255,0.78) !important;
-}
-
-.panel-add-btn,
-.purpose-save-btn {
-  min-height: 60rpx !important;
-  height: 60rpx !important;
-  padding: 0 24rpx !important;
-}
-
-.tab,
-.feature-tab,
-.rules-tab,
-.app-view-tab,
-.kb-nav-btn,
-.kb-quick-btn,
-.kb-key,
-.kb-collapse-btn,
-.kb-toggle-btn {
-  background:
-    radial-gradient(circle at 22% 0%, rgba(96,165,250,0.14) 0%, transparent 30%),
-    linear-gradient(135deg, rgba(255,255,255,0.92), rgba(239,246,255,0.74)) !important;
-  border-color: rgba(147,197,253,0.46) !important;
-  box-shadow:
-    0 8rpx 18rpx rgba(37,99,235,0.075),
-    inset 0 1rpx 0 rgba(255,255,255,0.80) !important;
-}
-
-.tab-active,
-.feature-tab-active,
-.rules-tab.active,
-.app-view-tab-active,
-.chip.active,
-.filter-chip.active,
-.kb-key-active,
-.kb-nav-btn-next,
-.kb-nav-btn-submit {
-  color: #ffffff !important;
-  background:
-    radial-gradient(circle at 26% 8%, rgba(255,255,255,0.30) 0%, transparent 24%),
-    linear-gradient(135deg, #2563eb 0%, #3b82f6 52%, #60a5fa 100%) !important;
-  border-color: rgba(147,197,253,0.56) !important;
-  box-shadow:
-    0 16rpx 30rpx rgba(37,99,235,0.22),
-    0 0 22rpx rgba(96,165,250,0.12),
-    inset 0 1rpx 0 rgba(255,255,255,0.24) !important;
-}
-
-button[disabled],
-.button-disabled,
-.disabled,
-.kb-nav-btn-disabled,
-.order-btn-disabled,
-.nav-row-disabled,
-.app-grid-item-disabled {
-  opacity: 0.45 !important;
-  filter: grayscale(0.12) saturate(0.7) !important;
-  box-shadow:
-    0 6rpx 14rpx rgba(15,23,42,0.035),
-    inset 0 1rpx 0 rgba(255,255,255,0.62) !important;
-  transform: none !important;
-}
-
-button[disabled]:active,
-.button-disabled:active,
-.disabled:active,
-.kb-nav-btn-disabled:active,
-.order-btn-disabled:active,
-.nav-row-disabled:active,
-.app-grid-item-disabled:active {
-  transform: none !important;
-  opacity: 0.45 !important;
-}
-
-@keyframes buttonSweep {
-  0% {
-    left: -74%;
-    opacity: 0;
-  }
-
-  22% {
-    opacity: 0.95;
-  }
-
-  100% {
-    left: 126%;
-    opacity: 0;
-  }
-}
-
-/* Final control tuning: clearer states, softer light, stronger tactile motion. */
-button::before,
-.primary-btn::before,
-.secondary-btn::before,
-.danger-btn::before,
-.approve-btn::before,
-.reject-btn::before,
-.profile-submit-btn::before,
-.page-submit-btn::before,
-.template-save-btn::before,
-.purpose-save-btn::before,
-.dialog-btn::before,
-.sigpad-btn::before,
-.placement-mini-btn::before,
-.flow-action-btn::before,
-.audit-link-btn::before,
-.step-action-link::before,
-.pending-action-link::before,
-.action-btn::before,
-.link::before,
-.pill-link::before,
-.pill-close::before,
-.header-nav-btn::before,
-.panel-add-btn::before,
-.mini-action-btn::before,
-.compact-action-btn::before,
-.order-btn::before,
-.filter-chip::before,
-.chip::before,
-.select-chip::before,
-.grade-chip::before,
-.dept-tab::before,
-.hour-chip::before,
-.min-chip::before,
-.duration-chip::before,
-.role-pill::before,
-.feature-tab::before,
-.tab::before,
-.rules-tab::before,
-.app-view-tab::before,
-.kb-nav-btn::before,
-.kb-quick-btn::before,
-.kb-key::before,
-.kb-collapse-btn::before,
-.kb-toggle-btn::before {
-  width: 44% !important;
-  height: 150% !important;
-  background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.22) 48%, transparent 100%) !important;
-  filter: blur(0.5rpx) !important;
-}
-
-.primary-btn,
-.approve-btn,
-.profile-submit-btn,
-.page-submit-btn,
-.template-save-btn,
-.dialog-btn.confirm,
-.flow-action-primary,
-.audit-link-primary,
-.step-action-primary,
-.placement-page-btn.primary,
-.sig-source-use-btn {
-  background:
-    linear-gradient(135deg, rgba(59,130,246,0.16) 0%, transparent 34%),
-    linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%) !important;
-  border-color: rgba(147,197,253,0.54) !important;
-  box-shadow:
-    0 12rpx 24rpx rgba(37,99,235,0.17),
-    inset 0 1rpx 0 rgba(255,255,255,0.22) !important;
-}
-
-.secondary-btn,
-.dialog-btn.cancel,
-.sigpad-btn,
-.cancel-btn,
-.placement-mini-btn,
-.placement-page-btn,
-.approval-file-btn-preview,
-.approval-file-btn-sign,
-.approval-file-btn-stamp,
-.stamp-picker-select {
-  color: #2563eb !important;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.96), rgba(246,249,255,0.84)) !important;
-  border-color: rgba(147,197,253,0.66) !important;
-  box-shadow:
-    0 10rpx 20rpx rgba(37,99,235,0.08),
-    inset 0 1rpx 0 rgba(255,255,255,0.84) !important;
-}
-
-.link,
-.action-btn,
-.pill-link,
-.header-nav-btn,
-.panel-add-btn,
-.purpose-save-btn,
-.mini-action-btn,
-.compact-action-btn,
-.order-btn,
-.audit-link-btn,
-.flow-action-btn,
-.step-action-link,
-.pending-action-link,
-.mark-all-read {
-  color: #2563eb !important;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.92), rgba(219,234,254,0.68)) !important;
-  border-color: rgba(147,197,253,0.56) !important;
-  box-shadow:
-    0 8rpx 16rpx rgba(37,99,235,0.08),
-    inset 0 1rpx 0 rgba(255,255,255,0.80) !important;
-}
-
-.filter-chip,
-.chip,
-.select-chip,
-.grade-chip,
-.dept-tab,
-.hour-chip,
-.min-chip,
-.duration-chip,
-.role-pill,
-.feature-tab,
-.tab,
-.rules-tab,
-.app-view-tab,
-.kb-nav-btn,
-.kb-quick-btn,
-.kb-key,
-.kb-collapse-btn,
-.kb-toggle-btn {
-  color: #475569 !important;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.94), rgba(248,251,255,0.76)) !important;
-  border-color: rgba(203,213,225,0.52) !important;
-  box-shadow:
-    0 7rpx 14rpx rgba(15,23,42,0.045),
-    inset 0 1rpx 0 rgba(255,255,255,0.82) !important;
-}
-
-.tab-active,
-.feature-tab-active,
-.rules-tab.active,
-.app-view-tab-active,
-.chip.active,
-.filter-chip.active,
-.filter-chip-active,
-.select-chip-active,
-.grade-chip-active,
-.dept-tab-active,
-.hour-chip-active,
-.min-chip-active,
-.duration-chip-active,
-.role-pill-active,
-.kb-key-active,
-.kb-nav-btn-active,
-.kb-nav-btn-next,
-.kb-nav-btn-submit,
-.kb-nav-btn-next-active,
-.kb-nav-btn-submit-active {
-  color: #ffffff !important;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.16) 0%, transparent 30%),
-    linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%) !important;
-  border-color: rgba(147,197,253,0.58) !important;
-  box-shadow:
-    0 12rpx 22rpx rgba(37,99,235,0.18),
-    inset 0 1rpx 0 rgba(255,255,255,0.24) !important;
-}
-
-.danger-btn,
-.reject-btn {
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.14) 0%, transparent 30%),
-    linear-gradient(135deg, #dc2626 0%, #ef4444 58%, #f87171 100%) !important;
-  box-shadow:
-    0 12rpx 24rpx rgba(239,68,68,0.16),
-    inset 0 1rpx 0 rgba(255,255,255,0.20) !important;
-}
-
-.pill-close,
-.link.danger,
-.audit-link-danger,
-.flow-action-danger,
-.step-action-danger,
-.pending-action-link.reject,
-.order-btn-delete,
-.approval-btn-reject,
-.booking-actions .reject-btn {
-  color: #dc2626 !important;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.96), rgba(254,226,226,0.76)) !important;
-  border-color: rgba(252,165,165,0.58) !important;
-  box-shadow:
-    0 8rpx 16rpx rgba(239,68,68,0.08),
-    inset 0 1rpx 0 rgba(255,255,255,0.82) !important;
-}
-
-.link:active,
-.action-btn:active,
-.pill-link:active,
-.pill-close:active,
-.header-nav-btn:active,
-.panel-add-btn:active,
-.purpose-save-btn:active,
-.mini-action-btn:active,
-.compact-action-btn:active,
-.order-btn:active,
-.filter-chip:active,
-.chip:active,
-.select-chip:active,
-.grade-chip:active,
-.dept-tab:active,
-.hour-chip:active,
-.min-chip:active,
-.duration-chip:active,
-.role-pill:active,
-.feature-tab:active,
-.tab:active,
-.rules-tab:active,
-.app-view-tab:active,
-.kb-nav-btn:active,
-.kb-quick-btn:active,
-.kb-key:active,
-.kb-collapse-btn:active,
-.kb-toggle-btn:active,
-.popup-close:active,
-.modal-close:active,
-.cancel-btn:active,
-.mark-all-read:active,
-.placement-page-btn:active,
-.approval-file-btn-preview:active,
-.approval-file-btn-sign:active,
-.approval-file-btn-stamp:active,
-.stamp-picker-select:active,
-.sig-source-use-btn:active {
-  transform: translateY(2rpx) scale(0.976) !important;
-  opacity: 0.96 !important;
-  filter: saturate(1.04) brightness(1.01) !important;
-  box-shadow:
-    0 0 0 3rpx rgba(37,99,235,0.08),
-    0 6rpx 14rpx rgba(37,99,235,0.12),
-    inset 0 2rpx 7rpx rgba(15,23,42,0.07),
-    inset 0 1rpx 0 rgba(255,255,255,0.78) !important;
-}
-
-.danger-btn:active,
-.reject-btn:active,
-.pill-close:active,
-.link.danger:active,
-.audit-link-danger:active,
-.flow-action-danger:active,
-.step-action-danger:active,
-.pending-action-link.reject:active,
-.order-btn-delete:active,
-.approval-btn-reject:active,
-.booking-actions .reject-btn:active {
-  box-shadow:
-    0 0 0 3rpx rgba(239,68,68,0.10),
-    0 7rpx 16rpx rgba(239,68,68,0.13),
-    inset 0 2rpx 7rpx rgba(127,29,29,0.07),
-    inset 0 1rpx 0 rgba(255,255,255,0.78) !important;
-}
-
-@keyframes buttonSweep {
-  0% {
-    left: -58%;
-    opacity: 0;
-  }
-
-  34% {
-    opacity: 0.36;
-  }
-
-  100% {
-    left: 112%;
-    opacity: 0;
-  }
-}
-
-/* Interaction timing polish: instant press, softer release, unified font stack. */
-page,
 button,
 input,
 textarea,
@@ -890,584 +39,224 @@ picker,
 view,
 text,
 scroll-view {
-  font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  font-family: inherit;
 }
 
 button,
-.primary-btn,
-.secondary-btn,
-.danger-btn,
-.approve-btn,
-.reject-btn,
-.profile-submit-btn,
-.page-submit-btn,
-.template-save-btn,
-.purpose-save-btn,
-.dialog-btn,
-.sigpad-btn,
-.placement-mini-btn,
-.flow-action-btn,
-.audit-link-btn,
-.step-action-link,
-.pending-action-link,
-.action-btn,
-.link,
-.pill-link,
-.pill-close,
-.header-nav-btn,
-.panel-add-btn,
-.mini-action-btn,
-.compact-action-btn,
-.order-btn,
-.filter-chip,
-.chip,
-.select-chip,
-.grade-chip,
-.dept-tab,
-.hour-chip,
-.min-chip,
-.duration-chip,
-.role-pill,
-.feature-tab,
-.tab,
-.rules-tab,
-.app-view-tab,
-.kb-nav-btn,
-.kb-quick-btn,
-.kb-key,
-.kb-collapse-btn,
-.kb-toggle-btn,
-.popup-close,
-.modal-close,
-.cancel-btn,
-.mark-all-read,
-.placement-page-btn,
-.approval-file-btn-preview,
-.approval-file-btn-sign,
-.approval-file-btn-stamp,
-.stamp-picker-select,
-.sig-source-use-btn,
-.nav-row,
-.app-grid-item,
-.audit-home-card,
-.audit-step-card,
-.rank-card,
-.merit-card-inner,
-.notification-item {
-  transform-origin: center center !important;
-  transition:
-    transform 0.26s cubic-bezier(0.18, 0.86, 0.32, 1.18),
-    box-shadow 0.24s ease,
-    opacity 0.20s ease,
-    filter 0.24s ease,
-    background 0.24s ease,
-    border-color 0.24s ease !important;
+input,
+textarea {
+  box-sizing: border-box;
 }
 
-button:active,
-.primary-btn:active,
-.secondary-btn:active,
-.danger-btn:active,
-.approve-btn:active,
-.reject-btn:active,
-.profile-submit-btn:active,
-.page-submit-btn:active,
-.template-save-btn:active,
-.dialog-btn:active,
-.sigpad-btn:active,
-.link:active,
-.action-btn:active,
-.pill-link:active,
-.pill-close:active,
-.header-nav-btn:active,
-.panel-add-btn:active,
-.purpose-save-btn:active,
-.mini-action-btn:active,
-.compact-action-btn:active,
-.order-btn:active,
-.filter-chip:active,
-.chip:active,
-.select-chip:active,
-.grade-chip:active,
-.dept-tab:active,
-.hour-chip:active,
-.min-chip:active,
-.duration-chip:active,
-.role-pill:active,
-.feature-tab:active,
-.tab:active,
-.rules-tab:active,
-.app-view-tab:active,
-.kb-nav-btn:active,
-.kb-quick-btn:active,
-.kb-key:active,
-.kb-collapse-btn:active,
-.kb-toggle-btn:active,
-.popup-close:active,
-.modal-close:active,
-.cancel-btn:active,
-.mark-all-read:active,
-.placement-page-btn:active,
-.approval-file-btn-preview:active,
-.approval-file-btn-sign:active,
-.approval-file-btn-stamp:active,
-.stamp-picker-select:active,
-.sig-source-use-btn:active,
-.nav-row:active,
-.app-grid-item:active,
-.audit-home-card:active,
-.audit-step-card:active,
-.rank-card:active,
-.merit-card-inner:active,
-.notification-item:active,
-.control-pressing {
-  transition:
-    transform 0.055s cubic-bezier(0.2, 0, 0, 1),
-    box-shadow 0.07s ease,
-    opacity 0.055s ease,
-    filter 0.07s ease !important;
+button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  min-height: var(--ui-control-height, 82rpx);
+  height: auto;
+  padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
+  font-size: var(--ui-font-md, 25rpx);
+  line-height: var(--ui-line-control, 1.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.nav-row:active,
-.nav-row.control-pressing,
-.notification-item:active {
-  transform: translateY(3rpx) scale(0.988) !important;
-  opacity: 0.96 !important;
-  box-shadow:
-    0 7rpx 16rpx rgba(37,99,235,0.10),
-    inset 0 2rpx 7rpx rgba(15,23,42,0.06),
-    inset 0 1rpx 0 rgba(255,255,255,0.74) !important;
-}
-
-.app-grid-item:active,
-.app-grid-item.control-pressing {
-  transform: translateY(4rpx) scale(0.955) !important;
-  opacity: 0.96 !important;
-  filter: saturate(1.04) brightness(0.99) !important;
-  box-shadow:
-    0 5rpx 12rpx rgba(37,99,235,0.10),
-    inset 0 3rpx 8rpx rgba(15,23,42,0.07),
-    inset 0 1rpx 0 rgba(255,255,255,0.72) !important;
-}
-
-.nav-row-disabled.control-pressing,
-.app-grid-item-disabled.control-pressing {
-  transform: none !important;
-  opacity: 0.48 !important;
-  filter: grayscale(0.12) saturate(0.7) !important;
-}
-
-/* Card press light: glass sheen for tappable list/card surfaces. */
-.card,
-.list-card,
-.list-item,
-.question-card,
-.booking-item,
-.pending-item,
-.result-table-row,
-.task-card,
-.audit-submission-item,
-.audit-home-card,
-.audit-step-card,
-.rank-card,
-.merit-card-inner,
-.file-attach-item,
-.venue-card,
-.nav-row,
-.app-grid-item,
-.notification-item,
-.hr-member-card,
-.audit-template-list-item {
-  position: relative !important;
-  overflow: hidden !important;
-  transform-origin: center center !important;
-}
-
-.card::after,
-.list-card::after,
-.list-item::after,
-.question-card::after,
-.booking-item::after,
-.pending-item::after,
-.result-table-row::after,
-.task-card::after,
-.audit-submission-item::after,
-.audit-home-card::after,
-.audit-step-card::after,
-.rank-card::after,
-.merit-card-inner::after,
-.file-attach-item::after,
-.venue-card::after,
-.nav-row::after,
-.app-grid-item::after,
-.notification-item::after,
-.hr-member-card::after,
-.audit-template-list-item::after {
-  content: "";
-  position: absolute;
-  left: -62%;
-  top: -58%;
-  width: 54%;
-  height: 210%;
-  transform: rotate(18deg);
-  opacity: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.34) 48%, transparent 100%);
-  filter: blur(0.5rpx);
-}
-
-.control-pressing::after {
-  animation: cardPressSheen 0.36s ease-out both;
-}
-
-.nav-row-disabled:active,
-.app-grid-item-disabled:active,
-.nav-row-disabled.control-pressing,
-.app-grid-item-disabled.control-pressing,
-.disabled:active,
-.button-disabled:active {
-  transform: none !important;
-  filter: grayscale(0.12) saturate(0.7) !important;
-}
-
-@keyframes cardPressSheen {
-  0% {
-    left: -62%;
-    opacity: 0;
-  }
-
-  28% {
-    opacity: 0.34;
-  }
-
-  100% {
-    left: 116%;
-    opacity: 0;
-  }
-}
-
-/* Interaction isolation: only the touched control moves, never its parent shell. */
 button::after {
-  border: 0 !important;
+  border: 0;
 }
 
+input,
+textarea {
+  display: block;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+/* 页面与 Hero */
+.page {
+  position: relative;
+  min-height: 100vh;
+  padding: 30rpx 24rpx calc(42rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.hero,
+.hero-admin {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+  padding: 40rpx 34rpx 36rpx;
+  border-radius: 38rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 24rpx 48rpx rgba(37, 99, 235, 0.18),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.24);
+  animation: glassFadeUp 0.42s cubic-bezier(0.16, 0.84, 0.28, 1) both;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 84% 8%, rgba(255,255,255,0.22), transparent 28%),
+    linear-gradient(135deg, #2563eb 0%, #3b82f6 52%, #60a5fa 100%);
+}
+
+.hero-admin {
+  background:
+    radial-gradient(circle at 84% 10%, rgba(96,165,250,0.24), transparent 30%),
+    linear-gradient(135deg, rgba(15,23,42,0.97) 0%, rgba(30,58,138,0.95) 58%, rgba(37,99,235,0.92) 100%);
+  box-shadow:
+    0 26rpx 52rpx rgba(15, 23, 42, 0.20),
+    inset 0 1rpx 0 rgba(255, 255, 255, 0.16);
+}
+
+.hero-badge,
+.hero-title,
+.hero-subtitle {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38rpx;
+  margin-bottom: 16rpx;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  color: rgba(255,255,255,0.96);
+  font-size: 21rpx;
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.12));
+  border: 1rpx solid rgba(255,255,255,0.28);
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.22);
+}
+
+.hero-title {
+  color: #ffffff;
+  font-size: 46rpx;
+  font-size: var(--ui-font-xl, 46rpx);
+  font-weight: 800;
+  line-height: 1.24;
+}
+
+.hero-subtitle {
+  margin-top: 10rpx;
+  color: rgba(248,250,252,0.90);
+  font-size: 25rpx;
+  font-size: var(--ui-font-md, 25rpx);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* 三级玻璃表面 */
 .card,
-.list-card,
-.popup-card,
-.dialog-panel,
-.modal-card,
 .section,
 .edit-box,
-.targets-card,
-.activity-card,
-.results-panel-card,
-.detail-summary-card {
-  transform: none !important;
+.list-card,
+.booking-panel,
+.filter-section,
+.popup-card,
+.modal-card,
+.sheet-panel {
+  position: relative;
+  box-sizing: border-box;
+  transform: none;
 }
 
-.card:active,
-.list-card:active,
-.popup-card:active,
-.dialog-panel:active,
-.modal-card:active,
-.section:active,
-.edit-box:active,
-.targets-card:active,
-.activity-card:active,
-.results-panel-card:active,
-.detail-summary-card:active {
-  transform: none !important;
-  filter: none !important;
+.card,
+.section,
+.edit-box,
+.list-card,
+.booking-panel {
+  border-radius: 30rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.86), rgba(248,251,255,0.72));
+  border: 1rpx solid rgba(255,255,255,0.72);
+  box-shadow:
+    0 18rpx 36rpx rgba(15,23,42,0.055),
+    inset 0 1rpx 0 rgba(255,255,255,0.82);
+  backdrop-filter: blur(24rpx);
+  -webkit-backdrop-filter: blur(24rpx);
 }
 
-.card:active::after,
-.list-card:active::after,
-.popup-card:active::after,
-.dialog-panel:active::after,
-.modal-card:active::after,
-.section:active::after,
-.edit-box:active::after,
-.targets-card:active::after,
-.activity-card:active::after,
-.results-panel-card:active::after,
-.detail-summary-card:active::after {
-  animation: none !important;
-  opacity: 0 !important;
+.filter-section {
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.78), rgba(248,251,255,0.62));
+  border: 1rpx solid rgba(226,237,247,0.84);
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.78);
 }
 
-.control-pressing {
-  transform: none !important;
-  filter: inherit !important;
-  box-shadow: inherit !important;
-}
-
-.control-pressing::after {
-  animation: none !important;
-  opacity: 0 !important;
-}
-
-button,
-.primary-btn,
-.secondary-btn,
-.danger-btn,
-.approve-btn,
-.reject-btn,
-.profile-submit-btn,
-.page-submit-btn,
-.template-save-btn,
-.purpose-save-btn,
-.dialog-btn,
-.sigpad-btn,
-.placement-mini-btn,
-.flow-action-btn,
-.audit-link-btn,
-.step-action-link,
-.pending-action-link,
-.action-btn,
-.link,
-.pill-link,
-.pill-close,
-.header-nav-btn,
-.panel-add-btn,
-.mini-action-btn,
-.compact-action-btn,
-.order-btn,
-.filter-chip,
-.chip,
-.select-chip,
-.grade-chip,
-.dept-tab,
-.hour-chip,
-.min-chip,
-.duration-chip,
-.role-pill,
-.feature-tab,
-.tab,
-.rules-tab,
-.app-view-tab,
-.kb-nav-btn,
-.kb-quick-btn,
-.kb-key,
-.kb-collapse-btn,
-.kb-toggle-btn,
-.popup-close,
-.modal-close,
-.cancel-btn,
-.mark-all-read,
-.placement-page-btn,
-.approval-file-btn-preview,
-.approval-file-btn-sign,
-.approval-file-btn-stamp,
-.stamp-picker-select,
-.sig-source-use-btn,
-.nav-row,
-.app-grid-item,
 .list-item,
-.question-card,
+.nav-row,
 .booking-item,
 .pending-item,
-.result-table-row,
-.task-table-row,
-.popup-table-row,
-.audit-home-card,
-.audit-step-card,
-.rank-card,
-.merit-card-inner,
-.notification-item,
-.venue-card,
-.audit-submission-item {
-  transition:
-    transform 0.30s cubic-bezier(0.16, 0.84, 0.28, 1),
-    box-shadow 0.28s ease,
-    opacity 0.22s ease,
-    filter 0.28s ease,
-    background 0.28s ease,
-    border-color 0.28s ease !important;
-}
-
-button:active,
-.primary-btn:active,
-.secondary-btn:active,
-.danger-btn:active,
-.approve-btn:active,
-.reject-btn:active,
-.profile-submit-btn:active,
-.page-submit-btn:active,
-.template-save-btn:active,
-.dialog-btn:active,
-.sigpad-btn:active {
-  transform: translate3d(0, 2rpx, 0) scale(0.982) !important;
-  opacity: 0.97 !important;
-  filter: saturate(1.02) brightness(0.995) !important;
-  box-shadow:
-    0 5rpx 12rpx rgba(37,99,235,0.11),
-    inset 0 3rpx 9rpx rgba(15,23,42,0.07),
-    inset 0 1rpx 0 rgba(255,255,255,0.72) !important;
-  transition:
-    transform 0.13s cubic-bezier(0.2, 0.0, 0.18, 1),
-    box-shadow 0.13s ease,
-    opacity 0.12s ease,
-    filter 0.13s ease !important;
-}
-
-.link:active,
-.action-btn:active,
-.pill-link:active,
-.pill-close:active,
-.header-nav-btn:active,
-.panel-add-btn:active,
-.purpose-save-btn:active,
-.mini-action-btn:active,
-.compact-action-btn:active,
-.order-btn:active,
-.filter-chip:active,
-.chip:active,
-.select-chip:active,
-.grade-chip:active,
-.dept-tab:active,
-.hour-chip:active,
-.min-chip:active,
-.duration-chip:active,
-.role-pill:active,
-.feature-tab:active,
-.tab:active,
-.rules-tab:active,
-.app-view-tab:active,
-.kb-nav-btn:active,
-.kb-quick-btn:active,
-.kb-key:active,
-.kb-collapse-btn:active,
-.kb-toggle-btn:active,
-.popup-close:active,
-.modal-close:active,
-.cancel-btn:active,
-.mark-all-read:active,
-.placement-page-btn:active,
-.approval-file-btn-preview:active,
-.approval-file-btn-sign:active,
-.approval-file-btn-stamp:active,
-.stamp-picker-select:active,
-.sig-source-use-btn:active {
-  transform: translate3d(0, 1rpx, 0) scale(0.986) !important;
-  opacity: 0.97 !important;
-  filter: saturate(1.02) brightness(0.998) !important;
-  box-shadow:
-    0 4rpx 10rpx rgba(37,99,235,0.10),
-    inset 0 2rpx 7rpx rgba(15,23,42,0.055),
-    inset 0 1rpx 0 rgba(255,255,255,0.74) !important;
-  transition:
-    transform 0.12s cubic-bezier(0.2, 0.0, 0.18, 1),
-    box-shadow 0.12s ease,
-    opacity 0.12s ease,
-    filter 0.12s ease !important;
-}
-
-.nav-row.control-pressing,
-.app-grid-item.control-pressing,
-.list-item.control-pressing,
-.question-card.control-pressing,
-.booking-item.control-pressing,
-.pending-item.control-pressing,
-.result-table-row.control-pressing,
-.task-table-row.control-pressing,
-.popup-table-row.control-pressing,
-.audit-home-card.control-pressing,
-.audit-step-card.control-pressing,
-.rank-card.control-pressing,
-.merit-card-inner.control-pressing,
-.notification-item.control-pressing,
-.venue-card.control-pressing,
-.audit-submission-item.control-pressing {
-  transform: translate3d(0, 2rpx, 0) scale(0.988) !important;
-  opacity: 0.97 !important;
-  filter: saturate(1.02) brightness(1.005) !important;
-  box-shadow:
-    0 6rpx 14rpx rgba(37,99,235,0.095),
-    inset 0 2rpx 8rpx rgba(15,23,42,0.052),
-    inset 0 1rpx 0 rgba(255,255,255,0.76) !important;
-  transition:
-    transform 0.14s cubic-bezier(0.2, 0.0, 0.18, 1),
-    box-shadow 0.14s ease,
-    opacity 0.12s ease,
-    filter 0.14s ease !important;
-}
-
-.app-grid-item.control-pressing {
-  transform: translate3d(0, 3rpx, 0) scale(0.972) !important;
-}
-
-.nav-row.control-pressing::after,
-.app-grid-item.control-pressing::after,
-.list-item.control-pressing::after,
-.question-card.control-pressing::after,
-.booking-item.control-pressing::after,
-.pending-item.control-pressing::after,
-.result-table-row.control-pressing::after,
-.task-table-row.control-pressing::after,
-.popup-table-row.control-pressing::after,
-.audit-home-card.control-pressing::after,
-.audit-step-card.control-pressing::after,
-.rank-card.control-pressing::after,
-.merit-card-inner.control-pressing::after,
-.notification-item.control-pressing::after,
-.venue-card.control-pressing::after,
-.audit-submission-item.control-pressing::after {
-  animation: cardPressSheenSoft 0.46s ease-out both !important;
-}
-
-.nav-row-disabled.control-pressing,
-.app-grid-item-disabled.control-pressing,
-.disabled.control-pressing,
-.button-disabled.control-pressing {
-  transform: none !important;
-  opacity: 0.48 !important;
-  filter: grayscale(0.12) saturate(0.7) !important;
-}
-
-@keyframes cardPressSheenSoft {
-  0% {
-    left: -54%;
-    opacity: 0;
-  }
-
-  38% {
-    opacity: 0.22;
-  }
-
-  100% {
-    left: 108%;
-    opacity: 0;
-  }
-}
-
-/* UI audit hardening: avoid transition: all from animating layout geometry. */
-.app-view-tab,
-.filter-chip,
-.dept-tab,
+.question-card,
+.audit-submission-item,
+.file-attach-item,
 .template-select-item,
-.radio-dot,
-.ad-hoc-step-item,
-.flow-node,
-.audit-expand-toggle,
-.hour-chip,
-.min-chip,
-.duration-chip,
-.rules-tab,
-.select-chip,
-.pending-entry-bar {
-  transition:
-    transform 0.24s cubic-bezier(0.16, 0.84, 0.28, 1),
-    box-shadow 0.24s ease,
-    opacity 0.18s ease,
-    filter 0.24s ease,
-    color 0.20s ease,
-    background 0.24s ease,
-    border-color 0.24s ease !important;
+.audit-person-item,
+.task-table-row,
+.result-table-row,
+.popup-table-row {
+  position: relative;
+  box-sizing: border-box;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.94), rgba(249,251,255,0.84));
+  border: 1rpx solid rgba(226,237,247,0.96);
+  box-shadow:
+    0 10rpx 22rpx rgba(15,23,42,0.038),
+    inset 0 1rpx 0 rgba(255,255,255,0.82);
 }
 
-/* Final motion tuning: slower release, clear local feedback, no parent wobble. */
-button,
+/* 标题 */
+.section-title {
+  position: relative;
+  margin: 0;
+  padding-left: 20rpx;
+  color: #0f172a;
+  font-size: 30rpx;
+  font-size: var(--ui-font-lg, 30rpx);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.section-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 7rpx;
+  height: 28rpx;
+  border-radius: 999rpx;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
+  box-shadow: 0 0 12rpx rgba(96,165,250,0.20);
+}
+
+.list-title {
+  color: #0f172a;
+  font-size: 27rpx;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.list-desc,
+.section-desc,
+.panel-note,
+.field-hint {
+  color: #64748b;
+  font-size: 22rpx;
+  font-size: var(--ui-font-sm, 22rpx);
+  line-height: 1.65;
+}
+
+/* 按钮体系 */
 .primary-btn,
 .secondary-btn,
 .danger-btn,
@@ -1479,283 +268,749 @@ button,
 .purpose-save-btn,
 .dialog-btn,
 .sigpad-btn {
+  position: relative;
+  min-height: 82rpx;
+  min-height: var(--ui-control-height, 82rpx);
+  height: auto;
+  padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
+  border-radius: 24rpx;
+  border: 1rpx solid transparent;
+  font-size: 25rpx;
+  font-size: var(--ui-font-md, 25rpx);
+  font-weight: 750;
+  line-height: var(--ui-line-control, 1.35);
+  box-sizing: border-box;
   transition:
-    transform 0.24s cubic-bezier(0.16, 0.84, 0.28, 1),
+    transform 0.22s cubic-bezier(0.16, 0.84, 0.28, 1),
     box-shadow 0.22s ease,
     opacity 0.18s ease,
-    filter 0.22s ease,
+    filter 0.20s ease,
     background 0.22s ease,
-    border-color 0.22s ease !important;
-  will-change: auto !important;
+    border-color 0.22s ease;
 }
 
-button:active,
-button.button-pressing,
-.primary-btn:active,
-.primary-btn.button-pressing,
-.secondary-btn:active,
-.secondary-btn.button-pressing,
-.danger-btn:active,
-.danger-btn.button-pressing,
-.approve-btn:active,
-.reject-btn:active,
-.profile-submit-btn:active,
-.page-submit-btn:active,
-.template-save-btn:active,
-.purpose-save-btn:active,
-.dialog-btn:active,
-.sigpad-btn:active {
-  transform: translate3d(0, 2rpx, 0) scale(0.984) !important;
-  opacity: 0.98 !important;
-  filter: saturate(1.025) brightness(0.998) !important;
+.primary-btn,
+.approve-btn,
+.profile-submit-btn,
+.page-submit-btn,
+.template-save-btn,
+.purpose-save-btn,
+.sigpad-btn-primary,
+.action-btn.primary,
+.pending-action-link.approve,
+.approval-btn-approve {
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 24% 4%, rgba(255,255,255,0.26), transparent 28%),
+    linear-gradient(135deg, #2563eb 0%, #3b82f6 52%, #60a5fa 100%);
+  border-color: rgba(147,197,253,0.64);
   box-shadow:
-    0 6rpx 14rpx rgba(37,99,235,0.12),
-    inset 0 3rpx 10rpx rgba(15,23,42,0.07),
-    inset 0 1rpx 0 rgba(255,255,255,0.74) !important;
-  transition:
-    transform 0.13s cubic-bezier(0.2, 0, 0.18, 1),
-    box-shadow 0.14s ease,
-    opacity 0.16s ease,
-    filter 0.14s ease !important;
-  will-change: transform, opacity !important;
+    0 14rpx 28rpx rgba(37,99,235,0.18),
+    inset 0 1rpx 0 rgba(255,255,255,0.26);
 }
 
+.secondary-btn,
+.dialog-btn,
+.sigpad-btn-secondary {
+  color: #2457a7;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(239,246,255,0.86));
+  border-color: rgba(147,197,253,0.70);
+  box-shadow:
+    0 10rpx 22rpx rgba(37,99,235,0.075),
+    inset 0 1rpx 0 rgba(255,255,255,0.88);
+}
+
+.danger-btn,
+.reject-btn,
+.approval-btn-reject {
+  color: #ffffff;
+  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  border-color: rgba(252,165,165,0.62);
+  box-shadow:
+    0 12rpx 24rpx rgba(239,68,68,0.15),
+    inset 0 1rpx 0 rgba(255,255,255,0.22);
+}
+
+button[disabled],
+.disabled,
+.button-disabled {
+  opacity: 0.48;
+  filter: grayscale(0.12) saturate(0.72);
+  transform: none;
+}
+
+/* 小型操作与选择控件 */
+.link,
+.action-btn,
+.audit-link-btn,
+.flow-action-btn,
+.step-action-link,
+.pending-action-link,
+.pill-link,
+.pill-close,
+.header-nav-btn,
+.mark-all-read,
+.popup-close,
+.modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  color: #2563eb;
+  font-size: 22rpx;
+  font-size: var(--ui-font-sm, 22rpx);
+  font-weight: 750;
+  line-height: 1.25;
+  background: linear-gradient(135deg, rgba(239,246,255,0.92), rgba(219,234,254,0.72));
+  border: 1rpx solid rgba(147,197,253,0.58);
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.72);
+  box-sizing: border-box;
+  transition:
+    transform 0.22s cubic-bezier(0.16, 0.84, 0.28, 1),
+    box-shadow 0.20s ease,
+    opacity 0.18s ease,
+    background 0.20s ease;
+}
+
+.link.danger,
+.audit-link-danger,
+.flow-action-danger,
+.step-action-danger,
+.pending-action-link.reject,
+.pill-close {
+  color: #dc2626;
+  background: linear-gradient(135deg, rgba(254,242,242,0.94), rgba(254,226,226,0.78));
+  border-color: rgba(252,165,165,0.58);
+}
+
+.popup-close,
+.modal-close {
+  min-height: 0;
+  padding: 4rpx 0 4rpx 14rpx;
+  border: 0;
+  border-radius: 0;
+  color: #475569;
+  background: transparent;
+  box-shadow: none;
+}
+
+.popup-close::after {
+  content: "×";
+  margin-left: 8rpx;
+  color: #3b82f6;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+/* Tabs 与 Chip，持续状态和按压状态相互独立 */
+.tabs,
+.tabs-card {
+  display: flex;
+  gap: 8rpx;
+  padding: 8rpx;
+  border-radius: 26rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.78), rgba(248,251,255,0.62));
+  border: 1rpx solid rgba(255,255,255,0.70);
+  box-shadow:
+    0 12rpx 26rpx rgba(15,23,42,0.045),
+    inset 0 1rpx 0 rgba(255,255,255,0.82);
+}
+
+.tab,
+.feature-tab,
+.rules-tab,
+.app-view-tab,
+.filter-chip,
+.chip,
+.select-chip,
+.grade-chip,
+.dept-tab,
+.hour-chip,
+.min-chip,
+.duration-chip,
+.role-pill {
+  position: relative;
+  box-sizing: border-box;
+  transition:
+    transform 0.22s cubic-bezier(0.16, 0.84, 0.28, 1),
+    box-shadow 0.20s ease,
+    color 0.20s ease,
+    background 0.20s ease,
+    border-color 0.20s ease;
+}
+
+.tab-active,
+.feature-tab-active,
+.rules-tab-active,
+.app-view-tab-active,
+.filter-chip-active,
+.select-chip-active,
+.grade-chip-active,
+.dept-tab-active,
+.hour-chip-active,
+.min-chip-active,
+.duration-chip-active,
+.role-pill-active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
+  border-color: rgba(147,197,253,0.64);
+  box-shadow:
+    0 10rpx 20rpx rgba(37,99,235,0.16),
+    inset 0 1rpx 0 rgba(255,255,255,0.24);
+}
+
+/* 表单 */
 .field-input,
 .field-textarea,
 .picker-value,
 .picker-display,
 .compact-picker-value {
+  display: block;
+  width: 100%;
+  min-height: 76rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 20rpx;
+  color: #10233d;
+  font-size: 25rpx;
+  line-height: 1.55;
+  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(246,249,255,0.90));
+  border: 1rpx solid rgba(219,229,241,0.96);
+  box-shadow:
+    0 7rpx 16rpx rgba(15,23,42,0.032),
+    inset 0 1rpx 0 rgba(255,255,255,0.88);
+  box-sizing: border-box;
+  transform: none;
   transition:
-    transform 0.28s cubic-bezier(0.18, 0.88, 0.24, 1),
-    box-shadow 0.28s ease,
-    border-color 0.24s ease,
-    background 0.28s ease,
-    filter 0.28s ease !important;
+    box-shadow 0.22s ease,
+    border-color 0.20s ease,
+    background 0.22s ease;
 }
 
 .field-input:focus,
 .field-textarea:focus {
-  transform: none !important;
-  border-color: rgba(96,165,250,0.86) !important;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.98), rgba(239,246,255,0.88)) !important;
+  transform: none;
+  border-color: rgba(96,165,250,0.88);
+  background: linear-gradient(135deg, rgba(255,255,255,0.99), rgba(239,246,255,0.92));
   box-shadow:
-    0 10rpx 22rpx rgba(37,99,235,0.10),
+    0 9rpx 20rpx rgba(37,99,235,0.08),
     0 0 0 3rpx rgba(191,219,254,0.42),
-    inset 0 1rpx 0 rgba(255,255,255,0.88) !important;
+    inset 0 1rpx 0 rgba(255,255,255,0.92);
 }
 
-.audit-home-card:active,
-.audit-submission-item:active,
-.pending-item:active,
-.list-item:active,
-.question-card:active,
-.booking-item:active,
-.result-table-row:active,
-.template-select-item:active,
-.file-attach-item:active,
-.ad-hoc-step-item:active {
-  transform: none !important;
+/* 弹窗 */
+.popup-mask,
+.dialog-layer,
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 34rpx 24rpx calc(34rpx + env(safe-area-inset-bottom));
+  background: rgba(15,23,42,0.34);
+  box-sizing: border-box;
 }
 
-.audit-home-card.control-pressing,
-.audit-submission-item.control-pressing,
-.pending-item.control-pressing,
-.list-item.control-pressing,
-.question-card.control-pressing,
-.booking-item.control-pressing,
-.result-table-row.control-pressing,
-.template-select-item.control-pressing,
-.file-attach-item.control-pressing,
-.ad-hoc-step-item.control-pressing {
-  transform: translate3d(0, 2rpx, 0) scale(0.992) !important;
-  opacity: 0.975 !important;
-  filter: saturate(1.018) brightness(1.004) !important;
-  transition:
-    transform 0.18s cubic-bezier(0.2, 0.78, 0.22, 1),
-    box-shadow 0.20s ease,
-    opacity 0.18s ease,
-    filter 0.20s ease !important;
-  will-change: transform, opacity !important;
-}
-
-.button-pressing {
-  transform: translate3d(0, 2rpx, 0) scale(0.984) !important;
-  opacity: 0.98 !important;
-  filter: saturate(1.02) brightness(0.998) !important;
+.popup-card,
+.modal-card {
+  width: 100%;
+  max-height: 88vh;
+  padding: 26rpx;
+  border-radius: 30rpx;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(248,251,255,0.91));
+  border: 1rpx solid rgba(255,255,255,0.84);
   box-shadow:
-    0 6rpx 14rpx rgba(37,99,235,0.12),
-    inset 0 3rpx 10rpx rgba(15,23,42,0.07),
-    inset 0 1rpx 0 rgba(255,255,255,0.74) !important;
-  transition:
-    transform 0.13s cubic-bezier(0.2, 0, 0.18, 1),
-    box-shadow 0.14s ease,
-    opacity 0.16s ease,
-    filter 0.14s ease !important;
-  will-change: transform, opacity !important;
+    0 24rpx 52rpx rgba(15,23,42,0.16),
+    inset 0 1rpx 0 rgba(255,255,255,0.90);
+  backdrop-filter: blur(28rpx);
+  -webkit-backdrop-filter: blur(28rpx);
 }
 
-/* Final popup close style: text + x, not a button pill. */
-.popup-close,
-.modal-close {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
-  gap: 8rpx !important;
-  min-width: 0 !important;
-  width: auto !important;
-  min-height: 0 !important;
-  height: auto !important;
-  line-height: 1.4 !important;
-  padding: 4rpx 0 4rpx 16rpx !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: #475569 !important;
-  font-size: 24rpx !important;
-  font-weight: 700 !important;
-  letter-spacing: 0 !important;
-  text-shadow: none !important;
-  white-space: nowrap !important;
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  margin-bottom: 18rpx;
+}
+
+.popup-title {
+  flex: 1;
+  min-width: 0;
+  color: #0f172a;
+  font-size: 29rpx;
+  font-size: var(--ui-font-lg, 30rpx);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+/* 状态 */
+.status-tag,
+.booking-status,
+.audit-chip,
+.green-chip,
+.blue-chip,
+.orange-chip,
+.gray-chip,
+.red-chip,
+.mode-chip,
+.venue-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rpx;
+  border: 1rpx solid transparent;
+  box-shadow:
+    0 4rpx 10rpx rgba(15,23,42,0.03),
+    inset 0 1rpx 0 rgba(255,255,255,0.60);
+}
+
+.progress-track,
+.audit-flow-progress-bar,
+.timeline-bar {
+  background: linear-gradient(135deg, rgba(226,237,247,0.78), rgba(248,251,255,0.68));
+  border: 1rpx solid rgba(255,255,255,0.66);
+  box-shadow: inset 0 1rpx 4rpx rgba(15,23,42,0.08);
+}
+
+.progress-fill,
+.audit-flow-progress-fill,
+.timeline-selection {
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 54%, #60a5fa 100%);
+  box-shadow: 0 0 14rpx rgba(59,130,246,0.20);
+}
+
+/* Persistent motion classes own the release curve; hover classes own the held state. */
+.ui-motion-button,
+.ui-motion-card,
+.ui-motion-chip {
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: center;
+  backface-visibility: hidden;
+}
+
+.ui-motion-button {
   transition:
-    color 0.18s ease,
+    transform 0.22s cubic-bezier(0.16, 0.84, 0.28, 1),
+    box-shadow 0.24s ease,
     opacity 0.18s ease,
-    transform 0.18s cubic-bezier(0.2, 0.78, 0.22, 1) !important;
+    filter 0.20s ease;
 }
 
-.popup-close::before,
-.modal-close::before {
-  display: none !important;
-  content: none !important;
+.ui-motion-card {
+  transition:
+    transform 0.24s cubic-bezier(0.16, 0.84, 0.28, 1),
+    box-shadow 0.26s ease,
+    opacity 0.20s ease,
+    filter 0.20s ease;
 }
 
-.popup-close::after {
-  content: "×" !important;
-  color: #2563eb !important;
-  font-size: 28rpx !important;
-  font-weight: 800 !important;
-  line-height: 1 !important;
+.ui-motion-chip {
+  transition:
+    transform 0.22s cubic-bezier(0.16, 0.84, 0.28, 1),
+    box-shadow 0.22s ease,
+    opacity 0.18s ease,
+    color 0.20s ease,
+    background 0.20s ease,
+    border-color 0.20s ease;
 }
 
-.modal-close::before {
-  content: "关闭" !important;
-  display: inline !important;
-  color: #475569 !important;
-  font-size: 24rpx !important;
-  font-weight: 700 !important;
+.ui-press-button,
+.button-pressing,
+button:active,
+.primary-btn:active,
+.secondary-btn:active,
+.danger-btn:active,
+.approve-btn:active,
+.reject-btn:active {
+  transform: translate3d(0, 2rpx, 0) scale(0.986);
+  opacity: 0.97;
+  filter: saturate(1.02) brightness(0.995);
+  box-shadow:
+    0 6rpx 14rpx rgba(37,99,235,0.11),
+    inset 0 3rpx 9rpx rgba(15,23,42,0.07),
+    inset 0 1rpx 0 rgba(255,255,255,0.72);
+  transition-duration: 0.12s;
 }
 
-.popup-close:active,
-.modal-close:active {
-  transform: translate3d(0, 1rpx, 0) scale(0.988) !important;
-  opacity: 0.72 !important;
-  filter: none !important;
-  box-shadow: none !important;
-  color: #2563eb !important;
+.ui-press-card,
+.control-pressing {
+  transform: translate3d(0, 2rpx, 0) scale(0.992);
+  opacity: 0.975;
+  filter: saturate(1.015) brightness(1.003);
+  box-shadow:
+    0 7rpx 16rpx rgba(37,99,235,0.09),
+    inset 0 2rpx 7rpx rgba(15,23,42,0.05),
+    inset 0 1rpx 0 rgba(255,255,255,0.76);
+  transition-duration: 0.13s;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   平板适配 — 用 px 约束控件，保持与手机一致的比例
-   关键：此处必须用 px 而非 rpx。rpx 在平板(768px)上是手机(375px)
-   的 2.048 倍，用 rpx 设 max-width 无法真正约束尺寸。
-   520px 断点：覆盖全部平板竖屏，不触发任何手机(最大~430px)。
-   ═══════════════════════════════════════════════════════════ */
+.ui-press-chip,
+.link:active,
+.action-btn:active,
+.audit-link-btn:active,
+.flow-action-btn:active,
+.step-action-link:active,
+.pending-action-link:active,
+.tab:active,
+.feature-tab:active,
+.filter-chip:active,
+.chip:active,
+.role-pill:active {
+  transform: translate3d(0, 1rpx, 0) scale(0.985);
+  opacity: 0.92;
+  transition-duration: 0.12s;
+}
+
+/* 容器壳永不响应子控件按压 */
+.card:active,
+.section:active,
+.edit-box:active,
+.list-card:active,
+.booking-panel:active,
+.filter-section:active,
+.popup-card:active,
+.modal-card:active,
+.sheet-panel:active {
+  transform: none;
+  opacity: 1;
+  filter: none;
+}
+
+.card-loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120rpx;
+}
+
+.card-loading-spinner {
+  width: 40rpx;
+  height: 40rpx;
+  border: 5rpx solid rgba(59,130,246,0.16);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: uiSpin 0.72s linear infinite;
+}
+
+.page-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 36rpx;
+  padding: 40rpx 24rpx 28rpx;
+  color: #94a3b8;
+  font-size: 21rpx;
+  line-height: 1.7;
+}
+
+.page-footer .footer-name {
+  color: #7b8ba3;
+  font-size: 20rpx;
+  letter-spacing: 2rpx;
+}
+
+.page-footer .footer-org {
+  color: #506380;
+  font-size: 24rpx;
+  font-weight: 650;
+}
+
+@keyframes glassFadeUp {
+  from { opacity: 0; transform: translateY(18rpx) scale(0.994); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes uiSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Pad 竖屏 */
 @media (min-width: 520px) {
-  /* ── 主按钮：px 固定高度，恢复手机端长宽比 ── */
-  .primary-btn, .secondary-btn, .danger-btn,
-  .approve-btn, .reject-btn,
-  .profile-submit-btn, .page-submit-btn,
-  .template-save-btn, .purpose-save-btn,
-  .dialog-btn, .sigpad-btn {
-    min-height: 48px !important;
-    height: 48px !important;
-    line-height: 48px !important;
+  page {
+    --ui-font-xs: 12px;
+    --ui-font-sm: 13px;
+    --ui-font-md: 15px;
+    --ui-font-lg: 18px;
+    --ui-font-xl: 28px;
+    --ui-line-control: 20px;
+    --ui-control-height: 48px;
+    --ui-control-padding-y: 12px;
+    --ui-control-padding-x: 20px;
+    --ui-compact-height: 36px;
+  }
+
+  .page {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 24px 38px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .page.page-narrow {
+    max-width: 600px;
+  }
+
+  .hero,
+  .hero-admin {
+    padding: 30px 30px 28px;
+    border-radius: 28px;
+  }
+
+  .hero-title {
+    font-size: 28px !important;
+    line-height: 1.28 !important;
+  }
+
+  .hero-subtitle {
     font-size: 15px !important;
-    padding-left: 26px !important;
-    padding-right: 26px !important;
+    line-height: 1.6 !important;
   }
 
-  /* ── 操作区大按钮 ── */
-  .actions button {
-    height: 54px !important;
-    line-height: 54px !important;
-    font-size: 17px !important;
-  }
-  .profile-submit-btn {
-    height: 54px !important;
-    line-height: 54px !important;
-    font-size: 17px !important;
+  .hero-badge {
+    min-height: 28px !important;
+    padding: 5px 12px !important;
+    font-size: 12px !important;
+    line-height: 16px !important;
   }
 
-  /* ── 小型按钮 / Chip：固定高度 ── */
-  .link, .action-btn, .pill-link, .pill-close,
-  .header-nav-btn, .mini-action-btn, .compact-action-btn,
-  .order-btn, .filter-chip, .chip, .audit-link-btn,
-  .flow-action-btn, .step-action-link, .pending-action-link,
-  .cancel-btn, .placement-mini-btn, .placement-page-btn,
-  .approval-file-btn-preview, .approval-file-btn-sign,
-  .approval-file-btn-stamp, .stamp-picker-select,
-  .sig-source-use-btn, .mark-all-read {
-    min-height: 30px !important;
-    padding: 6px 14px !important;
+  .section-title,
+  .popup-title,
+  .dialog-title,
+  .card-title,
+  .panel-title {
+    font-size: 18px !important;
+    line-height: 1.4 !important;
+  }
+
+  .list-title,
+  .list-name,
+  .field-label,
+  .panel-note,
+  .field-hint,
+  .list-desc,
+  .section-desc {
+    line-height: 1.55 !important;
+  }
+
+  .list-title,
+  .list-name {
+    font-size: 16px !important;
+  }
+
+  .audit-submission-title,
+  .pending-title,
+  .booking-title,
+  .booking-item-title,
+  .venue-name,
+  .detail-title,
+  .flow-step-name,
+  .audit-step-title {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .field-label {
+    font-size: 14px !important;
+  }
+
+  .panel-note,
+  .field-hint,
+  .list-desc,
+  .section-desc {
     font-size: 13px !important;
   }
 
-  /* ── Tab 切换 ── */
-  .tab, .feature-tab, .rules-tab, .app-view-tab {
-    font-size: 14px !important;
-    padding: 10px 16px !important;
+  .audit-submission-meta,
+  .audit-submission-desc-text,
+  .pending-meta,
+  .booking-meta,
+  .booking-item-meta,
+  .venue-loc,
+  .detail-val,
+  .flow-info-desc,
+  .audit-step-meta {
+    font-size: 13px !important;
+    line-height: 1.6 !important;
   }
 
-  /* ── 面板添加按钮 ── */
-  .panel-add-btn {
-    min-height: 38px !important;
-    height: 38px !important;
-    padding: 0 20px !important;
-    font-size: 14px !important;
+  .primary-btn,
+  .secondary-btn,
+  .danger-btn,
+  .approve-btn,
+  .reject-btn,
+  .profile-submit-btn,
+  .page-submit-btn,
+  .template-save-btn,
+  .purpose-save-btn,
+  .dialog-btn,
+  .sigpad-btn {
+    min-height: 48px !important;
+    height: auto !important;
+    padding: 12px 20px !important;
+    font-size: 15px !important;
+    line-height: 20px !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
   }
 
-  /* ── 按钮行：居中，按钮不拉伸 ── */
-  .button-row {
-    justify-content: center !important;
-  }
-  .button-row button {
-    flex: 0 1 auto !important;
-    min-width: 130px;
-    padding-left: 28px !important;
-    padding-right: 28px !important;
+  button {
+    min-height: 48px !important;
+    height: auto !important;
+    padding: 12px 20px !important;
+    font-size: 15px !important;
+    line-height: 20px !important;
   }
 
-  /* ── Dialog 按钮 ── */
-  .dialog-actions {
-    justify-content: center;
-  }
-  .dialog-btn {
-    flex: 0 1 auto !important;
-    min-width: 110px;
-    padding-left: 28px !important;
-    padding-right: 28px !important;
+  button > text {
+    line-height: inherit !important;
   }
 
-  /* ── 审核按钮栏 ── */
-  .audit-btn-bar {
-    justify-content: center;
-  }
-  .audit-btn-bar button {
-    flex: 0 1 auto !important;
-    min-width: 120px;
+  .link,
+  .action-btn,
+  .audit-link-btn,
+  .flow-action-btn,
+  .step-action-link,
+  .pending-action-link,
+  .pill-link,
+  .header-nav-btn,
+  .mark-all-read,
+  .placement-page-btn,
+  .cancel-btn {
+    min-height: 36px !important;
+    height: auto !important;
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+    line-height: 18px !important;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
   }
 
-  /* ── 弹窗宽度 ── */
-  .popup-card {
-    max-width: 480px;
-    margin-left: auto;
-    margin-right: auto;
+  .tab,
+  .feature-tab,
+  .rules-tab,
+  .app-view-tab,
+  .filter-chip,
+  .chip,
+  .select-chip,
+  .grade-chip,
+  .dept-tab,
+  .hour-chip,
+  .min-chip,
+  .duration-chip,
+  .role-pill {
+    min-height: 36px;
+    padding: 8px 14px;
+    font-size: 13px !important;
+    line-height: 18px !important;
+    white-space: nowrap;
+    word-break: keep-all;
+    box-sizing: border-box;
   }
 
-  /* ── Inline 操作区 ── */
+  .button-row,
+  .dialog-actions,
+  .audit-btn-bar,
+  .inline-actions,
+  .list-actions-below {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  .button-row,
+  .dialog-actions,
+  .audit-btn-bar,
   .inline-actions {
     justify-content: center;
+  }
+
+  .button-row button,
+  .dialog-btn,
+  .audit-btn-bar button {
+    flex: 0 1 auto;
+    min-width: 128px;
+    max-width: 320px;
+  }
+
+  .popup-card,
+  .modal-card {
+    max-width: 720px;
+    padding: 24px;
+    border-radius: 24px;
+  }
+
+  .field-input,
+  .field-textarea,
+  .picker-value,
+  .picker-display,
+  .compact-picker-value {
+    min-height: 46px !important;
+    height: auto !important;
+    padding: 11px 14px !important;
+    border-radius: 14px !important;
+    font-size: 15px !important;
+    line-height: 22px !important;
+  }
+
+  input.field-input,
+  textarea.field-textarea {
+    display: block !important;
+  }
+
+  .status-tag,
+  .booking-status,
+  .audit-chip,
+  .green-chip,
+  .blue-chip,
+  .orange-chip,
+  .gray-chip,
+  .red-chip,
+  .mode-chip,
+  .venue-tag {
+    flex-shrink: 0;
+    font-size: 12px !important;
+    line-height: 16px !important;
+  }
+
+  .footer-name {
+    font-size: 12px !important;
+    line-height: 18px !important;
+  }
+
+  .footer-org {
+    font-size: 14px !important;
+    line-height: 20px !important;
+  }
+}
+
+/* Pad 横屏工作台 */
+@media (min-width: 900px) {
+  .page {
+    max-width: 1180px;
+    padding: 28px 32px 40px;
+  }
+
+  .hero,
+  .hero-admin {
+    margin-bottom: 22px;
+  }
+
+  .popup-card,
+  .modal-card {
+    max-width: 860px;
+  }
+
+  .completion-popup-card,
+  .timetable-popup,
+  .placement-popup {
+    max-width: 1040px;
   }
 }

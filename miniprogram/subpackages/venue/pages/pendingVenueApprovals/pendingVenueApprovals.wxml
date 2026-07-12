@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">场地审批</view>
     <view class="hero-title">待我审批</view>
@@ -10,12 +10,12 @@
       <view class="section-title">待审批列表</view>
       <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">
         <text class="pending-update-time">更新于 {{lastUpdateTime}}</text>
-        <text class="pending-refresh-btn" bindtap="loadData">⟳ 刷新</text>
+        <text class="pending-refresh-btn ui-motion-chip" bindtap="loadData" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⟳ 刷新</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>
-        <view class="pending-item" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
+        <view class="pending-item ui-motion-card" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="pending-item-main">
             <view class="pending-item-name">{{item.title || '借用申请'}}</view>
             <view class="pending-item-meta">
@@ -26,8 +26,8 @@
             <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
           </view>
           <view class="pending-actions-col">
-            <text class="pending-action-link approve" data-id="{{item.id}}" catchtap="openApprove">通过</text>
-            <text class="pending-action-link reject" data-id="{{item.id}}" catchtap="openReject">驳回</text>
+            <text class="pending-action-link approve ui-motion-chip" data-id="{{item.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
+            <text class="pending-action-link reject ui-motion-chip" data-id="{{item.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
           </view>
         </view>
         <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
@@ -45,7 +45,7 @@
     <view class="popup-card" catchtap="noop">
       <view class="popup-header">
         <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>
-        <text class="popup-close" bindtap="closeApproval">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-body">
@@ -59,7 +59,7 @@
 
           <!-- Full flow timeline -->
           <view wx:if="{{approvalTarget._flowTimeline && approvalTarget._flowTimeline.length}}" class="audit-flow">
-            <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:for="{{approvalTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" bindtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="flow-node-tap">
+            <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{approvalTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="flow-left-col">
                 <view class="{{node.dotClass}}">{{node.icon}}</view>
                 <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
@@ -94,8 +94,8 @@
               <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
             </view>
             <view class="button-row" style="margin-top:16rpx;">
-              <button class="secondary-btn" bindtap="closeApproval">取消</button>
-              <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}}" loading="{{approvalSubmitting}}" bindtap="submitApproval">
+              <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+              <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                 {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
               </button>
             </view>

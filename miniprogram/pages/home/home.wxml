@@ -14,12 +14,12 @@
 
   <view class="tabs-card" wx:if="{{hasUser && !isAdminRole}}">
     <view
-      class="feature-tab {{activeTab === item.key ? 'feature-tab-active' : ''}}"
+      class="feature-tab {{activeTab === item.key ? 'feature-tab-active' : ''}} ui-motion-chip"
       wx:for="{{userTabs}}"
       wx:key="key"
       data-tab="{{item.key}}"
       bindtap="switchUserTab"
-    >
+     hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
       {{item.label}}
     </view>
   </view>
@@ -94,14 +94,14 @@
         <block wx:for="{{targetGroups}}" wx:key="identity">
           <view class="target-group-label">{{item.identity}}</view>
           <view
-            class="target-card {{selectedTargetId === target.id ? 'target-card-active' : ''}}"
+            class="target-card {{selectedTargetId === target.id ? 'target-card-active' : ''}} ui-motion-card"
             wx:for="{{item.targets}}"
             wx:key="id"
             wx:for-item="target"
             data-id="{{target.id}}"
             data-name="{{target.name}}"
             bindtap="selectTarget"
-          >
+           hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="target-main">
               <view class="target-name">{{target.name}}</view>
               <view class="target-tags">
@@ -153,7 +153,7 @@
       </view>
       <!-- 等第模式下显示各等第人数分布（可点击筛选） -->
       <view class="grade-distribution" wx:if="{{displayMode === 'grade' && gradeDistribution.length}}">
-        <view class="grade-chip {{resultFilterGrade === item.grade ? 'grade-chip-active' : ''}}" wx:for="{{gradeDistribution}}" wx:key="grade" bindtap="onResultFilterGrade" data-value="{{item.grade}}">
+        <view class="grade-chip {{resultFilterGrade === item.grade ? 'grade-chip-active' : ''}} ui-motion-chip" wx:for="{{gradeDistribution}}" wx:key="grade" bindtap="onResultFilterGrade" data-value="{{item.grade}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <text class="grade-chip-name">{{item.grade}}</text>
           <text class="grade-chip-count">{{item.count}}人</text>
         </view>
@@ -162,39 +162,39 @@
       <!-- 搜索 + 筛选 -->
       <view class="result-filter-area">
         <view class="result-search-row">
-          <view class="search-icon">🔍</view>
+          <view class="search-icon"><ui-icon name="search" tone="muted" size="34" ariaLabel="搜索" /></view>
           <input class="result-search-input" placeholder="搜索姓名 / 身份 / 部门 / 职能组" value="{{resultSearchText}}" bindinput="onResultSearchInput" confirm-type="search" />
-          <view class="search-clear" wx:if="{{resultSearchText}}" bindtap="onResultSearchClear">✕</view>
+          <view class="search-clear ui-motion-chip" wx:if="{{resultSearchText}}" bindtap="onResultSearchClear" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
         <view class="filter-title">筛选</view>
         <view class="filter-row" wx:if="{{resultIdentities.length}}">
           <view class="filter-row-label">身份</view>
           <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-            <view class="filter-chip {{resultFilterIdentity === '' ? 'filter-chip-active' : ''}}" bindtap="onResultFilterIdentity" data-value="">全部</view>
-            <view class="filter-chip {{resultFilterIdentity === item ? 'filter-chip-active' : ''}}" wx:for="{{resultIdentities}}" wx:key="*this" bindtap="onResultFilterIdentity" data-value="{{item}}">{{item}}</view>
+            <view class="filter-chip {{resultFilterIdentity === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterIdentity" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部</view>
+            <view class="filter-chip {{resultFilterIdentity === item ? 'filter-chip-active' : ''}} ui-motion-chip" wx:for="{{resultIdentities}}" wx:key="*this" bindtap="onResultFilterIdentity" data-value="{{item}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item}}</view>
           </scroll-view>
         </view>
         <view class="filter-row" wx:if="{{resultDepartments.length}}">
           <view class="filter-row-label">部门</view>
           <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-            <view class="filter-chip {{resultFilterDepartment === '' ? 'filter-chip-active' : ''}}" bindtap="onResultFilterDepartment" data-value="">全部</view>
-            <view class="filter-chip {{resultFilterDepartment === item ? 'filter-chip-active' : ''}}" wx:for="{{resultDepartments}}" wx:key="*this" bindtap="onResultFilterDepartment" data-value="{{item}}">{{item}}</view>
+            <view class="filter-chip {{resultFilterDepartment === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterDepartment" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部</view>
+            <view class="filter-chip {{resultFilterDepartment === item ? 'filter-chip-active' : ''}} ui-motion-chip" wx:for="{{resultDepartments}}" wx:key="*this" bindtap="onResultFilterDepartment" data-value="{{item}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item}}</view>
           </scroll-view>
         </view>
         <view class="filter-row" wx:if="{{resultWorkGroups.length}}">
           <view class="filter-row-label">职能组</view>
           <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-            <view class="filter-chip {{resultFilterWorkGroup === '' ? 'filter-chip-active' : ''}}" bindtap="onResultFilterWorkGroup" data-value="">全部</view>
-            <view class="filter-chip filter-chip-wg {{resultFilterWorkGroup === item ? 'filter-chip-active' : ''}}" wx:for="{{resultWorkGroups}}" wx:key="*this" bindtap="onResultFilterWorkGroup" data-value="{{item}}">{{item}}</view>
+            <view class="filter-chip {{resultFilterWorkGroup === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterWorkGroup" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部</view>
+            <view class="filter-chip filter-chip-wg {{resultFilterWorkGroup === item ? 'filter-chip-active' : ''}} ui-motion-chip" wx:for="{{resultWorkGroups}}" wx:key="*this" bindtap="onResultFilterWorkGroup" data-value="{{item}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item}}</view>
           </scroll-view>
         </view>
-        <view class="filter-clear" wx:if="{{resultFilterIdentity || resultFilterDepartment || resultFilterWorkGroup || resultFilterGrade || resultSearchText}}" bindtap="onResultFilterClear">清除全部筛选</view>
+        <view class="filter-clear ui-motion-chip" wx:if="{{resultFilterIdentity || resultFilterDepartment || resultFilterWorkGroup || resultFilterGrade || resultSearchText}}" bindtap="onResultFilterClear" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除全部筛选</view>
       </view>
 
       <!-- Grouped bubble cards (new per-clause mode) -->
       <view class="result-groups-area" wx:if="{{filteredGroups.length}}">
         <view class="result-group-bubble" wx:for="{{filteredGroups}}" wx:key="clauseId" wx:for-item="group" wx:for-index="gi" style="animation: glassFadeUp 0.38s {{0.07 * gi}}s ease both;">
-          <view class="result-group-head" data-clause-id="{{group.clauseId}}" bindtap="toggleResultGroup">
+          <view class="result-group-head ui-motion-chip" data-clause-id="{{group.clauseId}}" bindtap="toggleResultGroup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="result-group-head-left">
               <view class="result-group-label">{{group.groupLabel}}</view>
               <view class="result-group-mode-chip {{group.displayMode === 'grade' ? 'result-group-mode-grade' : 'result-group-mode-score'}}">{{group.displayMode === 'grade' ? '等第' : '分数'}}</view>
@@ -286,7 +286,7 @@
         <view class="merit-rule-head">
           <view class="target-group-label" style="margin-top:0;">{{item.targetIdentity}}</view>
           <view class="merit-group-count">{{item.quotaInfo}}</view>
-          <text class="merit-edit-btn" bindtap="openUserDesignation" data-identity="{{item.targetIdentity}}">✎ 编辑</text>
+          <text class="merit-edit-btn ui-motion-chip" bindtap="openUserDesignation" data-identity="{{item.targetIdentity}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✎ 编辑</text>
         </view>
         <scroll-view class="target-scroll" scroll-y wx:if="{{item.designatedMembers.length}}">
           <view class="target-card" wx:for="{{item.designatedMembers}}" wx:key="id" wx:for-item="m" style="animation-delay: {{0.05 * index}}s;">
@@ -431,11 +431,11 @@
         </scroll-view>
 
         <button
-          class="primary-btn profile-submit-btn {{hrProfile.template.editMode === 'audit' ? 'profile-submit-btn-audit' : ''}}"
+          class="primary-btn profile-submit-btn {{hrProfile.template.editMode === 'audit' ? 'profile-submit-btn-audit' : ''}} ui-motion-button"
           bindtap="submitHrProfile"
           loading="{{hrProfile.saving}}"
           disabled="{{hrProfile.template.editMode === 'readonly'}}"
-        >
+         hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           {{hrProfile.template.editMode === 'audit' ? '提交审核' : '保存人事信息'}}
         </button>
       </view>
@@ -448,33 +448,33 @@
       <view class="section-title">审核中心</view>
       <view class="audit-home-cards">
         <!-- 我的审核 -->
-        <view class="audit-home-card" bindtap="goMySubmissions" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
-          <view class="audit-home-card-icon">📄</view>
+        <view class="audit-home-card ui-motion-card" bindtap="goMySubmissions" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="audit-home-card-icon"><ui-icon name="file" tone="primary" size="42" ariaLabel="我的审核" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">我的审核</view>
             <view class="audit-home-card-desc">查看我发起的审核申请</view>
           </view>
           <view class="audit-home-card-badge" wx:if="{{auditMyCount > 0}}">{{auditMyCount}}</view>
-          <view class="audit-home-card-arrow">›</view>
+          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
         </view>
         <!-- 待我审批 -->
-        <view class="audit-home-card" bindtap="goPendingApprovals" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
-          <view class="audit-home-card-icon">✍️</view>
+        <view class="audit-home-card ui-motion-card" bindtap="goPendingApprovals" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="audit-home-card-icon"><ui-icon name="signature" tone="primary" size="42" ariaLabel="待我审批" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">待我审批</view>
             <view class="audit-home-card-desc">需要我处理的审批步骤</view>
           </view>
           <view class="audit-home-card-badge audit-home-card-badge-pending" wx:if="{{auditPendingCount > 0}}">{{auditPendingCount}}</view>
-          <view class="audit-home-card-arrow">›</view>
+          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
         </view>
         <!-- 我的审批记录 -->
-        <view class="audit-home-card" bindtap="goMyApprovalHistory" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
-          <view class="audit-home-card-icon">📋</view>
+        <view class="audit-home-card ui-motion-card" bindtap="goMyApprovalHistory" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="audit-home-card-icon"><ui-icon name="list" tone="primary" size="42" ariaLabel="审批记录" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">我的审批记录</view>
             <view class="audit-home-card-desc">我参与过审批的申请</view>
           </view>
-          <view class="audit-home-card-arrow">›</view>
+          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
         </view>
       </view>
     </view>
@@ -486,8 +486,8 @@
   </view>
 
   <view class="actions">
-    <button class="secondary-btn" bindtap="goPortal">返回门户</button>
-    <button class="danger-btn" wx:if="{{hasUser}}" bindtap="openUnbindDialog">解绑当前身份</button>
+    <button class="secondary-btn ui-motion-button" bindtap="goPortal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">返回门户</button>
+    <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="openUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑当前身份</button>
   </view>
 
   <view class="page-footer">
@@ -502,15 +502,15 @@
       <view class="dialog-title">确认解绑当前身份？</view>
       <view class="dialog-desc">解绑后会立即移除当前身份的登录状态，后续如需进入，需要重新完成验证。</view>
       <view class="dialog-actions">
-        <button class="secondary-btn dialog-btn" bindtap="closeUnbindDialog">再想想</button>
-        <button class="danger-btn dialog-btn" loading="{{unbindLoading}}" bindtap="confirmUnbind">确认解绑</button>
+        <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">再想想</button>
+        <button class="danger-btn dialog-btn ui-motion-button" loading="{{unbindLoading}}" bindtap="confirmUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认解绑</button>
       </view>
     </view>
   </view>
 
   <view class="popup-mask" wx:if="{{showUserDesigPopup}}" bindtap="closeUserDesignation">
     <view class="popup-card desig-popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">指定评优名单</view><text class="popup-close" bindtap="closeUserDesignation">关闭</text></view>
+      <view class="popup-header"><view class="popup-title">指定评优名单</view><text class="popup-close ui-motion-chip" catchtap="closeUserDesignation" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <view class="list-title">当前名单（{{userDesigSelectedIds.length}}人）</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll">
         <view class="list-item desig-current-item" wx:for="{{userDesigSelectedList}}" wx:key="id">
@@ -519,7 +519,7 @@
             <view class="list-desc">{{item.department}} · {{item.studentId}}</view>
           </view>
           <view class="inline-actions list-actions-below">
-            <text class="link danger" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle">移除</text>
+            <text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
           </view>
         </view>
         <view class="empty-inline" wx:if="{{!userDesigSelectedList.length}}">尚未指定任何人</view>
@@ -545,7 +545,7 @@
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
         <view wx:if="{{!userDesigFilteredList.length}}" class="empty-inline">没有匹配的成员</view>
-        <view class="list-item" wx:for="{{userDesigFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="onUserDesigToggle" wx:if="{{userDesigFilteredList.length}}">
+        <view class="list-item ui-motion-card" wx:for="{{userDesigFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" wx:if="{{userDesigFilteredList.length}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">
               <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>
@@ -556,8 +556,8 @@
         </view>
       </scroll-view>
       <view class="button-row">
-        <button class="secondary-btn" bindtap="closeUserDesignation">取消</button>
-        <button class="primary-btn" loading="{{userDesigSaving}}" bindtap="saveUserDesignations">保存名单（已选{{userDesigSelectedIds.length}}人）</button>
+        <button class="secondary-btn ui-motion-button" catchtap="closeUserDesignation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="primary-btn ui-motion-button" loading="{{userDesigSaving}}" catchtap="saveUserDesignations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存名单（已选{{userDesigSelectedIds.length}}人）</button>
       </view>
     </view>
   </view>

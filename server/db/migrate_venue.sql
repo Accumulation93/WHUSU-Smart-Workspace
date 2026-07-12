@@ -6,7 +6,7 @@
 -- ============================================================
 
 -- ============================================================
--- 1. Venues (场地列表) — cross-org, tracking org_id for creator
+-- 1. Venues (场地列表) — 跨组织全局数据，不绑定 org_id
 -- ============================================================
 CREATE TABLE IF NOT EXISTS venues (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
@@ -15,20 +15,17 @@ CREATE TABLE IF NOT EXISTS venues (
   description TEXT,
   image_url VARCHAR(1000) DEFAULT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_venues_org (org_id),
   INDEX idx_venues_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 2. Venue Open Rules (场地开放时间规则) — per venue, per org
+-- 2. Venue Open Rules (场地开放时间规则) — 只与场地关联，跨组织全局
 -- ============================================================
 CREATE TABLE IF NOT EXISTS venue_open_rules (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   venue_id VARCHAR(64) NOT NULL,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
   name VARCHAR(200) DEFAULT NULL,
   cycle_type VARCHAR(16) NOT NULL DEFAULT 'weekly' COMMENT 'daily | weekly | monthly | yearly | range',
   cycle_values JSON DEFAULT NULL COMMENT 'weekly:[1,3,5]=Mon/Wed/Fri, monthly:[1,15], yearly:[{"m":1,"dStart":1,"dEnd":3}], range:{"startDate":"2026-07-08","endDate":"2026-07-15"}, daily:null',
@@ -38,19 +35,17 @@ CREATE TABLE IF NOT EXISTS venue_open_rules (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_vor_venue (venue_id),
-  INDEX idx_vor_org (org_id),
   INDEX idx_vor_active (is_active),
   CONSTRAINT fk_vor_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 3. Venue Activity Rules (场地周期性活动) — per venue, per org
+-- 3. Venue Activity Rules (场地周期性活动) — 只与场地关联，跨组织全局
 --    Activities block the venue during their time windows
 -- ============================================================
 CREATE TABLE IF NOT EXISTS venue_activity_rules (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   venue_id VARCHAR(64) NOT NULL,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
   activity_name VARCHAR(200) DEFAULT NULL,
   cycle_type VARCHAR(16) NOT NULL DEFAULT 'weekly' COMMENT 'daily | weekly | monthly | yearly | range',
   cycle_values JSON DEFAULT NULL COMMENT 'Same format as venue_open_rules.cycle_values',
@@ -60,14 +55,14 @@ CREATE TABLE IF NOT EXISTS venue_activity_rules (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_var_venue (venue_id),
-  INDEX idx_var_org (org_id),
   INDEX idx_var_active (is_active),
   CONSTRAINT fk_var_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 4. Venue Booking Rules (借用审批规则) — per venue, per org
+-- 4. Venue Booking Rules (借用审批规则) — 每组织独立配置，关联全局场地
 --    Multiple rules act as OR logic (any passing = approved)
+--    切换组织后需重新配置（身份和人事 ID 属于新组织）
 -- ============================================================
 CREATE TABLE IF NOT EXISTS venue_booking_rules (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
@@ -89,7 +84,7 @@ CREATE TABLE IF NOT EXISTS venue_booking_rules (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 5. Venue Bookings (借用记录)
+-- 5. Venue Bookings (借用记录) — 每组织独立，关联全局场地
 -- ============================================================
 CREATE TABLE IF NOT EXISTS venue_bookings (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
@@ -115,7 +110,7 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 6. Venue Booking Purposes (借用事由预设列表) — per org
+-- 6. Venue Booking Purposes (借用事由预设列表) — 每组织独立配置
 -- ============================================================
 CREATE TABLE IF NOT EXISTS venue_booking_purposes (
   id VARCHAR(64) NOT NULL PRIMARY KEY,

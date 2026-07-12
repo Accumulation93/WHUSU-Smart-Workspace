@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">审核</view>
     <view class="hero-title">我的审批记录</view>
@@ -13,7 +13,7 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>
-        <view class="audit-submission-item" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
+        <view class="audit-submission-item ui-motion-card" wx:for="{{items}}" wx:key="id" data-id="{{item.id}}" bindtap="viewDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="audit-submission-main">
             <view class="audit-submission-name">
               {{item.title || item.submissionNumber}}

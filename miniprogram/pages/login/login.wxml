@@ -1,31 +1,43 @@
 <view class="page">
-  <view class="hero">
-    <view class="hero-badge">{{roleBadge}}</view>
-    <view class="hero-title">{{roleTitle}}</view>
-    <view class="hero-subtitle">{{roleSubtitle}}</view>
-  </view>
-
-  <view class="role-switch">
-    <view
-      class="role-pill {{activeRole === 'user' ? 'role-pill-active' : ''}}"
-      data-role="user"
-      bindtap="switchRole"
-    >
-      普通用户
+  <view class="login-layout">
+    <view class="hero login-hero">
+      <view class="hero-badge">{{roleBadge}}</view>
+      <view class="hero-title">{{roleTitle}}</view>
+      <view class="hero-subtitle">{{roleSubtitle}}</view>
     </view>
-    <view
-      class="role-pill {{activeRole === 'admin' ? 'role-pill-active' : ''}}"
-      data-role="admin"
-      bindtap="switchRole"
-    >
-      管理员
-    </view>
-  </view>
 
-  <view class="card">
-    <view class="section-title">微信登录</view>
-    <view class="card-desc">请先点击下方按钮完成微信登录，如需补充个人信息，按页面提示填写即可。</view>
-    <button class="primary-btn" loading="{{loading}}" bindtap="onLogin" hover-class="button-pressing" hover-start-time="0" hover-stay-time="180">{{loginButtonText}}</button>
+    <view class="login-main">
+      <view class="role-switch">
+        <view
+          class="role-pill {{activeRole === 'user' ? 'role-pill-active' : ''}} ui-motion-chip"
+          data-role="user"
+          bindtap="switchRole"
+          hover-class="ui-press-chip"
+          hover-start-time="0"
+          hover-stay-time="160"
+          hover-stop-propagation="{{true}}"
+        >
+          普通用户
+        </view>
+        <view
+          class="role-pill {{activeRole === 'admin' ? 'role-pill-active' : ''}} ui-motion-chip"
+          data-role="admin"
+          bindtap="switchRole"
+          hover-class="ui-press-chip"
+          hover-start-time="0"
+          hover-stay-time="160"
+          hover-stop-propagation="{{true}}"
+        >
+          管理员
+        </view>
+      </view>
+
+      <view class="card login-card">
+        <view class="section-title">微信登录</view>
+        <view class="card-desc">使用微信身份安全登录，首次使用时按提示补充资料。</view>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{loginButtonText}}</button>
+      </view>
+    </view>
   </view>
 
   <view class="page-footer">
@@ -38,7 +50,7 @@
     <view class="sheet-panel">
       <view class="sheet-header">
         <view class="sheet-title">{{bindTitle}}</view>
-        <view class="sheet-close" bindtap="closeBind">关闭</view>
+        <view class="sheet-close ui-motion-chip" bindtap="closeBind" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭 ×</view>
       </view>
 
       <view class="field">
@@ -56,7 +68,7 @@
         <input class="field-input" placeholder="请输入邀请码" bindinput="onInviteCode" value="{{inviteCode}}" />
       </view>
 
-      <button class="primary-btn" loading="{{loading}}" bindtap="onBind" hover-class="button-pressing" hover-start-time="0" hover-stay-time="180">{{bindButtonText}}</button>
+      <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onBind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{bindButtonText}}</button>
     </view>
   </view>
 </view>

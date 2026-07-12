@@ -1,7 +1,7 @@
 # REDSU Scoring System — 项目完整记忆
 
 > 本文件包含项目全部上下文，新会话打开时先读此文件，如同已有上下文。
-> 最后更新：2026-05-04
+> 最后更新：2026-07-11
 
 ---
 
@@ -227,6 +227,26 @@ callFunction({ name, data, success, fail })
 ### Bug 12: 人事编辑页选择器加载不全
 **原因**: `editHr` 和 `startCreateHr` 方法没有调用 `updateHrFormOptions()` 填充部门/身份/工作分工下拉选项
 **修复**: 在两个方法中添加 `this.updateHrFormOptions()` 调用
+
+### Bug 13: 全页面缺失 `@swc/runtime/_define_property.js`
+**原因**: 项目同时配置了 `swc: false` 与 `disableSWC: false`，开发者工具实际以后一项为准启用 SWC；含对象展开、计算属性和 async 的页面被编译为 `@swc/runtime/*` 引用，但原生构建设置 `nodeModules: false`，运行时没有对应 helper。全局 `Page(uiPreview.attach({...}))` 曾进一步扩大影响范围。
+
+**连锁表现**: 页面脚本未完成 `Page()` 注册后继续出现 `wx://not-found`；接口 `timeout` 是独立网络问题，不是组件路径根因。
+
+**修复**:
+- 所有页面恢复直接 `Page({ ... })` 注册，删除生产依赖图中的 `uiPreview` 和批量注入脚本。
+- 固定 `project.config.json` 为 `swc: false`、`disableSWC: true`，强制使用不依赖外部 SWC runtime 的编译路径。
+- API 超时改为 `wx.request({ timeout: 15000 })`，移除 `setTimeout + abort` 模拟超时。
+- 新增 `scripts/miniprogram-compat-audit.js`，检查 runtime 引用、页面包装、本地模块、页面四件套和组件四件套。
+- 详细规则见 `docs/miniprogram-compiler-compatibility.md`、`CLAUDE.md`、`AGENTS.md` 和 `.claude/rules/miniprogram.md`。
+
+### Bug 14: 全页面缺失 `@babel/runtime/helpers/unsupportedIterableToArray.js`
+**原因**: 关闭 SWC 后仍保留 `enhance: true`，同时 `project.private.config.json` 开启 `compileHotReLoad`。Babel enhance 为大量页面生成 runtime helper，热重载模块表只包含直接 helper，遗漏 `unsupportedIterableToArray` 等递归依赖，页面在 `Page()` 注册前中断。
+
+**修复**:
+- 固定有效编译配置为 `nodeModules: false`、`es6: false`、`enhance: false`、`swc: false`、`disableSWC: true`、`compileHotReLoad: false`。
+- 兼容性审计同时读取公共与私有配置，并按私有配置覆盖后的结果校验。
+- 清除项目编译缓存并冷启动开发者工具；逐页生成全部 39 个源 JS 的编译产物，确认 Babel/SWC runtime 命中为零。
 
 ---
 

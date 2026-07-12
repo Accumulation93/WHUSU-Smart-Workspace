@@ -48,15 +48,15 @@
         </picker>
       </view>
       <view class="button-row compact-row">
-        <button class="secondary-btn" loading="{{loading}}" bindtap="loadData">刷新列表</button>
+        <button class="secondary-btn ui-motion-button" loading="{{loading}}" bindtap="loadData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">刷新列表</button>
       </view>
     </view>
 
     <view class="edit-box">
       <view class="list-title">按当前视图导出</view>
       <view class="button-row">
-        <button class="secondary-btn" loading="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified">导出概览</button>
-        <button class="secondary-btn" loading="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified">导出明细</button>
+        <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出概览</button>
+        <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出明细</button>
       </view>
     </view>
 
@@ -69,8 +69,7 @@
             <view class="task-col task-col-progress">已评/应评</view>
             <view class="task-col task-col-action">操作</view>
           </view>
-          <view class="task-table-row" wx:for="{{scorerRows}}" wx:key="scorerKey">
-            <view class="task-row-hit-area" data-index="{{index}}" bindtap="openPendingPopup"></view>
+          <view class="task-table-row ui-motion-chip" wx:for="{{scorerRows}}" wx:key="scorerKey" data-index="{{index}}" bindtap="openPendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="task-col task-col-name">
               <view class="task-name">{{item.scorerName}}</view>
               <view class="task-meta">{{item.department}}</view>
@@ -105,7 +104,7 @@
     <view class="popup-card" catchtap="noop">
       <view class="popup-header">
         <view class="popup-title">{{pendingPopupTitle}}</view>
-        <text class="popup-close" bindtap="closePendingPopup">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closePendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view class="popup-scroll" scroll-y>
         <view class="popup-loading-overlay" wx:if="{{pendingPopupLoading}}">

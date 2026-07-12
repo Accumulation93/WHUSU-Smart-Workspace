@@ -5,19 +5,33 @@ const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
 
+function navigateToTrustedRoute(rawUrl) {
+  const url = String(rawUrl || '').trim();
+  let decoded = url;
+  try { decoded = decodeURIComponent(url); } catch (error) {}
+  const isLocalRoute = /^\/(?:pages|subpackages)\/[A-Za-z0-9_?&=./%-]+$/.test(url);
+  const hasUnsafeSegment = decoded.includes('..') || decoded.includes('\\') || decoded.includes('://');
+  if (!isLocalRoute || hasUnsafeSegment || url.length > 1024) {
+    console.warn('[portal] blocked untrusted route');
+    wx.showToast({ title: '目标页面不可用', icon: 'none' });
+    return;
+  }
+  wx.navigateTo({ url: url });
+}
+
 const PORTAL_CARDS_USER = [
-  { key: 'scoring', label: '考核评分', icon: '📊', url: '/pages/home/home?subApp=scoring', disabled: false },
-  { key: 'hr', label: '人事信息', icon: '👤', url: '/pages/home/home?subApp=hr', disabled: false },
-  { key: 'audit', label: '审核', icon: '📋', url: '/pages/home/home?subApp=audit', disabled: false },
-  { key: 'venue', label: '场地借用', icon: '🏟️', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
+  { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
+  { key: 'hr', label: '人事信息', iconName: 'user', url: '/pages/home/home?subApp=hr', disabled: false },
+  { key: 'audit', label: '审核', iconName: 'file', url: '/pages/home/home?subApp=audit', disabled: false },
+  { key: 'venue', label: '场地借用', iconName: 'venue', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
 ];
 
 const PORTAL_CARDS_ADMIN = [
-  { key: 'scoring', label: '考核评分', icon: '📊', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
-  { key: 'hr', label: '人事信息', icon: '👤', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
-  { key: 'system', label: '系统配置', icon: '⚙️', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
-  { key: 'audit', label: '审核', icon: '📋', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
-  { key: 'venue', label: '场地管理', icon: '🏟️', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false }
+  { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
+  { key: 'hr', label: '人事信息', iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
+  { key: 'system', label: '系统配置', iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
+  { key: 'audit', label: '审核', iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
+  { key: 'venue', label: '场地管理', iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false }
 ];
 
 function getDisplayIdentity(user, activeRole) {
@@ -175,7 +189,7 @@ Page({
       wx.showToast({ title: card.disabledReason || '暂不可用', icon: 'none' });
       return;
     }
-    wx.navigateTo({ url: card.url });
+    navigateToTrustedRoute(card.url);
   },
 
   // ── App Services View & Search ──
@@ -273,7 +287,7 @@ Page({
   onTodoTap(e) {
     const url = e.currentTarget.dataset.url;
     if (!url) return;
-    wx.navigateTo({ url: url });
+    navigateToTrustedRoute(url);
   },
 
   async onNotificationTap(e) {
@@ -291,7 +305,7 @@ Page({
       });
     }
     if (!url) return;
-    wx.navigateTo({ url: url });
+    navigateToTrustedRoute(url);
   },
 
   onNotificationTouchStart(e) {

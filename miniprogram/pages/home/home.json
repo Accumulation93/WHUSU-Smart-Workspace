@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "首页 - REDSU智慧工作台"
+  "navigationBarTitleText": "首页 - REDSU智慧工作台",
+  "usingComponents": {
+    "ui-icon": "/components/ui-icon/ui-icon"
+  }
 }

@@ -21,16 +21,16 @@ module.exports = { hour: hour, min: min };
 
   <!-- Tab bar -->
   <view class="tabs-card">
-    <view class="feature-tab {{activeTab === 'browse' ? 'feature-tab-active' : ''}}" data-tab="browse" bindtap="switchTab">场地浏览</view>
-    <view class="feature-tab {{activeTab === 'bookings' ? 'feature-tab-active' : ''}}" data-tab="bookings" bindtap="switchTab">我的借用</view>
-    <view class="feature-tab {{activeTab === 'approvals' ? 'feature-tab-active' : ''}} feature-tab-approvals" data-tab="approvals" bindtap="switchTab">
+    <view class="feature-tab {{activeTab === 'browse' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="browse" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">场地浏览</view>
+    <view class="feature-tab {{activeTab === 'bookings' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="bookings" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">我的借用</view>
+    <view class="feature-tab {{activeTab === 'approvals' ? 'feature-tab-active' : ''}} feature-tab-approvals ui-motion-chip" data-tab="approvals" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
       待我审批
       <text class="approval-tab-badge" wx:if="{{pendingApprovalCount > 0}}">{{pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}}</text>
     </view>
   </view>
 
   <!-- ═══════════════════ BROWSE TAB ═══════════════════ -->
-  <view wx:if="{{activeTab === 'browse'}}">
+  <view class="venue-workspace-panel" wx:if="{{activeTab === 'browse'}}">
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
       <view class="section-title">可用场地</view>
@@ -47,8 +47,8 @@ module.exports = { hour: hour, min: min };
             </view>
           </view>
           <view class="venue-actions">
-            <text class="action-btn" data-id="{{item.id}}" bindtap="openSchedule">日程</text>
-            <text class="action-btn primary" data-id="{{item.id}}" bindtap="openBooking">借用</text>
+            <text class="action-btn ui-motion-chip" data-id="{{item.id}}" bindtap="openSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">日程</text>
+            <text class="action-btn primary ui-motion-chip" data-id="{{item.id}}" bindtap="openBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用</text>
           </view>
         </view>
       </scroll-view>
@@ -56,7 +56,7 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- ═══════════════════ BOOKINGS TAB ═══════════════════ -->
-  <view wx:if="{{activeTab === 'bookings'}}">
+  <view class="venue-workspace-panel" wx:if="{{activeTab === 'bookings'}}">
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
       <view class="section-title">借用记录</view>
@@ -64,7 +64,7 @@ module.exports = { hour: hour, min: min };
         <view class="empty-state" wx:if="{{!myBookings.length}}">
           <view class="empty-text">暂无借用记录</view>
         </view>
-        <view class="booking-item" wx:for="{{myBookings}}" wx:key="id" bindtap="viewMyBookingDetail" data-id="{{item.id}}" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
+        <view class="booking-item ui-motion-card" wx:for="{{myBookings}}" wx:key="id" bindtap="viewMyBookingDetail" data-id="{{item.id}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="booking-item-head">
             <view class="booking-item-title">{{item.title || '借用申请'}}</view>
             <text class="status-tag {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>
@@ -73,10 +73,10 @@ module.exports = { hour: hour, min: min };
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
           <view class="booking-item-foot" wx:if="{{item.displayStatus === 'pending' || item.displayStatus === 'approved'}}">
-            <text class="link danger" data-id="{{item.id}}" catchtap="cancelMyBooking">取消借用</text>
+            <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="cancelMyBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消借用</text>
           </view>
           <view class="booking-item-foot" wx:if="{{item.displayStatus === 'inUse'}}">
-            <text class="link" data-id="{{item.id}}" catchtap="endMyBooking">结束使用</text>
+            <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="endMyBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">结束使用</text>
           </view>
         </view>
       </scroll-view>
@@ -84,16 +84,16 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- ═══════════════════ APPROVALS TAB ═══════════════════ -->
-  <view wx:if="{{activeTab === 'approvals'}}">
+  <view class="venue-workspace-panel" wx:if="{{activeTab === 'approvals'}}">
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
       <view class="section-title">待我审批</view>
       <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">
         <text class="pending-update-time">更新于 {{lastUpdateTime}}</text>
-        <text class="pending-refresh-btn" bindtap="loadPendingData">⟳ 刷新</text>
+        <text class="pending-refresh-btn ui-motion-chip" bindtap="loadPendingData" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⟳ 刷新</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="pending-item" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewApprovalDetail" hover-class="control-pressing" hover-start-time="0" hover-stay-time="180">
+        <view class="pending-item ui-motion-card" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewApprovalDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="pending-item-main">
             <view class="pending-item-name">{{item.title || '借用申请'}}</view>
             <view class="pending-item-meta">
@@ -104,8 +104,8 @@ module.exports = { hour: hour, min: min };
             <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
           </view>
           <view class="pending-actions-col">
-            <text class="pending-action-link approve" data-id="{{item.id}}" catchtap="openApprove">通过</text>
-            <text class="pending-action-link reject" data-id="{{item.id}}" catchtap="openReject">驳回</text>
+            <text class="pending-action-link approve ui-motion-chip" data-id="{{item.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
+            <text class="pending-action-link reject ui-motion-chip" data-id="{{item.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
           </view>
         </view>
         <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
@@ -122,12 +122,12 @@ module.exports = { hour: hour, min: min };
     <view class="popup-card timetable-popup" catchtap="noop">
       <view class="popup-header">
         <view class="popup-title">{{scheduleVenueName}}</view>
-        <text class="popup-close" bindtap="closeSchedule">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closeSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <view class="schedule-nav">
-        <text class="nav-arrow" bindtap="onTimetablePrevWeek">{{'‹'}}</text>
+        <text class="nav-arrow ui-motion-card" catchtap="onTimetablePrevWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'‹'}}</text>
         <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
-        <text class="nav-arrow" bindtap="onTimetableNextWeek">{{'›'}}</text>
+        <text class="nav-arrow ui-motion-card" catchtap="onTimetableNextWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'›'}}</text>
       </view>
       <scroll-view scroll-x scroll-y class="timetable-scroll">
         <view class="timetable-body">
@@ -137,11 +137,11 @@ module.exports = { hour: hour, min: min };
           </view>
           <view class="tt-col-scroll">
             <view class="tt-cols-row">
-              <view class="tt-col" wx:for="{{timetableColumns}}" wx:key="date" wx:for-item="col" data-date="{{col.date}}" bindtap="onTimetableOpenTap">
+              <view class="tt-col ui-motion-chip" wx:for="{{timetableColumns}}" wx:key="date" wx:for-item="col" data-date="{{col.date}}" catchtap="onTimetableOpenTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                 <view class="tt-col-header">{{col.label}}<text class="tt-col-sub">{{col.dateDisplay}}</text></view>
                 <view class="tt-open-block" wx:for="{{col.openBlocks}}" wx:key="top" wx:for-item="ob" style="top:{{ob.top}}rpx;height:{{ob.height}}rpx;"></view>
-                <view wx:for="{{col.timeTargets}}" wx:key="top" wx:for-item="tt" class="tt-time-target" style="top:{{tt.top}}rpx;height:{{HOUR_HEIGHT/2}}rpx;" data-date="{{col.date}}" data-time="{{tt.time}}" catchtap="onTimeTargetTap"></view>
-                <view class="tt-event-block {{eb.status}}" wx:for="{{col.eventBlocks}}" wx:key="top" wx:for-item="eb" style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;" data-block="{{eb}}" catchtap="onTimetableBlockTap">
+                <view wx:for="{{col.timeTargets}}" wx:key="top" wx:for-item="tt" class="tt-time-target ui-motion-chip" style="top:{{tt.top}}rpx;height:{{HOUR_HEIGHT/2}}rpx;" data-date="{{col.date}}" data-time="{{tt.time}}" catchtap="onTimeTargetTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"></view>
+                <view class="tt-event-block {{eb.status}} ui-motion-chip" wx:for="{{col.eventBlocks}}" wx:key="top" wx:for-item="eb" style="top:{{eb.top}}rpx;height:{{eb.height}}rpx;" data-block="{{eb}}" catchtap="onTimetableBlockTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                   <text class="tt-event-label">{{eb.label}}</text>
                 </view>
               </view>
@@ -164,7 +164,7 @@ module.exports = { hour: hour, min: min };
     <view class="popup-card" catchtap="noop">
       <view class="popup-header">
         <view class="popup-title">借用详情</view>
-        <text class="popup-close" bindtap="closeBookingDetail">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
       <view class="detail-body">
@@ -186,7 +186,7 @@ module.exports = { hour: hour, min: min };
         </view>
         <!-- Full flow timeline -->
         <view wx:if="{{bookingDetail._flowTimeline && bookingDetail._flowTimeline.length}}" class="audit-flow" style="margin-top:6rpx;">
-          <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:for="{{bookingDetail._flowTimeline}}" wx:key="*this" wx:for-item="node" bindtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="flow-node-tap">
+          <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{bookingDetail._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="flow-left-col">
               <view class="{{node.dotClass}}">{{node.icon}}</view>
               <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
@@ -216,7 +216,7 @@ module.exports = { hour: hour, min: min };
     <view class="popup-card booking-form-popup" catchtap="noop">
       <view class="popup-header">
         <view class="popup-title">借用申请 · {{bookingVenueName}}</view>
-        <text class="popup-close" bindtap="closeBooking">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closeBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="form-body">
@@ -225,7 +225,7 @@ module.exports = { hour: hour, min: min };
             <view class="field-label">借用事由 <text class="required">*</text></view>
             <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="选择或输入借用事由" placeholder-style="font-size:24rpx;line-height:44rpx;color:#94a3b8;"/>
             <view class="chip-row" wx:if="{{purposes.length}}">
-              <text wx:for="{{purposes}}" wx:key="id" class="chip {{bookingTitle === item.text ? 'active' : ''}}" data-text="{{item.text}}" bindtap="onSelectPurpose">{{item.text}}</text>
+              <text wx:for="{{purposes}}" wx:key="id" class="chip {{bookingTitle === item.text ? 'active' : ''}} ui-motion-chip" data-text="{{item.text}}" catchtap="onSelectPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.text}}</text>
             </view>
           </view>
           <!-- Date (same-day only) -->
@@ -278,9 +278,9 @@ module.exports = { hour: hour, min: min };
             <view wx:if="{{timelineBlocks.length}}" class="time-section-new">
               <!-- Custom keyboard display -->
               <view class="time-kb-display-row">
-                <view class="time-kb-display-box {{_kbTarget === 'startHour' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="startHour" catchtap="onKbOpen">{{fmt.hour(bookingTimeStart)}}</view>
+                <view class="time-kb-display-box {{_kbTarget === 'startHour' && _kbVisible ? 'time-kb-display-active' : ''}} ui-motion-chip" data-target="startHour" catchtap="onKbOpen" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fmt.hour(bookingTimeStart)}}</view>
                 <text class="time-kb-display-colon">:</text>
-                <view class="time-kb-display-box {{_kbTarget === 'startMin' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="startMin" catchtap="onKbOpen">{{fmt.min(bookingTimeStart)}}</view>
+                <view class="time-kb-display-box {{_kbTarget === 'startMin' && _kbVisible ? 'time-kb-display-active' : ''}} ui-motion-chip" data-target="startMin" catchtap="onKbOpen" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fmt.min(bookingTimeStart)}}</view>
                 <text wx:if="{{bookingTimeStart}}" class="time-valid-badge">✓</text>
               </view>
             </view>
@@ -291,7 +291,7 @@ module.exports = { hour: hour, min: min };
           <view wx:if="{{bookingTimeStart && timelineBlocks.length}}" class="field">
             <view class="field-label">快捷时长</view>
             <view class="duration-row">
-              <text class="duration-chip {{bookingTimeEnd && item.minutes === _activeDuration ? 'duration-chip-active' : ''}}" wx:for="{{durationChips}}" wx:key="label" data-minutes="{{item.minutes}}" catchtap="onDurationTap">{{item.label}}</text>
+              <text class="duration-chip {{bookingTimeEnd && item.minutes === _activeDuration ? 'duration-chip-active' : ''}} ui-motion-chip" wx:for="{{durationChips}}" wx:key="label" data-minutes="{{item.minutes}}" catchtap="onDurationTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</text>
             </view>
           </view>
 
@@ -300,9 +300,9 @@ module.exports = { hour: hour, min: min };
             <view class="field-label">结束时间 <text class="required">*</text></view>
             <view wx:if="{{timelineBlocks.length && bookingTimeStart}}" class="time-section-new">
               <view class="time-kb-display-row">
-                <view class="time-kb-display-box {{_kbTarget === 'endHour' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="endHour" catchtap="onKbOpen">{{fmt.hour(bookingTimeEnd)}}</view>
+                <view class="time-kb-display-box {{_kbTarget === 'endHour' && _kbVisible ? 'time-kb-display-active' : ''}} ui-motion-chip" data-target="endHour" catchtap="onKbOpen" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fmt.hour(bookingTimeEnd)}}</view>
                 <text class="time-kb-display-colon">:</text>
-                <view class="time-kb-display-box {{_kbTarget === 'endMin' && _kbVisible ? 'time-kb-display-active' : ''}}" data-target="endMin" catchtap="onKbOpen">{{fmt.min(bookingTimeEnd)}}</view>
+                <view class="time-kb-display-box {{_kbTarget === 'endMin' && _kbVisible ? 'time-kb-display-active' : ''}} ui-motion-chip" data-target="endMin" catchtap="onKbOpen" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fmt.min(bookingTimeEnd)}}</view>
                 <text wx:if="{{bookingTimeEnd}}" class="time-valid-badge end-badge">✓</text>
               </view>
             </view>
@@ -314,7 +314,7 @@ module.exports = { hour: hour, min: min };
             <view class="field-label">备注（选填）</view>
             <textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="补充说明"/>
           </view>
-          <button class="primary-btn" loading="{{loading}}" bindtap="submitBooking">提交借用申请</button>
+          <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">提交借用申请</button>
         </view>
       </scroll-view>
     </view>
@@ -325,7 +325,7 @@ module.exports = { hour: hour, min: min };
     <view class="popup-card" catchtap="noop">
       <view class="popup-header">
         <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>
-        <text class="popup-close" bindtap="closeApproval">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
         <view class="detail-body">
@@ -339,7 +339,7 @@ module.exports = { hour: hour, min: min };
 
           <!-- Full flow timeline -->
           <view wx:if="{{approvalTarget._flowTimeline && approvalTarget._flowTimeline.length}}" class="audit-flow">
-            <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}}" wx:for="{{approvalTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" bindtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="flow-node-tap">
+            <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{approvalTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="flow-left-col">
                 <view class="{{node.dotClass}}">{{node.icon}}</view>
                 <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
@@ -374,8 +374,8 @@ module.exports = { hour: hour, min: min };
               <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
             </view>
             <view class="button-row" style="margin-top:16rpx;">
-              <button class="secondary-btn" bindtap="closeApproval">取消</button>
-              <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}}" loading="{{approvalSubmitting}}" bindtap="submitApproval">
+              <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+              <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                 {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
               </button>
             </view>
@@ -391,33 +391,33 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- ★ Custom time keyboard ★ (page-level fixed bottom) -->
-  <view class="time-keyboard" wx:if="{{_kbVisible}}" catchtap="noop">
+  <view class="time-keyboard ui-motion-chip" wx:if="{{_kbVisible}}" catchtap="noop" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
     <view class="time-kb-display">
-      <view class="time-kb-box {{_kbField === 'hour' ? 'time-kb-box-active' : ''}} {{_kbField === 'hour' && _kbSelected ? 'time-kb-box-selected' : ''}}" data-field="hour" catchtap="onKbSwitchField">{{_kbHourVal || '--'}}</view>
+      <view class="time-kb-box {{_kbField === 'hour' ? 'time-kb-box-active' : ''}} {{_kbField === 'hour' && _kbSelected ? 'time-kb-box-selected' : ''}} ui-motion-chip" data-field="hour" catchtap="onKbSwitchField" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{_kbHourVal || '--'}}</view>
       <text class="time-kb-colon">:</text>
-      <view class="time-kb-box {{_kbField === 'min' ? 'time-kb-box-active' : ''}} {{_kbField === 'min' && _kbSelected ? 'time-kb-box-selected' : ''}}" data-field="min" catchtap="onKbSwitchField">{{_kbMinVal || '--'}}</view>
-      <view class="time-kb-confirm" catchtap="onKbConfirm">确认</view>
+      <view class="time-kb-box {{_kbField === 'min' ? 'time-kb-box-active' : ''}} {{_kbField === 'min' && _kbSelected ? 'time-kb-box-selected' : ''}} ui-motion-chip" data-field="min" catchtap="onKbSwitchField" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{_kbMinVal || '--'}}</view>
+      <view class="time-kb-confirm ui-motion-chip" catchtap="onKbConfirm" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认</view>
     </view>
     <view class="time-kb-numpad">
       <view class="time-kb-row">
-        <view class="time-kb-key {{_kbGray[1] ? 'time-kb-key-gray' : ''}}" data-key="1" catchtap="onKbKey">1</view>
-        <view class="time-kb-key {{_kbGray[2] ? 'time-kb-key-gray' : ''}}" data-key="2" catchtap="onKbKey">2</view>
-        <view class="time-kb-key {{_kbGray[3] ? 'time-kb-key-gray' : ''}}" data-key="3" catchtap="onKbKey">3</view>
+        <view class="time-kb-key {{_kbGray[1] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="1" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">1</view>
+        <view class="time-kb-key {{_kbGray[2] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="2" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">2</view>
+        <view class="time-kb-key {{_kbGray[3] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="3" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">3</view>
       </view>
       <view class="time-kb-row">
-        <view class="time-kb-key {{_kbGray[4] ? 'time-kb-key-gray' : ''}}" data-key="4" catchtap="onKbKey">4</view>
-        <view class="time-kb-key {{_kbGray[5] ? 'time-kb-key-gray' : ''}}" data-key="5" catchtap="onKbKey">5</view>
-        <view class="time-kb-key {{_kbGray[6] ? 'time-kb-key-gray' : ''}}" data-key="6" catchtap="onKbKey">6</view>
+        <view class="time-kb-key {{_kbGray[4] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="4" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">4</view>
+        <view class="time-kb-key {{_kbGray[5] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="5" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">5</view>
+        <view class="time-kb-key {{_kbGray[6] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="6" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">6</view>
       </view>
       <view class="time-kb-row">
-        <view class="time-kb-key {{_kbGray[7] ? 'time-kb-key-gray' : ''}}" data-key="7" catchtap="onKbKey">7</view>
-        <view class="time-kb-key {{_kbGray[8] ? 'time-kb-key-gray' : ''}}" data-key="8" catchtap="onKbKey">8</view>
-        <view class="time-kb-key {{_kbGray[9] ? 'time-kb-key-gray' : ''}}" data-key="9" catchtap="onKbKey">9</view>
+        <view class="time-kb-key {{_kbGray[7] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="7" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">7</view>
+        <view class="time-kb-key {{_kbGray[8] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="8" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">8</view>
+        <view class="time-kb-key {{_kbGray[9] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="9" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">9</view>
       </view>
       <view class="time-kb-row">
-        <view class="time-kb-key time-kb-key-colon {{_kbGray[':'] ? 'time-kb-key-gray' : ''}}" data-key=":" catchtap="onKbKey">:</view>
-        <view class="time-kb-key {{_kbGray[0] ? 'time-kb-key-gray' : ''}}" data-key="0" catchtap="onKbKey">0</view>
-        <view class="time-kb-key time-kb-key-bs" catchtap="onKbBackspace">⌫</view>
+        <view class="time-kb-key time-kb-key-colon {{_kbGray[':'] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key=":" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">:</view>
+        <view class="time-kb-key {{_kbGray[0] ? 'time-kb-key-gray' : ''}} ui-motion-chip" data-key="0" catchtap="onKbKey" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">0</view>
+        <view class="time-kb-key time-kb-key-bs ui-motion-chip" catchtap="onKbBackspace" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⌫</view>
       </view>
     </view>
   </view>
