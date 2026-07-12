@@ -84,13 +84,12 @@ CREATE TABLE IF NOT EXISTS venue_booking_rules (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 5. Venue Bookings (借用记录) — 每组织独立，关联全局场地
+-- 5. Venue Bookings (借用记录) — 跨组织全局，全局冲突检测
 -- ============================================================
 CREATE TABLE IF NOT EXISTS venue_bookings (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   venue_id VARCHAR(64) NOT NULL,
   user_hr_id VARCHAR(64) NOT NULL,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
   title VARCHAR(200) DEFAULT NULL,
   description TEXT,
   time_start DATETIME NOT NULL,
@@ -102,7 +101,6 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_vb_venue (venue_id),
   INDEX idx_vb_user (user_hr_id),
-  INDEX idx_vb_org (org_id),
   INDEX idx_vb_status (status),
   INDEX idx_vb_venue_time (venue_id, time_start),
   INDEX idx_vb_time_start (time_start),

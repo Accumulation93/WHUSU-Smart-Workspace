@@ -1,6 +1,6 @@
 const pool = require('../../../config/db');
-const { getCurrentOrgId } = require('../../../utils/orgContext');
 
+// 借用记录已解绑组织 — 全局可见，跨组织冲突检测
 /**
  * Get bookings for a venue, optionally filtered by datetime range.
  * @param {string} venueId
@@ -10,9 +10,8 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
  * @param {string} [filters.timeTo]   - "YYYY-MM-DD HH:MM:SS" — return bookings starting before this
  */
 async function getByVenueId(venueId, filters) {
-  const orgId = await getCurrentOrgId();
-  let sql = 'SELECT * FROM venue_bookings WHERE venue_id = ? AND org_id = ?';
-  const params = [venueId, orgId];
+  let sql = 'SELECT * FROM venue_bookings WHERE venue_id = ?';
+  const params = [venueId];
   if (filters) {
     if (filters.status) { sql += ' AND status = ?'; params.push(filters.status); }
     if (filters.timeFrom) { sql += ' AND time_end > ?'; params.push(filters.timeFrom); }
@@ -24,18 +23,16 @@ async function getByVenueId(venueId, filters) {
 }
 
 async function getByUserId(userHrId) {
-  const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT vb.*, v.name AS venue_name, v.location AS venue_location FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id WHERE vb.user_hr_id = ? AND vb.org_id = ? ORDER BY vb.time_start DESC',
-    [userHrId, orgId]
+    'SELECT vb.*, v.name AS venue_name, v.location AS venue_location FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id WHERE vb.user_hr_id = ? ORDER BY vb.time_start DESC',
+    [userHrId]
   );
   return rows;
 }
 
 async function getAll(filters) {
-  const orgId = await getCurrentOrgId();
-  let sql = 'SELECT vb.*, v.name AS venue_name, v.location AS venue_location FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id WHERE vb.org_id = ?';
-  const params = [orgId];
+  let sql = 'SELECT vb.*, v.name AS venue_name, v.location AS venue_location FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id WHERE 1=1';
+  const params = [];
   if (filters) {
     if (filters.venueId) { sql += ' AND vb.venue_id = ?'; params.push(filters.venueId); }
     if (filters.status) { sql += ' AND vb.status = ?'; params.push(filters.status); }
@@ -49,58 +46,54 @@ async function getAll(filters) {
 }
 
 async function getById(id) {
-  const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    'SELECT vb.*, v.name AS venue_name, v.location AS venue_location FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id WHERE vb.id = ? AND vb.org_id = ?',
-    [id, orgId]
+    'SELECT vb.*, v.name AS venue_name, v.location AS venue_location FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id WHERE vb.id = ?',
+    [id]
   );
   return rows[0] || null;
 }
 
 async function create(id, data, conn) {
   const { venueId, userHrId, title, description, timeStart, timeEnd, status, approvalFlowId, approvalTotalSteps } = data;
-  const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, org_id, title, description, time_start, time_end, status,
+    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, title, description, time_start, time_end, status,
       approval_flow_id, approval_current_step, approval_total_steps)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, venueId, userHrId, orgId, title || '', description || '',
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, venueId, userHrId, title || '', description || '',
      timeStart, timeEnd, status || 'pending',
      approvalFlowId || null, 0, approvalTotalSteps || 0]
   );
 }
 
 async function updateStatus(id, status, approverHrId, approvalComment, conn) {
-  const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    'UPDATE venue_bookings SET status = ?, approver_hr_id = ?, approval_comment = ? WHERE id = ? AND org_id = ?',
-    [status, approverHrId || null, approvalComment || null, id, orgId]
+    'UPDATE venue_bookings SET status = ?, approver_hr_id = ?, approval_comment = ? WHERE id = ?',
+    [status, approverHrId || null, approvalComment || null, id]
   );
 }
 
 async function updateTimeEnd(id, timeEnd, conn) {
-  const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    'UPDATE venue_bookings SET time_end = ? WHERE id = ? AND org_id = ?',
-    [timeEnd, id, orgId]
+    'UPDATE venue_bookings SET time_end = ? WHERE id = ?',
+    [timeEnd, id]
   );
 }
 
 async function updateTimeStart(id, timeStart, conn) {
-  const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    'UPDATE venue_bookings SET time_start = ? WHERE id = ? AND org_id = ?',
-    [timeStart, id, orgId]
+    'UPDATE venue_bookings SET time_start = ? WHERE id = ?',
+    [timeStart, id]
   );
 }
 
 /**
  * Check for booking conflicts — overlapping datetime range on the same venue.
  * Two bookings conflict if: existing.time_start < new.time_end AND existing.time_end > new.time_start
+ * 跨组织全局冲突检测：任何组织的借用都占用时段
  * @param {string} venueId
  * @param {string} timeStart - DATETIME string for new booking start
  * @param {string} timeEnd   - DATETIME string for new booking end
@@ -108,13 +101,12 @@ async function updateTimeStart(id, timeStart, conn) {
  * @param {*} [conn] - transaction connection
  */
 async function findConflict(venueId, timeStart, timeEnd, excludeId, conn, forUpdate) {
-  const orgId = await getCurrentOrgId();
   const db = conn || pool;
   let sql = `SELECT * FROM venue_bookings
-    WHERE venue_id = ? AND org_id = ?
+    WHERE venue_id = ?
       AND status IN ('approved', 'pending')
       AND time_start < ? AND time_end > ?`;
-  const params = [venueId, orgId, timeEnd, timeStart];
+  const params = [venueId, timeEnd, timeStart];
   if (excludeId) {
     sql += ' AND id != ?';
     params.push(excludeId);

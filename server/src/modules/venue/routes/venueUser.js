@@ -631,7 +631,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
 
-    // Find all pending bookings with an approval flow
+    // Find all pending bookings with an approval flow（全局，不按组织过滤）
     const [bookings] = await pool.query(
       `SELECT b.*, v.name AS venue_name, v.location AS venue_location
        FROM venue_bookings b
@@ -639,9 +639,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
        WHERE b.status = 'pending'
          AND b.approval_flow_id IS NOT NULL
          AND b.approval_total_steps > 0
-         AND b.org_id = ?
-       ORDER BY b.created_at DESC`,
-      [orgId]
+       ORDER BY b.created_at DESC`
     );
 
     if (!bookings.length) {

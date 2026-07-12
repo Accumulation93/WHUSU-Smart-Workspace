@@ -29,9 +29,7 @@ async function listPendingVenueTodoItems(hrId, orgId) {
      WHERE b.status = 'pending'
        AND b.approval_flow_id IS NOT NULL
        AND b.approval_total_steps > 0
-       AND b.org_id = ?
-     ORDER BY b.created_at DESC`,
-    [orgId]
+     ORDER BY b.created_at DESC`
   );
   if (!bookings.length) return [];
 

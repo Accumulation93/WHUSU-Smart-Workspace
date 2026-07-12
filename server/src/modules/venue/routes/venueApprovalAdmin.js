@@ -409,14 +409,14 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     const newStatus = isLastStep ? 'approved' : 'pending';
     const sql = `UPDATE venue_bookings
       SET approval_current_step = ?, approval_snapshots_json = ?, status = ?, approver_hr_id = ?, approval_comment = ?
-      WHERE id = ? AND org_id = ?`;
+      WHERE id = ?`;
     await conn.query(sql, [
       newStepIndex,
       JSON.stringify(snapshots),
       newStatus,
       isLastStep ? approverHrId : booking.approver_hr_id,
       isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
-      id, booking.org_id || orgId
+      id
     ]);
 
     await conn.commit();
