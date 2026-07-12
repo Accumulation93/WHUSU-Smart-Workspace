@@ -49,4 +49,33 @@ async function remove(id) {
   await pool.query('DELETE FROM user_info WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getByOpenid, getById, getByHrId, getAll, create, update, remove };
+// 跨组织全局查询 — 返回所有组织中该 openid 的绑定记录
+async function getByOpenidGlobal(openid) {
+  const [rows] = await pool.query(
+    'SELECT * FROM user_info WHERE openid = ? ORDER BY created_at DESC',
+    [openid]
+  );
+  return rows;
+}
+
+// 指定组织查询 — 不依赖 getCurrentOrgId()，直接按参数 orgId 过滤
+async function getByOpenidInOrg(openid, orgId) {
+  const [rows] = await pool.query(
+    'SELECT * FROM user_info WHERE openid = ? AND org_id = ?',
+    [openid, orgId]
+  );
+  return rows[0] || null;
+}
+
+// 创建绑定到指定组织
+async function createInOrg(id, openid, hrId, orgId) {
+  await pool.query(
+    'INSERT INTO user_info (id, openid, hr_id, org_id) VALUES (?, ?, ?, ?)',
+    [id, openid, hrId || '', orgId]
+  );
+}
+
+module.exports = {
+  getByOpenid, getByOpenidGlobal, getByOpenidInOrg, getById, getByHrId, getAll,
+  create, createInOrg, update, remove
+};

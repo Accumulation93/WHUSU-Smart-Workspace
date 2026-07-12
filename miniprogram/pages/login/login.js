@@ -188,12 +188,56 @@ Page({
 
     if (result.status === 'login_success') {
       this.saveProfile(role, result.user);
+      // 保存组织信息
+      if (result.availableOrgs && result.availableOrgs.length > 0) {
+        wx.setStorageSync('availableOrgs', result.availableOrgs);
+        // 使用系统默认组织作为活跃组织
+        const defaultOrgId = wx.getStorageSync('activeOrgId') || '';
+        const defaultOrg = result.availableOrgs.find(o => o.id === defaultOrgId);
+        if (defaultOrg) {
+          wx.setStorageSync('activeOrgName', defaultOrg.name);
+        } else if (result.availableOrgs[0]) {
+          wx.setStorageSync('activeOrgId', result.availableOrgs[0].id);
+          wx.setStorageSync('activeOrgName', result.availableOrgs[0].name);
+        }
+      }
       wx.showToast({
         title: '登录成功',
         icon: 'success'
       });
       wx.redirectTo({
         url: '/pages/portal/portal'
+      });
+      return;
+    }
+
+    if (result.status === 'auto_bind_available') {
+      // 弹窗确认自动绑定
+      const sourceName = result.sourceOrg ? result.sourceOrg.name : '其他组织';
+      const targetName = result.targetOrg ? result.targetOrg.name : '当前组织';
+      wx.showModal({
+        title: '检测到已有绑定',
+        content: '检测到您在「' + sourceName + '」已有绑定记录，是否同步到「' + targetName + '」？',
+        confirmText: '确认同步',
+        cancelText: '暂不同步',
+        success: async (modalRes) => {
+          if (modalRes.confirm) {
+            await this.confirmAutoBind(result);
+          } else {
+            // 用户拒绝自动绑定，尝试以原组织登录
+            this.handleLoginResult(role, {
+              status: 'login_success',
+              token: result.token,
+              user: result.candidateHrInfo ? {
+                id: result.candidateHrInfo.id,
+                hrId: result.candidateHrInfo.id,
+                name: result.candidateHrInfo.name,
+                studentId: result.candidateHrInfo.studentId
+              } : null,
+              availableOrgs: result.availableOrgs
+            });
+          }
+        }
       });
       return;
     }
@@ -297,6 +341,29 @@ Page({
       title: result.message || '信息不匹配',
       icon: 'none'
     });
+  },
+
+  async confirmAutoBind(result) {
+    try {
+      const res = await callFunction({
+        name: 'confirmAutoBind',
+        data: {
+          targetOrgId: result.targetOrg.id,
+          hrId: result.candidateHrInfo.id
+        }
+      });
+      if (res.status === 'success') {
+        showShortToast('同步成功');
+        // 以系统默认组织重新登录
+        wx.setStorageSync('activeOrgId', result.targetOrg.id);
+        wx.setStorageSync('activeOrgName', result.targetOrg.name);
+        this.onLogin();
+      } else {
+        showShortToast(res.message || '同步失败');
+      }
+    } catch (_) {
+      showShortToast('同步请求失败');
+    }
   },
 
   saveProfile(role, user) {

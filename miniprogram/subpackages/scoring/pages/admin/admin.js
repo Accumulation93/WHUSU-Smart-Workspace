@@ -285,7 +285,16 @@ Page({
   },
 
   onShow() {
+    // 刷新组织名称（从 storage 读取）
+    const activeOrgName = wx.getStorageSync('activeOrgName') || '';
+    if (activeOrgName && activeOrgName !== this.data.currentOrganizationName) {
+      this.setData({ currentOrganizationName: activeOrgName });
+    }
     this.bootstrapPage();
+  },
+
+  onOrgTap() {
+    wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
   },
 
   applySubAppFilter() {
@@ -325,12 +334,16 @@ Page({
 
     const canManageAdmins = isSuperAdmin || isRootAdmin;
 
+    // 读取当前活跃组织名称
+    const activeOrgName = wx.getStorageSync('activeOrgName') || '';
+
     this.setData({
       user: adminProfile,
       hasPermission: true,
       isSuperAdmin,
       isRootAdmin,
       canManageAdmins,
+      currentOrganizationName: activeOrgName || this.data.currentOrganizationName,
       resultViewOptions: [
         { value: 'overview', label: '明细查看' },
         { value: 'completion', label: '完成率看板' }

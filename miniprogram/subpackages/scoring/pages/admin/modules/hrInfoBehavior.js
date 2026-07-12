@@ -884,6 +884,35 @@ module.exports = Behavior({
       });
     },
 
+    unbindHrWechat(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || '');
+      const name = String(e.currentTarget.dataset.name || '该成员');
+      if (!hrId) return;
+
+      wx.showModal({
+        title: '解绑微信',
+        content: '确认解绑「' + name + '」的微信绑定吗？解绑后该用户将无法通过微信登录，需重新绑定。',
+        confirmText: '确认解绑',
+        confirmColor: '#dc2626',
+        success: async (res) => {
+          if (!res.confirm) return;
+
+          try {
+            const result = await this.callCloud('unbindHrWechat', { hrId });
+            if (result.status !== 'success') {
+              wx.showToast({ title: result.message || '解绑失败', icon: 'none' });
+              return;
+            }
+            wx.showToast({ title: '已解绑', icon: 'success' });
+            await this.loadHrProfileAdminData();
+            await this.loadHrList();
+          } catch (error) {
+            wx.showToast({ title: '解绑失败', icon: 'none' });
+          }
+        }
+      });
+    },
+
     chooseTable() {
       let self = this;
       self._csvImportActive = true;

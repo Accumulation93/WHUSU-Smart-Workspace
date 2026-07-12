@@ -80,4 +80,31 @@ async function getByScopes(scopes) {
   return rows;
 }
 
-module.exports = { getAll, getById, getByIds, getByStudentId, getByScopes, create, update, remove };
+// 跨组织全局查询 — 返回所有组织中匹配该学号的 hr_info 记录
+async function getByStudentIdGlobal(studentId) {
+  const [rows] = await pool.query(
+    'SELECT * FROM hr_info WHERE student_id = ? ORDER BY created_at DESC',
+    [studentId]
+  );
+  return rows;
+}
+
+// 指定组织查询 — 不依赖 getCurrentOrgId()，直接按参数 orgId 过滤
+async function getByStudentIdInOrg(studentId, orgId) {
+  const [rows] = await pool.query(
+    'SELECT * FROM hr_info WHERE student_id = ? AND org_id = ?',
+    [studentId, orgId]
+  );
+  return rows[0] || null;
+}
+
+// 指定组织按 ID 查询
+async function getByIdInOrg(id, orgId) {
+  const [rows] = await pool.query(
+    'SELECT * FROM hr_info WHERE id = ? AND org_id = ?',
+    [id, orgId]
+  );
+  return rows[0] || null;
+}
+
+module.exports = { getAll, getById, getByIdInOrg, getByIds, getByStudentId, getByStudentIdGlobal, getByStudentIdInOrg, getByScopes, create, update, remove };

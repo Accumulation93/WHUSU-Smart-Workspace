@@ -110,7 +110,16 @@ async function getByAdminLevel(level) {
   return rows;
 }
 
+// 跨组织全局管理员查询 — 返回所有组织中该 openid 的活跃管理员记录（用于智能登录）
+async function getByOpenidAcrossOrgs(openid) {
+  const [rows] = await pool.query(
+    'SELECT * FROM admin_info WHERE openid = ? AND bind_status = ?',
+    [openid, 'active']
+  );
+  return rows;
+}
+
 module.exports = {
-  getByOpenid, getByOpenidAny, getByOpenidGlobal, getById, getAll,
+  getByOpenid, getByOpenidAny, getByOpenidGlobal, getByOpenidAcrossOrgs, getById, getAll,
   create, update, remove, getByInviteCode, getRootAdmin, getByAdminLevel
 };

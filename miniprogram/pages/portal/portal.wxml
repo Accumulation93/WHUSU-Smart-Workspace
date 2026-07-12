@@ -5,9 +5,10 @@
     <view class="hero-subtitle">欢迎使用 REDSU 智慧工作台系统</view>
   </view>
 
-  <view class="card" wx:if="{{organizationName}}">
+  <view class="card org-card" wx:if="{{organizationName}}" bindtap="onOrgTap">
     <view class="info-head">
       <view class="section-title">当前组织</view>
+      <view class="org-switch-hint">切换 ▸</view>
     </view>
     <view class="activity-name">{{organizationName}}</view>
   </view>

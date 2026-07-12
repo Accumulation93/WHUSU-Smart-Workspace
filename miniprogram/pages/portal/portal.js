@@ -102,6 +102,10 @@ Page({
       this._boundOnVenueChanged = this._onApprovalDone.bind(this);
       eventBus.on('venue:changed', this._boundOnVenueChanged);
     }
+    if (!this._boundOnOrgChanged) {
+      this._boundOnOrgChanged = this._onOrgChanged.bind(this);
+      eventBus.on('org:changed', this._boundOnOrgChanged);
+    }
   },
 
   onHide() {
@@ -115,6 +119,10 @@ Page({
       eventBus.off('venue:changed', this._boundOnVenueChanged);
       this._boundOnVenueChanged = null;
     }
+    if (this._boundOnOrgChanged) {
+      eventBus.off('org:changed', this._boundOnOrgChanged);
+      this._boundOnOrgChanged = null;
+    }
   },
 
   onUnload() {
@@ -126,6 +134,10 @@ Page({
     if (this._boundOnVenueChanged) {
       eventBus.off('venue:changed', this._boundOnVenueChanged);
       this._boundOnVenueChanged = null;
+    }
+    if (this._boundOnOrgChanged) {
+      eventBus.off('org:changed', this._boundOnOrgChanged);
+      this._boundOnOrgChanged = null;
     }
   },
 
@@ -165,19 +177,39 @@ Page({
   },
 
   loadOrganizationName() {
+    // 优先读取用户选择的活跃组织，其次回退 API 获取系统默认组织
+    const storedName = wx.getStorageSync('activeOrgName') || '';
+    if (storedName) {
+      this.setData({ organizationName: storedName });
+      return;
+    }
     callFunction({
       name: 'getCurrentOrganization',
       success: (res) => {
         const result = res.result || {};
         const org = result.organization;
-        this.setData({
-          organizationName: org && org.name ? org.name : ''
-        });
+        const name = org && org.name ? org.name : '';
+        this.setData({ organizationName: name });
+        if (name) wx.setStorageSync('activeOrgName', name);
       },
       fail: () => {
         this.setData({ organizationName: '' });
       }
     });
+  },
+
+  onOrgTap() {
+    wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
+  },
+
+  _onOrgChanged() {
+    this.setData({
+      organizationName: wx.getStorageSync('activeOrgName') || ''
+    });
+    this.refreshCurrentUser();
+    this.loadRecentTodos();
+    this.loadNotificationUnreadCount();
+    this.loadRecentNotifications();
   },
 
   onCardTap(e) {

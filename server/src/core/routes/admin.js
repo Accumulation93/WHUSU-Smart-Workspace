@@ -160,9 +160,7 @@ router.post('/deleteAdmin', async (req, res) => {
   try {
     const openid = req.openid;
     const operator = await ensureAdmin(openid);
-    if (!operator || operator.admin_level !== 'root_admin') {
-      return res.json({ status: 'forbidden', message: '只有至高权限管理员可以删除管理员' });
-    }
+    if (!operator) return res.json({ status: 'forbidden', message: '没有管理权限' });
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供管理员ID' });
@@ -170,11 +168,27 @@ router.post('/deleteAdmin', async (req, res) => {
     const admin = await adminInfoModel.getById(id);
     if (!admin) return res.json({ status: 'not_found', message: '管理员不存在' });
 
-    if (admin.admin_level === 'root_admin') {
-      const rootAdmins = await adminInfoModel.getByAdminLevel('root_admin');
-      if (rootAdmins.length <= 1) {
-        return res.json({ status: 'invalid_operation', message: '不能删除唯一的至高权限管理员' });
+    // 权限层级：root_admin 可删除任何人；super_admin 可删除本组织 admin
+    if (operator.admin_level === 'root_admin') {
+      // root_admin 可以删除任何人，但不能删除唯一的 root_admin
+      if (admin.admin_level === 'root_admin') {
+        const rootAdmins = await adminInfoModel.getByAdminLevel('root_admin');
+        if (rootAdmins.length <= 1) {
+          return res.json({ status: 'invalid_operation', message: '不能删除唯一的至高权限管理员' });
+        }
       }
+    } else if (operator.admin_level === 'super_admin') {
+      // super_admin 只能删除本组织的 admin 级别管理员
+      if (admin.admin_level !== 'admin') {
+        return res.json({ status: 'forbidden', message: '权限不足：超级管理员只能删除普通管理员' });
+      }
+      // 确保目标管理员与操作者在同一组织
+      const orgId = await getCurrentOrgId();
+      if (admin.org_id !== orgId) {
+        return res.json({ status: 'forbidden', message: '权限不足：只能删除本组织的管理员' });
+      }
+    } else {
+      return res.json({ status: 'forbidden', message: '权限不足' });
     }
 
     await adminInfoModel.remove(id);
@@ -319,7 +333,7 @@ router.post('/bootstrapSuperAdmin', async (req, res) => {
   }
 });
 
-// adminUnbindUser
+// adminUnbindUser — 管理员解绑用户微信（含权限层级）
 router.post('/adminUnbindUser', async (req, res) => {
   try {
     const openid = req.openid;
@@ -328,6 +342,27 @@ router.post('/adminUnbindUser', async (req, res) => {
 
     const userId = safeString(req.body.userId);
     if (!userId) return res.json({ status: 'invalid_params', message: '请提供用户ID' });
+
+    // 查找目标用户的绑定信息
+    const targetUser = await userInfoModel.getById(userId);
+    if (!targetUser) return res.json({ status: 'not_found', message: '用户绑定记录不存在' });
+
+    // 检查被解绑者是否是管理员，以及操作者的管理级别
+    const targetOpenid = safeString(targetUser.openid);
+    const targetAdmin = await adminInfoModel.getByOpenidAny(targetOpenid);
+    if (targetAdmin) {
+      if (admin.admin_level === 'root_admin') {
+        // root_admin 可以解绑任何人
+      } else if (admin.admin_level === 'super_admin') {
+        // super_admin 只能解绑 admin 和普通用户，不能解绑 super_admin 或 root_admin
+        if (targetAdmin.admin_level === 'super_admin' || targetAdmin.admin_level === 'root_admin') {
+          return res.json({ status: 'forbidden', message: '权限不足：无法解绑同级或上级管理员' });
+        }
+      } else {
+        // admin 无解绑权限
+        return res.json({ status: 'forbidden', message: '权限不足：仅超级管理员及以上可解绑微信' });
+      }
+    }
 
     await userInfoModel.remove(userId);
     res.json({ status: 'success', message: '用户解绑成功' });

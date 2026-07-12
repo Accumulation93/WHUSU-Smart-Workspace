@@ -482,19 +482,28 @@ Page({
   },
 
   loadOrganizationName() {
+    const storedName = wx.getStorageSync('activeOrgName') || '';
+    if (storedName) {
+      this.setData({ organizationName: storedName });
+      return;
+    }
     callFunction({
       name: 'getCurrentOrganization',
       success: (res) => {
         const result = res.result || {};
         const org = result.organization;
-        this.setData({
-          organizationName: org && org.name ? org.name : ''
-        });
+        const name = org && org.name ? org.name : '';
+        this.setData({ organizationName: name });
+        if (name) wx.setStorageSync('activeOrgName', name);
       },
       fail: () => {
         this.setData({ organizationName: '' });
       }
     });
+  },
+
+  onOrgTap() {
+    wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
   },
 
   processRateTargetsResult(result) {

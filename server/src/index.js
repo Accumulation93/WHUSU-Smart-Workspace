@@ -8,6 +8,7 @@ const morgan = require('morgan');
 const { logger, createRequestLogger } = require('./utils/logger');
 const requestContext = require('./middleware/requestContext');
 const { authMiddleware } = require('./middleware/auth');
+const { orgContextMiddleware } = require('./middleware/orgContext');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -91,7 +92,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'https://accumulation93.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Org']
 }));
 
 app.use((req, res, next) => {
@@ -142,6 +143,9 @@ app.use((req, res, next) => {
 });
 
 app.use(authMiddleware);
+
+// 组织上下文中间件（基于 X-Active-Org header，注入 ALS）
+app.use(orgContextMiddleware);
 
 // ---------- request timeout ----------
 app.use((req, res, next) => {

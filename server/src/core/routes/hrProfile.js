@@ -332,7 +332,8 @@ router.post('/saveHrProfileTemplate', async (req, res) => {
       if (field.type === 'sequence' && !field.options.length) return res.json({ status: 'invalid_params', message: '序列字段至少需要一个可选项' });
     }
 
-    const { withTransaction } = require('../../config/db');
+    const pool = require('../../config/db');
+const { withTransaction } = pool;
     const { getCurrentOrgId } = require('../../utils/orgContext');
     const orgId = await getCurrentOrgId();
     await withTransaction(async (conn) => {
@@ -386,12 +387,33 @@ router.post('/listHrProfileAdminData', async (req, res) => {
     const admin = await ensureAdmin(openid);
     if (!admin) return res.json({ status: 'forbidden', message: '没有管理员权限' });
 
+    const orgId = await getCurrentOrgId();
     const [template, hrRows, records, departments, identities, workGroups] = await Promise.all([
       profileTemplateModel.getByTemplateKey(TEMPLATE_KEY),
       hrInfoModel.getAll(),
       profileRecordModel.getAll(),
       departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
     ]);
+
+    // 查询用户微信绑定状态
+    let bindingMap = new Map();
+    if (hrRows.length) {
+      const hrIds = hrRows.map(r => r.id);
+      const placeholders = hrIds.map(() => '?').join(',');
+      const [bindings] = await pool.query(
+        `SELECT ui.hr_id, ui.id as user_info_id, ui.openid
+         FROM user_info ui
+         WHERE ui.hr_id IN (${placeholders}) AND ui.org_id = ?`,
+        [...hrIds, orgId]
+      );
+      bindings.forEach(b => {
+        bindingMap.set(safeString(b.hr_id), {
+          userInfoId: b.user_info_id || '',
+          boundOpenid: b.openid ? safeString(b.openid).slice(0, 8) + '***' : '',
+          wxBindStatus: b.user_info_id ? 'bound' : 'unbound'
+        });
+      });
+    }
 
     const deptMap = buildNameMap(departments);
     const identMap = buildNameMap(identities);
@@ -446,6 +468,7 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       }
 
       const statusTextMap = { pending: '待审核', approved: '已生效', rejected: '已驳回' };
+      const binding = bindingMap.get(safeString(item.id)) || { userInfoId: '', boundOpenid: '', wxBindStatus: 'unbound' };
       rows.push({
         id: item.id,
         recordId: safeString(record ? record.id : ''),
@@ -459,7 +482,10 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         auditStatus,
         auditStatusText: statusTextMap[auditStatus] || '未提交',
         rejectionReason: safeString(record ? record.rejection_reason : ''),
-        hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0
+        hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
+        userInfoId: binding.userInfoId,
+        boundOpenid: binding.boundOpenid,
+        wxBindStatus: binding.wxBindStatus
       });
     }
 

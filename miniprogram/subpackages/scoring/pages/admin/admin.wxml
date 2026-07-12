@@ -5,6 +5,11 @@
     <view class="hero-badge">管理端</view>
     <view class="hero-title">评分管理工作台</view>
     <view class="hero-subtitle hero-admin-subtitle">{{subAppLabel}} · {{user.name}} - {{isRootAdmin ? '至高权限管理员' : (isSuperAdmin ? '超级管理员' : '普通管理员')}}</view>
+    <view class="hero-org" wx:if="{{currentOrganizationName}}" bindtap="onOrgTap">
+      <text class="hero-org-icon">🏛</text>
+      <text class="hero-org-name">{{currentOrganizationName}}</text>
+      <text class="hero-org-arrow">▸</text>
+    </view>
   </view>
 
   <view class="empty-card" wx:if="{{!hasPermission}}">
@@ -1021,7 +1026,13 @@
             <view class="hr-member-main">
               <view class="hr-member-top">
                 <view class="hr-member-name">{{item.name}}</view>
-                <view class="status-chip {{item.auditStatus === 'pending' ? 'pending-chip' : item.auditStatus === 'approved' ? 'current-chip' : item.auditStatus === 'rejected' ? 'rejected-chip' : 'none-chip'}}">{{item.auditStatusText}}</view>
+                <view class="hr-member-chips">
+                  <block wx:if="{{isSuperAdmin || isRootAdmin}}">
+                    <view class="status-chip current-chip" wx:if="{{item.wxBindStatus === 'bound'}}">已绑定</view>
+                    <view class="status-chip unbound-chip" wx:else>未绑定</view>
+                  </block>
+                  <view class="status-chip {{item.auditStatus === 'pending' ? 'pending-chip' : item.auditStatus === 'approved' ? 'current-chip' : item.auditStatus === 'rejected' ? 'rejected-chip' : 'none-chip'}}">{{item.auditStatusText}}</view>
+                </view>
               </view>
               <view class="hr-member-meta">
                 <text class="hr-member-id">{{item.studentId}}</text>
@@ -1031,14 +1042,17 @@
                 <text>{{item.identity}}</text>
                 <text wx:if="{{item.workGroup}}" class="hr-member-sep">|</text>
                 <text wx:if="{{item.workGroup}}">{{item.workGroup}}</text>
+                <text wx:if="{{item.wxBindStatus === 'bound' && (isSuperAdmin || isRootAdmin)}}" class="hr-member-sep">|</text>
+                <text wx:if="{{item.wxBindStatus === 'bound' && (isSuperAdmin || isRootAdmin)}}" class="hr-member-id">{{item.boundOpenid}}</text>
               </view>
               <view class="hr-member-summary">{{item.currentSummary}}</view>
               <view class="hr-member-pending" wx:if="{{item.pendingSummary}}">待审核：{{item.pendingSummary}}</view>
               <view class="hr-member-reject" wx:if="{{item.rejectionReason}}">驳回原因：{{item.rejectionReason}}</view>
             </view>
-            <view class="hr-member-actions" wx:if="{{item.hasPending}}" catchtap>
-              <text class="link ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="approveHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
-              <text class="link danger ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="rejectHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
+            <view class="hr-member-actions" catchtap>
+              <text class="link danger ui-motion-chip" wx:if="{{item.wxBindStatus === 'bound' && (isSuperAdmin || isRootAdmin)}}" data-hr-id="{{item.id}}" data-name="{{item.name}}" catchtap="unbindHrWechat" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑微信</text>
+              <text wx:if="{{item.hasPending}}" class="link ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="approveHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
+              <text wx:if="{{item.hasPending}}" class="link danger ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="rejectHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
             </view>
             <view class="hr-member-arrow">›</view>
           </view>

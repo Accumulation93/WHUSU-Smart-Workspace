@@ -908,3 +908,14 @@ button, input, textarea, picker, view, text, scroll-view {
     justify-content: center;
   }
 }
+
+/* 组织切换卡片 */
+.org-card {
+  cursor: pointer;
+}
+
+.org-switch-hint {
+  font-size: 22rpx;
+  color: #3b82f6;
+  font-weight: 500;
+}

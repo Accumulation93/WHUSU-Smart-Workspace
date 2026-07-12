@@ -88,14 +88,16 @@ router.post('/listHrInfo', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
     const [rows] = await pool.query(
-      `SELECT h.*, d.name as department_name, i.name as identity_name, wg.name as work_group_name
+      `SELECT h.*, d.name as department_name, i.name as identity_name, wg.name as work_group_name,
+              ui.id as user_info_id, ui.openid as bound_openid
        FROM hr_info h
        LEFT JOIN departments d ON h.department_id = d.id AND d.org_id = ?
        LEFT JOIN identities i ON h.identity_id = i.id AND i.org_id = ?
        LEFT JOIN work_groups wg ON h.work_group_id = wg.id AND wg.org_id = ?
+       LEFT JOIN user_info ui ON ui.hr_id = h.id AND ui.org_id = ?
        WHERE h.org_id = ?
        ORDER BY h.name`,
-      [orgId, orgId, orgId, orgId]
+      [orgId, orgId, orgId, orgId, orgId]
     );
     const list = rows.map((item) => ({
       id: item.id,
@@ -106,7 +108,10 @@ router.post('/listHrInfo', async (req, res) => {
       identityId: safeString(item.identity_id),
       identity: safeString(item.identity_name),
       workGroupId: safeString(item.work_group_id),
-      workGroup: safeString(item.work_group_name)
+      workGroup: safeString(item.work_group_name),
+      userInfoId: item.user_info_id || '',
+      boundOpenid: item.bound_openid ? safeString(item.bound_openid).slice(0, 8) + '***' : '',
+      bindStatus: item.user_info_id ? 'bound' : 'unbound'
     }));
     res.json({ status: 'success', list });
   } catch (e) {
@@ -593,6 +598,58 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
     }
 
     res.json({ status: 'success', message: '组织字典引用完整', stats });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// unbindHrWechat — 管理员解绑指定人事的微信绑定
+router.post('/unbindHrWechat', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const admin = await adminInfoModel.getByOpenid(openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+
+    const hrId = safeString(req.body.hrId);
+    if (!hrId) return res.json({ status: 'invalid_params', message: '请提供人事ID' });
+
+    const orgId = await getCurrentOrgId();
+
+    // 查找该人事对应的 user_info 绑定
+    const [userRows] = await pool.query(
+      'SELECT * FROM user_info WHERE hr_id = ? AND org_id = ?',
+      [hrId, orgId]
+    );
+    if (!userRows.length) {
+      return res.json({ status: 'not_found', message: '该人事记录尚未绑定微信' });
+    }
+
+    const targetUser = userRows[0];
+    const targetOpenid = safeString(targetUser.openid);
+
+    // 检查被解绑者是否是管理员，以及操作者的管理级别
+    const targetAdmin = await adminInfoModel.getByOpenid(targetOpenid);
+    if (targetAdmin) {
+      // 权限层级检查
+      if (admin.admin_level === 'root_admin') {
+        // root_admin 可以解绑任何人（含 super_admin、admin）
+      } else if (admin.admin_level === 'super_admin') {
+        // super_admin 只能解绑 admin 和普通用户，不能解绑同级 super_admin
+        if (targetAdmin.admin_level === 'super_admin' || targetAdmin.admin_level === 'root_admin') {
+          return res.json({ status: 'forbidden', message: '权限不足：无法解绑同级或上级管理员' });
+        }
+      } else {
+        // admin 无解绑权限
+        return res.json({ status: 'forbidden', message: '权限不足：仅超级管理员及以上可解绑微信' });
+      }
+    }
+
+    // 删除 user_info 绑定
+    for (const userRecord of userRows) {
+      await pool.query('DELETE FROM user_info WHERE id = ?', [userRecord.id]);
+    }
+
+    res.json({ status: 'success', message: '微信解绑成功' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

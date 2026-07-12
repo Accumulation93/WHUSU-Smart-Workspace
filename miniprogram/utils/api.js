@@ -30,7 +30,8 @@ function callFunction(options) {
       timeout: 15000,
       header: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + (wx.getStorageSync('token') || '')
+        'Authorization': 'Bearer ' + (wx.getStorageSync('token') || ''),
+        'X-Active-Org': wx.getStorageSync('activeOrgId') || ''
       },
       data: data,
       success: function(res) {

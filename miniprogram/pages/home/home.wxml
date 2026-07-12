@@ -5,9 +5,10 @@
     <view class="hero-subtitle">{{heroSubtitle}}</view>
   </view>
 
-  <view class="card activity-card" wx:if="{{organizationName}}">
+  <view class="card activity-card org-card" wx:if="{{organizationName}}" bindtap="onOrgTap">
     <view class="info-head">
       <view class="section-title">当前组织</view>
+      <view class="org-switch-hint">切换 ▸</view>
     </view>
     <view class="activity-name">{{organizationName}}</view>
   </view>
