@@ -19,6 +19,15 @@ async function getByOpenidAny(openid) {
   return rows[0] || null;
 }
 
+// 跨组织全局管理员查询 — 场地等全局模块使用，不限制 org_id
+async function getByOpenidGlobal(openid) {
+  const [rows] = await pool.query(
+    'SELECT * FROM admin_info WHERE openid = ? AND bind_status = ? LIMIT 1',
+    [openid, 'active']
+  );
+  return rows[0] || null;
+}
+
 async function getById(id) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
@@ -102,6 +111,6 @@ async function getByAdminLevel(level) {
 }
 
 module.exports = {
-  getByOpenid, getByOpenidAny, getById, getAll,
+  getByOpenid, getByOpenidAny, getByOpenidGlobal, getById, getAll,
   create, update, remove, getByInviteCode, getRootAdmin, getByAdminLevel
 };

@@ -290,6 +290,7 @@ Page({
     try {
       let res = await callFunction({ name: 'listVenuesForBooking', data: {} });
       if (res.status === 'success') this.setData({ venues: res.venues || [] });
+      else showShortToast(res.message || '加载失败');
     } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
     finally { this.setData({ loading: false }); }
   },
@@ -298,6 +299,7 @@ Page({
     try {
       let res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
       if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
+      else showShortToast(res.message || '加载失败');
     } catch (_) {}
   },
 
@@ -327,6 +329,7 @@ Page({
     try {
       let res = await callFunction({name:'getVenueSchedule',data:{venueId:scheduleVenueId,dateFrom:scheduleWeekStart,dateTo}});
       if(res.status==='success') this._buildTimetable(res.dailySchedules||[]);
+	      else showShortToast(res.message || '加载失败');
     } catch(e) { showShortToast(getErrorText(e,'加载失败')); }
     finally { wx.hideLoading(); }
   },

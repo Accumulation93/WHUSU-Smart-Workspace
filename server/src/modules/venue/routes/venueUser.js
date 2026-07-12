@@ -239,8 +239,7 @@ function splitByDate(startDate, endDate) {
 
 router.post('/listVenuesForBooking', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!req.openid) return res.json({ status: 'forbidden', message: '请先登录' });
     const venues = await venueModel.getAll();
     const venueList = [];
     for (const v of venues) {
@@ -266,8 +265,7 @@ router.post('/listVenuesForBooking', async (req, res) => {
 
 router.post('/getVenueSchedule', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!req.openid) return res.json({ status: 'forbidden', message: '请先登录' });
     const venueId = safeString(req.body.venueId);
     const dateFrom = safeString(req.body.dateFrom);
     const dateTo = safeString(req.body.dateTo);

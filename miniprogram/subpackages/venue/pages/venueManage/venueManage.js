@@ -809,6 +809,12 @@ Page({
 
       const [pendingRes, timeRes] = await Promise.all([pendingReq, timeReq]);
 
+      // 非 success 状态提示错误
+      if (pendingRes.status !== 'success' && pendingRes.status !== undefined)
+        showShortToast(pendingRes.message || '加载失败');
+      if (timeRes.status !== 'success' && timeRes.status !== undefined)
+        showShortToast(timeRes.message || '加载失败');
+
       const pendingList = (pendingRes.status === 'success' ? pendingRes.bookings : []) || [];
       const timeList = (timeRes.status === 'success' ? timeRes.bookings : []) || [];
 

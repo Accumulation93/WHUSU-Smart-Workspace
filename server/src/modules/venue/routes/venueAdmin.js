@@ -18,7 +18,7 @@ const { createVenueApprovalNotifications, createVenueBookingStatusNotification }
 const notificationModel = require('../../audit/models/notification');
 
 async function ensureAdmin(openid) {
-  return adminInfoModel.getByOpenid(openid);
+  return adminInfoModel.getByOpenidGlobal(openid);
 }
 
 async function resolveHrId(openid) {
