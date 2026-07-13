@@ -63,19 +63,20 @@
     <view class="list-card">
       <view class="list-title">未完成评分人列表</view>
       <scroll-view class="inner-scroll large-scroll" scroll-y>
-        <view class="task-table">
-          <view class="task-table-head">
-            <view class="task-col task-col-name">评分人</view>
-            <view class="task-col task-col-progress">已评/应评</view>
-            <view class="task-col task-col-action">操作</view>
+        <view class="task-table ui-data-grid--complex">
+          <view class="task-table-head ui-data-row ui-data-row--header">
+            <view class="task-col task-col-name ui-data-cell ui-data-cell--primary">评分人</view>
+            <view class="task-col task-col-progress ui-data-cell">已评/应评</view>
+            <view class="task-col task-col-action ui-data-cell ui-data-cell--action">操作</view>
           </view>
-          <view class="task-table-row ui-motion-chip" wx:for="{{scorerRows}}" wx:key="scorerKey" data-index="{{index}}" bindtap="openPendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-            <view class="task-col task-col-name">
-              <view class="task-name">{{item.scorerName}}</view>
-              <view class="task-meta">{{item.department}}</view>
+          <view class="task-table-row ui-motion-chip ui-data-row" wx:for="{{scorerRows}}" wx:key="scorerKey" data-index="{{index}}" bindtap="openPendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+            <view class="task-col task-col-name ui-data-cell ui-data-cell--primary">
+              <text class="ui-data-cell-label">评分人</text>
+              <view class="ui-data-cell-content"><view class="task-name">{{item.scorerName}}</view><view class="task-meta">{{item.department}}</view></view>
             </view>
-            <view class="task-col task-col-progress">
-              <view class="progress-cell">
+            <view class="task-col task-col-progress ui-data-cell">
+              <text class="ui-data-cell-label">完成进度</text>
+              <view class="progress-cell ui-data-cell-content">
                 <view class="progress-top">
                   <text class="progress-count">{{item.progressText}}</text>
                   <text class="progress-percent">{{item.progressPercentText}}</text>
@@ -85,7 +86,8 @@
                 </view>
               </view>
             </view>
-            <view class="task-col task-col-action">
+            <view class="task-col task-col-action ui-data-cell ui-data-cell--action">
+              <text class="ui-data-cell-label">操作</text>
               <text class="link no-wrap-link">查看</text>
             </view>
           </view>
@@ -100,30 +102,30 @@
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
-  <view class="popup-mask" wx:if="{{pendingPopupVisible}}" bindtap="closePendingPopup">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{pendingPopupVisible}}" bindtap="closePendingPopup">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{pendingPopupTitle}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closePendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view class="popup-scroll" scroll-y>
+      <scroll-view class="popup-scroll ui-dialog-body" scroll-y>
         <view class="popup-loading-overlay" wx:if="{{pendingPopupLoading}}">
           <view class="popup-loading-spinner"></view>
           <text class="popup-loading-text">正在加载...</text>
         </view>
-        <view class="popup-table" wx:else>
-          <view class="popup-table-head">
-            <view class="popup-col popup-col-name">被评分人</view>
-            <view class="popup-col popup-col-dept">具体信息</view>
+        <view class="popup-table ui-data-grid--complex" wx:else>
+          <view class="popup-table-head ui-data-row ui-data-row--header">
+            <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">被评分人</view>
+            <view class="popup-col popup-col-dept ui-data-cell">具体信息</view>
           </view>
-          <view class="popup-table-row" wx:for="{{pendingPopupList}}" wx:key="targetId">
-            <view class="popup-col popup-col-name">
-              <view class="task-name">{{item.targetName}}</view>
-              <view class="task-meta">{{item.targetStudentId}}</view>
+          <view class="popup-table-row ui-data-row" wx:for="{{pendingPopupList}}" wx:key="targetId">
+            <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">
+              <text class="ui-data-cell-label">被评分人</text>
+              <view class="ui-data-cell-content"><view class="task-name">{{item.targetName}}</view><view class="task-meta">{{item.targetStudentId}}</view></view>
             </view>
-            <view class="popup-col popup-col-dept">
-              <view class="task-meta">{{item.targetDepartment}}</view>
-              <view class="task-meta">{{item.targetIdentity}} / {{item.targetWorkGroup}}</view>
+            <view class="popup-col popup-col-dept ui-data-cell">
+              <text class="ui-data-cell-label">具体信息</text>
+              <view class="ui-data-cell-content"><view class="task-meta">{{item.targetDepartment}}</view><view class="task-meta">{{item.targetIdentity}} / {{item.targetWorkGroup}}</view></view>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!pendingPopupList.length}}">当前没有未完成名单。</view>

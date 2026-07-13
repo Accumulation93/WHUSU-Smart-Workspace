@@ -264,32 +264,41 @@
     </view>
 
     <!-- Template CSV import mapping dialog -->
-    <view class="modal-mask" wx:if="{{showTemplateCsvDialog}}" bindtap="cancelTemplateCsvImport">
-      <view class="modal-card csv-mapping-card" catchtap>
-        <view class="modal-header">
+    <view class="modal-mask ui-overlay" wx:if="{{showTemplateCsvDialog}}" bindtap="cancelTemplateCsvImport">
+      <view class="modal-card csv-mapping-card ui-dialog-shell ui-dialog-shell--complex" catchtap>
+        <view class="modal-header ui-dialog-header">
           <view class="modal-title">表格字段映射 - 评分问题</view>
           <view class="modal-close ui-motion-chip" catchtap="cancelTemplateCsvImport" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body csv-mapping-body" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-data-grid--complex" scroll-y>
           <view class="csv-mapping-tip">请将表格列名匹配到对应的评分问题字段。未映射的列将被忽略。只有"问题内容"是必需的，其他字段缺失时将使用默认值。</view>
-          <view class="csv-mapping-row csv-mapping-row-header">
-            <view class="csv-mapping-col csv-mapping-col-csv">表格列名</view>
-            <view class="csv-mapping-col csv-mapping-col-type">字段类型</view>
-            <view class="csv-mapping-col csv-mapping-col-sample">示例值</view>
-            <view class="csv-mapping-col csv-mapping-col-target">映射到</view>
+          <view class="csv-mapping-row csv-mapping-row-header ui-data-row ui-data-row--header">
+            <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">表格列名</view>
+            <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">字段类型</view>
+            <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary">示例值</view>
+            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">映射到</view>
           </view>
-          <view class="csv-mapping-row" wx:for="{{templateCsvImportRows}}" wx:key="header">
-            <view class="csv-mapping-col csv-mapping-col-csv">{{item.header}}</view>
-            <view class="csv-mapping-col csv-mapping-col-type">
+          <view class="csv-mapping-row ui-data-row" wx:for="{{templateCsvImportRows}}" wx:key="header">
+            <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">
+              <text class="csv-mapping-mobile-label">表格列名</text>
+              <text class="csv-mapping-primary-text">{{item.header}}</text>
+            </view>
+            <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">
+              <text class="csv-mapping-mobile-label">字段类型</text>
               <view class="csv-mapping-type-tag">{{item.fieldTypeLabel}}</view>
             </view>
-            <view class="csv-mapping-col csv-mapping-col-sample">{{item.sampleValue || '—'}}</view>
-            <view class="csv-mapping-col csv-mapping-col-target">
+            <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary ui-motion-chip" data-value="{{item.sampleValue}}" catchtap="showCsvSampleValue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="查看完整示例值">
+              <text class="csv-mapping-mobile-label">示例值</text>
+              <text class="csv-mapping-sample-text">{{item.sampleValue || '—'}}</text>
+              <text class="csv-mapping-sample-hint" wx:if="{{item.sampleValue}}">点击查看全文</text>
+            </view>
+            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">
+              <text class="csv-mapping-mobile-label">映射到</text>
               <picker range="{{templateCsvImportMappingLabels}}"
                       mode="selector" data-index="{{index}}"
                       bindchange="onTemplateCsvMappingChange"
                       value="{{item.optionIndex}}">
-                <view class="csv-mapping-picker-value">{{item.optionLabel}}</view>
+                <view class="csv-mapping-picker-value ui-control-text">{{item.optionLabel}}</view>
               </picker>
             </view>
           </view>
@@ -301,7 +310,7 @@
           </view>
           <switch checked="{{templateCsvReplaceMode}}" bindchange="toggleTemplateCsvReplaceMode" color="#2563eb"/>
         </view>
-        <view class="modal-footer csv-mapping-footer">
+        <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
           <button class="primary-btn ui-motion-button" catchtap="confirmTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认导入</button>
         </view>
@@ -731,7 +740,7 @@
       </view>
 
       <view class="list-card" wx:if="{{resultFilters.viewMode === 'overview' && selectedResultTarget}}">
-        <view class="popup-header result-drill-header">
+        <view class="popup-header result-drill-header ui-dialog-header">
           <view class="list-title">{{selectedResultTarget.name}}的评分情况</view>
           <text class="popup-close ui-motion-chip" bindtap="closeTargetScoreRecords" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">收起</text>
         </view>
@@ -797,7 +806,7 @@
       </view>
 
       <view class="list-card" wx:if="{{resultFilters.viewMode === 'completion' && selectedCompletionDepartment}}">
-        <view class="popup-header result-drill-header">
+        <view class="popup-header result-drill-header ui-dialog-header">
           <view class="list-title">{{selectedCompletionDepartment}}评分人完成情况</view>
           <text class="popup-close ui-motion-chip" bindtap="closeDepartmentScorers" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">收起</text>
         </view>
@@ -805,23 +814,25 @@
           <view class="card-loading-spinner"></view>
         </view>
         <block wx:else>
-          <view class="result-table">
-            <view class="result-table-head">
-              <view class="result-col result-col-popup-name">评分人</view>
-              <view class="result-col result-col-popup-detail">具体信息</view>
-              <view class="result-col result-col-popup-progress">已评/应评</view>
-              <view class="result-col result-col-popup-status">状态</view>
+          <view class="result-table ui-data-grid--complex">
+            <view class="result-table-head ui-data-row ui-data-row--header">
+              <view class="result-col result-col-popup-name ui-data-cell ui-data-cell--primary">评分人</view>
+              <view class="result-col result-col-popup-detail ui-data-cell">具体信息</view>
+              <view class="result-col result-col-popup-progress ui-data-cell">已评/应评</view>
+              <view class="result-col result-col-popup-status ui-data-cell">状态</view>
             </view>
-            <view class="result-table-row result-table-row-clickable ui-motion-chip" wx:for="{{departmentScorerRows}}" wx:key="scorerKey" data-scorer-key="{{item.scorerKey}}" bindtap="openScorerTargetPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-              <view class="result-col result-col-popup-name">
-                <view class="result-name">{{item.scorerName}}</view>
-                <view class="result-meta">{{item.scorerStudentId}}</view>
+            <view class="result-table-row result-table-row-clickable ui-motion-chip ui-data-row" wx:for="{{departmentScorerRows}}" wx:key="scorerKey" data-scorer-key="{{item.scorerKey}}" bindtap="openScorerTargetPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+              <view class="result-col result-col-popup-name ui-data-cell ui-data-cell--primary">
+                <text class="ui-data-cell-label">评分人</text>
+                <view class="ui-data-cell-content"><view class="result-name">{{item.scorerName}}</view><view class="result-meta">{{item.scorerStudentId}}</view></view>
               </view>
-              <view class="result-col result-col-popup-detail">
-                <view class="result-meta result-meta-strong">{{item.detailText}}</view>
+              <view class="result-col result-col-popup-detail ui-data-cell">
+                <text class="ui-data-cell-label">具体信息</text>
+                <view class="result-meta result-meta-strong ui-data-cell-content">{{item.detailText}}</view>
               </view>
-              <view class="result-col result-col-popup-progress">
-                <view class="progress-cell">
+              <view class="result-col result-col-popup-progress ui-data-cell">
+                <text class="ui-data-cell-label">完成进度</text>
+                <view class="progress-cell ui-data-cell-content">
                   <view class="progress-top">
                     <text class="progress-count">{{item.completionText}}</text>
                     <text class="progress-percent">{{item.progressPercentText}}</text>
@@ -831,7 +842,8 @@
                   </view>
                 </view>
               </view>
-              <view class="result-col result-col-popup-status">
+              <view class="result-col result-col-popup-status ui-data-cell">
+                <text class="ui-data-cell-label">状态</text>
                 <view class="status-chip {{item.statusClass}}">{{item.statusText}}</view>
               </view>
             </view>
@@ -1062,13 +1074,13 @@
       </view>
     </view>
 
-    <view class="modal-mask" wx:if="{{showHrPersonDetail}}" bindtap="closeHrPersonDetail">
-      <view class="modal-card detail-modal" catchtap>
-        <view class="modal-header">
+    <view class="modal-mask ui-overlay" wx:if="{{showHrPersonDetail}}" bindtap="closeHrPersonDetail">
+      <view class="modal-card detail-modal ui-dialog-shell ui-dialog-shell--complex" catchtap>
+        <view class="modal-header ui-dialog-header">
           <view class="modal-title">人事详情</view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrPersonDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body detail-body" scroll-y wx:if="{{!loadingDetailHr}}">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body detail-body ui-dialog-body" scroll-y wx:if="{{!loadingDetailHr}}">
           <view class="detail-section">
             <view class="detail-section-title">基本信息</view>
             <view class="field">
@@ -1144,44 +1156,53 @@
               <button class="danger-btn ui-motion-button" catchtap="rejectDetailHrProfile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</button>
             </view>
           </view>
-          <view class="button-row detail-buttons">
-            <button class="primary-btn ui-motion-button" loading="{{savingDetailHr}}" catchtap="saveHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存</button>
-            <button class="secondary-btn ui-motion-button" catchtap="closeHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-          </view>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="modal-body" wx:if="{{loadingDetailHr}}">
           <view class="loading-inline">加载中...</view>
+        </view>
+        <view class="button-row detail-buttons ui-dialog-footer" wx:if="{{!loadingDetailHr}}">
+          <button class="primary-btn ui-motion-button" loading="{{savingDetailHr}}" catchtap="saveHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存</button>
+          <button class="secondary-btn ui-motion-button" catchtap="closeHrPersonDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         </view>
       </view>
     </view>
 
     <!-- CSV column mapping dialog -->
-    <view class="modal-mask" wx:if="{{showCsvMappingDialog}}" bindtap="closeCsvMappingDialog">
-      <view class="modal-card csv-mapping-card" catchtap>
-        <view class="modal-header">
+    <view class="modal-mask ui-overlay" wx:if="{{showCsvMappingDialog}}" bindtap="closeCsvMappingDialog">
+      <view class="modal-card csv-mapping-card ui-dialog-shell ui-dialog-shell--complex" catchtap>
+        <view class="modal-header ui-dialog-header">
           <view class="modal-title">表格字段映射</view>
           <view class="modal-close ui-motion-chip" catchtap="closeCsvMappingDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body csv-mapping-body" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-data-grid--complex" scroll-y>
           <view class="csv-mapping-tip">请将表格列名匹配到对应字段。自动识别的类型和示例值仅供参考。</view>
-          <view class="csv-mapping-row csv-mapping-row-header">
-            <view class="csv-mapping-col csv-mapping-col-csv">表格列名</view>
-            <view class="csv-mapping-col csv-mapping-col-type">字段类型</view>
-            <view class="csv-mapping-col csv-mapping-col-sample">示例值</view>
-            <view class="csv-mapping-col csv-mapping-col-target">映射到</view>
+          <view class="csv-mapping-row csv-mapping-row-header ui-data-row ui-data-row--header">
+            <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">表格列名</view>
+            <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">字段类型</view>
+            <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary">示例值</view>
+            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">映射到</view>
           </view>
-          <view class="csv-mapping-row" wx:for="{{csvImportRows}}" wx:key="header">
-            <view class="csv-mapping-col csv-mapping-col-csv">{{item.header}}</view>
-            <view class="csv-mapping-col csv-mapping-col-type">
+          <view class="csv-mapping-row ui-data-row" wx:for="{{csvImportRows}}" wx:key="header">
+            <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">
+              <text class="csv-mapping-mobile-label">表格列名</text>
+              <text class="csv-mapping-primary-text">{{item.header}}</text>
+            </view>
+            <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">
+              <text class="csv-mapping-mobile-label">字段类型</text>
               <view class="csv-mapping-type-tag">{{item.fieldTypeLabel}}</view>
             </view>
-            <view class="csv-mapping-col csv-mapping-col-sample">{{item.sampleValue || '—'}}</view>
-            <view class="csv-mapping-col csv-mapping-col-target">
+            <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary ui-motion-chip" data-value="{{item.sampleValue}}" catchtap="showCsvSampleValue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="查看完整示例值">
+              <text class="csv-mapping-mobile-label">示例值</text>
+              <text class="csv-mapping-sample-text">{{item.sampleValue || '—'}}</text>
+              <text class="csv-mapping-sample-hint" wx:if="{{item.sampleValue}}">点击查看全文</text>
+            </view>
+            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">
+              <text class="csv-mapping-mobile-label">映射到</text>
               <picker range="{{csvImportMappingLabels}}"
                       mode="selector" data-index="{{index}}"
                       bindchange="onCsvMappingTargetChange"
                       value="{{item.optionIndex}}">
-                <view class="csv-mapping-picker-value">{{item.optionLabel}}</view>
+                <view class="csv-mapping-picker-value ui-control-text">{{item.optionLabel}}</view>
               </picker>
             </view>
           </view>
@@ -1193,7 +1214,7 @@
           </view>
           <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb"/>
         </view>
-        <view class="modal-footer csv-mapping-footer">
+        <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeCsvMappingDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
           <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认导入</button>
         </view>
@@ -1201,14 +1222,14 @@
     </view>
 
     <!-- Validation errors dialog -->
-    <view class="modal-mask" wx:if="{{showValidationErrors}}" bindtap="closeValidationErrors">
-      <view class="modal-card validation-errors-card" catchtap>
-        <view class="modal-header">
+    <view class="modal-mask ui-overlay" wx:if="{{showValidationErrors}}" bindtap="closeValidationErrors">
+      <view class="modal-card validation-errors-card ui-dialog-shell ui-dialog-shell--complex" catchtap>
+        <view class="modal-header ui-dialog-header">
           <view class="modal-title">数据校验失败</view>
           <view class="modal-close ui-motion-chip" catchtap="closeValidationErrors" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
         <view class="validation-errors-summary">{{validationErrorSummary}}，请修正后重新导入</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body validation-errors-body" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body validation-errors-body ui-dialog-body" scroll-y>
           <view class="validation-error-card" wx:for="{{validationErrorCards}}" wx:key="studentId">
             <view class="ve-card-top">
               <view class="ve-card-name">{{item.name || '—'}}</view>
@@ -1228,7 +1249,7 @@
             </view>
           </view>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="modal-footer">
+        <view class="modal-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="downloadErrorTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出错误清单</button>
           <button class="primary-btn ui-motion-button" catchtap="closeValidationErrors" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button>
         </view>
@@ -1898,10 +1919,10 @@
       </view>
 
       <!-- Step editor popup (condition-based) -->
-      <view class="popup-mask" wx:if="{{auditTemplateStepEditorVisible}}" bindtap="closeAuditTemplateStepEditor">
-        <view class="popup-card" catchtap="noop" style="max-height:90vh;">
-          <view class="popup-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? '编辑步骤' : '添加步骤'}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="popup-scroll">
+      <view class="popup-mask ui-overlay" wx:if="{{auditTemplateStepEditorVisible}}" bindtap="closeAuditTemplateStepEditor">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop" style="max-height:90vh;">
+          <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? '编辑步骤' : '添加步骤'}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="popup-scroll ui-dialog-body">
             <!-- Step name -->
             <view class="field" style="padding:0 24rpx;">
               <view class="field-label">步骤名称</view>
@@ -2028,18 +2049,18 @@
               </view>
             </view>
 
-            <view class="button-row" style="padding:0 24rpx;">
-              <button class="primary-btn ui-motion-button" catchtap="confirmAuditTemplateStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定步骤</button>
-            </view>
           </scroll-view>
+          <view class="button-row ui-dialog-footer" style="padding-left:24rpx;padding-right:24rpx;">
+            <button class="primary-btn ui-motion-button" catchtap="confirmAuditTemplateStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定步骤</button>
+          </view>
         </view>
       </view>
 
       <!-- Starter condition editor popup -->
-      <view class="popup-mask" wx:if="{{auditStarterConditionEditorVisible}}" bindtap="closeStarterConditionEditor">
-        <view class="popup-card" catchtap="noop">
-          <view class="popup-header"><view class="popup-title">{{auditStarterConditionEditingIndex >= 0 ? '编辑发起条件' : '添加发起条件'}}</view><text class="popup-close ui-motion-chip" catchtap="closeStarterConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="popup-scroll">
+      <view class="popup-mask ui-overlay" wx:if="{{auditStarterConditionEditorVisible}}" bindtap="closeStarterConditionEditor">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+          <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditStarterConditionEditingIndex >= 0 ? '编辑发起条件' : '添加发起条件'}}</view><text class="popup-close ui-motion-chip" catchtap="closeStarterConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="popup-scroll ui-dialog-body">
             <view class="field">
               <view class="field-label">条件类型</view>
               <picker range="{{['身份范围','指定人员']}}" bindchange="onStarterConditionTypeChange">
@@ -2088,11 +2109,11 @@
                 <text class="link ui-motion-chip" wx:if="{{auditStarterConditionForm.specificIdentityId}}" catchtap="onStarterConditionFieldClear" data-field="specificIdentityId" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
               </view>
             </block>
-            <view class="button-row compact-row">
-              <button class="primary-btn ui-motion-button" catchtap="confirmStarterCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStarterConditionEditingIndex >= 0 ? '更新条件' : '添加条件'}}</button>
-              <button class="secondary-btn ui-motion-button" catchtap="closeStarterConditionEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-            </view>
           </scroll-view>
+          <view class="button-row compact-row ui-dialog-footer">
+            <button class="primary-btn ui-motion-button" catchtap="confirmStarterCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStarterConditionEditingIndex >= 0 ? '更新条件' : '添加条件'}}</button>
+            <button class="secondary-btn ui-motion-button" catchtap="closeStarterConditionEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+          </view>
         </view>
       </view>
     </view>
@@ -2171,10 +2192,10 @@
       </view>
 
       <!-- Progress detail popup -->
-      <view class="popup-mask" wx:if="{{auditSubmissionDetailVisible}}" bindtap="closeAuditSubmissionDetail">
-        <view class="popup-card" catchtap="noop" style="max-height: 85vh;">
-          <view class="popup-header"><view class="popup-title">审核流程</view><text class="popup-close ui-motion-chip" catchtap="closeAuditSubmissionDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y wx:if="{{auditSubmissionDetail}}">
+      <view class="popup-mask ui-overlay" wx:if="{{auditSubmissionDetailVisible}}" bindtap="closeAuditSubmissionDetail">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop" style="max-height: 85vh;">
+          <view class="popup-header ui-dialog-header"><view class="popup-title">审核流程</view><text class="popup-close ui-motion-chip" catchtap="closeAuditSubmissionDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y wx:if="{{auditSubmissionDetail}}">
             <view class="card-loading-overlay" wx:if="{{loadingMap.auditProgress}}"><view class="card-loading-spinner"></view></view>
             <block wx:else>
             <!-- Header -->
@@ -2315,9 +2336,9 @@
   </view>
 
   <!-- ══════════════ Unified Multi-Select Picker (step conditions) ══════════════ -->
-  <view class="popup-mask" wx:if="{{auditMultiPickerVisible}}" bindtap="closeAuditMultiPicker">
-    <view class="popup-card desig-popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">{{auditMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+  <view class="popup-mask ui-overlay" wx:if="{{auditMultiPickerVisible}}" bindtap="closeAuditMultiPicker">
+    <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <!-- Search -->
       <view class="rule-filter-row" style="padding:0 24rpx 12rpx;">
         <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch"/></view>
@@ -2329,7 +2350,7 @@
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->
       <view class="dept-tab-scroll" wx:if="{{auditMultiPickerDeptTabs.length}}">
-        <scroll-view scroll-x class="dept-tab-scroll-view">
+        <scroll-view scroll-x class="dept-tab-scroll-view ui-dialog-body">
           <view class="dept-tab-row">
             <view class="dept-tab {{auditMultiPickerActiveDeptTab === item.deptId ? 'dept-tab-active' : ''}} ui-motion-chip"
                   wx:for="{{auditMultiPickerDeptTabs}}" wx:key="deptId"
@@ -2340,11 +2361,11 @@
         </scroll-view>
       </view>
       <!-- Select-all / Deselect-all -->
-      <view class="button-row compact-row" style="padding:0 24rpx 8rpx;">
+      <view class="button-row compact-row ui-dialog-footer" style="padding:0 24rpx 8rpx;">
         <button class="secondary-btn ui-motion-button" catchtap="onAuditMultiPickerSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全选当前</button>
         <button class="secondary-btn ui-motion-button" catchtap="onAuditMultiPickerDeselectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消全选</button>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body">
         <view class="list-item ui-motion-card" wx:for="{{auditMultiPickerFilteredList}}" wx:key="id" data-id="{{item.id}}" catchtap="onAuditMultiPickerToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">
@@ -2356,7 +2377,7 @@
         </view>
         <view class="empty-inline" wx:if="{{!auditMultiPickerFilteredList.length}}">没有匹配的选项</view>
       </scroll-view>
-      <view class="button-row">
+      <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeAuditMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         <button class="primary-btn ui-motion-button" catchtap="confirmAuditMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定选择（已选{{auditMultiPickerSelectedIds.length}}项）</button>
       </view>
@@ -2364,15 +2385,15 @@
   </view>
 
   <!-- ══════════════ Audit Personnel Picker (page level) ══════════════ -->
-  <view class="popup-mask" wx:if="{{auditPersonnelPickerVisible}}" bindtap="closeAuditPersonnelPicker">
-    <view class="popup-card desig-popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">选择人员 — {{auditPersonnelPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+  <view class="popup-mask ui-overlay" wx:if="{{auditPersonnelPickerVisible}}" bindtap="closeAuditPersonnelPicker">
+    <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">选择人员 — {{auditPersonnelPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <view class="rule-filter-row">
         <view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{auditPersonnelDeptOptions}}" bindchange="onAuditPersonnelFilterDept"><view class="picker-value compact-picker-value">{{auditPersonnelFilterDept}}</view></picker></view>
         <view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{auditPersonnelIdentOptions}}" bindchange="onAuditPersonnelFilterIdent"><view class="picker-value compact-picker-value">{{auditPersonnelFilterIdent}}</view></picker></view>
         <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="姓名/学号" value="{{auditPersonnelSearchKeyword}}" bindinput="onAuditPersonnelSearch"/></view>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body">
         <view class="list-item ui-motion-card" wx:for="{{auditPersonnelFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onAuditPersonnelToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">
@@ -2384,16 +2405,16 @@
         </view>
         <view class="empty-inline" wx:if="{{!auditPersonnelFilteredList.length}}">没有匹配的人员</view>
       </scroll-view>
-      <view class="button-row"><button class="secondary-btn ui-motion-button" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button><button class="primary-btn ui-motion-button" catchtap="confirmAuditPersonnelPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定选择</button></view>
+      <view class="button-row ui-dialog-footer"><button class="secondary-btn ui-motion-button" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button><button class="primary-btn ui-motion-button" catchtap="confirmAuditPersonnelPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定选择</button></view>
     </view>
   </view>
 
   <!-- ══════════════ Audit Identity Picker (page level) ══════════════ -->
-  <view class="popup-mask" wx:if="{{auditIdentityPickerVisible}}" bindtap="closeAuditIdentityPicker">
-    <view class="popup-card desig-popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">选择身份 — {{auditIdentityPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditIdentityPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+  <view class="popup-mask ui-overlay" wx:if="{{auditIdentityPickerVisible}}" bindtap="closeAuditIdentityPicker">
+    <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">选择身份 — {{auditIdentityPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditIdentityPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <view class="list-desc" style="padding:0 24rpx 12rpx;color:#6b7280;">{{auditIdentityPickerMulti ? '可多选身份' : '点击选择一个身份'}}</view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body">
         <view class="list-item ui-motion-card" wx:for="{{identityList}}" wx:key="id" data-id="{{item.id}}" catchtap="onAuditIdentityToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">
@@ -2404,7 +2425,7 @@
         </view>
         <view class="empty-inline" wx:if="{{!identityList.length}}">暂无身份数据</view>
       </scroll-view>
-      <view class="button-row">
+      <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeAuditIdentityPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         <button class="primary-btn ui-motion-button" catchtap="confirmAuditIdentityPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定选择<text wx:if="{{auditIdentityPickerMulti}}">（已选{{auditIdentityPickerSelectedCount}}个）</text></button>
       </view>
@@ -2412,24 +2433,24 @@
   </view>
 
   <!-- Designation Picker Popup (page level, outside tab sections) -->
-  <view class="popup-mask" wx:if="{{showDesignationPicker}}" bindtap="closeDesignationPicker">
-    <view class="popup-card desig-popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">指定评优名单</view><text class="popup-close ui-motion-chip" catchtap="closeDesignationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+  <view class="popup-mask ui-overlay" wx:if="{{showDesignationPicker}}" bindtap="closeDesignationPicker">
+    <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">指定评优名单</view><text class="popup-close ui-motion-chip" catchtap="closeDesignationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <view class="list-title">当前名单（{{designationPickerSelectedIds.length}}人）</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body">
           <view class="list-item desig-current-item" wx:for="{{designationPickerSelectedList}}" wx:key="id"><view class="list-main"><view class="list-name">{{item.name}}</view><view class="list-desc">{{item.department}} · {{item.studentId}}</view></view><view class="inline-actions list-actions-below"><text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view></view>
           <view class="empty-inline" wx:if="{{!designationPickerSelectedList.length}}">尚未指定任何人</view>
         </scroll-view>
         <view class="list-title" style="margin-top:8rpx;">可选成员</view>
         <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{desigFilterDeptOptions}}" bindchange="onDesigFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{desigFilterDept}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{desigFilterIdentOptions}}" bindchange="onDesigFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{desigFilterIdent}}</view></picker></view><view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="姓名/学号" value="{{desigSearchKeyword}}" bindinput="onDesigSearchInput"/></view></view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll"><view class="list-item ui-motion-card" wx:for="{{designationPickerFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><view class="list-main"><view class="list-name"><view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>{{item.name}}</view><view class="list-desc">{{item.studentId}} · {{item.department}}</view></view></view><view class="empty-inline" wx:if="{{!designationPickerFilteredList.length}}">没有匹配的成员</view></scroll-view>
-        <view class="button-row"><button class="secondary-btn ui-motion-button" catchtap="closeDesignationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button><button class="primary-btn ui-motion-button" loading="{{loadingMap.saveDesignations}}" catchtap="saveDesignations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存名单（已选{{designationPickerSelectedIds.length}}人）</button></view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body"><view class="list-item ui-motion-card" wx:for="{{designationPickerFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><view class="list-main"><view class="list-name"><view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>{{item.name}}</view><view class="list-desc">{{item.studentId}} · {{item.department}}</view></view></view><view class="empty-inline" wx:if="{{!designationPickerFilteredList.length}}">没有匹配的成员</view></scroll-view>
+        <view class="button-row ui-dialog-footer"><button class="secondary-btn ui-motion-button" catchtap="closeDesignationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button><button class="primary-btn ui-motion-button" loading="{{loadingMap.saveDesignations}}" catchtap="saveDesignations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存名单（已选{{designationPickerSelectedIds.length}}人）</button></view>
     </view>
   </view>
 
-  <view class="popup-mask" wx:if="{{orgFormVisible}}" bindtap="closeOrgForm">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{orgFormVisible}}" bindtap="closeOrgForm">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="list-title">{{orgFormData.id ? '编辑组织名称' : '新建组织'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeOrgForm" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
@@ -2438,7 +2459,7 @@
           <view class="field-label">组织名称</view>
           <input class="field-input" bindinput="onOrgFieldInput" value="{{orgFormData.name}}" placeholder="请输入组织名称" />
         </view>
-        <view class="button-row compact-row">
+        <view class="button-row compact-row ui-dialog-footer">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveOrganization}}" catchtap="saveOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存组织</button>
           <button class="secondary-btn ui-motion-button" wx:if="{{!orgFormData.id}}" loading="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并设为默认</button>
         </view>
@@ -2446,31 +2467,33 @@
     </view>
   </view>
 
-  <view class="popup-mask" wx:if="{{scorerTargetPopupVisible}}" bindtap="closeScorerTargetPopup">
-    <view class="popup-card completion-popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{scorerTargetPopupVisible}}" bindtap="closeScorerTargetPopup">
+    <view class="popup-card completion-popup-card ui-dialog-shell ui-dialog-shell--wide" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{scorerTargetPopupTitle}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeScorerTargetPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <view class="popup-loading-overlay" wx:if="{{scorerTargetPopupLoading}}">
         <view class="card-loading-spinner"></view>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y wx:else>
-        <view class="result-table">
-          <view class="result-table-head">
-            <view class="result-col result-col-target-name">被评人</view>
-            <view class="result-col result-col-target-detail">具体信息</view>
-            <view class="result-col result-col-popup-status">状态</view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y wx:else>
+        <view class="result-table ui-data-grid--complex">
+          <view class="result-table-head ui-data-row ui-data-row--header">
+            <view class="result-col result-col-target-name ui-data-cell ui-data-cell--primary">被评人</view>
+            <view class="result-col result-col-target-detail ui-data-cell">具体信息</view>
+            <view class="result-col result-col-popup-status ui-data-cell">状态</view>
           </view>
-          <view class="result-table-row {{item.status === 'submitted' ? 'result-table-row-clickable' : ''}} ui-motion-chip" wx:for="{{scorerTargetPopupRows}}" wx:key="targetId" data-record-id="{{item.recordId}}" catchtap="openScorerTargetRecordDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-            <view class="result-col result-col-target-name">
-              <view class="result-name">{{item.targetName}}</view>
-              <view class="result-meta">{{item.targetStudentId}}</view>
+          <view class="result-table-row {{item.status === 'submitted' ? 'result-table-row-clickable' : ''}} ui-motion-chip ui-data-row" wx:for="{{scorerTargetPopupRows}}" wx:key="targetId" data-record-id="{{item.recordId}}" catchtap="openScorerTargetRecordDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+            <view class="result-col result-col-target-name ui-data-cell ui-data-cell--primary">
+              <text class="ui-data-cell-label">被评人</text>
+              <view class="ui-data-cell-content"><view class="result-name">{{item.targetName}}</view><view class="result-meta">{{item.targetStudentId}}</view></view>
             </view>
-            <view class="result-col result-col-target-detail">
-              <view class="result-meta result-meta-strong">{{item.detailText}}</view>
+            <view class="result-col result-col-target-detail ui-data-cell">
+              <text class="ui-data-cell-label">具体信息</text>
+              <view class="result-meta result-meta-strong ui-data-cell-content">{{item.detailText}}</view>
             </view>
-            <view class="result-col result-col-popup-status">
+            <view class="result-col result-col-popup-status ui-data-cell">
+              <text class="ui-data-cell-label">状态</text>
               <view class="status-chip {{item.statusClass}}">{{item.statusText}}</view>
             </view>
           </view>
@@ -2485,13 +2508,13 @@
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
-  <view class="popup-mask" wx:if="{{recordDetailPopupVisible}}" bindtap="closeScoreRecordDetail">
-    <view class="popup-card completion-popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{recordDetailPopupVisible}}" bindtap="closeScoreRecordDetail">
+    <view class="popup-card completion-popup-card ui-dialog-shell ui-dialog-shell--wide" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">评分详情</view>
         <text class="popup-close ui-motion-chip" catchtap="closeScoreRecordDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y wx:if="{{recordDetail}}">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y wx:if="{{recordDetail}}">
         <view class="list-item detail-summary-card">
           <view class="list-main">
             <view class="detail-people-row">

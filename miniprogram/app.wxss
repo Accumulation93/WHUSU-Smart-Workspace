@@ -58,9 +58,10 @@ button {
   padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
   font-size: var(--ui-font-md, 25rpx);
   line-height: var(--ui-line-control, 1.35);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
 }
 
 button::after {
@@ -548,6 +549,178 @@ button[disabled],
   line-height: 1.4;
 }
 
+/* 稳定弹窗与响应式数据布局契约 */
+.ui-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  padding: 16rpx 16rpx calc(16rpx + env(safe-area-inset-bottom));
+  overflow: hidden;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+.ui-overlay .ui-dialog-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  max-height: calc(100vh - 32rpx - env(safe-area-inset-bottom));
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.ui-overlay .ui-dialog-shell--compact {
+  height: auto;
+  max-width: 640rpx;
+}
+
+.ui-overlay .ui-dialog-shell--complex,
+.ui-overlay .ui-dialog-shell--wide {
+  height: calc(100vh - 32rpx - env(safe-area-inset-bottom));
+}
+
+.ui-dialog-header {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.ui-dialog-body {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.ui-overlay .ui-dialog-shell > .ui-dialog-header,
+.ui-overlay .ui-dialog-shell > .ui-dialog-footer {
+  flex: 0 0 auto;
+}
+
+.ui-overlay .ui-dialog-shell > .ui-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+scroll-view.ui-dialog-body {
+  overflow: hidden;
+}
+
+.ui-dialog-footer {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  padding-top: 16rpx;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: linear-gradient(180deg, rgba(248,251,255,0.12), rgba(248,251,255,0.96) 26%);
+  box-sizing: border-box;
+}
+
+.ui-dialog-footer button,
+.ui-dialog-footer .link,
+.ui-dialog-footer .audit-link-btn {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.ui-data-grid--simple,
+.ui-data-grid--complex,
+.ui-data-grid--specialized,
+.ui-data-row,
+.ui-data-cell {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ui-data-cell--primary,
+.ui-data-cell--action,
+.ui-control-text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.ui-data-cell--secondary {
+  min-width: 0;
+}
+
+.ui-data-cell-label {
+  display: block;
+  color: #64748b;
+  font-size: 21rpx;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.ui-data-cell-content {
+  min-width: 0;
+  text-align: right;
+}
+
+.task-table.ui-data-grid--complex > .ui-data-row--header,
+.result-table.ui-data-grid--complex > .ui-data-row--header,
+.popup-table.ui-data-grid--complex > .ui-data-row--header {
+  display: none;
+}
+
+.task-table.ui-data-grid--complex > .ui-data-row,
+.result-table.ui-data-grid--complex > .ui-data-row,
+.popup-table.ui-data-grid--complex > .ui-data-row {
+  display: block;
+  margin-bottom: 16rpx;
+  padding: 8rpx 18rpx;
+  border: 1rpx solid rgba(191,219,254,0.62);
+  border-radius: 22rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.82));
+  box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.86);
+}
+
+.task-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell,
+.result-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell,
+.popup-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell {
+  display: grid;
+  grid-template-columns: minmax(118rpx, 0.7fr) minmax(0, 1.3fr);
+  gap: 18rpx;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 14rpx 0;
+  text-align: right;
+  border-bottom: 1rpx solid rgba(226,237,247,0.84);
+  box-sizing: border-box;
+}
+
+.task-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell:last-child,
+.result-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell:last-child,
+.popup-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell:last-child {
+  border-bottom: 0;
+}
+
+.task-table.ui-data-grid--complex .progress-cell,
+.result-table.ui-data-grid--complex .progress-cell,
+.popup-table.ui-data-grid--complex .progress-cell {
+  width: 100%;
+  min-width: 0;
+}
+
+.ui-data-grid--specialized {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
 /* 状态 */
 .status-tag,
 .booking-status,
@@ -858,8 +1031,9 @@ button:active,
     padding: 12px 20px !important;
     font-size: 15px !important;
     line-height: 20px !important;
-    white-space: nowrap !important;
-    word-break: keep-all !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere;
   }
 
   button {
@@ -947,6 +1121,30 @@ button:active,
     border-radius: 24px;
   }
 
+  .ui-overlay {
+    padding: 24px;
+  }
+
+  .ui-overlay .ui-dialog-shell {
+    height: auto;
+    max-height: calc(100vh - 48px);
+  }
+
+  .ui-overlay .ui-dialog-shell--compact {
+    max-width: 520px;
+  }
+
+  .ui-overlay .ui-dialog-shell--complex,
+  .ui-overlay .ui-dialog-shell--wide {
+    width: 100%;
+    max-width: 720px;
+  }
+
+  .ui-dialog-footer {
+    padding-top: 14px;
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+
   .field-input,
   .field-textarea,
   .picker-value,
@@ -980,6 +1178,44 @@ button:active,
     line-height: 16px !important;
   }
 
+  .task-table.ui-data-grid--complex > .ui-data-row--header,
+  .result-table.ui-data-grid--complex > .ui-data-row--header,
+  .popup-table.ui-data-grid--complex > .ui-data-row--header {
+    display: flex;
+  }
+
+  .task-table.ui-data-grid--complex > .ui-data-row,
+  .result-table.ui-data-grid--complex > .ui-data-row,
+  .popup-table.ui-data-grid--complex > .ui-data-row {
+    display: flex;
+    margin-bottom: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .task-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell,
+  .result-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell,
+  .popup-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell {
+    display: flex;
+    width: auto;
+    min-width: 0;
+    padding: 14px 12px;
+    text-align: center;
+    border-bottom: 0;
+  }
+
+  .ui-data-cell-label {
+    display: none;
+  }
+
+  .ui-data-cell-content {
+    width: 100%;
+    text-align: center;
+  }
+
   .footer-name {
     font-size: 12px !important;
     line-height: 18px !important;
@@ -1011,6 +1247,14 @@ button:active,
   .completion-popup-card,
   .timetable-popup,
   .placement-popup {
+    max-width: 1040px;
+  }
+
+  .ui-overlay .ui-dialog-shell--complex {
+    max-width: 860px;
+  }
+
+  .ui-overlay .ui-dialog-shell--wide {
     max-width: 1040px;
   }
 }

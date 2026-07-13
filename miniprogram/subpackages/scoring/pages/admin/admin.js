@@ -409,6 +409,19 @@ Page({
     wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
   },
 
+  showCsvSampleValue(e) {
+    const value = e && e.currentTarget && e.currentTarget.dataset
+      ? String(e.currentTarget.dataset.value || '')
+      : '';
+    if (!value) return;
+    wx.showModal({
+      title: '完整示例值',
+      content: value,
+      showCancel: false,
+      confirmText: '知道了'
+    });
+  },
+
   applySubAppFilter() {
     const subApp = this._subApp || 'scoring';
     const SUB_APP_ADMIN_TABS = {

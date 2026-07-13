@@ -11,6 +11,9 @@ const VOID_TAGS = new Set(['input', 'textarea', 'image', 'icon', 'progress', 'sl
 const SHELL_NAMES = ['card', 'section', 'edit-box', 'list-card', 'popup-card', 'modal-card', 'sheet-panel'];
 const NON_VISUAL_TARGET = /(mask|canvas|ghost|drag|handle|hit-area|physical-keyboard-capture)/;
 const BANNED_COLORS = /#(?:1d4ed8|1e40af|172554)\b/gi;
+const LEGACY_OVERLAYS = new Set(['popup-mask', 'modal-mask', 'dialog-layer', 'sheet-layer']);
+const LEGACY_DIALOG_SHELLS = new Set(['popup-card', 'modal-card', 'dialog-panel', 'sheet-panel']);
+const LEGACY_COMPLEX_GRIDS = new Set(['task-table', 'result-table', 'popup-table']);
 const GLOBAL_STYLE = fs.readFileSync(path.join(MINI_ROOT, 'app.wxss'), 'utf8');
 const GLOBAL_MEDIA_520 = /@media\s*\(min-width:\s*520px\)/.test(GLOBAL_STYLE);
 const GLOBAL_MEDIA_900 = /@media\s*\(min-width:\s*900px\)/.test(GLOBAL_STYLE);
@@ -148,10 +151,104 @@ function scanWxml(file) {
   return controls;
 }
 
+function classList(raw) {
+  const match = raw.match(/\bclass\s*=\s*(["'])([\s\S]*?)\1/);
+  return match ? match[2].split(/\s+/).filter(Boolean) : [];
+}
+
+function scanLayoutContracts(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  const stack = [];
+  const dialogs = [];
+  const dialogIssues = [];
+  const dataLayoutIssues = [];
+
+  for (const token of tokenizeWxml(source)) {
+    const raw = token.raw;
+    if (raw.startsWith('<!--')) continue;
+    const close = raw.match(/^<\/([\w-]+)/);
+    if (close) {
+      for (let index = stack.length - 1; index >= 0; index -= 1) {
+        if (stack[index].tag !== close[1]) continue;
+        const item = stack[index];
+        if (item.dialog) {
+          const dialog = item.dialog;
+          const modifiers = ['ui-dialog-shell--compact', 'ui-dialog-shell--complex', 'ui-dialog-shell--wide']
+            .filter(name => dialog.classes.has(name));
+          if (modifiers.length !== 1) dialog.issues.push('弹窗必须且只能声明一个尺寸修饰符');
+          const requiresStructure = dialog.classes.has('ui-dialog-shell--complex') || dialog.classes.has('ui-dialog-shell--wide');
+          if (requiresStructure && !dialog.hasHeader) dialog.issues.push('复杂弹窗缺少 ui-dialog-header');
+          if (requiresStructure && !dialog.hasBody) dialog.issues.push('复杂弹窗缺少 ui-dialog-body');
+          for (const message of dialog.issues) {
+            dialogIssues.push({ file: relative(file), line: dialog.line, message, className: [...dialog.classes].join(' ') });
+          }
+          dialogs.push({
+            file: relative(file),
+            line: dialog.line,
+            className: [...dialog.classes].join(' '),
+            hasHeader: dialog.hasHeader,
+            hasBody: dialog.hasBody,
+            hasFooter: dialog.hasFooter
+          });
+        }
+        stack.length = index;
+        break;
+      }
+      continue;
+    }
+
+    const open = raw.match(/^<([\w-]+)/);
+    if (!open || raw.startsWith('<!')) continue;
+    const tag = open[1];
+    const classes = new Set(classList(raw));
+    const line = lineAt(source, token.index);
+    const dialogAncestor = [...stack].reverse().find(item => item.dialog);
+    const scrollAncestor = [...stack].reverse().find(item => item.tag === 'scroll-view');
+
+    if ([...classes].some(name => LEGACY_OVERLAYS.has(name)) && !classes.has('ui-overlay')) {
+      dialogIssues.push({ file: relative(file), line, message: '弹窗遮罩缺少 ui-overlay', className: [...classes].join(' ') });
+    }
+
+    let dialog = null;
+    if ([...classes].some(name => LEGACY_DIALOG_SHELLS.has(name))) {
+      dialog = {
+        line,
+        classes,
+        hasHeader: false,
+        hasBody: false,
+        hasFooter: false,
+        issues: classes.has('ui-dialog-shell') ? [] : ['弹窗壳缺少 ui-dialog-shell']
+      };
+    } else if (dialogAncestor) {
+      const current = dialogAncestor.dialog;
+      if (classes.has('ui-dialog-header')) current.hasHeader = true;
+      if (classes.has('ui-dialog-body')) current.hasBody = true;
+      if (classes.has('ui-dialog-footer')) {
+        current.hasFooter = true;
+        if (scrollAncestor) current.issues.push(`第 ${line} 行操作栏位于 scroll-view 内`);
+      }
+    }
+
+    if ([...classes].some(name => LEGACY_COMPLEX_GRIDS.has(name)) && !classes.has('ui-data-grid--complex')) {
+      dataLayoutIssues.push({ file: relative(file), line, message: '复杂数据表缺少 ui-data-grid--complex' });
+    }
+    if (classes.has('timetable-scroll') && !classes.has('ui-data-grid--specialized')) {
+      dataLayoutIssues.push({ file: relative(file), line, message: '专业时间网格缺少 ui-data-grid--specialized' });
+    }
+
+    const selfClosing = raw.endsWith('/>') || VOID_TAGS.has(tag);
+    if (!selfClosing) stack.push({ tag, dialog });
+  }
+
+  return { dialogs, dialogIssues, dataLayoutIssues };
+}
+
 function scanWxss(file) {
   const source = fs.readFileSync(file, 'utf8');
   const shellActive = [];
   const nativeInputFlex = [];
+  const unsafeControlEllipsis = [];
+  const fixedDataColumns = [];
   const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
   let ruleMatch;
   while ((ruleMatch = rulePattern.exec(source))) {
@@ -159,6 +256,22 @@ function scanWxss(file) {
     const declarations = ruleMatch[2];
     if (/\.field-input\b/.test(selector) && /display\s*:\s*flex\b/i.test(declarations)) {
       nativeInputFlex.push({
+        file: relative(file),
+        line: lineAt(source, ruleMatch.index),
+        selector: selector.trim().replace(/\s+/g, ' ')
+      });
+    }
+    if (/text-overflow\s*:\s*ellipsis\b/i.test(declarations) &&
+      /(button|\bbtn\b|picker|action|\btab\b|title|name|result-group-label|app-grid-label|primary-btn|secondary-btn|danger-btn|ui-data-cell--primary|ui-data-cell--action|csv-mapping-primary-text|csv-mapping-picker-value)/i.test(selector)) {
+      unsafeControlEllipsis.push({
+        file: relative(file),
+        line: lineAt(source, ruleMatch.index),
+        selector: selector.trim().replace(/\s+/g, ' ')
+      });
+    }
+    if (/(csv-mapping-col|task-col|result-col|popup-col)/i.test(selector) &&
+      /flex\s*:\s*0\s+0\s+(?:\d+(?:\.\d+)?)(?:r?px)\b/i.test(declarations)) {
+      fixedDataColumns.push({
         file: relative(file),
         line: lineAt(source, ruleMatch.index),
         selector: selector.trim().replace(/\s+/g, ' ')
@@ -196,6 +309,8 @@ function scanWxss(file) {
     media900: GLOBAL_MEDIA_900 || /@media\s*\(min-width:\s*900px\)/.test(source),
     shellActive,
     nativeInputFlex,
+    unsafeControlEllipsis,
+    fixedDataColumns,
     oversizedTimetable: [...source.matchAll(/\.timetable-scroll\s*\{[^{}]*height\s*:\s*(\d{3,})rpx/gi)]
       .filter(match => Number(match[1]) >= 900)
       .map(match => ({ file: relative(file), line: lineAt(source, match.index), height: match[1] + 'rpx' }))
@@ -203,6 +318,7 @@ function scanWxss(file) {
 }
 
 const controls = walk(MINI_ROOT, '.wxml').flatMap(scanWxml);
+const layoutContracts = walk(MINI_ROOT, '.wxml').map(scanLayoutContracts);
 const styles = walk(MINI_ROOT, '.wxss').map(scanWxss);
 const missingFeedback = controls.filter(item => (
   !['field'].includes(item.type) &&
@@ -219,6 +335,22 @@ const shellActive = styles.flatMap(item => item.shellActive);
 const nativeInputFlex = styles.flatMap(item => item.nativeInputFlex);
 const oversizedTimetable = styles.flatMap(item => item.oversizedTimetable);
 const illegalColors = styles.flatMap(item => item.illegalColors);
+const dialogs = layoutContracts.flatMap(item => item.dialogs);
+const dialogIssues = layoutContracts.flatMap(item => item.dialogIssues);
+const dataLayoutIssues = layoutContracts.flatMap(item => item.dataLayoutIssues);
+const unsafeControlEllipsis = styles.flatMap(item => item.unsafeControlEllipsis);
+const fixedDataColumns = styles.flatMap(item => item.fixedDataColumns);
+const missingStableDialogSystem = !(
+  /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
+  /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;/m.test(GLOBAL_STYLE)
+);
+const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxss'), 'utf8');
+const missingResponsiveDataSystem = !(
+  /\.csv-mapping-row\s*\{[\s\S]*?display:\s*grid;/m.test(adminStyle) &&
+  /\.csv-mapping-row-header\s*\{[\s\S]*?display:\s*none;/m.test(adminStyle) &&
+  /@media\s*\(min-width:\s*520px\)[\s\S]*?grid-template-columns:[\s\S]*?minmax\(180px,\s*1\.35fr\)/m.test(adminStyle) &&
+  /\.task-table\.ui-data-grid--complex\s*>\s*\.ui-data-row--header/.test(GLOBAL_STYLE)
+);
 const missingDeviceSystem = !(
   /--ui-control-height:\s*48px/.test(GLOBAL_STYLE) &&
   /--ui-font-md:\s*15px/.test(GLOBAL_STYLE) &&
@@ -251,6 +383,13 @@ const report = {
     willChange: styles.reduce((sum, item) => sum + item.willChange, 0),
     illegalColors: illegalColors.length,
     remoteAssets: remoteAssets.length,
+    dialogs: dialogs.length,
+    dialogIssues: dialogIssues.length,
+    dataLayoutIssues: dataLayoutIssues.length,
+    unsafeControlEllipsis: unsafeControlEllipsis.length,
+    fixedDataColumns: fixedDataColumns.length,
+    missingStableDialogSystem: missingStableDialogSystem ? 1 : 0,
+    missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
     important: styles.reduce((sum, item) => sum + item.important, 0),
     missingTabletPortrait: styles.filter(item => !item.media520).length,
     missingTabletLandscape: styles.filter(item => !item.media900).length
@@ -265,6 +404,11 @@ const report = {
   oversizedTimetable,
   illegalColors,
   remoteAssets,
+  dialogs,
+  dialogIssues,
+  dataLayoutIssues,
+  unsafeControlEllipsis,
+  fixedDataColumns,
   styles
 };
 
@@ -287,6 +431,8 @@ if (process.argv.includes('--json')) {
 if (process.argv.includes('--strict')) {
   const failed = report.summary.missingFeedback || report.summary.nestedRisks || report.summary.timingMismatches || report.summary.shellActive ||
     report.summary.nativeInputFlex || report.summary.oversizedTimetable || report.summary.missingDeviceSystem ||
-    report.summary.transitionAll || report.summary.willChange || report.summary.illegalColors || report.summary.remoteAssets;
+    report.summary.transitionAll || report.summary.willChange || report.summary.illegalColors || report.summary.remoteAssets ||
+    report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.unsafeControlEllipsis ||
+    report.summary.fixedDataColumns || report.summary.missingStableDialogSystem || report.summary.missingResponsiveDataSystem;
   process.exitCode = failed ? 1 : 0;
 }

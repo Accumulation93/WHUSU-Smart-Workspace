@@ -46,16 +46,16 @@
   </view>
 
   <!-- Venue editor popup -->
-  <view class="popup-mask" wx:if="{{editing}}" bindtap="cancelEdit">
-    <view class="popup-card venue-edit-popup" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{editing}}" bindtap="cancelEdit">
+    <view class="popup-card venue-edit-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view>
           <view class="popup-title">{{editId ? '编辑场地' : '新增场地'}}</view>
           <view class="popup-subtitle">基础信息会展示在用户预约和管理排期中</view>
         </view>
         <text class="popup-close ui-motion-chip" catchtap="cancelEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll venue-edit-scroll" scroll-y>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll venue-edit-scroll ui-dialog-body" scroll-y>
         <view class="form-body">
           <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
           <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="物理位置"/></view>
@@ -183,15 +183,15 @@
   </view>
 
   <!-- ═══ Rules Popup ═══ -->
-  <view class="popup-mask" wx:if="{{rulesVisible}}" bindtap="closeRules">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">规则管理 · {{rulesVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+  <view class="popup-mask ui-overlay" wx:if="{{rulesVisible}}" bindtap="closeRules">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">规则管理 · {{rulesVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <view class="rules-tabs">
         <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}} ui-motion-chip" data-tab="open" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">开放时间</view>
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}} ui-motion-chip" data-tab="activity" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">活动时间</view>
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用规则</view>
       </view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">
           <button class="primary-btn rule-add-btn ui-motion-button" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增开放时间</button>
           <view wx:if="{{!openRules.length}}" class="empty-inline">暂无开放时间规则。</view>
@@ -245,10 +245,10 @@
   </view>
 
   <!-- ═══ Rule Editor ═══ -->
-  <view class="popup-mask" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view><text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+  <view class="popup-mask ui-overlay" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view><text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="form-body">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
@@ -422,15 +422,15 @@
   </view>
 
   <!-- ═══ Timetable Popup ═══ -->
-  <view class="popup-mask" wx:if="{{scheduleVisible}}" bindtap="closeVenueSchedule">
-    <view class="popup-card timetable-popup" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">{{scheduleVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+  <view class="popup-mask ui-overlay" wx:if="{{scheduleVisible}}" bindtap="closeVenueSchedule">
+    <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <view class="schedule-nav">
         <text class="nav-arrow ui-motion-card" catchtap="onTimetablePrevWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'‹'}}</text>
         <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
         <text class="nav-arrow ui-motion-card" catchtap="onTimetableNextWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'›'}}</text>
       </view>
-      <scroll-view scroll-x scroll-y class="timetable-scroll" bindscroll="onTimetableScroll">
+      <scroll-view scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-data-grid--specialized" bindscroll="onTimetableScroll">
         <view class="timetable-body">
           <view class="tt-time-col">
             <view class="tt-time-header">时间</view>
@@ -461,10 +461,10 @@
   </view>
 
   <!-- Booking detail popup -->
-  <view class="popup-mask" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">借用详情</view><text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+  <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">借用详情</view><text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
       <view class="detail-body">
         <view class="detail-title">{{bookingDetail.title || '借用'}}</view>
         <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
@@ -509,10 +509,10 @@
   </view>
 
   <!-- ═══ Admin Booking Popup ═══ -->
-  <view class="popup-mask" wx:if="{{adminBookingVisible}}" bindtap="closeAdminBooking">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">{{scheduleVenueName}} · 使用场地</view><text class="popup-close ui-motion-chip" catchtap="closeAdminBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+  <view class="popup-mask ui-overlay" wx:if="{{adminBookingVisible}}" bindtap="closeAdminBooking">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}} · 使用场地</view><text class="popup-close ui-motion-chip" catchtap="closeAdminBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="form-body">
           <view class="field"><view class="field-label">借用事由 <text class="required">*</text></view>
             <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="选择或输入借用事由"/>
@@ -564,10 +564,10 @@
   </view>
 
   <!-- ═══ Purpose Management Popup (kept for backward compat from old links) ═══ -->
-  <view class="popup-mask" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">借用事由管理</view><text class="popup-close ui-motion-chip" catchtap="closePurposeManager" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+  <view class="popup-mask ui-overlay" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">借用事由管理</view><text class="popup-close ui-motion-chip" catchtap="closePurposeManager" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="form-body">
           <view class="field"><view class="field-label">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
             <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? '更新' : '添加'}}</button></view>
@@ -590,16 +590,16 @@
   </view>
 
   <!-- ═══ Condition Multi-Picker (replicates audit multi-picker pattern) ═══ -->
-  <view class="popup-mask" wx:if="{{condMultiPickerVisible}}" bindtap="closeCondMultiPicker">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+  <view class="popup-mask ui-overlay" wx:if="{{condMultiPickerVisible}}" bindtap="closeCondMultiPicker">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <!-- Search -->
       <view class="rule-filter-row" style="padding:0 24rpx 12rpx;">
         <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->
       <view class="dept-tab-scroll" wx:if="{{condMultiPickerDeptTabs.length}}">
-        <scroll-view scroll-x class="dept-tab-scroll-view">
+        <scroll-view scroll-x class="dept-tab-scroll-view ui-dialog-body">
           <view class="dept-tab-row">
             <view class="dept-tab {{condMultiPickerActiveDeptTab === item.deptId ? 'dept-tab-active' : ''}} ui-motion-chip"
                   wx:for="{{condMultiPickerDeptTabs}}" wx:key="deptId"
@@ -610,11 +610,11 @@
         </scroll-view>
       </view>
       <!-- Select-all / Deselect-all -->
-      <view class="button-row compact-row" style="padding:0 24rpx 8rpx;">
+      <view class="button-row compact-row ui-dialog-footer" style="padding:0 24rpx 8rpx;">
         <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全选</button>
         <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerDeselectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消全选</button>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="inner-scroll large-scroll" style="max-height:600rpx;">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="inner-scroll large-scroll ui-dialog-body" style="max-height:600rpx;">
         <view class="list-item ui-motion-card" wx:for="{{condMultiPickerFilteredList}}" wx:key="id" data-id="{{item.id}}" catchtap="onCondMultiPickerToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">
@@ -626,7 +626,7 @@
         </view>
         <view class="empty-inline" wx:if="{{!condMultiPickerFilteredList.length}}">没有匹配的选项</view>
       </scroll-view>
-      <view class="button-row">
+      <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         <button class="primary-btn ui-motion-button" catchtap="confirmCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定选择（已选{{condMultiPickerSelectedCount}}项）</button>
       </view>
@@ -634,13 +634,13 @@
   </view>
 
   <!-- ═══ Approval Popup (step-aware approve/reject with comment) ═══ -->
-  <view class="popup-mask" wx:if="{{approvalPopupVisible}}" bindtap="closeApprovalPopup">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{approvalPopupVisible}}" bindtap="closeApprovalPopup">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalPopupAction === 'approve' ? '通过借用申请' : '驳回借用申请'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApprovalPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="detail-body">
           <view wx:if="{{approvalPopupTarget}}">
             <view class="detail-title">{{approvalPopupTarget.title || '借用申请'}}</view>
@@ -680,14 +680,14 @@
             <view class="field-label">审批意见（选填）</view>
             <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalPopupComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalPopupAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
           </view>
-          <view class="button-row" style="margin-top:16rpx;">
-            <button class="secondary-btn ui-motion-button" catchtap="closeApprovalPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-            <button class="{{approvalPopupAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{loading}}" catchtap="submitApprovalAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-              {{approvalPopupAction === 'approve' ? '✓ 确认通过' : '✗ 确认驳回'}}
-            </button>
-          </view>
         </view>
       </scroll-view>
+      <view class="button-row ui-dialog-footer">
+        <button class="secondary-btn ui-motion-button" catchtap="closeApprovalPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="{{approvalPopupAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{loading}}" catchtap="submitApprovalAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          {{approvalPopupAction === 'approve' ? '✓ 确认通过' : '✗ 确认驳回'}}
+        </button>
+      </view>
     </view>
   </view>
 

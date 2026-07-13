@@ -118,9 +118,9 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- ═══════════════════ TIMETABLE POPUP ═══════════════════ -->
-  <view class="popup-mask" wx:if="{{scheduleVisible}}" bindtap="closeSchedule">
-    <view class="popup-card timetable-popup" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{scheduleVisible}}" bindtap="closeSchedule">
+    <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{scheduleVenueName}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
@@ -129,7 +129,7 @@ module.exports = { hour: hour, min: min };
         <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
         <text class="nav-arrow ui-motion-card" catchtap="onTimetableNextWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'›'}}</text>
       </view>
-      <scroll-view scroll-x scroll-y class="timetable-scroll">
+      <scroll-view scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-data-grid--specialized">
         <view class="timetable-body">
           <view class="tt-time-col">
             <view class="tt-time-header">时间</view>
@@ -160,13 +160,13 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- Booking detail popup -->
-  <view class="popup-mask" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">借用详情</view>
         <text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
       <view class="detail-body">
         <view class="detail-title">{{bookingDetail.title || '借用'}}</view>
         <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
@@ -212,13 +212,13 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- ═══════════════════ BOOKING FORM ═══════════════════ -->
-  <view class="popup-mask" wx:if="{{bookingVisible}}" bindtap="closeBooking">
-    <view class="popup-card booking-form-popup" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{bookingVisible}}" bindtap="closeBooking">
+    <view class="popup-card booking-form-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">借用申请 · {{bookingVenueName}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="form-body">
           <!-- Title -->
           <view class="field">
@@ -321,13 +321,13 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- ═══════════════════ APPROVAL / DETAIL POPUP ═══════════════════ -->
-  <view class="popup-mask" wx:if="{{approvalVisible}}" bindtap="closeApproval">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="detail-body">
           <!-- Flow progress bar -->
           <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow-summary">
@@ -373,15 +373,15 @@ module.exports = { hour: hour, min: min };
               <view class="field-label">审批意见（选填）</view>
               <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
             </view>
-            <view class="button-row" style="margin-top:16rpx;">
-              <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-              <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-                {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
-              </button>
-            </view>
           </view>
         </view>
       </scroll-view>
+      <view class="button-row ui-dialog-footer" wx:if="{{approvalAction}}">
+        <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
+        </button>
+      </view>
     </view>
   </view>
 

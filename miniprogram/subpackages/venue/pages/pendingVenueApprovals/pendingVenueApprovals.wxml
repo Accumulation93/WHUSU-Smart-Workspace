@@ -41,13 +41,13 @@
   </view>
 
   <!-- ═══ Approval / Detail Popup ═══ -->
-  <view class="popup-mask" wx:if="{{approvalVisible}}" bindtap="closeApproval">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="detail-body">
           <!-- Flow progress bar -->
           <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow-summary">
@@ -93,15 +93,15 @@
               <view class="field-label">审批意见（选填）</view>
               <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
             </view>
-            <view class="button-row" style="margin-top:16rpx;">
-              <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-              <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-                {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
-              </button>
-            </view>
           </view>
         </view>
       </scroll-view>
+      <view class="button-row ui-dialog-footer" wx:if="{{approvalAction}}">
+        <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
+        </button>
+      </view>
     </view>
   </view>
 

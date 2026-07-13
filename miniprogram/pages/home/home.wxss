@@ -1407,7 +1407,7 @@ scroll-view {
 }
 .result-group-label {
   font-size: 26rpx; font-weight: 700; color: #1e293b;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  white-space: normal; overflow-wrap: anywhere;
 }
 .result-group-mode-chip {
   font-size: 20rpx; font-weight: 600; padding: 6rpx 14rpx; border-radius: 999rpx;

@@ -228,8 +228,8 @@
 }
 .approval-file-row { display: flex; align-items: center; justify-content: space-between; }
 .approval-file-name {
-  font-size: 22rpx; color: #334155; flex: 1; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
+  font-size: 22rpx; color: #334155; flex: 1; min-width: 0;
+  white-space: normal; overflow-wrap: anywhere;
 }
 .approval-file-actions { display: flex; gap: 4rpx; flex-shrink: 0; margin-left: 8rpx; }
 .approval-file-btn-preview { font-size: 20rpx; color: #64748b; padding: 4rpx 10rpx; border: 1rpx solid #94a3b8; border-radius: 20rpx; }
@@ -390,9 +390,9 @@
 /* ★ 三按钮同一排，绝不换行 */
 .placement-actions { flex-shrink: 0; padding: 12rpx 16rpx; display: flex; flex-wrap: nowrap; gap: 10rpx; box-sizing: border-box; }
 .placement-actions button {
-  flex: 1 1 0; min-width: 0; height: 72rpx; line-height: 72rpx; margin: 0; padding: 0 6rpx;
+  flex: 1 1 0; min-width: 0; min-height: 72rpx; height: auto; line-height: 1.4; margin: 0; padding: 14rpx 10rpx;
   border-radius: 20rpx; font-size: 22rpx; font-weight: 700;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere;
   box-sizing: border-box;
 }
 /* 三个按钮均分宽度，flex: 1 1 0 已覆盖 */

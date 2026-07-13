@@ -178,13 +178,13 @@
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
-  <view class="dialog-layer" wx:if="{{showUnbindDialog}}">
+  <view class="dialog-layer ui-overlay" wx:if="{{showUnbindDialog}}">
     <view class="dialog-mask" bindtap="closeUnbindDialog"></view>
-    <view class="dialog-panel">
+    <view class="dialog-panel ui-dialog-shell ui-dialog-shell--compact">
       <view class="dialog-badge">危险操作</view>
       <view class="dialog-title">确认解绑当前身份？</view>
       <view class="dialog-desc">解绑后会立即移除当前身份的登录状态，后续如需进入，需要重新完成验证。</view>
-      <view class="dialog-actions">
+      <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">再想想</button>
         <button class="danger-btn dialog-btn ui-motion-button" loading="{{unbindLoading}}" bindtap="confirmUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认解绑</button>
       </view>

@@ -402,7 +402,7 @@ page {
 .admin-timeline-drag .tl-booked { background: linear-gradient(180deg, #fca5a5, #f87171); }
 .admin-timeline-drag .tl-activity { background: linear-gradient(180deg, #bae6fd, #38bdf8); }
 .admin-timeline-drag .timeline-selection { position: absolute; top: 0; bottom: 0; background: rgba(37,99,235,.38); border: 2rpx solid #2563eb; box-sizing: border-box; }
-.admin-timeline-drag .timeline-handle { position: absolute; top: 50%; z-index: 4; width: 34rpx; height: 34rpx; margin: -17rpx 0 0 -17rpx; border-radius: 999rpx; background: linear-gradient(135deg, #1d4ed8, #3b82f6); border: 4rpx solid #fff; box-shadow: 0 8rpx 18rpx rgba(29,78,216,.28); }
+.admin-timeline-drag .timeline-handle { position: absolute; top: 50%; z-index: 4; width: 34rpx; height: 34rpx; margin: -17rpx 0 0 -17rpx; border-radius: 999rpx; background: linear-gradient(135deg, #2563eb, #3b82f6); border: 4rpx solid #fff; box-shadow: 0 8rpx 18rpx rgba(37,99,235,.28); }
 .timeline-hint { color: #64748b; font-size: 22rpx; line-height: 1.5; }
 .timeline-ticks { display: flex; justify-content: space-between; margin-top: 7rpx; color: #94a3b8; font-size: 20rpx; }
 

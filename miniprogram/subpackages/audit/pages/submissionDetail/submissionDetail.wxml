@@ -111,10 +111,10 @@
     </view>
 
     <!-- ═══ Identity step editor popup ═══ -->
-    <view class="popup-mask" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
-      <view class="popup-card" catchtap="noop">
-        <view class="popup-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+    <view class="popup-mask ui-overlay" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
+      <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
           <view class="detail-popup-form">
             <view class="field">
               <view class="field-label">步骤名称</view>
@@ -150,9 +150,9 @@
                 <view class="picker-value">{{identityPickerIdentOptions[identityPickerIdentIndex] || '请选择身份'}}</view>
               </picker>
             </view>
-            <view class="audit-btn-bar"><button class="primary-btn ui-motion-button" catchtap="confirmAdHocStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button></view>
           </view>
         </scroll-view>
+        <view class="audit-btn-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="confirmAdHocStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button></view>
       </view>
     </view>
 
@@ -524,10 +524,10 @@
       </view>
 
       <!-- ═══ Edit: Identity step editor popup ═══ -->
-      <view class="popup-mask" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
-        <view class="popup-card" catchtap="noop">
-          <view class="popup-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <view class="popup-mask ui-overlay" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
+        <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+          <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
             <view class="detail-popup-form">
               <view class="field">
                 <view class="field-label">步骤名称</view>
@@ -563,18 +563,18 @@
                   <view class="picker-value">{{identityPickerIdentOptions[editIdentityPickerIdentIndex] || '请选择身份'}}</view>
                 </picker>
               </view>
-              <view class="audit-btn-bar"><button class="primary-btn ui-motion-button" catchtap="confirmEditIdentityStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button></view>
             </view>
           </scroll-view>
+          <view class="audit-btn-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="confirmEditIdentityStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button></view>
         </view>
       </view>
 
       <!-- ═══ Edit: Person picker popup ═══ -->
-      <view class="popup-mask" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker">
-        <view class="popup-card desig-popup-card" catchtap="noop">
-          <view class="popup-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-mask ui-overlay" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker">
+        <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+          <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <view class="list-title">已选人员（{{editPersonPickerSelectedIds.length}}人）</view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body">
             <view class="audit-person-item" wx:for="{{editPersonPickerSelectedList}}" wx:key="id">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
               <view class="audit-person-info">
@@ -594,7 +594,7 @@
             <view class="rule-filter-field"><view class="field-label">职能组</view><picker range="{{personPickerWgOpts}}" bindchange="onEditPersonPickerWgChange"><view class="picker-value compact-picker-value">{{editPersonPickerWg}}</view></picker></view>
           </view>
           <view class="field field-mb-8"><input class="field-input" placeholder="搜索姓名/学号" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body">
             <view wx:if="{{!editPersonPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
             <view class="audit-person-item ui-motion-card" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
@@ -610,7 +610,7 @@
               <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? '仅通过' : (editPersonPickerStepActionType === 'sign' ? '签字' : (editPersonPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
             </picker>
           </view>
-          <view class="button-row">
+          <view class="button-row ui-dialog-footer">
             <button class="secondary-btn ui-motion-button" catchtap="closeEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
             <button class="primary-btn ui-motion-button" catchtap="confirmEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加 {{editPersonPickerSelectedIds.length}} 人</button>
           </view>
@@ -620,13 +620,13 @@
   </view>
 
   <!-- ═══ Stamp Picker Popup ═══ -->
-  <view class="popup-mask" wx:if="{{stampPickerVisible}}" bindtap="closeStampPicker">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{stampPickerVisible}}" bindtap="closeStampPicker">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">选择印章</view>
         <text class="popup-close ui-motion-chip" catchtap="closeStampPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="detail-popup-form">
           <view wx:if="{{!availableStamps.length}}" class="stamp-empty">暂无可用的印章</view>
           <view wx:for="{{availableStamps}}" wx:key="id"
@@ -644,9 +644,9 @@
   </view>
 
   <!-- ═══ Placement / File Preview Popup (positioning sig/stamp on file) ═══ -->
-  <view class="popup-mask" wx:if="{{placementVisible}}" bindtap="closePlacement">
-    <view class="popup-card placement-popup" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{placementVisible}}" bindtap="closePlacement">
+    <view class="popup-card placement-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">预览 · 定位 - {{placementFileName}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closePlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
@@ -675,7 +675,7 @@
       <!-- Placement canvas — scrollable to show full file -->
       <scroll-view id="placementCanvas"
             scroll-y="{{true}}"
-            class="placement-canvas"
+            class="placement-canvas ui-dialog-body"
             bindtap="onPlacementTap">
         <!-- Loading indicator -->
         <view wx:if="{{placementLoading}}"
@@ -735,7 +735,7 @@
         </view>
       </view>
 
-      <view class="placement-actions">
+      <view class="placement-actions ui-dialog-footer">
         <button class="secondary-btn placement-btn-cancel ui-motion-button" catchtap="closePlacement" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         <button class="secondary-btn placement-btn-copy ui-motion-button" catchtap="addPlacementCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增一处</button>
         <button class="primary-btn placement-btn-save ui-motion-button" catchtap="confirmPlacement" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存位置</button>
@@ -744,13 +744,13 @@
   </view>
 
   <!-- Approval Dialog -->
-  <view class="popup-mask" wx:if="{{approvalVisible}}" bindtap="closeApproval">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalAction === 'approve' ? '审批通过' : '驳回'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="detail-popup-form">
           <!-- Signature section (only for approve) -->
           <view wx:if="{{approvalAction === 'approve'}}">
@@ -779,22 +779,22 @@
             </view>
           </view>
 
-          <view class="audit-btn-bar">
-            <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="confirmApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{approvalAction === 'approve' ? '确认通过' : '确认驳回'}}</button>
-          </view>
         </view>
       </scroll-view>
+      <view class="audit-btn-bar ui-dialog-footer">
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="confirmApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{approvalAction === 'approve' ? '确认通过' : '确认驳回'}}</button>
+      </view>
     </view>
   </view>
 
   <!-- ═══ Signature Source Picker Popup (saved signatures + new drawing) ═══ -->
-  <view class="popup-mask" wx:if="{{sigSourcePickerVisible}}" bindtap="closeSigSourcePicker">
-    <view class="popup-card" catchtap="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{sigSourcePickerVisible}}" bindtap="closeSigSourcePicker">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">选择签名方式</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSigSourcePicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
         <view class="detail-popup-form">
           <view class="sig-source-file-name">{{sigSourceFileName}}</view>
 
@@ -851,24 +851,26 @@
 
   <!-- Signature Pad Popup (with save-to-library controls) -->
   <!-- ★ catchtouchmove="noop" 阻止触摸滑动穿透到底层页面，防止签名时页面翻动 -->
-  <view class="popup-mask" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad" catchtouchmove="noop">
-    <view class="popup-card" catchtap="noop" catchtouchmove="noop">
-      <view class="popup-header">
+  <view class="popup-mask ui-overlay" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad" catchtouchmove="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop" catchtouchmove="noop">
+      <view class="popup-header ui-dialog-header">
         <view class="popup-title">手写签名</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSignaturePad" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <signature-pad bindconfirm="onSignatureConfirm" />
+      <view class="ui-dialog-body signature-pad-dialog-body">
+        <signature-pad bindconfirm="onSignatureConfirm" />
+      </view>
     </view>
   </view>
 
     <!-- ═══ Person picker popup (multi-select) ═══ -->
-    <view class="popup-mask" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
-      <view class="popup-card desig-popup-card" catchtap="noop">
-        <view class="popup-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closePersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+    <view class="popup-mask ui-overlay" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
+      <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+        <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closePersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
 
         <!-- Selected persons -->
         <view class="list-title">已选人员（{{personPickerSelectedIds.length}}人）</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body">
           <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="id">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
             <view class="audit-person-info">
@@ -909,7 +911,7 @@
         </view>
 
         <!-- Candidate list -->
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body">
           <view wx:if="{{!personPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
           <view class="audit-person-item ui-motion-card" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
@@ -931,7 +933,7 @@
           </picker>
         </view>
 
-        <view class="button-row">
+        <view class="button-row ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closePersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
           <button class="primary-btn ui-motion-button" catchtap="confirmPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加 {{personPickerSelectedIds.length}} 人</button>
         </view>
