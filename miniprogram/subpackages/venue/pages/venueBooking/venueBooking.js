@@ -1,4 +1,4 @@
-﻿const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 

@@ -1,4 +1,4 @@
-﻿<wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
+<wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
 <page-meta page-style="{{dragActive ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <view class="hero hero-admin" wx:if="{{hasPermission}}">

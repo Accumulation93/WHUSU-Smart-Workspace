@@ -1,4 +1,4 @@
-﻿<view class="page page-narrow">
+<view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">审核</view>
     <view class="hero-title">我的审批记录</view>

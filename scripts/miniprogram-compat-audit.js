@@ -30,6 +30,13 @@ function report(file, message) {
   failures.push(normalize(file) + ': ' + message);
 }
 
+function checkUtf8Bom(file) {
+  const bytes = fs.readFileSync(file);
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    report(file, '禁止 UTF-8 BOM，微信开发者工具会导致 JSON 解析失败或 WXML 出现不可见字符');
+  }
+}
+
 function resolveModule(fromFile, request) {
   const base = path.resolve(path.dirname(fromFile), request);
   const candidates = [base, base + '.js', base + '.json', path.join(base, 'index.js')];
@@ -218,6 +225,7 @@ function checkProjectConfig() {
 }
 
 const files = walk(MINI_ROOT);
+files.filter(function(file) { return /\.(?:js|json|wxml|wxss|wxs)$/.test(file); }).forEach(checkUtf8Bom);
 files.filter(function(file) { return file.endsWith('.js'); }).forEach(checkJavaScript);
 files.filter(function(file) { return file.endsWith('.json'); }).forEach(checkJson);
 files.filter(function(file) { return file.endsWith('.wxml'); }).forEach(checkWxml);

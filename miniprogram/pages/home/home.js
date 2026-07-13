@@ -1,4 +1,4 @@
-﻿const { callFunction } = require('../../utils/api');
+const { callFunction } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';

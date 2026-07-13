@@ -1,4 +1,4 @@
-﻿<wxs module="fmt">
+<wxs module="fmt">
 function hour(t) {
   if (!t) return '--';
   var p = (''+t).split(':');

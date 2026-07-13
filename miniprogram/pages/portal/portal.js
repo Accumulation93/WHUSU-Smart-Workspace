@@ -1,4 +1,4 @@
-﻿const { callFunction, formatAuditTime } = require('../../utils/api');
+const { callFunction, formatAuditTime } = require('../../utils/api');
 const eventBus = require('../../utils/eventBus');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
