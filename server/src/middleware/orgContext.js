@@ -18,6 +18,14 @@ const pool = require('../config/db');
 // 用户-组织访问权缓存（2 分钟 TTL）
 const _userOrgCache = new Map();
 const USER_ORG_CACHE_TTL = 120000;
+const ORG_CONTEXT_BYPASS_PATHS = new Set([
+  '/api/listMyOrganizations',
+  '/api/admin/listMyOrganizations',
+  '/api/activateOrganization',
+  '/api/userLogin',
+  '/api/adminLogin',
+  '/api/confirmAutoBind'
+]);
 
 function _isAdminRoute(req) {
   // 1. 前端显式指定 X-Role: admin
@@ -108,7 +116,17 @@ function _pruneCache() {
   }
 }
 
+function clearOrgAccessCache(openid, orgId, role) {
+  if (!openid || !orgId) return;
+  const roleKey = role === 'admin' ? 'admin' : 'user';
+  _userOrgCache.delete(roleKey + '::' + openid + '::' + orgId);
+}
+
 async function orgContextMiddleware(req, res, next) {
+  if (ORG_CONTEXT_BYPASS_PATHS.has(req.path)) {
+    return next();
+  }
+
   const orgId = (req.headers['x-active-org'] || '').trim();
 
   if (!orgId) {
@@ -126,12 +144,14 @@ async function orgContextMiddleware(req, res, next) {
     : await _userCanAccessOrg(openid, orgId);
 
   if (!allowed) {
-    // 用户不属于该组织 → 忽略 header，回退系统默认组织
-    return next();
+    return res.json({
+      status: 'org_access_denied',
+      message: '当前账号无权访问所选组织，请重新选择'
+    });
   }
 
   // 注入组织上下文到 ALS
   orgStorage.run(orgId, () => next());
 }
 
-module.exports = { orgContextMiddleware };
+module.exports = { orgContextMiddleware, clearOrgAccessCache };

@@ -39,7 +39,14 @@ function callFunction(options) {
         if (res.statusCode === 200) {
           settle(null, res.data);
         } else {
-          settle({ errMsg: 'request:fail statusCode ' + res.statusCode });
+          const responseData = res.data || {};
+          settle({
+            errMsg: 'request:fail statusCode ' + res.statusCode,
+            message: responseData.message || '',
+            statusCode: res.statusCode,
+            data: responseData,
+            requestId: (res.header && (res.header['X-Request-Id'] || res.header['x-request-id'])) || ''
+          });
         }
       },
       fail: function(err) {
@@ -75,7 +82,7 @@ function showShortToast(title, icon) {
 }
 
 function getErrorText(error, fallback) {
-  const text = String((error && (error.errMsg || error.message)) || '').trim();
+  const text = String((error && (error.message || error.errMsg)) || '').trim();
   return text || fallback;
 }
 

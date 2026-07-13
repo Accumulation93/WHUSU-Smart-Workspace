@@ -105,6 +105,7 @@ await withTransaction(async (conn) => {
 - **`safeString()` 转换 null/undefined → ''** — 对 `openid` NULL 检查至关重要
 - **禁止 SQL 字符串拼接** — 始终用参数化查询
 - **SQL 放 Model 层** — 路由中不直接写 SQL
+- **数据库依赖必须在模块顶层声明** — 禁止在某个路由回调内 `require('../../config/db')` 后由其他回调使用；遗留路由确需直接访问连接池时，必须在首个 `router.*` 注册前声明，并通过 `scripts/security-audit.js --strict` 的 `route-pool-scope` 检查
 
 ---
 

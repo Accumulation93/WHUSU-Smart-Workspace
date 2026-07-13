@@ -4,6 +4,13 @@ const utils = require('./adminUtils');
 
 module.exports = Behavior({
   methods: {
+    applySystemDefaultOrganization(organizationId, organizationName) {
+      this.setData({
+        currentOrganizationId: organizationId,
+        currentOrganizationName: organizationName
+      });
+    },
+
     async loadSystemConfig() {
       this.setLoading('settings', true);
       try {
@@ -154,9 +161,9 @@ module.exports = Behavior({
       if (!id || !name) return;
       const confirm = await new Promise(function (resolve) {
         wx.showModal({
-          title: '切换组织',
-          content: '确认切换到「' + name + '」？',
-          confirmText: '切换',
+          title: '修改系统默认组织',
+          content: '此操作会将「' + name + '」设为全系统默认组织，并影响其他用户后续登录。确认继续？',
+          confirmText: '设为默认',
           cancelText: '取消',
           success: function (res) { resolve(res.confirm); }
         });
@@ -164,7 +171,7 @@ module.exports = Behavior({
       if (!confirm) return;
   
       this.setLoading('switchOrganization', true);
-      wx.showLoading({ title: '正在切换组织...', mask: true });
+      wx.showLoading({ title: '正在修改默认组织...', mask: true });
   
       try {
         const result = await this.callCloud('switchOrganization', {
@@ -173,17 +180,7 @@ module.exports = Behavior({
         });
         if (result.status === 'success') {
           wx.showToast({ title: result.message || '切换成功', icon: 'success' });
-          this.setData({ currentOrganizationId: id, currentOrganizationName: name });
-          await this.loadOrganizations();
-          this.loadActivityList();
-          this.loadTemplateList();
-          this.loadRuleList();
-          this.loadHrProfileAdminData();
-          this.loadHrList();
-          this.loadAdminList();
-          await this.loadDepartmentList();
-          await this.loadWorkGroupList();
-          await this.loadIdentityList();
+          this.applySystemDefaultOrganization(id, name);
         } else {
           wx.showToast({ title: result.message || '切换失败', icon: 'none' });
         }
@@ -199,10 +196,11 @@ module.exports = Behavior({
         wx.showToast({ title: '请填写组织名称', icon: 'none' });
         return;
       }
+      const organizationName = this.data.orgFormData.name;
       const confirm = await new Promise(function (resolve) {
         wx.showModal({
-          title: '新建并切换组织',
-          content: '确认创建并切换到新组织「' + this.data.orgFormData.name + '」？',
+          title: '新建并设为默认',
+          content: '将创建「' + organizationName + '」并设为全系统默认组织，这会影响其他用户后续登录。确认继续？',
           confirmText: '确认',
           cancelText: '取消',
           success: function (res) { resolve(res.confirm); }
@@ -211,11 +209,11 @@ module.exports = Behavior({
       if (!confirm) return;
   
       this.setLoading('switchOrganization', true);
-      wx.showLoading({ title: '正在创建并切换组织...', mask: true });
+      wx.showLoading({ title: '正在创建默认组织...', mask: true });
   
       try {
-        // Step 1: Create the organization
-        const saveResult = await this.callCloud('saveOrganization', { name: this.data.orgFormData.name });
+        // 第一步：创建组织。
+        const saveResult = await this.callCloud('saveOrganization', { name: organizationName });
         if (saveResult.status !== 'success') {
           wx.hideLoading();
           wx.showToast({ title: saveResult.message || '创建组织失败', icon: 'none' });
@@ -223,25 +221,15 @@ module.exports = Behavior({
           return;
         }
   
-        // Step 2: Switch to it
+        // 第二步：切换系统组织并刷新当前管理上下文。
         const result = await this.callCloud('switchOrganization', {
           organizationId: saveResult.organization.id,
-          organizationName: this.data.orgFormData.name
+          organizationName
         });
         if (result.status === 'success') {
           wx.showToast({ title: result.message || '切换成功', icon: 'success' });
           this.closeOrgForm();
-          this.setData({ currentOrganizationId: saveResult.organization.id, currentOrganizationName: this.data.orgFormData.name });
-          await this.loadOrganizations();
-          this.loadActivityList();
-          this.loadTemplateList();
-          this.loadRuleList();
-          this.loadHrProfileAdminData();
-          this.loadHrList();
-          this.loadAdminList();
-          await this.loadDepartmentList();
-          await this.loadWorkGroupList();
-          await this.loadIdentityList();
+          this.applySystemDefaultOrganization(saveResult.organization.id, organizationName);
         } else {
           wx.showToast({ title: result.message || '切换失败', icon: 'none' });
         }

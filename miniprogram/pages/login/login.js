@@ -53,6 +53,12 @@ function normalizeProfile(user) {
   };
 }
 
+function saveAvailableOrganizations(role, organizations) {
+  const list = Array.isArray(organizations) ? organizations : [];
+  wx.setStorageSync('availableOrgs', list);
+  wx.setStorageSync('availableOrgs:' + role, list);
+}
+
 Page({
   data: {
     activeRole: 'user',
@@ -190,7 +196,7 @@ Page({
       this.saveProfile(role, result.user);
       // 保存组织信息 — 后端决定默认组织（activeOrg 优先于 availableOrgs[0]）
       if (result.availableOrgs && result.availableOrgs.length > 0) {
-        wx.setStorageSync('availableOrgs', result.availableOrgs);
+        saveAvailableOrganizations(role, result.availableOrgs);
         // 使用后端返回的 activeOrg，确保与系统默认组织一致
         const defaultOrg = result.activeOrg || result.availableOrgs[0];
         wx.setStorageSync('activeOrgId', defaultOrg.id);
@@ -215,7 +221,7 @@ Page({
           } else {
             // 用户拒绝自动绑定 — 使用原组织信息直接进入
             wx.setStorageSync('token', result.token);
-            wx.setStorageSync('availableOrgs', result.availableOrgs || []);
+            saveAvailableOrganizations(role, result.availableOrgs || []);
             if (result.availableOrgs && result.availableOrgs[0]) {
               wx.setStorageSync('activeOrgId', result.availableOrgs[0].id);
               wx.setStorageSync('activeOrgName', result.availableOrgs[0].name);
@@ -346,6 +352,7 @@ Page({
         wx.setStorageSync('token', result.token);
         wx.setStorageSync('activeOrgId', result.targetOrg.id);
         wx.setStorageSync('activeOrgName', result.targetOrg.name);
+        saveAvailableOrganizations(this.data.activeRole, result.availableOrgs || []);
         if (result.sourceUser) {
           this.saveProfile(this.data.activeRole, result.sourceUser);
         }

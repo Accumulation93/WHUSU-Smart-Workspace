@@ -2,5 +2,7 @@
   "navigationBarTitleText": "组织切换",
   "navigationBarBackgroundColor": "#ffffff",
   "navigationBarTextStyle": "black",
-  "usingComponents": {}
+  "usingComponents": {
+    "ui-icon": "/components/ui-icon/ui-icon"
+  }
 }

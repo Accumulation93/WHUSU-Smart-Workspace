@@ -5,6 +5,7 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 const workGroupModel = require('../models/workGroup');
 const departmentModel = require('../models/department');
 const adminInfoModel = require('../models/adminInfo');
+const pool = require('../../config/db');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -56,7 +57,6 @@ router.post('/saveWorkGroup', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请选择所属部门' });
     }
 
-    const pool = require('../../config/db');
     const orgId = await getCurrentOrgId();
     const [dups] = await pool.query(
       'SELECT id FROM work_groups WHERE department_id = ? AND name = ? AND org_id = ?',
@@ -91,7 +91,6 @@ router.post('/deleteWorkGroup', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: '请提供工作分工ID' });
 
     // Check references before deletion
-    const pool = require('../../config/db');
     const orgId = await getCurrentOrgId();
     const [hrRef] = await pool.query('SELECT id FROM hr_info WHERE work_group_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
     if (hrRef.length) return res.json({ status: 'in_use', message: '该工作分工已被人事成员引用，不能删除' });

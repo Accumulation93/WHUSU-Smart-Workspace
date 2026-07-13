@@ -3444,31 +3444,14 @@ scroll-view {
   }
 }
 
-/* 组织切换入口 */
-.hero-org {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  margin-top: 12rpx;
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: rgba(255,255,255,0.64);
-  border: 1rpx solid rgba(255,255,255,0.72);
-  cursor: pointer;
-  width: fit-content;
+/* 管理 Hero 使用同一组织控件语言，仅调整深色表面的光影层次。 */
+.hero-admin .hero-org-context {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.20), rgba(255, 255, 255, 0.08));
+  border-color: rgba(191, 219, 254, 0.24);
+  box-shadow: 0 12rpx 28rpx rgba(2, 6, 23, 0.16), inset 0 1rpx 0 rgba(255, 255, 255, 0.16);
 }
 
-.hero-org-icon {
-  font-size: 24rpx;
-}
-
-.hero-org-name {
-  font-size: 24rpx;
-  color: #1e293b;
-  font-weight: 500;
-}
-
-.hero-org-arrow {
-  font-size: 20rpx;
-  color: #3b82f6;
+.hero-admin .hero-org-context-pressing {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.26), rgba(255, 255, 255, 0.11));
+  box-shadow: 0 6rpx 16rpx rgba(2, 6, 23, 0.13), inset 0 1rpx 0 rgba(255, 255, 255, 0.18);
 }

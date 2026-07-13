@@ -67,6 +67,14 @@ async function getByOpenidInOrg(openid, orgId) {
   return rows[0] || null;
 }
 
+async function getByHrIdInOrg(hrId, excludeOpenid, orgId) {
+  const [rows] = await pool.query(
+    'SELECT * FROM user_info WHERE hr_id = ? AND openid != ? AND org_id = ? LIMIT 1',
+    [hrId, excludeOpenid, orgId]
+  );
+  return rows[0] || null;
+}
+
 // 创建绑定到指定组织
 async function createInOrg(id, openid, hrId, orgId) {
   await pool.query(
@@ -75,7 +83,14 @@ async function createInOrg(id, openid, hrId, orgId) {
   );
 }
 
+async function updateInOrg(id, hrId, updatedAt, orgId) {
+  await pool.query(
+    'UPDATE user_info SET hr_id = ?, updated_at = ? WHERE id = ? AND org_id = ?',
+    [hrId || '', updatedAt || null, id, orgId]
+  );
+}
+
 module.exports = {
-  getByOpenid, getByOpenidGlobal, getByOpenidInOrg, getById, getByHrId, getAll,
-  create, createInOrg, update, remove
+  getByOpenid, getByOpenidGlobal, getByOpenidInOrg, getById, getByHrId, getByHrIdInOrg, getAll,
+  create, createInOrg, update, updateInOrg, remove
 };

@@ -4,6 +4,7 @@ const { safeString, generateId } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const departmentModel = require('../models/department');
 const adminInfoModel = require('../models/adminInfo');
+const pool = require('../../config/db');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -43,7 +44,6 @@ router.post('/saveDepartment', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请输入部门名称' });
     }
 
-    const pool = require('../../config/db');
     const orgId = await getCurrentOrgId();
     const [dups] = await pool.query('SELECT id FROM departments WHERE name = ? AND org_id = ?', [name, orgId]);
     if (dups.some((r) => String(r.id) !== id)) {
@@ -75,7 +75,6 @@ router.post('/deleteDepartment', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: '请提供部门ID' });
 
     // Check references before deletion
-    const pool = require('../../config/db');
     const orgId = await getCurrentOrgId();
     const [hrRef] = await pool.query('SELECT id FROM hr_info WHERE department_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
     if (hrRef.length) return res.json({ status: 'in_use', message: '该部门已被人事成员引用，不能删除' });

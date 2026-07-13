@@ -354,6 +354,14 @@ Page({
     }
 
     const canManageAdmins = isSuperAdmin || isRootAdmin;
+    const activeOrgId = wx.getStorageSync('activeOrgId') || '';
+    const bootstrapKey = [this._subApp || 'scoring', activeOrgId, adminProfile.id || ''].join('::');
+
+    if (this._bootstrapKey === bootstrapKey && (this._bootstrapComplete || this._bootstrapPromise)) {
+      return this._bootstrapPromise;
+    }
+    this._bootstrapKey = bootstrapKey;
+    this._bootstrapComplete = false;
 
     // 读取当前活跃组织名称
     const activeOrgName = wx.getStorageSync('activeOrgName') || '';
@@ -382,41 +390,61 @@ Page({
         : ['普通管理员', '超级管理员']
     });
 
-    // Audit sub-app: load reference lists first, then templates (names depend on lists)
-    if (this._subApp === 'audit') {
-      let that = this;
-      // Load reference data lists in parallel, then templates after they're ready
-      Promise.all([
-        that.loadDepartmentList(),
-        that.loadWorkGroupList(),
-        that.loadIdentityList(),
-        that.loadHrList()
-      ]).then(function() {
-        that.loadAuditFlowTemplates().catch(function() {});
-      }).catch(function() {
-        that.loadAuditFlowTemplates().catch(function() {});
-      });
-      // These don't depend on reference lists, load immediately
-      this.loadStamps().catch(function() {});
-      this.loadAuditSubmissions().catch(function() {});
-      this.loadVerificationPermissions().catch(function() {});
-      return;
-    }
+    const loadSubApp = async () => {
+      if (this._subApp === 'audit') {
+        await Promise.all([
+          this.loadDepartmentList(),
+          this.loadIdentityList(),
+          this.loadHrList()
+        ]);
+        await this.loadWorkGroupList();
+        await Promise.all([
+          this.loadAuditFlowTemplates(),
+          this.loadStamps(),
+          this.loadAuditSubmissions(),
+          this.loadVerificationPermissions()
+        ]);
+        return;
+      }
 
-    await this.loadActivityList();
-    this.loadTemplateList();
-    this.loadRuleList();
-    if (!this._csvImportActive && !this.data.showCsvMappingDialog) {
-      this.loadHrProfileAdminData();
-      this.loadHrList();
-    }
-    this.loadAdminList();
-    this.loadSystemConfig();
-    this.loadOrganizations();
-    await this.loadDepartmentList();
-    await this.loadWorkGroupList();
-    await this.loadIdentityList();
-    this.updateHrFormOptions();
+      if (this._subApp === 'hr') {
+        await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
+        await this.loadWorkGroupList();
+        if (!this._csvImportActive && !this.data.showCsvMappingDialog) {
+          await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+        }
+        this.updateHrFormOptions();
+        return;
+      }
+
+      if (this._subApp === 'system') {
+        await Promise.all([
+          this.loadAdminList(),
+          this.loadHrList(),
+          this.loadSystemConfig(),
+          this.loadOrganizations()
+        ]);
+        return;
+      }
+
+      await Promise.all([
+        this.loadActivityList(),
+        this.loadTemplateList(),
+        this.loadDepartmentList(),
+        this.loadIdentityList()
+      ]);
+      await this.loadWorkGroupList();
+      await this.loadRuleList();
+    };
+
+    this._bootstrapPromise = loadSubApp()
+      .finally(() => {
+        if (this._bootstrapKey === bootstrapKey) {
+          this._bootstrapComplete = true;
+          this._bootstrapPromise = null;
+        }
+      });
+    return this._bootstrapPromise;
   },
 
   setLoading(key, value) {

@@ -1,32 +1,67 @@
 <view class="page">
-  <view class="hero">
-    <view class="hero-title">选择组织</view>
-    <view class="hero-sub">切换当前需要访问和管理的组织</view>
+  <view class="hero org-hero">
+    <view class="hero-badge">{{roleLabel}} · 组织空间</view>
+    <view class="hero-title">切换组织</view>
+    <view class="hero-subtitle">选择本次要访问和管理的组织，页面数据将同步更新。</view>
+    <view class="hero-current" wx:if="{{activeOrgName}}">
+      <view class="hero-current-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
+      <view class="hero-current-copy">
+        <view class="hero-current-label">当前组织</view>
+        <view class="hero-current-name">{{activeOrgName}}</view>
+      </view>
+      <view class="hero-current-status">使用中</view>
+    </view>
   </view>
 
-  <view class="card" wx:if="{{organizations.length === 0 && !loading}}">
-    <view class="empty-hint">暂无可用组织</view>
-    <view class="empty-desc">您尚未在任何组织中绑定身份，请先绑定</view>
-  </view>
+  <view class="org-panel">
+    <view class="panel-head">
+      <view>
+        <view class="section-title">可访问组织</view>
+        <view class="panel-note">共 {{organizations.length}} 个组织</view>
+      </view>
+      <view class="refresh-status" wx:if="{{refreshing}}">正在同步</view>
+    </view>
 
-  <view class="org-list" wx:if="{{organizations.length > 0}}">
-    <view
-      class="org-item {{activeOrgId === item.id ? 'org-item--active' : ''}}"
-      wx:for="{{organizations}}"
-      wx:key="id"
-      data-index="{{index}}"
-      bindtap="onOrgTap"
-    >
-      <view class="org-info">
-        <view class="org-name">{{item.name}}</view>
-        <view class="org-role">
-          <view class="chip {{item.role === 'admin' ? 'chip--blue' : 'chip--green'}}">
-            {{item.role === 'admin' ? '管理员' : '普通用户'}}
+    <view class="org-skeleton" wx:if="{{loading && organizations.length === 0}}">
+      <view class="skeleton-row" wx:for="{{skeletonRows}}" wx:key="*this">
+        <view class="skeleton-icon"></view>
+        <view class="skeleton-copy"><view></view><view></view></view>
+      </view>
+    </view>
+
+    <view class="empty-state" wx:elif="{{!loading && organizations.length === 0}}">
+      <view class="empty-icon"><ui-icon name="home" tone="muted" size="54" ariaLabel="暂无组织" /></view>
+      <view class="empty-title">暂无可访问组织</view>
+      <view class="empty-desc">当前身份尚未绑定任何组织，请联系组织管理员处理。</view>
+    </view>
+
+    <view class="org-list" wx:else>
+      <view
+        class="org-item {{activeOrgId === item.id ? 'org-item-active' : ''}} {{switchingOrgId === item.id ? 'org-item-switching' : ''}}"
+        wx:for="{{organizations}}"
+        wx:key="id"
+        data-index="{{index}}"
+        catchtap="onOrgTap"
+        hover-class="org-item-pressing"
+        hover-start-time="0"
+        hover-stay-time="160"
+        hover-stop-propagation="{{true}}"
+        aria-role="button"
+        aria-label="切换到{{item.name}}"
+      >
+        <view class="org-item-icon"><ui-icon name="home" tone="primary" size="34" ariaLabel="组织" /></view>
+        <view class="org-info">
+          <view class="org-name">{{item.name}}</view>
+          <view class="org-meta">
+            <view class="role-chip {{item.role === 'admin' ? 'role-chip-admin' : 'role-chip-user'}}">{{item.role === 'admin' ? '管理员' : '普通用户'}}</view>
+            <view class="current-chip" wx:if="{{activeOrgId === item.id}}">当前组织</view>
           </view>
         </view>
-      </view>
-      <view class="org-check" wx:if="{{activeOrgId === item.id}}">
-        <text class="check-icon">✓</text>
+        <view class="org-item-end">
+          <view class="switching-dot" wx:if="{{switchingOrgId === item.id}}"></view>
+          <ui-icon wx:elif="{{activeOrgId === item.id}}" name="check" tone="white" size="24" ariaLabel="当前组织" />
+          <ui-icon wx:else name="chevron-right" tone="muted" size="28" ariaLabel="进入" />
+        </view>
       </view>
     </view>
   </view>

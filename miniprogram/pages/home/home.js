@@ -338,32 +338,19 @@ Page({
 
   refreshUserFromCloud() {
     const activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
+    const activeOrgId = wx.getStorageSync('activeOrgId') || '';
 
-    if (activeRole !== 'user') {
+    if (activeRole !== 'user' || !activeOrgId) {
       return;
     }
 
     callFunction({
-      name: 'userLogin',
+      name: 'activateOrganization',
+      data: { organizationId: activeOrgId, role: 'user' },
       success: (res) => {
         const result = res.result || {};
 
-        if (result.status !== 'login_success' || !result.user) {
-          // Only clean up if there's no stored user profile.
-          // If the login page already saved one, a failed cloud refresh
-          // should never destroy local state and switch to another role.
-          const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-          if (!roleProfiles.user) {
-            if (activeRole === 'user') {
-              const roleList = Object.keys(roleProfiles);
-              if (roleList.length) {
-                wx.setStorageSync(ACTIVE_ROLE_KEY, roleList[0]);
-              } else {
-                wx.removeStorageSync(ACTIVE_ROLE_KEY);
-              }
-            }
-            this.refreshCurrentUser();
-          }
+        if (result.status !== 'success' || !result.user) {
           return;
         }
 
@@ -422,7 +409,7 @@ Page({
       scoringStats: { total: 0, scored: 0, pending: 0 },
       activeTab: isAdminRole ? 'scoring' : this.data.activeTab,
       hrProfile: emptyHrProfileState(),
-      organizationName: ''
+      organizationName: wx.getStorageSync('activeOrgName') || this.data.organizationName
     });
 
     if (currentUser && activeRole === 'user') {

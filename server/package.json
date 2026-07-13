@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "test:org-switch": "node test/activateOrganization.test.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.1",

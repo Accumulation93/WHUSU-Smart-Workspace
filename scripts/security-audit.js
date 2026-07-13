@@ -36,6 +36,7 @@ const findings = [];
 for (const target of TARGETS) {
   for (const file of walk(path.join(ROOT, target))) {
     const source = fs.readFileSync(file, 'utf8');
+    const relativeFile = path.relative(ROOT, file).replace(/\\/g, '/');
     for (const rule of RULES) {
       rule.pattern.lastIndex = 0;
       let match;
@@ -44,8 +45,21 @@ for (const target of TARGETS) {
         findings.push({
           severity: rule.severity,
           rule: rule.id,
-          file: path.relative(ROOT, file).replace(/\\/g, '/'),
+          file: relativeFile,
           line: lineAt(source, match.index)
+        });
+      }
+    }
+
+    if (relativeFile.startsWith('server/src/core/routes/') && source.includes('pool.')) {
+      const poolImport = source.search(/const\s+pool\s*=\s*require\(['"]\.\.\/\.\.\/config\/db['"]\)/);
+      const firstRoute = source.indexOf('router.');
+      if (poolImport < 0 || (firstRoute >= 0 && poolImport > firstRoute)) {
+        findings.push({
+          severity: 'high',
+          rule: 'route-pool-scope',
+          file: relativeFile,
+          line: lineAt(source, source.indexOf('pool.'))
         });
       }
     }

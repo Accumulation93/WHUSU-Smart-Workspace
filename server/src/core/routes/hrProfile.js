@@ -12,6 +12,8 @@ const profileTemplateModel = require('../models/hrProfileTemplate');
 const profileFieldModel = require('../models/hrProfileField');
 const profileRecordModel = require('../models/hrProfileRecord');
 const profileValueModel = require('../models/hrProfileValue');
+const pool = require('../../config/db');
+const { withTransaction } = pool;
 
 const TEMPLATE_KEY = 'default_hr_profile_template';
 const EDIT_MODES = ['direct', 'audit', 'readonly'];
@@ -333,8 +335,6 @@ router.post('/saveHrProfileTemplate', async (req, res) => {
       if (field.type === 'sequence' && !field.options.length) return res.json({ status: 'invalid_params', message: '序列字段至少需要一个可选项' });
     }
 
-    const pool = require('../../config/db');
-const { withTransaction } = pool;
     const { getCurrentOrgId } = require('../../utils/orgContext');
     const orgId = await getCurrentOrgId();
     await withTransaction(async (conn) => {

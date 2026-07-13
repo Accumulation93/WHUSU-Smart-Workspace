@@ -5,10 +5,16 @@
     <view class="hero-badge">管理端</view>
     <view class="hero-title">评分管理工作台</view>
     <view class="hero-subtitle hero-admin-subtitle">{{subAppLabel}} · {{user.name}} - {{isRootAdmin ? '至高权限管理员' : (isSuperAdmin ? '超级管理员' : '普通管理员')}}</view>
-    <view class="hero-org" wx:if="{{currentOrganizationName}}" bindtap="onOrgTap">
-      <text class="hero-org-icon">🏛</text>
-      <text class="hero-org-name">{{currentOrganizationName}}</text>
-      <text class="hero-org-arrow">▸</text>
+    <view class="hero-org-context org-context-action" wx:if="{{currentOrganizationName}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
+      <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
+      <view class="hero-org-context-copy">
+        <view class="hero-org-context-label">当前组织</view>
+        <view class="hero-org-context-name">{{currentOrganizationName}}</view>
+      </view>
+      <view class="hero-org-context-action">
+        <text>切换</text>
+        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
+      </view>
     </view>
   </view>
 
@@ -1474,7 +1480,7 @@
                   <view class="status-chip current-chip" wx:if="{{item.id === currentOrganizationId}}">当前组织</view>
                 </view>
                 <view class="inline-actions list-actions-below">
-                  <text class="link ui-motion-chip" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="switchOrganization" wx:if="{{item.id !== currentOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">切换</text>
+                  <text class="link ui-motion-chip" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="switchOrganization" wx:if="{{item.id !== currentOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">设为默认</text>
                   <text class="link ui-motion-chip" bindtap="openOrgForm" data-id="{{item.id}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
                   <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteOrganization" wx:if="{{item.id !== currentOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
                 </view>
@@ -2444,7 +2450,7 @@
         </view>
         <view class="button-row compact-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveOrganization}}" catchtap="saveOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存组织</button>
-          <button class="secondary-btn ui-motion-button" wx:if="{{!orgFormData.id}}" loading="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并切换</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{!orgFormData.id}}" loading="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并设为默认</button>
         </view>
       </view>
     </view>

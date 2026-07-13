@@ -10,6 +10,7 @@ const adminInfoModel = require('../models/adminInfo');
 const hrInfoModel = require('../models/hrInfo');
 const organizationModel = require('../models/organization');
 const pool = require('../../config/db');
+const { clearOrgAccessCache } = require('../../middleware/orgContext');
 
 const WECHAT_APPID = process.env.WECHAT_APPID;
 const WECHAT_SECRET = process.env.WECHAT_SECRET;
@@ -196,12 +197,13 @@ router.post('/userLogin', async (req, res) => {
         const hrRecord = await hrInfoModel.getByIdInOrg(userRecord.hr_id, systemDefaultOrgId);
         if (hrRecord) {
           const availableOrgs = await buildAvailableOrgs(openid, null);
+          const activeOrg = availableOrgs.find((org) => org.id === systemDefaultOrgId) || null;
           return res.json({
             status: 'login_success',
             token,
             user: await buildUserProfileCrossOrg(hrRecord, systemDefaultOrgId),
             availableOrgs,
-            activeOrg: availableOrgs[0] || null
+            activeOrg
           });
         }
       }
@@ -216,12 +218,13 @@ router.post('/userLogin', async (req, res) => {
         const hrRecord = await hrInfoModel.getByIdInOrg(record.hr_id, org.id);
         if (hrRecord) {
           const availableOrgs = await buildAvailableOrgs(openid, null);
+          const activeOrg = availableOrgs.find((item) => item.id === org.id) || null;
           return res.json({
             status: 'login_success',
             token,
             user: await buildUserProfileCrossOrg(hrRecord, org.id),
             availableOrgs,
-            activeOrg: availableOrgs[0] || null
+            activeOrg
           });
         }
       }
@@ -375,12 +378,13 @@ router.post('/adminLogin', async (req, res) => {
       const match = allAdminRecords.find(r => r.org_id === org.id);
       if (match) {
         const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
+        const activeOrg = availableOrgs.find((item) => item.id === org.id) || null;
         return res.json({
           status: 'login_success',
           token,
           user: buildAdminUser(match),
           availableOrgs,
-          activeOrg: availableOrgs[0] || null
+          activeOrg
         });
       }
     }
@@ -412,6 +416,106 @@ function buildAdminUser(admin) {
     adminLevel: safeString(admin.admin_level)
   };
 }
+
+async function resolveUserInOrganization(openid, orgId) {
+  const existing = await userInfoModel.getByOpenidInOrg(openid, orgId);
+  if (existing && safeString(existing.hr_id)) {
+    const existingHr = await hrInfoModel.getByIdInOrg(existing.hr_id, orgId);
+    if (existingHr) {
+      return { binding: existing, hr: existingHr };
+    }
+  }
+
+  const globalBindings = await userInfoModel.getByOpenidGlobal(openid);
+  let matchedHr = null;
+  for (const binding of globalBindings) {
+    if (!safeString(binding.hr_id) || binding.org_id === orgId) continue;
+    const sourceHr = await hrInfoModel.getByIdInOrg(binding.hr_id, binding.org_id);
+    if (!sourceHr || !safeString(sourceHr.student_id)) continue;
+    const targetHr = await hrInfoModel.getByStudentIdInOrg(sourceHr.student_id, orgId);
+    if (targetHr && safeString(targetHr.name) === safeString(sourceHr.name)) {
+      matchedHr = targetHr;
+      break;
+    }
+  }
+
+  if (!matchedHr) return null;
+
+  const conflict = await userInfoModel.getByHrIdInOrg(matchedHr.id, openid, orgId);
+  if (conflict) {
+    const error = new Error('该组织中的人事身份已绑定其他微信');
+    error.code = 'ORG_IDENTITY_CONFLICT';
+    throw error;
+  }
+
+  if (existing) {
+    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    await userInfoModel.updateInOrg(existing.id, matchedHr.id, nowUtc, orgId);
+    return { binding: Object.assign({}, existing, { hr_id: matchedHr.id }), hr: matchedHr };
+  }
+
+  const bindingId = generateId();
+  await userInfoModel.createInOrg(bindingId, openid, matchedHr.id, orgId);
+  return { binding: { id: bindingId, openid, hr_id: matchedHr.id, org_id: orgId }, hr: matchedHr };
+}
+
+// activateOrganization — 显式验证并激活用户选择的组织，禁止静默回退到系统默认组织
+router.post('/activateOrganization', async (req, res) => {
+  try {
+    const openid = req.openid;
+    const orgId = safeString(req.body.organizationId);
+    const role = safeString(req.headers['x-role'] || req.body.role).toLowerCase();
+
+    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
+    if (!orgId || (role !== 'user' && role !== 'admin')) {
+      return res.json({ status: 'invalid_params', message: '组织或身份参数无效' });
+    }
+
+    const organization = await organizationModel.getById(orgId);
+    if (!organization) {
+      return res.json({ status: 'not_found', message: '所选组织不存在' });
+    }
+
+    let user;
+    if (role === 'admin') {
+      const adminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
+      const rootAdmin = adminRecords.find((item) => item.admin_level === 'root_admin');
+      const orgAdmin = adminRecords.find((item) => item.org_id === orgId);
+      const activeAdmin = rootAdmin || orgAdmin;
+      if (!activeAdmin) {
+        return res.json({ status: 'org_access_denied', message: '您不是该组织的管理员' });
+      }
+      user = buildAdminUser(activeAdmin);
+    } else {
+      const resolved = await resolveUserInOrganization(openid, orgId);
+      if (!resolved) {
+        return res.json({ status: 'org_access_denied', message: '该组织中没有匹配的用户身份' });
+      }
+      user = await buildUserProfileCrossOrg(resolved.hr, orgId);
+    }
+
+    clearOrgAccessCache(openid, orgId, role);
+
+    res.json({
+      status: 'success',
+      activeOrg: { id: organization.id, name: organization.name },
+      user
+    });
+  } catch (e) {
+    if (req.logger) {
+      req.logger.error('activateOrganization failed', {
+        error: e.message,
+        stack: e.stack,
+        role: safeString(req.headers['x-role'] || req.body.role),
+        organizationId: safeString(req.body.organizationId)
+      });
+    }
+    const message = e && e.code === 'ORG_IDENTITY_CONFLICT'
+      ? e.message
+      : '组织切换失败，请稍后重试';
+    res.json({ status: 'error', message, requestId: req.requestId || '' });
+  }
+});
 
 // listMyOrganizations — 返回当前用户有绑定的所有组织（普通用户端）
 router.post('/listMyOrganizations', async (req, res) => {
@@ -470,14 +574,20 @@ router.post('/confirmAutoBind', async (req, res) => {
 
     // 检查是否已在目标组织绑定
     const existing = await userInfoModel.getByOpenidInOrg(openid, targetOrgId);
+    const conflict = await userInfoModel.getByHrIdInOrg(hrId, openid, targetOrgId);
+    if (conflict) {
+      return res.json({ status: 'already_bound', message: '该人事信息已被其他微信绑定' });
+    }
     if (existing) {
       // 已绑定，只需更新 hr_id
       const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-      await userInfoModel.update(existing.id, hrId, nowUtc);
+      await userInfoModel.updateInOrg(existing.id, hrId, nowUtc, targetOrgId);
     } else {
       const id = generateId();
       await userInfoModel.createInOrg(id, openid, hrId, targetOrgId);
     }
+
+    clearOrgAccessCache(openid, targetOrgId, 'user');
 
     res.json({ status: 'success', message: '绑定成功' });
   } catch (e) {
