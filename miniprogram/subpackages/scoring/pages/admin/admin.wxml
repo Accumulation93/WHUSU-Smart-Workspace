@@ -293,7 +293,7 @@
               </picker>
             </view>
           </view>
-        </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+        </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="csv-skip-invalid-row">
           <view class="csv-skip-invalid-label">
             <text>替换现有问题</text>
@@ -301,7 +301,7 @@
           </view>
           <switch checked="{{templateCsvReplaceMode}}" bindchange="toggleTemplateCsvReplaceMode" color="#2563eb"/>
         </view>
-        <view class="modal-footer">
+        <view class="modal-footer csv-mapping-footer">
           <button class="secondary-btn ui-motion-button" catchtap="cancelTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
           <button class="primary-btn ui-motion-button" catchtap="confirmTemplateCsvImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认导入</button>
         </view>
@@ -1185,7 +1185,7 @@
               </picker>
             </view>
           </view>
-        </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+        </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="csv-skip-invalid-row">
           <view class="csv-skip-invalid-label">
             <text>字段无效时仍然导入</text>
@@ -1193,7 +1193,7 @@
           </view>
           <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb"/>
         </view>
-        <view class="modal-footer">
+        <view class="modal-footer csv-mapping-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeCsvMappingDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
           <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认导入</button>
         </view>
