@@ -1,4 +1,5 @@
 const { callFunction } = require('../../../../utils/api');
+const orgSession = require('../../../../utils/orgSession');
 
 function isStepAligned(value, startValue, stepValue) {
   if (!Number.isFinite(stepValue) || stepValue <= 0) {
@@ -301,6 +302,7 @@ Page({
   },
 
   onLoad: function (options) {
+    orgSession.consume(this);
     let deviceInfo = wx.getDeviceInfo();
     this._physicalKeyboardEnabled = deviceInfo.platform === 'devtools' || deviceInfo.platform === 'mac' || deviceInfo.platform === 'windows';
     this._physicalBuffer = '';
@@ -308,6 +310,13 @@ Page({
     this._keydownSupported = false;
     this.targetId = String((options && options.targetId) || '').trim();
     this.loadScoreForm();
+  },
+
+  onShow: function () {
+    if (!orgSession.consume(this).changed) return;
+    orgSession.invalidateRequests(this);
+    wx.showToast({ title: '组织已切换，请重新选择评分任务', icon: 'none' });
+    wx.navigateBack({ fail: function () { wx.reLaunch({ url: '/pages/portal/portal' }); } });
   },
 
   onHide: function () {

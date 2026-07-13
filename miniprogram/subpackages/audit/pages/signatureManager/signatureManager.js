@@ -1,4 +1,5 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const orgSession = require('../../../../utils/orgSession');
 
 Page({
   data: {
@@ -9,20 +10,26 @@ Page({
   },
 
   onShow() {
+    const organizationState = orgSession.consume(this);
+    if (organizationState.changed) {
+      orgSession.invalidateRequests(this);
+      this.setData({ signatures: [], creating: false, editingSignature: null, loading: false });
+    }
     this.loadSignatures();
   },
 
   async loadSignatures() {
+    const request = orgSession.beginRequest(this, 'signatures');
     this.setData({ loading: true });
     try {
       const res = await callFunction({ name: 'listMySignatures', data: {} });
-      if (res.status === 'success') {
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
         this.setData({ signatures: res.signatures || [] });
       }
     } catch (e) {
       showShortToast(getErrorText(e, '加载失败'));
     } finally {
-      this.setData({ loading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
 

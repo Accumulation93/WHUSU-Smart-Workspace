@@ -47,20 +47,21 @@ function applyGradeBands(score, bands) {
 
 async function ensureAdmin(openid) { return adminInfoModel.getByOpenid(openid); }
 
-// Cached org lookups (departments, identities, workGroups are stable during publication)
-let _orgLookupsCache = null;
-let _orgLookupsCacheTime = 0;
+// 部门、身份和职能组按组织缓存，禁止不同组织共享同一进程缓存。
+const _orgLookupsCache = new Map();
 const ORG_LOOKUPS_CACHE_TTL = 60000; // 60 seconds
 
 async function fetchOrgLookups() {
+  const orgId = await getCurrentOrgId();
   const now = Date.now();
-  if (_orgLookupsCache && (now - _orgLookupsCacheTime) < ORG_LOOKUPS_CACHE_TTL) return _orgLookupsCache;
+  const cached = _orgLookupsCache.get(orgId);
+  if (cached && (now - cached.timestamp) < ORG_LOOKUPS_CACHE_TTL) return cached.value;
   const [departments, identities, workGroups] = await Promise.all([
     departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
   ]);
-  _orgLookupsCache = { departmentsById: buildNameMap(departments), identitiesById: buildNameMap(identities), workGroupsById: buildNameMap(workGroups) };
-  _orgLookupsCacheTime = now;
-  return _orgLookupsCache;
+  const value = { departmentsById: buildNameMap(departments), identitiesById: buildNameMap(identities), workGroupsById: buildNameMap(workGroups) };
+  _orgLookupsCache.set(orgId, { value, timestamp: now });
+  return value;
 }
 
 // Cached HR member list per org (HR data is stable during publication)

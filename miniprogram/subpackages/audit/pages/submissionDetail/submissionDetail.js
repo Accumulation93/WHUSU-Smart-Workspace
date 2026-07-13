@@ -1,5 +1,6 @@
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 const { openAuditFile } = require('../../../../utils/filePreview');
+const orgSession = require('../../../../utils/orgSession');
 
 const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const AUDIT_MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -161,6 +162,7 @@ Page({
   noop() {},
 
   onLoad(options) {
+    orgSession.consume(this);
     if (options.action === 'create') {
       this.setData({ action: 'create' });
       this.loadFlowTemplates();
@@ -170,6 +172,13 @@ Page({
       this.loadDetail();
       this.loadReferenceData();  // Load dept/ident/wg opts for person picker filters
     }
+  },
+
+  onShow() {
+    if (!orgSession.consume(this).changed) return;
+    orgSession.invalidateRequests(this);
+    showShortToast('组织已切换，请重新进入审核页面');
+    wx.navigateBack({ fail: () => wx.reLaunch({ url: '/pages/portal/portal' }) });
   },
 
   // ═══════════════════════════════════════════════

@@ -3,14 +3,6 @@
     <view class="hero-badge">{{roleLabel}} · 组织空间</view>
     <view class="hero-title">切换组织</view>
     <view class="hero-subtitle">选择本次要访问和管理的组织，页面数据将同步更新。</view>
-    <view class="hero-current" wx:if="{{activeOrgName}}">
-      <view class="hero-current-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
-      <view class="hero-current-copy">
-        <view class="hero-current-label">当前组织</view>
-        <view class="hero-current-name">{{activeOrgName}}</view>
-      </view>
-      <view class="hero-current-status">使用中</view>
-    </view>
   </view>
 
   <view class="org-panel">

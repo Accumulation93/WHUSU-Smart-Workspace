@@ -107,7 +107,9 @@ Page({
   },
 
   onShow() {
-    if (!this.data.activityId || !orgSession.hasChanged(this)) return;
+    const organizationState = orgSession.consume(this);
+    if (!this.data.activityId || !organizationState.changed) return;
+    orgSession.invalidateRequests(this);
     this.taskLoadToken = Date.now();
     showShortToast('组织已切换');
     wx.navigateBack({

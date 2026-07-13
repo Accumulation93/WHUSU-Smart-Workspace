@@ -1,6 +1,7 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
+const orgSession = require('../../../../utils/orgSession');
 
 Page({
   data: {
@@ -26,6 +27,14 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
+    const organizationState = orgSession.consume(this);
+    if (organizationState.changed) {
+      orgSession.invalidateRequests(this);
+      this.setData({
+        pending: [], lastPendingCount: 0, lastPendingSignature: '', lastUpdateTime: '',
+        approvalVisible: false, approvalTarget: null, expandedNodeKey: '', loading: false
+      });
+    }
     this.loadData();
     this.startPolling();
     if (!this._boundVenueChanged) {
@@ -112,9 +121,11 @@ Page({
   },
 
   async loadData() {
+    const request = orgSession.beginRequest(this, 'pendingVenueApprovals');
     this.setData({ loading: true });
     try {
       let res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
         let pending = (res.pending || []).map(function(item) {
           if (item.approvalTotalSteps > 0) {
@@ -148,7 +159,7 @@ Page({
     } catch (e) {
       showShortToast(getErrorText(e, '加载失败'));
     } finally {
-      this.setData({ loading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
 

@@ -1,5 +1,6 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
+const orgSession = require('../../../../utils/orgSession');
 
 Page({
   data: {
@@ -9,6 +10,11 @@ Page({
   },
 
   onShow() {
+    const organizationState = orgSession.consume(this);
+    if (organizationState.changed) {
+      orgSession.invalidateRequests(this);
+      this.setData({ bookings: [], loading: false });
+    }
     this.loadBookings();
     if (!this._boundVenueChanged) {
       this._boundVenueChanged = this.loadBookings.bind(this);
@@ -31,14 +37,15 @@ Page({
   },
 
   async loadBookings() {
+    const request = orgSession.beginRequest(this, 'myVenueBookings');
     this.setData({ loading: true });
     try {
       const res = await callFunction({ name: 'listMyVenueBookings', data: {} });
-      if (res.status === 'success') this.setData({ bookings: res.bookings || [] });
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') this.setData({ bookings: res.bookings || [] });
     } catch (e) {
       showShortToast(getErrorText(e, '加载失败'));
     } finally {
-      this.setData({ loading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
 

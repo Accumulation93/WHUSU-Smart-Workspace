@@ -1,27 +1,36 @@
 // Behavior: activity tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
+const orgSession = require('../../../../../utils/orgSession');
 const { emptyActivityForm } = utils;
 
 module.exports = Behavior({
   methods: {
     async loadActivityList() {
+      const request = orgSession.beginRequest(this, 'adminActivities');
       this.setLoading('activities', true);
       try {
         const result = await this.callCloud('listScoreActivities');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         const currentActivity = (result.list || []).find((item) => item.id === (result.currentActivityId || '')) || {};
         this.setData({
           activityList: result.list || [],
           currentActivityId: result.currentActivityId || '',
           currentActivityName: currentActivity.name || ''
         });
+        if (!currentActivity.id && typeof this.clearScoreResultsState === 'function') {
+          this.clearScoreResultsState();
+        }
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        this.setData({ activityList: [], currentActivityId: '', currentActivityName: '' });
+        if (typeof this.clearScoreResultsState === 'function') this.clearScoreResultsState();
         wx.showToast({
           title: '加载评分活动失败',
           icon: 'none'
         });
       } finally {
-        this.setLoading('activities', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('activities', false);
       }
     },
 

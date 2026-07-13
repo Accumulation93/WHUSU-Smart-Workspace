@@ -276,8 +276,10 @@ Page({
   },
 
   onShow() {
-    this._orgContextVersion = orgSession.getVersion();
-    if (orgSession.hasChanged(this)) {
+    const organizationState = orgSession.consume(this);
+    this._orgContextVersion = organizationState.snapshot.version;
+    if (organizationState.changed) {
+      orgSession.invalidateRequests(this);
       const activeTab = this.data.activeTab;
       this.setData({
         activeTab,
@@ -299,9 +301,10 @@ Page({
   },
 
   async loadPendingCount() {
+    const request = orgSession.beginRequest(this, 'managePendingCount');
     try {
       const res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
-      if (res.status === 'success') {
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
         this.setData({ pendingApprovalCount: (res.pending || []).length });
       }
     } catch (_) {}
@@ -333,11 +336,13 @@ Page({
   },
 
   async loadReferenceData() {
+    const request = orgSession.beginRequest(this, 'manageReferences');
     try {
       const [identRes, hrRes] = await Promise.all([
         callFunction({ name: 'listIdentities', data: {} }),
         callFunction({ name: 'listHrInfo', data: {} })
       ]);
+      if (!orgSession.isRequestCurrent(this, request)) return;
       this.setData({
         allIdentities: (identRes.status === 'success' ? identRes.identities : []) || [],
         allHrPersons: (hrRes.status === 'success' ? hrRes.list : []) || []

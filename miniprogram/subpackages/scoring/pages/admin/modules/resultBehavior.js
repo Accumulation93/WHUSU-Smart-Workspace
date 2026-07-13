@@ -3,9 +3,53 @@
 const utils = require('./adminUtils');
 const { emptyResultFilters, toNumber, clampNumber, formatScoreFixed3, buildProgressFillStyle, buildResultFilterOptions, getErrorText } = utils;
 const { saveAndShareFile } = require('../../../../../utils/tableFile');
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
+    clearScoreResultsState(extraState) {
+      this._resultLoadSeq = Number(this._resultLoadSeq || 0) + 1;
+      this.resultLoadToken = this._resultLoadSeq;
+      this.targetRecordLoadToken = '';
+      this.recordDetailLoadToken = '';
+      this.departmentScorerToken = '';
+      this.scorerTargetPopupToken = '';
+      this.setData({
+        loadingMap: { ...this.data.loadingMap, results: false },
+        scoreResultsRaw: {
+          overviewRows: [], calculationRows: [], detailRows: [], recordRows: [], scorerCompletionRows: [],
+          completionBoards: { departments: [], identities: [], workGroups: [] },
+          stats: {}
+        },
+        scoreResultsView: {
+          overviewRows: [], calculationRows: [], detailRows: [], recordRows: [], scorerCompletionRows: [],
+          completionBoards: { departments: [], identities: [], workGroups: [] }
+        },
+        resultFilterOptions: { departments: ['全部'], identities: ['全部'], workGroups: ['全部'] },
+        resultPagination: {
+          overview: { page: 0, pageSize: 0, hasMore: true, total: 0 },
+          calculation: { page: 0, pageSize: 0, hasMore: true, total: 0 },
+          detail: { page: 0, pageSize: 0, hasMore: true, total: 0 },
+          completion: { page: 0, pageSize: 0, hasMore: true, total: 0 },
+          records: { page: 0, pageSize: 0, hasMore: true, total: 0 }
+        },
+        selectedResultTarget: null,
+        targetRecordRows: [],
+        targetRecordLoading: false,
+        recordDetailPopupVisible: false,
+        recordDetail: null,
+        expandedScoreLabelMap: {},
+        selectedCompletionDepartment: '',
+        departmentScorerRows: [],
+        departmentScorerLoading: false,
+        scorerTargetPopupVisible: false,
+        scorerTargetPopupTitle: '',
+        scorerTargetPopupLoading: false,
+        scorerTargetPopupRows: [],
+        ...(extraState || {})
+      });
+    },
+
     reloadScoreResults() {
       this.resetCurrentResultRows();
       this.loadScoreResults({ nocache: true });
@@ -17,8 +61,14 @@ module.exports = Behavior({
       const loadToken = (this._resultLoadSeq || 0) + 1;
       this._resultLoadSeq = loadToken;
       this.resultLoadToken = loadToken;
-  
-      if (!this.data.currentActivityId) {
+      const activityId = this.data.currentActivityId;
+      const requestSnapshot = orgSession.getSnapshot();
+      const requestIsCurrent = () => this.resultLoadToken === loadToken
+        && this.data.currentActivityId === activityId
+        && orgSession.isCurrent(requestSnapshot);
+
+      if (!activityId) {
+        this.clearScoreResultsState();
         this.setLoading('results', false);
         return;
       }
@@ -43,7 +93,7 @@ module.exports = Behavior({
         if (viewMode === 'overview') {
           // Load ALL overview rows at once (like user-side "结果公示") — server caches computed result
           const result = await this.callCloud('getScoreResults', {
-            activityId: this.data.currentActivityId,
+            activityId,
             timezone: this.data.systemConfig.timezone,
             dataType: viewMode,
             nocache: options.nocache === true,
@@ -54,10 +104,13 @@ module.exports = Behavior({
             }
           });
   
-          if (this.resultLoadToken !== loadToken) return;
+          if (!requestIsCurrent()) return;
   
           if (result.status !== 'success') {
-            wx.showToast({ title: result.message || '加载评分结果失败', icon: 'none' });
+            this.clearScoreResultsState();
+            if (result.status !== 'activity_not_found') {
+              wx.showToast({ title: result.message || '加载评分结果失败', icon: 'none' });
+            }
             this.setLoading('results', false);
             return;
           }
@@ -79,7 +132,7 @@ module.exports = Behavior({
   
         if (viewMode === 'completion') {
           const result = await this.callCloud('getScoreResults', {
-            activityId: this.data.currentActivityId,
+            activityId,
             timezone: this.data.systemConfig.timezone,
             dataType: viewMode,
             filters: {
@@ -89,15 +142,15 @@ module.exports = Behavior({
             }
           });
   
-          if (this.resultLoadToken !== loadToken) {
+          if (!requestIsCurrent()) {
             return;
           }
   
           if (result.status !== 'success') {
-            wx.showToast({
-              title: result.message || '加载评分结果失败',
-              icon: 'none'
-            });
+            this.clearScoreResultsState();
+            if (result.status !== 'activity_not_found') {
+              wx.showToast({ title: result.message || '加载评分结果失败', icon: 'none' });
+            }
             return;
           }
   
@@ -117,7 +170,7 @@ module.exports = Behavior({
   
         while (hasMore && requestCount < maxRequests) {
           const result = await this.callCloud('getScoreResults', {
-            activityId: this.data.currentActivityId,
+            activityId,
             timezone: this.data.systemConfig.timezone,
             dataType: viewMode,
             offset,
@@ -128,15 +181,15 @@ module.exports = Behavior({
             }
           });
   
-          if (this.resultLoadToken !== loadToken) {
+          if (!requestIsCurrent()) {
             return;
           }
   
           if (result.status !== 'success') {
-            wx.showToast({
-              title: result.message || '加载评分结果失败',
-              icon: 'none'
-            });
+            this.clearScoreResultsState();
+            if (result.status !== 'activity_not_found') {
+              wx.showToast({ title: result.message || '加载评分结果失败', icon: 'none' });
+            }
             return;
           }
   
@@ -224,6 +277,8 @@ module.exports = Behavior({
           }
         });
       } catch (error) {
+        if (!requestIsCurrent()) return;
+        this.clearScoreResultsState();
         console.error('加载评分结果失败：', error);
         wx.showToast({
           title: getErrorText(error, '加载评分结果失败'),
@@ -251,6 +306,8 @@ module.exports = Behavior({
     },
 
     async loadTargetScoreRecords(targetId, target, options = {}) {
+      const organizationSnapshot = orgSession.getSnapshot();
+      const activityId = this.data.currentActivityId;
       const requestToken = `${targetId}_${Date.now()}`;
       this.targetRecordLoadToken = requestToken;
       const revokedRecordId = String(options.revokedRecordId || '').trim();
@@ -267,14 +324,15 @@ module.exports = Behavior({
   
       try {
         const result = await this.callCloud('getScoreResults', {
-          activityId: this.data.currentActivityId,
+          activityId,
           timezone: this.data.systemConfig.timezone,
           dataType: 'targetRecords',
           targetId
         });
   
         const currentTargetId = String((this.data.selectedResultTarget && (this.data.selectedResultTarget.targetId || this.data.selectedResultTarget.id)) || '');
-        if (this.targetRecordLoadToken !== requestToken || currentTargetId !== targetId) {
+        if (this.targetRecordLoadToken !== requestToken || currentTargetId !== targetId
+          || !orgSession.isCurrent(organizationSnapshot) || this.data.currentActivityId !== activityId) {
           return;
         }
   
@@ -349,6 +407,10 @@ module.exports = Behavior({
         return;
       }
   
+      const organizationSnapshot = orgSession.getSnapshot();
+      const activityId = this.data.currentActivityId;
+      const requestToken = `${recordId}_${Date.now()}`;
+      this.recordDetailLoadToken = requestToken;
       this.setData({
         recordDetailPopupVisible: true,
         recordDetail: null
@@ -356,12 +418,14 @@ module.exports = Behavior({
       this.setLoading(`recordDetail_${recordId}`, true);
       try {
         const result = await this.callCloud('getScoreResults', {
-          activityId: this.data.currentActivityId,
+          activityId,
           timezone: this.data.systemConfig.timezone,
           dataType: 'recordDetail',
           recordId
         });
   
+        if (this.recordDetailLoadToken !== requestToken || !orgSession.isCurrent(organizationSnapshot)
+          || this.data.currentActivityId !== activityId) return;
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || '加载评分详情失败',
@@ -389,17 +453,19 @@ module.exports = Behavior({
           expandedScoreLabelMap: {}
         });
       } catch (error) {
+        if (this.recordDetailLoadToken !== requestToken || !orgSession.isCurrent(organizationSnapshot)) return;
         this.setData({ recordDetailPopupVisible: false });
         wx.showToast({
           title: '加载评分详情失败',
           icon: 'none'
         });
       } finally {
-        this.setLoading(`recordDetail_${recordId}`, false);
+        if (this.recordDetailLoadToken === requestToken) this.setLoading(`recordDetail_${recordId}`, false);
       }
     },
 
     closeScoreRecordDetail() {
+      this.recordDetailLoadToken = '';
       this.setData({
         recordDetailPopupVisible: false,
         recordDetail: null,
@@ -617,6 +683,8 @@ module.exports = Behavior({
         return;
       }
   
+      const organizationSnapshot = orgSession.getSnapshot();
+      const activityId = this.data.currentActivityId;
       const loadToken = Date.now();
       this.departmentScorerToken = loadToken;
   
@@ -628,7 +696,7 @@ module.exports = Behavior({
   
       try {
         const result = await this.callCloud('getScoreResults', {
-          activityId: this.data.currentActivityId,
+          activityId,
           timezone: this.data.systemConfig.timezone,
           dataType: 'completion',
           departmentName: groupName,
@@ -639,7 +707,8 @@ module.exports = Behavior({
           }
         });
   
-        if (this.departmentScorerToken !== loadToken) return;
+        if (this.departmentScorerToken !== loadToken || !orgSession.isCurrent(organizationSnapshot)
+          || this.data.currentActivityId !== activityId) return;
   
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || '加载失败', icon: 'none' });
@@ -689,6 +758,8 @@ module.exports = Behavior({
       const { scorerKey } = e.currentTarget.dataset;
       if (!scorerKey || !this.data.currentActivityId) return;
   
+      const organizationSnapshot = orgSession.getSnapshot();
+      const activityId = this.data.currentActivityId;
       const popupToken = Date.now();
       this.scorerTargetPopupToken = popupToken;
   
@@ -704,13 +775,14 @@ module.exports = Behavior({
   
       try {
         const result = await this.callCloud('getScoreResults', {
-          activityId: this.data.currentActivityId,
+          activityId,
           timezone: this.data.systemConfig.timezone,
           dataType: 'scorerTargets',
           scorerKey
         });
   
-        if (this.scorerTargetPopupToken !== popupToken) return;
+        if (this.scorerTargetPopupToken !== popupToken || !orgSession.isCurrent(organizationSnapshot)
+          || this.data.currentActivityId !== activityId) return;
   
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || '加载失败', icon: 'none' });

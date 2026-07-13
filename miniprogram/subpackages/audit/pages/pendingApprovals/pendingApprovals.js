@@ -1,4 +1,5 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const orgSession = require('../../../../utils/orgSession');
 
 Page({
   data: {
@@ -13,6 +14,11 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
+    const organizationState = orgSession.consume(this);
+    if (organizationState.changed) {
+      orgSession.invalidateRequests(this);
+      this.setData({ pending: [], lastPendingCount: 0, lastUpdateTime: '', loading: false });
+    }
     this.loadData();
     this.startPolling();
   },
@@ -72,9 +78,11 @@ Page({
   },
 
   async loadData() {
+    const request = orgSession.beginRequest(this, 'pendingApprovals');
     this.setData({ loading: true });
     try {
       let res = await callFunction({ name: 'listPendingApprovals', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
         let pending = res.pending || [];
         this.setData({
@@ -90,7 +98,7 @@ Page({
     } catch (e) {
       showShortToast(getErrorText(e, '加载失败'));
     } finally {
-      this.setData({ loading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
 

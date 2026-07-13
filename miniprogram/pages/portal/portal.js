@@ -1,5 +1,6 @@
 const { callFunction, formatAuditTime } = require('../../utils/api');
 const eventBus = require('../../utils/eventBus');
+const orgSession = require('../../utils/orgSession');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
@@ -80,6 +81,20 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
+    const organizationState = orgSession.consume(this);
+    if (organizationState.changed) {
+      orgSession.invalidateRequests(this);
+      this.setData({
+        organizationName: wx.getStorageSync('activeOrgName') || '',
+        todoCount: 0,
+        todos: [],
+        notificationCount: 0,
+        notifications: [],
+        todoLoading: false,
+        notificationLoading: false,
+        appSearchKeyword: ''
+      });
+    }
     // Restore saved view mode preference
     const savedView = wx.getStorageSync('appViewMode');
     if (savedView && (savedView === 'grid' || savedView === 'list')) {
@@ -177,6 +192,7 @@ Page({
   },
 
   loadOrganizationName() {
+    const request = orgSession.beginRequest(this, 'portalOrganization');
     // 优先读取用户选择的活跃组织，其次回退 API 获取系统默认组织
     const storedName = wx.getStorageSync('activeOrgName') || '';
     if (storedName) {
@@ -186,6 +202,7 @@ Page({
     callFunction({
       name: 'getCurrentOrganization',
       success: (res) => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         const result = res.result || {};
         const org = result.organization;
         const name = org && org.name ? org.name : '';
@@ -193,6 +210,7 @@ Page({
         if (name) wx.setStorageSync('activeOrgName', name);
       },
       fail: () => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({ organizationName: '' });
       }
     });
@@ -203,13 +221,7 @@ Page({
   },
 
   _onOrgChanged() {
-    this.setData({
-      organizationName: wx.getStorageSync('activeOrgName') || ''
-    });
-    this.refreshCurrentUser();
-    this.loadRecentTodos();
-    this.loadNotificationUnreadCount();
-    this.loadRecentNotifications();
+    this.onShow();
   },
 
   onCardTap(e) {
@@ -261,9 +273,10 @@ Page({
   // Real-time query: notifications reflect current pending steps only.
   // No persistent storage, no read/unread — processed items disappear automatically.
   async loadTodoCount() {
+    const request = orgSession.beginRequest(this, 'portalTodoCount');
     try {
       const res = await callFunction({ name: 'getTodoCount', data: {} });
-      if (res.status === 'success') {
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
         this.setData({ todoCount: res.count || 0 });
       }
     } catch (e) {
@@ -272,10 +285,11 @@ Page({
   },
 
   async loadRecentTodos() {
+    const request = orgSession.beginRequest(this, 'portalTodos');
     this.setData({ todoLoading: true });
     try {
       const res = await callFunction({ name: 'listTodos', data: { limit: 5, offset: 0 } });
-      if (res.status === 'success') {
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
         const items = (res.items || []).map(function(item) {
           return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt) });
         });
@@ -284,14 +298,15 @@ Page({
     } catch (e) {
       console.error('[portal] loadRecentTodos failed:', e);
     } finally {
-      this.setData({ todoLoading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ todoLoading: false });
     }
   },
 
   async loadNotificationUnreadCount() {
+    const request = orgSession.beginRequest(this, 'portalNotificationCount');
     try {
       const res = await callFunction({ name: 'getNotificationUnreadCount', data: {} });
-      if (res.status === 'success') {
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
         this.setData({ notificationCount: res.count || 0 });
       }
     } catch (e) {
@@ -300,10 +315,11 @@ Page({
   },
 
   async loadRecentNotifications() {
+    const request = orgSession.beginRequest(this, 'portalNotifications');
     this.setData({ notificationLoading: true });
     try {
       const res = await callFunction({ name: 'listNotifications', data: { limit: 5, offset: 0 } });
-      if (res.status === 'success') {
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
         const items = (res.items || []).map(function(item) {
           return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt), _showDelete: false, _swipeX: 0 });
         });
@@ -312,7 +328,7 @@ Page({
     } catch (e) {
       console.error('[portal] loadRecentNotifications failed:', e);
     } finally {
-      this.setData({ notificationLoading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ notificationLoading: false });
     }
   },
 

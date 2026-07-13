@@ -70,19 +70,18 @@ function getScorerUniqueKey(memberOrRecord) {
 
 // ---------- Data loading helpers ----------
 
-let _orgLookupsCache = null;
-let _orgLookupsCacheTime = 0;
+const _orgLookupsCache = new Map();
 const ORG_LOOKUPS_CACHE_TTL = 60000;
 
 // ─── Overview result cache (avoids recomputing scores on every page request) ───
 // Uses MySQL-backed shared cache so all PM2 instances see the same state.
 const OVERVIEW_CACHE_TTL = 60000; // 60 seconds
 
-function getOverviewCacheKey(activityId, filters) {
+function getOverviewCacheKey(orgId, activityId, dataType, filters) {
   const dept = safeString(filters && filters.department);
   const ident = safeString(filters && filters.identity);
   const wg = safeString(filters && filters.workGroup);
-  return `overview_${activityId}_${dept}_${ident}_${wg}`;
+  return `overview_${orgId}_${activityId}_${dataType}_${dept}_${ident}_${wg}`;
 }
 
 async function getCachedOverview(cacheKey) {
@@ -93,10 +92,12 @@ async function setCachedOverview(cacheKey, data) {
   return sharedCache.set(cacheKey, data, OVERVIEW_CACHE_TTL);
 }
 
-async function fetchOrgLookups() {
+async function fetchOrgLookups(explicitOrgId) {
+  const orgId = safeString(explicitOrgId) || await getCurrentOrgId();
   const now = Date.now();
-  if (_orgLookupsCache && (now - _orgLookupsCacheTime) < ORG_LOOKUPS_CACHE_TTL) {
-    return _orgLookupsCache;
+  const cached = _orgLookupsCache.get(orgId);
+  if (cached && (now - cached.timestamp) < ORG_LOOKUPS_CACHE_TTL) {
+    return cached.value;
   }
   const [departments, identities, workGroups, templates, questions] = await Promise.all([
     departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll(),
@@ -125,9 +126,29 @@ async function fetchOrgLookups() {
     workGroupsById: buildOrgMap(workGroups),
     templatesById
   };
-  _orgLookupsCache = result;
-  _orgLookupsCacheTime = now;
+  _orgLookupsCache.set(orgId, { value: result, timestamp: now });
   return result;
+}
+
+function buildActivityNotFoundPayload(dataType) {
+  return {
+    status: 'activity_not_found',
+    message: '未找到对应的评分活动',
+    activity: null,
+    overviewRows: [],
+    calculationRows: [],
+    detailRows: [],
+    recordRows: [],
+    targetRecordRows: [],
+    scorerTargetRows: [],
+    recordDetail: null,
+    scorerCompletionRows: [],
+    completionBoards: { departments: [], identities: [], workGroups: [] },
+    stats: { totalMembers: 0, scoredMembers: 0, recordCount: 0, completedMembers: 0 },
+    filterOptions: { departments: [], identities: [], workGroups: [] },
+    pagination: { total: 0, returnedCount: 0, nextOffset: 0, hasMore: false },
+    dataType: safeString(dataType) || 'overview'
+  };
 }
 
 function buildTemplateConfigSignature(templateConfigs, templatesById) {
@@ -841,9 +862,14 @@ router.post('/getScoreResults', async (req, res) => {
     const admin = await ensureAdmin(openid);
     if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
 
-    // ── Overview cache shortcut (must be BEFORE any DB query) ──
+    // 活动归属必须在任何缓存读取之前验证，避免旧组织活动 ID 命中共享缓存。
+    const orgId = await getCurrentOrgId();
+    const scopedActivity = await activityModel.getById(activityId);
+    if (!scopedActivity) return res.json(buildActivityNotFoundPayload(dataType));
+
+    // ── Overview cache shortcut ──
     if (dataType === 'overview') {
-      const cacheKey = getOverviewCacheKey(activityId, filters);
+      const cacheKey = getOverviewCacheKey(orgId, activityId, dataType, filters);
       if (nocache) await sharedCache.invalidateKey(cacheKey);
       const cached = await getCachedOverview(cacheKey);
       if (cached) {
@@ -857,17 +883,13 @@ router.post('/getScoreResults', async (req, res) => {
         });
       }
       // Cache miss — compute via unified scoring engine (same as user-side, millisecond-fast)
-      const orgId = await getCurrentOrgId();
-      const [act, memRaw, orgLk] = await Promise.all([
-        activityModel.getById(activityId),
+      const [memRaw, orgLk] = await Promise.all([
         hrInfoModel.getAll(),
-        fetchOrgLookups()
+        fetchOrgLookups(orgId)
       ]);
 
-      if (!act) return res.json({ status: 'activity_not_found', message: '未找到对应的评分活动' });
-
       const mems = memRaw.map((item) => normalizeMember(item, orgLk));
-      const actBrief = { id: act.id, name: safeString(act.name), description: safeString(act.description) };
+      const actBrief = { id: scopedActivity.id, name: safeString(scopedActivity.name), description: safeString(scopedActivity.description) };
 
       const { computeValidScoreMap } = require('../utils/scoreCalc');
       const { finalScoreMap, submittedByTarget, expectedByCount, scorerExpectedCount } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
@@ -963,19 +985,16 @@ router.post('/getScoreResults', async (req, res) => {
     }
 
     // ── Non-overview dataTypes: load full data ──
-    const [activity, membersRaw, recordsRaw, orgLookups] = await Promise.all([
-      activityModel.getById(activityId),
+    const [membersRaw, recordsRaw, orgLookups] = await Promise.all([
       hrInfoModel.getAll(),
       scoreRecordModel.getByActivity(activityId),
-      fetchOrgLookups()
+      fetchOrgLookups(orgId)
     ]);
-
-    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到对应的评分活动' });
 
     const members = membersRaw.map((item) => normalizeMember(item, orgLookups));
     const recordsWithAnswers = await enrichRecordsWithAnswers(recordsRaw);
     const records = enrichScoreRecords(recordsWithAnswers, members);
-    const activityBrief = { id: activity.id, name: safeString(activity.name), description: safeString(activity.description) };
+    const activityBrief = { id: scopedActivity.id, name: safeString(scopedActivity.name), description: safeString(scopedActivity.description) };
     const rules = await loadRulesWithClauses(activityId, orgLookups);
 
     // ── Conditional data building ──

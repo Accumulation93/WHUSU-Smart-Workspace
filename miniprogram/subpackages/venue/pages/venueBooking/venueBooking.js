@@ -1,6 +1,7 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
+const orgSession = require('../../../../utils/orgSession');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64;
@@ -227,6 +228,17 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
+    const organizationState = orgSession.consume(this);
+    if (organizationState.changed) {
+      orgSession.invalidateRequests(this);
+      this.setData({
+        venues: [], timetableColumns: [], purposes: [], myBookings: [], pending: [],
+        pendingApprovalCount: 0, lastPendingCount: 0, lastPendingSignature: '',
+        scheduleVisible: false, bookingDetailVisible: false, bookingDetail: null,
+        bookingVisible: false, approvalVisible: false, approvalTarget: null,
+        expandedNodeKey: '', loading: false
+      });
+    }
     this._loadUserInfo();
     this._initWeekStart();
     this.loadVenues();
@@ -271,9 +283,10 @@ Page({
   },
 
   async loadPendingCount() {
+    const request = orgSession.beginRequest(this, 'venuePendingCount');
     try {
       let res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
-      if (res.status === 'success') this.setData({ pendingApprovalCount: (res.pending || []).length });
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') this.setData({ pendingApprovalCount: (res.pending || []).length });
     } catch (_) {}
   },
 
@@ -286,18 +299,22 @@ Page({
 
   // ═══ Browse ═══
   async loadVenues() {
+    const request = orgSession.beginRequest(this, 'venueList');
     this.setData({ loading: true });
     try {
       let res = await callFunction({ name: 'listVenuesForBooking', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') this.setData({ venues: res.venues || [] });
       else showShortToast(res.message || '加载失败');
     } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
-    finally { this.setData({ loading: false }); }
+    finally { if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false }); }
   },
 
   async loadPurposes() {
+    const request = orgSession.beginRequest(this, 'venuePurposes');
     try {
       let res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
       else showShortToast(res.message || '加载失败');
     } catch (_) {}
@@ -322,12 +339,14 @@ Page({
   closeSchedule() { this.setData({ scheduleVisible:false, bookingDetailVisible:false, expandedNodeKey:'' }); },
 
   async loadTimetable() {
+    const request = orgSession.beginRequest(this, 'venueTimetable');
     let _a = this.data, scheduleVenueId = _a.scheduleVenueId, scheduleWeekStart = _a.scheduleWeekStart;
     let parts = scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2];
     let end = new Date(y,m-1,d+6), dateTo = fmtLocalDate(end);
     wx.showLoading({title:'加载中...'});
     try {
       let res = await callFunction({name:'getVenueSchedule',data:{venueId:scheduleVenueId,dateFrom:scheduleWeekStart,dateTo}});
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if(res.status==='success') this._buildTimetable(res.dailySchedules||[]);
 	      else showShortToast(res.message || '加载失败');
     } catch(e) { showShortToast(getErrorText(e,'加载失败')); }
@@ -1435,9 +1454,11 @@ Page({
   // ═══════════════════ Bookings ═══════════════════
 
   async loadMyBookings() {
+    const request = orgSession.beginRequest(this, 'venueMyBookings');
     this.setData({loading:true});
     try {
       let res = await callFunction({name:'listMyVenueBookings',data:{}});
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if(res.status==='success') {
         let bookings = (res.bookings||[]).map(function(b){
           let item = Object.assign({}, b, { displayStatus: computeDisplayStatus(b) });
@@ -1457,7 +1478,7 @@ Page({
         this.setData({myBookings: bookings});
       }
     } catch(e) { showShortToast(getErrorText(e,'加载失败')); }
-    finally { this.setData({loading:false}); }
+    finally { if (orgSession.isRequestCurrent(this, request)) this.setData({loading:false}); }
   },
 
   async cancelMyBooking(e) {
@@ -1526,9 +1547,11 @@ Page({
   },
 
   async loadPendingData() {
+    const request = orgSession.beginRequest(this, 'venuePendingApprovals');
     this.setData({ loading: true });
     try {
       let res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
         let pending = (res.pending || []).map(function(item) {
           if (item.approvalTotalSteps > 0) {
@@ -1562,7 +1585,7 @@ Page({
     } catch (e) {
       showShortToast(getErrorText(e, '加载失败'));
     } finally {
-      this.setData({ loading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
 

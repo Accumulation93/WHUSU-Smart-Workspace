@@ -43,6 +43,52 @@ function emptyHrProfileState() {
   };
 }
 
+function emptyPublicationState() {
+  return {
+    publishedResults: [],
+    publishedGroups: [],
+    publishedMeritList: [],
+    publishedMeritGroups: [],
+    meritRuleGroups: [],
+    meritDeptCount: 0,
+    hasPublication: false,
+    hasViewPerm: false,
+    hasMeritPerm: false,
+    userMeritClauses: [],
+    userDesigCandidates: [],
+    statsData: { count: 0, maxScore: '--', avgScore: '--' },
+    displayMode: 'score',
+    gradeDistribution: [],
+    resultFilterIdentity: '',
+    resultFilterDepartment: '',
+    resultFilterWorkGroup: '',
+    resultFilterGrade: '',
+    resultSearchText: '',
+    resultIdentities: [],
+    resultDepartments: [],
+    resultWorkGroups: [],
+    filteredResults: [],
+    filteredGroups: [],
+    filteredStatsData: { count: 0, maxScore: '--', avgScore: '--' },
+    expandedResultGroupClauseId: '',
+    showUserDesigPopup: false,
+    userDesigPerms: [],
+    userDesigHrList: [],
+    userDesigFilteredList: [],
+    userDesigSelectedIds: [],
+    userDesigSelectedList: [],
+    userDesigGroups: [],
+    userDesigPubId: '',
+    userDesigLoading: false,
+    userDesigSaving: false,
+    userDesigFilterDept: '全部',
+    userDesigFilterIdent: '全部',
+    userDesigFilterDeptOptions: ['全部'],
+    userDesigFilterIdentOptions: ['全部'],
+    userDesigSearchKeyword: ''
+  };
+}
+
 function showShortToast(title, icon = 'none') {
   const t = String(title || '');
   wx.showToast({
@@ -298,19 +344,19 @@ Page({
   noop() {},
 
   onShow() {
-    const organizationChanged = orgSession.hasChanged(this);
-    this._orgContextVersion = orgSession.getVersion();
+    const organizationState = orgSession.consume(this);
+    const organizationChanged = organizationState.changed;
+    this._orgContextSnapshot = organizationState.snapshot;
     const preservedTab = this.data.activeTab;
     if (organizationChanged) {
+      orgSession.invalidateRequests(this);
+      this._preferredOrgTab = preservedTab;
       this.setData({
+        ...emptyPublicationState(),
         activeTab: preservedTab,
-        resultFilterIdentity: '',
-        resultFilterDepartment: '',
-        resultFilterWorkGroup: '',
-        resultFilterGrade: '',
-        resultSearchText: '',
-        publicResults: [],
-        meritList: []
+        currentActivity: null,
+        currentActivityText: '加载中...',
+        activityPaused: false
       });
     }
     this.refreshCurrentUser();
@@ -335,7 +381,7 @@ Page({
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
   },
 
-  rebuildUserTabs() {
+  rebuildUserTabs(finalizeOrgFallback) {
     if (!this._subAppAllowedTabs) this.applySubAppFilter();
     const allowed = this._subAppAllowedTabs || ['scoring', 'results', 'meritList'];
     const tabs = [];
@@ -345,8 +391,21 @@ Page({
     if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: '人事信息' });
     // Always add audit tab for users with HR info
     if (allowed.indexOf('audit') !== -1 && this.data.hasUser) tabs.push({ key: 'audit', label: '审核' });
-    // If only audit tab (dedicated audit sub-app), auto-select it
-    const activeTab = tabs.length === 1 ? tabs[0].key : this.data.activeTab;
+    const preferredTab = this._preferredOrgTab || '';
+    const preferredAvailable = !!preferredTab && tabs.some((item) => item.key === preferredTab);
+    const currentAvailable = tabs.some((item) => item.key === this.data.activeTab);
+    let activeTab = this.data.activeTab;
+    if (preferredAvailable) {
+      activeTab = preferredTab;
+    } else if (tabs.length === 1 || (finalizeOrgFallback && !currentAvailable)) {
+      activeTab = tabs.length ? tabs[0].key : 'scoring';
+    }
+    if (finalizeOrgFallback) {
+      if (preferredTab && !preferredAvailable && activeTab !== preferredTab) {
+        showShortToast('已切换页签');
+      }
+      this._preferredOrgTab = '';
+    }
     this.setData({ userTabs: tabs, activeTab });
     // Load audit badge counts
     if (this.data.hasUser) this.loadAuditBadgeCounts();
@@ -360,10 +419,12 @@ Page({
       return;
     }
 
+    const request = orgSession.beginRequest(this, 'userProfile');
     callFunction({
       name: 'activateOrganization',
       data: { organizationId: activeOrgId, role: 'user' },
       success: (res) => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         const result = res.result || {};
 
         if (result.status !== 'success' || !result.user) {
@@ -461,11 +522,11 @@ Page({
   },
 
   loadCurrentActivity() {
-    const contextVersion = this._orgContextVersion;
+    const request = orgSession.beginRequest(this, 'currentActivity');
     callFunction({
       name: 'getCurrentScoreActivity',
       success: (res) => {
-        if (contextVersion !== this._orgContextVersion) return;
+        if (!orgSession.isRequestCurrent(this, request)) return;
         const result = res.result || {};
         const activity = result.activity || null;
         this.setData({
@@ -476,7 +537,7 @@ Page({
         this.checkPublication();
       },
       fail: () => {
-        if (contextVersion !== this._orgContextVersion) return;
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           currentActivity: null,
           currentActivityText: '暂无评分活动',
@@ -560,6 +621,7 @@ Page({
   },
 
   fetchRateTargets(role) {
+    const request = orgSession.beginRequest(this, 'rateTargets');
     this.setData({
       targetsLoading: true,
       targetList: [],
@@ -573,9 +635,11 @@ Page({
       name: 'getRateTargets',
       data: { role },
       success: (res) => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.processRateTargetsResult(res.result || {});
       },
       fail: () => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           targetList: [],
           targetGroups: [],
@@ -584,6 +648,7 @@ Page({
         });
       },
       complete: () => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           targetsLoading: false
         });
@@ -632,6 +697,7 @@ Page({
       return;
     }
 
+    const request = orgSession.beginRequest(this, 'hrProfile');
     this.setData({
       'hrProfile.loading': true
     });
@@ -639,9 +705,11 @@ Page({
     callFunction({
       name: 'getUserHrProfile',
       success: (res) => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.processHrProfileResult(res.result || {});
       },
       fail: () => {
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           hrProfile: {
             ...emptyHrProfileState(),
@@ -876,8 +944,10 @@ Page({
   },
 
   async loadAuditBadgeCounts() {
+    const request = orgSession.beginRequest(this, 'auditBadges');
     try {
       const res = await callFunction({ name: 'getUnreadCounts', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
         this.setData({
           auditMyCount: res.mySubmissionsUnread || 0,
@@ -979,16 +1049,20 @@ Page({
   },
 
   async checkPublication() {
-    const contextVersion = this._orgContextVersion;
     const activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
     if (activeRole !== 'user') return;
     const activityId = this.data.currentActivity ? this.data.currentActivity.id : '';
-    if (!activityId) return;
+    const request = orgSession.beginRequest(this, 'publication');
+    if (!activityId) {
+      this.setData(emptyPublicationState());
+      this.rebuildUserTabs(true);
+      return;
+    }
     try {
       const res = await new Promise((resolve, reject) => {
         callFunction({ name: 'getPublicResults', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
       });
-      if (contextVersion !== this._orgContextVersion) return;
+      if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.currentActivity || {}).id || '')) return;
       if (res.status === 'success') {
         const displayMode = res.displayMode || 'score';
         const isGrade = displayMode === 'grade';
@@ -1058,16 +1132,22 @@ Page({
           resultFilterIdentity: '', resultFilterDepartment: '', resultFilterWorkGroup: '', resultFilterGrade: '', resultSearchText: '' });
         this.applyResultFilters();
       } else if (res.status === 'no_permission') {
-        this.setData({ publishedResults: [], hasPublication: true, hasViewPerm: false });
+        this.setData({ ...emptyPublicationState(), hasPublication: true, hasViewPerm: false });
       } else {
-        this.setData({ publishedResults: [], hasPublication: false, hasViewPerm: false });
+        this.setData(emptyPublicationState());
       }
-    } catch (e) { console.error('checkPublication error:', e); }
+    } catch (e) {
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      console.error('checkPublication error:', e);
+      this.setData(emptyPublicationState());
+    }
 
+    if (!orgSession.isRequestCurrent(this, request)) return;
     try {
       const mlRes = await new Promise((resolve, reject) => {
         callFunction({ name: 'getPublicMeritList', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
       });
+      if (!orgSession.isRequestCurrent(this, request) || activityId !== ((this.data.currentActivity || {}).id || '')) return;
       if (mlRes.status === 'success') {
         const canDes = mlRes.canDesignate === true;
         const list = mlRes.meritList || [];
@@ -1106,11 +1186,32 @@ Page({
 
         this.setData({ publishedMeritList: list, publishedMeritGroups: Array.from(groupMap.values()), meritDeptCount: deptSet.size, hasMeritPerm: canDes, userMeritClauses: userClauses, userDesigCandidates: mlRes.designationCandidates || [], userDesigPubId: mlRes.publicationId || '', meritRuleGroups });
       } else {
-        this.setData({ hasMeritPerm: false });
+        this.setData({
+          publishedMeritList: [],
+          publishedMeritGroups: [],
+          meritRuleGroups: [],
+          meritDeptCount: 0,
+          hasMeritPerm: false,
+          userMeritClauses: [],
+          userDesigCandidates: [],
+          userDesigPubId: ''
+        });
       }
-    } catch (e) { /* getPublicMeritList failed silently */ }
+    } catch (e) {
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      this.setData({
+        publishedMeritList: [],
+        publishedMeritGroups: [],
+        meritRuleGroups: [],
+        meritDeptCount: 0,
+        hasMeritPerm: false,
+        userMeritClauses: [],
+        userDesigCandidates: [],
+        userDesigPubId: ''
+      });
+    }
 
-    this.rebuildUserTabs();
+    if (orgSession.isRequestCurrent(this, request)) this.rebuildUserTabs(true);
   },
 
   applyResultFilters() {

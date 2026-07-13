@@ -287,14 +287,41 @@ Page({
   },
 
   onShow() {
-    const organizationChanged = orgSession.hasChanged(this);
+    const consumed = orgSession.consume(this);
+    const organizationChanged = consumed.changed;
     const preservedTab = this.data.activeTab;
     if (organizationChanged) {
+      orgSession.invalidateRequests(this);
       this._bootstrapKey = '';
       this._bootstrapComplete = false;
       this._bootstrapPromise = null;
       this.setData({
         activeTab: preservedTab,
+        activityList: [],
+        currentActivityId: '',
+        currentActivityName: '',
+        ruleList: [],
+        ruleListView: [],
+        selectedRuleIds: [],
+        selectedRuleIdMap: {},
+        publicationList: [],
+        pubViewRuleList: [],
+        pubViewRuleListView: [],
+        pubMeritRuleList: [],
+        pubMeritRuleListView: [],
+        designationList: [],
+        meritSummaryGroups: [],
+        meritSummaryFilteredGroups: [],
+        hrList: [],
+        hrProfileRawRows: [],
+        hrProfileRows: [],
+        departmentList: [],
+        workGroupList: [],
+        identityList: [],
+        departmentOptions: [],
+        workGroupOptions: [],
+        identityOptions: [],
+        adminList: [],
         resultFilters: emptyResultFilters(),
         resultSearchText: '',
         resultPage: 1,
@@ -303,6 +330,7 @@ Page({
         showAddEditForm: false,
         showHrPersonDetail: false
       });
+      this.clearScoreResultsState();
     }
     // 刷新组织名称（从 storage 读取）
     const activeOrgName = wx.getStorageSync('activeOrgName') || '';
@@ -315,7 +343,10 @@ Page({
       eventBus.on('org:changed', this._boundOnOrgChanged);
     }
     this.bootstrapPage().then(() => {
-      if (organizationChanged) this._refreshActiveOrganizationTab(preservedTab);
+      if (organizationChanged && orgSession.isCurrent(consumed.snapshot)) {
+        return this._refreshActiveOrganizationTab(preservedTab);
+      }
+      return null;
     });
   },
 
@@ -328,15 +359,13 @@ Page({
   },
 
   _onOrgChanged() {
-    // 组织切换后刷新页面数据
-    const activeOrgName = wx.getStorageSync('activeOrgName') || '';
-    this.setData({ currentOrganizationName: activeOrgName });
-    this._bootstrapKey = '';
-    this._bootstrapComplete = false;
-    this.bootstrapPage().then(() => this._refreshActiveOrganizationTab(this.data.activeTab));
+    this.onShow();
   },
 
-  _refreshActiveOrganizationTab(tab) {
+  async _refreshActiveOrganizationTab(tab) {
+    if (['activities', 'rules', 'results', 'publications'].indexOf(tab) >= 0) {
+      await this.loadActivityList();
+    }
     const loaders = {
       results: () => this.loadScoreResults({ nocache: true }),
       hrInfo: () => Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]),
@@ -344,13 +373,25 @@ Page({
       workGroups: () => this.loadWorkGroupList(),
       identities: () => this.loadIdentityList(),
       rules: () => this.loadRuleList(),
-      activities: () => this.loadActivityList(),
+      activities: () => Promise.resolve(),
       templates: () => this.loadTemplateList(),
       admins: () => this.loadAdminList(),
       settings: () => Promise.all([this.loadSystemConfig(), this.loadOrganizations()]),
-      publications: () => this.data.currentActivityId ? this.loadPublicationData(this.data.currentActivityId) : Promise.resolve()
+      publications: () => this.data.currentActivityId
+        ? this.loadPublicationData(this.data.currentActivityId)
+        : this.setData({
+          publicationList: [],
+          pubViewRuleList: [],
+          pubViewRuleListView: [],
+          pubMeritRuleList: [],
+          pubMeritRuleListView: [],
+          designationList: [],
+          meritSummaryGroups: [],
+          meritSummaryFilteredGroups: [],
+          publicationsLoading: false
+        })
     };
-    if (loaders[tab]) return loaders[tab]();
+    if (loaders[tab]) return Promise.resolve(loaders[tab]());
     return Promise.resolve();
   },
 
@@ -520,6 +561,8 @@ Page({
         this.loadActivityList().then(() => {
           if (this.data.currentActivityId) {
             this.loadScoreResults();
+          } else {
+            this.clearScoreResultsState();
           }
         });
       } else {

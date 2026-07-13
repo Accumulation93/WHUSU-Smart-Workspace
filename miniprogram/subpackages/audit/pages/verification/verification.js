@@ -1,4 +1,5 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const orgSession = require('../../../../utils/orgSession');
 
 Page({
   data: {
@@ -10,6 +11,12 @@ Page({
     fileSize: 0,
     loading: false,
     result: null
+  },
+
+  onShow() {
+    if (!orgSession.consume(this).changed) return;
+    orgSession.invalidateRequests(this);
+    this.setData({ result: null, submissionNumber: '', fileName: '', filePath: '', fileBase64: '', fileSize: 0, loading: false });
   },
 
   onVerifyModeChange(e) {
@@ -48,6 +55,7 @@ Page({
   },
 
   async verify() {
+    const request = orgSession.beginRequest(this, 'auditVerification');
     let params = {};
     let mode = this.data.verifyMode;
 
@@ -64,6 +72,7 @@ Page({
     this.setData({ loading: true, result: null });
     try {
       const res = await callFunction({ name: 'verifySignatureChain', data: params });
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
         this.setData({ result: res });
       } else if (res.status === 'forbidden') {
@@ -74,7 +83,7 @@ Page({
     } catch (e) {
       showShortToast(getErrorText(e, '验证失败'));
     } finally {
-      this.setData({ loading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   }
 });
