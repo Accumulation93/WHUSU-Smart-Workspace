@@ -1,4 +1,4 @@
-<view class="page page-narrow">
+﻿<view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">验签</view>
     <view class="hero-title">签名验证</view>
@@ -12,8 +12,8 @@
       <!-- Verification mode picker -->
       <view class="field">
         <view class="field-label">查询方式</view>
-        <picker range="{{['提交编号查询','提交ID查询','文件验证']}}" bindchange="onVerifyModeChange">
-          <view class="picker-value">{{verifyMode === 'number' ? '提交编号查询' : (verifyMode === 'id' ? '提交ID查询' : '文件验证')}}</view>
+        <picker range="{{['提交编号查询','文件验证']}}" bindchange="onVerifyModeChange">
+          <view class="picker-value">{{verifyMode === 'number' ? '提交编号查询' : '文件验证'}}</view>
         </picker>
       </view>
 
@@ -21,12 +21,6 @@
       <view class="field" wx:if="{{verifyMode === 'number'}}">
         <view class="field-label">提交编号</view>
         <input class="field-input" value="{{submissionNumber}}" bindinput="onInputNumber" placeholder="例如：SUB-20260611-001" />
-      </view>
-
-      <!-- ID mode -->
-      <view class="field" wx:if="{{verifyMode === 'id'}}">
-        <view class="field-label">提交ID</view>
-        <input class="field-input" value="{{submissionId}}" bindinput="onInputId" placeholder="输入提交的唯一标识ID" />
       </view>
 
       <!-- File mode -->
@@ -101,7 +95,7 @@
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-name">WHUSU智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
   </view>
 </view>

@@ -1,4 +1,4 @@
-<view class="page">
+﻿<view class="page">
   <view class="hero hero-admin">
     <view class="hero-badge">管理端</view>
     <view class="hero-title">场地管理工作台</view>
@@ -141,7 +141,7 @@
             <text class="booking-status {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>
           </view>
           <view class="booking-item-meta">{{item.venueName}}<text wx:if="{{item.venueLocation}}"> · {{item.venueLocation}}</text></view>
-          <view class="booking-item-meta">{{item.userName}}<text wx:if="{{item.userDept}}"> · {{item.userDept}}</text></view>
+          <view class="booking-item-meta">{{item.creatorName || item.userName}} · {{item.creatorLabel || '用户申请'}}<text wx:if="{{item.userDept}}"> · {{item.userDept}}</text></view>
           <view class="booking-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
@@ -521,7 +521,22 @@
             </view>
           </view>
           <view class="field"><view class="field-label">借用日期</view>
-            <picker mode="date" value="{{adminBookingStartDate}}" bindchange="onAdminStartDateChange"><view class="picker-display">{{adminBookingStartDateDisplay || '请选择日期'}}</view></picker></view>
+            <view class="picker-display picker-display-locked">{{adminBookingStartDateDisplay || '请选择日期'}} · 仅当天</view></view>
+          <view class="field" wx:if="{{adminTimelineBlocks.length}}">
+            <view class="field-label">时间轴</view>
+            <view class="timeline-hint">拖动圆形滑块选择时间范围，也可以使用下方时间选择器精确调整</view>
+            <view class="timeline-drag-container admin-timeline-drag">
+              <view class="timeline-bar">
+                <view wx:for="{{adminTimelineBlocks}}" wx:key="left" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
+                <view wx:if="{{adminTimelineSelection}}" class="timeline-selection" style="left:{{adminTimelineSelection.left}}%;width:{{adminTimelineSelection.width}}%;"></view>
+                <block wx:if="{{adminTimelineSelection}}">
+                  <view class="timeline-handle start" style="left:{{adminTimelineSelection.left}}%;" data-handle="start" catchtouchstart="onAdminTimelineStart" catchtouchmove="onAdminTimelineMove" catchtouchend="onAdminTimelineEnd"></view>
+                  <view class="timeline-handle end" style="left:{{adminTimelineSelection.end}}%;" data-handle="end" catchtouchstart="onAdminTimelineStart" catchtouchmove="onAdminTimelineMove" catchtouchend="onAdminTimelineEnd"></view>
+                </block>
+              </view>
+              <view class="timeline-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
+            </view>
+          </view>
           <view class="field"><view class="field-label">开始时间</view>
             <view wx:if="{{adminStartHours.length}}" class="time-picker-row">
               <picker range="{{adminStartHours}}" range-key="label" value="{{adminStartHourIdx}}" bindchange="onAdminStartHourChange"><view class="time-val">{{adminStartHours[adminStartHourIdx] ? adminStartHours[adminStartHourIdx].label : '时'}}</view></picker>
@@ -540,8 +555,9 @@
             </view>
             <view wx:else class="field-hint">{{adminBookingEndDate ? '请先选择开始时间' : '请先选择结束日期'}}</view>
           </view>
-          <view class="field"><view class="field-label">备注（选填）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="使用说明"/></view>
-          <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">提交使用</button>
+          <view class="field"><view class="field-label">详细说明（选填）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="补充使用说明"/></view>
+          <view class="field-hint">管理员提交后将直接通过，不进入审批流程。</view>
+          <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认借用</button>
         </view>
       </scroll-view>
     </view>
@@ -675,5 +691,5 @@
     </view>
   </view>
 
-  <view class="page-footer"><view class="footer-name">REDSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
+  <view class="page-footer"><view class="footer-name">WHUSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
 </view>

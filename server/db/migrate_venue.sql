@@ -89,7 +89,9 @@ CREATE TABLE IF NOT EXISTS venue_booking_rules (
 CREATE TABLE IF NOT EXISTS venue_bookings (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   venue_id VARCHAR(64) NOT NULL,
-  user_hr_id VARCHAR(64) NOT NULL,
+  user_hr_id VARCHAR(64) DEFAULT NULL,
+  creator_type VARCHAR(16) NOT NULL DEFAULT 'user' COMMENT 'user | admin',
+  creator_admin_id VARCHAR(64) DEFAULT NULL,
   title VARCHAR(200) DEFAULT NULL,
   description TEXT,
   time_start DATETIME NOT NULL,
@@ -101,6 +103,7 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_vb_venue (venue_id),
   INDEX idx_vb_user (user_hr_id),
+  INDEX idx_vb_creator_admin (creator_admin_id),
   INDEX idx_vb_status (status),
   INDEX idx_vb_venue_time (venue_id, time_start),
   INDEX idx_vb_time_start (time_start),
@@ -108,16 +111,15 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 6. Venue Booking Purposes (借用事由预设列表) — 每组织独立配置
+-- 6. Venue Booking Purposes (借用事由预设列表) — 跨组织全局配置
 -- ============================================================
 CREATE TABLE IF NOT EXISTS venue_booking_purposes (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
   text VARCHAR(200) NOT NULL,
   sort_order INT NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_vbp_org (org_id)
+  UNIQUE KEY uk_vbp_text (text)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

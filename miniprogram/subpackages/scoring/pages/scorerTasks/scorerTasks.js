@@ -1,5 +1,6 @@
-const { callFunction } = require('../../../../utils/api');
+const { callFunction, showShortToast } = require('../../../../utils/api');
 const { saveAndShareFile } = require('../../../../utils/tableFile');
+const orgSession = require('../../../../utils/orgSession');
 
 function buildOptions(values = []) {
   return ['全部', ...values.filter(Boolean)];
@@ -103,6 +104,15 @@ Page({
       activityName
     });
     this.loadData();
+  },
+
+  onShow() {
+    if (!this.data.activityId || !orgSession.hasChanged(this)) return;
+    this.taskLoadToken = Date.now();
+    showShortToast('组织已切换');
+    wx.navigateBack({
+      fail: () => wx.reLaunch({ url: '/pages/portal/portal' })
+    });
   },
 
   callCloud(name, data = {}) {

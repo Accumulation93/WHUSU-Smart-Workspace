@@ -1,4 +1,4 @@
-<wxs module="fmt">
+﻿<wxs module="fmt">
 function hour(t) {
   if (!t) return '--';
   var p = (''+t).split(':');
@@ -386,7 +386,7 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-name">WHUSU智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
   </view>
 

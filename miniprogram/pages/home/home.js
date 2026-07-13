@@ -1,4 +1,5 @@
-const { callFunction } = require('../../utils/api');
+﻿const { callFunction } = require('../../utils/api');
+const orgSession = require('../../utils/orgSession');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
@@ -297,6 +298,21 @@ Page({
   noop() {},
 
   onShow() {
+    const organizationChanged = orgSession.hasChanged(this);
+    this._orgContextVersion = orgSession.getVersion();
+    const preservedTab = this.data.activeTab;
+    if (organizationChanged) {
+      this.setData({
+        activeTab: preservedTab,
+        resultFilterIdentity: '',
+        resultFilterDepartment: '',
+        resultFilterWorkGroup: '',
+        resultFilterGrade: '',
+        resultSearchText: '',
+        publicResults: [],
+        meritList: []
+      });
+    }
     this.refreshCurrentUser();
     this.refreshUserFromCloud();
     this.loadCurrentActivity();
@@ -363,7 +379,7 @@ Page({
             showWorkGroup: shouldShowWorkGroup(result.user),
             heroName: result.user.name || '欢迎使用',
             heroIdentity: getDisplayIdentity(result.user, 'user'),
-            heroSubtitle: '欢迎使用REDSU智慧工作台系统' + (this._subAppLabel ? (' · ' + this._subAppLabel) : '')
+            heroSubtitle: '欢迎使用WHUSU智慧工作台系统' + (this._subAppLabel ? (' · ' + this._subAppLabel) : '')
           });
 
           this.rebuildUserTabs();
@@ -401,7 +417,7 @@ Page({
       showWorkGroup: shouldShowWorkGroup(currentUser),
       heroName: currentUser ? currentUser.name : '欢迎使用',
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
-      heroSubtitle: currentUser ? ('欢迎使用REDSU智慧工作台系统' + subAppLabel) : '请先完成登录',
+      heroSubtitle: currentUser ? ('欢迎使用WHUSU智慧工作台系统' + subAppLabel) : '请先完成登录',
       targetList: [],
       selectedTargetId: '',
       targetsEmptyText: '加载中...',
@@ -445,9 +461,11 @@ Page({
   },
 
   loadCurrentActivity() {
+    const contextVersion = this._orgContextVersion;
     callFunction({
       name: 'getCurrentScoreActivity',
       success: (res) => {
+        if (contextVersion !== this._orgContextVersion) return;
         const result = res.result || {};
         const activity = result.activity || null;
         this.setData({
@@ -458,6 +476,7 @@ Page({
         this.checkPublication();
       },
       fail: () => {
+        if (contextVersion !== this._orgContextVersion) return;
         this.setData({
           currentActivity: null,
           currentActivityText: '暂无评分活动',
@@ -960,6 +979,7 @@ Page({
   },
 
   async checkPublication() {
+    const contextVersion = this._orgContextVersion;
     const activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
     if (activeRole !== 'user') return;
     const activityId = this.data.currentActivity ? this.data.currentActivity.id : '';
@@ -968,6 +988,7 @@ Page({
       const res = await new Promise((resolve, reject) => {
         callFunction({ name: 'getPublicResults', data: { activityId }, success: (r) => resolve(r.result || {}), fail: reject });
       });
+      if (contextVersion !== this._orgContextVersion) return;
       if (res.status === 'success') {
         const displayMode = res.displayMode || 'score';
         const isGrade = displayMode === 'grade';

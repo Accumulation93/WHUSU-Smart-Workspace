@@ -1,5 +1,5 @@
-{
-  "navigationBarTitleText": "管理端 - REDSU智慧工作台",
+﻿{
+  "navigationBarTitleText": "管理端 - WHUSU智慧工作台",
   "usingComponents": {
     "ui-icon": "/components/ui-icon/ui-icon"
   }

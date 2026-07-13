@@ -1,6 +1,7 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
+const orgSession = require('../../../../utils/orgSession');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64; // rpx per hour
@@ -218,6 +219,8 @@ Page({
     adminBookingEndDateDisplay: '',
     adminBookingTitle: '',
     adminBookingDesc: '',
+    adminTimelineBlocks: [],
+    adminTimelineSelection: null,
     adminBookingTimeStart: '',
     adminBookingTimeEnd: '',
     adminDailySlots: [],
@@ -273,6 +276,17 @@ Page({
   },
 
   onShow() {
+    this._orgContextVersion = orgSession.getVersion();
+    if (orgSession.hasChanged(this)) {
+      const activeTab = this.data.activeTab;
+      this.setData({
+        activeTab,
+        venueSearch: '', bookingSearch: '', bookingStatusFilter: 'all',
+        bookingsPage: 1, selectedBooking: null, scheduleVisible: false,
+        adminBookingVisible: false, purposeEditId: '', purposeEditText: '',
+        venues: [], bookings: [], purposes: []
+      });
+    }
     this._initWeekStart();
     this._initBookingsTimeRange();
     this.loadVenues();
@@ -332,9 +346,11 @@ Page({
   },
 
   async loadVenues() {
+    const contextVersion = this._orgContextVersion;
     this.setData({ loading: true });
     try {
       const res = await callFunction({ name: 'listVenues', data: {} });
+      if (contextVersion !== this._orgContextVersion) return;
       if (res.status === 'success') this.setData({ venues: res.venues || [] });
     } catch (e) {
       showShortToast(getErrorText(e, '加载失败'));
@@ -782,6 +798,7 @@ Page({
   // ── Bookings tab (borrow management, ported from venueBookings) ──
 
   async loadBookingsData() {
+    const contextVersion = this._orgContextVersion;
     this.setData({ bookingsLoading: true });
     try {
       const { filterStatus, filterVenueId, timeFrom, timeTo } = this.data;
@@ -808,6 +825,7 @@ Page({
       });
 
       const [pendingRes, timeRes] = await Promise.all([pendingReq, timeReq]);
+      if (contextVersion !== this._orgContextVersion) return;
 
       // 非 success 状态提示错误
       if (pendingRes.status !== 'success' && pendingRes.status !== undefined)
@@ -976,6 +994,7 @@ Page({
   },
 
   async loadVenueTimetable() {
+    const contextVersion = this._orgContextVersion;
     const { scheduleVenueId, scheduleWeekStart } = this.data;
     const [y, m, d] = scheduleWeekStart.split('-').map(Number);
     const end = new Date(y, m - 1, d + 6);
@@ -986,6 +1005,7 @@ Page({
         name: 'getVenueSchedule',
         data: { venueId: scheduleVenueId, dateFrom: scheduleWeekStart, dateTo }
       });
+      if (contextVersion !== this._orgContextVersion) return;
       if (res.status === 'success') {
         this._buildAdminTimetable(res.dailySchedules || []);
       }
@@ -1186,7 +1206,8 @@ Page({
           const setData = {
             adminStartHours: startHours, adminStartHourIdx: sHi, adminStartMinIdx: sMi,
             adminEndHours: endHoursAll, adminEndHourIdx: 0, adminEndMinIdx: 0,
-            _adminDayData: dayData
+            _adminDayData: dayData,
+            adminTimelineBlocks: this._buildAdminTimeline(dayData)
           };
           if (presetTime) setData.adminBookingTimeStart = presetTime;
           this.setData(setData);
@@ -1209,6 +1230,7 @@ Page({
     const min = ALL_MINUTES[this.data.adminStartMinIdx] ? ALL_MINUTES[this.data.adminStartMinIdx].value : 0;
     this.setData({ adminStartHourIdx: idx, adminBookingTimeStart: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
     this._adminRefreshEndHours();
+    this._syncAdminTimelineSelection();
   },
   onAdminStartMinChange(e) {
     const idx = parseInt(e.detail.value);
@@ -1216,18 +1238,70 @@ Page({
     const hour = this.data.adminStartHours[this.data.adminStartHourIdx] ? this.data.adminStartHours[this.data.adminStartHourIdx].value : 0;
     this.setData({ adminStartMinIdx: idx, adminBookingTimeStart: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
     this._adminRefreshEndHours();
+    this._syncAdminTimelineSelection();
   },
   onAdminEndHourChange(e) {
     const idx = parseInt(e.detail.value);
     const hour = this.data.adminEndHours[idx] ? this.data.adminEndHours[idx].value : 0;
     const min = ALL_MINUTES[this.data.adminEndMinIdx] ? ALL_MINUTES[this.data.adminEndMinIdx].value : 0;
     this.setData({ adminEndHourIdx: idx, adminBookingTimeEnd: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
+    this._syncAdminTimelineSelection();
   },
   onAdminEndMinChange(e) {
     const idx = parseInt(e.detail.value);
     const min = ALL_MINUTES[idx] ? ALL_MINUTES[idx].value : 0;
     const hour = this.data.adminEndHours[this.data.adminEndHourIdx] ? this.data.adminEndHours[this.data.adminEndHourIdx].value : 0;
     this.setData({ adminEndMinIdx: idx, adminBookingTimeEnd: String(hour).padStart(2,'0')+':'+String(min).padStart(2,'0') });
+    this._syncAdminTimelineSelection();
+  },
+
+  _buildAdminTimeline(dayData) {
+    const blocks = [];
+    const append = (slots, status) => (slots || []).forEach((slot) => {
+      const start = timeToMin(slot.timeStart);
+      const end = timeToMin(slot.timeEnd);
+      if (end > start) blocks.push({ status, left: (start / 1440 * 100).toFixed(2), width: ((end - start) / 1440 * 100).toFixed(2) });
+    });
+    append(dayData.openSlots, 'free');
+    append(dayData.bookedSlots, 'booked');
+    append(dayData.activitySlots, 'activity');
+    return blocks;
+  },
+
+  _syncAdminTimelineSelection() {
+    const start = timeToMin(this.data.adminBookingTimeStart);
+    const end = timeToMin(this.data.adminBookingTimeEnd);
+    this.setData({
+      adminTimelineSelection: start >= 0 && end > start
+        ? { left: (start / 1440 * 100).toFixed(2), end: (end / 1440 * 100).toFixed(2), width: ((end - start) / 1440 * 100).toFixed(2) }
+        : null
+    });
+  },
+
+  onAdminTimelineStart(e) {
+    const handle = e.currentTarget.dataset.handle;
+    wx.createSelectorQuery().select('.admin-timeline-drag').boundingClientRect((rect) => {
+      if (!rect) return;
+      this._adminTimelineDrag = { handle, left: rect.left, width: rect.width };
+      this.onAdminTimelineMove(e);
+    }).exec();
+  },
+
+  onAdminTimelineMove(e) {
+    const drag = this._adminTimelineDrag;
+    const touch = e.touches && e.touches[0];
+    if (!drag || !touch || !drag.width) return;
+    const raw = Math.max(0, Math.min(1440, (touch.clientX - drag.left) / drag.width * 1440));
+    const minute = Math.round(raw / 15) * 15;
+    const value = minToTime(Math.min(minute, 1439));
+    const update = drag.handle === 'start' ? { adminBookingTimeStart: value } : { adminBookingTimeEnd: value };
+    this.setData(update);
+    this._syncAdminTimelineSelection();
+  },
+
+  onAdminTimelineEnd() {
+    this._adminTimelineDrag = null;
+    this._syncAdminTimelineSelection();
   },
 
   _adminRefreshEndHours() {
@@ -1302,7 +1376,7 @@ Page({
     this.setData({ loading: true });
     try {
       const res = await callFunction({
-        name: 'createVenueBooking',
+        name: 'createAdminVenueBooking',
         data: { venueId: scheduleVenueId, title: adminBookingTitle, description: adminBookingDesc,
                 timeStart, timeEnd }
       });
@@ -1324,8 +1398,10 @@ Page({
   closePurposeManager() { this.setData({ purposeVisible: false }); },
 
   async loadPurposes() {
+    const contextVersion = this._orgContextVersion;
     try {
       const res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
+      if (contextVersion !== this._orgContextVersion) return;
       if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
     } catch (_) {}
   },

@@ -1,6 +1,7 @@
 const { callFunction } = require('../../../../utils/api');
 const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
 const eventBus = require('../../../../utils/eventBus');
+const orgSession = require('../../../../utils/orgSession');
 const utils = require('./modules/adminUtils');
 const { STORAGE_KEY, TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
 
@@ -286,6 +287,23 @@ Page({
   },
 
   onShow() {
+    const organizationChanged = orgSession.hasChanged(this);
+    const preservedTab = this.data.activeTab;
+    if (organizationChanged) {
+      this._bootstrapKey = '';
+      this._bootstrapComplete = false;
+      this._bootstrapPromise = null;
+      this.setData({
+        activeTab: preservedTab,
+        resultFilters: emptyResultFilters(),
+        resultSearchText: '',
+        resultPage: 1,
+        recordDetailPopupVisible: false,
+        scorerTargetPopupVisible: false,
+        showAddEditForm: false,
+        showHrPersonDetail: false
+      });
+    }
     // 刷新组织名称（从 storage 读取）
     const activeOrgName = wx.getStorageSync('activeOrgName') || '';
     if (activeOrgName && activeOrgName !== this.data.currentOrganizationName) {
@@ -296,7 +314,9 @@ Page({
       this._boundOnOrgChanged = this._onOrgChanged.bind(this);
       eventBus.on('org:changed', this._boundOnOrgChanged);
     }
-    this.bootstrapPage();
+    this.bootstrapPage().then(() => {
+      if (organizationChanged) this._refreshActiveOrganizationTab(preservedTab);
+    });
   },
 
   onHide() {
@@ -311,10 +331,40 @@ Page({
     // 组织切换后刷新页面数据
     const activeOrgName = wx.getStorageSync('activeOrgName') || '';
     this.setData({ currentOrganizationName: activeOrgName });
-    this.bootstrapPage();
+    this._bootstrapKey = '';
+    this._bootstrapComplete = false;
+    this.bootstrapPage().then(() => this._refreshActiveOrganizationTab(this.data.activeTab));
+  },
+
+  _refreshActiveOrganizationTab(tab) {
+    const loaders = {
+      results: () => this.loadScoreResults({ nocache: true }),
+      hrInfo: () => Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]),
+      departments: () => this.loadDepartmentList(),
+      workGroups: () => this.loadWorkGroupList(),
+      identities: () => this.loadIdentityList(),
+      rules: () => this.loadRuleList(),
+      activities: () => this.loadActivityList(),
+      templates: () => this.loadTemplateList(),
+      admins: () => this.loadAdminList(),
+      settings: () => Promise.all([this.loadSystemConfig(), this.loadOrganizations()]),
+      publications: () => this.data.currentActivityId ? this.loadPublicationData(this.data.currentActivityId) : Promise.resolve()
+    };
+    if (loaders[tab]) return loaders[tab]();
+    return Promise.resolve();
   },
 
   onOrgTap() {
+    const hasUnsavedWork = !!(
+      this.data.showAddEditForm || this.data.showCsvMappingDialog ||
+      this.data.orgFormVisible || this.data.auditTemplateStepEditorVisible ||
+      this.data.auditStepConditionEditorVisible || this.data.auditStarterConditionEditorVisible ||
+      (this.data.ruleForm && (this.data.ruleForm.isRuleClauseEditorVisible || this.data.ruleForm.isTemplateConfigEditorVisible))
+    );
+    if (hasUnsavedWork) {
+      wx.showModal({ title: '存在未保存内容', content: '请先保存或放弃当前编辑，再切换组织。', showCancel: false });
+      return;
+    }
     wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
   },
 

@@ -296,6 +296,12 @@ router.post('/getVenueSchedule', async (req, res) => {
     // Resolve user names + department / identity / workGroup
     const hrIds = [...new Set(activeBookings.map(b => b.user_hr_id).filter(Boolean))];
     const userMap = {};
+    const adminIds = [...new Set(activeBookings.filter(b => b.creator_type === 'admin').map(b => b.creator_admin_id).filter(Boolean))];
+    const adminMap = {};
+    if (adminIds.length) {
+      const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
+      adminRows.forEach(item => { adminMap[item.id] = item.name || '管理员'; });
+    }
     if (hrIds.length) {
       try {
         const hrList = await hrInfoModel.getByIds(hrIds);
@@ -364,7 +370,10 @@ router.post('/getVenueSchedule', async (req, res) => {
           fullTimeEnd: te,
           type: 'booked',
           userId: b.user_hr_id,
-          userName: (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || b.user_hr_id,
+          creatorType: b.creator_type || 'user',
+          creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
+          creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
+          userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
           userDept: (userMap[b.user_hr_id] && userMap[b.user_hr_id].department) || '',
           userIdentity: (userMap[b.user_hr_id] && userMap[b.user_hr_id].identity) || '',
           userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || ''

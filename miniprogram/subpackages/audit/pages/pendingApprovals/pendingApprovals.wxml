@@ -1,4 +1,4 @@
-<view class="page page-narrow">
+﻿<view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">审核</view>
     <view class="hero-title">待我审批</view>
@@ -37,7 +37,7 @@
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-name">WHUSU智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
   </view>
 </view>

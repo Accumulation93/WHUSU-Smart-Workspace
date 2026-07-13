@@ -92,7 +92,7 @@ module.exports = Behavior({
     verificationGrantHrId: '',
     verificationGrantHrName: '',
     verificationResult: null,
-    verificationMode: 'number',    // 'number' | 'id' | 'file'
+    verificationMode: 'number',    // 'number' | 'file'
     verificationInputNumber: '',
     verificationInputId: '',
     verificationFileName: '',
@@ -1696,7 +1696,7 @@ module.exports = Behavior({
     },
 
     onVerificationModeChange(e) {
-      let modes = ['number', 'id', 'file'];
+      let modes = ['number', 'file'];
       this.setData({ verificationMode: modes[e.detail.value] || 'number' });
     },
 
@@ -1708,10 +1708,6 @@ module.exports = Behavior({
         let number = this.data.verificationInputNumber;
         if (!number) { showShortToast('请输入提交编号'); return; }
         params.submissionNumber = number;
-      } else if (mode === 'id') {
-        let sid = this.data.verificationInputId;
-        if (!sid) { showShortToast('请输入提交ID'); return; }
-        params.submissionId = sid;
       } else if (mode === 'file') {
         let fileB64 = this.data.verificationFileBase64;
         if (!fileB64) { showShortToast('请选择要验签的文件'); return; }

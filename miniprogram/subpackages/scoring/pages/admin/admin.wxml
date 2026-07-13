@@ -1,4 +1,4 @@
-<wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
+﻿<wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
 <page-meta page-style="{{dragActive ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <view class="hero hero-admin" wx:if="{{hasPermission}}">
@@ -1033,10 +1033,8 @@
               <view class="hr-member-top">
                 <view class="hr-member-name">{{item.name}}</view>
                 <view class="hr-member-chips">
-                  <block wx:if="{{isSuperAdmin || isRootAdmin}}">
-                    <view class="status-chip current-chip" wx:if="{{item.wxBindStatus === 'bound'}}">已绑定</view>
-                    <view class="status-chip unbound-chip" wx:else>未绑定</view>
-                  </block>
+                  <view class="status-chip current-chip" wx:if="{{item.wxBindStatus === 'bound'}}">已绑定</view>
+                  <view class="status-chip unbound-chip" wx:else>未绑定</view>
                   <view class="status-chip {{item.auditStatus === 'pending' ? 'pending-chip' : item.auditStatus === 'approved' ? 'current-chip' : item.auditStatus === 'rejected' ? 'rejected-chip' : 'none-chip'}}">{{item.auditStatusText}}</view>
                 </view>
               </view>
@@ -1048,19 +1046,15 @@
                 <text>{{item.identity}}</text>
                 <text wx:if="{{item.workGroup}}" class="hr-member-sep">|</text>
                 <text wx:if="{{item.workGroup}}">{{item.workGroup}}</text>
-                <text wx:if="{{item.wxBindStatus === 'bound' && (isSuperAdmin || isRootAdmin)}}" class="hr-member-sep">|</text>
-                <text wx:if="{{item.wxBindStatus === 'bound' && (isSuperAdmin || isRootAdmin)}}" class="hr-member-id">{{item.boundOpenid}}</text>
               </view>
-              <view class="hr-member-summary">{{item.currentSummary}}</view>
-              <view class="hr-member-pending" wx:if="{{item.pendingSummary}}">待审核：{{item.pendingSummary}}</view>
-              <view class="hr-member-reject" wx:if="{{item.rejectionReason}}">驳回原因：{{item.rejectionReason}}</view>
             </view>
             <view class="hr-member-actions" catchtap>
-              <text class="link danger ui-motion-chip" wx:if="{{item.wxBindStatus === 'bound' && (isSuperAdmin || isRootAdmin)}}" data-hr-id="{{item.id}}" data-name="{{item.name}}" catchtap="unbindHrWechat" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑微信</text>
+              <text class="link ui-motion-chip" data-hr-id="{{item.id}}" catchtap="editHrFromProfile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">修改</text>
+              <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deleteHr" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+              <text class="link danger ui-motion-chip" wx:if="{{item.wxBindStatus === 'bound'}}" data-hr-id="{{item.id}}" data-name="{{item.name}}" catchtap="unbindHrWechat" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑微信</text>
               <text wx:if="{{item.hasPending}}" class="link ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="approveHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
               <text wx:if="{{item.hasPending}}" class="link danger ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="rejectHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
             </view>
-            <view class="hr-member-arrow">›</view>
           </view>
           <view class="empty-inline" wx:if="{{!loadingMap.hr && !hrProfileRows.length}}">暂无成员资料</view>
           </block>
@@ -2271,7 +2265,7 @@
           <view class="card-loading-overlay" wx:if="{{loadingMap.auditVerification}}"><view class="card-loading-spinner"></view></view>
           <block wx:else>
           <view class="list-item" wx:for="{{verificationPermissions}}" wx:key="id">
-            <view class="list-main"><view class="list-name">{{item.granteeName}} ({{item.granteeHrId}})</view></view>
+            <view class="list-main"><view class="list-name">{{item.granteeName}}</view></view>
             <view class="list-actions">
               <text class="link danger-link ui-motion-chip" data-hr-id="{{item.granteeHrId}}" bindtap="revokeVerificationPermission" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">撤销</text>
             </view>
@@ -2285,17 +2279,13 @@
         <view class="list-title">验证签名链</view>
         <view class="field">
           <view class="field-label">验证方式</view>
-          <picker range="{{['提交编号查询','提交ID查询','文件验证']}}" bindchange="onVerificationModeChange">
-            <view class="picker-value">{{verificationMode === 'number' ? '提交编号查询' : (verificationMode === 'id' ? '提交ID查询' : '文件验证')}}</view>
+          <picker range="{{['提交编号查询','文件验证']}}" bindchange="onVerificationModeChange">
+            <view class="picker-value">{{verificationMode === 'number' ? '提交编号查询' : '文件验证'}}</view>
           </picker>
         </view>
         <view class="field" wx:if="{{verificationMode === 'number'}}">
           <view class="field-label">提交编号</view>
           <input class="field-input" value="{{verificationInputNumber}}" bindinput="onVerificationInputNumber" placeholder="输入提交编号 (如 SUB-20260611-001)" />
-        </view>
-        <view class="field" wx:if="{{verificationMode === 'id'}}">
-          <view class="field-label">提交ID</view>
-          <input class="field-input" value="{{verificationInputId}}" bindinput="onVerificationInputId" placeholder="输入提交ID" />
         </view>
         <view class="field" wx:if="{{verificationMode === 'file'}}">
           <view class="field-label">选择文件</view>
@@ -2491,7 +2481,7 @@
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">REDSU智慧工作台</view>
+    <view class="footer-name">WHUSU智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
   </view>
 

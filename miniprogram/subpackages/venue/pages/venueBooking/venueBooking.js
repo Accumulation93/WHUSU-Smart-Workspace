@@ -1,4 +1,4 @@
-const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+﻿const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 
@@ -199,7 +199,7 @@ Page({
     approvalAction: '',
     approvalComment: '',
     approvalSubmitting: false,
-    heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '欢迎使用REDSU智慧工作台系统 · 场地借用',
+    heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '欢迎使用WHUSU智慧工作台系统 · 场地借用',
 
     // ── Custom time keyboard ──
     _kbVisible: false,
@@ -219,7 +219,7 @@ Page({
         this.setData({
           heroName: user.name || '场地借用',
           heroIdentity: user.identity || '未设置身份',
-          heroSubtitle: '欢迎使用REDSU智慧工作台系统 · 场地借用'
+          heroSubtitle: '欢迎使用WHUSU智慧工作台系统 · 场地借用'
         });
       }
     } catch (_) {}

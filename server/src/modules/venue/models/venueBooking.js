@@ -54,13 +54,13 @@ async function getById(id) {
 }
 
 async function create(id, data, conn) {
-  const { venueId, userHrId, title, description, timeStart, timeEnd, status, approvalFlowId, approvalTotalSteps } = data;
+  const { venueId, userHrId, creatorType, creatorAdminId, title, description, timeStart, timeEnd, status, approvalFlowId, approvalTotalSteps } = data;
   const db = conn || pool;
   await db.query(
-    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, title, description, time_start, time_end, status,
+    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, creator_type, creator_admin_id, title, description, time_start, time_end, status,
       approval_flow_id, approval_current_step, approval_total_steps)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, venueId, userHrId, title || '', description || '',
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, venueId, userHrId || null, creatorType || 'user', creatorAdminId || null, title || '', description || '',
      timeStart, timeEnd, status || 'pending',
      approvalFlowId || null, 0, approvalTotalSteps || 0]
   );

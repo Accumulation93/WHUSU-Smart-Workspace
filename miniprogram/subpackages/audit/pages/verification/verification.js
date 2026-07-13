@@ -2,9 +2,8 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 
 Page({
   data: {
-    verifyMode: 'number',       // 'number' | 'id' | 'file'
+    verifyMode: 'number',       // 'number' | 'file'
     submissionNumber: '',
-    submissionId: '',
     fileName: '',
     filePath: '',
     fileBase64: '',
@@ -14,16 +13,12 @@ Page({
   },
 
   onVerifyModeChange(e) {
-    let modes = ['number', 'id', 'file'];
+    let modes = ['number', 'file'];
     this.setData({ verifyMode: modes[e.detail.value] || 'number' });
   },
 
   onInputNumber(e) {
     this.setData({ submissionNumber: e.detail.value });
-  },
-
-  onInputId(e) {
-    this.setData({ submissionId: e.detail.value });
   },
 
   chooseVerifyFile() {
@@ -60,10 +55,6 @@ Page({
       let number = this.data.submissionNumber.trim();
       if (!number) { showShortToast('请输入提交编号'); return; }
       params.submissionNumber = number;
-    } else if (mode === 'id') {
-      let sid = this.data.submissionId.trim();
-      if (!sid) { showShortToast('请输入提交ID'); return; }
-      params.submissionId = sid;
     } else if (mode === 'file') {
       let fileB64 = this.data.fileBase64;
       if (!fileB64) { showShortToast('请选择要验签的文件'); return; }

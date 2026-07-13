@@ -1,4 +1,4 @@
-const { callFunction, formatAuditTime } = require('../../utils/api');
+﻿const { callFunction, formatAuditTime } = require('../../utils/api');
 const eventBus = require('../../utils/eventBus');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
@@ -166,7 +166,7 @@ Page({
       hasUser: !!user,
       isAdminRole: isAdminRole,
       heroName: user ? (user.name || '欢迎使用') : '欢迎使用',
-      heroIdentity: user ? getDisplayIdentity(user, activeRole) : 'REDSU智慧工作台',
+      heroIdentity: user ? getDisplayIdentity(user, activeRole) : 'WHUSU智慧工作台',
       heroInitial: user && user.name ? user.name.charAt(0) : 'R',
       userDepartment: user ? (user.department || '') : '',
       userWorkGroup: user ? (user.workGroup || '') : '',

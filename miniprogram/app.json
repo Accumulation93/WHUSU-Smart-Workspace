@@ -1,4 +1,4 @@
-{
+﻿{
   "pages": [
     "pages/login/login",
     "pages/portal/portal",
@@ -47,7 +47,7 @@
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "REDSU智慧工作台",
+    "navigationBarTitleText": "WHUSU智慧工作台",
     "navigationBarBackgroundColor": "#ffffff"
   },
   "style": "v2",

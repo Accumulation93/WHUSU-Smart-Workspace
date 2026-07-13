@@ -14,7 +14,8 @@ module.exports = Behavior({
     async loadScoreResults(options) {
       options = options || {};
       const viewMode = this.data.resultFilters.viewMode || 'overview';
-      const loadToken = Date.now();
+      const loadToken = (this._resultLoadSeq || 0) + 1;
+      this._resultLoadSeq = loadToken;
       this.resultLoadToken = loadToken;
   
       if (!this.data.currentActivityId) {

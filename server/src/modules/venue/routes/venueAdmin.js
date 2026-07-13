@@ -92,9 +92,43 @@ async function canReviewVenueBooking(openid, booking) {
   return { ok: false, admin, hrId };
 }
 
+function fmtLocalDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 function fmtDatetime(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
     + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function parseAdminBookingDatetime(value) {
+  const normalized = safeString(value).replace('T', ' ');
+  const [datePart, timePart] = normalized.split(' ');
+  const [year, month, day] = (datePart || '').split('-').map(Number);
+  const [hour, minute] = (timePart || '').split(':').map(Number);
+  const date = new Date(year, month - 1, day, hour || 0, minute || 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function venueRuleMatchesDate(rule, dateText) {
+  let values = rule.cycle_values || [];
+  if (typeof values === 'string') {
+    try { values = JSON.parse(values); } catch (_) { values = []; }
+  }
+  if (rule.cycle_type === 'daily') return true;
+  if (rule.cycle_type === 'range') return !!values && dateText >= values.startDate && dateText <= values.endDate;
+  const date = new Date(dateText + 'T00:00:00');
+  if (rule.cycle_type === 'weekly') return values.indexOf(date.getDay() === 0 ? 7 : date.getDay()) !== -1;
+  if (rule.cycle_type === 'monthly') return values.indexOf(date.getDate()) !== -1;
+  if (rule.cycle_type === 'yearly') {
+    return values.some((item) => Number(item.m) === date.getMonth() + 1 && date.getDate() >= Number(item.dStart !== undefined ? item.dStart : item.d) && date.getDate() <= Number(item.dEnd !== undefined ? item.dEnd : item.d));
+  }
+  return false;
+}
+
+function minutesOf(value) {
+  const parts = safeString(value).split(':').map(Number);
+  return (parts[0] || 0) * 60 + (parts[1] || 0);
 }
 
 // ═══════════════════════════════════════════════════
@@ -358,6 +392,67 @@ router.post('/deleteVenueBookingRule', async (req, res) => {
 // Booking Management
 // ═══════════════════════════════════════════════════
 
+// createAdminVenueBooking — 管理员从排期表创建免审借用
+router.post('/createAdminVenueBooking', async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    const venueId = safeString(req.body.venueId);
+    const title = safeString(req.body.title);
+    const description = safeString(req.body.description);
+    const start = parseAdminBookingDatetime(req.body.timeStart);
+    const end = parseAdminBookingDatetime(req.body.timeEnd);
+    if (!venueId || !title || !start || !end) return res.json({ status: 'invalid_params', message: '请填写完整借用信息' });
+    if (fmtLocalDate(start) !== fmtLocalDate(end)) return res.json({ status: 'invalid_params', message: '管理员排期借用仅支持当天' });
+    if (end <= start) return res.json({ status: 'invalid_params', message: '结束时间必须晚于开始时间' });
+    if (start < new Date()) return res.json({ status: 'invalid_params', message: '不能选择过去的时间' });
+    const venue = await venueModel.getById(venueId);
+    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '场地不存在或已停用' });
+
+    const dateText = fmtLocalDate(start);
+    const rangeStart = start.getHours() * 60 + start.getMinutes();
+    const rangeEnd = end.getHours() * 60 + end.getMinutes();
+    const [openRules, activityRules] = await Promise.all([
+      venueOpenRuleModel.getByVenueId(venueId),
+      venueActivityRuleModel.getByVenueId(venueId)
+    ]);
+    const matchingOpen = openRules.filter((rule) => rule.is_active && venueRuleMatchesDate(rule, dateText));
+    const covered = matchingOpen.some((rule) => minutesOf(rule.time_start) <= rangeStart && minutesOf(rule.time_end) >= rangeEnd);
+    if (!covered) return res.json({ status: 'conflict', message: '所选时段不在场地开放时间内' });
+    const activityConflict = activityRules.some((rule) => rule.is_active && venueRuleMatchesDate(rule, dateText) && minutesOf(rule.time_start) < rangeEnd && minutesOf(rule.time_end) > rangeStart);
+    if (activityConflict) return res.json({ status: 'conflict', message: '所选时段已有活动占用' });
+
+    await conn.beginTransaction();
+    const dbStart = fmtDatetime(start);
+    const dbEnd = fmtDatetime(end);
+    const conflict = await venueBookingModel.findConflict(venueId, dbStart, dbEnd, null, conn, true);
+    if (conflict) {
+      await conn.rollback();
+      return res.json({ status: 'conflict', message: '所选时段已被借用' });
+    }
+    const id = generateId();
+    await venueBookingModel.create(id, {
+      venueId,
+      creatorType: 'admin',
+      creatorAdminId: admin.id,
+      title,
+      description,
+      timeStart: dbStart,
+      timeEnd: dbEnd,
+      status: 'approved'
+    }, conn);
+    await conn.commit();
+    res.json({ status: 'success', id, bookingStatus: 'approved', message: '场地使用已创建' });
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) {}
+    console.error('[venue:createAdminVenueBooking]', req.requestId || '-', e);
+    res.json({ status: 'error', message: '创建失败，请稍后重试' });
+  } finally {
+    conn.release();
+  }
+});
+
 // listAllVenueBookings
 router.post('/listAllVenueBookings', async (req, res) => {
   try {
@@ -377,6 +472,12 @@ router.post('/listAllVenueBookings', async (req, res) => {
     // Build user info map
     const hrIds = [...new Set(bookings.map(b => b.user_hr_id).filter(Boolean))];
     const userMap = {};
+    const adminIds = [...new Set(bookings.filter(b => b.creator_type === 'admin').map(b => b.creator_admin_id).filter(Boolean))];
+    const adminMap = {};
+    if (adminIds.length) {
+      const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
+      adminRows.forEach(item => { adminMap[item.id] = item.name || '管理员'; });
+    }
     if (hrIds.length) {
       try {
         const hrList = await hrInfoModel.getByIds(hrIds);
@@ -408,7 +509,10 @@ router.post('/listAllVenueBookings', async (req, res) => {
       venueName: b.venue_name,
       venueLocation: b.venue_location,
       userHrId: b.user_hr_id,
-      userName: (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || b.user_hr_id,
+      creatorType: b.creator_type || 'user',
+      creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
+      creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
+      userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
       userDept: (userMap[b.user_hr_id] && userMap[b.user_hr_id].department) || '',
       userIdentity: (userMap[b.user_hr_id] && userMap[b.user_hr_id].identity) || '',
       userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || '',
@@ -820,10 +924,12 @@ router.post('/rejectVenueBookingAdmin', async (req, res) => {
 // listVenueBookingPurposes (public — any authenticated user can read purposes)
 router.post('/listVenueBookingPurposes', async (req, res) => {
   try {
+    if (!req.openid) return res.json({ status: 'forbidden', message: '请先登录' });
     const purposes = await venueBookingPurposeModel.getAll();
     res.json({ status: 'success', purposes });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    console.error('[venue:listVenueBookingPurposes]', req.requestId || '-', e);
+    res.json({ status: 'error', message: '加载失败，请稍后重试' });
   }
 });
 
@@ -833,7 +939,7 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
     const id = safeString(req.body.id) || generateId();
-    const text = safeString(req.body.text);
+    const text = safeString(req.body.text).trim();
     if (!text) return res.json({ status: 'invalid_params', message: '请输入事由内容' });
     const data = { text, sortOrder: parseInt(req.body.sortOrder) || 1 };
     const existing = await venueBookingPurposeModel.getById(id);
@@ -844,7 +950,9 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
     }
     res.json({ status: 'success', id, message: existing ? '事由已更新' : '事由已创建' });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
+    if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', message: '该事由已存在' });
+    console.error('[venue:saveVenueBookingPurpose]', req.requestId || '-', e);
+    res.json({ status: 'error', message: '保存失败，请稍后重试' });
   }
 });
 

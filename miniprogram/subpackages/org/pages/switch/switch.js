@@ -1,5 +1,6 @@
 const { callFunction, showShortToast, getErrorText } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
+const orgSession = require('../../../../utils/orgSession');
 
 const STORAGE_KEY = 'roleProfiles';
 
@@ -125,6 +126,7 @@ Page({
       wx.setStorageSync('activeOrgId', activeOrg.id);
       wx.setStorageSync('activeOrgName', activeOrg.name);
       saveRoleProfile(this.data.activeRole, result.user);
+      const orgVersion = orgSession.markChanged();
       this.setData({
         activeOrgId: activeOrg.id,
         activeOrgName: activeOrg.name
@@ -133,6 +135,7 @@ Page({
         orgId: activeOrg.id,
         orgName: activeOrg.name,
         role: this.data.activeRole,
+        orgVersion,
         user: result.user || null
       });
       showShortToast('组织已切换', 'success');

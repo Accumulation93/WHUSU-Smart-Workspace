@@ -799,6 +799,16 @@ module.exports = Behavior({
       });
     },
 
+    editHrFromProfile(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || '');
+      const index = (this.data.hrList || []).findIndex(item => String(item.id) === hrId);
+      if (index < 0) {
+        wx.showToast({ title: '成员信息未加载', icon: 'none' });
+        return;
+      }
+      this.editHr({ currentTarget: { dataset: { index } } });
+    },
+
     resetHrForm() {
       this.setData({
         hrForm: emptyHrForm()
