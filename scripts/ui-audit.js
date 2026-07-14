@@ -162,6 +162,7 @@ function scanLayoutContracts(file) {
   const dialogs = [];
   const dialogIssues = [];
   const dataLayoutIssues = [];
+  const scrollContractIssues = [];
 
   for (const token of tokenizeWxml(source)) {
     const raw = token.raw;
@@ -236,11 +237,32 @@ function scanLayoutContracts(file) {
       dataLayoutIssues.push({ file: relative(file), line, message: '专业时间网格缺少 ui-data-grid--specialized' });
     }
 
+    if ((classes.has('ui-overlay') || classes.has('ui-dialog-shell')) &&
+      /\bcatchtouchmove\s*=/.test(raw) && !classes.has('ui-dialog-touch-lock')) {
+      scrollContractIssues.push({ file: relative(file), line, message: '弹窗遮罩或外壳不得拦截主体触摸移动' });
+    }
+
+    if (tag === 'scroll-view' && classes.has('ui-dialog-body')) {
+      const modifiers = ['ui-dialog-scroll--fill', 'ui-dialog-scroll--pane', 'ui-dialog-scroll--x', 'ui-dialog-scroll--both']
+        .filter(name => classes.has(name));
+      const hasScrollX = /\sscroll-x(?:\s*=|\s|\/?\>)/.test(raw);
+      const hasScrollY = /\sscroll-y(?:\s*=|\s|\/?\>)/.test(raw);
+      if (modifiers.length !== 1) {
+        scrollContractIssues.push({ file: relative(file), line, message: '弹窗 scroll-view 必须且只能声明一种滚动视口类型' });
+      } else if (modifiers[0] === 'ui-dialog-scroll--x' && (!hasScrollX || hasScrollY)) {
+        scrollContractIssues.push({ file: relative(file), line, message: '横向滚动视口必须只启用 scroll-x' });
+      } else if (modifiers[0] === 'ui-dialog-scroll--both' && (!hasScrollX || !hasScrollY)) {
+        scrollContractIssues.push({ file: relative(file), line, message: '专业双向滚动视口必须同时启用 scroll-x 和 scroll-y' });
+      } else if (['ui-dialog-scroll--fill', 'ui-dialog-scroll--pane'].includes(modifiers[0]) && !hasScrollY) {
+        scrollContractIssues.push({ file: relative(file), line, message: '纵向滚动视口必须启用 scroll-y' });
+      }
+    }
+
     const selfClosing = raw.endsWith('/>') || VOID_TAGS.has(tag);
     if (!selfClosing) stack.push({ tag, dialog });
   }
 
-  return { dialogs, dialogIssues, dataLayoutIssues };
+  return { dialogs, dialogIssues, dataLayoutIssues, scrollContractIssues };
 }
 
 function scanWxss(file) {
@@ -338,11 +360,19 @@ const illegalColors = styles.flatMap(item => item.illegalColors);
 const dialogs = layoutContracts.flatMap(item => item.dialogs);
 const dialogIssues = layoutContracts.flatMap(item => item.dialogIssues);
 const dataLayoutIssues = layoutContracts.flatMap(item => item.dataLayoutIssues);
+const scrollContractIssues = layoutContracts.flatMap(item => item.scrollContractIssues);
 const unsafeControlEllipsis = styles.flatMap(item => item.unsafeControlEllipsis);
 const fixedDataColumns = styles.flatMap(item => item.fixedDataColumns);
 const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;/m.test(GLOBAL_STYLE)
+);
+const missingDialogScrollSystem = !(
+  /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*56vh;[^}]*max-height:\s*calc\(100vh\s*-\s*360rpx/m.test(GLOBAL_STYLE) &&
+  /scroll-view\.ui-dialog-scroll--pane\s*\{[^}]*min-height:\s*120rpx;/m.test(GLOBAL_STYLE) &&
+  /scroll-view\.ui-dialog-scroll--x\s*\{[^}]*height:\s*auto;/m.test(GLOBAL_STYLE) &&
+  /scroll-view\.ui-dialog-scroll--both\s*\{[^}]*height:\s*64vh;/m.test(GLOBAL_STYLE) &&
+  !/scroll-view\.ui-dialog-scroll--(?:fill|both)\s*\{[^}]*height:\s*0\s*;/m.test(GLOBAL_STYLE)
 );
 const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxss'), 'utf8');
 const missingResponsiveDataSystem = !(
@@ -386,9 +416,11 @@ const report = {
     dialogs: dialogs.length,
     dialogIssues: dialogIssues.length,
     dataLayoutIssues: dataLayoutIssues.length,
+    scrollContractIssues: scrollContractIssues.length,
     unsafeControlEllipsis: unsafeControlEllipsis.length,
     fixedDataColumns: fixedDataColumns.length,
     missingStableDialogSystem: missingStableDialogSystem ? 1 : 0,
+    missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
     important: styles.reduce((sum, item) => sum + item.important, 0),
     missingTabletPortrait: styles.filter(item => !item.media520).length,
@@ -407,6 +439,7 @@ const report = {
   dialogs,
   dialogIssues,
   dataLayoutIssues,
+  scrollContractIssues,
   unsafeControlEllipsis,
   fixedDataColumns,
   styles
@@ -432,7 +465,8 @@ if (process.argv.includes('--strict')) {
   const failed = report.summary.missingFeedback || report.summary.nestedRisks || report.summary.timingMismatches || report.summary.shellActive ||
     report.summary.nativeInputFlex || report.summary.oversizedTimetable || report.summary.missingDeviceSystem ||
     report.summary.transitionAll || report.summary.willChange || report.summary.illegalColors || report.summary.remoteAssets ||
-    report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.missingStableDialogSystem || report.summary.missingResponsiveDataSystem;
+    report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
+    report.summary.fixedDataColumns || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
+    report.summary.missingResponsiveDataSystem;
   process.exitCode = failed ? 1 : 0;
 }

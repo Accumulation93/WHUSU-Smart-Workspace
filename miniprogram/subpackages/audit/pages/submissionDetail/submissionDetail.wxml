@@ -114,7 +114,7 @@
     <view class="popup-mask ui-overlay" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
       <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
           <view class="detail-popup-form">
             <view class="field">
               <view class="field-label">步骤名称</view>
@@ -527,7 +527,7 @@
       <view class="popup-mask ui-overlay" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
             <view class="detail-popup-form">
               <view class="field">
                 <view class="field-label">步骤名称</view>
@@ -574,7 +574,7 @@
         <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <view class="list-title">已选人员（{{editPersonPickerSelectedIds.length}}人）</view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body ui-dialog-scroll--pane">
             <view class="audit-person-item" wx:for="{{editPersonPickerSelectedList}}" wx:key="id">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
               <view class="audit-person-info">
@@ -594,7 +594,7 @@
             <view class="rule-filter-field"><view class="field-label">职能组</view><picker range="{{personPickerWgOpts}}" bindchange="onEditPersonPickerWgChange"><view class="picker-value compact-picker-value">{{editPersonPickerWg}}</view></picker></view>
           </view>
           <view class="field field-mb-8"><input class="field-input" placeholder="搜索姓名/学号" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body ui-dialog-scroll--pane">
             <view wx:if="{{!editPersonPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
             <view class="audit-person-item ui-motion-card" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
@@ -626,7 +626,7 @@
         <view class="popup-title">选择印章</view>
         <text class="popup-close ui-motion-chip" catchtap="closeStampPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form">
           <view wx:if="{{!availableStamps.length}}" class="stamp-empty">暂无可用的印章</view>
           <view wx:for="{{availableStamps}}" wx:key="id"
@@ -675,7 +675,7 @@
       <!-- Placement canvas — scrollable to show full file -->
       <scroll-view id="placementCanvas"
             scroll-y="{{true}}"
-            class="placement-canvas ui-dialog-body"
+            class="placement-canvas ui-dialog-body ui-dialog-scroll--fill"
             bindtap="onPlacementTap">
         <!-- Loading indicator -->
         <view wx:if="{{placementLoading}}"
@@ -750,7 +750,7 @@
         <view class="popup-title">{{approvalAction === 'approve' ? '审批通过' : '驳回'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form">
           <!-- Signature section (only for approve) -->
           <view wx:if="{{approvalAction === 'approve'}}">
@@ -794,7 +794,7 @@
         <view class="popup-title">选择签名方式</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSigSourcePicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form">
           <view class="sig-source-file-name">{{sigSourceFileName}}</view>
 
@@ -851,8 +851,8 @@
 
   <!-- Signature Pad Popup (with save-to-library controls) -->
   <!-- ★ catchtouchmove="noop" 阻止触摸滑动穿透到底层页面，防止签名时页面翻动 -->
-  <view class="popup-mask ui-overlay" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad" catchtouchmove="noop">
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop" catchtouchmove="noop">
+  <view class="popup-mask ui-overlay ui-dialog-touch-lock" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad" catchtouchmove="noop">
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-touch-lock" catchtap="noop" catchtouchmove="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">手写签名</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSignaturePad" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
@@ -870,7 +870,7 @@
 
         <!-- Selected persons -->
         <view class="list-title">已选人员（{{personPickerSelectedIds.length}}人）</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body ui-dialog-scroll--pane">
           <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="id">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
             <view class="audit-person-info">
@@ -911,7 +911,7 @@
         </view>
 
         <!-- Candidate list -->
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body ui-dialog-scroll--pane">
           <view wx:if="{{!personPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
           <view class="audit-person-item ui-motion-card" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="audit-person-avatar">{{item.name[0]}}</view>

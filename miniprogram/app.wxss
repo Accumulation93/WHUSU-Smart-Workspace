@@ -612,7 +612,41 @@ button[disabled],
   max-height: none;
 }
 
-scroll-view.ui-dialog-body {
+/* 微信原生 scroll-view 的纵向滚动必须拥有可计算高度，不能只依赖 Web flex 自动高度。 */
+scroll-view.ui-dialog-scroll--fill,
+scroll-view.ui-dialog-scroll--both {
+  display: block;
+  flex: 1 1 auto;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+scroll-view.ui-dialog-scroll--fill {
+  height: 56vh;
+  min-height: 240rpx;
+  max-height: calc(100vh - 360rpx - env(safe-area-inset-bottom));
+}
+
+scroll-view.ui-dialog-scroll--both {
+  height: 64vh;
+  min-height: 320rpx;
+  max-height: calc(100vh - 220rpx - env(safe-area-inset-bottom));
+}
+
+scroll-view.ui-dialog-scroll--pane {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 120rpx;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+scroll-view.ui-dialog-scroll--x {
+  display: block;
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+  min-height: 0;
   overflow: hidden;
 }
 
