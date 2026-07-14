@@ -1078,8 +1078,8 @@ function autoMapCsvColumn(headerName, templateFields) {
   let basicCandidates = [
     { target: 'name', aliases: ['姓名', 'name'] },
     { target: 'studentId', aliases: ['学号', 'studentid', 'student id'] },
-    { target: 'department', aliases: ['所属部门', '部门', '学院', 'department'] },
-    { target: 'identity', aliases: ['身份', 'identity'] },
+    { target: 'department', aliases: ['录取部门', '所属部门', '部门', '学院', 'department'] },
+    { target: 'identity', aliases: ['职位', '身份', 'identity'] },
     { target: 'workGroup', aliases: ['工作分工', '职能组', '职能', 'workgroup', 'work group'] }
   ];
 
@@ -1154,11 +1154,51 @@ function getOptionIndex(values, target) {
   return 0;
 }
 
+function refreshCsvMappingOptions(rows, templateFields) {
+  let allOptions = buildCsvMappingOptions(templateFields);
+  let occupiedTargets = {};
+  let sourceRows = rows || [];
+  for (let i = 0; i < sourceRows.length; i++) {
+    let target = sourceRows[i] && sourceRows[i].target;
+    if (target && target !== 'ignore') occupiedTargets[target] = i;
+  }
+
+  let nextRows = [];
+  for (let rowIndex = 0; rowIndex < sourceRows.length; rowIndex++) {
+    let sourceRow = sourceRows[rowIndex] || {};
+    let labels = [];
+    let values = [];
+    for (let optionIndex = 0; optionIndex < allOptions.values.length; optionIndex++) {
+      let value = allOptions.values[optionIndex];
+      if (value !== 'ignore' && occupiedTargets[value] !== undefined && occupiedTargets[value] !== rowIndex) {
+        continue;
+      }
+      labels.push(allOptions.labels[optionIndex]);
+      values.push(value);
+    }
+    let target = sourceRow.target || 'ignore';
+    if (values.indexOf(target) === -1) target = 'ignore';
+    let currentOptionIndex = getOptionIndex(values, target);
+    nextRows.push({
+      columnIndex: sourceRow.columnIndex,
+      columnKey: sourceRow.columnKey,
+      header: sourceRow.header,
+      target: target,
+      fieldTypeLabel: getFieldTypeLabelForTarget(target, templateFields),
+      sampleValue: sourceRow.sampleValue,
+      mappingLabels: labels,
+      mappingValues: values,
+      optionIndex: currentOptionIndex,
+      optionLabel: labels[currentOptionIndex] || labels[0] || '— 忽略 —'
+    });
+  }
+  return nextRows;
+}
+
 function buildCsvColumnMapping(headers, samples, templateFields) {
   let mapping = buildCsvMappingOptions(templateFields);
-  let labels = mapping.labels;
-  let values = mapping.values;
   let rows = [];
+  let occupiedTargets = {};
 
   for (let i = 0; i < headers.length; i++) {
     let header = headers[i];
@@ -1170,19 +1210,22 @@ function buildCsvColumnMapping(headers, samples, templateFields) {
     }
 
     let target = autoMapCsvColumn(header, templateFields);
-    let fieldTypeLabel = getFieldTypeLabelForTarget(target, templateFields);
-    let optIdx = getOptionIndex(values, target);
+    if (target !== 'ignore' && occupiedTargets[target] !== undefined) target = 'ignore';
+    if (target !== 'ignore') occupiedTargets[target] = i;
 
     rows.push({
+      columnIndex: i,
+      columnKey: 'column-' + i,
       header: header,
       target: target,
-      fieldTypeLabel: fieldTypeLabel,
-      sampleValue: sampleValues.length > 0 ? String(sampleValues[0] || '').trim() : '',
-      optionIndex: optIdx,
-      optionLabel: labels[optIdx] || ''
+      sampleValue: sampleValues.length > 0 ? String(sampleValues[0] || '').trim() : ''
     });
   }
-  return { rows: rows, labels: labels, values: values };
+  return {
+    rows: refreshCsvMappingOptions(rows, templateFields),
+    labels: mapping.labels,
+    values: mapping.values
+  };
 }
 
 
@@ -1262,5 +1305,6 @@ module.exports = {
   autoMapCsvColumn,
   buildCsvMappingOptions,
   getOptionIndex,
+  refreshCsvMappingOptions,
   buildCsvColumnMapping
 };

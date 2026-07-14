@@ -32,18 +32,52 @@ function parseCsvLine(line) {
 function parseCsvContent(text) {
   let raw = String(text || '');
   raw = raw.replace(/^﻿/, '');
-  let lines = raw.split(/\r?\n/);
   let allRows = [];
-  for (let i = 0; i < lines.length; i++) {
-    let row = parseCsvLine(lines[i]);
-    if (row.length === 1 && !row[0]) continue;
-    if (row.every(function (c) { return !c; })) continue;
-    allRows.push(row);
+  let row = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < raw.length; i++) {
+    let ch = raw[i];
+    let next = raw[i + 1];
+    if (ch === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === ',' && !inQuotes) {
+      row.push(current.trim());
+      current = '';
+      continue;
+    }
+    if ((ch === '\r' || ch === '\n') && !inQuotes) {
+      if (ch === '\r' && next === '\n') i++;
+      row.push(current.trim());
+      if (row.some(function (cell) { return !!cell; })) allRows.push(row);
+      row = [];
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (inQuotes) throw new Error('CSV 中存在未闭合的引号');
+  if (current || row.length) {
+    row.push(current.trim());
+    if (row.some(function (cell) { return !!cell; })) allRows.push(row);
   }
   if (allRows.length === 0) return { headers: [], rows: [] };
+  let headers = allRows[0];
+  let rows = allRows.slice(1).map(function (dataRow) {
+    let cells = [];
+    for (let i = 0; i < headers.length; i++) cells.push(dataRow[i] == null ? '' : dataRow[i]);
+    return cells;
+  });
   return {
-    headers: allRows[0],
-    rows: allRows.slice(1)
+    headers: headers,
+    rows: rows
   };
 }
 
@@ -127,18 +161,17 @@ function base64ToUtf8(base64) {
 }
 
 /**
- * Serialize rows to CSV-like text (without BOM, used for storing in
- * csvImportContent so that confirmCsvMapping can split on \r?\n).
+ * Serialize rows to CSV-like text for legacy callers. Structured imports use
+ * headers + rows directly and never parse this compatibility field again.
  */
 function rowsToCsvRaw(headers, rows) {
-  let hdr = headers.join(',');
-  let dataLines = rows.map(function (row) {
-    return row.map(function (c) {
-      let s = String(c == null ? '' : c);
-      if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-      return s;
-    }).join(',');
-  });
+  let escapeCell = function (cell) {
+    let text = String(cell == null ? '' : cell);
+    if (/[",\r\n]/.test(text)) return '"' + text.replace(/"/g, '""') + '"';
+    return text;
+  };
+  let hdr = headers.map(escapeCell).join(',');
+  let dataLines = rows.map(function (row) { return row.map(escapeCell).join(','); });
   return [hdr].concat(dataLines).join('\n');
 }
 
@@ -458,11 +491,17 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
 }
 
 function buildExcelResult(sheet, fileName) {
+  let headers = sheet.headers || [];
+  let rows = (sheet.rows || []).map(function (row) {
+    let cells = [];
+    for (let i = 0; i < headers.length; i++) cells.push(row[i] == null ? '' : row[i]);
+    return cells;
+  });
   return {
     type: 'excel',
-    headers: sheet.headers,
-    rows: sheet.rows || [],
-    rawContent: rowsToCsvRaw(sheet.headers, sheet.rows || []),
+    headers: headers,
+    rows: rows,
+    rawContent: rowsToCsvRaw(headers, rows),
     fileName: fileName,
     sheetName: sheet.name
   };

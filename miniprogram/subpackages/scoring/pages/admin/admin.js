@@ -202,13 +202,32 @@ Page({
     csvName: '',
     showCsvMappingDialog: false,
     csvImportRows: [],
-    csvImportContent: '',
+    csvImportHeaders: [],
+    csvImportDataRows: [],
+    csvImportSheetName: '',
+    csvImportSourceType: '',
     csvImportFileName: '',
     csvImportSamples: [],
-    csvImportMappingLabels: [],
-    csvImportMappingValues: [],
     csvImportLoading: false,
     csvImportSkipInvalid: false,
+    showHrImportPreview: false,
+    hrImportPreview: {
+      fileName: '',
+      sheetName: '',
+      totalRows: 0,
+      validRows: 0,
+      invalidRows: 0,
+      newRecords: 0,
+      updateRecords: 0,
+      preservedEmptyFields: 0,
+      mappings: [],
+      ignoredColumns: [],
+      newDepartments: [],
+      newIdentities: [],
+      newWorkGroups: [],
+      canImport: false,
+      skipInvalid: false
+    },
     showValidationErrors: false,
     validationErrors: [],
     validationErrorCards: [],
@@ -397,7 +416,7 @@ Page({
 
   onOrgTap() {
     const hasUnsavedWork = !!(
-      this.data.showAddEditForm || this.data.showCsvMappingDialog ||
+      this.data.showAddEditForm || this.data.showCsvMappingDialog || this.data.showHrImportPreview ||
       this.data.orgFormVisible || this.data.auditTemplateStepEditorVisible ||
       this.data.auditStepConditionEditorVisible || this.data.auditStarterConditionEditorVisible ||
       (this.data.ruleForm && (this.data.ruleForm.isRuleClauseEditorVisible || this.data.ruleForm.isTemplateConfigEditorVisible))
@@ -514,7 +533,7 @@ Page({
       if (this._subApp === 'hr') {
         await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
         await this.loadWorkGroupList();
-        if (!this._csvImportActive && !this.data.showCsvMappingDialog) {
+        if (!this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
           await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
         }
         this.updateHrFormOptions();
@@ -583,7 +602,7 @@ Page({
       }
     }
     if (tab === 'hrInfo') {
-      if (!this._csvImportActive && !this.data.showCsvMappingDialog) {
+      if (!this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
         this.loadHrProfileAdminData();
         this.loadHrList();
       }

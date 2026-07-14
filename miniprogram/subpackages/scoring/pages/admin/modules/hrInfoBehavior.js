@@ -1,7 +1,7 @@
 // Behavior: hrInfo tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
-const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, getFieldTypeLabelForTarget, getFieldTypeDisplayName, showShortToast, buildHrProfileFilterOptions, validateProfileField, buildFieldHint, normalizeEmptyValue, validateCsvValueAgainstField } = utils;
+const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 
 module.exports = Behavior({
@@ -932,7 +932,6 @@ module.exports = Behavior({
   
         let headers = tableData.headers;
         let rows = tableData.rows;
-        let rawContent = tableData.rawContent;
         let fileName = tableData.fileName;
   
         let samples = [headers];
@@ -946,11 +945,12 @@ module.exports = Behavior({
         self.setData({
           showCsvMappingDialog: true,
           csvImportRows: result.rows,
-          csvImportContent: rawContent,
+          csvImportHeaders: headers,
+          csvImportDataRows: rows,
+          csvImportSheetName: tableData.sheetName || '',
+          csvImportSourceType: tableData.type || '',
           csvImportFileName: fileName || '',
-          csvImportSamples: samples,
-          csvImportMappingLabels: result.labels,
-          csvImportMappingValues: result.values
+          csvImportSamples: samples
         });
         self._csvImportActive = false;
       }).catch(function (err) {
@@ -960,29 +960,9 @@ module.exports = Behavior({
       });
     },
 
-    parseCsvLine(line) {
-      let result = [];
-      let current = '';
-      let inQuotes = false;
-      let text = String(line || '');
-      for (let i = 0; i < text.length; i++) {
-        let ch = text[i];
-        let next = text[i + 1];
-        if (ch === '"') {
-          if (inQuotes && next === '"') { current += '"'; i++; continue; }
-          inQuotes = !inQuotes;
-          continue;
-        }
-        if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; continue; }
-        current += ch;
-      }
-      result.push(current.trim());
-      return result;
-    },
-
     closeCsvMappingDialog() {
       this._csvImportActive = false;
-      this.setData({ showCsvMappingDialog: false });
+      this.setData({ showCsvMappingDialog: false, showHrImportPreview: false });
     },
 
     toggleCsvSkipInvalid() {
@@ -1061,329 +1041,223 @@ module.exports = Behavior({
 
     onCsvMappingTargetChange(e) {
       let rowIndex = Number(e.currentTarget.dataset.index);
-      let values = this.data.csvImportMappingValues || [];
-      let labels = this.data.csvImportMappingLabels || [];
+      let rows = this.data.csvImportRows.slice();
+      let currentRow = rows[rowIndex] || {};
+      let values = currentRow.mappingValues || [];
       let optionIndex = Number(e.detail.value);
       let targetValue = values[optionIndex];
       if (isNaN(rowIndex) || targetValue === undefined) return;
-  
-      let newFieldTypeLabel = getFieldTypeLabelForTarget(
-        targetValue,
-        (this.data.hrProfileTemplateForm || {}).fields || []
-      );
-  
-      let rows = this.data.csvImportRows.slice();
+
       rows[rowIndex] = {
-        header: rows[rowIndex].header,
+        columnIndex: currentRow.columnIndex,
+        columnKey: currentRow.columnKey,
+        header: currentRow.header,
         target: targetValue,
-        fieldTypeLabel: newFieldTypeLabel,
-        sampleValue: rows[rowIndex].sampleValue,
-        optionIndex: optionIndex,
-        optionLabel: labels[optionIndex] || ''
+        sampleValue: currentRow.sampleValue
       };
-      this.setData({ csvImportRows: rows });
+      let templateFields = (this.data.hrProfileTemplateForm || {}).fields || [];
+      this.setData({ csvImportRows: refreshCsvMappingOptions(rows, templateFields) });
+    },
+
+    buildHrTableImportPayload() {
+      let basicFields = ['name', 'studentId', 'department', 'identity', 'workGroup'];
+      let basicFieldSet = {};
+      for (let i = 0; i < basicFields.length; i++) basicFieldSet[basicFields[i]] = true;
+      let basicMapping = {};
+      let extensionMapping = [];
+      let mappingRows = this.data.csvImportRows || [];
+      for (let rowIndex = 0; rowIndex < mappingRows.length; rowIndex++) {
+        let mappingRow = mappingRows[rowIndex];
+        if (!mappingRow || !mappingRow.target || mappingRow.target === 'ignore') continue;
+        if (basicFieldSet[mappingRow.target]) {
+          basicMapping[mappingRow.target] = mappingRow.columnIndex;
+        } else {
+          extensionMapping.push({
+            columnIndex: mappingRow.columnIndex,
+            fieldId: mappingRow.target
+          });
+        }
+      }
+      return {
+        headers: this.data.csvImportHeaders || [],
+        rows: this.data.csvImportDataRows || [],
+        basicMapping: basicMapping,
+        extensionMapping: extensionMapping,
+        skipInvalid: !!this.data.csvImportSkipInvalid
+      };
+    },
+
+    flattenHrImportErrors(errorGroups) {
+      let flatErrors = [];
+      let groups = errorGroups || [];
+      for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+        let group = groups[groupIndex] || {};
+        let errors = group.errors || [];
+        for (let errorIndex = 0; errorIndex < errors.length; errorIndex++) {
+          let error = errors[errorIndex] || {};
+          flatErrors.push({
+            rowNumber: group.rowNumber || 0,
+            name: group.name || '',
+            studentId: group.studentId || '',
+            fieldName: error.field || '',
+            fieldType: error.fieldType || '',
+            errorValue: error.value || '',
+            errorReason: error.error || ''
+          });
+        }
+      }
+      return flatErrors;
+    },
+
+    buildHrImportPreviewView(preview) {
+      let data = preview || {};
+      let ignoredColumns = data.ignoredColumns || [];
+      let mappings = data.mappings || [];
+      let normalizedMappings = [];
+      for (let i = 0; i < mappings.length; i++) {
+        let item = mappings[i] || {};
+        normalizedMappings.push({
+          columnKey: 'preview-column-' + item.columnIndex,
+          header: item.header || '未命名列',
+          targetLabel: item.targetLabel || '未命名字段',
+          targetTypeLabel: item.targetType === 'extension' ? '扩展字段' : '基础字段'
+        });
+      }
+      let normalizedIgnored = [];
+      for (let j = 0; j < ignoredColumns.length; j++) {
+        normalizedIgnored.push({
+          columnKey: 'ignored-column-' + ignoredColumns[j].columnIndex,
+          header: ignoredColumns[j].header || '未命名列'
+        });
+      }
+      let invalidRows = Number(data.invalidRows || 0);
+      let skipInvalid = !!this.data.csvImportSkipInvalid;
+      return {
+        fileName: this.data.csvImportFileName || '待导入表格',
+        sheetName: this.data.csvImportSheetName || '当前工作表',
+        totalRows: Number(data.totalRows || 0),
+        validRows: Number(data.validRows || 0),
+        invalidRows: invalidRows,
+        newRecords: Number(data.newRecords || 0),
+        updateRecords: Number(data.updateRecords || 0),
+        preservedEmptyFields: Number(data.preservedEmptyFields || 0),
+        mappings: normalizedMappings,
+        ignoredColumns: normalizedIgnored,
+        newDepartments: data.newDepartments || [],
+        newIdentities: data.newIdentities || [],
+        newWorkGroups: data.newWorkGroups || [],
+        errors: data.errors || [],
+        canImport: invalidRows === 0 || skipInvalid,
+        skipInvalid: skipInvalid
+      };
     },
 
     async confirmCsvMapping() {
-      let self = this;
-      let rows = self.data.csvImportRows || [];
-      let columnMapping = {};
-      let extensionFields = {};
-  
-      // Build field ID → label lookup for extension fields
-      let tplFields = (self.data.hrProfileTemplateForm || {}).fields || [];
-      let fieldIdToLabel = {};
-      for (let j = 0; j < tplFields.length; j++) {
-        fieldIdToLabel[tplFields[j].id] = tplFields[j].label;
-      }
-  
-      for (let i = 0; i < rows.length; i++) {
-        let row = rows[i];
-        if (!row || row.target === 'ignore') continue;
-  
-        if (row.target === 'name' || row.target === 'studentId' || row.target === 'department'
-          || row.target === 'identity' || row.target === 'workGroup') {
-          columnMapping[row.target] = row.header;
-        } else {
-          let label = fieldIdToLabel[row.target];
-          if (label) {
-            extensionFields[row.header] = label;
-          }
+      let payload = this.buildHrTableImportPayload();
+      let requiredFields = ['name', 'studentId', 'department', 'identity'];
+      let fieldLabels = { name: '姓名', studentId: '学号', department: '所属部门', identity: '身份' };
+      let missingLabels = [];
+      for (let i = 0; i < requiredFields.length; i++) {
+        if (payload.basicMapping[requiredFields[i]] === undefined) {
+          missingLabels.push(fieldLabels[requiredFields[i]]);
         }
       }
-  
-      // Require all 5 basic fields to be mapped
-      let requiredBasicFields = ['name', 'studentId', 'department', 'identity', 'workGroup'];
-      let missingBasicFields = [];
-      for (let k = 0; k < requiredBasicFields.length; k++) {
-        if (!columnMapping[requiredBasicFields[k]]) {
-          missingBasicFields.push(requiredBasicFields[k]);
-        }
-      }
-      if (missingBasicFields.length > 0) {
-        let fieldNameMap = { name: '姓名', studentId: '学号', department: '所属部门', identity: '身份', workGroup: '工作分工' };
-        let missingNames = [];
-        for (let k2 = 0; k2 < missingBasicFields.length; k2++) {
-          missingNames.push(fieldNameMap[missingBasicFields[k2]] || missingBasicFields[k2]);
-        }
+      if (missingLabels.length) {
         wx.showModal({
-          title: '基础字段未映射',
-          content: '以下基础字段必须映射到 CSV 列，请完成映射后再导入：\n' + missingNames.join('、'),
+          title: '必填字段未映射',
+          content: '请先映射：' + missingLabels.join('、') + '。职能组可以留空。',
           showCancel: false,
           confirmText: '知道了'
         });
-        self._csvImportActive = false;
         return;
       }
-  
-      let skipInvalid = self.data.csvImportSkipInvalid;
-  
-      // --- Pre-validation (only when NOT skipping invalid fields) ---
-      let validationErrors = [];
-      let csvLines = self.data.csvImportContent.split(/\r?\n/);
-  
-      if (!skipInvalid) {
-        // Validate ALL data rows against field definitions
-        let tplFields = (self.data.hrProfileTemplateForm || {}).fields || [];
-  
-        // Build index: CSV column index → field definition
-        let colFieldMap = [];
-        for (let r = 0; r < rows.length; r++) {
-          let mappingRow = rows[r];
-          if (!mappingRow || mappingRow.target === 'ignore') {
-            colFieldMap[r] = null;
-            continue;
-          }
-          if (mappingRow.target === 'name' || mappingRow.target === 'studentId'
-            || mappingRow.target === 'department' || mappingRow.target === 'identity'
-            || mappingRow.target === 'workGroup') {
-            colFieldMap[r] = { type: 'basic', name: mappingRow.target, csvHeader: mappingRow.header };
-          } else {
-            let found = tplFields.find(function (f) { return f.id === mappingRow.target; });
-            colFieldMap[r] = { type: 'ext', csvHeader: mappingRow.header, fieldDef: found || { type: 'text' } };
-          }
-        }
-  
-        let studentIdColIndex = -1;
-        let nameColIndex = -1;
-        for (let c = 0; c < colFieldMap.length; c++) {
-          if (colFieldMap[c] && colFieldMap[c].type === 'basic') {
-            if (colFieldMap[c].name === 'studentId') studentIdColIndex = c;
-            if (colFieldMap[c].name === 'name') nameColIndex = c;
-          }
-        }
-  
-        for (let rowIdx = 1; rowIdx < csvLines.length; rowIdx++) {
-          let rowCells = self.parseCsvLine(csvLines[rowIdx] || '');
-          if (!rowCells.length) continue;
-  
-          let studentId = normalizeEmptyValue(rowCells[studentIdColIndex]);
-          if (!studentId) continue;
-  
-          let name = normalizeEmptyValue(rowCells[nameColIndex]);
-  
-          if (!name && nameColIndex >= 0) {
-            validationErrors.push({
-              rowNumber: rowIdx + 1,
-              name: '',
-              studentId: studentId,
-              fieldName: colFieldMap[nameColIndex].csvHeader,
-              fieldType: '基础字段',
-              errorValue: '',
-              errorReason: '姓名不能为空'
-            });
-          }
-  
-          for (let c = 0; c < colFieldMap.length; c++) {
-            let map = colFieldMap[c];
-            if (!map || map.type !== 'ext') continue;
-            let cellValue = normalizeEmptyValue(rowCells[c]);
-            let check = validateCsvValueAgainstField(cellValue, map.fieldDef);
-            if (!check.ok) {
-              validationErrors.push({
-                rowNumber: rowIdx + 1,
-                name: name,
-                studentId: studentId,
-                fieldName: map.csvHeader,
-                fieldType: check.fieldType || getFieldTypeDisplayName(map.fieldDef),
-                errorValue: cellValue,
-                errorReason: check.reason
-              });
-            }
-          }
-        }
-  
-        if (validationErrors.length > 0) {
-          let errorRecordCount = 0;
-          let seenStudentIds = {};
-          for (let ei = 0; ei < validationErrors.length; ei++) {
-            if (!seenStudentIds[validationErrors[ei].studentId]) {
-              seenStudentIds[validationErrors[ei].studentId] = true;
-              errorRecordCount++;
-            }
-          }
-          self.setData({
-            showValidationErrors: true,
-            validationErrors: validationErrors,
-            validationErrorCards: self.buildValidationErrorCards(validationErrors),
-            validationErrorSummary: '共 ' + errorRecordCount + ' 条记录 ' + validationErrors.length + ' 个错误'
-          });
-          self._csvImportActive = false;
+
+      this._csvImportActive = true;
+      this.setData({ csvImportLoading: true });
+      try {
+        let result = await this.callCloud('previewHrTableImport', payload);
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: (result && result.message) || '预检失败', icon: 'none' });
           return;
         }
+        this.setData({
+          showCsvMappingDialog: false,
+          showHrImportPreview: true,
+          hrImportPreview: this.buildHrImportPreviewView(result.preview)
+        });
+      } catch (error) {
+        wx.showToast({ title: '预检失败，请检查网络后重试', icon: 'none' });
+      } finally {
+        this._csvImportActive = false;
+        this.setData({ csvImportLoading: false });
       }
-  
-      // --- Proceed with import ---
-      self.setData({ showCsvMappingDialog: false, csvImportLoading: true });
-  
+    },
+
+    cancelHrImportPreview() {
+      this._csvImportActive = false;
+      this.setData({ showHrImportPreview: false, showCsvMappingDialog: true });
+    },
+
+    closeHrImportPreview() {
+      this.cancelHrImportPreview();
+    },
+
+    async confirmHrTableImport() {
+      let preview = this.data.hrImportPreview || {};
+      if (!preview.canImport) {
+        wx.showToast({ title: '请先修正无效记录，或开启跳过无效字段', icon: 'none' });
+        return;
+      }
+      this._csvImportActive = true;
+      this.setData({ csvImportLoading: true });
+      wx.showLoading({ title: '正在导入...', mask: true });
       try {
-        let startIndex = 1;
-        let totalCount = 0;
-        let hasMore = true;
-        let skipInvalidFlag = skipInvalid;
-        let skippedNoStudentIdTotal = 0;
-  
-        while (hasMore) {
-          wx.showLoading({
-            title: '正在导入' + (totalCount > 0 ? '（已导入' + totalCount + '条）' : '...'),
-            mask: true
-          });
-  
-          let result = await this.callCloud('importHrCsv', {
-            csvContent: self.data.csvImportContent,
-            startIndex: startIndex,
-            batchSize: 100,
-            columnMapping: columnMapping,
-            extensionFields: extensionFields,
-            skipInvalid: skipInvalidFlag
-          });
-  
-          if (result.status === 'validation_errors') {
-            // Backend rejected the batch (skipInvalid is off and there are validation errors).
-            // Collect errors so they can be displayed after all batches are processed.
-            let errors = result.errors || [];
-            let flatErrors = [];
-            for (let ei = 0; ei < errors.length; ei++) {
-              let errRec = errors[ei];
-              for (let fi = 0; fi < errRec.errors.length; fi++) {
-                let e = errRec.errors[fi];
-                flatErrors.push({
-                  rowNumber: 0,
-                  name: errRec.name || '',
-                  studentId: errRec.studentId || '',
-                  fieldName: e.field || '',
-                  fieldType: e.fieldType || '',
-                  errorValue: e.value || '',
-                  errorReason: e.error || ''
-                });
-              }
-            }
-            validationErrors = validationErrors.concat(flatErrors);
-            if (result.skippedNoStudentId) {
-              skippedNoStudentIdTotal += Number(result.skippedNoStudentId);
-            }
-            startIndex = Number(result.nextIndex || startIndex + 100);
-            hasMore = result.hasMore !== undefined ? (!!result.hasMore || startIndex < csvLines.length) : (startIndex < csvLines.length);
-            if (!hasMore) {
-              wx.hideLoading();
-            }
-            continue;
-          }
-  
-          if (result.status !== 'success') {
-            wx.hideLoading();
-            wx.showToast({ title: result.message || '导入失败', icon: 'none' });
-            self.setData({ csvImportLoading: false });
-            self._csvImportActive = false;
-            return;
-          }
-  
-          totalCount += Number(result.count || 0);
-          if (result.skippedNoStudentId) {
-            skippedNoStudentIdTotal += Number(result.skippedNoStudentId);
-          }
-          startIndex = Number(result.nextIndex || startIndex + 100);
-          let successBatchHadRows = Number(result.count || 0) > 0;
-          let successFrontendHasMore = startIndex < csvLines.length;
-          if (result.hasMore !== undefined) {
-            hasMore = !!result.hasMore || (successBatchHadRows && successFrontendHasMore);
-          } else {
-            hasMore = successFrontendHasMore;
-          }
-  
-          // Collect any skipped-field errors from this batch
-          if (result.errors && result.errors.length) {
-            let batchFlatErrors = [];
-            for (let bei = 0; bei < result.errors.length; bei++) {
-              let ber = result.errors[bei];
-              for (let bfi = 0; bfi < ber.errors.length; bfi++) {
-                let be = ber.errors[bfi];
-                batchFlatErrors.push({
-                  rowNumber: 0,
-                  name: ber.name || '',
-                  studentId: ber.studentId || '',
-                  fieldName: be.field || '',
-                  fieldType: be.fieldType || '',
-                  errorValue: be.value || '',
-                  errorReason: be.error || ''
-                });
-              }
-            }
-            validationErrors = validationErrors.concat(batchFlatErrors);
-          }
-        }
-  
-        wx.hideLoading();
-        self.setData({ csvImportLoading: false, csvName: self.data.csvImportFileName || '已导入表格' });
-        self._csvImportActive = false;
-        await self.loadHrList();
-        self.loadHrProfileAdminData();
-  
-        let toastTitle = '导入成功，共 ' + totalCount + ' 条';
-        if (skippedNoStudentIdTotal > 0) {
-          toastTitle += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
-        }
-        if (validationErrors.length > 0) {
-          let errRecordCount = 0;
-          let errSeen = {};
-          for (let ie = 0; ie < validationErrors.length; ie++) {
-            if (!errSeen[validationErrors[ie].studentId]) {
-              errSeen[validationErrors[ie].studentId] = true;
-              errRecordCount++;
-            }
-          }
-          if (totalCount > 0) {
-            let summary = '已导入 ' + totalCount + ' 条，共 ' + errRecordCount + ' 条记录 ' + validationErrors.length + ' 个字段因格式问题跳过';
-            if (skippedNoStudentIdTotal > 0) {
-              summary += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
-            }
-            toastTitle += '（部分字段已跳过）';
-            wx.showToast({ title: toastTitle, icon: 'none', duration: 2500 });
-          } else {
-            let summary = '导入失败，' + errRecordCount + ' 条记录存在 ' + validationErrors.length + ' 个字段格式错误，请修正后重新导入，或开启「字段无效时仍然导入」';
-            if (skippedNoStudentIdTotal > 0) {
-              summary += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
-            }
-            toastTitle = '导入失败，' + errRecordCount + ' 条记录存在格式错误';
-            if (skippedNoStudentIdTotal > 0) {
-              toastTitle += '，' + skippedNoStudentIdTotal + ' 条因学号为空跳过';
-            }
-            wx.showToast({ title: toastTitle, icon: 'none', duration: 3000 });
-          }
-          self.setData({
+        let result = await this.callCloud('importHrTable', this.buildHrTableImportPayload());
+        if (result && result.status === 'validation_errors') {
+          let validationErrors = this.flattenHrImportErrors(result.errors);
+          this.setData({
+            showHrImportPreview: false,
+            showCsvMappingDialog: true,
             showValidationErrors: true,
             validationErrors: validationErrors,
-            validationErrorCards: self.buildValidationErrorCards(validationErrors),
-            validationErrorSummary: summary
+            validationErrorCards: this.buildValidationErrorCards(validationErrors),
+            validationErrorSummary: '导入前校验发现 ' + validationErrors.length + ' 个字段问题'
           });
+          return;
+        }
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: (result && result.message) || '导入失败', icon: 'none' });
+          return;
+        }
+
+        let skippedErrors = this.flattenHrImportErrors(result.errors);
+        this.setData({
+          showHrImportPreview: false,
+          showCsvMappingDialog: false,
+          csvName: this.data.csvImportFileName || '已导入表格'
+        });
+        await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
+        await this.loadWorkGroupList();
+        await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+        this.updateHrFormOptions();
+
+        if (skippedErrors.length) {
+          this.setData({
+            showValidationErrors: true,
+            validationErrors: skippedErrors,
+            validationErrorCards: this.buildValidationErrorCards(skippedErrors),
+            validationErrorSummary: '已导入 ' + Number(result.count || 0) + ' 条，另有 ' + skippedErrors.length + ' 个字段被跳过'
+          });
+          wx.showToast({ title: '导入完成，部分字段已跳过', icon: 'none' });
         } else {
-          wx.showToast({ title: toastTitle, icon: 'success' });
+          wx.showToast({ title: '导入成功，共 ' + Number(result.count || 0) + ' 条', icon: 'success' });
         }
       } catch (error) {
+        wx.showToast({ title: '导入失败，请检查网络后重试', icon: 'none' });
+      } finally {
         wx.hideLoading();
-        self.setData({ csvImportLoading: false });
-        self._csvImportActive = false;
-        wx.showToast({ title: 'CSV 导入失败', icon: 'none' });
+        this._csvImportActive = false;
+        this.setData({ csvImportLoading: false });
       }
     }
   }

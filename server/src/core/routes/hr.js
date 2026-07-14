@@ -20,6 +20,7 @@ const workGroupModel = require('../models/workGroup');
 const adminInfoModel = require('../models/adminInfo');
 const profileTemplateModel = require('../models/hrProfileTemplate');
 const profileFieldModel = require('../models/hrProfileField');
+const hrTableImportModel = require('../models/hrTableImport');
 const pool = require('../../config/db');
 
 function tryParseDate(rawValue) {
@@ -178,6 +179,41 @@ function firstValue(row, fields) {
   return '';
 }
 
+async function handleStructuredHrImport(req, res, previewOnly) {
+  try {
+    const admin = await adminInfoModel.getByOpenid(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    const orgId = await getCurrentOrgId();
+    const result = previewOnly
+      ? await hrTableImportModel.previewHrTableImport(req.body, orgId)
+      : await hrTableImportModel.importHrTable(req.body, orgId);
+    return res.json(result);
+  } catch (error) {
+    const isExpectedImportError = error instanceof hrTableImportModel.HrTableImportError;
+    if (req.logger) {
+      req.logger.error('hr table import failed', {
+        endpoint: previewOnly ? 'previewHrTableImport' : 'importHrTable',
+        status: safeString(error.status) || 'error',
+        error: safeString(error.message),
+        stack: error.stack
+      });
+    }
+    return res.json({
+      status: isExpectedImportError ? safeString(error.status) : 'error',
+      message: isExpectedImportError ? safeString(error.message) : '表格导入失败，请稍后重试',
+      requestId: req.requestId || ''
+    });
+  }
+}
+
+router.post('/previewHrTableImport', async (req, res) => {
+  await handleStructuredHrImport(req, res, true);
+});
+
+router.post('/importHrTable', async (req, res) => {
+  await handleStructuredHrImport(req, res, false);
+});
+
 router.post('/importHrCsv', async (req, res) => {
   try {
     const openid = req.openid;
@@ -198,8 +234,19 @@ router.post('/importHrCsv', async (req, res) => {
     const skipInvalid = !!req.body.skipInvalid;
 
     function resolveField(doc, fieldName) {
-      if (columnMapping && columnMapping[fieldName]) {
-        return safeString(doc[columnMapping[fieldName]]);
+      if (columnMapping) {
+        const mappingAliases = {
+          name: ['name'],
+          studentId: ['studentId'],
+          departmentName: ['departmentName', 'department'],
+          identityName: ['identityName', 'identity'],
+          workGroupName: ['workGroupName', 'workGroup']
+        };
+        const aliases = mappingAliases[fieldName] || [fieldName];
+        for (const alias of aliases) {
+          if (columnMapping[alias]) return safeString(doc[columnMapping[alias]]);
+        }
+        return '';
       }
       const fallbackMap = {
         name: ['name', '姓名'],
@@ -391,26 +438,31 @@ router.post('/importHrCsv', async (req, res) => {
       }
 
       for (const row of parsedRows) {
-        const departmentId = row.departmentName ? deptMap.get(row.departmentName) || '' : '';
-        const identityId = row.identityName ? identityMap.get(row.identityName) || '' : '';
-        let workGroupId = '';
+        let hrId;
+        const existingId = hrInfoMap.get(row.studentId);
+        const previous = existingId ? hrInfoRecMap.get(existingId) : null;
+        const effectiveName = row.name || safeString(previous && previous.name);
+        const departmentId = row.departmentName
+          ? deptMap.get(row.departmentName) || ''
+          : safeString(previous && previous.department_id);
+        const identityId = row.identityName
+          ? identityMap.get(row.identityName) || ''
+          : safeString(previous && previous.identity_id);
+        let workGroupId = safeString(previous && previous.work_group_id);
         if (row.workGroupName && departmentId) {
           workGroupId = workGroupMap.get(`${row.workGroupName}::${departmentId}`) || '';
         }
-
-        let hrId;
-        const existingId = hrInfoMap.get(row.studentId);
         if (existingId) {
           hrId = existingId;
           await conn.query(
             `UPDATE hr_info SET name=?, student_id=?, department_id=?, identity_id=?, work_group_id=?, updated_at=? WHERE id=? AND org_id=?`,
-            [row.name, row.studentId, departmentId, identityId, workGroupId, nowUtc, hrId, orgId]
+            [effectiveName, row.studentId, departmentId, identityId, workGroupId, nowUtc, hrId, orgId]
           );
         } else {
           hrId = generateId();
           await conn.query(
             `INSERT INTO hr_info (id, name, student_id, department_id, identity_id, work_group_id, org_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)`,
-            [hrId, row.name, row.studentId, departmentId, identityId, workGroupId, orgId, nowUtc, nowUtc]
+            [hrId, effectiveName, row.studentId, departmentId, identityId, workGroupId, orgId, nowUtc, nowUtc]
           );
           hrInfoMap.set(row.studentId, hrId);
         }
@@ -469,7 +521,7 @@ router.post('/importHrCsv', async (req, res) => {
             await conn.query(
               `INSERT INTO hr_profile_records (id, hr_id, name, openid, template_key, template_updated_at, audit_status, reviewed_at, org_id, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [recordId, hrId, row.name, '', TEMPLATE_KEY, template.updated_at, 'pending', nowUtc, orgId, nowUtc, nowUtc]
+              [recordId, hrId, effectiveName, '', TEMPLATE_KEY, template.updated_at, 'pending', nowUtc, orgId, nowUtc, nowUtc]
             );
             for (const [fieldName, fieldValue] of Object.entries(row.extValues)) {
               const fieldDef = fieldByLabel.get(fieldName);

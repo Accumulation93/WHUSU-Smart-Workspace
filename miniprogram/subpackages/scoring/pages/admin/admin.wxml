@@ -1182,7 +1182,7 @@
             <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary">示例值</view>
             <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">映射到</view>
           </view>
-          <view class="csv-mapping-row ui-data-row" wx:for="{{csvImportRows}}" wx:key="header">
+          <view class="csv-mapping-row ui-data-row" wx:for="{{csvImportRows}}" wx:key="columnKey">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">
               <text class="csv-mapping-mobile-label">表格列名</text>
               <text class="csv-mapping-primary-text">{{item.header}}</text>
@@ -1198,7 +1198,7 @@
             </view>
             <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">
               <text class="csv-mapping-mobile-label">映射到</text>
-              <picker range="{{csvImportMappingLabels}}"
+              <picker range="{{item.mappingLabels}}"
                       mode="selector" data-index="{{index}}"
                       bindchange="onCsvMappingTargetChange"
                       value="{{item.optionIndex}}">
@@ -1216,7 +1216,84 @@
         </view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeCsvMappingDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-          <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认导入</button>
+          <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">预检导入</button>
+        </view>
+      </view>
+    </view>
+
+    <!-- HR table import read-only preview -->
+    <view class="modal-mask ui-overlay" wx:if="{{showHrImportPreview}}" bindtap="closeHrImportPreview">
+      <view class="modal-card hr-import-preview-card ui-dialog-shell ui-dialog-shell--complex" catchtap>
+        <view class="modal-header ui-dialog-header">
+          <view>
+            <view class="modal-title">导入预检</view>
+            <view class="hr-import-preview-source">{{hrImportPreview.fileName}} · {{hrImportPreview.sheetName}}</view>
+          </view>
+          <view class="modal-close ui-motion-chip" catchtap="closeHrImportPreview" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
+        </view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body hr-import-preview-body ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+          <view class="hr-import-preview-stats">
+            <view class="hr-import-preview-stat"><text>表格记录</text><text class="hr-import-preview-stat-value">{{hrImportPreview.totalRows}}</text></view>
+            <view class="hr-import-preview-stat is-success"><text>可导入</text><text class="hr-import-preview-stat-value">{{hrImportPreview.validRows}}</text></view>
+            <view class="hr-import-preview-stat is-warning"><text>有问题</text><text class="hr-import-preview-stat-value">{{hrImportPreview.invalidRows}}</text></view>
+            <view class="hr-import-preview-stat"><text>新增 / 更新</text><text class="hr-import-preview-stat-value">{{hrImportPreview.newRecords}} / {{hrImportPreview.updateRecords}}</text></view>
+          </view>
+
+          <view class="hr-import-preview-warning" wx:if="{{hrImportPreview.invalidRows > 0}}">
+            当前有 {{hrImportPreview.invalidRows}} 条记录未通过校验。{{hrImportPreview.skipInvalid ? '确认后仅写入可用记录。' : '请返回修正表格，或开启跳过无效字段。'}}
+          </view>
+
+          <view class="hr-import-preview-section">
+            <view class="hr-import-preview-heading">字段映射</view>
+            <view class="hr-import-preview-mapping" wx:for="{{hrImportPreview.mappings}}" wx:key="columnKey">
+              <view class="hr-import-preview-column">{{item.header}}</view>
+              <view class="hr-import-preview-arrow">→</view>
+              <view class="hr-import-preview-target">
+                <text>{{item.targetLabel}}</text>
+                <text class="hr-import-preview-type">{{item.targetTypeLabel}}</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="hr-import-preview-section" wx:if="{{hrImportPreview.ignoredColumns.length}}">
+            <view class="hr-import-preview-heading">明确忽略的列</view>
+            <view class="hr-import-preview-chips">
+              <text class="hr-import-preview-chip is-muted" wx:for="{{hrImportPreview.ignoredColumns}}" wx:key="columnKey">{{item.header}}</text>
+            </view>
+          </view>
+
+          <view class="hr-import-preview-section">
+            <view class="hr-import-preview-heading">待创建字典</view>
+            <view class="hr-import-preview-dict-row">
+              <text class="hr-import-preview-dict-label">部门 {{hrImportPreview.newDepartments.length}}</text>
+              <view class="hr-import-preview-chips" wx:if="{{hrImportPreview.newDepartments.length}}">
+                <text class="hr-import-preview-chip" wx:for="{{hrImportPreview.newDepartments}}" wx:key="*this">{{item}}</text>
+              </view>
+              <text class="hr-import-preview-empty" wx:else>无需新建</text>
+            </view>
+            <view class="hr-import-preview-dict-row">
+              <text class="hr-import-preview-dict-label">身份 {{hrImportPreview.newIdentities.length}}</text>
+              <view class="hr-import-preview-chips" wx:if="{{hrImportPreview.newIdentities.length}}">
+                <text class="hr-import-preview-chip" wx:for="{{hrImportPreview.newIdentities}}" wx:key="*this">{{item}}</text>
+              </view>
+              <text class="hr-import-preview-empty" wx:else>无需新建</text>
+            </view>
+            <view class="hr-import-preview-dict-row">
+              <text class="hr-import-preview-dict-label">职能组 {{hrImportPreview.newWorkGroups.length}}</text>
+              <view class="hr-import-preview-chips" wx:if="{{hrImportPreview.newWorkGroups.length}}">
+                <text class="hr-import-preview-chip" wx:for="{{hrImportPreview.newWorkGroups}}" wx:key="*this">{{item}}</text>
+              </view>
+              <text class="hr-import-preview-empty" wx:else>留空，不创建</text>
+            </view>
+          </view>
+
+          <view class="hr-import-preview-note" wx:if="{{hrImportPreview.preservedEmptyFields > 0}}">
+            已识别 {{hrImportPreview.preservedEmptyFields}} 个已有人员的空单元格；这些字段会保留数据库原值。
+          </view>
+        </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+        <view class="modal-footer csv-mapping-footer ui-dialog-footer">
+          <button class="secondary-btn ui-motion-button" catchtap="cancelHrImportPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">返回映射</button>
+          <button class="primary-btn ui-motion-button" disabled="{{!hrImportPreview.canImport}}" loading="{{csvImportLoading}}" catchtap="confirmHrTableImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认写入</button>
         </view>
       </view>
     </view>

@@ -38,11 +38,23 @@ router.post('/parseTableFile', async (req, res) => {
       }
 
       const headers = data[0].map(cell => String(cell == null ? '' : cell).trim());
-      const rows = data.slice(1).filter(row =>
-        row.some(cell => String(cell || '').trim() !== '')
-      );
+      const columnCount = headers.length;
+      const rows = data.slice(1)
+        .filter(row => row.some(cell => String(cell == null ? '' : cell).trim() !== ''))
+        .map(row => {
+          const cells = [];
+          for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+            cells.push(String(row[columnIndex] == null ? '' : row[columnIndex]));
+          }
+          return cells;
+        });
+      const columns = headers.map((header, columnIndex) => ({
+        columnIndex,
+        columnKey: `column-${columnIndex}`,
+        header
+      }));
 
-      sheets.push({ name, headers, rows });
+      sheets.push({ name, headers, columns, rows });
     }
 
     res.json({

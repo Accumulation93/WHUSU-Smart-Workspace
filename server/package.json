@@ -7,7 +7,8 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test:org-switch": "node test/activateOrganization.test.js",
-    "test:org-cache": "node test/scoringOrgCacheIsolation.test.js"
+    "test:org-cache": "node test/scoringOrgCacheIsolation.test.js",
+    "test:hr-import": "node test/hrTableImport.test.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.1",
