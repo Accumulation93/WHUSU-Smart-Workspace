@@ -1194,10 +1194,10 @@ async function checkStepAuthorization(step, submission, hrId, requestRole) {
         if (matchesScope(step, approver, submitter)) return true;
       }
     }
-    // 4. 旧数据中完全无条件的步骤只允许当前组织管理员处理，禁止任意用户审批。
+    // 4. 无条件步骤不授予隐式审批权；管理员身份也不能替代普通用户人事身份审批。
     if (!step.step_conditions_json && !step.template_step_id &&
         !step.approver_hr_id && !step.approver_identity_id) {
-      return ['admin', 'super_admin', 'root_admin'].includes(requestRole);
+      return false;
     }
   }
 
@@ -1483,16 +1483,10 @@ router.post('/approveStep', async (req, res) => {
       comment: comment || null
     }, conn);
 
-    await conn.commit();
-    // ★ Notifications (fire-and-forget) — notify submitter of progress
-    let submitterNameForNotify = '';
-    try {
-      let [snRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [submission.submitted_by, orgId]);
-      submitterNameForNotify = (snRows[0] && snRows[0].name) || '';
-    } catch (_) {}
+    // 业务状态与通知 Outbox 在同一事务提交。
     if (!nextStep) {
       // Final step approved → notify submitter
-      createNotification({
+      await createNotification({
         hrId: submission.submitted_by,
         type: 'submission_approved',
         title: '审核已通过',
@@ -1501,10 +1495,10 @@ router.post('/approveStep', async (req, res) => {
         targetType: 'submission',
         targetId: submissionId,
         targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
-      });
+      }, conn);
     } else {
       // Advanced to next step → notify submitter of progress
-      createNotification({
+      await createNotification({
         hrId: submission.submitted_by,
         type: 'submission_progress',
         title: '审核进度更新',
@@ -1513,8 +1507,9 @@ router.post('/approveStep', async (req, res) => {
         targetType: 'submission',
         targetId: submissionId,
         targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
-      });
+      }, conn);
     }
+    await conn.commit();
     res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
   } catch (e) {
     await conn.rollback();
@@ -1610,9 +1605,7 @@ router.post('/rejectStep', async (req, res) => {
       comment: rejectionReason || null
     }, conn);
 
-    await conn.commit();
-    // Notify submitter of rejection (fire-and-forget)
-    createNotification({
+    await createNotification({
       hrId: submission.submitted_by,
       type: 'submission_rejected',
       title: '审核被驳回',
@@ -1621,7 +1614,8 @@ router.post('/rejectStep', async (req, res) => {
       targetType: 'submission',
       targetId: submissionId,
       targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
-    });
+    }, conn);
+    await conn.commit();
     res.json({ status: 'success', message: '已驳回，提交人将收到通知' });
   } catch (e) {
     await conn.rollback();

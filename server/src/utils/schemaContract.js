@@ -5,6 +5,10 @@ const REQUIRED_COLUMNS = [
   ['venue_bookings', 'creator_org_id'],
   ['venue_bookings', 'approval_org_id'],
   ['notifications', 'org_id'],
+  ['notifications', 'recipient_type'],
+  ['notifications', 'recipient_id'],
+  ['notifications', 'event_key'],
+  ['venue_approval_flow_steps', 'approval_mode'],
   ['audit_read_cursors', 'org_id']
 ];
 
@@ -12,13 +16,16 @@ const REQUIRED_TABLES = [
   'auth_challenges',
   'audit_number_sequences',
   'request_deduplication',
-  '_shared_cache'
+  '_shared_cache',
+  'notification_outbox'
 ];
 
 const REQUIRED_INDEXES = [
   ['score_records', 'uk_sr_business'],
   ['score_answers', 'uk_sa_record_question'],
-  ['audit_read_cursors', 'uk_arc_org_hr_submission']
+  ['audit_read_cursors', 'uk_arc_org_hr_submission'],
+  ['notifications', 'uk_notification_event'],
+  ['notification_outbox', 'uk_notification_outbox_event']
 ];
 
 async function verifySchemaContract(pool) {
@@ -55,7 +62,7 @@ async function verifySchemaContract(pool) {
     error.missing = missing;
     throw error;
   }
-  return { status: 'ok', revision: '2026-07-security-data-v1' };
+  return { status: 'ok', revision: '2026-07-message-center-v1' };
 }
 
 module.exports = { verifySchemaContract, REQUIRED_COLUMNS, REQUIRED_TABLES, REQUIRED_INDEXES };

@@ -19,6 +19,24 @@ module.exports = {
     kill_timeout: 5000,
     listen_timeout: 5000
   }, {
+    name: 'redsu-notification-worker',
+    script: 'notificationWorker.js',
+    cwd: '/home/ubuntu/redsu_scoring/server',
+    exec_mode: 'fork',
+    instances: 1,
+    env: {
+      NODE_ENV: 'production'
+    },
+    max_memory_restart: '256M',
+    max_restarts: 5,
+    min_uptime: '10s',
+    log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    error_file: '/home/ubuntu/.pm2/logs/redsu-notification-worker-error.log',
+    out_file: '/home/ubuntu/.pm2/logs/redsu-notification-worker-out.log',
+    merge_logs: true,
+    kill_timeout: 10000,
+    autorestart: true
+  }, {
     name: 'redsu-backup',
     script: 'backup.js',
     cwd: '/home/ubuntu/redsu_scoring/server',

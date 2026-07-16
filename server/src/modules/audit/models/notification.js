@@ -1,189 +1,197 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
-/**
- * Insert a single notification.
- * @param {string} id
- * @param {object} data — { hrId, type, title, description, category, targetType, targetId, targetUrl }
- * @param {object} [conn] — optional transaction connection
- */
+const RETENTION_DAYS = 30;
+
+function normalizeRecipient(data) {
+  const recipientType = data.recipientType || (data.hrId ? 'user' : '');
+  const recipientId = data.recipientId || data.hrId || '';
+  return { recipientType, recipientId };
+}
+
 async function create(id, data, conn) {
-  const { hrId, type, title, description, category, targetType, targetId, targetUrl } = data;
-  const orgId = data.orgId || getCurrentOrgId();
   const db = conn || pool;
-  await db.query(
-    `INSERT INTO notifications (id, hr_id, org_id, type, title, description, category, target_type, target_id, target_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, hrId, orgId, type, title, description || null, category || 'audit', targetType || null, targetId || null, targetUrl || null]
+  const orgId = data.orgId || await getCurrentOrgId();
+  const recipient = normalizeRecipient(data);
+  if (!orgId || !recipient.recipientType || !recipient.recipientId) {
+    throw new Error('通知缺少组织或收件人');
+  }
+  const [result] = await db.query(
+    `INSERT INTO notifications
+      (id, hr_id, recipient_type, recipient_id, event_key, org_id, type, title, description,
+       category, target_type, target_id, target_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE id = id`,
+    [
+      id,
+      recipient.recipientType === 'user' ? recipient.recipientId : null,
+      recipient.recipientType,
+      recipient.recipientId,
+      data.eventKey || null,
+      orgId,
+      data.type,
+      data.title,
+      data.description || null,
+      data.category || 'system',
+      data.targetType || null,
+      data.targetId || null,
+      data.targetUrl || null
+    ]
   );
+  return { created: result.affectedRows === 1 };
 }
 
-/**
- * Batch insert multiple notifications.
- * @param {Array<{id, hrId, type, title, description, category, targetType, targetId, targetUrl}>} items
- * @param {object} [conn] — optional transaction connection
- */
 async function batchCreate(items, conn) {
-  if (!items.length) return;
-  const db = conn || pool;
-  const orgId = getCurrentOrgId();
-  const values = items.map(item => [
-    item.id,
-    item.hrId,
-    item.orgId || orgId,
-    item.type,
-    item.title,
-    item.description || null,
-    item.category || 'audit',
-    item.targetType || null,
-    item.targetId || null,
-    item.targetUrl || null
+  if (!items.length) return { created: 0 };
+  let created = 0;
+  for (const item of items) {
+    const result = await create(item.id, item, conn);
+    if (result.created) created += 1;
+  }
+  return { created };
+}
+
+async function listForRecipient(actor, options) {
+  const orgId = await getCurrentOrgId();
+  const limit = Math.max(1, Math.min(parseInt(options.limit, 10) || 20, 50));
+  const offset = Math.max(0, parseInt(options.offset, 10) || 0);
+  const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS];
+  const [countResult, rowsResult] = await Promise.all([
+    pool.query(
+      `SELECT COUNT(*) AS total,
+              COALESCE(SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END), 0) AS unread_count
+         FROM notifications
+        WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
+          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)`,
+      params
+    ),
+    pool.query(
+      `SELECT id, type, title, description, category, target_type, target_id, target_url,
+              is_read, created_at
+         FROM notifications
+        WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
+          AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+        ORDER BY created_at DESC, id DESC
+        LIMIT ? OFFSET ?`,
+      params.concat([limit, offset])
+    )
   ]);
-  const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
-  await db.query(
-    `INSERT INTO notifications (id, hr_id, org_id, type, title, description, category, target_type, target_id, target_url)
-     VALUES ${placeholders}`,
-    values.flat()
-  );
+  const counts = countResult[0];
+  const rows = rowsResult[0];
+  const countRow = counts[0] || { total: 0, unread_count: 0 };
+  return {
+    items: rows,
+    total: Number(countRow.total || 0),
+    unreadCount: Number(countRow.unread_count || 0),
+    offset,
+    limit
+  };
 }
 
-/**
- * List notifications for a user (paginated).
- * @param {string} hrId
- * @param {object} opts — { limit, offset }
- */
-async function listByHrId(hrId, opts) {
-  const orgId = getCurrentOrgId();
-  const limit = parseInt(opts.limit) || 20;
-  const offset = parseInt(opts.offset) || 0;
-  const [[{ count }]] = await pool.query(
-    'SELECT COUNT(*) AS count FROM notifications WHERE org_id = ? AND hr_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)',
-    [orgId, hrId]
+async function getUnreadCountForRecipient(actor) {
+  const result = await listForRecipient(actor, { limit: 1, offset: 0 });
+  return result.unreadCount;
+}
+
+async function markRead(notificationId, actor) {
+  const orgId = await getCurrentOrgId();
+  const [updateResult] = await pool.query(
+    `UPDATE notifications SET is_read = 1
+      WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? AND is_read = 0`,
+    [notificationId, orgId, actor.type, actor.id]
   );
+  if (updateResult.affectedRows > 0) {
+    return { found: true, changed: true, unreadCount: await getUnreadCountForRecipient(actor) };
+  }
   const [rows] = await pool.query(
-    'SELECT * FROM notifications WHERE org_id = ? AND hr_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) ORDER BY created_at DESC LIMIT ? OFFSET ?',
-    [orgId, hrId, limit, offset]
+    `SELECT is_read FROM notifications
+      WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ? LIMIT 1`,
+    [notificationId, orgId, actor.type, actor.id]
   );
-  return { items: rows, total: count };
+  if (!rows.length) return { found: false, changed: false, unreadCount: null };
+  return { found: true, changed: false, unreadCount: await getUnreadCountForRecipient(actor) };
 }
 
-/**
- * Get unread notification count for a user.
- */
-async function getUnreadCount(hrId) {
-  const orgId = getCurrentOrgId();
-  const [[{ count }]] = await pool.query(
-    'SELECT COUNT(*) AS count FROM notifications WHERE org_id = ? AND hr_id = ? AND is_read = 0',
-    [orgId, hrId]
+async function deleteById(notificationId, actor) {
+  const orgId = await getCurrentOrgId();
+  const [result] = await pool.query(
+    `DELETE FROM notifications
+      WHERE id = ? AND org_id = ? AND recipient_type = ? AND recipient_id = ?`,
+    [notificationId, orgId, actor.type, actor.id]
   );
-  return count;
+  return { found: result.affectedRows > 0, unreadCount: await getUnreadCountForRecipient(actor) };
 }
 
-/**
- * Mark a single notification as read.
- */
-async function markRead(notificationId, hrId) {
-  const orgId = getCurrentOrgId();
-  await pool.query(
-    'UPDATE notifications SET is_read = 1 WHERE id = ? AND org_id = ? AND hr_id = ?',
-    [notificationId, orgId, hrId]
+async function markAllRead(actor) {
+  const orgId = await getCurrentOrgId();
+  const [result] = await pool.query(
+    `UPDATE notifications SET is_read = 1
+      WHERE org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ? AND is_read = 0`,
+    [orgId, actor.type, actor.id, 'pending_approval']
   );
-}
-
-async function deleteById(notificationId, hrId) {
-  const orgId = getCurrentOrgId();
-  await pool.query(
-    'DELETE FROM notifications WHERE id = ? AND org_id = ? AND hr_id = ?',
-    [notificationId, orgId, hrId]
-  );
+  return { changedCount: result.affectedRows, unreadCount: 0 };
 }
 
 async function cleanupOld(days) {
-  const keepDays = Math.max(parseInt(days, 10) || 14, 1);
-  await pool.query(
-    'DELETE FROM notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL ' + keepDays + ' DAY)'
+  const keepDays = Math.max(parseInt(days, 10) || RETENTION_DAYS, 1);
+  const [result] = await pool.query(
+    'DELETE FROM notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)',
+    [keepDays]
   );
+  return result.affectedRows;
 }
 
-/**
- * Mark all notifications as read for a user.
- */
-async function markAllRead(hrId) {
-  const orgId = getCurrentOrgId();
-  await pool.query(
-    'UPDATE notifications SET is_read = 1 WHERE org_id = ? AND hr_id = ?',
-    [orgId, hrId]
-  );
-}
-
-/**
- * Mark all pending_approval notifications for a given target as read.
- * Called when an approval progresses (next step) or completes (approved/rejected).
- * @param {string} targetType — e.g. 'submission' | 'booking'
- * @param {string} targetId
- * @param {object} [conn] — optional transaction connection
- */
 async function markReadByTarget(targetType, targetId, conn) {
   const db = conn || pool;
-  const orgId = getCurrentOrgId();
-  await db.query(
-    'UPDATE notifications SET is_read = 1 WHERE org_id = ? AND target_type = ? AND target_id = ? AND type = ?',
+  const orgId = await getCurrentOrgId();
+  const [result] = await db.query(
+    `UPDATE notifications SET is_read = 1
+      WHERE org_id = ? AND target_type = ? AND target_id = ? AND type = ?`,
     [orgId, targetType, targetId, 'pending_approval']
   );
+  return result.affectedRows;
 }
 
-/**
- * Check if a pending_approval notification exists for a given target and hrId.
- * Used for self-healing reconciliation.
- * @returns {boolean}
- */
 async function hasPendingApprovalNotification(targetType, targetId, hrId) {
-  const orgId = getCurrentOrgId();
-  const [[{ count }]] = await pool.query(
-    'SELECT COUNT(*) AS count FROM notifications WHERE org_id = ? AND target_type = ? AND target_id = ? AND hr_id = ? AND type = ? AND is_read = 0',
+  const orgId = await getCurrentOrgId();
+  const [[row]] = await pool.query(
+    `SELECT COUNT(*) AS count FROM notifications
+      WHERE org_id = ? AND target_type = ? AND target_id = ?
+        AND recipient_type = 'user' AND recipient_id = ?
+        AND type = ? AND is_read = 0`,
     [orgId, targetType, targetId, hrId, 'pending_approval']
   );
-  return count > 0;
+  return Number(row.count || 0) > 0;
 }
 
-/**
- * Delete all pending_approval notifications for a given target.
- * Called after approval action to truly remove (not just mark read) notifications.
- * @param {string} targetType — e.g. 'submission' | 'booking'
- * @param {string} targetId
- * @param {object} [conn] — optional transaction connection
- */
 async function deleteByTarget(targetType, targetId, conn) {
   const db = conn || pool;
-  const orgId = getCurrentOrgId();
-  await db.query(
+  const orgId = await getCurrentOrgId();
+  const [result] = await db.query(
     'DELETE FROM notifications WHERE org_id = ? AND target_type = ? AND target_id = ? AND type = ?',
     [orgId, targetType, targetId, 'pending_approval']
   );
+  return result.affectedRows;
 }
 
-/**
- * Delete a specific user's pending_approval notification for a target.
- * Used by dismissNotification endpoint for optimistic-update cleanup.
- * @param {string} targetType
- * @param {string} targetId
- * @param {string} hrId
- * @param {object} [conn] — optional transaction connection
- */
 async function deleteByTargetAndHrId(targetType, targetId, hrId, conn) {
   const db = conn || pool;
-  const orgId = getCurrentOrgId();
-  await db.query(
-    'DELETE FROM notifications WHERE org_id = ? AND target_type = ? AND target_id = ? AND hr_id = ? AND type = ?',
+  const orgId = await getCurrentOrgId();
+  const [result] = await db.query(
+    `DELETE FROM notifications
+      WHERE org_id = ? AND target_type = ? AND target_id = ?
+        AND recipient_type = 'user' AND recipient_id = ? AND type = ?`,
     [orgId, targetType, targetId, hrId, 'pending_approval']
   );
+  return result.affectedRows;
 }
 
 module.exports = {
+  RETENTION_DAYS,
   create,
   batchCreate,
-  listByHrId,
-  getUnreadCount,
+  listForRecipient,
+  getUnreadCountForRecipient,
   markRead,
   deleteById,
   cleanupOld,

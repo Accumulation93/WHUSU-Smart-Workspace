@@ -17,6 +17,7 @@
     "test:client-version": "node test/clientVersion.test.js",
     "test:runtime-hardening": "node test/runtimeHardening.test.js",
     "test:hr-import": "node test/hrTableImport.test.js",
+    "test:message-center": "node test/messageCenter.test.js",
     "security:cleanup-audit-temp": "node scripts/cleanupAuditTemp.js",
     "security:bootstrap-root": "node scripts/bootstrapRootAdmin.js"
   },

@@ -1,6 +1,6 @@
-const pool = require('../../../config/db');
-const { generateId, safeString } = require('../../../utils/helpers');
-const notificationModel = require('../models/notification');
+const { safeString } = require('../../../utils/helpers');
+const crypto = require('crypto');
+const notificationOutboxModel = require('../models/notificationOutbox');
 
 /**
  * Unified notification creation function for other modules (venue, scoring, etc.).
@@ -21,13 +21,31 @@ const notificationModel = require('../models/notification');
  *     targetUrl: '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals?id=' + bookingId
  *   });
  */
-async function createNotification(opts) {
-  const id = generateId();
-  try {
-    await notificationModel.create(id, opts);
-  } catch (e) {
-    console.error('[notificationHelper] createNotification failed:', e.message);
-  }
+async function createNotification(opts, conn) {
+  const recipientId = safeString(opts.recipientId || opts.hrId);
+  if (!recipientId) throw new Error('通知缺少收件人');
+  const contentFingerprint = crypto.createHash('sha256')
+    .update([opts.title, opts.description].map(safeString).join('\n'))
+    .digest('hex').slice(0, 16);
+  const eventKey = safeString(opts.eventKey) || [
+    opts.type, opts.targetType, opts.targetId, opts.recipientType || 'user', recipientId, contentFingerprint
+  ].map(safeString).join(':');
+  return notificationOutboxModel.enqueue({
+    orgId: opts.orgId,
+    eventType: safeString(opts.type || 'system'),
+    eventKey,
+    recipientType: safeString(opts.recipientType || 'user'),
+    recipientId,
+    payload: {
+      type: safeString(opts.type || 'system'),
+      title: safeString(opts.title || '系统通知'),
+      description: safeString(opts.description),
+      category: safeString(opts.category || 'system'),
+      targetType: safeString(opts.targetType),
+      targetId: safeString(opts.targetId),
+      targetUrl: safeString(opts.targetUrl)
+    }
+  }, conn);
 }
 
 module.exports = {

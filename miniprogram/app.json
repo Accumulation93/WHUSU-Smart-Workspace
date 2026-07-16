@@ -2,6 +2,7 @@
   "pages": [
     "pages/login/login",
     "pages/portal/portal",
+    "pages/messageCenter/messageCenter",
     "pages/home/home"
   ],
   "subPackages": [

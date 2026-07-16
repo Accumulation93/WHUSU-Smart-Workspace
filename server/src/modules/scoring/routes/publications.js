@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const notificationOutboxModel = require('../../audit/models/notificationOutbox');
 const { safeString, toNumber, roundScore, generateId, buildNameMap } = require('../../../utils/helpers');
 const { logger } = require('../../../utils/logger');
 const adminInfoModel = require('../../../core/models/adminInfo');
@@ -251,6 +252,7 @@ router.post('/saveResultPublication', async (req, res) => {
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     let existing = await publicationModel.getByActivity(activityId);
+    const wasPublished = !!(existing && existing.is_published);
 
     if (existing) {
       await publicationModel.update(existing.id, { isPublished, publishedAt: isPublished ? now : existing.published_at, publishedBy: admin.id });
@@ -258,6 +260,22 @@ router.post('/saveResultPublication', async (req, res) => {
       const newId = generateId();
       await publicationModel.create(newId, { activityId, isPublished, publishedAt: isPublished ? now : null, publishedBy: admin.id });
       existing = { id: newId };
+    }
+    if (isPublished && !wasPublished) {
+      await notificationOutboxModel.enqueue({
+        eventType: 'score_results_published',
+        eventKey: 'score-results-published:' + existing.id + ':' + now,
+        payload: {
+          type: 'score_results_published',
+          title: '考核结果已公示',
+          description: '「' + safeString(activity.name || '当前考核活动') + '」的结果已向您公示。',
+          category: 'scoring',
+          targetType: 'result_publication',
+          targetId: existing.id,
+          targetUrl: '/pages/home/home?subApp=scoring',
+          publicationId: existing.id
+        }
+      });
     }
     res.json({ status: 'success', publication: { id: existing.id, activityId, isPublished }, message: isPublished ? '结果已公示' : '公示已关闭' });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }

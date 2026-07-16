@@ -13,7 +13,7 @@ const { createVenueApprovalNotifications, createVenueBookingStatusNotification }
 const notificationModel = require('../../audit/models/notification');
 
 async function ensureAdmin(openid) {
-  return adminInfoModel.getByOpenidGlobal(openid);
+  return adminInfoModel.getByOpenid(openid);
 }
 
 function fmtDatetime(d) {
@@ -94,6 +94,7 @@ router.post('/saveVenueApprovalStep', async (req, res) => {
     const flowId = safeString(req.body.flowId);
     const name = safeString(req.body.name);
     const sortOrder = parseInt(req.body.sortOrder) || 1;
+    const approvalMode = safeString(req.body.approvalMode) === 'admin_any' ? 'admin_any' : 'hr_rule';
     if (!flowId) return res.json({ status: 'invalid_params', message: '请提供流程ID' });
 
     const id = safeString(req.body.id) || generateId();
@@ -103,7 +104,7 @@ router.post('/saveVenueApprovalStep', async (req, res) => {
       // For existing steps, we can only update name
       // Removing and re-creating is handled by saveWholeFlow
     }
-    await stepModel.create(id, { flowId, sortOrder, name });
+    await stepModel.create(id, { flowId, sortOrder, name, approvalMode });
     res.json({ status: 'success', id, message: '步骤已保存' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -150,13 +151,18 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
     for (let i = 0; i < stepsData.length; i++) {
       const sd = stepsData[i];
       const stepId = generateId();
+      const rules = Array.isArray(sd.rules) ? sd.rules : [];
+      const approvalMode = safeString(sd.approvalMode) === 'admin_any' || !rules.length ? 'admin_any' : 'hr_rule';
       await stepModel.create(stepId, {
         flowId: flow.id,
         sortOrder: i + 1,
-        name: sd.name || ('第' + (i + 1) + '步')
+        name: sd.name || ('第' + (i + 1) + '步'),
+        approvalMode
       }, conn);
 
-      const rules = sd.rules || [];
+      if (approvalMode === 'admin_any' && rules.length) {
+        throw new Error('管理员审批步骤不能同时配置人事审批规则');
+      }
       for (let j = 0; j < rules.length; j++) {
         const rd = rules[j];
         await ruleModel.create(generateId(), {
@@ -273,10 +279,14 @@ async function canApproveCurrentStep(booking, approverHrId, isCurrentOrgAdmin) {
   }
 
   const step = steps[currentStep];
-  if (!step || !step.rules || !step.rules.length) {
+  if (!step) return { ok: false, reason: '审批步骤配置异常' };
+  if (step.approval_mode === 'admin_any') {
     return isCurrentOrgAdmin
-      ? { ok: true, stepIndex: currentStep, stepName: step ? step.name : '', totalSteps: steps.length }
-      : { ok: false, reason: '该兼容步骤仅允许当前组织管理员审批' };
+      ? { ok: true, stepIndex: currentStep, stepName: step.name, totalSteps: steps.length }
+      : { ok: false, reason: '该步骤仅允许当前组织管理员审批' };
+  }
+  if (!step.rules || !step.rules.length) {
+    return { ok: false, reason: '当前人事审批步骤没有配置审批条件' };
   }
 
   // Get the approver's HR info
@@ -336,10 +346,11 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     const comment = safeString(req.body.comment);
 
     // Resolve approver hrId — only from user_info (admin/regular user identities are separate)
-    const admin = await ensureAdmin(req.openid);
+    const selectedRole = safeString(req.headers['x-role']);
+    const admin = selectedRole === 'admin' ? await ensureAdmin(req.openid) : null;
     const orgId = await require('../../../utils/orgContext').getCurrentOrgId();
     const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [req.openid, orgId]);
-    const approverHrId = (userRows[0] && userRows[0].hr_id) || null;
+    const approverHrId = selectedRole === 'user' ? ((userRows[0] && userRows[0].hr_id) || null) : null;
     if (!approverHrId && !admin) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
     await conn.beginTransaction();
@@ -377,6 +388,10 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       // If approved after booking end, cancel instead
       if (approvedAt > bookingTimeEnd) {
         await venueBookingModel.updateStatus(id, 'cancelled', approverActorId, '审批通过时已超过借用结束时间，自动取消', conn);
+        await createVenueBookingStatusNotification(
+          booking, 'booking_cancelled', '场地借用已自动取消',
+          '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
+        );
         await conn.commit();
         return res.json({ status: 'expired', message: '审批通过时已超过借用结束时间，借用已自动取消' });
       }
@@ -429,21 +444,21 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     ]);
     if (updateResult.affectedRows !== 1) throw new Error('venue_approval_conflict');
 
+    if (isLastStep) {
+      const venueName = booking.venue_name || '';
+      await createVenueBookingStatusNotification(
+        booking, 'booking_approved', '场地借用已通过',
+        '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过', conn
+      );
+    }
+
     await conn.commit();
 
     // Clear old pending_approval notifications for this booking (true DELETE, not markRead)
     await notificationModel.deleteByTarget('booking', id);
 
-    // Fire-and-forget: create notifications for next step or submitter
-    if (isLastStep) {
-      const venueName = booking.venue_name || '';
-      createVenueBookingStatusNotification(
-        booking,
-        'booking_approved',
-        '场地借用已通过',
-        '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过'
-      ).catch(e => console.error('[venueApproval] status notification failed:', e.message));
-    } else {
+    // 下一步骤待办由业务状态实时计算。
+    if (!isLastStep) {
       await createVenueApprovalNotifications(id, newStepIndex);
     }
 
@@ -474,9 +489,10 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
 
     // Resolve approver hrId — only from user_info (admin/regular user identities are separate)
     const orgId = await require('../../../utils/orgContext').getCurrentOrgId();
-    const admin = await ensureAdmin(req.openid);
+    const selectedRole = safeString(req.headers['x-role']);
+    const admin = selectedRole === 'admin' ? await ensureAdmin(req.openid) : null;
     const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [req.openid, orgId]);
-    const approverHrId = (userRows[0] && userRows[0].hr_id) || null;
+    const approverHrId = selectedRole === 'user' ? ((userRows[0] && userRows[0].hr_id) || null) : null;
     if (!approverHrId && !admin) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
     await conn.beginTransaction();
@@ -507,20 +523,17 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
       WHERE id = ?`;
     await conn.query(setSql, [check.stepIndex, comment || '驳回', id]);
 
+    const venueName = booking.venue_name || '';
+    await createVenueBookingStatusNotification(
+      booking, 'booking_rejected', '场地借用被驳回',
+      '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已被驳回' +
+        (comment ? '，原因：' + comment : ''), conn
+    );
+
     await conn.commit();
 
     // Clear old pending_approval notifications for this booking (true DELETE)
     await notificationModel.deleteByTarget('booking', id);
-
-    // Fire-and-forget: notify submitter of rejection
-    const venueName = booking.venue_name || '';
-    createVenueBookingStatusNotification(
-      booking,
-      'booking_rejected',
-      '场地借用被驳回',
-      '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已被驳回' +
-        (comment ? '，原因：' + comment : '')
-    ).catch(e => console.error('[venueApproval] rejection notification failed:', e.message));
 
     res.json({ status: 'success', message: '借用已驳回' });
   } catch (e) {

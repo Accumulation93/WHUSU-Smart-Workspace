@@ -330,7 +330,7 @@
                     </view>
                   </view>
                   <view class="flow-step-rules-summary">
-                    <text wx:if="{{!item.rules || !item.rules.length}}" class="field-hint">无审批规则 — 仅管理员可审批此步骤</text>
+                    <text wx:if="{{item.approvalMode === 'admin_any' || !item.rules || !item.rules.length}}" class="field-hint">审批模式：当前组织任一管理员</text>
                     <block wx:else>
                       <view class="flow-rule-tag" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
                         {{rule.departmentScope === 'specific' ? '指定部门' : (rule.departmentScope === 'same' ? '同部门' : '任意部门')}} /

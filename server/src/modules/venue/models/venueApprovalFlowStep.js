@@ -40,12 +40,12 @@ async function getById(id) {
 }
 
 async function create(id, data, conn) {
-  const { flowId, sortOrder, name } = data;
+  const { flowId, sortOrder, name, approvalMode } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    'INSERT INTO venue_approval_flow_steps (id, flow_id, sort_order, name, org_id) VALUES (?, ?, ?, ?, ?)',
-    [id, flowId, sortOrder || 1, name || '', orgId]
+    'INSERT INTO venue_approval_flow_steps (id, flow_id, sort_order, name, approval_mode, org_id) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, flowId, sortOrder || 1, name || '', approvalMode === 'admin_any' ? 'admin_any' : 'hr_rule', orgId]
   );
 }
 

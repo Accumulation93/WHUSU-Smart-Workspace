@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createNotification } = require('../../modules/audit/utils/notificationHelper');
 const { safeString, generateId, buildNameMap, normalizeEmptyValue } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const adminInfoModel = require('../models/adminInfo');
@@ -553,6 +554,18 @@ router.post('/reviewHrProfileChange', async (req, res) => {
         audit_status: 'rejected', rejection_reason: reason || '管理员已驳回本次修改', reviewed_at: nowUtc, updated_at: nowUtc
       });
     }
+
+    await createNotification({
+      hrId: hrRecord.id,
+      eventKey: 'hr-profile-review:' + record.id + ':' + nowUtc,
+      type: action === 'approve' ? 'hr_profile_approved' : 'hr_profile_rejected',
+      title: action === 'approve' ? '扩展资料审核通过' : '扩展资料审核未通过',
+      description: action === 'approve' ? '您提交的人事扩展资料已审核通过。' : ('您提交的人事扩展资料未通过审核：' + (reason || '请修改后重新提交')),
+      category: 'hr',
+      targetType: 'hr_profile',
+      targetId: hrRecord.id,
+      targetUrl: '/pages/home/home?subApp=hr'
+    });
 
     res.json({ status: 'success' });
   } catch (e) {

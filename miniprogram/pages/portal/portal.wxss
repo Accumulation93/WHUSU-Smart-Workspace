@@ -431,7 +431,40 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .notification-list {
   position: relative; z-index: 1;
-  display: flex; flex-direction: column; gap: 8rpx;
+}
+
+.message-preview-scroll {
+  height: 510rpx;
+  max-height: 510rpx;
+  min-height: 112rpx;
+}
+
+.message-preview-scroll .notification-item,
+.message-preview-scroll .notification-swipe-row {
+  margin-bottom: 8rpx;
+}
+
+.message-head-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.message-text-action {
+  color: #2563eb;
+  font-size: 22rpx;
+  font-weight: 700;
+  padding: 8rpx 10rpx;
+  border-radius: 12rpx;
+}
+
+.message-loading-more {
+  padding: 12rpx 0 20rpx;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 21rpx;
 }
 
 .notification-item {

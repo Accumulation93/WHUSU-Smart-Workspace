@@ -69,6 +69,10 @@ Page({
     notificationCount: 0,
     notifications: [],
     notificationLoading: false,
+    todoNextCursor: '',
+    notificationNextCursor: '',
+    todoLoadingMore: false,
+    notificationLoadingMore: false,
 
     // App services view & search
     appViewMode: 'grid',        // 'grid' | 'list'
@@ -84,12 +88,15 @@ Page({
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);
+      this._messageRevision = (this._messageRevision || 0) + 1;
       this.setData({
         organizationName: wx.getStorageSync('activeOrgName') || '',
         todoCount: 0,
         todos: [],
         notificationCount: 0,
         notifications: [],
+        todoNextCursor: '',
+        notificationNextCursor: '',
         todoLoading: false,
         notificationLoading: false,
         appSearchKeyword: ''
@@ -103,10 +110,8 @@ Page({
     this.refreshCurrentUser();
     this.loadOrganizationName();
     if (this.data.hasUser) {
-      this.loadTodoCount();
-      this.loadRecentTodos();
-      this.loadNotificationUnreadCount();
-      this.loadRecentNotifications();
+      this.retryPendingNotificationReads();
+      this.loadMessageOverview();
     }
     this.startPolling();
     if (!this._boundOnApprovalDone) {
@@ -269,67 +274,94 @@ Page({
     this.setData({ filteredPortalCards: filtered });
   },
 
-  // ── Notification methods ──
-  // Real-time query: notifications reflect current pending steps only.
-  // No persistent storage, no read/unread — processed items disappear automatically.
-  async loadTodoCount() {
-    const request = orgSession.beginRequest(this, 'portalTodoCount');
-    try {
-      const res = await callFunction({ name: 'getTodoCount', data: {} });
-      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
-        this.setData({ todoCount: res.count || 0 });
-      }
-    } catch (e) {
-      console.error('[portal] loadTodoCount failed:', e);
-    }
+  // ── 统一消息中心 ──
+  formatMessageItems(items, isNotification) {
+    return (items || []).map(function(item) {
+      const extra = { createdAt: formatAuditTime(item.createdAt) };
+      if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });
+      return Object.assign({}, item, extra);
+    });
   },
 
-  async loadRecentTodos() {
-    const request = orgSession.beginRequest(this, 'portalTodos');
-    this.setData({ todoLoading: true });
+  async loadMessageOverview() {
+    const request = orgSession.beginRequest(this, 'portalMessages');
+    const revision = this._messageRevision || 0;
+    this.setData({ todoLoading: true, notificationLoading: true });
     try {
-      const res = await callFunction({ name: 'listTodos', data: { limit: 5, offset: 0 } });
-      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
-        const items = (res.items || []).map(function(item) {
-          return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt) });
-        });
-        this.setData({ todos: items, todoCount: res.total || items.length });
-      }
-    } catch (e) {
-      console.error('[portal] loadRecentTodos failed:', e);
+      const res = await callFunction({ name: 'getMessageOverview', data: { limit: 20 } });
+      if (!orgSession.isRequestCurrent(this, request) || revision !== (this._messageRevision || 0) || res.status !== 'success') return;
+      const todos = res.todos || {};
+      const notifications = res.notifications || {};
+      this.setData({
+        todos: this.formatMessageItems(todos.items, false),
+        todoCount: todos.total || 0,
+        todoNextCursor: todos.nextCursor || '',
+        notifications: this.formatMessageItems(notifications.items, true),
+        notificationCount: notifications.unreadCount || 0,
+        notificationNextCursor: notifications.nextCursor || ''
+      });
+    } catch (error) {
+      if (!(error && error.silent)) console.error('[portal] message overview failed:', error);
     } finally {
-      if (orgSession.isRequestCurrent(this, request)) this.setData({ todoLoading: false });
+      if (orgSession.isRequestCurrent(this, request)) {
+        this.setData({ todoLoading: false, notificationLoading: false });
+      }
     }
   },
 
-  async loadNotificationUnreadCount() {
-    const request = orgSession.beginRequest(this, 'portalNotificationCount');
+  async loadMoreTodos() {
+    if (!this.data.todoNextCursor || this.data.todoLoadingMore) return;
+    const request = orgSession.beginRequest(this, 'portalTodoMore');
+    this.setData({ todoLoadingMore: true });
     try {
-      const res = await callFunction({ name: 'getNotificationUnreadCount', data: {} });
-      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
-        this.setData({ notificationCount: res.count || 0 });
-      }
-    } catch (e) {
-      console.error('[portal] loadNotificationUnreadCount failed:', e);
-    }
-  },
-
-  async loadRecentNotifications() {
-    const request = orgSession.beginRequest(this, 'portalNotifications');
-    this.setData({ notificationLoading: true });
-    try {
-      const res = await callFunction({ name: 'listNotifications', data: { limit: 5, offset: 0 } });
-      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
-        const items = (res.items || []).map(function(item) {
-          return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt), _showDelete: false, _swipeX: 0 });
-        });
-        this.setData({ notifications: items });
-      }
-    } catch (e) {
-      console.error('[portal] loadRecentNotifications failed:', e);
+      const res = await callFunction({ name: 'listTodos', data: { limit: 20, cursor: this.data.todoNextCursor } });
+      if (!orgSession.isRequestCurrent(this, request) || res.status !== 'success') return;
+      this.setData({
+        todos: this.data.todos.concat(this.formatMessageItems(res.items, false)),
+        todoCount: res.total || 0,
+        todoNextCursor: res.nextCursor || ''
+      });
     } finally {
-      if (orgSession.isRequestCurrent(this, request)) this.setData({ notificationLoading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ todoLoadingMore: false });
     }
+  },
+
+  async loadMoreNotifications() {
+    if (!this.data.notificationNextCursor || this.data.notificationLoadingMore) return;
+    const request = orgSession.beginRequest(this, 'portalNotificationMore');
+    this.setData({ notificationLoadingMore: true });
+    try {
+      const res = await callFunction({ name: 'listNotifications', data: { limit: 20, cursor: this.data.notificationNextCursor } });
+      if (!orgSession.isRequestCurrent(this, request) || res.status !== 'success') return;
+      this.setData({
+        notifications: this.data.notifications.concat(this.formatMessageItems(res.items, true)),
+        notificationCount: res.unreadCount || 0,
+        notificationNextCursor: res.nextCursor || ''
+      });
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ notificationLoadingMore: false });
+    }
+  },
+
+  openMessageCenter(e) {
+    const tab = e.currentTarget.dataset.tab === 'notifications' ? 'notifications' : 'todos';
+    wx.navigateTo({ url: '/pages/messageCenter/messageCenter?tab=' + tab });
+  },
+
+  pendingReadStorageKey() {
+    return 'pendingNotificationReads:' + (wx.getStorageSync('activeOrgId') || '') + ':' + (this.data.activeRole || '');
+  },
+
+  async retryPendingNotificationReads() {
+    const key = this.pendingReadStorageKey();
+    const ids = wx.getStorageSync(key) || [];
+    if (!Array.isArray(ids) || !ids.length) return;
+    const failed = [];
+    for (const id of ids) {
+      try { await callFunction({ name: 'markNotificationRead', data: { id: id } }); }
+      catch (_) { failed.push(id); }
+    }
+    if (failed.length) wx.setStorageSync(key, failed); else wx.removeStorageSync(key);
   },
 
   onTodoTap(e) {
@@ -342,18 +374,26 @@ Page({
     if (this._notificationSwiping) return;
     const id = e.currentTarget.dataset.id;
     const url = e.currentTarget.dataset.url;
-    if (id) {
+    const current = (this.data.notifications || []).find(function(item) { return item.id === id; });
+    if (id && current && !current.isRead) {
+      this._messageRevision = (this._messageRevision || 0) + 1;
       const notifications = this.data.notifications.map(function(item) {
         return item.id === id ? Object.assign({}, item, { isRead: true, _showDelete: false }) : item;
       });
-      this.setData({ notifications: notifications });
-      this.loadNotificationUnreadCount();
-      callFunction({ name: 'markNotificationRead', data: { id: id } }).catch(function(err) {
-        console.error('[portal] markNotificationRead failed:', err);
-      });
+      this.setData({ notifications: notifications, notificationCount: Math.max(0, this.data.notificationCount - 1) });
+      if (url) navigateToTrustedRoute(url);
+      try {
+        const result = await callFunction({ name: 'markNotificationRead', data: { id: id } });
+        if (result.status === 'success') this.setData({ notificationCount: result.unreadCount || 0 });
+      } catch (error) {
+        const key = this.pendingReadStorageKey();
+        const queued = wx.getStorageSync(key) || [];
+        if (queued.indexOf(id) === -1) queued.push(id);
+        wx.setStorageSync(key, queued);
+      }
+      return;
     }
-    if (!url) return;
-    navigateToTrustedRoute(url);
+    if (url) navigateToTrustedRoute(url);
   },
 
   onNotificationTouchStart(e) {
@@ -418,15 +458,39 @@ Page({
   async deleteNotification(e) {
     const id = e.currentTarget.dataset.id;
     if (!id) return;
-    const notifications = this.data.notifications.filter(function(item) { return item.id !== id; });
-    this.setData({ notifications: notifications });
-    this.loadNotificationUnreadCount();
+    const previous = this.data.notifications;
+    this._messageRevision = (this._messageRevision || 0) + 1;
+    const deleted = previous.find(function(item) { return item.id === id; });
+    const notifications = previous.filter(function(item) { return item.id !== id; });
+    this.setData({
+      notifications: notifications,
+      notificationCount: deleted && !deleted.isRead ? Math.max(0, this.data.notificationCount - 1) : this.data.notificationCount
+    });
     try {
-      await callFunction({ name: 'deleteNotification', data: { id: id } });
+      const result = await callFunction({ name: 'deleteNotification', data: { id: id } });
+      if (result.status === 'success') this.setData({ notificationCount: result.unreadCount || 0 });
     } catch (err) {
       console.error('[portal] deleteNotification failed:', err);
-      this.loadRecentNotifications();
-      this.loadNotificationUnreadCount();
+      this.setData({ notifications: previous });
+      this.loadMessageOverview();
+    }
+  },
+
+  async markAllNotificationsRead() {
+    if (!this.data.notificationCount) return;
+    this._messageRevision = (this._messageRevision || 0) + 1;
+    const previous = this.data.notifications;
+    this.setData({
+      notifications: previous.map(function(item) { return Object.assign({}, item, { isRead: true }); }),
+      notificationCount: 0
+    });
+    try {
+      const result = await callFunction({ name: 'markAllNotificationsRead', data: {} });
+      if (result.status !== 'success') throw new Error(result.message || '全部已读失败');
+    } catch (error) {
+      this.setData({ notifications: previous });
+      this.loadMessageOverview();
+      wx.showToast({ title: '操作失败，请重试', icon: 'none' });
     }
   },
 
@@ -436,10 +500,7 @@ Page({
     const that = this;
     this._pollTimer = setInterval(function() {
       if (that._isPageVisible && that.data.hasUser) {
-        that.loadTodoCount();
-        that.loadRecentTodos();
-        that.loadNotificationUnreadCount();
-        that.loadRecentNotifications();
+        that.loadMessageOverview();
       }
     }, 30000);
   },
@@ -454,10 +515,7 @@ Page({
   // ── Event bus: triggered when an approval action completes ──
   _onApprovalDone: function() {
     if (this._isPageVisible && this.data.hasUser) {
-      this.loadTodoCount();
-      this.loadRecentTodos();
-      this.loadNotificationUnreadCount();
-      this.loadRecentNotifications();
+      this.loadMessageOverview();
     }
   },
 

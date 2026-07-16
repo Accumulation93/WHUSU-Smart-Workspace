@@ -516,6 +516,7 @@ Page({
           if (rt === 'flow') {
             const steps = (this.data.approvalFlowSteps || []).map(s => ({
               name: s.name || '',
+              approvalMode: s.approval_mode || ((s.rules || []).length ? 'hr_rule' : 'admin_any'),
               rules: (s.rules || []).map(r => ({
                 departmentScope: r.department_scope || 'all', specificDepartmentId: r.specific_department_id || '',
                 workGroupScope: r.work_group_scope || 'all', specificWorkGroupId: r.specific_work_group_id || '',
@@ -584,6 +585,7 @@ Page({
       if (existingSteps.length) {
         update['ruleForm._flowSteps'] = existingSteps.map(s => ({
           name: s.name || '',
+          approvalMode: s.approval_mode || ((s.rules || []).length ? 'hr_rule' : 'admin_any'),
           rules: (s.rules || []).map(r => ({
             departmentScope: r.department_scope || 'all',
             specificDepartmentId: r.specific_department_id || '',
@@ -724,6 +726,7 @@ Page({
         const stepsData = (ruleForm._flowSteps || []).map((s, i) => ({
           name: s.name || ('第' + (i + 1) + '步'),
           sortOrder: i + 1,
+          approvalMode: (s.rules || []).length ? 'hr_rule' : 'admin_any',
           rules: (s.rules || []).map(r => ({
             departmentScope: r.departmentScope || 'all',
             specificDepartmentId: r.specificDepartmentId || '',
@@ -1564,6 +1567,7 @@ Page({
     const steps = [...(this.data.ruleForm._flowSteps || [])];
     const stepData = {
       name,
+      approvalMode: (this.data.ruleForm._editingStepRules || []).length ? 'hr_rule' : 'admin_any',
       rules: (this.data.ruleForm._editingStepRules || []).map(r => ({
         departmentScope: r.departmentScope || 'all',
         specificDepartmentId: r.specificDepartmentId || '',

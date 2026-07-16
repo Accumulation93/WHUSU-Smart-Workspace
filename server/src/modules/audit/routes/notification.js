@@ -2,256 +2,190 @@ const express = require('express');
 const router = express.Router();
 const { safeString } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
-const pool = require('../../../config/db');
-const submissionStepModel = require('../models/auditSubmissionStep');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const notificationModel = require('../models/notification');
-const hrInfoModel = require('../../../core/models/hrInfo');
-const venueApprovalFlowStepRuleModel = require('../../venue/models/venueApprovalFlowStepRule');
+const todoService = require('../services/todoService');
 
-async function resolveHrId(openid) {
-  if (!openid) return null;
+function parseLimit(value) {
+  return Math.max(1, Math.min(parseInt(value, 10) || 20, 50));
+}
+
+function encodeCursor(offset) {
+  return offset > 0 ? Buffer.from(String(offset)).toString('base64url') : '';
+}
+
+function decodeCursor(value) {
+  if (!value) return 0;
+  try {
+    const offset = parseInt(Buffer.from(String(value), 'base64url').toString('utf8'), 10);
+    return Number.isFinite(offset) && offset >= 0 ? offset : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function mapNotification(row) {
+  const targetId = safeString(row.target_id);
+  const routes = {
+    submission: targetId ? '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + targetId : '',
+    booking: '/subpackages/venue/pages/myVenueBookings/myVenueBookings',
+    score_activity: '/pages/home/home?subApp=scoring',
+    result_publication: '/pages/home/home?subApp=scoring',
+    hr_profile: '/pages/home/home?subApp=hr',
+    account: '/pages/portal/portal'
+  };
+  return {
+    id: safeString(row.id),
+    type: safeString(row.type),
+    title: safeString(row.title),
+    description: safeString(row.description),
+    category: safeString(row.category || 'system'),
+    targetType: safeString(row.target_type),
+    targetId,
+    targetUrl: routes[safeString(row.target_type)] || '',
+    isRead: !!row.is_read,
+    createdAt: row.created_at
+  };
+}
+
+async function requireActor(req, res) {
+  const result = await resolveCurrentActor(req);
+  if (!result.ok) {
+    res.json({ status: result.status, message: result.message });
+    return null;
+  }
+  return result.actor;
+}
+
+async function loadTodos(actor, body) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
-    [openid, orgId]
-  );
-  return rows[0] ? rows[0].hr_id : null;
+  const allItems = await todoService.listAll(actor, orgId);
+  const limit = parseLimit(body.limit);
+  const offset = decodeCursor(body.cursor) || Math.max(0, parseInt(body.offset, 10) || 0);
+  const items = allItems.slice(offset, offset + limit);
+  const nextOffset = offset + items.length;
+  return {
+    items,
+    total: allItems.length,
+    unreadCount: 0,
+    nextCursor: nextOffset < allItems.length ? encodeCursor(nextOffset) : ''
+  };
 }
 
-async function listPendingVenueTodoItems(hrId, orgId, requestRole) {
-  const approverHrInfo = await hrInfoModel.getById(hrId);
-  if (!approverHrInfo) return [];
+async function loadNotifications(actor, body) {
+  const limit = parseLimit(body.limit);
+  const offset = decodeCursor(body.cursor) || Math.max(0, parseInt(body.offset, 10) || 0);
+  const result = await notificationModel.listForRecipient(actor, { limit, offset });
+  const nextOffset = offset + result.items.length;
+  return {
+    items: result.items.map(mapNotification),
+    total: result.total,
+    unreadCount: result.unreadCount,
+    nextCursor: nextOffset < result.total ? encodeCursor(nextOffset) : ''
+  };
+}
 
-  const [bookings] = await pool.query(
-    `SELECT b.*, v.name AS venue_name, v.location AS venue_location
-     FROM venue_bookings b
-     JOIN venues v ON v.id = b.venue_id
-     WHERE b.status = 'pending'
-       AND b.approval_org_id = ?
-       AND b.approval_flow_id IS NOT NULL
-       AND b.approval_total_steps > 0
-     ORDER BY b.created_at DESC`,
-    [orgId]
-  );
-  if (!bookings.length) return [];
-
-  const applicantHrIds = [...new Set(bookings.map(b => b.user_hr_id).filter(Boolean))];
-  const applicantMap = {};
-  if (applicantHrIds.length) {
-    const hrList = await hrInfoModel.getByIds(applicantHrIds);
-    (hrList || []).forEach(h => { applicantMap[h.id] = h; });
+router.post('/getMessageOverview', async (req, res) => {
+  try {
+    const actor = await requireActor(req, res);
+    if (!actor) return;
+    const limit = parseLimit(req.body.limit || 10);
+    const [todos, notifications] = await Promise.all([
+      loadTodos(actor, { limit }),
+      loadNotifications(actor, { limit })
+    ]);
+    res.json({ status: 'success', todos, notifications });
+  } catch (error) {
+    console.error('[message:overview] failed:', error);
+    res.json({ status: 'error', message: '消息加载失败，请稍后重试' });
   }
-
-  const items = [];
-  for (const booking of bookings) {
-    const currentStep = booking.approval_current_step;
-    if (currentStep < 0 || currentStep >= booking.approval_total_steps) continue;
-
-    const [flowSteps] = await pool.query(
-      'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
-      [booking.approval_flow_id, orgId]
-    );
-    if (!flowSteps.length || currentStep >= flowSteps.length) continue;
-
-    const step = flowSteps[currentStep];
-    if (!step) continue;
-
-    const [stepRules] = await pool.query(
-      'SELECT * FROM venue_approval_flow_step_rules WHERE step_id = ? AND org_id = ? ORDER BY sort_order',
-      [step.id, orgId]
-    );
-
-    const applicantHrInfo = applicantMap[booking.user_hr_id] || null;
-    const canApprove = stepRules.length
-      ? venueApprovalFlowStepRuleModel.matchesAnyRule(stepRules, approverHrInfo, applicantHrInfo)
-      : ['admin', 'super_admin', 'root_admin'].includes(requestRole);
-    if (!canApprove) continue;
-
-    const venueName = safeString(booking.venue_name || '');
-    const applicantName = safeString((applicantHrInfo && applicantHrInfo.name) || '未知');
-    items.push({
-      type: 'todo',
-      sourceType: 'venue_approval',
-      title: safeString(booking.title || '场地借用'),
-      description: '场地' + (venueName ? '：' + venueName : '') + ' | 提交人 ' + (applicantName || '未知') + ' | ' + safeString(step.name || ('第' + (currentStep + 1) + '步')),
-      category: 'venue',
-      targetType: 'booking',
-      targetId: safeString(booking.id),
-      targetUrl: '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals',
-      createdAt: booking.created_at
-    });
-  }
-
-  return items;
-}
-
-async function listAuditTodoItems(hrId, orgId) {
-  const steps = await submissionStepModel.getPendingByApprover(hrId);
-  const submitterIds = [...new Set(steps.map(s => s.submitted_by).filter(Boolean))];
-  const hrMap = {};
-  if (submitterIds.length) {
-    const [hrRows] = await pool.query(
-      'SELECT id, name FROM hr_info WHERE id IN (?) AND org_id = ?',
-      [submitterIds, orgId]
-    );
-    for (const hr of hrRows) hrMap[hr.id] = safeString(hr.name);
-  }
-
-  return steps.map(s => ({
-    type: 'todo',
-    sourceType: 'audit_approval',
-    title: safeString(s.title || s.submission_number),
-    description: '提交人 ' + (hrMap[s.submitted_by] || '未知') + ' | 步骤 ' + safeString(s.sort_order),
-    category: 'audit',
-    targetType: 'submission',
-    targetId: safeString(s.submission_id),
-    targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + safeString(s.submission_id),
-    createdAt: s.created_at
-  }));
-}
-
-async function listTodoItems(hrId, orgId, requestRole) {
-  const [auditItems, venueItems] = await Promise.all([
-    listAuditTodoItems(hrId, orgId),
-    listPendingVenueTodoItems(hrId, orgId, requestRole)
-  ]);
-  return [...auditItems, ...venueItems].sort((a, b) => {
-    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    return tb - ta;
-  });
-}
+});
 
 router.post('/listTodos', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
-    const limit = Math.max(1, Math.min(parseInt(req.body.limit, 10) || 20, 50));
-    const orgId = await getCurrentOrgId();
-    const items = await listTodoItems(hrId, orgId, req.role);
-    res.json({ status: 'success', items: items.slice(0, limit), total: items.length });
-  } catch (e) {
-    console.error('[todo:list] error:', e);
-    res.json({ status: 'error', message: safeString(e.message) });
+    const actor = await requireActor(req, res);
+    if (!actor) return;
+    res.json(Object.assign({ status: 'success' }, await loadTodos(actor, req.body || {})));
+  } catch (error) {
+    console.error('[todo:list] failed:', error);
+    res.json({ status: 'error', message: '待办加载失败，请稍后重试' });
   }
 });
 
 router.post('/getTodoCount', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
-    const orgId = await getCurrentOrgId();
-    const items = await listTodoItems(hrId, orgId, req.role);
-    res.json({ status: 'success', count: items.length });
-  } catch (e) {
-    console.error('[todo:count] error:', e);
-    res.json({ status: 'error', message: safeString(e.message) });
+    const actor = await requireActor(req, res);
+    if (!actor) return;
+    const result = await loadTodos(actor, { limit: 1 });
+    res.json({ status: 'success', count: result.total });
+  } catch (error) {
+    console.error('[todo:count] failed:', error);
+    res.json({ status: 'error', message: '待办数量加载失败' });
   }
 });
 
 router.post('/listNotifications', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
-
-    const limit = Math.max(1, Math.min(parseInt(req.body.limit, 10) || 20, 50));
-    const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
-    const orgId = await getCurrentOrgId();
-
-    const [rows] = await pool.query(
-      `SELECT *
-       FROM notifications
-       WHERE org_id = ? AND hr_id = ?
-         AND type <> ?
-         AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
-       ORDER BY created_at DESC
-       LIMIT ? OFFSET ?`,
-      [orgId, hrId, 'pending_approval', limit, offset]
-    );
-
-    const items = rows.map(r => ({
-      id: safeString(r.id),
-      type: safeString(r.type),
-      title: safeString(r.title),
-      description: safeString(r.description),
-      category: safeString(r.category || 'system'),
-      targetType: safeString(r.target_type),
-      targetId: safeString(r.target_id),
-      targetUrl: safeString(r.target_url),
-      isRead: !!r.is_read,
-      createdAt: r.created_at
-    }));
-
-    res.json({ status: 'success', items, total: items.length });
-  } catch (e) {
-    console.error('[notification:list] error:', e);
-    res.json({ status: 'error', message: safeString(e.message) });
+    const actor = await requireActor(req, res);
+    if (!actor) return;
+    res.json(Object.assign({ status: 'success' }, await loadNotifications(actor, req.body || {})));
+  } catch (error) {
+    console.error('[notification:list] failed:', error);
+    res.json({ status: 'error', message: '通知加载失败，请稍后重试' });
   }
 });
 
 router.post('/getNotificationUnreadCount', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
-    const orgId = await getCurrentOrgId();
-    const [[{ count }]] = await pool.query(
-      `SELECT COUNT(*) AS count
-       FROM notifications
-       WHERE org_id = ? AND hr_id = ? AND is_read = 0 AND type <> ?
-         AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)`,
-      [orgId, hrId, 'pending_approval']
-    );
+    const actor = await requireActor(req, res);
+    if (!actor) return;
+    const count = await notificationModel.getUnreadCountForRecipient(actor);
     res.json({ status: 'success', count });
-  } catch (e) {
-    console.error('[notification:count] error:', e);
-    res.json({ status: 'error', message: safeString(e.message) });
+  } catch (error) {
+    console.error('[notification:count] failed:', error);
+    res.json({ status: 'error', message: '未读数量加载失败' });
   }
 });
 
 router.post('/markNotificationRead', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actor = await requireActor(req, res);
+    if (!actor) return;
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供通知ID' });
-    await notificationModel.markRead(id, hrId);
-    res.json({ status: 'success' });
-  } catch (e) {
-    console.error('[notification:markRead] error:', e);
-    res.json({ status: 'error', message: safeString(e.message) });
+    if (!id) return res.json({ status: 'invalid_params', message: '缺少通知标识' });
+    const result = await notificationModel.markRead(id, actor);
+    if (!result.found) return res.json({ status: 'not_found', message: '通知不存在或已失效' });
+    res.json({ status: 'success', changed: result.changed, unreadCount: result.unreadCount });
+  } catch (error) {
+    console.error('[notification:markRead] failed:', error);
+    res.json({ status: 'error', message: '通知销记失败，请稍后重试' });
+  }
+});
+
+router.post('/markAllNotificationsRead', async (req, res) => {
+  try {
+    const actor = await requireActor(req, res);
+    if (!actor) return;
+    const result = await notificationModel.markAllRead(actor);
+    res.json({ status: 'success', changedCount: result.changedCount, unreadCount: 0 });
+  } catch (error) {
+    console.error('[notification:markAllRead] failed:', error);
+    res.json({ status: 'error', message: '全部销记失败，请稍后重试' });
   }
 });
 
 router.post('/deleteNotification', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actor = await requireActor(req, res);
+    if (!actor) return;
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供通知ID' });
-    await notificationModel.deleteById(id, hrId);
-    res.json({ status: 'success' });
-  } catch (e) {
-    console.error('[notification:delete] error:', e);
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
-});
-
-router.post('/dismissNotification', async (req, res) => {
-  try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
-
-    const targetType = safeString(req.body.targetType);
-    const targetId = safeString(req.body.targetId);
-    if (!targetType || !targetId) {
-      return res.json({ status: 'invalid_params', message: '请提供 targetType 和 targetId' });
-    }
-
-    await notificationModel.deleteByTargetAndHrId(targetType, targetId, hrId);
-    res.json({ status: 'success' });
-  } catch (e) {
-    console.error('[notification:dismiss] error:', e);
-    res.json({ status: 'error', message: safeString(e.message) });
+    if (!id) return res.json({ status: 'invalid_params', message: '缺少通知标识' });
+    const result = await notificationModel.deleteById(id, actor);
+    if (!result.found) return res.json({ status: 'not_found', message: '通知不存在或已删除' });
+    res.json({ status: 'success', unreadCount: result.unreadCount });
+  } catch (error) {
+    console.error('[notification:delete] failed:', error);
+    res.json({ status: 'error', message: '通知删除失败，请稍后重试' });
   }
 });
 

@@ -685,11 +685,13 @@ router.post('/listMyVenueBookings', async (req, res) => {
 
 router.post('/listPendingVenueApprovals', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const selectedRole = safeString(req.headers['x-role']);
+    const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(req.openid) : null;
+    const hrId = selectedRole === 'user' ? await resolveHrId(req.openid) : null;
+    if (!admin && !hrId) return res.json({ status: 'forbidden', message: '当前身份没有场地审批权限' });
 
-    const approverHrInfo = await hrInfoModel.getById(hrId);
-    if (!approverHrInfo) return res.json({ status: 'forbidden', message: '未找到人事信息' });
+    const approverHrInfo = hrId ? await hrInfoModel.getById(hrId) : null;
+    if (selectedRole === 'user' && !approverHrInfo) return res.json({ status: 'forbidden', message: '未找到人事信息' });
 
     const orgId = await getCurrentOrgId();
 
@@ -743,9 +745,10 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
 
       const applicantHrInfo = applicantMap[booking.user_hr_id] || null;
 
-      // 兼容无条件步骤时也只允许当前组织管理员。
-      let canApprove = ['admin', 'super_admin', 'root_admin'].includes(req.role);
-      if (stepRules.length) {
+      let canApprove = false;
+      if ((step.approval_mode || '') === 'admin_any') {
+        canApprove = !!admin;
+      } else if (approverHrInfo && stepRules.length) {
         canApprove = venueApprovalFlowStepRuleModel.matchesAnyRule(
           stepRules, approverHrInfo, applicantHrInfo
         );
