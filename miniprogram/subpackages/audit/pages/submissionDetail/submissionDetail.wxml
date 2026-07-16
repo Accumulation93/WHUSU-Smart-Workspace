@@ -757,7 +757,7 @@
             <view class="list-title">签名/盖章</view>
             <view class="sign-file-card" wx:for="{{pendingSignatures}}" wx:key="index">
               <view class="sign-file-main">
-                <view class="sign-file-name">签名{{index + 1}} (文件: {{item.fileId}})</view>
+                <view class="sign-file-name">签名{{index + 1}}</view>
                 <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="sign-file-preview" />
               </view>
               <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" catchtap="removePendingSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view>

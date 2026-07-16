@@ -15,6 +15,7 @@ const TMP_DIR = path.join(UPLOAD_DIR, '_tmp');
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const TOKEN_TTL_MS = 30 * 60 * 1000;
+const MAX_FILES_PER_SUBMISSION = 20;
 
 function normalizeMime(mimeType) {
   const mime = safeString(mimeType).toLowerCase();
@@ -88,7 +89,8 @@ async function createTempUpload({ buffer, fileName, mimeType, openid }) {
   const fileId = generateId();
   const cleanName = safeString(fileName) || ('audit-file' + extForMime(actualMime));
   const ext = path.extname(cleanName) || extForMime(actualMime);
-  const tmpPath = path.join(TMP_DIR, fileId + ext);
+  const tempName = fileId + ext;
+  const tmpPath = path.join(TMP_DIR, tempName);
   fs.writeFileSync(tmpPath, buffer);
 
   const fileHash = hashFile(buffer);
@@ -98,53 +100,49 @@ async function createTempUpload({ buffer, fileName, mimeType, openid }) {
     mimeType: actualMime,
     fileSize: buffer.length,
     fileHash,
-    tmpPath,
+    tempName,
     openid: safeString(openid),
     orgId,
     exp: Date.now() + TOKEN_TTL_MS
   });
 
-  return { fileId, fileName: cleanName, mimeType: actualMime, fileSize: buffer.length, fileHash, tmpPath, fileToken: token };
+  return { fileId, fileName: cleanName, mimeType: actualMime, fileSize: buffer.length, fileHash, fileToken: token };
 }
 
 async function resolveUploadedFile(uploadedFile, openid) {
   const orgId = await getCurrentOrgId();
   const tokenPayload = verifyUploadToken(uploadedFile.fileToken);
-  let meta = tokenPayload;
-
+  const meta = tokenPayload;
   if (!meta) {
-    const tmpPath = path.resolve(safeString(uploadedFile.tmpPath));
-    const tmpRoot = path.resolve(TMP_DIR) + path.sep;
-    if (!tmpPath.startsWith(tmpRoot)) {
-      const err = new Error('上传文件凭证无效');
-      err.status = 'invalid_params';
-      throw err;
-    }
-    meta = {
-      fileId: safeString(uploadedFile.fileId),
-      fileName: safeString(uploadedFile.fileName),
-      mimeType: safeString(uploadedFile.mimeType),
-      tmpPath
-    };
+    const err = new Error('上传文件凭证无效或已过期');
+    err.status = 'invalid_params';
+    throw err;
   }
 
-  if (safeString(meta.openid) && safeString(meta.openid) !== safeString(openid)) {
+  if (!safeString(meta.openid) || safeString(meta.openid) !== safeString(openid)) {
     const err = new Error('上传文件不属于当前用户');
     err.status = 'forbidden';
     throw err;
   }
-  if (safeString(meta.orgId) && safeString(meta.orgId) !== orgId) {
+  if (!safeString(meta.orgId) || safeString(meta.orgId) !== orgId) {
     const err = new Error('上传文件不属于当前组织');
     err.status = 'forbidden';
     throw err;
   }
-  if (!meta.tmpPath || !fs.existsSync(meta.tmpPath)) {
+  const tempName = path.basename(safeString(meta.tempName));
+  if (!tempName || tempName !== safeString(meta.tempName)) {
+    const err = new Error('上传文件凭证无效');
+    err.status = 'invalid_params';
+    throw err;
+  }
+  const tmpPath = path.join(TMP_DIR, tempName);
+  if (!fs.existsSync(tmpPath)) {
     const err = new Error('上传文件已过期或不存在');
     err.status = 'not_found';
     throw err;
   }
 
-  const buffer = fs.readFileSync(meta.tmpPath);
+  const buffer = fs.readFileSync(tmpPath);
   const actualMime = assertAllowedFile(buffer, meta.mimeType);
   return {
     fileId: safeString(meta.fileId) || generateId(),
@@ -152,11 +150,16 @@ async function resolveUploadedFile(uploadedFile, openid) {
     mimeType: actualMime,
     fileSize: buffer.length,
     fileHash: hashFile(buffer),
-    tmpPath: meta.tmpPath
+    tmpPath
   };
 }
 
 async function attachUploadedFiles({ uploadedFiles, submissionId, openid, conn }) {
+  if (!Array.isArray(uploadedFiles) || uploadedFiles.length > MAX_FILES_PER_SUBMISSION) {
+    const err = new Error('单次最多上传20个文件');
+    err.status = 'invalid_params';
+    throw err;
+  }
   const submissionDir = path.join(UPLOAD_DIR, submissionId);
   if (!fs.existsSync(submissionDir)) fs.mkdirSync(submissionDir, { recursive: true });
 
@@ -175,6 +178,17 @@ async function attachUploadedFiles({ uploadedFiles, submissionId, openid, conn }
       sortOrder: i + 1
     }, conn);
   }
+}
+
+function csvContainsExactId(value, expectedId) {
+  return safeString(value).split(',').map((item) => item.trim()).filter(Boolean).includes(expectedId);
+}
+
+function jsonContainsExactId(value, expectedId) {
+  if (typeof value === 'string') return value === expectedId;
+  if (Array.isArray(value)) return value.some((item) => jsonContainsExactId(item, expectedId));
+  if (!value || typeof value !== 'object') return false;
+  return Object.keys(value).some((key) => jsonContainsExactId(value[key], expectedId));
 }
 
 async function getAuthorizedAuditFile(fileId, openid) {
@@ -198,17 +212,20 @@ async function getAuthorizedAuditFile(fileId, openid) {
   if (file.submitted_by === hrId) return { status: 'success', file };
 
   const [stepRows] = await pool.query(
-    `SELECT id FROM audit_submission_steps
-     WHERE submission_id = ? AND org_id = ?
-       AND (
-         approver_hr_id = ?
-         OR approver_hr_id LIKE ?
-         OR step_conditions_json LIKE ?
-       )
-     LIMIT 1`,
-    [file.submission_id, orgId, hrId, '%,' + hrId + ',%', '%' + hrId + '%']
+    `SELECT approver_hr_id, step_conditions_json
+       FROM audit_submission_steps
+      WHERE submission_id = ? AND org_id = ?`,
+    [file.submission_id, orgId]
   );
-  if (stepRows.length) return { status: 'success', file };
+  const isStepParticipant = stepRows.some((step) => {
+    if (csvContainsExactId(step.approver_hr_id, hrId)) return true;
+    try {
+      return jsonContainsExactId(JSON.parse(step.step_conditions_json || '{}'), hrId);
+    } catch (_) {
+      return false;
+    }
+  });
+  if (isStepParticipant) return { status: 'success', file };
 
   const [eventRows] = await pool.query(
     'SELECT id FROM audit_events WHERE submission_id = ? AND operator_hr_id = ? AND org_id = ? LIMIT 1',

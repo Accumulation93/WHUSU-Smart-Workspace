@@ -15,16 +15,15 @@
 const { orgStorage } = require('../utils/orgContext');
 const pool = require('../config/db');
 
-// 用户-组织访问权缓存（2 分钟 TTL）
-const _userOrgCache = new Map();
-const USER_ORG_CACHE_TTL = 120000;
 const ORG_CONTEXT_BYPASS_PATHS = new Set([
   '/api/listMyOrganizations',
   '/api/admin/listMyOrganizations',
   '/api/activateOrganization',
   '/api/userLogin',
   '/api/adminLogin',
-  '/api/confirmAutoBind'
+  '/api/confirmAutoBind',
+  '/api/bindUserInfo',
+  '/api/bindAdminInfo'
 ]);
 
 function _isAdminRoute(req) {
@@ -38,47 +37,32 @@ function _isAdminRoute(req) {
 
 async function _userCanAccessOrg(openid, orgId) {
   if (!openid || !orgId) return false;
-  const key = 'user::' + openid + '::' + orgId;
-  const cached = _userOrgCache.get(key);
-  if (cached && (Date.now() - cached.at) < USER_ORG_CACHE_TTL) {
-    return cached.allowed;
-  }
-  let allowed = false;
   try {
-    // 普通用户：只查 user_info 绑定（hr_id 必须有效）
-    const [[userRows]] = await Promise.all([
-      pool.query("SELECT 1 FROM user_info WHERE openid = ? AND org_id = ? AND hr_id != '' LIMIT 1", [openid, orgId])
-    ]);
-    allowed = userRows && userRows.length > 0;
+    const [rows] = await pool.query(
+      `SELECT 1
+         FROM user_info ui
+         JOIN hr_info h ON h.id = ui.hr_id AND h.org_id = ui.org_id
+        WHERE ui.openid = ? AND ui.org_id = ? AND ui.hr_id != ''
+        LIMIT 1`,
+      [openid, orgId]
+    );
+    return rows.length > 0;
   } catch (_) {
-    allowed = false;
+    return false;
   }
-  _userOrgCache.set(key, { allowed, at: Date.now() });
-  _pruneCache();
-  return allowed;
 }
-
-// root_admin 全局权限缓存（独立 key，跨组织共享）
-const _rootAdminCache = new Map();
-const ROOT_ADMIN_CACHE_TTL = 300000; // 5 分钟
 
 async function _isRootAdmin(openid) {
   if (!openid) return false;
-  const cached = _rootAdminCache.get(openid);
-  if (cached && (Date.now() - cached.at) < ROOT_ADMIN_CACHE_TTL) {
-    return cached.value;
-  }
-  let value = false;
   try {
-    const [[rows]] = await Promise.all([
-      pool.query("SELECT 1 FROM admin_info WHERE openid = ? AND admin_level = 'root_admin' AND bind_status = 'active' LIMIT 1", [openid])
-    ]);
-    value = rows && rows.length > 0;
+    const [rows] = await pool.query(
+      "SELECT 1 FROM admin_info WHERE openid = ? AND admin_level = 'root_admin' AND bind_status = 'active' LIMIT 1",
+      [openid]
+    );
+    return rows.length > 0;
   } catch (_) {
-    value = false;
+    return false;
   }
-  _rootAdminCache.set(openid, { value, at: Date.now() });
-  return value;
 }
 
 async function _adminCanAccessOrg(openid, orgId) {
@@ -87,39 +71,20 @@ async function _adminCanAccessOrg(openid, orgId) {
   // root_admin 可以访问所有组织
   if (await _isRootAdmin(openid)) return true;
 
-  const key = 'admin::' + openid + '::' + orgId;
-  const cached = _userOrgCache.get(key);
-  if (cached && (Date.now() - cached.at) < USER_ORG_CACHE_TTL) {
-    return cached.allowed;
-  }
-  let allowed = false;
   try {
-    // 管理端：只查 admin_info 绑定
-    const [[adminRows]] = await Promise.all([
-      pool.query("SELECT 1 FROM admin_info WHERE openid = ? AND org_id = ? AND bind_status = 'active' LIMIT 1", [openid, orgId])
-    ]);
-    allowed = adminRows && adminRows.length > 0;
+    const [rows] = await pool.query(
+      "SELECT 1 FROM admin_info WHERE openid = ? AND org_id = ? AND bind_status = 'active' LIMIT 1",
+      [openid, orgId]
+    );
+    return rows.length > 0;
   } catch (_) {
-    allowed = false;
-  }
-  _userOrgCache.set(key, { allowed, at: Date.now() });
-  _pruneCache();
-  return allowed;
-}
-
-function _pruneCache() {
-  if (_userOrgCache.size > 2000) {
-    const now = Date.now();
-    for (const [k, v] of _userOrgCache.entries()) {
-      if (now - v.at > USER_ORG_CACHE_TTL) _userOrgCache.delete(k);
-    }
+    return false;
   }
 }
 
 function clearOrgAccessCache(openid, orgId, role) {
-  if (!openid || !orgId) return;
-  const roleKey = role === 'admin' ? 'admin' : 'user';
-  _userOrgCache.delete(roleKey + '::' + openid + '::' + orgId);
+  // 权限改为逐请求读取数据库；保留导出以兼容现有调用方。
+  return Boolean(openid && orgId && role);
 }
 
 async function orgContextMiddleware(req, res, next) {
@@ -130,12 +95,20 @@ async function orgContextMiddleware(req, res, next) {
   const orgId = (req.headers['x-active-org'] || '').trim();
 
   if (!orgId) {
-    return next();
+    return res.status(400).json({
+      status: 'org_context_required',
+      message: '缺少组织上下文，请重新登录或更新小程序',
+      requestId: req.requestId || ''
+    });
   }
 
   const openid = req.openid || '';
   if (!openid) {
-    return next();
+    return res.status(401).json({
+      status: 'auth_failed',
+      message: '请先登录',
+      requestId: req.requestId || ''
+    });
   }
 
   // 按路由类型选择不同的权限校验
@@ -144,9 +117,10 @@ async function orgContextMiddleware(req, res, next) {
     : await _userCanAccessOrg(openid, orgId);
 
   if (!allowed) {
-    return res.json({
+    return res.status(403).json({
       status: 'org_access_denied',
-      message: '当前账号无权访问所选组织，请重新选择'
+      message: '当前账号无权访问所选组织，请重新选择',
+      requestId: req.requestId || ''
     });
   }
 

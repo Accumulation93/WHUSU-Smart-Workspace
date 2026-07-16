@@ -508,9 +508,7 @@ Page({
         { value: 'workGroup_asc', label: '按职能组' }
       ],
       resultSortLabel: '按分数从高到低',
-      adminLevelOptions: isRootAdmin
-        ? ['普通管理员', '超级管理员', '至高权限管理员']
-        : ['普通管理员', '超级管理员']
+      adminLevelOptions: isRootAdmin ? ['超级管理员'] : ['普通管理员']
     });
 
     const loadSubApp = async () => {

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { JWT_SECRET } = require('../../middleware/auth');
 const { safeString, generateId } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
@@ -9,6 +10,7 @@ const userInfoModel = require('../models/userInfo');
 const adminInfoModel = require('../models/adminInfo');
 const hrInfoModel = require('../models/hrInfo');
 const organizationModel = require('../models/organization');
+const authChallengeModel = require('../models/authChallenge');
 const pool = require('../../config/db');
 const { clearOrgAccessCache } = require('../../middleware/orgContext');
 
@@ -183,7 +185,7 @@ router.post('/userLogin', async (req, res) => {
     }
 
     if (!openid) {
-      return res.json({ status: 'need_bind', message: '无法获取用户标识' });
+      return res.json({ status: 'auth_failed', message: '无法获取用户标识，请重试' });
     }
 
     const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
@@ -250,9 +252,18 @@ router.post('/userLogin', async (req, res) => {
         if (targetHr && safeString(targetHr.name) === name) {
           const sourceOrgName = (allOrgs.find(o => o.id === sourceOrgId) || {}).name || sourceOrgId;
           const targetOrgName = (allOrgs.find(o => o.id === systemDefaultOrgId) || {}).name || systemDefaultOrgId;
+          const autoBindChallenge = await authChallengeModel.create('auto_bind', openid, {
+            sourceOrgId,
+            sourceHrId: sourceHr.id,
+            targetOrgId: systemDefaultOrgId,
+            targetHrId: targetHr.id,
+            name,
+            studentId
+          });
           return res.json({
             status: 'auto_bind_available',
             token,
+            autoBindChallenge,
             sourceOrg: { id: sourceOrgId, name: sourceOrgName },
             targetOrg: { id: systemDefaultOrgId, name: targetOrgName },
             sourceUser: {
@@ -262,7 +273,6 @@ router.post('/userLogin', async (req, res) => {
               studentId: sourceHr.student_id
             },
             candidateHrInfo: {
-              id: targetHr.id,
               name: targetHr.name,
               studentId: targetHr.student_id
             },
@@ -273,7 +283,21 @@ router.post('/userLogin', async (req, res) => {
     }
 
     // ====== 第 4 层：完全找不到 → need_bind ======
-    return res.json({ status: 'need_bind', token });
+    const bindingOrg = systemDefaultOrgId
+      ? allOrgs.find((org) => org.id === systemDefaultOrgId)
+      : allOrgs[0];
+    if (!bindingOrg) {
+      return res.json({ status: 'binding_unavailable', token, message: '当前没有可绑定的组织' });
+    }
+    const bindingContext = await authChallengeModel.create('user_bind', openid, {
+      targetOrgId: bindingOrg.id
+    });
+    return res.json({
+      status: 'need_bind',
+      token,
+      bindingContext,
+      bindingOrg: { id: bindingOrg.id, name: bindingOrg.name }
+    });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || '登录失败' });
   }
@@ -558,45 +582,81 @@ router.post('/admin/listMyOrganizations', async (req, res) => {
 
 // confirmAutoBind — 用户确认后，在目标组织创建 user_info 绑定
 router.post('/confirmAutoBind', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
     const openid = req.openid;
-    const targetOrgId = safeString(req.body.targetOrgId);
-    const hrId = safeString(req.body.hrId);
-
     if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
-    if (!targetOrgId || !hrId) return res.json({ status: 'invalid_params', message: '参数不完整' });
-
-    // 验证 hr 记录在目标组织中确实存在
-    const hrRecord = await hrInfoModel.getByIdInOrg(hrId, targetOrgId);
-    if (!hrRecord) {
-      return res.json({ status: 'not_found', message: '目标组织中未找到该人事信息' });
+    await conn.beginTransaction();
+    const challenge = await authChallengeModel.lock(conn, req.body.autoBindChallenge, 'auto_bind', openid);
+    if (challenge.status !== 'success') {
+      await conn.rollback();
+      return res.json(challenge);
     }
-
-    // 检查是否已在目标组织绑定
-    const existing = await userInfoModel.getByOpenidInOrg(openid, targetOrgId);
-    const conflict = await userInfoModel.getByHrIdInOrg(hrId, openid, targetOrgId);
-    if (conflict) {
+    const payload = challenge.payload;
+    const [sourceRows] = await conn.query(
+      'SELECT id, name, student_id FROM hr_info WHERE id = ? AND org_id = ? FOR UPDATE',
+      [payload.sourceHrId, payload.sourceOrgId]
+    );
+    const [targetRows] = await conn.query(
+      'SELECT id, name, student_id FROM hr_info WHERE id = ? AND org_id = ? FOR UPDATE',
+      [payload.targetHrId, payload.targetOrgId]
+    );
+    const sourceHr = sourceRows[0];
+    const targetHr = targetRows[0];
+    if (!sourceHr || !targetHr || safeString(sourceHr.name) !== safeString(targetHr.name) || safeString(sourceHr.student_id) !== safeString(targetHr.student_id)) {
+      await conn.rollback();
+      return res.json({ status: 'conflict', message: '人事信息已变化，请重新登录确认' });
+    }
+    const [sourceBindings] = await conn.query(
+      'SELECT id FROM user_info WHERE openid = ? AND hr_id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
+      [openid, sourceHr.id, payload.sourceOrgId]
+    );
+    if (!sourceBindings.length) {
+      await conn.rollback();
+      return res.json({ status: 'conflict', message: '原组织绑定已变化，请重新登录' });
+    }
+    const [conflicts] = await conn.query(
+      'SELECT id FROM user_info WHERE hr_id = ? AND openid != ? AND org_id = ? LIMIT 1 FOR UPDATE',
+      [targetHr.id, openid, payload.targetOrgId]
+    );
+    if (conflicts.length) {
+      await conn.rollback();
       return res.json({ status: 'already_bound', message: '该人事信息已被其他微信绑定' });
     }
-    if (existing) {
-      // 已绑定，只需更新 hr_id
-      const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-      await userInfoModel.updateInOrg(existing.id, hrId, nowUtc, targetOrgId);
+    const [existingRows] = await conn.query(
+      'SELECT id FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1 FOR UPDATE',
+      [openid, payload.targetOrgId]
+    );
+    if (existingRows.length) {
+      await conn.query('UPDATE user_info SET hr_id = ?, updated_at = NOW() WHERE id = ? AND org_id = ?', [targetHr.id, existingRows[0].id, payload.targetOrgId]);
     } else {
-      const id = generateId();
-      await userInfoModel.createInOrg(id, openid, hrId, targetOrgId);
+      await conn.query('INSERT INTO user_info (id, openid, hr_id, org_id) VALUES (?, ?, ?, ?)', [generateId(), openid, targetHr.id, payload.targetOrgId]);
     }
-
-    clearOrgAccessCache(openid, targetOrgId, 'user');
-
-    res.json({ status: 'success', message: '绑定成功' });
+    if (!await authChallengeModel.consume(conn, challenge.id)) {
+      await conn.rollback();
+      return res.json({ status: 'challenge_expired', message: '绑定验证已使用，请重新登录' });
+    }
+    await conn.commit();
+    const targetOrganization = await organizationModel.getById(payload.targetOrgId);
+    res.json({
+      status: 'success',
+      message: '绑定成功',
+      activeOrg: { id: payload.targetOrgId, name: targetOrganization ? targetOrganization.name : '' },
+      user: await buildUserProfileCrossOrg(targetHr, payload.targetOrgId),
+      availableOrgs: await buildAvailableOrgs(openid, null)
+    });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '绑定失败' });
+    try { await conn.rollback(); } catch (_) { /* ignore */ }
+    req.logger.error('confirmAutoBind failed', { error: e.message });
+    res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
+  } finally {
+    conn.release();
   }
 });
 
 // bindUserInfo - 普通用户绑定人事信息
 router.post('/bindUserInfo', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
     const openid = req.openid;
     const studentId = safeString(req.body.studentId);
@@ -609,32 +669,58 @@ router.post('/bindUserInfo', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请提供学号和姓名' });
     }
 
-    // Find HR record by studentId and name
-    const hrRecord = await hrInfoModel.getByStudentId(studentId);
+    await conn.beginTransaction();
+    const challenge = await authChallengeModel.lock(conn, req.body.bindingContext, 'user_bind', openid);
+    if (challenge.status !== 'success') {
+      await conn.rollback();
+      return res.json(challenge);
+    }
+    const targetOrgId = safeString(challenge.payload.targetOrgId);
+    const [orgRows] = await conn.query('SELECT id FROM organizations WHERE id = ? LIMIT 1', [targetOrgId]);
+    if (!orgRows.length) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '绑定组织不存在' });
+    }
+    const [hrRows] = await conn.query(
+      'SELECT * FROM hr_info WHERE student_id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
+      [studentId, targetOrgId]
+    );
+    const hrRecord = hrRows[0];
     if (!hrRecord) {
+      await conn.rollback();
       return res.json({ status: 'not_found', message: '未找到匹配的人事信息，请联系管理员' });
     }
 
     if (safeString(hrRecord.name) !== name) {
+      await conn.rollback();
       return res.json({ status: 'name_mismatch', message: '姓名与人事信息不匹配' });
     }
 
     // Check if this hr_id is already bound to another WeChat account
-    const conflict = await userInfoModel.getByHrId(hrRecord.id, openid);
-    if (conflict) {
+    const [conflicts] = await conn.query(
+      'SELECT id FROM user_info WHERE hr_id = ? AND openid != ? AND org_id = ? LIMIT 1 FOR UPDATE',
+      [hrRecord.id, openid, targetOrgId]
+    );
+    if (conflicts.length) {
+      await conn.rollback();
       return res.json({ status: 'already_bound', message: '该人事信息已被其他微信绑定' });
     }
 
-    // Create or update user_info binding
-    let user = await userInfoModel.getByOpenid(openid);
-    if (user) {
-      const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-      await userInfoModel.update(user.id, hrRecord.id, nowUtc);
+    const [userRows] = await conn.query(
+      'SELECT id FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1 FOR UPDATE',
+      [openid, targetOrgId]
+    );
+    if (userRows.length) {
+      await conn.query('UPDATE user_info SET hr_id = ?, updated_at = NOW() WHERE id = ? AND org_id = ?', [hrRecord.id, userRows[0].id, targetOrgId]);
     } else {
       const id = generateId();
-      await userInfoModel.create(id, openid, hrRecord.id);
-      user = { id, hr_id: hrRecord.id };
+      await conn.query('INSERT INTO user_info (id, openid, hr_id, org_id) VALUES (?, ?, ?, ?)', [id, openid, hrRecord.id, targetOrgId]);
     }
+    if (!await authChallengeModel.consume(conn, challenge.id)) {
+      await conn.rollback();
+      return res.json({ status: 'challenge_expired', message: '绑定验证已使用，请重新登录' });
+    }
+    await conn.commit();
 
     res.json({
       status: 'success',
@@ -643,15 +729,21 @@ router.post('/bindUserInfo', async (req, res) => {
         id: hrRecord.id,
         name: hrRecord.name,
         studentId: hrRecord.student_id
-      }
+      },
+      activeOrg: { id: targetOrgId }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '绑定失败' });
+    try { await conn.rollback(); } catch (_) { /* ignore */ }
+    req.logger.error('bindUserInfo failed', { error: e.message });
+    res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
+  } finally {
+    conn.release();
   }
 });
 
 // bindAdminInfo - 管理员绑定（通过邀请码）
 router.post('/bindAdminInfo', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
     const openid = req.openid;
     const inviteCode = safeString(req.body.inviteCode);
@@ -663,25 +755,46 @@ router.post('/bindAdminInfo', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请提供邀请码' });
     }
 
-    const admin = await adminInfoModel.getByInviteCode(inviteCode);
+    const inviteCodeHash = crypto.createHash('sha256').update(inviteCode.toUpperCase()).digest('hex');
+    await conn.beginTransaction();
+    const [adminRows] = await conn.query(
+      `SELECT *, (invite_expires_at > NOW()) AS invite_valid FROM admin_info
+        WHERE invite_code_hash = ?
+          AND bind_status = 'invited'
+          AND invite_consumed_at IS NULL
+        LIMIT 1 FOR UPDATE`,
+      [inviteCodeHash]
+    );
+    const admin = adminRows[0];
     if (!admin) {
+      await conn.rollback();
       return res.json({ status: 'invalid_code', message: '邀请码无效' });
+    }
+    if (!admin.invite_valid) {
+      await conn.rollback();
+      return res.json({ status: 'invite_expired', message: '邀请码已过期，请联系管理员重新生成' });
     }
 
     // Only reject if admin already has a different openid bound
     const boundOpenid = safeString(admin.openid);
     if (boundOpenid && boundOpenid !== openid) {
+      await conn.rollback();
       return res.json({ status: 'already_bound', message: '该邀请码已被使用' });
     }
 
-    // Bind openid
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    await adminInfoModel.update(admin.id, {
-      openid,
-      bindStatus: 'active',
-      boundAt: nowUtc,
-      updatedAt: nowUtc
-    });
+    const [updateResult] = await conn.query(
+      `UPDATE admin_info
+          SET openid = ?, bind_status = 'active', bound_at = ?, updated_at = ?,
+              invite_code = NULL, invite_code_hash = NULL, invite_consumed_at = ?, invite_expires_at = NULL
+        WHERE id = ? AND invite_code_hash = ? AND bind_status = 'invited' AND invite_consumed_at IS NULL`,
+      [openid, nowUtc, nowUtc, nowUtc, admin.id, inviteCodeHash]
+    );
+    if (updateResult.affectedRows !== 1) {
+      await conn.rollback();
+      return res.json({ status: 'invite_expired', message: '邀请码已失效，请重新获取' });
+    }
+    await conn.commit();
 
     const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
 
@@ -689,10 +802,15 @@ router.post('/bindAdminInfo', async (req, res) => {
       status: 'success',
       message: '管理员绑定成功',
       token,
-      adminLevel: admin.admin_level
+      adminLevel: admin.admin_level,
+      activeOrg: admin.org_id ? { id: admin.org_id } : null
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '绑定失败' });
+    try { await conn.rollback(); } catch (_) { /* ignore */ }
+    req.logger.error('bindAdminInfo failed', { error: e.message });
+    res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
+  } finally {
+    conn.release();
   }
 });
 

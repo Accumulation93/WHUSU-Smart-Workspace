@@ -47,13 +47,15 @@ async function getAll() {
 }
 
 async function create(id, data) {
-  const { name, studentId, openid, adminLevel, bindStatus, inviteCode, invitedAt } = data;
+  const { name, studentId, openid, adminLevel, bindStatus, inviteCodeHash, invitedAt, inviteExpiresAt } = data;
   const orgId = (adminLevel === 'root_admin') ? '' : await getCurrentOrgId();
   await pool.query(
-    `INSERT INTO admin_info (id, name, student_id, openid, admin_level, bind_status, invite_code, invited_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO admin_info
+      (id, name, student_id, openid, admin_level, bind_status, invite_code, invite_code_hash,
+       invited_at, invite_expires_at, invite_consumed_at, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, NULL, ?)`,
     [id, name || '', studentId || '', openid || '', adminLevel || 'super_admin',
-     bindStatus || 'invited', inviteCode || null, invitedAt || null, orgId]
+     bindStatus || 'invited', inviteCodeHash || null, invitedAt || null, inviteExpiresAt || null, orgId]
   );
 }
 
@@ -61,7 +63,8 @@ async function update(id, data) {
   const fields = [];
   const values = [];
   const allowedFields = ['name', 'student_id', 'openid', 'admin_level', 'bind_status',
-    'invite_code', 'invited_at', 'bound_at', 'updated_at', 'org_id'];
+    'invite_code', 'invite_code_hash', 'invited_at', 'invite_expires_at', 'invite_consumed_at',
+    'bound_at', 'updated_at', 'org_id'];
 
   for (const [key, value] of Object.entries(data)) {
     const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
@@ -84,11 +87,15 @@ async function remove(id) {
   await pool.query('DELETE FROM admin_info WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-async function getByInviteCode(code) {
-  const orgId = await getCurrentOrgId();
+async function getByInviteHash(inviteCodeHash) {
   const [rows] = await pool.query(
-    "SELECT * FROM admin_info WHERE invite_code = ? AND (org_id = ? OR org_id = '')",
-    [code, orgId]
+    `SELECT * FROM admin_info
+      WHERE invite_code_hash = ?
+        AND bind_status = 'invited'
+        AND invite_consumed_at IS NULL
+        AND invite_expires_at > NOW()
+      LIMIT 1`,
+    [inviteCodeHash]
   );
   return rows[0] || null;
 }
@@ -121,5 +128,5 @@ async function getByOpenidAcrossOrgs(openid) {
 
 module.exports = {
   getByOpenid, getByOpenidAny, getByOpenidGlobal, getByOpenidAcrossOrgs, getById, getAll,
-  create, update, remove, getByInviteCode, getRootAdmin, getByAdminLevel
+  create, update, remove, getByInviteHash, getRootAdmin, getByAdminLevel
 };

@@ -1,4 +1,9 @@
 const API_BASE = 'https://accumulation93.com/api';
+const CLIENT_VERSION = '1.2.0-security';
+
+function createRequestId() {
+  return 'mp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
 
 function callFunction(options) {
   const name = options.name || '';
@@ -32,7 +37,9 @@ function callFunction(options) {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + (wx.getStorageSync('token') || ''),
         'X-Active-Org': wx.getStorageSync('activeOrgId') || '',
-        'X-Role': wx.getStorageSync('activeRole') || ''
+        'X-Role': wx.getStorageSync('activeRole') || '',
+        'X-Client-Version': CLIENT_VERSION,
+        'X-Request-Id': createRequestId()
       },
       data: data,
       success: function(res) {

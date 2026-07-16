@@ -1,7 +1,7 @@
 // Behavior: adminManagement tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
-const { emptyAdminForm, createLocalInviteCode } = utils;
+const { emptyAdminForm } = utils;
 const { writeAndOpen } = require('../../../../../utils/filePreview');
 
 module.exports = Behavior({
@@ -40,7 +40,8 @@ module.exports = Behavior({
         const result = await this.callCloud('listAdmins');
         this.setData({
           adminList: result.list || [],
-          canManageAdmins: !!result.canManage
+          canManageAdmins: !!result.canManage,
+          manageableAdminLevel: result.manageableLevel || ''
         });
       } catch (error) {
         wx.showToast({
@@ -66,34 +67,9 @@ module.exports = Behavior({
       });
     },
 
-    generateInviteCode() {
-      if (!this.data.canManageAdmins) {
-        return;
-      }
-  
-      const inviteCode = createLocalInviteCode();
-      this.setData({
-        adminForm: {
-          ...this.data.adminForm,
-          inviteCode
-        },
-        latestInviteCode: inviteCode
-      });
-  
-      wx.showToast({
-        title: '邀请码已生成',
-        icon: 'success'
-      });
-    },
-
     onAdminLevelChange(e) {
-      const idx = Number(e.detail.value);
-      let adminLevel;
-      if (this.data.isRootAdmin) {
-        adminLevel = idx === 0 ? 'admin' : (idx === 1 ? 'super_admin' : 'root_admin');
-      } else {
-        adminLevel = idx === 0 ? 'admin' : 'super_admin';
-      }
+      const idx = Number(e.detail.value) || 0;
+      const adminLevel = this.data.manageableAdminLevel || (this.data.isRootAdmin ? 'super_admin' : 'admin');
       this.setData({
         adminLevelIndex: idx,
         adminForm: {
@@ -139,23 +115,20 @@ module.exports = Behavior({
   
       const index = Number(e.currentTarget.dataset.index);
       const item = this.data.adminList[index];
-      if (!item) {
+      if (!item || !item.canManage) {
         return;
       }
   
       const adminLevel = item.adminLevel || 'admin';
-      const idx = this.data.isRootAdmin
-        ? (adminLevel === 'root_admin' ? 2 : (adminLevel === 'super_admin' ? 1 : 0))
-        : (adminLevel === 'super_admin' ? 1 : 0);
   
       this.setData({
-        adminLevelIndex: idx,
+        adminLevelIndex: 0,
         adminForm: {
           id: item.id,
           name: item.name,
           studentId: item.studentId,
           adminLevel,
-          inviteCode: item.inviteCode || ''
+          inviteCode: ''
         },
         latestInviteCode: '',
         activeTab: 'admins'
@@ -163,8 +136,10 @@ module.exports = Behavior({
     },
 
     resetAdminForm() {
+      const form = emptyAdminForm();
+      form.adminLevel = this.data.manageableAdminLevel || (this.data.isRootAdmin ? 'super_admin' : 'admin');
       this.setData({
-        adminForm: emptyAdminForm(),
+        adminForm: form,
         adminLevelIndex: 0,
         latestInviteCode: ''
       });
@@ -193,24 +168,9 @@ module.exports = Behavior({
         return;
       }
   
-      let inviteCode = String(form.inviteCode || '').trim().toUpperCase();
-      if (!inviteCode) {
-        inviteCode = createLocalInviteCode();
-        this.setData({
-          adminForm: {
-            ...this.data.adminForm,
-            inviteCode
-          },
-          latestInviteCode: inviteCode
-        });
-      }
-  
       this.setLoading('saveAdmin', true);
       try {
-        const result = await this.callCloud('saveAdmin', {
-          ...form,
-          inviteCode
-        });
+        const result = await this.callCloud('saveAdmin', form);
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || '保存失败',
@@ -235,6 +195,23 @@ module.exports = Behavior({
         });
       } finally {
         this.setLoading('saveAdmin', false);
+      }
+    },
+
+    async regenerateAdminInvite(e) {
+      const adminId = e.currentTarget.dataset.id;
+      if (!adminId) return;
+      try {
+        const result = await this.callCloud('generateAdminInviteCode', { adminId });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || '生成失败', icon: 'none' });
+          return;
+        }
+        this.setData({ latestInviteCode: result.inviteCode || '' });
+        await this.loadAdminList();
+        wx.showToast({ title: '邀请码已生成', icon: 'success' });
+      } catch (_) {
+        wx.showToast({ title: '生成失败', icon: 'none' });
       }
     },
 

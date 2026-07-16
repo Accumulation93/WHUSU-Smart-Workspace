@@ -74,7 +74,9 @@ Page({
     loading: false,
     name: '',
     studentId: '',
-    inviteCode: ''
+    inviteCode: '',
+    bindingContext: '',
+    bindingOrgName: ''
   },
 
   onLoad() {
@@ -106,7 +108,9 @@ Page({
       showBind: false,
       name: '',
       studentId: '',
-      inviteCode: ''
+      inviteCode: '',
+      bindingContext: '',
+      bindingOrgName: ''
     });
   },
 
@@ -137,7 +141,9 @@ Page({
       sheetClass: 'sheet',
       name: '',
       studentId: '',
-      inviteCode: ''
+      inviteCode: '',
+      bindingContext: '',
+      bindingOrgName: ''
     });
   },
 
@@ -239,7 +245,9 @@ Page({
     if (result.status === 'need_bind') {
       this.setData({
         showBind: true,
-        sheetClass: 'sheet sheet-show'
+        sheetClass: 'sheet sheet-show',
+        bindingContext: result.bindingContext || '',
+        bindingOrgName: result.bindingOrg ? result.bindingOrg.name : ''
       });
       return;
     }
@@ -281,6 +289,8 @@ Page({
 
     if (activeRole === 'admin') {
       payload.inviteCode = inviteCode;
+    } else {
+      payload.bindingContext = this.data.bindingContext;
     }
 
     this.setData({ loading: true });
@@ -342,19 +352,19 @@ Page({
       const res = await callFunction({
         name: 'confirmAutoBind',
         data: {
-          targetOrgId: result.targetOrg.id,
-          hrId: result.candidateHrInfo.id
+          autoBindChallenge: result.autoBindChallenge
         }
       });
       if (res.status === 'success') {
         showShortToast('同步成功');
         // 绑定成功 → 使用系统默认组织重新进入
         wx.setStorageSync('token', result.token);
-        wx.setStorageSync('activeOrgId', result.targetOrg.id);
-        wx.setStorageSync('activeOrgName', result.targetOrg.name);
-        saveAvailableOrganizations(this.data.activeRole, result.availableOrgs || []);
-        if (result.sourceUser) {
-          this.saveProfile(this.data.activeRole, result.sourceUser);
+        const activeOrg = res.activeOrg || result.targetOrg;
+        wx.setStorageSync('activeOrgId', activeOrg.id);
+        wx.setStorageSync('activeOrgName', activeOrg.name || result.targetOrg.name);
+        saveAvailableOrganizations(this.data.activeRole, res.availableOrgs || result.availableOrgs || []);
+        if (res.user) {
+          this.saveProfile(this.data.activeRole, res.user);
         }
         wx.redirectTo({ url: '/pages/portal/portal' });
       } else {

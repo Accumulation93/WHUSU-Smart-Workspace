@@ -328,6 +328,22 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
     const fileId = safeString(req.body.fileId);
     const signatures = Array.isArray(req.body.signatures) ? req.body.signatures : [];
     if (!fileId) return res.json({ status: 'invalid_params', message: '请提供文件ID' });
+    if (signatures.length > 20) return res.json({ status: 'invalid_params', message: '单次最多处理20个签名' });
+    let totalSignatureBytes = 0;
+    for (const signature of signatures) {
+      const imageData = safeString(signature && signature.imageData);
+      if (!/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(imageData)) {
+        return res.json({ status: 'invalid_params', message: '签名图片格式无效' });
+      }
+      const estimatedBytes = Math.ceil(imageData.length * 3 / 4);
+      if (estimatedBytes > 2 * 1024 * 1024) {
+        return res.json({ status: 'invalid_params', message: '单个签名图片过大' });
+      }
+      totalSignatureBytes += estimatedBytes;
+    }
+    if (totalSignatureBytes > 10 * 1024 * 1024) {
+      return res.json({ status: 'invalid_params', message: '签名图片总量过大' });
+    }
 
     const auth = await getAuthorizedAuditFile(fileId, req.openid);
     if (auth.status !== 'success') return res.json(auth);
@@ -345,6 +361,9 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
       const metadata = await image.metadata();
       const imgWidth = metadata.width || 800;
       const imgHeight = metadata.height || 600;
+      if (imgWidth * imgHeight > 40 * 1000 * 1000) {
+        return res.json({ status: 'invalid_params', message: '图片像素尺寸过大' });
+      }
       const composites = [];
 
       for (const sig of signatures) {
@@ -390,6 +409,9 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
       const pdfDoc = await PDFDocument.load(pdfBytes);
       const pages = pdfDoc.getPages();
       const totalPages = pages.length;
+      if (totalPages > 100) {
+        return res.json({ status: 'invalid_params', message: 'PDF页数超过100页限制' });
+      }
 
       for (const sig of signatures) {
         if (!sig.imageData) continue;

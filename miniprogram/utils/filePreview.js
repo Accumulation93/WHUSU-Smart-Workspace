@@ -26,6 +26,15 @@ function getToken() {
   try { return wx.getStorageSync('token') || ''; } catch (_) { return ''; }
 }
 
+function getRequestHeaders() {
+  return {
+    'Authorization': 'Bearer ' + getToken(),
+    'X-Active-Org': wx.getStorageSync('activeOrgId') || '',
+    'X-Role': wx.getStorageSync('activeRole') || '',
+    'X-Client-Version': '1.2.0-security'
+  };
+}
+
 function showLoading() {
   try { wx.showLoading({ title: '加载中...', mask: true }); } catch (_) {}
 }
@@ -99,10 +108,7 @@ function fallbackDownload(fileId, fileName, callback) {
   wx.request({
     url: API_BASE + '/getAuditFile',
     method: 'POST',
-    header: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + getToken()
-    },
+    header: Object.assign({ 'Content-Type': 'application/json' }, getRequestHeaders()),
     data: { fileId: fileId },
     success: function(res) {
       hideLoading();
@@ -189,7 +195,7 @@ function openAuditFile(options) {
 
   wx.downloadFile({
     url: API_BASE + '/downloadAuditFile?fileId=' + encodeURIComponent(fileId),
-    header: { 'Authorization': 'Bearer ' + getToken() },
+    header: getRequestHeaders(),
     success: function(res) {
       hideLoading();
       if (res.statusCode === 200) {

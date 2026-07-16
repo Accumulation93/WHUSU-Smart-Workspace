@@ -8,7 +8,13 @@
     "dev": "nodemon src/index.js",
     "test:org-switch": "node test/activateOrganization.test.js",
     "test:org-cache": "node test/scoringOrgCacheIsolation.test.js",
-    "test:hr-import": "node test/hrTableImport.test.js"
+    "test:security-org": "node test/orgContextSecurity.test.js",
+    "test:security-admin": "node test/adminAuthorization.test.js",
+    "test:security-challenge": "node test/authChallenge.test.js",
+    "test:security-migration": "node test/securityMigration.test.js",
+    "test:hr-import": "node test/hrTableImport.test.js",
+    "security:cleanup-audit-temp": "node scripts/cleanupAuditTemp.js",
+    "security:bootstrap-root": "node scripts/bootstrapRootAdmin.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.1",

@@ -30,45 +30,30 @@ const dbName = process.env.DB_NAME || 'redsu_scoring';
 const dbUser = process.env.DB_USER;
 const dbPass = process.env.DB_PASSWORD;
 
-// ---------- health + ping (before all middleware) ----------
+// ---------- 请求上下文与公共健康检查 ----------
+app.use(requestContext);
+app.use((req, res, next) => {
+  const sendJson = res.json.bind(res);
+  res.json = function(body) {
+    if (body && typeof body === 'object' && !Array.isArray(body) && !body.requestId) {
+      body.requestId = req.requestId || '';
+    }
+    return sendJson(body);
+  };
+  next();
+});
+
 app.get('/api/ping', (req, res) => {
-  res.json({ status: 'ok', uptime: Math.floor((Date.now() - startTime) / 1000) });
+  res.json({ status: 'ok' });
 });
 
 app.get('/api/health', async (req, res) => {
-  let dbStatus = 'unknown';
-  let dbError = null;
-  let dbLatency = 0;
-  const t0 = Date.now();
   try {
-    const conn = await mysql.createConnection({
-      host: dbHost, port: dbPort, user: dbUser, password: dbPass,
-      database: dbName, connectTimeout: 3000
-    });
-    await conn.ping();
-    await conn.end();
-    dbStatus = 'connected';
-    dbLatency = Date.now() - t0;
-  } catch (e) {
-    dbStatus = 'disconnected';
-    dbError = e.message;
-    dbLatency = Date.now() - t0;
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok' });
+  } catch (_) {
+    res.status(503).json({ status: 'degraded' });
   }
-  res.json({
-    status: dbStatus === 'connected' ? 'ok' : 'degraded',
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor((Date.now() - startTime) / 1000),
-    node: {
-      version: process.version,
-      memory: Math.round(process.memoryUsage().rss / 1024 / 1024) + ' MB'
-    },
-    database: {
-      status: dbStatus,
-      latency: dbLatency + ' ms',
-      error: dbError,
-      host: dbHost, port: dbPort, database: dbName
-    }
-  });
 });
 
 // ---------- morgan custom tokens ----------
@@ -80,7 +65,6 @@ morgan.token('ref', req => (req.get('referer') || '-').slice(0, 60));
 morgan.token('res-size', (req, res) => res.get('content-length') || '-');
 
 // ---------- middleware ----------
-app.use(requestContext);
 app.use(morgan(':method :url :status :response-time ms ip=:ip uid=:uid ua=:ua ref=:ref rid=:rid size=:res-size', {
   stream: createRequestLogger(),
   skip: (req) => req.path === '/api/ping' || req.path === '/api/health'
@@ -92,7 +76,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'https://accumulation93.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Org', 'X-Role']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Org', 'X-Role', 'X-Client-Version', 'X-Request-Id']
 }));
 
 app.use((req, res, next) => {
@@ -146,6 +130,22 @@ app.use(authMiddleware);
 
 // 组织上下文中间件（基于 X-Active-Org header，注入 ALS）
 app.use(orgContextMiddleware);
+
+app.get('/api/admin/health', async (req, res) => {
+  const startedAt = Date.now();
+  try {
+    await pool.query('SELECT 1');
+    res.json({
+      status: 'ok',
+      uptimeSeconds: Math.floor((Date.now() - startTime) / 1000),
+      databaseLatencyMs: Date.now() - startedAt,
+      processId: process.pid
+    });
+  } catch (e) {
+    req.logger.error('Protected health check failed', { error: e.message });
+    res.status(503).json({ status: 'degraded', message: '数据库不可用' });
+  }
+});
 
 // ---------- request timeout ----------
 app.use((req, res, next) => {

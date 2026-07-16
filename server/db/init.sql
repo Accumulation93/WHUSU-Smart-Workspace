@@ -110,7 +110,10 @@ CREATE TABLE IF NOT EXISTS admin_info (
   admin_level VARCHAR(32) NOT NULL DEFAULT 'super_admin',
   bind_status VARCHAR(16) NOT NULL DEFAULT 'invited',
   invite_code VARCHAR(32) DEFAULT NULL,
+  invite_code_hash CHAR(64) DEFAULT NULL,
   invited_at DATETIME DEFAULT NULL,
+  invite_expires_at DATETIME DEFAULT NULL,
+  invite_consumed_at DATETIME DEFAULT NULL,
   bound_at DATETIME DEFAULT NULL,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -118,7 +121,20 @@ CREATE TABLE IF NOT EXISTS admin_info (
   INDEX idx_ai_level (admin_level),
   INDEX idx_ai_bind (bind_status),
   INDEX idx_ai_org (org_id),
+  UNIQUE INDEX uk_ai_invite_hash (invite_code_hash),
   UNIQUE INDEX idx_ai_student (student_id, org_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_challenges (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  challenge_type VARCHAR(32) NOT NULL,
+  openid_hash CHAR(64) NOT NULL,
+  payload_json TEXT NOT NULL,
+  expires_at DATETIME NOT NULL,
+  consumed_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ac_expiry (expires_at),
+  INDEX idx_ac_owner (openid_hash, challenge_type, consumed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
