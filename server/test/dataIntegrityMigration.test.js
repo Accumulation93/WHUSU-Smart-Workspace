@@ -67,7 +67,7 @@ async function run() {
     assert.strictEqual(tables.length, 5);
 
     const [indexes] = await admin.query(
-      `SELECT TABLE_NAME, INDEX_NAME FROM information_schema.STATISTICS
+      `SELECT DISTINCT TABLE_NAME, INDEX_NAME FROM information_schema.STATISTICS
        WHERE TABLE_SCHEMA = ? AND INDEX_NAME IN ('uk_sr_business', 'uk_sa_record_question')`,
       [database]
     );
