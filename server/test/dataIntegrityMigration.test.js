@@ -9,6 +9,15 @@ const adminUser = process.env.TEST_DB_ADMIN_USER || 'root';
 const adminPassword = process.env.TEST_DB_ADMIN_PASSWORD || '';
 const database = 'redsu_integrity_test_' + process.pid + '_' + Date.now();
 
+async function executeCliMigration(connection, sql) {
+  const statements = sql
+    .replace(/^DELIMITER\s+\S+\s*$/gmi, '')
+    .split('//')
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+  for (const statement of statements) await connection.query(statement);
+}
+
 async function run() {
   const admin = await mysql.createConnection({ host, port, user: adminUser, password: adminPassword, multipleStatements: true });
   try {
@@ -40,8 +49,8 @@ async function run() {
     `);
 
     const migration = fs.readFileSync(path.resolve(__dirname, '../db/migrate_data_integrity.sql'), 'utf8');
-    await admin.query(migration);
-    await admin.query(migration);
+    await executeCliMigration(admin, migration);
+    await executeCliMigration(admin, migration);
 
     const [[booking]] = await admin.query(
       "SELECT creator_org_id, approval_org_id FROM venue_bookings WHERE id = 'booking-test'"
