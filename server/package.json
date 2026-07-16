@@ -14,6 +14,7 @@
     "test:security-migration": "node test/securityMigration.test.js",
     "test:data-integrity-migration": "node test/dataIntegrityMigration.test.js",
     "test:request-dedup": "node test/requestDeduplication.test.js",
+    "test:client-version": "node test/clientVersion.test.js",
     "test:hr-import": "node test/hrTableImport.test.js",
     "security:cleanup-audit-temp": "node scripts/cleanupAuditTemp.js",
     "security:bootstrap-root": "node scripts/bootstrapRootAdmin.js"

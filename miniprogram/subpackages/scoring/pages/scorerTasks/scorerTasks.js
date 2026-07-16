@@ -118,14 +118,7 @@ Page({
   },
 
   callCloud(name, data = {}) {
-    return new Promise((resolve, reject) => {
-      callFunction({
-        name,
-        data,
-        success: (res) => resolve(res.result || {}),
-        fail: reject
-      });
-    });
+    return callFunction({ name, data });
   },
 
   setExportLoading(key, value) {

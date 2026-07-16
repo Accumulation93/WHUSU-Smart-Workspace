@@ -7,26 +7,17 @@ module.exports = Behavior({
   methods: {
     callCloud(name, data = {}) {
       const organizationSnapshot = orgSession.getSnapshot();
-      return new Promise((resolve, reject) => {
-        callFunction({
-          name,
-          data,
-          success: function (res) {
-            // 组织切换后丢弃旧上下文响应，避免任一 Behavior 回写上一组织数据。
-            if (!orgSession.isCurrent(organizationSnapshot)) return;
-            const result = res.result || {};
-            // 诊断：捕获后端返回的异常错误消息
-            if (result.status === 'error' && result.message) {
-              console.error('[callCloud] API error:', name, 'message:', result.message);
-            }
-            resolve(result);
-          },
-          fail: function (err) {
-            if (!orgSession.isCurrent(organizationSnapshot)) return;
-            console.error('[callCloud] Request failed:', name, JSON.stringify(err));
-            reject(err);
-          }
-        });
+      return callFunction({ name, data }).then((result) => {
+        if (!orgSession.isCurrent(organizationSnapshot)) {
+          return Promise.reject({ status: 'request_cancelled', silent: true });
+        }
+        if (result.status === 'error' && result.message) {
+          console.error('[callCloud] API error:', name, 'message:', result.message);
+        }
+        return result;
+      }).catch((err) => {
+        if (!err || !err.silent) console.error('[callCloud] Request failed:', name, JSON.stringify(err));
+        return Promise.reject(err);
       });
     }
   }

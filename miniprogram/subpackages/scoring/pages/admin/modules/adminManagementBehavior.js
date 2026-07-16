@@ -3,6 +3,7 @@
 const utils = require('./adminUtils');
 const { emptyAdminForm } = utils;
 const { writeAndOpen } = require('../../../../../utils/filePreview');
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
@@ -35,21 +36,24 @@ module.exports = Behavior({
     },
 
     async loadAdminList() {
+      const request = orgSession.beginRequest(this, 'adminList');
       this.setLoading('admins', true);
       try {
         const result = await this.callCloud('listAdmins');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           adminList: result.list || [],
           canManageAdmins: !!result.canManage,
           manageableAdminLevel: result.manageableLevel || ''
         });
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
           title: '加载管理员失败',
           icon: 'none'
         });
       } finally {
-        this.setLoading('admins', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('admins', false);
       }
     },
 

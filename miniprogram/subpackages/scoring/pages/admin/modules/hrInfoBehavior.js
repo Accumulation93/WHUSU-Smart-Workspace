@@ -3,23 +3,27 @@
 const utils = require('./adminUtils');
 const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
     async loadHrList() {
+      const request = orgSession.beginRequest(this, 'hrList');
       this.setLoading('hr', true);
       try {
         const result = await this.callCloud('listHrInfo');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         const hrList = result.list || [];
         this.setData({ hrList });
         this.refreshAdminCandidates(this.data.adminCandidateKeyword);
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
           title: '加载人事成员失败',
           icon: 'none'
         });
       } finally {
-        this.setLoading('hr', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('hr', false);
       }
     },
 
@@ -61,9 +65,11 @@ module.exports = Behavior({
     },
 
     async loadHrProfileAdminData() {
+      const request = orgSession.beginRequest(this, 'hrProfileAdmin');
       this.setLoading('profile', true);
       try {
         const result = await this.callCloud('listHrProfileAdminData');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           wx.showToast({
             title: result.message || '加载人事信息模板失败',
@@ -100,12 +106,13 @@ module.exports = Behavior({
           hrProfileRows
         });
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
           title: '加载人事信息模板失败',
           icon: 'none'
         });
       } finally {
-        this.setLoading('profile', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('profile', false);
       }
     },
 

@@ -2,6 +2,7 @@
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const { RULE_SCOPE_OPTIONS, emptyRuleForm, emptyRuleFilters, buildRuleListItem, buildRuleFilterOptions, markSelectedRules, filterRuleList, normalizeRuleFilters, createSelectedRuleIdMap, getScopeLabel, buildRuleClausesForBatchApply, buildRuleClausesForSave, normalizeClauseForEdit, moveItem, refreshTemplateConfigSortOrder } = utils;
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
@@ -31,6 +32,7 @@ module.exports = Behavior({
     },
 
     async loadRuleList(options = {}) {
+      const request = orgSession.beginRequest(this, 'ruleList');
       const silent = !!options.silent;
       if (!silent) {
         this.setLoading('rules', true);
@@ -44,11 +46,13 @@ module.exports = Behavior({
         const result = await this.callCloud('listRateRules', {
           activityId: this.data.currentActivityId
         });
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status && result.status !== 'success') {
           throw new Error(result.message || '加载评分人类别失败');
         }
         this.setRuleListState(result.rules || [], this.data.selectedRuleIds, this.data.ruleFilters);
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         if (!silent) {
           wx.showToast({
             title: '加载评分人类别失败',
@@ -56,7 +60,7 @@ module.exports = Behavior({
           });
         }
       } finally {
-        if (!silent) {
+        if (!silent && orgSession.isRequestCurrent(this, request)) {
           this.setLoading('rules', false);
         }
       }

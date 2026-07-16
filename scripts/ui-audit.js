@@ -151,6 +151,36 @@ function scanWxml(file) {
   return controls;
 }
 
+function scanVisibleInternalIds(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  const tokens = tokenizeWxml(source);
+  const findings = [];
+  const directInternalIdPattern = /^\s*(?:[\w$]+\.)*(?:openid|hrId|fileId|adminId|departmentId|identityId|workGroupId|submissionId|bookingId|activityId)\s*$/;
+  let cursor = 0;
+  let insideWxs = false;
+
+  for (const token of tokens) {
+    if (!insideWxs && token.index > cursor) {
+      const text = source.slice(cursor, token.index);
+      for (const expression of text.matchAll(/\{\{([\s\S]*?)\}\}/g)) {
+        if (!directInternalIdPattern.test(expression[1])) continue;
+        const offset = cursor + expression.index;
+        findings.push({
+          file: relative(file),
+          line: lineAt(source, offset),
+          expression: expression[0].replace(/\s+/g, ' ').trim()
+        });
+      }
+    }
+
+    if (/^<wxs\b/.test(token.raw)) insideWxs = true;
+    if (/^<\/wxs\b/.test(token.raw)) insideWxs = false;
+    cursor = token.index + token.raw.length;
+  }
+
+  return findings;
+}
+
 function classList(raw) {
   const match = raw.match(/\bclass\s*=\s*(["'])([\s\S]*?)\1/);
   return match ? match[2].split(/\s+/).filter(Boolean) : [];
@@ -340,6 +370,7 @@ function scanWxss(file) {
 }
 
 const controls = walk(MINI_ROOT, '.wxml').flatMap(scanWxml);
+const visibleInternalIds = walk(MINI_ROOT, '.wxml').flatMap(scanVisibleInternalIds);
 const layoutContracts = walk(MINI_ROOT, '.wxml').map(scanLayoutContracts);
 const styles = walk(MINI_ROOT, '.wxss').map(scanWxss);
 const missingFeedback = controls.filter(item => (
@@ -413,6 +444,7 @@ const report = {
     willChange: styles.reduce((sum, item) => sum + item.willChange, 0),
     illegalColors: illegalColors.length,
     remoteAssets: remoteAssets.length,
+    visibleInternalIds: visibleInternalIds.length,
     dialogs: dialogs.length,
     dialogIssues: dialogIssues.length,
     dataLayoutIssues: dataLayoutIssues.length,
@@ -436,6 +468,7 @@ const report = {
   oversizedTimetable,
   illegalColors,
   remoteAssets,
+  visibleInternalIds,
   dialogs,
   dialogIssues,
   dataLayoutIssues,
@@ -465,6 +498,7 @@ if (process.argv.includes('--strict')) {
   const failed = report.summary.missingFeedback || report.summary.nestedRisks || report.summary.timingMismatches || report.summary.shellActive ||
     report.summary.nativeInputFlex || report.summary.oversizedTimetable || report.summary.missingDeviceSystem ||
     report.summary.transitionAll || report.summary.willChange || report.summary.illegalColors || report.summary.remoteAssets ||
+    report.summary.visibleInternalIds ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem;

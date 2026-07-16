@@ -9,6 +9,7 @@ const { logger, createRequestLogger } = require('./utils/logger');
 const requestContext = require('./middleware/requestContext');
 const { authMiddleware } = require('./middleware/auth');
 const { orgContextMiddleware } = require('./middleware/orgContext');
+const { clientVersionMiddleware } = require('./middleware/clientVersion');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -78,6 +79,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Active-Org', 'X-Role', 'X-Client-Version', 'X-Request-Id']
 }));
+app.use(clientVersionMiddleware);
 
 app.use((req, res, next) => {
   const now = Date.now();

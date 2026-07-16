@@ -6,6 +6,7 @@
 const utils = require('./adminUtils');
 const { formatAuditTime } = require('../../../../../utils/api');
 const { openAuditFile } = require('../../../../../utils/filePreview');
+const orgSession = require('../../../../../utils/orgSession');
 const { showShortToast, getErrorText } = utils;
 
 module.exports = Behavior({
@@ -182,9 +183,11 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadAuditFlowTemplates() {
+      const request = orgSession.beginRequest(this, 'auditFlowTemplates');
       this.setLoading('auditTemplates', true);
       try {
         const res = await this.callCloud('listAuditFlowTemplates', {});
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (res.status === 'success') {
           let that = this;
           let templates = (res.templates || []).map(function (t) {
@@ -211,10 +214,11 @@ module.exports = Behavior({
           console.error('[audit] listAuditFlowTemplates failed:', res.message);
         }
       } catch (e) {
+        if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
         console.error('[audit] loadAuditFlowTemplates error:', e);
         this.setData({ auditFlowTemplates: [] });
       } finally {
-        this.setLoading('auditTemplates', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditTemplates', false);
       }
     },
 
@@ -597,12 +601,12 @@ module.exports = Behavior({
           let deptMap = {};
           list.forEach(function(wg) {
             if (wg.deptId && selectedDeptIds.indexOf(wg.deptId) >= 0) {
-              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || wg.deptId, workGroups: [], selectedCount: 0 };
+              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || '信息已失效', workGroups: [], selectedCount: 0 };
               deptMap[wg.deptId].workGroups.push(wg);
             }
           });
           deptTabs = selectedDeptIds.map(function(did) {
-            return deptMap[did] || { deptId: did, deptName: did, workGroups: [], selectedCount: 0 };
+            return deptMap[did] || { deptId: did, deptName: '信息已失效', workGroups: [], selectedCount: 0 };
           });
           if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
         }
@@ -1006,12 +1010,12 @@ module.exports = Behavior({
           let deptMap = {};
           list.forEach(function(wg) {
             if (wg.deptId && selectedDeptIds.indexOf(wg.deptId) >= 0) {
-              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || wg.deptId, workGroups: [], selectedCount: 0 };
+              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || '信息已失效', workGroups: [], selectedCount: 0 };
               deptMap[wg.deptId].workGroups.push(wg);
             }
           });
           deptTabs = selectedDeptIds.map(function(did) {
-            return deptMap[did] || { deptId: did, deptName: did, workGroups: [], selectedCount: 0 };
+            return deptMap[did] || { deptId: did, deptName: '信息已失效', workGroups: [], selectedCount: 0 };
           });
           if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
         }
@@ -1179,19 +1183,22 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadStamps() {
+      const request = orgSession.beginRequest(this, 'auditStamps');
       this.setLoading('auditStamps', true);
       try {
         const res = await this.callCloud('listStamps', {});
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (res.status === 'success') {
           this.setData({ stamps: res.stamps || [] });
         } else {
           console.error('[audit] listStamps failed:', res.message);
         }
       } catch (e) {
+        if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
         console.error('[audit] loadStamps error:', e);
         this.setData({ stamps: [] });
       } finally {
-        this.setLoading('auditStamps', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditStamps', false);
       }
     },
 
@@ -1332,6 +1339,7 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadAuditSubmissions() {
+      const request = orgSession.beginRequest(this, 'auditSubmissions');
       this.setLoading('auditSubmissions', true);
       try {
         const filters = this.data.auditSubmissionFilters;
@@ -1340,16 +1348,18 @@ module.exports = Behavior({
           limit: 50,
           offset: 0
         });
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (res.status === 'success') {
           this.setData({ auditSubmissions: res.submissions || [] });
         } else {
           console.error('[audit] listAllAuditSubmissions failed:', res.message);
         }
       } catch (e) {
+        if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
         console.error('[audit] loadAuditSubmissions error:', e);
         this.setData({ auditSubmissions: [] });
       } finally {
-        this.setLoading('auditSubmissions', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditSubmissions', false);
       }
     },
 
@@ -1466,7 +1476,7 @@ module.exports = Behavior({
                   } else if (scopeType === 'same_work_group') {
                     approverDesc = '由 同职能组 ' + identName + ' 审批';
                   } else if (scopeType === 'specific_department') {
-                    const deptName = s.scopeDepartmentName || s.scopeDepartmentId || '指定部门';
+                    const deptName = s.scopeDepartmentName || '指定部门';
                     approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
                   } else if (scopeType === 'specific_work_group') {
                     const deptName = s.scopeDepartmentName || '';
@@ -1594,19 +1604,22 @@ module.exports = Behavior({
     // ═══════════════════════════════════════════════════════
 
     async loadVerificationPermissions() {
+      const request = orgSession.beginRequest(this, 'auditVerification');
       this.setLoading('auditVerification', true);
       try {
         const res = await this.callCloud('listVerificationPermissions', {});
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (res.status === 'success') {
           this.setData({ verificationPermissions: res.permissions || [] });
         } else {
           console.error('[audit] listVerificationPermissions failed:', res.message);
         }
       } catch (e) {
+        if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
         console.error('[audit] loadVerificationPermissions error:', e);
         this.setData({ verificationPermissions: [] });
       } finally {
-        this.setLoading('auditVerification', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('auditVerification', false);
       }
     },
 

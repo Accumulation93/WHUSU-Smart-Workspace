@@ -3,6 +3,7 @@ const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
+const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
@@ -293,11 +294,18 @@ router.post('/getVenueSchedule', async (req, res) => {
       timeTo: weekEnd
     });
     const activeBookings = allBookings.filter(b => b.status === 'approved' || b.status === 'pending');
+    const orgId = await getCurrentOrgId();
+    const currentHrId = await resolveHrId(req.openid);
+    const currentAdmin = await adminInfoModel.getByOpenidGlobal(req.openid);
+    const canViewBooking = (booking) => booking.creator_org_id === orgId || booking.approval_org_id === orgId
+      || (!!currentHrId && booking.user_hr_id === currentHrId)
+      || (!!currentAdmin && booking.creator_admin_id === currentAdmin.id);
+    const detailBookings = activeBookings.filter(canViewBooking);
 
     // Resolve user names + department / identity / workGroup
-    const hrIds = [...new Set(activeBookings.map(b => b.user_hr_id).filter(Boolean))];
+    const hrIds = [...new Set(detailBookings.map(b => b.user_hr_id).filter(Boolean))];
     const userMap = {};
-    const adminIds = [...new Set(activeBookings.filter(b => b.creator_type === 'admin').map(b => b.creator_admin_id).filter(Boolean))];
+    const adminIds = [...new Set(detailBookings.filter(b => b.creator_type === 'admin').map(b => b.creator_admin_id).filter(Boolean))];
     const adminMap = {};
     if (adminIds.length) {
       const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
@@ -312,9 +320,9 @@ router.post('/getVenueSchedule', async (req, res) => {
 
         // Fetch names in parallel
         const [deptRows, identRows, wgRows] = await Promise.all([
-          deptIds.length ? pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [deptIds, await getCurrentOrgId()]) : Promise.resolve([[]]),
-          identIds.length ? pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [identIds, await getCurrentOrgId()]) : Promise.resolve([[]]),
-          wgIds.length ? pool.query('SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?', [wgIds, await getCurrentOrgId()]) : Promise.resolve([[]])
+          deptIds.length ? pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [deptIds, orgId]) : Promise.resolve([[]]),
+          identIds.length ? pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [identIds, orgId]) : Promise.resolve([[]]),
+          wgIds.length ? pool.query('SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?', [wgIds, orgId]) : Promise.resolve([[]])
         ]);
 
         const deptMap = {}; (deptRows[0] || []).forEach(r => { deptMap[r.id] = r.name; });
@@ -323,7 +331,7 @@ router.post('/getVenueSchedule', async (req, res) => {
 
         (hrList || []).forEach(h => {
           userMap[h.id] = {
-            name: h.name || h.id,
+            name: h.name || '信息已失效',
             department: deptMap[h.department_id] || '',
             identity: identMap[h.identity_id] || '',
             workGroup: wgMap[h.work_group_id] || ''
@@ -360,8 +368,27 @@ router.post('/getVenueSchedule', async (req, res) => {
         if (ts < dayStart) displayStart = '00:00';
         // If booking ends after this day, show 24:00
         if (te > dayEnd) displayEnd = '24:00';
+        if (!canViewBooking(b)) {
+          return {
+            id: b.id,
+            visibility: 'occupancy_only',
+            title: '已占用',
+            description: '',
+            status: 'occupied',
+            timeStart: displayStart,
+            timeEnd: displayEnd,
+            fullTimeStart: ts,
+            fullTimeEnd: te,
+            type: 'booked',
+            creatorType: 'anonymous',
+            creatorName: '其他组织借用',
+            creatorLabel: '跨组织占用',
+            userName: '其他组织借用'
+          };
+        }
         return {
           id: b.id,
+          visibility: 'details',
           title: b.title,
           description: b.description,
           status: b.status,
@@ -666,15 +693,17 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
 
-    // Find all pending bookings with an approval flow（全局，不按组织过滤）
+    // 仅加载当前审批组织的待办；其他组织只能在排期中看到匿名占用。
     const [bookings] = await pool.query(
       `SELECT b.*, v.name AS venue_name, v.location AS venue_location
        FROM venue_bookings b
        JOIN venues v ON v.id = b.venue_id
        WHERE b.status = 'pending'
+         AND b.approval_org_id = ?
          AND b.approval_flow_id IS NOT NULL
          AND b.approval_total_steps > 0
-       ORDER BY b.created_at DESC`
+       ORDER BY b.created_at DESC`,
+      [orgId]
     );
 
     if (!bookings.length) {
@@ -714,8 +743,8 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
 
       const applicantHrInfo = applicantMap[booking.user_hr_id] || null;
 
-      // If no rules defined, anyone can approve (backward compat)
-      let canApprove = true;
+      // 兼容无条件步骤时也只允许当前组织管理员。
+      let canApprove = ['admin', 'super_admin', 'root_admin'].includes(req.role);
       if (stepRules.length) {
         canApprove = venueApprovalFlowStepRuleModel.matchesAnyRule(
           stepRules, approverHrInfo, applicantHrInfo
@@ -744,7 +773,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         venueLocation: booking.venue_location,
         title: booking.title,
         description: booking.description,
-        userName: (applicantHrInfo && applicantHrInfo.name) || booking.user_hr_id,
+        userName: (applicantHrInfo && applicantHrInfo.name) || '信息已失效',
         userDept: (applicantHrInfo && applicantHrInfo.department_id) || '',
         timeStart: fmtDatetime(new Date(booking.time_start)),
         timeEnd: fmtDatetime(new Date(booking.time_end)),

@@ -2,13 +2,16 @@
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const { emptyWorkGroupForm } = utils;
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
     async loadWorkGroupList() {
+      const request = orgSession.beginRequest(this, 'workGroupList');
       this.setLoading('workGroups', true);
       try {
         const result = await this.callCloud('listWorkGroups');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           throw new Error(result.message || '加载工作分工列表失败');
         }
@@ -26,13 +29,14 @@ module.exports = Behavior({
           workGroupList: workGroups
         });
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error('加载工作分工列表失败:', error);
         // 不再显示错误提示，因为空数据库是正常情况
         this.setData({
           workGroupList: []
         });
       } finally {
-        this.setLoading('workGroups', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('workGroups', false);
       }
     },
 

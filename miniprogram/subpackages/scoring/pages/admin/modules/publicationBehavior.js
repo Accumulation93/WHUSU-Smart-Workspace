@@ -2,10 +2,12 @@
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const { saveAndShareFile } = require('../../../../../utils/tableFile');
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
     async loadPublicationData(activityId) {
+      const request = orgSession.beginRequest(this, 'publicationData');
       if (!activityId) {
         this.setData({ publicationForm: { id: '', activityId: '', activityName: '', isPublished: false }, pubViewRuleList: [], pubMeritRuleList: [], designationList: [] });
         return;
@@ -13,6 +15,7 @@ module.exports = Behavior({
       this.setLoading('publications', true);
       try {
         const result = await this.callCloud('getResultPublication', { activityId });
+        if (!orgSession.isRequestCurrent(this, request) || this.data.currentActivityId !== activityId) return;
         if (result.status === 'success') {
           const pub = result.publication;
           const viewRules = result.viewRules || [];
@@ -28,8 +31,10 @@ module.exports = Behavior({
           this.rebuildPubViewRuleFilters(viewRules);
           this.rebuildPubMeritRuleFilters(meritRules);
         }
-      } catch (e) { console.error('loadPublicationData error:', e); }
-      this.setLoading('publications', false);
+      } catch (e) {
+        if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) console.error('loadPublicationData error:', e);
+      }
+      if (orgSession.isRequestCurrent(this, request)) this.setLoading('publications', false);
     },
   
     // ─── Merit list summary (Feature 5) ───,
@@ -37,8 +42,10 @@ module.exports = Behavior({
     async loadMeritListSummary() {
       const activityId = this.data.publicationForm.activityId;
       if (!activityId) return;
+      const request = orgSession.beginRequest(this, 'meritListSummary');
       try {
         const result = await this.callCloud('getMeritListSummary', { activityId });
+        if (!orgSession.isRequestCurrent(this, request) || this.data.publicationForm.activityId !== activityId) return;
         if (result.status === 'success') {
           const groups = result.groups || [];
           // Build filter options
@@ -59,7 +66,9 @@ module.exports = Behavior({
             meritSummaryFilterDept: '全部', meritSummaryFilterIdent: '全部', meritSummaryFilterWg: '全部'
           });
         }
-      } catch (e) { console.error('loadMeritListSummary error:', e); }
+      } catch (e) {
+        if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) console.error('loadMeritListSummary error:', e);
+      }
     },
 
     applyMeritSummaryFilters() {

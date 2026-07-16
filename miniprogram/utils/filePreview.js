@@ -10,7 +10,8 @@
  *   openAuditFile({ fileId: 'xxx', fileName: 'xxx.pdf' });
  */
 
-const API_BASE = 'https://accumulation93.com/api';
+const { API_BASE, createRequestHeaders } = require('./api');
+const orgSession = require('./orgSession');
 const MAX_BASE64_LENGTH = 36 * 1024 * 1024;
 
 function safeFileToken(value) {
@@ -22,17 +23,8 @@ function safeExtension(fileName) {
   return /^[a-z0-9]{1,10}$/.test(extension) ? extension : 'bin';
 }
 
-function getToken() {
-  try { return wx.getStorageSync('token') || ''; } catch (_) { return ''; }
-}
-
 function getRequestHeaders() {
-  return {
-    'Authorization': 'Bearer ' + getToken(),
-    'X-Active-Org': wx.getStorageSync('activeOrgId') || '',
-    'X-Role': wx.getStorageSync('activeRole') || '',
-    'X-Client-Version': '1.2.0-security'
-  };
+  return createRequestHeaders();
 }
 
 function showLoading() {
@@ -105,12 +97,18 @@ function openLocalFile(filePath, fileName) {
  * Tries both async writeFile and sync writeFileSync.
  */
 function fallbackDownload(fileId, fileName, callback) {
+  const organizationSnapshot = orgSession.getSnapshot();
   wx.request({
     url: API_BASE + '/getAuditFile',
     method: 'POST',
     header: Object.assign({ 'Content-Type': 'application/json' }, getRequestHeaders()),
     data: { fileId: fileId },
     success: function(res) {
+      if (!orgSession.isCurrent(organizationSnapshot)) {
+        hideLoading();
+        if (callback) callback({ status: 'request_cancelled', silent: true });
+        return;
+      }
       hideLoading();
       if (res.statusCode !== 200 || !res.data || res.data.status !== 'success') {
         toast((res.data && res.data.message) || '文件加载失败');
@@ -169,6 +167,10 @@ function fallbackDownload(fileId, fileName, callback) {
     },
     fail: function() {
       hideLoading();
+      if (!orgSession.isCurrent(organizationSnapshot)) {
+        if (callback) callback({ status: 'request_cancelled', silent: true });
+        return;
+      }
       toast('网络请求失败，请检查网络连接');
       if (callback) callback(new Error('network'));
     }
@@ -184,12 +186,13 @@ function fallbackDownload(fileId, fileName, callback) {
  */
 function openAuditFile(options) {
   if (!options || !options.fileId) {
-    toast('文件ID无效');
+    toast('文件信息无效');
     return;
   }
 
   const fileId = options.fileId;
   const fileName = options.fileName || '';
+  const organizationSnapshot = orgSession.getSnapshot();
 
   showLoading();
 
@@ -197,6 +200,10 @@ function openAuditFile(options) {
     url: API_BASE + '/downloadAuditFile?fileId=' + encodeURIComponent(fileId),
     header: getRequestHeaders(),
     success: function(res) {
+      if (!orgSession.isCurrent(organizationSnapshot)) {
+        hideLoading();
+        return;
+      }
       hideLoading();
       if (res.statusCode === 200) {
         openLocalFile(res.tempFilePath, fileName);
@@ -213,6 +220,10 @@ function openAuditFile(options) {
       }
     },
     fail: function(err) {
+      if (!orgSession.isCurrent(organizationSnapshot)) {
+        hideLoading();
+        return;
+      }
       console.warn('[filePreview] downloadFile failed, trying fallback:', err.errMsg || err);
       // Try fallback via base64 API
       fallbackDownload(fileId, fileName);

@@ -2,13 +2,16 @@
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const { emptyDepartmentForm } = utils;
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
     async loadDepartmentList() {
+      const request = orgSession.beginRequest(this, 'departmentList');
       this.setLoading('departments', true);
       try {
         const result = await this.callCloud('listDepartments');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           throw new Error(result.message || '加载部门列表失败');
         }
@@ -16,13 +19,14 @@ module.exports = Behavior({
           departmentList: result.departments || []
         });
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error('加载部门列表失败:', error);
         // 不再显示错误提示，因为空数据库是正常情况
         this.setData({
           departmentList: []
         });
       } finally {
-        this.setLoading('departments', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('departments', false);
       }
     },
 

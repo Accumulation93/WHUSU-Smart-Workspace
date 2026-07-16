@@ -286,7 +286,10 @@ Page({
         venueSearch: '', bookingSearch: '', bookingStatusFilter: 'all',
         bookingsPage: 1, selectedBooking: null, scheduleVisible: false,
         adminBookingVisible: false, purposeEditId: '', purposeEditText: '',
-        venues: [], bookings: [], purposes: []
+        rulesVisible: false, ruleEditorVisible: false, bookingDetailVisible: false,
+        venues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [],
+        approvalFlow: null, approvalFlowSteps: [], timetableColumns: [],
+        pendingApprovalCount: 0, loading: false, bookingsLoading: false
       });
     }
     this._initWeekStart();
@@ -351,16 +354,16 @@ Page({
   },
 
   async loadVenues() {
-    const contextVersion = this._orgContextVersion;
+    const request = orgSession.beginRequest(this, 'manageVenues');
     this.setData({ loading: true });
     try {
       const res = await callFunction({ name: 'listVenues', data: {} });
-      if (contextVersion !== this._orgContextVersion) return;
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') this.setData({ venues: res.venues || [] });
     } catch (e) {
-      showShortToast(getErrorText(e, '加载失败'));
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '加载失败'));
     } finally {
-      this.setData({ loading: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
   },
 
@@ -430,8 +433,11 @@ Page({
   },
 
   async loadOpenRules() {
+    const request = orgSession.beginRequest(this, 'manageOpenRules');
+    const venueId = this.data.rulesVenueId;
     try {
-      const res = await callFunction({ name: 'listVenueOpenRules', data: { venueId: this.data.rulesVenueId } });
+      const res = await callFunction({ name: 'listVenueOpenRules', data: { venueId } });
+      if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
         const rules = (res.rules || []).map(r => ({
           ...r, _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values)
@@ -442,8 +448,11 @@ Page({
   },
 
   async loadActivityRules() {
+    const request = orgSession.beginRequest(this, 'manageActivityRules');
+    const venueId = this.data.rulesVenueId;
     try {
-      const res = await callFunction({ name: 'listVenueActivityRules', data: { venueId: this.data.rulesVenueId } });
+      const res = await callFunction({ name: 'listVenueActivityRules', data: { venueId } });
+      if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
         const rules = (res.rules || []).map(r => ({
           ...r, _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values)
@@ -454,8 +463,11 @@ Page({
   },
 
   async loadBookingRules() {
+    const request = orgSession.beginRequest(this, 'manageBookingRules');
+    const venueId = this.data.rulesVenueId;
     try {
-      const res = await callFunction({ name: 'listVenueBookingRules', data: { venueId: this.data.rulesVenueId } });
+      const res = await callFunction({ name: 'listVenueBookingRules', data: { venueId } });
+      if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
         const labels = { admin: '管理员审核', direct: '直接通过', flow: '用户审核（多步审批流程）' };
         let rules = (res.rules || []).map(r => ({ ...r, _ruleTypeLabel: labels[r.rule_type] || r.rule_type || '管理员审核' }));
@@ -803,7 +815,7 @@ Page({
   // ── Bookings tab (borrow management, ported from venueBookings) ──
 
   async loadBookingsData() {
-    const contextVersion = this._orgContextVersion;
+    const request = orgSession.beginRequest(this, 'manageBookings');
     this.setData({ bookingsLoading: true });
     try {
       const { filterStatus, filterVenueId, timeFrom, timeTo } = this.data;
@@ -830,7 +842,7 @@ Page({
       });
 
       const [pendingRes, timeRes] = await Promise.all([pendingReq, timeReq]);
-      if (contextVersion !== this._orgContextVersion) return;
+      if (!orgSession.isRequestCurrent(this, request)) return;
 
       // 非 success 状态提示错误
       if (pendingRes.status !== 'success' && pendingRes.status !== undefined)
@@ -870,8 +882,11 @@ Page({
       }
 
       this.setData({ bookings });
-    } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
-    finally { this.setData({ bookingsLoading: false }); }
+    } catch (e) {
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '加载失败'));
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ bookingsLoading: false });
+    }
   },
 
   onFilterStatus(e) {
@@ -999,7 +1014,7 @@ Page({
   },
 
   async loadVenueTimetable() {
-    const contextVersion = this._orgContextVersion;
+    const request = orgSession.beginRequest(this, 'manageTimetable');
     const { scheduleVenueId, scheduleWeekStart } = this.data;
     const [y, m, d] = scheduleWeekStart.split('-').map(Number);
     const end = new Date(y, m - 1, d + 6);
@@ -1010,12 +1025,15 @@ Page({
         name: 'getVenueSchedule',
         data: { venueId: scheduleVenueId, dateFrom: scheduleWeekStart, dateTo }
       });
-      if (contextVersion !== this._orgContextVersion) return;
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
         this._buildAdminTimetable(res.dailySchedules || []);
       }
-    } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
-    finally { wx.hideLoading(); }
+    } catch (e) {
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '加载失败'));
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) wx.hideLoading();
+    }
   },
 
   _buildAdminTimetable(dailySchedules) {
@@ -1074,6 +1092,7 @@ Page({
           type: 'booking',
           booking: {
             id: b.id, title: b.title, description: b.description,
+            visibility: b.visibility || 'details',
             userId: b.userId, userName: b.userName,
             userDept: b.userDept || '', userIdentity: b.userIdentity || '', userWorkGroup: b.userWorkGroup || '',
             timeStart: b.fullTimeStart || b.timeStart,
@@ -1103,6 +1122,10 @@ Page({
   onTimetableBlockTap(e) {
     const block = e.currentTarget.dataset.block;
     if (!block || !block.booking) return;
+    if (block.booking.visibility === 'occupancy_only') {
+      showShortToast('该时段已被其他组织占用');
+      return;
+    }
     this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
   },
 
@@ -1159,6 +1182,10 @@ Page({
     let id = e.currentTarget.dataset.id;
     let item = this.data.bookings.find(function(b) { return b.id === id; });
     if (!item) return;
+    if (item.visibility === 'occupancy_only') {
+      showShortToast('仅共享场地占用信息');
+      return;
+    }
     this.setData({ bookingDetailVisible: true, bookingDetail: item, expandedNodeKey: '' });
   },
 
@@ -1403,10 +1430,10 @@ Page({
   closePurposeManager() { this.setData({ purposeVisible: false }); },
 
   async loadPurposes() {
-    const contextVersion = this._orgContextVersion;
+    const request = orgSession.beginRequest(this, 'managePurposes');
     try {
       const res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
-      if (contextVersion !== this._orgContextVersion) return;
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
     } catch (_) {}
   },
@@ -1451,8 +1478,10 @@ Page({
   async loadApprovalFlow() {
     const venueId = this.data.rulesVenueId;
     if (!venueId) return;
+    const request = orgSession.beginRequest(this, 'manageApprovalFlow');
     try {
       const res = await callFunction({ name: 'getVenueApprovalFlow', data: { venueId } });
+      if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
         this.setData({
           approvalFlow: res.flow,
@@ -1466,11 +1495,13 @@ Page({
   },
 
   async loadFlowReferenceData() {
+    const request = orgSession.beginRequest(this, 'manageFlowReferences');
     try {
       const [deptRes, wgRes] = await Promise.all([
         callFunction({ name: 'listDepartments', data: {} }),
         callFunction({ name: 'listWorkGroups', data: {} })
       ]);
+      if (!orgSession.isRequestCurrent(this, request)) return;
       this.setData({
         allDepartments: (deptRes.status === 'success' ? deptRes.departments : []) || [],
         allWorkGroups: (wgRes.status === 'success' ? wgRes.workGroups : []) || []
@@ -1703,12 +1734,12 @@ Page({
       const deptMap = {};
       mappedItems.forEach(function(wg) {
         if (selectedDeptIds.indexOf(wg.deptId) >= 0) {
-          if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || wg.deptId, workGroups: [], selectedCount: 0 };
+          if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || '信息已失效', workGroups: [], selectedCount: 0 };
           deptMap[wg.deptId].workGroups.push(wg);
         }
       });
       deptTabs = selectedDeptIds.map(function(did) {
-        return deptMap[did] || { deptId: did, deptName: did, workGroups: [], selectedCount: 0 };
+        return deptMap[did] || { deptId: did, deptName: '信息已失效', workGroups: [], selectedCount: 0 };
       });
       // Initialize per-tab selected counts
       deptTabs = deptTabs.map(function(tab) {

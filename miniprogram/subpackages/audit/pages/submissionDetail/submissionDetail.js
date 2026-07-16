@@ -1122,7 +1122,7 @@ Page({
                   } else if (scopeType === 'same_work_group') {
                     approverDesc = '由 同职能组 ' + identName + ' 审批';
                   } else if (scopeType === 'specific_department') {
-                    let deptName = step.scopeDepartmentName || step.scopeDepartmentId || '指定部门';
+                    let deptName = step.scopeDepartmentName || '指定部门';
                     approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
                   } else if (scopeType === 'specific_work_group') {
                     let deptName2 = step.scopeDepartmentName || '';

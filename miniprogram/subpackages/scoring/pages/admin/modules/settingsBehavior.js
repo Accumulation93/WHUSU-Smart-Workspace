@@ -1,6 +1,7 @@
 // Behavior: settings tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
@@ -12,9 +13,11 @@ module.exports = Behavior({
     },
 
     async loadSystemConfig() {
+      const request = orgSession.beginRequest(this, 'systemConfig');
       this.setLoading('settings', true);
       try {
         const result = await this.callCloud('getSystemConfig');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status === 'success' && result.config) {
           const timezone = result.config.timezone;
           const timezoneIndex = this.data.timezoneOptions.findIndex(function (item) {
@@ -28,9 +31,10 @@ module.exports = Behavior({
           this.resolveCurrentOrganizationName();
         }
       } catch (e) {
+        if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
         console.error('loadSystemConfig error:', e);
       } finally {
-        this.setLoading('settings', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('settings', false);
       }
     },
 
@@ -64,13 +68,16 @@ module.exports = Behavior({
 
     async loadOrganizations() {
       if (!this.data.isRootAdmin) return;
+      const request = orgSession.beginRequest(this, 'organizationList');
       try {
         const result = await this.callCloud('listOrganizations');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status === 'success') {
           this.setData({ organizationList: result.list || [] });
           this.resolveCurrentOrganizationName();
         }
       } catch (e) {
+        if (!orgSession.isRequestCurrent(this, request) || (e && e.silent)) return;
         console.error('loadOrganizations error:', e);
       }
     },

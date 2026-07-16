@@ -2,13 +2,16 @@
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
 const { emptyIdentityForm } = utils;
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
     async loadIdentityList() {
+      const request = orgSession.beginRequest(this, 'identityList');
       this.setLoading('identities', true);
       try {
         const result = await this.callCloud('listIdentities');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           throw new Error(result.message || '加载身份类别列表失败');
         }
@@ -16,13 +19,14 @@ module.exports = Behavior({
           identityList: result.identities || []
         });
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error('加载身份类别列表失败:', error);
         // 不再显示错误提示，因为空数据库是正常情况
         this.setData({
           identityList: []
         });
       } finally {
-        this.setLoading('identities', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('identities', false);
       }
     },
 

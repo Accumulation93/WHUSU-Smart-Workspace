@@ -3,23 +3,27 @@
 const utils = require('./adminUtils');
 const { TEMPLATE_CSV_FIELDS, emptyTemplateForm, createEmptyQuestion, normalizeTemplateQuestionForForm, moveItem, refreshTemplateConfigSortOrder } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
+const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
     async loadTemplateList() {
+      const request = orgSession.beginRequest(this, 'templateList');
       this.setLoading('templates', true);
       try {
         const result = await this.callCloud('listScoreTemplates');
+        if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           templateList: result.list || []
         });
       } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
           title: '加载评分问题失败',
           icon: 'none'
         });
       } finally {
-        this.setLoading('templates', false);
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('templates', false);
       }
     },
 
