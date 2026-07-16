@@ -10,6 +10,10 @@ const port = Number(process.env.HR_IMPORT_TEST_DB_PORT || 3362);
 const host = process.env.HR_IMPORT_TEST_DB_HOST || '127.0.0.1';
 const adminUser = process.env.TEST_DB_ADMIN_USER || 'root';
 const adminPassword = process.env.TEST_DB_ADMIN_PASSWORD || '';
+const requestedTestUserHost = process.env.TEST_DB_USER_HOST || '127.0.0.1';
+const testUserHost = ['%', '127.0.0.1', 'localhost'].includes(requestedTestUserHost)
+  ? requestedTestUserHost
+  : '127.0.0.1';
 const suffix = `${process.pid}_${Date.now()}`;
 const database = `redsu_hr_import_test_${suffix}`;
 const testUser = `hr_import_${process.pid}`;
@@ -71,8 +75,8 @@ async function main() {
   try {
     adminConnection = await mysql.createConnection({ host, port, user: adminUser, password: adminPassword, multipleStatements: true });
     await adminConnection.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-    await adminConnection.query(`CREATE USER '${testUser}'@'127.0.0.1' IDENTIFIED BY ?`, [testPassword]);
-    await adminConnection.query(`GRANT ALL PRIVILEGES ON \`${database}\`.* TO '${testUser}'@'127.0.0.1'`);
+    await adminConnection.query(`CREATE USER '${testUser}'@'${testUserHost}' IDENTIFIED BY ?`, [testPassword]);
+    await adminConnection.query(`GRANT ALL PRIVILEGES ON \`${database}\`.* TO '${testUser}'@'${testUserHost}'`);
 
     const schemaConnection = await mysql.createConnection({
       host, port, user: testUser, password: testPassword, database, multipleStatements: true
@@ -215,7 +219,7 @@ async function main() {
     if (pool) await pool.end();
     if (adminConnection) {
       await adminConnection.query(`DROP DATABASE IF EXISTS \`${database}\``);
-      await adminConnection.query(`DROP USER IF EXISTS '${testUser}'@'127.0.0.1'`);
+      await adminConnection.query(`DROP USER IF EXISTS '${testUser}'@'${testUserHost}'`);
       await adminConnection.end();
     }
   }

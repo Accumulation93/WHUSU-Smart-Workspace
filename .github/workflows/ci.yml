@@ -25,6 +25,7 @@ jobs:
       SECURITY_TEST_DB_PORT: 3306
       HR_IMPORT_TEST_DB_HOST: 127.0.0.1
       HR_IMPORT_TEST_DB_PORT: 3306
+      TEST_DB_USER_HOST: '%'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
