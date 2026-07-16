@@ -8,6 +8,8 @@ const tableFile = require('../../miniprogram/utils/tableFile');
 
 const port = Number(process.env.HR_IMPORT_TEST_DB_PORT || 3362);
 const host = process.env.HR_IMPORT_TEST_DB_HOST || '127.0.0.1';
+const adminUser = process.env.TEST_DB_ADMIN_USER || 'root';
+const adminPassword = process.env.TEST_DB_ADMIN_PASSWORD || '';
 const suffix = `${process.pid}_${Date.now()}`;
 const database = `redsu_hr_import_test_${suffix}`;
 const testUser = `hr_import_${process.pid}`;
@@ -67,7 +69,7 @@ async function main() {
   let adminConnection;
   let pool;
   try {
-    adminConnection = await mysql.createConnection({ host, port, user: 'root', password: '', multipleStatements: true });
+    adminConnection = await mysql.createConnection({ host, port, user: adminUser, password: adminPassword, multipleStatements: true });
     await adminConnection.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await adminConnection.query(`CREATE USER '${testUser}'@'127.0.0.1' IDENTIFIED BY ?`, [testPassword]);
     await adminConnection.query(`GRANT ALL PRIVILEGES ON \`${database}\`.* TO '${testUser}'@'127.0.0.1'`);

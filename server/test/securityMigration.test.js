@@ -5,10 +5,12 @@ const mysql = require('mysql2/promise');
 
 const host = process.env.SECURITY_TEST_DB_HOST || '127.0.0.1';
 const port = Number(process.env.SECURITY_TEST_DB_PORT || 3362);
+const adminUser = process.env.TEST_DB_ADMIN_USER || 'root';
+const adminPassword = process.env.TEST_DB_ADMIN_PASSWORD || '';
 const database = 'redsu_security_test_' + process.pid + '_' + Date.now();
 
 async function run() {
-  const admin = await mysql.createConnection({ host, port, user: 'root', password: '', multipleStatements: true });
+  const admin = await mysql.createConnection({ host, port, user: adminUser, password: adminPassword, multipleStatements: true });
   try {
     await admin.query('CREATE DATABASE ?? CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', [database]);
     await admin.query('USE ??', [database]);
