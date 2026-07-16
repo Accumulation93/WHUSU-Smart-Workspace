@@ -1,4 +1,4 @@
-const { callFunction } = require('../../utils/api');
+const { callFunction, showShortToast } = require('../../utils/api');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const DEVICE_OPENID_KEY = 'deviceOpenid';
@@ -258,7 +258,7 @@ Page({
     });
   },
 
-  onBind() {
+  async onBind() {
     if (this.data.loading) {
       return;
     }
@@ -295,21 +295,65 @@ Page({
 
     this.setData({ loading: true });
 
-    callFunction({
-      name: config.bindFunction,
-      data: payload,
-      success: (res) => {
-        this.handleBindResult(activeRole, res.result);
-      },
-      fail: () => {
-        wx.showToast({
-          title: '提交失败',
-          icon: 'error'
-        });
-      },
-      complete: () => {
-        this.setData({ loading: false });
+    try {
+      let result = await callFunction({
+        name: config.bindFunction,
+        data: payload
+      });
+
+      // 普通用户填写资料可能超过五分钟。挑战过期时重新验证微信身份，
+      // 获取新的单次绑定上下文并仅自动重试一次，避免降低服务端安全时限。
+      if (activeRole === 'user' && result && result.status === 'challenge_expired') {
+        const refreshed = await this.refreshUserLoginState();
+        if (refreshed && refreshed.status === 'need_bind' && refreshed.bindingContext) {
+          payload.bindingContext = refreshed.bindingContext;
+          result = await callFunction({
+            name: config.bindFunction,
+            data: payload
+          });
+        } else {
+          result = refreshed || result;
+        }
       }
+
+      this.handleBindResult(activeRole, result);
+    } catch (_) {
+      wx.showToast({
+        title: '提交失败',
+        icon: 'error'
+      });
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  refreshUserLoginState() {
+    return new Promise((resolve) => {
+      wx.login({
+        success: async (loginRes) => {
+          try {
+            const result = await callFunction({
+              name: ROLE_MAP.user.loginFunction,
+              data: { code: loginRes.code, deviceOpenid: getDeviceOpenid() }
+            });
+            if (result && result.token) {
+              wx.setStorageSync('token', result.token);
+            }
+            if (result && result.status === 'need_bind' && result.bindingContext) {
+              this.setData({
+                bindingContext: result.bindingContext,
+                bindingOrgName: result.bindingOrg ? result.bindingOrg.name : this.data.bindingOrgName
+              });
+            }
+            resolve(result);
+          } catch (_) {
+            resolve({ status: 'error', message: '刷新绑定验证失败，请重试' });
+          }
+        },
+        fail: () => {
+          resolve({ status: 'auth_failed', message: '微信登录失败，请重试' });
+        }
+      });
     });
   },
 
@@ -349,20 +393,41 @@ Page({
 
   async confirmAutoBind(result) {
     try {
-      const res = await callFunction({
+      let loginState = result;
+      let res = await callFunction({
         name: 'confirmAutoBind',
         data: {
-          autoBindChallenge: result.autoBindChallenge
+          autoBindChallenge: loginState.autoBindChallenge
         }
       });
+
+      if (res.status === 'challenge_expired') {
+        const refreshed = await this.refreshUserLoginState();
+        if (refreshed && refreshed.status === 'auto_bind_available' && refreshed.autoBindChallenge) {
+          loginState = refreshed;
+          res = await callFunction({
+            name: 'confirmAutoBind',
+            data: {
+              autoBindChallenge: loginState.autoBindChallenge
+            }
+          });
+        } else if (refreshed && (refreshed.status === 'login_success' || refreshed.status === 'need_bind')) {
+          this.handleLoginResult('user', refreshed);
+          return;
+        } else {
+          showShortToast((refreshed && refreshed.message) || res.message || '同步失败');
+          return;
+        }
+      }
+
       if (res.status === 'success') {
         showShortToast('同步成功');
         // 绑定成功 → 使用系统默认组织重新进入
-        wx.setStorageSync('token', result.token);
-        const activeOrg = res.activeOrg || result.targetOrg;
+        wx.setStorageSync('token', loginState.token);
+        const activeOrg = res.activeOrg || loginState.targetOrg;
         wx.setStorageSync('activeOrgId', activeOrg.id);
-        wx.setStorageSync('activeOrgName', activeOrg.name || result.targetOrg.name);
-        saveAvailableOrganizations(this.data.activeRole, res.availableOrgs || result.availableOrgs || []);
+        wx.setStorageSync('activeOrgName', activeOrg.name || loginState.targetOrg.name);
+        saveAvailableOrganizations(this.data.activeRole, res.availableOrgs || loginState.availableOrgs || []);
         if (res.user) {
           this.saveProfile(this.data.activeRole, res.user);
         }

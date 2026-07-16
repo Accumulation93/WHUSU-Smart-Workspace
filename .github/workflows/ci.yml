@@ -48,6 +48,7 @@ jobs:
         run: |
           node scripts/org-session-test.js
           node scripts/api-cancellation-test.js
+          node scripts/login-binding-refresh-test.js
           node server/test/activateOrganization.test.js
           node server/test/scoringOrgCacheIsolation.test.js
           node server/test/orgContextSecurity.test.js
