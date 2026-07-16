@@ -254,7 +254,7 @@ function arrayBufferToBase64(buffer) {
  * Save file via wx.shareFileMessage — opens share-to-chat dialog.
  * User sends the file to a chat (e.g. "文件传输助手") then saves it from there.
  *
- * Supports all file types (xlsx, csv, xls, etc.) — no format conversion needed.
+ * Supports CSV and XLSX without an intermediate format conversion.
  *
  * @param {string} content - base64 XLSX from backend, or raw CSV text from client-side buildCsv
  * @param {string} fileName - without extension
@@ -307,14 +307,14 @@ function chooseTableFile(callCloudFn) {
     wx.chooseMessageFile({
       count: 1,
       type: 'file',
-      extension: ['csv', 'xlsx', 'xls'],
+      extension: ['csv', 'xlsx'],
       success: function (res) {
         let file = res.tempFiles && res.tempFiles[0];
         if (!file) { resolve(null); return; }
 
         let fileName = file.name || '';
         let filePath = file.path || '';
-        let isExcelByExt = /\.xlsx?$/i.test(fileName) || /\.xlsx?$/i.test(filePath);
+        let isExcelByExt = /\.xlsx$/i.test(fileName) || /\.xlsx$/i.test(filePath);
         let isCsvByExt = /\.csv$/i.test(fileName) || /\.csv$/i.test(filePath);
 
         // Clearly CSV — parse client-side (fast, no server round-trip)

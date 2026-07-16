@@ -18,6 +18,10 @@ const RULES = [
   }
 ];
 
+function addFinding(severity, rule, file, source, offset) {
+  findings.push({ severity, rule, file, line: lineAt(source, Math.max(0, offset || 0)) });
+}
+
 function walk(directory, output = []) {
   if (!fs.existsSync(directory)) return output;
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -51,6 +55,23 @@ for (const target of TARGETS) {
       }
     }
 
+    if (relativeFile.startsWith('server/src/')) {
+      const runtimeDdl = source.search(/\b(?:CREATE|ALTER|DROP|TRUNCATE)\s+(?:TABLE|INDEX|DATABASE)\b/i);
+      if (runtimeDdl >= 0) addFinding('high', 'runtime-ddl', relativeFile, source, runtimeDdl);
+      const legacySpreadsheet = source.search(/require\(['"]xlsx['"]\)/);
+      if (legacySpreadsheet >= 0) addFinding('high', 'legacy-xlsx-runtime', relativeFile, source, legacySpreadsheet);
+      const legacyUuid = source.search(/require\(['"]uuid['"]\)/);
+      if (legacyUuid >= 0) addFinding('high', 'legacy-uuid-runtime', relativeFile, source, legacyUuid);
+      const clientTempPath = source.search(/req\.body\.(?:tmpPath|tempPath|filePath)\b/);
+      if (clientTempPath >= 0) addFinding('high', 'client-file-path-trust', relativeFile, source, clientTempPath);
+    }
+
+    if (/server\/src\/(?:core|modules)\/.+\/routes\/.+\.js$/.test(relativeFile) ||
+      /server\/src\/core\/routes\/.+\.js$/.test(relativeFile)) {
+      const directSql = source.search(/pool\.(?:query|execute)\s*\(/);
+      if (directSql >= 0) addFinding('medium', 'route-direct-sql', relativeFile, source, directSql);
+    }
+
     if (relativeFile.startsWith('server/src/core/routes/') && source.includes('pool.')) {
       const poolImport = source.search(/const\s+pool\s*=\s*require\(['"]\.\.\/\.\.\/config\/db['"]\)/);
       const firstRoute = source.indexOf('router.');
@@ -65,6 +86,29 @@ for (const target of TARGETS) {
     }
   }
 }
+
+function requireSourceContract(relativeFile, checks) {
+  const file = path.join(ROOT, relativeFile);
+  const source = fs.readFileSync(file, 'utf8');
+  for (const check of checks) {
+    if (check.test(source)) continue;
+    addFinding(check.severity || 'high', check.rule, relativeFile, source, 0);
+  }
+}
+
+requireSourceContract('server/src/middleware/orgContext.js', [
+  { rule: 'org-header-required', test: source => source.includes("status: 'org_context_required'") },
+  { rule: 'org-no-default-fallback', test: source => !/current_organization|systemConfigModel/.test(source) }
+]);
+requireSourceContract('server/src/core/services/adminAuthorization.js', [
+  { rule: 'admin-direct-level-matrix', test: source => /root_admin:\s*'super_admin'[\s\S]*super_admin:\s*'admin'/.test(source) }
+]);
+requireSourceContract('server/src/modules/audit/utils/fileSecurity.js', [
+  { rule: 'signed-file-token', test: source => /createHmac\(['"]sha256['"]/.test(source) && /timingSafeEqual/.test(source) }
+]);
+requireSourceContract('server/src/middleware/requestContext.js', [
+  { rule: 'crypto-request-id', test: source => /randomUUID/.test(source) && !/require\(['"]uuid['"]\)/.test(source) }
+]);
 
 const summary = findings.reduce((result, finding) => {
   result[finding.severity] += 1;

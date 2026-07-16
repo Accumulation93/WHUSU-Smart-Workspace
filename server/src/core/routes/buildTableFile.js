@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const XLSX = require('xlsx');
+const { buildWorkbookBuffer } = require('../../utils/excelFile');
+
+const ADMIN_ROLES = new Set(['admin', 'super_admin', 'root_admin']);
 
 /**
  * Build a .xlsx file from headers + rows and return as base64.
@@ -9,9 +11,8 @@ const XLSX = require('xlsx');
  */
 router.post('/buildTableFile', async (req, res) => {
   try {
-    const openid = req.openid;
-    if (!openid) {
-      return res.json({ status: 'forbidden', message: '未登录' });
+    if (!req.openid || !ADMIN_ROLES.has(req.role)) {
+      return res.status(403).json({ status: 'forbidden', message: '仅管理员可生成工作簿' });
     }
 
     const headers = req.body.headers || [];
@@ -37,15 +38,13 @@ router.post('/buildTableFile', async (req, res) => {
     );
 
     const sheetData = [headerLabels, ...dataRows];
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await buildWorkbookBuffer(sheetName, sheetData);
     const base64 = buffer.toString('base64');
 
     res.json({ status: 'success', fileBase64: base64 });
   } catch (e) {
-    res.json({ status: 'error', message: String(e.message || '生成表格文件失败') });
+    if (req.logger) req.logger.warn('Workbook build rejected', { code: e.code || 'build_failed', error: e.message });
+    res.json({ status: 'error', message: e.code === 'invalid_workbook' ? e.message : '生成表格文件失败' });
   }
 });
 

@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const XLSX = require('xlsx');
 const { safeString } = require('../../utils/helpers');
+const { decodeWorkbookBase64, parseWorkbookTables } = require('../../utils/excelFile');
+
+const ADMIN_ROLES = new Set(['admin', 'super_admin', 'root_admin']);
 
 /**
  * POST /api/parseTableFile
@@ -11,9 +13,8 @@ const { safeString } = require('../../utils/helpers');
  */
 router.post('/parseTableFile', async (req, res) => {
   try {
-    const openid = req.openid;
-    if (!openid) {
-      return res.json({ status: 'forbidden', message: '未登录' });
+    if (!req.openid || !ADMIN_ROLES.has(req.role)) {
+      return res.status(403).json({ status: 'forbidden', message: '仅管理员可解析工作簿' });
     }
 
     const { fileBase64, fileName } = req.body;
@@ -21,17 +22,15 @@ router.post('/parseTableFile', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '缺少文件内容' });
     }
 
-    const buffer = Buffer.from(fileBase64, 'base64');
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetNames = workbook.SheetNames;
-    if (!sheetNames || !sheetNames.length) {
-      return res.json({ status: 'empty', message: '工作簿中没有工作表' });
+    if (/\.xls$/i.test(safeString(fileName))) {
+      return res.json({ status: 'invalid_params', message: '旧版 XLS 格式不受支持，请另存为 XLSX 后重试' });
     }
-
+    const buffer = decodeWorkbookBase64(fileBase64);
+    const workbookTables = await parseWorkbookTables(buffer);
     const sheets = [];
-    for (const name of sheetNames) {
-      const sheet = workbook.Sheets[name];
-      const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+    for (const workbookSheet of workbookTables) {
+      const name = workbookSheet.name;
+      const data = workbookSheet.table;
       if (!data || data.length === 0) {
         sheets.push({ name, headers: [], rows: [] });
         continue;
@@ -63,9 +62,10 @@ router.post('/parseTableFile', async (req, res) => {
       fileName: safeString(fileName) || ''
     });
   } catch (e) {
+    if (req.logger) req.logger.warn('Workbook parse rejected', { code: e.code || 'parse_failed', error: e.message });
     res.json({
       status: 'error',
-      message: safeString(e.message) || '解析 Excel 文件失败'
+      message: e.code === 'invalid_workbook' ? safeString(e.message) : '解析 Excel 文件失败'
     });
   }
 });

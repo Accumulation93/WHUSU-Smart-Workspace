@@ -2,7 +2,6 @@ require('dotenv').config();
 const helmet = require('helmet');
 const express = require('express');
 const cors = require('cors');
-const mysql = require('mysql2/promise');
 const pool = require('./config/db');
 const morgan = require('morgan');
 const { logger, createRequestLogger } = require('./utils/logger');
@@ -10,6 +9,8 @@ const requestContext = require('./middleware/requestContext');
 const { authMiddleware } = require('./middleware/auth');
 const { orgContextMiddleware } = require('./middleware/orgContext');
 const { clientVersionMiddleware } = require('./middleware/clientVersion');
+const { createRateLimiter } = require('./middleware/rateLimiter');
+const { verifySchemaContract } = require('./utils/schemaContract');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -20,27 +21,36 @@ const MAX_UPLOAD_JSON_BODY_BYTES = 15 * 1024 * 1024;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_DEFAULT_MAX = 180;
 const RATE_LIMIT_LOGIN_MAX = 30;
-const rateLimitBuckets = new Map();
 
 // Trust the Nginx reverse proxy for correct client IP / protocol detection
 app.set('trust proxy', 1);
-
-const dbHost = process.env.DB_HOST || 'localhost';
-const dbPort = parseInt(process.env.DB_PORT || '3306', 10);
-const dbName = process.env.DB_NAME || 'redsu_scoring';
-const dbUser = process.env.DB_USER;
-const dbPass = process.env.DB_PASSWORD;
 
 // ---------- 请求上下文与公共健康检查 ----------
 app.use(requestContext);
 app.use((req, res, next) => {
   const sendJson = res.json.bind(res);
   res.json = function(body) {
+    if (req.timedOut && res.writableEnded) return res;
     if (body && typeof body === 'object' && !Array.isArray(body) && !body.requestId) {
       body.requestId = req.requestId || '';
     }
     return sendJson(body);
   };
+  next();
+});
+
+app.use((req, res, next) => {
+  const controller = new AbortController();
+  req.abortController = controller;
+  req.signal = controller.signal;
+  const timer = setTimeout(() => {
+    req.timedOut = true;
+    controller.abort(new Error('request_timeout'));
+    if (!res.headersSent) res.status(503).json({ status: 'request_timeout', message: '请求处理超时' });
+  }, REQUEST_TIMEOUT_MS);
+  const clear = () => clearTimeout(timer);
+  res.once('finish', clear);
+  res.once('close', clear);
   next();
 });
 
@@ -81,52 +91,48 @@ app.use(cors({
 }));
 app.use(clientVersionMiddleware);
 
+app.use(createRateLimiter({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  defaultMax: RATE_LIMIT_DEFAULT_MAX,
+  loginMax: RATE_LIMIT_LOGIN_MAX,
+  capacity: 5000
+}));
+
+const LARGE_JSON_ROUTES = new Set([
+  '/api/uploadAuditFile',
+  '/api/parseTableFile',
+  '/api/verifyAuditFile',
+  '/api/verifyFileSignature'
+]);
 app.use((req, res, next) => {
-  const now = Date.now();
-  const isLoginPath = req.path === '/api/userLogin' || req.path === '/api/adminLogin';
-  const maxRequests = isLoginPath ? RATE_LIMIT_LOGIN_MAX : RATE_LIMIT_DEFAULT_MAX;
-  const key = (req.ip || '-') + ':' + req.path;
-  const bucket = rateLimitBuckets.get(key) || { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
-
-  if (bucket.resetAt <= now) {
-    bucket.count = 0;
-    bucket.resetAt = now + RATE_LIMIT_WINDOW_MS;
+  const bodyLimit = LARGE_JSON_ROUTES.has(req.path) ? MAX_UPLOAD_JSON_BODY_BYTES : MAX_JSON_BODY_BYTES;
+  const contentLength = Number(req.get('content-length') || 0);
+  if (Number.isFinite(contentLength) && contentLength > bodyLimit) {
+    return res.status(413).json({ status: 'payload_too_large', message: '请求内容过大' });
   }
-
-  bucket.count += 1;
-  rateLimitBuckets.set(key, bucket);
-
-  if (rateLimitBuckets.size > 5000) {
-    for (const [bucketKey, value] of rateLimitBuckets.entries()) {
-      if (value.resetAt <= now) rateLimitBuckets.delete(bucketKey);
+  return express.json({ limit: bodyLimit, strict: true })(req, res, next);
+});
+app.use(express.urlencoded({ extended: false, limit: '64kb' }));
+app.use((req, res, next) => {
+  if (!req.body || typeof req.body !== 'object') return next();
+  const stack = [{ value: req.body, depth: 0 }];
+  let nodes = 0;
+  while (stack.length) {
+    const current = stack.pop();
+    nodes += 1;
+    if (current.depth > 24 || nodes > 100000) {
+      return res.status(413).json({ status: 'payload_too_complex', message: '请求结构过于复杂' });
+    }
+    if (!current.value || typeof current.value !== 'object') continue;
+    for (const value of Object.values(current.value)) {
+      if (value && typeof value === 'object') stack.push({ value, depth: current.depth + 1 });
     }
   }
-
-  if (bucket.count > maxRequests) {
-    return res.status(429).json({ status: 'rate_limited', message: 'Too many requests, please try again later' });
-  }
-
   next();
 });
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: false }));
 
 // Remove Express fingerprint header
 app.disable('x-powered-by');
-
-// Reject oversized or deeply-nested JSON payloads
-app.use((req, res, next) => {
-  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
-    try {
-      const raw = JSON.stringify(req.body);
-      const limit = req.path === '/api/uploadAuditFile' ? MAX_UPLOAD_JSON_BODY_BYTES : MAX_JSON_BODY_BYTES;
-      if (raw.length > limit) {
-        return res.status(413).json({ status: 'error', message: 'Payload too large' });
-      }
-    } catch (_) { /* ignore stringify failures */ }
-  }
-  next();
-});
 
 app.use(authMiddleware);
 
@@ -147,18 +153,6 @@ app.get('/api/admin/health', async (req, res) => {
     req.logger.error('Protected health check failed', { error: e.message });
     res.status(503).json({ status: 'degraded', message: '数据库不可用' });
   }
-});
-
-// ---------- request timeout ----------
-app.use((req, res, next) => {
-  const timer = setTimeout(() => {
-    if (!res.headersSent) {
-      res.status(503).json({ status: 'error', message: 'Request timeout' });
-    }
-  }, REQUEST_TIMEOUT_MS);
-  res.on('finish', () => clearTimeout(timer));
-  res.on('close', () => clearTimeout(timer));
-  next();
 });
 
 // ---------- 诊断：拦截并记录所有错误响应 ----------
@@ -241,22 +235,14 @@ const server = app.listen(PORT, '127.0.0.1', async () => {
   });
 
   try {
-    const conn = await mysql.createConnection({
-      host: dbHost, port: dbPort, user: dbUser, password: dbPass,
-      database: dbName, connectTimeout: 5000
-    });
     const t0 = Date.now();
-    await conn.ping();
-    await conn.end();
-    logger.info('Database connected', {
-      event: 'db.connect',
-      host: dbHost,
-      port: dbPort,
-      database: dbName,
-      latency: Date.now() - t0
-    });
+    await pool.query('SELECT 1');
+    const schema = await verifySchemaContract(pool);
+    logger.info('Database connected', { event: 'db.connect', latency: Date.now() - t0, schemaRevision: schema.revision });
   } catch (e) {
-    logger.warn('Database unreachable', { event: 'db.error', error: e.message, host: dbHost });
+    logger.error('Database or schema unavailable', { event: 'db.error', error: e.message, code: e.code });
+    setImmediate(() => shutdown('SCHEMA_CHECK_FAILED'));
+    return;
   }
 
   logger.info('Server is ready');
@@ -289,5 +275,7 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason) => {
-  logger.error('Unhandled rejection', { reason });
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  logger.error('Unhandled rejection', { error: error.message, stack: error.stack });
+  if (!shuttingDown) { shuttingDown = true; process.exit(1); }
 });

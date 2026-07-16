@@ -1,8 +1,9 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { logger } = require('../utils/logger');
 
 function requestContext(req, res, next) {
-  req.requestId = uuidv4();
+  const providedRequestId = String(req.get('X-Request-Id') || '').trim();
+  req.requestId = /^[A-Za-z0-9._:-]{8,128}$/.test(providedRequestId) ? providedRequestId : randomUUID();
   req.startTime = Date.now();
 
   res.setHeader('X-Request-Id', req.requestId);

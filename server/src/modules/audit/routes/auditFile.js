@@ -16,6 +16,11 @@ const {
 } = require('../utils/fileSecurity');
 
 const execFileAsync = promisify(execFile);
+const MAX_PDF_PAGES = 100;
+const MAX_IMAGE_PIXELS = 40 * 1000 * 1000;
+const MAX_PDF_RENDER_CONCURRENCY = 2;
+let activePdfRenders = 0;
+const pdfRenderQueue = [];
 
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -25,6 +30,48 @@ async function getPdfPageCount(filePath) {
   const { PDFDocument } = require('pdf-lib');
   const pdfDoc = await PDFDocument.load(fs.readFileSync(filePath));
   return pdfDoc.getPageCount() || 1;
+}
+
+async function assertSafeFileContent(buffer, mimeType) {
+  if (mimeType === 'application/pdf') {
+    const { PDFDocument } = require('pdf-lib');
+    const pdf = await PDFDocument.load(buffer, { updateMetadata: false });
+    if (pdf.getPageCount() > MAX_PDF_PAGES) {
+      const error = new Error('PDF 页数超过限制');
+      error.status = 'invalid_params';
+      throw error;
+    }
+    return;
+  }
+  const metadata = await require('sharp')(buffer, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
+  const pixels = Number(metadata.width || 0) * Number(metadata.height || 0);
+  if (!pixels || pixels > MAX_IMAGE_PIXELS) {
+    const error = new Error('图片尺寸无效或像素数量超过限制');
+    error.status = 'invalid_params';
+    throw error;
+  }
+}
+
+function runWithPdfRenderSlot(task, signal) {
+  return new Promise((resolve, reject) => {
+    const entry = { task, resolve, reject, signal };
+    const runNext = () => {
+      while (activePdfRenders < MAX_PDF_RENDER_CONCURRENCY && pdfRenderQueue.length) {
+        const next = pdfRenderQueue.shift();
+        if (next.signal && next.signal.aborted) {
+          next.reject(new Error('request_cancelled'));
+          continue;
+        }
+        activePdfRenders += 1;
+        Promise.resolve().then(next.task).then(next.resolve, next.reject).finally(() => {
+          activePdfRenders -= 1;
+          runNext();
+        });
+      }
+    };
+    pdfRenderQueue.push(entry);
+    runNext();
+  });
 }
 
 function clampNumber(value, fallback, min, max) {
@@ -57,7 +104,7 @@ async function renderPdfPageWithPdfjs(filePath, page) {
   global.DOMMatrix = global.DOMMatrix || DOMMatrix;
   global.Path2D = global.Path2D || Path2D;
   global.ImageData = global.ImageData || ImageData;
-  const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const canvasFactory = {
     create(width, height) {
       const canvas = createCanvas(width, height);
@@ -93,7 +140,7 @@ async function renderPdfPageWithPdfjs(filePath, page) {
   return pngBuffer;
 }
 
-async function renderPdfPage(filePath, page) {
+async function renderPdfPageUnqueued(filePath, page) {
   const errors = [];
   try {
     const sharp = require('sharp');
@@ -120,6 +167,10 @@ async function renderPdfPage(filePath, page) {
   const err = new Error('PDF preview render failed: ' + errors.join('; '));
   err.renderErrors = errors;
   throw err;
+}
+
+function renderPdfPage(filePath, page, signal) {
+  return runWithPdfRenderSlot(() => renderPdfPageUnqueued(filePath, page), signal);
 }
 
 const storage = multer.diskStorage({
@@ -168,6 +219,7 @@ router.post('/uploadAuditFile', function(req, res, next) {
     }
 
     mimeType = assertAllowedFile(buffer, mimeType);
+    await assertSafeFileContent(buffer, mimeType);
     const uploadInfo = await createTempUpload({
       buffer,
       fileName,
@@ -281,7 +333,7 @@ router.post('/getAuditFilePreview', async (req, res) => {
       try {
         const totalPages = await getPdfPageCount(file.file_path);
         const targetPage = Math.max(1, Math.min(page, totalPages));
-        const rendered = await renderPdfPage(file.file_path, targetPage);
+        const rendered = await renderPdfPage(file.file_path, targetPage, req.signal);
         return res.json({
           status: 'success',
           fileName: file.file_name,
@@ -303,7 +355,7 @@ router.post('/getAuditFilePreview', async (req, res) => {
           data: null,
           fallback: true,
           message: 'PDF预览生成失败，请检查服务器 PDF 渲染依赖',
-          renderError: safeString(e.message)
+          requestId: req.requestId || ''
         });
       }
     }

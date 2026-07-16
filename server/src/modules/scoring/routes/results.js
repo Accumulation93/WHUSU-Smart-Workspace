@@ -18,6 +18,7 @@ const systemConfigModel = require('../../../core/models/systemConfig');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const sharedCache = require('../utils/sharedCache');
+const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 
 const DEFAULT_WORK_GROUP = '';
 const RESPONSE_SAFE_LIMIT = 850 * 1024;
@@ -42,16 +43,11 @@ function formatDate(value, timezone) {
   return `${datePart} ${timePart}${timezoneLabel}`;
 }
 
-const XLSX = require('xlsx');
-
-function buildXlsxBase64(sheetName, headers, rows) {
+async function buildXlsxBase64(sheetName, headers, rows) {
   const headerLabels = headers.map(h => h.label);
   const dataRows = rows.map(row => headers.map(h => row[h.key]));
   const sheetData = [headerLabels, ...dataRows];
-  const ws = XLSX.utils.aoa_to_sheet(sheetData);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const buffer = await buildWorkbookBuffer(sheetName, sheetData);
   return buffer.toString('base64');
 }
 
@@ -1559,7 +1555,7 @@ router.post('/exportScoreResults', async (req, res) => {
 
     // All exports produce XLSX — wx.openDocument only supports Excel formats for save-to-path
     const sheetNames = { overview: '总分速览', detail: '评分明细', completion: '评分人完成率' };
-    const fileContent = buildXlsxBase64(sheetNames[reportType] || '导出数据', headers, filteredRows);
+    const fileContent = await buildXlsxBase64(sheetNames[reportType] || '导出数据', headers, filteredRows);
     const extension = 'xlsx';
 
     res.json({ status: 'success', fileContent, fileName, extension });

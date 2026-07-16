@@ -12,6 +12,11 @@
  *   touchStart 时再次验证，确保万无一失。
  */
 
+function getWindowMetrics() {
+  if (wx.getWindowInfo) return wx.getWindowInfo();
+  return { windowWidth: 375, pixelRatio: 1 };
+}
+
 Component({
   properties: {
     initialImage: { type: String, value: '' },
@@ -58,7 +63,7 @@ Component({
 
           let canvas = res[0].node;
           let ctx = canvas.getContext('2d');
-          let dpr = wx.getSystemInfoSync().pixelRatio || 1;
+          let dpr = getWindowMetrics().pixelRatio || 1;
 
           // ★ 同时用 boundingClientRect 测量真实 CSS 显示尺寸
           wx.createSelectorQuery().in(that).select('#sigCanvas')
@@ -69,7 +74,7 @@ Component({
                 cssW = rect.width;
                 cssH = rect.height;
                 // ★ 安全检测：如果宽高超过屏幕尺寸，可能是 rpx → 转为 px
-                let screenW = wx.getSystemInfoSync().windowWidth;
+                let screenW = getWindowMetrics().windowWidth;
                 if (Math.max(cssW, cssH) > screenW * 1.2) {
                   let scale = screenW / 750;
                   console.log('[sigPad] init: likely rpx, converting ' + cssW + 'x' + cssH +
@@ -146,7 +151,7 @@ Component({
           if (rect && rect.width > 0 && rect.height > 0) {
             let rw = rect.width, rh = rect.height, rl = rect.left || 0, rt = rect.top || 0;
             // ★ 安全检测：rpx → px 转换
-            let screenW = wx.getSystemInfoSync().windowWidth;
+            let screenW = getWindowMetrics().windowWidth;
             if (Math.max(rw, rh) > screenW * 1.2) {
               let scale = screenW / 750;
               rw = rw * scale; rh = rh * scale; rl = rl * scale; rt = rt * scale;

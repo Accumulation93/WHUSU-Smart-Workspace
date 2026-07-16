@@ -1,0 +1,63 @@
+name: quality-gates
+
+on:
+  push:
+    branches: [feature/audit, main]
+  pull_request:
+
+jobs:
+  audit-and-test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      SECURITY_TEST_DB_HOST: 127.0.0.1
+      SECURITY_TEST_DB_PORT: 3306
+      HR_IMPORT_TEST_DB_HOST: 127.0.0.1
+      HR_IMPORT_TEST_DB_PORT: 3306
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Install locked dependencies
+        working-directory: server
+        run: npm ci
+      - name: Syntax and static audits
+        run: |
+          git ls-files -z '*.js' | xargs -0 -n1 node --check
+          node scripts/miniprogram-compat-audit.js
+          node scripts/org-lifecycle-audit.js --strict
+          node scripts/security-audit.js --strict
+          node scripts/ui-audit.js --strict
+          git diff --check
+      - name: Unit and integration tests
+        run: |
+          node scripts/org-session-test.js
+          node scripts/api-cancellation-test.js
+          node server/test/activateOrganization.test.js
+          node server/test/scoringOrgCacheIsolation.test.js
+          node server/test/orgContextSecurity.test.js
+          node server/test/adminAuthorization.test.js
+          node server/test/authChallenge.test.js
+          node server/test/requestDeduplication.test.js
+          node server/test/clientVersion.test.js
+          node server/test/runtimeHardening.test.js
+          node server/test/securityMigration.test.js
+          node server/test/dataIntegrityMigration.test.js
+          node server/test/hrTableImport.test.js
+      - name: Dependency audit
+        working-directory: server
+        run: npm audit

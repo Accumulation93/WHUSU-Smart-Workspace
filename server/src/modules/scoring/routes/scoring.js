@@ -889,7 +889,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
 
 // ──────────────────── exportScorerTaskStatus ────────────────────
 
-const XLSX = require('xlsx');
+const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 
 function buildExportCsv(headers, rows) {
   let escapeCsv = function (v) { let t = String(v == null ? '' : v); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
@@ -898,13 +898,11 @@ function buildExportCsv(headers, rows) {
   return Buffer.from(csvText, 'utf-8').toString('base64');
 }
 
-function buildExportXlsx(sheetName, headers, rows) {
+async function buildExportXlsx(sheetName, headers, rows) {
   let headerLabels = headers.map(function (h) { return h.label; });
   let dataRows = rows.map(function (row) { return headers.map(function (h) { return row[h.key]; }); });
-  let ws = XLSX.utils.aoa_to_sheet([headerLabels].concat(dataRows));
-  let wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }).toString('base64');
+  const buffer = await buildWorkbookBuffer(sheetName, [headerLabels].concat(dataRows));
+  return buffer.toString('base64');
 }
 
 function buildTaskExportReport(activityName, reportType, rows) {
@@ -1118,7 +1116,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
     const activityName = safeString(activity.name) || '评分活动';
     const report = buildTaskExportReport(activityName, reportType, rows);
     // All exports produce XLSX — wx.openDocument only supports Excel formats for save-to-path
-    const fileContent = buildExportXlsx(report.sheetName, report.headers, report.rows);
+    const fileContent = await buildExportXlsx(report.sheetName, report.headers, report.rows);
     const extension = 'xlsx';
 
     res.json({ status: 'success', fileContent, fileName: report.fileName, extension });

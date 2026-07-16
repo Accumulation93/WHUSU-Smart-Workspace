@@ -1,7 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
-const XLSX = require('xlsx');
+const { parseWorkbookTables } = require('../src/utils/excelFile');
 
 const adminUtils = require('../../miniprogram/subpackages/scoring/pages/admin/modules/adminUtils');
 const tableFile = require('../../miniprogram/utils/tableFile');
@@ -177,10 +177,10 @@ async function main() {
 
     const targetWorkbookPath = process.env.HR_IMPORT_XLSX_PATH;
     if (targetWorkbookPath && fs.existsSync(targetWorkbookPath)) {
-      const workbook = XLSX.readFile(targetWorkbookPath, { raw: false });
-      const sheet = workbook.Sheets.Sheet1;
+      const workbook = await parseWorkbookTables(fs.readFileSync(targetWorkbookPath));
+      const sheet = workbook.find((item) => item.name === 'Sheet1');
       assert(sheet, '目标工作簿缺少 Sheet1');
-      const table = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+      const table = sheet.table;
       const targetHeaders = table[0].map((value) => String(value == null ? '' : value).trim());
       const targetRows = table.slice(1).filter((row) => row.some((value) => String(value == null ? '' : value).trim()));
       const targetPayload = buildPayload(targetHeaders, targetRows);

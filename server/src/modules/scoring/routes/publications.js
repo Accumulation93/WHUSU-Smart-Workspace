@@ -14,7 +14,7 @@ const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
 const activityModel = require('../models/scoreActivity');
-const XLSX = require('xlsx');
+const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pubCache = require('../utils/pubCache');
@@ -1620,10 +1620,7 @@ router.post('/exportMeritListSummary', async (req, res) => {
     const headerLabels = headers.map(h => h.label);
     const dataRows = rows.map(row => headers.map(h => row[h.key]));
     const sheetData = [headerLabels, ...dataRows];
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '评优名单汇总');
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await buildWorkbookBuffer('评优名单汇总', sheetData);
     const fileContent = buffer.toString('base64');
 
     res.json({ status: 'success', fileContent, fileName: '评优名单汇总', extension: 'xlsx', rowCount: rows.length });

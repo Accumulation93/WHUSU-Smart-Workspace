@@ -286,16 +286,9 @@ router.post('/adminUnbindUser', async (req, res) => {
     const targetOpenid = safeString(targetUser.openid);
     const targetAdmin = await adminInfoModel.getByOpenidAny(targetOpenid);
     if (targetAdmin) {
-      if (admin.admin_level === 'root_admin') {
-        // root_admin 可以解绑任何人
-      } else if (admin.admin_level === 'super_admin') {
-        // super_admin 只能解绑 admin 和普通用户，不能解绑 super_admin 或 root_admin
-        if (targetAdmin.admin_level === 'super_admin' || targetAdmin.admin_level === 'root_admin') {
-          return res.json({ status: 'forbidden', message: '权限不足：无法解绑同级或上级管理员' });
-        }
-      } else {
-        // admin 无解绑权限
-        return res.json({ status: 'forbidden', message: '权限不足：仅超级管理员及以上可解绑微信' });
+      const orgId = await getCurrentOrgId();
+      if (!canManageTarget(admin, targetAdmin, orgId)) {
+        return res.json({ status: 'forbidden', message: '权限不足：只能解绑直接下级管理员' });
       }
     }
 
