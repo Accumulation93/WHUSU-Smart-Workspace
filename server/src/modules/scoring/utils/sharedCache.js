@@ -20,20 +20,15 @@ const { logger } = require('../../../utils/logger');
 let tableReady = false;
 
 /**
- * Ensure the _shared_cache table exists.
- * Safe to call multiple times — uses CREATE TABLE IF NOT EXISTS.
+ * Verify that migrations created the shared cache table.
  */
 async function ensureTable() {
   if (tableReady) return;
-  await pool.query(
-    `CREATE TABLE IF NOT EXISTS _shared_cache (
-       cache_key VARCHAR(255) PRIMARY KEY,
-       cache_data LONGTEXT NOT NULL,
-       created_at BIGINT NOT NULL,
-       expires_at BIGINT NOT NULL,
-       INDEX idx_expires_at (expires_at)
-     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  const [rows] = await pool.query(
+    `SELECT 1 FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '_shared_cache' LIMIT 1`
   );
+  if (!rows.length) throw new Error('schema_migration_required:_shared_cache');
   tableReady = true;
 }
 

@@ -254,7 +254,7 @@ router.post('/deleteVenueApprovalStepRule', async (req, res) => {
  * Check if a person (by hrId) can approve the current step of a booking.
  * Returns { ok: boolean, stepIndex: number, stepName: string }
  */
-async function canApproveCurrentStep(booking, approverHrId) {
+async function canApproveCurrentStep(booking, approverHrId, isCurrentOrgAdmin) {
   if (!booking.approval_flow_id || booking.approval_total_steps <= 0) {
     return { ok: false, reason: '该借用没有配置审批流程' };
   }
@@ -274,8 +274,9 @@ async function canApproveCurrentStep(booking, approverHrId) {
 
   const step = steps[currentStep];
   if (!step || !step.rules || !step.rules.length) {
-    // No rules defined — anyone can approve (backward compat)
-    return { ok: true, stepIndex: currentStep, stepName: step ? step.name : '', totalSteps: steps.length };
+    return isCurrentOrgAdmin
+      ? { ok: true, stepIndex: currentStep, stepName: step ? step.name : '', totalSteps: steps.length }
+      : { ok: false, reason: '该兼容步骤仅允许当前组织管理员审批' };
   }
 
   // Get the approver's HR info
@@ -339,26 +340,34 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     const orgId = await require('../../../utils/orgContext').getCurrentOrgId();
     const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [req.openid, orgId]);
     const approverHrId = (userRows[0] && userRows[0].hr_id) || null;
-    if (!approverHrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!approverHrId && !admin) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
-    const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
-    if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
+    await conn.beginTransaction();
+    const booking = await venueBookingModel.getByIdForUpdate(id, conn);
+    if (!booking || booking.approval_org_id !== orgId) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '借用记录不存在' });
+    }
+    if (booking.status !== 'pending') {
+      await conn.rollback();
+      return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
+    }
     if (!booking.approval_flow_id || booking.approval_total_steps <= 0) {
+      await conn.rollback();
       return res.json({ status: 'invalid_state', message: '该借用没有配置审批流程，请使用普通审批' });
     }
 
     // Check if approver can approve current step
-    const check = await canApproveCurrentStep(booking, approverHrId);
+    const check = await canApproveCurrentStep(booking, approverHrId, !!admin);
     if (!check.ok) {
+      await conn.rollback();
       return res.json({ status: 'forbidden', message: check.reason });
     }
+    const approverActorId = approverHrId || admin.id;
 
     const currentStep = check.stepIndex;
     const newStepIndex = currentStep + 1;
     const isLastStep = newStepIndex >= booking.approval_total_steps;
-
-    await conn.beginTransaction();
 
     // Check time conflict + adjust time_start based on approval time (only for final approval)
     if (isLastStep) {
@@ -367,7 +376,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
 
       // If approved after booking end, cancel instead
       if (approvedAt > bookingTimeEnd) {
-        await venueBookingModel.updateStatus(id, 'cancelled', approverHrId, '审批通过时已超过借用结束时间，自动取消', conn);
+        await venueBookingModel.updateStatus(id, 'cancelled', approverActorId, '审批通过时已超过借用结束时间，自动取消', conn);
         await conn.commit();
         return res.json({ status: 'expired', message: '审批通过时已超过借用结束时间，借用已自动取消' });
       }
@@ -392,14 +401,14 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     // Resolve approver name
     let approverName = '';
     try {
-      const approverHrInfo = await hrInfoModel.getById(approverHrId);
-      approverName = approverHrInfo ? (approverHrInfo.name || '') : '';
+      const approverHrInfo = approverHrId ? await hrInfoModel.getById(approverHrId) : null;
+      approverName = approverHrInfo ? (approverHrInfo.name || '') : ((admin && admin.name) || '管理员');
     } catch (_) {}
 
     snapshots.push({
       stepIndex: currentStep,
       stepName: check.stepName,
-      approverHrId,
+      approverHrId: approverActorId,
       approverName,
       comment: comment || '',
       approvedAt: fmtDatetime(new Date())
@@ -410,14 +419,15 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     const sql = `UPDATE venue_bookings
       SET approval_current_step = ?, approval_snapshots_json = ?, status = ?, approver_hr_id = ?, approval_comment = ?
       WHERE id = ?`;
-    await conn.query(sql, [
+    const [updateResult] = await conn.query(sql, [
       newStepIndex,
       JSON.stringify(snapshots),
       newStatus,
-      isLastStep ? approverHrId : booking.approver_hr_id,
+      isLastStep ? approverActorId : booking.approver_hr_id,
       isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
       id
     ]);
+    if (updateResult.affectedRows !== 1) throw new Error('venue_approval_conflict');
 
     await conn.commit();
 
@@ -464,24 +474,32 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
 
     // Resolve approver hrId — only from user_info (admin/regular user identities are separate)
     const orgId = await require('../../../utils/orgContext').getCurrentOrgId();
+    const admin = await ensureAdmin(req.openid);
     const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [req.openid, orgId]);
     const approverHrId = (userRows[0] && userRows[0].hr_id) || null;
-    if (!approverHrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
-
-    const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
-    if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
-
-    // Check permission
-    const check = await canApproveCurrentStep(booking, approverHrId);
-    if (!check.ok) {
-      return res.json({ status: 'forbidden', message: check.reason });
-    }
+    if (!approverHrId && !admin) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
     await conn.beginTransaction();
+    const booking = await venueBookingModel.getByIdForUpdate(id, conn);
+    if (!booking || booking.approval_org_id !== orgId) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '借用记录不存在' });
+    }
+    if (booking.status !== 'pending') {
+      await conn.rollback();
+      return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
+    }
+
+    // Check permission
+    const check = await canApproveCurrentStep(booking, approverHrId, !!admin);
+    if (!check.ok) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: check.reason });
+    }
+    const approverActorId = approverHrId || admin.id;
 
     // Reject: set step to -1, update status atomically within transaction
-    await venueBookingModel.updateStatus(id, 'rejected', approverHrId, comment || '驳回', conn);
+    await venueBookingModel.updateStatus(id, 'rejected', approverActorId, comment || '驳回', conn);
 
     // Update approval tracking (same transaction)
     const setSql = `UPDATE venue_bookings

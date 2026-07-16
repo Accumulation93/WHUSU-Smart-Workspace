@@ -26,6 +26,7 @@ const { hashFile, computeSignatureHash } = require('../utils/hashChain');
 const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
 const { createNotification } = require('../utils/notificationHelper');
+const requestDeduplication = require('../../../utils/requestDeduplication');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
 
@@ -74,13 +75,14 @@ router.post('/listMySubmissions', async (req, res) => {
 
     const submissions = await submissionModel.getAll(filters);
     const submissionIds = submissions.map(s => s.id);
+    const orgId = await getCurrentOrgId();
 
     // Get read cursors
     let cursorMap = {};
     if (submissionIds.length) {
       const [cursors] = await pool.query(
-        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
-        [hrId, submissionIds]
+        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE org_id = ? AND hr_id = ? AND submission_id IN (?)',
+        [orgId, hrId, submissionIds]
       );
       cursors.forEach(c => { cursorMap[c.submission_id] = c; });
     }
@@ -273,7 +275,20 @@ router.post('/startAuditSubmission', async (req, res) => {
 
     // Create submission
     const submissionId = generateId();
-    const submissionNumber = await submissionModel.generateSubmissionNumber();
+    const dedupClaim = await requestDeduplication.claim(conn, {
+      orgId,
+      actorKey: 'user:' + hrId,
+      operationType: 'start_audit',
+      clientRequestId: req.body.clientRequestId,
+      resourceId: submissionId
+    });
+    if (!dedupClaim.claimed) {
+      await conn.commit();
+      return res.json(dedupClaim.response || {
+        status: 'success', id: dedupClaim.resourceId, message: '审核已提交', idempotent: true
+      });
+    }
+    const submissionNumber = await submissionModel.generateSubmissionNumber(conn);
     await submissionModel.create(submissionId, {
       submissionNumber,
       submittedBy: hrId,
@@ -391,6 +406,11 @@ router.post('/startAuditSubmission', async (req, res) => {
       if (conditions.length > 0) {
         stepConditionsJson = JSON.stringify(conditions);
       }
+      if (!conditions.length && !ts.approver_hr_id && !ts.approver_identity_id) {
+        const configError = new Error('审核步骤必须配置明确的审批条件');
+        configError.code = 'AUDIT_STEP_CONDITIONS_REQUIRED';
+        throw configError;
+      }
       console.log('[audit:startSubmission] creating step[' + i + '] id=' + stepId +
         ' sortOrder=' + (i + 1) +
         ' templateStepId=' + ts.id +
@@ -434,15 +454,29 @@ router.post('/startAuditSubmission', async (req, res) => {
       comment: null
     }, conn);
 
-    await conn.commit();
-    res.json({
+    const response = {
       status: 'success',
       id: submissionId,
       submissionNumber,
       message: '审核提交成功'
-    });
+    };
+    await requestDeduplication.complete(conn, {
+      ...dedupClaim,
+      resourceId: submissionId,
+      orgId,
+      actorKey: 'user:' + hrId,
+      operationType: 'start_audit'
+    }, response);
+    await conn.commit();
+    res.json(response);
   } catch (e) {
     await conn.rollback();
+    if (e && e.code === 'AUDIT_STEP_CONDITIONS_REQUIRED') {
+      return res.json({ status: 'invalid_params', message: e.message });
+    }
+    if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
+      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+    }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     if (conn) conn.release();
@@ -472,7 +506,20 @@ router.post('/startAdHocAudit', async (req, res) => {
     await conn.beginTransaction();
 
     const submissionId = generateId();
-    const submissionNumber = await submissionModel.generateSubmissionNumber();
+    const dedupClaim = await requestDeduplication.claim(conn, {
+      orgId,
+      actorKey: 'user:' + hrId,
+      operationType: 'start_ad_hoc_audit',
+      clientRequestId: req.body.clientRequestId,
+      resourceId: submissionId
+    });
+    if (!dedupClaim.claimed) {
+      await conn.commit();
+      return res.json(dedupClaim.response || {
+        status: 'success', id: dedupClaim.resourceId, message: '临时审批已发起', idempotent: true
+      });
+    }
+    const submissionNumber = await submissionModel.generateSubmissionNumber(conn);
     await submissionModel.create(submissionId, {
       submissionNumber,
       submittedBy: hrId,
@@ -528,6 +575,11 @@ router.post('/startAdHocAudit', async (req, res) => {
       if (conditions.length > 0) {
         stepConditionsJson = JSON.stringify(conditions);
       }
+      if (!conditions.length && !safeString(s.approverHrId) && !safeString(s.approverIdentityId)) {
+        const configError = new Error('每个审批步骤都必须配置审批人或审批条件');
+        configError.code = 'AUDIT_STEP_CONDITIONS_REQUIRED';
+        throw configError;
+      }
 
       await submissionStepModel.create(stepId, {
         submissionId,
@@ -556,10 +608,24 @@ router.post('/startAdHocAudit', async (req, res) => {
       comment: null
     }, conn);
 
+    const response = { status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' };
+    await requestDeduplication.complete(conn, {
+      ...dedupClaim,
+      resourceId: submissionId,
+      orgId,
+      actorKey: 'user:' + hrId,
+      operationType: 'start_ad_hoc_audit'
+    }, response);
     await conn.commit();
-    res.json({ status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' });
+    res.json(response);
   } catch (e) {
     await conn.rollback();
+    if (e && e.code === 'AUDIT_STEP_CONDITIONS_REQUIRED') {
+      return res.json({ status: 'invalid_params', message: e.message });
+    }
+    if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
+      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+    }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     if (conn) conn.release();
@@ -1056,7 +1122,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
  * Checks: 1) step_conditions_json, 2) template step conditions fallback, 3) legacy flat fields.
  * @returns {boolean} authorized
  */
-async function checkStepAuthorization(step, submission, hrId) {
+async function checkStepAuthorization(step, submission, hrId, requestRole) {
   const orgId = await getCurrentOrgId();
 
   let hasExplicitConditions = false;
@@ -1128,13 +1194,10 @@ async function checkStepAuthorization(step, submission, hrId) {
         if (matchesScope(step, approver, submitter)) return true;
       }
     }
-    // 4. Fallback: if step has NO conditions (no step_conditions_json, no template_step_id,
-    //    no approver_hr_id, no approver_identity_id), default to open — anyone can approve.
-    //    This covers ad-hoc audits with scopeType='all' and no specific identity.
+    // 4. 旧数据中完全无条件的步骤只允许当前组织管理员处理，禁止任意用户审批。
     if (!step.step_conditions_json && !step.template_step_id &&
         !step.approver_hr_id && !step.approver_identity_id) {
-      console.log('[audit:checkStepAuthorization] step has no conditions — defaulting to open (anyone can approve)');
-      return true;
+      return ['admin', 'super_admin', 'root_admin'].includes(requestRole);
     }
   }
 
@@ -1142,7 +1205,7 @@ async function checkStepAuthorization(step, submission, hrId) {
 }
 
 // approveStep — Approve current step with optional signature/stamp
-async function validateStepForAction(step, submission, submissionId) {
+async function validateStepForAction(step, submission, submissionId, conn) {
   if (step.submission_id !== submissionId) {
     return { ok: false, status: 'invalid_params', message: '步骤不属于该审批提交' };
   }
@@ -1155,7 +1218,7 @@ async function validateStepForAction(step, submission, submissionId) {
   if (step.sort_order !== submission.current_step_index) {
     return { ok: false, status: 'invalid_state', message: '只能处理当前审批步骤' };
   }
-  const maxRound = await submissionStepModel.getMaxRound(submission.id, step.sort_order);
+  const maxRound = await submissionStepModel.getMaxRound(submission.id, step.sort_order, conn);
   if ((step.round || 1) !== maxRound) {
     return { ok: false, status: 'invalid_state', message: '只能处理最新一轮审批步骤' };
   }
@@ -1181,32 +1244,43 @@ router.post('/approveStep', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请提供提交ID和步骤ID' });
     }
 
-    const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    await conn.beginTransaction();
+    const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
+    if (!submission) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '提交不存在' });
+    }
     if (submission.status !== 'in_progress') {
-      return res.json({ status: 'invalid_state', message: '提交状态不允许审批' });
+      await conn.rollback();
+      return res.json({ status: 'success', message: '该审核已处理', submissionStatus: submission.status, idempotent: true });
     }
 
-    const step = await submissionStepModel.getById(stepId);
-    if (!step) return res.json({ status: 'not_found', message: '步骤不存在' });
+    const step = await submissionStepModel.getByIdForUpdate(stepId, conn);
+    if (!step) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '步骤不存在' });
+    }
     if (step.status !== 'pending') {
-      return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
+      await conn.rollback();
+      return res.json({ status: 'success', message: '该步骤已处理', stepStatus: step.status, idempotent: true });
     }
 
     // Check authorization — shared helper
-    const stepState = await validateStepForAction(step, submission, submissionId);
-    if (!stepState.ok) return res.json({ status: stepState.status, message: stepState.message });
+    const stepState = await validateStepForAction(step, submission, submissionId, conn);
+    if (!stepState.ok) {
+      await conn.rollback();
+      return res.json({ status: stepState.status, message: stepState.message });
+    }
 
-    const authorized = await checkStepAuthorization(step, submission, hrId);
+    const authorized = await checkStepAuthorization(step, submission, hrId, req.role);
     if (!authorized) {
+      await conn.rollback();
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
 
     const now = new Date();
     const nowISO = nowLocal();
     const currentRound = step.round;
-
-    await conn.beginTransaction();
 
     // Update step status to approved
     await submissionStepModel.updateStatus(stepId, {
@@ -1304,7 +1378,7 @@ router.post('/approveStep', async (req, res) => {
     }
 
     // Check if there are more steps
-    const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
+    const allSteps = await submissionStepModel.getBySubmissionId(submissionId, conn);
     const currentSteps = allSteps.filter((s) => s.round === currentRound).sort((a, b) => a.sort_order - b.sort_order);
     const currentIndex = step.sort_order;
     const nextStep = currentSteps.find((s) => s.sort_order === currentIndex + 1);
@@ -1478,27 +1552,37 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请填写驳回理由' });
     }
 
-    const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    await conn.beginTransaction();
+    const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
+    if (!submission) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '提交不存在' });
+    }
 
-    const step = await submissionStepModel.getById(stepId);
-    if (!step) return res.json({ status: 'not_found', message: '步骤不存在' });
+    const step = await submissionStepModel.getByIdForUpdate(stepId, conn);
+    if (!step) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '步骤不存在' });
+    }
     if (step.status !== 'pending') {
-      return res.json({ status: 'invalid_state', message: '该步骤已经处理过了' });
+      await conn.rollback();
+      return res.json({ status: 'success', message: '该步骤已处理', stepStatus: step.status, idempotent: true });
     }
 
     // Check authorization — shared helper
-    const stepState = await validateStepForAction(step, submission, submissionId);
-    if (!stepState.ok) return res.json({ status: stepState.status, message: stepState.message });
+    const stepState = await validateStepForAction(step, submission, submissionId, conn);
+    if (!stepState.ok) {
+      await conn.rollback();
+      return res.json({ status: stepState.status, message: stepState.message });
+    }
 
-    const authorized = await checkStepAuthorization(step, submission, hrId);
+    const authorized = await checkStepAuthorization(step, submission, hrId, req.role);
     if (!authorized) {
+      await conn.rollback();
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
     }
 
     const nowISO = nowLocal();
-
-    await conn.beginTransaction();
 
     // Update step to rejected
     await submissionStepModel.updateStatus(stepId, {
@@ -2195,43 +2279,6 @@ router.post('/listMyStamps', async (req, res) => {
 // Read Status Tracking
 // ═══════════════════════════════════════════════════
 
-async function ensureReadCursorsTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS audit_read_cursors (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      hr_id VARCHAR(64) NOT NULL,
-      submission_id VARCHAR(64) NOT NULL,
-      last_read_status VARCHAR(32) NOT NULL DEFAULT '',
-      last_read_step_index INT NOT NULL DEFAULT -1,
-      read_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uk_hr_submission (hr_id, submission_id),
-      INDEX idx_hr_id (hr_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-
-  // Migrate: hr_id was originally INT but hr_info.id / user_info.hr_id are VARCHAR(64).
-  // If the column is still INT, alter it to VARCHAR so long HR IDs (e.g. student IDs like 202330100123)
-  // are not truncated to INT range (max ~2.1 billion).
-  try {
-    const [cols] = await pool.query(
-      `SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'audit_read_cursors' AND COLUMN_NAME = 'hr_id'`
-    );
-    if (cols.length && String(cols[0].COLUMN_TYPE).toLowerCase().startsWith('int')) {
-      await pool.query(
-        `ALTER TABLE audit_read_cursors
-         MODIFY COLUMN hr_id VARCHAR(64) NOT NULL,
-         DROP INDEX uk_hr_submission,
-         ADD UNIQUE KEY uk_hr_submission (hr_id, submission_id)`
-      );
-      console.log('[audit] Migrated audit_read_cursors.hr_id from INT to VARCHAR(64)');
-    }
-  } catch (e) {
-    console.warn('[audit] audit_read_cursors.hr_id migration check failed:', e.message);
-  }
-}
-ensureReadCursorsTable().catch(e => console.error('[audit] Failed to create read_cursors table:', e.message));
-
 // getUnreadCounts — returns unread counts for my submissions + pending count
 // Each section is independently fault-tolerant: one failure won't zero out the others
 router.post('/getUnreadCounts', async (req, res) => {
@@ -2247,6 +2294,7 @@ router.post('/getUnreadCounts', async (req, res) => {
   let pendingCount = 0;
   let mySubmissionsUnread = 0;
   let myApprovalHistoryUnread = 0;
+  const orgId = await getCurrentOrgId();
 
   // ── Pending count (items needing my action) ──
   try {
@@ -2263,8 +2311,8 @@ router.post('/getUnreadCounts', async (req, res) => {
 
     if (mySubmissionIds.length) {
       const [cursors] = await pool.query(
-        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE hr_id = ? AND submission_id IN (?)',
-        [hrId, mySubmissionIds]
+        'SELECT submission_id, last_read_status, last_read_step_index FROM audit_read_cursors WHERE org_id = ? AND hr_id = ? AND submission_id IN (?)',
+        [orgId, hrId, mySubmissionIds]
       );
       const cursorMap = {};
       cursors.forEach(c => { cursorMap[c.submission_id] = c; });
@@ -2300,12 +2348,13 @@ router.post('/markSubmissionRead', async (req, res) => {
     // Get current submission state
     const sub = await submissionModel.getById(submissionId);
     if (!sub) return res.json({ status: 'not_found', message: '提交不存在' });
+    const orgId = await getCurrentOrgId();
 
     await pool.query(
-      `INSERT INTO audit_read_cursors (hr_id, submission_id, last_read_status, last_read_step_index, read_at)
-       VALUES (?, ?, ?, ?, NOW())
+      `INSERT INTO audit_read_cursors (hr_id, submission_id, org_id, last_read_status, last_read_step_index, read_at)
+       VALUES (?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE last_read_status = VALUES(last_read_status), last_read_step_index = VALUES(last_read_step_index), read_at = NOW()`,
-      [hrId, submissionId, sub.status, sub.current_step_index]
+      [hrId, submissionId, orgId, sub.status, sub.current_step_index]
     );
 
     res.json({ status: 'success' });
@@ -2323,12 +2372,13 @@ router.post('/markAllSubmissionsRead', async (req, res) => {
 
     // Only mark "my submissions" as read — approval history no longer uses read/unread
     const mySubs = await submissionModel.getAll({ submittedBy: hrId, limit: 500 });
+    const orgId = await getCurrentOrgId();
     for (const s of mySubs) {
       await pool.query(
-        `INSERT INTO audit_read_cursors (hr_id, submission_id, last_read_status, last_read_step_index, read_at)
-         VALUES (?, ?, ?, ?, NOW())
+        `INSERT INTO audit_read_cursors (hr_id, submission_id, org_id, last_read_status, last_read_step_index, read_at)
+         VALUES (?, ?, ?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE last_read_status = VALUES(last_read_status), last_read_step_index = VALUES(last_read_step_index), read_at = NOW()`,
-        [hrId, s.id, s.status, s.current_step_index]
+        [hrId, s.id, orgId, s.status, s.current_step_index]
       );
     }
 

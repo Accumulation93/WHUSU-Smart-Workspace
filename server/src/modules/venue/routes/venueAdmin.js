@@ -16,6 +16,7 @@ const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
 const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
 const { createVenueApprovalNotifications, createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
+const requestDeduplication = require('../../../utils/requestDeduplication');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenidGlobal(openid);
@@ -424,6 +425,21 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     if (activityConflict) return res.json({ status: 'conflict', message: '所选时段已有活动占用' });
 
     await conn.beginTransaction();
+    const id = generateId();
+    const orgId = await getCurrentOrgId();
+    const dedupClaim = await requestDeduplication.claim(conn, {
+      orgId,
+      actorKey: 'admin:' + admin.id,
+      operationType: 'create_admin_venue_booking',
+      clientRequestId: req.body.clientRequestId,
+      resourceId: id
+    });
+    if (!dedupClaim.claimed) {
+      await conn.commit();
+      return res.json(dedupClaim.response || {
+        status: 'success', id: dedupClaim.resourceId, bookingStatus: 'approved', message: '场地使用已创建', idempotent: true
+      });
+    }
     const dbStart = fmtDatetime(start);
     const dbEnd = fmtDatetime(end);
     const conflict = await venueBookingModel.findConflict(venueId, dbStart, dbEnd, null, conn, true);
@@ -431,21 +447,33 @@ router.post('/createAdminVenueBooking', async (req, res) => {
       await conn.rollback();
       return res.json({ status: 'conflict', message: '所选时段已被借用' });
     }
-    const id = generateId();
     await venueBookingModel.create(id, {
       venueId,
       creatorType: 'admin',
       creatorAdminId: admin.id,
+      creatorOrgId: orgId,
+      approvalOrgId: orgId,
       title,
       description,
       timeStart: dbStart,
       timeEnd: dbEnd,
       status: 'approved'
     }, conn);
+    const response = { status: 'success', id, bookingStatus: 'approved', message: '场地使用已创建' };
+    await requestDeduplication.complete(conn, {
+      ...dedupClaim,
+      resourceId: id,
+      orgId,
+      actorKey: 'admin:' + admin.id,
+      operationType: 'create_admin_venue_booking'
+    }, response);
     await conn.commit();
-    res.json({ status: 'success', id, bookingStatus: 'approved', message: '场地使用已创建' });
+    res.json(response);
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
+    if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
+      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+    }
     console.error('[venue:createAdminVenueBooking]', req.requestId || '-', e);
     res.json({ status: 'error', message: '创建失败，请稍后重试' });
   } finally {
@@ -469,10 +497,13 @@ router.post('/listAllVenueBookings', async (req, res) => {
     if (timeFrom) filters.timeFrom = timeFrom;
     if (timeTo) filters.timeTo = timeTo;
     const bookings = await venueBookingModel.getAll(filters);
+    const orgId = await getCurrentOrgId();
+    const canViewBooking = (booking) => booking.creator_org_id === orgId || booking.approval_org_id === orgId;
+    const detailBookings = bookings.filter(canViewBooking);
     // Build user info map
-    const hrIds = [...new Set(bookings.map(b => b.user_hr_id).filter(Boolean))];
+    const hrIds = [...new Set(detailBookings.map(b => b.user_hr_id).filter(Boolean))];
     const userMap = {};
-    const adminIds = [...new Set(bookings.filter(b => b.creator_type === 'admin').map(b => b.creator_admin_id).filter(Boolean))];
+    const adminIds = [...new Set(detailBookings.filter(b => b.creator_type === 'admin').map(b => b.creator_admin_id).filter(Boolean))];
     const adminMap = {};
     if (adminIds.length) {
       const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
@@ -484,7 +515,6 @@ router.post('/listAllVenueBookings', async (req, res) => {
         const deptIds = [...new Set(hrList.map(h => h.department_id).filter(Boolean))];
         const identIds = [...new Set(hrList.map(h => h.identity_id).filter(Boolean))];
         const wgIds = [...new Set(hrList.map(h => h.work_group_id).filter(Boolean))];
-        const orgId = await getCurrentOrgId();
         const [deptRows, identRows, wgRows] = await Promise.all([
           deptIds.length ? pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [deptIds, orgId]) : Promise.resolve([[]]),
           identIds.length ? pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [identIds, orgId]) : Promise.resolve([[]]),
@@ -495,7 +525,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
         const wgMap = {}; (wgRows[0] || []).forEach(r => { wgMap[r.id] = r.name; });
         (hrList || []).forEach(h => {
           userMap[h.id] = {
-            name: h.name || h.id,
+            name: h.name || '信息已失效',
             department: deptMap[h.department_id] || '',
             identity: identMap[h.identity_id] || '',
             workGroup: wgMap[h.work_group_id] || ''
@@ -503,11 +533,34 @@ router.post('/listAllVenueBookings', async (req, res) => {
         });
       } catch (_) {}
     }
-    const list = bookings.map(b => ({
+    const list = bookings.map(b => {
+      if (!canViewBooking(b)) {
+        return {
+          id: b.id,
+          venueId: b.venue_id,
+          venueName: b.venue_name,
+          venueLocation: b.venue_location,
+          visibility: 'occupancy_only',
+          creatorType: 'anonymous',
+          creatorName: '其他组织借用',
+          creatorLabel: '跨组织占用',
+          userName: '其他组织借用',
+          title: '已占用',
+          description: '',
+          timeStart: fmtDatetime(new Date(b.time_start)),
+          timeEnd: fmtDatetime(new Date(b.time_end)),
+          status: b.status,
+          createdAt: b.created_at,
+          approvalProgress: null,
+          userCanApprove: false
+        };
+      }
+      return {
       id: b.id,
       venueId: b.venue_id,
       venueName: b.venue_name,
       venueLocation: b.venue_location,
+      visibility: 'details',
       userHrId: b.user_hr_id,
       creatorType: b.creator_type || 'user',
       creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
@@ -536,7 +589,8 @@ router.post('/listAllVenueBookings', async (req, res) => {
           catch (_) { return []; }
         })()
       } : null
-    }));
+      };
+    });
 
     // ── Batch-resolve approver names from snapshots ──
     const allSnapshotHrIds = new Set();
@@ -567,7 +621,6 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const flowStepsMap = {}; // flowId → [{sort_order, name, action_type, rules}]
     if (allFlowBookings.length) {
       try {
-        const orgId = await getCurrentOrgId();
         const flowIds = [...new Set(allFlowBookings.map(b => b.approvalProgress.flowId))];
         for (const flowId of flowIds) {
           const [steps] = await pool.query(
@@ -604,8 +657,6 @@ router.post('/listAllVenueBookings', async (req, res) => {
 
     // ── Determine userCanApprove for each pending flow-based booking ──
     try {
-      const orgId = await getCurrentOrgId();
-
       // Resolve approver HR ID — only from user_info (admin/regular user identities are separate)
       const [userRows] = await pool.query(
         'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
@@ -659,6 +710,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
     // For non-flow pending bookings, admin can always approve (legacy behavior)
     for (const lb of list) {
       if (lb.status === 'pending' && lb.userCanApprove === undefined
+        && lb.visibility === 'details'
         && !(lb.approvalProgress && lb.approvalProgress.flowId)) {
         lb.userCanApprove = true;
       }
@@ -676,14 +728,23 @@ router.post('/approveVenueBooking', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
     const comment = safeString(req.body.comment);
-    const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
-    if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
+    const orgId = await getCurrentOrgId();
+    await conn.beginTransaction();
+    const booking = await venueBookingModel.getByIdForUpdate(id, conn);
+    if (!booking || booking.approval_org_id !== orgId) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '借用记录不存在' });
+    }
+    if (booking.status !== 'pending') {
+      await conn.rollback();
+      return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
+    }
 
     const review = await canReviewVenueBooking(req.openid, booking);
-    if (!review.ok) return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
-
-    await conn.beginTransaction();
+    if (!review.ok) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
+    }
 
     // Flow-based approval
     if (booking.approval_flow_id && booking.approval_total_steps > 0) {
@@ -736,13 +797,14 @@ router.post('/approveVenueBooking', async (req, res) => {
       });
 
       const newStatus = isLastStep ? 'approved' : 'pending';
-      await conn.query(
+      const [updateResult] = await conn.query(
         `UPDATE venue_bookings SET approval_current_step = ?, approval_snapshots_json = ?, status = ?, approver_hr_id = ?, approval_comment = ? WHERE id = ?`,
         [newStepIndex, JSON.stringify(snapshots), newStatus,
          isLastStep ? review.hrId : booking.approver_hr_id,
          isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
          id]
       );
+      if (updateResult.affectedRows !== 1) throw new Error('venue_approval_conflict');
 
       await conn.commit();
 
@@ -815,26 +877,39 @@ router.post('/approveVenueBooking', async (req, res) => {
 });
 
 router.post('/rejectVenueBooking', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
     const comment = safeString(req.body.comment);
-    const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
-    if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
+    const orgId = await getCurrentOrgId();
+    await conn.beginTransaction();
+    const booking = await venueBookingModel.getByIdForUpdate(id, conn);
+    if (!booking || booking.approval_org_id !== orgId) {
+      await conn.rollback();
+      return res.json({ status: 'not_found', message: '借用记录不存在' });
+    }
+    if (booking.status !== 'pending') {
+      await conn.rollback();
+      return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
+    }
 
     const review = await canReviewVenueBooking(req.openid, booking);
-    if (!review.ok) return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
+    if (!review.ok) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
+    }
 
     // Flow-based rejection: record which step was rejected
     if (booking.approval_flow_id && booking.approval_total_steps > 0) {
-      await pool.query(
+      await conn.query(
         'UPDATE venue_bookings SET status = ?, approver_hr_id = ?, approval_comment = ?, approval_current_step = -1, approval_reject_step = ? WHERE id = ?',
         ['rejected', review.hrId || (review.admin && review.admin.id), comment, booking.approval_current_step, id]
       );
     } else {
-      await venueBookingModel.updateStatus(id, 'rejected', review.hrId || (review.admin && review.admin.id), comment);
+      await venueBookingModel.updateStatus(id, 'rejected', review.hrId || (review.admin && review.admin.id), comment, conn);
     }
+    await conn.commit();
 
     // Clear old pending_approval notifications + notify submitter
     await notificationModel.deleteByTarget('booking', id);
@@ -849,72 +924,20 @@ router.post('/rejectVenueBooking', async (req, res) => {
 
     res.json({ status: 'success', message: '借用已驳回' });
   } catch (e) {
+    try { await conn.rollback(); } catch (_) {}
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    conn.release();
   }
 });
 
-// approveVenueBooking (admin-only fallback — delegates to flow-based when applicable)
-router.post('/approveVenueBookingAdmin', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
-    const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
-    const comment = safeString(req.body.comment);
-    const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
-    if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
-    // Re-check conflict
-    const timeStart = fmtDatetime(new Date(booking.time_start));
-    const timeEnd = fmtDatetime(new Date(booking.time_end));
-    const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id);
-    if (conflict) return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
-    await venueBookingModel.updateStatus(id, 'approved', admin.hr_id || admin.id, comment);
-
-    // Clear old pending_approval notifications + notify submitter
-    await notificationModel.deleteByTarget('booking', id);
-    const vnAdmin = booking.venue_name || '';
-    createVenueBookingStatusNotification(
-      booking,
-      'booking_approved',
-      '场地借用已通过',
-      '您申请的「' + (booking.title || '场地借用') + '」' + (vnAdmin ? '（' + vnAdmin + '）' : '') + '已审批通过（管理员审批）'
-    ).catch(e => console.error('[venueAdmin] admin approve status notification failed:', e.message));
-
-    res.json({ status: 'success', message: '借用已通过' });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
-});
-
-// rejectVenueBookingAdmin
-router.post('/rejectVenueBookingAdmin', async (req, res) => {
-  try {
-    const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
-    const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
-    const comment = safeString(req.body.comment);
-    const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
-    if (booking.status !== 'pending') return res.json({ status: 'invalid_state', message: '当前状态不能审批' });
-    await venueBookingModel.updateStatus(id, 'rejected', admin.hr_id || admin.id, comment);
-
-    // Clear old pending_approval notifications + notify submitter
-    await notificationModel.deleteByTarget('booking', id);
-    const vnRejAdmin = booking.venue_name || '';
-    createVenueBookingStatusNotification(
-      booking,
-      'booking_rejected',
-      '场地借用被驳回',
-      '您申请的「' + (booking.title || '场地借用') + '」' + (vnRejAdmin ? '（' + vnRejAdmin + '）' : '') + '已被驳回（管理员审批）' +
-        (comment ? '，原因：' + comment : '')
-    ).catch(e => console.error('[venueAdmin] admin reject notification failed:', e.message));
-
-    res.json({ status: 'success', message: '借用已驳回' });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) });
-  }
+// 旧的管理员直通端点会绕过流程权限，保留明确的升级响应而不再执行写入。
+router.post(['/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'], (req, res) => {
+  res.status(410).json({
+    status: 'client_upgrade_required',
+    message: '当前版本已停用旧审批入口，请重启小程序后重试',
+    requestId: req.requestId
+  });
 });
 
 // ═══════════════════════════════════════════════════

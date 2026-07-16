@@ -1,9 +1,10 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
-async function getBySubmissionId(submissionId) {
+async function getBySubmissionId(submissionId, conn) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const db = conn || pool;
+  const [rows] = await db.query(
     'SELECT * FROM audit_submission_steps WHERE submission_id = ? AND org_id = ? ORDER BY sort_order',
     [submissionId, orgId]
   );
@@ -14,6 +15,15 @@ async function getById(id) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
     'SELECT * FROM audit_submission_steps WHERE id = ? AND org_id = ?',
+    [id, orgId]
+  );
+  return rows[0] || null;
+}
+
+async function getByIdForUpdate(id, conn) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await conn.query(
+    'SELECT * FROM audit_submission_steps WHERE id = ? AND org_id = ? FOR UPDATE',
     [id, orgId]
   );
   return rows[0] || null;
@@ -462,9 +472,10 @@ async function updateStatus(id, data, conn) {
   await db.query(`UPDATE audit_submission_steps SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, params);
 }
 
-async function getMaxRound(submissionId, sortOrder) {
+async function getMaxRound(submissionId, sortOrder, conn) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+  const db = conn || pool;
+  const [rows] = await db.query(
     'SELECT MAX(round) AS max_round FROM audit_submission_steps WHERE submission_id = ? AND sort_order = ? AND org_id = ?',
     [submissionId, sortOrder, orgId]
   );
@@ -478,7 +489,7 @@ async function removeBySubmissionId(submissionId, conn) {
 }
 
 module.exports = {
-  getBySubmissionId, getById, getCurrentStep, getPendingByApprover, create, updateStatus, getMaxRound,
+  getBySubmissionId, getById, getByIdForUpdate, getCurrentStep, getPendingByApprover, create, updateStatus, getMaxRound,
   removeBySubmissionId,
   getTemplateStepConditions,
   matchesScope, matchesAnyCondition, matchesIdentityScopeCondition

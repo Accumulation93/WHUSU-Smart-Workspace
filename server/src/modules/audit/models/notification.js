@@ -2,31 +2,6 @@ const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
 /**
- * Ensure the notifications table exists.
- */
-async function ensureTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id VARCHAR(64) PRIMARY KEY,
-      hr_id VARCHAR(64) NOT NULL,
-      type VARCHAR(32) NOT NULL,
-      title VARCHAR(256) NOT NULL,
-      description VARCHAR(512),
-      category VARCHAR(32) NOT NULL DEFAULT 'audit',
-      target_type VARCHAR(32),
-      target_id VARCHAR(64),
-      target_url VARCHAR(512),
-      is_read TINYINT(1) DEFAULT 0,
-      created_at DATETIME DEFAULT NOW(),
-      INDEX idx_hr_id (hr_id),
-      INDEX idx_hr_read (hr_id, is_read),
-      INDEX idx_created (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-  console.log('[notification] Table ensured.');
-}
-
-/**
  * Insert a single notification.
  * @param {string} id
  * @param {object} data — { hrId, type, title, description, category, targetType, targetId, targetUrl }
@@ -34,11 +9,12 @@ async function ensureTable() {
  */
 async function create(id, data, conn) {
   const { hrId, type, title, description, category, targetType, targetId, targetUrl } = data;
+  const orgId = data.orgId || getCurrentOrgId();
   const db = conn || pool;
   await db.query(
-    `INSERT INTO notifications (id, hr_id, type, title, description, category, target_type, target_id, target_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, hrId, type, title, description || null, category || 'audit', targetType || null, targetId || null, targetUrl || null]
+    `INSERT INTO notifications (id, hr_id, org_id, type, title, description, category, target_type, target_id, target_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, hrId, orgId, type, title, description || null, category || 'audit', targetType || null, targetId || null, targetUrl || null]
   );
 }
 
@@ -50,9 +26,11 @@ async function create(id, data, conn) {
 async function batchCreate(items, conn) {
   if (!items.length) return;
   const db = conn || pool;
+  const orgId = getCurrentOrgId();
   const values = items.map(item => [
     item.id,
     item.hrId,
+    item.orgId || orgId,
     item.type,
     item.title,
     item.description || null,
@@ -61,9 +39,9 @@ async function batchCreate(items, conn) {
     item.targetId || null,
     item.targetUrl || null
   ]);
-  const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+  const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
   await db.query(
-    `INSERT INTO notifications (id, hr_id, type, title, description, category, target_type, target_id, target_url)
+    `INSERT INTO notifications (id, hr_id, org_id, type, title, description, category, target_type, target_id, target_url)
      VALUES ${placeholders}`,
     values.flat()
   );
@@ -75,15 +53,16 @@ async function batchCreate(items, conn) {
  * @param {object} opts — { limit, offset }
  */
 async function listByHrId(hrId, opts) {
+  const orgId = getCurrentOrgId();
   const limit = parseInt(opts.limit) || 20;
   const offset = parseInt(opts.offset) || 0;
   const [[{ count }]] = await pool.query(
-    'SELECT COUNT(*) AS count FROM notifications WHERE hr_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)',
-    [hrId]
+    'SELECT COUNT(*) AS count FROM notifications WHERE org_id = ? AND hr_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)',
+    [orgId, hrId]
   );
   const [rows] = await pool.query(
-    'SELECT * FROM notifications WHERE hr_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) ORDER BY created_at DESC LIMIT ? OFFSET ?',
-    [hrId, limit, offset]
+    'SELECT * FROM notifications WHERE org_id = ? AND hr_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) ORDER BY created_at DESC LIMIT ? OFFSET ?',
+    [orgId, hrId, limit, offset]
   );
   return { items: rows, total: count };
 }
@@ -92,9 +71,10 @@ async function listByHrId(hrId, opts) {
  * Get unread notification count for a user.
  */
 async function getUnreadCount(hrId) {
+  const orgId = getCurrentOrgId();
   const [[{ count }]] = await pool.query(
-    'SELECT COUNT(*) AS count FROM notifications WHERE hr_id = ? AND is_read = 0',
-    [hrId]
+    'SELECT COUNT(*) AS count FROM notifications WHERE org_id = ? AND hr_id = ? AND is_read = 0',
+    [orgId, hrId]
   );
   return count;
 }
@@ -103,16 +83,18 @@ async function getUnreadCount(hrId) {
  * Mark a single notification as read.
  */
 async function markRead(notificationId, hrId) {
+  const orgId = getCurrentOrgId();
   await pool.query(
-    'UPDATE notifications SET is_read = 1 WHERE id = ? AND hr_id = ?',
-    [notificationId, hrId]
+    'UPDATE notifications SET is_read = 1 WHERE id = ? AND org_id = ? AND hr_id = ?',
+    [notificationId, orgId, hrId]
   );
 }
 
 async function deleteById(notificationId, hrId) {
+  const orgId = getCurrentOrgId();
   await pool.query(
-    'DELETE FROM notifications WHERE id = ? AND hr_id = ?',
-    [notificationId, hrId]
+    'DELETE FROM notifications WHERE id = ? AND org_id = ? AND hr_id = ?',
+    [notificationId, orgId, hrId]
   );
 }
 
@@ -127,9 +109,10 @@ async function cleanupOld(days) {
  * Mark all notifications as read for a user.
  */
 async function markAllRead(hrId) {
+  const orgId = getCurrentOrgId();
   await pool.query(
-    'UPDATE notifications SET is_read = 1 WHERE hr_id = ?',
-    [hrId]
+    'UPDATE notifications SET is_read = 1 WHERE org_id = ? AND hr_id = ?',
+    [orgId, hrId]
   );
 }
 
@@ -142,9 +125,10 @@ async function markAllRead(hrId) {
  */
 async function markReadByTarget(targetType, targetId, conn) {
   const db = conn || pool;
+  const orgId = getCurrentOrgId();
   await db.query(
-    'UPDATE notifications SET is_read = 1 WHERE target_type = ? AND target_id = ? AND type = ?',
-    [targetType, targetId, 'pending_approval']
+    'UPDATE notifications SET is_read = 1 WHERE org_id = ? AND target_type = ? AND target_id = ? AND type = ?',
+    [orgId, targetType, targetId, 'pending_approval']
   );
 }
 
@@ -154,9 +138,10 @@ async function markReadByTarget(targetType, targetId, conn) {
  * @returns {boolean}
  */
 async function hasPendingApprovalNotification(targetType, targetId, hrId) {
+  const orgId = getCurrentOrgId();
   const [[{ count }]] = await pool.query(
-    'SELECT COUNT(*) AS count FROM notifications WHERE target_type = ? AND target_id = ? AND hr_id = ? AND type = ? AND is_read = 0',
-    [targetType, targetId, hrId, 'pending_approval']
+    'SELECT COUNT(*) AS count FROM notifications WHERE org_id = ? AND target_type = ? AND target_id = ? AND hr_id = ? AND type = ? AND is_read = 0',
+    [orgId, targetType, targetId, hrId, 'pending_approval']
   );
   return count > 0;
 }
@@ -170,9 +155,10 @@ async function hasPendingApprovalNotification(targetType, targetId, hrId) {
  */
 async function deleteByTarget(targetType, targetId, conn) {
   const db = conn || pool;
+  const orgId = getCurrentOrgId();
   await db.query(
-    'DELETE FROM notifications WHERE target_type = ? AND target_id = ? AND type = ?',
-    [targetType, targetId, 'pending_approval']
+    'DELETE FROM notifications WHERE org_id = ? AND target_type = ? AND target_id = ? AND type = ?',
+    [orgId, targetType, targetId, 'pending_approval']
   );
 }
 
@@ -186,14 +172,14 @@ async function deleteByTarget(targetType, targetId, conn) {
  */
 async function deleteByTargetAndHrId(targetType, targetId, hrId, conn) {
   const db = conn || pool;
+  const orgId = getCurrentOrgId();
   await db.query(
-    'DELETE FROM notifications WHERE target_type = ? AND target_id = ? AND hr_id = ? AND type = ?',
-    [targetType, targetId, hrId, 'pending_approval']
+    'DELETE FROM notifications WHERE org_id = ? AND target_type = ? AND target_id = ? AND hr_id = ? AND type = ?',
+    [orgId, targetType, targetId, hrId, 'pending_approval']
   );
 }
 
 module.exports = {
-  ensureTable,
   create,
   batchCreate,
   listByHrId,
@@ -207,8 +193,3 @@ module.exports = {
   deleteByTarget,
   deleteByTargetAndHrId
 };
-
-// Auto-create table on module load (non-blocking), then clear expired rows.
-ensureTable()
-  .then(() => cleanupOld(14))
-  .catch(e => console.error('[notification] Failed to initialize table:', e.message));

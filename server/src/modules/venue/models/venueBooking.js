@@ -53,14 +53,24 @@ async function getById(id) {
   return rows[0] || null;
 }
 
+async function getByIdForUpdate(id, conn) {
+  const [rows] = await conn.query(
+    `SELECT vb.*, v.name AS venue_name, v.location AS venue_location
+     FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id
+     WHERE vb.id = ? FOR UPDATE`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
 async function create(id, data, conn) {
-  const { venueId, userHrId, creatorType, creatorAdminId, title, description, timeStart, timeEnd, status, approvalFlowId, approvalTotalSteps } = data;
+  const { venueId, userHrId, creatorType, creatorAdminId, creatorOrgId, approvalOrgId, title, description, timeStart, timeEnd, status, approvalFlowId, approvalTotalSteps } = data;
   const db = conn || pool;
   await db.query(
-    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, creator_type, creator_admin_id, title, description, time_start, time_end, status,
+    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, creator_type, creator_admin_id, creator_org_id, approval_org_id, title, description, time_start, time_end, status,
       approval_flow_id, approval_current_step, approval_total_steps)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, venueId, userHrId || null, creatorType || 'user', creatorAdminId || null, title || '', description || '',
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, venueId, userHrId || null, creatorType || 'user', creatorAdminId || null, creatorOrgId, approvalOrgId, title || '', description || '',
      timeStart, timeEnd, status || 'pending',
      approvalFlowId || null, 0, approvalTotalSteps || 0]
   );
@@ -116,4 +126,4 @@ async function findConflict(venueId, timeStart, timeEnd, excludeId, conn, forUpd
   return rows[0] || null;
 }
 
-module.exports = { getByVenueId, getByUserId, getAll, getById, create, updateStatus, updateTimeEnd, updateTimeStart, findConflict };
+module.exports = { getByVenueId, getByUserId, getAll, getById, getByIdForUpdate, create, updateStatus, updateTimeEnd, updateTimeStart, findConflict };

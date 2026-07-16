@@ -14,6 +14,7 @@ const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
 const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
 const { createVenueApprovalNotifications } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
+const requestDeduplication = require('../../../utils/requestDeduplication');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -473,6 +474,22 @@ router.post('/createVenueBooking', async (req, res) => {
 
     await conn.beginTransaction();
 
+    const id = generateId();
+    const orgId = await getCurrentOrgId();
+    const dedupClaim = await requestDeduplication.claim(conn, {
+      orgId,
+      actorKey: 'user:' + hrId,
+      operationType: 'create_venue_booking',
+      clientRequestId: req.body.clientRequestId,
+      resourceId: id
+    });
+    if (!dedupClaim.claimed) {
+      await conn.commit();
+      return res.json(dedupClaim.response || {
+        status: 'success', id: dedupClaim.resourceId, message: '借用申请已提交', idempotent: true
+      });
+    }
+
     // Check booking conflicts (across full datetime range)
     const conflict = await venueBookingModel.findConflict(venueId, dbTimeStart, dbTimeEnd, null, conn, true);
     if (conflict) {
@@ -508,15 +525,27 @@ router.post('/createVenueBooking', async (req, res) => {
       // If no flow or empty flow → admin approval (autoApprove stays false)
     }
 
-    const id = generateId();
     const status = autoApprove ? 'approved' : 'pending';
 
     await venueBookingModel.create(id, {
       venueId, userHrId: hrId, title, description,
+      creatorOrgId: orgId, approvalOrgId: orgId,
       timeStart: dbTimeStart, timeEnd: dbTimeEnd, status,
       approvalFlowId, approvalTotalSteps
     }, conn);
 
+    const response = {
+      status: 'success', id, bookingStatus: status,
+      message: autoApprove ? '借用成功（直接通过）'
+        : (approvalFlowId ? ('借用申请已提交，共 ' + approvalTotalSteps + ' 步审批') : '借用申请已提交，等待审核')
+    };
+    await requestDeduplication.complete(conn, {
+      ...dedupClaim,
+      resourceId: id,
+      orgId,
+      actorKey: 'user:' + hrId,
+      operationType: 'create_venue_booking'
+    }, response);
     await conn.commit();
 
     // Fire-and-forget: notify step 1 approvers
@@ -525,13 +554,12 @@ router.post('/createVenueBooking', async (req, res) => {
         console.error('[venueUser] notification creation failed:', e.message));
     }
 
-    res.json({
-      status: 'success', id, bookingStatus: status,
-      message: autoApprove ? '借用成功（直接通过）'
-        : (approvalFlowId ? ('借用申请已提交，共 ' + approvalTotalSteps + ' 步审批') : '借用申请已提交，等待审核')
-    });
+    res.json(response);
   } catch (e) {
     await conn.rollback();
+    if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
+      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+    }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
     conn.release();

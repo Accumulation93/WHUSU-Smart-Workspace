@@ -34,13 +34,9 @@ async function findEligibleApprovers(booking, stepIndex, orgId) {
     [step.id, orgId]
   );
 
-  // If no rules defined, anyone can approve
+  // 无条件兼容步骤仅允许管理员处理；用户通知列表不再向所有人广播。
   if (!stepRules.length) {
-    const [allHr] = await pool.query(
-      'SELECT id FROM hr_info WHERE org_id = ? ORDER BY name',
-      [orgId]
-    );
-    return allHr.map(h => h.id);
+    return [];
   }
 
   // Check if all rules are open (all scopes = 'all')

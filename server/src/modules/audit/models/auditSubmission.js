@@ -51,6 +51,15 @@ async function getById(id) {
   return rows[0] || null;
 }
 
+async function getByIdForUpdate(id, conn) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await conn.query(
+    'SELECT * FROM audit_submissions WHERE id = ? AND org_id = ? FOR UPDATE',
+    [id, orgId]
+  );
+  return rows[0] || null;
+}
+
 async function getByNumber(submissionNumber) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
@@ -60,26 +69,33 @@ async function getByNumber(submissionNumber) {
   return rows[0] || null;
 }
 
-async function generateSubmissionNumber() {
+async function generateSubmissionNumber(conn) {
+  if (!conn) throw new Error('generateSubmissionNumber requires transaction connection');
+  const orgId = await getCurrentOrgId();
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
   const prefix = `SUB-${yyyy}${mm}${dd}-`;
 
-  const [rows] = await pool.query(
-    `SELECT submission_number FROM audit_submissions
-     WHERE submission_number LIKE ?
-     ORDER BY submission_number DESC LIMIT 1`,
-    [`${prefix}%`]
+  const businessDate = `${yyyy}-${mm}-${dd}`;
+  await conn.query(
+    `INSERT IGNORE INTO audit_number_sequences (org_id, business_date, next_value)
+     VALUES (?, ?, 1)`,
+    [orgId, businessDate]
   );
-
-  let seq = 1;
-  if (rows.length > 0) {
-    const lastNum = rows[0].submission_number.replace(prefix, '');
-    seq = parseInt(lastNum, 10) + 1;
-    if (Number.isNaN(seq)) seq = 1;
-  }
+  const [rows] = await conn.query(
+    `SELECT next_value FROM audit_number_sequences
+     WHERE org_id = ? AND business_date = ? FOR UPDATE`,
+    [orgId, businessDate]
+  );
+  if (!rows.length) throw new Error('audit_number_sequence_unavailable');
+  const seq = Number(rows[0].next_value);
+  await conn.query(
+    `UPDATE audit_number_sequences SET next_value = next_value + 1
+     WHERE org_id = ? AND business_date = ?`,
+    [orgId, businessDate]
+  );
 
   return prefix + String(seq).padStart(3, '0');
 }
@@ -123,4 +139,4 @@ async function remove(id) {
   await pool.query('DELETE FROM audit_submissions WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getBySubmitter, getAll, getById, getByNumber, generateSubmissionNumber, create, update, remove };
+module.exports = { getBySubmitter, getAll, getById, getByIdForUpdate, getByNumber, generateSubmissionNumber, create, update, remove };

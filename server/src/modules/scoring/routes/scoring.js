@@ -655,28 +655,43 @@ router.post('/submitScoreRecord', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
     let resultRecordId;
+    let duplicateResponse = null;
+    const clientRequestId = safeString(req.body.clientRequestId);
 
     await withTransaction(async (conn) => {
-      const [existingRecords] = await conn.query(
-        'SELECT * FROM score_records WHERE scorer_id = ? AND target_id = ? AND activity_id = ? AND org_id = ?',
-        [scorer.id, targetId, activityId, orgId]
-      );
-
-      let recordId;
-      if (existingRecords.length) {
-        recordId = existingRecords[0].id;
-        await conn.query(
-          'UPDATE score_records SET activity_id = ?, rule_id = ?, scorer_id = ?, target_id = ?, template_config_signature = ?, submitted_at = ? WHERE id = ? AND org_id = ?',
-          [activityId, rule.id, scorer.id, targetRecord.id, templateConfigSignature, nowUtc, recordId, orgId]
-        );
-        await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [recordId, orgId]);
-      } else {
-        recordId = generateId();
-        await conn.query(
-          'INSERT INTO score_records (id, activity_id, rule_id, scorer_id, target_id, template_config_signature, submitted_at, org_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [recordId, activityId, rule.id, scorer.id, targetRecord.id, templateConfigSignature, nowUtc, orgId]
-        );
+      const dedup = require('../../../utils/requestDeduplication');
+      const candidateRecordId = generateId();
+      const claim = await dedup.claim(conn, {
+        orgId,
+        actorKey: 'user:' + scorer.id,
+        operationType: 'submit_score',
+        clientRequestId,
+        resourceId: candidateRecordId
+      });
+      if (!claim.claimed) {
+        duplicateResponse = claim.response || { status: 'success', recordId: claim.resourceId, idempotent: true };
+        resultRecordId = duplicateResponse.recordId || claim.resourceId;
+        return;
       }
+
+      await conn.query(
+        `INSERT INTO score_records
+          (id, activity_id, rule_id, scorer_id, target_id, template_config_signature, submitted_at, org_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+          rule_id = VALUES(rule_id),
+          template_config_signature = VALUES(template_config_signature),
+          submitted_at = VALUES(submitted_at)`,
+        [candidateRecordId, activityId, rule.id, scorer.id, targetRecord.id, templateConfigSignature, nowUtc, orgId]
+      );
+      const [records] = await conn.query(
+        `SELECT id FROM score_records
+         WHERE org_id = ? AND activity_id = ? AND scorer_id = ? AND target_id = ? FOR UPDATE`,
+        [orgId, activityId, scorer.id, targetId]
+      );
+      if (!records.length) throw new Error('score_record_upsert_failed');
+      const recordId = records[0].id;
+      await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [recordId, orgId]);
 
       // Insert answers
       for (const answer of normalizedAnswers) {
@@ -687,13 +702,23 @@ router.post('/submitScoreRecord', async (req, res) => {
       }
 
       resultRecordId = recordId;
+      await dedup.complete(conn, {
+        ...claim,
+        resourceId: recordId,
+        orgId,
+        actorKey: 'user:' + scorer.id,
+        operationType: 'submit_score'
+      }, { status: 'success', recordId });
     });
 
     // Invalidate publication score cache so next viewer sees fresh results
     await pubCache.invalidate(activityId, orgId);
 
-    res.json({ status: 'success', recordId: resultRecordId });
+    res.json(duplicateResponse || { status: 'success', recordId: resultRecordId });
   } catch (e) {
+    if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
+      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+    }
     res.json({ status: 'error', message: safeString(e.message) || '提交评分失败' });
   }
 });

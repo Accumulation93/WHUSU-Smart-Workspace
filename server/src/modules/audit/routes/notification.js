@@ -18,7 +18,7 @@ async function resolveHrId(openid) {
   return rows[0] ? rows[0].hr_id : null;
 }
 
-async function listPendingVenueTodoItems(hrId, orgId) {
+async function listPendingVenueTodoItems(hrId, orgId, requestRole) {
   const approverHrInfo = await hrInfoModel.getById(hrId);
   if (!approverHrInfo) return [];
 
@@ -27,9 +27,11 @@ async function listPendingVenueTodoItems(hrId, orgId) {
      FROM venue_bookings b
      JOIN venues v ON v.id = b.venue_id
      WHERE b.status = 'pending'
+       AND b.approval_org_id = ?
        AND b.approval_flow_id IS NOT NULL
        AND b.approval_total_steps > 0
-     ORDER BY b.created_at DESC`
+     ORDER BY b.created_at DESC`,
+    [orgId]
   );
   if (!bookings.length) return [];
 
@@ -60,15 +62,13 @@ async function listPendingVenueTodoItems(hrId, orgId) {
     );
 
     const applicantHrInfo = applicantMap[booking.user_hr_id] || null;
-    const canApprove = !stepRules.length || venueApprovalFlowStepRuleModel.matchesAnyRule(
-      stepRules,
-      approverHrInfo,
-      applicantHrInfo
-    );
+    const canApprove = stepRules.length
+      ? venueApprovalFlowStepRuleModel.matchesAnyRule(stepRules, approverHrInfo, applicantHrInfo)
+      : ['admin', 'super_admin', 'root_admin'].includes(requestRole);
     if (!canApprove) continue;
 
     const venueName = safeString(booking.venue_name || '');
-    const applicantName = safeString((applicantHrInfo && applicantHrInfo.name) || booking.user_hr_id || '');
+    const applicantName = safeString((applicantHrInfo && applicantHrInfo.name) || '未知');
     items.push({
       type: 'todo',
       sourceType: 'venue_approval',
@@ -110,10 +110,10 @@ async function listAuditTodoItems(hrId, orgId) {
   }));
 }
 
-async function listTodoItems(hrId, orgId) {
+async function listTodoItems(hrId, orgId, requestRole) {
   const [auditItems, venueItems] = await Promise.all([
     listAuditTodoItems(hrId, orgId),
-    listPendingVenueTodoItems(hrId, orgId)
+    listPendingVenueTodoItems(hrId, orgId, requestRole)
   ]);
   return [...auditItems, ...venueItems].sort((a, b) => {
     const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -128,7 +128,7 @@ router.post('/listTodos', async (req, res) => {
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
     const limit = Math.max(1, Math.min(parseInt(req.body.limit, 10) || 20, 50));
     const orgId = await getCurrentOrgId();
-    const items = await listTodoItems(hrId, orgId);
+    const items = await listTodoItems(hrId, orgId, req.role);
     res.json({ status: 'success', items: items.slice(0, limit), total: items.length });
   } catch (e) {
     console.error('[todo:list] error:', e);
@@ -141,7 +141,7 @@ router.post('/getTodoCount', async (req, res) => {
     const hrId = await resolveHrId(req.openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
     const orgId = await getCurrentOrgId();
-    const items = await listTodoItems(hrId, orgId);
+    const items = await listTodoItems(hrId, orgId, req.role);
     res.json({ status: 'success', count: items.length });
   } catch (e) {
     console.error('[todo:count] error:', e);
@@ -156,17 +156,17 @@ router.post('/listNotifications', async (req, res) => {
 
     const limit = Math.max(1, Math.min(parseInt(req.body.limit, 10) || 20, 50));
     const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
-    await notificationModel.cleanupOld(14);
+    const orgId = await getCurrentOrgId();
 
     const [rows] = await pool.query(
       `SELECT *
        FROM notifications
-       WHERE hr_id = ?
+       WHERE org_id = ? AND hr_id = ?
          AND type <> ?
          AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`,
-      [hrId, 'pending_approval', limit, offset]
+      [orgId, hrId, 'pending_approval', limit, offset]
     );
 
     const items = rows.map(r => ({
@@ -193,13 +193,13 @@ router.post('/getNotificationUnreadCount', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
-    await notificationModel.cleanupOld(14);
+    const orgId = await getCurrentOrgId();
     const [[{ count }]] = await pool.query(
       `SELECT COUNT(*) AS count
        FROM notifications
-       WHERE hr_id = ? AND is_read = 0 AND type <> ?
+       WHERE org_id = ? AND hr_id = ? AND is_read = 0 AND type <> ?
          AND created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY)`,
-      [hrId, 'pending_approval']
+      [orgId, hrId, 'pending_approval']
     );
     res.json({ status: 'success', count });
   } catch (e) {
