@@ -55,8 +55,8 @@ BEGIN
   END IF;
 
   UPDATE venue_bookings b
-  LEFT JOIN hr_info h ON h.id = b.user_hr_id
-  LEFT JOIN admin_info a ON a.id = b.creator_admin_id
+  LEFT JOIN hr_info h ON BINARY h.id = BINARY b.user_hr_id
+  LEFT JOIN admin_info a ON BINARY a.id = BINARY b.creator_admin_id
   SET b.creator_org_id = COALESCE(NULLIF(b.creator_org_id, ''), NULLIF(h.org_id, ''), NULLIF(a.org_id, ''),
       (SELECT current_organization FROM system_config WHERE id = 'default' LIMIT 1), ''),
       b.approval_org_id = COALESCE(NULLIF(b.approval_org_id, ''), NULLIF(h.org_id, ''), NULLIF(a.org_id, ''),
@@ -89,9 +89,9 @@ BEGIN
     ALTER TABLE notifications ADD COLUMN org_id VARCHAR(64) NOT NULL DEFAULT '' AFTER hr_id;
   END IF;
   UPDATE notifications n
-  LEFT JOIN hr_info h ON h.id = n.hr_id
-  LEFT JOIN audit_submissions s ON n.target_type = 'submission' AND s.id = n.target_id
-  LEFT JOIN venue_bookings b ON n.target_type = 'booking' AND b.id = n.target_id
+  LEFT JOIN hr_info h ON BINARY h.id = BINARY n.hr_id
+  LEFT JOIN audit_submissions s ON n.target_type = 'submission' AND BINARY s.id = BINARY n.target_id
+  LEFT JOIN venue_bookings b ON n.target_type = 'booking' AND BINARY b.id = BINARY n.target_id
   SET n.org_id = COALESCE(NULLIF(n.org_id, ''), NULLIF(s.org_id, ''), NULLIF(b.approval_org_id, ''), NULLIF(h.org_id, ''), '')
   WHERE n.org_id = '';
 
@@ -121,7 +121,7 @@ BEGIN
     ALTER TABLE audit_read_cursors MODIFY COLUMN hr_id VARCHAR(64) NOT NULL;
   END IF;
   UPDATE audit_read_cursors c
-  JOIN audit_submissions s ON s.id = c.submission_id
+  JOIN audit_submissions s ON BINARY s.id = BINARY c.submission_id
   SET c.org_id = s.org_id
   WHERE c.org_id = '';
 

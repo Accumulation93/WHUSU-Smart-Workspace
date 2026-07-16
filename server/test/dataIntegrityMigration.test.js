@@ -21,7 +21,9 @@ async function run() {
       CREATE TABLE admin_info (id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64) NOT NULL);
       CREATE TABLE audit_submissions (id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64) NOT NULL);
       CREATE TABLE venue_bookings (
-        id VARCHAR(64) PRIMARY KEY, user_hr_id VARCHAR(64), creator_admin_id VARCHAR(64),
+        id VARCHAR(64) PRIMARY KEY,
+        user_hr_id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
+        creator_admin_id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
         status VARCHAR(20), time_start DATETIME, time_end DATETIME
       );
       CREATE TABLE score_records (
