@@ -8,6 +8,7 @@ const { logger, createRequestLogger } = require('./utils/logger');
 const requestContext = require('./middleware/requestContext');
 const { authMiddleware } = require('./middleware/auth');
 const { orgContextMiddleware } = require('./middleware/orgContext');
+const { adminPermissionMiddleware } = require('./middleware/adminPermission');
 const { clientVersionMiddleware } = require('./middleware/clientVersion');
 const { createRateLimiter } = require('./middleware/rateLimiter');
 const { verifySchemaContract } = require('./utils/schemaContract');
@@ -139,6 +140,9 @@ app.use(authMiddleware);
 // 组织上下文中间件（基于 X-Active-Org header，注入 ALS）
 app.use(orgContextMiddleware);
 
+// 管理端细粒度权限由服务端统一强制执行；前端隐藏入口仅用于改善体验。
+app.use(adminPermissionMiddleware);
+
 app.get('/api/admin/health', async (req, res) => {
   const startedAt = Date.now();
   try {
@@ -183,6 +187,7 @@ app.use('/api', require('./core/routes/identities'));
 app.use('/api', require('./core/routes/workGroups'));
 app.use('/api', require('./core/routes/hr'));
 app.use('/api', require('./core/routes/admin'));
+app.use('/api', require('./core/routes/adminPermissions'));
 app.use('/api', require('./core/routes/user'));
 app.use('/api', require('./modules/scoring/routes/scoring'));
 app.use('/api', require('./modules/scoring/routes/activities'));

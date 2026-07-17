@@ -1,0 +1,104 @@
+const { callFunction } = require('./api');
+
+const STORAGE_KEY = 'roleProfiles';
+
+const TAB_PERMISSION_MAP = {
+  activities: ['scoring.activities'],
+  templates: ['scoring.templates'],
+  rules: ['scoring.rules'],
+  results: ['scoring.results'],
+  publications: ['scoring.publications'],
+  hrInfo: ['hr.people', 'hr.import', 'hr.profile_review'],
+  departments: ['hr.departments'],
+  workGroups: ['hr.work_groups'],
+  identities: ['hr.identities'],
+  admins: ['system.admin_accounts'],
+  settings: ['system.settings', 'system.organizations'],
+  auditTemplates: ['audit.templates'],
+  auditStamps: ['audit.stamps'],
+  auditSubmissions: ['audit.submissions'],
+  auditVerification: ['audit.verification']
+};
+
+const VENUE_TAB_PERMISSION_MAP = {
+  venue: ['venue.resources'],
+  bookings: ['venue.bookings', 'venue.approvals'],
+  purposes: ['venue.purposes']
+};
+
+const PORTAL_PERMISSION_MAP = {
+  scoring: ['scoring.activities', 'scoring.templates', 'scoring.rules', 'scoring.results', 'scoring.publications'],
+  hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.departments', 'hr.work_groups', 'hr.identities'],
+  system: ['system.admin_accounts', 'system.settings', 'system.organizations'],
+  audit: ['audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'],
+  venue: ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.purposes']
+};
+
+function getAdminProfile() {
+  const profiles = wx.getStorageSync(STORAGE_KEY) || {};
+  return profiles.admin || null;
+}
+
+function hasAny(profile, keys) {
+  if (!profile) return false;
+  if (profile.adminLevel === 'root_admin') return true;
+  const permissions = profile.permissions;
+  // 兼容首次升级前的本地缓存；服务端仍会执行强制鉴权。
+  if (!permissions || typeof permissions !== 'object') return true;
+  return (keys || []).some(function(key) { return permissions[key] === true; });
+}
+
+function canAccessPermissionSystem(profile) {
+  if (!profile) return false;
+  if (profile.adminLevel === 'root_admin') return true;
+  return profile.adminLevel === 'super_admin'
+    && Boolean(profile.canAccessPermissionSystem || (profile.permissions && profile.permissions['permissions.manage_regular_admins']));
+}
+
+function savePermissionState(result) {
+  const profiles = wx.getStorageSync(STORAGE_KEY) || {};
+  if (!profiles.admin) return null;
+  profiles.admin = Object.assign({}, profiles.admin, {
+    permissions: result.permissions || {},
+    permissionKeys: result.permissionKeys || [],
+    canAccessPermissionSystem: Boolean(result.canAccessPermissionSystem)
+  });
+  wx.setStorageSync(STORAGE_KEY, profiles);
+  return profiles.admin;
+}
+
+async function refreshMyPermissions() {
+  const result = await callFunction({ name: 'getMyAdminPermissions', data: {} });
+  if (result.status !== 'success') {
+    const error = new Error(result.message || '读取管理员权限失败');
+    error.status = result.status;
+    throw error;
+  }
+  return savePermissionState(result);
+}
+
+function filterTabs(tabs, profile, map) {
+  const permissionMap = map || TAB_PERMISSION_MAP;
+  return (tabs || []).filter(function(tab) {
+    return hasAny(profile, permissionMap[tab] || []);
+  });
+}
+
+function filterPortalCards(cards, profile) {
+  return (cards || []).filter(function(card) {
+    if (card.key === 'permissions') return canAccessPermissionSystem(profile);
+    return hasAny(profile, PORTAL_PERMISSION_MAP[card.key] || []);
+  });
+}
+
+module.exports = {
+  TAB_PERMISSION_MAP,
+  VENUE_TAB_PERMISSION_MAP,
+  PORTAL_PERMISSION_MAP,
+  getAdminProfile,
+  hasAny,
+  canAccessPermissionSystem,
+  refreshMyPermissions,
+  filterTabs,
+  filterPortalCards
+};

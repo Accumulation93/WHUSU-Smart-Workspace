@@ -1,15 +1,14 @@
 <view class="page">
-  <view class="hero hero-admin">
+  <view class="hero hero-admin" wx:if="{{hasPermission}}">
     <view class="hero-badge">管理端</view>
     <view class="hero-title">场地管理工作台</view>
     <view class="hero-subtitle hero-admin-subtitle">管理场地、借用申请与事由预设</view>
   </view>
 
   <!-- Main Tabs -->
-  <view class="tabs">
-    <view class="tab {{activeTab === 'venue' ? 'tab-active' : ''}} ui-motion-chip" data-tab="venue" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">场地管理</view>
-    <view class="tab {{activeTab === 'bookings' ? 'tab-active' : ''}} ui-motion-chip" data-tab="bookings" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用管理</view>
-    <view class="tab {{activeTab === 'purposes' ? 'tab-active' : ''}} ui-motion-chip" data-tab="purposes" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">事由管理</view>
+  <view class="empty-inline" wx:if="{{!hasPermission}}">当前账号未获授权访问场地管理，请联系上级管理员配置权限。</view>
+  <view class="tabs" wx:if="{{hasPermission}}">
+    <view class="tab {{activeTab === item.key ? 'tab-active' : ''}} ui-motion-chip" wx:for="{{visibleTabs}}" wx:key="key" data-tab="{{item.key}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</view>
   </view>
 
   <!-- ═══ Venue Tab ═══ -->
@@ -123,7 +122,7 @@
       </view>
 
       <!-- Pending approvals entry (always visible) -->
-      <view class="pending-entry-bar ui-motion-card" bindtap="goPendingApprovals" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+      <view class="pending-entry-bar ui-motion-card" wx:if="{{canApproveVenue}}" bindtap="goPendingApprovals" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
         <view class="pending-entry-left">
           <text class="pending-entry-icon">📋</text>
           <text class="pending-entry-label">待我审批</text>
@@ -145,7 +144,7 @@
           <view class="booking-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
-          <view class="booking-actions" wx:if="{{item.status === 'pending' && item.userCanApprove}}">
+          <view class="booking-actions" wx:if="{{canApproveVenue && item.status === 'pending' && item.userCanApprove}}">
             <button class="approve-btn ui-motion-button" data-id="{{item.id}}" catchtap="openApprovePopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</button>
             <button class="reject-btn ui-motion-button" data-id="{{item.id}}" catchtap="openRejectPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</button>
           </view>
@@ -189,7 +188,7 @@
       <view class="rules-tabs">
         <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}} ui-motion-chip" data-tab="open" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">开放时间</view>
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}} ui-motion-chip" data-tab="activity" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">活动时间</view>
-        <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用规则</view>
+        <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用规则</view>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">

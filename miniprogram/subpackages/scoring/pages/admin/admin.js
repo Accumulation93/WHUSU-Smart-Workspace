@@ -2,6 +2,7 @@ const { callFunction } = require('../../../../utils/api');
 const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
+const adminPermissions = require('../../../../utils/adminPermissions');
 const utils = require('./modules/adminUtils');
 const { STORAGE_KEY, TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
 
@@ -40,6 +41,11 @@ Page({
     hasPermission: false,
     isSuperAdmin: false,
     canManageAdmins: false,
+    canExportScoreResults: false,
+    canRevokeScoreRecords: false,
+    canManageHrPeople: false,
+    canImportHr: false,
+    canReviewHrProfile: false,
     isRootAdmin: false,
     activeTab: utils.TAB_LIST[0],
     visibleTabs: utils.TAB_LIST,
@@ -467,7 +473,7 @@ Page({
     });
   },
 
-  applySubAppFilter() {
+  applySubAppFilter(profileOverride) {
     const subApp = this._subApp || 'scoring';
     const SUB_APP_ADMIN_TABS = {
       scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
@@ -475,19 +481,20 @@ Page({
       system: ['admins', 'settings'],
       audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification']
     };
-    this._visibleTabs = SUB_APP_ADMIN_TABS[subApp] || SUB_APP_ADMIN_TABS.scoring;
+    const profile = profileOverride || adminPermissions.getAdminProfile();
+    this._visibleTabs = adminPermissions.filterTabs(SUB_APP_ADMIN_TABS[subApp] || SUB_APP_ADMIN_TABS.scoring, profile);
     const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', system: '系统配置', audit: '审核管理' };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
     this.setData({
       visibleTabs: this._visibleTabs,
       subAppLabel: this._subAppLabel,
-      activeTab: this._visibleTabs[0]
+      activeTab: this._visibleTabs.indexOf(this.data.activeTab) >= 0 ? this.data.activeTab : (this._visibleTabs[0] || '')
     });
   },
 
   async bootstrapPage() {
-    const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-    const adminProfile = roleProfiles.admin;
+    let roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
+    let adminProfile = roleProfiles.admin;
     const isSuperAdmin = !!adminProfile && adminProfile.adminLevel === 'super_admin';
     const isRootAdmin = !!adminProfile && adminProfile.adminLevel === 'root_admin';
 
@@ -502,9 +509,17 @@ Page({
       return;
     }
 
-    const canManageAdmins = isSuperAdmin || isRootAdmin;
+    try {
+      adminProfile = await adminPermissions.refreshMyPermissions() || adminProfile;
+      roleProfiles = wx.getStorageSync(STORAGE_KEY) || roleProfiles;
+    } catch (error) {
+      console.error('[admin] refresh permissions failed:', error.message || error);
+    }
+    this.applySubAppFilter(adminProfile);
+
+    const canManageAdmins = adminPermissions.hasAny(adminProfile, ['system.admin_accounts']);
     const activeOrgId = wx.getStorageSync('activeOrgId') || '';
-    const bootstrapKey = [this._subApp || 'scoring', activeOrgId, adminProfile.id || ''].join('::');
+    const bootstrapKey = [this._subApp || 'scoring', activeOrgId, adminProfile.id || '', (adminProfile.permissionKeys || []).slice().sort().join(',')].join('::');
 
     if (this._bootstrapKey === bootstrapKey && (this._bootstrapComplete || this._bootstrapPromise)) {
       return this._bootstrapPromise;
@@ -517,10 +532,15 @@ Page({
 
     this.setData({
       user: adminProfile,
-      hasPermission: true,
+      hasPermission: this._visibleTabs.length > 0,
       isSuperAdmin,
       isRootAdmin,
       canManageAdmins,
+      canExportScoreResults: adminPermissions.hasAny(adminProfile, ['scoring.results_export']),
+      canRevokeScoreRecords: adminPermissions.hasAny(adminProfile, ['scoring.results_revoke']),
+      canManageHrPeople: adminPermissions.hasAny(adminProfile, ['hr.people']),
+      canImportHr: adminPermissions.hasAny(adminProfile, ['hr.import']),
+      canReviewHrProfile: adminPermissions.hasAny(adminProfile, ['hr.profile_review']),
       currentOrganizationName: activeOrgName || this.data.currentOrganizationName,
       resultViewOptions: [
         { value: 'overview', label: '明细查看' },
@@ -538,6 +558,8 @@ Page({
     });
 
     const loadSubApp = async () => {
+      const visibleTabs = this._visibleTabs || [];
+      if (!visibleTabs.length) return;
       if (this._subApp === 'audit') {
         await Promise.all([
           this.loadDepartmentList(),
@@ -545,19 +567,20 @@ Page({
           this.loadHrList()
         ]);
         await this.loadWorkGroupList();
-        await Promise.all([
-          this.loadAuditFlowTemplates(),
-          this.loadStamps(),
-          this.loadAuditSubmissions(),
-          this.loadVerificationPermissions()
-        ]);
+        const auditLoads = [];
+        if (visibleTabs.indexOf('auditTemplates') >= 0) auditLoads.push(this.loadAuditFlowTemplates());
+        if (visibleTabs.indexOf('auditStamps') >= 0) auditLoads.push(this.loadStamps());
+        if (visibleTabs.indexOf('auditSubmissions') >= 0) auditLoads.push(this.loadAuditSubmissions());
+        if (visibleTabs.indexOf('auditVerification') >= 0) auditLoads.push(this.loadVerificationPermissions());
+        await Promise.all(auditLoads);
         return;
       }
 
       if (this._subApp === 'hr') {
         await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
         await this.loadWorkGroupList();
-        if (!this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
+        const canBrowseHr = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
+        if (visibleTabs.indexOf('hrInfo') >= 0 && canBrowseHr && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
           await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
         }
         this.updateHrFormOptions();
@@ -565,23 +588,20 @@ Page({
       }
 
       if (this._subApp === 'system') {
-        await Promise.all([
-          this.loadAdminList(),
-          this.loadHrList(),
-          this.loadSystemConfig(),
-          this.loadOrganizations()
-        ]);
+        const systemLoads = [];
+        if (visibleTabs.indexOf('admins') >= 0) systemLoads.push(this.loadAdminList(), this.loadHrList());
+        if (visibleTabs.indexOf('settings') >= 0) systemLoads.push(this.loadSystemConfig(), this.loadOrganizations());
+        await Promise.all(systemLoads);
         return;
       }
 
-      await Promise.all([
-        this.loadActivityList(),
-        this.loadTemplateList(),
-        this.loadDepartmentList(),
-        this.loadIdentityList()
-      ]);
+      const needsActivity = ['activities', 'rules', 'results', 'publications'].some((tab) => visibleTabs.indexOf(tab) >= 0);
+      const scoringLoads = [this.loadDepartmentList(), this.loadIdentityList()];
+      if (needsActivity) scoringLoads.push(this.loadActivityList());
+      if (visibleTabs.indexOf('templates') >= 0 || visibleTabs.indexOf('rules') >= 0) scoringLoads.push(this.loadTemplateList());
+      await Promise.all(scoringLoads);
       await this.loadWorkGroupList();
-      await this.loadRuleList();
+      if (visibleTabs.indexOf('rules') >= 0) await this.loadRuleList();
     };
 
     this._bootstrapPromise = loadSubApp()

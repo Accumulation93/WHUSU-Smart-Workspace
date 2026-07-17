@@ -17,7 +17,9 @@ const REQUIRED_TABLES = [
   'audit_number_sequences',
   'request_deduplication',
   '_shared_cache',
-  'notification_outbox'
+  'notification_outbox',
+  'admin_permission_overrides',
+  'admin_permission_audit_logs'
 ];
 
 const REQUIRED_INDEXES = [
@@ -25,7 +27,8 @@ const REQUIRED_INDEXES = [
   ['score_answers', 'uk_sa_record_question'],
   ['audit_read_cursors', 'uk_arc_org_hr_submission'],
   ['notifications', 'uk_notification_event'],
-  ['notification_outbox', 'uk_notification_outbox_event']
+  ['notification_outbox', 'uk_notification_outbox_event'],
+  ['admin_permission_overrides', 'uk_admin_permission']
 ];
 
 async function verifySchemaContract(pool) {
@@ -62,7 +65,7 @@ async function verifySchemaContract(pool) {
     error.missing = missing;
     throw error;
   }
-  return { status: 'ok', revision: '2026-07-message-center-v1' };
+  return { status: 'ok', revision: '2026-07-admin-permissions-v1' };
 }
 
 module.exports = { verifySchemaContract, REQUIRED_COLUMNS, REQUIRED_TABLES, REQUIRED_INDEXES };

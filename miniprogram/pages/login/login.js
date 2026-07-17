@@ -49,7 +49,10 @@ function normalizeProfile(user) {
     identity: user.identity || '',
     workGroupId: user.workGroupId || '',
     workGroup: user.workGroup || '',
-    adminLevel: user.adminLevel || ''
+    adminLevel: user.adminLevel || '',
+    permissions: user.permissions || {},
+    permissionKeys: user.permissionKeys || [],
+    canAccessPermissionSystem: Boolean(user.canAccessPermissionSystem)
   };
 }
 

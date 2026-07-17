@@ -1,0 +1,89 @@
+<view class="permission-page">
+  <view class="permission-hero">
+    <view class="permission-hero-badge">{{operatorLevelLabel || '权限系统'}}</view>
+    <view class="permission-hero-title">管理员权限</view>
+    <view class="permission-hero-desc">按组织、角色和功能配置管理员可执行的操作。至高权限管理员始终拥有全部权限。</view>
+    <view class="permission-org ui-motion-chip" bindtap="onOrgTap" hover-class="permission-org-pressing" hover-start-time="0" hover-stay-time="160">
+      <ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" />
+      <view class="permission-org-copy">
+        <view class="permission-org-label">当前组织</view>
+        <view class="permission-org-name">{{organizationName || '未选择组织'}}</view>
+      </view>
+      <ui-icon name="chevron-right" tone="white" size="24" ariaLabel="切换组织" />
+    </view>
+  </view>
+
+  <view class="permission-card">
+    <view class="permission-section-head">
+      <view>
+        <view class="permission-section-title">管理员列表</view>
+        <view class="permission-section-desc">选择管理员后配置其在当前组织中的功能权限</view>
+      </view>
+      <view class="permission-count">{{filteredAdmins.length}} 人</view>
+    </view>
+    <view class="permission-search">
+      <ui-icon name="search" tone="muted" size="32" ariaLabel="搜索" />
+      <input class="permission-search-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="搜索姓名、学号或层级" />
+      <view class="permission-search-clear ui-motion-chip" wx:if="{{keyword}}" bindtap="clearKeyword" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="28" ariaLabel="清除" /></view>
+    </view>
+
+    <view class="permission-loading" wx:if="{{loading}}">正在读取权限配置…</view>
+    <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">当前组织没有可配置的下级管理员</view>
+    <view class="permission-admin-list" wx:else>
+      <view class="permission-admin-row ui-motion-card" wx:for="{{filteredAdmins}}" wx:key="id" data-id="{{item.id}}" bindtap="openAdmin" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+        <view class="permission-avatar">{{item.initial}}</view>
+        <view class="permission-admin-main">
+          <view class="permission-admin-title-row">
+            <view class="permission-admin-name">{{item.name || '未命名管理员'}}</view>
+            <view class="permission-level permission-level-{{item.adminLevel}}">{{item.adminLevelLabel}}</view>
+          </view>
+          <view class="permission-admin-meta">学号 {{item.studentId || '未填写'}} · {{item.bindStatusLabel}}</view>
+          <view class="permission-admin-progress">
+            <view class="permission-progress-track"><view class="permission-progress-fill" style="width: {{item.applicableCount ? item.grantedCount * 100 / item.applicableCount : 0}}%;"></view></view>
+            <view class="permission-progress-text">已启用 {{item.grantedCount}} / {{item.applicableCount}}</view>
+          </view>
+        </view>
+        <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="配置权限" />
+      </view>
+    </view>
+  </view>
+
+  <view class="permission-overlay ui-overlay" wx:if="{{editorVisible}}">
+    <view class="permission-mask" bindtap="closeEditor"></view>
+    <view class="permission-dialog hit-area ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="permission-dialog-header ui-dialog-header">
+        <view>
+          <view class="permission-dialog-eyebrow">{{selectedAdmin.adminLevelLabel}}</view>
+          <view class="permission-dialog-title">{{selectedAdmin.name}}的权限</view>
+          <view class="permission-dialog-desc">修改保存后立即生效，未授权接口会由服务端拒绝。</view>
+        </view>
+        <view class="permission-close ui-motion-chip" bindtap="closeEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="30" ariaLabel="关闭" /></view>
+      </view>
+      <scroll-view class="permission-dialog-body ui-dialog-body ui-dialog-scroll--fill" scroll-y enhanced="{{true}}" show-scrollbar="{{true}}">
+        <view class="permission-group" wx:for="{{permissionGroups}}" wx:key="key" wx:for-item="group" wx:for-index="groupIndex">
+          <view class="permission-group-head">
+            <view class="permission-group-copy">
+              <view class="permission-group-title">{{group.label}}</view>
+              <view class="permission-group-desc">{{group.description}}</view>
+            </view>
+            <view class="permission-group-switch">
+              <text>整组</text>
+              <switch checked="{{group.allGranted}}" color="#2563eb" data-group-index="{{groupIndex}}" bindchange="onGroupChange" />
+            </view>
+          </view>
+          <view class="permission-item" wx:for="{{group.permissions}}" wx:key="key" wx:for-item="permission" wx:for-index="permissionIndex">
+            <view class="permission-item-copy">
+              <view class="permission-item-title">{{permission.label}}</view>
+              <view class="permission-item-desc">{{permission.description}}</view>
+            </view>
+            <switch checked="{{permission.granted}}" color="#2563eb" data-group-index="{{groupIndex}}" data-permission-index="{{permissionIndex}}" bindchange="onPermissionChange" />
+          </view>
+        </view>
+      </scroll-view>
+      <view class="permission-dialog-footer ui-dialog-footer">
+        <button class="permission-secondary ui-motion-button" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="permission-primary ui-motion-button" loading="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并立即生效</button>
+      </view>
+    </view>
+  </view>
+</view>

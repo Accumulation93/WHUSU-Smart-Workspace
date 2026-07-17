@@ -20,7 +20,7 @@
 
   <view class="empty-card" wx:if="{{!hasPermission}}">
     <view class="empty-title">当前没有管理权限</view>
-    <view class="empty-desc">请先使用管理员身份登录。</view>
+    <view class="empty-desc">当前账号未获授权访问此管理模块，请联系上级管理员配置权限。</view>
   </view>
 
   <view class="admin-workbench" wx:if="{{hasPermission}}">
@@ -667,21 +667,21 @@
         </view>
       </view>
 
-      <view class="edit-box">
+      <view class="edit-box" wx:if="{{canExportScoreResults}}">
         <view class="list-title">总分速览导出</view>
         <view class="button-row">
           <button class="secondary-btn ui-motion-button" loading="{{loadingMap.export_overview}}" data-report="overview" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">总分速览导出</button>
         </view>
       </view>
 
-      <view class="edit-box">
+      <view class="edit-box" wx:if="{{canExportScoreResults}}">
         <view class="list-title">评分明细导出</view>
         <view class="button-row">
           <button class="secondary-btn ui-motion-button" loading="{{loadingMap.export_detail}}" data-report="detail" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">评分明细导出</button>
         </view>
       </view>
 
-      <view class="edit-box">
+      <view class="edit-box" wx:if="{{canExportScoreResults}}">
         <view class="list-title">完成率导出</view>
         <view class="button-row">
           <button class="secondary-btn ui-motion-button" loading="{{loadingMap.export_completion}}" data-report="completion" bindtap="exportScoreResultsUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">完成率导出</button>
@@ -857,14 +857,14 @@
     <view class="section" wx:if="{{activeTab === 'hrInfo'}}">
       <view class="section-title">人事信息</view>
       <view class="toolbar-row">
-        <button class="primary-btn ui-motion-button" bindtap="startCreateHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增成员</button>
-        <button class="secondary-btn ui-motion-button" loading="{{loadingMap.importCsv}}" bindtap="chooseTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导入表格</button>
-        <button class="secondary-btn ui-motion-button" loading="{{loadingMap.batchMaintain}}" bindtap="batchMaintainFromHrInfo" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">同步组织字典</button>
-        <button class="secondary-btn ui-motion-button" bindtap="toggleTemplateConfig" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{showTemplateConfig ? '收起模板' : '模板配置'}}</button>
+        <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" bindtap="startCreateHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增成员</button>
+        <button class="secondary-btn ui-motion-button" wx:if="{{canImportHr}}" loading="{{loadingMap.importCsv}}" bindtap="chooseTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导入表格</button>
+        <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" loading="{{loadingMap.batchMaintain}}" bindtap="batchMaintainFromHrInfo" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">同步组织字典</button>
+        <button class="secondary-btn ui-motion-button" wx:if="{{canReviewHrProfile}}" bindtap="toggleTemplateConfig" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{showTemplateConfig ? '收起模板' : '模板配置'}}</button>
         <view class="csv-tip" wx:if="{{csvName}}">{{csvName}}</view>
       </view>
 
-      <view class="edit-box" wx:if="{{showAddEditForm}}">
+      <view class="edit-box" wx:if="{{showAddEditForm && canManageHrPeople}}">
         <view class="edit-box-header">
           <view class="list-title">{{hrForm.id ? '编辑成员' : '新增成员'}}</view>
           <text class="link ui-motion-chip" bindtap="toggleAddEditForm" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">收起</text>
@@ -901,7 +901,7 @@
         </view>
       </view>
 
-      <view class="edit-box" wx:if="{{showTemplateConfig}}">
+      <view class="edit-box" wx:if="{{showTemplateConfig && canReviewHrProfile}}">
         <view class="edit-box-header">
           <view class="list-title">模板配置</view>
           <text class="link ui-motion-chip" bindtap="toggleTemplateConfig" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">收起</text>
@@ -1061,11 +1061,11 @@
               </view>
             </view>
             <view class="hr-member-actions" catchtap>
-              <text class="link ui-motion-chip" data-hr-id="{{item.id}}" catchtap="editHrFromProfile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">修改</text>
-              <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deleteHr" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
-              <text class="link danger ui-motion-chip" wx:if="{{item.wxBindStatus === 'bound'}}" data-hr-id="{{item.id}}" data-name="{{item.name}}" catchtap="unbindHrWechat" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑微信</text>
-              <text wx:if="{{item.hasPending}}" class="link ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="approveHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
-              <text wx:if="{{item.hasPending}}" class="link danger ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="rejectHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
+              <text class="link ui-motion-chip" wx:if="{{canManageHrPeople}}" data-hr-id="{{item.id}}" catchtap="editHrFromProfile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">修改</text>
+              <text class="link danger ui-motion-chip" wx:if="{{canManageHrPeople}}" data-id="{{item.id}}" catchtap="deleteHr" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+              <text class="link danger ui-motion-chip" wx:if="{{canManageHrPeople && item.wxBindStatus === 'bound'}}" data-hr-id="{{item.id}}" data-name="{{item.name}}" catchtap="unbindHrWechat" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑微信</text>
+              <text wx:if="{{canReviewHrProfile && item.hasPending}}" class="link ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="approveHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
+              <text wx:if="{{canReviewHrProfile && item.hasPending}}" class="link danger ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="rejectHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!loadingMap.hr && !hrProfileRows.length}}">暂无成员资料</view>
@@ -2601,6 +2601,7 @@
             <view class="list-desc">{{recordDetail.submittedAt}}</view>
             <view class="detail-action-row">
               <button
+                wx:if="{{canRevokeScoreRecords}}"
                 class="secondary-btn compact-action-btn revoke-score-btn ui-motion-button"
                 data-id="{{recordDetail.recordId}}"
                 catchtap="revokeScoreRecord"

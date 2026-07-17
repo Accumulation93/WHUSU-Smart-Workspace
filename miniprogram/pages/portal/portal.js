@@ -1,6 +1,7 @@
 const { callFunction, formatAuditTime } = require('../../utils/api');
 const eventBus = require('../../utils/eventBus');
 const orgSession = require('../../utils/orgSession');
+const adminPermissions = require('../../utils/adminPermissions');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
@@ -32,7 +33,8 @@ const PORTAL_CARDS_ADMIN = [
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
   { key: 'system', label: '系统配置', iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
   { key: 'audit', label: '审核', iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
-  { key: 'venue', label: '场地管理', iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false }
+  { key: 'venue', label: '场地管理', iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false },
+  { key: 'permissions', label: '权限管理', iconName: 'shield', url: '/subpackages/org/pages/adminPermissions/adminPermissions', disabled: false }
 ];
 
 function getDisplayIdentity(user, activeRole) {
@@ -108,6 +110,7 @@ Page({
       this.setData({ appViewMode: savedView });
     }
     this.refreshCurrentUser();
+    if (this.data.isAdminRole) this.refreshAdminPermissionState();
     this.loadOrganizationName();
     if (this.data.hasUser) {
       this.retryPendingNotificationReads();
@@ -178,7 +181,7 @@ Page({
 
     const user = activeRole ? (roleProfiles[activeRole] || null) : null;
     const isAdminRole = activeRole === 'admin';
-    const portalCards = isAdminRole ? PORTAL_CARDS_ADMIN : PORTAL_CARDS_USER;
+    const portalCards = isAdminRole ? adminPermissions.filterPortalCards(PORTAL_CARDS_ADMIN, user) : PORTAL_CARDS_USER;
 
     this.setData({
       activeRole,
@@ -194,6 +197,16 @@ Page({
       portalCards: portalCards
     });
     this._applyAppFilter();
+  },
+
+  async refreshAdminPermissionState() {
+    const request = orgSession.beginRequest(this, 'portalAdminPermissions');
+    try {
+      await adminPermissions.refreshMyPermissions();
+      if (orgSession.isRequestCurrent(this, request)) this.refreshCurrentUser();
+    } catch (error) {
+      if (orgSession.isRequestCurrent(this, request)) console.error('[portal] refresh permissions failed:', error.message || error);
+    }
   },
 
   loadOrganizationName() {

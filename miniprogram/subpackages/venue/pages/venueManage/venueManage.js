@@ -2,6 +2,7 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
+const adminPermissions = require('../../../../utils/adminPermissions');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64; // rpx per hour
@@ -116,6 +117,13 @@ Page({
   data: {
     // ── Main tab ──
     activeTab: 'venue',  // 'venue' | 'bookings' | 'purposes'
+    hasPermission: true,
+    canApproveVenue: false,
+    visibleTabs: [
+      { key: 'venue', label: '场地管理' },
+      { key: 'bookings', label: '借用管理' },
+      { key: 'purposes', label: '事由管理' }
+    ],
 
     venues: [],
     loading: false,
@@ -276,6 +284,10 @@ Page({
   },
 
   onShow() {
+    this.preparePermissionsAndLoad();
+  },
+
+  async preparePermissionsAndLoad() {
     const organizationState = orgSession.consume(this);
     this._orgContextVersion = organizationState.snapshot.version;
     if (organizationState.changed) {
@@ -292,13 +304,37 @@ Page({
         pendingApprovalCount: 0, loading: false, bookingsLoading: false
       });
     }
+    let profile = adminPermissions.getAdminProfile();
+    try {
+      profile = await adminPermissions.refreshMyPermissions() || profile;
+    } catch (error) {
+      console.error('[venueManage] refresh permissions failed:', error.message || error);
+    }
+    const allTabs = [
+      { key: 'venue', label: '场地管理' },
+      { key: 'bookings', label: '借用管理' },
+      { key: 'purposes', label: '事由管理' }
+    ];
+    const allowedKeys = adminPermissions.filterTabs(allTabs.map(function(item) { return item.key; }), profile, adminPermissions.VENUE_TAB_PERMISSION_MAP);
+    const visibleTabs = allTabs.filter(function(item) { return allowedKeys.indexOf(item.key) >= 0; });
+    const activeTab = allowedKeys.indexOf(this.data.activeTab) >= 0 ? this.data.activeTab : (allowedKeys[0] || '');
+    this.setData({
+      visibleTabs: visibleTabs,
+      activeTab: activeTab,
+      hasPermission: visibleTabs.length > 0,
+      canApproveVenue: adminPermissions.hasAny(profile, ['venue.approvals'])
+    });
+    if (!visibleTabs.length) return;
+
     this._initWeekStart();
     this._initBookingsTimeRange();
     this.loadVenues();
-    this.loadReferenceData();
-    this.loadPurposes();
-    this.loadPendingCount();
-    if (this.data.activeTab === 'bookings') {
+    if (allowedKeys.indexOf('venue') >= 0) {
+      this.loadReferenceData();
+    }
+    if (allowedKeys.indexOf('purposes') >= 0) this.loadPurposes();
+    if (adminPermissions.hasAny(profile, ['venue.approvals'])) this.loadPendingCount();
+    if (activeTab === 'bookings') {
       this.loadBookingsData();
     }
   },
@@ -329,6 +365,7 @@ Page({
   // ── Main tab switching ──
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
+    if (!(this.data.visibleTabs || []).some(function(item) { return item.key === tab; })) return;
     this.setData({ activeTab: tab });
     if (tab === 'bookings') {
       this.loadBookingsData();
@@ -422,7 +459,7 @@ Page({
     this.loadOpenRules();
     this.loadActivityRules();
     this.loadBookingRules();
-    this.loadApprovalFlow();
+    if (this.data.canApproveVenue) this.loadApprovalFlow();
   },
 
   closeRules() { this.setData({ rulesVisible: false }); },

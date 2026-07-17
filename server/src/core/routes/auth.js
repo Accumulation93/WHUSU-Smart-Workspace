@@ -13,6 +13,7 @@ const organizationModel = require('../models/organization');
 const authChallengeModel = require('../models/authChallenge');
 const pool = require('../../config/db');
 const { clearOrgAccessCache } = require('../../middleware/orgContext');
+const { loadEffectivePermissions } = require('../services/adminPermissions');
 
 const WECHAT_APPID = process.env.WECHAT_APPID;
 const WECHAT_SECRET = process.env.WECHAT_SECRET;
@@ -365,7 +366,7 @@ router.post('/adminLogin', async (req, res) => {
       return res.json({
         status: 'login_success',
         token,
-        user: buildAdminUser(rootAdmin),
+        user: await buildAdminUser(rootAdmin, availableOrgs[0] ? availableOrgs[0].id : ''),
         availableOrgs,
         activeOrg: availableOrgs[0] || null
       });
@@ -388,7 +389,7 @@ router.post('/adminLogin', async (req, res) => {
         return res.json({
           status: 'login_success',
           token,
-          user: buildAdminUser(matchInDefaultOrg),
+          user: await buildAdminUser(matchInDefaultOrg, systemDefaultOrgId),
           availableOrgs,
           activeOrg: availableOrgs[0] || null
         });
@@ -406,7 +407,7 @@ router.post('/adminLogin', async (req, res) => {
         return res.json({
           status: 'login_success',
           token,
-          user: buildAdminUser(match),
+          user: await buildAdminUser(match, org.id),
           availableOrgs,
           activeOrg
         });
@@ -425,7 +426,8 @@ router.post('/adminLogin', async (req, res) => {
 });
 
 // 构建管理员 user 对象
-function buildAdminUser(admin) {
+async function buildAdminUser(admin, orgId) {
+  const effective = await loadEffectivePermissions(admin, orgId || admin.org_id || '');
   return {
     id: safeString(admin.id),
     hrId: safeString(admin.id),
@@ -437,7 +439,10 @@ function buildAdminUser(admin) {
     identity: '',
     workGroupId: '',
     workGroup: '',
-    adminLevel: safeString(admin.admin_level)
+    adminLevel: safeString(admin.admin_level),
+    permissions: effective.permissions,
+    permissionKeys: effective.keys,
+    canAccessPermissionSystem: effective.canAccessPermissionSystem
   };
 }
 
@@ -509,7 +514,7 @@ router.post('/activateOrganization', async (req, res) => {
       if (!activeAdmin) {
         return res.json({ status: 'org_access_denied', message: '您不是该组织的管理员' });
       }
-      user = buildAdminUser(activeAdmin);
+      user = await buildAdminUser(activeAdmin, orgId);
     } else {
       const resolved = await resolveUserInOrganization(openid, orgId);
       if (!resolved) {

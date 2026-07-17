@@ -40,6 +40,16 @@ const mocks = {
       return scenario.organizations || [];
     }
   },
+  '../services/adminPermissions': {
+    async loadEffectivePermissions(admin) {
+      return {
+        permissions: {},
+        keys: [],
+        isRoot: admin.admin_level === 'root_admin',
+        canAccessPermissionSystem: admin.admin_level === 'root_admin'
+      };
+    }
+  },
   '../../config/db': pool
 };
 
@@ -102,7 +112,7 @@ async function run() {
     organizationId: 'org-43',
     role: 'admin'
   });
-  assert.strictEqual(rootResult.status, 'success');
+  assert.strictEqual(rootResult.status, 'success', JSON.stringify(rootResult));
   assert.deepStrictEqual(rootResult.activeOrg, {
     id: 'org-43',
     name: '武汉大学第四十三届学生会'

@@ -57,6 +57,9 @@ jobs:
           node server/test/scoringOrgCacheIsolation.test.js
           node server/test/orgContextSecurity.test.js
           node server/test/adminAuthorization.test.js
+          node server/test/adminPermissions.test.js
+          node server/test/adminPermissionMiddleware.test.js
+          node server/test/adminPermissionsMigration.test.js
           node server/test/authChallenge.test.js
           node server/test/requestDeduplication.test.js
           node server/test/clientVersion.test.js

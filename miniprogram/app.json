@@ -42,7 +42,8 @@
       "root": "subpackages/org",
       "name": "org",
       "pages": [
-        "pages/switch/switch"
+        "pages/switch/switch",
+        "pages/adminPermissions/adminPermissions"
       ]
     }
   ],

@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "管理员权限",
+  "navigationBarBackgroundColor": "#f5f8fd",
+  "navigationBarTextStyle": "black",
+  "usingComponents": {
+    "ui-icon": "/components/ui-icon/ui-icon"
+  }
+}
