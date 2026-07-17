@@ -54,7 +54,23 @@ atomic_link() {
 }
 
 read_port() {
-  node -e "require('dotenv').config({path:process.argv[1]});process.stdout.write(process.env.PORT||'3000')" "$SHARED_DIR/server.env"
+  node -e '
+    const fs = require("fs");
+    const line = fs.readFileSync(process.argv[1], "utf8")
+      .split(/\r?\n/)
+      .find((item) => /^\s*(?:export\s+)?PORT\s*=/.test(item));
+    if (!line) {
+      process.stdout.write("3000");
+      process.exit(0);
+    }
+    let value = line.replace(/^\s*(?:export\s+)?PORT\s*=\s*/, "").trim();
+    if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("\x27") && value.endsWith("\x27"))) {
+      value = value.slice(1, -1);
+    } else {
+      value = value.replace(/\s+#.*$/, "").trim();
+    }
+    process.stdout.write(value || "3000");
+  ' "$SHARED_DIR/server.env"
 }
 
 wait_for_health() {

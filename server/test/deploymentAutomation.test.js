@@ -46,6 +46,7 @@ function testDeploymentScriptContract() {
   assert.match(script, /deploymentDatabase\.js" restore/);
   assert.match(script, /pm2 startOrReload/);
   assert.match(script, /\/var\/lib\/redsu-deploy\/maintenance\.flag/);
+  assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);
   assert.doesNotMatch(script, /git reset --hard/);
   assert.match(entrypoint, /git -C "\$REPO_DIR" show/);
   assert.match(entrypoint, /bash -n/);
