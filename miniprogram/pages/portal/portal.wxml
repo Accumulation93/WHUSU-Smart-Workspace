@@ -45,7 +45,7 @@
       <view class="section-title">待办事项</view>
       <view class="message-head-actions">
         <view class="todo-count" wx:if="{{todoCount > 0}}">共 {{todoCount > 99 ? '99+' : todoCount}} 条</view>
-        <view class="message-text-action ui-motion-chip" data-tab="todos" bindtap="openMessageCenter" hover-class="ui-press-chip">查看全部</view>
+        <view class="message-text-action ui-motion-chip" data-tab="todos" bindtap="openMessageCenter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">查看全部</view>
       </view>
     </view>
     <scroll-view class="notification-list message-preview-scroll" style="height: {{todos.length ? (todos.length > 5 ? 510 : todos.length * 102) : 112}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" bindscrolltolower="loadMoreTodos" lower-threshold="80">
@@ -73,9 +73,9 @@
     <view class="info-head">
       <view class="section-title">通知</view>
       <view class="message-head-actions">
-        <view class="message-text-action ui-motion-chip" wx:if="{{notificationCount > 0}}" bindtap="markAllNotificationsRead" hover-class="ui-press-chip">全部已读</view>
+        <view class="message-text-action ui-motion-chip" wx:if="{{notificationCount > 0}}" bindtap="markAllNotificationsRead" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全部已读</view>
         <view class="notification-badge" wx:if="{{notificationCount > 0}}">{{notificationCount > 99 ? '99+' : notificationCount}}</view>
-        <view class="message-text-action ui-motion-chip" data-tab="notifications" bindtap="openMessageCenter" hover-class="ui-press-chip">查看全部</view>
+        <view class="message-text-action ui-motion-chip" data-tab="notifications" bindtap="openMessageCenter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">查看全部</view>
       </view>
     </view>
     <scroll-view class="notification-list message-preview-scroll" style="height: {{notifications.length ? (notifications.length > 5 ? 510 : notifications.length * 102) : 112}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" bindscrolltolower="loadMoreNotifications" lower-threshold="80">

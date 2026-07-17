@@ -1,8 +1,11 @@
+// 生产发布通过 redsu_current 原子软链接切换版本；本地仍可用环境变量覆盖。
+const serverRoot = process.env.REDSU_SERVER_ROOT || '/home/ubuntu/redsu_current/server';
+
 module.exports = {
   apps: [{
     name: 'redsu-scoring',
     script: 'src/index.js',
-    cwd: '/home/ubuntu/redsu_scoring/server',
+    cwd: serverRoot,
     instances: 2,
     exec_mode: 'cluster',
     env: {
@@ -21,7 +24,7 @@ module.exports = {
   }, {
     name: 'redsu-notification-worker',
     script: 'notificationWorker.js',
-    cwd: '/home/ubuntu/redsu_scoring/server',
+    cwd: serverRoot,
     exec_mode: 'fork',
     instances: 1,
     env: {

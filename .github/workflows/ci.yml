@@ -26,6 +26,10 @@ jobs:
       HR_IMPORT_TEST_DB_HOST: 127.0.0.1
       HR_IMPORT_TEST_DB_PORT: 3306
       TEST_DB_USER_HOST: '%'
+      DEPLOY_TEST_DB_HOST: 127.0.0.1
+      DEPLOY_TEST_DB_PORT: 3306
+      DEPLOY_TEST_DB_USER: root
+      DEPLOY_TEST_DB_PASSWORD: ''
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,6 +64,49 @@ jobs:
           node server/test/securityMigration.test.js
           node server/test/dataIntegrityMigration.test.js
           node server/test/hrTableImport.test.js
+          node server/test/messageCenter.test.js
+          node server/test/deploymentAutomation.test.js
+          node server/test/deploymentMigrationIntegration.test.js
+          bash -n server/scripts/deployProduction.sh
+          bash -n server/scripts/deployEntrypoint.sh
+          bash -n server/scripts/setupCollabSession.sh
+          pwsh -NoProfile -Command "[scriptblock]::Create((Get-Content -Raw 'scripts/remote-collab.ps1')) | Out-Null"
       - name: Dependency audit
         working-directory: server
         run: npm audit
+
+  deploy-production:
+    name: deploy-production
+    needs: audit-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/audit'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: redsu-production
+      cancel-in-progress: false
+    steps:
+      - name: Configure pinned production SSH
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$PROD_SSH_KEY" > "$HOME/.ssh/redsu-production"
+          chmod 600 "$HOME/.ssh/redsu-production"
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+      - name: Deploy exact successful commit
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          ssh -i "$HOME/.ssh/redsu-production" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=4 \
+            "$PROD_USER@$PROD_HOST" \
+            "/home/ubuntu/redsu_deploy/bin/deploy-entrypoint $TARGET_SHA"
