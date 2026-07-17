@@ -20,7 +20,7 @@ async function run() {
         name VARCHAR(100) NOT NULL,
         admin_level VARCHAR(32) NOT NULL,
         org_id VARCHAR(64) NOT NULL DEFAULT ''
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       INSERT INTO admin_info (id, name, admin_level, org_id) VALUES
         ('root-test', 'Root', 'root_admin', ''),
         ('admin-test', 'Admin', 'admin', 'org-44');
