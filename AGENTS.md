@@ -68,6 +68,7 @@
 
 - 蓝色轻奢玻璃 UI 任务使用 `.agents/skills/blue-glass-ui/SKILL.md`。
 - 微信小程序长按拖拽排序任务使用 `.agents/skills/wechat-miniprogram-drag-sort/SKILL.md`。
+- 本地连接生产服务端、SSH/tmux 协作调试、GitHub 自动部署、数据库迁移和回退任务使用 `.agents/skills/redsu-server-collaboration/SKILL.md`。
 - 技能只在任务匹配时加载，但不能替代本文件要求的项目规则加载。
 
 ## 6. 完成前检查
