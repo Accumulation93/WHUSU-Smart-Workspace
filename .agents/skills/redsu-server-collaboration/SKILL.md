@@ -52,4 +52,3 @@ description: Connect and collaborate with the REDSU production server from this 
 6. `schema_migrations` 预检无意外待执行项；有迁移时核对备份和账本记录。
 
 最终向用户报告提交 SHA、CI 运行链接、生产运行 SHA、健康状态、迁移情况和任何未完成验证。
-

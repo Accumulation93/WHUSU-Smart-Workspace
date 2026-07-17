@@ -62,4 +62,3 @@ powershell -File scripts/remote-collab.ps1 retry
 - 不删除维护标志来掩盖恢复失败。
 - 不把私钥、环境文件、数据库快照或部署日志中的敏感数据带回 Git。
 - 不将本地小程序开发者工具验证等同于微信正式发布。
-
