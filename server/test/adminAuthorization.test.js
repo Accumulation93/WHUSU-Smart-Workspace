@@ -2,29 +2,44 @@ const assert = require('assert');
 const {
   hashInviteCode,
   createInviteCredential,
+  canViewTarget,
   canManageTarget,
-  canCreateLevel
+  canCreateLevel,
+  canDeleteTarget
 } = require('../src/core/services/adminAuthorization');
 
-const root = { admin_level: 'root_admin' };
-const superAdmin = { admin_level: 'super_admin' };
-const normalAdmin = { admin_level: 'admin' };
+const superAdmin = { id: 'super-self', admin_level: 'super_admin', org_id: '' };
+const regularAdmin = { id: 'admin-self', admin_level: 'admin', org_id: 'org-44' };
+const peerSuper = { id: 'super-peer', admin_level: 'super_admin', org_id: '', bind_status: 'active' };
+const invitedSuper = { id: 'super-invited', admin_level: 'super_admin', org_id: '', bind_status: 'invited' };
+const peerRegular = { id: 'admin-peer', admin_level: 'admin', org_id: 'org-44' };
+const otherRegular = { id: 'admin-other', admin_level: 'admin', org_id: 'org-43' };
 
-assert.strictEqual(canCreateLevel(root, 'super_admin'), true);
-assert.strictEqual(canCreateLevel(root, 'admin'), false);
-assert.strictEqual(canCreateLevel(root, 'root_admin'), false);
+assert.strictEqual(canCreateLevel(superAdmin, 'super_admin'), true);
 assert.strictEqual(canCreateLevel(superAdmin, 'admin'), true);
-assert.strictEqual(canCreateLevel(superAdmin, 'super_admin'), false);
-assert.strictEqual(canCreateLevel(normalAdmin, 'admin'), false);
+assert.strictEqual(canCreateLevel(regularAdmin, 'admin'), true);
+assert.strictEqual(canCreateLevel(regularAdmin, 'super_admin'), false);
+assert.strictEqual(canCreateLevel(regularAdmin, 'root_admin'), false);
 
-assert.strictEqual(canManageTarget(root, { admin_level: 'super_admin', org_id: 'org-44' }, 'org-44'), true);
-assert.strictEqual(canManageTarget(root, { admin_level: 'admin', org_id: 'org-44' }, 'org-44'), false);
-assert.strictEqual(canManageTarget(superAdmin, { admin_level: 'admin', org_id: 'org-44' }, 'org-44'), true);
-assert.strictEqual(canManageTarget(superAdmin, { admin_level: 'admin', org_id: 'org-43' }, 'org-44'), false);
+assert.strictEqual(canViewTarget(superAdmin, peerSuper, 'org-44'), true);
+assert.strictEqual(canViewTarget(superAdmin, peerRegular, 'org-44'), true);
+assert.strictEqual(canManageTarget(superAdmin, peerSuper, 'org-44'), true);
+assert.strictEqual(canManageTarget(superAdmin, peerRegular, 'org-44'), true);
+assert.strictEqual(canManageTarget(superAdmin, superAdmin, 'org-44'), false);
+assert.strictEqual(canManageTarget(superAdmin, otherRegular, 'org-44'), false);
+assert.strictEqual(canManageTarget(regularAdmin, peerRegular, 'org-44'), true);
+assert.strictEqual(canManageTarget(regularAdmin, regularAdmin, 'org-44'), false);
+assert.strictEqual(canManageTarget(regularAdmin, peerSuper, 'org-44'), false);
+assert.strictEqual(canManageTarget(regularAdmin, otherRegular, 'org-44'), false);
+assert.strictEqual(canDeleteTarget(superAdmin, peerSuper, 'org-44', 1), false);
+assert.strictEqual(canDeleteTarget(superAdmin, peerSuper, 'org-44', 2), true);
+assert.strictEqual(canDeleteTarget(superAdmin, invitedSuper, 'org-44', 1), true);
+assert.strictEqual(canDeleteTarget(superAdmin, superAdmin, 'org-44', 2), false);
+assert.strictEqual(canDeleteTarget(regularAdmin, peerRegular, 'org-44', 0), true);
 
 const invite = createInviteCredential();
 assert.strictEqual(invite.inviteCode.length, 8);
 assert.strictEqual(invite.inviteCodeHash, hashInviteCode(invite.inviteCode));
 assert(invite.inviteExpiresAt.getTime() > invite.invitedAt.getTime());
 
-console.log('管理员层级与邀请码安全测试通过');
+console.log('两级管理员层级与邀请码安全测试通过');

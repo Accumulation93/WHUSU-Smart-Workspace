@@ -144,9 +144,9 @@ async function buildAvailableOrgs(openid, adminRecords) {
       orgMap.set(r.org_id, { role: 'admin' });
     }
 
-    // root_admin 可以看到所有组织
-    const isRoot = adminRecs.some(r => r.admin_level === 'root_admin');
-    if (isRoot) {
+    // 全局超级管理员可以看到所有组织
+    const hasGlobalSuperAdmin = adminRecs.some(r => r.admin_level === 'super_admin' && r.org_id === '');
+    if (hasGlobalSuperAdmin) {
       for (const org of allOrgs) {
         if (!orgMap.has(org.id)) orgMap.set(org.id, { role: 'admin' });
       }
@@ -350,9 +350,9 @@ router.post('/adminLogin', async (req, res) => {
       });
     }
 
-    // root_admin 直接登录（默认组织按 system_config 优先级）
-    const rootAdmin = allAdminRecords.find(r => r.admin_level === 'root_admin');
-    if (rootAdmin) {
+    // 全局超级管理员直接登录（默认组织按 system_config 优先级）
+    const superAdmin = allAdminRecords.find(r => r.admin_level === 'super_admin' && r.org_id === '');
+    if (superAdmin) {
       const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
       // system_config 组织排在第一位，确保前端默认选中
       const systemDefaultOrgId = await getSystemDefaultOrgId();
@@ -366,13 +366,13 @@ router.post('/adminLogin', async (req, res) => {
       return res.json({
         status: 'login_success',
         token,
-        user: await buildAdminUser(rootAdmin, availableOrgs[0] ? availableOrgs[0].id : ''),
+        user: await buildAdminUser(superAdmin, availableOrgs[0] ? availableOrgs[0].id : ''),
         availableOrgs,
         activeOrg: availableOrgs[0] || null
       });
     }
 
-    // 非 root_admin：优先系统默认组织（直接读 system_config）
+    // 普通管理员优先匹配系统默认组织（直接读 system_config）
     const systemDefaultOrgId = await getSystemDefaultOrgId();
     if (systemDefaultOrgId) {
       const matchInDefaultOrg = allAdminRecords.find(r => r.org_id === systemDefaultOrgId);
@@ -508,9 +508,9 @@ router.post('/activateOrganization', async (req, res) => {
     let user;
     if (role === 'admin') {
       const adminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
-      const rootAdmin = adminRecords.find((item) => item.admin_level === 'root_admin');
+      const superAdmin = adminRecords.find((item) => item.admin_level === 'super_admin' && item.org_id === '');
       const orgAdmin = adminRecords.find((item) => item.org_id === orgId);
-      const activeAdmin = rootAdmin || orgAdmin;
+      const activeAdmin = superAdmin || orgAdmin;
       if (!activeAdmin) {
         return res.json({ status: 'org_access_denied', message: '您不是该组织的管理员' });
       }

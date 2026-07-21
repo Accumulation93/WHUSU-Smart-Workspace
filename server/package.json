@@ -24,7 +24,7 @@
     "test:deployment": "node test/deploymentAutomation.test.js",
     "test:deployment-db": "node test/deploymentMigrationIntegration.test.js",
     "security:cleanup-audit-temp": "node scripts/cleanupAuditTemp.js",
-    "security:bootstrap-root": "node scripts/bootstrapRootAdmin.js"
+    "security:bootstrap-super": "node scripts/bootstrapSuperAdmin.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.1",

@@ -11,6 +11,7 @@ const {
   loadEffectivePermissions,
   isApplicable,
   canConfigureAdminPermissions,
+  editablePermissionKeys,
   serializeCatalog
 } = require('../services/adminPermissions');
 
@@ -55,10 +56,9 @@ router.post('/listPermissionManagedAdmins', async (req, res) => {
     if (!operator || !effective.canAccessPermissionSystem) {
       return res.status(403).json({ status: 'permission_denied', message: '没有访问权限系统的权限' });
     }
-    const levels = operator.admin_level === 'root_admin' ? ['super_admin', 'admin'] : ['admin'];
-    const rows = await adminPermissionModel.listTargets(orgId, levels);
+    const rows = await adminPermissionModel.listTargets(orgId, ['admin']);
     const items = [];
-    for (const row of rows) {
+    for (const row of rows.filter((item) => item.id !== operator.id)) {
       const targetEffective = await loadEffectivePermissions(Object.assign({ org_id: orgId }, row), orgId);
       const applicableCount = Array.from(PERMISSION_DEFINITIONS.keys()).filter((key) => isApplicable(key, row.admin_level)).length;
       const grantedCount = Array.from(PERMISSION_DEFINITIONS.keys()).filter((key) => isApplicable(key, row.admin_level) && targetEffective.permissions[key]).length;
@@ -90,6 +90,7 @@ router.post('/getAdminPermissionDetail', async (req, res) => {
       return res.status(403).json({ status: 'permission_denied', message: '不能配置该管理员的权限' });
     }
     const targetEffective = await loadEffectivePermissions(target, orgId);
+    const editableKeys = editablePermissionKeys(operator, effective, target, orgId, targetEffective);
     res.json({
       status: 'success',
       admin: {
@@ -99,7 +100,7 @@ router.post('/getAdminPermissionDetail', async (req, res) => {
         adminLevel: target.admin_level,
         adminLevelLabel: levelLabel(target.admin_level)
       },
-      groups: serializeCatalog(target.admin_level, targetEffective.permissions)
+      groups: serializeCatalog(target.admin_level, targetEffective.permissions, editableKeys)
     });
   } catch (error) {
     req.logger.error('Get admin permission detail failed', { error: error.message });
@@ -128,29 +129,41 @@ router.post('/saveAdminPermissions', async (req, res) => {
       return res.status(403).json({ status: 'permission_denied', message: '不能配置该管理员的权限' });
     }
 
+    const targetEffective = await loadEffectivePermissions(target, orgId, connection);
     const applicableKeys = Array.from(PERMISSION_DEFINITIONS.keys()).filter((key) => isApplicable(key, target.admin_level));
-    const unknownKeys = Object.keys(submitted).filter((key) => !applicableKeys.includes(key));
+    const editableKeys = editablePermissionKeys(operator, effective, target, orgId, targetEffective);
+    const submittedKeys = Object.keys(submitted);
+    const unknownKeys = submittedKeys.filter((key) => !applicableKeys.includes(key));
     if (unknownKeys.length) {
       await connection.rollback();
       return res.status(400).json({ status: 'invalid_params', message: '包含不可配置的权限项' });
     }
-    if (applicableKeys.some((key) => typeof submitted[key] !== 'boolean')) {
+    if (submittedKeys.some((key) => typeof submitted[key] !== 'boolean')) {
       await connection.rollback();
-      return res.status(400).json({ status: 'invalid_params', message: '请提交完整的权限配置' });
+      return res.status(400).json({ status: 'invalid_params', message: '权限值必须为布尔值' });
+    }
+    if (submittedKeys.some((key) => !editableKeys.includes(key))) {
+      await connection.rollback();
+      return res.status(403).json({ status: 'permission_denied', message: '包含不可编辑或越权的权限项' });
+    }
+    if (submitted['system.admin_accounts.write'] === true
+      && submitted['system.admin_accounts.read'] !== true
+      && editableKeys.includes('system.admin_accounts.read')) {
+      submitted['system.admin_accounts.read'] = true;
     }
 
-    await adminPermissionModel.replaceOverrides(connection, {
+    await adminPermissionModel.upsertOverrides(connection, {
       orgId,
       adminId,
       operatorId: operator.id,
-      items: applicableKeys.map((key) => ({ id: crypto.randomUUID(), permissionKey: key, granted: submitted[key] }))
+      items: Object.keys(submitted).map((key) => ({ id: crypto.randomUUID(), permissionKey: key, granted: submitted[key] }))
     });
     await adminPermissionModel.createAuditLog(connection, {
       id: crypto.randomUUID(),
       orgId,
       operatorId: operator.id,
       targetAdminId: adminId,
-      action: 'replace',
+      action: 'partial_update',
       snapshot: submitted
     });
     await connection.commit();
@@ -159,7 +172,11 @@ router.post('/saveAdminPermissions', async (req, res) => {
       status: 'success',
       message: '权限配置已生效',
       permissions: saved.permissions,
-      groups: serializeCatalog(target.admin_level, saved.permissions)
+      groups: serializeCatalog(
+        target.admin_level,
+        saved.permissions,
+        editablePermissionKeys(operator, effective, target, orgId, saved)
+      )
     });
   } catch (error) {
     if (connection) {

@@ -7,7 +7,7 @@ const systemConfigModel = require('../models/systemConfig');
 const pool = require('../../config/db');
 
 // Tables that have org_id — must be cleaned up when deleting an org.
-// admin_info is handled separately to protect root_admin entries.
+// admin_info 单独处理，保护全局超级管理员记录。
 const ORG_SCOPED_TABLES = [
   'departments', 'identities', 'work_groups',
   'hr_info', 'user_info',
@@ -48,7 +48,7 @@ router.post('/saveOrganization', async (req, res) => {
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
 
-    // Auth: only root_admin
+    // 仅全局超级管理员可操作
     if (!openid) {
       return res.json({ status: 'forbidden', message: '未登录' });
     }
@@ -57,8 +57,8 @@ router.post('/saveOrganization', async (req, res) => {
       [openid]
     );
     const operator = adminRows[0] || null;
-    if (!operator || operator.admin_level !== 'root_admin') {
-      return res.json({ status: 'forbidden', message: '仅至高权限管理员可操作' });
+    if (!operator || operator.admin_level !== 'super_admin' || operator.org_id !== '') {
+      return res.json({ status: 'forbidden', message: '仅超级管理员可操作' });
     }
 
     if (!name) {
@@ -90,16 +90,16 @@ router.post('/deleteOrganization', async (req, res) => {
     const id = safeString(req.body.organizationId || req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供组织ID' });
 
-    // Auth: only root_admin
+    // 仅全局超级管理员可操作
     const [adminRows] = await pool.query(
-      "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active' AND admin_level = 'root_admin' LIMIT 1",
+      "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active' AND admin_level = 'super_admin' AND org_id = '' LIMIT 1",
       [openid]
     );
     if (!adminRows.length) {
-      return res.json({ status: 'forbidden', message: '仅至高权限管理员可操作' });
+      return res.json({ status: 'forbidden', message: '仅超级管理员可操作' });
     }
 
-    // Safety: never allow deleting the root_admin pseudo-organization
+    // 禁止删除空组织标识
     if (id === '') {
       return res.json({ status: 'invalid_params', message: '无效的组织标识' });
     }
@@ -117,10 +117,9 @@ router.post('/deleteOrganization', async (req, res) => {
         await conn.query('DELETE FROM ?? WHERE org_id = ?', [table, id]);
       }
 
-      // Delete org-scoped admins ONLY — explicitly exclude root_admin
-      // root_admin has org_id = '' and is global; they must never be deleted by org operations.
+      // 仅删除组织内普通管理员；全局超级管理员不会归属于具体组织。
       await conn.query(
-        "DELETE FROM admin_info WHERE org_id = ? AND admin_level != 'root_admin'",
+        "DELETE FROM admin_info WHERE org_id = ? AND admin_level = 'admin'",
         [id]
       );
 
@@ -167,13 +166,13 @@ router.post('/switchOrganization', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '无效的组织标识' });
     }
 
-    // Auth: only root_admin (global, org_id = '')
+    // 仅全局超级管理员可切换系统默认组织
     const [adminRows] = await pool.query(
-      "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active' AND admin_level = 'root_admin' LIMIT 1",
+      "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active' AND admin_level = 'super_admin' AND org_id = '' LIMIT 1",
       [openid]
     );
     if (!adminRows.length) {
-      return res.json({ status: 'forbidden', message: '仅至高权限管理员可切换组织' });
+      return res.json({ status: 'forbidden', message: '仅超级管理员可切换组织' });
     }
 
     const config = await systemConfigModel.get();

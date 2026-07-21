@@ -151,8 +151,7 @@ router.post('/getRateTargets', async (req, res) => {
         workGroupId: '', workGroup: '',
         adminLevel: admin.admin_level
       };
-      const identityLabel = admin.admin_level === 'root_admin' ? '至高权限管理员'
-        : admin.admin_level === 'super_admin' ? '超级管理员' : '管理员';
+      const identityLabel = admin.admin_level === 'super_admin' ? '超级管理员' : '普通管理员';
       scorer.identity = identityLabel;
       return res.json({ status: 'success', scorer, targets: [] });
     }

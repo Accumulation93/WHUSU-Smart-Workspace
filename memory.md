@@ -94,7 +94,7 @@ MySQL 8.0 Community Server: `C:\Program Files\MySQL\MySQL Server 8.0\`
 
 #### 4. 用户绑定
 - `user_info` — 普通用户 (openid UNIQUE, hr_id)
-- `admin_info` — 管理员 (openid, admin_level=root_admin|super_admin, bind_status, invite_code)
+- `admin_info` — 管理员（`admin_level=super_admin|admin`；超级管理员全局跨组织，普通管理员按 `org_id` 隔离）
 
 #### 5. 评分活动与模板
 - `score_activities` — 评分活动 (name, start_date, end_date, is_current)
@@ -122,7 +122,7 @@ MySQL 8.0 Community Server: `C:\Program Files\MySQL\MySQL Server 8.0\`
 注意：organizations 没有 _history 表（组织本身不随组织切换产生历史）。
 
 ### 当前数据状态
-- `admin_info`: 1条 — 陈逸凡, student_id=2023302181034, admin_level=root_admin, invite_code=A9U49V
+- `admin_info`: 生产迁移前仅 1 条旧最高管理员；两级迁移后规范为全局 `super_admin`
 - `hr_info`: **空** — 尚未导入人事数据
 - 其余表: 空
 
@@ -130,7 +130,7 @@ MySQL 8.0 Community Server: `C:\Program Files\MySQL\MySQL Server 8.0\`
 1. 测试 MySQL 连接
 2. 创建数据库 + 执行 init.sql (如果表已存在则跳过)
 3. 插入 system_config 种子数据
-4. 创建 root admin (如果已有 root_admin 则跳过)
+4. 创建全局超级管理员（如果已有 `super_admin` 且 `org_id=''` 则跳过）
 5. 显示所有表
 
 ---

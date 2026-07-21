@@ -4,7 +4,7 @@
   <view class="hero hero-admin" wx:if="{{hasPermission}}">
     <view class="hero-badge">管理端</view>
     <view class="hero-title">评分管理工作台</view>
-    <view class="hero-subtitle hero-admin-subtitle">{{subAppLabel}} · {{user.name}} - {{isRootAdmin ? '至高权限管理员' : (isSuperAdmin ? '超级管理员' : '普通管理员')}}</view>
+    <view class="hero-subtitle hero-admin-subtitle">{{subAppLabel}} · {{user.name}} - {{isSuperAdmin ? '超级管理员' : '普通管理员'}}</view>
     <view class="hero-org-context org-context-action" wx:if="{{currentOrganizationName}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
       <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
       <view class="hero-org-context-copy">
@@ -1337,12 +1337,12 @@
     <view class="section" wx:if="{{activeTab === 'admins'}}">
 
       <view class="section-title">管理员</view>
-      <view class="edit-box" wx:if="{{canManageAdmins}}">
+      <view class="button-row compact-row" wx:if="{{canReadAdmins}}">
+        <button class="secondary-btn ui-motion-button" wx:if="{{canWriteAdmins}}" bindtap="startCreateAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增管理员</button>
+        <button class="secondary-btn ui-motion-button" loading="{{loadingMap.exportAdmins}}" bindtap="exportAdmins" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出管理员</button>
+      </view>
+      <view class="edit-box" wx:if="{{canWriteAdmins}}">
         <view class="list-title">{{adminForm.id ? '编辑管理员' : '新增管理员'}}</view>
-        <view class="button-row compact-row">
-          <button class="secondary-btn ui-motion-button" bindtap="startCreateAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增管理员</button>
-          <button class="secondary-btn ui-motion-button" loading="{{loadingMap.exportAdmins}}" wx:if="{{isSuperAdmin || isRootAdmin}}" bindtap="exportAdmins" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出管理员</button>
-        </view>
 
         <view class="field">
           <view class="field-label">姓名</view>
@@ -1354,9 +1354,10 @@
         </view>
         <view class="field">
           <view class="field-label">管理员类别</view>
-          <picker range="{{adminLevelOptions}}" value="{{adminLevelIndex}}" bindchange="onAdminLevelChange">
+          <picker wx:if="{{!adminForm.id}}" range="{{adminLevelOptions}}" value="{{adminLevelIndex}}" bindchange="onAdminLevelChange">
             <view class="picker-value">{{adminLevelOptions[adminLevelIndex]}}</view>
           </picker>
+          <view class="field-value" wx:else>{{adminForm.adminLevel === 'super_admin' ? '超级管理员' : '普通管理员'}}</view>
         </view>
 
         <view class="field">
@@ -1386,7 +1387,7 @@
       </view>
 
       <view class="list-card">
-        <view class="list-title">{{isSuperAdmin || isRootAdmin ? '全部管理员' : '管理员列表'}}</view>
+        <view class="list-title">{{isSuperAdmin ? '超级管理员与当前组织管理员' : '管理员列表'}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.admins}}">
             <view class="card-loading-spinner"></view>
@@ -1396,10 +1397,10 @@
             <view class="list-main">
               <view class="list-name">{{item.name}} - {{item.adminLevelLabel}}</view>
               <view class="list-desc">{{item.studentId}} - {{item.bindStatusLabel}}</view>
-              <view class="inline-actions list-actions-below" wx:if="{{item.canManage}}">
-                <text class="link ui-motion-chip" data-index="{{index}}" bindtap="editAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                <text class="link ui-motion-chip" wx:if="{{item.bindStatus !== 'active'}}" data-id="{{item.id}}" bindtap="regenerateAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置邀请</text>
-                <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+              <view class="inline-actions list-actions-below" wx:if="{{item.canEdit || item.canDelete || item.canRegenerateInvite}}">
+                <text class="link ui-motion-chip" wx:if="{{item.canEdit}}" data-index="{{index}}" bindtap="editAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
+                <text class="link ui-motion-chip" wx:if="{{item.canRegenerateInvite}}" data-id="{{item.id}}" bindtap="regenerateAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置邀请</text>
+                <text class="link danger ui-motion-chip" wx:if="{{item.canDelete}}" data-id="{{item.id}}" bindtap="deleteAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
               </view>
             </view>
           </view>
@@ -1546,7 +1547,7 @@
       </view>
       <block wx:else>
 
-      <view class="edit-box" wx:if="{{isRootAdmin}}">
+      <view class="edit-box" wx:if="{{isSuperAdmin}}">
         <view class="list-title">组织管理</view>
         <view class="field" wx:if="{{currentOrganizationId}}">
           <view class="field-label">当前组织</view>

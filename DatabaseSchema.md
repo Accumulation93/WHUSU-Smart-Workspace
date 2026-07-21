@@ -33,7 +33,7 @@ index.js:285   ---------------------------------------------------+------------+
 index.js:294   _id                                                | string     | string             | 100%     | 2       
 index.js:296     -> 示例: 037e75a269e8bc490024c7ab7c7a0048 ; 148caf5069f2244200388fba6db77f5a
 index.js:294   adminLevel                                         | string     | string             | 100%     | 2       
-index.js:296     -> 示例: root_admin ; super_admin
+index.js:296     -> 示例: super_admin ; admin
 index.js:294   bindStatus                                         | string     | string             | 100%     | 2       
 index.js:296     -> 示例: active ; active
 index.js:294   boundAt                                            | object     | object             | 100%     | 2       

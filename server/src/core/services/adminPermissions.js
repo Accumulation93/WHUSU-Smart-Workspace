@@ -2,9 +2,9 @@ const PERMISSION_GROUPS = [
   {
     key: 'permissions',
     label: '权限管理',
-    description: '控制超级管理员是否可以配置普通管理员权限',
+    description: '控制普通管理员是否可以配置同组织其他普通管理员权限',
     permissions: [
-      { key: 'permissions.manage_regular_admins', label: '配置普通管理员权限', description: '允许超级管理员进入权限系统并配置本组织普通管理员', targetLevels: ['super_admin'], defaultLevels: [] }
+      { key: 'permissions.manage_regular_admins', label: '配置普通管理员权限', description: '允许进入权限系统并配置同组织其他普通管理员', targetLevels: ['admin'], defaultLevels: [] }
     ]
   },
   {
@@ -61,7 +61,8 @@ const PERMISSION_GROUPS = [
     label: '系统配置',
     description: '管理员账号、系统参数与组织配置',
     permissions: [
-      { key: 'system.admin_accounts', label: '管理员账号', description: '管理直接下级管理员账号与邀请码', targetLevels: ['super_admin'], defaultLevels: ['super_admin'] },
+      { key: 'system.admin_accounts.read', label: '管理员账号读取', description: '查看并导出同组织管理员账号' },
+      { key: 'system.admin_accounts.write', label: '管理员账号写入', description: '创建、编辑、删除同组织普通管理员并管理邀请码' },
       { key: 'system.settings', label: '系统参数', description: '查看和修改系统运行参数' },
       { key: 'system.organizations', label: '全局组织配置', description: '创建、删除及切换全系统默认组织', targetLevels: [], defaultLevels: [] }
     ]
@@ -73,8 +74,8 @@ PERMISSION_GROUPS.forEach((group) => {
   group.permissions.forEach((permission) => {
     PERMISSION_DEFINITIONS.set(permission.key, Object.assign({
       groupKey: group.key,
-      targetLevels: ['super_admin', 'admin'],
-      defaultLevels: ['super_admin', 'admin']
+      targetLevels: ['admin'],
+      defaultLevels: []
     }, permission));
   });
 });
@@ -141,9 +142,9 @@ mapRoutes('venue.approvals', [
 mapAny(['/listVenueBookingPurposes'], ['venue.resources', 'venue.bookings', 'venue.purposes']);
 mapRoutes('venue.purposes', ['/saveVenueBookingPurpose', '/deleteVenueBookingPurpose']);
 
-mapRoutes('system.admin_accounts', [
-  '/listAdmins', '/saveAdmin', '/deleteAdmin', '/createAdminInvite', '/generateAdminInviteCode',
-  '/bootstrapSuperAdmin', '/adminUnbindUser', '/exportAdmins'
+mapRoutes('system.admin_accounts.read', ['/listAdmins', '/exportAdmins']);
+mapRoutes('system.admin_accounts.write', [
+  '/saveAdmin', '/deleteAdmin', '/createAdminInvite', '/generateAdminInviteCode', '/adminUnbindUser'
 ]);
 mapRoutes('system.settings', ['/getSystemConfig', '/saveSystemConfig', '/listOrganizations']);
 mapRoutes('system.organizations', ['/saveOrganization', '/deleteOrganization', '/switchOrganization']);
@@ -164,23 +165,37 @@ function isApplicable(permissionKey, adminLevel) {
 
 function canConfigureAdminPermissions(operator, effective, target, orgId) {
   if (!operator || !target || target.org_id !== orgId || target.id === operator.id) return false;
-  if (operator.admin_level === 'root_admin') {
-    return target.admin_level === 'super_admin' || target.admin_level === 'admin';
-  }
-  return operator.admin_level === 'super_admin'
+  if (operator.admin_level === 'super_admin') return target.admin_level === 'admin';
+  return operator.admin_level === 'admin'
     && Boolean(effective && effective.canAccessPermissionSystem)
     && target.admin_level === 'admin';
 }
 
+function editablePermissionKeys(operator, effective, target, orgId, targetEffective) {
+  if (!canConfigureAdminPermissions(operator, effective, target, orgId)) return [];
+  const applicableKeys = Array.from(PERMISSION_DEFINITIONS.keys())
+    .filter((key) => isApplicable(key, target.admin_level));
+  if (operator.admin_level === 'super_admin') return applicableKeys;
+  const editableKeys = applicableKeys.filter((key) => key !== 'permissions.manage_regular_admins'
+    && Boolean(effective.permissions && effective.permissions[key]));
+  if (targetEffective
+    && targetEffective.permissions
+    && targetEffective.permissions['system.admin_accounts.write']
+    && !editableKeys.includes('system.admin_accounts.write')) {
+    return editableKeys.filter((key) => key !== 'system.admin_accounts.read');
+  }
+  return editableKeys;
+}
+
 async function loadEffectivePermissions(admin, orgId, connection) {
-  if (!admin) return { permissions: {}, keys: [], isRoot: false, canAccessPermissionSystem: false };
-  const isRoot = admin.admin_level === 'root_admin';
+  if (!admin) return { permissions: {}, keys: [], isSuper: false, canAccessPermissionSystem: false };
+  const isSuper = admin.admin_level === 'super_admin';
   const permissions = {};
   PERMISSION_DEFINITIONS.forEach((definition, key) => {
-    permissions[key] = isRoot || defaultGranted(admin.admin_level, definition);
+    permissions[key] = isSuper || defaultGranted(admin.admin_level, definition);
   });
 
-  if (!isRoot && orgId && admin.org_id === orgId) {
+  if (!isSuper && orgId && admin.org_id === orgId) {
     const adminPermissionModel = require('../models/adminPermission');
     const rows = await adminPermissionModel.getOverrides(orgId, admin.id, connection);
     rows.forEach((row) => {
@@ -190,22 +205,27 @@ async function loadEffectivePermissions(admin, orgId, connection) {
     });
   }
 
+  if (permissions['system.admin_accounts.write']) {
+    permissions['system.admin_accounts.read'] = true;
+  }
+
   const keys = Object.keys(permissions).filter((key) => permissions[key]);
   return {
     permissions,
     keys,
-    isRoot,
-    canAccessPermissionSystem: isRoot || (admin.admin_level === 'super_admin' && Boolean(permissions['permissions.manage_regular_admins']))
+    isSuper,
+    canAccessPermissionSystem: isSuper || (admin.admin_level === 'admin' && Boolean(permissions['permissions.manage_regular_admins']))
   };
 }
 
 function hasAnyPermission(effective, keys) {
   if (!effective) return false;
-  if (effective.isRoot) return true;
+  if (effective.isSuper) return true;
   return (keys || []).some((key) => effective.permissions && effective.permissions[key]);
 }
 
-function serializeCatalog(targetLevel, effectivePermissions) {
+function serializeCatalog(targetLevel, effectivePermissions, editableKeys) {
+  const editableSet = new Set(editableKeys || []);
   return PERMISSION_GROUPS.map((group) => ({
     key: group.key,
     label: group.label,
@@ -216,7 +236,8 @@ function serializeCatalog(targetLevel, effectivePermissions) {
         key: item.key,
         label: item.label,
         description: item.description,
-        granted: Boolean(effectivePermissions && effectivePermissions[item.key])
+        granted: Boolean(effectivePermissions && effectivePermissions[item.key]),
+        editable: editableSet.has(item.key)
       }))
   })).filter((group) => group.permissions.length > 0);
 }
@@ -229,6 +250,7 @@ module.exports = {
   defaultGranted,
   isApplicable,
   canConfigureAdminPermissions,
+  editablePermissionKeys,
   loadEffectivePermissions,
   hasAnyPermission,
   serializeCatalog

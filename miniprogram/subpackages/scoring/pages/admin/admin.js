@@ -46,7 +46,8 @@ Page({
     canManageHrPeople: false,
     canImportHr: false,
     canReviewHrProfile: false,
-    isRootAdmin: false,
+    canReadAdmins: false,
+    canWriteAdmins: false,
     activeTab: utils.TAB_LIST[0],
     visibleTabs: utils.TAB_LIST,
     subAppLabel: '',
@@ -60,7 +61,8 @@ Page({
     profileEditModeOptions: utils.PROFILE_EDIT_MODE_OPTIONS,
     profileFieldTypeOptions: utils.PROFILE_FIELD_TYPE_OPTIONS,
     numberRuleOptions: utils.NUMBER_RULE_OPTIONS,
-    adminLevelOptions: ['普通管理员', '超级管理员'],
+    adminLevelOptions: ['普通管理员'],
+    adminLevelValues: ['admin'],
     adminCandidateKeyword: '',
     adminCandidateList: [],
     activityForm: emptyActivityForm(),
@@ -496,15 +498,15 @@ Page({
     let roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
     let adminProfile = roleProfiles.admin;
     const isSuperAdmin = !!adminProfile && adminProfile.adminLevel === 'super_admin';
-    const isRootAdmin = !!adminProfile && adminProfile.adminLevel === 'root_admin';
 
     if (!adminProfile) {
       this.setData({
         user: null,
         hasPermission: false,
         isSuperAdmin: false,
-        isRootAdmin: false,
-        canManageAdmins: false
+        canManageAdmins: false,
+        canReadAdmins: false,
+        canWriteAdmins: false
       });
       return;
     }
@@ -517,7 +519,11 @@ Page({
     }
     this.applySubAppFilter(adminProfile);
 
-    const canManageAdmins = adminPermissions.hasAny(adminProfile, ['system.admin_accounts']);
+    const canReadAdmins = adminPermissions.hasAny(adminProfile, [
+      'system.admin_accounts.read',
+      'system.admin_accounts.write'
+    ]);
+    const canWriteAdmins = adminPermissions.hasAny(adminProfile, ['system.admin_accounts.write']);
     const activeOrgId = wx.getStorageSync('activeOrgId') || '';
     const bootstrapKey = [this._subApp || 'scoring', activeOrgId, adminProfile.id || '', (adminProfile.permissionKeys || []).slice().sort().join(',')].join('::');
 
@@ -534,8 +540,9 @@ Page({
       user: adminProfile,
       hasPermission: this._visibleTabs.length > 0,
       isSuperAdmin,
-      isRootAdmin,
-      canManageAdmins,
+      canManageAdmins: canWriteAdmins,
+      canReadAdmins,
+      canWriteAdmins,
       canExportScoreResults: adminPermissions.hasAny(adminProfile, ['scoring.results_export']),
       canRevokeScoreRecords: adminPermissions.hasAny(adminProfile, ['scoring.results_revoke']),
       canManageHrPeople: adminPermissions.hasAny(adminProfile, ['hr.people']),
@@ -554,7 +561,8 @@ Page({
         { value: 'workGroup_asc', label: '按职能组' }
       ],
       resultSortLabel: '按分数从高到低',
-      adminLevelOptions: isRootAdmin ? ['超级管理员'] : ['普通管理员']
+      adminLevelOptions: isSuperAdmin ? ['普通管理员', '超级管理员'] : ['普通管理员'],
+      adminLevelValues: isSuperAdmin ? ['admin', 'super_admin'] : ['admin']
     });
 
     const loadSubApp = async () => {
@@ -589,7 +597,12 @@ Page({
 
       if (this._subApp === 'system') {
         const systemLoads = [];
-        if (visibleTabs.indexOf('admins') >= 0) systemLoads.push(this.loadAdminList(), this.loadHrList());
+        if (visibleTabs.indexOf('admins') >= 0) {
+          systemLoads.push(this.loadAdminList());
+          if (canWriteAdmins && adminPermissions.hasAny(adminProfile, ['hr.people'])) {
+            systemLoads.push(this.loadHrList());
+          }
+        }
         if (visibleTabs.indexOf('settings') >= 0) systemLoads.push(this.loadSystemConfig(), this.loadOrganizations());
         await Promise.all(systemLoads);
         return;

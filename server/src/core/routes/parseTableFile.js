@@ -3,7 +3,7 @@ const router = express.Router();
 const { safeString } = require('../../utils/helpers');
 const { decodeWorkbookBase64, parseWorkbookTables } = require('../../utils/excelFile');
 
-const ADMIN_ROLES = new Set(['admin', 'super_admin', 'root_admin']);
+const ADMIN_ROLES = new Set(['admin', 'super_admin']);
 
 /**
  * POST /api/parseTableFile

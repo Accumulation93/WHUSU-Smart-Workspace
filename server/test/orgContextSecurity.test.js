@@ -2,11 +2,11 @@ const assert = require('assert');
 const Module = require('module');
 
 let queryCount = 0;
-let scenario = { userAllowed: false, adminAllowed: false, rootAllowed: false };
+let scenario = { userAllowed: false, adminAllowed: false, superAllowed: false };
 const pool = {
   async query(sql) {
     queryCount += 1;
-    if (sql.includes("admin_level = 'root_admin'")) return [scenario.rootAllowed ? [{ ok: 1 }] : []];
+    if (sql.includes("admin_level = 'super_admin'")) return [scenario.superAllowed ? [{ ok: 1 }] : []];
     if (sql.includes('FROM admin_info')) return [scenario.adminAllowed ? [{ ok: 1 }] : []];
     if (sql.includes('FROM user_info')) return [scenario.userAllowed ? [{ ok: 1 }] : []];
     throw new Error('未预期的 SQL：' + sql);
@@ -62,12 +62,12 @@ async function run() {
   assert.strictEqual(result.nextCalled, true);
   assert.strictEqual(queryCount, 2, '组织访问权必须逐请求读取数据库，不能使用进程缓存');
 
-  scenario = { userAllowed: false, adminAllowed: false, rootAllowed: false };
+  scenario = { userAllowed: false, adminAllowed: false, superAllowed: false };
   result = await invoke({ path: '/api/admin/listAdmins', orgId: 'org-44', role: 'admin' });
   assert.strictEqual(result.statusCode, 403);
   assert.strictEqual(result.body.status, 'org_access_denied');
 
-  scenario.rootAllowed = true;
+  scenario.superAllowed = true;
   result = await invoke({ path: '/api/admin/listAdmins', orgId: 'org-44', role: 'admin' });
   assert.strictEqual(result.nextCalled, true);
 

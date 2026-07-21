@@ -2,7 +2,7 @@
   <view class="permission-hero">
     <view class="permission-hero-badge">{{operatorLevelLabel || '权限系统'}}</view>
     <view class="permission-hero-title">管理员权限</view>
-    <view class="permission-hero-desc">按组织、角色和功能配置管理员可执行的操作。至高权限管理员始终拥有全部权限。</view>
+    <view class="permission-hero-desc">按组织和功能配置普通管理员可执行的操作。超级管理员始终拥有全部权限。</view>
     <view class="permission-org ui-motion-chip" bindtap="onOrgTap" hover-class="permission-org-pressing" hover-start-time="0" hover-stay-time="160">
       <ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" />
       <view class="permission-org-copy">
@@ -68,7 +68,7 @@
             </view>
             <view class="permission-group-switch">
               <text>整组</text>
-              <switch checked="{{group.allGranted}}" color="#2563eb" data-group-index="{{groupIndex}}" bindchange="onGroupChange" />
+              <switch checked="{{group.allGranted}}" disabled="{{!group.editableCount}}" color="#2563eb" data-group-index="{{groupIndex}}" bindchange="onGroupChange" />
             </view>
           </view>
           <view class="permission-item" wx:for="{{group.permissions}}" wx:key="key" wx:for-item="permission" wx:for-index="permissionIndex">
@@ -76,7 +76,7 @@
               <view class="permission-item-title">{{permission.label}}</view>
               <view class="permission-item-desc">{{permission.description}}</view>
             </view>
-            <switch checked="{{permission.granted}}" color="#2563eb" data-group-index="{{groupIndex}}" data-permission-index="{{permissionIndex}}" bindchange="onPermissionChange" />
+            <switch checked="{{permission.granted}}" disabled="{{!permission.editable}}" color="#2563eb" data-group-index="{{groupIndex}}" data-permission-index="{{permissionIndex}}" bindchange="onPermissionChange" />
           </view>
         </view>
       </scroll-view>

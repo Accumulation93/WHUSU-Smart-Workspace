@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS admin_info (
   name VARCHAR(100) NOT NULL,
   student_id VARCHAR(32) DEFAULT NULL,
   openid VARCHAR(128) DEFAULT NULL,
-  admin_level VARCHAR(32) NOT NULL DEFAULT 'super_admin',
+  admin_level VARCHAR(32) NOT NULL DEFAULT 'admin',
   bind_status VARCHAR(16) NOT NULL DEFAULT 'invited',
   invite_code VARCHAR(32) DEFAULT NULL,
   invite_code_hash CHAR(64) DEFAULT NULL,
@@ -122,7 +122,8 @@ CREATE TABLE IF NOT EXISTS admin_info (
   INDEX idx_ai_bind (bind_status),
   INDEX idx_ai_org (org_id),
   UNIQUE INDEX uk_ai_invite_hash (invite_code_hash),
-  UNIQUE INDEX idx_ai_student (student_id, org_id)
+  UNIQUE INDEX idx_ai_student (student_id, org_id),
+  CONSTRAINT chk_admin_level_two_tier CHECK (admin_level IN ('super_admin', 'admin'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS auth_challenges (

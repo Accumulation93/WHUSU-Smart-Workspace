@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { buildWorkbookBuffer } = require('../../utils/excelFile');
 
-const ADMIN_ROLES = new Set(['admin', 'super_admin', 'root_admin']);
+const ADMIN_ROLES = new Set(['admin', 'super_admin']);
 
 /**
  * Build a .xlsx file from headers + rows and return as base64.

@@ -52,11 +52,11 @@ async function _userCanAccessOrg(openid, orgId) {
   }
 }
 
-async function _isRootAdmin(openid) {
+async function _isGlobalSuperAdmin(openid) {
   if (!openid) return false;
   try {
     const [rows] = await pool.query(
-      "SELECT 1 FROM admin_info WHERE openid = ? AND admin_level = 'root_admin' AND bind_status = 'active' LIMIT 1",
+      "SELECT 1 FROM admin_info WHERE openid = ? AND admin_level = 'super_admin' AND org_id = '' AND bind_status = 'active' LIMIT 1",
       [openid]
     );
     return rows.length > 0;
@@ -68,8 +68,8 @@ async function _isRootAdmin(openid) {
 async function _adminCanAccessOrg(openid, orgId) {
   if (!openid || !orgId) return false;
 
-  // root_admin 可以访问所有组织
-  if (await _isRootAdmin(openid)) return true;
+  // 全局超级管理员可以访问所有组织
+  if (await _isGlobalSuperAdmin(openid)) return true;
 
   try {
     const [rows] = await pool.query(

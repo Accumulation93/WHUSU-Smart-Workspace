@@ -51,7 +51,8 @@ async function testSchemaContract() {
       call += 1;
       if (call === 1) return [columnRows];
       if (call === 2) return [tableRows];
-      return [indexRows];
+      if (call === 3) return [indexRows];
+      return [[]];
     }
   };
   const result = await verifySchemaContract(pool);

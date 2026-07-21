@@ -8,7 +8,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const DEFAULT_DIRECTORY = path.resolve(__dirname, '../db/deploy');
 const MIGRATION_NAME_PATTERN = /^\d{14}_[a-z0-9_]+\.sql$/;
-const DESTRUCTIVE_PATTERN = /\b(DROP\s+(TABLE|DATABASE|COLUMN|INDEX)|TRUNCATE\s+TABLE|RENAME\s+(TABLE|COLUMN)|ALTER\s+TABLE[\s\S]*?\b(MODIFY|CHANGE)\b)\b/i;
+const DESTRUCTIVE_PATTERN = /\b(DROP\s+(TABLE|DATABASE|COLUMN|INDEX)|TRUNCATE\s+TABLE|DELETE\s+FROM|RENAME\s+(TABLE|COLUMN)|ALTER\s+TABLE[\s\S]*?\b(MODIFY|CHANGE)\b)\b/i;
 
 function checksum(content) {
   return crypto.createHash('sha256').update(content).digest('hex');

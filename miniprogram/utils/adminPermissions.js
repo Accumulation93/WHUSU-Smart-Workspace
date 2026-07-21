@@ -12,7 +12,7 @@ const TAB_PERMISSION_MAP = {
   departments: ['hr.departments'],
   workGroups: ['hr.work_groups'],
   identities: ['hr.identities'],
-  admins: ['system.admin_accounts'],
+  admins: ['system.admin_accounts.read', 'system.admin_accounts.write'],
   settings: ['system.settings', 'system.organizations'],
   auditTemplates: ['audit.templates'],
   auditStamps: ['audit.stamps'],
@@ -29,7 +29,7 @@ const VENUE_TAB_PERMISSION_MAP = {
 const PORTAL_PERMISSION_MAP = {
   scoring: ['scoring.activities', 'scoring.templates', 'scoring.rules', 'scoring.results', 'scoring.publications'],
   hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.departments', 'hr.work_groups', 'hr.identities'],
-  system: ['system.admin_accounts', 'system.settings', 'system.organizations'],
+  system: ['system.admin_accounts.read', 'system.admin_accounts.write', 'system.settings', 'system.organizations'],
   audit: ['audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'],
   venue: ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.purposes']
 };
@@ -41,24 +41,26 @@ function getAdminProfile() {
 
 function hasAny(profile, keys) {
   if (!profile) return false;
-  if (profile.adminLevel === 'root_admin') return true;
+  if (profile.adminLevel === 'super_admin') return true;
   const permissions = profile.permissions;
-  // 兼容首次升级前的本地缓存；服务端仍会执行强制鉴权。
-  if (!permissions || typeof permissions !== 'object') return true;
+  // 普通管理员权限状态缺失时默认拒绝，等待服务端刷新后再开放入口。
+  if (!permissions || typeof permissions !== 'object') return false;
   return (keys || []).some(function(key) { return permissions[key] === true; });
 }
 
 function canAccessPermissionSystem(profile) {
   if (!profile) return false;
-  if (profile.adminLevel === 'root_admin') return true;
-  return profile.adminLevel === 'super_admin'
-    && Boolean(profile.canAccessPermissionSystem || (profile.permissions && profile.permissions['permissions.manage_regular_admins']));
+  if (profile.adminLevel === 'super_admin') return true;
+  return profile.adminLevel === 'admin'
+    && Boolean(profile.canAccessPermissionSystem
+      || (profile.permissions && profile.permissions['permissions.manage_regular_admins']));
 }
 
 function savePermissionState(result) {
   const profiles = wx.getStorageSync(STORAGE_KEY) || {};
   if (!profiles.admin) return null;
   profiles.admin = Object.assign({}, profiles.admin, {
+    adminLevel: result.adminLevel || profiles.admin.adminLevel,
     permissions: result.permissions || {},
     permissionKeys: result.permissionKeys || [],
     canAccessPermissionSystem: Boolean(result.canAccessPermissionSystem)

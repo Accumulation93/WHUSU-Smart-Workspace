@@ -45,8 +45,8 @@ const mocks = {
       return {
         permissions: {},
         keys: [],
-        isRoot: admin.admin_level === 'root_admin',
-        canAccessPermissionSystem: admin.admin_level === 'root_admin'
+        isSuper: admin.admin_level === 'super_admin',
+        canAccessPermissionSystem: admin.admin_level === 'super_admin'
       };
     }
   },
@@ -95,11 +95,11 @@ async function run() {
     ],
     adminRecords: [
       {
-        id: 'root-chen',
+        id: 'super-chen',
         openid: 'openid-chen',
         name: '陈逸凡',
         student_id: '2023302181034',
-        admin_level: 'root_admin',
+        admin_level: 'super_admin',
         bind_status: 'active',
         org_id: ''
       }
@@ -107,17 +107,17 @@ async function run() {
   };
   cacheClears = [];
 
-  const rootResult = await invoke({
+  const superResult = await invoke({
     openid: 'openid-chen',
     organizationId: 'org-43',
     role: 'admin'
   });
-  assert.strictEqual(rootResult.status, 'success', JSON.stringify(rootResult));
-  assert.deepStrictEqual(rootResult.activeOrg, {
+  assert.strictEqual(superResult.status, 'success', JSON.stringify(superResult));
+  assert.deepStrictEqual(superResult.activeOrg, {
     id: 'org-43',
     name: '武汉大学第四十三届学生会'
   });
-  assert.strictEqual(rootResult.user.adminLevel, 'root_admin');
+  assert.strictEqual(superResult.user.adminLevel, 'super_admin');
   assert.deepStrictEqual(cacheClears, [
     { openid: 'openid-chen', orgId: 'org-43', role: 'admin' }
   ]);
@@ -127,7 +127,7 @@ async function run() {
     openid: 'openid-admin',
     name: '第四十二届管理员',
     student_id: 'admin-42',
-    admin_level: 'super_admin',
+    admin_level: 'admin',
     bind_status: 'active',
     org_id: 'org-42'
   }];

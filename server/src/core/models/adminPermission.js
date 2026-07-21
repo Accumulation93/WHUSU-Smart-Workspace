@@ -10,14 +10,14 @@ async function getOverrides(orgId, adminId, connection) {
 }
 
 async function listTargets(orgId, levels) {
-  const safeLevels = (levels || []).filter((level) => level === 'super_admin' || level === 'admin');
+  const safeLevels = (levels || []).filter((level) => level === 'admin');
   if (!safeLevels.length) return [];
   const placeholders = safeLevels.map(() => '?').join(',');
   const [rows] = await pool.query(
     `SELECT id, name, student_id, admin_level, bind_status, org_id
        FROM admin_info
       WHERE org_id = ? AND admin_level IN (${placeholders})
-      ORDER BY FIELD(admin_level, 'super_admin', 'admin'), name, student_id`,
+      ORDER BY name, student_id`,
     [orgId].concat(safeLevels)
   );
   return rows;
@@ -35,16 +35,13 @@ async function getTarget(orgId, adminId, connection, lock) {
   return rows[0] || null;
 }
 
-async function replaceOverrides(connection, data) {
-  await connection.query(
-    'DELETE FROM admin_permission_overrides WHERE org_id = ? AND admin_id = ?',
-    [data.orgId, data.adminId]
-  );
+async function upsertOverrides(connection, data) {
   for (const item of data.items) {
     await connection.query(
       `INSERT INTO admin_permission_overrides
         (id, org_id, admin_id, permission_key, granted, configured_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE granted = VALUES(granted), configured_by = VALUES(configured_by), updated_at = NOW()`,
       [item.id, data.orgId, data.adminId, item.permissionKey, item.granted ? 1 : 0, data.operatorId]
     );
   }
@@ -59,4 +56,4 @@ async function createAuditLog(connection, data) {
   );
 }
 
-module.exports = { getOverrides, listTargets, getTarget, replaceOverrides, createAuditLog };
+module.exports = { getOverrides, listTargets, getTarget, upsertOverrides, createAuditLog };

@@ -3,6 +3,7 @@ const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
 const { parseCsv } = require('../../utils/csv');
 const { getCurrentOrgId } = require('../../utils/orgContext');
+const { isSuperAdmin, canManageTarget } = require('../services/adminAuthorization');
 
 const EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
 
@@ -682,17 +683,11 @@ router.post('/unbindHrWechat', async (req, res) => {
     // 检查被解绑者是否是管理员，以及操作者的管理级别
     const targetAdmin = await adminInfoModel.getByOpenid(targetOpenid);
     if (targetAdmin) {
-      // 权限层级检查
-      if (admin.admin_level === 'root_admin') {
-        // root_admin 可以解绑任何人（含 super_admin、admin）
-      } else if (admin.admin_level === 'super_admin') {
-        // super_admin 只能解绑 admin 和普通用户，不能解绑同级 super_admin
-        if (targetAdmin.admin_level === 'super_admin' || targetAdmin.admin_level === 'root_admin') {
-          return res.json({ status: 'forbidden', message: '权限不足：无法解绑同级或上级管理员' });
-        }
-      } else {
-        // admin 无解绑权限
-        return res.json({ status: 'forbidden', message: '权限不足：仅超级管理员及以上可解绑微信' });
+      const canWriteAdmins = isSuperAdmin(admin) || Boolean(req.adminPermissions
+        && req.adminPermissions.permissions
+        && req.adminPermissions.permissions['system.admin_accounts.write']);
+      if (!canWriteAdmins || !canManageTarget(admin, targetAdmin, orgId)) {
+        return res.json({ status: 'forbidden', message: '权限不足：不能解绑该管理员' });
       }
     }
 

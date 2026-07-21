@@ -101,7 +101,9 @@ requireSourceContract('server/src/middleware/orgContext.js', [
   { rule: 'org-no-default-fallback', test: source => !/current_organization|systemConfigModel/.test(source) }
 ]);
 requireSourceContract('server/src/core/services/adminAuthorization.js', [
-  { rule: 'admin-direct-level-matrix', test: source => /root_admin:\s*'super_admin'[\s\S]*super_admin:\s*'admin'/.test(source) }
+  { rule: 'admin-two-level-matrix', test: source => source.includes("const ADMIN_LEVELS = [SUPER_ADMIN_LEVEL, REGULAR_ADMIN_LEVEL]") && !source.includes('root_admin') },
+  { rule: 'admin-self-management-blocked', test: source => source.includes('operator.id === target.id') },
+  { rule: 'admin-last-super-protected', test: source => source.includes('Number(activeSuperAdminCount) > 1') }
 ]);
 requireSourceContract('server/src/modules/audit/utils/fileSecurity.js', [
   { rule: 'signed-file-token', test: source => /createHmac\(['"]sha256['"]/.test(source) && /timingSafeEqual/.test(source) }

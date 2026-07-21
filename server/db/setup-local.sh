@@ -101,17 +101,17 @@ echo "[3/5] Inserting seed data..."
 $MYSQL_CMD "$DB_NAME" -e "INSERT IGNORE INTO system_config (id, timezone) VALUES ('default', 8);" 2>/dev/null
 echo "       OK."
 
-# ---------- [4/5] Root admin ----------
-ROOT_ADMIN_COUNT=$($MYSQL_CMD "$DB_NAME" -sN -e "SELECT COUNT(*) FROM admin_info WHERE admin_level = 'root_admin';" 2>/dev/null || echo "0")
-ROOT_ADMIN_COUNT="${ROOT_ADMIN_COUNT:-0}"
+# ---------- [4/5] Super admin ----------
+SUPER_ADMIN_COUNT=$($MYSQL_CMD "$DB_NAME" -sN -e "SELECT COUNT(*) FROM admin_info WHERE admin_level = 'super_admin' AND org_id = '';" 2>/dev/null || echo "0")
+SUPER_ADMIN_COUNT="${SUPER_ADMIN_COUNT:-0}"
 
 echo ""
-echo "[4/5] Root admin account"
+echo "[4/5] Super admin account"
 echo "----------------------------------------------"
-if [ "$ROOT_ADMIN_COUNT" -ge 1 ] 2>/dev/null; then
-  echo "       SKIPPED ($ROOT_ADMIN_COUNT root admin(s) already exist)"
+if [ "$SUPER_ADMIN_COUNT" -ge 1 ] 2>/dev/null; then
+  echo "       SKIPPED ($SUPER_ADMIN_COUNT super admin(s) already exist)"
 else
-  read -p "Create a root admin account? (y/N): " CREATE_ADMIN
+  read -p "Create a super admin account? (y/N): " CREATE_ADMIN
   if [ "$CREATE_ADMIN" = "y" ] || [ "$CREATE_ADMIN" = "Y" ] || [ "$CREATE_ADMIN" = "yes" ] || [ "$CREATE_ADMIN" = "YES" ]; then
 
     while true; do
@@ -133,17 +133,17 @@ else
     done
 
     echo ""
-    echo "Creating root admin: $ADMIN_NAME ($ADMIN_STUDENT_ID)"
+    echo "Creating super admin: $ADMIN_NAME ($ADMIN_STUDENT_ID)"
 
     # Escape single quotes for SQL
     ESC_NAME="$(printf '%s' "$ADMIN_NAME" | sed "s/'/''/g")"
     ESC_STUDENT="$(printf '%s' "$ADMIN_STUDENT_ID" | sed "s/'/''/g")"
     ESC_INVITE="$(printf '%s' "$ADMIN_INVITE_CODE" | sed "s/'/''/g")"
 
-    if $MYSQL_CMD "$DB_NAME" -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code_hash, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '$ESC_NAME', '$ESC_STUDENT', 'root_admin', 'invited', SHA2(UPPER('$ESC_INVITE'), 256), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1; then
-      echo "       Root admin created successfully."
+    if $MYSQL_CMD "$DB_NAME" -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code_hash, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '$ESC_NAME', '$ESC_STUDENT', 'super_admin', 'invited', SHA2(UPPER('$ESC_INVITE'), 256), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1; then
+      echo "       Super admin created successfully."
     else
-      echo "[ERROR] Failed to create root admin."
+      echo "[ERROR] Failed to create super admin."
     fi
   else
     echo "       Skipped."

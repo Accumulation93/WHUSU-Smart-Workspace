@@ -65,7 +65,19 @@ async function verifySchemaContract(pool) {
     error.missing = missing;
     throw error;
   }
-  return { status: 'ok', revision: '2026-07-admin-permissions-v1' };
+  const [invalidAdmins] = await pool.query(
+    `SELECT id FROM admin_info
+      WHERE admin_level NOT IN ('super_admin', 'admin')
+         OR (admin_level = 'super_admin' AND org_id != '')
+      LIMIT 1`
+  );
+  if (invalidAdmins.length) {
+    const error = new Error('数据库迁移未完成: admin_info.two_level_admins');
+    error.code = 'schema_contract_failed';
+    error.missing = ['data:admin_info.two_level_admins'];
+    throw error;
+  }
+  return { status: 'ok', revision: '2026-07-two-level-admins-v2' };
 }
 
 module.exports = { verifySchemaContract, REQUIRED_COLUMNS, REQUIRED_TABLES, REQUIRED_INDEXES };

@@ -43,8 +43,12 @@ module.exports = Behavior({
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           adminList: result.list || [],
-          canManageAdmins: !!result.canManage,
-          manageableAdminLevel: result.manageableLevel || ''
+          canManageAdmins: !!result.canWrite,
+          canReadAdmins: !!result.canRead,
+          canWriteAdmins: !!result.canWrite,
+          manageableAdminLevel: result.manageableLevel || '',
+          adminLevelOptions: (result.creatableLevels || []).map((item) => item.label),
+          adminLevelValues: (result.creatableLevels || []).map((item) => item.value)
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
@@ -73,7 +77,7 @@ module.exports = Behavior({
 
     onAdminLevelChange(e) {
       const idx = Number(e.detail.value) || 0;
-      const adminLevel = this.data.manageableAdminLevel || (this.data.isRootAdmin ? 'super_admin' : 'admin');
+      const adminLevel = this.data.adminLevelValues[idx] || 'admin';
       this.setData({
         adminLevelIndex: idx,
         adminForm: {
@@ -113,7 +117,7 @@ module.exports = Behavior({
     },
 
     editAdmin(e) {
-      if (!this.data.canManageAdmins) {
+      if (!this.data.canWriteAdmins) {
         return;
       }
   
@@ -124,9 +128,10 @@ module.exports = Behavior({
       }
   
       const adminLevel = item.adminLevel || 'admin';
+      const adminLevelIndex = Math.max(0, this.data.adminLevelValues.indexOf(adminLevel));
   
       this.setData({
-        adminLevelIndex: 0,
+        adminLevelIndex,
         adminForm: {
           id: item.id,
           name: item.name,
@@ -141,7 +146,7 @@ module.exports = Behavior({
 
     resetAdminForm() {
       const form = emptyAdminForm();
-      form.adminLevel = this.data.manageableAdminLevel || (this.data.isRootAdmin ? 'super_admin' : 'admin');
+      form.adminLevel = this.data.adminLevelValues[0] || 'admin';
       this.setData({
         adminForm: form,
         adminLevelIndex: 0,
@@ -150,7 +155,7 @@ module.exports = Behavior({
     },
 
     startCreateAdmin() {
-      if (!this.data.canManageAdmins) {
+      if (!this.data.canWriteAdmins) {
         return;
       }
   
@@ -159,7 +164,7 @@ module.exports = Behavior({
     },
 
     async saveAdmin() {
-      if (!this.data.canManageAdmins) {
+      if (!this.data.canWriteAdmins) {
         return;
       }
   
@@ -220,7 +225,7 @@ module.exports = Behavior({
     },
 
     async exportAdmins() {
-      if (!this.data.isSuperAdmin && !this.data.isRootAdmin) {
+      if (!this.data.canReadAdmins) {
         return;
       }
   
@@ -248,14 +253,14 @@ module.exports = Behavior({
     },
 
     deleteAdmin(e) {
-      if (!this.data.canManageAdmins) {
+      if (!this.data.canWriteAdmins) {
         return;
       }
   
       const { id } = e.currentTarget.dataset;
       wx.showModal({
         title: '删除管理员',
-        content: '删除后如果没有其他至高权限管理员，将被阻止。是否继续？',
+        content: '删除后该账号将无法继续登录。是否继续？',
         success: async (res) => {
           if (!res.confirm) {
             return;

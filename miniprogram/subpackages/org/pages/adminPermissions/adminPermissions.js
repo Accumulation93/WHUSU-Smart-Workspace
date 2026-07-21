@@ -5,10 +5,12 @@ const adminPermissions = require('../../../../utils/adminPermissions');
 function cloneGroups(groups) {
   return (groups || []).map(function(group) {
     const permissions = (group.permissions || []).map(function(item) { return Object.assign({}, item); });
+    const editablePermissions = permissions.filter(function(item) { return item.editable; });
     return Object.assign({}, group, {
       permissions: permissions,
       grantedCount: permissions.filter(function(item) { return item.granted; }).length,
-      allGranted: permissions.length > 0 && permissions.every(function(item) { return item.granted; })
+      editableCount: editablePermissions.length,
+      allGranted: editablePermissions.length > 0 && editablePermissions.every(function(item) { return item.granted; })
     });
   });
 }
@@ -77,7 +79,7 @@ Page({
       this.setData({
         admins: admins,
         filteredAdmins: admins,
-        operatorLevelLabel: result.operatorLevel === 'root_admin' ? '至高权限管理员' : '超级管理员'
+        operatorLevelLabel: result.operatorLevel === 'super_admin' ? '超级管理员' : '授权管理员'
       });
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
@@ -133,7 +135,15 @@ Page({
     const permissionIndex = Number(e.currentTarget.dataset.permissionIndex);
     const groups = cloneGroups(this.data.permissionGroups);
     if (!groups[groupIndex] || !groups[groupIndex].permissions[permissionIndex]) return;
+    if (!groups[groupIndex].permissions[permissionIndex].editable) return;
     groups[groupIndex].permissions[permissionIndex].granted = Boolean(e.detail.value);
+    const changed = groups[groupIndex].permissions[permissionIndex];
+    if (changed.key === 'system.admin_accounts.write' && changed.granted) {
+      const readPermission = groups[groupIndex].permissions.find(function(item) {
+        return item.key === 'system.admin_accounts.read';
+      });
+      if (readPermission && readPermission.editable) readPermission.granted = true;
+    }
     this.setData({ permissionGroups: cloneGroups(groups) });
   },
 
@@ -141,9 +151,10 @@ Page({
     const groupIndex = Number(e.currentTarget.dataset.groupIndex);
     const groups = cloneGroups(this.data.permissionGroups);
     if (!groups[groupIndex]) return;
+    if (!groups[groupIndex].editableCount) return;
     const granted = Boolean(e.detail.value);
     groups[groupIndex].permissions = groups[groupIndex].permissions.map(function(item) {
-      return Object.assign({}, item, { granted: granted });
+      return item.editable ? Object.assign({}, item, { granted: granted }) : item;
     });
     this.setData({ permissionGroups: cloneGroups(groups) });
   },
@@ -152,7 +163,9 @@ Page({
     if (this.data.saving || !this.data.selectedAdmin) return;
     const permissionMap = {};
     (this.data.permissionGroups || []).forEach(function(group) {
-      (group.permissions || []).forEach(function(item) { permissionMap[item.key] = Boolean(item.granted); });
+      (group.permissions || []).forEach(function(item) {
+        if (item.editable) permissionMap[item.key] = Boolean(item.granted);
+      });
     });
     this.setData({ saving: true });
     try {

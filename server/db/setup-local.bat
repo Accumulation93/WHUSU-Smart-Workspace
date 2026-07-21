@@ -90,19 +90,19 @@ echo [3/5] Inserting seed data...
 mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% -P %DB_PORT% %DB_NAME% -e "INSERT IGNORE INTO system_config (id, timezone) VALUES ('default', 8);" 2>nul
 echo        OK.
 
-REM Check whether root admin already exists
-set ROOT_ADMIN_COUNT=0
-for /f "usebackq skip=1" %%c in (`mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% -P %DB_PORT% %DB_NAME% -e "SELECT COUNT(*) FROM admin_info WHERE admin_level = 'root_admin';" 2^>nul`) do set ROOT_ADMIN_COUNT=%%c
+REM Check whether a global super admin already exists
+set SUPER_ADMIN_COUNT=0
+for /f "usebackq skip=1" %%c in (`mysql -u %DB_USER% -p%DB_PASS% -h %DB_HOST% -P %DB_PORT% %DB_NAME% -e "SELECT COUNT(*) FROM admin_info WHERE admin_level = 'super_admin' AND org_id = '';" 2^>nul`) do set SUPER_ADMIN_COUNT=%%c
 
 echo.
-echo [4/5] Root admin account
+echo [4/5] Super admin account
 echo ------------------------------------------------
-if %ROOT_ADMIN_COUNT% GEQ 1 (
-    echo        SKIPPED ^(%ROOT_ADMIN_COUNT% root admin^(s^) already exist^)
+if %SUPER_ADMIN_COUNT% GEQ 1 (
+    echo        SKIPPED ^(%SUPER_ADMIN_COUNT% super admin^(s^) already exist^)
     goto :show_tables
 )
 
-set /p CREATE_ADMIN="Create a root admin account? (y/N): "
+set /p CREATE_ADMIN="Create a super admin account? (y/N): "
 if /i "%CREATE_ADMIN%"=="y" goto :create_admin
 if /i "%CREATE_ADMIN%"=="yes" goto :create_admin
 echo        Skipped.
@@ -132,19 +132,19 @@ if "%ADMIN_INVITE_CODE%"=="" (
 )
 
 echo.
-echo Creating root admin: %ADMIN_NAME% ^(%ADMIN_STUDENT_ID%^)
+echo Creating super admin: %ADMIN_NAME% ^(%ADMIN_STUDENT_ID%^)
 REM Escape single quotes for SQL
 setlocal enabledelayedexpansion
 set ESC_NAME=!ADMIN_NAME:'=''!
 set ESC_STUDENT=!ADMIN_STUDENT_ID:'=''!
 set ESC_INVITE=!ADMIN_INVITE_CODE:'=''!
-mysql -u !DB_USER! -p!DB_PASS! -h !DB_HOST! -P !DB_PORT! !DB_NAME! -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code_hash, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '!ESC_NAME!', '!ESC_STUDENT!', 'root_admin', 'invited', SHA2(UPPER('!ESC_INVITE!'), 256), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1
+mysql -u !DB_USER! -p!DB_PASS! -h !DB_HOST! -P !DB_PORT! !DB_NAME! -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code_hash, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '!ESC_NAME!', '!ESC_STUDENT!', 'super_admin', 'invited', SHA2(UPPER('!ESC_INVITE!'), 256), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1
 if !ERRORLEVEL! NEQ 0 (
     endlocal
-    echo [ERROR] Failed to create root admin.
+    echo [ERROR] Failed to create super admin.
 ) else (
     endlocal
-    echo        Root admin created successfully.
+    echo        Super admin created successfully.
 )
 
 :show_tables

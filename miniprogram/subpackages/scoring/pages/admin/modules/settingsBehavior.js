@@ -67,7 +67,7 @@ module.exports = Behavior({
     },
 
     async loadOrganizations() {
-      if (!this.data.isRootAdmin) return;
+      if (!this.data.isSuperAdmin) return;
       const request = orgSession.beginRequest(this, 'organizationList');
       try {
         const result = await this.callCloud('listOrganizations');

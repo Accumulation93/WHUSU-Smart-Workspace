@@ -11,7 +11,7 @@ const cacheReads = [];
 const emptyModel = {};
 const mocks = {
   '../../../core/models/adminInfo': {
-    async getByOpenid() { return { id: 'admin-root', admin_level: 'root_admin' }; }
+    async getByOpenid() { return { id: 'admin-super', admin_level: 'super_admin', org_id: '' }; }
   },
   '../models/scoreActivity': {
     async getById(id) {
@@ -58,7 +58,7 @@ const handler = routeLayer.route.stack[0].handle;
 async function invoke(activityId) {
   let payload;
   await handler({
-    openid: 'openid-root',
+    openid: 'openid-super',
     body: { activityId, dataType: 'overview', filters: {} }
   }, {
     json(value) {

@@ -26,8 +26,9 @@ router.post('/saveSystemConfig', async (req, res) => {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
     if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
-    if (req.body.currentOrganization !== undefined && admin.admin_level !== 'root_admin') {
-      return res.status(403).json({ status: 'permission_denied', message: '仅至高权限管理员可修改系统默认组织' });
+    if (req.body.currentOrganization !== undefined
+      && (admin.admin_level !== 'super_admin' || admin.org_id !== '')) {
+      return res.status(403).json({ status: 'permission_denied', message: '仅超级管理员可修改系统默认组织' });
     }
 
     const timezone = toNumber(req.body.timezone, 8);

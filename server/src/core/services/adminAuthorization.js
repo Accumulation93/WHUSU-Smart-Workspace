@@ -1,10 +1,9 @@
 const crypto = require('crypto');
 const { safeString } = require('../../utils/helpers');
 
-const DIRECT_MANAGED_LEVEL = {
-  root_admin: 'super_admin',
-  super_admin: 'admin'
-};
+const SUPER_ADMIN_LEVEL = 'super_admin';
+const REGULAR_ADMIN_LEVEL = 'admin';
+const ADMIN_LEVELS = [SUPER_ADMIN_LEVEL, REGULAR_ADMIN_LEVEL];
 const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function hashInviteCode(inviteCode) {
@@ -23,20 +22,49 @@ function createInviteCredential() {
   };
 }
 
-function canManageTarget(operator, target, orgId) {
+function isSuperAdmin(admin) {
+  return Boolean(admin && admin.admin_level === SUPER_ADMIN_LEVEL);
+}
+
+function canViewTarget(operator, target, orgId) {
   if (!operator || !target) return false;
-  const expectedLevel = DIRECT_MANAGED_LEVEL[operator.admin_level];
-  return Boolean(expectedLevel && target.admin_level === expectedLevel && target.org_id === orgId);
+  if (isSuperAdmin(operator)) {
+    return (target.admin_level === SUPER_ADMIN_LEVEL && target.org_id === '')
+      || (target.admin_level === REGULAR_ADMIN_LEVEL && target.org_id === orgId);
+  }
+  return operator.admin_level === REGULAR_ADMIN_LEVEL
+    && target.admin_level === REGULAR_ADMIN_LEVEL
+    && operator.org_id === orgId
+    && target.org_id === orgId;
+}
+
+function canManageTarget(operator, target, orgId) {
+  if (!canViewTarget(operator, target, orgId) || operator.id === target.id) return false;
+  if (isSuperAdmin(operator)) return true;
+  return operator.admin_level === REGULAR_ADMIN_LEVEL && target.admin_level === REGULAR_ADMIN_LEVEL;
 }
 
 function canCreateLevel(operator, adminLevel) {
-  return Boolean(operator && DIRECT_MANAGED_LEVEL[operator.admin_level] === adminLevel);
+  if (!operator || !ADMIN_LEVELS.includes(adminLevel)) return false;
+  if (isSuperAdmin(operator)) return true;
+  return operator.admin_level === REGULAR_ADMIN_LEVEL && adminLevel === REGULAR_ADMIN_LEVEL;
+}
+
+function canDeleteTarget(operator, target, orgId, activeSuperAdminCount) {
+  if (!canManageTarget(operator, target, orgId)) return false;
+  if (target.admin_level !== SUPER_ADMIN_LEVEL || target.bind_status !== 'active') return true;
+  return Number(activeSuperAdminCount) > 1;
 }
 
 module.exports = {
-  DIRECT_MANAGED_LEVEL,
+  SUPER_ADMIN_LEVEL,
+  REGULAR_ADMIN_LEVEL,
+  ADMIN_LEVELS,
   hashInviteCode,
   createInviteCredential,
+  isSuperAdmin,
+  canViewTarget,
   canManageTarget,
-  canCreateLevel
+  canCreateLevel,
+  canDeleteTarget
 };
