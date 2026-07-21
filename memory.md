@@ -94,7 +94,7 @@ MySQL 8.0 Community Server: `C:\Program Files\MySQL\MySQL Server 8.0\`
 
 #### 4. 用户绑定
 - `user_info` — 普通用户 (openid UNIQUE, hr_id)
-- `admin_info` — 管理员（`admin_level=super_admin|admin`；超级管理员全局跨组织，普通管理员按 `org_id` 隔离）
+- `admin_info` — 管理员（`admin_level=super_admin|admin`；超级管理员全局跨组织，普通管理员按 `org_id` 隔离；邀请码按授权范围明文展示与重置）
 
 #### 5. 评分活动与模板
 - `score_activities` — 评分活动 (name, start_date, end_date, is_current)

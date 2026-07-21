@@ -1380,10 +1380,13 @@
           </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
         </view>
         <view class="button-row compact-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAdmin}}" bindtap="saveAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存管理员</button>
+          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAdmin}}" bindtap="saveAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{adminForm.id ? '保存管理员' : '保存并生成邀请码'}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="resetAdminForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置表单</button>
         </view>
-        <view class="invite-banner" wx:if="{{latestInviteCode}}">最新邀请码：{{latestInviteCode}}</view>
+        <view class="invite-banner" wx:if="{{latestInviteCode}}">
+          <text>最新邀请码：{{latestInviteCode}}</text>
+          <text class="link ui-motion-chip" data-code="{{latestInviteCode}}" bindtap="copyAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">复制</text>
+        </view>
       </view>
 
       <view class="list-card">
@@ -1397,9 +1400,11 @@
             <view class="list-main">
               <view class="list-name">{{item.name}} - {{item.adminLevelLabel}}</view>
               <view class="list-desc">{{item.studentId}} - {{item.bindStatusLabel}}</view>
-              <view class="inline-actions list-actions-below" wx:if="{{item.canEdit || item.canDelete || item.canRegenerateInvite}}">
+              <view class="invite-chip" wx:if="{{item.canViewInviteCode}}">邀请码：{{item.inviteCode || '尚未生成'}}</view>
+              <view class="inline-actions list-actions-below" wx:if="{{item.canEdit || item.canDelete || item.canRegenerateInvite || item.canCopyInviteCode}}">
                 <text class="link ui-motion-chip" wx:if="{{item.canEdit}}" data-index="{{index}}" bindtap="editAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                <text class="link ui-motion-chip" wx:if="{{item.canRegenerateInvite}}" data-id="{{item.id}}" bindtap="regenerateAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置邀请</text>
+                <text class="link ui-motion-chip" wx:if="{{item.canCopyInviteCode}}" data-code="{{item.inviteCode}}" bindtap="copyAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">复制邀请码</text>
+                <text class="link ui-motion-chip" wx:if="{{item.canRegenerateInvite}}" data-id="{{item.id}}" bindtap="regenerateAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.inviteCode ? '重置邀请码' : '生成邀请码'}}</text>
                 <text class="link danger ui-motion-chip" wx:if="{{item.canDelete}}" data-id="{{item.id}}" bindtap="deleteAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
               </view>
             </view>

@@ -140,7 +140,7 @@ else
     ESC_STUDENT="$(printf '%s' "$ADMIN_STUDENT_ID" | sed "s/'/''/g")"
     ESC_INVITE="$(printf '%s' "$ADMIN_INVITE_CODE" | sed "s/'/''/g")"
 
-    if $MYSQL_CMD "$DB_NAME" -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code_hash, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '$ESC_NAME', '$ESC_STUDENT', 'super_admin', 'invited', SHA2(UPPER('$ESC_INVITE'), 256), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1; then
+    if $MYSQL_CMD "$DB_NAME" -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '$ESC_NAME', '$ESC_STUDENT', 'super_admin', 'invited', UPPER('$ESC_INVITE'), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1; then
       echo "       Super admin created successfully."
     else
       echo "[ERROR] Failed to create super admin."

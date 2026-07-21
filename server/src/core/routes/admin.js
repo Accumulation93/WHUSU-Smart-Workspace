@@ -9,6 +9,7 @@ const {
   ADMIN_LEVELS,
   createInviteCredential,
   isSuperAdmin,
+  canViewTarget,
   canManageTarget,
   canCreateLevel,
   canDeleteTarget
@@ -72,7 +73,7 @@ async function createAdminRecord(connection, operator, orgId, body) {
     adminLevel,
     orgId: targetOrgId,
     bindStatus: 'invited',
-    inviteCodeHash: invite.inviteCodeHash,
+    inviteCode: invite.inviteCode,
     invitedAt: invite.invitedAt,
     inviteExpiresAt: invite.inviteExpiresAt
   }, connection);
@@ -90,17 +91,21 @@ router.post('/listAdmins', async (req, res) => {
     const rows = await adminInfoModel.listVisible(operator, orgId);
     const list = rows.map((item) => {
       const canManage = canWrite && canManageTarget(operator, item, orgId);
+      const canAccessInvite = canWrite && canViewTarget(operator, item, orgId);
       return {
         id: item.id,
         name: safeString(item.name),
         studentId: safeString(item.student_id),
         adminLevel: item.admin_level,
         adminLevelLabel: getAdminLevelLabel(item.admin_level),
-        inviteCode: '',
+        inviteCode: canAccessInvite ? safeString(item.invite_code) : '',
+        inviteExpiresAt: canAccessInvite && item.invite_expires_at ? item.invite_expires_at : null,
+        canViewInviteCode: canAccessInvite,
+        canCopyInviteCode: canAccessInvite && Boolean(safeString(item.invite_code)),
         canManage,
         canEdit: canManage,
         canDelete: canManage,
-        canRegenerateInvite: canManage && item.bind_status !== 'active' && !safeString(item.openid),
+        canRegenerateInvite: canAccessInvite,
         bindStatus: safeString(item.bind_status),
         bindStatusLabel: getBindStatusLabel(safeString(item.bind_status))
       };
@@ -275,13 +280,9 @@ router.post('/generateAdminInviteCode', async (req, res) => {
       await connection.rollback();
       return res.json({ status: 'not_found', message: '管理员不存在' });
     }
-    if (!canManageTarget(operator, target, orgId)) {
+    if (!canViewTarget(operator, target, orgId)) {
       await connection.rollback();
       return res.json({ status: 'forbidden', message: '不能管理该管理员邀请码' });
-    }
-    if (target.bind_status === 'active' || safeString(target.openid)) {
-      await connection.rollback();
-      return res.json({ status: 'invalid_operation', message: '已绑定账号不能重新生成邀请码' });
     }
     const invite = createInviteCredential();
     await adminInfoModel.updateInvite(connection, target, invite);

@@ -138,7 +138,7 @@ setlocal enabledelayedexpansion
 set ESC_NAME=!ADMIN_NAME:'=''!
 set ESC_STUDENT=!ADMIN_STUDENT_ID:'=''!
 set ESC_INVITE=!ADMIN_INVITE_CODE:'=''!
-mysql -u !DB_USER! -p!DB_PASS! -h !DB_HOST! -P !DB_PORT! !DB_NAME! -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code_hash, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '!ESC_NAME!', '!ESC_STUDENT!', 'super_admin', 'invited', SHA2(UPPER('!ESC_INVITE!'), 256), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1
+mysql -u !DB_USER! -p!DB_PASS! -h !DB_HOST! -P !DB_PORT! !DB_NAME! -e "INSERT INTO admin_info (id, name, student_id, admin_level, bind_status, invite_code, invited_at, invite_expires_at, org_id) VALUES (REPLACE(UUID(), '-', ''), '!ESC_NAME!', '!ESC_STUDENT!', 'super_admin', 'invited', UPPER('!ESC_INVITE!'), UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY), '');" 2>&1
 if !ERRORLEVEL! NEQ 0 (
     endlocal
     echo [ERROR] Failed to create super admin.

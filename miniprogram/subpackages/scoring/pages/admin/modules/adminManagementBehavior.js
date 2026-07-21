@@ -7,6 +7,33 @@ const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
+    copyInviteCode(inviteCode) {
+      const code = String(inviteCode || '').trim();
+      if (!code) return;
+      wx.setClipboardData({
+        data: code,
+        success: () => wx.showToast({ title: '邀请码已复制', icon: 'success' })
+      });
+    },
+
+    presentInviteCode(inviteCode) {
+      const code = String(inviteCode || '').trim();
+      if (!code) return;
+      wx.showModal({
+        title: '管理员邀请码',
+        content: `邀请码：${code}\n请复制后发送给对应管理员。`,
+        confirmText: '复制',
+        cancelText: '关闭',
+        success: (res) => {
+          if (res.confirm) this.copyInviteCode(code);
+        }
+      });
+    },
+
+    copyAdminInvite(e) {
+      this.copyInviteCode(e.currentTarget.dataset.code);
+    },
+
     filterAdminCandidates(keyword) {
       const text = String(keyword || '').trim().toLowerCase();
       const sourceList = this.data.hrList || [];
@@ -197,6 +224,7 @@ module.exports = Behavior({
           title: '管理员已保存',
           icon: 'success'
         });
+        if (result.inviteCode) this.presentInviteCode(result.inviteCode);
       } catch (error) {
         wx.showToast({
           title: '保存管理员失败',
@@ -219,6 +247,7 @@ module.exports = Behavior({
         this.setData({ latestInviteCode: result.inviteCode || '' });
         await this.loadAdminList();
         wx.showToast({ title: '邀请码已生成', icon: 'success' });
+        this.presentInviteCode(result.inviteCode);
       } catch (_) {
         wx.showToast({ title: '生成失败', icon: 'none' });
       }

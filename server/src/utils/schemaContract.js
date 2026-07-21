@@ -1,5 +1,5 @@
 const REQUIRED_COLUMNS = [
-  ['admin_info', 'invite_code_hash'],
+  ['admin_info', 'invite_code'],
   ['admin_info', 'invite_expires_at'],
   ['admin_info', 'invite_consumed_at'],
   ['venue_bookings', 'creator_org_id'],
@@ -28,7 +28,8 @@ const REQUIRED_INDEXES = [
   ['audit_read_cursors', 'uk_arc_org_hr_submission'],
   ['notifications', 'uk_notification_event'],
   ['notification_outbox', 'uk_notification_outbox_event'],
-  ['admin_permission_overrides', 'uk_admin_permission']
+  ['admin_permission_overrides', 'uk_admin_permission'],
+  ['admin_info', 'uk_ai_invite_code']
 ];
 
 async function verifySchemaContract(pool) {

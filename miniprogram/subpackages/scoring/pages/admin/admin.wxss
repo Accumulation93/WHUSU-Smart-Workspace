@@ -1432,6 +1432,11 @@ scroll-view {
 }
 
 .invite-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  flex-wrap: wrap;
   margin-top: 8rpx;
   padding: 16rpx 18rpx;
   border-radius: 20rpx;

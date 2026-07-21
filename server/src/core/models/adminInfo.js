@@ -72,15 +72,15 @@ async function getAll(operator) {
 
 async function create(id, data, connection) {
   const db = connection || pool;
-  const { name, studentId, openid, adminLevel, bindStatus, inviteCodeHash, invitedAt, inviteExpiresAt } = data;
+  const { name, studentId, openid, adminLevel, bindStatus, inviteCode, invitedAt, inviteExpiresAt } = data;
   const orgId = adminLevel === 'super_admin' ? '' : (data.orgId || await getCurrentOrgId());
   await db.query(
     `INSERT INTO admin_info
-      (id, name, student_id, openid, admin_level, bind_status, invite_code, invite_code_hash,
+      (id, name, student_id, openid, admin_level, bind_status, invite_code,
        invited_at, invite_expires_at, invite_consumed_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, NULL, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
     [id, name || '', studentId || '', openid || '', adminLevel || 'admin',
-     bindStatus || 'invited', inviteCodeHash || null, invitedAt || null, inviteExpiresAt || null, orgId]
+     bindStatus || 'invited', inviteCode || null, invitedAt || null, inviteExpiresAt || null, orgId]
   );
 }
 
@@ -88,7 +88,7 @@ async function update(id, data) {
   const fields = [];
   const values = [];
   const allowedFields = ['name', 'student_id', 'openid', 'bind_status',
-    'invite_code', 'invite_code_hash', 'invited_at', 'invite_expires_at', 'invite_consumed_at',
+    'invite_code', 'invited_at', 'invite_expires_at', 'invite_consumed_at',
     'bound_at', 'updated_at'];
 
   for (const [key, value] of Object.entries(data)) {
@@ -137,10 +137,12 @@ async function updateProfile(connection, target, data) {
 async function updateInvite(connection, target, invite) {
   const [result] = await connection.query(
     `UPDATE admin_info
-        SET invite_code = NULL, invite_code_hash = ?, invited_at = ?, invite_expires_at = ?,
-            invite_consumed_at = NULL, updated_at = NOW()
+        SET invite_code = ?, invited_at = ?, invite_expires_at = ?,
+            invite_consumed_at = NULL,
+            openid = IF(bind_status = 'invited', NULL, openid),
+            updated_at = NOW()
       WHERE id = ? AND admin_level = ? AND org_id = ?`,
-    [invite.inviteCodeHash, invite.invitedAt, invite.inviteExpiresAt,
+    [invite.inviteCode, invite.invitedAt, invite.inviteExpiresAt,
       target.id, target.admin_level, target.org_id]
   );
   return result.affectedRows === 1;
@@ -161,15 +163,15 @@ async function lockSuperAdmins(connection) {
   return rows;
 }
 
-async function getByInviteHash(inviteCodeHash) {
+async function getByInviteCode(inviteCode) {
   const [rows] = await pool.query(
     `SELECT * FROM admin_info
-      WHERE invite_code_hash = ?
+      WHERE invite_code = ?
         AND bind_status = 'invited'
         AND invite_consumed_at IS NULL
         AND invite_expires_at > NOW()
       LIMIT 1`,
-    [inviteCodeHash]
+    [inviteCode]
   );
   return rows[0] || null;
 }
@@ -203,5 +205,5 @@ async function getByOpenidAcrossOrgs(openid) {
 module.exports = {
   getByOpenid, getByOpenidAny, getByOpenidGlobal, getByOpenidAcrossOrgs, getById, getByIdGlobal,
   listVisible, getAll, create, update, remove, studentExists, updateProfile, updateInvite, removeExact,
-  lockSuperAdmins, getByInviteHash, getSuperAdmin, getByAdminLevel
+  lockSuperAdmins, getByInviteCode, getSuperAdmin, getByAdminLevel
 };

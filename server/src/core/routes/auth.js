@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
 const { JWT_SECRET } = require('../../middleware/auth');
 const { safeString, generateId } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
@@ -760,15 +759,15 @@ router.post('/bindAdminInfo', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请提供邀请码' });
     }
 
-    const inviteCodeHash = crypto.createHash('sha256').update(inviteCode.toUpperCase()).digest('hex');
+    const normalizedInviteCode = inviteCode.toUpperCase();
     await conn.beginTransaction();
     const [adminRows] = await conn.query(
       `SELECT *, (invite_expires_at > NOW()) AS invite_valid FROM admin_info
-        WHERE invite_code_hash = ?
+        WHERE invite_code = ?
           AND bind_status = 'invited'
           AND invite_consumed_at IS NULL
         LIMIT 1 FOR UPDATE`,
-      [inviteCodeHash]
+      [normalizedInviteCode]
     );
     const admin = adminRows[0];
     if (!admin) {
@@ -791,9 +790,9 @@ router.post('/bindAdminInfo', async (req, res) => {
     const [updateResult] = await conn.query(
       `UPDATE admin_info
           SET openid = ?, bind_status = 'active', bound_at = ?, updated_at = ?,
-              invite_code = NULL, invite_code_hash = NULL, invite_consumed_at = ?, invite_expires_at = NULL
-        WHERE id = ? AND invite_code_hash = ? AND bind_status = 'invited' AND invite_consumed_at IS NULL`,
-      [openid, nowUtc, nowUtc, nowUtc, admin.id, inviteCodeHash]
+              invite_consumed_at = ?
+        WHERE id = ? AND invite_code = ? AND bind_status = 'invited' AND invite_consumed_at IS NULL`,
+      [openid, nowUtc, nowUtc, nowUtc, admin.id, normalizedInviteCode]
     );
     if (updateResult.affectedRows !== 1) {
       await conn.rollback();

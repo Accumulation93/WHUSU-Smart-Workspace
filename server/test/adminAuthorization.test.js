@@ -1,6 +1,5 @@
 const assert = require('assert');
 const {
-  hashInviteCode,
   createInviteCredential,
   canViewTarget,
   canManageTarget,
@@ -22,6 +21,7 @@ assert.strictEqual(canCreateLevel(regularAdmin, 'super_admin'), false);
 assert.strictEqual(canCreateLevel(regularAdmin, 'root_admin'), false);
 
 assert.strictEqual(canViewTarget(superAdmin, peerSuper, 'org-44'), true);
+assert.strictEqual(canViewTarget(superAdmin, superAdmin, 'org-44'), true);
 assert.strictEqual(canViewTarget(superAdmin, peerRegular, 'org-44'), true);
 assert.strictEqual(canManageTarget(superAdmin, peerSuper, 'org-44'), true);
 assert.strictEqual(canManageTarget(superAdmin, peerRegular, 'org-44'), true);
@@ -39,7 +39,6 @@ assert.strictEqual(canDeleteTarget(regularAdmin, peerRegular, 'org-44', 0), true
 
 const invite = createInviteCredential();
 assert.strictEqual(invite.inviteCode.length, 8);
-assert.strictEqual(invite.inviteCodeHash, hashInviteCode(invite.inviteCode));
 assert(invite.inviteExpiresAt.getTime() > invite.invitedAt.getTime());
 
 console.log('两级管理员层级与邀请码安全测试通过');

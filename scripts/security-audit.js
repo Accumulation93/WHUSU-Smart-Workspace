@@ -105,6 +105,15 @@ requireSourceContract('server/src/core/services/adminAuthorization.js', [
   { rule: 'admin-self-management-blocked', test: source => source.includes('operator.id === target.id') },
   { rule: 'admin-last-super-protected', test: source => source.includes('Number(activeSuperAdminCount) > 1') }
 ]);
+requireSourceContract('server/src/core/models/adminInfo.js', [
+  { rule: 'admin-invite-plaintext-storage', test: source => source.includes('SET invite_code = ?') && !source.includes('invite_code_hash') }
+]);
+requireSourceContract('server/src/core/routes/admin.js', [
+  { rule: 'admin-invite-authorized-display', test: source => source.includes('canViewInviteCode: canAccessInvite') && source.includes('canRegenerateInvite: canAccessInvite') }
+]);
+requireSourceContract('server/src/core/routes/auth.js', [
+  { rule: 'admin-invite-plaintext-binding', test: source => source.includes('WHERE invite_code = ?') && !source.includes('invite_code_hash') }
+]);
 requireSourceContract('server/src/modules/audit/utils/fileSecurity.js', [
   { rule: 'signed-file-token', test: source => /createHmac\(['"]sha256['"]/.test(source) && /timingSafeEqual/.test(source) }
 ]);

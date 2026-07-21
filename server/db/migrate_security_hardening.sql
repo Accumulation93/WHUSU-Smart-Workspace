@@ -1,4 +1,4 @@
--- 安全加固迁移：认证挑战、管理员邀请码生命周期。
+-- 安全加固迁移：认证挑战、管理员邀请码有效期与使用状态。
 -- 本文件可重复执行，新增字段均通过 information_schema 判断。
 
 CREATE TABLE IF NOT EXISTS auth_challenges (
@@ -12,15 +12,6 @@ CREATE TABLE IF NOT EXISTS auth_challenges (
   INDEX idx_ac_expiry (expires_at),
   INDEX idx_ac_owner (openid_hash, challenge_type, consumed_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-SET @invite_hash_exists = (
-  SELECT COUNT(*) FROM information_schema.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'admin_info' AND COLUMN_NAME = 'invite_code_hash'
-);
-SET @sql = IF(@invite_hash_exists = 0,
-  'ALTER TABLE admin_info ADD COLUMN invite_code_hash CHAR(64) DEFAULT NULL AFTER invite_code',
-  'SELECT 1');
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @invite_expires_exists = (
   SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -40,19 +31,11 @@ SET @sql = IF(@invite_consumed_exists = 0,
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-SET @invite_hash_index_exists = (
+SET @invite_code_index_exists = (
   SELECT COUNT(*) FROM information_schema.STATISTICS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'admin_info' AND INDEX_NAME = 'uk_ai_invite_hash'
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'admin_info' AND INDEX_NAME = 'uk_ai_invite_code'
 );
-SET @sql = IF(@invite_hash_index_exists = 0,
-  'ALTER TABLE admin_info ADD UNIQUE INDEX uk_ai_invite_hash (invite_code_hash)',
+SET @sql = IF(@invite_code_index_exists = 0,
+  'ALTER TABLE admin_info ADD UNIQUE INDEX uk_ai_invite_code (invite_code)',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-
--- 旧邀请码在部署后统一失效，避免可长期重放；管理员可重新生成。
-UPDATE admin_info
-SET invite_code = NULL,
-    invite_code_hash = NULL,
-    invite_expires_at = NULL,
-    invite_consumed_at = NULL
-WHERE invite_code IS NOT NULL;

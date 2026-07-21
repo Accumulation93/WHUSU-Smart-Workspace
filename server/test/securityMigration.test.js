@@ -33,14 +33,40 @@ async function run() {
       [database]
     );
     const names = new Set(columns.map((item) => item.COLUMN_NAME));
-    assert(names.has('invite_code_hash'));
+    assert(names.has('invite_code'));
     assert(names.has('invite_expires_at'));
     assert(names.has('invite_consumed_at'));
 
     const [challenges] = await admin.query("SHOW TABLES LIKE 'auth_challenges'");
     assert.strictEqual(challenges.length, 1);
     const [legacy] = await admin.query("SELECT invite_code FROM admin_info WHERE id = 'root-test'");
-    assert.strictEqual(legacy[0].invite_code, null);
+    assert.strictEqual(legacy[0].invite_code, 'OLD123');
+
+    await admin.query(`
+      ALTER TABLE admin_info ADD COLUMN invite_code_hash CHAR(64) DEFAULT NULL AFTER invite_code;
+      ALTER TABLE admin_info ADD UNIQUE INDEX uk_ai_invite_hash (invite_code_hash);
+      UPDATE admin_info SET invite_code_hash = SHA2(invite_code, 256);
+    `);
+    const plaintextMigration = fs.readFileSync(
+      path.resolve(__dirname, '../db/deploy/20260721194000_plaintext_admin_invites.sql'),
+      'utf8'
+    );
+    await admin.query(plaintextMigration);
+    await admin.query(plaintextMigration);
+    const [plainColumns] = await admin.query(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'admin_info'`,
+      [database]
+    );
+    assert(!plainColumns.some((item) => item.COLUMN_NAME === 'invite_code_hash'));
+    const [plainIndexes] = await admin.query(
+      `SELECT INDEX_NAME FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'admin_info'`,
+      [database]
+    );
+    assert(plainIndexes.some((item) => item.INDEX_NAME === 'uk_ai_invite_code'));
+    const [preserved] = await admin.query("SELECT invite_code FROM admin_info WHERE id = 'root-test'");
+    assert.strictEqual(preserved[0].invite_code, 'OLD123');
     console.log('安全迁移幂等测试通过');
   } finally {
     await admin.query('DROP DATABASE IF EXISTS ??', [database]);

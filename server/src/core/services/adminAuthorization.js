@@ -1,14 +1,9 @@
 const crypto = require('crypto');
-const { safeString } = require('../../utils/helpers');
 
 const SUPER_ADMIN_LEVEL = 'super_admin';
 const REGULAR_ADMIN_LEVEL = 'admin';
 const ADMIN_LEVELS = [SUPER_ADMIN_LEVEL, REGULAR_ADMIN_LEVEL];
 const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
-
-function hashInviteCode(inviteCode) {
-  return crypto.createHash('sha256').update(safeString(inviteCode).toUpperCase()).digest('hex');
-}
 
 function createInviteCredential() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -16,7 +11,6 @@ function createInviteCredential() {
   for (let i = 0; i < 8; i++) inviteCode += chars[crypto.randomInt(0, chars.length)];
   return {
     inviteCode,
-    inviteCodeHash: hashInviteCode(inviteCode),
     invitedAt: new Date(),
     inviteExpiresAt: new Date(Date.now() + INVITE_TTL_MS)
   };
@@ -60,7 +54,6 @@ module.exports = {
   SUPER_ADMIN_LEVEL,
   REGULAR_ADMIN_LEVEL,
   ADMIN_LEVELS,
-  hashInviteCode,
   createInviteCredential,
   isSuperAdmin,
   canViewTarget,

@@ -22,15 +22,14 @@ async function main() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let inviteCode = '';
   for (let i = 0; i < 8; i++) inviteCode += chars[crypto.randomInt(0, chars.length)];
-  const inviteCodeHash = crypto.createHash('sha256').update(inviteCode).digest('hex');
   const inviteExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   await pool.query(
     `INSERT INTO admin_info
-      (id, name, student_id, openid, admin_level, bind_status, invite_code_hash,
+      (id, name, student_id, openid, admin_level, bind_status, invite_code,
        invited_at, invite_expires_at, org_id)
      VALUES (?, ?, ?, '', 'super_admin', 'invited', ?, NOW(), ?, '')`,
-    [generateId(), name, studentId, inviteCodeHash, inviteExpiresAt]
+    [generateId(), name, studentId, inviteCode, inviteExpiresAt]
   );
   console.log('超级管理员记录已创建。一次性邀请码：' + inviteCode + '（24小时内有效）');
 }
