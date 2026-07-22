@@ -37,7 +37,7 @@ async function createLegacyFixture(connection) {
     CREATE TABLE organizations (
       id VARCHAR(64) PRIMARY KEY,
       name VARCHAR(200) NOT NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     CREATE TABLE hr_profile_templates (
       id VARCHAR(64) PRIMARY KEY,
       template_key VARCHAR(64) NOT NULL DEFAULT 'default_hr_profile_template',
@@ -50,7 +50,7 @@ async function createLegacyFixture(connection) {
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_hpt_org (org_id),
       UNIQUE INDEX idx_hpt_key (template_key, org_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     CREATE TABLE hr_profile_template_fields (
       id VARCHAR(64) PRIMARY KEY,
       template_id VARCHAR(64) NOT NULL,
@@ -65,7 +65,7 @@ async function createLegacyFixture(connection) {
       INDEX idx_hptf_template (template_id),
       INDEX idx_hptf_org (org_id),
       CONSTRAINT fk_hptf_template FOREIGN KEY (template_id) REFERENCES hr_profile_templates(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     CREATE TABLE hr_profile_records (
       id VARCHAR(64) PRIMARY KEY,
       hr_id VARCHAR(64) NOT NULL,
@@ -77,7 +77,7 @@ async function createLegacyFixture(connection) {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_hpr_org (org_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     CREATE TABLE hr_profile_record_values (
       id VARCHAR(64) PRIMARY KEY,
       record_id VARCHAR(64) NOT NULL,
@@ -87,7 +87,7 @@ async function createLegacyFixture(connection) {
       org_id VARCHAR(64) NOT NULL,
       INDEX idx_hprv_record (record_id), INDEX idx_hprv_field (field_id), INDEX idx_hprv_org (org_id),
       CONSTRAINT fk_hprv_record FOREIGN KEY (record_id) REFERENCES hr_profile_records(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `);
   await connection.query(
     `INSERT INTO organizations (id, name) VALUES ('org-a', '红树林学生会'), ('org-b', '红树林学生会')`
