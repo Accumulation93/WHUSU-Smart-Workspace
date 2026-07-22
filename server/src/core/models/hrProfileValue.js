@@ -41,6 +41,17 @@ async function removeByRecordIdAndPending(recordId, isPending) {
   );
 }
 
+async function removeByRecordIdAndPendingFields(recordId, isPending, fieldIds) {
+  if (!fieldIds.length) return;
+  const orgId = await getCurrentOrgId();
+  const placeholders = fieldIds.map(() => '?').join(',');
+  await pool.query(
+    `DELETE FROM hr_profile_record_values
+      WHERE record_id = ? AND is_pending = ? AND org_id = ? AND field_id IN (${placeholders})`,
+    [recordId, isPending ? 1 : 0, orgId, ...fieldIds]
+  );
+}
+
 async function getByRecordIdsAndPending(recordIds, isPending = 0) {
   if (!recordIds.length) return [];
   const orgId = await getCurrentOrgId();
@@ -52,4 +63,12 @@ async function getByRecordIdsAndPending(recordIds, isPending = 0) {
   return rows;
 }
 
-module.exports = { getByRecordId, getByRecordIdAndPending, getByRecordIdsAndPending, create, removeByRecordId, removeByRecordIdAndPending };
+module.exports = {
+  getByRecordId,
+  getByRecordIdAndPending,
+  getByRecordIdsAndPending,
+  create,
+  removeByRecordId,
+  removeByRecordIdAndPending,
+  removeByRecordIdAndPendingFields
+};

@@ -23,15 +23,15 @@ async function getAll() {
 }
 
 async function create(id, data) {
-  const { hrId, name, openid, templateKey, templateUpdatedAt, auditStatus,
+  const { hrId, name, openid, templateSnapshotId, auditStatus,
     rejectionReason, requestedAt, reviewedAt } = data;
   const orgId = await getCurrentOrgId();
   await pool.query(
     `INSERT INTO hr_profile_records
-     (id, hr_id, name, openid, template_key, template_updated_at, audit_status,
+     (id, hr_id, name, openid, template_snapshot_id, audit_status,
       rejection_reason, requested_at, reviewed_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, hrId, name || '', openid || '', templateKey || '', templateUpdatedAt || null,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, hrId, name || '', openid || '', templateSnapshotId || null,
      auditStatus || 'none', rejectionReason || '', requestedAt || null, reviewedAt || null, orgId]
   );
 }
@@ -39,7 +39,7 @@ async function create(id, data) {
 async function update(id, data) {
   const fields = [];
   const values = [];
-  const allowedFields = ['hr_id', 'name', 'openid', 'template_key', 'template_updated_at',
+  const allowedFields = ['hr_id', 'name', 'openid', 'template_snapshot_id',
     'audit_status', 'rejection_reason', 'requested_at', 'reviewed_at', 'updated_at'];
 
   for (const [key, value] of Object.entries(data)) {

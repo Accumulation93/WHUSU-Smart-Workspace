@@ -1,45 +1,61 @@
 const pool = require('../../config/db');
 const { getCurrentOrgId } = require('../../utils/orgContext');
-const TEMPLATE_KEY = 'default_hr_profile_template';
 
-async function getByTemplateKey(key = TEMPLATE_KEY) {
+async function getActiveSnapshot(connection = pool) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT * FROM hr_profile_templates WHERE template_key = ? AND org_id = ? LIMIT 1',
-    [key, orgId]
+  const [rows] = await connection.query(
+    `SELECT s.*
+       FROM org_hr_profile_template_settings settings
+       JOIN org_hr_profile_template_snapshots s ON s.id = settings.active_snapshot_id
+      WHERE settings.org_id = ? AND s.org_id = ? LIMIT 1`,
+    [orgId, orgId]
   );
   return rows[0] || null;
 }
 
-async function getById(id) {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query('SELECT * FROM hr_profile_templates WHERE id = ? AND org_id = ?', [id, orgId]);
+async function getByTemplateKey() {
+  return getActiveSnapshot();
+}
+
+async function getById(id, connection = pool) {
+  const [rows] = await connection.query('SELECT * FROM hr_profile_templates WHERE id = ?', [id]);
   return rows[0] || null;
 }
 
-async function create(id, data) {
-  const { templateKey, description, editMode, updatedBy } = data;
-  const orgId = await getCurrentOrgId();
-  await pool.query(
-    `INSERT INTO hr_profile_templates (id, template_key, description, edit_mode, updated_by, org_id)
+async function getAll(connection = pool) {
+  const [rows] = await connection.query(
+    `SELECT t.*,
+            COUNT(DISTINCT s.id) AS snapshot_count,
+            COUNT(DISTINCT CASE WHEN settings.active_snapshot_id = s.id THEN settings.org_id END) AS active_org_count
+       FROM hr_profile_templates t
+       LEFT JOIN org_hr_profile_template_snapshots s ON s.source_template_id = t.id
+       LEFT JOIN org_hr_profile_template_settings settings ON settings.active_snapshot_id = s.id
+      GROUP BY t.id ORDER BY t.name`
+  );
+  return rows;
+}
+
+async function create(id, data, connection = pool) {
+  const { name, description, editMode, createdBy } = data;
+  await connection.query(
+    `INSERT INTO hr_profile_templates (id, name, description, edit_mode, created_by, updated_by)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, templateKey || TEMPLATE_KEY, description || '', editMode || 'direct', updatedBy || '', orgId]
+    [id, name, description || '', editMode || 'direct', createdBy || null, createdBy || null]
   );
 }
 
-async function update(id, data) {
-  const { templateKey, description, editMode, updatedBy, updatedAt } = data;
-  const orgId = await getCurrentOrgId();
-  await pool.query(
-    `UPDATE hr_profile_templates SET template_key = ?, description = ?, edit_mode = ?,
-     updated_by = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
-    [templateKey || TEMPLATE_KEY, description || '', editMode || 'direct', updatedBy || '', updatedAt || null, id, orgId]
+async function update(id, data, connection = pool) {
+  const { name, description, editMode, updatedBy, updatedAt } = data;
+  await connection.query(
+    `UPDATE hr_profile_templates
+        SET name = ?, description = ?, edit_mode = ?, updated_by = ?, updated_at = ?
+      WHERE id = ?`,
+    [name, description || '', editMode || 'direct', updatedBy || null, updatedAt || new Date(), id]
   );
 }
 
-async function remove(id) {
-  const orgId = await getCurrentOrgId();
-  await pool.query('DELETE FROM hr_profile_templates WHERE id = ? AND org_id = ?', [id, orgId]);
+async function remove(id, connection = pool) {
+  await connection.query('DELETE FROM hr_profile_templates WHERE id = ?', [id]);
 }
 
-module.exports = { getByTemplateKey, getById, create, update, remove, TEMPLATE_KEY };
+module.exports = { getActiveSnapshot, getByTemplateKey, getById, getAll, create, update, remove };

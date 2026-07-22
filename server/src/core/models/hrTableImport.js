@@ -1,7 +1,6 @@
 const pool = require('../../config/db');
 const { safeString, generateId } = require('../../utils/helpers');
 
-const TEMPLATE_KEY = 'default_hr_profile_template';
 const REQUIRED_BASIC_FIELDS = ['name', 'studentId', 'department', 'identity'];
 const BASIC_FIELD_LABELS = {
   name: '姓名',
@@ -239,16 +238,19 @@ async function loadImportContext(orgId, extensionMapping) {
   let templateFields = [];
   if (extensionMapping.length) {
     const [templates] = await pool.query(
-      'SELECT * FROM hr_profile_templates WHERE template_key = ? AND org_id = ? LIMIT 1',
-      [TEMPLATE_KEY, orgId]
+      `SELECT snapshot.*
+         FROM org_hr_profile_template_settings settings
+         JOIN org_hr_profile_template_snapshots snapshot ON snapshot.id = settings.active_snapshot_id
+        WHERE settings.org_id = ? AND snapshot.org_id = ? LIMIT 1`,
+      [orgId, orgId]
     );
     template = templates[0] || null;
     if (!template) {
       throw new HrTableImportError('missing_template', '未配置人事信息模板，请先在管理端配置模板字段');
     }
     const [fieldRows] = await pool.query(
-      'SELECT * FROM hr_profile_template_fields WHERE template_id = ? AND org_id = ? ORDER BY sort_order',
-      [template.id, orgId]
+      'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? ORDER BY sort_order',
+      [template.id]
     );
     templateFields = fieldRows.map(normalizeTemplateField);
     const fieldIds = new Set(templateFields.map((field) => field.id));
@@ -464,9 +466,9 @@ async function writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc) {
     const recordId = generateId();
     await conn.query(
       `INSERT INTO hr_profile_records
-       (id, hr_id, name, openid, template_key, template_updated_at, audit_status, reviewed_at, org_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [recordId, hrId, row.name, '', TEMPLATE_KEY, template.updated_at, 'pending', nowUtc, orgId, nowUtc, nowUtc]
+       (id, hr_id, name, openid, template_snapshot_id, audit_status, reviewed_at, org_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [recordId, hrId, row.name, '', template.id, 'pending', nowUtc, orgId, nowUtc, nowUtc]
     );
     record = { id: recordId };
   }

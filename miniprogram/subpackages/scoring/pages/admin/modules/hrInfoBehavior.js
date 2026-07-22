@@ -116,6 +116,282 @@ module.exports = Behavior({
       }
     },
 
+    switchHrInfoSubTab(e) {
+      const tab = String(e.currentTarget.dataset.tab || 'members');
+      if (tab !== 'members' && tab !== 'templates') return;
+      if (tab === 'members' && !this.data.canUseHrMemberArea) return;
+      if (tab === 'templates' && !this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate) return;
+      this.setData({ hrInfoSubTab: tab });
+      if (tab === 'templates') this.loadHrProfileTemplates();
+    },
+
+    async loadHrProfileTemplates() {
+      if (!this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate) return;
+      this.setLoading('hrProfileTemplates', true);
+      try {
+        const result = await this.callCloud('listHrProfileTemplates');
+        if (result.status !== 'success') {
+          showShortToast('加载失败');
+          return;
+        }
+        const active = result.activeSnapshot || null;
+        this.setData({
+          hrProfileTemplateList: result.list || [],
+          activeHrProfileSnapshot: active,
+          canManageHrProfileTemplates: result.canManage === true,
+          canSelectHrProfileTemplate: result.canSelect === true
+        });
+      } catch (_) {
+        showShortToast('加载失败');
+      } finally {
+        this.setLoading('hrProfileTemplates', false);
+      }
+    },
+
+    startCreateHrProfileTemplate() {
+      this.setData({
+        hrProfileTemplateForm: emptyHrProfileTemplateForm(),
+        showHrTemplateEditor: true
+      });
+    },
+
+    editHrProfileTemplate(e) {
+      const id = String(e.currentTarget.dataset.id || '');
+      const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
+      if (!template) return;
+      const modeOption = PROFILE_EDIT_MODE_OPTIONS.find((item) => item.value === template.editMode) || PROFILE_EDIT_MODE_OPTIONS[0];
+      this.setData({
+        hrProfileTemplateForm: {
+          id: template.id,
+          name: template.name || '',
+          description: template.description || '',
+          editMode: modeOption.value,
+          editModeLabel: modeOption.label,
+          fields: (template.fields || []).map((field) => normalizeHrProfileFieldForForm(field))
+        },
+        showHrTemplateEditor: true
+      });
+    },
+
+    cancelHrProfileTemplateEditor() {
+      this.setData({ showHrTemplateEditor: false, hrProfileTemplateForm: emptyHrProfileTemplateForm() });
+    },
+
+    async duplicateHrProfileTemplate(e) {
+      const id = String(e.currentTarget.dataset.id || '');
+      if (!id) return;
+      this.setLoading('duplicateHrProfileTemplate', true);
+      try {
+        const result = await this.callCloud('duplicateHrProfileTemplateDefinition', { id });
+        if (result.status !== 'success') return showShortToast('复制失败');
+        await this.loadHrProfileTemplates();
+        showShortToast('已复制', 'success');
+      } catch (_) {
+        showShortToast('复制失败');
+      } finally {
+        this.setLoading('duplicateHrProfileTemplate', false);
+      }
+    },
+
+    deleteHrProfileTemplate(e) {
+      const id = String(e.currentTarget.dataset.id || '');
+      const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
+      if (!template) return;
+      wx.showModal({
+        title: '删除全局模板',
+        content: `它已生成${template.snapshotCount || 0}份组织快照，其中${template.activeOrgCount || 0}个组织正在使用。删除不会影响组织资料，是否继续？`,
+        confirmText: '彻底删除',
+        confirmColor: '#ef4444',
+        success: async (modalResult) => {
+          if (!modalResult.confirm) return;
+          try {
+            const result = await this.callCloud('deleteHrProfileTemplateDefinition', { id });
+            if (result.status !== 'success') return showShortToast('删除失败');
+            await this.loadHrProfileTemplates();
+            showShortToast('已删除', 'success');
+          } catch (_) {
+            showShortToast('删除失败');
+          }
+        }
+      });
+    },
+
+    async startHrProfileTemplateSwitch(e) {
+      const targetTemplateId = String(e.currentTarget.dataset.id || '');
+      if (!targetTemplateId) return;
+      this.setLoading('hrTemplateSwitch', true);
+      try {
+        const result = await this.callCloud('getHrProfileTemplateSwitchContext', { targetTemplateId });
+        if (result.status !== 'success') return showShortToast('读取失败');
+        const targetFields = (result.targetTemplate && result.targetTemplate.fields) || [];
+        const sources = (result.sourceFields || []).map((source) => {
+          const targetOptions = [{ id: '', label: '请选择目标字段' }]
+            .concat(targetFields.filter((target) => (source.compatibleTargetIds || []).indexOf(target.id) >= 0));
+          return Object.assign({}, source, {
+            action: 'hide',
+            actionIndex: 0,
+            targetTemplateFieldId: '',
+            targetIndex: 0,
+            targetOptions,
+            suggestionText: source.suggestedTargetId
+              ? `建议映射：${(targetFields.find((field) => field.id === source.suggestedTargetId) || {}).label || ''}`
+              : ''
+          });
+        });
+        this.setData({
+          hrTemplateSwitchVisible: true,
+          hrTemplateSwitchTarget: result.targetTemplate,
+          hrTemplateSwitchSources: sources,
+          hrTemplateSwitchToken: '',
+          hrTemplateSwitchSummary: null
+        });
+      } catch (_) {
+        showShortToast('读取失败');
+      } finally {
+        this.setLoading('hrTemplateSwitch', false);
+      }
+    },
+
+    closeHrProfileTemplateSwitch() {
+      this.setData({
+        hrTemplateSwitchVisible: false,
+        hrTemplateSwitchTarget: null,
+        hrTemplateSwitchSources: [],
+        hrTemplateSwitchToken: '',
+        hrTemplateSwitchSummary: null
+      });
+    },
+
+    onHrTemplateSwitchActionChange(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const actionIndex = Number(e.detail.value);
+      const action = ['hide', 'map', 'delete'][actionIndex] || 'hide';
+      const sources = [...(this.data.hrTemplateSwitchSources || [])];
+      if (!sources[index]) return;
+      sources[index] = Object.assign({}, sources[index], {
+        action,
+        actionIndex,
+        targetTemplateFieldId: action === 'map' ? sources[index].targetTemplateFieldId : '',
+        targetIndex: action === 'map' ? sources[index].targetIndex : 0
+      });
+      this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
+    },
+
+    onHrTemplateSwitchTargetChange(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const targetIndex = Number(e.detail.value);
+      const sources = [...(this.data.hrTemplateSwitchSources || [])];
+      if (!sources[index]) return;
+      const target = sources[index].targetOptions[targetIndex] || sources[index].targetOptions[0];
+      sources[index] = Object.assign({}, sources[index], {
+        targetIndex,
+        targetTemplateFieldId: target.id || ''
+      });
+      this.setData({ hrTemplateSwitchSources: sources, hrTemplateSwitchToken: '', hrTemplateSwitchSummary: null });
+    },
+
+    buildHrTemplateSwitchActions() {
+      return (this.data.hrTemplateSwitchSources || []).map((source) => ({
+        sourceSnapshotFieldId: source.id,
+        action: source.action || 'hide',
+        targetTemplateFieldId: source.action === 'map' ? source.targetTemplateFieldId : ''
+      }));
+    },
+
+    async previewHrProfileTemplateSwitch() {
+      const target = this.data.hrTemplateSwitchTarget;
+      if (!target) return;
+      const actions = this.buildHrTemplateSwitchActions();
+      if (actions.some((action) => action.action === 'map' && !action.targetTemplateFieldId)) {
+        return showShortToast('请选择目标');
+      }
+      this.setLoading('previewHrTemplateSwitch', true);
+      try {
+        const result = await this.callCloud('previewHrProfileTemplateSwitch', {
+          targetTemplateId: target.id,
+          fieldActions: actions
+        });
+        if (result.status === 'mapping_blocked') {
+          const invalidCount = (result.blockers || []).reduce((sum, item) => sum + Number(item.invalidCount || 0), 0);
+          wx.showModal({ title: '暂不能切换', content: `有${invalidCount}个值不符合目标字段限制，请调整映射。`, showCancel: false });
+          return;
+        }
+        if (result.status !== 'success') return showShortToast('预检失败');
+        this.setData({ hrTemplateSwitchToken: result.switchToken, hrTemplateSwitchSummary: result.summary });
+        const summary = result.summary || {};
+        const hasDelete = summary.hasDelete === true;
+        wx.showModal({
+          title: hasDelete ? '确认永久删除' : '确认切换模板',
+          content: `迁移${summary.mapValueCount || 0}项，隐藏${summary.hideValueCount || 0}项，永久删除${summary.deleteValueCount || 0}项。${hasDelete ? '删除后无法恢复。' : ''}`,
+          confirmText: hasDelete ? '删除并切换' : '确认切换',
+          confirmColor: hasDelete ? '#ef4444' : '#2563eb',
+          success: (modalResult) => {
+            if (modalResult.confirm) this.applyHrProfileTemplateSwitch(hasDelete);
+          }
+        });
+      } catch (_) {
+        showShortToast('预检失败');
+      } finally {
+        this.setLoading('previewHrTemplateSwitch', false);
+      }
+    },
+
+    async applyHrProfileTemplateSwitch(confirmDelete) {
+      const target = this.data.hrTemplateSwitchTarget;
+      if (!target || !this.data.hrTemplateSwitchToken) return;
+      this.setLoading('applyHrTemplateSwitch', true);
+      try {
+        const result = await this.callCloud('applyHrProfileTemplateSwitch', {
+          targetTemplateId: target.id,
+          fieldActions: this.buildHrTemplateSwitchActions(),
+          switchToken: this.data.hrTemplateSwitchToken,
+          confirmDelete: confirmDelete === true
+        });
+        if (result.status !== 'success') {
+          showShortToast(result.status === 'stale_switch' ? '请重新预检' : '切换失败');
+          return;
+        }
+        this.closeHrProfileTemplateSwitch();
+        await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
+        showShortToast('切换成功', 'success');
+      } catch (_) {
+        showShortToast('切换失败');
+      } finally {
+        this.setLoading('applyHrTemplateSwitch', false);
+      }
+    },
+
+    onActiveHrProfileSettingInput(e) {
+      const field = String(e.currentTarget.dataset.field || '');
+      const active = Object.assign({}, this.data.activeHrProfileSnapshot || {});
+      active[field] = e.detail.value;
+      this.setData({ activeHrProfileSnapshot: active });
+    },
+
+    onActiveHrProfileModeChange(e) {
+      const option = PROFILE_EDIT_MODE_OPTIONS[Number(e.detail.value)] || PROFILE_EDIT_MODE_OPTIONS[0];
+      this.setData({ 'activeHrProfileSnapshot.editMode': option.value });
+    },
+
+    async saveActiveHrProfileSettings() {
+      const active = this.data.activeHrProfileSnapshot;
+      if (!active) return;
+      this.setLoading('saveActiveHrProfileSettings', true);
+      try {
+        const result = await this.callCloud('saveOrgHrProfileTemplateSettings', {
+          description: active.description || '',
+          editMode: active.editMode || 'direct'
+        });
+        if (result.status !== 'success') return showShortToast('保存失败');
+        await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
+        showShortToast('已保存', 'success');
+      } catch (_) {
+        showShortToast('保存失败');
+      } finally {
+        this.setLoading('saveActiveHrProfileSettings', false);
+      }
+    },
+
     refreshHrProfileRows(nextFilters = this.data.hrProfileFilters, nextRawRows = this.data.hrProfileRawRows) {
       this.setData({
         hrProfileRows: applyHrProfileFilters(nextRawRows, nextFilters)
@@ -636,6 +912,7 @@ module.exports = Behavior({
 
     async saveHrProfileTemplate() {
       const form = this.data.hrProfileTemplateForm || emptyHrProfileTemplateForm();
+      const templateName = String(form.name || '').trim();
       const fields = (form.fields || []).map((item) => ({
         id: item.id,
         label: String(item.label || '').trim(),
@@ -655,6 +932,11 @@ module.exports = Behavior({
           .filter(Boolean)
       }));
   
+      if (!templateName) {
+        wx.showToast({ title: '请填写模板名称', icon: 'none' });
+        return;
+      }
+
       if (!fields.length || fields.some((item) => !item.label)) {
         wx.showToast({
           title: '请填写完整的字段名称',
@@ -669,7 +951,9 @@ module.exports = Behavior({
         mask: true
       });
       try {
-        const result = await this.callCloud('saveHrProfileTemplate', {
+        const result = await this.callCloud('saveHrProfileTemplateDefinition', {
+          id: String(form.id || ''),
+          name: templateName,
           description: String(form.description || '').trim(),
           editMode: form.editMode,
           fields
@@ -680,7 +964,8 @@ module.exports = Behavior({
           return;
         }
   
-        await this.loadHrProfileAdminData();
+        this.setData({ showHrTemplateEditor: false, hrProfileTemplateForm: emptyHrProfileTemplateForm() });
+        await this.loadHrProfileTemplates();
         showShortToast('已更新', 'success');
       } catch (error) {
         showShortToast('更新失败');

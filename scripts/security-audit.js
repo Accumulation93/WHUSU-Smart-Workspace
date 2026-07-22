@@ -114,6 +114,31 @@ requireSourceContract('server/src/core/routes/admin.js', [
 requireSourceContract('server/src/core/routes/auth.js', [
   { rule: 'admin-invite-plaintext-binding', test: source => source.includes('WHERE invite_code = ?') && !source.includes('invite_code_hash') }
 ]);
+requireSourceContract('server/src/core/services/adminPermissions.js', [
+  {
+    rule: 'hr-template-permission-split',
+    test: source => source.includes("key: 'hr.profile_templates.manage'")
+      && source.includes("key: 'hr.profile_templates.select'")
+      && !/mapRoutes\('hr\.profile_review',\s*\[[^\]]*saveHrProfileTemplate/.test(source)
+  }
+]);
+requireSourceContract('server/src/core/services/hrProfileTemplateLibrary.js', [
+  {
+    rule: 'hr-template-switch-atomic-org-scope',
+    test: source => source.includes('pool.withTransaction(async (connection)')
+      && source.includes('WHERE org_id = ? AND field_id = ?')
+      && source.includes('actionsHash')
+      && source.includes('valueStateHash')
+      && source.includes('delete_confirmation_required')
+  }
+]);
+requireSourceContract('server/src/core/routes/hrProfile.js', [
+  {
+    rule: 'hr-template-legacy-save-disabled',
+    test: source => source.includes("status: 'client_upgrade_required'")
+      && !source.includes('INSERT INTO hr_profile_templates (id, template_key')
+  }
+]);
 requireSourceContract('server/src/modules/audit/utils/fileSecurity.js', [
   { rule: 'signed-file-token', test: source => /createHmac\(['"]sha256['"]/.test(source) && /timingSafeEqual/.test(source) }
 ]);

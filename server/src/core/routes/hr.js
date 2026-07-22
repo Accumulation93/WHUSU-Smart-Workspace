@@ -520,9 +520,9 @@ router.post('/importHrCsv', async (req, res) => {
             const recordId = generateId();
             // Insert with 'pending' initially; update after values are written
             await conn.query(
-              `INSERT INTO hr_profile_records (id, hr_id, name, openid, template_key, template_updated_at, audit_status, reviewed_at, org_id, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [recordId, hrId, effectiveName, '', TEMPLATE_KEY, template.updated_at, 'pending', nowUtc, orgId, nowUtc, nowUtc]
+              `INSERT INTO hr_profile_records (id, hr_id, name, openid, template_snapshot_id, audit_status, reviewed_at, org_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [recordId, hrId, effectiveName, '', template.id, 'pending', nowUtc, orgId, nowUtc, nowUtc]
             );
             for (const [fieldName, fieldValue] of Object.entries(row.extValues)) {
               const fieldDef = fieldByLabel.get(fieldName);

@@ -13,17 +13,24 @@ const profileTemplateModel = require('../models/hrProfileTemplate');
 const profileFieldModel = require('../models/hrProfileField');
 const profileRecordModel = require('../models/hrProfileRecord');
 const profileValueModel = require('../models/hrProfileValue');
+const templateLibrary = require('../services/hrProfileTemplateLibrary');
+const { loadEffectivePermissions, hasAnyPermission } = require('../services/adminPermissions');
 const pool = require('../../config/db');
-const { withTransaction } = pool;
 
 const TEMPLATE_KEY = 'default_hr_profile_template';
-const EDIT_MODES = ['direct', 'audit', 'readonly'];
-const FIELD_TYPES = ['text', 'number', 'sequence', 'date', 'phone', 'email'];
-const NUMBER_RULE_TYPES = ['value_range', 'length_range'];
 const MODE_TEXT_MAP = { direct: '允许直接修改', audit: '需审核后生效', readonly: '不允许自行修改' };
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
+}
+
+async function ensureTemplatePermission(req, permissionKeys) {
+  const admin = req.admin || await ensureAdmin(req.openid);
+  if (!admin) return null;
+  const orgId = await getCurrentOrgId();
+  const effective = req.adminPermissions || await loadEffectivePermissions(admin, orgId);
+  if (!hasAnyPermission(effective, permissionKeys)) return null;
+  return { admin, orgId, effective };
 }
 
 function normalizeTemplateField(field) {
@@ -152,6 +159,7 @@ router.post('/getUserHrProfile', async (req, res) => {
     } : null;
 
     const record = await profileRecordModel.getByHrId(hr.id);
+    const activeFieldIds = new Set(templateData ? templateData.fields.map((field) => field.id) : []);
     let values = {};
     let pendingValues = {};
     if (record) {
@@ -159,8 +167,8 @@ router.post('/getUserHrProfile', async (req, res) => {
         profileValueModel.getByRecordIdAndPending(record.id, 0),
         profileValueModel.getByRecordIdAndPending(record.id, 1)
       ]);
-      vals.forEach((v) => { values[v.field_id] = v.field_value; });
-      pvals.forEach((v) => { pendingValues[v.field_id] = v.field_value; });
+      vals.forEach((v) => { if (activeFieldIds.has(v.field_id)) values[v.field_id] = v.field_value; });
+      pvals.forEach((v) => { if (activeFieldIds.has(v.field_id)) pendingValues[v.field_id] = v.field_value; });
     }
 
     let auditStatus = record ? (record.audit_status || 'none') : 'none';
@@ -220,6 +228,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
     }));
 
     const normalizedValues = {};
+    const activeFieldIds = normalizedFields.map((field) => field.id);
     for (const field of normalizedFields) {
       const rawValue = values[field.id];
       const err = validateFieldValue(field, rawValue);
@@ -241,17 +250,20 @@ router.post('/submitUserHrProfile', async (req, res) => {
 
       if (editMode === 'audit') {
         await profileRecordModel.update(existing.id, {
+          template_snapshot_id: template.id,
           audit_status: 'pending', rejection_reason: '', requested_at: nowUtc, updated_at: nowUtc
         });
-        await profileValueModel.removeByRecordIdAndPending(existing.id, 1);
+        await profileValueModel.removeByRecordIdAndPendingFields(existing.id, 1, activeFieldIds);
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
           await profileValueModel.create(generateId(), existing.id, 1, fieldId, fieldValue);
         }
       } else {
         await profileRecordModel.update(existing.id, {
+          template_snapshot_id: template.id,
           audit_status: 'approved', rejection_reason: '', reviewed_at: nowUtc, updated_at: nowUtc
         });
-        await profileValueModel.removeByRecordId(existing.id);
+        await profileValueModel.removeByRecordIdAndPendingFields(existing.id, 0, activeFieldIds);
+        await profileValueModel.removeByRecordIdAndPendingFields(existing.id, 1, activeFieldIds);
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
           await profileValueModel.create(generateId(), existing.id, 0, fieldId, fieldValue);
         }
@@ -260,16 +272,16 @@ router.post('/submitUserHrProfile', async (req, res) => {
       const recordId = generateId();
       if (editMode === 'audit') {
         await profileRecordModel.create(recordId, {
-          hrId: hr.id, name: hr.name || '', openid, templateKey: TEMPLATE_KEY,
-          templateUpdatedAt: template.updated_at, auditStatus: 'pending', requestedAt: nowUtc
+          hrId: hr.id, name: hr.name || '', openid, templateSnapshotId: template.id,
+          auditStatus: 'pending', requestedAt: nowUtc
         });
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
           await profileValueModel.create(generateId(), recordId, 1, fieldId, fieldValue);
         }
       } else {
         await profileRecordModel.create(recordId, {
-          hrId: hr.id, name: hr.name || '', openid, templateKey: TEMPLATE_KEY,
-          templateUpdatedAt: template.updated_at, auditStatus: 'approved', reviewedAt: nowUtc
+          hrId: hr.id, name: hr.name || '', openid, templateSnapshotId: template.id,
+          auditStatus: 'approved', reviewedAt: nowUtc
         });
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
           await profileValueModel.create(generateId(), recordId, 0, fieldId, fieldValue);
@@ -287,96 +299,110 @@ router.post('/submitUserHrProfile', async (req, res) => {
   }
 });
 
-// saveHrProfileTemplate
+// 全局模板库与当前组织快照
+router.post('/listHrProfileTemplates', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage', 'hr.profile_templates.select']);
+    if (!context) return res.json({ status: 'forbidden', message: '没有人事模板权限' });
+    const [list, activeSnapshot] = await Promise.all([
+      templateLibrary.listTemplates(), templateLibrary.getActiveSnapshot(context.orgId)
+    ]);
+    return res.json({
+      status: 'success', list, activeSnapshot,
+      canManage: hasAnyPermission(context.effective, ['hr.profile_templates.manage']),
+      canSelect: hasAnyPermission(context.effective, ['hr.profile_templates.select'])
+    });
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/saveHrProfileTemplateDefinition', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
+    if (!context) return res.json({ status: 'forbidden', message: '没有全局模板管理权限' });
+    return res.json(await templateLibrary.saveDefinition(req.body || {}, context.admin));
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/duplicateHrProfileTemplateDefinition', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
+    if (!context) return res.json({ status: 'forbidden', message: '没有全局模板管理权限' });
+    return res.json(await templateLibrary.duplicateDefinition(safeString(req.body.id), context.admin));
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/deleteHrProfileTemplateDefinition', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
+    if (!context) return res.json({ status: 'forbidden', message: '没有全局模板管理权限' });
+    return res.json(await templateLibrary.deleteDefinition(safeString(req.body.id)));
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/getHrProfileTemplateSwitchContext', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
+    if (!context) return res.json({ status: 'forbidden', message: '没有本组织模板切换权限' });
+    const result = await templateLibrary.getSwitchContext(context.orgId, safeString(req.body.targetTemplateId));
+    return res.json(result ? { status: 'success', ...result } : { status: 'not_found', message: '目标模板不存在' });
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/previewHrProfileTemplateSwitch', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
+    if (!context) return res.json({ status: 'forbidden', message: '没有本组织模板切换权限' });
+    return res.json(await templateLibrary.preflightSwitch(
+      context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions
+    ));
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
+    if (!context) return res.json({ status: 'forbidden', message: '没有本组织模板切换权限' });
+    return res.json(await templateLibrary.applySwitch(
+      context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions,
+      safeString(req.body.switchToken), req.body.confirmDelete === true, context.admin
+    ));
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/saveOrgHrProfileTemplateSettings', async (req, res) => {
+  try {
+    const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
+    if (!context) return res.json({ status: 'forbidden', message: '没有本组织模板设置权限' });
+    return res.json(await templateLibrary.saveOrgSettings(
+      context.orgId, safeString(req.body.description), safeString(req.body.editMode || 'direct'), context.admin
+    ));
+  } catch (e) {
+    return res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// saveHrProfileTemplate — 旧客户端禁止修改快照结构
 router.post('/saveHrProfileTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
     if (!admin) return res.json({ status: 'forbidden', message: '没有管理员权限' });
 
-    const description = safeString(req.body.description);
-    const editMode = safeString(req.body.editMode || 'direct');
-    const fields = Array.isArray(req.body.fields) ? req.body.fields : [];
-
-    if (!EDIT_MODES.includes(editMode)) return res.json({ status: 'invalid_params', message: '编辑模式不合法' });
-
-    const normalizedFields = fields.map((field, index) => {
-      const id = safeString(field.id || generateId());
-      const label = safeString(field.label);
-      const type = safeString(field.type || 'text');
-      const required = field.required === true;
-      const minLength = field.minLength === '' || field.minLength == null ? null : Number(field.minLength);
-      const maxLength = field.maxLength === '' || field.maxLength == null ? null : Number(field.maxLength);
-      const numberRule = safeString(field.numberRule || 'value_range');
-      const allowDecimal = field.allowDecimal !== false;
-      const minDigits = field.minDigits === '' || field.minDigits == null ? null : Number(field.minDigits);
-      const maxDigits = field.maxDigits === '' || field.maxDigits == null ? null : Number(field.maxDigits);
-      const minValue = field.minValue === '' || field.minValue == null ? null : Number(field.minValue);
-      const maxValue = field.maxValue === '' || field.maxValue == null ? null : Number(field.maxValue);
-      const options = Array.isArray(field.options) ? field.options.map((item) => safeString(item)).filter(Boolean) : [];
-      return { id, label, type, required,
-        minLength: Number.isFinite(minLength) ? minLength : null,
-        maxLength: Number.isFinite(maxLength) ? maxLength : null,
-        numberRule: NUMBER_RULE_TYPES.includes(numberRule) ? numberRule : 'value_range',
-        allowDecimal, minDigits: Number.isFinite(minDigits) ? minDigits : null,
-        maxDigits: Number.isFinite(maxDigits) ? maxDigits : null,
-        minValue: Number.isFinite(minValue) ? minValue : null,
-        maxValue: Number.isFinite(maxValue) ? maxValue : null,
-        options };
-    });
-
-    if (!normalizedFields.length) return res.json({ status: 'invalid_params', message: '至少需要配置一个字段' });
-
-    const fieldIdSet = new Set();
-    for (const field of normalizedFields) {
-      if (fieldIdSet.has(field.id)) return res.json({ status: 'invalid_params', message: '字段标识重复，请刷新后重试' });
-      fieldIdSet.add(field.id);
-      if (!field.label) return res.json({ status: 'invalid_params', message: '字段名称不能为空' });
-      if (!FIELD_TYPES.includes(field.type)) return res.json({ status: 'invalid_params', message: '字段类型不合法' });
-      if (field.type === 'sequence' && !field.options.length) return res.json({ status: 'invalid_params', message: '序列字段至少需要一个可选项' });
-    }
-
-    const { getCurrentOrgId } = require('../../utils/orgContext');
-    const orgId = await getCurrentOrgId();
-    await withTransaction(async (conn) => {
-      let templateId;
-      const [existingRows] = await conn.query(
-        'SELECT * FROM hr_profile_templates WHERE template_key = ? AND org_id = ?',
-        [TEMPLATE_KEY, orgId]
-      );
-      const existing = existingRows[0] || null;
-
-      if (existing) {
-        templateId = existing.id;
-        const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        await conn.query(
-          'UPDATE hr_profile_templates SET description = ?, edit_mode = ?, updated_by = ?, updated_at = ? WHERE id = ? AND org_id = ?',
-          [description, editMode, admin.id, nowUtc, existing.id, orgId]
-        );
-        await conn.query('DELETE FROM hr_profile_template_fields WHERE template_id = ? AND org_id = ?', [existing.id, orgId]);
-      } else {
-        templateId = generateId();
-        await conn.query(
-          'INSERT INTO hr_profile_templates (id, template_key, description, edit_mode, updated_by, org_id) VALUES (?, ?, ?, ?, ?, ?)',
-          [templateId, TEMPLATE_KEY, description, editMode, admin.id, orgId]
-        );
-      }
-
-      for (let i = 0; i < normalizedFields.length; i++) {
-        const f = normalizedFields[i];
-        await conn.query(
-          `INSERT INTO hr_profile_template_fields (id, template_id, sort_order, label, type, required,
-           min_length, max_length, number_rule, allow_decimal, min_digits, max_digits, min_value, max_value, options_json, org_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [f.id, templateId, i + 1, f.label, f.type, f.required ? 1 : 0,
-           f.minLength, f.maxLength, f.numberRule, f.allowDecimal ? 1 : 0,
-           f.minDigits, f.maxDigits, f.minValue, f.maxValue,
-           f.options.length ? JSON.stringify(f.options) : null, orgId]
-        );
-      }
-    });
-
-    res.json({ status: 'success', template: { description, editMode, fields: normalizedFields } });
+    return res.json({ status: 'client_upgrade_required', message: '人事模板已升级，请更新小程序后操作' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -444,6 +470,7 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       id: f.id, label: f.label, type: f.type, required: !!f.required,
       options: f.options_json ? JSON.parse(f.options_json) : []
     }));
+    const activeFieldIds = new Set(fieldObjs.map((field) => field.id));
 
     const summarizeValues = (valsMap) => fieldObjs
       .map((f) => { const v = valsMap[f.id]; return v ? `${f.label}：${v}` : ''; })
@@ -454,8 +481,16 @@ router.post('/listHrProfileAdminData', async (req, res) => {
     const rows = [];
     for (const item of hrRows) {
       const record = recordMap.get(item.id);
-      const currentValues = record ? (currentValuesByRecord.get(record.id) || {}) : {};
-      const pendingValues = record ? (pendingValuesByRecord.get(record.id) || {}) : {};
+      const currentRaw = record ? (currentValuesByRecord.get(record.id) || {}) : {};
+      const pendingRaw = record ? (pendingValuesByRecord.get(record.id) || {}) : {};
+      const currentValues = Object.keys(currentRaw).reduce((result, fieldId) => {
+        if (activeFieldIds.has(fieldId)) result[fieldId] = currentRaw[fieldId];
+        return result;
+      }, {});
+      const pendingValues = Object.keys(pendingRaw).reduce((result, fieldId) => {
+        if (activeFieldIds.has(fieldId)) result[fieldId] = pendingRaw[fieldId];
+        return result;
+      }, {});
       let auditStatus = safeString(record ? record.audit_status || 'none' : 'none') || 'none';
 
       // Override status to 'none' if any required field is empty
@@ -534,22 +569,27 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     const record = await profileRecordModel.getByHrId(hrRecord.id);
     if (!record) return res.json({ status: 'not_found', message: '未找到对应的人事信息记录' });
 
-    const pendingVals = record.id ? await profileValueModel.getByRecordIdAndPending(record.id, 1) : [];
+    const activeTemplate = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
+    const activeFields = activeTemplate ? await profileFieldModel.getByTemplateId(activeTemplate.id) : [];
+    const activeFieldIds = new Set(activeFields.map((field) => field.id));
+    const pendingVals = record.id
+      ? (await profileValueModel.getByRecordIdAndPending(record.id, 1)).filter((value) => activeFieldIds.has(value.field_id))
+      : [];
     if (!pendingVals.length) return res.json({ status: 'invalid_operation', message: '当前没有待审核的修改' });
 
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
     if (action === 'approve') {
       // Move pending values to active
-      await profileValueModel.removeByRecordIdAndPending(record.id, 0);
+      await profileValueModel.removeByRecordIdAndPendingFields(record.id, 0, Array.from(activeFieldIds));
       for (const v of pendingVals) {
         await profileValueModel.create(generateId(), record.id, 0, v.field_id, v.field_value);
       }
-      await profileValueModel.removeByRecordIdAndPending(record.id, 1);
+      await profileValueModel.removeByRecordIdAndPendingFields(record.id, 1, Array.from(activeFieldIds));
       await profileRecordModel.update(record.id, {
         audit_status: 'approved', rejection_reason: '', reviewed_at: nowUtc, updated_at: nowUtc
       });
     } else {
-      await profileValueModel.removeByRecordIdAndPending(record.id, 1);
+      await profileValueModel.removeByRecordIdAndPendingFields(record.id, 1, Array.from(activeFieldIds));
       await profileRecordModel.update(record.id, {
         audit_status: 'rejected', rejection_reason: reason || '管理员已驳回本次修改', reviewed_at: nowUtc, updated_at: nowUtc
       });
@@ -604,6 +644,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
     } : null;
 
     const record = await profileRecordModel.getByHrId(hrId);
+    const activeFieldIds = new Set(templateData ? templateData.fields.map((field) => field.id) : []);
     let values = {};
     let pendingValues = {};
     if (record) {
@@ -611,8 +652,8 @@ router.post('/getHrPersonDetail', async (req, res) => {
         profileValueModel.getByRecordIdAndPending(record.id, 0),
         profileValueModel.getByRecordIdAndPending(record.id, 1)
       ]);
-      vals.forEach((v) => { values[v.field_id] = v.field_value; });
-      pvals.forEach((v) => { pendingValues[v.field_id] = v.field_value; });
+      vals.forEach((v) => { if (activeFieldIds.has(v.field_id)) values[v.field_id] = v.field_value; });
+      pvals.forEach((v) => { if (activeFieldIds.has(v.field_id)) pendingValues[v.field_id] = v.field_value; });
     }
 
     let auditStatus = record ? (record.audit_status || 'none') : 'none';
@@ -721,18 +762,24 @@ router.post('/saveHrPersonFull', async (req, res) => {
       const existing = await profileRecordModel.getByHrId(hrId);
 
       if (existing) {
-        await profileValueModel.removeByRecordId(existing.id);
+        await profileValueModel.removeByRecordIdAndPendingFields(
+          existing.id, 0, normalizedFields.map((field) => field.id)
+        );
+        await profileValueModel.removeByRecordIdAndPendingFields(
+          existing.id, 1, normalizedFields.map((field) => field.id)
+        );
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
           await profileValueModel.create(generateId(), existing.id, 0, fieldId, fieldValue);
         }
         await profileRecordModel.update(existing.id, {
+          templateSnapshotId: template.id,
           auditStatus: 'approved', rejectionReason: '', reviewedAt: now, updatedAt: now
         });
       } else {
         const recordId = generateId();
         await profileRecordModel.create(recordId, {
-          hrId, name, openid, templateKey: TEMPLATE_KEY,
-          templateUpdatedAt: template.updated_at, auditStatus: 'approved', reviewedAt: now
+          hrId, name, openid, templateSnapshotId: template.id,
+          auditStatus: 'approved', reviewedAt: now
         });
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
           await profileValueModel.create(generateId(), recordId, 0, fieldId, fieldValue);

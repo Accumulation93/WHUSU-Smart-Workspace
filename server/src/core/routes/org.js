@@ -13,9 +13,7 @@ const ORG_SCOPED_TABLES = [
   'hr_info', 'user_info',
   'score_activities', 'rate_target_rules', 'rate_rule_clauses',
   'clause_template_configs',
-  'score_records', 'score_answers',
-  'hr_profile_templates', 'hr_profile_template_fields',
-  'hr_profile_records', 'hr_profile_record_values'
+  'score_records', 'score_answers'
 ];
 
 // listOrganizations — admin only
@@ -112,6 +110,14 @@ router.post('/deleteOrganization', async (req, res) => {
     // Wrap all deletions in a transaction for atomicity
     const { withTransaction } = require('../../config/db');
     await withTransaction(async (conn) => {
+      // 人事模板蓝图全局共享；这里只清除该组织的资料、切换审计和快照。
+      await conn.query('DELETE FROM hr_profile_record_values WHERE org_id = ?', [id]);
+      await conn.query('DELETE FROM hr_profile_records WHERE org_id = ?', [id]);
+      await conn.query('DELETE FROM org_hr_profile_template_settings WHERE org_id = ?', [id]);
+      await conn.query('DELETE FROM org_hr_profile_template_switch_actions WHERE switch_id IN (SELECT id FROM org_hr_profile_template_switches WHERE org_id = ?)', [id]);
+      await conn.query('DELETE FROM org_hr_profile_template_switches WHERE org_id = ?', [id]);
+      await conn.query('DELETE FROM org_hr_profile_template_snapshots WHERE org_id = ?', [id]);
+
       // Delete from org-scoped tables
       for (const table of ORG_SCOPED_TABLES) {
         await conn.query('DELETE FROM ?? WHERE org_id = ?', [table, id]);

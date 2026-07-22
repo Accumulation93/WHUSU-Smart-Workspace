@@ -17,11 +17,16 @@ const {
   assert.strictEqual(isApplicable('system.organizations', 'admin'), false);
   assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('hr.people')), false);
   assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('system.admin_accounts.read')), false);
+  assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('hr.profile_templates.manage')), false);
+  assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('hr.profile_templates.select')), false);
 
   assert(ROUTE_RULES.get('/listAdmins').anyOf.includes('system.admin_accounts.read'));
   assert(ROUTE_RULES.get('/saveAdmin').anyOf.includes('system.admin_accounts.write'));
   assert(ROUTE_RULES.get('/saveScoreActivity').anyOf.includes('scoring.activities'));
   assert(ROUTE_RULES.get('/saveOrganization').anyOf.includes('system.organizations'));
+  assert.deepStrictEqual(ROUTE_RULES.get('/saveHrProfileTemplateDefinition').anyOf, ['hr.profile_templates.manage']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/applyHrProfileTemplateSwitch').anyOf, ['hr.profile_templates.select']);
+  assert.strictEqual(ROUTE_RULES.get('/reviewHrProfileChange').anyOf.includes('hr.profile_review'), true);
   ROUTE_RULES.forEach((rule) => {
     assert(rule.anyOf.length > 0);
     rule.anyOf.forEach((key) => assert(PERMISSION_DEFINITIONS.has(key), '路由引用了未知权限: ' + key));

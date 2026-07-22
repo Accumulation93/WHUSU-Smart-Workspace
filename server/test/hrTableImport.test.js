@@ -104,19 +104,34 @@ async function main() {
         UNIQUE KEY idx_hr_student (student_id, org_id)
       );
       CREATE TABLE hr_profile_templates (
-        id VARCHAR(64) PRIMARY KEY, template_key VARCHAR(64) NOT NULL, updated_at DATETIME,
-        org_id VARCHAR(64) NOT NULL
+        id VARCHAR(64) PRIMARY KEY, name VARCHAR(200) NOT NULL, description TEXT,
+        edit_mode VARCHAR(32) NOT NULL, updated_at DATETIME
       );
       CREATE TABLE hr_profile_template_fields (
         id VARCHAR(64) PRIMARY KEY, template_id VARCHAR(64) NOT NULL, sort_order INT NOT NULL,
         label VARCHAR(200) NOT NULL, type VARCHAR(32) NOT NULL, required TINYINT NOT NULL DEFAULT 0,
         min_length INT, max_length INT, number_rule VARCHAR(32), allow_decimal TINYINT,
         min_digits INT, max_digits INT, min_value DECIMAL(20,4), max_value DECIMAL(20,4),
-        options_json TEXT, org_id VARCHAR(64) NOT NULL
+        options_json TEXT
+      );
+      CREATE TABLE org_hr_profile_template_snapshots (
+        id VARCHAR(64) PRIMARY KEY, org_id VARCHAR(64) NOT NULL, version INT NOT NULL,
+        source_template_id VARCHAR(64), source_template_name VARCHAR(200) NOT NULL,
+        description TEXT, edit_mode VARCHAR(32) NOT NULL, selected_at DATETIME, settings_updated_at DATETIME
+      );
+      CREATE TABLE org_hr_profile_template_snapshot_fields (
+        id VARCHAR(64) PRIMARY KEY, snapshot_id VARCHAR(64) NOT NULL, source_template_field_id VARCHAR(64),
+        sort_order INT NOT NULL, label VARCHAR(200) NOT NULL, type VARCHAR(32) NOT NULL,
+        required TINYINT NOT NULL DEFAULT 0, min_length INT, max_length INT, number_rule VARCHAR(32),
+        allow_decimal TINYINT, min_digits INT, max_digits INT, min_value DECIMAL(20,4),
+        max_value DECIMAL(20,4), options_json TEXT
+      );
+      CREATE TABLE org_hr_profile_template_settings (
+        org_id VARCHAR(64) PRIMARY KEY, active_snapshot_id VARCHAR(64) NOT NULL, updated_at DATETIME
       );
       CREATE TABLE hr_profile_records (
         id VARCHAR(64) PRIMARY KEY, hr_id VARCHAR(64) NOT NULL, name VARCHAR(100), openid VARCHAR(128),
-        template_key VARCHAR(64), template_updated_at DATETIME, audit_status VARCHAR(16), reviewed_at DATETIME,
+        template_snapshot_id VARCHAR(64), audit_status VARCHAR(16), reviewed_at DATETIME,
         org_id VARCHAR(64) NOT NULL, created_at DATETIME, updated_at DATETIME
       );
       CREATE TABLE hr_profile_record_values (

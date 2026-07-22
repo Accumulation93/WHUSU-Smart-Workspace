@@ -856,15 +856,18 @@
 
     <view class="section" wx:if="{{activeTab === 'hrInfo'}}">
       <view class="section-title">人事信息</view>
-      <view class="toolbar-row">
+      <view class="hr-secondary-tabs" wx:if="{{canManageHrProfileTemplates || canSelectHrProfileTemplate}}">
+        <view class="hr-secondary-tab {{hrInfoSubTab === 'members' ? 'active' : ''}} ui-motion-chip" wx:if="{{canUseHrMemberArea}}" data-tab="members" bindtap="switchHrInfoSubTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">成员资料</view>
+        <view class="hr-secondary-tab {{hrInfoSubTab === 'templates' ? 'active' : ''}} ui-motion-chip" data-tab="templates" bindtap="switchHrInfoSubTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">人事模板</view>
+      </view>
+      <view class="toolbar-row" wx:if="{{hrInfoSubTab === 'members'}}">
         <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" bindtap="startCreateHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增成员</button>
         <button class="secondary-btn ui-motion-button" wx:if="{{canImportHr}}" loading="{{loadingMap.importCsv}}" bindtap="chooseTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导入表格</button>
         <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" loading="{{loadingMap.batchMaintain}}" bindtap="batchMaintainFromHrInfo" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">同步组织字典</button>
-        <button class="secondary-btn ui-motion-button" wx:if="{{canReviewHrProfile}}" bindtap="toggleTemplateConfig" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{showTemplateConfig ? '收起模板' : '模板配置'}}</button>
         <view class="csv-tip" wx:if="{{csvName}}">{{csvName}}</view>
       </view>
 
-      <view class="edit-box" wx:if="{{showAddEditForm && canManageHrPeople}}">
+      <view class="edit-box" wx:if="{{hrInfoSubTab === 'members' && showAddEditForm && canManageHrPeople}}">
         <view class="edit-box-header">
           <view class="list-title">{{hrForm.id ? '编辑成员' : '新增成员'}}</view>
           <text class="link ui-motion-chip" bindtap="toggleAddEditForm" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">收起</text>
@@ -901,12 +904,16 @@
         </view>
       </view>
 
-      <view class="edit-box" wx:if="{{showTemplateConfig && canReviewHrProfile}}">
+      <view class="edit-box hr-template-editor" wx:if="{{hrInfoSubTab === 'templates' && showHrTemplateEditor && canManageHrProfileTemplates}}">
         <view class="edit-box-header">
-          <view class="list-title">模板配置</view>
-          <text class="link ui-motion-chip" bindtap="toggleTemplateConfig" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">收起</text>
+          <view class="list-title">{{hrProfileTemplateForm.id ? '编辑全局模板' : '创建全局模板'}}</view>
+          <text class="link ui-motion-chip" bindtap="cancelHrProfileTemplateEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</text>
         </view>
-        <view class="template-section-tip">基础敏感字段仍由后台统一维护，模板只负责扩展资料采集。</view>
+        <view class="template-section-tip">模板是跨组织共用的蓝图。已生成的组织快照不会随模板修改而变化。</view>
+        <view class="field">
+          <view class="field-label">模板名称</view>
+          <input class="field-input" data-field="name" bindinput="onHrProfileTemplateInput" value="{{hrProfileTemplateForm.name}}" placeholder="请输入全局唯一的模板名称" />
+        </view>
         <view class="field">
           <view class="field-label">填写说明</view>
           <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onHrProfileTemplateInput" value="{{hrProfileTemplateForm.description}}" placeholder="告诉普通用户这份人事信息用于什么、如何填写" />
@@ -991,11 +998,69 @@
         <view class="button-row">
           <button class="secondary-btn ui-motion-button" bindtap="addHrProfileField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增字段</button>
           <button class="secondary-btn ui-motion-button" loading="{{loadingMap.importTemplateFieldsCsv}}" bindtap="importTableFields" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导入表格字段</button>
-          <button class="primary-btn template-save-btn ui-motion-button" loading="{{loadingMap.saveProfileTemplate}}" bindtap="saveHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存模板配置</button>
+          <button class="primary-btn template-save-btn ui-motion-button" loading="{{loadingMap.saveProfileTemplate}}" bindtap="saveHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存全局模板</button>
         </view>
       </view>
 
-      <view class="list-card">
+      <view class="hr-template-workspace" wx:if="{{hrInfoSubTab === 'templates'}}">
+        <view class="list-card hr-template-current-card">
+          <view class="list-card-header">
+            <view>
+              <view class="list-title">当前组织快照</view>
+              <view class="hint-text">结构固定保存，切换模板时才会生成新版本。</view>
+            </view>
+            <view class="status-chip current-chip" wx:if="{{activeHrProfileSnapshot}}">版本 {{activeHrProfileSnapshot.version}}</view>
+          </view>
+          <view class="hr-template-empty" wx:if="{{!activeHrProfileSnapshot}}">当前组织尚未选择人事模板，扩展资料填写、审核与扩展列导入暂不可用。</view>
+          <block wx:else>
+            <view class="hr-template-source-row">
+              <view class="hr-template-card-name">{{activeHrProfileSnapshot.sourceTemplateName}}</view>
+              <view class="status-chip rejected-chip" wx:if="{{activeHrProfileSnapshot.sourceDeleted}}">源模板已删除</view>
+            </view>
+            <view class="hr-template-meta">{{activeHrProfileSnapshot.fields.length}} 个字段 · {{activeHrProfileSnapshot.editMode === 'audit' ? '修改需审核' : activeHrProfileSnapshot.editMode === 'readonly' ? '只读' : '可直接修改'}}</view>
+            <view class="field" wx:if="{{canSelectHrProfileTemplate}}">
+              <view class="field-label">本组织填写说明</view>
+              <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onActiveHrProfileSettingInput" value="{{activeHrProfileSnapshot.description}}" placeholder="仅影响当前组织" />
+            </view>
+            <view class="field" wx:if="{{canSelectHrProfileTemplate}}">
+              <view class="field-label">本组织修改模式</view>
+              <picker range="{{profileEditModeOptions}}" range-key="label" bindchange="onActiveHrProfileModeChange">
+                <view class="picker-value">{{activeHrProfileSnapshot.editMode === 'audit' ? '需审核后生效' : activeHrProfileSnapshot.editMode === 'readonly' ? '不允许自行修改' : '允许直接修改'}}</view>
+              </picker>
+            </view>
+            <button class="primary-btn ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" loading="{{loadingMap.saveActiveHrProfileSettings}}" bindtap="saveActiveHrProfileSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存组织设置</button>
+          </block>
+        </view>
+
+        <view class="list-card">
+          <view class="list-card-header">
+            <view>
+              <view class="list-title">全局模板库</view>
+              <view class="hint-text">每次选择都会复制完整结构，生成本组织的新快照。</view>
+            </view>
+            <button class="primary-btn hr-template-add-btn ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" bindtap="startCreateHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">创建模板</button>
+          </view>
+          <view class="hr-template-card ui-motion-card" wx:for="{{hrProfileTemplateList}}" wx:key="id" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
+            <view class="hr-template-card-head">
+              <view>
+                <view class="hr-template-card-name">{{item.name}}</view>
+                <view class="hr-template-meta">{{item.fieldCount}} 个字段 · {{item.activeOrgCount}} 个组织当前使用 · {{item.snapshotCount}} 份历史快照</view>
+              </view>
+              <view class="status-chip current-chip" wx:if="{{activeHrProfileSnapshot && activeHrProfileSnapshot.sourceTemplateId === item.id}}">当前来源</view>
+            </view>
+            <view class="hr-template-description">{{item.description || '暂无填写说明'}}</view>
+            <view class="button-row compact-row">
+              <button class="primary-btn ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" data-id="{{item.id}}" loading="{{loadingMap.hrTemplateSwitch}}" bindtap="startHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{activeHrProfileSnapshot && activeHrProfileSnapshot.sourceTemplateId === item.id ? '采用最新版本' : '选择此模板'}}</button>
+              <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="editHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">编辑</button>
+              <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="duplicateHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">复制</button>
+              <button class="secondary-btn danger-btn ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" data-id="{{item.id}}" bindtap="deleteHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">删除</button>
+            </view>
+          </view>
+          <view class="empty-inline" wx:if="{{!loadingMap.hrProfileTemplates && !hrProfileTemplateList.length}}">暂无全局人事模板</view>
+        </view>
+      </view>
+
+      <view class="list-card" wx:if="{{hrInfoSubTab === 'members'}}">
         <view class="list-card-header">
           <view class="list-title">成员资料</view>
           <view class="hint-text">点击成员卡片查看/编辑完整信息</view>
@@ -1071,6 +1136,50 @@
           <view class="empty-inline" wx:if="{{!loadingMap.hr && !hrProfileRows.length}}">暂无成员资料</view>
           </block>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+      </view>
+    </view>
+
+    <view class="modal-mask ui-overlay" wx:if="{{hrTemplateSwitchVisible}}" bindtap="closeHrProfileTemplateSwitch">
+      <view class="modal-card hr-template-switch-modal ui-dialog-shell ui-dialog-shell--complex" catchtap>
+        <view class="modal-header ui-dialog-header">
+          <view>
+            <view class="modal-title">切换到「{{hrTemplateSwitchTarget.name}}」</view>
+            <view class="hint-text">逐项决定旧字段的处置方式，预检通过后才会整体生效。</view>
+          </view>
+          <view class="modal-close ui-motion-chip" catchtap="closeHrProfileTemplateSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">✕</view>
+        </view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+          <view class="hr-switch-empty" wx:if="{{!hrTemplateSwitchSources.length}}">当前组织没有需要迁移的历史字段，将直接生成首个快照。</view>
+          <view class="hr-switch-source" wx:for="{{hrTemplateSwitchSources}}" wx:key="id">
+            <view class="hr-switch-source-head">
+              <view>
+                <view class="hr-template-card-name">{{item.label}}</view>
+                <view class="hr-template-meta">{{item.snapshotName}} · 版本 {{item.snapshotVersion}} · 正式 {{item.currentValueCount}} / 待审 {{item.pendingValueCount}}</view>
+              </view>
+              <view class="status-chip none-chip">{{item.type}}</view>
+            </view>
+            <view class="hr-switch-suggestion" wx:if="{{item.suggestionText}}">{{item.suggestionText}}</view>
+            <view class="field-row">
+              <view class="field field-half">
+                <view class="field-label">处置方式</view>
+                <picker range="{{hrTemplateSwitchActionOptions}}" value="{{item.actionIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchActionChange">
+                  <view class="picker-value">{{hrTemplateSwitchActionOptions[item.actionIndex]}}</view>
+                </picker>
+              </view>
+              <view class="field field-half" wx:if="{{item.action === 'map'}}">
+                <view class="field-label">目标字段</view>
+                <picker range="{{item.targetOptions}}" range-key="label" value="{{item.targetIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchTargetChange">
+                  <view class="picker-value">{{item.targetOptions[item.targetIndex].label}}</view>
+                </picker>
+              </view>
+            </view>
+            <view class="hr-switch-delete-warning" wx:if="{{item.action === 'delete'}}">将永久删除本组织所有成员在此字段下的正式值和待审值。</view>
+          </view>
+        </scroll-view>
+        <view class="button-row hr-template-switch-footer ui-dialog-footer">
+          <button class="secondary-btn ui-motion-button" bindtap="closeHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+          <button class="primary-btn ui-motion-button" loading="{{loadingMap.previewHrTemplateSwitch || loadingMap.applyHrTemplateSwitch}}" bindtap="previewHrProfileTemplateSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">预检并切换</button>
+        </view>
       </view>
     </view>
 

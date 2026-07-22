@@ -67,6 +67,8 @@ jobs:
           node server/test/securityMigration.test.js
           node server/test/dataIntegrityMigration.test.js
           node server/test/hrTableImport.test.js
+          node server/test/hrProfileTemplateLibrary.test.js
+          node server/test/hrProfileTemplateMigration.test.js
           node server/test/messageCenter.test.js
           node server/test/deploymentAutomation.test.js
           node server/test/deploymentMigrationIntegration.test.js

@@ -188,6 +188,8 @@ function createEmptyProfileField() {
 
 function emptyHrProfileTemplateForm() {
   return {
+    id: '',
+    name: '',
     description: '',
     editMode: PROFILE_EDIT_MODE_OPTIONS[0].value,
     editModeLabel: PROFILE_EDIT_MODE_OPTIONS[0].label,

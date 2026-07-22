@@ -29,6 +29,8 @@ const PERMISSION_GROUPS = [
       { key: 'hr.people', label: '人员信息', description: '查看、新建、修改、删除及解绑人员' },
       { key: 'hr.import', label: '人员导入', description: '预检并导入人事表格' },
       { key: 'hr.profile_review', label: '扩展资料审核', description: '查看、审核及维护人员扩展资料' },
+      { key: 'hr.profile_templates.manage', label: '全局人事模板管理', description: '创建、修改、复制和删除跨组织共用的人事模板' },
+      { key: 'hr.profile_templates.select', label: '本组织人事模板切换', description: '为本组织选择模板、迁移字段并调整填写说明和修改模式' },
       { key: 'hr.departments', label: '部门管理', description: '新增、修改和删除部门' },
       { key: 'hr.identities', label: '身份管理', description: '新增、修改和删除身份' },
       { key: 'hr.work_groups', label: '职能组管理', description: '新增、修改和删除职能组' }
@@ -114,7 +116,15 @@ mapAny(['/listHrInfo'], [
 mapRoutes('hr.people', ['/saveHrInfo', '/deleteHrInfo', '/batchMaintainFromHrInfo', '/unbindHrWechat']);
 mapRoutes('hr.import', ['/previewHrTableImport', '/importHrTable', '/importHrCsv']);
 mapAny(['/listHrProfileAdminData', '/getHrPersonDetail', '/saveHrPersonFull'], ['hr.people', 'hr.profile_review']);
-mapRoutes('hr.profile_review', ['/saveHrProfileTemplate', '/reviewHrProfileChange']);
+mapRoutes('hr.profile_review', ['/reviewHrProfileChange']);
+mapAny(['/listHrProfileTemplates'], ['hr.profile_templates.manage', 'hr.profile_templates.select']);
+mapRoutes('hr.profile_templates.manage', [
+  '/saveHrProfileTemplateDefinition', '/duplicateHrProfileTemplateDefinition', '/deleteHrProfileTemplateDefinition'
+]);
+mapRoutes('hr.profile_templates.select', [
+  '/getHrProfileTemplateSwitchContext', '/previewHrProfileTemplateSwitch',
+  '/applyHrProfileTemplateSwitch', '/saveOrgHrProfileTemplateSettings'
+]);
 mapRoutes('hr.departments', ['/saveDepartment', '/deleteDepartment']);
 mapRoutes('hr.identities', ['/saveIdentity', '/deleteIdentity']);
 mapRoutes('hr.work_groups', ['/saveWorkGroup', '/deleteWorkGroup']);

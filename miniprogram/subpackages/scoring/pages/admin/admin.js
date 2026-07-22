@@ -46,6 +46,10 @@ Page({
     canManageHrPeople: false,
     canImportHr: false,
     canReviewHrProfile: false,
+    canBrowseHrInfo: false,
+    canUseHrMemberArea: false,
+    canManageHrProfileTemplates: false,
+    canSelectHrProfileTemplate: false,
     canReadAdmins: false,
     canWriteAdmins: false,
     activeTab: utils.TAB_LIST[0],
@@ -180,6 +184,16 @@ Page({
     hrProfileFilterOptions: emptyHrProfileFilterOptions(),
     hrProfileRawRows: [],
     hrProfileRows: [],
+    hrInfoSubTab: 'members',
+    hrProfileTemplateList: [],
+    activeHrProfileSnapshot: null,
+    showHrTemplateEditor: false,
+    hrTemplateSwitchVisible: false,
+    hrTemplateSwitchTarget: null,
+    hrTemplateSwitchSources: [],
+    hrTemplateSwitchActionOptions: ['隐藏保留', '映射迁移', '永久删除'],
+    hrTemplateSwitchToken: '',
+    hrTemplateSwitchSummary: null,
     _hrInfoKeywordInput: '',
     _hrInfoKeywordTimer: null,
     showHrPersonDetail: false,
@@ -346,6 +360,15 @@ Page({
         hrList: [],
         hrProfileRawRows: [],
         hrProfileRows: [],
+        hrInfoSubTab: 'members',
+        hrProfileTemplateList: [],
+        activeHrProfileSnapshot: null,
+        showHrTemplateEditor: false,
+        hrTemplateSwitchVisible: false,
+        hrTemplateSwitchTarget: null,
+        hrTemplateSwitchSources: [],
+        hrTemplateSwitchToken: '',
+        hrTemplateSwitchSummary: null,
         hrProfileFilters: emptyHrProfileFilters(),
         hrProfileFilterOptions: emptyHrProfileFilterOptions(),
         departmentList: [],
@@ -421,7 +444,12 @@ Page({
     }
     const loaders = {
       results: () => this.loadScoreResults({ nocache: true }),
-      hrInfo: () => Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]),
+      hrInfo: () => {
+        const loads = [];
+        if (this.data.canBrowseHrInfo) loads.push(this.loadHrList(), this.loadHrProfileAdminData());
+        if (this.data.canManageHrProfileTemplates || this.data.canSelectHrProfileTemplate) loads.push(this.loadHrProfileTemplates());
+        return Promise.all(loads);
+      },
       departments: () => this.loadDepartmentList(),
       workGroups: () => this.loadWorkGroupList(),
       identities: () => this.loadIdentityList(),
@@ -524,6 +552,8 @@ Page({
       'system.admin_accounts.write'
     ]);
     const canWriteAdmins = adminPermissions.hasAny(adminProfile, ['system.admin_accounts.write']);
+    const canBrowseHrInfo = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
+    const canUseHrMemberArea = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review', 'hr.import']);
     const activeOrgId = wx.getStorageSync('activeOrgId') || '';
     const bootstrapKey = [this._subApp || 'scoring', activeOrgId, adminProfile.id || '', (adminProfile.permissionKeys || []).slice().sort().join(',')].join('::');
 
@@ -548,6 +578,11 @@ Page({
       canManageHrPeople: adminPermissions.hasAny(adminProfile, ['hr.people']),
       canImportHr: adminPermissions.hasAny(adminProfile, ['hr.import']),
       canReviewHrProfile: adminPermissions.hasAny(adminProfile, ['hr.profile_review']),
+      canBrowseHrInfo,
+      canUseHrMemberArea,
+      canManageHrProfileTemplates: adminPermissions.hasAny(adminProfile, ['hr.profile_templates.manage']),
+      canSelectHrProfileTemplate: adminPermissions.hasAny(adminProfile, ['hr.profile_templates.select']),
+      hrInfoSubTab: canUseHrMemberArea ? this.data.hrInfoSubTab : 'templates',
       currentOrganizationName: activeOrgName || this.data.currentOrganizationName,
       resultViewOptions: [
         { value: 'overview', label: '明细查看' },
@@ -588,9 +623,11 @@ Page({
         await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
         await this.loadWorkGroupList();
         const canBrowseHr = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
+        const canUseTemplates = adminPermissions.hasAny(adminProfile, ['hr.profile_templates.manage', 'hr.profile_templates.select']);
         if (visibleTabs.indexOf('hrInfo') >= 0 && canBrowseHr && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
           await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
         }
+        if (visibleTabs.indexOf('hrInfo') >= 0 && canUseTemplates) await this.loadHrProfileTemplates();
         this.updateHrFormOptions();
         return;
       }
@@ -659,11 +696,14 @@ Page({
       }
     }
     if (tab === 'hrInfo') {
-      if (!this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
+      if (this.data.canBrowseHrInfo && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
         this.loadHrProfileAdminData();
         this.loadHrList();
       }
       this.updateHrFormOptions();
+      if (this.data.canManageHrProfileTemplates || this.data.canSelectHrProfileTemplate) {
+        this.loadHrProfileTemplates();
+      }
     }
     if (tab === 'departments') {
       this.loadDepartmentList();

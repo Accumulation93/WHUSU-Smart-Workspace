@@ -318,24 +318,21 @@ CREATE TABLE IF NOT EXISTS score_answers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
--- 8. 人事扩展资料（JSON 拆表, org-scoped）
+-- 8. 人事扩展资料（全局模板 + 组织快照）
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS hr_profile_templates (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
-  template_key VARCHAR(64) NOT NULL DEFAULT 'default_hr_profile_template',
+  name VARCHAR(200) NOT NULL,
   description TEXT,
   edit_mode VARCHAR(32) NOT NULL DEFAULT 'direct',
-  fields TEXT,
+  created_by VARCHAR(64) DEFAULT NULL,
   updated_by VARCHAR(64) DEFAULT NULL,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_hpt_org (org_id),
-  UNIQUE INDEX idx_hpt_key (template_key, org_id)
+  UNIQUE INDEX idx_hpt_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 从 templates.fields JSON 拆出，有顺序
 CREATE TABLE IF NOT EXISTS hr_profile_template_fields (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   template_id VARCHAR(64) NOT NULL,
@@ -352,11 +349,100 @@ CREATE TABLE IF NOT EXISTS hr_profile_template_fields (
   min_value DECIMAL(20,4) DEFAULT NULL,
   max_value DECIMAL(20,4) DEFAULT NULL,
   options_json TEXT,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
   INDEX idx_hptf_template (template_id),
-  INDEX idx_hptf_org (org_id),
   CONSTRAINT fk_hptf_template FOREIGN KEY (template_id)
     REFERENCES hr_profile_templates(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS org_hr_profile_template_snapshots (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  org_id VARCHAR(64) NOT NULL,
+  version INT NOT NULL,
+  source_template_id VARCHAR(64) DEFAULT NULL,
+  source_template_name VARCHAR(200) NOT NULL,
+  description TEXT,
+  edit_mode VARCHAR(32) NOT NULL DEFAULT 'direct',
+  selected_by VARCHAR(64) DEFAULT NULL,
+  settings_updated_by VARCHAR(64) DEFAULT NULL,
+  selected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  settings_updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_ohpts_org (org_id),
+  INDEX idx_ohpts_source (source_template_id),
+  UNIQUE INDEX uk_ohpts_version (org_id, version),
+  CONSTRAINT fk_ohpts_source FOREIGN KEY (source_template_id)
+    REFERENCES hr_profile_templates(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS org_hr_profile_template_snapshot_fields (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  snapshot_id VARCHAR(64) NOT NULL,
+  source_template_field_id VARCHAR(64) DEFAULT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  label VARCHAR(200) NOT NULL,
+  type VARCHAR(32) NOT NULL DEFAULT 'text',
+  required TINYINT(1) NOT NULL DEFAULT 0,
+  min_length INT DEFAULT NULL,
+  max_length INT DEFAULT NULL,
+  number_rule VARCHAR(32) DEFAULT 'value_range',
+  allow_decimal TINYINT(1) NOT NULL DEFAULT 1,
+  min_digits INT DEFAULT NULL,
+  max_digits INT DEFAULT NULL,
+  min_value DECIMAL(20,4) DEFAULT NULL,
+  max_value DECIMAL(20,4) DEFAULT NULL,
+  options_json TEXT,
+  INDEX idx_ohptsf_snapshot (snapshot_id),
+  INDEX idx_ohptsf_source (source_template_field_id),
+  CONSTRAINT fk_ohptsf_snapshot FOREIGN KEY (snapshot_id)
+    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ohptsf_source FOREIGN KEY (source_template_field_id)
+    REFERENCES hr_profile_template_fields(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS org_hr_profile_template_settings (
+  org_id VARCHAR(64) NOT NULL PRIMARY KEY,
+  active_snapshot_id VARCHAR(64) NOT NULL,
+  updated_by VARCHAR(64) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_ohptsettings_snapshot (active_snapshot_id),
+  CONSTRAINT fk_ohptsettings_snapshot FOREIGN KEY (active_snapshot_id)
+    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS org_hr_profile_template_switches (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  org_id VARCHAR(64) NOT NULL,
+  from_snapshot_id VARCHAR(64) DEFAULT NULL,
+  to_snapshot_id VARCHAR(64) NOT NULL,
+  target_template_name VARCHAR(200) NOT NULL,
+  operated_by VARCHAR(64) DEFAULT NULL,
+  moved_value_count INT NOT NULL DEFAULT 0,
+  hidden_value_count INT NOT NULL DEFAULT 0,
+  deleted_value_count INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ohptswitch_org (org_id),
+  CONSTRAINT fk_ohptswitch_from FOREIGN KEY (from_snapshot_id)
+    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_ohptswitch_to FOREIGN KEY (to_snapshot_id)
+    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS org_hr_profile_template_switch_actions (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  switch_id VARCHAR(64) NOT NULL,
+  source_snapshot_field_id VARCHAR(64) NOT NULL,
+  action VARCHAR(16) NOT NULL,
+  target_snapshot_field_id VARCHAR(64) DEFAULT NULL,
+  current_value_count INT NOT NULL DEFAULT 0,
+  pending_value_count INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ohptswitcha_switch (switch_id),
+  CONSTRAINT fk_ohptswitcha_switch FOREIGN KEY (switch_id)
+    REFERENCES org_hr_profile_template_switches(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ohptswitcha_source FOREIGN KEY (source_snapshot_field_id)
+    REFERENCES org_hr_profile_template_snapshot_fields(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_ohptswitcha_target FOREIGN KEY (target_snapshot_field_id)
+    REFERENCES org_hr_profile_template_snapshot_fields(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS hr_profile_records (
@@ -364,8 +450,7 @@ CREATE TABLE IF NOT EXISTS hr_profile_records (
   hr_id VARCHAR(64) NOT NULL,
   name VARCHAR(100) DEFAULT NULL,
   openid VARCHAR(128) DEFAULT NULL,
-  template_key VARCHAR(64) DEFAULT 'default_hr_profile_template',
-  template_updated_at DATETIME DEFAULT NULL,
+  template_snapshot_id VARCHAR(64) DEFAULT NULL,
   audit_status VARCHAR(16) NOT NULL DEFAULT 'none',
   rejection_reason TEXT,
   requested_at DATETIME DEFAULT NULL,
@@ -376,7 +461,10 @@ CREATE TABLE IF NOT EXISTS hr_profile_records (
   INDEX idx_hpr_hr (hr_id),
   INDEX idx_hpr_openid (openid),
   INDEX idx_hpr_status (audit_status),
-  INDEX idx_hpr_org (org_id)
+  INDEX idx_hpr_org (org_id),
+  INDEX idx_hpr_snapshot (template_snapshot_id),
+  CONSTRAINT fk_hpr_snapshot FOREIGN KEY (template_snapshot_id)
+    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 从 records.values / pendingValues JSON 拆出
@@ -390,8 +478,11 @@ CREATE TABLE IF NOT EXISTS hr_profile_record_values (
   INDEX idx_hprv_record (record_id),
   INDEX idx_hprv_field (field_id),
   INDEX idx_hprv_org (org_id),
+  UNIQUE INDEX uk_hprv_value (record_id, field_id, is_pending),
   CONSTRAINT fk_hprv_record FOREIGN KEY (record_id)
-    REFERENCES hr_profile_records(id) ON DELETE CASCADE
+    REFERENCES hr_profile_records(id) ON DELETE CASCADE,
+  CONSTRAINT fk_hprv_field FOREIGN KEY (field_id)
+    REFERENCES org_hr_profile_template_snapshot_fields(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 9. 结果公示与评优名单
