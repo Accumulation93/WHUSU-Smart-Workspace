@@ -15,6 +15,12 @@ const adminConfig = {
   password: process.env.DEPLOY_TEST_DB_PASSWORD || ''
 };
 const database = `redsu_org_management_${Date.now()}_${process.pid}`;
+const testUser = `org_management_${process.pid}`;
+const testPassword = `OrgManagement_${Date.now()}_${process.pid}`;
+const requestedTestUserHost = process.env.TEST_DB_USER_HOST || '127.0.0.1';
+const testUserHost = ['%', '127.0.0.1', 'localhost'].includes(requestedTestUserHost)
+  ? requestedTestUserHost
+  : '127.0.0.1';
 
 function findHandler(router, routePath) {
   const layer = router.stack.find((item) => item.route && item.route.path === routePath);
@@ -39,6 +45,8 @@ function invoke(handler, body) {
   let pool;
   try {
     await admin.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4`);
+    await admin.query(`CREATE USER '${testUser}'@'${testUserHost}' IDENTIFIED BY ?`, [testPassword]);
+    await admin.query(`GRANT ALL PRIVILEGES ON \`${database}\`.* TO '${testUser}'@'${testUserHost}'`);
     await admin.query(
       `CREATE TABLE \`${database}\`.system_config (
         id VARCHAR(64) PRIMARY KEY,
@@ -87,8 +95,8 @@ function invoke(handler, body) {
 
     process.env.DB_HOST = adminConfig.host;
     process.env.DB_PORT = String(adminConfig.port);
-    process.env.DB_USER = adminConfig.user;
-    process.env.DB_PASSWORD = adminConfig.password;
+    process.env.DB_USER = testUser;
+    process.env.DB_PASSWORD = testPassword;
     process.env.DB_NAME = database;
 
     const router = require('../src/core/routes/org');
@@ -123,6 +131,7 @@ function invoke(handler, body) {
   } finally {
     if (pool) await pool.end();
     await admin.query(`DROP DATABASE IF EXISTS \`${database}\``);
+    await admin.query(`DROP USER IF EXISTS '${testUser}'@'${testUserHost}'`);
     await admin.end();
   }
 })().catch((error) => {
