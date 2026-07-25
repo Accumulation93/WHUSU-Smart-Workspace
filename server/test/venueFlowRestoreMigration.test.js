@@ -35,12 +35,12 @@ async function run() {
     try {
       await connection.query(`
         CREATE TABLE organizations (
-          id VARCHAR(64) PRIMARY KEY,
-          name VARCHAR(100) NOT NULL UNIQUE
+          id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci PRIMARY KEY,
+          name VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL UNIQUE
         );
         CREATE TABLE venues (
-          id VARCHAR(64) PRIMARY KEY,
-          name VARCHAR(200) NOT NULL
+          id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci PRIMARY KEY,
+          name VARCHAR(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL
         );
         CREATE TABLE departments (
           id VARCHAR(64) PRIMARY KEY,

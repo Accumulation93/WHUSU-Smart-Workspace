@@ -6,29 +6,29 @@
 START TRANSACTION;
 
 SET @source_org_id = (
-  SELECT id FROM organizations
+  SELECT CAST(id AS BINARY) FROM organizations
    WHERE name = '武汉大学第四十三届学生会'
    LIMIT 1
 );
 SET @target_org_id = (
-  SELECT id FROM organizations
+  SELECT CAST(id AS BINARY) FROM organizations
    WHERE name = '武汉大学第四十四届学生会'
    LIMIT 1
 );
 SET @venue_id = (
-  SELECT id FROM venues
+  SELECT CAST(id AS BINARY) FROM venues
    WHERE name = '樱顶大会议室'
    LIMIT 1
 );
 SET @source_flow_id = (
-  SELECT id FROM venue_approval_flows
+  SELECT CAST(id AS BINARY) FROM venue_approval_flows
    WHERE org_id = @source_org_id
      AND venue_id = @venue_id
      AND is_active = 1
    LIMIT 1
 );
 SET @existing_target_flow_id = (
-  SELECT id FROM venue_approval_flows
+  SELECT CAST(id AS BINARY) FROM venue_approval_flows
    WHERE org_id = @target_org_id
      AND venue_id = @venue_id
    LIMIT 1
