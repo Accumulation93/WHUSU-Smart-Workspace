@@ -355,7 +355,7 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       }
     } else if (otherRules.some(r => r.rule_type === 'direct')) {
       // Adding a new non-direct rule alongside an existing direct rule — blocked
-      return res.json({ status: 'invalid_params', message: '该场地已设置「直接通过」，不能同时添加其他规则。如需切换类型，请编辑现有规则' });
+      return res.json({ status: 'invalid_params', message: '“直接通过”不能与其他规则同时使用' });
     }
 
     const data = {
@@ -762,13 +762,13 @@ router.post('/approveVenueBooking', async (req, res) => {
 
         // If approved after booking end, cancel instead
         if (approvedAt > bookingTimeEnd) {
-          await venueBookingModel.updateStatus(id, 'cancelled', review.hrId, '审批通过时已超过借用结束时间，自动取消', conn);
+          await venueBookingModel.updateStatus(id, 'cancelled', review.hrId, '审批时借用已结束，自动取消', conn);
           await createVenueBookingStatusNotification(
             booking, 'booking_cancelled', '场地借用已自动取消',
             '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
           );
           await conn.commit();
-          return res.json({ status: 'expired', message: '审批通过时已超过借用结束时间，借用已自动取消' });
+          return res.json({ status: 'expired', message: '审批时借用已结束，已自动取消' });
         }
 
         // Approval within booking window - adjust start time to approval moment
@@ -812,7 +812,7 @@ router.post('/approveVenueBooking', async (req, res) => {
          isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
          id]
       );
-      if (updateResult.affectedRows !== 1) throw new Error('venue_approval_conflict');
+      if (updateResult.affectedRows !== 1) throw new Error('审批状态已变化，请刷新');
 
       if (isLastStep) {
         const venueName = booking.venue_name || '';
@@ -847,13 +847,13 @@ router.post('/approveVenueBooking', async (req, res) => {
 
     // If approved after booking end, cancel instead
     if (approvedAt > bookingTimeEnd) {
-      await venueBookingModel.updateStatus(id, 'cancelled', approverId, '审批通过时已超过借用结束时间，自动取消', conn);
+      await venueBookingModel.updateStatus(id, 'cancelled', approverId, '审批时借用已结束，自动取消', conn);
       await createVenueBookingStatusNotification(
         booking, 'booking_cancelled', '场地借用已自动取消',
         '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
       );
       await conn.commit();
-      return res.json({ status: 'expired', message: '审批通过时已超过借用结束时间，借用已自动取消' });
+      return res.json({ status: 'expired', message: '审批时借用已结束，已自动取消' });
     }
 
     // Approval within booking window - adjust start time
@@ -941,7 +941,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
 router.post(['/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'], (req, res) => {
   res.status(410).json({
     status: 'client_upgrade_required',
-    message: '当前版本已停用旧审批入口，请重启小程序后重试',
+    message: '请重新打开小程序',
     requestId: req.requestId
   });
 });

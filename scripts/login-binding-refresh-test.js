@@ -58,6 +58,7 @@ async function callFunction(options) {
 global.wx = {
   getStorageSync(key) { return storage[key]; },
   setStorageSync(key, value) { storage[key] = value; },
+  removeStorageSync(key) { delete storage[key]; },
   login(options) { options.success({ code: 'fresh-wx-code' }); },
   showToast(options) { toasts.push(options); },
   redirectTo(options) { redirects.push(options.url); }

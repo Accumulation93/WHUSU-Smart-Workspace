@@ -137,7 +137,10 @@ function buildTemplateConfigSignature(templateConfigs, templatesById) {
 router.post('/getRateTargets', async (req, res) => {
   try {
     const openid = req.openid;
-    const role = safeString(req.body.role || 'user');
+    const role = safeString(req.get('X-Role')).toLowerCase();
+    if (role !== 'admin' && role !== 'user') {
+      return res.json({ status: 'invalid_role', message: '当前身份无效，请重新选择身份' });
+    }
 
     const lookups = await fetchOrgLookups();
     let scorer = null;
@@ -169,7 +172,7 @@ router.post('/getRateTargets', async (req, res) => {
     scorer = normalizeHrPerson(hrRecord, lookups);
 
     if (!scorer.departmentId || !scorer.identityId) {
-      return res.json({ status: 'invalid_scorer', message: '当前用户缺少评分规则所需的人事信息。' });
+      return res.json({ status: 'invalid_scorer', message: '人事信息不完整' });
     }
 
     const currentActivity = await scoreActivityModel.getCurrent();
@@ -221,7 +224,7 @@ router.post('/getRateTargets', async (req, res) => {
     const rule = await rateRuleModel.getByKey(currentActivity.id, scorerKey);
 
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: '当前评分人类别还没有配置被评分人规则。' });
+      return res.json({ status: 'missing_rule', message: '暂无被评分人规则' });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -304,7 +307,7 @@ router.post('/getScoreFormData', async (req, res) => {
     if (!user) return res.json({ status: 'user_not_found', message: '未找到当前用户信息，请重新登录' });
 
     const hrId = safeString(user.hr_id);
-    if (!hrId) return res.json({ status: 'invalid_scorer', message: '当前用户缺少评分所需的人事信息' });
+    if (!hrId) return res.json({ status: 'invalid_scorer', message: '人事信息不完整' });
 
     const hrRecord = await hrInfoModel.getById(hrId);
     if (!hrRecord) return res.json({ status: 'invalid_scorer', message: '当前用户人事信息不存在，请重新绑定' });
@@ -313,7 +316,7 @@ router.post('/getScoreFormData', async (req, res) => {
     const scorer = normalizeHrPerson(hrRecord, lookups);
 
     if (!scorer.departmentId || !scorer.identityId) {
-      return res.json({ status: 'invalid_scorer', message: '当前用户缺少评分所需的人事信息' });
+      return res.json({ status: 'invalid_scorer', message: '人事信息不完整' });
     }
 
     const activity = await scoreActivityModel.getCurrent();
@@ -341,7 +344,7 @@ router.post('/getScoreFormData', async (req, res) => {
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
     const rule = await rateRuleModel.getByKey(activity.id, scorerKey);
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: '当前评分人类别尚未配置被评分人规则' });
+      return res.json({ status: 'missing_rule', message: '暂无被评分人规则' });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -381,7 +384,7 @@ router.post('/getScoreFormData', async (req, res) => {
     );
 
     if (!configuredClauseEntry) {
-      return res.json({ status: 'missing_clause_config', message: '当前被评分人规则尚未配置评分问题，请联系管理员完善设置' });
+      return res.json({ status: 'missing_clause_config', message: '暂无评分问题' });
     }
 
     // Load templates and questions
@@ -396,7 +399,7 @@ router.post('/getScoreFormData', async (req, res) => {
       const templateDoc = templateDocs[i];
       const questions = questionsByTemplate[i];
       if (!templateDoc || !questions.length) {
-        return res.json({ status: 'missing_template', message: '当前暂无评分问题，请联系管理员配置评分问题' });
+        return res.json({ status: 'missing_template', message: '暂无评分问题' });
       }
       const config = configuredClauseEntry.clause.templateConfigs[i];
       templatesById.set(templateIds[i], { ...templateDoc, questions });
@@ -512,20 +515,20 @@ router.post('/submitScoreRecord', async (req, res) => {
       return res.json({ status: 'missing_activity', message: '当前评分活动不存在' });
     }
     if (activity.is_paused) {
-      return res.json({ status: 'activity_paused', message: '当前评分活动已暂停，无法提交评分' });
+      return res.json({ status: 'activity_paused', message: '评分活动已暂停' });
     }
     let now = new Date();
     let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (activity.start_date) {
       let startDate = new Date(activity.start_date);
       if (today < startDate) {
-        return res.json({ status: 'activity_not_started', message: '当前评分活动尚未开始，无法提交评分' });
+        return res.json({ status: 'activity_not_started', message: '评分活动尚未开始' });
       }
     }
     if (activity.end_date) {
       let endDate = new Date(activity.end_date);
       if (today > endDate) {
-        return res.json({ status: 'activity_ended', message: '当前评分活动已结束，无法提交评分' });
+        return res.json({ status: 'activity_ended', message: '评分活动已结束' });
       }
     }
 
@@ -688,7 +691,7 @@ router.post('/submitScoreRecord', async (req, res) => {
          WHERE org_id = ? AND activity_id = ? AND scorer_id = ? AND target_id = ? FOR UPDATE`,
         [orgId, activityId, scorer.id, targetId]
       );
-      if (!records.length) throw new Error('score_record_upsert_failed');
+      if (!records.length) throw new Error('评分保存失败');
       const recordId = records[0].id;
       await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [recordId, orgId]);
 
@@ -1106,7 +1109,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
     if (rows.length > EXPORT_MAX_ROWS) {
       return res.json({
         status: 'too_large',
-        message: `导出数据量过大（${rows.length} 行），请缩小筛选范围或联系管理员分批导出`,
+        message: `数据过多（${rows.length} 行），请缩小筛选范围`,
         rowCount: rows.length,
         maxAllowed: EXPORT_MAX_ROWS
       });

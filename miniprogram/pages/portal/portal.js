@@ -2,24 +2,11 @@ const { callFunction, formatAuditTime } = require('../../utils/api');
 const eventBus = require('../../utils/eventBus');
 const orgSession = require('../../utils/orgSession');
 const adminPermissions = require('../../utils/adminPermissions');
+const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
-
-function navigateToTrustedRoute(rawUrl) {
-  const url = String(rawUrl || '').trim();
-  let decoded = url;
-  try { decoded = decodeURIComponent(url); } catch (error) {}
-  const isLocalRoute = /^\/(?:pages|subpackages)\/[A-Za-z0-9_?&=./%-]+$/.test(url);
-  const hasUnsafeSegment = decoded.includes('..') || decoded.includes('\\') || decoded.includes('://');
-  if (!isLocalRoute || hasUnsafeSegment || url.length > 1024) {
-    console.warn('[portal] blocked untrusted route');
-    wx.showToast({ title: '目标页面不可用', icon: 'none' });
-    return;
-  }
-  wx.navigateTo({ url: url });
-}
 
 const PORTAL_CARDS_USER = [
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
@@ -172,11 +159,10 @@ Page({
     if (!activeRole || roleKeys.indexOf(activeRole) === -1) {
       if (roleKeys.length) {
         activeRole = roleKeys[0];
-        wx.setStorageSync(ACTIVE_ROLE_KEY, activeRole);
       } else {
         activeRole = '';
-        wx.removeStorageSync(ACTIVE_ROLE_KEY);
       }
+      orgSession.commitContext({ role: activeRole });
     }
 
     const user = activeRole ? (roleProfiles[activeRole] || null) : null;
@@ -570,16 +556,9 @@ Page({
         wx.setStorageSync(STORAGE_KEY, roleProfiles);
 
         const roleKeys = Object.keys(roleProfiles);
-        if (roleKeys.length) {
-          wx.setStorageSync(ACTIVE_ROLE_KEY, roleKeys[0]);
-        } else {
-          wx.removeStorageSync(ACTIVE_ROLE_KEY);
-        }
+        orgSession.clearAuthentication(roleKeys.length ? roleKeys[0] : '');
 
-        // Clear token to prevent auto-login with old credentials
-        wx.removeStorageSync('token');
-
-        wx.showToast({ title: '已解绑，即将返回登录页', icon: 'success' });
+        wx.showToast({ title: '解绑成功', icon: 'success' });
         this.setData({ showUnbindDialog: false, unbindLoading: false });
 
         // Redirect to login page
@@ -588,7 +567,7 @@ Page({
         }, 800);
       },
       fail: () => {
-        wx.showToast({ title: '解绑失败，请检查网络', icon: 'none' });
+        wx.showToast({ title: '解绑失败', icon: 'none' });
         this.setData({ unbindLoading: false });
       }
     });

@@ -913,7 +913,7 @@ scroll-view {
 .empty-illustration {
   margin-bottom: 28rpx; display: flex; align-items: center; justify-content: center;
 }
-.empty-icon-clock, .empty-icon-lock, .empty-icon-star, .empty-icon-edit {
+.empty-icon-clock, .empty-icon-lock, .empty-icon-star {
   width: 100rpx; height: 100rpx; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 46rpx;
@@ -922,22 +922,19 @@ scroll-view {
   background: linear-gradient(135deg, rgba(239,246,255,0.96) 0%, rgba(219,234,254,0.88) 100%);
   border: 2rpx solid rgba(147,197,253,0.5);
 }
-.empty-icon-clock::after { content: "⏳"; }
 .empty-icon-lock {
   background: linear-gradient(135deg, rgba(254,242,242,0.96) 0%, rgba(254,226,226,0.88) 100%);
   border: 2rpx solid rgba(252,165,165,0.5);
 }
-.empty-icon-lock::after { content: "🔒"; }
 .empty-icon-star {
   background: linear-gradient(135deg, rgba(255,251,235,0.96) 0%, rgba(254,243,199,0.88) 100%);
   border: 2rpx solid rgba(252,211,77,0.5);
 }
-.empty-icon-star::after { content: "🏆"; }
-.empty-icon-edit {
-  background: linear-gradient(135deg, rgba(240,253,244,0.96) 0%, rgba(220,252,231,0.88) 100%);
-  border: 2rpx solid rgba(134,239,172,0.5);
+.section-title-icon {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
 }
-.empty-icon-edit::after { content: "✏️"; }
 .empty-title {
   color: #0f172a; font-size: 30rpx; font-weight: 700; line-height: 1.4; margin-bottom: 12rpx;
 }

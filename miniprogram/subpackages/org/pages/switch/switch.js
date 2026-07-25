@@ -123,10 +123,12 @@ Page({
       }
 
       const activeOrg = result.activeOrg;
-      wx.setStorageSync('activeOrgId', activeOrg.id);
-      wx.setStorageSync('activeOrgName', activeOrg.name);
       saveRoleProfile(this.data.activeRole, result.user);
-      const orgVersion = orgSession.markChanged();
+      const contextResult = orgSession.commitContext({
+        orgId: activeOrg.id,
+        orgName: activeOrg.name,
+        role: this.data.activeRole
+      });
       this.setData({
         activeOrgId: activeOrg.id,
         activeOrgName: activeOrg.name
@@ -135,7 +137,7 @@ Page({
         orgId: activeOrg.id,
         orgName: activeOrg.name,
         role: this.data.activeRole,
-        orgVersion,
+        orgVersion: contextResult.version,
         user: result.user || null
       });
       showShortToast('组织已切换', 'success');

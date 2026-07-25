@@ -275,7 +275,7 @@ router.post('/importHrCsv', async (req, res) => {
     let template = null;
     if (extensionFields && Object.keys(extensionFields).length) {
       template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
-      if (!template) return res.json({ status: 'missing_template', message: '未配置人事信息模板，请先在管理端「信息模板」中配置模板字段' });
+      if (!template) return res.json({ status: 'missing_template', message: '请先选择人事模板' });
       const allFields = await profileFieldModel.getByTemplateId(template.id);
       templateFields = allFields.map(f => ({
         id: f.id, label: f.label, type: f.type, required: !!f.required,
@@ -290,7 +290,7 @@ router.post('/importHrCsv', async (req, res) => {
       const extNames = Object.entries(extensionFields).map(([csvCol, fieldName]) => fieldName);
       for (const name of extNames) {
         if (!fieldLabelSet.has(name)) {
-          return res.json({ status: 'invalid_mapping', message: `扩展字段「${name}」在信息模板中不存在，请先在管理端「信息模板」中添加该字段` });
+          return res.json({ status: 'invalid_mapping', message: `人事模板中没有字段「${name}」` });
         }
       }
     }
@@ -471,7 +471,7 @@ router.post('/importHrCsv', async (req, res) => {
         // Store extension values via profile records
         if (Object.keys(row.extValues).length && fieldByLabel.size) {
           if (!template) {
-            throw new Error('模板数据丢失，请刷新页面后重试');
+            throw new Error('模板已更新，请刷新后重试');
           }
           let record = null;
           const [recRows] = await conn.query('SELECT * FROM hr_profile_records WHERE hr_id = ? AND org_id = ? LIMIT 1', [hrId, orgId]);
@@ -693,7 +693,7 @@ router.post('/unbindHrWechat', async (req, res) => {
 
     // 删除 user_info 绑定
     for (const userRecord of userRows) {
-      await pool.query('DELETE FROM user_info WHERE id = ?', [userRecord.id]);
+      await pool.query('DELETE FROM user_info WHERE id = ? AND org_id = ?', [userRecord.id, orgId]);
     }
 
     res.json({ status: 'success', message: '微信解绑成功' });

@@ -45,7 +45,7 @@ function matchesRule(rule, approverHrInfo, applicantHrInfo) {
   switch (rule.department_scope) {
     case 'specific': {
       const deptIds = parseCsvIds(rule.specific_department_id);
-      if (deptIds.length > 0 && !deptIds.includes(approverHrInfo.department_id)) return false;
+      if (!deptIds.length || !deptIds.includes(approverHrInfo.department_id)) return false;
       break;
     }
     case 'same':
@@ -59,7 +59,7 @@ function matchesRule(rule, approverHrInfo, applicantHrInfo) {
   switch (rule.work_group_scope) {
     case 'specific': {
       const wgIds = parseCsvIds(rule.specific_work_group_id);
-      if (wgIds.length > 0 && !wgIds.includes(approverHrInfo.work_group_id)) return false;
+      if (!wgIds.length || !wgIds.includes(approverHrInfo.work_group_id)) return false;
       break;
     }
     case 'same':
@@ -73,7 +73,7 @@ function matchesRule(rule, approverHrInfo, applicantHrInfo) {
   switch (rule.identity_scope) {
     case 'specific': {
       const identIds = parseCsvIds(rule.specific_identity_id);
-      if (identIds.length > 0 && !identIds.includes(approverHrInfo.identity_id)) return false;
+      if (!identIds.length || !identIds.includes(approverHrInfo.identity_id)) return false;
       break;
     }
     case 'same':

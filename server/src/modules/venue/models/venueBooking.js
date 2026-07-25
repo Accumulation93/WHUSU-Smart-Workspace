@@ -14,6 +14,10 @@ async function getByVenueId(venueId, filters) {
   const params = [venueId];
   if (filters) {
     if (filters.status) { sql += ' AND status = ?'; params.push(filters.status); }
+    if (Array.isArray(filters.statuses) && filters.statuses.length) {
+      sql += ' AND status IN (?)';
+      params.push(filters.statuses);
+    }
     if (filters.timeFrom) { sql += ' AND time_end > ?'; params.push(filters.timeFrom); }
     if (filters.timeTo) { sql += ' AND time_start < ?'; params.push(filters.timeTo); }
   }
@@ -121,6 +125,7 @@ async function findConflict(venueId, timeStart, timeEnd, excludeId, conn, forUpd
     sql += ' AND id != ?';
     params.push(excludeId);
   }
+  sql += ' LIMIT 1';
   if (forUpdate) sql += ' FOR UPDATE';
   const [rows] = await db.query(sql, params);
   return rows[0] || null;

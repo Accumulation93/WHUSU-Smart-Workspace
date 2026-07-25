@@ -110,7 +110,10 @@ router.post('/getResultPublication', async (req, res) => {
     if (viewRuleRows.length > 0) {
       const ids = viewRuleRows.map(r => r.id);
       const ph = ids.map(() => '?').join(',');
-      const [clauses] = await pool.query(`SELECT * FROM pub_view_rule_clauses WHERE rule_id IN (${ph}) ORDER BY sort_order ASC`, ids);
+      const [clauses] = await pool.query(
+        `SELECT * FROM pub_view_rule_clauses WHERE rule_id IN (${ph}) AND org_id = ? ORDER BY sort_order ASC`,
+        [...ids, orgId]
+      );
       clauses.forEach(c => {
         if (!viewClausesMap.has(c.rule_id)) viewClausesMap.set(c.rule_id, []);
         viewClausesMap.get(c.rule_id).push(c);
@@ -121,7 +124,10 @@ router.post('/getResultPublication', async (req, res) => {
     if (meritRuleRows.length > 0) {
       const ids = meritRuleRows.map(r => r.id);
       const ph = ids.map(() => '?').join(',');
-      const [clauses] = await pool.query(`SELECT * FROM pub_merit_rule_clauses WHERE rule_id IN (${ph}) ORDER BY sort_order ASC`, ids);
+      const [clauses] = await pool.query(
+        `SELECT * FROM pub_merit_rule_clauses WHERE rule_id IN (${ph}) AND org_id = ? ORDER BY sort_order ASC`,
+        [...ids, orgId]
+      );
       clauses.forEach(c => {
         if (!meritClausesMap.has(c.rule_id)) meritClausesMap.set(c.rule_id, []);
         meritClausesMap.get(c.rule_id).push(c);
@@ -350,13 +356,13 @@ router.post('/saveMeritListPermission', async (req, res) => {
       [publicationId, granteeDeptId, granteeIdentId, targetIdentityId, orgId]
     );
     if (!viewRows.length) {
-      return res.json({ status: 'no_view_permission', message: `授权方尚未获得对该身份的结果查看权限，请先授予查看权限` });
+      return res.json({ status: 'no_view_permission', message: '请先授予结果查看权限' });
     }
 
     // Uniqueness check
     const existing = await meritPermModel.getByPublicationAndTarget(publicationId, targetIdentityId);
     if (existing && String(existing.id) !== id) {
-      return res.json({ status: 'duplicate_target', message: '该身份的评优名单指定权已被其他授权方占用' });
+      return res.json({ status: 'duplicate_target', message: '该身份的评优权限已分配' });
     }
 
     const { withTransaction } = require('../../../config/db');
@@ -381,7 +387,7 @@ router.post('/saveMeritListPermission', async (req, res) => {
 
     res.json({ status: 'success', id: resultId, message: '评优名单指定权限已保存' });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_target', message: '该身份的评优名单指定权已被其他授权方占用' });
+    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_target', message: '该身份的评优权限已分配' });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -425,8 +431,13 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: '缺少必要参数' });
 
     // Look up clause + parent merit rule from new tables (include publication_id for reliable INSERT)
+    const orgId = await getCurrentOrgId();
     const [[clause]] = await pool.query(
-      'SELECT pmrc.*, pmr.grantee_department_id, pmr.publication_id FROM pub_merit_rule_clauses pmrc JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id WHERE pmrc.id = ?', [primaryClauseId]
+      `SELECT pmrc.*, pmr.grantee_department_id, pmr.publication_id
+         FROM pub_merit_rule_clauses pmrc
+         JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
+        WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
+      [primaryClauseId, orgId, orgId, publicationId]
     );
     if (!clause) return res.json({ status: 'not_found', message: '评优指定条款不存在' });
 
@@ -435,7 +446,13 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     let aggregatedQuotaLimit = 0;
     if (clauseIds.length > 1) {
       const ph = clauseIds.map(() => '?').join(',');
-      const [quotaRows] = await pool.query(`SELECT quota_limit FROM pub_merit_rule_clauses WHERE id IN (${ph})`, clauseIds);
+      const [quotaRows] = await pool.query(
+        `SELECT quota_limit FROM pub_merit_rule_clauses WHERE id IN (${ph}) AND rule_id = ? AND org_id = ?`,
+        [...clauseIds, clause.rule_id, orgId]
+      );
+      if (quotaRows.length !== clauseIds.length) {
+        return res.json({ status: 'invalid_params', message: '评优条款不属于同一授权类别' });
+      }
       for (const cl of quotaRows) {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
       }
@@ -449,12 +466,21 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     const pubId = safeString(clause.publication_id) || publicationId;
 
     // Validate all designated HR members are within the ALL clauses' combined scope
-    const orgId = await getCurrentOrgId();
     // Fetch all clause scopes in a single query
     let allClauseScopes = [];
     if (clauseIds.length > 1) {
       const ph = clauseIds.map(() => '?').join(',');
-      const [rows] = await pool.query(`SELECT pmrc.scope_type, pmrc.target_identity_id, pmr.grantee_department_id FROM pub_merit_rule_clauses pmrc JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id WHERE pmrc.id IN (${ph})`, clauseIds);
+      const [rows] = await pool.query(
+        `SELECT pmrc.scope_type, pmrc.target_identity_id, pmr.grantee_department_id
+           FROM pub_merit_rule_clauses pmrc
+           JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
+          WHERE pmrc.id IN (${ph}) AND pmrc.rule_id = ?
+            AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
+        [...clauseIds, clause.rule_id, orgId, orgId, publicationId]
+      );
+      if (rows.length !== clauseIds.length) {
+        return res.json({ status: 'invalid_params', message: '评优条款不属于同一授权类别' });
+      }
       allClauseScopes = rows;
     } else {
       allClauseScopes = [{ scope_type: clause.scope_type, target_identity_id: clause.target_identity_id, grantee_department_id: clause.grantee_department_id }];
@@ -534,7 +560,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     }
     res.json({ status: 'success', designations: result, message: `已保存 ${result.length} 条评优名单` });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: '同一个被评人不能重复出现在评优名单中' });
+    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: '评优名单中有重复成员' });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -577,11 +603,14 @@ router.post('/getPublicResults', async (req, res) => {
     if (!matchingRules.length) return res.json({ status: 'no_permission', message: '暂无查看评分结果的权限' });
 
     // Collect all matching clauses (with per-clause display_mode)
-    const matchingClauses = [];
-    for (const rule of matchingRules) {
-      const [clauses] = await pool.query('SELECT * FROM pub_view_rule_clauses WHERE rule_id = ? ORDER BY sort_order ASC', [rule.id]);
-      matchingClauses.push(...clauses);
-    }
+    const matchingRuleIds = matchingRules.map((rule) => rule.id);
+    const matchingRulePlaceholders = matchingRuleIds.map(() => '?').join(',');
+    const [matchingClauses] = await pool.query(
+      `SELECT * FROM pub_view_rule_clauses
+        WHERE rule_id IN (${matchingRulePlaceholders}) AND org_id = ?
+        ORDER BY rule_id, sort_order ASC`,
+      [...matchingRuleIds, orgId]
+    );
     if (!matchingClauses.length) return res.json({ status: 'no_permission', message: '暂无查看评分结果的权限' });
 
     // Load per-clause grade bands in one batch
@@ -757,38 +786,37 @@ router.post('/getPublicMeritList', async (req, res) => {
     // Check if user has merit list designation permission
     let canDesignate = false;
     let matchingRules = [];
+    let matchingMeritClauses = [];
     let viewerHr = null;
+    const orgId = await getCurrentOrgId();
     const user = await userInfoModel.getByOpenid(openid);
     if (user && safeString(user.hr_id)) {
       viewerHr = await hrInfoModel.getById(safeString(user.hr_id));
       if (viewerHr) {
-        const orgId = await getCurrentOrgId();
         const [meritRuleRows] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
         matchingRules = meritRuleRows.filter(r =>
           safeString(r.grantee_department_id) === safeString(viewerHr.department_id) &&
           safeString(r.grantee_identity_id) === safeString(viewerHr.identity_id)
         );
-        // Only grant designation right if at least one clause exists (batched COUNT)
         if (matchingRules.length > 0) {
           const ruleIds = matchingRules.map(r => r.id);
           const ph = ruleIds.map(() => '?').join(',');
-          const [[{cnt}]] = await pool.query(`SELECT COUNT(*) as cnt FROM pub_merit_rule_clauses WHERE rule_id IN (${ph})`, ruleIds);
-          if (cnt > 0) canDesignate = true;
+          [matchingMeritClauses] = await pool.query(
+            `SELECT * FROM pub_merit_rule_clauses
+              WHERE rule_id IN (${ph}) AND org_id = ?
+              ORDER BY rule_id, sort_order`,
+            [...ruleIds, orgId]
+          );
+          canDesignate = matchingMeritClauses.length > 0;
         }
       }
     }
 
-    const orgId = await getCurrentOrgId();
     const designations = await designationModel.getByPublication(publication.id);
     // Only include designations linked to clauses under the viewer's OWN matching rules.
     // Build clause set from matchingRules only (not ALL publication rules).
     const viewerClauseIds = new Set();
-    if (matchingRules.length > 0 && designations.length > 0) {
-      for (const rule of matchingRules) {
-        const [clauses] = await pool.query('SELECT id FROM pub_merit_rule_clauses WHERE rule_id = ?', [rule.id]);
-        clauses.forEach(c => viewerClauseIds.add(c.id));
-      }
-    }
+    matchingMeritClauses.forEach((clause) => viewerClauseIds.add(clause.id));
     const lookups = await fetchOrgLookups();
     const result = [];
     // Batch-load all designated HRs in a single query instead of N+1
@@ -839,8 +867,13 @@ router.post('/getPublicMeritList', async (req, res) => {
       // Pre-build Set of already-designated HR IDs for O(1) lookup
       const designatedIdSet = new Set(result.map(d => d.targetHrId));
 
+      const clausesByRule = new Map();
+      matchingMeritClauses.forEach((clause) => {
+        if (!clausesByRule.has(clause.rule_id)) clausesByRule.set(clause.rule_id, []);
+        clausesByRule.get(clause.rule_id).push(clause);
+      });
       for (const rule of matchingRules) {
-        const [clauses] = await pool.query('SELECT * FROM pub_merit_rule_clauses WHERE rule_id = ? ORDER BY sort_order', [rule.id]);
+        const clauses = clausesByRule.get(rule.id) || [];
         for (const c of clauses) {
           const targetIdentityName = lookups.identitiesById.get(safeString(c.target_identity_id)) || '';
           userClauses.push({
@@ -913,8 +946,13 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     if (!viewerHr) return res.json({ status: 'not_bound', message: '人事信息不存在' });
 
     // Look up clause + parent merit rule (include publication_id for reliable lookup)
+    const orgId = await getCurrentOrgId();
     const [[clause]] = await pool.query(
-      'SELECT pmrc.*, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id FROM pub_merit_rule_clauses pmrc JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id WHERE pmrc.id = ?', [primaryClauseId]
+      `SELECT pmrc.*, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
+         FROM pub_merit_rule_clauses pmrc
+         JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
+        WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
+      [primaryClauseId, orgId, orgId, publicationId]
     );
     if (!clause) return res.json({ status: 'not_found', message: '评优指定条款不存在' });
     if (safeString(clause.grantee_department_id) !== safeString(viewerHr.department_id) || safeString(clause.grantee_identity_id) !== safeString(viewerHr.identity_id))
@@ -929,7 +967,15 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     let aggregatedQuotaLimit = 0, hasExactQuota = false;
     if (clauseIds.length > 1) {
       const placeholders = clauseIds.map(() => '?').join(',');
-      const [quotaRows] = await pool.query(`SELECT quota_limit, require_exact_quota FROM pub_merit_rule_clauses WHERE id IN (${placeholders})`, clauseIds);
+      const [quotaRows] = await pool.query(
+        `SELECT quota_limit, require_exact_quota
+           FROM pub_merit_rule_clauses
+          WHERE id IN (${placeholders}) AND rule_id = ? AND org_id = ?`,
+        [...clauseIds, clause.rule_id, orgId]
+      );
+      if (quotaRows.length !== clauseIds.length) {
+        return res.json({ status: 'invalid_params', message: '评优条款不属于同一授权类别' });
+      }
       for (const cl of quotaRows) {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
         if (cl.require_exact_quota) hasExactQuota = true;
@@ -944,7 +990,6 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       return res.json({ status: 'quota_exceeded', message: `最多可指定 ${aggregatedQuotaLimit} 人` });
 
     const { withTransaction } = require('../../../config/db');
-    const orgId = await getCurrentOrgId();
     await withTransaction(async (conn) => {
       // Delete all designations for ALL clauses in this identity group
       const delPh = clauseIds.map(() => '?').join(',');
@@ -986,7 +1031,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
     }
     res.json({ status: 'success', designations: result, message: `已保存 ${result.length} 条评优名单` });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: '同一个被评人不能重复出现在评优名单中' });
+    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: '评优名单中有重复成员' });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -1089,7 +1134,7 @@ router.post('/savePubViewRule', async (req, res) => {
     const granteeDepartmentId = safeString(req.body.granteeDepartmentId);
     const granteeIdentityId = safeString(req.body.granteeIdentityId);
     const clauses = Array.isArray(req.body.clauses) ? req.body.clauses : [];
-    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: '请提供公示ID和授权部门、身份ID' });
+    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: '请填写完整授权信息' });
 
     const orgId = await getCurrentOrgId();
     const [[pub]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
@@ -1143,7 +1188,7 @@ router.post('/savePubViewRule', async (req, res) => {
         }
       }
       // Delete old clauses (cascades to grade_bands via FK)
-      await conn.query('DELETE FROM pub_view_rule_clauses WHERE rule_id=?', [ruleId]);
+      await conn.query('DELETE FROM pub_view_rule_clauses WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
       // Insert clauses with per-clause display_mode and grade bands
       for (let i = 0; i < dedupedClauses.length; i++) {
         const dc = dedupedClauses[i];
@@ -1183,11 +1228,16 @@ router.post('/listPubViewRules', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const [rules] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
 
-    // Collect all clauses first
-    const allClauses = [];
-    for (const r of rules) {
-      const [clauses] = await pool.query('SELECT * FROM pub_view_rule_clauses WHERE rule_id=? ORDER BY sort_order', [r.id]);
-      allClauses.push(...clauses);
+    const ruleIds = rules.map((rule) => rule.id);
+    let allClauses = [];
+    if (ruleIds.length) {
+      const placeholders = ruleIds.map(() => '?').join(',');
+      [allClauses] = await pool.query(
+        `SELECT * FROM pub_view_rule_clauses
+          WHERE rule_id IN (${placeholders}) AND org_id = ?
+          ORDER BY rule_id, sort_order`,
+        [...ruleIds, orgId]
+      );
     }
 
     // Load grade bands for all clauses in one batch (per-clause level)
@@ -1265,7 +1315,7 @@ router.post('/savePubMeritRule', async (req, res) => {
     const granteeDepartmentId = safeString(req.body.granteeDepartmentId);
     const granteeIdentityId = safeString(req.body.granteeIdentityId);
     const clauses = Array.isArray(req.body.clauses) ? req.body.clauses : [];
-    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: '请提供公示ID和授权部门、身份ID' });
+    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: '请填写完整授权信息' });
 
     const orgId = await getCurrentOrgId();
 
@@ -1274,9 +1324,12 @@ router.post('/savePubMeritRule', async (req, res) => {
       'SELECT id FROM pub_view_rules WHERE publication_id=? AND grantee_department_id=? AND grantee_identity_id=? AND org_id=?',
       [publicationId, granteeDepartmentId, granteeIdentityId, orgId]
     );
-    if (!viewRule) return res.json({ status: 'no_view_rule', message: '该授权对象尚未拥有结果查看权限，请先创建查看权限类别' });
-    const [[{cnt}]] = await pool.query('SELECT COUNT(*) as cnt FROM pub_view_rule_clauses WHERE rule_id=?', [viewRule.id]);
-    if (cnt === 0) return res.json({ status: 'no_view_rule', message: '该授权对象的查看权限类别尚未配置查看规则条款，请先添加条款' });
+    if (!viewRule) return res.json({ status: 'no_view_rule', message: '请先创建查看权限类别' });
+    const [[{cnt}]] = await pool.query(
+      'SELECT COUNT(*) as cnt FROM pub_view_rule_clauses WHERE rule_id=? AND org_id=?',
+      [viewRule.id, orgId]
+    );
+    if (cnt === 0) return res.json({ status: 'no_view_rule', message: '请先添加查看规则' });
 
     const MERIT_SCOPES = ['same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people', 'identity_only'];
     const dedupedClauses = [];
@@ -1311,7 +1364,10 @@ router.post('/savePubMeritRule', async (req, res) => {
         }
       }
       // Merge old clauses with new: preserve IDs for clauses with same logical identity
-      const [oldClauses] = await conn.query('SELECT id, scope_type, target_identity_id FROM pub_merit_rule_clauses WHERE rule_id=?', [ruleId]);
+      const [oldClauses] = await conn.query(
+        'SELECT id, scope_type, target_identity_id FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?',
+        [ruleId, orgId]
+      );
       const oldByKey = new Map();
       for (const oc of oldClauses) {
         oldByKey.set(safeString(oc.scope_type) + '::' + safeString(oc.target_identity_id), oc);
@@ -1327,8 +1383,8 @@ router.post('/savePubMeritRule', async (req, res) => {
           // Same logical clause — keep existing ID and update quota/sort_order
           keptClauseIds.add(old.id);
           await conn.query(
-            'UPDATE pub_merit_rule_clauses SET quota_limit=?, require_exact_quota=?, sort_order=?, scope_type=?, updated_at=NOW() WHERE id=?',
-            [c.quotaLimit, c.requireExactQuota ? 1 : 0, i + 1, c.scopeType, old.id]
+            'UPDATE pub_merit_rule_clauses SET quota_limit=?, require_exact_quota=?, sort_order=?, scope_type=?, updated_at=NOW() WHERE id=? AND org_id=?',
+            [c.quotaLimit, c.requireExactQuota ? 1 : 0, i + 1, c.scopeType, old.id, orgId]
           );
         } else {
           // New clause — insert
@@ -1343,8 +1399,8 @@ router.post('/savePubMeritRule', async (req, res) => {
       // Remove clauses that no longer exist (and their designations)
       for (const oc of oldClauses) {
         if (!keptClauseIds.has(oc.id)) {
-          await conn.query('DELETE FROM merit_list_designations WHERE clause_id=?', [oc.id]);
-          await conn.query('DELETE FROM pub_merit_rule_clauses WHERE id=?', [oc.id]);
+          await conn.query('DELETE FROM merit_list_designations WHERE clause_id=? AND org_id=?', [oc.id, orgId]);
+          await conn.query('DELETE FROM pub_merit_rule_clauses WHERE id=? AND org_id=?', [oc.id, orgId]);
         }
       }
     });
@@ -1362,9 +1418,25 @@ router.post('/listPubMeritRules', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const [rules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
     const lookups = await fetchOrgLookups();
+    const ruleIds = rules.map((rule) => rule.id);
+    let allClauses = [];
+    if (ruleIds.length) {
+      const placeholders = ruleIds.map(() => '?').join(',');
+      [allClauses] = await pool.query(
+        `SELECT * FROM pub_merit_rule_clauses
+          WHERE rule_id IN (${placeholders}) AND org_id = ?
+          ORDER BY rule_id, sort_order`,
+        [...ruleIds, orgId]
+      );
+    }
+    const clausesByRule = new Map();
+    allClauses.forEach((clause) => {
+      if (!clausesByRule.has(clause.rule_id)) clausesByRule.set(clause.rule_id, []);
+      clausesByRule.get(clause.rule_id).push(clause);
+    });
     const result = [];
     for (const r of rules) {
-      const [clauses] = await pool.query('SELECT * FROM pub_merit_rule_clauses WHERE rule_id=? ORDER BY sort_order', [r.id]);
+      const clauses = clausesByRule.get(r.id) || [];
       result.push({
         id: r.id, publicationId: r.publication_id,
         granteeDepartmentId: r.grantee_department_id, granteeDepartment: lookups.departmentsById.get(safeString(r.grantee_department_id)) || '',
@@ -1385,9 +1457,12 @@ router.post('/deletePubMeritRule', async (req, res) => {
     const ruleId = safeString(req.body.ruleId);
     if (!ruleId) return res.json({ status: 'invalid_params', message: '请提供规则ID' });
     const orgId = await getCurrentOrgId();
-    const [clauses] = await pool.query('SELECT id FROM pub_merit_rule_clauses WHERE rule_id=?', [ruleId]);
+    const [clauses] = await pool.query(
+      'SELECT id FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?',
+      [ruleId, orgId]
+    );
     for (const c of clauses) {
-      await pool.query('DELETE FROM merit_list_designations WHERE clause_id=?', [c.id]);
+      await pool.query('DELETE FROM merit_list_designations WHERE clause_id=? AND org_id=?', [c.id, orgId]);
     }
     await pool.query('DELETE FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
     await pool.query('DELETE FROM pub_merit_rules WHERE id=? AND org_id=?', [ruleId, orgId]);
@@ -1419,8 +1494,8 @@ router.post('/getMeritListSummary', async (req, res) => {
     const ruleIds = meritRules.map(r => r.id);
     const rulePh = ruleIds.map(() => '?').join(',');
     const [allClauses] = await pool.query(
-      `SELECT * FROM pub_merit_rule_clauses WHERE rule_id IN (${rulePh}) ORDER BY sort_order`,
-      ruleIds
+      `SELECT * FROM pub_merit_rule_clauses WHERE rule_id IN (${rulePh}) AND org_id = ? ORDER BY sort_order`,
+      [...ruleIds, orgId]
     );
     const clausesByRule = new Map();
     allClauses.forEach(c => {
@@ -1540,8 +1615,8 @@ router.post('/exportMeritListSummary', async (req, res) => {
     const ruleIds = meritRules.map(r => r.id);
     const rulePh = ruleIds.map(() => '?').join(',');
     const [allClauses] = await pool.query(
-      `SELECT * FROM pub_merit_rule_clauses WHERE rule_id IN (${rulePh}) ORDER BY sort_order`,
-      ruleIds
+      `SELECT * FROM pub_merit_rule_clauses WHERE rule_id IN (${rulePh}) AND org_id = ? ORDER BY sort_order`,
+      [...ruleIds, orgId]
     );
     const clausesByRule = new Map();
     allClauses.forEach(c => {

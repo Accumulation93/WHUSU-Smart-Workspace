@@ -290,10 +290,11 @@ router.post('/getVenueSchedule', async (req, res) => {
     const weekStart = dateFrom + ' 00:00';
     const weekEnd = endDate + ' 23:59';
     const allBookings = await venueBookingModel.getByVenueId(venueId, {
+      statuses: ['approved', 'pending'],
       timeFrom: weekStart,
       timeTo: weekEnd
     });
-    const activeBookings = allBookings.filter(b => b.status === 'approved' || b.status === 'pending');
+    const activeBookings = allBookings;
     const orgId = await getCurrentOrgId();
     const currentHrId = await resolveHrId(req.openid);
     const currentAdmin = await adminInfoModel.getByOpenidGlobal(req.openid);
@@ -456,7 +457,7 @@ router.post('/createVenueBooking', async (req, res) => {
 
     // Reject cross-day bookings
     if (fmtLocalDate(startDate) !== fmtLocalDate(endDate)) {
-      return res.json({ status: 'invalid_params', message: '借用时间不能跨天，请选择同一天' });
+      return res.json({ status: 'invalid_params', message: '借用时间不能跨天' });
     }
 
     // Check venue
@@ -848,7 +849,7 @@ router.post('/cancelVenueBooking', async (req, res) => {
       const now = new Date();
       const timeStart = new Date(booking.time_start);
       if (now >= timeStart) {
-        return res.json({ status: 'invalid_state', message: '借用已开始，不能取消，请使用"结束使用"功能' });
+        return res.json({ status: 'invalid_state', message: '借用已开始，请结束使用' });
       }
     }
     await venueBookingModel.updateStatus(id, 'cancelled', null, null);
@@ -872,14 +873,14 @@ router.post('/endVenueBooking', async (req, res) => {
     const booking = await venueBookingModel.getById(id);
     if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
     if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '只能结束自己的借用' });
-    if (booking.status !== 'approved') return res.json({ status: 'invalid_state', message: '只有已通过的借用才能结束使用' });
+    if (booking.status !== 'approved') return res.json({ status: 'invalid_state', message: '当前借用不能结束使用' });
 
     const now = new Date();
     const timeStart = new Date(booking.time_start);
     const timeEnd = new Date(booking.time_end);
 
     if (now < timeStart) {
-      return res.json({ status: 'invalid_state', message: '借用尚未开始，如需取消请使用"取消借用"功能' });
+      return res.json({ status: 'invalid_state', message: '借用尚未开始，请取消借用' });
     }
     if (now >= timeEnd) {
       return res.json({ status: 'invalid_state', message: '借用已经结束' });

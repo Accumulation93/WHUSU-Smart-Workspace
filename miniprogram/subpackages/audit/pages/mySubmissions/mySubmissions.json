@@ -1,1 +1,6 @@
-{"navigationBarTitleText":"我的审核 - WHUSU智慧工作台","usingComponents":{}}
+{
+  "navigationBarTitleText": "我的审核 - WHUSU智慧工作台",
+  "usingComponents": {
+    "ui-icon": "/components/ui-icon/ui-icon"
+  }
+}

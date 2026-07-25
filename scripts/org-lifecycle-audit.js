@@ -47,6 +47,10 @@ for (const file of walk(miniRoot, '.js')) {
   if (/wx\.(?:request|downloadFile|uploadFile)\s*\(/.test(source)) {
     add('raw-network-call', relativeFile, '页面绕过统一请求客户端');
   }
+  if (relativeFile !== 'utils/orgSession.js'
+      && /(?:setStorageSync|removeStorageSync)\(\s*['"](?:activeOrgId|activeRole|token)['"]/.test(source)) {
+    add('direct-context-write', relativeFile, '组织、角色或令牌必须通过 orgSession 原子提交');
+  }
 }
 
 for (const file of walk(miniRoot, '.wxml')) {
@@ -63,6 +67,16 @@ for (const header of ['Authorization', 'X-Active-Org', 'X-Role', 'X-Client-Versi
   if (!apiSource.includes(header)) add('missing-request-header', 'utils/api.js', '缺少统一请求头 ' + header);
 }
 if (!apiSource.includes('request_cancelled')) add('missing-cancellation', 'utils/api.js', '缺少明确的过期请求取消语义');
+
+const orgSessionSource = fs.readFileSync(path.join(miniRoot, 'utils/orgSession.js'), 'utf8');
+for (const field of ['orgId', 'role', 'token', 'version']) {
+  if (!new RegExp('\\b' + field + '\\s*:').test(orgSessionSource)) {
+    add('incomplete-context-snapshot', 'utils/orgSession.js', '组织快照缺少 ' + field);
+  }
+}
+if (!/function commitContext\s*\(/.test(orgSessionSource)) {
+  add('missing-context-commit', 'utils/orgSession.js', '缺少统一上下文原子提交入口');
+}
 
 console.log('组织生命周期审计：' + pages.length + ' 个注册页面，问题 ' + issues.length + ' 个');
 if (issues.length) console.table(issues);

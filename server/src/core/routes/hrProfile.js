@@ -215,7 +215,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
     if (!template) return res.json({ status: 'missing_template', message: '管理员尚未配置人事信息模板' });
 
     const editMode = template.edit_mode || 'direct';
-    if (editMode === 'readonly') return res.json({ status: 'readonly', message: '当前模板不允许自行修改，请联系管理员' });
+    if (editMode === 'readonly') return res.json({ status: 'readonly', message: '当前资料不可修改' });
 
     const fields = template.id ? await profileFieldModel.getByTemplateId(template.id) : [];
     const normalizedFields = fields.map((f) => ({
@@ -299,7 +299,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
   }
 });
 
-// 全局模板库与当前组织快照
+// 共享模板库与当前组织快照
 router.post('/listHrProfileTemplates', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage', 'hr.profile_templates.select']);
@@ -320,7 +320,7 @@ router.post('/listHrProfileTemplates', async (req, res) => {
 router.post('/saveHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
-    if (!context) return res.json({ status: 'forbidden', message: '没有全局模板管理权限' });
+    if (!context) return res.json({ status: 'forbidden', message: '没有共享模板管理权限' });
     return res.json(await templateLibrary.saveDefinition(req.body || {}, context.admin));
   } catch (e) {
     return res.json({ status: 'error', message: safeString(e.message) });
@@ -330,7 +330,7 @@ router.post('/saveHrProfileTemplateDefinition', async (req, res) => {
 router.post('/duplicateHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
-    if (!context) return res.json({ status: 'forbidden', message: '没有全局模板管理权限' });
+    if (!context) return res.json({ status: 'forbidden', message: '没有共享模板管理权限' });
     return res.json(await templateLibrary.duplicateDefinition(safeString(req.body.id), context.admin));
   } catch (e) {
     return res.json({ status: 'error', message: safeString(e.message) });
@@ -340,7 +340,7 @@ router.post('/duplicateHrProfileTemplateDefinition', async (req, res) => {
 router.post('/deleteHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
-    if (!context) return res.json({ status: 'forbidden', message: '没有全局模板管理权限' });
+    if (!context) return res.json({ status: 'forbidden', message: '没有共享模板管理权限' });
     return res.json(await templateLibrary.deleteDefinition(safeString(req.body.id)));
   } catch (e) {
     return res.json({ status: 'error', message: safeString(e.message) });
@@ -350,9 +350,9 @@ router.post('/deleteHrProfileTemplateDefinition', async (req, res) => {
 router.post('/getHrProfileTemplateSwitchContext', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '没有本组织模板切换权限' });
+    if (!context) return res.json({ status: 'forbidden', message: '没有本组织快照设置权限' });
     const result = await templateLibrary.getSwitchContext(context.orgId, safeString(req.body.targetTemplateId));
-    return res.json(result ? { status: 'success', ...result } : { status: 'not_found', message: '目标模板不存在' });
+    return res.json(result ? { status: 'success', ...result } : { status: 'not_found', message: '所选模板不存在' });
   } catch (e) {
     return res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -361,7 +361,7 @@ router.post('/getHrProfileTemplateSwitchContext', async (req, res) => {
 router.post('/previewHrProfileTemplateSwitch', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '没有本组织模板切换权限' });
+    if (!context) return res.json({ status: 'forbidden', message: '没有本组织快照设置权限' });
     return res.json(await templateLibrary.preflightSwitch(
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions
     ));
@@ -373,7 +373,7 @@ router.post('/previewHrProfileTemplateSwitch', async (req, res) => {
 router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '没有本组织模板切换权限' });
+    if (!context) return res.json({ status: 'forbidden', message: '没有本组织快照设置权限' });
     return res.json(await templateLibrary.applySwitch(
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions,
       safeString(req.body.switchToken), req.body.confirmDelete === true, context.admin
@@ -386,7 +386,7 @@ router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
 router.post('/saveOrgHrProfileTemplateSettings', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '没有本组织模板设置权限' });
+    if (!context) return res.json({ status: 'forbidden', message: '没有本组织快照设置权限' });
     return res.json(await templateLibrary.saveOrgSettings(
       context.orgId, safeString(req.body.description), safeString(req.body.editMode || 'direct'), context.admin
     ));
@@ -402,7 +402,7 @@ router.post('/saveHrProfileTemplate', async (req, res) => {
     const admin = await ensureAdmin(openid);
     if (!admin) return res.json({ status: 'forbidden', message: '没有管理员权限' });
 
-    return res.json({ status: 'client_upgrade_required', message: '人事模板已升级，请更新小程序后操作' });
+    return res.json({ status: 'client_upgrade_required', message: '请重新打开小程序' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -516,6 +516,8 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         workGroup: wgMap.get(safeString(item.work_group_id)) || '',
         currentSummary: summarizeValues(currentValues) || '暂无扩展资料',
         pendingSummary: summarizeValues(pendingValues),
+        currentValues,
+        pendingValues,
         auditStatus,
         auditStatusText: statusTextMap[auditStatus] || '未提交',
         rejectionReason: safeString(record ? record.rejection_reason : ''),
@@ -560,7 +562,7 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     const reason = safeString(req.body.reason);
 
     if (!studentId || ['approve', 'reject'].indexOf(action) === -1) {
-      return res.json({ status: 'invalid_params', message: '审核参数不合法' });
+      return res.json({ status: 'invalid_params', message: '审核信息有误，请重新操作' });
     }
 
     const hrRecord = await hrInfoModel.getByStudentId(studentId);
@@ -713,6 +715,17 @@ router.post('/saveHrPersonFull', async (req, res) => {
 
     const hr = await hrInfoModel.getById(hrId);
     if (!hr) return res.json({ status: 'not_found', message: '未找到对应的人事信息' });
+    const canManagePeople = Boolean(req.adminPermissions && req.adminPermissions['hr.people']);
+    if (!canManagePeople) {
+      const basicInfoChanged = name !== safeString(hr.name)
+        || studentId !== safeString(hr.student_id)
+        || departmentId !== safeString(hr.department_id)
+        || identityId !== safeString(hr.identity_id)
+        || workGroupId !== safeString(hr.work_group_id);
+      if (basicInfoChanged) {
+        return res.json({ status: 'permission_denied', message: '当前账号不能修改成员基础信息' });
+      }
+    }
 
     const [departments, identities, workGroups] = await Promise.all([
       departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
@@ -726,10 +739,12 @@ router.post('/saveHrPersonFull', async (req, res) => {
     if (workGroupId && !wgMap.has(workGroupId)) return res.json({ status: 'invalid_params', message: '工作小组不存在' });
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    await hrInfoModel.update(hrId, {
-      name, studentId, departmentId, identityId, workGroupId,
-      updatedAt: now
-    });
+    if (canManagePeople) {
+      await hrInfoModel.update(hrId, {
+        name, studentId, departmentId, identityId, workGroupId,
+        updatedAt: now
+      });
+    }
 
     if (Object.keys(profileValues).length > 0) {
       const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);

@@ -69,8 +69,8 @@ router.post('/listMySubmissions', async (req, res) => {
     const filters = {
       submittedBy: hrId,
       status: safeString(req.body.status) || null,
-      limit: parseInt(req.body.limit) || 50,
-      offset: parseInt(req.body.offset) || 0
+      limit: Math.min(100, Math.max(1, parseInt(req.body.limit, 10) || 50)),
+      offset: Math.max(0, parseInt(req.body.offset, 10) || 0)
     };
 
     const submissions = await submissionModel.getAll(filters);
@@ -163,7 +163,6 @@ router.post('/listPendingApprovals', async (req, res) => {
       stepConditionsJson: s.step_conditions_json || null
     }));
 
-    console.log('[audit:listPendingApprovals] hrId=' + hrId + ' pendingCount=' + result.length);
     res.json({ status: 'success', pending: result });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -231,7 +230,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     if (starterConditions.length) {
       if (!submitterFull) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '您没有绑定人事信息，无法发起此审核流程' });
+        return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
       }
       // Multi-condition check: user must match at least one condition
       let starterMatch = false;
@@ -254,7 +253,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       const identIds = template.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       if (!identIds.includes(submitterFull.identity_id)) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '您的身份没有权限发起此审核流程' });
+        return res.json({ status: 'forbidden', message: '当前身份不能发起此审核' });
       }
     } else if (template.starter_type === 'specific_person' && template.starter_hr_id && submitterFull) {
       // Legacy specific person check
@@ -305,21 +304,6 @@ router.post('/startAuditSubmission', async (req, res) => {
 
     // Load conditions for all template steps
     const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
-    console.log('[audit:startSubmission] templateId=' + templateId +
-      ' templateSteps=' + templateSteps.length +
-      ' allConditions=' + allConditions.length);
-
-    // Log each condition for diagnostics
-    for (let ci = 0; ci < allConditions.length; ci++) {
-      const c = allConditions[ci];
-      console.log('[audit:startSubmission] condition[' + ci + '] template_step_id=' + c.template_step_id +
-        ' type=' + c.condition_type +
-        ' deptScope=' + (c.department_scope || 'all') +
-        ' specDept=' + (c.specific_department_id || 'none') +
-        ' identScope=' + (c.identity_scope || 'all') +
-        ' specIdent=' + (c.specific_identity_id || 'none') +
-        ' personHrIds=' + (c.person_hr_ids || 'none'));
-    }
 
     const stepConditionMap = {};
     for (const c of allConditions) {
@@ -371,8 +355,6 @@ router.post('/startAuditSubmission', async (req, res) => {
           const person = personRows[0];
           if (person && matchesAnyCondition(conditions, person, submitterFull)) {
             validPersonIds.push(pid);
-          } else {
-            console.log('[audit:startSubmission] step[' + i + '] designated person ' + pid + ' not eligible, skipped');
           }
         }
         // Replace original conditions with person-only conditions (narrow scope)
@@ -396,7 +378,6 @@ router.post('/startAuditSubmission', async (req, res) => {
       // Fallback: if no conditions resolved from template step, use template starter conditions
       // This ensures steps always have approvers — prevents orphan steps with no approver
       if (conditions.length === 0 && starterConditions.length > 0) {
-        console.log('[audit:startSubmission] step[' + i + '] no conditions — falling back to starter conditions');
         for (let sci = 0; sci < starterConditions.length; sci++) {
           conditions.push(Object.assign({}, starterConditions[sci]));
         }
@@ -411,17 +392,6 @@ router.post('/startAuditSubmission', async (req, res) => {
         configError.code = 'AUDIT_STEP_CONDITIONS_REQUIRED';
         throw configError;
       }
-      console.log('[audit:startSubmission] creating step[' + i + '] id=' + stepId +
-        ' sortOrder=' + (i + 1) +
-        ' templateStepId=' + ts.id +
-        ' conditionCount=' + conditions.length +
-        ' hasJson=' + (stepConditionsJson !== null) +
-        ' actionType=' + (ts.action_type || 'sign'));
-      if (stepConditionsJson) {
-        console.log('[audit:startSubmission] step[' + i + '] conditionsJson=' +
-          stepConditionsJson.substring(0, 500));
-      }
-
       // Legacy: resolve approver_hr_id for specific_person type
       let approverHrId = null;
       if (ts.approver_type === 'specific_person' && ts.approver_hr_id) {
@@ -728,8 +698,9 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
 router.post('/getSubmissionDetail', async (req, res) => {
   try {
     const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    const admin = await adminInfoModel.getByOpenid(openid);
+    const selectedRole = safeString(req.get('X-Role')).toLowerCase();
+    const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null;
+    const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null;
     const orgId = await getCurrentOrgId();
     if (!hrId && !admin) return res.json({ status: 'forbidden', message: '请先登录' });
 
@@ -740,10 +711,6 @@ router.post('/getSubmissionDetail', async (req, res) => {
     if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
 
     const steps = await submissionStepModel.getBySubmissionId(submissionId);
-    console.log('[audit:getSubmissionDetail] submission=' + submissionId +
-      ' status=' + submission.status +
-      ' currentStepIndex=' + (submission.current_step_index || 0) +
-      ' stepCount=' + steps.length);
 
     // Check access: submitter, approver in any step, or admin
     const isSubmitter = submission.submitted_by === hrId;
@@ -805,7 +772,10 @@ router.post('/getSubmissionDetail', async (req, res) => {
               if (matchesAnyCondition(conds, approverInfo, submitterInfo)) {
                 isApprover = true; break;
               }
-            } catch (_) { stepHasExplicitConds = false; }
+            } catch (_) {
+              // Invalid explicit conditions fail closed; never broaden to the
+              // template or legacy approver fields.
+            }
           }
           // Fallback: template step conditions (only when NO explicit conditions)
           if (!isApprover && !stepHasExplicitConds && s.template_step_id && templateConditionMap[s.template_step_id]) {
@@ -826,34 +796,8 @@ router.post('/getSubmissionDetail', async (req, res) => {
     }
 
     if (!isSubmitter && !isApprover && !admin) {
-      console.log('[audit:getSubmissionDetail] ACCESS DENIED: hrId=' + hrId +
-        ' isSubmitter=' + isSubmitter + ' isApprover=' + isApprover + ' isAdmin=' + !!admin);
       return res.json({ status: 'forbidden', message: '没有查看权限' });
     }
-    console.log('[audit:getSubmissionDetail] access granted: hrId=' + hrId +
-      ' isSubmitter=' + isSubmitter + ' isApprover=' + isApprover + ' isAdmin=' + !!admin);
-
-    // Build diagnostic info about steps
-    const stepDiag = steps.map(function(s) {
-      let hasConds = !!s.step_conditions_json;
-      let condCount = 0;
-      if (hasConds) {
-        try { let p = JSON.parse(s.step_conditions_json); condCount = Array.isArray(p) ? p.length : 0; } catch(_) {}
-      }
-      return {
-        id: s.id,
-        sort_order: s.sort_order,
-        status: s.status,
-        round: s.round || 1,
-        has_conditions_json: hasConds,
-        condition_count: condCount,
-        template_step_id: s.template_step_id || null,
-        approver_type: s.approver_type || null,
-        approver_identity_id: s.approver_identity_id || null,
-        approver_hr_id: s.approver_hr_id || null
-      };
-    });
-    console.log('[audit:getSubmissionDetail] stepDiag=' + JSON.stringify(stepDiag));
 
     const files = await submissionFileModel.getBySubmissionId(submissionId);
     const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
@@ -951,19 +895,11 @@ router.post('/getSubmissionDetail', async (req, res) => {
       userIsSubmitter: isSubmitter,
       userIsApprover: isApprover,
       userIsAdmin: !!admin,
-      _diag: {
-        stepCount: steps.length,
-        stepDiag: stepDiag,
-        submissionStatus: submission.status,
-        currentStepIndex: submission.current_step_index || 0,
-        eventCount: events.length
-      },
       events: events.map((e) => ({
         id: safeString(e.id),
         eventType: safeString(e.event_type),
         stepIndex: e.step_index,
         round: e.round || 1,
-        operatorHrId: safeString(e.operator_hr_id),
         operatorName: hrMap[e.operator_hr_id] || e.operator_name || '',
         comment: safeString(e.comment),
         createdAt: e.created_at
@@ -1122,7 +1058,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
  * Checks: 1) step_conditions_json, 2) template step conditions fallback, 3) legacy flat fields.
  * @returns {boolean} authorized
  */
-async function checkStepAuthorization(step, submission, hrId, requestRole) {
+async function checkStepAuthorization(step, submission, hrId) {
   const orgId = await getCurrentOrgId();
 
   let hasExplicitConditions = false;
@@ -1145,7 +1081,10 @@ async function checkStepAuthorization(step, submission, hrId, requestRole) {
         const submitter = subRows[0] || null;
         if (matchesAnyCondition(conditions, approver, submitter)) return true;
       }
-    } catch (_) { hasExplicitConditions = false; /* parse error → allow fallback */ }
+    } catch (_) {
+      // Corrupt explicit conditions fail closed; template and legacy fields
+      // may be broader and must not become an authorization fallback.
+    }
   }
 
   // 2. Fallback: load conditions from template step (covers legacy submissions
@@ -1272,7 +1211,7 @@ router.post('/approveStep', async (req, res) => {
       return res.json({ status: stepState.status, message: stepState.message });
     }
 
-    const authorized = await checkStepAuthorization(step, submission, hrId, req.role);
+    const authorized = await checkStepAuthorization(step, submission, hrId);
     if (!authorized) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
@@ -1432,8 +1371,6 @@ router.post('/approveStep', async (req, res) => {
           const person = personRows[0];
           if (person && matchesAnyCondition(originalConds, person, submitter2)) {
             validPersonIds.push(pid);
-          } else {
-            console.log('[audit:approveStep] designated person ' + pid + ' not eligible under original conditions, skipped');
           }
         }
 
@@ -1456,11 +1393,6 @@ router.post('/approveStep', async (req, res) => {
             'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
             [newCondsJson, nextStep.id, orgId]
           );
-          console.log('[audit:approveStep] designated ' + validPersonIds.length +
-            ' persons for next step ' + nextStep.id +
-            ' (narrowed from ' + designatedNextPersonIds.length + ' nominated)');
-        } else {
-          console.log('[audit:approveStep] all designated persons ineligible, keeping original conditions');
         }
       }
       // Move to next step
@@ -1571,7 +1503,7 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: stepState.status, message: stepState.message });
     }
 
-    const authorized = await checkStepAuthorization(step, submission, hrId, req.role);
+    const authorized = await checkStepAuthorization(step, submission, hrId);
     if (!authorized) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
@@ -1646,7 +1578,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
 
     const editableStatuses = ['draft', 'pending', 'rejected', 'withdrawn'];
     if (!editableStatuses.includes(submission.status)) {
-      return res.json({ status: 'invalid_state', message: '当前状态不允许修改，只有草稿、待提交、已驳回或已撤回的审核可以修改' });
+      return res.json({ status: 'invalid_state', message: '当前状态不能修改' });
     }
 
     const title = safeString(req.body.title);
@@ -1829,7 +1761,7 @@ router.post('/resubmitAudit', async (req, res) => {
       return res.json({ status: 'forbidden', message: '只有提交人可以重提交' });
     }
     if (submission.status !== 'rejected' && submission.status !== 'withdrawn' && submission.status !== 'pending') {
-      return res.json({ status: 'invalid_state', message: '当前状态不允许重提交，只有待提交、已驳回或已撤回的审核可以重提交' });
+      return res.json({ status: 'invalid_state', message: '当前状态不能重新提交' });
     }
 
     // Optional updates during resubmission
@@ -2011,10 +1943,10 @@ router.post('/withdrawSubmission', async (req, res) => {
       return res.json({ status: 'invalid_state', message: '该审核已经撤回' });
     }
     if (submission.status === 'draft') {
-      return res.json({ status: 'invalid_state', message: '草稿状态的审核不能撤回，请先提交' });
+      return res.json({ status: 'invalid_state', message: '草稿无需撤回' });
     }
     if (submission.status === 'pending') {
-      return res.json({ status: 'invalid_state', message: '待提交的审核不能撤回，审核尚未进入审批流程' });
+      return res.json({ status: 'invalid_state', message: '待提交审核无需撤回' });
     }
 
     await submissionModel.update(submissionId, { status: 'withdrawn' });
@@ -2318,7 +2250,6 @@ router.post('/getUnreadCounts', async (req, res) => {
         }
       }
     }
-    console.log('[getUnreadCounts] mySubmissionsUnread=' + mySubmissionsUnread + ' total=' + mySubs.length);
   } catch (e) {
     console.error('[getUnreadCounts] mySubmissionsUnread failed:', e.message);
   }
@@ -2392,8 +2323,9 @@ router.post('/listMyApprovalHistory', async (req, res) => {
     const hrId = await resolveHrId(openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
-    const limit = parseInt(req.body.limit) || 50;
-    const offset = parseInt(req.body.offset) || 0;
+    const limit = Math.min(100, Math.max(1, parseInt(req.body.limit, 10) || 50));
+    const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
+    const orgId = await getCurrentOrgId();
 
     // Get submissions where user has approve/reject events
     const [rows] = await pool.query(
@@ -2401,11 +2333,13 @@ router.post('/listMyApprovalHistory', async (req, res) => {
        FROM audit_submissions s
        JOIN audit_events e ON s.id = e.submission_id
        WHERE e.operator_hr_id = ?
+         AND s.org_id = ?
+         AND e.org_id = ?
          AND e.event_type IN ('approve', 'reject')
        GROUP BY s.id
        ORDER BY my_last_action_at DESC
        LIMIT ? OFFSET ?`,
-      [hrId, limit, offset]
+      [hrId, orgId, orgId, limit, offset]
     );
 
     // Get the steps I handled for each submission (from audit_events)
@@ -2418,9 +2352,10 @@ router.post('/listMyApprovalHistory', async (req, res) => {
          FROM audit_events e
          WHERE e.submission_id IN (?)
            AND e.operator_hr_id = ?
+           AND e.org_id = ?
            AND e.event_type IN ('approve', 'reject')
          ORDER BY e.created_at DESC`,
-        [submissionIds, hrId]
+        [submissionIds, hrId, orgId]
       );
       mySteps.forEach((st, stIdx) => {
         if (!myStepsMap[st.submission_id]) myStepsMap[st.submission_id] = [];
@@ -2536,7 +2471,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
       );
       submitterInfo = subRows[0] || null;
     } else {
-      return res.json({ status: 'invalid_params', message: '请提供 submissionId 或 templateId + stepIndex' });
+      return res.json({ status: 'invalid_params', message: '缺少必要信息' });
     }
 
     // If no conditions or all conditions are "all" scope, return all HR
@@ -2602,10 +2537,6 @@ router.post('/listEligibleApprovers', async (req, res) => {
       };
       return matchesAnyCondition(conditions, approver, submitterInfo);
     });
-
-    console.log('[audit:listEligibleApprovers] total=' + allHr.length +
-      ' conditions=' + JSON.stringify(conditions).substring(0, 200) +
-      ' eligible=' + eligible.length);
 
     res.json({ status: 'success', approvers: eligible });
   } catch (e) {

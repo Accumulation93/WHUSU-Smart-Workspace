@@ -12,7 +12,8 @@ const mocks = {
   },
   '../core/services/adminPermissions': {
     ROUTE_RULES: new Map([
-      ['/saveScoreActivity', { anyOf: ['scoring.activities'] }]
+      ['/saveScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: false }],
+      ['/getCurrentScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: true }]
     ]),
     async loadEffectivePermissions() { return effective; },
     hasAnyPermission(value, keys) {
@@ -64,8 +65,15 @@ async function invoke(path, role) {
   assert.strictEqual(superAllowed.nextCalled, true);
 
   effective = { isSuper: false, permissions: {} };
-  const userBypass = await invoke('/api/saveScoreActivity', 'user');
-  assert.strictEqual(userBypass.nextCalled, true);
+  const userDenied = await invoke('/api/saveScoreActivity', 'user');
+  assert.strictEqual(userDenied.nextCalled, false);
+  assert.strictEqual(userDenied.statusCode, 403);
+  assert.strictEqual(userDenied.payload.status, 'admin_role_required');
+  const missingRoleDenied = await invoke('/api/saveScoreActivity', '');
+  assert.strictEqual(missingRoleDenied.nextCalled, false);
+  assert.strictEqual(missingRoleDenied.payload.status, 'admin_role_required');
+  const sharedUserAllowed = await invoke('/api/getCurrentScoreActivity', 'user');
+  assert.strictEqual(sharedUserAllowed.nextCalled, true);
   const unknownBypass = await invoke('/api/notMapped', 'admin');
   assert.strictEqual(unknownBypass.nextCalled, true);
 

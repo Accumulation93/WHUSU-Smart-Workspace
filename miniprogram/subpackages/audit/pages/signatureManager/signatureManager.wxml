@@ -2,7 +2,6 @@
   <view class="hero">
     <view class="hero-badge">签名</view>
     <view class="hero-title">我的签名</view>
-    <view class="hero-subtitle">管理签名模板，用于审核时签名</view>
   </view>
 
   <view class="section">
@@ -33,8 +32,8 @@
           </view>
         </view>
         <view class="audit-empty-state" wx:if="{{!signatures.length}}">
-          <view class="audit-empty-icon">✍️</view>
-          <view class="audit-empty-text">暂无签名模板，请新建</view>
+          <view class="audit-empty-icon"><ui-icon name="signature" tone="muted" size="54" ariaLabel="暂无签名" /></view>
+          <view class="audit-empty-text">暂无签名</view>
         </view>
         </block>
       </scroll-view>

@@ -298,6 +298,7 @@ CREATE TABLE IF NOT EXISTS score_records (
   INDEX idx_sr_target (target_id),
   INDEX idx_sr_scorer_target (scorer_id, target_id),
   INDEX idx_sr_org (org_id),
+  UNIQUE INDEX uk_sr_business (org_id, activity_id, scorer_id, target_id),
   CONSTRAINT fk_sr_activity FOREIGN KEY (activity_id)
     REFERENCES score_activities(id) ON DELETE CASCADE,
   CONSTRAINT fk_sr_rule FOREIGN KEY (rule_id)
@@ -313,6 +314,7 @@ CREATE TABLE IF NOT EXISTS score_answers (
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   INDEX idx_sa_record (record_id),
   INDEX idx_sa_org (org_id),
+  UNIQUE INDEX uk_sa_record_question (record_id, question_index),
   CONSTRAINT fk_sa_record FOREIGN KEY (record_id)
     REFERENCES score_records(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -357,27 +359,20 @@ CREATE TABLE IF NOT EXISTS hr_profile_template_fields (
 CREATE TABLE IF NOT EXISTS org_hr_profile_template_snapshots (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   org_id VARCHAR(64) NOT NULL,
-  version INT NOT NULL,
-  source_template_id VARCHAR(64) DEFAULT NULL,
-  source_template_name VARCHAR(200) NOT NULL,
   description TEXT,
   edit_mode VARCHAR(32) NOT NULL DEFAULT 'direct',
-  selected_by VARCHAR(64) DEFAULT NULL,
-  settings_updated_by VARCHAR(64) DEFAULT NULL,
-  selected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  settings_updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_ohpts_org (org_id),
-  INDEX idx_ohpts_source (source_template_id),
-  UNIQUE INDEX uk_ohpts_version (org_id, version),
-  CONSTRAINT fk_ohpts_source FOREIGN KEY (source_template_id)
-    REFERENCES hr_profile_templates(id) ON DELETE SET NULL
+  created_by VARCHAR(64) DEFAULT NULL,
+  updated_by VARCHAR(64) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_ohpts_org (org_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS org_hr_profile_template_snapshot_fields (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   snapshot_id VARCHAR(64) NOT NULL,
-  source_template_field_id VARCHAR(64) DEFAULT NULL,
   sort_order INT NOT NULL DEFAULT 1,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
   label VARCHAR(200) NOT NULL,
   type VARCHAR(32) NOT NULL DEFAULT 'text',
   required TINYINT(1) NOT NULL DEFAULT 0,
@@ -391,39 +386,22 @@ CREATE TABLE IF NOT EXISTS org_hr_profile_template_snapshot_fields (
   max_value DECIMAL(20,4) DEFAULT NULL,
   options_json TEXT,
   INDEX idx_ohptsf_snapshot (snapshot_id),
-  INDEX idx_ohptsf_source (source_template_field_id),
+  INDEX idx_ohptsf_active (snapshot_id, is_active, sort_order),
   CONSTRAINT fk_ohptsf_snapshot FOREIGN KEY (snapshot_id)
-    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ohptsf_source FOREIGN KEY (source_template_field_id)
-    REFERENCES hr_profile_template_fields(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS org_hr_profile_template_settings (
-  org_id VARCHAR(64) NOT NULL PRIMARY KEY,
-  active_snapshot_id VARCHAR(64) NOT NULL,
-  updated_by VARCHAR(64) DEFAULT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE INDEX uk_ohptsettings_snapshot (active_snapshot_id),
-  CONSTRAINT fk_ohptsettings_snapshot FOREIGN KEY (active_snapshot_id)
-    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE RESTRICT
+    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS org_hr_profile_template_switches (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   org_id VARCHAR(64) NOT NULL,
-  from_snapshot_id VARCHAR(64) DEFAULT NULL,
-  to_snapshot_id VARCHAR(64) NOT NULL,
-  target_template_name VARCHAR(200) NOT NULL,
+  snapshot_id VARCHAR(64) NOT NULL,
   operated_by VARCHAR(64) DEFAULT NULL,
   moved_value_count INT NOT NULL DEFAULT 0,
   hidden_value_count INT NOT NULL DEFAULT 0,
   deleted_value_count INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_ohptswitch_org (org_id),
-  CONSTRAINT fk_ohptswitch_from FOREIGN KEY (from_snapshot_id)
-    REFERENCES org_hr_profile_template_snapshots(id) ON DELETE RESTRICT,
-  CONSTRAINT fk_ohptswitch_to FOREIGN KEY (to_snapshot_id)
+  CONSTRAINT fk_ohptswitch_snapshot FOREIGN KEY (snapshot_id)
     REFERENCES org_hr_profile_template_snapshots(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -518,22 +496,6 @@ CREATE TABLE IF NOT EXISTS pub_view_rules (
     REFERENCES result_publications(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS pub_grade_bands (
-  id VARCHAR(64) NOT NULL PRIMARY KEY,
-  clause_id VARCHAR(64) NOT NULL,
-  min_score DECIMAL(10,2) NOT NULL,
-  max_score DECIMAL(10,2) NOT NULL,
-  grade_name VARCHAR(100) NOT NULL,
-  sort_order INT NOT NULL DEFAULT 1,
-  org_id VARCHAR(64) NOT NULL DEFAULT '',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_pgb_clause (clause_id),
-  INDEX idx_pgb_org (org_id),
-  CONSTRAINT fk_pgb_clause FOREIGN KEY (clause_id)
-    REFERENCES pub_view_rule_clauses(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE IF NOT EXISTS pub_view_rule_clauses (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   rule_id VARCHAR(64) NOT NULL,
@@ -548,6 +510,22 @@ CREATE TABLE IF NOT EXISTS pub_view_rule_clauses (
   INDEX idx_pvrc_org (org_id),
   CONSTRAINT fk_pvrc_rule FOREIGN KEY (rule_id)
     REFERENCES pub_view_rules(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS pub_grade_bands (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  clause_id VARCHAR(64) NOT NULL,
+  min_score DECIMAL(10,2) NOT NULL,
+  max_score DECIMAL(10,2) NOT NULL,
+  grade_name VARCHAR(100) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_pgb_clause (clause_id),
+  INDEX idx_pgb_org (org_id),
+  CONSTRAINT fk_pgb_clause FOREIGN KEY (clause_id)
+    REFERENCES pub_view_rule_clauses(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS pub_merit_rules (
@@ -791,4 +769,283 @@ CREATE TABLE IF NOT EXISTS audit_verification_permissions (
   INDEX idx_avp_grantee (grantee_hr_id),
   INDEX idx_avp_org (org_id),
   UNIQUE INDEX idx_avp_unique (grantee_hr_id, org_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 15. 场地借用（场地资源全局，审批配置按组织隔离）
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS venues (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  location VARCHAR(500) DEFAULT NULL,
+  description TEXT,
+  image_url VARCHAR(1000) DEFAULT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_venues_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS venue_open_rules (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  venue_id VARCHAR(64) NOT NULL,
+  name VARCHAR(200) DEFAULT NULL,
+  cycle_type VARCHAR(16) NOT NULL DEFAULT 'weekly',
+  cycle_values JSON DEFAULT NULL,
+  time_start TIME NOT NULL DEFAULT '09:00:00',
+  time_end TIME NOT NULL DEFAULT '18:00:00',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_vor_venue (venue_id),
+  INDEX idx_vor_active (is_active),
+  CONSTRAINT fk_vor_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS venue_activity_rules (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  venue_id VARCHAR(64) NOT NULL,
+  activity_name VARCHAR(200) DEFAULT NULL,
+  cycle_type VARCHAR(16) NOT NULL DEFAULT 'weekly',
+  cycle_values JSON DEFAULT NULL,
+  time_start TIME NOT NULL DEFAULT '09:00:00',
+  time_end TIME NOT NULL DEFAULT '18:00:00',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_var_venue (venue_id),
+  INDEX idx_var_active (is_active),
+  CONSTRAINT fk_var_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS venue_booking_rules (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  venue_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  rule_type VARCHAR(16) NOT NULL DEFAULT 'admin',
+  approver_identity_id VARCHAR(64) DEFAULT NULL,
+  approver_hr_id VARCHAR(64) DEFAULT NULL,
+  scope_department_id VARCHAR(64) DEFAULT NULL,
+  scope_work_group_id VARCHAR(64) DEFAULT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_vbr_venue (venue_id),
+  INDEX idx_vbr_org (org_id),
+  INDEX idx_vbr_active (is_active),
+  CONSTRAINT fk_vbr_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS venue_approval_flows (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  venue_id VARCHAR(64) NOT NULL,
+  name VARCHAR(200) NOT NULL DEFAULT '',
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX idx_vaf_venue (venue_id, org_id),
+  INDEX idx_vaf_org (org_id),
+  CONSTRAINT fk_vaf_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS venue_approval_flow_steps (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  flow_id VARCHAR(64) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  name VARCHAR(200) NOT NULL DEFAULT '',
+  approval_mode VARCHAR(16) NOT NULL DEFAULT 'hr_rule',
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_vafs_flow (flow_id, org_id),
+  INDEX idx_vafs_org (org_id),
+  CONSTRAINT fk_vafs_flow FOREIGN KEY (flow_id) REFERENCES venue_approval_flows(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS venue_approval_flow_step_rules (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  step_id VARCHAR(64) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  department_scope VARCHAR(16) NOT NULL DEFAULT 'all',
+  specific_department_id VARCHAR(1000) DEFAULT NULL,
+  work_group_scope VARCHAR(16) NOT NULL DEFAULT 'all',
+  specific_work_group_id VARCHAR(1000) DEFAULT NULL,
+  identity_scope VARCHAR(16) NOT NULL DEFAULT 'all',
+  specific_identity_id VARCHAR(1000) DEFAULT NULL,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_vafsr_step (step_id, org_id),
+  INDEX idx_vafsr_org (org_id),
+  CONSTRAINT fk_vafsr_step FOREIGN KEY (step_id) REFERENCES venue_approval_flow_steps(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS venue_bookings (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  venue_id VARCHAR(64) NOT NULL,
+  user_hr_id VARCHAR(64) DEFAULT NULL,
+  creator_type VARCHAR(16) NOT NULL DEFAULT 'user',
+  creator_admin_id VARCHAR(64) DEFAULT NULL,
+  creator_org_id VARCHAR(64) NOT NULL DEFAULT '',
+  approval_org_id VARCHAR(64) NOT NULL DEFAULT '',
+  title VARCHAR(200) DEFAULT NULL,
+  description TEXT,
+  time_start DATETIME NOT NULL,
+  time_end DATETIME NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'pending',
+  approval_flow_id VARCHAR(64) DEFAULT NULL,
+  approval_current_step INT NOT NULL DEFAULT 0,
+  approval_total_steps INT NOT NULL DEFAULT 0,
+  approval_reject_step INT DEFAULT NULL,
+  approval_snapshots_json TEXT DEFAULT NULL,
+  approver_hr_id VARCHAR(64) DEFAULT NULL,
+  approval_comment TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_vb_venue (venue_id),
+  INDEX idx_vb_user (user_hr_id),
+  INDEX idx_vb_creator_admin (creator_admin_id),
+  INDEX idx_vb_status (status),
+  INDEX idx_vb_time_start (time_start),
+  INDEX idx_vb_venue_time (venue_id, time_start),
+  INDEX idx_vb_venue_status_time (venue_id, status, time_start),
+  INDEX idx_vb_creator_org (creator_org_id, status, time_start),
+  INDEX idx_vb_approval_org (approval_org_id, status, time_start),
+  CONSTRAINT fk_vb_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS venue_booking_purposes (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  text VARCHAR(200) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_vbp_text (text)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 12. 运行时一致性、消息中心与审计补充表
+-- 这些表属于当前服务启动契约；全新部署不得依赖历史迁移补建。
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS audit_flow_template_step_conditions (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  template_step_id VARCHAR(64) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 1,
+  condition_type VARCHAR(20) NOT NULL DEFAULT 'identity_scope',
+  person_hr_ids TEXT DEFAULT NULL,
+  department_scope VARCHAR(16) DEFAULT 'all',
+  specific_department_id VARCHAR(64) DEFAULT NULL,
+  work_group_scope VARCHAR(16) DEFAULT 'all',
+  specific_work_group_id VARCHAR(64) DEFAULT NULL,
+  identity_scope VARCHAR(16) DEFAULT 'all',
+  specific_identity_id VARCHAR(64) DEFAULT NULL,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_aftsc_step (template_step_id),
+  INDEX idx_aftsc_org (org_id),
+  CONSTRAINT fk_aftsc_step FOREIGN KEY (template_step_id)
+    REFERENCES audit_flow_template_steps(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audit_events (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  submission_id VARCHAR(64) NOT NULL,
+  event_type VARCHAR(32) NOT NULL,
+  step_index INT DEFAULT NULL,
+  round INT NOT NULL DEFAULT 1,
+  operator_hr_id VARCHAR(64) DEFAULT NULL,
+  operator_name VARCHAR(128) DEFAULT NULL,
+  comment TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  INDEX idx_ae_submission (submission_id),
+  INDEX idx_ae_submission_time (submission_id, created_at),
+  INDEX idx_ae_org (org_id),
+  CONSTRAINT fk_ae_submission FOREIGN KEY (submission_id)
+    REFERENCES audit_submissions(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audit_read_cursors (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  hr_id VARCHAR(64) NOT NULL,
+  submission_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  last_read_status VARCHAR(32) NOT NULL DEFAULT '',
+  last_read_step_index INT NOT NULL DEFAULT -1,
+  read_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_arc_org_hr_submission (org_id, hr_id, submission_id),
+  INDEX idx_arc_org_hr (org_id, hr_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  hr_id VARCHAR(64) DEFAULT NULL,
+  recipient_type VARCHAR(16) NOT NULL DEFAULT 'user',
+  recipient_id VARCHAR(64) NOT NULL DEFAULT '',
+  event_key VARCHAR(255) DEFAULT NULL,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  type VARCHAR(32) NOT NULL,
+  title VARCHAR(256) NOT NULL,
+  description VARCHAR(512) DEFAULT NULL,
+  category VARCHAR(32) NOT NULL DEFAULT 'audit',
+  target_type VARCHAR(32) DEFAULT NULL,
+  target_id VARCHAR(64) DEFAULT NULL,
+  target_url VARCHAR(512) DEFAULT NULL,
+  is_read TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_notification_org_hr (org_id, hr_id),
+  INDEX idx_notification_org_unread (org_id, hr_id, is_read),
+  INDEX idx_notification_recipient_unread (org_id, recipient_type, recipient_id, is_read, created_at),
+  INDEX idx_notification_created (created_at),
+  UNIQUE INDEX uk_notification_event (org_id, event_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS notification_outbox (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  org_id VARCHAR(64) NOT NULL,
+  event_type VARCHAR(48) NOT NULL,
+  event_key VARCHAR(255) NOT NULL,
+  recipient_type VARCHAR(16) DEFAULT NULL,
+  recipient_id VARCHAR(64) DEFAULT NULL,
+  payload_json JSON NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'pending',
+  attempts INT NOT NULL DEFAULT 0,
+  available_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  processed_at DATETIME DEFAULT NULL,
+  last_error VARCHAR(500) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_notification_outbox_event (org_id, event_key),
+  INDEX idx_notification_outbox_claim (status, available_at, attempts),
+  INDEX idx_notification_outbox_done (status, processed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS audit_number_sequences (
+  org_id VARCHAR(64) NOT NULL,
+  business_date DATE NOT NULL,
+  next_value INT NOT NULL DEFAULT 1,
+  PRIMARY KEY (org_id, business_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS request_deduplication (
+  org_id VARCHAR(64) NOT NULL,
+  actor_key VARCHAR(160) NOT NULL,
+  operation_type VARCHAR(48) NOT NULL,
+  client_request_id VARCHAR(96) NOT NULL,
+  resource_id VARCHAR(64) NOT NULL,
+  response_json TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (org_id, actor_key, operation_type, client_request_id),
+  INDEX idx_rd_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS _shared_cache (
+  cache_key VARCHAR(255) NOT NULL PRIMARY KEY,
+  cache_data LONGTEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  expires_at BIGINT NOT NULL,
+  INDEX idx_expires_at (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

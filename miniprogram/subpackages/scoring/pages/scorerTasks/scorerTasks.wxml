@@ -92,7 +92,7 @@
             </view>
           </view>
         </view>
-        <view class="empty-inline" wx:if="{{!scorerRows.length}}">当前筛选条件下没有未完成评分任务的评分人。</view>
+        <view class="empty-inline" wx:if="{{!scorerRows.length}}">没有匹配的评分人</view>
       </scroll-view>
     </view>
   </view>

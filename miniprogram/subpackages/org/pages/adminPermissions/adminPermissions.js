@@ -64,7 +64,7 @@ Page({
       if (!adminPermissions.canAccessPermissionSystem(profile)) {
         wx.showModal({
           title: '无法访问',
-          content: '当前账号没有访问权限系统的权限。',
+          content: '当前账号没有权限。',
           showCancel: false,
           success: function() { wx.navigateBack(); }
         });
@@ -186,7 +186,7 @@ Page({
 
   onOrgTap() {
     if (this.data.editorVisible) {
-      wx.showModal({ title: '存在未保存内容', content: '请先保存或关闭权限配置，再切换组织。', showCancel: false });
+      wx.showModal({ title: '存在未保存内容', content: '请先处理未保存内容。', showCancel: false });
       return;
     }
     wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });

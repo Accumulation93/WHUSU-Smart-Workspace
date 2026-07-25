@@ -14,6 +14,8 @@ const BANNED_COLORS = /#(?:1d4ed8|1e40af|172554)\b/gi;
 const LEGACY_OVERLAYS = new Set(['popup-mask', 'modal-mask', 'dialog-layer', 'sheet-layer']);
 const LEGACY_DIALOG_SHELLS = new Set(['popup-card', 'modal-card', 'dialog-panel', 'sheet-panel']);
 const LEGACY_COMPLEX_GRIDS = new Set(['task-table', 'result-table', 'popup-table']);
+const STANDARD_BUTTON_ROLE = /\b(?:primary-btn|secondary-btn|danger-btn)\b/;
+const FORBIDDEN_EMOJI_ICON = /(?:\u{1F4CE}|\u{1F4C4}|\u{1F4E4}|\u{1F504}|\u{270F}\u{FE0F}?|\u{2705}|\u{274C}|\u{1F4CC}|\u{21A9}\u{FE0F}?|\u{23F3}|\u{1F512}|\u{1F3C6}|\u{1F534}|\u{1F4AC})/gu;
 const GLOBAL_STYLE = fs.readFileSync(path.join(MINI_ROOT, 'app.wxss'), 'utf8');
 const GLOBAL_MEDIA_520 = /@media\s*\(min-width:\s*520px\)/.test(GLOBAL_STYLE);
 const GLOBAL_MEDIA_900 = /@media\s*\(min-width:\s*900px\)/.test(GLOBAL_STYLE);
@@ -178,6 +180,97 @@ function scanVisibleInternalIds(file) {
     cursor = token.index + token.raw.length;
   }
 
+  return findings;
+}
+
+function scanStaticInlineStyles(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  const findings = [];
+  for (const match of source.matchAll(/\bstyle\s*=\s*(["'])([\s\S]*?)\1/g)) {
+    if (/\{\{/.test(match[2])) continue;
+    findings.push({
+      file: relative(file),
+      line: lineAt(source, match.index),
+      style: match[2].replace(/\s+/g, ' ').trim()
+    });
+  }
+  return findings;
+}
+
+function scanForbiddenEmojiIcons(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  return [...source.matchAll(FORBIDDEN_EMOJI_ICON)].map(match => ({
+    file: relative(file),
+    line: lineAt(source, match.index),
+    icon: match[0]
+  }));
+}
+
+function scanAdminOrgContextContracts() {
+  const pages = [
+    {
+      name: '评分管理',
+      wxml: path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxml'),
+      script: path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.js')
+    },
+    {
+      name: '场地管理',
+      wxml: path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.wxml'),
+      script: path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.js')
+    }
+  ];
+  const findings = [];
+  for (const page of pages) {
+    const markup = fs.readFileSync(page.wxml, 'utf8');
+    const script = fs.readFileSync(page.script, 'utf8');
+    const checks = [
+      ['管理端副标题', /hero-subtitle/],
+      ['当前组织提示', /hero-org-context/],
+      ['切换组织交互', /(?:bindtap|catchtap)="onOrgTap"/],
+      ['当前组织名称', /currentOrganizationName/]
+    ];
+    for (const [label, pattern] of checks) {
+      if (!pattern.test(markup)) findings.push({ page: page.name, message: `缺少${label}` });
+    }
+    if (!/\bonOrgTap\s*\(\)/.test(script)) {
+      findings.push({ page: page.name, message: '缺少切换组织处理函数' });
+    }
+    if (!/\/subpackages\/org\/pages\/switch\/switch/.test(script)) {
+      findings.push({ page: page.name, message: '切换组织未指向统一入口' });
+    }
+  }
+  return findings;
+}
+
+function scanVenueFlowVisibilityContract() {
+  const file = path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.wxml');
+  const source = fs.readFileSync(file, 'utf8');
+  const findings = [];
+  const checks = [
+    ['借用规则页缺少当前组织审批状态卡片', /rule-org-context/],
+    ['借用规则页未展示组织专属流程状态', /组织专属审批流程/],
+    ['借用规则页未说明无专属流程时的处理方式', /尚未配置专属流程/]
+  ];
+  for (const [message, pattern] of checks) {
+    if (!pattern.test(source)) findings.push({ file: relative(file), message });
+  }
+  return findings;
+}
+
+function scanLegacyRedirectUi() {
+  const directory = path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueBookings');
+  const scriptFile = path.join(directory, 'venueBookings.js');
+  const markupFile = path.join(directory, 'venueBookings.wxml');
+  const script = fs.readFileSync(scriptFile, 'utf8');
+  const markup = fs.readFileSync(markupFile, 'utf8');
+  const significantLines = markup.split(/\r?\n/).filter(line => line.trim()).length;
+  const findings = [];
+  if (!/wx\.redirectTo\(\{\s*url:\s*['"]\/subpackages\/venue\/pages\/venueManage\/venueManage\?tab=bookings['"]/.test(script)) {
+    findings.push({ file: relative(scriptFile), message: '旧借用管理入口未跳转到统一管理页' });
+  }
+  if (significantLines > 12 || /\bwx:for\b/.test(markup) || /\b(?:approve|reject|loadBookings)\b/.test(markup)) {
+    findings.push({ file: relative(markupFile), message: '纯跳转页仍残留旧管理界面' });
+  }
   return findings;
 }
 
@@ -369,10 +462,21 @@ function scanWxss(file) {
   };
 }
 
-const controls = walk(MINI_ROOT, '.wxml').flatMap(scanWxml);
-const visibleInternalIds = walk(MINI_ROOT, '.wxml').flatMap(scanVisibleInternalIds);
-const layoutContracts = walk(MINI_ROOT, '.wxml').map(scanLayoutContracts);
+const wxmlFiles = walk(MINI_ROOT, '.wxml');
+const controls = wxmlFiles.flatMap(scanWxml);
+const visibleInternalIds = wxmlFiles.flatMap(scanVisibleInternalIds);
+const staticInlineStyles = wxmlFiles.flatMap(scanStaticInlineStyles);
+const layoutContracts = wxmlFiles.map(scanLayoutContracts);
 const styles = walk(MINI_ROOT, '.wxss').map(scanWxss);
+const nativeButtonRoleIssues = controls.filter(item => item.tag === 'button' && !STANDARD_BUTTON_ROLE.test(item.className));
+const forbiddenEmojiIcons = [
+  ...wxmlFiles,
+  ...walk(MINI_ROOT, '.wxss'),
+  ...walk(MINI_ROOT, '.js')
+].flatMap(scanForbiddenEmojiIcons);
+const adminOrgContextIssues = scanAdminOrgContextContracts();
+const venueFlowVisibilityIssues = scanVenueFlowVisibilityContract();
+const legacyRedirectUiIssues = scanLegacyRedirectUi();
 const missingFeedback = controls.filter(item => (
   !['field'].includes(item.type) &&
   !item.nonVisual &&
@@ -429,7 +533,7 @@ const remoteAssets = walk(MINI_ROOT, '.wxml').flatMap(file => {
 const report = {
   generatedAt: new Date().toISOString(),
   summary: {
-    wxmlFiles: new Set(controls.map(item => item.file)).size,
+    wxmlFiles: wxmlFiles.length,
     wxssFiles: styles.length,
     controls: controls.length,
     missingFeedback: missingFeedback.length,
@@ -445,6 +549,12 @@ const report = {
     illegalColors: illegalColors.length,
     remoteAssets: remoteAssets.length,
     visibleInternalIds: visibleInternalIds.length,
+    nativeButtonRoleIssues: nativeButtonRoleIssues.length,
+    forbiddenEmojiIcons: forbiddenEmojiIcons.length,
+    adminOrgContextIssues: adminOrgContextIssues.length,
+    venueFlowVisibilityIssues: venueFlowVisibilityIssues.length,
+    legacyRedirectUiIssues: legacyRedirectUiIssues.length,
+    staticInlineStyles: staticInlineStyles.length,
     dialogs: dialogs.length,
     dialogIssues: dialogIssues.length,
     dataLayoutIssues: dataLayoutIssues.length,
@@ -469,6 +579,12 @@ const report = {
   illegalColors,
   remoteAssets,
   visibleInternalIds,
+  nativeButtonRoleIssues,
+  forbiddenEmojiIcons,
+  adminOrgContextIssues,
+  venueFlowVisibilityIssues,
+  legacyRedirectUiIssues,
+  staticInlineStyles,
   dialogs,
   dialogIssues,
   dataLayoutIssues,
@@ -485,7 +601,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -499,6 +615,8 @@ if (process.argv.includes('--strict')) {
     report.summary.nativeInputFlex || report.summary.oversizedTimetable || report.summary.missingDeviceSystem ||
     report.summary.transitionAll || report.summary.willChange || report.summary.illegalColors || report.summary.remoteAssets ||
     report.summary.visibleInternalIds ||
+    report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
+    report.summary.adminOrgContextIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem;

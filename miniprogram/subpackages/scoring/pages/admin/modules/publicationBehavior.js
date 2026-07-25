@@ -255,7 +255,7 @@ module.exports = Behavior({
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
-      wx.showModal({ title: '确认删除', content: '确定要删除该查看权限类别及所有条款吗？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '删除失败', icon: 'none' }); } } catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); } } });
+      wx.showModal({ title: '确认删除', content: '删除此类别及全部条款？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '删除失败', icon: 'none' }); } } catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); } } });
     },
   
     // ─── View Rule Clause Editor ───,
@@ -340,7 +340,7 @@ module.exports = Behavior({
       const ids = Object.keys(this.data.pubViewRuleSelectedIds).filter(id => this.data.pubViewRuleSelectedIds[id]);
       if (!ids.length) { wx.showToast({ title: '请先选择要删除的类别', icon: 'none' }); return; }
       const that = this;
-      wx.showModal({ title: '批量删除', content: `确定要删除选中的 ${ids.length} 个查看权限类别吗？`, success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubViewRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: `已删除 ${ids.length} 个`, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
+      wx.showModal({ title: '批量删除', content: `删除选中的 ${ids.length} 个类别？`, success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubViewRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: `已删除 ${ids.length} 个`, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
     },
   
     // ─── Merit Rule Category CRUD ───,
@@ -373,7 +373,7 @@ module.exports = Behavior({
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
-      wx.showModal({ title: '确认删除', content: '确定要删除该评优指定权类别及所有条款吗？关联的评优名单也会被清空。', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '删除失败', icon: 'none' }); } } catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); } } });
+      wx.showModal({ title: '确认删除', content: '删除后将清空相关评优名单，是否继续？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '删除失败', icon: 'none' }); } } catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); } } });
     },
   
     // ─── Merit Rule Clause Editor ───,
@@ -416,14 +416,14 @@ module.exports = Behavior({
       const ids = Object.keys(this.data.pubMeritRuleSelectedIds).filter(id => this.data.pubMeritRuleSelectedIds[id]);
       if (!ids.length) { wx.showToast({ title: '请先选择要删除的类别', icon: 'none' }); return; }
       const that = this;
-      wx.showModal({ title: '批量删除', content: `确定要删除选中的 ${ids.length} 个评优指定权类别吗？`, success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubMeritRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: `已删除 ${ids.length} 个`, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
+      wx.showModal({ title: '批量删除', content: `删除选中的 ${ids.length} 个类别？`, success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubMeritRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: `已删除 ${ids.length} 个`, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
     },
   
     // ─── Generate default categories ───,
 
     async generatePubViewRules() {
       const pubId = this.data.publicationForm.id;
-      if (!pubId) { wx.showToast({ title: '请先选择活动，公示记录将自动创建', icon: 'none' }); return; }
+      if (!pubId) { wx.showToast({ title: '请先选择活动', icon: 'none' }); return; }
       this.setLoading('generatePubViewRules', true);
       try {
         const result = await this.callCloud('generatePubViewRules', { publicationId: pubId });
@@ -444,7 +444,7 @@ module.exports = Behavior({
 
     async generatePubMeritRules() {
       const pubId = this.data.publicationForm.id;
-      if (!pubId) { wx.showToast({ title: '请先选择活动，公示记录将自动创建', icon: 'none' }); return; }
+      if (!pubId) { wx.showToast({ title: '请先选择活动', icon: 'none' }); return; }
       this.setLoading('generatePubMeritRules', true);
       try {
         const result = await this.callCloud('generatePubMeritRules', { publicationId: pubId });
@@ -595,7 +595,7 @@ module.exports = Behavior({
       if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
       const templateClauses = (this.data.pubViewRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] }));
       const selected = (this.data.pubViewRuleList || []).filter(item => this.data.pubViewRuleSelectedIds[item.id]);
-      if (!selected.length) { wx.showToast({ title: '请先在下方列表中勾选需要批量应用的类别', icon: 'none' }); return; }
+      if (!selected.length) { wx.showToast({ title: '请选择类别', icon: 'none' }); return; }
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubViewRules', true);
       let count = 0;
@@ -621,7 +621,7 @@ module.exports = Behavior({
       if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
       const templateClauses = (this.data.pubMeritRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit || 0, requireExactQuota: c.requireExactQuota || false }));
       const selected = (this.data.pubMeritRuleList || []).filter(item => this.data.pubMeritRuleSelectedIds[item.id]);
-      if (!selected.length) { wx.showToast({ title: '请先在下方列表中勾选需要批量应用的类别', icon: 'none' }); return; }
+      if (!selected.length) { wx.showToast({ title: '请选择类别', icon: 'none' }); return; }
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubMeritRules', true);
       let ok = 0, err = 0;

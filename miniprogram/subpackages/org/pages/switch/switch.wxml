@@ -2,7 +2,6 @@
   <view class="hero org-hero">
     <view class="hero-badge">{{roleLabel}} · 组织空间</view>
     <view class="hero-title">切换组织</view>
-    <view class="hero-subtitle">选择本次要访问和管理的组织，页面数据将同步更新。</view>
   </view>
 
   <view class="org-panel">
@@ -24,7 +23,7 @@
     <view class="empty-state" wx:elif="{{!loading && organizations.length === 0}}">
       <view class="empty-icon"><ui-icon name="home" tone="muted" size="54" ariaLabel="暂无组织" /></view>
       <view class="empty-title">暂无可访问组织</view>
-      <view class="empty-desc">当前身份尚未绑定任何组织，请联系组织管理员处理。</view>
+      <view class="empty-desc">请联系组织管理员</view>
     </view>
 
     <view class="org-list" wx:else>

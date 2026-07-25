@@ -1,5 +1,8 @@
 const VERSION_KEY = 'activeOrgVersion';
 const ORG_KEY = 'activeOrgId';
+const ORG_NAME_KEY = 'activeOrgName';
+const ROLE_KEY = 'activeRole';
+const TOKEN_KEY = 'token';
 
 function getVersion() {
   return Number(wx.getStorageSync(VERSION_KEY) || 0);
@@ -14,13 +17,55 @@ function markChanged() {
 function getSnapshot() {
   return {
     orgId: String(wx.getStorageSync(ORG_KEY) || ''),
+    role: String(wx.getStorageSync(ROLE_KEY) || ''),
+    token: String(wx.getStorageSync(TOKEN_KEY) || ''),
     version: getVersion()
   };
 }
 
 function isSameSnapshot(left, right) {
   if (!left || !right) return false;
-  return left.orgId === right.orgId && left.version === right.version;
+  return left.orgId === right.orgId
+    && left.role === right.role
+    && left.token === right.token
+    && left.version === right.version;
+}
+
+function writeStorageValue(key, value) {
+  const normalized = String(value || '');
+  if (normalized) wx.setStorageSync(key, normalized);
+  else wx.removeStorageSync(key);
+}
+
+function commitContext(context) {
+  const next = context || {};
+  const before = getSnapshot();
+  const has = Object.prototype.hasOwnProperty;
+
+  if (has.call(next, 'token')) writeStorageValue(TOKEN_KEY, next.token);
+  if (has.call(next, 'role')) writeStorageValue(ROLE_KEY, next.role);
+  if (has.call(next, 'orgId')) writeStorageValue(ORG_KEY, next.orgId);
+  if (has.call(next, 'orgName')) writeStorageValue(ORG_NAME_KEY, next.orgName);
+
+  const afterWrite = getSnapshot();
+  const changed = before.orgId !== afterWrite.orgId
+    || before.role !== afterWrite.role
+    || before.token !== afterWrite.token;
+  const version = changed ? markChanged() : afterWrite.version;
+  return {
+    changed,
+    version,
+    snapshot: Object.assign({}, afterWrite, { version })
+  };
+}
+
+function clearAuthentication(nextRole) {
+  return commitContext({
+    token: '',
+    role: nextRole || '',
+    orgId: '',
+    orgName: ''
+  });
 }
 
 function isCurrent(snapshot) {
@@ -70,6 +115,8 @@ module.exports = {
   isCurrent,
   consume,
   markChanged,
+  commitContext,
+  clearAuthentication,
   hasChanged,
   beginRequest,
   isRequestCurrent,

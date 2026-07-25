@@ -730,7 +730,7 @@ module.exports = Behavior({
       }
   
       if (!newQuestions.length) {
-        wx.showToast({ title: '没有有效的问题条目（所有行的问题内容为空）', icon: 'none' });
+        wx.showToast({ title: '没有有效问题', icon: 'none' });
         return;
       }
   

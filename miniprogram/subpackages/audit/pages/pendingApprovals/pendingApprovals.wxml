@@ -2,7 +2,6 @@
   <view class="hero">
     <view class="hero-badge">审核</view>
     <view class="hero-title">待我审批</view>
-    <view class="hero-subtitle">需要我处理的审核申请</view>
   </view>
 
   <view class="section">
@@ -27,9 +26,8 @@
           <view class="pending-list-arrow">›</view>
         </view>
         <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
-          <view class="audit-empty-icon">✅</view>
+          <view class="audit-empty-icon"><ui-icon name="check" tone="primary" size="54" ariaLabel="暂无待审批事项" /></view>
           <view class="audit-empty-text">暂无待审批的审核</view>
-          <view class="audit-empty-tip">当其他成员发起审核并指定你为审批人时，<br/>需要你处理的审核将显示在这里。</view>
         </view>
         </block>
       </scroll-view>

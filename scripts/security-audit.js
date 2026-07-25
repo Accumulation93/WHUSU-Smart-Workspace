@@ -56,6 +56,8 @@ for (const target of TARGETS) {
     }
 
     if (relativeFile.startsWith('server/src/')) {
+      const consoleLog = source.search(/console\.log\s*\(/);
+      if (consoleLog >= 0) addFinding('high', 'server-console-log', relativeFile, source, consoleLog);
       const runtimeDdl = source.search(/\b(?:CREATE|ALTER|DROP|TRUNCATE)\s+(?:TABLE|INDEX|DATABASE)\b/i);
       if (runtimeDdl >= 0) addFinding('high', 'runtime-ddl', relativeFile, source, runtimeDdl);
       const legacySpreadsheet = source.search(/require\(['"]xlsx['"]\)/);
@@ -69,7 +71,7 @@ for (const target of TARGETS) {
     if (/server\/src\/(?:core|modules)\/.+\/routes\/.+\.js$/.test(relativeFile) ||
       /server\/src\/core\/routes\/.+\.js$/.test(relativeFile)) {
       const directSql = source.search(/pool\.(?:query|execute)\s*\(/);
-      if (directSql >= 0) addFinding('medium', 'route-direct-sql', relativeFile, source, directSql);
+      if (directSql >= 0) addFinding('info', 'route-direct-sql', relativeFile, source, directSql);
     }
 
     if (relativeFile.startsWith('server/src/core/routes/') && source.includes('pool.')) {
@@ -112,7 +114,13 @@ requireSourceContract('server/src/core/routes/admin.js', [
   { rule: 'admin-invite-authorized-display', test: source => source.includes('canViewInviteCode: canAccessInvite') && source.includes('canRegenerateInvite: canAccessInvite') }
 ]);
 requireSourceContract('server/src/core/routes/auth.js', [
-  { rule: 'admin-invite-plaintext-binding', test: source => source.includes('WHERE invite_code = ?') && !source.includes('invite_code_hash') }
+  { rule: 'admin-invite-plaintext-binding', test: source => source.includes('WHERE invite_code = ?') && !source.includes('invite_code_hash') },
+  {
+    rule: 'auth-role-from-body',
+    test: source => source.includes("const role = safeString(req.headers['x-role']).toLowerCase()")
+      && !source.includes("req.headers['x-role'] || req.body.role")
+      && !source.includes("safeString(req.body.role || 'user')")
+  }
 ]);
 requireSourceContract('server/src/core/services/adminPermissions.js', [
   {
@@ -120,6 +128,78 @@ requireSourceContract('server/src/core/services/adminPermissions.js', [
     test: source => source.includes("key: 'hr.profile_templates.manage'")
       && source.includes("key: 'hr.profile_templates.select'")
       && !/mapRoutes\('hr\.profile_review',\s*\[[^\]]*saveHrProfileTemplate/.test(source)
+  }
+]);
+requireSourceContract('server/src/middleware/adminPermission.js', [
+  {
+    rule: 'admin-role-header-bypass',
+    test: source => source.includes("status: 'admin_role_required'")
+      && source.includes('rule.allowUserRole')
+      && !source.includes("if (!rule || req.get('X-Role') !== 'admin') return next()")
+  }
+]);
+requireSourceContract('server/src/modules/venue/models/venueApprovalFlowStepRule.js', [
+  {
+    rule: 'venue-specific-empty-deny',
+    test: source => source.includes('if (!deptIds.length || !deptIds.includes')
+      && source.includes('if (!wgIds.length || !wgIds.includes')
+      && source.includes('if (!identIds.length || !identIds.includes')
+  }
+]);
+requireSourceContract('server/src/modules/scoring/models/scoreRecord.js', [
+  {
+    rule: 'score-record-column-allowlist',
+    test: source => source.includes('const CONDITION_COLUMNS = Object.freeze')
+      && source.includes('const dbKey = CONDITION_COLUMNS[key]')
+      && !source.includes("key.replace(/([A-Z])/g")
+  }
+]);
+requireSourceContract('server/src/modules/audit/routes/auditSignature.js', [
+  {
+    rule: 'audit-signature-role-confusion',
+    test: source => source.includes("const admin = selectedRole === 'admin'")
+      && source.includes("const hrId = selectedRole === 'user'")
+  }
+]);
+requireSourceContract('server/src/modules/audit/routes/auditUser.js', [
+  {
+    rule: 'audit-detail-role-confusion',
+    test: source => source.includes("const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null")
+      && source.includes("const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null")
+  },
+  {
+    rule: 'audit-detail-diagnostic-leak',
+    test: source => !source.includes('_diag:')
+      && !source.includes('operatorHrId: safeString(e.operator_hr_id)')
+      && !/catch \(_\) \{\s*stepHasExplicitConds = false/.test(source)
+      && !/catch \(_\) \{\s*hasExplicitConditions = false/.test(source)
+  }
+]);
+requireSourceContract('server/src/modules/audit/models/auditSubmissionStep.js', [
+  {
+    rule: 'audit-specific-empty-deny',
+    test: source => source.includes('if (!specificDeptId || !inCsv')
+      && source.includes('if (!specificWgId || !inCsv')
+      && source.includes('if (!specificIdentId || !inCsv')
+  },
+  {
+    rule: 'audit-corrupt-condition-deny',
+    test: source => source.includes('Corrupt explicit conditions must fail closed')
+      && !/catch \(e\) \{\s*hasExplicitConditions = false/.test(source)
+  }
+]);
+requireSourceContract('server/src/modules/scoring/routes/scoring.js', [
+  {
+    rule: 'scoring-role-from-body',
+    test: source => source.includes("const role = safeString(req.get('X-Role')).toLowerCase()")
+      && !source.includes("const role = safeString(req.body.role")
+  }
+]);
+requireSourceContract('miniprogram/utils/trustedNavigation.js', [
+  {
+    rule: 'trusted-navigation-allowlist',
+    test: source => source.includes('const TRUSTED_ROUTES = new Set')
+      && source.includes('TRUSTED_ROUTES.has(pathname)')
   }
 ]);
 requireSourceContract('server/src/core/services/hrProfileTemplateLibrary.js', [
@@ -149,7 +229,7 @@ requireSourceContract('server/src/middleware/requestContext.js', [
 const summary = findings.reduce((result, finding) => {
   result[finding.severity] += 1;
   return result;
-}, { critical: 0, high: 0, medium: 0 });
+}, { critical: 0, high: 0, medium: 0, info: 0 });
 
 console.log('REDSU security audit');
 console.table(summary);

@@ -2,7 +2,6 @@
   <view class="hero">
     <view class="hero-badge">场地</view>
     <view class="hero-title">我的借用</view>
-    <view class="hero-subtitle">查看和管理你的场地借用记录</view>
   </view>
 
   <!-- Quick nav -->

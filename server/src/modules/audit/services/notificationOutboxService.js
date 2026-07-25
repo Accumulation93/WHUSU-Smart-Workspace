@@ -4,6 +4,23 @@ const notificationModel = require('../models/notification');
 const outboxModel = require('../models/notificationOutbox');
 const messageDataModel = require('../models/messageData');
 const { getUserScoringTask } = require('../../scoring/services/scoringTaskService');
+const RECIPIENT_CONCURRENCY = 8;
+
+async function forEachConcurrent(items, concurrency, worker) {
+  const source = Array.isArray(items) ? items : [];
+  let nextIndex = 0;
+  const runners = Array.from(
+    { length: Math.min(Math.max(1, concurrency), source.length) },
+    async () => {
+      while (nextIndex < source.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        await worker(source[currentIndex], currentIndex);
+      }
+    }
+  );
+  await Promise.all(runners);
+}
 
 function parsePayload(raw) {
   if (!raw) return {};
@@ -30,19 +47,19 @@ async function createForRecipient(job, recipientType, recipientId, payload) {
 
 async function processScoringRecipients(job, payload) {
   const users = await messageDataModel.listBoundUsersInOrg(job.org_id);
-  for (const user of users) {
+  await forEachConcurrent(users, RECIPIENT_CONCURRENCY, async (user) => {
     const task = await getUserScoringTask(user, payload.activity || null);
-    if (!task || task.pendingCount <= 0) continue;
+    if (!task || task.pendingCount <= 0) return;
     await createForRecipient(job, 'user', user.hr_id, Object.assign({}, payload, {
       targetId: safeString(task.activity.id),
       description: payload.description || ('还有 ' + task.pendingCount + ' 人待评分')
     }));
-  }
+  });
 }
 
 async function processPublicationRecipients(job, payload) {
   const ids = await messageDataModel.listPublicationRecipients(payload.publicationId, job.org_id);
-  for (const id of ids) await createForRecipient(job, 'user', id, payload);
+  await forEachConcurrent(ids, RECIPIENT_CONCURRENCY, id => createForRecipient(job, 'user', id, payload));
 }
 
 async function processJob(job) {
@@ -76,4 +93,4 @@ async function processBatch(limit) {
   return { claimed: jobs.length, completed };
 }
 
-module.exports = { processBatch, processJob };
+module.exports = { processBatch, processJob, forEachConcurrent };

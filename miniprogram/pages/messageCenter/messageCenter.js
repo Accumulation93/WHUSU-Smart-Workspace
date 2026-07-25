@@ -1,16 +1,6 @@
 const { callFunction, formatAuditTime } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
-
-function trustedNavigate(url) {
-  const raw = String(url || '').trim();
-  let decoded = raw;
-  try { decoded = decodeURIComponent(raw); } catch (_) {}
-  if (!/^\/(?:pages|subpackages)\/[A-Za-z0-9_?&=./%-]+$/.test(raw) || decoded.includes('..') || decoded.includes('://') || decoded.includes('\\')) {
-    wx.showToast({ title: '内容已失效', icon: 'none' });
-    return;
-  }
-  wx.navigateTo({ url: raw, fail: function() { wx.showToast({ title: '内容已失效', icon: 'none' }); } });
-}
+const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 
 Page({
   data: {
@@ -133,7 +123,7 @@ Page({
   },
 
   onTodoTap(e) {
-    trustedNavigate(e.currentTarget.dataset.url);
+    navigateToTrustedRoute(e.currentTarget.dataset.url);
   },
 
   async onNotificationTap(e) {
@@ -148,7 +138,7 @@ Page({
         }),
         unreadCount: Math.max(0, this.data.unreadCount - 1)
       });
-      trustedNavigate(url);
+      navigateToTrustedRoute(url);
       try {
         const result = await callFunction({ name: 'markNotificationRead', data: { id: id } });
         if (result.status === 'success') this.setData({ unreadCount: result.unreadCount || 0 });
@@ -157,7 +147,7 @@ Page({
       }
       return;
     }
-    trustedNavigate(url);
+    navigateToTrustedRoute(url);
   },
 
   async markAllRead() {

@@ -63,20 +63,20 @@ function normalizeDefinitionField(field) {
 
 function validateDefinition(name, editMode, fields) {
   if (!safeString(name).trim()) return '模板名称不能为空';
-  if (!EDIT_MODES.includes(editMode)) return '修改模式不合法';
+  if (!EDIT_MODES.includes(editMode)) return '请选择有效的修改方式';
   if (!fields.length) return '至少需要配置一个字段';
   const labels = new Set();
   for (const field of fields) {
     if (!field.label) return '字段名称不能为空';
-    if (!field.type) return '字段类型不合法';
+    if (!field.type) return '请选择有效的字段类型';
     const labelKey = field.label.toLocaleLowerCase('zh-CN');
     if (labels.has(labelKey)) return `字段名称重复：${field.label}`;
     labels.add(labelKey);
     if (field.type === 'sequence' && !field.options.length) return `${field.label}至少需要一个选项`;
-    if (field.minLength != null && !Number.isFinite(field.minLength)) return `${field.label}长度限制不合法`;
-    if (field.maxLength != null && !Number.isFinite(field.maxLength)) return `${field.label}长度限制不合法`;
-    if (field.minValue != null && !Number.isFinite(field.minValue)) return `${field.label}数值限制不合法`;
-    if (field.maxValue != null && !Number.isFinite(field.maxValue)) return `${field.label}数值限制不合法`;
+    if (field.minLength != null && !Number.isFinite(field.minLength)) return `请检查${field.label}的长度限制`;
+    if (field.maxLength != null && !Number.isFinite(field.maxLength)) return `请检查${field.label}的长度限制`;
+    if (field.minValue != null && !Number.isFinite(field.minValue)) return `请检查${field.label}的数值限制`;
+    if (field.maxValue != null && !Number.isFinite(field.maxValue)) return `请检查${field.label}的数值限制`;
   }
   return '';
 }
@@ -98,15 +98,7 @@ async function insertDefinitionFields(connection, templateId, fields) {
 }
 
 async function listTemplates(connection = pool) {
-  const [templates] = await connection.query(
-    `SELECT t.*,
-            COUNT(DISTINCT s.id) AS snapshot_count,
-            COUNT(DISTINCT CASE WHEN settings.active_snapshot_id = s.id THEN settings.org_id END) AS active_org_count
-       FROM hr_profile_templates t
-       LEFT JOIN org_hr_profile_template_snapshots s ON s.source_template_id = t.id
-       LEFT JOIN org_hr_profile_template_settings settings ON settings.active_snapshot_id = s.id
-      GROUP BY t.id ORDER BY t.name`
-  );
+  const [templates] = await connection.query('SELECT * FROM hr_profile_templates ORDER BY name');
   const [fields] = await connection.query('SELECT * FROM hr_profile_template_fields ORDER BY template_id, sort_order');
   const fieldsByTemplate = new Map();
   fields.forEach((field) => {
@@ -120,38 +112,27 @@ async function listTemplates(connection = pool) {
     editMode: safeString(template.edit_mode || 'direct'),
     fields: fieldsByTemplate.get(template.id) || [],
     fieldCount: (fieldsByTemplate.get(template.id) || []).length,
-    snapshotCount: Number(template.snapshot_count || 0),
-    activeOrgCount: Number(template.active_org_count || 0),
     updatedAt: template.updated_at
   }));
 }
 
 async function getActiveSnapshot(orgId, connection = pool) {
   const [rows] = await connection.query(
-    `SELECT snapshot.*, settings.updated_at AS selection_updated_at,
-            CASE WHEN source.id IS NULL THEN 1 ELSE 0 END AS source_deleted
-       FROM org_hr_profile_template_settings settings
-       JOIN org_hr_profile_template_snapshots snapshot ON snapshot.id = settings.active_snapshot_id
-       LEFT JOIN hr_profile_templates source ON source.id = snapshot.source_template_id
-      WHERE settings.org_id = ? AND snapshot.org_id = ? LIMIT 1`,
-    [orgId, orgId]
+    'SELECT * FROM org_hr_profile_template_snapshots WHERE org_id = ? LIMIT 1',
+    [orgId]
   );
   if (!rows.length) return null;
   const snapshot = rows[0];
   const [fields] = await connection.query(
-    'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? ORDER BY sort_order',
+    'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? AND is_active = 1 ORDER BY sort_order',
     [snapshot.id]
   );
   return {
     id: snapshot.id,
-    version: Number(snapshot.version),
-    sourceTemplateId: safeString(snapshot.source_template_id),
-    sourceTemplateName: safeString(snapshot.source_template_name),
-    sourceDeleted: Boolean(snapshot.source_deleted),
     description: safeString(snapshot.description),
     editMode: safeString(snapshot.edit_mode || 'direct'),
-    selectedAt: snapshot.selected_at,
-    settingsUpdatedAt: snapshot.settings_updated_at,
+    createdAt: snapshot.created_at,
+    updatedAt: snapshot.updated_at,
     fields: fields.map(serializeField)
   };
 }
@@ -240,20 +221,8 @@ async function deleteDefinition(templateId) {
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query('SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE', [templateId]);
     if (!rows.length) return { status: 'not_found', message: '模板不存在' };
-    const [usage] = await connection.query(
-      `SELECT COUNT(DISTINCT s.id) AS snapshot_count,
-              COUNT(DISTINCT CASE WHEN settings.active_snapshot_id = s.id THEN settings.org_id END) AS active_org_count
-         FROM org_hr_profile_template_snapshots s
-         LEFT JOIN org_hr_profile_template_settings settings ON settings.active_snapshot_id = s.id
-        WHERE s.source_template_id = ?`,
-      [templateId]
-    );
     await connection.query('DELETE FROM hr_profile_templates WHERE id = ?', [templateId]);
-    return {
-      status: 'success',
-      snapshotCount: Number(usage[0].snapshot_count || 0),
-      activeOrgCount: Number(usage[0].active_org_count || 0)
-    };
+    return { status: 'success' };
   });
 }
 
@@ -267,7 +236,7 @@ async function getSwitchContext(orgId, targetTemplateId, connection = pool) {
   );
   const activeSnapshot = await getActiveSnapshot(orgId, connection);
   const [sourceFields] = await connection.query(
-    `SELECT field.*, snapshot.version, snapshot.source_template_name, snapshot.selected_at,
+    `SELECT field.*,
             SUM(CASE WHEN values_table.is_pending = 0 THEN 1 ELSE 0 END) AS current_value_count,
             SUM(CASE WHEN values_table.is_pending = 1 THEN 1 ELSE 0 END) AS pending_value_count
        FROM org_hr_profile_template_snapshot_fields field
@@ -276,9 +245,9 @@ async function getSwitchContext(orgId, targetTemplateId, connection = pool) {
          ON values_table.field_id = field.id AND values_table.org_id = snapshot.org_id
       WHERE snapshot.org_id = ?
       GROUP BY field.id
-     HAVING field.snapshot_id = ? OR current_value_count > 0 OR pending_value_count > 0
-      ORDER BY snapshot.version DESC, field.sort_order`,
-    [orgId, activeSnapshot ? activeSnapshot.id : '']
+     HAVING field.is_active = 1 OR current_value_count > 0 OR pending_value_count > 0
+      ORDER BY field.is_active DESC, field.sort_order, field.id`,
+    [orgId]
   );
   const serializedTargets = targetFields.map(serializeField);
   return {
@@ -301,9 +270,7 @@ async function getSwitchContext(orgId, targetTemplateId, connection = pool) {
         && compatibleTargetIds.includes(target.id));
       return Object.assign(serialized, {
         snapshotId: field.snapshot_id,
-        snapshotVersion: Number(field.version),
-        snapshotName: safeString(field.source_template_name),
-        snapshotSelectedAt: field.selected_at,
+        isActive: Boolean(field.is_active),
         currentValueCount: Number(field.current_value_count || 0),
         pendingValueCount: Number(field.pending_value_count || 0),
         compatibleTargetIds,
@@ -355,8 +322,8 @@ function normalizeActions(sourceFields, targetFields, rawActions) {
   const rawMap = new Map();
   rawList.forEach((action) => {
     const sourceId = safeString(action && action.sourceSnapshotFieldId);
-    if (!sourceIds.has(sourceId)) throw new Error('包含未知的迁移来源字段');
-    if (rawMap.has(sourceId)) throw new Error('迁移来源字段重复');
+    if (!sourceIds.has(sourceId)) throw new Error('已有字段信息有误，请重新打开页面');
+    if (rawMap.has(sourceId)) throw new Error('已有字段重复，请重新打开页面');
     rawMap.set(sourceId, action);
   });
   const usedTargets = new Set();
@@ -364,11 +331,11 @@ function normalizeActions(sourceFields, targetFields, rawActions) {
     const raw = rawMap.get(sourceField.id) || {};
     const action = SWITCH_ACTIONS.includes(raw.action) ? raw.action : 'hide';
     const targetTemplateFieldId = action === 'map' ? safeString(raw.targetTemplateFieldId) : '';
-    if (!sourceIds.has(sourceField.id)) throw new Error('迁移来源字段不合法');
+    if (!sourceIds.has(sourceField.id)) throw new Error('已有字段信息有误，请重新打开页面');
     if (action === 'map') {
       const target = targetMap.get(targetTemplateFieldId);
       if (!target) throw new Error(`${sourceField.label}缺少有效的目标字段`);
-      if (!isPotentiallyCompatible(sourceField.type, target.type)) throw new Error(`${sourceField.label}与目标字段类型不兼容`);
+      if (!isPotentiallyCompatible(sourceField.type, target.type)) throw new Error(`${sourceField.label}与目标字段类型不匹配`);
       if (usedTargets.has(targetTemplateFieldId)) throw new Error('一个目标字段只能映射一个来源字段');
       usedTargets.add(targetTemplateFieldId);
     }
@@ -402,19 +369,19 @@ function encodeToken(payload) {
 
 function decodeToken(token) {
   const parts = safeString(token).split('.');
-  if (parts.length !== 2) throw new Error('切换确认已失效，请重新预检');
+  if (parts.length !== 2) throw new Error('本次确认已失效，请重新操作');
   const expected = crypto.createHmac('sha256', JWT_SECRET).update(parts[0]).digest('base64url');
   const left = Buffer.from(parts[1]);
   const right = Buffer.from(expected);
-  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw new Error('切换确认已失效，请重新预检');
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw new Error('本次确认已失效，请重新操作');
   const payload = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
-  if (!payload.expiresAt || Date.now() > payload.expiresAt) throw new Error('切换确认已过期，请重新预检');
+  if (!payload.expiresAt || Date.now() > payload.expiresAt) throw new Error('本次确认已过期，请重新操作');
   return payload;
 }
 
 async function preflightSwitch(orgId, targetTemplateId, rawActions) {
   const context = await getSwitchContext(orgId, targetTemplateId);
-  if (!context) return { status: 'not_found', message: '目标模板不存在' };
+  if (!context) return { status: 'not_found', message: '所选模板不存在' };
   let actions;
   try {
     actions = normalizeActions(context.sourceFields, context.targetTemplate.fields, rawActions);
@@ -443,7 +410,7 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
     }, row.field_value) ? 1 : 0), 0);
     if (invalidCount) blockers.push({ sourceSnapshotFieldId: action.sourceSnapshotFieldId, targetTemplateFieldId: target.id, invalidCount });
   }
-  if (blockers.length) return { status: 'mapping_blocked', message: '存在不兼容的历史值', blockers };
+  if (blockers.length) return { status: 'mapping_blocked', message: '部分已有内容不符合新字段要求', blockers };
   const sourceMap = new Map(context.sourceFields.map((field) => [field.id, field]));
   const summary = actions.reduce((result, action) => {
     const source = sourceMap.get(action.sourceSnapshotFieldId);
@@ -472,7 +439,7 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
     return { status: 'stale_switch', message: error.message };
   }
   if (tokenPayload.orgId !== orgId || tokenPayload.targetTemplateId !== targetTemplateId) {
-    return { status: 'stale_switch', message: '切换目标已变化，请重新预检' };
+    return { status: 'stale_switch', message: '所选内容已变化，请重新确认' };
   }
   return pool.withTransaction(async (connection) => {
     await connection.query('SELECT id FROM organizations WHERE id = ? FOR UPDATE', [orgId]);
@@ -480,9 +447,9 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
       'SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE',
       [targetTemplateId]
     );
-    if (!lockedTemplates.length) return { status: 'not_found', message: '目标模板不存在' };
+    if (!lockedTemplates.length) return { status: 'not_found', message: '所选模板不存在' };
     const context = await getSwitchContext(orgId, targetTemplateId, connection);
-    if (!context) return { status: 'not_found', message: '目标模板不存在' };
+    if (!context) return { status: 'not_found', message: '所选模板不存在' };
     let actions;
     try {
       actions = normalizeActions(context.sourceFields, context.targetTemplate.fields, rawActions);
@@ -493,11 +460,11 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
     const activeSnapshotId = context.activeSnapshot ? context.activeSnapshot.id : '';
     if (currentUpdatedAt !== tokenPayload.targetUpdatedAt || activeSnapshotId !== tokenPayload.activeSnapshotId
       || hashActions(actions) !== tokenPayload.actionsHash) {
-      return { status: 'stale_switch', message: '模板或组织配置已变化，请重新预检' };
+      return { status: 'stale_switch', message: '页面内容已发生变化，请重新确认' };
     }
     const valueStateHash = await getOrgValueStateHash(orgId, connection, true);
     if (valueStateHash !== tokenPayload.valueStateHash) {
-      return { status: 'stale_switch', message: '人员资料已变化，请重新预检' };
+      return { status: 'stale_switch', message: '人员资料已发生变化，请重新确认' };
     }
     const targetMap = new Map(context.targetTemplate.fields.map((field) => [field.id, field]));
     for (const action of actions.filter((item) => item.action === 'map')) {
@@ -512,7 +479,7 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
         min_digits: target.minDigits, max_digits: target.maxDigits,
         min_value: target.minValue, max_value: target.maxValue,
         options_json: JSON.stringify(target.options || [])
-      }, row.field_value))) return { status: 'mapping_blocked', message: '历史值已变化，请重新预检' };
+      }, row.field_value))) return { status: 'mapping_blocked', message: '已有内容已发生变化，请重新确认' };
     }
     const sourceMap = new Map(context.sourceFields.map((field) => [field.id, field]));
     const hasDelete = actions.some((action) => action.action === 'delete'
@@ -520,19 +487,26 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
         + (sourceMap.get(action.sourceSnapshotFieldId).pendingValueCount || 0)) > 0);
     if (hasDelete && confirmDelete !== true) return { status: 'delete_confirmation_required', message: '请确认永久删除历史字段值' };
 
-    const [versions] = await connection.query(
-      'SELECT version FROM org_hr_profile_template_snapshots WHERE org_id = ? ORDER BY version DESC LIMIT 1 FOR UPDATE',
-      [orgId]
-    );
-    const snapshotId = generateId();
-    const version = Number(versions.length ? versions[0].version : 0) + 1;
-    await connection.query(
-      `INSERT INTO org_hr_profile_template_snapshots
-       (id, org_id, version, source_template_id, source_template_name, description, edit_mode, selected_by, settings_updated_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [snapshotId, orgId, version, context.targetTemplate.id, context.targetTemplate.name,
-       context.targetTemplate.description, context.targetTemplate.editMode, operator.id, operator.id]
-    );
+    const snapshotId = activeSnapshotId || generateId();
+    if (activeSnapshotId) {
+      await connection.query(
+        `UPDATE org_hr_profile_template_snapshots
+            SET description = ?, edit_mode = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? AND org_id = ?`,
+        [context.targetTemplate.description, context.targetTemplate.editMode, operator.id, snapshotId, orgId]
+      );
+      await connection.query(
+        'UPDATE org_hr_profile_template_snapshot_fields SET is_active = 0 WHERE snapshot_id = ? AND is_active = 1',
+        [snapshotId]
+      );
+    } else {
+      await connection.query(
+        `INSERT INTO org_hr_profile_template_snapshots
+         (id, org_id, description, edit_mode, created_by, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [snapshotId, orgId, context.targetTemplate.description, context.targetTemplate.editMode, operator.id, operator.id]
+      );
+    }
     const snapshotFieldIds = new Map();
     for (let index = 0; index < context.targetTemplate.fields.length; index += 1) {
       const field = context.targetTemplate.fields[index];
@@ -540,10 +514,10 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
       snapshotFieldIds.set(field.id, snapshotFieldId);
       await connection.query(
         `INSERT INTO org_hr_profile_template_snapshot_fields
-         (id, snapshot_id, source_template_field_id, sort_order, label, type, required,
+         (id, snapshot_id, sort_order, is_active, label, type, required,
           min_length, max_length, number_rule, allow_decimal, min_digits, max_digits, min_value, max_value, options_json)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [snapshotFieldId, snapshotId, field.id, index + 1, field.label, field.type, field.required ? 1 : 0,
+        [snapshotFieldId, snapshotId, index + 1, 1, field.label, field.type, field.required ? 1 : 0,
          field.minLength, field.maxLength, field.numberRule, field.allowDecimal ? 1 : 0,
          field.minDigits, field.maxDigits, field.minValue, field.maxValue,
          field.options.length ? JSON.stringify(field.options) : null]
@@ -578,10 +552,10 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
     }
     await connection.query(
       `INSERT INTO org_hr_profile_template_switches
-       (id, org_id, from_snapshot_id, to_snapshot_id, target_template_name, operated_by,
+       (id, org_id, snapshot_id, operated_by,
         moved_value_count, hidden_value_count, deleted_value_count)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [switchId, orgId, activeSnapshotId || null, snapshotId, context.targetTemplate.name, operator.id,
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [switchId, orgId, snapshotId, operator.id,
        movedValueCount, hiddenValueCount, deletedValueCount]
     );
     for (const item of auditActions) {
@@ -593,25 +567,18 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
          item.targetSnapshotFieldId, item.currentCount, item.pendingCount]
       );
     }
-    await connection.query(
-      `INSERT INTO org_hr_profile_template_settings (org_id, active_snapshot_id, updated_by)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE active_snapshot_id = VALUES(active_snapshot_id), updated_by = VALUES(updated_by), updated_at = CURRENT_TIMESTAMP`,
-      [orgId, snapshotId, operator.id]
-    );
     await connection.query('UPDATE hr_profile_records SET template_snapshot_id = ? WHERE org_id = ?', [snapshotId, orgId]);
-    return { status: 'success', snapshotId, version, summary: { movedValueCount, hiddenValueCount, deletedValueCount } };
+    return { status: 'success', snapshotId, summary: { movedValueCount, hiddenValueCount, deletedValueCount } };
   });
 }
 
 async function saveOrgSettings(orgId, description, editMode, operator) {
-  if (!EDIT_MODES.includes(editMode)) return { status: 'invalid_params', message: '修改模式不合法' };
+  if (!EDIT_MODES.includes(editMode)) return { status: 'invalid_params', message: '请选择有效的修改方式' };
   const [result] = await pool.query(
-    `UPDATE org_hr_profile_template_snapshots snapshot
-       JOIN org_hr_profile_template_settings settings ON settings.active_snapshot_id = snapshot.id
-        SET snapshot.description = ?, snapshot.edit_mode = ?, snapshot.settings_updated_by = ?, snapshot.settings_updated_at = CURRENT_TIMESTAMP
-      WHERE settings.org_id = ? AND snapshot.org_id = ?`,
-    [safeString(description).trim(), editMode, operator.id, orgId, orgId]
+    `UPDATE org_hr_profile_template_snapshots
+        SET description = ?, edit_mode = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE org_id = ?`,
+    [safeString(description).trim(), editMode, operator.id, orgId]
   );
   if (!result.affectedRows) return { status: 'missing_template', message: '当前组织尚未选择人事模板' };
   return { status: 'success' };

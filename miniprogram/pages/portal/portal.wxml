@@ -2,7 +2,6 @@
   <view class="hero">
     <view class="hero-badge">{{heroIdentity}}</view>
     <view class="hero-title">{{heroName}}</view>
-    <view class="hero-subtitle">欢迎使用 REDSU 智慧工作台系统</view>
     <view class="hero-org-context org-context-action" wx:if="{{organizationName}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
       <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
       <view class="hero-org-context-copy">
@@ -192,7 +191,7 @@
     <view class="dialog-panel ui-dialog-shell ui-dialog-shell--compact">
       <view class="dialog-badge">危险操作</view>
       <view class="dialog-title">确认解绑当前身份？</view>
-      <view class="dialog-desc">解绑后会立即移除当前身份的登录状态，后续如需进入，需要重新完成验证。</view>
+      <view class="dialog-desc">解绑后需重新验证身份。</view>
       <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">再想想</button>
         <button class="danger-btn dialog-btn ui-motion-button" loading="{{unbindLoading}}" bindtap="confirmUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认解绑</button>

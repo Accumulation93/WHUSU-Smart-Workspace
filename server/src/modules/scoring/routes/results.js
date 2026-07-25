@@ -1547,7 +1547,7 @@ router.post('/exportScoreResults', async (req, res) => {
     if (filteredRows.length > EXPORT_MAX_ROWS) {
       return res.json({
         status: 'too_large',
-        message: `导出数据量过大（${filteredRows.length} 行），请缩小筛选范围或联系管理员分批导出`,
+        message: `数据过多（${filteredRows.length} 行），请缩小筛选范围`,
         rowCount: filteredRows.length,
         maxAllowed: EXPORT_MAX_ROWS
       });

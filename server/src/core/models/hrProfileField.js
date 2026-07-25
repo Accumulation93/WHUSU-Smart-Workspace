@@ -2,7 +2,7 @@ const pool = require('../../config/db');
 
 async function getByTemplateId(snapshotId, connection = pool) {
   const [rows] = await connection.query(
-    'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? ORDER BY sort_order',
+    'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? AND is_active = 1 ORDER BY sort_order',
     [snapshotId]
   );
   return rows;

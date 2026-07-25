@@ -157,7 +157,7 @@ router.post('/saveRateRule', async (req, res) => {
     const mode = safeString(req.body.mode) === 'replace' ? 'replace' : 'strict';
 
     if (!activityId || !scorerDepartmentId || !scorerIdentityId) {
-      return res.json({ status: 'invalid_params', message: '请提供评分活动ID和评分人部门、身份ID' });
+      return res.json({ status: 'invalid_params', message: '请填写完整评分人类别' });
     }
 
     const [activity, scorerDepartment, scorerIdentity] = await Promise.all([
@@ -218,7 +218,7 @@ router.post('/saveRateRule', async (req, res) => {
         if (mode === 'replace') {
           dedupedClauses[existingIndex] = clause;
         } else {
-          return res.json({ status: 'duplicate_clause', message: '被评分人规则重复：同一评分人类别中，被评分范围+被评分人身份不能重复，请检查后重新提交' });
+          return res.json({ status: 'duplicate_clause', message: '同一评分人类别中，被评分范围和身份不能重复' });
         }
       } else {
         seenKeys.set(clauseKey, dedupedClauses.length);
@@ -263,7 +263,7 @@ router.post('/saveRateRule', async (req, res) => {
             }
             await conn.query('DELETE FROM rate_rule_clauses WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
           } else {
-            throw Object.assign(new Error('duplicate_category'), { status: 'duplicate_category', message: '该评分人类别已存在（相同评分人部门+身份），请勿重复保存' });
+            throw Object.assign(new Error('duplicate_category'), { status: 'duplicate_category', message: '该评分人类别已存在' });
           }
         } else {
           ruleId = generateId();

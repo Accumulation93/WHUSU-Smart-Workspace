@@ -1,6 +1,6 @@
-// Redirect stub — the unified venue admin page now handles bookings via tabs
+// 兼容旧入口：借用管理已统一并入场地管理页。
 Page({
-  onLoad(options) {
+  onLoad() {
     wx.redirectTo({ url: '/subpackages/venue/pages/venueManage/venueManage?tab=bookings' });
   }
 });

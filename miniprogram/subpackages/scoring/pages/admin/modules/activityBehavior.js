@@ -132,7 +132,7 @@ module.exports = Behavior({
   
       wx.showModal({
         title: '设为当前评分活动',
-        content: '确认将这条活动设为当前评分活动吗？',
+        content: '设为当前评分活动？',
         success: async (res) => {
           if (!res.confirm) {
             return;

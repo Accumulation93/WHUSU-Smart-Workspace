@@ -143,14 +143,15 @@ router.post('/setDefaultSignature', async (req, res) => {
 router.post('/verifySignatureChain', async (req, res) => {
   try {
     const openid = req.openid;
+    const selectedRole = safeString(req.get('X-Role')).toLowerCase();
     const submissionNumber = safeString(req.body.submissionNumber);
     const submissionId = safeString(req.body.submissionId);
     const fileHash = safeString(req.body.fileHash);
     const fileBase64 = safeString(req.body.fileBase64);
 
     // Check permissions: must be admin or have verification permission
-    const admin = await adminInfoModel.getByOpenid(openid);
-    const hrId = await resolveHrId(openid);
+    const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null;
+    const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null;
     let hasPermission = !!admin;
 
     if (!hasPermission && hrId) {

@@ -1,14 +1,9 @@
-const { callFunction, showShortToast } = require('../../../../utils/api');
+const { callFunction, showShortToast, getErrorText } = require('../../../../utils/api');
 const { saveAndShareFile } = require('../../../../utils/tableFile');
 const orgSession = require('../../../../utils/orgSession');
 
 function buildOptions(values = []) {
   return ['全部', ...values.filter(Boolean)];
-}
-
-function getErrorText(error, fallback) {
-  const text = String((error && (error.errMsg || error.message)) || '').trim();
-  return text || fallback;
 }
 
 function formatActivityName(name) {
@@ -110,7 +105,6 @@ Page({
     const organizationState = orgSession.consume(this);
     if (!this.data.activityId || !organizationState.changed) return;
     orgSession.invalidateRequests(this);
-    this.taskLoadToken = Date.now();
     showShortToast('组织已切换');
     wx.navigateBack({
       fail: () => wx.reLaunch({ url: '/pages/portal/portal' })
@@ -139,8 +133,7 @@ Page({
       return;
     }
   
-    const loadToken = Date.now();
-    this.taskLoadToken = loadToken;
+    const request = orgSession.beginRequest(this, 'scorerTasks');
   
     this.setData({
       loading: true,
@@ -167,7 +160,7 @@ Page({
           }
         });
   
-        if (this.taskLoadToken !== loadToken) {
+        if (!orgSession.isRequestCurrent(this, request)) {
           return;
         }
   
@@ -209,12 +202,11 @@ Page({
   
       }
     } catch (error) {
-      wx.showToast({
-        title: getErrorText(error, '加载失败'),
-        icon: 'none'
-      });
+      if (orgSession.isRequestCurrent(this, request)) {
+        showShortToast(getErrorText(error, '加载失败'));
+      }
     } finally {
-      if (this.taskLoadToken === loadToken) {
+      if (orgSession.isRequestCurrent(this, request)) {
         this.setData({ loading: false });
       }
     }
@@ -255,8 +247,7 @@ Page({
       return;
     }
 
-    const popupToken = Date.now();
-    this.pendingPopupToken = popupToken;
+    const request = orgSession.beginRequest(this, 'scorerTaskPopup');
 
     this.setData({
       pendingPopupVisible: true,
@@ -271,7 +262,7 @@ Page({
         scorerKey: row.scorerKey
       });
 
-      if (this.pendingPopupToken !== popupToken) {
+      if (!orgSession.isRequestCurrent(this, request)) {
         return;
       }
 
@@ -285,12 +276,15 @@ Page({
         this.setData({ pendingPopupLoading: false });
       }
     } catch (error) {
-      wx.showToast({ title: getErrorText(error, '加载失败'), icon: 'none' });
-      this.setData({ pendingPopupLoading: false });
+      if (orgSession.isRequestCurrent(this, request)) {
+        showShortToast(getErrorText(error, '加载失败'));
+        this.setData({ pendingPopupLoading: false });
+      }
     }
   },
 
   closePendingPopup() {
+    orgSession.beginRequest(this, 'scorerTaskPopup');
     this.setData({
       pendingPopupVisible: false,
       pendingPopupTitle: '',
@@ -314,6 +308,7 @@ Page({
   },
 
   async _doExportCurrentView(reportType, format) {
+    const request = orgSession.beginRequest(this, 'scorerTaskExport:' + reportType);
     this.setExportLoading(reportType, true);
 
     try {
@@ -329,6 +324,7 @@ Page({
         format
       });
 
+      if (!orgSession.isRequestCurrent(this, request)) return;
       if (result.status !== 'success' || !result.fileContent) {
         wx.showToast({
           title: result.message || '导出失败',
@@ -339,12 +335,11 @@ Page({
 
       saveAndShareFile(result.fileContent, result.fileName || '未完成评分导出', result.extension || 'csv');
     } catch (error) {
-      wx.showToast({
-        title: getErrorText(error, '导出失败'),
-        icon: 'none'
-      });
+      if (orgSession.isRequestCurrent(this, request)) {
+        showShortToast(getErrorText(error, '导出失败'));
+      }
     } finally {
-      this.setExportLoading(reportType, false);
+      if (orgSession.isRequestCurrent(this, request)) this.setExportLoading(reportType, false);
     }
   }
 });

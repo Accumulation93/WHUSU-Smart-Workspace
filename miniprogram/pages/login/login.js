@@ -1,6 +1,6 @@
 const { callFunction, showShortToast } = require('../../utils/api');
 const STORAGE_KEY = 'roleProfiles';
-const ACTIVE_ROLE_KEY = 'activeRole';
+const orgSession = require('../../utils/orgSession');
 const DEVICE_OPENID_KEY = 'deviceOpenid';
 
 function getDeviceOpenid() {
@@ -19,7 +19,7 @@ const ROLE_MAP = {
     loginFunction: 'userLogin',
     bindFunction: 'bindUserInfo',
     title: '普通用户登录',
-    subtitle: '授权微信登录后即可进入，首次使用需完善个人资料。',
+    subtitle: '首次使用需补充资料',
     loginButtonText: '普通用户登录',
     bindTitle: '补充普通用户信息',
     bindButtonText: '确认提交'
@@ -30,7 +30,7 @@ const ROLE_MAP = {
     loginFunction: 'adminLogin',
     bindFunction: 'bindAdminInfo',
     title: '管理员登录',
-    subtitle: '使用邀请码验证身份后进入管理后台。',
+    subtitle: '首次使用需邀请码',
     loginButtonText: '管理员登录',
     bindTitle: '补充管理员信息',
     bindButtonText: '确认提交'
@@ -197,20 +197,21 @@ Page({
       return;
     }
 
-    if (result.token) {
-      wx.setStorageSync('token', result.token);
-    }
-
     if (result.status === 'login_success') {
       this.saveProfile(role, result.user);
       // 保存组织信息 — 后端决定默认组织（activeOrg 优先于 availableOrgs[0]）
+      let defaultOrg = null;
       if (result.availableOrgs && result.availableOrgs.length > 0) {
         saveAvailableOrganizations(role, result.availableOrgs);
         // 使用后端返回的 activeOrg，确保与系统默认组织一致
-        const defaultOrg = result.activeOrg || result.availableOrgs[0];
-        wx.setStorageSync('activeOrgId', defaultOrg.id);
-        wx.setStorageSync('activeOrgName', defaultOrg.name);
+        defaultOrg = result.activeOrg || result.availableOrgs[0];
       }
+      orgSession.commitContext({
+        token: result.token || '',
+        role,
+        orgId: defaultOrg ? defaultOrg.id : '',
+        orgName: defaultOrg ? defaultOrg.name : ''
+      });
       wx.showToast({ title: '登录成功', icon: 'success' });
       wx.redirectTo({ url: '/pages/portal/portal' });
       return;
@@ -229,12 +230,16 @@ Page({
             await this.confirmAutoBind(result);
           } else {
             // 用户拒绝自动绑定 — 使用原组织信息直接进入
-            wx.setStorageSync('token', result.token);
             saveAvailableOrganizations(role, result.availableOrgs || []);
-            if (result.availableOrgs && result.availableOrgs[0]) {
-              wx.setStorageSync('activeOrgId', result.availableOrgs[0].id);
-              wx.setStorageSync('activeOrgName', result.availableOrgs[0].name);
-            }
+            const fallbackOrg = result.availableOrgs && result.availableOrgs[0]
+              ? result.availableOrgs[0]
+              : null;
+            orgSession.commitContext({
+              token: result.token || '',
+              role,
+              orgId: fallbackOrg ? fallbackOrg.id : '',
+              orgName: fallbackOrg ? fallbackOrg.name : ''
+            });
             if (result.sourceUser) {
               this.saveProfile(role, result.sourceUser);
             }
@@ -340,7 +345,7 @@ Page({
               data: { code: loginRes.code, deviceOpenid: getDeviceOpenid() }
             });
             if (result && result.token) {
-              wx.setStorageSync('token', result.token);
+              orgSession.commitContext({ token: result.token });
             }
             if (result && result.status === 'need_bind' && result.bindingContext) {
               this.setData({
@@ -369,9 +374,7 @@ Page({
       return;
     }
 
-    if (result.token) {
-      wx.setStorageSync('token', result.token);
-    }
+    if (result.token) orgSession.commitContext({ token: result.token });
 
     if (result.status === 'success') {
       this.setData({ showBind: false, sheetClass: 'sheet', loading: false });
@@ -426,10 +429,13 @@ Page({
       if (res.status === 'success') {
         showShortToast('同步成功');
         // 绑定成功 → 使用系统默认组织重新进入
-        wx.setStorageSync('token', loginState.token);
         const activeOrg = res.activeOrg || loginState.targetOrg;
-        wx.setStorageSync('activeOrgId', activeOrg.id);
-        wx.setStorageSync('activeOrgName', activeOrg.name || loginState.targetOrg.name);
+        orgSession.commitContext({
+          token: loginState.token || '',
+          role: this.data.activeRole,
+          orgId: activeOrg.id,
+          orgName: activeOrg.name || loginState.targetOrg.name
+        });
         saveAvailableOrganizations(this.data.activeRole, res.availableOrgs || loginState.availableOrgs || []);
         if (res.user) {
           this.saveProfile(this.data.activeRole, res.user);
@@ -447,6 +453,5 @@ Page({
     const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
     roleProfiles[role] = normalizeProfile(user);
     wx.setStorageSync(STORAGE_KEY, roleProfiles);
-    wx.setStorageSync(ACTIVE_ROLE_KEY, role);
   }
 });

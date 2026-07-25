@@ -49,6 +49,22 @@ async function create(id, data, conn) {
   );
 }
 
+async function update(id, data, conn) {
+  const orgId = await getCurrentOrgId();
+  const db = conn || pool;
+  const fields = [];
+  const values = [];
+  if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
+  if (data.sortOrder !== undefined) { fields.push('sort_order = ?'); values.push(data.sortOrder); }
+  if (data.approvalMode !== undefined) {
+    fields.push('approval_mode = ?');
+    values.push(data.approvalMode === 'admin_any' ? 'admin_any' : 'hr_rule');
+  }
+  if (!fields.length) return;
+  values.push(id, orgId);
+  await db.query(`UPDATE venue_approval_flow_steps SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, values);
+}
+
 async function removeByFlowId(flowId, conn) {
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
@@ -63,4 +79,4 @@ async function remove(id, conn) {
   await db.query('DELETE FROM venue_approval_flow_steps WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getByFlowId, getById, create, removeByFlowId, remove };
+module.exports = { getByFlowId, getById, create, update, removeByFlowId, remove };

@@ -11,8 +11,24 @@ const REQUIRED_COLUMNS = [
   ['venue_approval_flow_steps', 'approval_mode'],
   ['audit_read_cursors', 'org_id'],
   ['hr_profile_templates', 'name'],
+  ['org_hr_profile_template_snapshots', 'created_at'],
+  ['org_hr_profile_template_snapshots', 'updated_at'],
+  ['org_hr_profile_template_snapshot_fields', 'is_active'],
+  ['org_hr_profile_template_switches', 'snapshot_id'],
   ['hr_profile_records', 'template_snapshot_id']
 ];
+
+const FORBIDDEN_COLUMNS = [
+  ['org_hr_profile_template_snapshots', 'version'],
+  ['org_hr_profile_template_snapshots', 'source_template_id'],
+  ['org_hr_profile_template_snapshots', 'source_template_name'],
+  ['org_hr_profile_template_snapshot_fields', 'source_template_field_id'],
+  ['org_hr_profile_template_switches', 'from_snapshot_id'],
+  ['org_hr_profile_template_switches', 'to_snapshot_id'],
+  ['org_hr_profile_template_switches', 'target_template_name']
+];
+
+const FORBIDDEN_TABLES = ['org_hr_profile_template_settings'];
 
 const REQUIRED_TABLES = [
   'auth_challenges',
@@ -22,7 +38,6 @@ const REQUIRED_TABLES = [
   'notification_outbox',
   'admin_permission_overrides',
   'admin_permission_audit_logs',
-  'org_hr_profile_template_settings',
   'org_hr_profile_template_snapshots',
   'org_hr_profile_template_snapshot_fields',
   'org_hr_profile_template_switches',
@@ -38,6 +53,7 @@ const REQUIRED_INDEXES = [
   ['admin_permission_overrides', 'uk_admin_permission'],
   ['admin_info', 'uk_ai_invite_code'],
   ['hr_profile_templates', 'idx_hpt_name'],
+  ['org_hr_profile_template_snapshots', 'uk_ohpts_org'],
   ['hr_profile_record_values', 'uk_hprv_value']
 ];
 
@@ -69,6 +85,12 @@ async function verifySchemaContract(pool) {
   for (const [table, index] of REQUIRED_INDEXES) {
     if (!indexSet.has(table + '.' + index)) missing.push('index:' + table + '.' + index);
   }
+  for (const [table, column] of FORBIDDEN_COLUMNS) {
+    if (columnSet.has(table + '.' + column)) missing.push('legacy-column:' + table + '.' + column);
+  }
+  for (const table of FORBIDDEN_TABLES) {
+    if (tableSet.has(table)) missing.push('legacy-table:' + table);
+  }
   if (missing.length) {
     const error = new Error('数据库迁移未完成: ' + missing.join(', '));
     error.code = 'schema_contract_failed';
@@ -90,10 +112,6 @@ async function verifySchemaContract(pool) {
   const [invalidHrProfiles] = await pool.query(
     `SELECT
        (SELECT COUNT(*)
-          FROM org_hr_profile_template_settings settings
-          JOIN org_hr_profile_template_snapshots snapshot ON snapshot.id = settings.active_snapshot_id
-         WHERE settings.org_id <> snapshot.org_id) AS invalid_settings,
-       (SELECT COUNT(*)
           FROM hr_profile_records record_row
           LEFT JOIN org_hr_profile_template_snapshots snapshot ON snapshot.id = record_row.template_snapshot_id
          WHERE record_row.template_snapshot_id IS NOT NULL
@@ -105,13 +123,20 @@ async function verifySchemaContract(pool) {
          WHERE field_row.id IS NULL OR snapshot.id IS NULL OR snapshot.org_id <> value_row.org_id) AS invalid_values`
   );
   const hrIntegrity = invalidHrProfiles[0] || {};
-  if (Number(hrIntegrity.invalid_settings) || Number(hrIntegrity.invalid_records) || Number(hrIntegrity.invalid_values)) {
+  if (Number(hrIntegrity.invalid_records) || Number(hrIntegrity.invalid_values)) {
     const error = new Error('数据库迁移未完成: data:hr_profile_snapshot_integrity');
     error.code = 'schema_contract_failed';
     error.missing = ['data:hr_profile_snapshot_integrity'];
     throw error;
   }
-  return { status: 'ok', revision: '2026-07-global-hr-profile-templates-v1' };
+  return { status: 'ok', revision: '2026-07-unique-hr-profile-snapshot-v2' };
 }
 
-module.exports = { verifySchemaContract, REQUIRED_COLUMNS, REQUIRED_TABLES, REQUIRED_INDEXES };
+module.exports = {
+  verifySchemaContract,
+  REQUIRED_COLUMNS,
+  REQUIRED_TABLES,
+  REQUIRED_INDEXES,
+  FORBIDDEN_COLUMNS,
+  FORBIDDEN_TABLES
+};

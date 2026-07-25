@@ -333,7 +333,7 @@ router.post('/adminLogin', async (req, res) => {
     }
 
     if (!openid) {
-      return res.json({ status: 'auth_failed', message: '获取openid失败' });
+      return res.json({ status: 'auth_failed', message: '微信登录失败，请重试' });
     }
 
     const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
@@ -345,7 +345,7 @@ router.post('/adminLogin', async (req, res) => {
       return res.json({
         status: 'need_bind',
         token,
-        message: '未找到管理员账号，请使用邀请码绑定'
+        message: '请使用邀请码绑定'
       });
     }
 
@@ -417,7 +417,7 @@ router.post('/adminLogin', async (req, res) => {
     return res.json({
       status: 'need_bind',
       token,
-      message: '管理员不属于任何当前存在的组织，请使用邀请码绑定'
+      message: '请使用邀请码重新绑定'
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || '管理员登录失败' });
@@ -492,7 +492,7 @@ router.post('/activateOrganization', async (req, res) => {
   try {
     const openid = req.openid;
     const orgId = safeString(req.body.organizationId);
-    const role = safeString(req.headers['x-role'] || req.body.role).toLowerCase();
+    const role = safeString(req.headers['x-role']).toLowerCase();
 
     if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
     if (!orgId || (role !== 'user' && role !== 'admin')) {
@@ -534,7 +534,7 @@ router.post('/activateOrganization', async (req, res) => {
       req.logger.error('activateOrganization failed', {
         error: e.message,
         stack: e.stack,
-        role: safeString(req.headers['x-role'] || req.body.role),
+        role: safeString(req.headers['x-role']),
         organizationId: safeString(req.body.organizationId)
       });
     }
@@ -609,7 +609,7 @@ router.post('/confirmAutoBind', async (req, res) => {
     const targetHr = targetRows[0];
     if (!sourceHr || !targetHr || safeString(sourceHr.name) !== safeString(targetHr.name) || safeString(sourceHr.student_id) !== safeString(targetHr.student_id)) {
       await conn.rollback();
-      return res.json({ status: 'conflict', message: '人事信息已变化，请重新登录确认' });
+      return res.json({ status: 'conflict', message: '人事信息已更新，请重新登录' });
     }
     const [sourceBindings] = await conn.query(
       'SELECT id FROM user_info WHERE openid = ? AND hr_id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
@@ -617,7 +617,7 @@ router.post('/confirmAutoBind', async (req, res) => {
     );
     if (!sourceBindings.length) {
       await conn.rollback();
-      return res.json({ status: 'conflict', message: '原组织绑定已变化，请重新登录' });
+      return res.json({ status: 'conflict', message: '组织信息已更新，请重新登录' });
     }
     const [conflicts] = await conn.query(
       'SELECT id FROM user_info WHERE hr_id = ? AND openid != ? AND org_id = ? LIMIT 1 FOR UPDATE',
@@ -822,10 +822,13 @@ router.post('/bindAdminInfo', async (req, res) => {
 router.post('/unbindRole', async (req, res) => {
   try {
     const openid = req.openid;
-    const role = safeString(req.body.role || 'user');
+    const role = safeString(req.headers['x-role']).toLowerCase();
 
     if (!openid) {
       return res.json({ status: 'auth_failed', message: '请先登录' });
+    }
+    if (role !== 'user' && role !== 'admin') {
+      return res.json({ status: 'invalid_params', message: '身份参数无效' });
     }
 
     if (role === 'admin') {

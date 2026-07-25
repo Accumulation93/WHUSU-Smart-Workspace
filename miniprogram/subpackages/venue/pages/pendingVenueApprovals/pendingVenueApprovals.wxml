@@ -2,7 +2,6 @@
   <view class="hero">
     <view class="hero-badge">场地审批</view>
     <view class="hero-title">待我审批</view>
-    <view class="hero-subtitle">需要我处理的场地借用申请</view>
   </view>
 
   <view class="section">
@@ -31,9 +30,8 @@
           </view>
         </view>
         <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
-          <view class="audit-empty-icon">✅</view>
+          <view class="audit-empty-icon"><ui-icon name="check" tone="primary" size="54" ariaLabel="暂无待审批事项" /></view>
           <view class="audit-empty-text">暂无待审批的场地借用</view>
-          <view class="audit-empty-tip">当其他成员借用场地并需要你审批时，<br/>待处理的申请将显示在这里。</view>
         </view>
         </block>
       </scroll-view>

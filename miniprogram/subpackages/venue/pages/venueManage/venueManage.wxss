@@ -108,6 +108,17 @@ page {
   font-size: 26rpx; line-height: 1.72;
 }
 
+.hero-admin .hero-org-context {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.20), rgba(255, 255, 255, 0.08));
+  border-color: rgba(191, 219, 254, 0.24);
+  box-shadow: 0 12rpx 28rpx rgba(2, 6, 23, 0.16), inset 0 1rpx 0 rgba(255, 255, 255, 0.16);
+}
+
+.hero-admin .hero-org-context-pressing {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.26), rgba(255, 255, 255, 0.11));
+  box-shadow: 0 6rpx 16rpx rgba(2, 6, 23, 0.13), inset 0 1rpx 0 rgba(255, 255, 255, 0.18);
+}
+
 /* ═══ Main tabs — exact HR admin pill style ═══ */
 .tabs {
   display: flex;
@@ -173,7 +184,7 @@ page {
 .list-card,
 .booking-panel {
   margin-top: 18rpx;
-  padding: 20rpx;
+  padding: 24rpx;
   border-radius: 26rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(247, 250, 255, 0.62) 100%);
   border: 1rpx solid rgba(255, 255, 255, 0.62);
@@ -198,6 +209,10 @@ page {
 
 .panel-title-group {
   flex: 1; min-width: 0;
+}
+
+.panel-head .section-title {
+  margin-bottom: 0;
 }
 
 .panel-note {
@@ -413,7 +428,7 @@ page {
 .flow-rule-card,
 .rule-edit-box {
   margin-bottom: 14rpx;
-  padding: 20rpx 18rpx;
+  padding: 22rpx 20rpx;
   border-radius: 22rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(249, 251, 255, 0.82) 100%);
   border: 1rpx solid rgba(226, 237, 247, 0.96);
@@ -880,8 +895,55 @@ page {
 
 .flow-info-text { font-size: 26rpx; font-weight: 600; color: #2563eb; }
 
+.rule-org-context {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  margin-bottom: 18rpx;
+  padding: 18rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(255, 255, 255, 0.84));
+  border: 1rpx solid rgba(147, 197, 253, 0.52);
+  box-shadow: 0 10rpx 22rpx rgba(37, 99, 235, 0.07), inset 0 1rpx 0 rgba(255, 255, 255, 0.88);
+}
+
+.rule-org-context-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 54rpx;
+  height: 54rpx;
+  flex-shrink: 0;
+  border-radius: 17rpx;
+  background: rgba(219, 234, 254, 0.82);
+}
+
+.rule-org-context-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.rule-org-context-title {
+  color: #0f172a;
+  font-size: 25rpx;
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.rule-org-context-desc {
+  margin-top: 5rpx;
+  color: #2563eb;
+  font-size: 22rpx;
+  line-height: 1.55;
+}
+
+.rule-org-context-desc-warn {
+  color: #c2410c;
+}
+
 .flow-step-card {
-  padding: 16rpx 18rpx; margin-bottom: 12rpx; border-radius: 20rpx;
+  padding: 20rpx; margin-bottom: 14rpx; border-radius: 20rpx;
 }
 
 .flow-step-head { display: flex; align-items: center; gap: 12rpx; margin-bottom: 8rpx; }
@@ -905,16 +967,18 @@ page {
 
 .flow-rule-card {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 10rpx 14rpx; margin-bottom: 8rpx; border-radius: 16rpx;
+  padding: 14rpx 16rpx; margin-bottom: 10rpx; border-radius: 16rpx;
 }
 
 .flow-rule-summary { font-size: 22rpx; flex: 1; }
 
 .rule-edit-box {
-  margin-top: 16rpx; padding: 16rpx; border-radius: 20rpx;
+  margin-top: 18rpx; padding: 20rpx; border-radius: 20rpx;
 }
 
 .rule-add-btn { margin-top: 6rpx; margin-bottom: 6rpx; }
+.flow-add-step-btn { margin-bottom: 12rpx; }
+.flow-add-rule-btn { margin-top: 10rpx; }
 
 .section-title-sm {
   font-size: 26rpx; font-weight: 700; color: #334155; margin-bottom: 10rpx;
@@ -1138,6 +1202,28 @@ page {
 @media (min-width: 520px) {
   .page {
     max-width: 760px;
+  }
+
+  .rule-org-context {
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 15px;
+    border-radius: 16px;
+  }
+
+  .rule-org-context-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+  }
+
+  .rule-org-context-title {
+    font-size: 15px;
+  }
+
+  .rule-org-context-desc {
+    margin-top: 4px;
+    font-size: 13px;
   }
 
   .timetable-popup {

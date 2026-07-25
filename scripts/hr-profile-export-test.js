@@ -1,0 +1,54 @@
+'use strict';
+
+const assert = require('assert');
+
+global.Behavior = function(definition) {
+  return definition;
+};
+global.wx = {
+  showToast: function() {}
+};
+
+const behavior = require('../miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
+const context = {
+  data: {
+    hrProfileRows: [{
+      name: '张三',
+      studentId: '20260001',
+      department: '秘书处',
+      identity: '成员',
+      workGroup: '综合事务',
+      wxBindStatus: 'bound',
+      auditStatusText: '待审核',
+      currentValues: { field_1: '蓝色' },
+      pendingValues: { field_1: '绿色' }
+    }],
+    hrProfileFields: [{ id: 'field_1', label: '喜欢的颜色' }]
+  },
+  setData: function(patch) {
+    Object.assign(this.data, patch);
+  }
+};
+Object.assign(context, behavior.methods);
+
+context.exportHrProfiles();
+assert.strictEqual(context.data.hrProfileExportVisible, true);
+assert.strictEqual(context.data.hrProfileExportColumns.length, 9);
+assert.strictEqual(context.data.hrProfileExportColumns[7].label, '喜欢的颜色');
+assert.strictEqual(context.data.hrProfileExportColumns[8].label, '喜欢的颜色（待审核）');
+
+context.onHrProfileExportColumnChange({ detail: { value: ['name', 'profile_0'] } });
+let captured = null;
+context.exportHrProfileFile = function(headers, rows, format) {
+  captured = { headers, rows, format };
+};
+context.confirmHrProfileExport();
+
+assert.deepStrictEqual(captured.headers, [
+  { key: 'name', label: '姓名' },
+  { key: 'profile_0', label: '喜欢的颜色' }
+]);
+assert.deepStrictEqual(captured.rows, [{ name: '张三', profile_0: '蓝色' }]);
+assert.strictEqual(captured.format, 'xlsx');
+
+console.log('人事资料导出列选择测试通过');

@@ -27,6 +27,22 @@ const {
   assert.deepStrictEqual(ROUTE_RULES.get('/saveHrProfileTemplateDefinition').anyOf, ['hr.profile_templates.manage']);
   assert.deepStrictEqual(ROUTE_RULES.get('/applyHrProfileTemplateSwitch').anyOf, ['hr.profile_templates.select']);
   assert.strictEqual(ROUTE_RULES.get('/reviewHrProfileChange').anyOf.includes('hr.profile_review'), true);
+  assert.deepStrictEqual(
+    ROUTE_RULES.get('/listHrProfileAdminData').anyOf,
+    ['hr.people', 'hr.profile_review']
+  );
+  assert.deepStrictEqual(
+    ROUTE_RULES.get('/getHrPersonDetail').anyOf,
+    ['hr.people', 'hr.profile_review']
+  );
+  assert.strictEqual(ROUTE_RULES.get('/buildTableFile').anyOf.includes('hr.people'), true);
+  assert.strictEqual(ROUTE_RULES.get('/buildTableFile').anyOf.includes('hr.profile_review'), true);
+  assert.deepStrictEqual(ROUTE_RULES.get('/listVenueBookingRules').anyOf, ['venue.approvals']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/saveVenueBookingRule').anyOf, ['venue.approvals']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/deleteVenueBookingRule').anyOf, ['venue.approvals']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/listUserBindings').anyOf, ['system.admin_accounts.read']);
+  assert.strictEqual(ROUTE_RULES.get('/getSubmissionDetail').allowUserRole, true);
+  assert.strictEqual(ROUTE_RULES.get('/verifySignatureChain').allowUserRole, true);
   ROUTE_RULES.forEach((rule) => {
     assert(rule.anyOf.length > 0);
     rule.anyOf.forEach((key) => assert(PERMISSION_DEFINITIONS.has(key), '路由引用了未知权限: ' + key));

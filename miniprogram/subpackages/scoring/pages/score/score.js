@@ -302,6 +302,8 @@ Page({
   },
 
   onLoad: function (options) {
+    this._pageActive = true;
+    this._pageTimers = [];
     orgSession.consume(this);
     let deviceInfo = wx.getDeviceInfo();
     this._physicalKeyboardEnabled = deviceInfo.platform === 'devtools' || deviceInfo.platform === 'mac' || deviceInfo.platform === 'windows';
@@ -313,6 +315,7 @@ Page({
   },
 
   onShow: function () {
+    this._pageActive = true;
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
     wx.showToast({ title: '组织已切换，请重新选择评分任务', icon: 'none' });
@@ -320,6 +323,9 @@ Page({
   },
 
   onHide: function () {
+    this._pageActive = false;
+    (this._pageTimers || []).forEach(function (timer) { clearTimeout(timer); });
+    this._pageTimers = [];
     if (this._clearKeyTimer) {
       clearTimeout(this._clearKeyTimer);
       this._clearKeyTimer = null;
@@ -327,10 +333,28 @@ Page({
   },
 
   onUnload: function () {
+    this._pageActive = false;
+    orgSession.invalidateRequests(this);
+    (this._pageTimers || []).forEach(function (timer) { clearTimeout(timer); });
+    this._pageTimers = [];
     if (this._clearKeyTimer) {
       clearTimeout(this._clearKeyTimer);
       this._clearKeyTimer = null;
     }
+    if (this._stickyObserver) {
+      this._stickyObserver.disconnect();
+      this._stickyObserver = null;
+    }
+  },
+
+  _schedule: function (callback, delay) {
+    let self = this;
+    let timer = setTimeout(function () {
+      self._pageTimers = (self._pageTimers || []).filter(function (item) { return item !== timer; });
+      if (self._pageActive) callback();
+    }, delay);
+    this._pageTimers = (this._pageTimers || []).concat(timer);
+    return timer;
   },
 
   onReady: function () {
@@ -376,7 +400,7 @@ Page({
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || '评分页加载失败', icon: 'none' });
           self.setData({ loading: false, loadFailed: true });
-          setTimeout(function () { self.redirectHome(); }, 1200);
+          self._schedule(function () { self.redirectHome(); }, 1200);
           return;
         }
 
@@ -423,7 +447,7 @@ Page({
         });
         self.syncCurrentQuestion();
         self._setupStickyObserver();
-        setTimeout(function () {
+        self._schedule(function () {
           self._checkSticky();
           self._ensureInputFocus();
           self.scrollToQuestion(initialIndex);
@@ -803,12 +827,12 @@ Page({
           return;
         }
         wx.showToast({ title: '提交成功', icon: 'success' });
-        setTimeout(function () {
+        self._schedule(function () {
           wx.navigateBack({ fail: function () { self.redirectHome(); } });
         }, 1200);
       },
       fail: function () {
-        setTimeout(function () {
+        self._schedule(function () {
           callFunction({
             name: 'getScoreFormData',
             data: { targetId: self.targetId },
@@ -816,7 +840,7 @@ Page({
               let checkResult = checkRes.result || {};
               if (checkResult.status === 'success' && checkResult.existingRecord) {
                 wx.showToast({ title: '提交成功', icon: 'success' });
-                setTimeout(function () {
+                self._schedule(function () {
                   wx.navigateBack({ fail: function () { self.redirectHome(); } });
                 }, 1200);
               } else {

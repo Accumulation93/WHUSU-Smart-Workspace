@@ -80,6 +80,7 @@ module.exports = Behavior({
   
         const template = result.template || null;
         const rawRows = result.rows || [];
+        const hrProfileFields = template && Array.isArray(template.fields) ? template.fields : [];
         const hrProfileFilterOptions = buildHrProfileFilterOptions(rawRows);
         // Cascade work group options based on current department filter
         if (this.data.hrProfileFilters.department === '全部部门') {
@@ -102,6 +103,7 @@ module.exports = Behavior({
               : [createEmptyProfileField()]
           } : emptyHrProfileTemplateForm(),
           hrProfileRawRows: rawRows,
+          hrProfileFields,
           hrProfileFilterOptions,
           hrProfileRows
         });
@@ -116,15 +118,6 @@ module.exports = Behavior({
       }
     },
 
-    switchHrInfoSubTab(e) {
-      const tab = String(e.currentTarget.dataset.tab || 'members');
-      if (tab !== 'members' && tab !== 'templates') return;
-      if (tab === 'members' && !this.data.canUseHrMemberArea) return;
-      if (tab === 'templates' && !this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate) return;
-      this.setData({ hrInfoSubTab: tab });
-      if (tab === 'templates') this.loadHrProfileTemplates();
-    },
-
     async loadHrProfileTemplates() {
       if (!this.data.canManageHrProfileTemplates && !this.data.canSelectHrProfileTemplate) return;
       this.setLoading('hrProfileTemplates', true);
@@ -135,6 +128,28 @@ module.exports = Behavior({
           return;
         }
         const active = result.activeSnapshot || null;
+        if (active && Array.isArray(active.fields)) {
+          active.fields = active.fields.map((field) => {
+            const typeOption = PROFILE_FIELD_TYPE_OPTIONS.find((item) => item.value === field.type);
+            let ruleText = '';
+            if (field.type === 'text' && (field.minLength != null || field.maxLength != null)) {
+              ruleText = `长度 ${field.minLength == null ? '不限' : field.minLength}–${field.maxLength == null ? '不限' : field.maxLength}`;
+            } else if (field.type === 'number') {
+              if (field.numberRule === 'length_range') {
+                ruleText = `位数 ${field.minDigits == null ? '不限' : field.minDigits}–${field.maxDigits == null ? '不限' : field.maxDigits}`;
+              } else if (field.minValue != null || field.maxValue != null) {
+                ruleText = `范围 ${field.minValue == null ? '不限' : field.minValue}–${field.maxValue == null ? '不限' : field.maxValue}`;
+              }
+              if (field.allowDecimal === false) ruleText = `${ruleText ? `${ruleText} · ` : ''}仅整数`;
+            } else if (field.type === 'sequence') {
+              ruleText = (field.options || []).length ? `选项：${field.options.join(' / ')}` : '暂无选项';
+            }
+            return Object.assign({}, field, {
+              typeLabel: typeOption ? typeOption.label : field.type,
+              ruleText
+            });
+          });
+        }
         this.setData({
           hrProfileTemplateList: result.list || [],
           activeHrProfileSnapshot: active,
@@ -198,8 +213,8 @@ module.exports = Behavior({
       const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
       if (!template) return;
       wx.showModal({
-        title: '删除全局模板',
-        content: `它已生成${template.snapshotCount || 0}份组织快照，其中${template.activeOrgCount || 0}个组织正在使用。删除不会影响组织资料，是否继续？`,
+        title: '删除共享模板',
+        content: '确认删除此模板？',
         confirmText: '彻底删除',
         confirmColor: '#ef4444',
         success: async (modalResult) => {
@@ -316,21 +331,21 @@ module.exports = Behavior({
           wx.showModal({ title: '暂不能切换', content: `有${invalidCount}个值不符合目标字段限制，请调整映射。`, showCancel: false });
           return;
         }
-        if (result.status !== 'success') return showShortToast('预检失败');
+        if (result.status !== 'success') return showShortToast('检查失败');
         this.setData({ hrTemplateSwitchToken: result.switchToken, hrTemplateSwitchSummary: result.summary });
         const summary = result.summary || {};
         const hasDelete = summary.hasDelete === true;
         wx.showModal({
-          title: hasDelete ? '确认永久删除' : '确认切换模板',
-          content: `迁移${summary.mapValueCount || 0}项，隐藏${summary.hideValueCount || 0}项，永久删除${summary.deleteValueCount || 0}项。${hasDelete ? '删除后无法恢复。' : ''}`,
-          confirmText: hasDelete ? '删除并切换' : '确认切换',
+          title: hasDelete ? '确认永久删除' : '确认应用模板',
+          content: `转移${summary.mapValueCount || 0}项，隐藏${summary.hideValueCount || 0}项，永久删除${summary.deleteValueCount || 0}项。${hasDelete ? '删除后无法恢复。' : ''}`,
+          confirmText: hasDelete ? '删除并应用' : '确认应用',
           confirmColor: hasDelete ? '#ef4444' : '#2563eb',
           success: (modalResult) => {
             if (modalResult.confirm) this.applyHrProfileTemplateSwitch(hasDelete);
           }
         });
       } catch (_) {
-        showShortToast('预检失败');
+        showShortToast('检查失败');
       } finally {
         this.setLoading('previewHrTemplateSwitch', false);
       }
@@ -348,14 +363,14 @@ module.exports = Behavior({
           confirmDelete: confirmDelete === true
         });
         if (result.status !== 'success') {
-          showShortToast(result.status === 'stale_switch' ? '请重新预检' : '切换失败');
+          showShortToast(result.status === 'stale_switch' ? '请重新确认' : '应用失败');
           return;
         }
         this.closeHrProfileTemplateSwitch();
         await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
-        showShortToast('切换成功', 'success');
+        showShortToast('应用成功', 'success');
       } catch (_) {
-        showShortToast('切换失败');
+        showShortToast('应用失败');
       } finally {
         this.setLoading('applyHrTemplateSwitch', false);
       }
@@ -462,6 +477,166 @@ module.exports = Behavior({
         _hrInfoKeywordInput: ''
       });
       this.refreshHrProfileRows(nextFilters);
+    },
+
+    exportHrProfiles() {
+      const rows = this.data.hrProfileRows || [];
+      if (!rows.length) {
+        showShortToast('暂无可导出资料');
+        return;
+      }
+
+      const fields = this.data.hrProfileFields || [];
+      const columns = [
+        { key: 'name', label: '姓名', groupLabel: '基本信息', source: 'name', checked: true },
+        { key: 'studentId', label: '学号', groupLabel: '基本信息', source: 'studentId', checked: true },
+        { key: 'department', label: '所属部门', groupLabel: '基本信息', source: 'department', checked: true },
+        { key: 'identity', label: '身份', groupLabel: '基本信息', source: 'identity', checked: true },
+        { key: 'workGroup', label: '工作分工（职能组）', groupLabel: '基本信息', source: 'workGroup', checked: true },
+        { key: 'wxBindStatus', label: '微信绑定状态', groupLabel: '基本信息', source: 'wxBindStatus', checked: true },
+        { key: 'auditStatus', label: '扩展资料状态', groupLabel: '基本信息', source: 'auditStatus', checked: true }
+      ];
+      const pendingFieldMap = {};
+      for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+        const pendingValues = rows[rowIndex].pendingValues || {};
+        for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex += 1) {
+          const fieldId = fields[fieldIndex].id;
+          if (pendingValues[fieldId] !== undefined && String(pendingValues[fieldId]).trim()) {
+            pendingFieldMap[fieldId] = true;
+          }
+        }
+      }
+      for (let fieldIndex = 0; fieldIndex < fields.length; fieldIndex += 1) {
+        const field = fields[fieldIndex];
+        columns.push({
+          key: 'profile_' + fieldIndex,
+          label: field.label,
+          groupLabel: '扩展资料',
+          source: 'profile',
+          fieldId: field.id,
+          checked: true
+        });
+        if (pendingFieldMap[field.id]) {
+          columns.push({
+            key: 'pending_' + fieldIndex,
+            label: field.label + '（待审核）',
+            groupLabel: '待审核资料',
+            source: 'pending',
+            fieldId: field.id,
+            checked: true
+          });
+        }
+      }
+
+      this.setData({
+        hrProfileExportVisible: true,
+        hrProfileExportColumns: columns,
+        hrProfileExportSelectedCount: columns.length,
+        hrProfileExportFormat: 'xlsx'
+      });
+    },
+
+    closeHrProfileExport() {
+      this.setData({
+        hrProfileExportVisible: false,
+        hrProfileExportColumns: [],
+        hrProfileExportSelectedCount: 0
+      });
+    },
+
+    onHrProfileExportColumnChange(e) {
+      const selectedKeys = e.detail.value || [];
+      const selectedMap = {};
+      for (let index = 0; index < selectedKeys.length; index += 1) {
+        selectedMap[selectedKeys[index]] = true;
+      }
+      const columns = (this.data.hrProfileExportColumns || []).map((column) =>
+        Object.assign({}, column, { checked: !!selectedMap[column.key] })
+      );
+      this.setData({
+        hrProfileExportColumns: columns,
+        hrProfileExportSelectedCount: selectedKeys.length
+      });
+    },
+
+    selectAllHrProfileExportColumns() {
+      const columns = (this.data.hrProfileExportColumns || []).map((column) =>
+        Object.assign({}, column, { checked: true })
+      );
+      this.setData({
+        hrProfileExportColumns: columns,
+        hrProfileExportSelectedCount: columns.length
+      });
+    },
+
+    clearHrProfileExportColumns() {
+      const columns = (this.data.hrProfileExportColumns || []).map((column) =>
+        Object.assign({}, column, { checked: false })
+      );
+      this.setData({
+        hrProfileExportColumns: columns,
+        hrProfileExportSelectedCount: 0
+      });
+    },
+
+    onHrProfileExportFormatChange(e) {
+      const format = String(e.currentTarget.dataset.format || '');
+      if (format !== 'xlsx' && format !== 'csv') return;
+      this.setData({ hrProfileExportFormat: format });
+    },
+
+    confirmHrProfileExport() {
+      const columns = (this.data.hrProfileExportColumns || []).filter((column) => column.checked);
+      if (!columns.length) {
+        showShortToast('请至少选择一列');
+        return;
+      }
+      const headers = columns.map((column) => ({ key: column.key, label: column.label }));
+      const rows = (this.data.hrProfileRows || []).map((item) => {
+        const exportRow = {};
+        for (let index = 0; index < columns.length; index += 1) {
+          const column = columns[index];
+          const currentValues = item.currentValues || {};
+          const pendingValues = item.pendingValues || {};
+          if (column.source === 'profile') {
+            exportRow[column.key] = currentValues[column.fieldId] || '';
+          } else if (column.source === 'pending') {
+            exportRow[column.key] = pendingValues[column.fieldId] || '';
+          } else if (column.source === 'wxBindStatus') {
+            exportRow[column.key] = item.wxBindStatus === 'bound' ? '已绑定' : '未绑定';
+          } else if (column.source === 'auditStatus') {
+            exportRow[column.key] = item.auditStatusText || '';
+          } else {
+            exportRow[column.key] = item[column.source] || '';
+          }
+        }
+        return exportRow;
+      });
+      this.exportHrProfileFile(headers, rows, this.data.hrProfileExportFormat || 'xlsx');
+    },
+
+    async exportHrProfileFile(headers, rows, format) {
+      const orgName = this.data.currentOrganizationName || '当前组织';
+      const fileName = orgName + '-成员资料';
+      this.setLoading('exportHrProfiles', true);
+      try {
+        const result = await this.callCloud('buildTableFile', {
+          format,
+          headers,
+          rows,
+          sheetName: '成员资料'
+        });
+        if (!result || result.status !== 'success' || !result.fileBase64) {
+          showShortToast((result && result.message) || '导出失败');
+          return;
+        }
+        this.setData({ hrProfileExportVisible: false });
+        await saveAndShareFile(result.fileBase64, fileName, result.extension || format);
+      } catch (error) {
+        showShortToast('导出失败');
+      } finally {
+        this.setLoading('exportHrProfiles', false);
+      }
     },
 
     async openHrPersonDetail(e) {
@@ -983,7 +1158,7 @@ module.exports = Behavior({
   
       wx.showModal({
         title: '通过审核',
-        content: '确认将待审核的人事信息修改正式生效吗？',
+        content: '确认通过此次修改？',
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -1024,7 +1199,7 @@ module.exports = Behavior({
   
       wx.showModal({
         title: '驳回修改',
-        content: '确认驳回这次待审核的人事信息修改吗？',
+        content: '确认驳回此次修改？',
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -1163,7 +1338,7 @@ module.exports = Behavior({
       const { id } = e.currentTarget.dataset;
       wx.showModal({
         title: '删除人事成员',
-        content: '删除后会同步清理关联绑定记录，是否继续？',
+        content: '删除后将清理绑定信息，是否继续？',
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -1469,7 +1644,7 @@ module.exports = Behavior({
       try {
         let result = await this.callCloud('previewHrTableImport', payload);
         if (!result || result.status !== 'success') {
-          wx.showToast({ title: (result && result.message) || '预检失败', icon: 'none' });
+          wx.showToast({ title: (result && result.message) || '检查失败', icon: 'none' });
           return;
         }
         this.setData({
@@ -1478,7 +1653,7 @@ module.exports = Behavior({
           hrImportPreview: this.buildHrImportPreviewView(result.preview)
         });
       } catch (error) {
-        wx.showToast({ title: '预检失败，请检查网络后重试', icon: 'none' });
+        wx.showToast({ title: '检查失败，请稍后重试', icon: 'none' });
       } finally {
         this._csvImportActive = false;
         this.setData({ csvImportLoading: false });
@@ -1497,7 +1672,7 @@ module.exports = Behavior({
     async confirmHrTableImport() {
       let preview = this.data.hrImportPreview || {};
       if (!preview.canImport) {
-        wx.showToast({ title: '请先修正无效记录，或开启跳过无效字段', icon: 'none' });
+        wx.showToast({ title: '请修正错误记录', icon: 'none' });
         return;
       }
       this._csvImportActive = true;
@@ -1540,12 +1715,12 @@ module.exports = Behavior({
             validationErrorCards: this.buildValidationErrorCards(skippedErrors),
             validationErrorSummary: '已导入 ' + Number(result.count || 0) + ' 条，另有 ' + skippedErrors.length + ' 个字段被跳过'
           });
-          wx.showToast({ title: '导入完成，部分字段已跳过', icon: 'none' });
+          wx.showToast({ title: '导入完成', icon: 'success' });
         } else {
           wx.showToast({ title: '导入成功，共 ' + Number(result.count || 0) + ' 条', icon: 'success' });
         }
       } catch (error) {
-        wx.showToast({ title: '导入失败，请检查网络后重试', icon: 'none' });
+        wx.showToast({ title: '导入失败', icon: 'none' });
       } finally {
         wx.hideLoading();
         this._csvImportActive = false;

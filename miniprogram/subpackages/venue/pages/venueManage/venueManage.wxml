@@ -2,11 +2,25 @@
   <view class="hero hero-admin" wx:if="{{hasPermission}}">
     <view class="hero-badge">管理端</view>
     <view class="hero-title">场地管理工作台</view>
-    <view class="hero-subtitle hero-admin-subtitle">管理场地、借用申请与事由预设</view>
+    <view class="hero-subtitle hero-admin-subtitle">场地借用 · {{adminDisplayName}} - {{adminLevelLabel}}</view>
+    <view class="hero-org-context org-context-action" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
+      <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
+      <view class="hero-org-context-copy">
+        <view class="hero-org-context-label">当前组织</view>
+        <view class="hero-org-context-name">{{currentOrganizationName || '未选择组织'}}</view>
+      </view>
+      <view class="hero-org-context-action">
+        <text>切换</text>
+        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
+      </view>
+    </view>
   </view>
 
   <!-- Main Tabs -->
-  <view class="empty-inline" wx:if="{{!hasPermission}}">当前账号未获授权访问场地管理，请联系上级管理员配置权限。</view>
+  <view class="empty-card" wx:if="{{!hasPermission}}">
+    <view class="empty-title">当前没有管理权限</view>
+    <view class="empty-desc">当前账号没有场地管理权限。</view>
+  </view>
   <view class="tabs" wx:if="{{hasPermission}}">
     <view class="tab {{activeTab === item.key ? 'tab-active' : ''}} ui-motion-chip" wx:for="{{visibleTabs}}" wx:key="key" data-tab="{{item.key}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</view>
   </view>
@@ -18,13 +32,13 @@
       <view class="panel-head">
         <view class="panel-title-group">
           <view class="section-title">场地列表</view>
-          <view class="panel-note">配置规则、查看排期、维护场地资料</view>
+          <view class="panel-note">维护场地资料、开放安排与组织审批规则</view>
         </view>
         <button class="primary-btn panel-add-btn ui-motion-button" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增</button>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-        <view class="empty-inline" wx:if="{{!loading && !venues.length}}">暂无场地数据，请新增。</view>
+        <view class="empty-inline" wx:if="{{!loading && !venues.length}}">暂无场地</view>
         <block wx:if="{{venues.length}}">
           <view class="list-item list-item-stacked" wx:for="{{venues}}" wx:key="id">
             <view class="list-main">
@@ -50,7 +64,6 @@
       <view class="popup-header ui-dialog-header">
         <view>
           <view class="popup-title">{{editId ? '编辑场地' : '新增场地'}}</view>
-          <view class="popup-subtitle">基础信息会展示在用户预约和管理排期中</view>
         </view>
         <text class="popup-close ui-motion-chip" catchtap="cancelEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
@@ -74,7 +87,7 @@
       <view class="panel-head">
         <view class="panel-title-group">
           <view class="section-title">借用管理</view>
-          <view class="panel-note">按时间、状态和场地筛选申请</view>
+          <view class="panel-note">筛选借用记录并处理当前组织的审批事项</view>
         </view>
       </view>
       <view class="card-loading-overlay" wx:if="{{bookingsLoading}}"><view class="card-loading-spinner"></view></view>
@@ -124,7 +137,7 @@
       <!-- Pending approvals entry (always visible) -->
       <view class="pending-entry-bar ui-motion-card" wx:if="{{canApproveVenue}}" bindtap="goPendingApprovals" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
         <view class="pending-entry-left">
-          <text class="pending-entry-icon">📋</text>
+          <view class="pending-entry-icon"><ui-icon name="list" tone="primary" size="28" ariaLabel="待我审批" /></view>
           <text class="pending-entry-label">待我审批</text>
           <view class="pending-entry-badge" wx:if="{{pendingApprovalCount > 0}}">{{pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}}</view>
         </view>
@@ -145,8 +158,8 @@
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
           <view class="booking-actions" wx:if="{{canApproveVenue && item.status === 'pending' && item.userCanApprove}}">
-            <button class="approve-btn ui-motion-button" data-id="{{item.id}}" catchtap="openApprovePopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</button>
-            <button class="reject-btn ui-motion-button" data-id="{{item.id}}" catchtap="openRejectPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</button>
+            <button class="primary-btn approve-btn ui-motion-button" data-id="{{item.id}}" catchtap="openApprovePopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</button>
+            <button class="danger-btn reject-btn ui-motion-button" data-id="{{item.id}}" catchtap="openRejectPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</button>
           </view>
         </view>
       </scroll-view>
@@ -164,7 +177,7 @@
       </view>
       <view class="field">
         <view class="field-label">事由内容</view>
-        <view class="input-row purpose-input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? '更新' : '添加'}}</button></view>
+        <view class="input-row purpose-input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? '更新' : '添加'}}</button></view>
       </view>
       <view wx:if="{{!purposes.length}}" class="empty-inline">暂无预设事由数据。</view>
       <block wx:if="{{purposes.length}}">
@@ -224,8 +237,20 @@
           </block>
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
+          <view class="rule-org-context">
+            <view class="rule-org-context-icon"><ui-icon name="shield" tone="primary" size="30" ariaLabel="审批流程" /></view>
+            <view class="rule-org-context-copy">
+              <view class="rule-org-context-title">{{currentOrganizationName || '当前组织'}} · 借用审批</view>
+              <view class="rule-org-context-desc" wx:if="{{approvalFlow}}">
+                已配置 {{approvalFlowSteps.length}} 步组织专属审批流程
+              </view>
+              <view class="rule-org-context-desc rule-org-context-desc-warn" wx:else>
+                当前组织尚未配置专属流程；可新增“用户审核”规则进行设置
+              </view>
+            </view>
+          </view>
           <button class="primary-btn rule-add-btn ui-motion-button" data-type="booking" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增借用规则</button>
-          <view wx:if="{{!bookingRules.length && !approvalFlow}}" class="empty-inline">暂无借用规则（默认需管理员审核）。</view>
+          <view wx:if="{{!bookingRules.length && !approvalFlow}}" class="empty-inline">暂无组织专属规则，当前由有权限的管理员处理</view>
           <block wx:if="{{bookingRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
               <view class="list-main">
@@ -313,7 +338,6 @@
 
             <!-- Flow editor — only shown when 用户审核 is selected -->
             <block wx:if="{{ruleForm.ruleType === 'flow'}}">
-              <view class="field-hint" style="margin-bottom:8rpx;">配置多步审批流程，每一步可指定部门/职能组/身份的审批人</view>
 
               <!-- Step list -->
               <view wx:if="{{ruleForm._flowSteps && ruleForm._flowSteps.length}}">
@@ -329,7 +353,7 @@
                     </view>
                   </view>
                   <view class="flow-step-rules-summary">
-                    <text wx:if="{{item.approvalMode === 'admin_any' || !item.rules || !item.rules.length}}" class="field-hint">审批模式：当前组织任一管理员</text>
+                    <text wx:if="{{item.approvalMode === 'admin_any' || !item.rules || !item.rules.length}}" class="field-hint">任一管理员审批</text>
                     <block wx:else>
                       <view class="flow-rule-tag" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
                         {{rule.departmentScope === 'specific' ? '指定部门' : (rule.departmentScope === 'same' ? '同部门' : '任意部门')}} /
@@ -341,7 +365,7 @@
                 </view>
               </view>
 
-              <button class="secondary-btn sm ui-motion-button" style="margin-bottom:10rpx;" catchtap="openAddRuleFlowStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ 添加审批步骤</button>
+              <button class="secondary-btn sm flow-add-step-btn ui-motion-button" catchtap="openAddRuleFlowStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ 添加审批步骤</button>
 
               <!-- Inline step+rule editor (within the rule editor!) -->
               <block wx:if="{{ruleForm._editingStepIdx !== undefined}}">
@@ -365,7 +389,7 @@
                       </view>
                     </view>
                     <view wx:else class="field-hint">暂未添加规则</view>
-                    <button class="secondary-btn sm ui-motion-button" style="margin-top:6rpx;" catchtap="openAddRuleFlowCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ 添加规则</button>
+                    <button class="secondary-btn sm flow-add-rule-btn ui-motion-button" catchtap="openAddRuleFlowCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ 添加规则</button>
                   </view>
                   <view class="button-row">
                     <button class="secondary-btn ui-motion-button" catchtap="cancelRuleFlowStepEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
@@ -523,7 +547,7 @@
             <view class="picker-display picker-display-locked">{{adminBookingStartDateDisplay || '请选择日期'}} · 仅当天</view></view>
           <view class="field" wx:if="{{adminTimelineBlocks.length}}">
             <view class="field-label">时间轴</view>
-            <view class="timeline-hint">拖动圆形滑块选择时间范围，也可以使用下方时间选择器精确调整</view>
+            <view class="timeline-hint">拖动滑块或使用时间选择器</view>
             <view class="timeline-drag-container admin-timeline-drag">
               <view class="timeline-bar">
                 <view wx:for="{{adminTimelineBlocks}}" wx:key="left" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
@@ -555,7 +579,7 @@
             <view wx:else class="field-hint">{{adminBookingEndDate ? '请先选择开始时间' : '请先选择结束日期'}}</view>
           </view>
           <view class="field"><view class="field-label">详细说明（选填）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="补充使用说明"/></view>
-          <view class="field-hint">管理员提交后将直接通过，不进入审批流程。</view>
+          <view class="field-hint">管理员提交后直接通过</view>
           <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认借用</button>
         </view>
       </scroll-view>

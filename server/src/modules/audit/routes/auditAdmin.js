@@ -211,20 +211,6 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
 
         // Create conditions for this step
         const conditions = Array.isArray(step.conditions) ? step.conditions : [];
-        console.log('[audit:saveTemplate] templateId=' + templateId +
-          ' step[' + i + '] stepId=' + stepId +
-          ' conditionsProvided=' + conditions.length +
-          ' hasLegacyType=' + !!(step.approverType || step.approverIdentityId || step.approverHrId));
-        if (conditions.length) {
-          for (let ci2 = 0; ci2 < conditions.length; ci2++) {
-            let cc = conditions[ci2];
-            console.log('[audit:saveTemplate] step[' + i + '] cond[' + ci2 + '] type=' + cc.conditionType +
-              ' deptScope=' + (cc.departmentScope || 'all') +
-              ' specDept=' + (cc.specificDepartmentId || 'none') +
-              ' identScope=' + (cc.identityScope || 'all') +
-              ' specIdent=' + (cc.specificIdentityId || 'none'));
-          }
-        }
         // If no conditions provided, try legacy fields
         if (!conditions.length && (step.approverType || step.approverIdentityId || step.approverHrId)) {
           const legacyCondId = generateId();
@@ -518,8 +504,8 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
     const filters = {
       status: safeString(req.body.status) || null,
       type: safeString(req.body.type) || null,
-      limit: parseInt(req.body.limit) || 50,
-      offset: parseInt(req.body.offset) || 0
+      limit: Math.min(100, Math.max(1, parseInt(req.body.limit, 10) || 50)),
+      offset: Math.max(0, parseInt(req.body.offset, 10) || 0)
     };
 
     const submissions = await submissionModel.getAll(filters);

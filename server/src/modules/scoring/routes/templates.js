@@ -182,7 +182,7 @@ router.post('/deleteScoreTemplate', async (req, res) => {
     if (currentRefs[0].cnt > 0) {
       return res.json({
         status: 'forbidden',
-        message: '该问题模板被现有评分规则引用，无法删除。如需修改请编辑模板。'
+        message: '该模板正在使用，不能删除'
       });
     }
 

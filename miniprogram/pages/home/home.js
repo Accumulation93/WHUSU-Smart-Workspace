@@ -440,7 +440,7 @@ Page({
             showWorkGroup: shouldShowWorkGroup(result.user),
             heroName: result.user.name || '欢迎使用',
             heroIdentity: getDisplayIdentity(result.user, 'user'),
-            heroSubtitle: '欢迎使用WHUSU智慧工作台系统' + (this._subAppLabel ? (' · ' + this._subAppLabel) : '')
+            heroSubtitle: this._subAppLabel || ''
           });
 
           this.rebuildUserTabs();
@@ -453,18 +453,14 @@ Page({
 
   refreshCurrentUser() {
     this.applySubAppFilter();
-    const subAppLabel = this._subAppLabel ? (' · ' + this._subAppLabel) : '';
+    const subAppLabel = this._subAppLabel || '';
     const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
     let activeRole = wx.getStorageSync(ACTIVE_ROLE_KEY) || '';
 
     if (!roleProfiles[activeRole]) {
       const roleList = Object.keys(roleProfiles);
       activeRole = roleList.length ? roleList[0] : '';
-      if (activeRole) {
-        wx.setStorageSync(ACTIVE_ROLE_KEY, activeRole);
-      } else {
-        wx.removeStorageSync(ACTIVE_ROLE_KEY);
-      }
+      orgSession.commitContext({ role: activeRole });
     }
 
     const currentUser = activeRole ? roleProfiles[activeRole] : null;
@@ -478,7 +474,7 @@ Page({
       showWorkGroup: shouldShowWorkGroup(currentUser),
       heroName: currentUser ? currentUser.name : '欢迎使用',
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
-      heroSubtitle: currentUser ? ('欢迎使用WHUSU智慧工作台系统' + subAppLabel) : '请先完成登录',
+      heroSubtitle: currentUser ? subAppLabel : '请先完成登录',
       targetList: [],
       selectedTargetId: '',
       targetsEmptyText: '加载中...',
@@ -1012,14 +1008,7 @@ Page({
         wx.setStorageSync(STORAGE_KEY, roleProfiles);
 
         const roleList = Object.keys(roleProfiles);
-        if (roleList.length) {
-          wx.setStorageSync(ACTIVE_ROLE_KEY, roleList[0]);
-        } else {
-          wx.removeStorageSync(ACTIVE_ROLE_KEY);
-        }
-
-        // Clear token to prevent auto-login with old credentials
-        wx.removeStorageSync('token');
+        orgSession.clearAuthentication(roleList.length ? roleList[0] : '');
 
         this.setData({
           showUnbindDialog: false

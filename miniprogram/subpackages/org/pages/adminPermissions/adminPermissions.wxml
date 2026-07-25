@@ -2,7 +2,6 @@
   <view class="permission-hero">
     <view class="permission-hero-badge">{{operatorLevelLabel || '权限系统'}}</view>
     <view class="permission-hero-title">管理员权限</view>
-    <view class="permission-hero-desc">按组织和功能配置普通管理员可执行的操作。超级管理员始终拥有全部权限。</view>
     <view class="permission-org ui-motion-chip" bindtap="onOrgTap" hover-class="permission-org-pressing" hover-start-time="0" hover-stay-time="160">
       <ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" />
       <view class="permission-org-copy">
@@ -17,7 +16,6 @@
     <view class="permission-section-head">
       <view>
         <view class="permission-section-title">管理员列表</view>
-        <view class="permission-section-desc">选择管理员后配置其在当前组织中的功能权限</view>
       </view>
       <view class="permission-count">{{filteredAdmins.length}} 人</view>
     </view>
@@ -55,7 +53,6 @@
         <view>
           <view class="permission-dialog-eyebrow">{{selectedAdmin.adminLevelLabel}}</view>
           <view class="permission-dialog-title">{{selectedAdmin.name}}的权限</view>
-          <view class="permission-dialog-desc">修改保存后立即生效，未授权接口会由服务端拒绝。</view>
         </view>
         <view class="permission-close ui-motion-chip" bindtap="closeEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="30" ariaLabel="关闭" /></view>
       </view>
@@ -81,8 +78,8 @@
         </view>
       </scroll-view>
       <view class="permission-dialog-footer ui-dialog-footer">
-        <button class="permission-secondary ui-motion-button" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="permission-primary ui-motion-button" loading="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并立即生效</button>
+        <button class="secondary-btn permission-secondary ui-motion-button" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="primary-btn permission-primary ui-motion-button" loading="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并立即生效</button>
       </view>
     </view>
   </view>

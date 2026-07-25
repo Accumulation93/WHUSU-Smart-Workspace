@@ -200,7 +200,7 @@ Page({
     approvalAction: '',
     approvalComment: '',
     approvalSubmitting: false,
-    heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '欢迎使用WHUSU智慧工作台系统 · 场地借用',
+    heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '',
 
     // ── Custom time keyboard ──
     _kbVisible: false,
@@ -220,7 +220,7 @@ Page({
         this.setData({
           heroName: user.name || '场地借用',
           heroIdentity: user.identity || '未设置身份',
-          heroSubtitle: '欢迎使用WHUSU智慧工作台系统 · 场地借用'
+          heroSubtitle: ''
         });
       }
     } catch (_) {}
@@ -611,7 +611,7 @@ Page({
     if (dateStr === today && startMin < now.getHours() * 60 + now.getMinutes()) {
       let corrected = findNearestValidStartMin(dateStr, dayData);
       if (corrected >= 0) {
-        if (!opts.silent) showShortToast('已自动修正为最近可用时间');
+        if (!opts.silent) showShortToast('已调整到可用时间');
         startMin = corrected;
         timeStr = minToTime(startMin);
       } else {
@@ -1097,7 +1097,7 @@ Page({
         return;
       }
       // Previous date also invalid → search nearest available
-      showShortToast('不能选择过去的日期，正在查找最近可用时段');
+      showShortToast('正在查找可用时段');
       wx.showLoading({ title: '查找中...' });
       let nearest = await this._findNearestAvailableDate();
       wx.hideLoading();
@@ -1414,10 +1414,10 @@ Page({
   async submitBooking() {
     let _a = this.data, vid = _a.bookingVenueId, sd = _a.bookingStartDate,
         st = _a.bookingTimeStart, et = _a.bookingTimeEnd, title = _a.bookingTitle, desc = _a.bookingDesc, dd = _a._dayData;
-    if(!vid||!sd||!st||!et){showShortToast('请完整填写信息并选择时间段');return;}
+    if(!vid||!sd||!st||!et){showShortToast('请填写完整信息');return;}
     if(!title){showShortToast('请填写借用事由');return;}
     let now = new Date(), today = fmtLocalDate(now);
-    if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast('开始时间不能是过去的时间'); return; }
+    if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast('不能选择过去时间'); return; }
     let ts = sd+'T'+st, te = sd+'T'+et;
     if(ts >= te) { showShortToast('结束时间必须晚于开始时间'); return; }
     let err = this._validateRange(dd, sd, st, et);
@@ -1486,10 +1486,10 @@ Page({
     let that = this;
     let booking = this.data.myBookings.find(function(b){return b.id===id;});
     if (!booking) return;
-    if (booking.displayStatus === 'inUse') { showShortToast('使用中的借用不能取消，请使用"结束使用"'); return; }
+    if (booking.displayStatus === 'inUse') { showShortToast('请先结束使用'); return; }
     if (booking.displayStatus === 'completed') { showShortToast('已完成的借用不能取消'); return; }
     wx.showModal({
-      title: '确认取消', content: '确定取消该借用申请吗？',
+      title: '确认取消', content: '取消此次借用？',
       success: async function(r) {
         if (!r.confirm) return;
         try {
@@ -1513,7 +1513,7 @@ Page({
     let id = e.currentTarget.dataset.id;
     let that = this;
     wx.showModal({
-      title: '确认结束使用', content: '确定要结束该场地的使用吗？结束时间将更新为当前时间。',
+      title: '确认结束使用', content: '结束时间将更新为现在，是否继续？',
       success: async function(r) {
         if (!r.confirm) return;
         try {

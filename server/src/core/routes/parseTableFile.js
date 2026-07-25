@@ -3,8 +3,6 @@ const router = express.Router();
 const { safeString } = require('../../utils/helpers');
 const { decodeWorkbookBase64, parseWorkbookTables } = require('../../utils/excelFile');
 
-const ADMIN_ROLES = new Set(['admin', 'super_admin']);
-
 /**
  * POST /api/parseTableFile
  * Body: { fileBase64, fileName }
@@ -13,7 +11,7 @@ const ADMIN_ROLES = new Set(['admin', 'super_admin']);
  */
 router.post('/parseTableFile', async (req, res) => {
   try {
-    if (!req.openid || !ADMIN_ROLES.has(req.role)) {
+    if (!req.openid || !req.admin) {
       return res.status(403).json({ status: 'forbidden', message: '仅管理员可解析工作簿' });
     }
 

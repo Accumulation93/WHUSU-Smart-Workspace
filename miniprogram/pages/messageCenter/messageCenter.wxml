@@ -2,7 +2,6 @@
   <view class="hero message-hero">
     <view class="hero-badge">消息中心</view>
     <view class="hero-title">待办与通知</view>
-    <view class="hero-subtitle">待办随业务状态实时变化，通知由您主动销记</view>
   </view>
 
   <view class="message-tabs">

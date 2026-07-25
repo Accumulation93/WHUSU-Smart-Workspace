@@ -1418,7 +1418,7 @@ module.exports = Behavior({
             flowTimeline.push({
               _key: 'lifecycle_submit',
               type: 'lifecycle', event: 'submit', label: '提交审核',
-              time: formatAuditTime(initialSubmit.createdAt), icon: '📤'
+              time: formatAuditTime(initialSubmit.createdAt), iconName: 'file'
             });
           }
 
@@ -1444,13 +1444,13 @@ module.exports = Behavior({
                   type: 'lifecycle', event: 'resubmit', label: '重新提交',
                   subLabel: '第' + round + '轮',
                   time: formatAuditTime(resubmitEvt.createdAt),
-                  icon: '🔄'
+                  iconName: 'edit'
                 });
               } else {
                 flowTimeline.push({
                   _key: 'lifecycle_resubmit_r' + round,
                   type: 'lifecycle', event: 'resubmit', label: '重新提交',
-                  subLabel: '第' + round + '轮', icon: '🔄'
+                  subLabel: '第' + round + '轮', iconName: 'edit'
                 });
               }
             }
@@ -1562,14 +1562,14 @@ module.exports = Behavior({
               flowTimeline.push({
                 _key: 'lifecycle_withdraw_' + lateEvt.id,
                 type: 'lifecycle', event: 'withdraw', label: '撤回审核',
-                time: formatAuditTime(lateEvt.createdAt), icon: '↩️'
+                time: formatAuditTime(lateEvt.createdAt), iconName: 'chevron-right'
               });
             } else if (lateEvt.eventType === 'resubmit') {
               flowTimeline.push({
                 _key: 'lifecycle_resubmit_late_' + lateEvt.id,
                 type: 'lifecycle', event: 'resubmit', label: '重新提交',
                 subLabel: '第' + (lateEvt.round || 1) + '轮',
-                time: formatAuditTime(lateEvt.createdAt), icon: '🔄'
+                time: formatAuditTime(lateEvt.createdAt), iconName: 'edit'
               });
             }
           }

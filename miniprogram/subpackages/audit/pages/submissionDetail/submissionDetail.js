@@ -162,6 +162,7 @@ Page({
   noop() {},
 
   onLoad(options) {
+    this._pageActive = true;
     orgSession.consume(this);
     if (options.action === 'create') {
       this.setData({ action: 'create' });
@@ -175,10 +176,28 @@ Page({
   },
 
   onShow() {
+    this._pageActive = true;
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
     showShortToast('组织已切换，请重新进入审核页面');
     wx.navigateBack({ fail: () => wx.reLaunch({ url: '/pages/portal/portal' }) });
+  },
+
+  onHide() {
+    this._pageActive = false;
+    if (this._actionTimer) {
+      clearTimeout(this._actionTimer);
+      this._actionTimer = null;
+    }
+  },
+
+  onUnload() {
+    this._pageActive = false;
+    orgSession.invalidateRequests(this);
+    if (this._actionTimer) {
+      clearTimeout(this._actionTimer);
+      this._actionTimer = null;
+    }
   },
 
   // ═══════════════════════════════════════════════
@@ -272,7 +291,7 @@ Page({
       }
     } catch (e) {
       console.error('[audit] loadTemplatePreview failed:', e);
-      showShortToast('模板步骤预览加载失败，但仍可提交');
+      showShortToast('预览失败，仍可提交');
     }
   },
 
@@ -611,7 +630,7 @@ Page({
     const identName = identOpts[identIdx];
     const identity = identities.find(i => i.name === identName);
     if (!identity) {
-      showShortToast('身份数据异常，请重试');
+      showShortToast('身份不可用');
       return;
     }
 
@@ -634,7 +653,7 @@ Page({
       }
       const deptName = deptOpts[deptIdx];
       const dept = departments.find(d => d.name === deptName);
-      if (!dept) { showShortToast('部门数据异常'); return; }
+      if (!dept) { showShortToast('部门不可用'); return; }
       scopeDepartmentId = dept.id;
       scopeDepartmentName = dept.name;
     }
@@ -648,7 +667,7 @@ Page({
       }
       const wgName = wgOpts[wgIdx];
       const wg = workGroups.find(w => w.name === wgName);
-      if (!wg) { showShortToast('职能组数据异常'); return; }
+      if (!wg) { showShortToast('职能组不可用'); return; }
       scopeWorkGroupId = wg.id;
       scopeWorkGroupName = wg.name;
     }
@@ -938,19 +957,6 @@ Page({
         let rawSteps = res.steps || [];
         let flowTimeline = [];
 
-        console.log('[audit:loadDetail] submissionId=' + this.data.submissionId +
-          ' rawSteps.length=' + rawSteps.length +
-          ' serverEvents.length=' + serverEvents.length +
-          ' diag=' + JSON.stringify(res._diag || {}));
-        // Debug: log sortOrder of first few steps
-        for (let dsi = 0; dsi < Math.min(rawSteps.length, 4); dsi++) {
-          console.log('[audit:loadDetail] rawStep[' + dsi + '] sortOrder=' + rawSteps[dsi].sortOrder +
-            ' sort_order=' + rawSteps[dsi].sort_order +
-            ' round=' + rawSteps[dsi].round +
-            ' status=' + rawSteps[dsi].status +
-            ' id=' + rawSteps[dsi].id);
-        }
-
         // 1. Build lifecycle nodes from ALL server events — no filtering
         //    Every event (submit/withdraw/resubmit/approve/reject/edit) is part of the audit trail
         let lifecycleEvents = serverEvents;
@@ -999,7 +1005,7 @@ Page({
             event: 'submit',
             label: '提交审核',
             time: formatAuditTime(initialSubmit.createdAt),
-            icon: '📤',
+            iconName: 'file',
             operatorName: initialSubmit.operatorName || '',
             comment: ''
           });
@@ -1031,7 +1037,7 @@ Page({
               if (interEvt.eventType === 'approve' || interEvt.eventType === 'reject') {
                 continue;
               }
-              let interIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
+              let interIconMap = { withdraw: 'chevron-right', resubmit: 'edit', submit: 'file', edit: 'edit', approve: 'check', reject: 'x' };
               let interLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
               let interStepLabel = '';
               if ((interEvt.eventType === 'approve' || interEvt.eventType === 'reject') && interEvt.stepIndex) {
@@ -1044,7 +1050,7 @@ Page({
                 label: interLabelMap[interEvt.eventType] || interEvt.eventType,
                 subLabel: (interEvt.round > 1 ? '第' + interEvt.round + '轮 ' : '') + interStepLabel,
                 time: formatAuditTime(interEvt.createdAt),
-                icon: interIconMap[interEvt.eventType] || '📌',
+                iconName: interIconMap[interEvt.eventType] || 'clock',
                 comment: interEvt.comment || '',
                 operatorName: interEvt.operatorName || ''
               });
@@ -1059,7 +1065,7 @@ Page({
                 label: '重新提交',
                 subLabel: '第' + round + '轮',
                 time: formatAuditTime(resubmitEvt.createdAt),
-                icon: '🔄',
+                iconName: 'edit',
                 operatorName: resubmitEvt.operatorName || '',
                 comment: ''
               });
@@ -1072,7 +1078,7 @@ Page({
                 event: 'resubmit',
                 label: '重新提交',
                 subLabel: '第' + round + '轮',
-                icon: '🔄',
+                iconName: 'edit',
                 operatorName: '',
                 comment: ''
               });
@@ -1258,7 +1264,7 @@ Page({
         }
 
         // 5. Remaining lifecycle events after last round — show ALL event types
-        let lateIconMap = { withdraw: '↩️', resubmit: '🔄', submit: '📤', edit: '✏️', approve: '✅', reject: '❌' };
+        let lateIconMap = { withdraw: 'chevron-right', resubmit: 'edit', submit: 'file', edit: 'edit', approve: 'check', reject: 'x' };
         let lateLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
         for (let ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
           let lateEvt = lifecycleEvents[ei4];
@@ -1272,7 +1278,7 @@ Page({
             label: lateLabelMap[lateEvt.eventType] || lateEvt.eventType,
             subLabel: lateEvt.round > 1 ? '第' + lateEvt.round + '轮' : '',
             time: formatAuditTime(lateEvt.createdAt),
-            icon: lateIconMap[lateEvt.eventType] || '📌',
+            iconName: lateIconMap[lateEvt.eventType] || 'clock',
             operatorName: lateEvt.operatorName || '',
             comment: lateEvt.comment || ''
           });
@@ -1293,18 +1299,11 @@ Page({
             label: '审批通过',
             subLabel: '全部流程已完成',
             time: lastApproveEvt ? formatAuditTime(lastApproveEvt.createdAt) : '',
-            icon: '✅',
+            iconName: 'check',
             operatorName: lastApproveEvt ? (lastApproveEvt.operatorName || '') : '',
             comment: lastApproveEvt ? (lastApproveEvt.comment || '') : ''
           });
         }
-
-
-        // ── Store diagnostic data for debugging ──
-        let diagInfo = res._diag || {};
-        console.log('[audit:loadDetail] DIAG: stepCount=' + diagInfo.stepCount +
-          ' submissionStatus=' + diagInfo.submissionStatus +
-          ' currentStepIndex=' + diagInfo.currentStepIndex);
 
         // ── Compute flow progress ──
         // Use unique sortOrders (steps per round), not total row count across all rounds
@@ -1343,18 +1342,6 @@ Page({
           // in_progress
           flowProgressPercent = Math.round((currentRoundApproved / stepsPerRound) * 100);
           flowProgressText = '第' + currentStepIndex + '/' + stepsPerRound + '步待处理';
-        }
-
-        // Debug: log step nodes in flowTimeline
-        console.log('[audit:loadDetail] flowTimeline built, total nodes=' + flowTimeline.length);
-        for (let fti = 0; fti < flowTimeline.length; fti++) {
-          let ftn = flowTimeline[fti];
-          if (ftn.type === 'step') {
-            console.log('[audit:loadDetail] flowTimeline[' + fti + '] step sortOrder=' + ftn.sortOrder +
-              ' flowNodeClass=' + ftn.flowNodeClass +
-              ' id=' + ftn.id +
-              ' round=' + ftn.round);
-          }
         }
 
         // Detect active step for inline approval UI
@@ -1400,17 +1387,9 @@ Page({
                 conditionsDisplay: rawStep.stepConditionsDisplay || []
               };
               computedActiveStepId = rawStep.id;
-              console.log('[audit:loadDetail] fallback activeStep found: id=' + rawStep.id +
-                ' sortOrder=' + rawStep.sortOrder);
               break;
             }
           }
-        }
-        if (!computedActiveStepId && !activeApprovalStep && submissionStatus === 'in_progress') {
-          console.log('[audit:loadDetail] WARNING: active step NOT found via any method!' +
-            ' maxRound2=' + (typeof maxRound2 !== 'undefined' ? maxRound2 : 'N/A') +
-            ' currentStepIndex=' + currentStepIndex +
-            ' rawSteps.length=' + rawSteps.length);
         }
 
         this.setData({
@@ -1600,7 +1579,7 @@ Page({
         data: { id: '', name: saveName, imageData: imageData }
       }).then(function(saveRes) {
         if (saveRes.status === 'success') {
-          showShortToast('签名已保存到我的签名库');
+          showShortToast('签名已保存');
         }
       }).catch(function() {
         // Non-critical; signature still used for this approval
@@ -1838,12 +1817,20 @@ Page({
 
           // Background sync to ensure consistency
           let self = this;
-          setTimeout(function() { self.loadDetail(); }, 500);
+          if (this._actionTimer) clearTimeout(this._actionTimer);
+          this._actionTimer = setTimeout(function() {
+            self._actionTimer = null;
+            if (self._pageActive) self.loadDetail();
+          }, 500);
         } else {
           // Reject: navigate back after short delay
           let self2 = this;
           require('../../../../utils/eventBus').emit('approval:done');
-          setTimeout(function() { wx.navigateBack(); }, 800);
+          if (this._actionTimer) clearTimeout(this._actionTimer);
+          this._actionTimer = setTimeout(function() {
+            self2._actionTimer = null;
+            if (self2._pageActive) wx.navigateBack();
+          }, 800);
         }
       } else {
         showShortToast(res.message || '操作失败');
@@ -2159,7 +2146,7 @@ Page({
     let sigs = [...(this.data.pendingSignatures || [])];
     let base = sigs[baseIdx];
     if (!base) {
-      showShortToast('请先选择一个签名或印章');
+      showShortToast('请选择签名或印章');
       return;
     }
 
@@ -2348,11 +2335,11 @@ Page({
     let warning = '';
     if (actionType === 'both') {
       if (!hasSignature && !hasStamp) {
-        warning = '此环节需要签名和盖章，请至少添加一项';
+        warning = '请添加签名或印章';
       } else if (!hasSignature) {
-        warning = '此环节需要签名和盖章，建议添加签名（不强制）';
+        warning = '尚未添加签名';
       } else if (!hasStamp) {
-        warning = '此环节需要签名和盖章，建议添加盖章（不强制）';
+        warning = '尚未添加印章';
       }
     }
     if (warning !== this.data.approvalWarning) {
@@ -2386,7 +2373,6 @@ Page({
               steps[i].sortOrder === submission.currentStepIndex &&
               steps[i].status === 'pending') {
             stepId = steps[i].id;
-            console.log('[audit:confirmApprovalDirect] fallback stepId=' + stepId);
             break;
           }
         }
@@ -2414,7 +2400,7 @@ Page({
           let hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
           let hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
           if (!hasSignature && !hasStamp) {
-            showShortToast('此环节需要签名和盖章，请至少添加签名或盖章');
+            showShortToast('请添加签名或印章');
             return;
           }
         }
@@ -2602,7 +2588,7 @@ Page({
     if (identIdx <= 0) { showShortToast('请选择身份'); return; }
     let identName = identOpts[identIdx];
     let identity = identities.find(function(i) { return i.name === identName; });
-    if (!identity) { showShortToast('身份数据异常，请重试'); return; }
+    if (!identity) { showShortToast('身份不可用'); return; }
 
     let scopeType = scopeValues[scopeIdx] || 'all';
     let scopeDepartmentId = '', scopeDepartmentName = '', scopeWorkGroupId = '', scopeWorkGroupName = '';
@@ -2613,7 +2599,7 @@ Page({
       if (deptIdx <= 0) { showShortToast('请选择部门'); return; }
       let deptName = deptOpts[deptIdx];
       let dept = departments.find(function(d) { return d.name === deptName; });
-      if (!dept) { showShortToast('部门数据异常'); return; }
+      if (!dept) { showShortToast('部门不可用'); return; }
       scopeDepartmentId = dept.id;
       scopeDepartmentName = dept.name;
     }
@@ -2623,7 +2609,7 @@ Page({
       if (wgIdx <= 0) { showShortToast('请选择职能组'); return; }
       let wgName = wgOpts[wgIdx];
       let wg = workGroups.find(function(w) { return w.name === wgName; });
-      if (!wg) { showShortToast('职能组数据异常'); return; }
+      if (!wg) { showShortToast('职能组不可用'); return; }
       scopeWorkGroupId = wg.id;
       scopeWorkGroupName = wg.name;
     }

@@ -53,6 +53,6 @@ assert.throws(() => normalizeActions(sources, targets, [
 ]), /一个目标字段只能映射一个来源字段/);
 assert.throws(() => normalizeActions(sources, targets, [
   { sourceSnapshotFieldId: 'unknown', action: 'delete' }
-]), /未知的迁移来源字段/);
+]), /已有字段信息有误/);
 
 console.log('人事模板定义、字段兼容与一对一映射测试通过');

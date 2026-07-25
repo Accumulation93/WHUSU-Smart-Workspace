@@ -127,14 +127,12 @@
 
   <view class="panel {{activeTab === 'results' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'results'}}">
     <view class="card empty-state-card" wx:if="{{!hasPublication}}">
-      <view class="empty-illustration"><view class="empty-icon-clock"></view></view>
+      <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="等待公示" /></view></view>
       <view class="empty-title">暂无结果公示</view>
-      <view class="empty-desc">当前暂无结果公示，请等待管理员发布。</view>
     </view>
     <view class="card empty-state-card" wx:if="{{hasPublication && !publishedResults.length}}">
-      <view class="empty-illustration"><view class="empty-icon-lock"></view></view>
+      <view class="empty-illustration"><view class="empty-icon-lock"><ui-icon name="shield" tone="danger" size="46" ariaLabel="暂无权限" /></view></view>
       <view class="empty-title">暂无可查看结果</view>
-      <view class="empty-desc">暂无您可查看的评分结果，如有疑问请联系管理员。</view>
     </view>
     <view class="card results-panel-card" wx:if="{{hasPublication && publishedResults.length}}">
       <view class="info-head">
@@ -167,7 +165,7 @@
       <view class="result-filter-area">
         <view class="result-search-row">
           <view class="search-icon"><ui-icon name="search" tone="muted" size="34" ariaLabel="搜索" /></view>
-          <input class="result-search-input" placeholder="搜索姓名 / 身份 / 部门 / 职能组" value="{{resultSearchText}}" bindinput="onResultSearchInput" confirm-type="search" />
+          <input class="result-search-input" placeholder="搜索姓名或组织信息" value="{{resultSearchText}}" bindinput="onResultSearchInput" confirm-type="search" />
           <view class="search-clear ui-motion-chip" wx:if="{{resultSearchText}}" bindtap="onResultSearchClear" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
         <view class="filter-title">筛选</view>
@@ -252,24 +250,22 @@
         </view>
       </view>
       </scroll-view>
-      <view class="target-state" wx:if="{{!filteredResults.length && !filteredGroups.length && publishedResults.length}}">当前筛选条件下无匹配结果</view>
+      <view class="target-state" wx:if="{{!filteredResults.length && !filteredGroups.length && publishedResults.length}}">没有匹配结果</view>
     </view>
   </view>
 
   <view class="panel {{activeTab === 'meritList' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'meritList'}}">
     <view class="card empty-state-card" wx:if="{{!hasPublication}}">
-      <view class="empty-illustration"><view class="empty-icon-clock"></view></view>
+      <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="等待公示" /></view></view>
       <view class="empty-title">暂无评优名单</view>
-      <view class="empty-desc">当前暂无结果公示，请等待管理员发布。</view>
     </view>
     <view class="card empty-state-card" wx:if="{{hasPublication && !hasMeritPerm}}">
-      <view class="empty-illustration"><view class="empty-icon-star"></view></view>
+      <view class="empty-illustration"><view class="empty-icon-star"><ui-icon name="star" tone="primary" size="46" ariaLabel="暂无评优名单" /></view></view>
       <view class="empty-title">暂无评优名单</view>
-      <view class="empty-desc">暂未发布评优名单，如有疑问请联系管理员。</view>
     </view>
     <view wx:if="{{hasPublication && hasMeritPerm}}">
       <view class="info-head">
-        <view class="section-title">🏆 评优名单</view>
+      <view class="section-title section-title-icon"><ui-icon name="star" tone="primary" size="26" ariaLabel="评优" /><text>评优名单</text></view>
         <view class="results-count-chip">共 {{meritRuleGroups.length}} 个组别</view>
       </view>
       <view class="stats-bar">
@@ -303,7 +299,7 @@
             <view class="target-meta">{{m.department}}{{m.workGroup ? ' · ' + m.workGroup : ''}}</view>
           </view>
         </scroll-view>
-        <view class="target-state" wx:else>暂未指定人选，点击「编辑名单」开始指定</view>
+        <view class="target-state" wx:else>暂未指定人选</view>
       </view>
     </view>
   </view>
@@ -323,7 +319,7 @@
 
       <view class="profile-status" wx:if="{{hrProfile.loaded}}">
         <view class="status-title">{{hrProfile.statusText}}</view>
-        <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'pending'}}">已提交的内容会在管理员审核通过后正式生效，重新提交会覆盖当前待审核内容。</view>
+        <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'pending'}}">审核通过后生效；重新提交将覆盖待审核内容。</view>
         <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'rejected' && hrProfile.rejectionReason}}">驳回原因：{{hrProfile.rejectionReason}}</view>
       </view>
 
@@ -350,12 +346,11 @@
         </view>
       </view>
 
-      <view class="readonly-tip">姓名、学号、身份、所属部门、工作分工（职能组）涉及权限控制，仅支持管理员在后台修改。</view>
+      <view class="readonly-tip">基础信息由管理员维护，如需修改请联系管理员。</view>
 
       <view class="target-state" wx:if="{{hrProfile.loading}}">正在加载人事信息...</view>
       <view class="empty-card profile-empty" wx:if="{{!hrProfile.loading && hrProfile.loaded && (!hrProfile.template || !hrProfile.template.fields.length)}}">
-        <view class="empty-title">管理员尚未配置扩展字段</view>
-        <view class="empty-desc">当前仅展示只读基础信息。</view>
+        <view class="empty-title">暂无扩展字段</view>
       </view>
 
       <view class="profile-form" wx:if="{{!hrProfile.loading && hrProfile.template && hrProfile.template.fields.length}}">
@@ -456,7 +451,6 @@
           <view class="audit-home-card-icon"><ui-icon name="file" tone="primary" size="42" ariaLabel="我的审核" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">我的审核</view>
-            <view class="audit-home-card-desc">查看我发起的审核申请</view>
           </view>
           <view class="audit-home-card-badge" wx:if="{{auditMyCount > 0}}">{{auditMyCount}}</view>
           <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
@@ -466,7 +460,6 @@
           <view class="audit-home-card-icon"><ui-icon name="signature" tone="primary" size="42" ariaLabel="待我审批" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">待我审批</view>
-            <view class="audit-home-card-desc">需要我处理的审批步骤</view>
           </view>
           <view class="audit-home-card-badge audit-home-card-badge-pending" wx:if="{{auditPendingCount > 0}}">{{auditPendingCount}}</view>
           <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
@@ -476,7 +469,6 @@
           <view class="audit-home-card-icon"><ui-icon name="list" tone="primary" size="42" ariaLabel="审批记录" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">我的审批记录</view>
-            <view class="audit-home-card-desc">我参与过审批的申请</view>
           </view>
           <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
         </view>
@@ -485,8 +477,7 @@
   </view>
 
   <view class="card empty-card" wx:if="{{!hasUser}}">
-    <view class="empty-title">当前暂无可用身份</view>
-    <view class="empty-desc">请先完成登录。</view>
+    <view class="empty-title">暂无可用身份</view>
   </view>
 
   <view class="actions">
@@ -504,7 +495,7 @@
     <view class="dialog-panel ui-dialog-shell ui-dialog-shell--compact">
       <view class="dialog-badge">危险操作</view>
       <view class="dialog-title">确认解绑当前身份？</view>
-      <view class="dialog-desc">解绑后会立即移除当前身份的登录状态，后续如需进入，需要重新完成验证。</view>
+      <view class="dialog-desc">解绑后需重新验证身份。</view>
       <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">再想想</button>
         <button class="danger-btn dialog-btn ui-motion-button" loading="{{unbindLoading}}" bindtap="confirmUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认解绑</button>

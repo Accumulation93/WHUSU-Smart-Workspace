@@ -93,7 +93,7 @@ function computeLegacySignatureHash({ id, stepId, signerHrId, positionX, positio
  */
 function verifySignatureChain(signatures, currentFileHashes = {}) {
   if (!signatures || !signatures.length) {
-    return { valid: true, totalSignatures: 0, rounds: {}, files: [], message: 'No signatures to verify' };
+    return { valid: true, totalSignatures: 0, rounds: {}, files: [], message: '暂无签名记录' };
   }
 
   // Group by file_id, then by round

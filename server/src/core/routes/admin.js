@@ -299,11 +299,11 @@ router.post('/generateAdminInviteCode', async (req, res) => {
 });
 
 router.post('/bootstrapRootAdmin', async (req, res) => {
-  res.status(404).json({ status: 'not_found', message: '该接口已停用，请使用服务器本地超级管理员初始化脚本' });
+  res.status(404).json({ status: 'not_found', message: '此功能已停用' });
 });
 
 router.post('/bootstrapSuperAdmin', async (req, res) => {
-  res.status(404).json({ status: 'not_found', message: '该接口已停用，请在管理员管理中创建超级管理员' });
+  res.status(404).json({ status: 'not_found', message: '请在管理员管理中创建超级管理员' });
 });
 
 router.post('/adminUnbindUser', async (req, res) => {

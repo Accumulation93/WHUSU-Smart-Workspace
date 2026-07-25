@@ -2,7 +2,6 @@
   <view class="hero">
     <view class="hero-badge">审核</view>
     <view class="hero-title">我的审核</view>
-    <view class="hero-subtitle">查看我提交的审核申请</view>
   </view>
 
   <view class="section">
@@ -44,8 +43,8 @@
           <view class="audit-list-arrow">›</view>
         </view>
         <view class="audit-empty-state" wx:if="{{!submissions.length}}">
-          <view class="audit-empty-icon">📋</view>
-          <view class="audit-empty-text">暂无审核申请，点击上方按钮发起</view>
+          <view class="audit-empty-icon"><ui-icon name="file" tone="muted" size="54" ariaLabel="暂无审核记录" /></view>
+          <view class="audit-empty-text">暂无审核申请</view>
         </view>
         </block>
       </scroll-view>

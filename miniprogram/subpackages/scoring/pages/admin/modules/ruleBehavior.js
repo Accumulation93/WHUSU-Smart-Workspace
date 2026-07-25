@@ -369,7 +369,7 @@ module.exports = Behavior({
   
       if (!selectedRules.length) {
         wx.showToast({
-          title: '请先勾选需要批量设置的评分人类别',
+          title: '请选择类别',
           icon: 'none'
         });
         return;
@@ -500,7 +500,7 @@ module.exports = Behavior({
   
       if (exists) {
         wx.showToast({
-          title: '这个评分问题已在当前规则中',
+          title: '问题已在规则中',
           icon: 'none'
         });
         return;
@@ -634,7 +634,7 @@ module.exports = Behavior({
       ));
   
       if (exists) {
-        wx.showToast({ title: '这个评分问题已在当前规则中', icon: 'none' });
+        wx.showToast({ title: '问题已在规则中', icon: 'none' });
         return;
       }
   

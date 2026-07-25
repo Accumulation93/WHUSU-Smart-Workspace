@@ -25,13 +25,30 @@ Component({
   },
   data: { canvasReady: false, hasContent: false },
   lifetimes: {
-    attached() { wx.nextTick(() => { this._initCanvas(0); }); },
+    attached() {
+      this._detached = false;
+      wx.nextTick(() => { if (!this._detached) this._initCanvas(0); });
+    },
     detached() {
+      this._detached = true;
+      if (this._retryTimer) {
+        clearTimeout(this._retryTimer);
+        this._retryTimer = null;
+      }
       this._canvas = null; this._ctx = null; this._canvasRect = null;
       this._drawing = false; this._exporting = false;
     }
   },
   methods: {
+
+    _scheduleRetry(retryCount) {
+      if (this._detached) return;
+      if (this._retryTimer) clearTimeout(this._retryTimer);
+      this._retryTimer = setTimeout(() => {
+        this._retryTimer = null;
+        if (!this._detached) this._initCanvas(retryCount);
+      }, 60);
+    },
 
     // ═══════════════════════════════════════════════════════════════
     // 初始化：双源测量，确保 buffer = display * dpr
@@ -46,7 +63,7 @@ Component({
         .exec(function (res) {
           if (!res || !res[0] || !res[0].node) {
             if (retryCount < MAX_RETRIES) {
-              setTimeout(function () { that._initCanvas(retryCount + 1); }, 60);
+              that._scheduleRetry(retryCount + 1);
             } else {
               wx.showToast({ title: '签名画板加载失败，请重试', icon: 'none' });
             }
@@ -57,7 +74,7 @@ Component({
           let fieldsH = res[0].height;
 
           if ((!fieldsW || fieldsW <= 0 || !fieldsH || fieldsH <= 0) && retryCount < MAX_RETRIES) {
-            setTimeout(function () { that._initCanvas(retryCount + 1); }, 60);
+            that._scheduleRetry(retryCount + 1);
             return;
           }
 

@@ -11,6 +11,7 @@ let pendingRequest;
 global.wx = {
   getStorageSync(key) { return storage.get(key); },
   setStorageSync(key, value) { storage.set(key, value); },
+  removeStorageSync(key) { storage.delete(key); },
   request(options) { pendingRequest = options; },
   showToast() {}
 };
@@ -31,14 +32,19 @@ async function run() {
   assert.strictEqual(pendingRequest.header['X-Active-Org'], 'org-43');
   assert(pendingRequest.header['X-Request-Id']);
 
-  storage.set('activeOrgId', 'org-44');
-  orgSession.markChanged();
+  orgSession.commitContext({ orgId: 'org-44' });
   pendingRequest.success({ statusCode: 200, data: { status: 'success' }, header: {} });
 
   await assert.rejects(promise, (error) => error.status === 'request_cancelled' && error.silent === true);
   await Promise.resolve();
   assert.strictEqual(failCalled, false, '组织切换取消不得触发可见错误回调');
   assert.strictEqual(completeCalled, true, '组织切换取消仍需结束 loading 生命周期');
+
+  const rolePromise = callFunction({ name: 'getCurrentScoreActivity' });
+  orgSession.commitContext({ role: 'admin' });
+  pendingRequest.success({ statusCode: 200, data: { status: 'success' }, header: {} });
+  await assert.rejects(rolePromise, (error) => error.status === 'request_cancelled');
+
   console.log('统一 API 组织取消语义测试通过');
 }
 

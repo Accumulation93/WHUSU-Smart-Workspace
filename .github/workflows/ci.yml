@@ -46,13 +46,27 @@ jobs:
           node scripts/miniprogram-compat-audit.js
           node scripts/org-lifecycle-audit.js --strict
           node scripts/security-audit.js --strict
+          node scripts/tenant-sql-audit.js
+          node scripts/admin-route-permission-audit.js --strict
           node scripts/ui-audit.js --strict
+          node scripts/user-visible-copy-audit.js --strict
           git diff --check
       - name: Unit and integration tests
         run: |
           node scripts/org-session-test.js
           node scripts/api-cancellation-test.js
           node scripts/login-binding-refresh-test.js
+          node scripts/hr-profile-export-test.js
+          node scripts/venue-rule-display-test.js
+          node server/test/venueApprovalFlowRule.test.js
+          node server/test/venueApprovalValidation.test.js
+          node server/test/auditApprovalConditionSecurity.test.js
+          node server/test/scoreRecordQuerySecurity.test.js
+          node server/test/publicationOrgIsolation.test.js
+          node server/test/tableFileAuthorization.test.js
+          node server/test/tableFileExport.test.js
+          node server/test/organizationDeletionSafety.test.js
+          node server/test/organizationManagementIntegration.test.js
           node server/test/activateOrganization.test.js
           node server/test/scoringOrgCacheIsolation.test.js
           node server/test/orgContextSecurity.test.js
@@ -72,6 +86,8 @@ jobs:
           node server/test/messageCenter.test.js
           node server/test/deploymentAutomation.test.js
           node server/test/deploymentMigrationIntegration.test.js
+          node server/test/venueFlowRestoreMigration.test.js
+          node server/test/freshSchemaVenue.test.js
           bash -n server/scripts/deployProduction.sh
           bash -n server/scripts/deployEntrypoint.sh
           bash -n server/scripts/setupCollabSession.sh

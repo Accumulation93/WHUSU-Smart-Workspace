@@ -21,7 +21,7 @@ module.exports = Behavior({
       if (!code) return;
       wx.showModal({
         title: '管理员邀请码',
-        content: `邀请码：${code}\n请复制后发送给对应管理员。`,
+        content: `邀请码：${code}`,
         confirmText: '复制',
         cancelText: '关闭',
         success: (res) => {

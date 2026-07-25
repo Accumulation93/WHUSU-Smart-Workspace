@@ -3,6 +3,7 @@ const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
+const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64; // rpx per hour
@@ -119,6 +120,9 @@ Page({
     activeTab: 'venue',  // 'venue' | 'bookings' | 'purposes'
     hasPermission: true,
     canApproveVenue: false,
+    currentOrganizationName: '',
+    adminDisplayName: '管理员',
+    adminLevelLabel: '普通管理员',
     visibleTabs: [
       { key: 'venue', label: '场地管理' },
       { key: 'bookings', label: '借用管理' },
@@ -322,7 +326,10 @@ Page({
       visibleTabs: visibleTabs,
       activeTab: activeTab,
       hasPermission: visibleTabs.length > 0,
-      canApproveVenue: adminPermissions.hasAny(profile, ['venue.approvals'])
+      canApproveVenue: adminPermissions.hasAny(profile, ['venue.approvals']),
+      currentOrganizationName: wx.getStorageSync('activeOrgName') || '',
+      adminDisplayName: profile && profile.name ? profile.name : '管理员',
+      adminLevelLabel: profile && profile.adminLevel === 'super_admin' ? '超级管理员' : '普通管理员'
     });
     if (!visibleTabs.length) return;
 
@@ -360,6 +367,28 @@ Page({
 
   goPendingApprovals() {
     wx.navigateTo({ url: '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals' });
+  },
+
+  onOrgTap() {
+    const hasUnsavedWork = Boolean(
+      this.data.editing ||
+      this.data.ruleEditorVisible ||
+      this.data.flowEditorVisible ||
+      this.data.adminBookingVisible ||
+      this.data.approvalPopupVisible ||
+      this.data.condMultiPickerVisible ||
+      this.data.purposeEditId ||
+      this.data.purposeEditText
+    );
+    if (hasUnsavedWork) {
+      wx.showModal({
+        title: '存在未保存内容',
+        content: '请先处理未保存内容。',
+        showCancel: false
+      });
+      return;
+    }
+    wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
   },
 
   // ── Main tab switching ──
@@ -452,14 +481,27 @@ Page({
   },
 
   // ── Rules ──
-  openRules(e) {
+  async openRules(e) {
     const id = e.currentTarget.dataset.id;
     const v = this.data.venues.find(v => v.id === id);
-    this.setData({ rulesVisible: true, rulesVenueId: id, rulesVenueName: v ? v.name : '', rulesTab: 'open' });
-    this.loadOpenRules();
-    this.loadActivityRules();
-    this.loadBookingRules();
-    if (this.data.canApproveVenue) this.loadApprovalFlow();
+    this.setData({
+      rulesVisible: true,
+      rulesVenueId: id,
+      rulesVenueName: v ? v.name : '',
+      rulesTab: 'open',
+      openRules: [],
+      activityRules: [],
+      bookingRules: [],
+      approvalFlow: null,
+      approvalFlowSteps: []
+    });
+
+    const initialLoads = [this.loadOpenRules(), this.loadActivityRules()];
+    if (this.data.canApproveVenue) initialLoads.push(this.loadApprovalFlow());
+    await Promise.all(initialLoads);
+    if (this.data.canApproveVenue && this.data.rulesVenueId === id) {
+      await this.loadBookingRules();
+    }
   },
 
   closeRules() { this.setData({ rulesVisible: false }); },
@@ -506,22 +548,13 @@ Page({
       const res = await callFunction({ name: 'listVenueBookingRules', data: { venueId } });
       if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
-        const labels = { admin: '管理员审核', direct: '直接通过', flow: '用户审核（多步审批流程）' };
-        let rules = (res.rules || []).map(r => ({ ...r, _ruleTypeLabel: labels[r.rule_type] || r.rule_type || '管理员审核' }));
-
-        // Synthesize a flow entry if an approval flow exists for this venue
-        if (this.data.approvalFlow) {
-          const flowEntry = {
-            id: '__flow__',
-            rule_type: 'flow',
-            _ruleTypeLabel: '用户审核（多步审批流程）',
-            _flowSteps: (this.data.approvalFlowSteps || []).length + '步'
-          };
-          // Prepend to list
-          rules = [flowEntry, ...rules];
-        }
-
-        this.setData({ bookingRules: rules });
+        this.setData({
+          bookingRules: buildBookingRuleDisplayList(
+            res.rules,
+            this.data.approvalFlow,
+            this.data.approvalFlowSteps
+          )
+        });
       } else console.warn('[loadBookingRules] failed:', res.message);
     } catch (e) { console.error('[loadBookingRules] error:', e); }
   },
@@ -785,10 +818,12 @@ Page({
       if (res.status === 'success') {
         showShortToast(res.message);
         this.setData({ ruleEditorVisible: false });
-        this.loadOpenRules();
-        this.loadActivityRules();
-        this.loadBookingRules();
-        this.loadApprovalFlow();
+        await Promise.all([
+          this.loadOpenRules(),
+          this.loadActivityRules(),
+          this.loadApprovalFlow()
+        ]);
+        await this.loadBookingRules();
       } else showShortToast(res.message);
     } catch (e) { showShortToast(getErrorText(e, '保存失败')); }
   },
@@ -1415,7 +1450,7 @@ Page({
   async submitAdminBooking() {
     const { scheduleVenueId, adminBookingStartDate, adminBookingTitle, adminBookingTimeStart, adminBookingTimeEnd, adminBookingDesc, _adminDayData } = this.data;
     if (!scheduleVenueId || !adminBookingStartDate || !adminBookingTimeStart || !adminBookingTimeEnd) {
-      showShortToast('请完整填写信息并选择时间段'); return;
+      showShortToast('请填写完整信息'); return;
     }
     if (!adminBookingTitle) { showShortToast('请填写借用事由'); return; }
     const timeStart = adminBookingStartDate + 'T' + adminBookingTimeStart;

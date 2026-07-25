@@ -1,1 +1,7 @@
-{"navigationBarTitleText":"场地借用审批","usingComponents":{},"enablePullDownRefresh":true}
+{
+  "navigationBarTitleText": "场地借用审批",
+  "usingComponents": {
+    "ui-icon": "/components/ui-icon/ui-icon"
+  },
+  "enablePullDownRefresh": true
+}

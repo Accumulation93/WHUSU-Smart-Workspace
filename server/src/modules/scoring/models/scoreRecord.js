@@ -1,5 +1,11 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const CONDITION_COLUMNS = Object.freeze({
+  activityId: 'activity_id',
+  ruleId: 'rule_id',
+  scorerId: 'scorer_id',
+  targetId: 'target_id'
+});
 
 async function getAll() {
   const orgId = await getCurrentOrgId();
@@ -46,7 +52,8 @@ async function query(conditions = {}) {
   const params = [orgId];
   for (const [key, value] of Object.entries(conditions)) {
     if (value !== undefined && value !== null) {
-      const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      const dbKey = CONDITION_COLUMNS[key];
+      if (!dbKey) throw new Error(`不支持的评分记录查询条件: ${key}`);
       sql += ` AND ${dbKey} = ?`;
       params.push(value);
     }

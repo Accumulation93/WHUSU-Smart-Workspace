@@ -4,11 +4,8 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 async function getActiveSnapshot(connection = pool) {
   const orgId = await getCurrentOrgId();
   const [rows] = await connection.query(
-    `SELECT s.*
-       FROM org_hr_profile_template_settings settings
-       JOIN org_hr_profile_template_snapshots s ON s.id = settings.active_snapshot_id
-      WHERE settings.org_id = ? AND s.org_id = ? LIMIT 1`,
-    [orgId, orgId]
+    'SELECT * FROM org_hr_profile_template_snapshots WHERE org_id = ? LIMIT 1',
+    [orgId]
   );
   return rows[0] || null;
 }
@@ -23,15 +20,7 @@ async function getById(id, connection = pool) {
 }
 
 async function getAll(connection = pool) {
-  const [rows] = await connection.query(
-    `SELECT t.*,
-            COUNT(DISTINCT s.id) AS snapshot_count,
-            COUNT(DISTINCT CASE WHEN settings.active_snapshot_id = s.id THEN settings.org_id END) AS active_org_count
-       FROM hr_profile_templates t
-       LEFT JOIN org_hr_profile_template_snapshots s ON s.source_template_id = t.id
-       LEFT JOIN org_hr_profile_template_settings settings ON settings.active_snapshot_id = s.id
-      GROUP BY t.id ORDER BY t.name`
-  );
+  const [rows] = await connection.query('SELECT * FROM hr_profile_templates ORDER BY name');
   return rows;
 }
 

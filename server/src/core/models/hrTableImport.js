@@ -238,18 +238,15 @@ async function loadImportContext(orgId, extensionMapping) {
   let templateFields = [];
   if (extensionMapping.length) {
     const [templates] = await pool.query(
-      `SELECT snapshot.*
-         FROM org_hr_profile_template_settings settings
-         JOIN org_hr_profile_template_snapshots snapshot ON snapshot.id = settings.active_snapshot_id
-        WHERE settings.org_id = ? AND snapshot.org_id = ? LIMIT 1`,
-      [orgId, orgId]
+      'SELECT * FROM org_hr_profile_template_snapshots WHERE org_id = ? LIMIT 1',
+      [orgId]
     );
     template = templates[0] || null;
     if (!template) {
       throw new HrTableImportError('missing_template', '未配置人事信息模板，请先在管理端配置模板字段');
     }
     const [fieldRows] = await pool.query(
-      'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? ORDER BY sort_order',
+      'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? AND is_active = 1 ORDER BY sort_order',
       [template.id]
     );
     templateFields = fieldRows.map(normalizeTemplateField);

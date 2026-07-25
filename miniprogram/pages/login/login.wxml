@@ -34,7 +34,6 @@
 
       <view class="card login-card">
         <view class="section-title">微信登录</view>
-        <view class="card-desc">使用微信身份安全登录，首次使用时按提示补充资料。</view>
         <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{loginButtonText}}</button>
       </view>
     </view>

@@ -11,8 +11,11 @@ if (!process.env.DEPLOY_TEST_DB_HOST) {
 }
 
 const databaseName = `redsu_hr_template_migration_${Date.now()}_${process.pid}`;
+const applicationUser = `hr_template_app_${process.pid}`;
+const applicationPassword = `HrTemplateTest_${Date.now()}_${process.pid}`;
 const migrationDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'redsu-hr-template-migration-'));
-const migrationSource = path.resolve(__dirname, '../db/deploy/20260722113000_global_hr_profile_templates.sql');
+const globalMigrationSource = path.resolve(__dirname, '../db/deploy/20260722113000_global_hr_profile_templates.sql');
+const uniqueSnapshotMigrationSource = path.resolve(__dirname, '../db/deploy/20260722203000_unique_hr_profile_snapshot.sql');
 const migrationTools = require('../scripts/runDeploymentMigrations');
 
 process.env.DB_HOST = process.env.DEPLOY_TEST_DB_HOST;
@@ -20,6 +23,7 @@ process.env.DB_PORT = process.env.DEPLOY_TEST_DB_PORT || '3306';
 process.env.DB_USER = process.env.DEPLOY_TEST_DB_USER || 'root';
 process.env.DB_PASSWORD = process.env.DEPLOY_TEST_DB_PASSWORD || '';
 process.env.DB_NAME = databaseName;
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'unique-hr-profile-snapshot-test-secret';
 
 function databaseConfig(database) {
   return {
@@ -129,12 +133,13 @@ async function assertMigrated(connection) {
       (SELECT COUNT(*) FROM org_hr_profile_template_snapshot_fields) AS snapshot_field_count,
       (SELECT COUNT(*) FROM hr_profile_records) AS record_count,
       (SELECT COUNT(*) FROM hr_profile_record_values) AS value_count,
-      (SELECT COUNT(*) FROM org_hr_profile_template_settings) AS setting_count
+      (SELECT COUNT(*) FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'org_hr_profile_template_settings') AS setting_table_count
   `);
   assert.deepStrictEqual(
     [counts.template_count, counts.snapshot_count, counts.snapshot_field_count,
-      counts.record_count, counts.value_count, counts.setting_count].map(Number),
-    [1, 1, 2, 2, 3, 1]
+      counts.record_count, counts.value_count, counts.setting_table_count].map(Number),
+    [1, 1, 3, 2, 4, 0]
   );
   const [[integrity]] = await connection.query(`
     SELECT
@@ -153,9 +158,61 @@ async function assertMigrated(connection) {
     [integrity.orphan_values, integrity.invalid_records, integrity.duplicate_groups].map(Number),
     [0, 0, 0]
   );
+  const [[snapshotShape]] = await connection.query(`
+    SELECT
+      (SELECT COUNT(*) FROM org_hr_profile_template_snapshot_fields WHERE is_active = 1) AS active_fields,
+      (SELECT COUNT(*) FROM org_hr_profile_template_snapshot_fields WHERE is_active = 0) AS hidden_fields,
+      (SELECT COUNT(*) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'org_hr_profile_template_snapshots'
+          AND COLUMN_NAME IN ('version', 'source_template_id', 'source_template_name')) AS legacy_snapshot_columns,
+      (SELECT COUNT(*) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'org_hr_profile_template_snapshot_fields'
+          AND COLUMN_NAME = 'source_template_field_id') AS legacy_field_columns
+  `);
+  assert.deepStrictEqual(
+    [snapshotShape.active_fields, snapshotShape.hidden_fields,
+      snapshotShape.legacy_snapshot_columns, snapshotShape.legacy_field_columns].map(Number),
+    [2, 1, 0, 0]
+  );
   const [[template]] = await connection.query('SELECT name FROM hr_profile_templates');
   const suffix = crypto.createHash('sha256').update('template-a').digest('hex').slice(0, 8);
   assert.strictEqual(template.name, `红树林学生会-${suffix}-人事信息模板`);
+}
+
+async function assertTemplateAppliedInPlace(connection) {
+  const [[before]] = await connection.query('SELECT id FROM org_hr_profile_template_snapshots WHERE org_id = ?', ['org-a']);
+  const [sourceFields] = await connection.query(
+    `SELECT field_row.id, field_row.label, field_row.is_active
+       FROM org_hr_profile_template_snapshot_fields field_row
+       JOIN org_hr_profile_template_snapshots snapshot ON snapshot.id = field_row.snapshot_id
+      WHERE snapshot.org_id = ? ORDER BY field_row.is_active DESC, field_row.sort_order`,
+    ['org-a']
+  );
+  const actions = sourceFields.map((field) => ({
+    sourceSnapshotFieldId: field.id,
+    action: field.is_active ? 'map' : 'hide',
+    targetTemplateFieldId: field.is_active ? (field.label === '学院' ? 'field-a' : 'field-b') : ''
+  }));
+  const library = require('../src/core/services/hrProfileTemplateLibrary');
+  const preview = await library.preflightSwitch('org-a', 'template-a', actions);
+  assert.strictEqual(preview.status, 'success');
+  const applied = await library.applySwitch(
+    'org-a', 'template-a', actions, preview.switchToken, false, { id: 'admin-a' }
+  );
+  assert.strictEqual(applied.status, 'success');
+  assert.strictEqual(applied.snapshotId, before.id);
+  const [[after]] = await connection.query(`
+    SELECT
+      (SELECT COUNT(*) FROM org_hr_profile_template_snapshots WHERE org_id = 'org-a') AS snapshots,
+      (SELECT COUNT(*) FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? AND is_active = 1) AS active_fields,
+      (SELECT COUNT(*) FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? AND is_active = 0) AS hidden_fields,
+      (SELECT COUNT(*) FROM org_hr_profile_template_switches WHERE snapshot_id = ?) AS switch_count,
+      (SELECT COUNT(*) FROM hr_profile_record_values WHERE org_id = 'org-a') AS values_count
+  `, [before.id, before.id, before.id]);
+  assert.deepStrictEqual(
+    [after.snapshots, after.active_fields, after.hidden_fields, after.switch_count, after.values_count].map(Number),
+    [1, 2, 3, 1, 4]
+  );
 }
 
 async function run() {
@@ -165,32 +222,60 @@ async function run() {
     const connection = await mysql.createConnection(databaseConfig(databaseName));
     try {
       await createLegacyFixture(connection);
-      fs.copyFileSync(migrationSource, path.join(migrationDirectory, '20260722113000_global_hr_profile_templates.sql'));
+      fs.copyFileSync(globalMigrationSource, path.join(migrationDirectory, '20260722113000_global_hr_profile_templates.sql'));
       await migrationTools.applyMigrations({ directory: migrationDirectory, deployedSha: '3'.repeat(40) });
-      await assertMigrated(connection);
+      const [[activeSnapshot]] = await connection.query('SELECT * FROM org_hr_profile_template_snapshots LIMIT 1');
+      await connection.query(
+        `INSERT INTO org_hr_profile_template_snapshots
+         (id, org_id, version, source_template_id, source_template_name, description, edit_mode)
+         VALUES ('snapshot-old', 'org-a', 2, 'template-a', '旧模板名称', '旧说明', 'direct')`
+      );
+      await connection.query(
+        `INSERT INTO org_hr_profile_template_snapshot_fields
+         (id, snapshot_id, source_template_field_id, sort_order, label, type, required, number_rule, allow_decimal)
+         VALUES ('field-old-hidden', 'snapshot-old', 'field-a', 1, '旧字段', 'text', 0, 'value_range', 1)`
+      );
+      await connection.query(
+        `INSERT INTO hr_profile_record_values
+         (id, record_id, is_pending, field_id, field_value, org_id)
+         VALUES ('value-old-hidden', 'record-b', 0, 'field-old-hidden', '保留内容', 'org-a')`
+      );
+      assert(activeSnapshot.id, '首次迁移应生成当前快照');
 
-      fs.rmSync(path.join(migrationDirectory, '20260722113000_global_hr_profile_templates.sql'));
-      fs.copyFileSync(migrationSource, path.join(migrationDirectory, '20260722113001_global_hr_profile_templates_retry.sql'));
+      fs.copyFileSync(uniqueSnapshotMigrationSource, path.join(migrationDirectory, '20260722203000_unique_hr_profile_snapshot.sql'));
       await migrationTools.applyMigrations({ directory: migrationDirectory, deployedSha: '4'.repeat(40) });
       await assertMigrated(connection);
+
+      fs.rmSync(path.join(migrationDirectory, '20260722203000_unique_hr_profile_snapshot.sql'));
+      fs.copyFileSync(uniqueSnapshotMigrationSource, path.join(migrationDirectory, '20260722203001_unique_hr_profile_snapshot_retry.sql'));
+      await migrationTools.applyMigrations({ directory: migrationDirectory, deployedSha: '5'.repeat(40) });
+      await assertMigrated(connection);
+      await admin.query(`CREATE USER '${applicationUser}'@'%' IDENTIFIED BY ?`, [applicationPassword]);
+      await admin.query(`GRANT ALL PRIVILEGES ON \`${databaseName}\`.* TO '${applicationUser}'@'%'`);
+      process.env.DB_USER = applicationUser;
+      process.env.DB_PASSWORD = applicationPassword;
+      await assertTemplateAppliedInPlace(connection);
 
       await connection.query('DELETE FROM hr_profile_templates WHERE id = ?', ['template-a']);
       const [[survivors]] = await connection.query(`
         SELECT
-          (SELECT COUNT(*) FROM org_hr_profile_template_snapshots WHERE source_template_id IS NULL) AS detached_snapshots,
+          (SELECT COUNT(*) FROM org_hr_profile_template_snapshots) AS snapshots,
           (SELECT COUNT(*) FROM org_hr_profile_template_snapshot_fields) AS fields,
           (SELECT COUNT(*) FROM hr_profile_record_values) AS values_count
       `);
       assert.deepStrictEqual(
-        [survivors.detached_snapshots, survivors.fields, survivors.values_count].map(Number),
-        [1, 2, 3]
+        [survivors.snapshots, survivors.fields, survivors.values_count].map(Number),
+        [1, 5, 4]
       );
-      console.log('人事模板全局库、组织快照、数据保持和幂等迁移测试通过');
+      console.log('共享模板、每组织唯一快照、数据保持和幂等迁移测试通过');
     } finally {
+      const applicationPool = require('../src/config/db');
+      await applicationPool.end();
       await connection.end();
     }
   } finally {
     await admin.query(`DROP DATABASE IF EXISTS \`${databaseName}\``);
+    await admin.query(`DROP USER IF EXISTS '${applicationUser}'@'%'`);
     await admin.end();
     fs.rmSync(migrationDirectory, { recursive: true, force: true });
   }

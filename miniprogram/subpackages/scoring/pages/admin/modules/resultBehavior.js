@@ -683,10 +683,8 @@ module.exports = Behavior({
         return;
       }
   
-      const organizationSnapshot = orgSession.getSnapshot();
       const activityId = this.data.currentActivityId;
-      const loadToken = Date.now();
-      this.departmentScorerToken = loadToken;
+      const request = orgSession.beginRequest(this, 'departmentScorers');
   
       this.setData({
         selectedCompletionDepartment: groupName,
@@ -707,7 +705,7 @@ module.exports = Behavior({
           }
         });
   
-        if (this.departmentScorerToken !== loadToken || !orgSession.isCurrent(organizationSnapshot)
+        if (!orgSession.isRequestCurrent(this, request)
           || this.data.currentActivityId !== activityId) return;
   
         if (result.status !== 'success') {
@@ -739,14 +737,14 @@ module.exports = Behavior({
           departmentScorerLoading: false
         });
       } catch (error) {
-        if (this.departmentScorerToken !== loadToken) return;
+        if (!orgSession.isRequestCurrent(this, request)) return;
         wx.showToast({ title: '加载评分人列表失败', icon: 'none' });
         this.setData({ departmentScorerLoading: false });
       }
     },
 
     closeDepartmentScorers() {
-      this.departmentScorerToken = '';
+      orgSession.beginRequest(this, 'departmentScorers');
       this.setData({
         selectedCompletionDepartment: '',
         departmentScorerLoading: false,
@@ -758,10 +756,8 @@ module.exports = Behavior({
       const { scorerKey } = e.currentTarget.dataset;
       if (!scorerKey || !this.data.currentActivityId) return;
   
-      const organizationSnapshot = orgSession.getSnapshot();
       const activityId = this.data.currentActivityId;
-      const popupToken = Date.now();
-      this.scorerTargetPopupToken = popupToken;
+      const request = orgSession.beginRequest(this, 'scorerTargetPopup');
   
       const scorerRow = (this.data.departmentScorerRows || []).find((item) => item.scorerKey === scorerKey);
       const scorerName = scorerRow ? scorerRow.scorerName : scorerKey;
@@ -781,7 +777,7 @@ module.exports = Behavior({
           scorerKey
         });
   
-        if (this.scorerTargetPopupToken !== popupToken || !orgSession.isCurrent(organizationSnapshot)
+        if (!orgSession.isRequestCurrent(this, request)
           || this.data.currentActivityId !== activityId) return;
   
         if (result.status !== 'success') {
@@ -800,14 +796,14 @@ module.exports = Behavior({
           scorerTargetPopupLoading: false
         });
       } catch (error) {
-        if (this.scorerTargetPopupToken !== popupToken) return;
+        if (!orgSession.isRequestCurrent(this, request)) return;
         wx.showToast({ title: '加载被评分人列表失败', icon: 'none' });
         this.setData({ scorerTargetPopupLoading: false });
       }
     },
 
     closeScorerTargetPopup() {
-      this.scorerTargetPopupToken = '';
+      orgSession.beginRequest(this, 'scorerTargetPopup');
       this.setData({
         scorerTargetPopupVisible: false,
         scorerTargetPopupTitle: '',

@@ -6,15 +6,33 @@ const organizationModel = require('../models/organization');
 const systemConfigModel = require('../models/systemConfig');
 const pool = require('../../config/db');
 
-// Tables that have org_id — must be cleaned up when deleting an org.
-// admin_info 单独处理，保护全局超级管理员记录。
-const ORG_SCOPED_TABLES = [
-  'departments', 'identities', 'work_groups',
-  'hr_info', 'user_info',
-  'score_activities', 'rate_target_rules', 'rate_rule_clauses',
-  'clause_template_configs',
-  'score_records', 'score_answers'
-];
+const ORG_REFERENCE_COLUMNS = new Set([
+  'org_id',
+  'creator_org_id',
+  'approval_org_id'
+]);
+
+async function findOrganizationDependencies(conn, organizationId) {
+  const [columns] = await conn.query(
+    `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
+       FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND COLUMN_NAME IN ('org_id', 'creator_org_id', 'approval_org_id')
+      ORDER BY TABLE_NAME, ORDINAL_POSITION`
+  );
+  const tables = new Set();
+  for (const column of columns) {
+    const tableName = safeString(column.table_name);
+    const columnName = safeString(column.column_name);
+    if (!tableName || !ORG_REFERENCE_COLUMNS.has(columnName)) continue;
+    const [rows] = await conn.query(
+      'SELECT 1 AS present FROM ?? WHERE ?? = ? LIMIT 1',
+      [tableName, columnName, organizationId]
+    );
+    if (rows.length) tables.add(tableName);
+  }
+  return Array.from(tables).sort();
+}
 
 // listOrganizations — admin only
 router.post('/listOrganizations', async (req, res) => {
@@ -81,7 +99,9 @@ router.post('/saveOrganization', async (req, res) => {
   }
 });
 
-// deleteOrganization — delete data from all org-scoped tables, then the org record
+// deleteOrganization — only empty organizations may be deleted. Business data is
+// never cascaded implicitly because independently owned modules must not be
+// partially removed.
 router.post('/deleteOrganization', async (req, res) => {
   try {
     const openid = req.openid;
@@ -102,36 +122,46 @@ router.post('/deleteOrganization', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '无效的组织标识' });
     }
 
-    const config = await systemConfigModel.get();
-    if (config && config.current_organization === id) {
-      return res.json({ status: 'forbidden', message: '不能删除当前正在使用的组织，请先切换到其他组织' });
-    }
-
-    // Wrap all deletions in a transaction for atomicity
     const { withTransaction } = require('../../config/db');
-    await withTransaction(async (conn) => {
-      // 人事模板蓝图全局共享；这里只清除该组织的资料、切换审计和快照。
-      await conn.query('DELETE FROM hr_profile_record_values WHERE org_id = ?', [id]);
-      await conn.query('DELETE FROM hr_profile_records WHERE org_id = ?', [id]);
-      await conn.query('DELETE FROM org_hr_profile_template_settings WHERE org_id = ?', [id]);
-      await conn.query('DELETE FROM org_hr_profile_template_switch_actions WHERE switch_id IN (SELECT id FROM org_hr_profile_template_switches WHERE org_id = ?)', [id]);
-      await conn.query('DELETE FROM org_hr_profile_template_switches WHERE org_id = ?', [id]);
-      await conn.query('DELETE FROM org_hr_profile_template_snapshots WHERE org_id = ?', [id]);
-
-      // Delete from org-scoped tables
-      for (const table of ORG_SCOPED_TABLES) {
-        await conn.query('DELETE FROM ?? WHERE org_id = ?', [table, id]);
+    const result = await withTransaction(async (conn) => {
+      const [configs] = await conn.query(
+        "SELECT current_organization FROM system_config WHERE id = 'default' FOR UPDATE"
+      );
+      if (configs[0] && safeString(configs[0].current_organization) === id) {
+        return { status: 'current' };
       }
 
-      // 仅删除组织内普通管理员；全局超级管理员不会归属于具体组织。
-      await conn.query(
-        "DELETE FROM admin_info WHERE org_id = ? AND admin_level = 'admin'",
+      const [organizations] = await conn.query(
+        'SELECT id FROM organizations WHERE id = ? FOR UPDATE',
         [id]
       );
+      if (!organizations.length) return { status: 'not_found' };
 
-      await conn.query('DELETE FROM organizations WHERE id = ?', [id]);
+      const dependencies = await findOrganizationDependencies(conn, id);
+      if (dependencies.length) {
+        return { status: 'not_empty', dependencies };
+      }
+
+      const [deleteResult] = await conn.query(
+        'DELETE FROM organizations WHERE id = ?',
+        [id]
+      );
+      return { status: deleteResult.affectedRows === 1 ? 'deleted' : 'not_found' };
     });
 
+    if (result.status === 'not_found') {
+      return res.json({ status: 'not_found', message: '组织不存在' });
+    }
+    if (result.status === 'current') {
+      return res.json({ status: 'forbidden', message: '请先切换到其他组织' });
+    }
+    if (result.status === 'not_empty') {
+      return res.json({
+        status: 'organization_not_empty',
+        message: '组织仍包含业务数据，为防止误删，请先归档或清理相关数据',
+        dependencyCount: result.dependencies.length
+      });
+    }
     res.json({ status: 'success', message: '组织已删除' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -181,27 +211,44 @@ router.post('/switchOrganization', async (req, res) => {
       return res.json({ status: 'forbidden', message: '仅超级管理员可切换组织' });
     }
 
-    const config = await systemConfigModel.get();
-    const currentOrgId = config && config.current_organization;
-
-    if (currentOrgId === targetOrgId) {
-      return res.json({ status: 'success', message: '已是当前组织，无需切换' });
-    }
-
-    // Upsert organization record
-    const [existingOrg] = await pool.query('SELECT id FROM organizations WHERE id = ?', [targetOrgId]);
-    if (existingOrg.length) {
-      await pool.query('UPDATE organizations SET name = ? WHERE id = ?', [targetOrgName, targetOrgId]);
-    } else {
-      await pool.query('INSERT INTO organizations (id, name) VALUES (?, ?)', [targetOrgId, targetOrgName]);
-    }
-
-    // Update system config — this is the ONLY thing needed for org switching now
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
     await systemConfigModel.ensureExists();
-    await systemConfigModel.setCurrentOrganization(targetOrgId, nowUtc);
+    const { withTransaction } = require('../../config/db');
+    const switchResult = await withTransaction(async (conn) => {
+      const [configs] = await conn.query(
+        "SELECT current_organization FROM system_config WHERE id = 'default' FOR UPDATE"
+      );
+      const currentOrgId = configs[0] && safeString(configs[0].current_organization);
+      if (currentOrgId === targetOrgId) return { unchanged: true };
 
-    res.json({ status: 'success', message: `已切换至组织「${targetOrgName}」` });
+      const [existingOrg] = await conn.query(
+        'SELECT id FROM organizations WHERE id = ? FOR UPDATE',
+        [targetOrgId]
+      );
+      if (existingOrg.length) {
+        await conn.query(
+          'UPDATE organizations SET name = ? WHERE id = ?',
+          [targetOrgName, targetOrgId]
+        );
+      } else {
+        await conn.query(
+          'INSERT INTO organizations (id, name) VALUES (?, ?)',
+          [targetOrgId, targetOrgName]
+        );
+      }
+      await conn.query(
+        "UPDATE system_config SET current_organization = ?, updated_at = ? WHERE id = 'default'",
+        [targetOrgId, nowUtc]
+      );
+      return { unchanged: false };
+    });
+
+    res.json({
+      status: 'success',
+      message: switchResult.unchanged
+        ? '已是当前组织，无需切换'
+        : `已切换至组织「${targetOrgName}」`
+    });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || '组织切换失败' });
   }

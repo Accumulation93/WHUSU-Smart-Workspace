@@ -70,7 +70,7 @@ async function getByNumber(submissionNumber) {
 }
 
 async function generateSubmissionNumber(conn) {
-  if (!conn) throw new Error('generateSubmissionNumber requires transaction connection');
+  if (!conn) throw new Error('暂时无法生成提交编号');
   const orgId = await getCurrentOrgId();
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -89,7 +89,7 @@ async function generateSubmissionNumber(conn) {
      WHERE org_id = ? AND business_date = ? FOR UPDATE`,
     [orgId, businessDate]
   );
-  if (!rows.length) throw new Error('audit_number_sequence_unavailable');
+  if (!rows.length) throw new Error('提交编号生成失败');
   const seq = Number(rows[0].next_value);
   await conn.query(
     `UPDATE audit_number_sequences SET next_value = next_value + 1

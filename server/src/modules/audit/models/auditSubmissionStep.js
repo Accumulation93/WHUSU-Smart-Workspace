@@ -109,14 +109,7 @@ async function getPendingByApprover(hrId) {
     [hrId, orgId]
   );
   const approver = hrRows[0] || null;
-  if (!approver) {
-    console.log('[audit:getPendingByApprover] No hr_info found for hrId=' + hrId + ' orgId=' + orgId);
-    return [];
-  }
-  console.log('[audit:getPendingByApprover] approver hrId=' + hrId +
-    ' dept=' + (approver.department_id || 'none') +
-    ' ident=' + (approver.identity_id || 'none') +
-    ' wg=' + (approver.work_group_id || 'none'));
+  if (!approver) return [];
 
   // Direct matches: specific_person steps assigned to this hrId (legacy field)
   // Only include steps that are the CURRENT step of in_progress submissions
@@ -157,9 +150,6 @@ async function getPendingByApprover(hrId) {
   // Deduplicate by step ID (a step might match via multiple paths)
   const seenIds = new Set(directRows.map((r) => r.id));
 
-  console.log('[audit:getPendingByApprover] direct=' + directRows.length +
-    ' identityRows=' + identityRows.length + ' total candidates');
-
   // Load submitter info for all identity rows (needed for scope resolution)
   const submitterIds = [...new Set(identityRows.map((r) => r.submitted_by).filter(Boolean))];
   const submitterMap = {};
@@ -195,28 +185,15 @@ async function getPendingByApprover(hrId) {
       try {
         const conditions = JSON.parse(row.step_conditions_json);
         const matched = matchesAnyCondition(conditions, approver, submitter);
-        console.log('[audit:getPendingByApprover] step=' + row.id +
-          ' submission=' + row.submission_id +
-          ' sort_order=' + row.sort_order +
-          ' has_conditions_json=true condCount=' + conditions.length +
-          ' match=' + matched);
         if (matched) {
           rows.push(row);
           seenIds.add(row.id);
           continue;
         }
       } catch (e) {
-        hasExplicitConditions = false; // parse error → allow fallback
-        console.log('[audit:getPendingByApprover] step=' + row.id +
-          ' JSON parse error: ' + e.message);
+        // Corrupt explicit conditions must fail closed. Falling back to the
+        // broader template or legacy fields could grant unintended access.
       }
-    } else {
-      console.log('[audit:getPendingByApprover] step=' + row.id +
-        ' submission=' + row.submission_id +
-        ' sort_order=' + row.sort_order +
-        ' has_conditions_json=false hasTemplateStep=' + !!row.template_step_id +
-        ' legacy_type=' + (row.approver_type || 'none') +
-        ' legacy_ident=' + (row.approver_identity_id || 'none'));
     }
 
     // Fallback: only when NO explicit conditions exist (e.g., legacy submissions).
@@ -226,9 +203,6 @@ async function getPendingByApprover(hrId) {
     if (!hasExplicitConditions && row.template_step_id && templateConditionMap[row.template_step_id]) {
       const tplConds = templateConditionMap[row.template_step_id];
       const tplMatched = matchesAnyCondition(tplConds, approver, submitter);
-      console.log('[audit:getPendingByApprover] step=' + row.id +
-        ' templateConditionFallback condCount=' + tplConds.length +
-        ' match=' + tplMatched);
       if (tplMatched) {
         rows.push(row);
         seenIds.add(row.id);
@@ -242,16 +216,12 @@ async function getPendingByApprover(hrId) {
     if (!hasExplicitConditions && row.approver_type === 'identity' && row.approver_identity_id) {
       const identMatch = inCsv(row.approver_identity_id, approver.identity_id);
       const scopeMatch = identMatch ? matchesScope(row, approver, submitter) : false;
-      console.log('[audit:getPendingByApprover] step=' + row.id +
-        ' legacyCheck identMatch=' + identMatch + ' scopeMatch=' + scopeMatch);
       if (identMatch && scopeMatch) {
         rows.push(row);
         seenIds.add(row.id);
       }
     }
   }
-
-  console.log('[audit:getPendingByApprover] final pending count=' + rows.length);
 
   // Deduplicate by submission_id: keep only the MAX round per submission.
   // After resubmission, old rounds' pending steps still exist in the DB,
@@ -265,7 +235,6 @@ async function getPendingByApprover(hrId) {
     }
   }
   rows = Object.values(bestBySubmission);
-  console.log('[audit:getPendingByApprover] after dedup by max round, count=' + rows.length);
 
 
   // Sort by created_at DESC
@@ -316,20 +285,10 @@ function matchesAnyCondition(conditions, approver, submitter) {
       // Person condition: approver must be in the personHrIds list
       let personIds = (cond.personHrIds || '').toString().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       let personMatch = personIds.includes(String(approver.id));
-      console.log('[audit:matchesAnyCondition] personCond hrId=' + approver.id +
-        ' personIds=[' + personIds.join(',') + '] match=' + personMatch);
       if (personMatch) return true;
     } else if (!hasPersonCondition) {
       // Only check identity_scope when scope has NOT been narrowed
-      console.log('[audit:matchesAnyCondition] checking identity_scope cond:' +
-        ' deptScope=' + (cond.departmentScope || 'all') +
-        ' specDept=' + (cond.specificDepartmentId || 'none') +
-        ' wgScope=' + (cond.workGroupScope || 'all') +
-        ' specWg=' + (cond.specificWorkGroupId || 'none') +
-        ' identScope=' + (cond.identityScope || 'all') +
-        ' specIdent=' + (cond.specificIdentityId || 'none'));
       let identMatch = matchesIdentityScopeCondition(cond, approver, submitter);
-      console.log('[audit:matchesAnyCondition] identity_scope result=' + identMatch);
       if (identMatch) return true;
     }
     // else: hasPersonCondition is true but this isn't a person condition → SKIP
@@ -351,53 +310,30 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
   let deptScope = cond.departmentScope || 'all';
   if (deptScope === 'specific') {
     let specificDeptId = (cond.specificDepartmentId || '').trim();
-    // Treat 'specific' with no IDs as 'all' (malformed condition fallback)
-    if (specificDeptId) {
-      let deptMatch = inCsv(specificDeptId, approver.department_id);
-      console.log('[audit:matchesIdentityScope] deptScope=specific approverDept=' + (approver.department_id || 'none') +
-        ' condDeptIds=' + specificDeptId + ' match=' + deptMatch);
-      if (!deptMatch) return false;
-    }
+    if (!specificDeptId || !inCsv(specificDeptId, approver.department_id)) return false;
   } else if (deptScope === 'own') {
     let deptOwnMatch = submitter && String(approver.department_id) === String(submitter.department_id);
-    console.log('[audit:matchesIdentityScope] deptScope=own approverDept=' + (approver.department_id || 'none') +
-      ' submitterDept=' + (submitter ? submitter.department_id : 'none') + ' match=' + deptOwnMatch);
     if (!deptOwnMatch) return false;
   }
-  // 'all' or 'specific' with no IDs means any department → pass
 
   // Work group check
   let wgScope = cond.workGroupScope || 'all';
   if (wgScope === 'specific') {
     let specificWgId = (cond.specificWorkGroupId || '').trim();
-    if (specificWgId) {
-      let wgMatch = inCsv(specificWgId, approver.work_group_id);
-      console.log('[audit:matchesIdentityScope] wgScope=specific approverWg=' + (approver.work_group_id || 'none') +
-        ' condWg=' + specificWgId + ' match=' + wgMatch);
-      if (!wgMatch) return false;
-    }
+    if (!specificWgId || !inCsv(specificWgId, approver.work_group_id)) return false;
   } else if (wgScope === 'own') {
     let wgOwnMatch = submitter && String(approver.work_group_id) === String(submitter.work_group_id);
     if (!wgOwnMatch) return false;
   }
-  // 'all' or 'specific' with no IDs means any work group → pass
-
   // Identity check
   let identScope = cond.identityScope || 'all';
   if (identScope === 'specific') {
     let specificIdentId = (cond.specificIdentityId || '').trim();
-    if (specificIdentId) {
-      let identMatch = inCsv(specificIdentId, approver.identity_id);
-      console.log('[audit:matchesIdentityScope] identScope=specific approverIdent=' + (approver.identity_id || 'none') +
-        ' condIdentIds=' + specificIdentId + ' match=' + identMatch);
-      if (!identMatch) return false;
-    }
+    if (!specificIdentId || !inCsv(specificIdentId, approver.identity_id)) return false;
   } else if (identScope === 'own') {
     let identOwnMatch = submitter && String(approver.identity_id) === String(submitter.identity_id);
     if (!identOwnMatch) return false;
   }
-  // 'all' or 'specific' with no IDs means any identity → pass
-
   return true;
 }
 
@@ -422,15 +358,21 @@ function matchesScope(step, approver, submitter) {
   }
 
   if (scopeType === 'specific_department') {
-    return String(approver.department_id) === String(step.scope_department_id || '');
+    const departmentId = String(step.scope_department_id || '').trim();
+    return Boolean(departmentId) &&
+      String(approver.department_id || '') === departmentId;
   }
 
   if (scopeType === 'specific_work_group') {
-    return String(approver.department_id) === String(step.scope_department_id || '') &&
-           String(approver.work_group_id) === String(step.scope_work_group_id || '');
+    const departmentId = String(step.scope_department_id || '').trim();
+    const workGroupId = String(step.scope_work_group_id || '').trim();
+    return Boolean(departmentId && workGroupId) &&
+      String(approver.department_id || '') === departmentId &&
+      String(approver.work_group_id || '') === workGroupId;
   }
 
-  return true;
+  // Unknown or corrupt legacy scope values must never broaden approval access.
+  return false;
 }
 
 async function create(id, data, conn) {

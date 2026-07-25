@@ -251,40 +251,105 @@ function arrayBufferToBase64(buffer) {
 }
 
 /**
- * Save file via wx.shareFileMessage — opens share-to-chat dialog.
- * User sends the file to a chat (e.g. "文件传输助手") then saves it from there.
+ * Save a generated table file, then open it with a usable system action.
+ * Excel is opened in the document viewer; CSV also tries the viewer first.
+ * Unsupported clients fall back to file sharing or the desktop save dialog.
  *
- * Supports CSV and XLSX without an intermediate format conversion.
- *
- * @param {string} content - base64 XLSX from backend, or raw CSV text from client-side buildCsv
+ * @param {string} content - base64 file content, or raw CSV text from buildCsv
  * @param {string} fileName - without extension
- * @param {string} extension - 'xlsx' from backend, 'csv' from client-side buildCsv
+ * @param {string} extension - xlsx or csv
+ * @returns {Promise<{success:boolean, mode?:string, filePath?:string}>}
  */
 function saveAndShareFile(content, fileName, extension) {
-  let fs = wx.getFileSystemManager();
+  const fs = wx.getFileSystemManager();
   const safeName = String(fileName || 'export')
     .replace(/[\\/:*?"<>|\x00-\x1F]/g, '_')
     .replace(/\.\.+/g, '_')
     .trim()
     .slice(0, 60) || 'export';
   const safeExtension = /^[a-z0-9]{1,8}$/i.test(String(extension || '')) ? String(extension).toLowerCase() : 'bin';
+  let encodedContent = String(content || '');
 
-  // Client-side buildCsv produces raw text (starts with BOM) → base64 encode
-  if (extension === 'csv' && content.indexOf('﻿') === 0) {
-    content = stringToBase64(content);
+  if (safeExtension === 'csv' && encodedContent.indexOf('﻿') === 0) {
+    encodedContent = stringToBase64(encodedContent);
   }
 
-  let filePath = wx.env.USER_DATA_PATH + '/' + safeName + '_' + Date.now() + '.' + safeExtension;
-  fs.writeFileSync(filePath, content, 'base64');
+  const filePath = wx.env.USER_DATA_PATH + '/' + safeName + '_' + Date.now() + '.' + safeExtension;
+  const fullFileName = safeName + '.' + safeExtension;
 
-  wx.shareFileMessage({
-    filePath: filePath,
-    fileName: safeName + '.' + safeExtension,
-    fail: function (err) {
-      if (err && err.errMsg && err.errMsg.indexOf('cancel') === -1) {
-        wx.showToast({ title: '保存失败，请重试', icon: 'none' });
+  return new Promise(function(resolve) {
+    function finishFailure(error) {
+      const message = error && (error.errMsg || error.message);
+      if (!/cancel/i.test(String(message || ''))) {
+        wx.showModal({
+          title: '无法打开文件',
+          content: '当前微信环境暂不支持打开或保存该文件，请更新微信后重试。',
+          showCancel: false
+        });
       }
+      resolve({ success: false, error: error || null });
     }
+
+    function saveToDisk(lastError) {
+      if (typeof wx.saveFileToDisk !== 'function') {
+        finishFailure(lastError);
+        return;
+      }
+      wx.saveFileToDisk({
+        filePath: filePath,
+        success: function() {
+          resolve({ success: true, mode: 'disk', filePath: filePath });
+        },
+        fail: finishFailure
+      });
+    }
+
+    function shareFile(lastError) {
+      if (typeof wx.shareFileMessage !== 'function') {
+        saveToDisk(lastError);
+        return;
+      }
+      wx.shareFileMessage({
+        filePath: filePath,
+        fileName: fullFileName,
+        success: function() {
+          resolve({ success: true, mode: 'share', filePath: filePath });
+        },
+        fail: function(error) {
+          if (/cancel/i.test(String(error && error.errMsg || ''))) {
+            resolve({ success: false, cancelled: true, error: error });
+            return;
+          }
+          saveToDisk(error || lastError);
+        }
+      });
+    }
+
+    function openFile() {
+      if (typeof wx.openDocument !== 'function') {
+        shareFile();
+        return;
+      }
+      wx.openDocument({
+        filePath: filePath,
+        fileType: safeExtension,
+        showMenu: true,
+        success: function() {
+          resolve({ success: true, mode: 'open', filePath: filePath });
+        },
+        fail: function(error) {
+          shareFile(error);
+        }
+      });
+    }
+
+    fs.writeFile({
+      filePath: filePath,
+      data: encodedContent,
+      encoding: 'base64',
+      success: openFile,
+      fail: finishFailure
+    });
   });
 }
 

@@ -354,7 +354,7 @@ router.post('/getAuditFilePreview', async (req, res) => {
           page: page,
           data: null,
           fallback: true,
-          message: 'PDF预览生成失败，请检查服务器 PDF 渲染依赖',
+          message: 'PDF预览失败，请下载后查看',
           requestId: req.requestId || ''
         });
       }
