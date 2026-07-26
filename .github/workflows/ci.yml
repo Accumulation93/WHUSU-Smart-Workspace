@@ -130,4 +130,4 @@ jobs:
             -o ServerAliveInterval=15 \
             -o ServerAliveCountMax=4 \
             "$PROD_USER@$PROD_HOST" \
-            "entrypoint=/home/ubuntu/whusu-smart-workspace-deploy/bin/deploy-entrypoint; REDSU_REPO_DIR=/home/ubuntu/whusu-smart-workspace WHUSU_SMART_WORKSPACE_REPO_DIR=/home/ubuntu/whusu-smart-workspace \$entrypoint $TARGET_SHA"
+            "/home/ubuntu/whusu-smart-workspace-deploy/bin/deploy-entrypoint $TARGET_SHA"

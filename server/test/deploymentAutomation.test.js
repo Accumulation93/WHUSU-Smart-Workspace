@@ -46,9 +46,7 @@ function testDeploymentScriptContract() {
   assert.match(script, /deploymentDatabase\.js" restore/);
   assert.match(script, /pm2 startOrReload/);
   assert.match(script, /\/var\/lib\/whusu-smart-workspace-deploy\/maintenance\.flag/);
-  assert.match(script, /worktree repair/);
   assert.match(script, /ln -sfn "\$SHARED_DIR\/server\.env"/);
-  assert.match(script, /pm2 delete redsu-scoring/);
   assert.match(script, /install -m 755/);
   assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);
   assert.doesNotMatch(script, /git reset --hard/);
