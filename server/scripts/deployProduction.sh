@@ -37,6 +37,21 @@ rename_legacy_path() {
 rename_legacy_path "/home/ubuntu/redsu_backups" "/home/ubuntu/whusu-smart-workspace-backups"
 rename_legacy_path "/home/ubuntu/redsu_ssh_key" "/home/ubuntu/whusu-smart-workspace-ssh-key"
 rename_legacy_path "/home/ubuntu/redsu_ssh_key.pub" "/home/ubuntu/whusu-smart-workspace-ssh-key.pub"
+rename_legacy_path "/home/ubuntu/.claude/projects/-home-ubuntu-redsu-scoring" "/home/ubuntu/.claude/projects/-home-ubuntu-whusu-smart-workspace"
+rename_legacy_path "/home/ubuntu/.pm2/pids/redsu-backup-13.pid" "/home/ubuntu/.pm2/pids/whusu-smart-workspace-backup-pre-rename-13.pid"
+rename_legacy_path "/home/ubuntu/.pm2/pids/redsu-scoring-12.pid" "/home/ubuntu/.pm2/pids/whusu-smart-workspace-api-pre-rename-12.pid"
+rename_legacy_path "/home/ubuntu/.pm2/pids/redsu-scoring-14.pid" "/home/ubuntu/.pm2/pids/whusu-smart-workspace-api-pre-rename-14.pid"
+rename_legacy_path "/home/ubuntu/whusu-smart-workspace-deploy/state/redsu-blog.20260717-141306.bak" "/home/ubuntu/whusu-smart-workspace-deploy/state/whusu-smart-workspace-blog.20260717-141306.bak"
+rename_legacy_path "/home/ubuntu/whusu-smart-workspace-deploy/state/redsu-blog.20260717-141347.bak" "/home/ubuntu/whusu-smart-workspace-deploy/state/whusu-smart-workspace-blog.20260717-141347.bak"
+
+shopt -s nullglob
+for source in /home/ubuntu/backups/whusu-smart-workspace/redsu_scoring-*.sql.gz; do
+  rename_legacy_path "$source" "${source/redsu_scoring-/whusu_smart_workspace-}"
+done
+for source in /home/ubuntu/whusu-smart-workspace-backups/redsu_before_audit_*.sql.gz; do
+  rename_legacy_path "$source" "${source/redsu_before_audit_/whusu_smart_workspace_before_audit_}"
+done
+shopt -u nullglob
 
 mapfile -t EXISTING_RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -print)
 for existing_release in "${EXISTING_RELEASES[@]}"; do
