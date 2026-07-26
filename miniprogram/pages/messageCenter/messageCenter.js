@@ -1,6 +1,29 @@
-const { callFunction, formatAuditTime } = require('../../utils/api');
+const { callFunction, formatAuditTime, showShortToast } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
+const messageScope = require('../../utils/messageScope');
+const { activateOrganization } = require('../../utils/organizationActivation');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
+
+const CATEGORY_LABELS = {
+  audit: '审核',
+  venue: '场地',
+  scoring: '考核',
+  hr: '人事',
+  system: '系统'
+};
+
+function pendingReadStorageKey(organizationId, role) {
+  return 'pendingNotificationReads:' + String(organizationId || '') + ':' + String(role || '');
+}
+
+function queuePendingRead(organizationId, role, id) {
+  const key = pendingReadStorageKey(organizationId, role);
+  const ids = wx.getStorageSync(key) || [];
+  if (Array.isArray(ids) && ids.indexOf(id) === -1) {
+    ids.push(id);
+    wx.setStorageSync(key, ids);
+  }
+}
 
 Page({
   data: {
@@ -8,15 +31,29 @@ Page({
     todos: [],
     notifications: [],
     todoTotal: 0,
+    notificationTotal: 0,
     unreadCount: 0,
     todoCursor: '',
     notificationCursor: '',
     loading: false,
-    loadingMore: false
+    loadingMore: false,
+    organizationOptions: [{ id: '', name: '全部组织' }],
+    selectedOrganizationId: '',
+    selectedOrganizationName: '全部组织',
+    selectedOrganizationIndex: 0,
+    partial: false,
+    showSwitchDialog: false,
+    switchOrganizationName: '',
+    switchingOrganization: false
   },
 
   onLoad(options) {
-    this.setData({ activeTab: options.tab === 'notifications' ? 'notifications' : 'todos' });
+    const scope = messageScope.getScope();
+    this.setData({
+      activeTab: options.tab === 'notifications' ? 'notifications' : 'todos',
+      selectedOrganizationId: scope.organizationId,
+      selectedOrganizationName: scope.organizationName
+    });
   },
 
   onShow() {
@@ -24,12 +61,9 @@ Page({
     if (state.changed) {
       orgSession.invalidateRequests(this);
       this._messageRevision = (this._messageRevision || 0) + 1;
-      this.setData({
-        todos: [], notifications: [], todoTotal: 0, unreadCount: 0,
-        todoCursor: '', notificationCursor: '', loading: false, loadingMore: false
-      });
     }
-    this.reloadCurrentTab();
+    this.loadOverview(true);
+    this.retryPendingNotificationReads();
     this.startPolling();
   },
 
@@ -44,7 +78,7 @@ Page({
   startPolling() {
     this.stopPolling();
     const that = this;
-    this._pollTimer = setInterval(function() { that.reloadCurrentTab(); }, 30000);
+    this._pollTimer = setInterval(function() { that.loadOverview(true); }, 30000);
   },
 
   stopPolling() {
@@ -57,127 +91,333 @@ Page({
     const tab = e.currentTarget.dataset.tab;
     if (!tab || tab === this.data.activeTab) return;
     this.setData({ activeTab: tab });
-    if (tab === 'todos' && !this.data.todos.length) this.loadTodos(true);
-    if (tab === 'notifications' && !this.data.notifications.length) this.loadNotifications(true);
-  },
-
-  reloadCurrentTab() {
-    if (this.data.activeTab === 'notifications') this.loadNotifications(true);
-    else this.loadTodos(true);
   },
 
   formatItems(items) {
     return (items || []).map(function(item) {
-      return Object.assign({}, item, { createdAt: formatAuditTime(item.createdAt) });
+      return Object.assign({}, item, {
+        categoryLabel: CATEGORY_LABELS[item.category] || '通知',
+        createdAt: formatAuditTime(item.createdAt)
+      });
     });
   },
 
-  async loadTodos(reset) {
+  buildOrganizationOptions(organizations) {
+    return [{ id: '', name: '全部组织', isCurrentOrganization: false }].concat(
+      (organizations || []).map(function(item) {
+        return {
+          id: item.id,
+          name: item.name,
+          isCurrentOrganization: !!item.isCurrentOrganization
+        };
+      })
+    );
+  },
+
+  selectedOrganizationData() {
+    return this.data.selectedOrganizationId
+      ? { organizationId: this.data.selectedOrganizationId }
+      : {};
+  },
+
+  async loadOverview(reset) {
     if (this.data.loading || this.data.loadingMore) return;
-    const request = orgSession.beginRequest(this, reset ? 'messageTodosReset' : 'messageTodosMore');
-    this.setData(reset ? { loading: true } : { loadingMore: true });
+    const request = orgSession.beginRequest(this, 'messageOverview');
+    const revision = this._messageRevision || 0;
+    this.setData({ loading: true });
     try {
-      const cursor = reset ? '' : this.data.todoCursor;
-      if (!reset && !cursor) return;
-      const result = await callFunction({ name: 'listTodos', data: { limit: 20, cursor: cursor } });
+      const data = Object.assign({ limit: 20 }, this.selectedOrganizationData());
+      const result = await callFunction({ name: 'getMessageOverview', data });
+      if (!orgSession.isRequestCurrent(this, request)
+          || revision !== (this._messageRevision || 0)) return;
+      if (result.status === 'org_access_denied' && this.data.selectedOrganizationId) {
+        messageScope.resetScope();
+        this._messageRevision = (this._messageRevision || 0) + 1;
+        this.setData({
+          selectedOrganizationId: '',
+          selectedOrganizationName: '全部组织',
+          selectedOrganizationIndex: 0,
+          loading: false
+        });
+        showShortToast('组织权限已变更');
+        this.loadOverview(true);
+        return;
+      }
+      if (result.status !== 'success') throw new Error(result.message || '消息加载失败');
+
+      const organizationOptions = this.buildOrganizationOptions(result.organizations);
+      let selectedIndex = organizationOptions.findIndex((item) => (
+        item.id === this.data.selectedOrganizationId
+      ));
+      if (selectedIndex < 0 && this.data.selectedOrganizationId) {
+        messageScope.resetScope();
+        this._messageRevision = (this._messageRevision || 0) + 1;
+        this.setData({
+          selectedOrganizationId: '',
+          selectedOrganizationName: '全部组织',
+          selectedOrganizationIndex: 0,
+          loading: false
+        });
+        showShortToast('组织权限已变更');
+        this.loadOverview(true);
+        return;
+      }
+      if (selectedIndex < 0) selectedIndex = 0;
+      const selectedOrganization = organizationOptions[selectedIndex];
+      messageScope.setScope(selectedOrganization);
+
+      const todos = result.todos || {};
+      const notifications = result.notifications || {};
+      this.setData({
+        todos: this.formatItems(todos.items),
+        notifications: this.formatItems(notifications.items),
+        todoTotal: todos.total || 0,
+        notificationTotal: notifications.total || 0,
+        unreadCount: notifications.unreadCount || 0,
+        todoCursor: todos.nextCursor || '',
+        notificationCursor: notifications.nextCursor || '',
+        organizationOptions,
+        selectedOrganizationIndex: selectedIndex,
+        selectedOrganizationName: selectedOrganization.name,
+        partial: !!result.partial
+      });
+    } catch (error) {
+      if (!(error && error.silent)) showShortToast('消息加载失败');
+    } finally {
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
+    }
+  },
+
+  onOrganizationChange(e) {
+    const index = Number(e.detail.value);
+    const organization = this.data.organizationOptions[index];
+    if (!organization || organization.id === this.data.selectedOrganizationId) return;
+    messageScope.setScope(organization);
+    this._messageRevision = (this._messageRevision || 0) + 1;
+    orgSession.invalidateRequests(this);
+    this.setData({
+      selectedOrganizationId: organization.id,
+      selectedOrganizationName: organization.name,
+      selectedOrganizationIndex: index,
+      todos: [],
+      notifications: [],
+      todoTotal: 0,
+      notificationTotal: 0,
+      unreadCount: 0,
+      todoCursor: '',
+      notificationCursor: '',
+      partial: false,
+      loading: false,
+      loadingMore: false
+    });
+    this.loadOverview(true);
+  },
+
+  async loadMore() {
+    if (this.data.loading || this.data.loadingMore) return;
+    const isNotifications = this.data.activeTab === 'notifications';
+    const cursor = isNotifications ? this.data.notificationCursor : this.data.todoCursor;
+    if (!cursor) return;
+    const request = orgSession.beginRequest(this, isNotifications ? 'messageNotificationsMore' : 'messageTodosMore');
+    this.setData({ loadingMore: true });
+    try {
+      const name = isNotifications ? 'listNotifications' : 'listTodos';
+      const data = Object.assign({ limit: 20, cursor }, this.selectedOrganizationData());
+      const result = await callFunction({ name, data });
       if (!orgSession.isRequestCurrent(this, request) || result.status !== 'success') return;
       const items = this.formatItems(result.items);
-      this.setData({
-        todos: reset ? items : this.data.todos.concat(items),
-        todoTotal: result.total || 0,
-        todoCursor: result.nextCursor || ''
-      });
+      if (isNotifications) {
+        this.setData({
+          notifications: this.data.notifications.concat(items),
+          notificationTotal: result.total || 0,
+          unreadCount: result.unreadCount || 0,
+          notificationCursor: result.nextCursor || '',
+          partial: !!result.partial
+        });
+      } else {
+        this.setData({
+          todos: this.data.todos.concat(items),
+          todoTotal: result.total || 0,
+          todoCursor: result.nextCursor || '',
+          partial: !!result.partial
+        });
+      }
     } catch (error) {
-      if (!(error && error.silent)) wx.showToast({ title: '待办加载失败', icon: 'none' });
+      if (!(error && error.silent)) showShortToast('加载更多失败');
     } finally {
-      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false, loadingMore: false });
+      if (orgSession.isRequestCurrent(this, request)) this.setData({ loadingMore: false });
     }
   },
 
-  async loadNotifications(reset) {
-    if (this.data.loading || this.data.loadingMore) return;
-    const request = orgSession.beginRequest(this, reset ? 'messageNotificationsReset' : 'messageNotificationsMore');
-    const revision = this._messageRevision || 0;
-    this.setData(reset ? { loading: true } : { loadingMore: true });
-    try {
-      const cursor = reset ? '' : this.data.notificationCursor;
-      if (!reset && !cursor) return;
-      const result = await callFunction({ name: 'listNotifications', data: { limit: 20, cursor: cursor } });
-      if (!orgSession.isRequestCurrent(this, request) || revision !== (this._messageRevision || 0) || result.status !== 'success') return;
-      const items = this.formatItems(result.items);
-      this.setData({
-        notifications: reset ? items : this.data.notifications.concat(items),
-        unreadCount: result.unreadCount || 0,
-        notificationCursor: result.nextCursor || ''
-      });
-    } catch (error) {
-      if (!(error && error.silent)) wx.showToast({ title: '通知加载失败', icon: 'none' });
-    } finally {
-      if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false, loadingMore: false });
-    }
+  findItem(type, id) {
+    const source = type === 'notification' ? this.data.notifications : this.data.todos;
+    return source.find(function(item) { return item.id === id; }) || null;
   },
 
-  loadMore() {
-    if (this.data.activeTab === 'notifications') this.loadNotifications(false);
-    else this.loadTodos(false);
+  requiresOrganizationSwitch(item) {
+    return !!(item && item.organizationId
+      && item.organizationId !== String(wx.getStorageSync('activeOrgId') || ''));
+  },
+
+  openSwitchDialog(item, type) {
+    this._pendingNavigation = { item, type };
+    this.setData({
+      showSwitchDialog: true,
+      switchOrganizationName: item.organizationName || '目标组织'
+    });
+  },
+
+  closeSwitchDialog() {
+    if (this.data.switchingOrganization) return;
+    this._pendingNavigation = null;
+    this.setData({ showSwitchDialog: false, switchOrganizationName: '' });
   },
 
   onTodoTap(e) {
-    navigateToTrustedRoute(e.currentTarget.dataset.url);
+    const item = this.findItem('todo', e.currentTarget.dataset.id);
+    if (!item) return;
+    if (this.requiresOrganizationSwitch(item)) {
+      this.openSwitchDialog(item, 'todo');
+      return;
+    }
+    navigateToTrustedRoute(item.targetUrl);
   },
 
-  async onNotificationTap(e) {
-    const id = e.currentTarget.dataset.id;
-    const url = e.currentTarget.dataset.url;
-    const item = this.data.notifications.find(function(row) { return row.id === id; });
-    if (item && !item.isRead) {
+  async markNotificationRead(item) {
+    const result = await callFunction({
+      name: 'markNotificationRead',
+      data: { id: item.id, organizationId: item.organizationId }
+    });
+    if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+  },
+
+  async openNotification(item) {
+    if (!item.isRead) {
       this._messageRevision = (this._messageRevision || 0) + 1;
       this.setData({
         notifications: this.data.notifications.map(function(row) {
-          return row.id === id ? Object.assign({}, row, { isRead: true }) : row;
+          return row.id === item.id ? Object.assign({}, row, { isRead: true }) : row;
         }),
         unreadCount: Math.max(0, this.data.unreadCount - 1)
       });
-      navigateToTrustedRoute(url);
+    }
+    navigateToTrustedRoute(item.targetUrl);
+    if (!item.isRead) {
       try {
-        const result = await callFunction({ name: 'markNotificationRead', data: { id: id } });
-        if (result.status === 'success') this.setData({ unreadCount: result.unreadCount || 0 });
+        await this.markNotificationRead(item);
       } catch (_) {
-        this.loadNotifications(true);
+        const role = wx.getStorageSync('activeRole') || '';
+        queuePendingRead(item.organizationId, role, item.id);
       }
+    }
+  },
+
+  onNotificationTap(e) {
+    const item = this.findItem('notification', e.currentTarget.dataset.id);
+    if (!item) return;
+    if (this.requiresOrganizationSwitch(item)) {
+      this.openSwitchDialog(item, 'notification');
       return;
     }
-    navigateToTrustedRoute(url);
+    this.openNotification(item);
+  },
+
+  async confirmOrganizationSwitch() {
+    const pending = this._pendingNavigation;
+    if (!pending || this.data.switchingOrganization) return;
+    this.setData({ switchingOrganization: true });
+    try {
+      const activated = await activateOrganization(pending.item.organizationId);
+      this._activeOrgSnapshot = orgSession.getSnapshot();
+      this.setData({ showSwitchDialog: false, switchingOrganization: false });
+      if (pending.type === 'notification' && !pending.item.isRead) {
+        try {
+          await this.markNotificationRead(pending.item);
+        } catch (_) {
+          queuePendingRead(pending.item.organizationId, activated.role, pending.item.id);
+        }
+      }
+      this._pendingNavigation = null;
+      navigateToTrustedRoute(pending.item.targetUrl);
+    } catch (error) {
+      const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
+      showShortToast(denied ? '组织权限已变更' : '组织切换失败');
+      this._pendingNavigation = null;
+      this.setData({
+        showSwitchDialog: false,
+        switchOrganizationName: '',
+        switchingOrganization: false
+      });
+      this.loadOverview(true);
+    }
   },
 
   async markAllRead() {
     if (!this.data.unreadCount) return;
+    const previous = this.data.notifications;
     this._messageRevision = (this._messageRevision || 0) + 1;
+    this.setData({
+      unreadCount: 0,
+      notifications: previous.map(function(item) {
+        return Object.assign({}, item, { isRead: true });
+      })
+    });
     try {
-      const result = await callFunction({ name: 'markAllNotificationsRead', data: {} });
-      if (result.status !== 'success') throw new Error(result.message || 'failed');
-      this.setData({
-        unreadCount: 0,
-        notifications: this.data.notifications.map(function(item) { return Object.assign({}, item, { isRead: true }); })
+      const result = await callFunction({
+        name: 'markAllNotificationsRead',
+        data: this.selectedOrganizationData()
       });
+      if (result.status !== 'success') throw new Error(result.message || '操作失败');
+      if (result.partial) this.setData({ partial: true });
     } catch (_) {
-      wx.showToast({ title: '操作失败，请重试', icon: 'none' });
+      this.setData({ notifications: previous });
+      this.loadOverview(true);
+      showShortToast('操作失败');
     }
   },
 
   async deleteNotification(e) {
-    const id = e.currentTarget.dataset.id;
-    const item = this.data.notifications.find(function(row) { return row.id === id; });
+    const item = this.findItem('notification', e.currentTarget.dataset.id);
+    if (!item) return;
+    const previous = this.data.notifications;
     this._messageRevision = (this._messageRevision || 0) + 1;
+    this.setData({
+      notifications: previous.filter(function(row) { return row.id !== item.id; }),
+      notificationTotal: Math.max(0, this.data.notificationTotal - 1),
+      unreadCount: item.isRead ? this.data.unreadCount : Math.max(0, this.data.unreadCount - 1)
+    });
     try {
-      const result = await callFunction({ name: 'deleteNotification', data: { id: id } });
-      if (result.status !== 'success') throw new Error(result.message || 'failed');
-      this.setData({
-        notifications: this.data.notifications.filter(function(row) { return row.id !== id; }),
-        unreadCount: result.unreadCount || 0
+      const result = await callFunction({
+        name: 'deleteNotification',
+        data: { id: item.id, organizationId: item.organizationId }
       });
+      if (result.status !== 'success') throw new Error(result.message || '删除失败');
     } catch (_) {
-      if (item) wx.showToast({ title: '删除失败，请重试', icon: 'none' });
+      this.setData({ notifications: previous });
+      this.loadOverview(true);
+      showShortToast('删除失败');
     }
+  },
+
+  async retryPendingNotificationReads() {
+    const orgId = wx.getStorageSync('activeOrgId') || '';
+    const role = wx.getStorageSync('activeRole') || '';
+    const key = pendingReadStorageKey(orgId, role);
+    const ids = wx.getStorageSync(key) || [];
+    if (!Array.isArray(ids) || !ids.length) return;
+    const failed = [];
+    for (const id of ids) {
+      try {
+        const result = await callFunction({
+          name: 'markNotificationRead',
+          data: { id, organizationId: orgId }
+        });
+        if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+      } catch (_) {
+        failed.push(id);
+      }
+    }
+    if (failed.length) wx.setStorageSync(key, failed);
+    else wx.removeStorageSync(key);
   }
 });

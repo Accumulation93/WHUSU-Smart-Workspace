@@ -13,6 +13,7 @@ const authChallengeModel = require('../models/authChallenge');
 const pool = require('../../config/db');
 const { clearOrgAccessCache } = require('../../middleware/orgContext');
 const { loadEffectivePermissions } = require('../services/adminPermissions');
+const { listAvailableOrganizations } = require('../services/accessibleOrganizations');
 
 const WECHAT_APPID = process.env.WECHAT_APPID;
 const WECHAT_SECRET = process.env.WECHAT_SECRET;
@@ -81,92 +82,19 @@ async function getSystemDefaultOrgId() {
 
 // 构建用户可用的组织列表（user_info + hr_info 匹配 + admin_info 去重，标注角色）
 async function buildAvailableOrgs(openid, adminRecords) {
-  const orgMap = new Map();
-  const allOrgs = await organizationModel.getAll();
-
-  // 1. user_info 绑定 — 直接关联的组织
-  // 必须校验 hr_id 有效（防止空 hr_id 的僵尸记录泄漏组织访问权）
-  const userRecords = await userInfoModel.getByOpenidGlobal(openid);
-  const validUserRecords = userRecords.filter(r => safeString(r.hr_id));
-  // 批量校验 hr_id 确实存在于对应组织的 hr_info 表中
-  if (validUserRecords.length > 0) {
-    const hrCheckParams = [];
-    const hrCheckConds = validUserRecords.map(r => {
-      hrCheckParams.push(r.hr_id, r.org_id);
-      return '(id = ? AND org_id = ?)';
-    }).join(' OR ');
-    const [validHrRows] = await pool.query(
-      `SELECT id, org_id FROM hr_info WHERE ${hrCheckConds}`,
-      hrCheckParams
-    );
-    const validOrgIds = new Set(validHrRows.map(r => r.org_id));
-    for (const r of validUserRecords) {
-      if (validOrgIds.has(r.org_id)) {
-        orgMap.set(r.org_id, { role: 'user' });
-      }
-    }
-  }
-
-  // 2. hr_info 匹配 — 跨组织身份识别
-  // 收集用户在所有组织中的身份标识（学号+姓名），用于跨组织匹配
-  const hrIds = userRecords.filter(r => safeString(r.hr_id)).map(r => r.hr_id);
-  if (hrIds.length > 0) {
-    const placeholders = hrIds.map(() => '?').join(',');
-    const [identityRows] = await pool.query(
-      `SELECT DISTINCT student_id, name FROM hr_info WHERE id IN (${placeholders})`,
-      hrIds
-    );
-
-    if (identityRows.length > 0) {
-      // 在所有组织中搜索匹配的 hr_info（相同 studentId + name）
-      const conditions = identityRows.map(() => '(h.student_id = ? AND h.name = ?)').join(' OR ');
-      const params = [];
-      identityRows.forEach(r => { params.push(r.student_id, r.name); });
-      const orgPlaceholders = allOrgs.map(() => '?').join(',');
-      const [hrRows] = await pool.query(
-        `SELECT DISTINCT org_id FROM hr_info h WHERE org_id IN (${orgPlaceholders}) AND (${conditions})`,
-        [...allOrgs.map(o => o.id), ...params]
-      );
-
-      for (const row of hrRows) {
-        if (!orgMap.has(row.org_id)) {
-          orgMap.set(row.org_id, { role: 'user' });
-        }
-      }
-    }
-  }
-
-  // 3. admin_info 绑定（仅管理端调用；普通用户端传 null 跳过）
-  if (adminRecords !== null) {
-    const adminRecs = adminRecords || await adminInfoModel.getByOpenidAcrossOrgs(openid);
-    for (const r of adminRecs) {
-      orgMap.set(r.org_id, { role: 'admin' });
-    }
-
-    // 全局超级管理员可以看到所有组织
-    const hasGlobalSuperAdmin = adminRecs.some(r => r.admin_level === 'super_admin' && r.org_id === '');
-    if (hasGlobalSuperAdmin) {
-      for (const org of allOrgs) {
-        if (!orgMap.has(org.id)) orgMap.set(org.id, { role: 'admin' });
-      }
-    }
-  }
-
-  return allOrgs
-    .filter(org => orgMap.has(org.id))
-    .map(org => ({ id: org.id, name: org.name, role: orgMap.get(org.id).role }));
+  return listAvailableOrganizations(openid, adminRecords === null ? 'user' : 'admin');
 }
 
 // userLogin - 微信登录（普通用户）— 4 层 fallback 智能组织匹配
 router.post('/userLogin', async (req, res) => {
   try {
-    // Use openid from JWT token if available (already logged in), otherwise exchange code
+    // 已登录时优先使用 JWT 中的 openid，否则通过微信 code 换取
     let openid = req.openid || '';
 
     if (!openid) {
       const code = safeString(req.body.code);
 
-      // Exchange code for openid via WeChat API (or use dev fallback)
+      // 通过微信接口用 code 换取 openid，开发环境允许显式回退
       openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
       if (!openid && code) {
         try {
@@ -306,7 +234,7 @@ router.post('/userLogin', async (req, res) => {
 // adminLogin - 管理员登录（智能组织匹配）
 router.post('/adminLogin', async (req, res) => {
   try {
-    // Use openid from JWT token if available (already logged in), otherwise exchange code
+    // 已登录时优先使用 JWT 中的 openid，否则通过微信 code 换取
     let openid = req.openid || '';
 
     if (!openid) {
@@ -650,7 +578,7 @@ router.post('/confirmAutoBind', async (req, res) => {
       availableOrgs: await buildAvailableOrgs(openid, null)
     });
   } catch (e) {
-    try { await conn.rollback(); } catch (_) { /* ignore */ }
+    try { await conn.rollback(); } catch (_) { /* 忽略回滚异常 */ }
     req.logger.error('confirmAutoBind failed', { error: e.message });
     res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
   } finally {
@@ -700,7 +628,7 @@ router.post('/bindUserInfo', async (req, res) => {
       return res.json({ status: 'name_mismatch', message: '姓名与人事信息不匹配' });
     }
 
-    // Check if this hr_id is already bound to another WeChat account
+    // 检查该人事身份是否已经绑定其他微信账号
     const [conflicts] = await conn.query(
       'SELECT id FROM user_info WHERE hr_id = ? AND openid != ? AND org_id = ? LIMIT 1 FOR UPDATE',
       [hrRecord.id, openid, targetOrgId]
@@ -737,7 +665,7 @@ router.post('/bindUserInfo', async (req, res) => {
       activeOrg: { id: targetOrgId }
     });
   } catch (e) {
-    try { await conn.rollback(); } catch (_) { /* ignore */ }
+    try { await conn.rollback(); } catch (_) { /* 忽略回滚异常 */ }
     req.logger.error('bindUserInfo failed', { error: e.message });
     res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
   } finally {
@@ -779,7 +707,7 @@ router.post('/bindAdminInfo', async (req, res) => {
       return res.json({ status: 'invite_expired', message: '邀请码已过期，请联系管理员重新生成' });
     }
 
-    // Only reject if admin already has a different openid bound
+    // 仅在管理员已经绑定其他 openid 时拒绝
     const boundOpenid = safeString(admin.openid);
     if (boundOpenid && boundOpenid !== openid) {
       await conn.rollback();
@@ -810,7 +738,7 @@ router.post('/bindAdminInfo', async (req, res) => {
       activeOrg: admin.org_id ? { id: admin.org_id } : null
     });
   } catch (e) {
-    try { await conn.rollback(); } catch (_) { /* ignore */ }
+    try { await conn.rollback(); } catch (_) { /* 忽略回滚异常 */ }
     req.logger.error('bindAdminInfo failed', { error: e.message });
     res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
   } finally {

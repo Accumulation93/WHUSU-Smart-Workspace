@@ -1,8 +1,5 @@
 const { callFunction, showShortToast, getErrorText } = require('../../../../utils/api');
-const eventBus = require('../../../../utils/eventBus');
-const orgSession = require('../../../../utils/orgSession');
-
-const STORAGE_KEY = 'roleProfiles';
+const { activateOrganization } = require('../../../../utils/organizationActivation');
 
 function readCachedOrganizations(role) {
   const roleCached = wx.getStorageSync('availableOrgs:' + role);
@@ -11,13 +8,6 @@ function readCachedOrganizations(role) {
   return Array.isArray(cached)
     ? cached.filter((item) => !item.role || item.role === role)
     : [];
-}
-
-function saveRoleProfile(role, user) {
-  if (!role || !user) return;
-  const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-  roleProfiles[role] = Object.assign({}, roleProfiles[role] || {}, user);
-  wx.setStorageSync(STORAGE_KEY, roleProfiles);
 }
 
 Page({
@@ -113,32 +103,11 @@ Page({
 
     this.setData({ switchingOrgId: organization.id });
     try {
-      const result = await callFunction({
-        name: 'activateOrganization',
-        data: { organizationId: organization.id, role: this.data.activeRole }
-      });
-      if (result.status !== 'success' || !result.activeOrg) {
-        showShortToast(result.message || '切换失败');
-        return;
-      }
-
-      const activeOrg = result.activeOrg;
-      saveRoleProfile(this.data.activeRole, result.user);
-      const contextResult = orgSession.commitContext({
-        orgId: activeOrg.id,
-        orgName: activeOrg.name,
-        role: this.data.activeRole
-      });
+      const activated = await activateOrganization(organization.id);
+      const activeOrg = activated.activeOrg;
       this.setData({
         activeOrgId: activeOrg.id,
         activeOrgName: activeOrg.name
-      });
-      eventBus.emit('org:changed', {
-        orgId: activeOrg.id,
-        orgName: activeOrg.name,
-        role: this.data.activeRole,
-        orgVersion: contextResult.version,
-        user: result.user || null
       });
       showShortToast('组织已切换', 'success');
       this._isActive = false;

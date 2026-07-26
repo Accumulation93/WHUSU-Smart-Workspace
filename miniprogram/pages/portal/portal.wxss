@@ -45,7 +45,7 @@ button, input, textarea, picker, view, text, scroll-view {
   pointer-events: none;
 }
 
-/* ── Hero (exact copy from home.wxss lines 53-130) ── */
+/* ── 头部区域（沿用主页样式） ── */
 .hero {
   position: relative;
   overflow: hidden;
@@ -118,7 +118,7 @@ button, input, textarea, picker, view, text, scroll-view {
   line-height: 1.72;
 }
 
-/* ── Card (exact copy from home.wxss lines 132-147) ── */
+/* ── 玻璃卡片 ── */
 .card {
   position: relative;
   margin-bottom: 24rpx;
@@ -140,7 +140,7 @@ button, input, textarea, picker, view, text, scroll-view {
   filter: none !important;
 }
 
-/* ── Info-head + section-title (exact copy from home.wxss) ── */
+/* ── 信息标题与分区标题 ── */
 .info-head {
   position: relative;
   z-index: 1;
@@ -171,7 +171,7 @@ button, input, textarea, picker, view, text, scroll-view {
   background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%);
 }
 
-/* ── Activity-name (for org name display) ── */
+/* ── 组织名称展示 ── */
 .activity-name {
   position: relative;
   z-index: 1;
@@ -196,7 +196,7 @@ button, input, textarea, picker, view, text, scroll-view {
   background: linear-gradient(90deg, rgba(59, 130, 246, 0.46), rgba(59, 130, 246, 0.08));
 }
 
-/* ── Info grid / info block (exact copy from home.wxss lines 361-399) ── */
+/* ── 信息网格与信息块 ── */
 .info-grid {
   display: flex;
   flex-wrap: wrap;
@@ -238,7 +238,7 @@ button, input, textarea, picker, view, text, scroll-view {
   overflow-wrap: anywhere;
 }
 
-/* ── Navigation rows inside card ── */
+/* ── 卡片内导航行 ── */
 .nav-list {
   position: relative;
   z-index: 1;
@@ -310,7 +310,7 @@ button, input, textarea, picker, view, text, scroll-view {
   flex-shrink: 0;
 }
 
-/* ── Actions (exact copy from home.wxss lines 661-742) ── */
+/* ── 操作区 ── */
 .actions {
   margin-top: 14rpx;
   padding-bottom: 12rpx;
@@ -387,7 +387,7 @@ button, input, textarea, picker, view, text, scroll-view {
   filter: saturate(1.03);
 }
 
-/* ── Footer ── */
+/* ── 页脚 ── */
 .page-footer {
   text-align: center;
   padding: 20rpx 0;
@@ -405,7 +405,7 @@ button, input, textarea, picker, view, text, scroll-view {
   margin-top: 4rpx;
 }
 
-/* ── Notification Card ── */
+/* ── 通知卡片 ── */
 .notification-badge {
   flex-shrink: 0; min-width: 40rpx; height: 40rpx; padding: 0 10rpx; border-radius: 20rpx;
   display: flex; align-items: center; justify-content: center;
@@ -435,8 +435,8 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .message-preview-scroll {
-  height: 510rpx;
-  max-height: 510rpx;
+  height: 770rpx;
+  max-height: 770rpx;
   min-height: 112rpx;
 }
 
@@ -466,6 +466,21 @@ button, input, textarea, picker, view, text, scroll-view {
   text-align: center;
   color: #94a3b8;
   font-size: 21rpx;
+}
+
+.portal-message-partial {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 18rpx;
+  padding: 14rpx 18rpx;
+  border: 1rpx solid rgba(56,189,248,0.42);
+  border-radius: 18rpx;
+  color: #0369a1;
+  font-size: 22rpx;
+  font-weight: 650;
+  background: linear-gradient(135deg, rgba(240,249,255,0.94), rgba(224,242,254,0.72));
+  box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.82);
 }
 
 .notification-item {
@@ -549,6 +564,48 @@ button, input, textarea, picker, view, text, scroll-view {
   flex: 1; min-width: 0;
 }
 
+.portal-message-metadata {
+  display: flex;
+  align-items: flex-start;
+  gap: 8rpx;
+  margin-bottom: 7rpx;
+  flex-wrap: wrap;
+}
+
+.portal-organization-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 6rpx;
+  max-width: 100%;
+  padding: 4rpx 9rpx;
+  border: 1rpx solid rgba(186,210,232,0.72);
+  border-radius: 14rpx;
+  color: #475569;
+  font-size: 18rpx;
+  font-weight: 700;
+  line-height: 1.35;
+  background: linear-gradient(135deg, rgba(248,250,252,0.94), rgba(241,245,249,0.78));
+  box-sizing: border-box;
+}
+
+.portal-organization-meta-current {
+  border-color: rgba(147,197,253,0.64);
+  color: #2563eb;
+  background: linear-gradient(135deg, rgba(239,246,255,0.94), rgba(219,234,254,0.78));
+}
+
+.portal-organization-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.portal-organization-current {
+  flex: 0 0 auto;
+  color: #2563eb;
+  font-size: 17rpx;
+  font-weight: 800;
+}
+
 .notification-title {
   color: #0f172a; font-size: 26rpx; font-weight: 700;
   white-space: normal; overflow-wrap: anywhere;
@@ -571,7 +628,7 @@ button, input, textarea, picker, view, text, scroll-view {
   color: #94a3b8; font-size: 24rpx;
 }
 
-/* ── Dialog (exact copy from home.wxss lines 761-828) ── */
+/* ── 弹窗 ── */
 .dialog-layer {
   position: fixed;
   inset: 0;
@@ -642,7 +699,28 @@ button, input, textarea, picker, view, text, scroll-view {
   font-size: 25rpx !important;
 }
 
-/* ── Animation (exact copy from home.wxss) ── */
+.message-switch-dialog {
+  padding-bottom: 24rpx;
+}
+
+.message-switch-badge {
+  border-radius: 12rpx;
+}
+
+.message-switch-org-name {
+  margin-top: 10rpx;
+  padding: 14rpx 16rpx;
+  border: 1rpx solid rgba(147,197,253,0.58);
+  border-radius: 16rpx;
+  color: #2563eb;
+  font-size: 25rpx;
+  font-weight: 750;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  background: linear-gradient(135deg, rgba(239,246,255,0.96), rgba(219,234,254,0.72));
+}
+
+/* ── 动画 ── */
 @keyframes glassFadeUp {
   from { opacity: 0; transform: translateY(18rpx); }
   to { opacity: 1; transform: translateY(0); }
@@ -652,7 +730,7 @@ button, input, textarea, picker, view, text, scroll-view {
    App Services — View Toggle, Search, Grid
    ═══════════════════════════════════════════════ */
 
-/* ── View toggle tabs ── */
+/* ── 视图切换标签 ── */
 .app-view-tabs {
   display: flex;
   gap: 0;
@@ -678,7 +756,7 @@ button, input, textarea, picker, view, text, scroll-view {
   box-shadow: 0 4rpx 10rpx rgba(37, 99, 235, 0.22);
 }
 
-/* ── Search bar ── */
+/* ── 搜索栏 ── */
 .app-search-bar {
   position: relative;
   z-index: 1;
@@ -724,7 +802,7 @@ button, input, textarea, picker, view, text, scroll-view {
   font-weight: 700;
 }
 
-/* ── Grid View (宫格) ── */
+/* ── 宫格视图 ── */
 .app-grid {
   position: relative;
   z-index: 1;
@@ -903,6 +981,18 @@ button, input, textarea, picker, view, text, scroll-view {
     font-size: 15px !important;
     line-height: 20px !important;
   }
+
+  .portal-message-partial {
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .portal-organization-meta,
+  .notification-tag {
+    border-radius: 9px;
+    font-size: 12px;
+  }
 }
 
 @media (min-width: 900px) {
@@ -918,6 +1008,7 @@ button, input, textarea, picker, view, text, scroll-view {
   .page > .hero,
   .page > .portal-profile-card,
   .page > .portal-services-card,
+  .page > .portal-message-partial,
   .page > .actions,
   .page > .page-footer,
   .page > .dialog-layer {

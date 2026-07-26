@@ -2,11 +2,19 @@ const { callFunction, formatAuditTime } = require('../../utils/api');
 const eventBus = require('../../utils/eventBus');
 const orgSession = require('../../utils/orgSession');
 const adminPermissions = require('../../utils/adminPermissions');
+const { activateOrganization } = require('../../utils/organizationActivation');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
+const CATEGORY_LABELS = {
+  audit: '审核',
+  venue: '场地',
+  scoring: '考核',
+  hr: '人事',
+  system: '系统'
+};
 
 const PORTAL_CARDS_USER = [
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
@@ -62,9 +70,13 @@ Page({
     notificationNextCursor: '',
     todoLoadingMore: false,
     notificationLoadingMore: false,
+    messagePartial: false,
+    showMessageSwitchDialog: false,
+    messageSwitchOrganizationName: '',
+    messageSwitchLoading: false,
 
-    // App services view & search
-    appViewMode: 'grid',        // 'grid' | 'list'
+    // 应用服务视图与搜索
+    appViewMode: 'grid',        // 宫格或列表
     appSearchKeyword: '',
     filteredPortalCards: []
   },
@@ -88,10 +100,11 @@ Page({
         notificationNextCursor: '',
         todoLoading: false,
         notificationLoading: false,
+        messagePartial: false,
         appSearchKeyword: ''
       });
     }
-    // Restore saved view mode preference
+    // 恢复已保存的视图偏好
     const savedView = wx.getStorageSync('appViewMode');
     if (savedView && (savedView === 'grid' || savedView === 'list')) {
       this.setData({ appViewMode: savedView });
@@ -240,7 +253,7 @@ Page({
     navigateToTrustedRoute(card.url);
   },
 
-  // ── App Services View & Search ──
+  // ── 应用服务视图与搜索 ──
 
   switchAppView(e) {
     const mode = e.currentTarget.dataset.mode;
@@ -276,7 +289,10 @@ Page({
   // ── 统一消息中心 ──
   formatMessageItems(items, isNotification) {
     return (items || []).map(function(item) {
-      const extra = { createdAt: formatAuditTime(item.createdAt) };
+      const extra = {
+        categoryLabel: CATEGORY_LABELS[item.category] || (isNotification ? '通知' : '待办'),
+        createdAt: formatAuditTime(item.createdAt)
+      };
       if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });
       return Object.assign({}, item, extra);
     });
@@ -287,7 +303,7 @@ Page({
     const revision = this._messageRevision || 0;
     this.setData({ todoLoading: true, notificationLoading: true });
     try {
-      const res = await callFunction({ name: 'getMessageOverview', data: { limit: 20 } });
+      const res = await callFunction({ name: 'getMessageOverview', data: { limit: 5 } });
       if (!orgSession.isRequestCurrent(this, request) || revision !== (this._messageRevision || 0) || res.status !== 'success') return;
       const todos = res.todos || {};
       const notifications = res.notifications || {};
@@ -297,7 +313,8 @@ Page({
         todoNextCursor: todos.nextCursor || '',
         notifications: this.formatMessageItems(notifications.items, true),
         notificationCount: notifications.unreadCount || 0,
-        notificationNextCursor: notifications.nextCursor || ''
+        notificationNextCursor: notifications.nextCursor || '',
+        messagePartial: !!res.partial
       });
     } catch (error) {
       if (!(error && error.silent)) console.error('[portal] message overview failed:', error);
@@ -318,7 +335,8 @@ Page({
       this.setData({
         todos: this.data.todos.concat(this.formatMessageItems(res.items, false)),
         todoCount: res.total || 0,
-        todoNextCursor: res.nextCursor || ''
+        todoNextCursor: res.nextCursor || '',
+        messagePartial: !!res.partial
       });
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ todoLoadingMore: false });
@@ -335,7 +353,8 @@ Page({
       this.setData({
         notifications: this.data.notifications.concat(this.formatMessageItems(res.items, true)),
         notificationCount: res.unreadCount || 0,
-        notificationNextCursor: res.nextCursor || ''
+        notificationNextCursor: res.nextCursor || '',
+        messagePartial: !!res.partial
       });
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ notificationLoadingMore: false });
@@ -347,8 +366,9 @@ Page({
     wx.navigateTo({ url: '/pages/messageCenter/messageCenter?tab=' + tab });
   },
 
-  pendingReadStorageKey() {
-    return 'pendingNotificationReads:' + (wx.getStorageSync('activeOrgId') || '') + ':' + (this.data.activeRole || '');
+  pendingReadStorageKey(organizationId) {
+    return 'pendingNotificationReads:' + (organizationId || wx.getStorageSync('activeOrgId') || '') +
+      ':' + (this.data.activeRole || '');
   },
 
   async retryPendingNotificationReads() {
@@ -357,42 +377,126 @@ Page({
     if (!Array.isArray(ids) || !ids.length) return;
     const failed = [];
     for (const id of ids) {
-      try { await callFunction({ name: 'markNotificationRead', data: { id: id } }); }
+      try {
+        const result = await callFunction({
+          name: 'markNotificationRead',
+          data: { id: id, organizationId: wx.getStorageSync('activeOrgId') || '' }
+        });
+        if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+      }
       catch (_) { failed.push(id); }
     }
     if (failed.length) wx.setStorageSync(key, failed); else wx.removeStorageSync(key);
   },
 
   onTodoTap(e) {
-    const url = e.currentTarget.dataset.url;
-    if (!url) return;
-    navigateToTrustedRoute(url);
+    const id = e.currentTarget.dataset.id;
+    const item = (this.data.todos || []).find(function(row) { return row.id === id; });
+    if (!item) return;
+    if (this.requiresMessageOrganizationSwitch(item)) {
+      this.openMessageSwitchDialog(item, 'todo');
+      return;
+    }
+    navigateToTrustedRoute(item.targetUrl);
   },
 
   async onNotificationTap(e) {
     if (this._notificationSwiping) return;
     const id = e.currentTarget.dataset.id;
-    const url = e.currentTarget.dataset.url;
     const current = (this.data.notifications || []).find(function(item) { return item.id === id; });
+    if (!current) return;
+    if (this.requiresMessageOrganizationSwitch(current)) {
+      this.openMessageSwitchDialog(current, 'notification');
+      return;
+    }
     if (id && current && !current.isRead) {
       this._messageRevision = (this._messageRevision || 0) + 1;
       const notifications = this.data.notifications.map(function(item) {
         return item.id === id ? Object.assign({}, item, { isRead: true, _showDelete: false }) : item;
       });
       this.setData({ notifications: notifications, notificationCount: Math.max(0, this.data.notificationCount - 1) });
-      if (url) navigateToTrustedRoute(url);
+      if (current.targetUrl) navigateToTrustedRoute(current.targetUrl);
       try {
-        const result = await callFunction({ name: 'markNotificationRead', data: { id: id } });
-        if (result.status === 'success') this.setData({ notificationCount: result.unreadCount || 0 });
+        const result = await callFunction({
+          name: 'markNotificationRead',
+          data: { id: id, organizationId: current.organizationId }
+        });
+        if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
       } catch (error) {
-        const key = this.pendingReadStorageKey();
+        const key = this.pendingReadStorageKey(current.organizationId);
         const queued = wx.getStorageSync(key) || [];
         if (queued.indexOf(id) === -1) queued.push(id);
         wx.setStorageSync(key, queued);
       }
       return;
     }
-    if (url) navigateToTrustedRoute(url);
+    if (current.targetUrl) navigateToTrustedRoute(current.targetUrl);
+  },
+
+  requiresMessageOrganizationSwitch(item) {
+    return !!(item && item.organizationId
+      && item.organizationId !== String(wx.getStorageSync('activeOrgId') || ''));
+  },
+
+  openMessageSwitchDialog(item, type) {
+    this._pendingMessageNavigation = { item: item, type: type };
+    this.setData({
+      showMessageSwitchDialog: true,
+      messageSwitchOrganizationName: item.organizationName || '目标组织'
+    });
+  },
+
+  closeMessageSwitchDialog() {
+    if (this.data.messageSwitchLoading) return;
+    this._pendingMessageNavigation = null;
+    this.setData({
+      showMessageSwitchDialog: false,
+      messageSwitchOrganizationName: ''
+    });
+  },
+
+  async confirmMessageOrganizationSwitch() {
+    const pending = this._pendingMessageNavigation;
+    if (!pending || this.data.messageSwitchLoading) return;
+    this.setData({ messageSwitchLoading: true });
+    try {
+      await activateOrganization(pending.item.organizationId);
+      this._activeOrgSnapshot = orgSession.getSnapshot();
+      if (pending.type === 'notification' && !pending.item.isRead) {
+        try {
+          const result = await callFunction({
+            name: 'markNotificationRead',
+            data: {
+              id: pending.item.id,
+              organizationId: pending.item.organizationId
+            }
+          });
+          if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+        } catch (_) {
+          const key = this.pendingReadStorageKey(pending.item.organizationId);
+          const queued = wx.getStorageSync(key) || [];
+          if (queued.indexOf(pending.item.id) === -1) queued.push(pending.item.id);
+          wx.setStorageSync(key, queued);
+        }
+      }
+      this._pendingMessageNavigation = null;
+      this.setData({
+        showMessageSwitchDialog: false,
+        messageSwitchOrganizationName: '',
+        messageSwitchLoading: false
+      });
+      navigateToTrustedRoute(pending.item.targetUrl);
+    } catch (error) {
+      const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
+      wx.showToast({ title: denied ? '组织权限已变更' : '组织切换失败', icon: 'none' });
+      this._pendingMessageNavigation = null;
+      this.setData({
+        showMessageSwitchDialog: false,
+        messageSwitchOrganizationName: '',
+        messageSwitchLoading: false
+      });
+      this.loadMessageOverview();
+    }
   },
 
   onNotificationTouchStart(e) {
@@ -466,8 +570,11 @@ Page({
       notificationCount: deleted && !deleted.isRead ? Math.max(0, this.data.notificationCount - 1) : this.data.notificationCount
     });
     try {
-      const result = await callFunction({ name: 'deleteNotification', data: { id: id } });
-      if (result.status === 'success') this.setData({ notificationCount: result.unreadCount || 0 });
+      const result = await callFunction({
+        name: 'deleteNotification',
+        data: { id: id, organizationId: deleted && deleted.organizationId }
+      });
+      if (result.status !== 'success') throw new Error(result.message || '删除失败');
     } catch (err) {
       console.error('[portal] deleteNotification failed:', err);
       this.setData({ notifications: previous });
@@ -486,6 +593,7 @@ Page({
     try {
       const result = await callFunction({ name: 'markAllNotificationsRead', data: {} });
       if (result.status !== 'success') throw new Error(result.message || '全部已读失败');
+      if (result.partial) this.setData({ messagePartial: true });
     } catch (error) {
       this.setData({ notifications: previous });
       this.loadMessageOverview();
@@ -493,7 +601,7 @@ Page({
     }
   },
 
-  // ── Polling: auto-refresh notification count every 30s ──
+  // ── 每 30 秒轮询刷新消息概览 ──
   startPolling() {
     this.stopPolling();
     const that = this;
@@ -511,7 +619,7 @@ Page({
     }
   },
 
-  // ── Event bus: triggered when an approval action completes ──
+  // ── 审批完成后通过事件总线刷新 ──
   _onApprovalDone: function() {
     if (this._isPageVisible && this.data.hasUser) {
       this.loadMessageOverview();
@@ -538,7 +646,7 @@ Page({
 
     const activeRole = this.data.activeRole;
 
-    // Call server to actually unlink the WeChat openid from this role
+    // 调用服务端解除当前角色与微信 openid 的绑定
     callFunction({
       name: 'unbindRole',
       data: { role: activeRole },
@@ -550,7 +658,7 @@ Page({
           return;
         }
 
-        // Clear all auth state
+        // 清理全部认证状态
         const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
         delete roleProfiles[activeRole];
         wx.setStorageSync(STORAGE_KEY, roleProfiles);
@@ -561,7 +669,7 @@ Page({
         wx.showToast({ title: '解绑成功', icon: 'success' });
         this.setData({ showUnbindDialog: false, unbindLoading: false });
 
-        // Redirect to login page
+        // 跳转到登录页
         setTimeout(function() {
           wx.redirectTo({ url: '/pages/login/login' });
         }, 800);

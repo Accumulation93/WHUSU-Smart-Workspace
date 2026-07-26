@@ -22,7 +22,7 @@ module.exports = Behavior({
           this.clearScoreResultsState();
         }
       } catch (error) {
-        if (!orgSession.isRequestCurrent(this, request)) return;
+        if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         this.setData({ activityList: [], currentActivityId: '', currentActivityName: '' });
         if (typeof this.clearScoreResultsState === 'function') this.clearScoreResultsState();
         wx.showToast({

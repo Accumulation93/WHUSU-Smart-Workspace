@@ -3,6 +3,7 @@ const ORG_KEY = 'activeOrgId';
 const ORG_NAME_KEY = 'activeOrgName';
 const ROLE_KEY = 'activeRole';
 const TOKEN_KEY = 'token';
+const messageScope = require('./messageScope');
 
 function getVersion() {
   return Number(wx.getStorageSync(VERSION_KEY) || 0);
@@ -51,6 +52,9 @@ function commitContext(context) {
   const changed = before.orgId !== afterWrite.orgId
     || before.role !== afterWrite.role
     || before.token !== afterWrite.token;
+  if (before.role !== afterWrite.role || before.token !== afterWrite.token) {
+    messageScope.resetScope();
+  }
   const version = changed ? markChanged() : afterWrite.version;
   return {
     changed,

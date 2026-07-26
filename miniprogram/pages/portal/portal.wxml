@@ -39,6 +39,11 @@
     </view>
   </view>
 
+  <view class="portal-message-partial" wx:if="{{hasUser && messagePartial}}">
+    <ui-icon name="bell" tone="primary" size="28" ariaLabel="加载提示" />
+    <text>部分组织暂未加载，正在重试</text>
+  </view>
+
   <view class="card" wx:if="{{hasUser}}">
     <view class="info-head">
       <view class="section-title">待办事项</view>
@@ -47,16 +52,23 @@
         <view class="message-text-action ui-motion-chip" data-tab="todos" bindtap="openMessageCenter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">查看全部</view>
       </view>
     </view>
-    <scroll-view class="notification-list message-preview-scroll" style="height: {{todos.length ? (todos.length > 5 ? 510 : todos.length * 102) : 112}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" bindscrolltolower="loadMoreTodos" lower-threshold="80">
+    <scroll-view class="notification-list message-preview-scroll" style="height: {{todos.length ? todos.length * 154 : 112}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
       <view class="notification-empty" wx:if="{{!todos.length && !todoLoading}}">
         <text class="notification-empty-text">暂无待处理事项</text>
       </view>
-      <view class="notification-item todo-item ui-motion-card" wx:for="{{todos}}" wx:key="targetId"
-            data-url="{{item.targetUrl}}" bindtap="onTodoTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+      <view class="notification-item todo-item ui-motion-card" wx:for="{{todos}}" wx:key="id"
+            data-id="{{item.id}}" bindtap="onTodoTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
         <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : 'clock'}}" tone="primary" size="40" ariaLabel="待办类型" /></view>
         <view class="notification-body">
+          <view class="portal-message-metadata">
+            <text class="notification-tag notification-tag-{{item.category}}">{{item.categoryLabel}}</text>
+            <view class="portal-organization-meta {{item.isCurrentOrganization ? 'portal-organization-meta-current' : ''}}">
+              <ui-icon name="home" tone="primary" size="21" ariaLabel="所属组织" />
+              <text class="portal-organization-name">{{item.organizationName}}</text>
+              <text class="portal-organization-current" wx:if="{{item.isCurrentOrganization}}">当前</text>
+            </view>
+          </view>
           <view class="notification-title">
-            <text class="notification-tag notification-tag-{{item.category}}">{{item.category === 'venue' ? '场地' : '审核'}}</text>
             {{item.title}}
           </view>
           <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
@@ -77,7 +89,7 @@
         <view class="message-text-action ui-motion-chip" data-tab="notifications" bindtap="openMessageCenter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">查看全部</view>
       </view>
     </view>
-    <scroll-view class="notification-list message-preview-scroll" style="height: {{notifications.length ? (notifications.length > 5 ? 510 : notifications.length * 102) : 112}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" bindscrolltolower="loadMoreNotifications" lower-threshold="80">
+    <scroll-view class="notification-list message-preview-scroll" style="height: {{notifications.length ? notifications.length * 154 : 112}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
       <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading}}">
         <text class="notification-empty-text">暂无通知</text>
       </view>
@@ -92,8 +104,15 @@
           <view class="notification-dot" wx:if="{{!item.isRead}}"></view>
           <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : (item.category === 'scoring' ? 'grid' : 'bell')}}" tone="primary" size="40" ariaLabel="通知类型" /></view>
           <view class="notification-body">
+            <view class="portal-message-metadata">
+              <text class="notification-tag notification-tag-{{item.category}}">{{item.categoryLabel}}</text>
+              <view class="portal-organization-meta {{item.isCurrentOrganization ? 'portal-organization-meta-current' : ''}}">
+                <ui-icon name="home" tone="primary" size="21" ariaLabel="所属组织" />
+                <text class="portal-organization-name">{{item.organizationName}}</text>
+                <text class="portal-organization-current" wx:if="{{item.isCurrentOrganization}}">当前</text>
+              </view>
+            </view>
             <view class="notification-title">
-              <text class="notification-tag notification-tag-{{item.category}}">{{item.category === 'venue' ? '场地' : (item.category === 'scoring' ? '考核' : '通知')}}</text>
               {{item.title}}
             </view>
             <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
@@ -118,7 +137,7 @@
       </view>
     </view>
 
-    <!-- Search bar -->
+    <!-- 应用搜索栏 -->
     <view class="app-search-bar">
       <view class="app-search-icon"><ui-icon name="search" tone="muted" size="34" ariaLabel="搜索" /></view>
       <input class="app-search-input"
@@ -129,12 +148,12 @@
       <view class="app-search-clear ui-motion-chip" wx:if="{{appSearchKeyword}}" bindtap="clearAppSearch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="30" ariaLabel="清除搜索" /></view>
     </view>
 
-    <!-- No results -->
+    <!-- 无搜索结果 -->
     <view class="notification-empty" wx:if="{{!filteredPortalCards.length}}">
       <text class="notification-empty-text">{{appSearchKeyword ? '没有匹配的应用' : '暂无应用'}}</text>
     </view>
 
-    <!-- ═══ Grid View (宫格) ═══ -->
+    <!-- 宫格视图 -->
     <view class="app-grid" wx:if="{{appViewMode === 'grid' && filteredPortalCards.length}}">
       <view class="app-grid-item {{item.disabled ? 'app-grid-item-disabled' : ''}} ui-motion-card"
             wx:for="{{filteredPortalCards}}" wx:key="key"
@@ -151,7 +170,7 @@
       </view>
     </view>
 
-    <!-- ═══ List View (列表) ═══ -->
+    <!-- 列表视图 -->
     <view class="nav-list" wx:if="{{appViewMode === 'list' && filteredPortalCards.length}}">
       <view
         class="nav-row {{item.disabled ? 'nav-row-disabled' : ''}} ui-motion-card"
@@ -184,6 +203,20 @@
   <view class="page-footer">
     <view class="footer-name">WHUSU智慧工作台</view>
     <view class="footer-org">武汉大学学生会</view>
+  </view>
+
+  <view class="dialog-layer ui-overlay" wx:if="{{showMessageSwitchDialog}}">
+    <view class="dialog-mask" bindtap="closeMessageSwitchDialog"></view>
+    <view class="dialog-panel message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
+      <view class="dialog-badge message-switch-badge">跨组织事项</view>
+      <view class="dialog-title">切换组织后查看</view>
+      <view class="dialog-desc">当前组织将切换为</view>
+      <view class="message-switch-org-name">{{messageSwitchOrganizationName}}</view>
+      <view class="dialog-actions ui-dialog-footer">
+        <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeMessageSwitchDialog" disabled="{{messageSwitchLoading}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="primary-btn dialog-btn ui-motion-button" loading="{{messageSwitchLoading}}" bindtap="confirmMessageOrganizationSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">切换并查看</button>
+      </view>
+    </view>
   </view>
 
   <view class="dialog-layer ui-overlay" wx:if="{{showUnbindDialog}}">

@@ -53,7 +53,9 @@ async function batchCreate(items, conn) {
 
 async function listForRecipient(actor, options) {
   const orgId = await getCurrentOrgId();
-  const limit = Math.max(1, Math.min(parseInt(options.limit, 10) || 20, 50));
+  const requestedLimit = parseInt(options.limit, 10) || 20;
+  const maxLimit = Math.max(50, parseInt(options.maxLimit, 10) || 50);
+  const limit = Math.max(1, Math.min(requestedLimit, maxLimit));
   const offset = Math.max(0, parseInt(options.offset, 10) || 0);
   const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS];
   const [countResult, rowsResult] = await Promise.all([

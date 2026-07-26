@@ -55,6 +55,7 @@ jobs:
         run: |
           node scripts/org-session-test.js
           node scripts/api-cancellation-test.js
+          node scripts/admin-activity-org-switch-test.js
           node scripts/login-binding-refresh-test.js
           node scripts/hr-profile-export-test.js
           node scripts/venue-rule-display-test.js
@@ -84,6 +85,7 @@ jobs:
           node server/test/hrProfileTemplateLibrary.test.js
           node server/test/hrProfileTemplateMigration.test.js
           node server/test/messageCenter.test.js
+          node server/test/crossOrgMessageRoutes.test.js
           node server/test/deploymentAutomation.test.js
           node server/test/deploymentMigrationIntegration.test.js
           node server/test/venueFlowRestoreMigration.test.js

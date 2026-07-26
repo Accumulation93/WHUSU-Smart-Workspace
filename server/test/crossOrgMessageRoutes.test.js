@@ -1,0 +1,205 @@
+const assert = require('assert');
+
+const orgContextPath = require.resolve('../src/utils/orgContext');
+const accessiblePath = require.resolve('../src/core/services/accessibleOrganizations');
+const notificationModelPath = require.resolve('../src/modules/audit/models/notification');
+const todoServicePath = require.resolve('../src/modules/audit/services/todoService');
+const routePath = require.resolve('../src/modules/audit/routes/notification');
+
+const contexts = [
+  {
+    organizationId: 'org-a',
+    organizationName: '甲组织',
+    isCurrentOrganization: true,
+    actor: { type: 'user', id: 'hr-a', openid: 'openid-1', profile: { id: 'hr-a' } }
+  },
+  {
+    organizationId: 'org-b',
+    organizationName: '乙组织',
+    isCurrentOrganization: false,
+    actor: { type: 'user', id: 'hr-b', openid: 'openid-1', profile: { id: 'hr-b' } }
+  }
+];
+
+let failTodoOrgId = '';
+const todoCalls = [];
+const notificationCalls = [];
+const markAllCalls = [];
+
+const todoService = {
+  compareTodo(left, right) {
+    const leftTime = left.dueAt ? new Date(left.dueAt).getTime() : Number.POSITIVE_INFINITY;
+    const rightTime = right.dueAt ? new Date(right.dueAt).getTime() : Number.POSITIVE_INFINITY;
+    if (leftTime !== rightTime) return leftTime - rightTime;
+    return String(left.id).localeCompare(String(right.id));
+  },
+  async listAll(actor, orgId) {
+    todoCalls.push({ actorId: actor.id, orgId });
+    if (orgId === failTodoOrgId) throw new Error('模拟组织查询失败');
+    return [{
+      id: 'todo-' + orgId,
+      title: orgId,
+      dueAt: orgId === 'org-b' ? '2026-07-26 09:00:00' : '2026-07-27 09:00:00',
+      createdAt: '2026-07-25 09:00:00'
+    }];
+  }
+};
+
+const notificationModel = {
+  async listForRecipient(actor) {
+    notificationCalls.push(actor.id);
+    const isSecondOrg = actor.id === 'hr-b';
+    return {
+      items: [{
+        id: isSecondOrg ? 'notice-b' : 'notice-a',
+        type: 'system',
+        title: isSecondOrg ? '乙通知' : '甲通知',
+        category: 'system',
+        target_type: 'account',
+        target_id: '',
+        is_read: isSecondOrg ? 0 : 1,
+        created_at: isSecondOrg ? '2026-07-26 10:00:00' : '2026-07-25 10:00:00'
+      }],
+      total: 1,
+      unreadCount: isSecondOrg ? 1 : 0
+    };
+  },
+  async markAllRead(actor) {
+    markAllCalls.push(actor.id);
+    return { changedCount: 1, unreadCount: 0 };
+  },
+  async markRead() {
+    return { found: true, changed: true, unreadCount: 0 };
+  },
+  async deleteById() {
+    return { found: true, unreadCount: 0 };
+  }
+};
+
+require.cache[orgContextPath] = {
+  id: orgContextPath,
+  filename: orgContextPath,
+  loaded: true,
+  exports: {
+    getCurrentOrgId: async function() { return 'org-a'; },
+    orgStorage: { run: function(_orgId, callback) { return callback(); } }
+  }
+};
+require.cache[accessiblePath] = {
+  id: accessiblePath,
+  filename: accessiblePath,
+  loaded: true,
+  exports: {
+    listAccessibleActorContexts: async function() { return contexts; }
+  }
+};
+require.cache[notificationModelPath] = {
+  id: notificationModelPath,
+  filename: notificationModelPath,
+  loaded: true,
+  exports: notificationModel
+};
+require.cache[todoServicePath] = {
+  id: todoServicePath,
+  filename: todoServicePath,
+  loaded: true,
+  exports: todoService
+};
+delete require.cache[routePath];
+const router = require(routePath);
+
+function getHandler(path) {
+  const layer = router.stack.find((item) => item.route && item.route.path === path);
+  assert(layer, '缺少路由：' + path);
+  return layer.route.stack[layer.route.stack.length - 1].handle;
+}
+
+async function invoke(path, body) {
+  let payload = null;
+  await getHandler(path)(
+    {
+      body: body || {},
+      openid: 'openid-1',
+      headers: { 'x-role': 'user' }
+    },
+    {
+      json(value) {
+        payload = value;
+        return value;
+      }
+    }
+  );
+  return payload;
+}
+
+async function testGlobalTodoAggregationAndMetadata() {
+  todoCalls.length = 0;
+  failTodoOrgId = '';
+  const result = await invoke('/listTodos', { limit: 20 });
+  assert.strictEqual(result.status, 'success');
+  assert.strictEqual(result.total, 2);
+  assert.deepStrictEqual(result.items.map((item) => item.id), ['todo-org-b', 'todo-org-a']);
+  assert.deepStrictEqual(
+    result.items.map((item) => item.organizationName),
+    ['乙组织', '甲组织']
+  );
+  assert.strictEqual(result.items[1].isCurrentOrganization, true);
+  assert.strictEqual(result.organizations.length, 2);
+}
+
+async function testOrganizationFilterAndDenial() {
+  todoCalls.length = 0;
+  const filtered = await invoke('/listTodos', { limit: 20, organizationId: 'org-b' });
+  assert.strictEqual(filtered.status, 'success');
+  assert.deepStrictEqual(todoCalls, [{ actorId: 'hr-b', orgId: 'org-b' }]);
+  const denied = await invoke('/listTodos', { organizationId: 'org-x' });
+  assert.strictEqual(denied.status, 'org_access_denied');
+  assert.strictEqual(todoCalls.length, 1, '越权筛选不得执行待办查询');
+}
+
+async function testPartialFailure() {
+  failTodoOrgId = 'org-b';
+  const result = await invoke('/listTodos', { limit: 20 });
+  assert.strictEqual(result.status, 'success');
+  assert.strictEqual(result.partial, true);
+  assert.strictEqual(result.total, 1);
+  assert.deepStrictEqual(result.failedOrganizations, [{
+    organizationId: 'org-b',
+    organizationName: '乙组织'
+  }]);
+  failTodoOrgId = '';
+}
+
+async function testNotificationOrderAndCounts() {
+  notificationCalls.length = 0;
+  const result = await invoke('/listNotifications', { limit: 20 });
+  assert.strictEqual(result.status, 'success');
+  assert.strictEqual(result.total, 2);
+  assert.strictEqual(result.unreadCount, 1);
+  assert.deepStrictEqual(result.items.map((item) => item.id), ['notice-b', 'notice-a']);
+  assert.deepStrictEqual(notificationCalls.sort(), ['hr-a', 'hr-b']);
+  assert.strictEqual(result.items[0].organizationId, 'org-b');
+}
+
+async function testMarkAllScope() {
+  markAllCalls.length = 0;
+  const filtered = await invoke('/markAllNotificationsRead', { organizationId: 'org-b' });
+  assert.strictEqual(filtered.status, 'success');
+  assert.deepStrictEqual(markAllCalls, ['hr-b']);
+  markAllCalls.length = 0;
+  const global = await invoke('/markAllNotificationsRead', {});
+  assert.strictEqual(global.changedCount, 2);
+  assert.deepStrictEqual(markAllCalls.sort(), ['hr-a', 'hr-b']);
+}
+
+(async function run() {
+  await testGlobalTodoAggregationAndMetadata();
+  await testOrganizationFilterAndDenial();
+  await testPartialFailure();
+  await testNotificationOrderAndCounts();
+  await testMarkAllScope();
+  console.log('跨组织消息路由聚合、筛选、部分失败与写入作用域测试通过');
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
