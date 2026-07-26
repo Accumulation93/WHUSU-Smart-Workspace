@@ -33,10 +33,10 @@ SET @existing_target_flow_id = (
      AND venue_id = @venue_id
    LIMIT 1
 );
-SET @target_flow_id = COALESCE(
+SET @target_flow_id = CAST(COALESCE(
   @existing_target_flow_id,
   SHA2(CONCAT('venue-flow:', @target_org_id, ':', @venue_id), 256)
-);
+) AS BINARY);
 
 CREATE TEMPORARY TABLE _venue_flow_migration_assertions (
   label VARCHAR(80) NOT NULL PRIMARY KEY,

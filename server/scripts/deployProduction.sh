@@ -75,6 +75,13 @@ if [[ "$INFRASTRUCTURE_RENAMED" -eq 1 ]]; then
     git -C "$REPO_DIR" worktree repair "${EXISTING_RELEASES[@]}" || true
   fi
 fi
+mapfile -t EXISTING_RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -print)
+for existing_release in "${EXISTING_RELEASES[@]}"; do
+  release_env="$existing_release/server/.env"
+  if [[ -L "$release_env" || ! -e "$release_env" ]]; then
+    ln -sfn "$SHARED_DIR/server.env" "$release_env"
+  fi
+done
 git -C "$REPO_DIR" remote set-url origin git@github.com:Accumulation93/WHUSU-Smart-Workspace.git
 
 mkdir -p "$RELEASES_DIR" "$SHARED_DIR" "$STATE_DIR" "$LOG_DIR" "$BACKUP_DIR"
@@ -158,6 +165,8 @@ rollback() {
     log "停止 API 与通知 Worker，释放数据库连接"
     pm2 stop whusu-smart-workspace-api >/dev/null 2>&1 || true
     pm2 stop whusu-smart-workspace-notification-worker >/dev/null 2>&1 || true
+    pm2 stop redsu-scoring >/dev/null 2>&1 || true
+    pm2 stop redsu-notification-worker >/dev/null 2>&1 || true
     log "恢复部署前数据库快照"
     node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" restore "$SNAPSHOT"
   fi
@@ -168,6 +177,9 @@ rollback() {
     local port
     port="$(read_port)"
     if wait_for_health "$port"; then
+      pm2 delete redsu-scoring >/dev/null 2>&1 || true
+      pm2 delete redsu-notification-worker >/dev/null 2>&1 || true
+      pm2 save
       if [[ "$MAINTENANCE_ACTIVE" -eq 1 ]]; then rm -f "$MAINTENANCE_FLAG"; fi
       log "旧版本和数据库恢复成功"
     else
@@ -235,6 +247,7 @@ if [[ "$PENDING_COUNT" -gt 0 ]]; then
   touch "$MAINTENANCE_FLAG"
   MAINTENANCE_ACTIVE=1
   pm2 stop whusu-smart-workspace-notification-worker || true
+  pm2 stop redsu-notification-worker || true
   WORKER_STOPPED=1
   sleep "$DRAIN_SECONDS"
   SNAPSHOT="$BACKUP_DIR/pre-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).sql.gz"
@@ -246,18 +259,18 @@ fi
 log "原子切换服务版本"
 atomic_link "$NEW_RELEASE"
 RELEASE_SWITCHED=1
-if [[ "$INFRASTRUCTURE_RENAMED" -eq 1 ]]; then
-  pm2 delete redsu-scoring >/dev/null 2>&1 || true
-  pm2 delete redsu-notification-worker >/dev/null 2>&1 || true
-fi
+pm2 delete redsu-scoring >/dev/null 2>&1 || true
+pm2 delete redsu-notification-worker >/dev/null 2>&1 || true
 reload_release
 PORT="$(read_port)"
 wait_for_health "$PORT"
 curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null
 
-if [[ "$INFRASTRUCTURE_RENAMED" -eq 1 ]]; then
+if pm2 describe redsu-backup >/dev/null 2>&1; then
   pm2 delete redsu-backup >/dev/null 2>&1 || true
   WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-backup --update-env
+fi
+if compgen -G "/home/ubuntu/.pm2/logs/redsu-*.log" >/dev/null; then
   for old_log in /home/ubuntu/.pm2/logs/redsu-*.log; do
     [[ -e "$old_log" ]] || continue
     new_log="${old_log//redsu-scoring/whusu-smart-workspace-api}"
@@ -266,10 +279,10 @@ if [[ "$INFRASTRUCTURE_RENAMED" -eq 1 ]]; then
     new_log="${new_log%.log}-pre-rename.log"
     [[ "$new_log" == "$old_log" ]] || mv "$old_log" "$new_log"
   done
-  pm2 save
-  tmux kill-session -t redsu-collab >/dev/null 2>&1 || true
-  bash "$NEW_RELEASE/server/scripts/setupCollabSession.sh"
 fi
+pm2 save
+tmux kill-session -t redsu-collab >/dev/null 2>&1 || true
+bash "$NEW_RELEASE/server/scripts/setupCollabSession.sh"
 
 mkdir -p "$DEPLOY_DIR/bin"
 install -m 755 "$NEW_RELEASE/server/scripts/deployEntrypoint.sh" "$DEPLOY_DIR/bin/deploy-entrypoint"
