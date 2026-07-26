@@ -42,6 +42,7 @@ function testDeploymentScriptContract() {
   const tmuxSetup = fs.readFileSync(path.resolve(__dirname, '../scripts/setupCollabSession.sh'), 'utf8');
   assert.match(script, /flock -n/);
   assert.match(script, /pull --ff-only/);
+  assert.match(script, /git_with_timeout/);
   assert.match(script, /worktree add --detach/);
   assert.match(script, /deploymentDatabase\.js" restore/);
   assert.match(script, /pm2 startOrReload/);
@@ -51,6 +52,7 @@ function testDeploymentScriptContract() {
   assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);
   assert.doesNotMatch(script, /git reset --hard/);
   assert.match(entrypoint, /git -C "\$REPO_DIR" show/);
+  assert.match(entrypoint, /timeout --signal=TERM/);
   assert.match(entrypoint, /bash -n/);
   assert.match(tmuxSetup, /whusu-smart-workspace-collab/);
   assert.match(tmuxSetup, /whusu-smart-workspace-notification-worker/);

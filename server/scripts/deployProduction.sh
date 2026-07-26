@@ -16,6 +16,7 @@ LOCK_FILE="$DEPLOY_DIR/deploy.lock"
 DRAIN_SECONDS="${WHUSU_SMART_WORKSPACE_DRAIN_SECONDS:-35}"
 PUBLIC_HEALTH_URL="${WHUSU_SMART_WORKSPACE_PUBLIC_HEALTH_URL:-https://accumulation93.com/api/health}"
 RELEASE_KEEP_COUNT="${WHUSU_SMART_WORKSPACE_RELEASE_KEEP_COUNT:-5}"
+GIT_TIMEOUT_SECONDS="${WHUSU_SMART_WORKSPACE_GIT_TIMEOUT_SECONDS:-90}"
 
 if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   echo "部署 SHA 必须是 40 位小写十六进制" >&2
@@ -53,6 +54,10 @@ WORKER_STOPPED=0
 
 log() {
   printf '[%s] %s\n' "$(date '+%F %T')" "$*"
+}
+
+git_with_timeout() {
+  timeout --signal=TERM --kill-after=10s "${GIT_TIMEOUT_SECONDS}s" git "$@"
 }
 
 atomic_link() {
@@ -154,14 +159,14 @@ if [[ -L "$CURRENT_LINK" ]]; then
   OLD_SHA="$(basename "$OLD_RELEASE")"
 fi
 
-git -C "$REPO_DIR" fetch --prune origin "$BRANCH"
+git_with_timeout -C "$REPO_DIR" fetch --prune origin "$BRANCH"
 REMOTE_SHA="$(git -C "$REPO_DIR" rev-parse "origin/$BRANCH")"
 if [[ "$REMOTE_SHA" != "$TARGET_SHA" ]]; then
   log "提交已被更新的分支头替代，跳过过期部署：当前 $REMOTE_SHA"
   exit 0
 fi
 git -C "$REPO_DIR" switch "$BRANCH"
-git -C "$REPO_DIR" pull --ff-only origin "$BRANCH"
+git_with_timeout -C "$REPO_DIR" pull --ff-only origin "$BRANCH"
 [[ "$(git -C "$REPO_DIR" rev-parse HEAD)" == "$TARGET_SHA" ]] || { log "拉取结果与目标 SHA 不一致"; exit 1; }
 
 if [[ -n "$OLD_SHA" && "$OLD_SHA" =~ ^[0-9a-f]{40}$ ]] && git -C "$REPO_DIR" diff --quiet "$OLD_SHA" "$TARGET_SHA" -- server; then

@@ -4,13 +4,14 @@ set -Eeuo pipefail
 TARGET_SHA="${1:-}"
 BRANCH="${WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-feature/audit}"
 REPO_DIR="${WHUSU_SMART_WORKSPACE_REPO_DIR:-/home/ubuntu/whusu-smart-workspace}"
+GIT_TIMEOUT_SECONDS="${WHUSU_SMART_WORKSPACE_GIT_TIMEOUT_SECONDS:-90}"
 
 if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   echo "部署入口拒绝非法 SHA" >&2
   exit 64
 fi
 
-git -C "$REPO_DIR" fetch --prune origin "$BRANCH"
+timeout --signal=TERM --kill-after=10s "${GIT_TIMEOUT_SECONDS}s" git -C "$REPO_DIR" fetch --prune origin "$BRANCH"
 REMOTE_SHA="$(git -C "$REPO_DIR" rev-parse "origin/$BRANCH")"
 if [[ "$REMOTE_SHA" != "$TARGET_SHA" ]]; then
   echo "部署入口跳过过期提交：$TARGET_SHA，当前分支头：$REMOTE_SHA"
