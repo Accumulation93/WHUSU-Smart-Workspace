@@ -4,7 +4,7 @@ const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
 const USER_TABS = [
-  { key: 'scoring', label: 'WHUSU智慧工作台' },
+  { key: 'scoring', label: '考核评分' },
   { key: 'results', label: '结果公示' },
   { key: 'meritList', label: '评优名单' },
   { key: 'profile', label: '人事信息' }
@@ -292,7 +292,7 @@ Page({
     showUnbindDialog: false,
     unbindLoading: false,
     // Start with only always-available tabs; results/meritList added after permission check
-    userTabs: [{ key: 'scoring', label: 'WHUSU智慧工作台' }, { key: 'profile', label: '人事信息' }],
+    userTabs: [{ key: 'scoring', label: '考核评分' }, { key: 'profile', label: '人事信息' }],
     activeTab: 'scoring',
     hrProfile: emptyHrProfileState(),
     publishedResults: [],
@@ -377,7 +377,7 @@ Page({
       audit: ['audit']
     };
     this._subAppAllowedTabs = SUB_APP_USER_TABS[subApp] || SUB_APP_USER_TABS.scoring;
-    const SUB_APP_LABELS = { scoring: 'WHUSU智慧工作台', hr: '人事信息', audit: '审核' };
+    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', audit: '审核' };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
   },
 
@@ -385,7 +385,7 @@ Page({
     if (!this._subAppAllowedTabs) this.applySubAppFilter();
     const allowed = this._subAppAllowedTabs || ['scoring', 'results', 'meritList'];
     const tabs = [];
-    if (allowed.indexOf('scoring') !== -1) tabs.push({ key: 'scoring', label: 'WHUSU智慧工作台' });
+    if (allowed.indexOf('scoring') !== -1) tabs.push({ key: 'scoring', label: '考核评分' });
     if (allowed.indexOf('results') !== -1 && this.data.hasViewPerm) tabs.push({ key: 'results', label: '结果公示' });
     if (allowed.indexOf('meritList') !== -1 && this.data.hasMeritPerm) tabs.push({ key: 'meritList', label: '评优名单' });
     if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: '人事信息' });
