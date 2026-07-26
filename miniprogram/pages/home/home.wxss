@@ -704,11 +704,12 @@ scroll-view {
   flex: 1 1 280rpx;
   min-width: 220rpx;
   min-height: 84rpx;
-  border-radius: 999rpx;
-  line-height: 84rpx;
+  height: auto;
+  border-radius: 24rpx;
+  line-height: 1.35;
   font-size: 24rpx;
   font-weight: 700;
-  padding: 0 32rpx;
+  padding: 16rpx 32rpx;
   letter-spacing: 0.3rpx;
   transition: box-shadow 0.24s ease, opacity 0.18s ease, filter 0.24s ease, transform 0.18s ease;
 }
@@ -825,10 +826,12 @@ scroll-view {
 
 .dialog-btn {
   flex: 1;
-  height: 84rpx !important;
-  line-height: 84rpx !important;
+  min-height: 84rpx !important;
+  height: auto !important;
+  padding: 16rpx 24rpx !important;
+  line-height: 1.35 !important;
   margin-bottom: 0 !important;
-  border-radius: 999rpx !important;
+  border-radius: 22rpx !important;
   font-size: 25rpx !important;
 }
 

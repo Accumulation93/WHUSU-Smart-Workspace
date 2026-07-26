@@ -225,7 +225,7 @@ page {
   width: 108rpx; min-width: 108rpx;
   height: 64rpx; min-height: 64rpx;
   line-height: 64rpx; padding: 0;
-  border-radius: 999rpx;
+  border-radius: 18rpx;
   font-size: 24rpx; font-weight: 700;
 }
 
@@ -302,7 +302,7 @@ page {
     0 0 0 4rpx rgba(191, 219, 254, 0.62);
 }
 
-/* ═══ Buttons — exact HR admin pill style ═══ */
+/* ═══ Buttons — compact blue-glass rounded rectangles ═══ */
 .primary-btn,
 .secondary-btn,
 .danger-btn,
@@ -310,10 +310,15 @@ page {
 .reject-btn {
   flex: 1 1 280rpx;
   min-width: 220rpx;
-  min-height: 84rpx;
-  border-radius: 999rpx;
-  line-height: 84rpx;
+  min-height: 76rpx;
+  height: auto;
+  padding: 14rpx 20rpx;
+  border-radius: 20rpx;
+  line-height: 1.35;
   font-size: 24rpx; font-weight: 700;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
   transition: box-shadow 0.24s ease, opacity 0.18s ease, filter 0.24s ease;
   margin: 0;
 }
@@ -361,7 +366,7 @@ page {
   min-width: 0; min-height: 56rpx;
   height: 56rpx; line-height: 56rpx;
   font-size: 22rpx; padding: 0 22rpx;
-  border-radius: 999rpx;
+  border-radius: 16rpx;
 }
 
 .primary-btn.sm {
@@ -369,7 +374,7 @@ page {
   min-width: 0; min-height: 56rpx;
   height: 56rpx; line-height: 56rpx;
   font-size: 22rpx; padding: 0 22rpx;
-  border-radius: 999rpx;
+  border-radius: 16rpx;
 }
 
 /* ═══ Compact add button (panel head right side) ═══ */
@@ -378,7 +383,7 @@ page {
   min-width: 108rpx; width: 108rpx;
   min-height: 64rpx; height: 64rpx;
   line-height: 64rpx; padding: 0;
-  border-radius: 999rpx;
+  border-radius: 18rpx;
   font-size: 24rpx; font-weight: 700;
 }
 
@@ -388,7 +393,7 @@ page {
   min-width: 104rpx; width: 104rpx;
   min-height: 72rpx; height: 72rpx;
   line-height: 72rpx; padding: 0;
-  border-radius: 999rpx;
+  border-radius: 18rpx;
   font-size: 23rpx; font-weight: 700;
   color: #ffffff;
   background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
@@ -855,7 +860,7 @@ page {
   min-height: 68rpx; height: 68rpx;
   line-height: 68rpx;
   padding: 0 16rpx; text-align: center;
-  border-radius: 999rpx;
+  border-radius: 18rpx;
   font-size: 23rpx; font-weight: 700;
 }
 

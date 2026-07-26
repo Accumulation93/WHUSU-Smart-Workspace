@@ -254,6 +254,33 @@ tabs or large separated pills.
 
 ## Controls
 
+### Text buttons must never become fat capsules
+
+Native text/action buttons must be compact rounded rectangles, never capsules or circles.
+
+- Use `border-radius: 16rpx` to `24rpx` on phones and `10px` to `14px` on Pad. The rendered radius must remain visibly below half of the button height.
+- Never use `999rpx`, `999px`, or `50%` on a native `<button>` or full-size text action such as `.primary-btn`, `.secondary-btn`, `.danger-btn`, `.approve-btn`, or `.dialog-btn`.
+- Reserve capsule/circle geometry for status tags, filter chips, compact inline links, avatars, and genuinely icon-only controls.
+- Never combine wrapped button text with a fixed `line-height` equal to the button height. Use `height: auto`, a controlled `min-height`, `line-height: 1.3` to `1.4`, and balanced vertical padding.
+- On narrow phones, show at most two text buttons per row. Long labels should use a two-column or full-width layout, never three cramped columns that force vertical word wrapping.
+
+Baseline:
+
+```css
+.button-row > button {
+  flex: 1 1 calc(50% - 7rpx);
+  min-width: calc(50% - 7rpx);
+  max-width: 100%;
+  min-height: 76rpx;
+  height: auto;
+  padding: 14rpx 20rpx;
+  border-radius: 20rpx;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+```
+
 Primary button:
 ```css
 .primary-btn {
@@ -351,6 +378,7 @@ Before finishing:
 - Every major content group is a glass card.
 - Repeated rows use inner list-item cards with lighter shadows.
 - Buttons are sized for work, not marketing.
+- Native text buttons are compact rounded rectangles; no `999rpx`/`50%` fat capsules and no three-column wrapping on phones.
 - Text is not dense: use short titles and one helper line.
 - No giant empty summary cards unless the numbers directly drive decisions.
 - Red is used only for clear/danger/destructive actions.

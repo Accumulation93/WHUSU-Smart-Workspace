@@ -56,6 +56,7 @@ button {
   min-height: var(--ui-control-height, 82rpx);
   height: auto;
   padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
+  border-radius: 24rpx;
   font-size: var(--ui-font-md, 25rpx);
   line-height: var(--ui-line-control, 1.35);
   white-space: normal;
@@ -288,6 +289,15 @@ textarea {
     filter 0.20s ease,
     background 0.22s ease,
     border-color 0.22s ease;
+}
+
+/* 原生文字按钮保持紧凑圆角矩形；胶囊形仅用于标签、chip、内联链接或纯图标控件。 */
+.button-row > button {
+  flex: 1 1 calc(50% - 7rpx);
+  min-width: calc(50% - 7rpx);
+  max-width: 100%;
+  border-radius: 20rpx;
+  line-height: var(--ui-line-control, 1.35);
 }
 
 .primary-btn,

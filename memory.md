@@ -248,6 +248,16 @@ callFunction({ name, data, success, fail })
 - 兼容性审计同时读取公共与私有配置，并按私有配置覆盖后的结果校验。
 - 清除项目编译缓存并冷启动开发者工具；逐页生成全部 39 个源 JS 的编译产物，确认 Babel/SWC runtime 命中为零。
 
+### Bug 15: 原生文字按钮变成“胖椭圆”
+
+**原因**: 页面级 WXSS 使用 `border-radius: 999rpx`，同时把固定按钮高度写入 `line-height`；当多个长文案按钮被挤进三列并换行时，每一行都会继承整按钮高度，最终形成近圆形或纵向胖椭圆。
+
+**永久规则**:
+- 原生 `<button>` 和 `.primary-btn`、`.secondary-btn`、`.danger-btn`、`.approve-btn`、`.reject-btn`、`.dialog-btn` 等完整文字操作按钮，只允许使用 `16–24rpx`（Pad 为 `10–14px`）的紧凑圆角矩形。
+- `999rpx`、`999px`、`50%` 仅用于状态标签、筛选 chip、紧凑内联链接、头像和纯图标控件。
+- 文字按钮使用 `height: auto`、受控 `min-height`、`line-height: 1.3–1.4` 与上下 padding；手机窄屏每行最多两个文字按钮，长文案改两列或整行。
+- `scripts/ui-audit.js --strict` 会拦截完整文字按钮上的胶囊/圆形半径，禁止回归。
+
 ---
 
 ## 6. 最新功能更新 (2026-05-04)

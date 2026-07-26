@@ -15,6 +15,7 @@ const LEGACY_OVERLAYS = new Set(['popup-mask', 'modal-mask', 'dialog-layer', 'sh
 const LEGACY_DIALOG_SHELLS = new Set(['popup-card', 'modal-card', 'dialog-panel', 'sheet-panel']);
 const LEGACY_COMPLEX_GRIDS = new Set(['task-table', 'result-table', 'popup-table']);
 const STANDARD_BUTTON_ROLE = /\b(?:primary-btn|secondary-btn|danger-btn)\b/;
+const FULL_SIZE_BUTTON_SELECTOR = /(?:^|[\s,>])button\b|\.(?:primary-btn|secondary-btn|danger-btn|approve-btn|reject-btn|profile-submit-btn|page-submit-btn|template-save-btn|purpose-save-btn|dialog-btn|sigpad-btn|panel-add-btn)\b/;
 const FORBIDDEN_EMOJI_ICON = /(?:\u{1F4CE}|\u{1F4C4}|\u{1F4E4}|\u{1F504}|\u{270F}\u{FE0F}?|\u{2705}|\u{274C}|\u{1F4CC}|\u{21A9}\u{FE0F}?|\u{23F3}|\u{1F512}|\u{1F3C6}|\u{1F534}|\u{1F4AC})/gu;
 const GLOBAL_STYLE = fs.readFileSync(path.join(MINI_ROOT, 'app.wxss'), 'utf8');
 const GLOBAL_MEDIA_520 = /@media\s*\(min-width:\s*520px\)/.test(GLOBAL_STYLE);
@@ -394,6 +395,7 @@ function scanWxss(file) {
   const nativeInputFlex = [];
   const unsafeControlEllipsis = [];
   const fixedDataColumns = [];
+  const pillButtonRadius = [];
   const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
   let ruleMatch;
   while ((ruleMatch = rulePattern.exec(source))) {
@@ -420,6 +422,15 @@ function scanWxss(file) {
         file: relative(file),
         line: lineAt(source, ruleMatch.index),
         selector: selector.trim().replace(/\s+/g, ' ')
+      });
+    }
+    if (FULL_SIZE_BUTTON_SELECTOR.test(selector) &&
+      /border-radius\s*:\s*(?:999(?:r?px)|50%)\b/i.test(declarations)) {
+      pillButtonRadius.push({
+        file: relative(file),
+        line: lineAt(source, ruleMatch.index),
+        selector: selector.trim().replace(/\s+/g, ' '),
+        message: '原生文字按钮禁止使用胶囊/圆形半径，请改为 16–24rpx 紧凑圆角矩形'
       });
     }
     const transformValue = declarations.match(/transform\s*:\s*([^;]+)/i);
@@ -456,6 +467,7 @@ function scanWxss(file) {
     nativeInputFlex,
     unsafeControlEllipsis,
     fixedDataColumns,
+    pillButtonRadius,
     oversizedTimetable: [...source.matchAll(/\.timetable-scroll\s*\{[^{}]*height\s*:\s*(\d{3,})rpx/gi)]
       .filter(match => Number(match[1]) >= 900)
       .map(match => ({ file: relative(file), line: lineAt(source, match.index), height: match[1] + 'rpx' }))
@@ -498,6 +510,7 @@ const dataLayoutIssues = layoutContracts.flatMap(item => item.dataLayoutIssues);
 const scrollContractIssues = layoutContracts.flatMap(item => item.scrollContractIssues);
 const unsafeControlEllipsis = styles.flatMap(item => item.unsafeControlEllipsis);
 const fixedDataColumns = styles.flatMap(item => item.fixedDataColumns);
+const pillButtonRadius = styles.flatMap(item => item.pillButtonRadius);
 const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;/m.test(GLOBAL_STYLE)
@@ -561,6 +574,7 @@ const report = {
     scrollContractIssues: scrollContractIssues.length,
     unsafeControlEllipsis: unsafeControlEllipsis.length,
     fixedDataColumns: fixedDataColumns.length,
+    pillButtonRadius: pillButtonRadius.length,
     missingStableDialogSystem: missingStableDialogSystem ? 1 : 0,
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
@@ -591,6 +605,7 @@ const report = {
   scrollContractIssues,
   unsafeControlEllipsis,
   fixedDataColumns,
+  pillButtonRadius,
   styles
 };
 
@@ -601,7 +616,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...pillButtonRadius]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -618,7 +633,7 @@ if (process.argv.includes('--strict')) {
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
     report.summary.adminOrgContextIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
+    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem;
   process.exitCode = failed ? 1 : 0;
 }

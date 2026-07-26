@@ -579,13 +579,19 @@ scroll-view {
 
 .primary-btn,
 .secondary-btn {
-  flex: 1 1 280rpx;
-  min-width: 220rpx;
-  min-height: 84rpx;
-  border-radius: 999rpx;
-  line-height: 84rpx;
+  flex: 1 1 calc(50% - 7rpx);
+  min-width: calc(50% - 7rpx);
+  max-width: 100%;
+  min-height: 76rpx;
+  height: auto;
+  padding: 14rpx 20rpx;
+  border-radius: 20rpx;
+  line-height: 1.35;
   font-size: 24rpx;
   font-weight: 700;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
   transition: box-shadow 0.24s ease, opacity 0.18s ease, filter 0.24s ease;
 }
 
@@ -2447,7 +2453,7 @@ scroll-view {
 .danger-btn {
   background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
   color: #fff;
-  border-radius: 999rpx;
+  border-radius: 20rpx;
   padding: 14rpx 28rpx;
   font-size: 24rpx;
   font-weight: 700;
@@ -3140,7 +3146,13 @@ scroll-view {
 .desig-candidate-scroll { height: 300rpx; }
 .desig-current-item { background: rgba(255,255,255,0.85); }
 .popup-scroll { max-height: 58vh; }
-.popup-scroll .button-row button { height: 88rpx; line-height: 88rpx; font-size: 28rpx; padding: 0 36rpx; }
+.popup-scroll .button-row button {
+  min-height: 76rpx;
+  height: auto;
+  line-height: 1.35;
+  font-size: 28rpx;
+  padding: 14rpx 24rpx;
+}
 
 /* ── Card-based overview result list (matches user-side "结果公示" style) ── */
 

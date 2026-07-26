@@ -987,7 +987,12 @@ page {
 /* ── Button row ── */
 .button-row { display: flex; gap: 14rpx; }
 .button-row button {
-  flex: 1; height: 84rpx; line-height: 84rpx; border-radius: 999rpx;
+  flex: 1;
+  min-height: 76rpx;
+  height: auto;
+  padding: 14rpx 20rpx;
+  line-height: 1.35;
+  border-radius: 20rpx;
   font-size: 24rpx; font-weight: 700; border: none;
   box-shadow: 0 16rpx 32rpx rgba(37,99,235,0.18);
 }
