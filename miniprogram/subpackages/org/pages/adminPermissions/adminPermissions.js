@@ -73,9 +73,7 @@ Page({
       const result = await callFunction({ name: 'listPermissionManagedAdmins', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (result.status !== 'success') throw new Error(result.message || '读取管理员失败');
-      const admins = (result.list || []).map(function(item) {
-        return Object.assign({}, item, { initial: item.name ? item.name.charAt(0) : '管' });
-      });
+      const admins = (result.list || []).slice();
       this.setData({
         admins: admins,
         filteredAdmins: admins,

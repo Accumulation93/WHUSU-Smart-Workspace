@@ -78,6 +78,10 @@ const {
 
   const regularCatalog = serializeCatalog('admin', {}, delegatedEditable);
   assert.strictEqual(regularCatalog.some((group) => group.key === 'permissions'), true);
+  assert.strictEqual(
+    regularCatalog.find((group) => group.key === 'scoring').label,
+    '考核评分'
+  );
   const hrPeople = regularCatalog
     .find((group) => group.key === 'hr')
     .permissions.find((item) => item.key === 'hr.people');

@@ -1,4 +1,4 @@
-const { callFunction } = require('../../../../utils/api');
+const { callFunction, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 
 function isStepAligned(value, startValue, stepValue) {
@@ -318,7 +318,7 @@ Page({
     this._pageActive = true;
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
-    wx.showToast({ title: '组织已切换，请重新选择评分任务', icon: 'none' });
+    showShortToast('请重新选择任务');
     wx.navigateBack({ fail: function () { wx.reLaunch({ url: '/pages/portal/portal' }); } });
   },
 

@@ -15,6 +15,7 @@ const profileRecordModel = require('../models/hrProfileRecord');
 const profileValueModel = require('../models/hrProfileValue');
 const templateLibrary = require('../services/hrProfileTemplateLibrary');
 const { loadEffectivePermissions, hasAnyPermission } = require('../services/adminPermissions');
+const { resolveHrBindingStates } = require('../services/userBindingStatus');
 const pool = require('../../config/db');
 
 const TEMPLATE_KEY = 'default_hr_profile_template';
@@ -423,25 +424,7 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
     ]);
 
-    // 查询用户微信绑定状态
-    let bindingMap = new Map();
-    if (hrRows.length) {
-      const hrIds = hrRows.map(r => r.id);
-      const placeholders = hrIds.map(() => '?').join(',');
-      const [bindings] = await pool.query(
-        `SELECT ui.hr_id, ui.id as user_info_id, ui.openid
-         FROM user_info ui
-         WHERE ui.hr_id IN (${placeholders}) AND ui.org_id = ?`,
-        [...hrIds, orgId]
-      );
-      bindings.forEach(b => {
-        bindingMap.set(safeString(b.hr_id), {
-          userInfoId: b.user_info_id || '',
-          boundOpenid: b.openid ? safeString(b.openid).slice(0, 8) + '***' : '',
-          wxBindStatus: b.user_info_id ? 'bound' : 'unbound'
-        });
-      });
-    }
+    const bindingStates = await resolveHrBindingStates(hrRows, orgId);
 
     const deptMap = buildNameMap(departments);
     const identMap = buildNameMap(identities);
@@ -505,7 +488,11 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       }
 
       const statusTextMap = { pending: '待审核', approved: '已生效', rejected: '已驳回' };
-      const binding = bindingMap.get(safeString(item.id)) || { userInfoId: '', boundOpenid: '', wxBindStatus: 'unbound' };
+      const binding = bindingStates.get(safeString(item.id)) || {
+        status: 'unbound',
+        userInfoId: '',
+        boundOpenid: ''
+      };
       rows.push({
         id: item.id,
         recordId: safeString(record ? record.id : ''),
@@ -523,8 +510,8 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         rejectionReason: safeString(record ? record.rejection_reason : ''),
         hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
         userInfoId: binding.userInfoId,
-        boundOpenid: binding.boundOpenid,
-        wxBindStatus: binding.wxBindStatus
+        boundOpenid: binding.boundOpenid ? safeString(binding.boundOpenid).slice(0, 8) + '***' : '',
+        wxBindStatus: binding.status
       });
     }
 

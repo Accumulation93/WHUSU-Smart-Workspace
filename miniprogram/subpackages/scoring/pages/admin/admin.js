@@ -322,6 +322,9 @@ Page({
     meritSummaryDeptOptions: ['全部'],
     meritSummaryIdentOptions: ['全部'],
     meritSummaryWgOptions: ['全部'],
+    meritSummaryLoading: false,
+    meritSummaryLoaded: false,
+    meritSummaryLoadFailed: false,
     expandedMeritSummaryClauseId: ''
   },
 
@@ -360,6 +363,9 @@ Page({
         desigSearchKeyword: '',
         meritSummaryGroups: [],
         meritSummaryFilteredGroups: [],
+        meritSummaryLoading: false,
+        meritSummaryLoaded: false,
+        meritSummaryLoadFailed: false,
         hrList: [],
         hrProfileRawRows: [],
         hrProfileRows: [],
@@ -743,7 +749,6 @@ Page({
           if (!this.data.publicationForm.id && currentActivityId) {
             await this.savePublication(true);
           }
-          await this.loadMeritListSummary();
         }
         this.setData({ publicationsLoading: false });
       }).catch(() => { this.setData({ publicationsLoading: false }); });

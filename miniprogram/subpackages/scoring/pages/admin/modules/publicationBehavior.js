@@ -4,14 +4,38 @@ const utils = require('./adminUtils');
 const { saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 
+function emptyMeritSummaryState() {
+  return {
+    meritSummaryGroups: [],
+    meritSummaryFilteredGroups: [],
+    meritSummaryDeptOptions: ['全部'],
+    meritSummaryIdentOptions: ['全部'],
+    meritSummaryWgOptions: ['全部'],
+    meritSummaryFilterDept: '全部',
+    meritSummaryFilterIdent: '全部',
+    meritSummaryFilterWg: '全部',
+    meritSummaryLoading: false,
+    meritSummaryLoaded: false,
+    meritSummaryLoadFailed: false,
+    expandedMeritSummaryClauseId: ''
+  };
+}
+
 module.exports = Behavior({
   methods: {
     async loadPublicationData(activityId) {
       const request = orgSession.beginRequest(this, 'publicationData');
       if (!activityId) {
-        this.setData({ publicationForm: { id: '', activityId: '', activityName: '', isPublished: false }, pubViewRuleList: [], pubMeritRuleList: [], designationList: [] });
+        this.setData({
+          publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
+          pubViewRuleList: [],
+          pubMeritRuleList: [],
+          designationList: [],
+          ...emptyMeritSummaryState()
+        });
         return;
       }
+      this.setData(emptyMeritSummaryState());
       this.setLoading('publications', true);
       try {
         const result = await this.callCloud('getResultPublication', { activityId });
@@ -30,6 +54,7 @@ module.exports = Behavior({
           });
           this.rebuildPubViewRuleFilters(viewRules);
           this.rebuildPubMeritRuleFilters(meritRules);
+          if (pub) await this.loadMeritListSummary(activityId);
         }
       } catch (e) {
         if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) console.error('loadPublicationData error:', e);
@@ -39,10 +64,15 @@ module.exports = Behavior({
   
     // ─── Merit list summary (Feature 5) ───,
 
-    async loadMeritListSummary() {
-      const activityId = this.data.publicationForm.activityId;
+    async loadMeritListSummary(activityIdOverride) {
+      const activityId = activityIdOverride || this.data.publicationForm.activityId;
       if (!activityId) return;
       const request = orgSession.beginRequest(this, 'meritListSummary');
+      this.setData({
+        meritSummaryLoading: true,
+        meritSummaryLoaded: false,
+        meritSummaryLoadFailed: false
+      });
       try {
         const result = await this.callCloud('getMeritListSummary', { activityId });
         if (!orgSession.isRequestCurrent(this, request) || this.data.publicationForm.activityId !== activityId) return;
@@ -63,11 +93,20 @@ module.exports = Behavior({
             meritSummaryDeptOptions: ['全部', ...Array.from(deptSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
             meritSummaryIdentOptions: ['全部', ...Array.from(identSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
             meritSummaryWgOptions: ['全部', ...Array.from(wgSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
-            meritSummaryFilterDept: '全部', meritSummaryFilterIdent: '全部', meritSummaryFilterWg: '全部'
+            meritSummaryFilterDept: '全部', meritSummaryFilterIdent: '全部', meritSummaryFilterWg: '全部',
+            meritSummaryLoaded: true,
+            meritSummaryLoadFailed: false
           });
+        } else {
+          this.setData({ meritSummaryLoadFailed: true });
         }
       } catch (e) {
-        if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) console.error('loadMeritListSummary error:', e);
+        if (orgSession.isRequestCurrent(this, request) && !(e && e.silent)) {
+          console.error('loadMeritListSummary error:', e);
+          this.setData({ meritSummaryLoadFailed: true });
+        }
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setData({ meritSummaryLoading: false });
       }
     },
 

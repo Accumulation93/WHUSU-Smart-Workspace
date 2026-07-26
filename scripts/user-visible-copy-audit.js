@@ -13,6 +13,7 @@ const RULES = [
   { id: 'technical-detail', pattern: /(数据库|服务端|客户端|接口|后台|OpenID|openid|令牌|服务器本地|初始化脚本)/i },
   { id: 'internal-workflow', pattern: /(预检|迁移来源字段|未授权接口|数据异常|不合法)/ },
   { id: 'redundant-guidance', pattern: /(点击(?:上方|下方|右上角).*?(?:添加|发起)|将显示在这里|欢迎使用.*工作台系统|页面数据将同步更新)/ },
+  { id: 'redundant-ui-feedback', pattern: /(已切换页签|页签已切换|切换页签成功)/ },
   { id: 'implementation-detail', pattern: /(互不关联|独立保存|自动创建|服务器日志|服务器返回了)/ },
   { id: 'internal-identifier', pattern: /\b(?:requestId|fileId|hrId|adminId|departmentId|identityId|workGroupId)\b/i },
   { id: 'internal-error-code', pattern: /^(?:[a-z][a-z0-9]*_)+[a-z0-9]+$/i }

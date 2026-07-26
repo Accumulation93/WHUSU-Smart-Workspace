@@ -1,0 +1,135 @@
+const assert = require('assert');
+const Module = require('module');
+
+const activity = {
+  id: 'history-activity',
+  name: '历史评分活动',
+  description: '用于验证历史组织评分结果'
+};
+
+const members = [
+  {
+    id: 'target-1',
+    name: '被评人',
+    student_id: '20260001',
+    department_id: '',
+    identity_id: '',
+    work_group_id: ''
+  },
+  {
+    id: 'scorer-1',
+    name: '评分人',
+    student_id: '20260002',
+    department_id: '',
+    identity_id: '',
+    work_group_id: ''
+  }
+];
+
+const records = [
+  {
+    id: 'record-1',
+    activity_id: activity.id,
+    scorer_id: 'scorer-1',
+    target_id: 'target-1',
+    rule_id: 'rule-1',
+    submitted_at: '2026-07-01 10:00:00',
+    template_config_signature: ''
+  }
+];
+
+const emptyListModel = { async getAll() { return []; } };
+const mocks = {
+  '../../../core/models/adminInfo': {
+    async getByOpenid() { return { id: 'admin-1', admin_level: 'admin' }; }
+  },
+  '../models/scoreActivity': {
+    async getById(id) { return id === activity.id ? activity : null; }
+  },
+  '../../../core/models/hrInfo': {
+    async getAll() { return members; }
+  },
+  '../../../core/models/department': emptyListModel,
+  '../../../core/models/identity': emptyListModel,
+  '../../../core/models/workGroup': emptyListModel,
+  '../models/scoreTemplate': emptyListModel,
+  '../models/scoreQuestion': {},
+  '../models/rateRule': {
+    async getByActivity() {
+      return [{
+        id: 'rule-1',
+        scorer_key: '::',
+        scorer_department_id: '',
+        scorer_identity_id: '',
+        allow_self_assessment: 1
+      }];
+    }
+  },
+  '../models/rateRuleClause': {
+    async getByRuleIds() { return []; }
+  },
+  '../models/clauseTemplateConfig': {},
+  '../models/scoreRecord': {
+    async getByActivity() { return records; }
+  },
+  '../models/scoreAnswer': {
+    async getByRecordIds() { return []; }
+  },
+  '../../../core/models/systemConfig': {},
+  '../../../config/db': {
+    async query() { return [[]]; }
+  },
+  '../../../utils/orgContext': {
+    async getCurrentOrgId() { return 'history-org'; }
+  },
+  '../utils/sharedCache': {}
+};
+
+const originalLoad = Module._load;
+Module._load = function(request, parent, isMain) {
+  if (Object.prototype.hasOwnProperty.call(mocks, request)) return mocks[request];
+  return originalLoad.call(this, request, parent, isMain);
+};
+const router = require('../src/modules/scoring/routes/results');
+Module._load = originalLoad;
+
+const routeLayer = router.stack.find((layer) => layer.route && layer.route.path === '/getScoreResults');
+assert(routeLayer, '缺少 getScoreResults 路由');
+const handler = routeLayer.route.stack[0].handle;
+
+async function invoke(dataType, extraBody) {
+  let payload;
+  await handler({
+    openid: 'openid-admin',
+    body: Object.assign({
+      activityId: activity.id,
+      dataType,
+      filters: {}
+    }, extraBody || {})
+  }, {
+    json(value) {
+      payload = value;
+      return value;
+    }
+  });
+  return payload;
+}
+
+async function run() {
+  const targetRecords = await invoke('targetRecords', { targetId: 'target-1' });
+  assert.strictEqual(targetRecords.status, 'success', targetRecords.message);
+  assert.strictEqual(targetRecords.activity.name, activity.name);
+
+  const recordList = await invoke('records');
+  assert.strictEqual(recordList.status, 'success', recordList.message);
+  assert.strictEqual(recordList.activity.name, activity.name);
+  assert.strictEqual(recordList.recordRows.length, 1);
+  assert.strictEqual(recordList.recordRows[0].activityName, activity.name);
+
+  console.log('历史组织评分结果活动变量回归测试通过');
+}
+
+run().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

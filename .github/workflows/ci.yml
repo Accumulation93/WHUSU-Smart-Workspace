@@ -56,6 +56,7 @@ jobs:
           node scripts/org-session-test.js
           node scripts/api-cancellation-test.js
           node scripts/admin-activity-org-switch-test.js
+          node scripts/publication-summary-refresh-test.js
           node scripts/login-binding-refresh-test.js
           node scripts/hr-profile-export-test.js
           node scripts/venue-rule-display-test.js
@@ -70,9 +71,11 @@ jobs:
           node server/test/organizationManagementIntegration.test.js
           node server/test/activateOrganization.test.js
           node server/test/scoringOrgCacheIsolation.test.js
+          node server/test/historicalScoreResults.test.js
           node server/test/orgContextSecurity.test.js
           node server/test/adminAuthorization.test.js
           node server/test/adminPermissions.test.js
+          node server/test/userBindingStatus.test.js
           node server/test/adminPermissionMiddleware.test.js
           node server/test/adminPermissionsMigration.test.js
           node server/test/authChallenge.test.js

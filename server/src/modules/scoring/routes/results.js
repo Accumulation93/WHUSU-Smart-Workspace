@@ -1232,7 +1232,7 @@ router.post('/getScoreResults', async (req, res) => {
         const task = lookupExpectedTask(record, rsk);
         const sk = safeString((task && task.scorerKey) || rsk || record.scorerId);
         return {
-          recordId: safeString(record.id), activityId, activityName: safeString(activity.name),
+          recordId: safeString(record.id), activityId, activityName: activityBrief.name,
           scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName),
           scorerStudentId: safeString(record.scorerStudentId), scorerDepartment: safeString(rule.scorerDepartment || record.scorerDepartment),
           scorerIdentity: safeString(rule.scorerIdentity || record.scorerIdentity),
@@ -1324,7 +1324,7 @@ router.post('/getScoreResults', async (req, res) => {
           const cfg = findCurrentTemplateConfig(rule, expectedTask && expectedTask.clauseIndex, item.templateId, item);
           return `${safeString(cfg.templateName || item.templateName)} × ${getCurrentTemplateWeight(rule, expectedTask && expectedTask.clauseIndex, item.templateId, item)}`;
         }).filter(Boolean).join('；');
-        recordRows.push({ recordId: safeString(record.id), activityId, activityName: safeString(activity.name), scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerWorkGroup: safeString(scorerHr.workGroup || ''), scorerCategoryLabel, targetId: targetBase.targetId, name: targetBase.name, studentId: targetBase.studentId, department: targetBase.department, identity: targetBase.identity, workGroup: targetBase.workGroup, templateSummary: tplSummary, submittedAt: formatDate(record.submittedAt, timezone), excludedByRequireAll, signatureStale: false });
+        recordRows.push({ recordId: safeString(record.id), activityId, activityName: activityBrief.name, scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerWorkGroup: safeString(scorerHr.workGroup || ''), scorerCategoryLabel, targetId: targetBase.targetId, name: targetBase.name, studentId: targetBase.studentId, department: targetBase.department, identity: targetBase.identity, workGroup: targetBase.workGroup, templateSummary: tplSummary, submittedAt: formatDate(record.submittedAt, timezone), excludedByRequireAll, signatureStale: false });
         return;
       }
 

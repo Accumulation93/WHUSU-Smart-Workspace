@@ -179,7 +179,7 @@ Page({
     this._pageActive = true;
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
-    showShortToast('组织已切换，请重新进入审核页面');
+    showShortToast('请重新进入审核');
     wx.navigateBack({ fail: () => wx.reLaunch({ url: '/pages/portal/portal' }) });
   },
 

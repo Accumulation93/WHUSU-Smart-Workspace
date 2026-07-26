@@ -9,7 +9,7 @@ const PERMISSION_GROUPS = [
   },
   {
     key: 'scoring',
-    label: 'WHUSU智慧工作台',
+    label: '考核评分',
     description: '',
     permissions: [
       { key: 'scoring.activities', label: '活动管理', description: '管理评分活动' },

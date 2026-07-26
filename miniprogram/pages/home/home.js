@@ -402,7 +402,7 @@ Page({
     }
     if (finalizeOrgFallback) {
       if (preferredTab && !preferredAvailable && activeTab !== preferredTab) {
-        showShortToast('已切换页签');
+        showShortToast('该组织无此功能');
       }
       this._preferredOrgTab = '';
     }

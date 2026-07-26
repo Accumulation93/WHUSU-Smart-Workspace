@@ -603,7 +603,12 @@ module.exports = Behavior({
           } else if (column.source === 'pending') {
             exportRow[column.key] = pendingValues[column.fieldId] || '';
           } else if (column.source === 'wxBindStatus') {
-            exportRow[column.key] = item.wxBindStatus === 'bound' ? '已绑定' : '未绑定';
+            const bindStatusTextMap = {
+              bound: '已绑定',
+              pending_activation: '待激活',
+              unbound: '未绑定'
+            };
+            exportRow[column.key] = bindStatusTextMap[item.wxBindStatus] || '未绑定';
           } else if (column.source === 'auditStatus') {
             exportRow[column.key] = item.auditStatusText || '';
           } else {

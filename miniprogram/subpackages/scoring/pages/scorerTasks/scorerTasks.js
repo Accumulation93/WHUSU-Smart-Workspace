@@ -105,7 +105,7 @@ Page({
     const organizationState = orgSession.consume(this);
     if (!this.data.activityId || !organizationState.changed) return;
     orgSession.invalidateRequests(this);
-    showShortToast('组织已切换');
+    showShortToast('请重新选择活动');
     wx.navigateBack({
       fail: () => wx.reLaunch({ url: '/pages/portal/portal' })
     });

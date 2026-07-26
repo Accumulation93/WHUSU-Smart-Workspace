@@ -4,6 +4,7 @@ const { safeString, generateId } = require('../../utils/helpers');
 const { parseCsv } = require('../../utils/csv');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const { isSuperAdmin, canManageTarget } = require('../services/adminAuthorization');
+const { resolveHrBindingStates } = require('../services/userBindingStatus');
 
 const EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
 
@@ -90,31 +91,37 @@ router.post('/listHrInfo', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
     const [rows] = await pool.query(
-      `SELECT h.*, d.name as department_name, i.name as identity_name, wg.name as work_group_name,
-              ui.id as user_info_id, ui.openid as bound_openid
+      `SELECT h.*, d.name as department_name, i.name as identity_name, wg.name as work_group_name
        FROM hr_info h
        LEFT JOIN departments d ON h.department_id = d.id AND d.org_id = ?
        LEFT JOIN identities i ON h.identity_id = i.id AND i.org_id = ?
        LEFT JOIN work_groups wg ON h.work_group_id = wg.id AND wg.org_id = ?
-       LEFT JOIN user_info ui ON ui.hr_id = h.id AND ui.org_id = ?
        WHERE h.org_id = ?
        ORDER BY h.name`,
-      [orgId, orgId, orgId, orgId, orgId]
+      [orgId, orgId, orgId, orgId]
     );
-    const list = rows.map((item) => ({
-      id: item.id,
-      name: safeString(item.name),
-      studentId: safeString(item.student_id),
-      departmentId: safeString(item.department_id),
-      department: safeString(item.department_name),
-      identityId: safeString(item.identity_id),
-      identity: safeString(item.identity_name),
-      workGroupId: safeString(item.work_group_id),
-      workGroup: safeString(item.work_group_name),
-      userInfoId: item.user_info_id || '',
-      boundOpenid: item.bound_openid ? safeString(item.bound_openid).slice(0, 8) + '***' : '',
-      bindStatus: item.user_info_id ? 'bound' : 'unbound'
-    }));
+    const bindingStates = await resolveHrBindingStates(rows, orgId);
+    const list = rows.map((item) => {
+      const binding = bindingStates.get(safeString(item.id)) || {
+        status: 'unbound',
+        userInfoId: '',
+        boundOpenid: ''
+      };
+      return {
+        id: item.id,
+        name: safeString(item.name),
+        studentId: safeString(item.student_id),
+        departmentId: safeString(item.department_id),
+        department: safeString(item.department_name),
+        identityId: safeString(item.identity_id),
+        identity: safeString(item.identity_name),
+        workGroupId: safeString(item.work_group_id),
+        workGroup: safeString(item.work_group_name),
+        userInfoId: binding.userInfoId,
+        boundOpenid: binding.boundOpenid ? safeString(binding.boundOpenid).slice(0, 8) + '***' : '',
+        bindStatus: binding.status
+      };
+    });
     res.json({ status: 'success', list });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

@@ -29,7 +29,9 @@
     <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">当前组织没有可配置的下级管理员</view>
     <view class="permission-admin-list" wx:else>
       <view class="permission-admin-row ui-motion-card" wx:for="{{filteredAdmins}}" wx:key="id" data-id="{{item.id}}" bindtap="openAdmin" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
-        <view class="permission-avatar">{{item.initial}}</view>
+        <view class="permission-role-mark" aria-label="管理员">
+          <ui-icon name="shield" tone="primary" size="34" ariaLabel="管理员" />
+        </view>
         <view class="permission-admin-main">
           <view class="permission-admin-title-row">
             <view class="permission-admin-name">{{item.name || '未命名管理员'}}</view>

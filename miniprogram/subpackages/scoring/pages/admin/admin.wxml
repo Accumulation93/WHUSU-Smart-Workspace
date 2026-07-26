@@ -1113,6 +1113,7 @@
                 <view class="hr-member-name">{{item.name}}</view>
                 <view class="hr-member-chips">
                   <view class="status-chip current-chip" wx:if="{{item.wxBindStatus === 'bound'}}">已绑定</view>
+                  <view class="status-chip activation-chip" wx:elif="{{item.wxBindStatus === 'pending_activation'}}">待激活</view>
                   <view class="status-chip unbound-chip" wx:else>未绑定</view>
                   <view class="status-chip {{item.auditStatus === 'pending' ? 'pending-chip' : item.auditStatus === 'approved' ? 'current-chip' : item.auditStatus === 'rejected' ? 'rejected-chip' : 'none-chip'}}">{{item.auditStatusText}}</view>
                 </view>
@@ -1126,6 +1127,7 @@
                 <text wx:if="{{item.workGroup}}" class="hr-member-sep">|</text>
                 <text wx:if="{{item.workGroup}}">{{item.workGroup}}</text>
               </view>
+              <view class="hr-member-binding-hint" wx:if="{{item.wxBindStatus === 'pending_activation'}}">已在其他组织验证，进入本组织后将自动关联</view>
               <view class="hr-member-profile-summary">扩展资料：{{item.currentSummary}}</view>
               <view class="hr-member-profile-summary hr-member-profile-pending" wx:if="{{item.pendingSummary}}">待审核：{{item.pendingSummary}}</view>
             </view>
@@ -1893,7 +1895,7 @@
         <view class="rule-panel-head">
           <view class="rule-panel-head-row">
             <view>
-              <view class="rule-panel-title rule-panel-title-icon"><ui-icon name="star" tone="primary" size="24" ariaLabel="评优" /><text>评优名单汇总</text></view>
+              <view class="rule-panel-title">评优名单汇总</view>
             </view>
           </view>
           <view class="merit-summary-head-bar" wx:if="{{meritSummaryGroups.length}}">
@@ -1926,8 +1928,16 @@
           </view>
         </view>
 
-        <view class="rule-empty glass-empty" wx:if="{{!meritSummaryGroups.length}}">
-          <view class="empty-illustration"><view class="empty-icon-star"><ui-icon name="star" tone="primary" size="46" ariaLabel="暂无评优名单" /></view></view>
+        <view class="rule-empty glass-empty merit-summary-loading" wx:if="{{meritSummaryLoading}}">
+          <view class="empty-desc">正在加载评优名单</view>
+        </view>
+
+        <view class="rule-empty glass-empty" wx:elif="{{meritSummaryLoadFailed}}">
+          <view class="empty-title">评优名单加载失败</view>
+          <view class="empty-desc">请稍后重新进入此页签</view>
+        </view>
+
+        <view class="rule-empty glass-empty" wx:elif="{{meritSummaryLoaded && !meritSummaryGroups.length}}">
           <view class="empty-title">暂无评优名单</view>
           <view class="empty-desc">尚未指定人选</view>
         </view>
