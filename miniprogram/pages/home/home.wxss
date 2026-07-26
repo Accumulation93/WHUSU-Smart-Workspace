@@ -1653,8 +1653,21 @@ scroll-view {
   display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 20rpx;
 }
 .audit-btn-bar button {
-  flex: 1; min-width: 200rpx; min-height: 80rpx; line-height: 80rpx;
-  border-radius: 22rpx; font-size: 25rpx; font-weight: 700; letter-spacing: 0.3rpx;
+  flex: 1 1 calc(50% - 8rpx);
+  min-width: calc(50% - 8rpx);
+  max-width: 100%;
+  min-height: 76rpx;
+  height: auto;
+  padding: 14rpx 20rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.3rpx;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
 }
 .audit-link-btn {
   display: inline-flex; align-items: center; justify-content: center;

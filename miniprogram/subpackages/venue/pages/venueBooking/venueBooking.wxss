@@ -667,12 +667,18 @@ page {
 }
 
 .primary-btn {
-  min-height: 78rpx;
-  line-height: 78rpx;
-  border-radius: 22rpx;
+  min-height: 76rpx;
+  height: auto;
+  padding: 14rpx 20rpx;
+  line-height: 1.35;
+  border-radius: 20rpx;
   color: #ffffff;
-  font-size: 26rpx;
-  font-weight: 800;
+  font-size: 24rpx;
+  font-weight: 700;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
   background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
   box-shadow:
     0 16rpx 32rpx rgba(37,99,235,0.20),
@@ -760,8 +766,6 @@ page {
   padding: 10rpx 14rpx;           /* 18/22→14/18→10/14 */
 }
 .booking-form-popup .primary-btn {
-  min-height: 60rpx;              /* 78→68→60 */
-  line-height: 60rpx;
   font-size: 24rpx;
 }
 .booking-form-popup .form-body {

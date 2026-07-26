@@ -262,6 +262,7 @@ Native text/action buttons must be compact rounded rectangles, never capsules or
 - Never use `999rpx`, `999px`, or `50%` on a native `<button>` or full-size text action such as `.primary-btn`, `.secondary-btn`, `.danger-btn`, `.approve-btn`, or `.dialog-btn`.
 - Reserve capsule/circle geometry for status tags, filter chips, compact inline links, avatars, and genuinely icon-only controls.
 - Never combine wrapped button text with a fixed `line-height` equal to the button height. Use `height: auto`, a controlled `min-height`, `line-height: 1.3` to `1.4`, and balanced vertical padding.
+- A full-size text button must not declare an absolute `line-height` close to its `min-height`; inherited vertical padding will stack on top and create an abnormally tall control. `scripts/ui-audit.js --strict` must reject this pattern.
 - On narrow phones, show at most two text buttons per row. Long labels should use a two-column or full-width layout, never three cramped columns that force vertical word wrapping.
 
 Baseline:
@@ -379,6 +380,7 @@ Before finishing:
 - Repeated rows use inner list-item cards with lighter shadows.
 - Buttons are sized for work, not marketing.
 - Native text buttons are compact rounded rectangles; no `999rpx`/`50%` fat capsules and no three-column wrapping on phones.
+- Strict UI audit reports zero `pillButtonRadius` and zero `stackedButtonMetrics` findings.
 - Text is not dense: use short titles and one helper line.
 - No giant empty summary cards unless the numbers directly drive decisions.
 - Red is used only for clear/danger/destructive actions.

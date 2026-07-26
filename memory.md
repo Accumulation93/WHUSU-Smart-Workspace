@@ -256,7 +256,8 @@ callFunction({ name, data, success, fail })
 - 原生 `<button>` 和 `.primary-btn`、`.secondary-btn`、`.danger-btn`、`.approve-btn`、`.reject-btn`、`.dialog-btn` 等完整文字操作按钮，只允许使用 `16–24rpx`（Pad 为 `10–14px`）的紧凑圆角矩形。
 - `999rpx`、`999px`、`50%` 仅用于状态标签、筛选 chip、紧凑内联链接、头像和纯图标控件。
 - 文字按钮使用 `height: auto`、受控 `min-height`、`line-height: 1.3–1.4` 与上下 padding；手机窄屏每行最多两个文字按钮，长文案改两列或整行。
-- `scripts/ui-audit.js --strict` 会拦截完整文字按钮上的胶囊/圆形半径，禁止回归。
+- 完整文字按钮不得把绝对 `line-height` 设为接近 `min-height`，否则会与继承的上下 padding 叠加成异常高按钮。
+- `scripts/ui-audit.js --strict` 会拦截完整文字按钮上的胶囊/圆形半径和异常高度叠加，禁止回归。
 
 ---
 

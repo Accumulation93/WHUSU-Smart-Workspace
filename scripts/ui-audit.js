@@ -396,6 +396,7 @@ function scanWxss(file) {
   const unsafeControlEllipsis = [];
   const fixedDataColumns = [];
   const pillButtonRadius = [];
+  const stackedButtonMetrics = [];
   const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
   let ruleMatch;
   while ((ruleMatch = rulePattern.exec(source))) {
@@ -433,6 +434,24 @@ function scanWxss(file) {
         message: '原生文字按钮禁止使用胶囊/圆形半径，请改为 16–24rpx 紧凑圆角矩形'
       });
     }
+    if (FULL_SIZE_BUTTON_SELECTOR.test(selector)) {
+      const minHeight = declarations.match(/min-height\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
+      const lineHeight = declarations.match(/line-height\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
+      const fixedHeight = declarations.match(/(?:^|;)\s*height\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
+      if (minHeight && lineHeight && !fixedHeight && minHeight[2] === lineHeight[2]) {
+        const minimum = Number(minHeight[1]);
+        const line = Number(lineHeight[1]);
+        const absoluteFloor = minHeight[2] === 'px' ? 28 : 44;
+        if (line >= absoluteFloor && line >= minimum * 0.75) {
+          stackedButtonMetrics.push({
+            file: relative(file),
+            line: lineAt(source, ruleMatch.index),
+            selector: selector.trim().replace(/\s+/g, ' '),
+            message: '文字按钮不得用接近最小高度的固定行高；它会与继承的上下内边距叠加并形成异常高按钮'
+          });
+        }
+      }
+    }
     const transformValue = declarations.match(/transform\s*:\s*([^;]+)/i);
     const animationValue = declarations.match(/animation(?:-name)?\s*:\s*([^;]+)/i);
     const hasMotion = Boolean(
@@ -468,6 +487,7 @@ function scanWxss(file) {
     unsafeControlEllipsis,
     fixedDataColumns,
     pillButtonRadius,
+    stackedButtonMetrics,
     oversizedTimetable: [...source.matchAll(/\.timetable-scroll\s*\{[^{}]*height\s*:\s*(\d{3,})rpx/gi)]
       .filter(match => Number(match[1]) >= 900)
       .map(match => ({ file: relative(file), line: lineAt(source, match.index), height: match[1] + 'rpx' }))
@@ -511,6 +531,7 @@ const scrollContractIssues = layoutContracts.flatMap(item => item.scrollContract
 const unsafeControlEllipsis = styles.flatMap(item => item.unsafeControlEllipsis);
 const fixedDataColumns = styles.flatMap(item => item.fixedDataColumns);
 const pillButtonRadius = styles.flatMap(item => item.pillButtonRadius);
+const stackedButtonMetrics = styles.flatMap(item => item.stackedButtonMetrics);
 const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;/m.test(GLOBAL_STYLE)
@@ -575,6 +596,7 @@ const report = {
     unsafeControlEllipsis: unsafeControlEllipsis.length,
     fixedDataColumns: fixedDataColumns.length,
     pillButtonRadius: pillButtonRadius.length,
+    stackedButtonMetrics: stackedButtonMetrics.length,
     missingStableDialogSystem: missingStableDialogSystem ? 1 : 0,
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
@@ -606,6 +628,7 @@ const report = {
   unsafeControlEllipsis,
   fixedDataColumns,
   pillButtonRadius,
+  stackedButtonMetrics,
   styles
 };
 
@@ -616,7 +639,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...pillButtonRadius]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...pillButtonRadius, ...stackedButtonMetrics]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -633,7 +656,7 @@ if (process.argv.includes('--strict')) {
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
     report.summary.adminOrgContextIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
+    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem;
   process.exitCode = failed ? 1 : 0;
 }
