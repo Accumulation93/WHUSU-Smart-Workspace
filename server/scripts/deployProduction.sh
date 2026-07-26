@@ -22,6 +22,22 @@ if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   exit 64
 fi
 
+rename_legacy_path() {
+  local source="$1"
+  local target="$2"
+  if [[ -e "$source" && -e "$target" ]]; then
+    echo "新旧路径同时存在，拒绝自动合并：$source -> $target" >&2
+    exit 1
+  fi
+  if [[ -e "$source" ]]; then
+    mv "$source" "$target"
+  fi
+}
+
+rename_legacy_path "/home/ubuntu/redsu_backups" "/home/ubuntu/whusu-smart-workspace-backups"
+rename_legacy_path "/home/ubuntu/redsu_ssh_key" "/home/ubuntu/whusu-smart-workspace-ssh-key"
+rename_legacy_path "/home/ubuntu/redsu_ssh_key.pub" "/home/ubuntu/whusu-smart-workspace-ssh-key.pub"
+
 mapfile -t EXISTING_RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -print)
 for existing_release in "${EXISTING_RELEASES[@]}"; do
   release_env="$existing_release/server/.env"
