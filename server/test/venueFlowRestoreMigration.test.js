@@ -8,7 +8,7 @@ if (!process.env.DEPLOY_TEST_DB_HOST) {
   process.exit(0);
 }
 
-const databaseName = `redsu_venue_flow_test_${Date.now()}_${process.pid}`;
+const databaseName = `whusu_smart_workspace_venue_flow_test_${Date.now()}_${process.pid}`;
 const baseConfig = {
   host: process.env.DEPLOY_TEST_DB_HOST,
   port: Number(process.env.DEPLOY_TEST_DB_PORT || 3306),

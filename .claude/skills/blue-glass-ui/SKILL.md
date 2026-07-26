@@ -1,14 +1,14 @@
 ---
 name: blue-glass-ui
 description: >
-  Design UI for the REDSU scoring mini program using the "Blue Luxury Glass" design system.
+  Design UI for the WHUSU Smart Workspace scoring mini program using the "Blue Luxury Glass" design system.
   Use this skill whenever the user asks to design, redesign, or style any page, component, card,
   button, or layout in this project. Also use it when the user asks for "轻奢玻璃风", "蓝色玻璃风",
   "和现有风格一致", or similar requests. This skill encodes the exact CSS values, color palette,
   spacing, and composition patterns found across portal, home, and admin pages.
 ---
 
-# Blue Luxury Glass — REDSU 考核评分 Design System
+# Blue Luxury Glass — WHUSU Smart Workspace WHUSU智慧工作台 Design System
 
 ## When to use this skill
 

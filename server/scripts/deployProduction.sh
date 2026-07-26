@@ -2,25 +2,80 @@
 set -Eeuo pipefail
 
 TARGET_SHA="${1:-}"
-BRANCH="${REDSU_DEPLOY_BRANCH:-feature/audit}"
-REPO_DIR="${REDSU_REPO_DIR:-/home/ubuntu/redsu_scoring}"
-RELEASES_DIR="${REDSU_RELEASES_DIR:-/home/ubuntu/redsu_releases}"
-CURRENT_LINK="${REDSU_CURRENT_LINK:-/home/ubuntu/redsu_current}"
-SHARED_DIR="${REDSU_SHARED_DIR:-/home/ubuntu/redsu_shared}"
-DEPLOY_DIR="${REDSU_DEPLOY_DIR:-/home/ubuntu/redsu_deploy}"
+BRANCH="${WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-feature/audit}"
+REPO_DIR="${WHUSU_SMART_WORKSPACE_REPO_DIR:-/home/ubuntu/whusu-smart-workspace}"
+RELEASES_DIR="${WHUSU_SMART_WORKSPACE_RELEASES_DIR:-/home/ubuntu/whusu-smart-workspace-releases}"
+CURRENT_LINK="${WHUSU_SMART_WORKSPACE_CURRENT_LINK:-/home/ubuntu/whusu-smart-workspace-current}"
+SHARED_DIR="${WHUSU_SMART_WORKSPACE_SHARED_DIR:-/home/ubuntu/whusu-smart-workspace-shared}"
+DEPLOY_DIR="${WHUSU_SMART_WORKSPACE_DEPLOY_DIR:-/home/ubuntu/whusu-smart-workspace-deploy}"
 STATE_DIR="$DEPLOY_DIR/state"
 LOG_DIR="$DEPLOY_DIR/logs"
 BACKUP_DIR="$DEPLOY_DIR/backups"
-MAINTENANCE_FLAG="${REDSU_MAINTENANCE_FLAG:-/var/lib/redsu-deploy/maintenance.flag}"
+MAINTENANCE_FLAG="${WHUSU_SMART_WORKSPACE_MAINTENANCE_FLAG:-/var/lib/whusu-smart-workspace-deploy/maintenance.flag}"
 LOCK_FILE="$DEPLOY_DIR/deploy.lock"
-DRAIN_SECONDS="${REDSU_DRAIN_SECONDS:-35}"
-PUBLIC_HEALTH_URL="${REDSU_PUBLIC_HEALTH_URL:-https://accumulation93.com/api/health}"
-RELEASE_KEEP_COUNT="${REDSU_RELEASE_KEEP_COUNT:-5}"
+DRAIN_SECONDS="${WHUSU_SMART_WORKSPACE_DRAIN_SECONDS:-35}"
+PUBLIC_HEALTH_URL="${WHUSU_SMART_WORKSPACE_PUBLIC_HEALTH_URL:-https://accumulation93.com/api/health}"
+RELEASE_KEEP_COUNT="${WHUSU_SMART_WORKSPACE_RELEASE_KEEP_COUNT:-5}"
+
+# 首次品牌迁移由旧 CI 入口启动；仅在新目录尚不存在时整体搬迁，避免复制状态或覆盖并存目录。
+LEGACY_REPO_DIR="/home/ubuntu/redsu_scoring"
+LEGACY_RELEASES_DIR="/home/ubuntu/redsu_releases"
+LEGACY_CURRENT_LINK="/home/ubuntu/redsu_current"
+LEGACY_SHARED_DIR="/home/ubuntu/redsu_shared"
+LEGACY_DEPLOY_DIR="/home/ubuntu/redsu_deploy"
+LEGACY_MAINTENANCE_DIR="/var/lib/redsu-deploy"
+LEGACY_BACKUP_DIR="/home/ubuntu/backups/redsu_scoring"
+INFRASTRUCTURE_RENAMED=0
 
 if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   echo "部署 SHA 必须是 40 位小写十六进制" >&2
   exit 64
 fi
+
+move_legacy_directory() {
+  local legacy="$1"
+  local target="$2"
+  if [[ -e "$legacy" && -e "$target" ]]; then
+    echo "新旧目录同时存在，拒绝自动合并：$legacy -> $target" >&2
+    exit 1
+  fi
+  if [[ -e "$legacy" ]]; then
+    mkdir -p "$(dirname "$target")"
+    mv "$legacy" "$target"
+    INFRASTRUCTURE_RENAMED=1
+  fi
+}
+
+LEGACY_RELEASE_NAME=""
+if [[ -L "$LEGACY_CURRENT_LINK" ]]; then
+  LEGACY_RELEASE_NAME="$(basename "$(readlink -f "$LEGACY_CURRENT_LINK")")"
+fi
+
+move_legacy_directory "$LEGACY_REPO_DIR" "$REPO_DIR"
+move_legacy_directory "$LEGACY_RELEASES_DIR" "$RELEASES_DIR"
+move_legacy_directory "$LEGACY_SHARED_DIR" "$SHARED_DIR"
+move_legacy_directory "$LEGACY_DEPLOY_DIR" "$DEPLOY_DIR"
+move_legacy_directory "$LEGACY_BACKUP_DIR" "/home/ubuntu/backups/whusu-smart-workspace"
+
+if [[ -d "$LEGACY_MAINTENANCE_DIR" && ! -e "$(dirname "$MAINTENANCE_FLAG")" ]]; then
+  sudo -n mv "$LEGACY_MAINTENANCE_DIR" "$(dirname "$MAINTENANCE_FLAG")"
+  INFRASTRUCTURE_RENAMED=1
+fi
+
+if [[ -n "$LEGACY_RELEASE_NAME" && -d "$RELEASES_DIR/$LEGACY_RELEASE_NAME" && ! -e "$CURRENT_LINK" ]]; then
+  ln -s "$RELEASES_DIR/$LEGACY_RELEASE_NAME" "$CURRENT_LINK"
+fi
+if [[ -L "$LEGACY_CURRENT_LINK" ]]; then
+  rm "$LEGACY_CURRENT_LINK"
+fi
+
+if [[ "$INFRASTRUCTURE_RENAMED" -eq 1 ]]; then
+  mapfile -t EXISTING_RELEASES < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -print)
+  if [[ "${#EXISTING_RELEASES[@]}" -gt 0 ]]; then
+    git -C "$REPO_DIR" worktree repair "${EXISTING_RELEASES[@]}" || true
+  fi
+fi
+git -C "$REPO_DIR" remote set-url origin git@github.com:Accumulation93/WHUSU-Smart-Workspace.git
 
 mkdir -p "$RELEASES_DIR" "$SHARED_DIR" "$STATE_DIR" "$LOG_DIR" "$BACKUP_DIR"
 LOG_FILE="$LOG_DIR/deploy-$(date +%Y%m%d-%H%M%S)-${TARGET_SHA:0:12}.log"
@@ -86,9 +141,12 @@ wait_for_health() {
 }
 
 reload_release() {
-  local root="$1"
-  REDSU_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$root/server/ecosystem.config.js" --only redsu-scoring --update-env
-  REDSU_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$root/server/ecosystem.config.js" --only redsu-notification-worker --update-env
+  if [[ ! -f "$NEW_RELEASE/server/ecosystem.config.js" ]]; then
+    log "新版本进程配置尚未创建，保留现有进程继续运行"
+    return 0
+  fi
+  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-api --update-env
+  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-notification-worker --update-env
 }
 
 rollback() {
@@ -98,15 +156,15 @@ rollback() {
   log "部署在第 ${failed_line} 行失败，开始自动恢复"
   if [[ "$MIGRATION_STARTED" -eq 1 && -n "$SNAPSHOT" && -f "$SNAPSHOT" ]]; then
     log "停止 API 与通知 Worker，释放数据库连接"
-    pm2 stop redsu-scoring >/dev/null 2>&1 || true
-    pm2 stop redsu-notification-worker >/dev/null 2>&1 || true
+    pm2 stop whusu-smart-workspace-api >/dev/null 2>&1 || true
+    pm2 stop whusu-smart-workspace-notification-worker >/dev/null 2>&1 || true
     log "恢复部署前数据库快照"
     node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" restore "$SNAPSHOT"
   fi
   if [[ -n "$OLD_RELEASE" && -d "$OLD_RELEASE" ]]; then
     log "切回旧版本 $OLD_SHA"
     atomic_link "$OLD_RELEASE"
-    reload_release "$OLD_RELEASE"
+    reload_release
     local port
     port="$(read_port)"
     if wait_for_health "$port"; then
@@ -176,7 +234,7 @@ if [[ "$PENDING_COUNT" -gt 0 ]]; then
   log "检测到 $PENDING_COUNT 个待执行迁移，进入维护状态"
   touch "$MAINTENANCE_FLAG"
   MAINTENANCE_ACTIVE=1
-  pm2 stop redsu-notification-worker || true
+  pm2 stop whusu-smart-workspace-notification-worker || true
   WORKER_STOPPED=1
   sleep "$DRAIN_SECONDS"
   SNAPSHOT="$BACKUP_DIR/pre-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).sql.gz"
@@ -188,10 +246,33 @@ fi
 log "原子切换服务版本"
 atomic_link "$NEW_RELEASE"
 RELEASE_SWITCHED=1
-reload_release "$NEW_RELEASE"
+if [[ "$INFRASTRUCTURE_RENAMED" -eq 1 ]]; then
+  pm2 delete redsu-scoring >/dev/null 2>&1 || true
+  pm2 delete redsu-notification-worker >/dev/null 2>&1 || true
+fi
+reload_release
 PORT="$(read_port)"
 wait_for_health "$PORT"
 curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null
+
+if [[ "$INFRASTRUCTURE_RENAMED" -eq 1 ]]; then
+  pm2 delete redsu-backup >/dev/null 2>&1 || true
+  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-backup --update-env
+  for old_log in /home/ubuntu/.pm2/logs/redsu-*.log; do
+    [[ -e "$old_log" ]] || continue
+    new_log="${old_log//redsu-scoring/whusu-smart-workspace-api}"
+    new_log="${new_log//redsu-notification-worker/whusu-smart-workspace-notification-worker}"
+    new_log="${new_log//redsu-backup/whusu-smart-workspace-backup}"
+    new_log="${new_log%.log}-pre-rename.log"
+    [[ "$new_log" == "$old_log" ]] || mv "$old_log" "$new_log"
+  done
+  pm2 save
+  tmux kill-session -t redsu-collab >/dev/null 2>&1 || true
+  bash "$NEW_RELEASE/server/scripts/setupCollabSession.sh"
+fi
+
+mkdir -p "$DEPLOY_DIR/bin"
+install -m 755 "$NEW_RELEASE/server/scripts/deployEntrypoint.sh" "$DEPLOY_DIR/bin/deploy-entrypoint"
 
 printf '%s\n' "$TARGET_SHA" > "$STATE_DIR/server_sha"
 printf '%s\n' "$TARGET_SHA" > "$STATE_DIR/repository_sha"

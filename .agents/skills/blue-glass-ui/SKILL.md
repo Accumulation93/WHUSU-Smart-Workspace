@@ -1,13 +1,13 @@
 ---
 name: blue-glass-ui
 description: >
-  Design or refactor UI for the REDSU mini program in the mature scoring/admin
+  Design or refactor UI for the WHUSU Smart Workspace mini program in the mature scoring/admin
   "blue luxury glass" style. Use this whenever the user asks for 蓝色玻璃风,
-  轻奢玻璃风, 和考核评分/人事信息/管理端风格一致, or asks to beautify pages in
+  轻奢玻璃风, 和WHUSU智慧工作台/人事信息/管理端风格一致, or asks to beautify pages in
   this project.
 ---
 
-# Blue Glass UI for REDSU Mini Program
+# Blue Glass UI for WHUSU Smart Workspace Mini Program
 
 This project already has a mature visual language in the scoring admin pages and
 portal/home pages. Follow those pages first. Do not invent a new unrelated

@@ -14,7 +14,7 @@ const adminConfig = {
   user: process.env.DEPLOY_TEST_DB_USER || 'root',
   password: process.env.DEPLOY_TEST_DB_PASSWORD || ''
 };
-const database = `redsu_org_management_${Date.now()}_${process.pid}`;
+const database = `whusu_smart_workspace_org_management_${Date.now()}_${process.pid}`;
 const testUser = `org_management_${process.pid}`;
 const testPassword = `OrgManagement_${Date.now()}_${process.pid}`;
 const requestedTestUserHost = process.env.TEST_DB_USER_HOST || '127.0.0.1';

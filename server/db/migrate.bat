@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 echo ==========================================
-echo REDSU Scoring - Full Database Migration
+echo WHUSU Smart Workspace - Full Database Migration
 echo ==========================================
 echo.
 echo This script runs ALL migrations to bring
@@ -48,7 +48,7 @@ set DB_HOST=localhost
 set DB_PORT=3306
 set DB_USER=root
 set DB_PASS=
-set DB_NAME=redsu_scoring
+set DB_NAME=whusu_smart_workspace
 
 set /p DB_HOST="Host     [localhost]: "
 if "%DB_HOST%"=="" set DB_HOST=localhost
@@ -61,8 +61,8 @@ if "%DB_USER%"=="" set DB_USER=root
 
 set /p DB_PASS="Password []: "
 
-set /p DB_NAME="Database [redsu_scoring]: "
-if "%DB_NAME%"=="" set DB_NAME=redsu_scoring
+set /p DB_NAME="Database [whusu_smart_workspace]: "
+if "%DB_NAME%"=="" set DB_NAME=whusu_smart_workspace
 
 echo.
 

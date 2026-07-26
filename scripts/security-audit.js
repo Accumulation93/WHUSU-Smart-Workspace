@@ -231,7 +231,7 @@ const summary = findings.reduce((result, finding) => {
   return result;
 }, { critical: 0, high: 0, medium: 0, info: 0 });
 
-console.log('REDSU security audit');
+console.log('WHUSU Smart Workspace security audit');
 console.table(summary);
 if (findings.length) console.table(findings);
 

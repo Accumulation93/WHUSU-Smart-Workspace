@@ -1,5 +1,5 @@
 -- ============================================================
--- REDSU Audit Workflow System - Database Migration
+-- WHUSU Smart Workspace Audit Workflow System - Database Migration
 -- Creates all tables for the audit/approval workflow system.
 -- All statements are idempotent (IF NOT EXISTS).
 -- Date: 2026-06-11

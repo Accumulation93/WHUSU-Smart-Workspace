@@ -1,6 +1,6 @@
 @echo off
 echo ==========================================
-echo REDSU Scoring - MySQL Teardown
+echo WHUSU Smart Workspace - MySQL Teardown
 echo ==========================================
 echo.
 
@@ -36,7 +36,7 @@ set DB_HOST=localhost
 set DB_PORT=3306
 set DB_USER=root
 set DB_PASS=
-set DB_NAME=redsu_scoring
+set DB_NAME=whusu_smart_workspace
 
 set /p DB_HOST="Host     [localhost]: "
 if "%DB_HOST%"=="" set DB_HOST=localhost
@@ -49,8 +49,8 @@ if "%DB_USER%"=="" set DB_USER=root
 
 set /p DB_PASS="Password []: "
 
-set /p DB_NAME="Database [redsu_scoring]: "
-if "%DB_NAME%"=="" set DB_NAME=redsu_scoring
+set /p DB_NAME="Database [whusu_smart_workspace]: "
+if "%DB_NAME%"=="" set DB_NAME=whusu_smart_workspace
 
 echo.
 echo ==========================================

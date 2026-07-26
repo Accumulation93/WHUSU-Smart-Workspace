@@ -1,5 +1,5 @@
 -- ============================================================
--- REDSU Scoring System - MySQL Database Schema
+-- WHUSU Smart Workspace - MySQL Database Schema
 -- Converted from WeChat Cloud NoSQL to MySQL Relational
 -- Date: 2026-05-01
 -- ============================================================

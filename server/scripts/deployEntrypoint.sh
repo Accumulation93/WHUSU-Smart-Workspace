@@ -2,8 +2,8 @@
 set -Eeuo pipefail
 
 TARGET_SHA="${1:-}"
-BRANCH="${REDSU_DEPLOY_BRANCH:-feature/audit}"
-REPO_DIR="${REDSU_REPO_DIR:-/home/ubuntu/redsu_scoring}"
+BRANCH="${WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-feature/audit}"
+REPO_DIR="${WHUSU_SMART_WORKSPACE_REPO_DIR:-/home/ubuntu/whusu-smart-workspace}"
 
 if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   echo "部署入口拒绝非法 SHA" >&2
@@ -17,7 +17,7 @@ if [[ "$REMOTE_SHA" != "$TARGET_SHA" ]]; then
   exit 0
 fi
 
-TEMP_SCRIPT="$(mktemp /tmp/redsu-deploy.XXXXXX.sh)"
+TEMP_SCRIPT="$(mktemp /tmp/whusu-smart-workspace-deploy.XXXXXX.sh)"
 cleanup() {
   rm -f "$TEMP_SCRIPT"
 }

@@ -1,5 +1,5 @@
 -- ============================================================
--- REDSU Venue Approval Flow - Database Migration
+-- WHUSU Smart Workspace Venue Approval Flow - Database Migration
 -- Multi-step approval flow for venue bookings with
 -- 3-layer filter rules (department / work group / identity).
 -- All statements are idempotent (IF NOT EXISTS).

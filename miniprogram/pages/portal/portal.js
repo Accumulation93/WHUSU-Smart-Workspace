@@ -9,14 +9,14 @@ const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
 
 const PORTAL_CARDS_USER = [
-  { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
+  { key: 'scoring', label: 'WHUSU智慧工作台', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/pages/home/home?subApp=hr', disabled: false },
   { key: 'audit', label: '审核', iconName: 'file', url: '/pages/home/home?subApp=audit', disabled: false },
   { key: 'venue', label: '场地借用', iconName: 'venue', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
 ];
 
 const PORTAL_CARDS_ADMIN = [
-  { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
+  { key: 'scoring', label: 'WHUSU智慧工作台', iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
   { key: 'system', label: '系统配置', iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
   { key: 'audit', label: '审核', iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },

@@ -1,9 +1,9 @@
-// 生产发布通过 redsu_current 原子软链接切换版本；本地仍可用环境变量覆盖。
-const serverRoot = process.env.REDSU_SERVER_ROOT || '/home/ubuntu/redsu_current/server';
+// 生产发布通过 whusu-smart-workspace-current 原子软链接切换版本；本地仍可用环境变量覆盖。
+const serverRoot = process.env.WHUSU_SMART_WORKSPACE_SERVER_ROOT || '/home/ubuntu/whusu-smart-workspace-current/server';
 
 module.exports = {
   apps: [{
-    name: 'redsu-scoring',
+    name: 'whusu-smart-workspace-api',
     script: 'src/index.js',
     cwd: serverRoot,
     instances: 2,
@@ -16,13 +16,13 @@ module.exports = {
     max_restarts: 5,
     min_uptime: '10s',
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
-    error_file: '/home/ubuntu/.pm2/logs/redsu-scoring-error.log',
-    out_file: '/home/ubuntu/.pm2/logs/redsu-scoring-out.log',
+    error_file: '/home/ubuntu/.pm2/logs/whusu-smart-workspace-api-error.log',
+    out_file: '/home/ubuntu/.pm2/logs/whusu-smart-workspace-api-out.log',
     merge_logs: true,
     kill_timeout: 5000,
     listen_timeout: 5000
   }, {
-    name: 'redsu-notification-worker',
+    name: 'whusu-smart-workspace-notification-worker',
     script: 'notificationWorker.js',
     cwd: serverRoot,
     exec_mode: 'fork',
@@ -34,15 +34,15 @@ module.exports = {
     max_restarts: 5,
     min_uptime: '10s',
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
-    error_file: '/home/ubuntu/.pm2/logs/redsu-notification-worker-error.log',
-    out_file: '/home/ubuntu/.pm2/logs/redsu-notification-worker-out.log',
+    error_file: '/home/ubuntu/.pm2/logs/whusu-smart-workspace-notification-worker-error.log',
+    out_file: '/home/ubuntu/.pm2/logs/whusu-smart-workspace-notification-worker-out.log',
     merge_logs: true,
     kill_timeout: 10000,
     autorestart: true
   }, {
-    name: 'redsu-backup',
+    name: 'whusu-smart-workspace-backup',
     script: 'backup.js',
-    cwd: '/home/ubuntu/redsu_scoring/server',
+    cwd: '/home/ubuntu/whusu-smart-workspace/server',
     exec_mode: 'fork',
     instances: 1,
     env: {
@@ -52,8 +52,8 @@ module.exports = {
     max_restarts: 3,
     min_uptime: '30s',
     log_date_format: 'YYYY-MM-DD HH:mm:ss',
-    error_file: '/home/ubuntu/.pm2/logs/redsu-backup-error.log',
-    out_file: '/home/ubuntu/.pm2/logs/redsu-backup-out.log',
+    error_file: '/home/ubuntu/.pm2/logs/whusu-smart-workspace-backup-error.log',
+    out_file: '/home/ubuntu/.pm2/logs/whusu-smart-workspace-backup-out.log',
     merge_logs: true,
     kill_timeout: 10000,
     autorestart: true

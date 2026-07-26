@@ -1,4 +1,4 @@
-# CLAUDE.md — REDSU Scoring System
+# CLAUDE.md — WHUSU Smart Workspace
 
 > AI 编程全局指南。子模块专属规范见 `.claude/rules/` 目录。
 > 最后更新：2026-07-11
@@ -7,7 +7,7 @@
 
 ## 1. 项目概述
 
-**REDSU 智慧工作台** — 武汉大学某部门成员互评考核微信小程序。
+**WHUSU智慧工作台** — 武汉大学某部门成员互评考核微信小程序。
 
 - **前端**：微信小程序原生框架（WXML / WXSS / JS），无第三方框架
 - **后端**：Node.js Express (HTTPS :3000)，MySQL 8.0 (InnoDB, utf8mb4, `mysql2/promise`)
@@ -15,7 +15,7 @@
 - **部署**：Ubuntu 22.04 + PM2 ×2 + Nginx 反向代理
 - **App ID**：`wxa0946295a962ee2e`，生产域名：`accumulation93.com`
 
-模块：考核评分 / 人事管理 / 审核审批 / 场地借用。目录结构见各 `.claude/rules/` 文件。
+模块：WHUSU智慧工作台 / 人事管理 / 审核审批 / 场地借用。目录结构见各 `.claude/rules/` 文件。
 
 ---
 

@@ -1,4 +1,0 @@
-interface:
-  display_name: "REDSU 服务端协作"
-  short_description: "安全连接生产服务端并完成调试、发布、迁移、健康检查与自动回退"
-  default_prompt: "Use $redsu-server-collaboration to inspect the REDSU production status and complete a safe local-to-remote collaboration workflow."

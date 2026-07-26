@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "=========================================="
-echo "REDSU Scoring - Local MySQL Setup"
+echo "WHUSU Smart Workspace - Local MySQL Setup"
 echo "=========================================="
 echo ""
 
@@ -39,7 +39,7 @@ DB_HOST="localhost"
 DB_PORT="3306"
 DB_USER="root"
 DB_PASS=""
-DB_NAME="redsu_scoring"
+DB_NAME="whusu_smart_workspace"
 
 read -p "Host     [localhost]: " input
 DB_HOST="${input:-$DB_HOST}"
@@ -54,7 +54,7 @@ read -s -p "Password []: " input
 echo ""
 DB_PASS="$input"
 
-read -p "Database [redsu_scoring]: " input
+read -p "Database [whusu_smart_workspace]: " input
 DB_NAME="${input:-$DB_NAME}"
 
 # Build password argument (empty password → no -p flag)

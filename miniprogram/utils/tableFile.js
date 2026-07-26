@@ -1,6 +1,6 @@
 /**
  * Table file utility — unified CSV / Excel import & export helpers.
- * Works identically in both ScoringServerCloudMySQL and ScoringServerDomain.
+ * Works identically in both legacy cloud and current server implementations.
  */
 
 /**

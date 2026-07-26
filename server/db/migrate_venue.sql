@@ -1,5 +1,5 @@
 -- ============================================================
--- REDSU Venue Booking System - Database Migration
+-- WHUSU Smart Workspace Venue Booking System - Database Migration
 -- Creates all tables for the venue/space booking system.
 -- All statements are idempotent (IF NOT EXISTS).
 -- Date: 2026-06-22

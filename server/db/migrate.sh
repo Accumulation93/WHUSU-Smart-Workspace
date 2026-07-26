@@ -2,7 +2,7 @@
 set -euo pipefail
 
 echo "=========================================="
-echo "REDSU Scoring - Full Database Migration"
+echo "WHUSU Smart Workspace - Full Database Migration"
 echo "=========================================="
 echo ""
 echo "This script runs ALL migrations to bring"
@@ -63,7 +63,7 @@ DB_HOST="127.0.0.1"
 DB_PORT="3306"
 DB_USER="root"
 DB_PASS=""
-DB_NAME="redsu_scoring"
+DB_NAME="whusu_smart_workspace"
 
 read -rp "Host     [$DB_HOST]: " input; DB_HOST="${input:-$DB_HOST}"
 read -rp "Port     [$DB_PORT]: " input; DB_PORT="${input:-$DB_PORT}"

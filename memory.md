@@ -1,4 +1,4 @@
-# REDSU Scoring System — 项目完整记忆
+# WHUSU Smart Workspace — 项目完整记忆
 
 > 本文件包含项目全部上下文，新会话打开时先读此文件，如同已有上下文。
 > 最后更新：2026-07-11
@@ -7,13 +7,13 @@
 
 ## 1. 项目概述
 
-**REDSU 考核评分系统** — 武汉大学某部门成员互评微信小程序。
+**WHUSU智慧工作台** — 武汉大学某部门成员互评微信小程序。
 正在从 **微信云函数 + NoSQL** 迁移到 **Node.js Express + MySQL 8.0**。
 
 ## 2. 目录结构
 
 ```
-ScoringServerDomain/
+WHUSUSmartWorkspaceServer/
 ├── server/                         # Node.js Express 后端 (新)
 │   ├── .env                        # 数据库、微信、JWT 密钥
 │   ├── package.json
@@ -67,9 +67,9 @@ ScoringServerDomain/
 ```
 DB_HOST=localhost
 DB_PORT=3361
-DB_USER=redsu
-DB_PASSWORD=redsu
-DB_NAME=redsu_scoring
+DB_USER=whusu_workspace
+DB_PASSWORD=your_password
+DB_NAME=whusu_smart_workspace
 ```
 
 MySQL 8.0 Community Server: `C:\Program Files\MySQL\MySQL Server 8.0\`

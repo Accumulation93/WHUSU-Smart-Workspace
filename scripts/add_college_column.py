@@ -20,9 +20,9 @@ XLSX_OUT = os.path.expanduser("~/第二学期名单_含学院.xlsx")
 DB_CONFIG = {
     "host": "127.0.0.1",
     "port": 3306,
-    "user": "redsu",
+    "user": "whusu_workspace",
     "password": "e9cadd9f07e3f76e8a518956e1062ee8",
-    "database": "redsu_scoring",
+    "database": "whusu_smart_workspace",
     "charset": "utf8mb4",
 }
 

@@ -1,4 +1,4 @@
-// redsu-scoring database backup service
+// whusu-smart-workspace-api database backup service
 // Runs mysqldump hourly with --single-transaction for non-blocking backups.
 // Keeps the last 24 hourly backups, compressed with gzip.
 
@@ -9,7 +9,7 @@ const path = require('path');
 
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-const BACKUP_DIR = process.env.BACKUP_DIR || '/home/ubuntu/backups/redsu_scoring';
+const BACKUP_DIR = process.env.BACKUP_DIR || '/home/ubuntu/backups/whusu-smart-workspace';
 const RETENTION_HOURS = parseInt(process.env.BACKUP_RETENTION_HOURS || '24', 10);
 const INTERVAL_MS = 60 * 60 * 1000;
 
@@ -18,7 +18,7 @@ const DB = {
   port: process.env.DB_PORT || '3306',
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME || 'redsu_scoring'
+  database: process.env.DB_NAME || 'whusu_smart_workspace'
 };
 
 if (!DB.user || !DB.password) {
@@ -64,7 +64,7 @@ function cleanOldBackups() {
 
 function runBackup() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const outFile = path.join(BACKUP_DIR, `redsu_scoring-${timestamp}.sql.gz`);
+  const outFile = path.join(BACKUP_DIR, `whusu_smart_workspace-${timestamp}.sql.gz`);
 
   log(`Starting backup → ${path.basename(outFile)}`);
 
@@ -144,7 +144,7 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 // Start
-log('redsu-scoring backup service started');
+log('whusu-smart-workspace-api backup service started');
 log(`Backup directory: ${BACKUP_DIR}`);
 log(`Retention: ${RETENTION_HOURS}h`);
 log(`Database: ${DB.database} @ ${DB.host}:${DB.port}`);

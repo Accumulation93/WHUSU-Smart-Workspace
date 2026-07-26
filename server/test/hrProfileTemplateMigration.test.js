@@ -10,10 +10,10 @@ if (!process.env.DEPLOY_TEST_DB_HOST) {
   process.exit(0);
 }
 
-const databaseName = `redsu_hr_template_migration_${Date.now()}_${process.pid}`;
+const databaseName = `whusu_smart_workspace_hr_template_migration_${Date.now()}_${process.pid}`;
 const applicationUser = `hr_template_app_${process.pid}`;
 const applicationPassword = `HrTemplateTest_${Date.now()}_${process.pid}`;
-const migrationDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'redsu-hr-template-migration-'));
+const migrationDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'whusu-smart-workspace-hr-template-migration-'));
 const globalMigrationSource = path.resolve(__dirname, '../db/deploy/20260722113000_global_hr_profile_templates.sql');
 const uniqueSnapshotMigrationSource = path.resolve(__dirname, '../db/deploy/20260722203000_unique_hr_profile_snapshot.sql');
 const migrationTools = require('../scripts/runDeploymentMigrations');

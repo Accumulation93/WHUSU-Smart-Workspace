@@ -134,7 +134,7 @@ async function buildWorkbookBuffer(sheetName, rows) {
   });
 
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'REDSU Scoring';
+  workbook.creator = 'WHUSU Smart Workspace';
   workbook.created = new Date(0);
   const worksheet = workbook.addWorksheet(safeSheetName(sheetName));
   worksheet.addRows(normalizedRows);

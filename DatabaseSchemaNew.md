@@ -1,4 +1,4 @@
-# REDSU Scoring System - MySQL 关系数据库模型
+# WHUSU Smart Workspace - MySQL 关系数据库模型
 
 > 从微信云开发 NoSQL (MongoDB-like) 迁移至 MySQL 8.0 关系型数据库
 > 所有 JSON 数组字段已拆分为独立表，完全符合第三范式 (3NF)

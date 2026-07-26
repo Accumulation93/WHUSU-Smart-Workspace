@@ -417,7 +417,7 @@
 .flow-info-title { font-size: 22rpx; font-weight: 700; color: #0f172a; line-height: 1.4; }
 .flow-info-desc { font-size: 20rpx; color: #64748b; margin-top: 4rpx; }
 
-/* Scoring-style polish for user venue borrowing */
+/* WHUSU Smart Workspace style polish for user venue borrowing */
 page {
   min-height: 100%;
   background:

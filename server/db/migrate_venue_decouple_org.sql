@@ -1,5 +1,5 @@
 -- ============================================================
--- REDSU 场地系统 — 解除场地与组织的绑定
+-- WHUSU Smart Workspace 场地系统 — 解除场地与组织的绑定
 -- venues / venue_open_rules / venue_activity_rules / venue_bookings → 跨组织全局
 -- 保留 venue_booking_rules / venue_approval_flows 等规则的 org_id（每组织独立配置）
 -- 日期：2026-07-12

@@ -44,7 +44,7 @@
     "disableSWC": true
   },
   "appid": "wxa0946295a962ee2e",
-  "projectname": "quickstart-wx-cloud",
+  "projectname": "WHUSU Smart Workspace",
   "libVersion": "2.27.0",
   "condition": {
     "miniprogram": {

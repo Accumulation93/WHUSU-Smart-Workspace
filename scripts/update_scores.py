@@ -26,9 +26,9 @@ IDENTITY_ID = "3d510268afc113c3a1e1c7223a5f9a7b5870e874041d590f6b9ea02443a62632"
 DB_CONFIG = {
     "host": "127.0.0.1",
     "port": 3306,
-    "user": "redsu",
+    "user": "whusu_workspace",
     "password": "e9cadd9f07e3f76e8a518956e1062ee8",
-    "database": "redsu_scoring",
+    "database": "whusu_smart_workspace",
     "charset": "utf8mb4",
 }
 

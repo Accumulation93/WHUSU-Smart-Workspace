@@ -8,8 +8,8 @@ if (!process.env.DEPLOY_TEST_DB_HOST) {
   process.exit(0);
 }
 
-const databaseName = `redsu_deploy_test_${Date.now()}_${process.pid}`;
-const migrationDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'redsu-deploy-migrations-'));
+const databaseName = `whusu_smart_workspace_deploy_test_${Date.now()}_${process.pid}`;
+const migrationDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'whusu-smart-workspace-deploy-migrations-'));
 const snapshot = path.join(os.tmpdir(), `${databaseName}.sql.gz`);
 
 process.env.DB_HOST = process.env.DEPLOY_TEST_DB_HOST;

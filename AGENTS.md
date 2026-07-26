@@ -9,7 +9,7 @@
 1. `CLAUDE.md`：项目级工程规范、设计共识、质量要求和已知坑点。
 2. `.claude/rules/miniprogram.md`：微信小程序前端通用规则。
 3. `.claude/rules/server.md`：Express/MySQL 服务端规则。
-4. `.claude/rules/scoring.md`：考核评分模块规则。
+4. `.claude/rules/scoring.md`：WHUSU智慧工作台模块规则。
 5. `.claude/rules/audit.md`：审核审批模块规则。
 6. `.claude/rules/venue.md`：场地借用模块规则。
 7. `MEMORY.md`：历史项目上下文，仅作为低优先级背景资料；其中可能过时的路径、数据、接口或部署信息必须以当前代码和配置复核。
@@ -68,7 +68,7 @@
 
 - 蓝色轻奢玻璃 UI 任务使用 `.agents/skills/blue-glass-ui/SKILL.md`。
 - 微信小程序长按拖拽排序任务使用 `.agents/skills/wechat-miniprogram-drag-sort/SKILL.md`。
-- 本地连接生产服务端、SSH/tmux 协作调试、GitHub 自动部署、数据库迁移和回退任务使用 `.agents/skills/redsu-server-collaboration/SKILL.md`。
+- 本地连接生产服务端、SSH/tmux 协作调试、GitHub 自动部署、数据库迁移和回退任务使用 `.agents/skills/whusu-smart-workspace-server-collaboration/SKILL.md`。
 - 技能只在任务匹配时加载，但不能替代本文件要求的项目规则加载。
 
 ## 6. 完成前检查

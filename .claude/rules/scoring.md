@@ -2,7 +2,7 @@
 paths: "miniprogram/subpackages/scoring/**"
 ---
 
-# CLAUDE.md — 考核评分模块 (scoring)
+# CLAUDE.md — WHUSU智慧工作台模块 (scoring)
 
 > 模块专属规范。通用规范见根目录 `CLAUDE.md` 和 `.claude/rules/miniprogram.md`。
 

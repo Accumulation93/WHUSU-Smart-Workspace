@@ -1,5 +1,5 @@
 -- ============================================================
--- REDSU Scoring System - org_id Migration Script
+-- WHUSU Smart Workspace - org_id Migration Script
 -- Migrates from per-org history-table architecture to
 -- global org_id column architecture.
 --

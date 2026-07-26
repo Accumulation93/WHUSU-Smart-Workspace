@@ -516,7 +516,7 @@ Page({
     };
     const profile = profileOverride || adminPermissions.getAdminProfile();
     this._visibleTabs = adminPermissions.filterTabs(SUB_APP_ADMIN_TABS[subApp] || SUB_APP_ADMIN_TABS.scoring, profile);
-    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', system: '系统配置', audit: '审核管理' };
+    const SUB_APP_LABELS = { scoring: 'WHUSU智慧工作台', hr: '人事信息', system: '系统配置', audit: '审核管理' };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
     this.setData({
       visibleTabs: this._visibleTabs,

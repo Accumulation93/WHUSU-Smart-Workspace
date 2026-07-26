@@ -44,7 +44,7 @@
   background:rgba(254,226,226,0.6); border:1rpx solid rgba(252,165,165,0.4);
 }
 
-/* Scoring-style polish for my venue bookings */
+/* WHUSU Smart Workspace style polish for my venue bookings */
 page {
   min-height: 100%;
   background:

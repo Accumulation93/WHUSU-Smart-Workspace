@@ -1,4 +1,4 @@
-# REDSU 服务端操作手册
+# WHUSU Smart Workspace 服务端操作手册
 
 ## 日常检查
 
@@ -14,7 +14,7 @@ powershell -File scripts/remote-collab.ps1 logs
 powershell -File scripts/remote-collab.ps1 attach
 ```
 
-退出 tmux 客户端时使用 detach，不终止 `redsu-collab` 会话。
+退出 tmux 客户端时使用 detach，不终止 `whusu-smart-workspace-collab` 会话。
 
 ## 标准开发与发布
 
@@ -52,8 +52,8 @@ powershell -File scripts/remote-collab.ps1 retry
 - 新 release 健康失败：检查最新部署日志；自动回退成功时保持旧服务并修复本地代码。
 - 回退后仍不健康：维护标志应保留；不要手工删除，先检查 PM2 cwd、环境链接、数据库恢复和 Nginx。
 - 公网失败但本地成功：检查 Nginx、证书、DNS 和外部网络，不重复 reload 应用。
-- PM2 在线但接口失败：检查实际 `/proc/<pid>/cwd` 是否指向 `redsu_current` 对应 release，并读取部署后的新错误日志。
-- Worker 异常：只处理 `redsu-notification-worker`，不要连带重启 `redsu-backup` 或同机其他服务。
+- PM2 在线但接口失败：检查实际 `/proc/<pid>/cwd` 是否指向 `whusu-smart-workspace-current` 对应 release，并读取部署后的新错误日志。
+- Worker 异常：只处理 `whusu-smart-workspace-notification-worker`，不要连带重启 `whusu-smart-workspace-backup` 或同机其他服务。
 
 ## 禁止操作
 

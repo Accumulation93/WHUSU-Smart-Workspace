@@ -1,4 +1,4 @@
-# REDSU 自动部署与协作调试
+# WHUSU Smart Workspace 自动部署与协作调试
 
 ## 日常链路
 
@@ -6,13 +6,13 @@
 2. GitHub Actions 执行全部质量门禁。
 3. 只有 `audit-and-test` 成功后，`deploy-production` 才通过固定 SSH 主机指纹连接生产服务器。
 4. 远端部署目标必须等于 `origin/feature/audit` 的完整 SHA；过期任务自动跳过。
-5. 服务端有变化时创建独立 release，完成依赖安装、语法检查和迁移后原子切换 `redsu_current`。
+5. 服务端有变化时创建独立 release，完成依赖安装、语法检查和迁移后原子切换 `whusu-smart-workspace-current`。
 
 小程序代码推送不会发布微信正式版本。若 `server/` 没有变化，远端只同步仓库，不重启 PM2。
 
 ## 本地协作命令
 
-本机 SSH 别名为 `redsu-prod`，常用入口：
+本机 SSH 别名为 `whusu-smart-workspace-prod`，常用入口：
 
 ```powershell
 .\scripts\remote-collab.ps1 status
@@ -25,12 +25,12 @@
 
 ## 远端目录
 
-- `/home/ubuntu/redsu_scoring`：干净的同步仓库，只允许快进更新。
-- `/home/ubuntu/redsu_releases/<sha>`：服务端 release。
-- `/home/ubuntu/redsu_current`：PM2 使用的原子软链接。
-- `/home/ubuntu/redsu_shared/server.env`：共享生产环境配置，权限为 `600`。
-- `/home/ubuntu/redsu_deploy`：部署状态、日志、锁和数据库快照。
-- `redsu-collab`：持久 tmux 会话，包含 shell、API、Worker、部署和健康窗口。
+- `/home/ubuntu/whusu-smart-workspace`：干净的同步仓库，只允许快进更新。
+- `/home/ubuntu/whusu-smart-workspace-releases/<sha>`：服务端 release。
+- `/home/ubuntu/whusu-smart-workspace-current`：PM2 使用的原子软链接。
+- `/home/ubuntu/whusu-smart-workspace-shared/server.env`：共享生产环境配置，权限为 `600`。
+- `/home/ubuntu/whusu-smart-workspace-deploy`：部署状态、日志、锁和数据库快照。
+- `whusu-smart-workspace-collab`：持久 tmux 会话，包含 shell、API、Worker、部署和健康窗口。
 
 ## 数据库迁移
 

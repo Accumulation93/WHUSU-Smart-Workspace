@@ -22,14 +22,14 @@ async function create(challengeType, openid, payload) {
   return jwt.sign(
     { challengeId: id, challengeType },
     JWT_SECRET,
-    { expiresIn: CHALLENGE_TTL_SECONDS, audience: 'redsu-auth-challenge' }
+    { expiresIn: CHALLENGE_TTL_SECONDS, audience: 'whusu-smart-workspace-auth-challenge' }
   );
 }
 
 async function lock(conn, token, expectedType, openid) {
   let decoded;
   try {
-    decoded = jwt.verify(safeString(token), JWT_SECRET, { audience: 'redsu-auth-challenge' });
+    decoded = jwt.verify(safeString(token), JWT_SECRET, { audience: 'whusu-smart-workspace-auth-challenge' });
   } catch (_) {
     return { status: 'challenge_expired', message: '绑定验证已过期，请重新登录' };
   }

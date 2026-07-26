@@ -597,7 +597,7 @@ const report = {
 if (process.argv.includes('--json')) {
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 } else {
-  console.log('REDSU UI audit');
+  console.log('WHUSU Smart Workspace UI audit');
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();

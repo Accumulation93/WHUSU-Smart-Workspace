@@ -7,7 +7,7 @@ const host = process.env.SECURITY_TEST_DB_HOST || '127.0.0.1';
 const port = Number(process.env.SECURITY_TEST_DB_PORT || 3362);
 const adminUser = process.env.TEST_DB_ADMIN_USER || 'root';
 const adminPassword = process.env.TEST_DB_ADMIN_PASSWORD || '';
-const database = 'redsu_integrity_test_' + process.pid + '_' + Date.now();
+const database = 'whusu_smart_workspace_integrity_test_' + process.pid + '_' + Date.now();
 
 async function executeCliMigration(connection, sql) {
   const statements = sql

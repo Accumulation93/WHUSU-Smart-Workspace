@@ -13,7 +13,7 @@ const pool = mysql.createPool({
   port: parseInt(process.env.DB_PORT || '3306', 10),
   user,
   password,
-  database: process.env.DB_NAME || 'redsu_scoring',
+  database: process.env.DB_NAME || 'whusu_smart_workspace',
   waitForConnections: true,
   connectionLimit: 50,
   queueLimit: 200,

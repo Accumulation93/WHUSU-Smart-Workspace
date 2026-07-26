@@ -1,7 +1,7 @@
 {
-  "name": "redsu-scoring-server",
+  "name": "whusu-smart-workspace-server",
   "version": "1.1.4",
-  "description": "REDSU Scoring System - Express Backend with MySQL",
+  "description": "WHUSU Smart Workspace - Express Backend with MySQL",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

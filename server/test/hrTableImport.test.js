@@ -15,7 +15,7 @@ const testUserHost = ['%', '127.0.0.1', 'localhost'].includes(requestedTestUserH
   ? requestedTestUserHost
   : '127.0.0.1';
 const suffix = `${process.pid}_${Date.now()}`;
-const database = `redsu_hr_import_test_${suffix}`;
+const database = `whusu_smart_workspace_hr_import_test_${suffix}`;
 const testUser = `hr_import_${process.pid}`;
 const testPassword = `CodexHrImport_${suffix}`;
 const orgId = 'org-test-44';

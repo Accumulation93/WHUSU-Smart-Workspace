@@ -7,7 +7,7 @@ const host = process.env.SECURITY_TEST_DB_HOST || '127.0.0.1';
 const port = Number(process.env.SECURITY_TEST_DB_PORT || 3362);
 const user = process.env.TEST_DB_ADMIN_USER || 'root';
 const password = process.env.TEST_DB_ADMIN_PASSWORD || '';
-const database = 'redsu_admin_permissions_test_' + process.pid + '_' + Date.now();
+const database = 'whusu_smart_workspace_admin_permissions_test_' + process.pid + '_' + Date.now();
 
 function readMigration(name) {
   return fs.readFileSync(path.resolve(__dirname, '../db/deploy/' + name), 'utf8');

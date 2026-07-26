@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     concurrency:
-      group: redsu-production
+      group: whusu-smart-workspace-production
       cancel-in-progress: false
     steps:
       - name: Configure pinned production SSH
@@ -112,8 +112,8 @@ jobs:
           PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
         run: |
           install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$PROD_SSH_KEY" > "$HOME/.ssh/redsu-production"
-          chmod 600 "$HOME/.ssh/redsu-production"
+          printf '%s\n' "$PROD_SSH_KEY" > "$HOME/.ssh/whusu-smart-workspace-production"
+          chmod 600 "$HOME/.ssh/whusu-smart-workspace-production"
           printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/known_hosts"
       - name: Deploy exact successful commit
@@ -122,7 +122,7 @@ jobs:
           PROD_USER: ${{ secrets.PROD_USER }}
           TARGET_SHA: ${{ github.sha }}
         run: |
-          ssh -i "$HOME/.ssh/redsu-production" \
+          ssh -i "$HOME/.ssh/whusu-smart-workspace-production" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
@@ -130,4 +130,4 @@ jobs:
             -o ServerAliveInterval=15 \
             -o ServerAliveCountMax=4 \
             "$PROD_USER@$PROD_HOST" \
-            "/home/ubuntu/redsu_deploy/bin/deploy-entrypoint $TARGET_SHA"
+            "entrypoint=/home/ubuntu/whusu-smart-workspace-deploy/bin/deploy-entrypoint; test -x \$entrypoint || entrypoint=/home/ubuntu/redsu_deploy/bin/deploy-entrypoint; \$entrypoint $TARGET_SHA"

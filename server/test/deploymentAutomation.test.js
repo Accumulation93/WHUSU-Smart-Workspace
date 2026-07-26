@@ -7,7 +7,7 @@ const migrationTools = require('../scripts/runDeploymentMigrations');
 const databaseTools = require('../scripts/deploymentDatabase');
 
 function testMigrationDiscoveryAndLedger() {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'redsu-migrations-'));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'whusu-smart-workspace-migrations-'));
   fs.writeFileSync(path.join(directory, '20260717010101_add_table.sql'), 'CREATE TABLE IF NOT EXISTS demo (id INT);\n');
   fs.writeFileSync(path.join(directory, '20260717010202_drop_table.sql'), 'DROP TABLE IF EXISTS legacy_demo;\n');
   const migrations = migrationTools.discoverMigrations(directory);
@@ -25,7 +25,7 @@ function testMigrationDiscoveryAndLedger() {
 }
 
 function testDatabaseCommandsDoNotExposePassword() {
-  const config = { host: '127.0.0.1', port: 3306, user: 'redsu', password: 'secret', database: 'redsu_scoring' };
+  const config = { host: '127.0.0.1', port: 3306, user: 'workspace_test', password: 'secret', database: 'whusu_smart_workspace' };
   const dump = databaseTools.dumpArguments(config);
   const restore = databaseTools.mysqlArguments(config);
   assert.ok(dump.includes('--databases'));
@@ -45,13 +45,16 @@ function testDeploymentScriptContract() {
   assert.match(script, /worktree add --detach/);
   assert.match(script, /deploymentDatabase\.js" restore/);
   assert.match(script, /pm2 startOrReload/);
-  assert.match(script, /\/var\/lib\/redsu-deploy\/maintenance\.flag/);
+  assert.match(script, /\/var\/lib\/whusu-smart-workspace-deploy\/maintenance\.flag/);
+  assert.match(script, /worktree repair/);
+  assert.match(script, /pm2 delete redsu-scoring/);
+  assert.match(script, /install -m 755/);
   assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);
   assert.doesNotMatch(script, /git reset --hard/);
   assert.match(entrypoint, /git -C "\$REPO_DIR" show/);
   assert.match(entrypoint, /bash -n/);
-  assert.match(tmuxSetup, /redsu-collab/);
-  assert.match(tmuxSetup, /redsu-notification-worker/);
+  assert.match(tmuxSetup, /whusu-smart-workspace-collab/);
+  assert.match(tmuxSetup, /whusu-smart-workspace-notification-worker/);
 }
 
 testMigrationDiscoveryAndLedger();

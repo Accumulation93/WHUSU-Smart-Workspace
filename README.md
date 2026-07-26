@@ -1,4 +1,4 @@
-# REDSU Scoring System
+# WHUSU Smart Workspace
 
 武汉大学部门成员互评考核系统 — 微信小程序 + Node.js Express + MySQL
 
@@ -14,7 +14,7 @@
 ## 项目结构
 
 ```
-ScoringServerDomain/
+WHUSUSmartWorkspaceServer/
 ├── server/              # Express 后端 (15 路由, 20 Model)
 │   ├── db/init.sql      # 完整建表语句 + 种子数据
 │   ├── db/setup-local.bat  # 一键初始化本地数据库
@@ -41,7 +41,7 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=your_password
-DB_NAME=redsu_scoring
+DB_NAME=whusu_smart_workspace
 WECHAT_APPID=your_appid
 WECHAT_SECRET=your_secret
 JWT_SECRET=your_jwt_secret
