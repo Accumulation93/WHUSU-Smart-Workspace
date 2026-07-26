@@ -334,6 +334,7 @@ Page({
   },
 
   onShow() {
+    this._pageVisible = true;
     const consumed = orgSession.consume(this);
     const organizationChanged = consumed.changed;
     const preservedTab = this.data.activeTab;
@@ -436,6 +437,7 @@ Page({
   },
 
   onHide() {
+    this._pageVisible = false;
     // 页面隐藏时移除监听，避免重复注册
     if (this._boundOnOrgChanged) {
       eventBus.off('org:changed', this._boundOnOrgChanged);
@@ -443,7 +445,17 @@ Page({
     }
   },
 
-  _onOrgChanged() {
+  onUnload() {
+    this._pageVisible = false;
+    orgSession.invalidateRequests(this);
+    if (this._boundOnOrgChanged) {
+      eventBus.off('org:changed', this._boundOnOrgChanged);
+      this._boundOnOrgChanged = null;
+    }
+  },
+
+  _onOrgChanged(event) {
+    if (!this._pageVisible || !event || event.role !== 'admin') return;
     this.onShow();
   },
 
@@ -534,9 +546,11 @@ Page({
   async bootstrapPage() {
     let roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
     let adminProfile = roleProfiles.admin;
+    const activeRole = wx.getStorageSync('activeRole') || '';
     const isSuperAdmin = !!adminProfile && adminProfile.adminLevel === 'super_admin';
 
-    if (!adminProfile) {
+    if (!adminProfile || activeRole !== 'admin') {
+      this._visibleTabs = [];
       this.setData({
         user: null,
         hasPermission: false,

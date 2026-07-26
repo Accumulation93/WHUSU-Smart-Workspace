@@ -1127,7 +1127,6 @@
                 <text wx:if="{{item.workGroup}}" class="hr-member-sep">|</text>
                 <text wx:if="{{item.workGroup}}">{{item.workGroup}}</text>
               </view>
-              <view class="hr-member-binding-hint" wx:if="{{item.wxBindStatus === 'pending_activation'}}">已在其他组织验证，进入本组织后将自动关联</view>
               <view class="hr-member-profile-summary">扩展资料：{{item.currentSummary}}</view>
               <view class="hr-member-profile-summary hr-member-profile-pending" wx:if="{{item.pendingSummary}}">待审核：{{item.pendingSummary}}</view>
             </view>

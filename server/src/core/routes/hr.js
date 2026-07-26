@@ -3,8 +3,9 @@ const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
 const { parseCsv } = require('../../utils/csv');
 const { getCurrentOrgId } = require('../../utils/orgContext');
-const { isSuperAdmin, canManageTarget } = require('../services/adminAuthorization');
 const { resolveHrBindingStates } = require('../services/userBindingStatus');
+const { unbindUserAcrossOrganizations } = require('../services/userBindingUnbind');
+const { clearOrgAccessCache } = require('../../middleware/orgContext');
 
 const EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
 
@@ -663,8 +664,9 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
   }
 });
 
-// unbindHrWechat — 管理员解绑指定人事的微信绑定
+// unbindHrWechat — 管理员从全部组织解绑指定人事对应的微信
 router.post('/unbindHrWechat', async (req, res) => {
+  let connection;
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
@@ -674,38 +676,37 @@ router.post('/unbindHrWechat', async (req, res) => {
     if (!hrId) return res.json({ status: 'invalid_params', message: '请提供人事ID' });
 
     const orgId = await getCurrentOrgId();
-
-    // 查找该人事对应的 user_info 绑定
-    const [userRows] = await pool.query(
-      'SELECT * FROM user_info WHERE hr_id = ? AND org_id = ?',
-      [hrId, orgId]
-    );
-    if (!userRows.length) {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    const result = await unbindUserAcrossOrganizations({
+      hrId,
+      orgId,
+      connection
+    });
+    if (!result) {
+      await connection.rollback();
       return res.json({ status: 'not_found', message: '该人事记录尚未绑定微信' });
     }
 
-    const targetUser = userRows[0];
-    const targetOpenid = safeString(targetUser.openid);
-
-    // 检查被解绑者是否是管理员，以及操作者的管理级别
-    const targetAdmin = await adminInfoModel.getByOpenid(targetOpenid);
-    if (targetAdmin) {
-      const canWriteAdmins = isSuperAdmin(admin) || Boolean(req.adminPermissions
-        && req.adminPermissions.permissions
-        && req.adminPermissions.permissions['system.admin_accounts.write']);
-      if (!canWriteAdmins || !canManageTarget(admin, targetAdmin, orgId)) {
-        return res.json({ status: 'forbidden', message: '权限不足：不能解绑该管理员' });
+    await connection.commit();
+    for (const targetOpenid of result.openids) {
+      for (const affectedOrgId of result.affectedOrganizationIds) {
+        clearOrgAccessCache(targetOpenid, affectedOrgId, 'user');
       }
     }
 
-    // 删除 user_info 绑定
-    for (const userRecord of userRows) {
-      await pool.query('DELETE FROM user_info WHERE id = ? AND org_id = ?', [userRecord.id, orgId]);
-    }
-
-    res.json({ status: 'success', message: '微信解绑成功' });
+    res.json({
+      status: 'success',
+      message: '已从所有组织解绑微信',
+      unboundCount: result.affectedCount
+    });
   } catch (e) {
+    if (connection) {
+      try { await connection.rollback(); } catch (_) {}
+    }
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    if (connection) connection.release();
   }
 });
 

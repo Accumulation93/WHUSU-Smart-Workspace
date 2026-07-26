@@ -7,7 +7,8 @@ const STORAGE_KEY = 'roleProfiles';
 function saveRoleProfile(role, user) {
   if (!role || !user) return;
   const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-  roleProfiles[role] = Object.assign({}, roleProfiles[role] || {}, user);
+  // 组织内角色资料必须整体替换，不能把上一组织的权限或身份字段带入新组织。
+  roleProfiles[role] = Object.assign({}, user);
   wx.setStorageSync(STORAGE_KEY, roleProfiles);
 }
 

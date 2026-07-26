@@ -102,6 +102,45 @@ async function listBoundIdentitiesOutsideOrg(studentIds, orgId) {
   return rows;
 }
 
+async function lockByHrIdInOrg(hrId, orgId, connection) {
+  const db = connection || pool;
+  const [rows] = await db.query(
+    `SELECT id, openid, hr_id, org_id
+       FROM user_info
+      WHERE hr_id = ? AND org_id = ?
+      FOR UPDATE`,
+    [hrId, orgId]
+  );
+  return rows;
+}
+
+async function lockByOpenidsGlobal(openids, connection) {
+  const ids = Array.isArray(openids) ? [...new Set(openids.filter(Boolean))] : [];
+  if (!ids.length) return [];
+  const db = connection || pool;
+  const placeholders = ids.map(() => '?').join(',');
+  const [rows] = await db.query(
+    `SELECT id, openid, hr_id, org_id
+       FROM user_info
+      WHERE openid IN (${placeholders})
+      FOR UPDATE`,
+    ids
+  );
+  return rows;
+}
+
+async function removeByOpenidsGlobal(openids, connection) {
+  const ids = Array.isArray(openids) ? [...new Set(openids.filter(Boolean))] : [];
+  if (!ids.length) return 0;
+  const db = connection || pool;
+  const placeholders = ids.map(() => '?').join(',');
+  const [result] = await db.query(
+    `DELETE FROM user_info WHERE openid IN (${placeholders})`,
+    ids
+  );
+  return Number(result.affectedRows || 0);
+}
+
 // 创建绑定到指定组织
 async function createInOrg(id, openid, hrId, orgId) {
   await pool.query(
@@ -120,5 +159,6 @@ async function updateInOrg(id, hrId, updatedAt, orgId) {
 module.exports = {
   getByOpenid, getByOpenidGlobal, getByOpenidInOrg, getById, getByHrId, getByHrIdInOrg, getAll,
   listByHrIdsInOrg, listBoundIdentitiesOutsideOrg,
+  lockByHrIdInOrg, lockByOpenidsGlobal, removeByOpenidsGlobal,
   create, createInOrg, update, updateInOrg, remove
 };

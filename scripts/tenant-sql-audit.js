@@ -30,6 +30,7 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info\s+WHERE invite_code = \?/i, reason: '一次性邀请码查找' },
   { file: 'server/src/core/models/hrInfo.js', sql: /FROM hr_info WHERE student_id = \?/i, reason: '登录时跨组织身份匹配' },
   { file: 'server/src/core/models/userInfo.js', sql: /FROM user_info WHERE openid = \?/i, reason: '登录时跨组织绑定发现' },
+  { file: 'server/src/core/models/userInfo.js', sql: /DELETE FROM user_info WHERE openid IN/i, reason: '管理员按已锁定 OpenID 从所有组织解绑普通用户微信' },
   { file: 'server/src/core/routes/auth.js', sql: /SELECT DISTINCT student_id, name FROM hr_info WHERE id IN/i, reason: '登录时从已绑定主键推导身份' },
   { file: 'server/src/core/routes/auth.js', sql: /FROM admin_info\s+WHERE invite_code = \?/i, reason: '管理员一次性邀请码绑定' },
   { file: 'server/src/core/routes/auth.js', sql: /UPDATE admin_info[\s\S]*invite_consumed_at/i, reason: '同一事务消费已锁定邀请码' },

@@ -1372,8 +1372,8 @@ module.exports = Behavior({
       if (!hrId) return;
 
       wx.showModal({
-        title: '解绑微信',
-        content: '确认解绑「' + name + '」的微信绑定吗？解绑后该用户将无法通过微信登录，需重新绑定。',
+        title: '从所有组织解绑',
+        content: '确认解绑「' + name + '」在所有组织中的微信绑定吗？解绑后需重新验证身份。',
         confirmText: '确认解绑',
         confirmColor: '#dc2626',
         success: async (res) => {
@@ -1385,7 +1385,7 @@ module.exports = Behavior({
               wx.showToast({ title: result.message || '解绑失败', icon: 'none' });
               return;
             }
-            wx.showToast({ title: '已解绑', icon: 'success' });
+            wx.showToast({ title: '已全部解绑', icon: 'success' });
             await this.loadHrProfileAdminData();
             await this.loadHrList();
           } catch (error) {

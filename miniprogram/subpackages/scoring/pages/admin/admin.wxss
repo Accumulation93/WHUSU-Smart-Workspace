@@ -2362,13 +2362,6 @@ scroll-view {
 .unbound-chip { background: linear-gradient(135deg, rgba(254, 242, 242, 0.92) 0%, rgba(254, 226, 226, 0.84) 100%); color: #b91c1c; border-color: rgba(252, 165, 165, 0.45); }
 .activation-chip { background: linear-gradient(135deg, rgba(240, 249, 255, 0.96) 0%, rgba(224, 242, 254, 0.88) 100%); color: #0369a1; border-color: rgba(56, 189, 248, 0.56); }
 
-.hr-member-binding-hint {
-  margin: 2rpx 0 8rpx;
-  color: #0369a1;
-  font-size: 21rpx;
-  line-height: 1.55;
-}
-
 /* 成员卡片 chip 容器 */
 .hr-member-chips {
   display: flex;
@@ -4472,8 +4465,4 @@ scroll-view {
     font-size: 13px;
   }
 
-  .hr-member-binding-hint {
-    margin: 2px 0 7px;
-    font-size: 12px;
-  }
 }
