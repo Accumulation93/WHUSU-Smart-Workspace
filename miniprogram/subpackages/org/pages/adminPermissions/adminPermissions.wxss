@@ -79,7 +79,7 @@ page {
 .permission-item { min-height: 104rpx; padding: 12rpx 0; border-bottom: 1rpx solid rgba(226,237,247,.72); }
 .permission-item:last-child { border-bottom: 0; }
 .permission-item-title { color: #1e293b; font-size: 25rpx; font-weight: 650; }
-.permission-dialog-footer { display: flex; gap: 16rpx; padding: 18rpx 22rpx calc(18rpx + env(safe-area-inset-bottom)); flex: none; border-top: 1rpx solid rgba(226,237,247,.92); background: linear-gradient(180deg, rgba(248,251,255,.72), rgba(248,251,255,.96)); }
+.permission-dialog-footer { display: flex; gap: 16rpx; padding: 18rpx 22rpx; flex: none; border-top: 1rpx solid rgba(226,237,247,.92); background: linear-gradient(180deg, rgba(248,251,255,.72), rgba(248,251,255,.96)); }
 .permission-secondary, .permission-primary { min-width: 0; height: 82rpx; flex: 1; border-radius: 20rpx; font-size: 26rpx; font-weight: 680; line-height: 82rpx; }
 .permission-secondary {
   color: #2563eb;
@@ -97,7 +97,7 @@ page {
   .permission-dialog { width: min(720px, calc(100vw - 48px)); max-height: calc(100vh - 48px); border-radius: 26px; }
   .permission-dialog-header { padding: 24px 26px 18px; }
   .permission-dialog-body { padding: 18px 22px; }
-  .permission-dialog-footer { padding: 16px 22px calc(16px + env(safe-area-inset-bottom)); }
+  .permission-dialog-footer { padding: 16px 22px; }
   .permission-role-mark { width: 42px; height: 42px; border-radius: 12px; }
 }
 

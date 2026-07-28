@@ -2446,7 +2446,7 @@ scroll-view {
 }
 
 .detail-buttons {
-  margin-top: 24rpx;
+  margin-top: 0;
   padding-top: 18rpx;
   border-top: 1rpx solid rgba(226, 232, 240, 0.8);
 }
@@ -2537,7 +2537,6 @@ scroll-view {
   display: flex;
   flex-direction: column;
   width: 680rpx;
-  height: 78vh;
   max-height: 78vh;
   overflow: hidden;
 }
@@ -2665,7 +2664,7 @@ scroll-view {
 }
 
 .hr-profile-export-footer {
-  margin-top: 16rpx;
+  margin-top: 0;
 }
 
 /* CSV mapping dialog */
@@ -2673,7 +2672,6 @@ scroll-view {
   display: flex;
   flex-direction: column;
   width: 680rpx;
-  height: 80vh;
   max-height: 80vh;
   overflow: hidden;
 }
@@ -2832,7 +2830,7 @@ scroll-view {
   align-items: center;
   gap: 14rpx;
   padding-top: 14rpx;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: 0;
   box-sizing: border-box;
 }
 
@@ -2852,7 +2850,6 @@ scroll-view {
   display: flex;
   flex-direction: column;
   width: 680rpx;
-  height: 82vh;
   max-height: 82vh;
   overflow: hidden;
 }
@@ -3885,7 +3882,6 @@ scroll-view {
 
   .csv-mapping-card {
     width: 100%;
-    height: calc(100vh - 48px);
     max-width: 720px;
     max-height: calc(100vh - 48px);
   }
@@ -3988,7 +3984,6 @@ scroll-view {
 
   .hr-import-preview-card {
     width: 100%;
-    height: calc(100vh - 48px);
     max-width: 720px;
     max-height: calc(100vh - 48px);
   }
@@ -4355,14 +4350,13 @@ scroll-view {
 .hr-template-switch-modal {
   width: calc(100vw - 48rpx);
   max-width: 1080rpx;
-  height: calc(100vh - 96rpx);
   max-height: 1200rpx;
 }
 
 .hr-template-switch-body {
   flex: 1;
   min-height: 0;
-  padding: 8rpx 28rpx 28rpx;
+  padding: 8rpx 0 12rpx;
 }
 
 .hr-switch-source {
@@ -4389,7 +4383,7 @@ scroll-view {
 
 .hr-template-switch-footer {
   flex-shrink: 0;
-  padding: 18rpx 28rpx 28rpx;
+  padding: 18rpx 0 0;
   border-top: 1rpx solid rgba(148, 163, 184, 0.16);
 }
 

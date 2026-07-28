@@ -994,7 +994,7 @@ page {
 
 .field-hint-sm { font-size: 22rpx; color: #94a3b8; font-weight: 400; }
 
-.rule-save-bar { padding: 16rpx 8rpx 8rpx; }
+.rule-save-bar { padding: 16rpx 26rpx 24rpx; }
 
 .flow-divider {
   height: 1rpx; margin: 20rpx 0 16rpx;
@@ -1022,6 +1022,7 @@ page {
 }
 
 .popup-card {
+  padding: 0;
   border-radius: 28rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 251, 255, 0.90));
   border: 1rpx solid rgba(255, 255, 255, 0.82);
@@ -1030,7 +1031,9 @@ page {
 
 .popup-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 22rpx 26rpx 16rpx; gap: 16rpx;
+  gap: 16rpx;
+  margin-bottom: 0;
+  padding: 22rpx 26rpx 16rpx;
 }
 
 .popup-title {
@@ -1047,7 +1050,16 @@ page {
 }
 
 .popup-scroll {
+  width: 100%;
   max-height: 65vh;
+  padding: 0 26rpx 14rpx;
+  box-sizing: border-box;
+}
+
+.popup-card > .inner-scroll {
+  width: 100%;
+  padding: 0 26rpx 14rpx;
+  box-sizing: border-box;
 }
 
 /* Venue add/edit popup */
@@ -1074,7 +1086,7 @@ page {
 }
 
 .venue-edit-popup .form-body {
-  padding: 8rpx 26rpx 18rpx;
+  padding: 8rpx 0 18rpx;
 }
 
 .venue-edit-popup .field:last-child {
@@ -1095,19 +1107,46 @@ page {
 }
 
 /* ═══ Detail popup ═══ */
-.detail-body { padding: 8rpx 8rpx 20rpx; }
+.detail-body { padding: 8rpx 0 12rpx; }
 
 .detail-title {
-  font-size: 30rpx; font-weight: 700; color: #0f172a; margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
+  color: #0f172a;
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .detail-row {
-  display: flex; align-items: center; font-size: 26rpx; color: #334155; line-height: 2.2;
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  padding: 9rpx 0;
+  color: #334155;
+  font-size: 26rpx;
+  line-height: 1.62;
 }
 
-.detail-key { width: 120rpx; color: #94a3b8; flex-shrink: 0; }
+.detail-key {
+  width: 120rpx;
+  flex-shrink: 0;
+  color: #94a3b8;
+  line-height: 1.62;
+}
 
-.detail-val { color: #1e293b; }
+.detail-val {
+  flex: 1;
+  min-width: 0;
+  color: #1e293b;
+  line-height: 1.62;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.button-row.ui-dialog-footer {
+  padding: 16rpx 26rpx 24rpx;
+}
 
 /* ═══ Timetable ═══ */
 .schedule-nav {
@@ -1361,7 +1400,13 @@ page {
 
 /* ═══ Flow info (audit-style timeline inside booking cards / popups) ═══ */
 .flow-info-title { font-size: 22rpx; font-weight: 700; color: #0f172a; line-height: 1.4; }
-.flow-info-desc { font-size: 20rpx; color: #64748b; margin-top: 4rpx; }
+.flow-info-desc {
+  margin-top: 4rpx;
+  color: #64748b;
+  font-size: 20rpx;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
 
 /* ═══ Page footer ═══ */
 .page-footer {
@@ -1377,6 +1422,7 @@ page {
 /* Admin venue final polish: glass segmented tabs and timetable surfaces */
 .rules-tabs {
   gap: 10rpx;
+  margin: 0 26rpx 18rpx;
   padding: 8rpx;
   border-radius: 26rpx;
   border-bottom: none;

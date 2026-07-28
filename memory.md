@@ -277,6 +277,17 @@ callFunction({ name, data, success, fail })
 - 跨组织通知使用 `(created_at, id)` 键集游标，各组织先按相同边界查询后全局合并排序；禁止恢复为随页码增长的全量 offset 查询。
 - 门户和消息中心的轮询请求必须防止同一页面重复并发；组织或身份切换后作废旧请求，再补发一次当前上下文请求。
 
+### Bug 18: 居中弹窗固定占满视口导致底部大段留白
+
+**原因**: 普通详情、确认框和短表单与时间表等专业视口共用了固定 `vh` 高度；外层遮罩已经处理安全区，内部操作栏又重复叠加 `env(safe-area-inset-bottom)`，部分页面还同时添加壳体 padding、页脚 padding 和 footer margin，导致按钮下方及内容末尾出现大段空白。
+
+**永久规则**:
+- 普通居中弹窗和纵向 `scroll-view` 必须 `height: auto`，只用 `max-height` 限制溢出；固定视口仅限时间表、签名定位、双向数据网格等确有需要的专业界面。
+- 居中弹窗的安全区只由 overlay 负责，footer 禁止再次添加底部安全区；底部 sheet 和固定键盘只允许在最外层底边处理一次。
+- 同一处垂直间距只能由一层负责，禁止壳体底部 padding、footer padding 与 footer margin 三重叠加。
+- 可能换行的标题、详情值、组织名、说明和按钮文案必须显式设置舒展行高：标题约 `1.4–1.5`，正文约 `1.55–1.7`。
+- 每次修改包裹型控件都要人工检查短内容、长内容、两行文字及手机/Pad 竖横屏；`scripts/ui-audit.js --strict` 必须保持 `forcedDialogViewport=0`，但脚本不得代替实际渲染检查。
+
 ### 发布与编译配置锁
 
 - `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。

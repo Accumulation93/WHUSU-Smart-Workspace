@@ -397,6 +397,7 @@ function scanWxss(file) {
   const fixedDataColumns = [];
   const pillButtonRadius = [];
   const stackedButtonMetrics = [];
+  const forcedDialogViewport = [];
   const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
   let ruleMatch;
   while ((ruleMatch = rulePattern.exec(source))) {
@@ -452,6 +453,16 @@ function scanWxss(file) {
         }
       }
     }
+    if (/(popup|modal|dialog|sheet)/i.test(selector) &&
+      /(?:^|;)\s*height\s*:\s*(?:\d+(?:\.\d+)?vh|calc\(\s*100vh\b)/i.test(declarations) &&
+      !/(timetable|placement|signature|canvas|keyboard|ui-dialog-shell--wide|ui-dialog-scroll--both)/i.test(selector)) {
+      forcedDialogViewport.push({
+        file: relative(file),
+        line: lineAt(source, ruleMatch.index),
+        selector: selector.trim().replace(/\s+/g, ' '),
+        message: '普通内容弹窗不得强制占据固定视口高度；应按内容生长并只在溢出时滚动'
+      });
+    }
     const transformValue = declarations.match(/transform\s*:\s*([^;]+)/i);
     const animationValue = declarations.match(/animation(?:-name)?\s*:\s*([^;]+)/i);
     const hasMotion = Boolean(
@@ -488,6 +499,7 @@ function scanWxss(file) {
     fixedDataColumns,
     pillButtonRadius,
     stackedButtonMetrics,
+    forcedDialogViewport,
     oversizedTimetable: [...source.matchAll(/\.timetable-scroll\s*\{[^{}]*height\s*:\s*(\d{3,})rpx/gi)]
       .filter(match => Number(match[1]) >= 900)
       .map(match => ({ file: relative(file), line: lineAt(source, match.index), height: match[1] + 'rpx' }))
@@ -532,16 +544,18 @@ const unsafeControlEllipsis = styles.flatMap(item => item.unsafeControlEllipsis)
 const fixedDataColumns = styles.flatMap(item => item.fixedDataColumns);
 const pillButtonRadius = styles.flatMap(item => item.pillButtonRadius);
 const stackedButtonMetrics = styles.flatMap(item => item.stackedButtonMetrics);
+const forcedDialogViewport = styles.flatMap(item => item.forcedDialogViewport);
 const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
-  /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;/m.test(GLOBAL_STYLE)
+  /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell--complex\s*\{[^}]*height:\s*auto;/m.test(GLOBAL_STYLE)
 );
 const missingDialogScrollSystem = !(
-  /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*56vh;[^}]*max-height:\s*calc\(100vh\s*-\s*360rpx/m.test(GLOBAL_STYLE) &&
+  /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-height:\s*56vh;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--pane\s*\{[^}]*min-height:\s*120rpx;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--x\s*\{[^}]*height:\s*auto;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--both\s*\{[^}]*height:\s*64vh;/m.test(GLOBAL_STYLE) &&
-  !/scroll-view\.ui-dialog-scroll--(?:fill|both)\s*\{[^}]*height:\s*0\s*;/m.test(GLOBAL_STYLE)
+  !/scroll-view\.ui-dialog-scroll--(?:fill|both)\s*\{[^}]*(?:^|;)\s*height:\s*0\s*;/m.test(GLOBAL_STYLE)
 );
 const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxss'), 'utf8');
 const missingResponsiveDataSystem = !(
@@ -597,6 +611,7 @@ const report = {
     fixedDataColumns: fixedDataColumns.length,
     pillButtonRadius: pillButtonRadius.length,
     stackedButtonMetrics: stackedButtonMetrics.length,
+    forcedDialogViewport: forcedDialogViewport.length,
     missingStableDialogSystem: missingStableDialogSystem ? 1 : 0,
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
@@ -629,6 +644,7 @@ const report = {
   fixedDataColumns,
   pillButtonRadius,
   stackedButtonMetrics,
+  forcedDialogViewport,
   styles
 };
 
@@ -639,7 +655,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...pillButtonRadius, ...stackedButtonMetrics]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -656,7 +672,7 @@ if (process.argv.includes('--strict')) {
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
     report.summary.adminOrgContextIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
+    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.missingStableDialogSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem;
   process.exitCode = failed ? 1 : 0;
 }

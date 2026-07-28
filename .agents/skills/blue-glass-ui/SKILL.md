@@ -370,6 +370,17 @@ Filter blocks can be inner glass panels, but keep them compact:
 }
 ```
 
+## Dialogs, Sheets, And Wrapped Text
+
+Wrapper controls must follow the content instead of reserving an arbitrary viewport:
+
+- Centered content dialogs use `height: auto` with a viewport `max-height`. Their vertical `scroll-view` also uses `height: auto` and a controlled `max-height`, so short content does not leave a large blank tail and long content still scrolls.
+- Fixed-height dialog viewports are reserved for professional canvases and two-dimensional data surfaces such as timetables, signature placement, or comparable tools. Ordinary details, confirmations, forms, pickers, and lists must not use `height: 56vh`, `78vh`, `80vh`, or `calc(100vh - ...)`.
+- The overlay owns safe-area clearance for centered dialogs. Do not add `env(safe-area-inset-bottom)` again to a centered dialog footer. Bottom sheets and fixed bottom keyboards may handle the safe area once at their outermost bottom boundary.
+- One visual gap has one owner. Do not stack shell bottom padding, footer padding, and footer margins for the same separation. Keep a visible but restrained `14–20rpx` phone gap (`10–14px` on Pad) between body and actions.
+- Wrapped titles, descriptions, organization names, detail values, and button labels need explicit readable line height. Use about `1.4–1.5` for headings and `1.55–1.7` for body/detail text; never let a visually single-line label wrap with `line-height: 1`.
+- After changing a wrapper, inspect short content, long content, and two-line text on phone, Pad portrait, and Pad landscape. Script output is a regression gate, not a substitute for rendered visual review.
+
 ## Composition Checklist
 
 Before finishing:
@@ -381,6 +392,8 @@ Before finishing:
 - Buttons are sized for work, not marketing.
 - Native text buttons are compact rounded rectangles; no `999rpx`/`50%` fat capsules and no three-column wrapping on phones.
 - Strict UI audit reports zero `pillButtonRadius` and zero `stackedButtonMetrics` findings.
+- Ordinary dialogs grow with content, centered footers do not duplicate safe-area padding, and strict UI audit reports zero `forcedDialogViewport` findings.
+- Wrapped headings and body text retain deliberate line spacing on phone and Pad.
 - Text is not dense: use short titles and one helper line.
 - No giant empty summary cards unless the numbers directly drive decisions.
 - Red is used only for clear/danger/destructive actions.

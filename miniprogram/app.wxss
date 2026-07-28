@@ -24,6 +24,7 @@ page {
   min-height: 100%;
   color: #0f172a;
   color: var(--ui-text, #0f172a);
+  line-height: 1.55;
   font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
   background:
     radial-gradient(circle at 12% 10%, rgba(96, 165, 250, 0.16) 0%, transparent 26%),
@@ -598,7 +599,10 @@ button[disabled],
   max-width: 640rpx;
 }
 
-.ui-overlay .ui-dialog-shell--complex,
+.ui-overlay .ui-dialog-shell--complex {
+  height: auto;
+}
+
 .ui-overlay .ui-dialog-shell--wide {
   height: calc(100vh - 32rpx - env(safe-area-inset-bottom));
 }
@@ -629,7 +633,7 @@ button[disabled],
   max-height: none;
 }
 
-/* 微信原生 scroll-view 的纵向滚动必须拥有可计算高度，不能只依赖 Web flex 自动高度。 */
+/* 普通纵向内容按自身高度生长并以 max-height 截止；专业双向网格保留可计算视口。 */
 scroll-view.ui-dialog-scroll--fill,
 scroll-view.ui-dialog-scroll--both {
   display: block;
@@ -639,9 +643,9 @@ scroll-view.ui-dialog-scroll--both {
 }
 
 scroll-view.ui-dialog-scroll--fill {
-  height: 56vh;
-  min-height: 240rpx;
-  max-height: calc(100vh - 360rpx - env(safe-area-inset-bottom));
+  height: auto;
+  min-height: 0;
+  max-height: 56vh;
 }
 
 scroll-view.ui-dialog-scroll--both {
@@ -672,9 +676,18 @@ scroll-view.ui-dialog-scroll--x {
   width: 100%;
   min-width: 0;
   padding-top: 16rpx;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: 0;
   background: linear-gradient(180deg, rgba(248,251,255,0.12), rgba(248,251,255,0.96) 26%);
   box-sizing: border-box;
+}
+
+/* 居中弹窗的安全区由 overlay 统一负责；操作栏自身不再叠加外边距或第二份安全区。 */
+.button-row.ui-dialog-footer,
+.dialog-actions.ui-dialog-footer,
+.audit-btn-bar.ui-dialog-footer,
+.inline-actions.ui-dialog-footer {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .ui-dialog-footer button,
@@ -1193,7 +1206,7 @@ button:active,
 
   .ui-dialog-footer {
     padding-top: 14px;
-    padding-bottom: max(0px, env(safe-area-inset-bottom));
+    padding-bottom: 0;
   }
 
   .field-input,
