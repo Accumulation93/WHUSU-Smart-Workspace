@@ -13,7 +13,8 @@ function Invoke-Remote([string]$Command, [switch]$Interactive) {
   if ($Interactive) {
     $arguments += @('-t', $HostAlias, $Command)
   } else {
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Command))
+    $normalizedCommand = $Command.Replace("`r`n", "`n").Replace("`r", "`n")
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($normalizedCommand))
     $arguments += @($HostAlias, "echo $encoded | base64 -d | bash")
   }
   & ssh @arguments
