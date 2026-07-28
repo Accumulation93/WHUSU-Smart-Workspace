@@ -16,6 +16,40 @@ function encodeCursor(offset) {
   return offset > 0 ? Buffer.from(String(offset)).toString('base64url') : '';
 }
 
+function encodeNotificationCursor(item) {
+  if (!item || !item.createdAt || !item.id) return '';
+  const time = new Date(item.createdAt);
+  if (Number.isNaN(time.getTime())) return '';
+  return Buffer.from(JSON.stringify({
+    v: 1,
+    createdAt: time.toISOString(),
+    id: safeString(item.id)
+  })).toString('base64url');
+}
+
+function decodeNotificationCursor(value) {
+  if (!value) return null;
+  if (String(value).length > 512) {
+    const error = new Error('invalid_notification_cursor');
+    error.code = 'INVALID_NOTIFICATION_CURSOR';
+    throw error;
+  }
+  try {
+    const parsed = JSON.parse(Buffer.from(String(value), 'base64url').toString('utf8'));
+    const id = safeString(parsed && parsed.id);
+    const createdAt = safeString(parsed && parsed.createdAt);
+    const time = new Date(createdAt);
+    if (!parsed || parsed.v !== 1 || !id || id.length > 64 || !createdAt || Number.isNaN(time.getTime())) {
+      throw new Error('invalid');
+    }
+    return { beforeCreatedAt: time.toISOString(), beforeId: id };
+  } catch (_) {
+    const error = new Error('invalid_notification_cursor');
+    error.code = 'INVALID_NOTIFICATION_CURSOR';
+    throw error;
+  }
+}
+
 function decodeCursor(value) {
   if (!value) return 0;
   try {
@@ -66,7 +100,10 @@ function compareNotifications(left, right) {
   const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
   const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
   if (leftTime !== rightTime) return rightTime - leftTime;
-  return String(right.id).localeCompare(String(left.id));
+  const leftId = String(left.id || '').toLowerCase();
+  const rightId = String(right.id || '').toLowerCase();
+  if (leftId === rightId) return 0;
+  return rightId > leftId ? 1 : -1;
 }
 
 async function settleWithConcurrency(contexts, loader) {
@@ -188,13 +225,14 @@ async function loadTodos(scope, body) {
 
 async function loadNotifications(scope, body) {
   const limit = parseLimit(body.limit);
-  const offset = getOffset(body);
-  const fetchLimit = offset + limit;
+  const boundary = decodeNotificationCursor(body.cursor);
+  const fetchLimit = limit + 1;
   const results = await settleWithConcurrency(scope.contexts, async (context) => {
     const result = await notificationModel.listForRecipient(context.actor, {
       limit: fetchLimit,
-      offset: 0,
-      maxLimit: fetchLimit
+      maxLimit: fetchLimit,
+      beforeCreatedAt: boundary && boundary.beforeCreatedAt,
+      beforeId: boundary && boundary.beforeId
     });
     return {
       items: result.items.map((row) => mapNotification(row, context)),
@@ -204,16 +242,17 @@ async function loadNotifications(scope, body) {
   });
   const successful = results.filter((item) => item.ok);
   const allItems = successful.flatMap((item) => item.value.items).sort(compareNotifications);
-  const items = allItems.slice(offset, offset + limit);
+  const items = allItems.slice(0, limit);
   const total = successful.reduce((sum, item) => sum + item.value.total, 0);
   const unreadCount = successful.reduce((sum, item) => sum + item.value.unreadCount, 0);
-  const nextOffset = offset + items.length;
   return {
     data: {
       items,
       total,
       unreadCount,
-      nextCursor: nextOffset < total ? encodeCursor(nextOffset) : ''
+      nextCursor: allItems.length > limit && items.length
+        ? encodeNotificationCursor(items[items.length - 1])
+        : ''
     },
     failures: collectFailures(results)
   };
@@ -281,6 +320,12 @@ router.post('/listNotifications', async (req, res) => {
       scopeMetadata(scope, result.failures)
     ));
   } catch (error) {
+    if (error.code === 'INVALID_NOTIFICATION_CURSOR') {
+      return res.json({
+        status: 'invalid_params',
+        message: '通知分页状态已失效，请刷新列表'
+      });
+    }
     console.error('[notification:list] failed:', error);
     res.json({ status: 'error', message: '通知加载失败，请稍后重试' });
   }

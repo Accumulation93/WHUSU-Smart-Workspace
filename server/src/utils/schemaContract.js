@@ -49,6 +49,7 @@ const REQUIRED_INDEXES = [
   ['score_answers', 'uk_sa_record_question'],
   ['audit_read_cursors', 'uk_arc_org_hr_submission'],
   ['notifications', 'uk_notification_event'],
+  ['notifications', 'idx_notification_recipient_page'],
   ['notification_outbox', 'uk_notification_outbox_event'],
   ['admin_permission_overrides', 'uk_admin_permission'],
   ['admin_info', 'uk_ai_invite_code'],

@@ -198,7 +198,6 @@ Page({
     hrTemplateSwitchToken: '',
     hrTemplateSwitchSummary: null,
     _hrInfoKeywordInput: '',
-    _hrInfoKeywordTimer: null,
     showHrPersonDetail: false,
     detailHrId: '',
     detailHrProfile: null,
@@ -438,6 +437,7 @@ Page({
 
   onHide() {
     this._pageVisible = false;
+    if (this.clearHrInfoKeywordTimer) this.clearHrInfoKeywordTimer();
     // 页面隐藏时移除监听，避免重复注册
     if (this._boundOnOrgChanged) {
       eventBus.off('org:changed', this._boundOnOrgChanged);
@@ -447,6 +447,7 @@ Page({
 
   onUnload() {
     this._pageVisible = false;
+    if (this.clearHrInfoKeywordTimer) this.clearHrInfoKeywordTimer();
     orgSession.invalidateRequests(this);
     if (this._boundOnOrgChanged) {
       eventBus.off('org:changed', this._boundOnOrgChanged);

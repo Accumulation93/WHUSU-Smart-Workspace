@@ -92,6 +92,8 @@ jobs:
           node server/test/hrProfileTemplateMigration.test.js
           node server/test/messageCenter.test.js
           node server/test/crossOrgMessageRoutes.test.js
+          node server/test/notificationReliability.test.js
+          node server/test/auditUploadMigration.test.js
           node server/test/deploymentAutomation.test.js
           node server/test/deploymentMigrationIntegration.test.js
           node server/test/venueFlowRestoreMigration.test.js

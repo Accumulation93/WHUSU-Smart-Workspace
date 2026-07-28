@@ -49,6 +49,27 @@ async function testReadAffectedRowsContract() {
   assert.deepStrictEqual(calls[0].params, ['foreign-id', 'org-44', 'user', 'hr-1']);
 }
 
+async function testNotificationKeysetBoundary() {
+  calls.length = 0;
+  responses.length = 0;
+  responses.push([[{ total: 3, unread_count: 2 }], []]);
+  responses.push([[{ id: 'notice-older', created_at: '2026-07-27 09:00:00' }], []]);
+  const result = await notificationModel.listForRecipient(
+    { type: 'user', id: 'hr-1' },
+    {
+      limit: 21,
+      maxLimit: 21,
+      beforeCreatedAt: '2026-07-28T01:00:00.000Z',
+      beforeId: 'f'.repeat(64)
+    }
+  );
+  assert.strictEqual(result.items.length, 1);
+  assert.match(calls[1].sql, /created_at < \?[\s\S]*id < \?/);
+  assert.strictEqual(calls[1].params[calls[1].params.length - 2], 'f'.repeat(64));
+  assert.strictEqual(calls[1].params[calls[1].params.length - 1], 21);
+  assert.ok(calls[1].params[calls[1].params.length - 4] instanceof Date);
+}
+
 async function testCrossOrganizationActorResolution() {
   calls.length = 0;
   responses.length = 0;
@@ -148,6 +169,8 @@ function testMigrationAndFrontendContract() {
   assert.match(portal, /markAllNotificationsRead/);
   assert.match(portal, /limit: 5/);
   assert.match(portal, /activateOrganization/);
+  assert.match(portal, /if \(this\._messageOverviewLoading\)[\s\S]*this\._messageOverviewQueued = true/);
+  assert.match(portal, /shouldReload && this\._isPageVisible && this\.data\.hasUser/);
   assert.strictEqual(
     (portal.match(/key:\s*'messages',\s*label:\s*'消息中心',\s*iconName:\s*'bell',\s*url:\s*'\/pages\/messageCenter\/messageCenter'/g) || []).length,
     2,
@@ -172,11 +195,19 @@ function testMigrationAndFrontendContract() {
   assert.match(messageCenterStyle, /\.message-switch-mask[\s\S]*background:\s*rgba\(15,\s*23,\s*42,\s*0\.34\)/);
   assert.match(messageCenterStyle, /\.message-switch-dialog[\s\S]*background:\s*linear-gradient\(145deg/);
   assert.match(messageCenterStyle, /\.message-switch-dialog[\s\S]*box-shadow:/);
+
+  const notificationRoute = fs.readFileSync(
+    path.join(root, 'src/modules/audit/routes/notification.js'),
+    'utf8'
+  );
+  assert.doesNotMatch(notificationRoute, /localeCompare/);
+  assert.match(notificationRoute, /String\(left\.id \|\| ''\)\.toLowerCase\(\)/);
 }
 
 (async function run() {
   await testNotificationIsolationAndAwait();
   await testReadAffectedRowsContract();
+  await testNotificationKeysetBoundary();
   await testCrossOrganizationActorResolution();
   await testAdminActorResolution();
   testMigrationAndFrontendContract();

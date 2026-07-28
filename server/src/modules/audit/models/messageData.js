@@ -65,7 +65,7 @@ async function getPendingHrProfiles(orgId) {
 
 async function listBoundUsersInOrg(orgId) {
   const [rows] = await pool.query(
-    `SELECT ui.hr_id, h.name, h.student_id, h.department_id, h.identity_id, h.work_group_id
+    `SELECT h.id, h.name, h.student_id, h.department_id, h.identity_id, h.work_group_id
        FROM user_info ui
        JOIN hr_info h ON h.id = ui.hr_id AND h.org_id = ui.org_id
       WHERE ui.org_id = ? AND ui.hr_id IS NOT NULL AND ui.hr_id <> ''`,

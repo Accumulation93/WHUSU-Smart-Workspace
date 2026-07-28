@@ -999,6 +999,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   INDEX idx_notification_org_hr (org_id, hr_id),
   INDEX idx_notification_org_unread (org_id, hr_id, is_read),
   INDEX idx_notification_recipient_unread (org_id, recipient_type, recipient_id, is_read, created_at),
+  INDEX idx_notification_recipient_page (org_id, recipient_type, recipient_id, created_at, id),
   INDEX idx_notification_created (created_at),
   UNIQUE INDEX uk_notification_event (org_id, event_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

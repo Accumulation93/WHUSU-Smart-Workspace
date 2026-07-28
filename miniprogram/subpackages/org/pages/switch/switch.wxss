@@ -3,6 +3,7 @@ page {
   background:
     radial-gradient(circle at 12% 10%, rgba(96,165,250,0.16) 0%, transparent 26%),
     radial-gradient(circle at 86% 18%, rgba(191,219,254,0.22) 0%, transparent 24%),
+    radial-gradient(circle at 18% 88%, rgba(125,211,252,0.10) 0%, transparent 22%),
     linear-gradient(135deg, #f8fbff 0%, #f1f6fc 48%, #edf3fa 100%);
   color: #1e293b;
   font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;

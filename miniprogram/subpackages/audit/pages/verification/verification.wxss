@@ -35,7 +35,7 @@
   line-height: 1.65;
 }
 
-.verify-status-valid { color: #047857; }
+.verify-status-valid { color: #15803d; }
 .verify-status-invalid { color: #dc2626; }
 .verify-status-unknown { color: #64748b; }
 

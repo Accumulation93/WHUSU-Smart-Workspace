@@ -4,6 +4,7 @@ const notificationModel = require('../models/notification');
 const outboxModel = require('../models/notificationOutbox');
 const messageDataModel = require('../models/messageData');
 const { getUserScoringTask } = require('../../scoring/services/scoringTaskService');
+const { logger } = require('../../../utils/logger');
 const RECIPIENT_CONCURRENCY = 8;
 
 async function forEachConcurrent(items, concurrency, worker) {
@@ -50,7 +51,7 @@ async function processScoringRecipients(job, payload) {
   await forEachConcurrent(users, RECIPIENT_CONCURRENCY, async (user) => {
     const task = await getUserScoringTask(user, payload.activity || null);
     if (!task || task.pendingCount <= 0) return;
-    await createForRecipient(job, 'user', user.hr_id, Object.assign({}, payload, {
+    await createForRecipient(job, 'user', user.id, Object.assign({}, payload, {
       targetId: safeString(task.activity.id),
       description: payload.description || ('还有 ' + task.pendingCount + ' 人待评分')
     }));
@@ -86,8 +87,15 @@ async function processBatch(limit) {
       await outboxModel.markDone(job.id);
       completed += 1;
     } catch (error) {
-      console.error('[notification-outbox] job failed:', job.event_key, error.message);
-      await outboxModel.markFailed(job.id, error);
+      const failed = await outboxModel.markFailed(job.id, error);
+      logger.error('Notification outbox job failed', {
+        event: failed.status === 'dead' ? 'notification.dead_letter' : 'notification.retry_scheduled',
+        jobId: job.id,
+        eventType: job.event_type,
+        organizationId: job.org_id,
+        attempts: Number(failed.attempts || job.attempts || 0),
+        error: error.message
+      });
     }
   }
   return { claimed: jobs.length, completed };

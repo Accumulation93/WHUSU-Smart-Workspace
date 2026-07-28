@@ -80,7 +80,8 @@ router.post('/someFunction', async (req, res) => {
 ## 5. 数据库访问
 
 ```javascript
-// 连接池：connectionLimit=50, queueLimit=200, charset=utf8mb4, timezone=+08:00
+// 连接池：DB_POOL_LIMIT 可配置；生产 API 每实例 20、通知 Worker 10，
+// queueLimit=200, charset=utf8mb4, timezone=+08:00
 // 每个连接 SET SESSION max_execution_time = 15000
 
 // 参数化查询（必须）：

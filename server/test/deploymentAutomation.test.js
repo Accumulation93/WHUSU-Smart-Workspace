@@ -40,6 +40,7 @@ function testDeploymentScriptContract() {
   const script = fs.readFileSync(path.resolve(__dirname, '../scripts/deployProduction.sh'), 'utf8');
   const entrypoint = fs.readFileSync(path.resolve(__dirname, '../scripts/deployEntrypoint.sh'), 'utf8');
   const tmuxSetup = fs.readFileSync(path.resolve(__dirname, '../scripts/setupCollabSession.sh'), 'utf8');
+  const ecosystem = fs.readFileSync(path.resolve(__dirname, '../ecosystem.config.js'), 'utf8');
   assert.match(script, /flock -n/);
   assert.match(script, /pull --ff-only/);
   assert.match(script, /git_with_timeout/);
@@ -48,6 +49,11 @@ function testDeploymentScriptContract() {
   assert.match(script, /pm2 startOrReload/);
   assert.match(script, /\/var\/lib\/whusu-smart-workspace-deploy\/maintenance\.flag/);
   assert.match(script, /ln -sfn "\$SHARED_DIR\/server\.env"/);
+  assert.match(script, /ln -s "\$SHARED_DIR\/uploads"/);
+  assert.match(script, /migrateAuditUploads\.js/);
+  assert.match(script, /AUDIT_UPLOAD_DIR="\$SHARED_DIR\/uploads\/audit"/);
+  assert.match(script, /--only whusu-smart-workspace-backup --update-env/);
+  assert.match(script, /pm2 stop whusu-smart-workspace-backup/);
   assert.match(script, /install -m 755/);
   assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);
   assert.doesNotMatch(script, /git reset --hard/);
@@ -56,6 +62,9 @@ function testDeploymentScriptContract() {
   assert.match(entrypoint, /bash -n/);
   assert.match(tmuxSetup, /whusu-smart-workspace-collab/);
   assert.match(tmuxSetup, /whusu-smart-workspace-notification-worker/);
+  assert.match(ecosystem, /name: 'whusu-smart-workspace-backup'[\s\S]*cwd: serverRoot/);
+  assert.match(ecosystem, /name: 'whusu-smart-workspace-api'[\s\S]*DB_POOL_LIMIT: '20'/);
+  assert.match(ecosystem, /name: 'whusu-smart-workspace-notification-worker'[\s\S]*DB_POOL_LIMIT: '10'/);
 }
 
 testMigrationDiscoveryAndLedger();

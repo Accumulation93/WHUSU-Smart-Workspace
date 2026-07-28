@@ -1,0 +1,11 @@
+{
+  "setting": {
+    "es6": false,
+    "enhance": false,
+    "nodeModules": false,
+    "swc": false,
+    "disableSWC": true,
+    "useCompilerPlugins": false,
+    "compileHotReLoad": false
+  }
+}

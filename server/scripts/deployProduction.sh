@@ -32,7 +32,8 @@ for existing_release in "${EXISTING_RELEASES[@]}"; do
 done
 git -C "$REPO_DIR" remote set-url origin git@github.com:Accumulation93/WHUSU-Smart-Workspace.git
 
-mkdir -p "$RELEASES_DIR" "$SHARED_DIR" "$STATE_DIR" "$LOG_DIR" "$BACKUP_DIR"
+mkdir -p "$RELEASES_DIR" "$SHARED_DIR" "$STATE_DIR" "$LOG_DIR" "$BACKUP_DIR" \
+  "$SHARED_DIR/uploads/audit/_tmp"
 LOG_FILE="$LOG_DIR/deploy-$(date +%Y%m%d-%H%M%S)-${TARGET_SHA:0:12}.log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
@@ -106,6 +107,7 @@ reload_release() {
   fi
   WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-api --update-env
   WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-notification-worker --update-env
+  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-backup --update-env
 }
 
 rollback() {
@@ -119,6 +121,10 @@ rollback() {
     pm2 stop whusu-smart-workspace-notification-worker >/dev/null 2>&1 || true
     log "恢复部署前数据库快照"
     node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" restore "$SNAPSHOT"
+    AUDIT_UPLOAD_DIR="$SHARED_DIR/uploads/audit" \
+      AUDIT_UPLOAD_LEGACY_ROOTS="$REPO_DIR/server/uploads:$SHARED_DIR/uploads/audit:/home/ubuntu/redsu_scoring/server/uploads" \
+      node "$NEW_RELEASE/server/scripts/migrateAuditUploads.js" \
+      || log "数据库回滚后附件路径恢复失败，保留维护状态供人工处理"
   fi
   if [[ -n "$OLD_RELEASE" && -d "$OLD_RELEASE" ]]; then
     log "切回旧版本 $OLD_SHA"
@@ -181,6 +187,11 @@ if [[ -e "$NEW_RELEASE" ]]; then
 fi
 git -C "$REPO_DIR" worktree add --detach "$NEW_RELEASE" "$TARGET_SHA"
 ln -s "$SHARED_DIR/server.env" "$NEW_RELEASE/server/.env"
+if [[ -e "$NEW_RELEASE/server/uploads" || -L "$NEW_RELEASE/server/uploads" ]]; then
+  log "新 release 内存在非预期 uploads 路径，拒绝覆盖"
+  exit 1
+fi
+ln -s "$SHARED_DIR/uploads" "$NEW_RELEASE/server/uploads"
 
 log "安装锁定的生产依赖"
 npm --prefix "$NEW_RELEASE/server" ci --omit=dev --no-audit --no-fund
@@ -195,12 +206,16 @@ if [[ "$PENDING_COUNT" -gt 0 ]]; then
   touch "$MAINTENANCE_FLAG"
   MAINTENANCE_ACTIVE=1
   pm2 stop whusu-smart-workspace-notification-worker || true
+  pm2 stop whusu-smart-workspace-backup || true
   WORKER_STOPPED=1
   sleep "$DRAIN_SECONDS"
   SNAPSHOT="$BACKUP_DIR/pre-${TARGET_SHA}-$(date +%Y%m%d-%H%M%S).sql.gz"
   node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" backup "$SNAPSHOT"
   MIGRATION_STARTED=1
   node "$NEW_RELEASE/server/scripts/runDeploymentMigrations.js" apply --sha "$TARGET_SHA"
+  AUDIT_UPLOAD_DIR="$SHARED_DIR/uploads/audit" \
+    AUDIT_UPLOAD_LEGACY_ROOTS="$REPO_DIR/server/uploads:$SHARED_DIR/uploads/audit:/home/ubuntu/redsu_scoring/server/uploads" \
+    node "$NEW_RELEASE/server/scripts/migrateAuditUploads.js"
 fi
 
 log "原子切换服务版本"

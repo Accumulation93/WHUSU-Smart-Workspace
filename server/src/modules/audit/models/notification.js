@@ -54,10 +54,17 @@ async function batchCreate(items, conn) {
 async function listForRecipient(actor, options) {
   const orgId = await getCurrentOrgId();
   const requestedLimit = parseInt(options.limit, 10) || 20;
-  const maxLimit = Math.max(50, parseInt(options.maxLimit, 10) || 50);
+  const maxLimit = Math.max(1, Math.min(parseInt(options.maxLimit, 10) || 50, 100));
   const limit = Math.max(1, Math.min(requestedLimit, maxLimit));
-  const offset = Math.max(0, parseInt(options.offset, 10) || 0);
+  const beforeCreatedAt = options.beforeCreatedAt ? new Date(options.beforeCreatedAt) : null;
+  const beforeId = String(options.beforeId || '');
+  const hasBoundary = beforeCreatedAt && !Number.isNaN(beforeCreatedAt.getTime()) && beforeId;
   const params = [orgId, actor.type, actor.id, 'pending_approval', RETENTION_DAYS];
+  const boundarySql = hasBoundary
+    ? ' AND (created_at < ? OR (created_at = ? AND id < ?))'
+    : '';
+  const rowParams = params.slice();
+  if (hasBoundary) rowParams.push(beforeCreatedAt, beforeCreatedAt, beforeId);
   const [countResult, rowsResult] = await Promise.all([
     pool.query(
       `SELECT COUNT(*) AS total,
@@ -73,9 +80,10 @@ async function listForRecipient(actor, options) {
          FROM notifications
         WHERE org_id = ? AND recipient_type = ? AND recipient_id = ?
           AND type <> ? AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+          ${boundarySql}
         ORDER BY created_at DESC, id DESC
-        LIMIT ? OFFSET ?`,
-      params.concat([limit, offset])
+        LIMIT ?`,
+      rowParams.concat([limit])
     )
   ]);
   const counts = countResult[0];
@@ -85,7 +93,7 @@ async function listForRecipient(actor, options) {
     items: rows,
     total: Number(countRow.total || 0),
     unreadCount: Number(countRow.unread_count || 0),
-    offset,
+    offset: 0,
     limit
   };
 }

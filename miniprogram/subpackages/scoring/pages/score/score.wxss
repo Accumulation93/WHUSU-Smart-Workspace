@@ -492,7 +492,7 @@ page {
   height: 88rpx;
   line-height: 88rpx;
   border-radius: 28rpx;
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   border: 1rpx solid rgba(147, 197, 253, 0.58);
   color: #fff;
   font-size: 30rpx;
@@ -636,7 +636,7 @@ page {
 }
 
 .kb-nav-btn-next {
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   border-color: rgba(147, 197, 253, 0.56);
   box-shadow:
     0 10rpx 22rpx rgba(37, 99, 235, 0.20),
@@ -645,7 +645,7 @@ page {
 
 .kb-nav-btn-submit {
   flex: 0 0 104rpx;
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   border-color: rgba(147, 197, 253, 0.56);
   box-shadow:
     0 10rpx 22rpx rgba(37, 99, 235, 0.18),
@@ -919,7 +919,7 @@ page {
 }
 
 .kb-toggle-track-on {
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   box-shadow: 0 0 12rpx rgba(37, 99, 235, 0.22);
 }
 

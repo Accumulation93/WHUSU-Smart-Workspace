@@ -107,7 +107,7 @@ async function listScoringItems(actor) {
     id: 'scoring:' + safeString(task.activity.id),
     type: 'todo',
     sourceType: 'scoring_task',
-    title: safeString(task.activity.name || 'WHUSU智慧工作台'),
+    title: safeString(task.activity.name || '考核评分'),
     description: '还有 ' + task.pendingCount + ' 人待评分',
     category: 'scoring',
     targetType: 'score_activity',

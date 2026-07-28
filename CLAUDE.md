@@ -15,7 +15,7 @@
 - **部署**：Ubuntu 22.04 + PM2 ×2 + Nginx 反向代理
 - **App ID**：`wxa0946295a962ee2e`，生产域名：`accumulation93.com`
 
-模块：WHUSU智慧工作台 / 人事管理 / 审核审批 / 场地借用。目录结构见各 `.claude/rules/` 文件。
+模块：考核评分 / 人事管理 / 审核审批 / 场地借用。目录结构见各 `.claude/rules/` 文件。
 
 ---
 

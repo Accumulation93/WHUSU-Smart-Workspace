@@ -10,7 +10,9 @@ const submissionFileModel = require('../models/auditSubmissionFile');
 const { JWT_SECRET } = require('../../../middleware/auth');
 const { hashFile } = require('./hashChain');
 
-const UPLOAD_DIR = path.resolve(__dirname, '../../../../uploads/audit');
+const UPLOAD_DIR = path.resolve(
+  process.env.AUDIT_UPLOAD_DIR || path.resolve(__dirname, '../../../../uploads/audit')
+);
 const TMP_DIR = path.join(UPLOAD_DIR, '_tmp');
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];

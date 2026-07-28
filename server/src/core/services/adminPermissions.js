@@ -173,7 +173,7 @@ mapRoutes('system.admin_accounts.read', ['/listAdmins', '/exportAdmins', '/listU
 mapRoutes('system.admin_accounts.write', [
   '/saveAdmin', '/deleteAdmin', '/createAdminInvite', '/generateAdminInviteCode', '/adminUnbindUser'
 ]);
-mapRoutes('system.settings', ['/getSystemConfig', '/saveSystemConfig', '/listOrganizations']);
+mapRoutes('system.settings', ['/getSystemConfig', '/saveSystemConfig', '/listOrganizations', '/admin/health']);
 mapRoutes('system.organizations', ['/saveOrganization', '/deleteOrganization', '/switchOrganization']);
 mapAny(['/parseTableFile', '/buildTableFile'], [
   'hr.import', 'hr.people', 'hr.profile_review', 'scoring.templates'

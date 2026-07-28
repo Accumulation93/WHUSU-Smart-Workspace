@@ -10,7 +10,7 @@ page {
     radial-gradient(circle at 86% 18%, rgba(191, 219, 254, 0.22) 0%, transparent 24%),
     radial-gradient(circle at 18% 88%, rgba(125, 211, 252, 0.10) 0%, transparent 22%),
     linear-gradient(135deg, #f8fbff 0%, #f1f6fc 48%, #edf3fa 100%);
-  color: #1f2a37;
+  color: #1e293b;
   font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -733,12 +733,15 @@ button, input, textarea, picker, view, text, scroll-view {
 /* ── 视图切换标签 ── */
 .app-view-tabs {
   display: flex;
-  gap: 0;
+  gap: 6rpx;
   flex-shrink: 0;
-  background: rgba(241, 245, 249, 0.84);
-  border-radius: 16rpx;
-  border: 1rpx solid rgba(203, 213, 225, 0.50);
+  padding: 6rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.80) 0%, rgba(248,251,255,0.64) 100%);
+  border-radius: 20rpx;
+  border: 1rpx solid rgba(255,255,255,0.72);
+  box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.82);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .app-view-tab {
@@ -747,13 +750,14 @@ button, input, textarea, picker, view, text, scroll-view {
   font-weight: 600;
   color: #64748b;
   line-height: 1;
+  border-radius: 14rpx;
   transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease;
 }
 
 .app-view-tab-active {
-  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   color: #ffffff;
-  box-shadow: 0 4rpx 10rpx rgba(37, 99, 235, 0.22);
+  box-shadow: 0 8rpx 16rpx rgba(37, 99, 235, 0.20), inset 0 1rpx 0 rgba(255,255,255,0.24);
 }
 
 /* ── 搜索栏 ── */
@@ -766,8 +770,9 @@ button, input, textarea, picker, view, text, scroll-view {
   margin-bottom: 20rpx;
   padding: 14rpx 20rpx;
   border-radius: 20rpx;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88) 0%, rgba(241, 245, 249, 0.78) 100%);
-  border: 1rpx solid rgba(203, 213, 225, 0.56);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 249, 255, 0.82) 100%);
+  border: 1rpx solid rgba(219, 229, 241, 0.96);
+  box-shadow: 0 8rpx 18rpx rgba(15,23,42,0.035), inset 0 1rpx 0 rgba(255,255,255,0.86);
 }
 
 .app-search-icon {

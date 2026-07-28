@@ -134,7 +134,7 @@
 }
 
 .pending-action-link.approve {
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   box-shadow:
     0 14rpx 28rpx rgba(37,99,235,0.20),
     0 0 18rpx rgba(96,165,250,0.10),

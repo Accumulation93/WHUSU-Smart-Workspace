@@ -5,10 +5,13 @@ const outboxModel = require('./src/modules/audit/models/notificationOutbox');
 const notificationModel = require('./src/modules/audit/models/notification');
 const messageDataModel = require('./src/modules/audit/models/messageData');
 const outboxService = require('./src/modules/audit/services/notificationOutboxService');
+const requestDeduplication = require('./src/utils/requestDeduplication');
+const { cleanupAuditTemp } = require('./scripts/cleanupAuditTemp');
 
 const POLL_MS = 60 * 1000;
 let running = false;
 let timer = null;
+let lastMaintenanceDay = '';
 
 function endOfShanghaiDay(value) {
   if (!value) return null;
@@ -28,7 +31,7 @@ async function enqueueScheduledScoringEvents() {
       eventType: 'score_activity_started',
       eventKey: 'score-start:' + activityId,
       payload: {
-        type: 'score_activity_started', title: '新的WHUSU智慧工作台任务',
+        type: 'score_activity_started', title: '新的考核评分任务',
         description: '当前考核活动已开始，请及时完成评分。', category: 'scoring',
         targetType: 'score_activity', targetId: activityId, targetUrl: '/pages/home/home?subApp=scoring',
         activity
@@ -41,7 +44,7 @@ async function enqueueScheduledScoringEvents() {
         eventType: 'score_deadline_24h',
         eventKey: 'score-deadline-24h:' + activityId,
         payload: {
-          type: 'score_deadline_24h', title: 'WHUSU智慧工作台即将截止',
+          type: 'score_deadline_24h', title: '考核评分即将截止',
           description: '距离评分截止不足 24 小时，请尽快完成剩余任务。', category: 'scoring',
           targetType: 'score_activity', targetId: activityId, targetUrl: '/pages/home/home?subApp=scoring',
           activity
@@ -58,9 +61,18 @@ async function tick() {
     await enqueueScheduledScoringEvents();
     await outboxService.processBatch(50);
     const now = new Date();
-    if (now.getHours() === 3 && now.getMinutes() < 5) {
+    const maintenanceDay = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0')
+    ].join('-');
+    if (now.getHours() === 3 && now.getMinutes() < 5 && lastMaintenanceDay !== maintenanceDay) {
       await notificationModel.cleanupOld(30);
       await outboxModel.cleanupDone(30);
+      await outboxModel.cleanupDead(90);
+      await requestDeduplication.cleanupOld(pool, { retentionDays: 90, batchSize: 500, maxBatches: 20 });
+      cleanupAuditTemp({ maxAgeMs: 24 * 60 * 60 * 1000 });
+      lastMaintenanceDay = maintenanceDay;
     }
   } catch (error) {
     console.error('[notification-worker] tick failed:', error);

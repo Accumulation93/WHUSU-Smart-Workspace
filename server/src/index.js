@@ -12,6 +12,7 @@ const { adminPermissionMiddleware } = require('./middleware/adminPermission');
 const { clientVersionMiddleware } = require('./middleware/clientVersion');
 const { createRateLimiter } = require('./middleware/rateLimiter');
 const { verifySchemaContract } = require('./utils/schemaContract');
+const notificationOutboxModel = require('./modules/audit/models/notificationOutbox');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -146,12 +147,17 @@ app.use(adminPermissionMiddleware);
 app.get('/api/admin/health', async (req, res) => {
   const startedAt = Date.now();
   try {
-    await pool.query('SELECT 1');
+    const [, deadLetterCount] = await Promise.all([
+      pool.query('SELECT 1'),
+      notificationOutboxModel.getDeadLetterCount()
+    ]);
     res.json({
       status: 'ok',
       uptimeSeconds: Math.floor((Date.now() - startTime) / 1000),
       databaseLatencyMs: Date.now() - startedAt,
-      processId: process.pid
+      processId: process.pid,
+      notificationDeadLetters: deadLetterCount,
+      warnings: deadLetterCount > 0 ? ['notification_dead_letters_pending'] : []
     });
   } catch (e) {
     req.logger.error('Protected health check failed', { error: e.message });

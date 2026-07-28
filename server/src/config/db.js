@@ -7,6 +7,10 @@ if (!user || !password) {
 }
 
 const { logger } = require('../utils/logger');
+const configuredPoolLimit = Number.parseInt(process.env.DB_POOL_LIMIT || '20', 10);
+if (!Number.isInteger(configuredPoolLimit) || configuredPoolLimit < 1 || configuredPoolLimit > 50) {
+  throw new Error('DB_POOL_LIMIT must be an integer between 1 and 50');
+}
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -15,7 +19,7 @@ const pool = mysql.createPool({
   password,
   database: process.env.DB_NAME || 'whusu_smart_workspace',
   waitForConnections: true,
-  connectionLimit: 50,
+  connectionLimit: configuredPoolLimit,
   queueLimit: 200,
   connectTimeout: 5000,
   enableKeepAlive: true,

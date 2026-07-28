@@ -525,6 +525,13 @@ button[disabled],
   box-sizing: border-box;
 }
 
+/* 遮罩统一带轻度磨砂，与模块级 blue-polish 的弹窗语言对齐 */
+.popup-mask,
+.modal-mask {
+  backdrop-filter: blur(6rpx);
+  -webkit-backdrop-filter: blur(6rpx);
+}
+
 .popup-card,
 .modal-card {
   width: 100%;

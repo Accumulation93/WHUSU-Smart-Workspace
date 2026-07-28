@@ -38,6 +38,19 @@ async function run() {
   assert.deepStrictEqual(replay.response, { status: 'success', id: 'resource-first' });
 
   assert.throws(() => dedup.normalizeClientRequestId('包含空格'), /invalid_client_request_id/);
+
+  const cleanupCalls = [];
+  const cleanupResults = [500, 120];
+  const removed = await dedup.cleanupOld({
+    async query(sql, params) {
+      cleanupCalls.push({ sql, params });
+      return [{ affectedRows: cleanupResults.shift() }];
+    }
+  }, { retentionDays: 90, batchSize: 500, maxBatches: 20 });
+  assert.strictEqual(removed, 620);
+  assert.strictEqual(cleanupCalls.length, 2);
+  assert.match(cleanupCalls[0].sql, /created_at < DATE_SUB/);
+  assert.deepStrictEqual(cleanupCalls[0].params, [90, 500]);
   console.log('写请求幂等测试通过');
 }
 

@@ -73,7 +73,7 @@ DB_NAME=whusu_smart_workspace
 ```
 
 MySQL 8.0 Community Server: `C:\Program Files\MySQL\MySQL Server 8.0\`
-连接池: mysql2/promise, connectionLimit=10, charset=utf8mb4
+连接池: mysql2/promise；`DB_POOL_LIMIT` 可配置，生产 API 每实例 20、通知 Worker 10，charset=utf8mb4
 
 ### 表结构总览 (server/db/init.sql)
 
@@ -245,7 +245,7 @@ callFunction({ name, data, success, fail })
 
 **修复**:
 - 固定有效编译配置为 `nodeModules: false`、`es6: false`、`enhance: false`、`swc: false`、`disableSWC: true`、`compileHotReLoad: false`。
-- 兼容性审计同时读取公共与私有配置，并按私有配置覆盖后的结果校验。
+- 兼容性审计同时读取公共与私有配置，并分别校验两份配置，任一文件都不得留下会被覆盖或重新启用的危险开关。
 - 清除项目编译缓存并冷启动开发者工具；逐页生成全部 39 个源 JS 的编译产物，确认 Babel/SWC runtime 命中为零。
 
 ### Bug 15: 原生文字按钮变成“胖椭圆”
@@ -258,6 +258,29 @@ callFunction({ name, data, success, fail })
 - 文字按钮使用 `height: auto`、受控 `min-height`、`line-height: 1.3–1.4` 与上下 padding；手机窄屏每行最多两个文字按钮，长文案改两列或整行。
 - 完整文字按钮不得把绝对 `line-height` 设为接近 `min-height`，否则会与继承的上下 padding 叠加成异常高按钮。
 - `scripts/ui-audit.js --strict` 会拦截完整文字按钮上的胶囊/圆形半径和异常高度叠加，禁止回归。
+
+### Bug 16: 审核附件随 release 清理而丢失
+
+**原因**: 审核附件曾写入版本目录或旧仓库目录，数据库保存绝对路径；原子发布后的 release 清理会删除这些文件，备份任务又只保存数据库，导致记录存在但附件不可读。
+
+**永久规则**:
+- 审核附件固定写入 `/home/ubuntu/whusu-smart-workspace-shared/uploads/audit`，禁止位于仓库或 `whusu-smart-workspace-releases` 内。
+- release 中的 `server/uploads` 只能是指向共享目录的软链接，发布前必须校验目标。
+- 数据库迁移后运行 `migrateAuditUploads.js`，只接受文件名、大小和 SHA-256 唯一匹配的旧附件，并在文件全部校验完成后事务更新路径。
+- 小时备份必须同时生成数据库 `.sql.gz` 与附件 `.uploads.tar.gz`，均先写 `.partial` 再原子改名；备份进程跟随当前 release。
+
+### Bug 17: 通知投递与跨组织分页可靠性不足
+
+**永久规则**:
+- 通知 outbox 最多自动尝试 8 次，之后进入 `dead`；健康检查展示死信数量，只能通过受控运维命令按 ID 重试。
+- 已完成 outbox 保留 30 天、死信保留 90 天、通知保留 30 天、请求幂等记录保留 90 天；清理由 Worker 每日限次、分批执行。
+- 跨组织通知使用 `(created_at, id)` 键集游标，各组织先按相同边界查询后全局合并排序；禁止恢复为随页码增长的全量 offset 查询。
+- 门户和消息中心的轮询请求必须防止同一页面重复并发；组织或身份切换后作废旧请求，再补发一次当前上下文请求。
+
+### 发布与编译配置锁
+
+- `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。
+- 生产连接池固定通过 `DB_POOL_LIMIT` 控制：两个 API 实例各 20，通知 Worker 10；单进程上限 50，禁止恢复为每进程 50 的默认值。
 
 ---
 

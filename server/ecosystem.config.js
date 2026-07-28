@@ -9,7 +9,9 @@ module.exports = {
     instances: 2,
     exec_mode: 'cluster',
     env: {
-      NODE_ENV: 'production'
+      NODE_ENV: 'production',
+      DB_POOL_LIMIT: '20',
+      AUDIT_UPLOAD_DIR: '/home/ubuntu/whusu-smart-workspace-shared/uploads/audit'
     },
     node_args: '',
     max_memory_restart: '512M',
@@ -28,7 +30,9 @@ module.exports = {
     exec_mode: 'fork',
     instances: 1,
     env: {
-      NODE_ENV: 'production'
+      NODE_ENV: 'production',
+      DB_POOL_LIMIT: '10',
+      AUDIT_UPLOAD_DIR: '/home/ubuntu/whusu-smart-workspace-shared/uploads/audit'
     },
     max_memory_restart: '256M',
     max_restarts: 5,
@@ -42,11 +46,12 @@ module.exports = {
   }, {
     name: 'whusu-smart-workspace-backup',
     script: 'backup.js',
-    cwd: '/home/ubuntu/whusu-smart-workspace/server',
+    cwd: serverRoot,
     exec_mode: 'fork',
     instances: 1,
     env: {
-      NODE_ENV: 'production'
+      NODE_ENV: 'production',
+      AUDIT_UPLOAD_DIR: '/home/ubuntu/whusu-smart-workspace-shared/uploads/audit'
     },
     max_memory_restart: '100M',
     max_restarts: 3,

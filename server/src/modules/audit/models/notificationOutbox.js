@@ -19,6 +19,15 @@ async function enqueue(event, conn) {
 
 async function claimBatch(limit) {
   return pool.withTransaction(async (conn) => {
+    await conn.query(
+      `UPDATE notification_outbox
+          SET status = 'dead',
+              processed_at = NOW(),
+              last_error = COALESCE(last_error, '投递进程在最后一次尝试中断')
+        WHERE status = 'processing'
+          AND attempts >= 8
+          AND updated_at < DATE_SUB(NOW(), INTERVAL 10 MINUTE)`
+    );
     const [rows] = await conn.query(
       `SELECT * FROM notification_outbox
         WHERE ((status IN ('pending', 'failed') AND available_at <= NOW())
@@ -34,7 +43,10 @@ async function claimBatch(limit) {
       `UPDATE notification_outbox SET status = 'processing', attempts = attempts + 1
         WHERE id IN (${placeholders})`, ids
     );
-    return rows;
+    return rows.map((row) => Object.assign({}, row, {
+      status: 'processing',
+      attempts: Number(row.attempts || 0) + 1
+    }));
   });
 }
 
@@ -48,10 +60,18 @@ async function markDone(id) {
 async function markFailed(id, error) {
   await pool.query(
     `UPDATE notification_outbox
-        SET status = 'failed', last_error = ?, available_at = DATE_ADD(NOW(), INTERVAL LEAST(attempts * 2, 30) MINUTE)
+        SET status = CASE WHEN attempts >= 8 THEN 'dead' ELSE 'failed' END,
+            processed_at = CASE WHEN attempts >= 8 THEN NOW() ELSE processed_at END,
+            last_error = ?,
+            available_at = DATE_ADD(NOW(), INTERVAL LEAST(attempts * 2, 30) MINUTE)
       WHERE id = ?`,
     [String(error && error.message || error || 'unknown').slice(0, 500), id]
   );
+  const [rows] = await pool.query(
+    'SELECT status, attempts FROM notification_outbox WHERE id = ? LIMIT 1',
+    [id]
+  );
+  return rows[0] || { status: 'missing', attempts: 0 };
 }
 
 async function cleanupDone(days) {
@@ -62,4 +82,40 @@ async function cleanupDone(days) {
   return result.affectedRows;
 }
 
-module.exports = { enqueue, claimBatch, markDone, markFailed, cleanupDone };
+async function cleanupDead(days) {
+  const [result] = await pool.query(
+    `DELETE FROM notification_outbox
+      WHERE status = 'dead' AND processed_at < DATE_SUB(NOW(), INTERVAL ? DAY)`,
+    [Math.max(1, parseInt(days, 10) || 90)]
+  );
+  return result.affectedRows;
+}
+
+async function getDeadLetterCount() {
+  const [[row]] = await pool.query(
+    `SELECT COUNT(*) AS total FROM notification_outbox WHERE status = 'dead'`
+  );
+  return Number(row && row.total || 0);
+}
+
+async function retryDead(id) {
+  const [result] = await pool.query(
+    `UPDATE notification_outbox
+        SET status = 'pending', attempts = 0, available_at = NOW(),
+            processed_at = NULL, last_error = NULL
+      WHERE id = ? AND status = 'dead'`,
+    [id]
+  );
+  return { changed: result.affectedRows === 1 };
+}
+
+module.exports = {
+  enqueue,
+  claimBatch,
+  markDone,
+  markFailed,
+  cleanupDone,
+  cleanupDead,
+  getDeadLetterCount,
+  retryDead
+};

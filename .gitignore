@@ -18,8 +18,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# WeChat local/private config
-project.private.config.json
+# WeChat private config is intentionally tracked because its compiler switches
+# are part of the native-runtime release contract.
 
 # Build/cache artifacts
 dist/

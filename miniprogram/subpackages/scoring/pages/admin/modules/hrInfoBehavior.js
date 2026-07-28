@@ -454,19 +454,22 @@ module.exports = Behavior({
     onHrProfileKeywordInput(e) {
       const displayValue = e.detail.value;
       this.setData({ _hrInfoKeywordInput: displayValue });
-      if (this.data._hrInfoKeywordTimer) {
-        clearTimeout(this.data._hrInfoKeywordTimer);
-      }
-      this.setData({
-        _hrInfoKeywordTimer: setTimeout(() => {
-          const nextFilters = {
-            ...this.data.hrProfileFilters,
-            keyword: displayValue
-          };
-          this.setData({ hrProfileFilters: nextFilters, _hrInfoKeywordTimer: null });
-          this.refreshHrProfileRows(nextFilters);
-        }, 300)
-      });
+      this.clearHrInfoKeywordTimer();
+      this._hrInfoKeywordTimer = setTimeout(() => {
+        this._hrInfoKeywordTimer = null;
+        const nextFilters = {
+          ...this.data.hrProfileFilters,
+          keyword: displayValue
+        };
+        this.setData({ hrProfileFilters: nextFilters });
+        this.refreshHrProfileRows(nextFilters);
+      }, 300);
+    },
+
+    clearHrInfoKeywordTimer() {
+      if (!this._hrInfoKeywordTimer) return;
+      clearTimeout(this._hrInfoKeywordTimer);
+      this._hrInfoKeywordTimer = null;
     },
 
     resetHrProfileFilters() {

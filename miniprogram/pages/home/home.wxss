@@ -5,7 +5,7 @@ page {
     radial-gradient(circle at 86% 18%, rgba(191, 219, 254, 0.22) 0%, transparent 24%),
     radial-gradient(circle at 18% 88%, rgba(125, 211, 252, 0.10) 0%, transparent 22%),
     linear-gradient(135deg, #f8fbff 0%, #f1f6fc 48%, #edf3fa 100%);
-  color: #1f2a37;
+  color: #1e293b;
   font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -163,7 +163,7 @@ scroll-view {
   padding: 24rpx 16rpx;
   border-radius: 24rpx;
   text-align: center;
-  color: #53708e;
+  color: #49627f;
   font-size: 26rpx;
   font-weight: 700;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 249, 255, 0.82) 100%);
@@ -315,7 +315,7 @@ scroll-view {
 
 .mode-chip-audit {
   background: linear-gradient(135deg, rgba(255, 247, 237, 0.98) 0%, rgba(254, 215, 170, 0.88) 100%);
-  border-color: rgba(251, 191, 36, 0.72);
+  border-color: rgba(253, 186, 116, 0.62);
   color: #c2410c;
 }
 
@@ -421,7 +421,7 @@ scroll-view {
 .profile-field-title {
   position: relative;
   padding-left: 16rpx;
-  color: #16324f;
+  color: #0f172a;
   font-size: 27rpx;
   font-weight: 700;
   line-height: 1.5;
@@ -621,7 +621,7 @@ scroll-view {
 .target-status-pending {
   background: linear-gradient(135deg, rgba(255, 247, 237, 0.96) 0%, rgba(254, 215, 170, 0.88) 100%);
   color: #c2410c;
-  border: 1rpx solid rgba(251, 191, 36, 0.62);
+  border: 1rpx solid rgba(253, 186, 116, 0.58);
 }
 
 .target-status-scored {
@@ -1008,8 +1008,8 @@ scroll-view {
   font-size: 20rpx; font-weight: 600; color: #64748b;
 }
 .grade-chip-active {
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 100%);
-  border-color: #2563eb;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
+  border-color: rgba(147,197,253,0.64);
   box-shadow: 0 4rpx 14rpx rgba(37,99,235,0.32);
 }
 .grade-chip-active .grade-chip-name {
@@ -1084,9 +1084,10 @@ scroll-view {
   display: inline-block;
   padding: 8rpx 20rpx; margin-right: 10rpx;
   font-size: 21rpx; font-weight: 500; color: #64748b;
-  background: rgba(255,255,255,0.72);
-  border: 1rpx solid rgba(148,163,184,0.28);
-  border-radius: 18rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(248,251,255,0.80) 100%);
+  border: 1rpx solid rgba(226,237,247,0.96);
+  border-radius: 999rpx;
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.78);
   transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease;
 }
 .filter-chip-active {
@@ -1096,9 +1097,9 @@ scroll-view {
   font-weight: 700;
 }
 .filter-chip-wg.filter-chip-active {
-  color: #7c3aed;
-  background: linear-gradient(135deg, rgba(237,233,254,0.92) 0%, rgba(245,243,255,0.84) 100%);
-  border-color: rgba(124,58,237,0.40);
+  color: #0369a1;
+  background: linear-gradient(135deg, rgba(224,242,254,0.94) 0%, rgba(240,249,255,0.86) 100%);
+  border-color: rgba(56,189,248,0.46);
 }
 
 /* 清除全部筛选 */
@@ -1335,7 +1336,7 @@ scroll-view {
 }
 .select-chip-inline { display: inline-flex; margin-right: 12rpx; vertical-align: middle; }
 
-.list-item { display: flex; justify-content: space-between; gap: 16rpx; padding: 18rpx 20rpx; margin-bottom: 8rpx; border-radius: 16rpx; background: rgba(255,255,255,0.7); border: 1rpx solid rgba(0,0,0,0.04); }
+.list-item { display: flex; justify-content: space-between; gap: 16rpx; padding: 18rpx 20rpx; margin-bottom: 8rpx; border-radius: 20rpx; background: linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(249,251,255,0.84) 100%); border: 1rpx solid rgba(226,237,247,0.96); box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.038), inset 0 1rpx 0 rgba(255,255,255,0.82); }
 .list-main { flex: 1; min-width: 0; }
 .list-name { color: #0f172a; font-size: 28rpx; font-weight: 700; line-height: 1.45; margin-bottom: 6rpx; }
 .list-desc { color: #64748b; font-size: 22rpx; line-height: 1.5; }
@@ -1371,15 +1372,15 @@ scroll-view {
 .rule-filter-row { display: flex; gap: 16rpx; margin-bottom: 6rpx; }
 .rule-filter-field { flex: 1; min-width: 0; }
 .compact-picker-value { min-height: 70rpx; padding: 0 18rpx; font-size: 23rpx; border-radius: 18rpx; }
-.field-label { color: #52647c; font-size: 24rpx; margin-bottom: 4rpx; }
-.desig-popup-card .field-input { width: 100%; padding: 12rpx 16rpx; border-radius: 16rpx; background: rgba(255,255,255,0.7); border: 1rpx solid rgba(203,213,225,0.82); font-size: 24rpx; box-sizing: border-box; }
+.field-label { color: #64748b; font-size: 24rpx; margin-bottom: 4rpx; }
+.desig-popup-card .field-input { width: 100%; padding: 12rpx 16rpx; border-radius: 18rpx; background: linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(246,249,255,0.86) 100%); border: 1rpx solid rgba(219,229,241,0.96); box-shadow: 0 7rpx 16rpx rgba(15,23,42,0.032), inset 0 1rpx 0 rgba(255,255,255,0.88); font-size: 24rpx; box-sizing: border-box; }
 .inline-actions { display: flex; flex-wrap: wrap; gap: 12rpx; align-items: center; }
 .list-actions-below { margin-top: 12rpx; display: flex; gap: 12rpx; }
 .list-title { position: relative; padding-left: 18rpx; margin-bottom: 10rpx; color: #0f172a; font-size: 26rpx; font-weight: 700; }
 .list-title::before { content: ""; position: absolute; left: 0; top: 6rpx; width: 8rpx; height: 24rpx; border-radius: 999rpx; background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%); box-shadow: 0 0 14rpx rgba(59,130,246,0.24); }
-.link { display: inline-flex; align-items: center; justify-content: center; padding: 10rpx 20rpx; border-radius: 999rpx; font-size: 24rpx; font-weight: 600; line-height: 1; background: rgba(219,234,254,0.65); color: #2563eb; border: 1rpx solid rgba(147,197,253,0.45); }
+.link { display: inline-flex; align-items: center; justify-content: center; padding: 10rpx 20rpx; border-radius: 999rpx; font-size: 24rpx; font-weight: 600; line-height: 1; background: linear-gradient(135deg, rgba(239,246,255,0.92) 0%, rgba(219,234,254,0.72) 100%); color: #2563eb; border: 1rpx solid rgba(147,197,253,0.58); box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.72); }
 .link:active { transform: scale(0.94); opacity: 0.85; }
-.danger { background: rgba(254,226,226,0.65); color: #dc2626; border-color: rgba(252,165,165,0.45); }
+.danger { background: linear-gradient(135deg, rgba(254,242,242,0.94) 0%, rgba(254,226,226,0.78) 100%); color: #dc2626; border-color: rgba(252,165,165,0.58); }
 .button-row { display: flex; flex-wrap: wrap; gap: 14rpx; }
 .button-row button { flex: 1; min-width: 160rpx; }
 .inner-scroll { max-height: 100%; overflow-y: auto; }
@@ -1455,7 +1456,7 @@ scroll-view {
   box-shadow: 0 6rpx 14rpx rgba(15,23,42,0.05);
 }
 .audit-chip-draft    { color: #64748b; background: linear-gradient(135deg, rgba(241,245,249,0.96) 0%, rgba(226,232,240,0.90) 100%); border-color: rgba(148,163,184,0.45); }
-.audit-chip-pending  { color: #b45309; background: linear-gradient(135deg, rgba(255,251,235,0.98) 0%, rgba(254,243,199,0.92) 100%); border-color: rgba(251,191,36,0.55); }
+.audit-chip-pending  { color: #c2410c; background: linear-gradient(135deg, rgba(255,247,237,0.98) 0%, rgba(254,215,170,0.92) 100%); border-color: rgba(253,186,116,0.55); }
 .audit-chip-progress { color: #2563eb; background: linear-gradient(135deg, rgba(219,234,254,0.98) 0%, rgba(191,219,254,0.92) 100%); border-color: rgba(147,197,253,0.60); }
 .audit-chip-approved { color: #15803d; background: linear-gradient(135deg, rgba(220,252,231,0.98) 0%, rgba(187,247,208,0.92) 100%); border-color: rgba(134,239,172,0.58); }
 .audit-chip-rejected { color: #dc2626; background: linear-gradient(135deg, rgba(254,242,242,0.98) 0%, rgba(254,226,226,0.92) 100%); border-color: rgba(252,165,165,0.55); }
@@ -1588,8 +1589,8 @@ scroll-view {
   color: #dc2626; border-color: rgba(252,165,165,0.5);
 }
 .audit-home-card-badge-history {
-  background: linear-gradient(135deg, rgba(243,232,255,0.94) 0%, rgba(237,233,254,0.84) 100%);
-  color: #7c3aed; border-color: rgba(196,181,253,0.5);
+  background: linear-gradient(135deg, rgba(240,249,255,0.94) 0%, rgba(224,242,254,0.84) 100%);
+  color: #0369a1; border-color: rgba(56,189,248,0.5);
 }
 .audit-home-card-arrow {
   flex-shrink: 0; width: 44rpx; height: 44rpx; border-radius: 50%;
@@ -1937,8 +1938,8 @@ scroll-view {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 3rpx 12rpx; border-radius: 999rpx; margin-left: 8rpx;
   font-size: 19rpx; font-weight: 700;
-  background: linear-gradient(135deg, rgba(255,251,235,0.94) 0%, rgba(254,243,199,0.84) 100%);
-  color: #b45309; border: 1rpx solid rgba(251,191,36,0.45);
+  background: linear-gradient(135deg, rgba(255,247,237,0.94) 0%, rgba(254,215,170,0.84) 100%);
+  color: #c2410c; border: 1rpx solid rgba(253,186,116,0.48);
 }
 .flow-lifecycle-time {
   font-size: 20rpx; color: #94a3b8; line-height: 1.4; margin-top: 2rpx;

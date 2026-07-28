@@ -45,4 +45,24 @@ async function complete(conn, data, response) {
   );
 }
 
-module.exports = { normalizeClientRequestId, claim, complete };
+async function cleanupOld(conn, options) {
+  const config = options || {};
+  const retentionDays = Math.max(1, Math.min(Number.parseInt(config.retentionDays, 10) || 90, 3650));
+  const batchSize = Math.max(1, Math.min(Number.parseInt(config.batchSize, 10) || 500, 5000));
+  const maxBatches = Math.max(1, Math.min(Number.parseInt(config.maxBatches, 10) || 20, 100));
+  let removed = 0;
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const [result] = await conn.query(
+      `DELETE FROM request_deduplication
+        WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)
+        LIMIT ?`,
+      [retentionDays, batchSize]
+    );
+    const affected = Number(result.affectedRows || 0);
+    removed += affected;
+    if (affected < batchSize) break;
+  }
+  return removed;
+}
+
+module.exports = { normalizeClientRequestId, claim, complete, cleanupOld };

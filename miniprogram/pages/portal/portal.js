@@ -85,6 +85,8 @@ Page({
 
   _pollTimer: null,
   _isPageVisible: true,
+  _messageOverviewLoading: false,
+  _messageOverviewQueued: false,
 
   onShow() {
     this._isPageVisible = true;
@@ -301,6 +303,11 @@ Page({
   },
 
   async loadMessageOverview() {
+    if (this._messageOverviewLoading) {
+      this._messageOverviewQueued = true;
+      return;
+    }
+    this._messageOverviewLoading = true;
     const request = orgSession.beginRequest(this, 'portalMessages');
     const revision = this._messageRevision || 0;
     this.setData({ todoLoading: true, notificationLoading: true });
@@ -323,6 +330,12 @@ Page({
     } finally {
       if (orgSession.isRequestCurrent(this, request)) {
         this.setData({ todoLoading: false, notificationLoading: false });
+      }
+      this._messageOverviewLoading = false;
+      const shouldReload = this._messageOverviewQueued;
+      this._messageOverviewQueued = false;
+      if (shouldReload && this._isPageVisible && this.data.hasUser) {
+        this.loadMessageOverview();
       }
     }
   },

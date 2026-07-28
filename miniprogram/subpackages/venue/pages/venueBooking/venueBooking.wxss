@@ -75,16 +75,10 @@
 .booking-item-meta { font-size:24rpx; color:#64748b; line-height:1.7; }
 .booking-item-foot { margin-top:12rpx; display:flex; justify-content:flex-end; }
 
-/* Status tag */
+/* Status tag — 状态色统一由 ../styles/blue-polish.wxss 的玻璃渐变体系接管 */
 .status-tag {
   font-size:22rpx; padding:6rpx 16rpx; border-radius:999rpx; font-weight:600;
 }
-.status-tag.pending { background:#fef3c7; color:#92400e; }
-.status-tag.approved { background:#d1fae5; color:#065f46; }
-.status-tag.rejected { background:#fee2e2; color:#991b1b; }
-.status-tag.cancelled { background:#f1f5f9; color:#64748b; }
-.status-tag.inUse { background:#dbeafe; color:#2563eb; }
-.status-tag.completed { background:#e0e7ff; color:#3730a3; }
 
 /* ═══ Empty state ═══ */
 .empty-state { text-align:center; padding:40rpx 20rpx; }
@@ -103,14 +97,16 @@
 /* ═══ Chips ═══ */
 .chip-row { display:flex; flex-wrap:wrap; gap:10rpx; margin-top:10rpx; }
 .chip {
-  font-size:24rpx; padding:10rpx 22rpx; border-radius:20rpx; font-weight:500;
-  background:rgba(241,245,249,0.85); color:#475569;
-  border:1rpx solid rgba(203,213,225,0.55);
+  font-size:24rpx; padding:10rpx 22rpx; border-radius:999rpx; font-weight:500;
+  background:linear-gradient(135deg, rgba(248,250,252,0.96) 0%, rgba(241,245,249,0.84) 100%);
+  color:#475569;
+  border:1rpx solid rgba(203,213,225,0.58);
+  box-shadow:inset 0 1rpx 0 rgba(255,255,255,0.72);
 }
 .chip.active {
-  background:linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  background:linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   color:#fff; border-color:transparent;
-  box-shadow:0 6rpx 16rpx rgba(37,99,235,0.20);
+  box-shadow:0 8rpx 18rpx rgba(37,99,235,0.22), inset 0 1rpx 0 rgba(255,255,255,0.24);
 }
 
 /* ═══ Date picker display ═══ */
@@ -200,9 +196,9 @@
 }
 .tl-leg { display:flex; align-items:center; gap:4rpx; color:#64748b; }
 .tl-dot { width:16rpx; height:16rpx; border-radius:4rpx; flex-shrink:0; }
-.tl-dot.free { background:#86efac; }
-.tl-dot.booked { background:#fca5a5; }
-.tl-dot.activity { background:#c084fc; }
+.tl-dot.free { background:linear-gradient(135deg, #86efac 0%, #4ade80 100%); }
+.tl-dot.booked { background:linear-gradient(135deg, #fdba74 0%, #fb923c 100%); }
+.tl-dot.activity { background:linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%); }
 
 /* ── New time section (chips + input) ── */
 .time-section-new {
@@ -356,9 +352,9 @@
   position:absolute; left:3rpx; right:3rpx; display:flex; align-items:center; justify-content:center;
   border-radius:7rpx; overflow:hidden; z-index:2;
 }
-.tt-event-block.booked { background:rgba(254,243,199,0.78); border:1rpx solid rgba(252,211,77,0.50); }
-.tt-event-block.pending { background:rgba(254,215,170,0.72); border:1rpx solid rgba(253,186,116,0.45); }
-.tt-event-block.activity { background:rgba(252,231,243,0.65); border:1rpx solid rgba(249,168,212,0.45); }
+.tt-event-block.booked { background:rgba(254,215,170,0.80); border:1rpx solid rgba(253,186,116,0.55); }
+.tt-event-block.pending { background:rgba(224,242,254,0.80); border:1rpx solid rgba(56,189,248,0.50); }
+.tt-event-block.activity { background:rgba(219,234,254,0.75); border:1rpx solid rgba(147,197,253,0.55); }
 .tt-event-label {
   font-size:18rpx; color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   max-width:90rpx; text-align:center; line-height:1.1;
@@ -368,21 +364,21 @@
 .tt-legend { display:flex; gap:16rpx; padding:12rpx 18rpx; font-size:20rpx; color:#64748b; flex-wrap:wrap; }
 .tt-leg-item { display:flex; align-items:center; gap:6rpx; }
 .tt-dot { width:22rpx; height:22rpx; border-radius:6rpx; flex-shrink:0; }
-.tt-dot.open { background:#bfdbfe; border:1rpx solid #93c5fd; }
-.tt-dot.booked { background:#fef3c7; border:1rpx solid #fcd34d; }
-.tt-dot.pending { background:#fed7aa; border:1rpx solid #fdba74; }
-.tt-dot.activity { background:#fce7f3; border:1rpx solid #f9a8d4; }
+.tt-dot.open { background:rgba(209,250,229,0.94); border:1rpx solid rgba(110,231,183,0.62); }
+.tt-dot.booked { background:rgba(254,215,170,0.94); border:1rpx solid rgba(253,186,116,0.66); }
+.tt-dot.pending { background:rgba(224,242,254,0.94); border:1rpx solid rgba(56,189,248,0.60); }
+.tt-dot.activity { background:rgba(219,234,254,0.94); border:1rpx solid rgba(147,197,253,0.66); }
 .tt-dot.closed { background:#e2e8f0; border:1rpx solid #cbd5e1; }
 
 /* ═══ Timeline ═══ */
 .timeline-wrap { margin:6rpx 0 12rpx; }
-.timeline-bar { position:relative; height:48rpx; background:#f1f5f9; border-radius:12rpx; overflow:hidden; }
+.timeline-bar { position:relative; height:48rpx; background:linear-gradient(135deg, rgba(226,237,247,0.78) 0%, rgba(248,251,255,0.68) 100%); border:1rpx solid rgba(255,255,255,0.66); border-radius:12rpx; overflow:hidden; box-shadow:inset 0 1rpx 4rpx rgba(15,23,42,0.08); }
 .timeline-block { position:absolute; top:0; height:100%; min-width:3rpx; }
 .timeline-block.tl-free { background:linear-gradient(180deg, #86efac 0%, #4ade80 100%); }
-.timeline-block.tl-booked { background:linear-gradient(180deg, #fca5a5 0%, #f87171 100%); }
-.timeline-block.tl-pending { background:linear-gradient(180deg, #fde68a 0%, #fbbf24 100%); }
-.timeline-block.tl-activity { background:linear-gradient(180deg, #e9d5ff 0%, #c084fc 100%); }
-.timeline-block.tl-closed { background:#e2e8f0; }
+.timeline-block.tl-booked { background:linear-gradient(180deg, #fdba74 0%, #fb923c 100%); }
+.timeline-block.tl-pending { background:linear-gradient(180deg, #7dd3fc 0%, #38bdf8 100%); }
+.timeline-block.tl-activity { background:linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%); }
+.timeline-block.tl-closed { background:linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%); }
 .timeline-ticks { display:flex; justify-content:space-between; font-size:20rpx; color:#94a3b8; margin-top:4rpx; }
 
 /* ═══ Misc ═══ */
@@ -662,7 +658,7 @@ page {
 }
 
 .chip.active {
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   box-shadow: 0 12rpx 22rpx rgba(37,99,235,0.16);
 }
 
@@ -679,7 +675,7 @@ page {
   word-break: normal;
   overflow-wrap: anywhere;
   box-sizing: border-box;
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   box-shadow:
     0 16rpx 32rpx rgba(37,99,235,0.20),
     inset 0 1rpx 0 rgba(255,255,255,0.20);

@@ -277,6 +277,7 @@
   height: 12rpx;
   border-radius: 50%;
   background: #ef4444;
+  box-shadow: 0 0 0 5rpx rgba(239,68,68,0.10);
 }
 
 .message-empty,

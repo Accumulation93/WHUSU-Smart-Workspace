@@ -22,9 +22,11 @@
     "test:hr-import": "node test/hrTableImport.test.js",
     "test:message-center": "node test/messageCenter.test.js",
     "test:message-center-cross-org": "node test/crossOrgMessageRoutes.test.js",
+    "test:notification-reliability": "node test/notificationReliability.test.js",
     "test:deployment": "node test/deploymentAutomation.test.js",
     "test:deployment-db": "node test/deploymentMigrationIntegration.test.js",
     "security:cleanup-audit-temp": "node scripts/cleanupAuditTemp.js",
+    "notification:outbox": "node scripts/notificationOutboxAdmin.js",
     "security:bootstrap-super": "node scripts/bootstrapSuperAdmin.js"
   },
   "dependencies": {

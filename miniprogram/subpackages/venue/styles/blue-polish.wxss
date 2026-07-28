@@ -192,14 +192,14 @@ textarea {
 .filter-chip.active,
 .chip.active {
   color: #ffffff;
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
-  box-shadow: 0 16rpx 30rpx rgba(37,99,235,0.22);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
+  box-shadow: 0 16rpx 30rpx rgba(37,99,235,0.22), inset 0 1rpx 0 rgba(255,255,255,0.24);
 }
 
 .rules-tab.active {
   color: #ffffff;
-  background: linear-gradient(135deg, #2563eb 0%, #2563eb 58%, #3b82f6 100%);
-  box-shadow: 0 12rpx 24rpx rgba(37,99,235,0.20);
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
+  box-shadow: 0 12rpx 24rpx rgba(37,99,235,0.20), inset 0 1rpx 0 rgba(255,255,255,0.24);
   border-color: transparent;
 }
 

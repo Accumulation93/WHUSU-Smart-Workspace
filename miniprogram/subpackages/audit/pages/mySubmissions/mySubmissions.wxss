@@ -54,8 +54,8 @@
 }
 .audit-submission-name { display: flex; align-items: center; }
 .audit-submission-unread {
-  border-left: 6rpx solid #ef4444;
-  background: linear-gradient(135deg, rgba(254,242,242,0.30) 0%, rgba(255,255,255,0.90) 100%);
+  border-left: 6rpx solid #3b82f6;
+  background: linear-gradient(135deg, rgba(239,246,255,0.82) 0%, rgba(255,255,255,0.92) 100%);
 }
 
 /* ── Section title with action ── */

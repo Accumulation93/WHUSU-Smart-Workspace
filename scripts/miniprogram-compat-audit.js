@@ -202,25 +202,32 @@ function checkRegisteredPages() {
 
 function checkProjectConfig() {
   const config = JSON.parse(fs.readFileSync(PROJECT_CONFIG, 'utf8'));
-  let privateConfig = {};
-  if (fs.existsSync(PROJECT_PRIVATE_CONFIG)) {
-    privateConfig = JSON.parse(fs.readFileSync(PROJECT_PRIVATE_CONFIG, 'utf8'));
+  if (!fs.existsSync(PROJECT_PRIVATE_CONFIG)) {
+    report(PROJECT_PRIVATE_CONFIG, '必须提交私有配置中的编译安全锁，禁止仅依赖开发者工具本机默认值');
+    return;
   }
-  const settings = Object.assign({}, config.setting || {}, privateConfig.setting || {});
-  if (settings.nodeModules !== false) {
-    report(PROJECT_CONFIG, '当前原生小程序必须保持 nodeModules=false，启用前需单独设计 npm 构建链');
-  }
-  if (settings.useCompilerPlugins) {
-    report(PROJECT_CONFIG, '禁止在未验证 helper 打包结果时启用 compiler plugins');
-  }
-  if (settings.swc !== false || settings.disableSWC !== true) {
-    report(PROJECT_CONFIG, '原生构建必须保持 swc=false 且 disableSWC=true，避免生成未打包的 @swc/runtime helper');
-  }
-  if (settings.es6 !== false || settings.enhance !== false) {
-    report(PROJECT_CONFIG, '原生构建必须保持 es6=false 且 enhance=false，避免 Babel enhance 生成未打包的 @babel/runtime helper');
-  }
-  if (settings.compileHotReLoad !== false) {
-    report(PROJECT_PRIVATE_CONFIG, '必须关闭 compileHotReLoad，避免开发者工具热重载漏注入 Babel helper 的递归依赖');
+  const privateConfig = JSON.parse(fs.readFileSync(PROJECT_PRIVATE_CONFIG, 'utf8'));
+  const configs = [
+    { file: PROJECT_CONFIG, settings: config.setting || {} },
+    { file: PROJECT_PRIVATE_CONFIG, settings: privateConfig.setting || {} }
+  ];
+  for (const item of configs) {
+    const settings = item.settings;
+    if (settings.nodeModules !== false) {
+      report(item.file, '当前原生小程序必须保持 nodeModules=false，启用前需单独设计 npm 构建链');
+    }
+    if (settings.useCompilerPlugins) {
+      report(item.file, '禁止在未验证 helper 打包结果时启用 compiler plugins');
+    }
+    if (settings.swc !== false || settings.disableSWC !== true) {
+      report(item.file, '原生构建必须保持 swc=false 且 disableSWC=true，避免生成未打包的 @swc/runtime helper');
+    }
+    if (settings.es6 !== false || settings.enhance !== false) {
+      report(item.file, '原生构建必须保持 es6=false 且 enhance=false，避免 Babel enhance 生成未打包的 @babel/runtime helper');
+    }
+    if (settings.compileHotReLoad !== false) {
+      report(item.file, '必须关闭 compileHotReLoad，避免开发者工具热重载漏注入 Babel helper 的递归依赖');
+    }
   }
 }
 

@@ -37,7 +37,8 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/routes/org.js', sql: /FROM admin_info WHERE openid = \? AND bind_status = 'active'/i, reason: '全局组织管理鉴权' },
   { file: 'server/src/modules/venue/routes/venueUser.js', sql: /SELECT id, name FROM admin_info WHERE id IN/i, reason: '全局场地记录展示创建管理员名称' },
   { file: 'server/src/modules/audit/models/notification.js', sql: /DELETE FROM notifications WHERE created_at </i, reason: '后台全局保留期清理' },
-  { file: 'server/src/modules/audit/models/notificationOutbox.js', sql: /notification_outbox/i, reason: '后台工作进程跨组织领取与清理事件' }
+  { file: 'server/src/modules/audit/models/notificationOutbox.js', sql: /notification_outbox/i, reason: '后台工作进程跨组织领取与清理事件' },
+  { file: 'server/src/utils/requestDeduplication.js', sql: /DELETE FROM request_deduplication/i, reason: '后台全局幂等记录保留期清理' }
 ];
 
 function walk(directory, output = []) {

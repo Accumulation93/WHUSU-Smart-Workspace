@@ -24,6 +24,7 @@ const {
   assert(ROUTE_RULES.get('/saveAdmin').anyOf.includes('system.admin_accounts.write'));
   assert(ROUTE_RULES.get('/saveScoreActivity').anyOf.includes('scoring.activities'));
   assert(ROUTE_RULES.get('/saveOrganization').anyOf.includes('system.organizations'));
+  assert.deepStrictEqual(ROUTE_RULES.get('/admin/health').anyOf, ['system.settings']);
   assert.deepStrictEqual(ROUTE_RULES.get('/saveHrProfileTemplateDefinition').anyOf, ['hr.profile_templates.manage']);
   assert.deepStrictEqual(ROUTE_RULES.get('/applyHrProfileTemplateSwitch').anyOf, ['hr.profile_templates.select']);
   assert.strictEqual(ROUTE_RULES.get('/reviewHrProfileChange').anyOf.includes('hr.profile_review'), true);
