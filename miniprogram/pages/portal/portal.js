@@ -17,6 +17,7 @@ const CATEGORY_LABELS = {
 };
 
 const PORTAL_CARDS_USER = [
+  { key: 'messages', label: '消息中心', iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/pages/home/home?subApp=hr', disabled: false },
   { key: 'audit', label: '审核', iconName: 'file', url: '/pages/home/home?subApp=audit', disabled: false },
@@ -24,6 +25,7 @@ const PORTAL_CARDS_USER = [
 ];
 
 const PORTAL_CARDS_ADMIN = [
+  { key: 'messages', label: '消息中心', iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
   { key: 'system', label: '系统配置', iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },

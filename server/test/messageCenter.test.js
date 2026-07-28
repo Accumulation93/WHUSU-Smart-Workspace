@@ -148,7 +148,14 @@ function testMigrationAndFrontendContract() {
   assert.match(portal, /markAllNotificationsRead/);
   assert.match(portal, /limit: 5/);
   assert.match(portal, /activateOrganization/);
+  assert.strictEqual(
+    (portal.match(/key:\s*'messages',\s*label:\s*'消息中心',\s*iconName:\s*'bell',\s*url:\s*'\/pages\/messageCenter\/messageCenter'/g) || []).length,
+    2,
+    '普通用户端和管理端应用服务都必须包含消息中心'
+  );
   assert.doesNotMatch(portal, /loadNotificationUnreadCount/);
+  const adminPermissions = fs.readFileSync(path.join(root, '../miniprogram/utils/adminPermissions.js'), 'utf8');
+  assert.match(adminPermissions, /card\.key === 'messages'\) return true/);
   const portalView = fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.wxml'), 'utf8');
   assert.match(portalView, /portal-organization-meta/);
   assert.match(portalView, /切换组织后查看/);
@@ -156,11 +163,15 @@ function testMigrationAndFrontendContract() {
 
   const messageCenter = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.js'), 'utf8');
   const messageCenterView = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.wxml'), 'utf8');
+  const messageCenterStyle = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.wxss'), 'utf8');
   assert.match(messageCenter, /messageScope/);
   assert.match(messageCenter, /organizationId/);
   assert.match(messageCenterView, /organization-filter/);
   assert.match(messageCenterView, /organization-meta-name/);
   assert.match(messageCenterView, /部分组织暂未加载/);
+  assert.match(messageCenterStyle, /\.message-switch-mask[\s\S]*background:\s*rgba\(15,\s*23,\s*42,\s*0\.34\)/);
+  assert.match(messageCenterStyle, /\.message-switch-dialog[\s\S]*background:\s*linear-gradient\(145deg/);
+  assert.match(messageCenterStyle, /\.message-switch-dialog[\s\S]*box-shadow:/);
 }
 
 (async function run() {

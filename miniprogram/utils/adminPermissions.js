@@ -89,6 +89,7 @@ function filterTabs(tabs, profile, map) {
 
 function filterPortalCards(cards, profile) {
   return (cards || []).filter(function(card) {
+    if (card.key === 'messages') return true;
     if (card.key === 'permissions') return canAccessPermissionSystem(profile);
     return hasAny(profile, PORTAL_PERMISSION_MAP[card.key] || []);
   });
