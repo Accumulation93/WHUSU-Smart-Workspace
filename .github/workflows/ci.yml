@@ -140,4 +140,4 @@ jobs:
             -o ServerAliveInterval=15 \
             -o ServerAliveCountMax=4 \
             "$PROD_USER@$PROD_HOST" \
-            "timeout --signal=TERM --kill-after=10s 120s /home/ubuntu/whusu-smart-workspace-deploy/bin/deploy-entrypoint $TARGET_SHA"
+            "env WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH=main timeout --signal=TERM --kill-after=10s 120s /home/ubuntu/whusu-smart-workspace-deploy/bin/deploy-entrypoint $TARGET_SHA"

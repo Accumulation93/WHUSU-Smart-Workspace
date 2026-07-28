@@ -75,6 +75,7 @@ function testDeploymentScriptContract() {
   assert.doesNotMatch(remoteCollab, /branch=feature%2Faudit/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
   assert.doesNotMatch(workflow, /github\.ref == 'refs\/heads\/feature\/audit'/);
+  assert.match(workflow, /env WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH=main timeout/);
 }
 
 testMigrationDiscoveryAndLedger();
