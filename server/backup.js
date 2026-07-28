@@ -116,6 +116,7 @@ async function runBackup() {
   // Use MYSQL_PWD env var to avoid exposing password in process list
   const env = { ...process.env, MYSQL_PWD: DB.password };
   const mysqldump = spawn('mysqldump', [
+    '--protocol=TCP',
     `--host=${DB.host}`,
     `--port=${DB.port}`,
     `--user=${DB.user}`,

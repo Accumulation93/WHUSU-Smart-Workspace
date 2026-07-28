@@ -33,6 +33,7 @@ assert.match(workerSource, /cleanupOld\(pool, \{ retentionDays: 90/);
 assert.match(workerSource, /cleanupAuditTemp/);
 assert.match(outboxModelSource, /status = 'processing'[\s\S]*attempts >= 8[\s\S]*INTERVAL 10 MINUTE/);
 assert.match(backupSource, /pipeline\(mysqldump\.stdout, gzip, outStream\)/);
+assert.match(backupSource, /'--protocol=TCP'/);
 assert.match(backupSource, /\.uploads\.tar\.gz/);
 assert.match(backupSource, /fs\.renameSync\(temporaryFile, outFile\)/);
 assert.match(migrationSource, /status = 'dead'/);
