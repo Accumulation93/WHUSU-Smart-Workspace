@@ -644,10 +644,7 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .dialog-panel {
-  position: absolute;
-  left: 56rpx; right: 56rpx;
-  top: 50%;
-  transform: translateY(-50%);
+  position: relative;
   padding: 28rpx 26rpx 24rpx;
   border-radius: 28rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 251, 255, 0.9) 100%);

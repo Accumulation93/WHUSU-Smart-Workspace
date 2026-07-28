@@ -288,6 +288,16 @@ callFunction({ name, data, success, fail })
 - 可能换行的标题、详情值、组织名、说明和按钮文案必须显式设置舒展行高：标题约 `1.4–1.5`，正文约 `1.55–1.7`。
 - 每次修改包裹型控件都要人工检查短内容、长内容、两行文字及手机/Pad 竖横屏；`scripts/ui-audit.js --strict` 必须保持 `forcedDialogViewport=0`，但脚本不得代替实际渲染检查。
 
+### Bug 19: Pad 弹窗宽度封顶后横向偏移
+
+**原因**: 门户和首页的居中弹窗同时使用了父层 flex 居中，以及子层 `position: absolute + left/right + top: 50% + translateY(-50%)`。手机上左右锚点恰好填满可用宽度，不易察觉；Pad 规则把弹窗 `max-width` 封顶后，绝对定位的约束变为过度约束，弹窗仍从左侧锚点开始布局，右侧间距被浏览器重算，最终明显左偏。
+
+**永久规则**:
+- 居中弹窗只能有一个几何定位责任层：统一由 `.ui-overlay` 的 flex 布局负责水平和垂直居中。
+- `.ui-dialog-shell` 必须保持 `position: relative`、`align-self: center` 和左右自动外边距；普通居中弹窗壳禁止再写 `left/right`、`top: 50%` 或平移居中。
+- 底部 sheet 是常规例外，但 Pad 宽度封顶时必须使用 `left: 50% + translateX(-50%)` 明确居中，不得把手机端对称 inset 与 Pad 的 `max-width` 混用。
+- 手机、Pad 竖屏和 Pad 横屏必须实测弹窗左右视觉边距相等；`scripts/ui-audit.js --strict` 必须保持 `miscenteredDialogShell=0`。
+
 ### 发布与编译配置锁
 
 - `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。

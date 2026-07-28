@@ -374,6 +374,9 @@ Filter blocks can be inner glass panels, but keep them compact:
 
 Wrapper controls must follow the content instead of reserving an arbitrary viewport:
 
+- A centered dialog has exactly one geometry owner: the overlay uses flexbox with `align-items: center` and `justify-content: center`; the dialog shell stays `position: relative`, participates in that flex layout, and uses `margin-left/right: auto`.
+- Never put `position: absolute`, `left/right`, `top: 50%`, or `translateY(-50%)` on a centered dialog shell. Combining fixed side anchors with a Pad `max-width` cap makes the capped shell remain attached to one side instead of remaining centered.
+- Bottom sheets are the only normal exception. They may anchor to the bottom, but their Pad rule must explicitly center the bounded width with `left: 50%` and `translateX(-50%)`; do not mix symmetric phone insets with a capped Pad width.
 - Centered content dialogs use `height: auto` with a viewport `max-height`. Their vertical `scroll-view` also uses `height: auto` and a controlled `max-height`, so short content does not leave a large blank tail and long content still scrolls.
 - Fixed-height dialog viewports are reserved for professional canvases and two-dimensional data surfaces such as timetables, signature placement, or comparable tools. Ordinary details, confirmations, forms, pickers, and lists must not use `height: 56vh`, `78vh`, `80vh`, or `calc(100vh - ...)`.
 - The overlay owns safe-area clearance for centered dialogs. Do not add `env(safe-area-inset-bottom)` again to a centered dialog footer. Bottom sheets and fixed bottom keyboards may handle the safe area once at their outermost bottom boundary.
@@ -393,6 +396,7 @@ Before finishing:
 - Native text buttons are compact rounded rectangles; no `999rpx`/`50%` fat capsules and no three-column wrapping on phones.
 - Strict UI audit reports zero `pillButtonRadius` and zero `stackedButtonMetrics` findings.
 - Ordinary dialogs grow with content, centered footers do not duplicate safe-area padding, and strict UI audit reports zero `forcedDialogViewport` findings.
+- Centered dialogs are positioned only by their overlay, left and right visual gutters remain equal, and strict UI audit reports zero `miscenteredDialogShell` findings.
 - Wrapped headings and body text retain deliberate line spacing on phone and Pad.
 - Text is not dense: use short titles and one helper line.
 - No giant empty summary cards unless the numbers directly drive decisions.
