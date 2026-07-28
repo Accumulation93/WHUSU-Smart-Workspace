@@ -29,6 +29,25 @@ async function callFunction(options) {
       };
     }
   }
+  if (scenario === 'expired-auth-user') {
+    if (options.name === 'bindUserInfo') {
+      bindAttempts += 1;
+      if (bindAttempts === 1) {
+        const error = new Error('登录已过期');
+        error.status = 'auth_failed';
+        throw error;
+      }
+      return { status: 'success', message: '绑定成功' };
+    }
+    if (options.name === 'userLogin') {
+      return {
+        status: 'need_bind',
+        token: 'renewed-auth-token',
+        bindingContext: 'renewed-binding-context',
+        bindingOrg: { id: 'org-44', name: '第四十四届' }
+      };
+    }
+  }
   if (scenario === 'auto-bind') {
     if (options.name === 'confirmAutoBind') {
       autoBindAttempts += 1;
@@ -121,6 +140,40 @@ async function run() {
   assert.strictEqual(page.data.loading, false);
   assert.strictEqual(handled.role, 'user');
   assert.strictEqual(handled.result.status, 'success');
+
+  scenario = 'expired-auth-user';
+  bindAttempts = 0;
+  calls.length = 0;
+  const authPage = createPage({
+    activeRole: 'user',
+    name: '测试用户',
+    studentId: '20260001',
+    bindingContext: 'old-binding-context'
+  });
+  let authHandled = null;
+  authPage.handleBindResult = function(role, result) {
+    authHandled = { role, result };
+  };
+  await authPage.onBind();
+  assert.deepStrictEqual(calls.map((item) => item.name), [
+    'bindUserInfo',
+    'userLogin',
+    'bindUserInfo'
+  ]);
+  assert.strictEqual(storage.token, 'renewed-auth-token');
+  assert.strictEqual(calls[2].data.bindingContext, 'renewed-binding-context');
+  assert.strictEqual(authHandled.result.status, 'success');
+
+  const guardedPage = createPage({
+    activeRole: 'user',
+    name: '测试用户',
+    studentId: '20260001',
+    bindingContext: 'binding-context'
+  });
+  guardedPage._bindSubmitting = true;
+  const callCountBeforeGuard = calls.length;
+  await guardedPage.onBind();
+  assert.strictEqual(calls.length, callCountBeforeGuard, '同步提交锁必须阻止重复绑定请求');
 
   scenario = 'auto-bind';
   calls.length = 0;

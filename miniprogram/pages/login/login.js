@@ -1,4 +1,4 @@
-const { callFunction, showShortToast } = require('../../utils/api');
+const { callFunction, showShortToast, getErrorText } = require('../../utils/api');
 const STORAGE_KEY = 'roleProfiles';
 const orgSession = require('../../utils/orgSession');
 const DEVICE_OPENID_KEY = 'deviceOpenid';
@@ -151,12 +151,13 @@ Page({
   },
 
   onLogin() {
-    if (this.data.loading) {
+    if (this._loginSubmitting || this.data.loading) {
       return;
     }
 
     const config = ROLE_MAP[this.data.activeRole];
 
+    this._loginSubmitting = true;
     this.setData({ loading: true });
 
     wx.login({
@@ -174,11 +175,13 @@ Page({
             });
           },
           complete: () => {
+            this._loginSubmitting = false;
             this.setData({ loading: false });
           }
         });
       },
       fail: () => {
+        this._loginSubmitting = false;
         this.setData({ loading: false });
         wx.showToast({
           title: '微信登录失败',
@@ -195,6 +198,24 @@ Page({
         icon: 'error'
       });
       return;
+    }
+
+    if (result.status === 'need_bind' || result.status === 'auto_bind_available') {
+      if (!result.token) {
+        wx.showToast({
+          title: '登录凭证异常',
+          icon: 'none'
+        });
+        return;
+      }
+      // Binding is an authenticated continuation of login. Persist the JWT
+      // before opening the sheet/modal so bind requests cannot be sent without it.
+      orgSession.commitContext({
+        token: result.token,
+        role,
+        orgId: '',
+        orgName: ''
+      });
     }
 
     if (result.status === 'login_success') {
@@ -267,7 +288,7 @@ Page({
   },
 
   async onBind() {
-    if (this.data.loading) {
+    if (this._bindSubmitting || this.data.loading) {
       return;
     }
 
@@ -301,13 +322,34 @@ Page({
       payload.bindingContext = this.data.bindingContext;
     }
 
+    this._bindSubmitting = true;
     this.setData({ loading: true });
 
     try {
-      let result = await callFunction({
-        name: config.bindFunction,
-        data: payload
-      });
+      let result;
+      try {
+        result = await callFunction({
+          name: config.bindFunction,
+          data: payload
+        });
+      } catch (error) {
+        if (!error || error.status !== 'auth_failed') throw error;
+        const refreshed = await this.refreshLoginState(activeRole);
+        if (!refreshed || refreshed.status !== 'need_bind' || !refreshed.token) {
+          if (refreshed && refreshed.status) {
+            this.handleLoginResult(activeRole, refreshed);
+            return;
+          }
+          throw error;
+        }
+        if (activeRole === 'user') {
+          payload.bindingContext = refreshed.bindingContext || '';
+        }
+        result = await callFunction({
+          name: config.bindFunction,
+          data: payload
+        });
+      }
 
       // 普通用户填写资料可能超过五分钟。挑战过期时重新验证微信身份，
       // 获取新的单次绑定上下文并仅自动重试一次，避免降低服务端安全时限。
@@ -325,29 +367,38 @@ Page({
       }
 
       this.handleBindResult(activeRole, result);
-    } catch (_) {
-      wx.showToast({
-        title: '提交失败',
-        icon: 'error'
-      });
+    } catch (error) {
+      const message = getErrorText(error, '提交失败');
+      if (message) showShortToast(message);
     } finally {
+      this._bindSubmitting = false;
       this.setData({ loading: false });
     }
   },
 
-  refreshUserLoginState() {
+  refreshLoginState(role) {
+    const currentRole = ROLE_MAP[role] ? role : 'user';
     return new Promise((resolve) => {
       wx.login({
         success: async (loginRes) => {
           try {
             const result = await callFunction({
-              name: ROLE_MAP.user.loginFunction,
+              name: ROLE_MAP[currentRole].loginFunction,
               data: { code: loginRes.code, deviceOpenid: getDeviceOpenid() }
             });
-            if (result && result.token) {
-              orgSession.commitContext({ token: result.token });
+            if (result && (result.status === 'need_bind' || result.status === 'auto_bind_available')) {
+              if (!result.token) {
+                resolve({ status: 'auth_failed', message: '登录凭证异常，请重试' });
+                return;
+              }
+              orgSession.commitContext({
+                token: result.token,
+                role: currentRole,
+                orgId: '',
+                orgName: ''
+              });
             }
-            if (result && result.status === 'need_bind' && result.bindingContext) {
+            if (currentRole === 'user' && result && result.status === 'need_bind' && result.bindingContext) {
               this.setData({
                 bindingContext: result.bindingContext,
                 bindingOrgName: result.bindingOrg ? result.bindingOrg.name : this.data.bindingOrgName
@@ -363,6 +414,10 @@ Page({
         }
       });
     });
+  },
+
+  refreshUserLoginState() {
+    return this.refreshLoginState('user');
   },
 
   handleBindResult(role, result) {

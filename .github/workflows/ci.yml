@@ -59,6 +59,7 @@ jobs:
           node scripts/notification-org-switch-role-test.js
           node scripts/publication-summary-refresh-test.js
           node scripts/login-binding-refresh-test.js
+          node scripts/login-auth-continuation-test.js
           node scripts/hr-profile-export-test.js
           node scripts/venue-rule-display-test.js
           node server/test/venueApprovalFlowRule.test.js
@@ -82,6 +83,7 @@ jobs:
           node server/test/adminPermissionMiddleware.test.js
           node server/test/adminPermissionsMigration.test.js
           node server/test/authChallenge.test.js
+          node server/test/loginBindingContract.test.js
           node server/test/requestDeduplication.test.js
           node server/test/clientVersion.test.js
           node server/test/runtimeHardening.test.js
