@@ -53,7 +53,8 @@ function testDeploymentScriptContract() {
   assert.match(script, /ln -s "\$SHARED_DIR\/uploads"/);
   assert.match(script, /migrateAuditUploads\.js/);
   assert.match(script, /AUDIT_UPLOAD_DIR="\$SHARED_DIR\/uploads\/audit"/);
-  assert.match(script, /--only whusu-smart-workspace-backup --update-env/);
+  assert.match(script, /pm2 delete whusu-smart-workspace-backup/);
+  assert.match(script, /pm2 start "\$NEW_RELEASE\/server\/ecosystem\.config\.js" --only whusu-smart-workspace-backup --update-env/);
   assert.match(script, /pm2 stop whusu-smart-workspace-backup/);
   assert.match(script, /install -m 755/);
   assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);

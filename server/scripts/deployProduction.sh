@@ -107,7 +107,10 @@ reload_release() {
   fi
   WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-api --update-env
   WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-notification-worker --update-env
-  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-backup --update-env
+  # PM2 startOrReload keeps the old cwd for an existing fork process. Recreate
+  # only the backup process so it always follows the atomically switched release.
+  pm2 delete whusu-smart-workspace-backup >/dev/null 2>&1 || true
+  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 start "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-backup --update-env
 }
 
 rollback() {
