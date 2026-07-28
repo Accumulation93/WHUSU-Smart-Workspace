@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
+const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const adminInfoModel = require('../../../core/models/adminInfo');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const flowModel = require('../models/venueApprovalFlow');
 const stepModel = require('../models/venueApprovalFlowStep');
 const ruleModel = require('../models/venueApprovalFlowStepRule');
@@ -12,6 +13,9 @@ const venueBookingRuleModel = require('../models/venueBookingRule');
 const { createVenueApprovalNotifications, createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
 const { normalizeRule, normalizeFlowSteps } = require('../utils/approvalFlowValidation');
+const {
+  authorizeCurrentVenueApproval
+} = require('../services/venueApprovalAuthorization');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -256,70 +260,6 @@ router.post('/deleteVenueApprovalStepRule', async (req, res) => {
 // ═══════════════════════════════════════════════════
 
 /**
- * Check if a person (by hrId) can approve the current step of a booking.
- * Returns { ok: boolean, stepIndex: number, stepName: string }
- */
-async function canApproveCurrentStep(booking, approverHrId, isCurrentOrgAdmin) {
-  if (!booking.approval_flow_id || booking.approval_total_steps <= 0) {
-    return { ok: false, reason: '该借用没有配置审批流程' };
-  }
-  const currentStep = booking.approval_current_step;
-  if (currentStep < 0) {
-    return { ok: false, reason: '该借用已被驳回' };
-  }
-  if (currentStep >= booking.approval_total_steps) {
-    return { ok: false, reason: '该借用已完成所有审批步骤' };
-  }
-
-  // Get the flow steps
-  const steps = await stepModel.getByFlowId(booking.approval_flow_id);
-  if (!steps.length || currentStep >= steps.length) {
-    return { ok: false, reason: '审批步骤配置异常' };
-  }
-
-  const step = steps[currentStep];
-  if (!step) return { ok: false, reason: '审批步骤配置异常' };
-  if (step.approval_mode === 'admin_any') {
-    return isCurrentOrgAdmin
-      ? { ok: true, stepIndex: currentStep, stepName: step.name, totalSteps: steps.length }
-      : { ok: false, reason: '该步骤仅允许当前组织管理员审批' };
-  }
-  if (!step.rules || !step.rules.length) {
-    return { ok: false, reason: '当前人事审批步骤没有配置审批条件' };
-  }
-
-  // Get the approver's HR info
-  const approverHrInfo = await hrInfoModel.getById(approverHrId);
-  if (!approverHrInfo) {
-    return { ok: false, reason: '找不到审批人的人事信息' };
-  }
-
-  // Load applicant's HR info for 'same' scope matching
-  let applicantHrInfo = null;
-  if (booking.user_hr_id) {
-    applicantHrInfo = await hrInfoModel.getById(booking.user_hr_id);
-  }
-
-  // Check if any rule matches
-  const matches = ruleModel.matchesAnyRule(step.rules, approverHrInfo, applicantHrInfo);
-  if (!matches) {
-    return { ok: false, reason: '您不符合当前审批步骤的审批条件' };
-  }
-
-  // Separation of duties: same person cannot approve multiple steps in the same flow
-  let snapshots = [];
-  try {
-    snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : [];
-  } catch (_) {}
-  const alreadyApproved = snapshots.some(s => s.approverHrId === approverHrId);
-  if (alreadyApproved) {
-    return { ok: false, reason: '您已审批过该借用的前置步骤，为保障职责分离，请由其他审批人处理当前步骤' };
-  }
-
-  return { ok: true, stepIndex: currentStep, stepName: step.name, totalSteps: steps.length };
-}
-
-/**
  * Build approval progress info for display
  */
 function buildApprovalProgress(booking) {
@@ -344,13 +284,12 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
     const comment = safeString(req.body.comment);
 
-    // Resolve approver hrId — only from user_info (admin/regular user identities are separate)
-    const selectedRole = safeString(req.headers['x-role']);
-    const admin = selectedRole === 'admin' ? await ensureAdmin(req.openid) : null;
-    const orgId = await require('../../../utils/orgContext').getCurrentOrgId();
-    const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [req.openid, orgId]);
-    const approverHrId = selectedRole === 'user' ? ((userRows[0] && userRows[0].hr_id) || null) : null;
-    if (!approverHrId && !admin) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok) {
+      return res.json({ status: actorResult.status, message: actorResult.message });
+    }
+    const actor = actorResult.actor;
+    const orgId = await getCurrentOrgId();
 
     await conn.beginTransaction();
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
@@ -368,12 +307,12 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     }
 
     // Check if approver can approve current step
-    const check = await canApproveCurrentStep(booking, approverHrId, !!admin);
+    const check = await authorizeCurrentVenueApproval(booking, actor);
     if (!check.ok) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: check.reason });
     }
-    const approverActorId = approverHrId || admin.id;
+    const approverActorId = actor.id;
 
     const currentStep = check.stepIndex;
     const newStepIndex = currentStep + 1;
@@ -412,12 +351,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     try {
       snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : [];
     } catch (_) {}
-    // Resolve approver name
-    let approverName = '';
-    try {
-      const approverHrInfo = approverHrId ? await hrInfoModel.getById(approverHrId) : null;
-      approverName = approverHrInfo ? (approverHrInfo.name || '') : ((admin && admin.name) || '管理员');
-    } catch (_) {}
+    const approverName = actor.name || (actor.type === 'admin' ? '管理员' : '');
 
     snapshots.push({
       stepIndex: currentStep,
@@ -486,13 +420,12 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
     const comment = safeString(req.body.comment);
 
-    // Resolve approver hrId — only from user_info (admin/regular user identities are separate)
-    const orgId = await require('../../../utils/orgContext').getCurrentOrgId();
-    const selectedRole = safeString(req.headers['x-role']);
-    const admin = selectedRole === 'admin' ? await ensureAdmin(req.openid) : null;
-    const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [req.openid, orgId]);
-    const approverHrId = selectedRole === 'user' ? ((userRows[0] && userRows[0].hr_id) || null) : null;
-    if (!approverHrId && !admin) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok) {
+      return res.json({ status: actorResult.status, message: actorResult.message });
+    }
+    const actor = actorResult.actor;
+    const orgId = await getCurrentOrgId();
 
     await conn.beginTransaction();
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
@@ -506,12 +439,12 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     }
 
     // Check permission
-    const check = await canApproveCurrentStep(booking, approverHrId, !!admin);
+    const check = await authorizeCurrentVenueApproval(booking, actor);
     if (!check.ok) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: check.reason });
     }
-    const approverActorId = approverHrId || admin.id;
+    const approverActorId = actor.id;
 
     // Reject: set step to -1, update status atomically within transaction
     await venueBookingModel.updateStatus(id, 'rejected', approverActorId, comment || '驳回', conn);
@@ -544,5 +477,5 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
 });
 
 module.exports = router;
-module.exports.canApproveCurrentStep = canApproveCurrentStep;
+module.exports.authorizeCurrentVenueApproval = authorizeCurrentVenueApproval;
 module.exports.buildApprovalProgress = buildApprovalProgress;

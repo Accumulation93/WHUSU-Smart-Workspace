@@ -138,12 +138,12 @@ requireSourceContract('server/src/middleware/adminPermission.js', [
       && !source.includes("if (!rule || req.get('X-Role') !== 'admin') return next()")
   }
 ]);
-requireSourceContract('server/src/modules/venue/models/venueApprovalFlowStepRule.js', [
+requireSourceContract('server/src/modules/venue/utils/venueApprovalRuleMatcher.js', [
   {
     rule: 'venue-specific-empty-deny',
-    test: source => source.includes('if (!deptIds.length || !deptIds.includes')
-      && source.includes('if (!wgIds.length || !wgIds.includes')
-      && source.includes('if (!identIds.length || !identIds.includes')
+    test: source => source.includes('if (!departmentIds.length || !departmentIds.includes')
+      && source.includes('if (!workGroupIds.length || !workGroupIds.includes')
+      && source.includes('if (!identityIds.length || !identityIds.includes')
   }
 ]);
 requireSourceContract('server/src/modules/scoring/models/scoreRecord.js', [

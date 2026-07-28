@@ -13,7 +13,10 @@ const mocks = {
   '../core/services/adminPermissions': {
     ROUTE_RULES: new Map([
       ['/saveScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: false }],
-      ['/getCurrentScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: true }]
+      ['/getCurrentScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: true }],
+      ['/listPendingVenueApprovals', { anyOf: ['venue.approvals'], allowUserRole: true }],
+      ['/approveVenueBookingStep', { anyOf: ['venue.approvals'], allowUserRole: true }],
+      ['/saveVenueApprovalWholeFlow', { anyOf: ['venue.approvals'], allowUserRole: false }]
     ]),
     async loadEffectivePermissions() { return effective; },
     hasAnyPermission(value, keys) {
@@ -74,6 +77,13 @@ async function invoke(path, role) {
   assert.strictEqual(missingRoleDenied.payload.status, 'admin_role_required');
   const sharedUserAllowed = await invoke('/api/getCurrentScoreActivity', 'user');
   assert.strictEqual(sharedUserAllowed.nextCalled, true);
+  const venueListUserAllowed = await invoke('/api/listPendingVenueApprovals', 'user');
+  assert.strictEqual(venueListUserAllowed.nextCalled, true);
+  const venueApprovalUserAllowed = await invoke('/api/approveVenueBookingStep', 'user');
+  assert.strictEqual(venueApprovalUserAllowed.nextCalled, true);
+  const venueFlowUserDenied = await invoke('/api/saveVenueApprovalWholeFlow', 'user');
+  assert.strictEqual(venueFlowUserDenied.nextCalled, false);
+  assert.strictEqual(venueFlowUserDenied.payload.status, 'admin_role_required');
   const unknownBypass = await invoke('/api/notMapped', 'admin');
   assert.strictEqual(unknownBypass.nextCalled, true);
 

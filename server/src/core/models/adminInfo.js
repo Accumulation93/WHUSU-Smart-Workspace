@@ -70,6 +70,19 @@ async function getAll(operator) {
   return listVisible(operator, orgId);
 }
 
+async function listByIdsInOrg(ids, orgId) {
+  const adminIds = Array.isArray(ids) ? [...new Set(ids.filter(Boolean))] : [];
+  if (!adminIds.length || !orgId) return [];
+  const [rows] = await pool.query(
+    `SELECT id, name
+       FROM admin_info
+      WHERE id IN (?)
+        AND (org_id = ? OR (admin_level = 'super_admin' AND org_id = ''))`,
+    [adminIds, orgId]
+  );
+  return rows;
+}
+
 async function create(id, data, connection) {
   const db = connection || pool;
   const { name, studentId, openid, adminLevel, bindStatus, inviteCode, invitedAt, inviteExpiresAt } = data;
@@ -204,6 +217,6 @@ async function getByOpenidAcrossOrgs(openid) {
 
 module.exports = {
   getByOpenid, getByOpenidAny, getByOpenidGlobal, getByOpenidAcrossOrgs, getById, getByIdGlobal,
-  listVisible, getAll, create, update, remove, studentExists, updateProfile, updateInvite, removeExact,
+  listVisible, getAll, listByIdsInOrg, create, update, remove, studentExists, updateProfile, updateInvite, removeExact,
   lockSuperAdmins, getByInviteCode, getSuperAdmin, getByAdminLevel
 };

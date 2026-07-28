@@ -62,6 +62,7 @@ jobs:
           node scripts/hr-profile-export-test.js
           node scripts/venue-rule-display-test.js
           node server/test/venueApprovalFlowRule.test.js
+          node server/test/venueApprovalAuthorization.test.js
           node server/test/venueApprovalValidation.test.js
           node server/test/auditApprovalConditionSecurity.test.js
           node server/test/scoreRecordQuerySecurity.test.js

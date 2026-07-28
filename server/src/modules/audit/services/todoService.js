@@ -1,7 +1,7 @@
 const { safeString } = require('../../../utils/helpers');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const messageDataModel = require('../models/messageData');
-const venueRuleModel = require('../../venue/models/venueApprovalFlowStepRule');
+const { evaluateVenueApprovalStep } = require('../../venue/services/venueApprovalPolicy');
 const { getUserScoringTask } = require('../../scoring/services/scoringTaskService');
 
 function groupBy(items, keyName) {
@@ -71,18 +71,14 @@ async function listVenueItems(actor, orgId) {
     const currentStep = flowSteps[Number(booking.approval_current_step)];
     if (!currentStep) continue;
     const stepRules = rulesByStep.get(currentStep.id) || [];
-    const approvalMode = safeString(currentStep.approval_mode) || (stepRules.length ? 'hr_rule' : 'admin_any');
-    let canApprove = false;
-    if (actor.type === 'admin') {
-      canApprove = approvalMode === 'admin_any';
-    } else if (approvalMode === 'hr_rule' && stepRules.length) {
-      canApprove = venueRuleModel.matchesAnyRule(
-        stepRules,
-        actor.profile,
-        applicantMap.get(booking.user_hr_id) || null
-      );
-    }
-    if (!canApprove) continue;
+    currentStep.rules = stepRules;
+    const authorization = evaluateVenueApprovalStep({
+      booking,
+      actor,
+      steps: flowSteps,
+      applicantHrInfo: applicantMap.get(booking.user_hr_id) || null
+    });
+    if (!authorization.ok) continue;
     const applicant = applicantMap.get(booking.user_hr_id);
     items.push({
       id: 'venue:' + safeString(booking.id),

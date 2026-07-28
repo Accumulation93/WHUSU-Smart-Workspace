@@ -5,6 +5,7 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
@@ -13,10 +14,13 @@ const venueBookingModel = require('../models/venueBooking');
 const venueBookingPurposeModel = require('../models/venueBookingPurpose');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
-const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
 const { createVenueApprovalNotifications, createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
 const requestDeduplication = require('../../../utils/requestDeduplication');
+const {
+  authorizeCurrentVenueApproval
+} = require('../services/venueApprovalAuthorization');
+const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -49,40 +53,21 @@ async function matchesBookingRule(rule, hrId) {
 }
 
 async function canReviewVenueBooking(openid, booking, selectedRole) {
-  const admin = selectedRole === 'admin' ? await ensureAdmin(openid) : null;
-  const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null;
+  const actorResult = await resolveCurrentActor({
+    openid,
+    headers: { 'x-role': selectedRole }
+  });
+  if (!actorResult.ok) {
+    return { ok: false, admin: null, hrId: null, reason: actorResult.message };
+  }
+  const actor = actorResult.actor;
+  const admin = actor.type === 'admin' ? actor.profile : null;
+  const hrId = actor.type === 'user' ? actor.id : null;
 
-  // Flow-based approval — only users matching step rules can approve (no admin bypass)
+  // 流程审批统一使用共享授权器，确保查询、待办和写操作结论一致。
   if (booking.approval_flow_id && booking.approval_total_steps > 0) {
-    const currentStep = booking.approval_current_step;
-    if (currentStep < 0) return { ok: false, admin, hrId, reason: '该借用已被驳回' };
-    if (currentStep >= booking.approval_total_steps) return { ok: false, admin, hrId, reason: '该借用已完成所有审批步骤' };
-
-    // Get current step rules and check if hrId matches
-    const steps = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
-    if (!steps.length || currentStep >= steps.length) {
-      return { ok: false, admin, hrId, reason: '审批步骤配置异常' };
-    }
-    const step = steps[currentStep];
-    if (!step) return { ok: false, admin, hrId, reason: '审批步骤配置异常' };
-    if (step.approval_mode === 'admin_any') {
-      return { ok: !!admin, admin, hrId, reason: admin ? null : '该步骤仅允许当前组织管理员审批' };
-    }
-    if (!step.rules || !step.rules.length) {
-      return { ok: false, admin, hrId, reason: '当前人事审批步骤未配置审批规则' };
-    }
-
-    const approverHrInfo = await hrInfoModel.getById(hrId);
-    if (!approverHrInfo) return { ok: false, admin, hrId, reason: '找不到审批人人事信息' };
-
-    // Load applicant's HR info for 'same' scope matching
-    let applicantHrInfo = null;
-    if (booking.user_hr_id) {
-      applicantHrInfo = await hrInfoModel.getById(booking.user_hr_id);
-    }
-
-    const matches = venueApprovalFlowStepRuleModel.matchesAnyRule(step.rules, approverHrInfo, applicantHrInfo);
-    return { ok: matches, admin, hrId, reason: matches ? null : '您不符合当前审批步骤的条件（需要匹配部门/职能组/身份）' };
+    const authorization = await authorizeCurrentVenueApproval(booking, actor);
+    return { ...authorization, admin, hrId };
   }
 
   // Legacy rule-based approval
@@ -510,7 +495,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const adminIds = [...new Set(detailBookings.filter(b => b.creator_type === 'admin').map(b => b.creator_admin_id).filter(Boolean))];
     const adminMap = {};
     if (adminIds.length) {
-      const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
+      const adminRows = await adminInfoModel.listByIdsInOrg(adminIds, orgId);
       adminRows.forEach(item => { adminMap[item.id] = item.name || '管理员'; });
     }
     if (hrIds.length) {
@@ -659,56 +644,25 @@ router.post('/listAllVenueBookings', async (req, res) => {
       } catch (_) { /* silently ignore — flowSteps won't be attached */ }
     }
 
-    // ── Determine userCanApprove for each pending flow-based booking ──
-    try {
-      // Resolve approver HR ID — only from user_info (admin/regular user identities are separate)
-      const [userRows] = await pool.query(
-        'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
-        [req.openid, orgId]
-      );
-      const approverHrId = (userRows[0] && userRows[0].hr_id) || null;
-
-      if (approverHrId) {
-        const approverHrInfo = await hrInfoModel.getById(approverHrId);
-        if (approverHrInfo) {
-          const pendingFlowBookings = list.filter(
-            lb => lb.status === 'pending' && lb.approvalProgress && lb.approvalProgress.flowId
-          );
-
-          if (pendingFlowBookings.length) {
-            // Bulk-load applicant HR info (needed for 'same' scope matching)
-            const applicantIds = [...new Set(pendingFlowBookings.map(b => b.userHrId).filter(Boolean))];
-            const applicantMap = {};
-            if (applicantIds.length) {
-              const hrList = await hrInfoModel.getByIds(applicantIds);
-              (hrList || []).forEach(h => { applicantMap[h.id] = h; });
-            }
-
-            // Check each pending booking using already-loaded flow steps
-            for (const lb of pendingFlowBookings) {
-              const prog = lb.approvalProgress;
-              const steps = flowStepsMap[prog.flowId] || [];
-              const curIdx = prog.currentStep;
-
-              if (curIdx >= 0 && curIdx < steps.length) {
-                const step = steps[curIdx];
-                if (step.rules && step.rules.length) {
-                  const applicantHr = applicantMap[lb.userHrId] || null;
-                  lb.userCanApprove = venueApprovalFlowStepRuleModel.matchesAnyRule(
-                    step.rules, approverHrInfo, applicantHr
-                  );
-                } else {
-                  lb.userCanApprove = true;
-                }
-              } else {
-                lb.userCanApprove = false;
-              }
-            }
-          }
-        }
-      }
-    } catch (_) {
-      // Silently ignore — userCanApprove stays undefined/falsy, buttons hidden
+    // 管理端只按管理员身份判断，不复用同一微信的普通用户人事身份。
+    const bookingMap = new Map(bookings.map(booking => [booking.id, booking]));
+    const adminActor = {
+      type: 'admin',
+      id: safeString(admin.id),
+      name: safeString(admin.name),
+      profile: admin
+    };
+    for (const listBooking of allFlowBookings) {
+      if (listBooking.status !== 'pending') continue;
+      const booking = bookingMap.get(listBooking.id);
+      const steps = flowStepsMap[listBooking.approvalProgress.flowId] || [];
+      const authorization = evaluateVenueApprovalStep({
+        booking,
+        actor: adminActor,
+        steps,
+        applicantHrInfo: null
+      });
+      listBooking.userCanApprove = authorization.ok;
     }
 
     // For non-flow pending bookings, admin can always approve (legacy behavior)

@@ -5,6 +5,7 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
@@ -12,10 +13,10 @@ const venueBookingRuleModel = require('../models/venueBookingRule');
 const venueBookingModel = require('../models/venueBooking');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
-const venueApprovalFlowStepRuleModel = require('../models/venueApprovalFlowStepRule');
 const { createVenueApprovalNotifications } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
 const requestDeduplication = require('../../../utils/requestDeduplication');
+const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -686,13 +687,11 @@ router.post('/listMyVenueBookings', async (req, res) => {
 
 router.post('/listPendingVenueApprovals', async (req, res) => {
   try {
-    const selectedRole = safeString(req.headers['x-role']);
-    const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(req.openid) : null;
-    const hrId = selectedRole === 'user' ? await resolveHrId(req.openid) : null;
-    if (!admin && !hrId) return res.json({ status: 'forbidden', message: '当前身份没有场地审批权限' });
-
-    const approverHrInfo = hrId ? await hrInfoModel.getById(hrId) : null;
-    if (selectedRole === 'user' && !approverHrInfo) return res.json({ status: 'forbidden', message: '未找到人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok) {
+      return res.json({ status: actorResult.status, message: actorResult.message });
+    }
+    const actor = actorResult.actor;
 
     const orgId = await getCurrentOrgId();
 
@@ -746,16 +745,14 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
 
       const applicantHrInfo = applicantMap[booking.user_hr_id] || null;
 
-      let canApprove = false;
-      if ((step.approval_mode || '') === 'admin_any') {
-        canApprove = !!admin;
-      } else if (approverHrInfo && stepRules.length) {
-        canApprove = venueApprovalFlowStepRuleModel.matchesAnyRule(
-          stepRules, approverHrInfo, applicantHrInfo
-        );
-      }
-
-      if (!canApprove) continue;
+      step.rules = stepRules;
+      const authorization = evaluateVenueApprovalStep({
+        booking,
+        actor,
+        steps: flowSteps,
+        applicantHrInfo
+      });
+      if (!authorization.ok) continue;
 
       // Build snapshot info
       let snapshots = [];
@@ -818,8 +815,10 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     }
 
     // Self-healing: ensure notifications exist for found pending bookings (fire-and-forget)
+    const notificationRecipientId = actor.type === 'user' ? actor.id : '';
     for (const p of pending) {
-      notificationModel.hasPendingApprovalNotification('booking', p.id, hrId).then(has => {
+      if (!notificationRecipientId) continue;
+      notificationModel.hasPendingApprovalNotification('booking', p.id, notificationRecipientId).then(has => {
         if (!has) {
           createVenueApprovalNotifications(p.id, p.currentStepIndex).catch(e =>
             console.error('[venueUser:reconcile] notification creation failed:', e.message));

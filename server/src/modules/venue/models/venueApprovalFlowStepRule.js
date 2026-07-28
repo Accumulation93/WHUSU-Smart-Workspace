@@ -1,5 +1,10 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const {
+  matchesRule,
+  matchesAnyRule,
+  parseCsvIds
+} = require('../utils/venueApprovalRuleMatcher');
 
 async function getByStepId(stepId) {
   const orgId = await getCurrentOrgId();
@@ -29,77 +34,6 @@ async function getById(id) {
     [id, orgId]
   );
   return rows[0] || null;
-}
-
-/**
- * Check if a given approver matches a rule's scope conditions.
- * All 3 layers must match (AND logic within a rule).
- * @param {object} rule - The rule row from DB
- * @param {object} approverHrInfo - { department_id, work_group_id, identity_id } of the approver
- * @param {object} [applicantHrInfo] - { department_id, work_group_id, identity_id } of the booking applicant (needed for 'same' scope)
- */
-function matchesRule(rule, approverHrInfo, applicantHrInfo) {
-  if (!rule || !approverHrInfo) return false;
-
-  // Department scope
-  switch (rule.department_scope) {
-    case 'specific': {
-      const deptIds = parseCsvIds(rule.specific_department_id);
-      if (!deptIds.length || !deptIds.includes(approverHrInfo.department_id)) return false;
-      break;
-    }
-    case 'same':
-      if (!applicantHrInfo || !applicantHrInfo.department_id) return false;
-      if (approverHrInfo.department_id !== applicantHrInfo.department_id) return false;
-      break;
-    // 'all' — any department matches
-  }
-
-  // Work group scope
-  switch (rule.work_group_scope) {
-    case 'specific': {
-      const wgIds = parseCsvIds(rule.specific_work_group_id);
-      if (!wgIds.length || !wgIds.includes(approverHrInfo.work_group_id)) return false;
-      break;
-    }
-    case 'same':
-      if (!applicantHrInfo || !applicantHrInfo.work_group_id) return false;
-      if (approverHrInfo.work_group_id !== applicantHrInfo.work_group_id) return false;
-      break;
-    // 'all' — any work group matches
-  }
-
-  // Identity scope
-  switch (rule.identity_scope) {
-    case 'specific': {
-      const identIds = parseCsvIds(rule.specific_identity_id);
-      if (!identIds.length || !identIds.includes(approverHrInfo.identity_id)) return false;
-      break;
-    }
-    case 'same':
-      if (!applicantHrInfo || !applicantHrInfo.identity_id) return false;
-      if (approverHrInfo.identity_id !== applicantHrInfo.identity_id) return false;
-      break;
-    // 'all' — any identity matches
-  }
-
-  return true;
-}
-
-/**
- * Check if any rule in a step's rule list matches the given approver.
- * OR logic: if any rule matches, the step can be approved by this person.
- * @param {object[]} rules
- * @param {object} approverHrInfo
- * @param {object} [applicantHrInfo]
- */
-function matchesAnyRule(rules, approverHrInfo, applicantHrInfo) {
-  return (rules || []).some(rule => matchesRule(rule, approverHrInfo, applicantHrInfo));
-}
-
-function parseCsvIds(str) {
-  if (!str) return [];
-  return String(str).split(',').map(s => s.trim()).filter(Boolean);
 }
 
 async function create(id, data, conn) {
