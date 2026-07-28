@@ -42,6 +42,7 @@ function testDeploymentScriptContract() {
   const tmuxSetup = fs.readFileSync(path.resolve(__dirname, '../scripts/setupCollabSession.sh'), 'utf8');
   const ecosystem = fs.readFileSync(path.resolve(__dirname, '../ecosystem.config.js'), 'utf8');
   const remoteCollab = fs.readFileSync(path.resolve(__dirname, '../../scripts/remote-collab.ps1'), 'utf8');
+  const workflow = fs.readFileSync(path.resolve(__dirname, '../../.github/workflows/ci.yml'), 'utf8');
   assert.match(script, /flock -n/);
   assert.match(script, /pull --ff-only/);
   assert.match(script, /git_with_timeout/);
@@ -56,18 +57,24 @@ function testDeploymentScriptContract() {
   assert.match(script, /pm2 delete whusu-smart-workspace-backup/);
   assert.match(script, /pm2 start "\$NEW_RELEASE\/server\/ecosystem\.config\.js" --only whusu-smart-workspace-backup --update-env/);
   assert.match(script, /pm2 stop whusu-smart-workspace-backup/);
+  assert.match(script, /WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-main/);
   assert.match(script, /install -m 755/);
   assert.doesNotMatch(script, /require\(['"]dotenv['"]\)/);
   assert.doesNotMatch(script, /git reset --hard/);
   assert.match(entrypoint, /git -C "\$REPO_DIR" show/);
   assert.match(entrypoint, /timeout --signal=TERM/);
   assert.match(entrypoint, /bash -n/);
+  assert.match(entrypoint, /WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-main/);
   assert.match(tmuxSetup, /whusu-smart-workspace-collab/);
   assert.match(tmuxSetup, /whusu-smart-workspace-notification-worker/);
   assert.match(ecosystem, /name: 'whusu-smart-workspace-backup'[\s\S]*cwd: serverRoot/);
   assert.match(ecosystem, /name: 'whusu-smart-workspace-api'[\s\S]*DB_POOL_LIMIT: '20'/);
   assert.match(ecosystem, /name: 'whusu-smart-workspace-notification-worker'[\s\S]*DB_POOL_LIMIT: '10'/);
   assert.match(remoteCollab, /Replace\("`r`n", "`n"\)\.Replace\("`r", "`n"\)/);
+  assert.match(remoteCollab, /actions\/runs\?branch=main&event=push/);
+  assert.doesNotMatch(remoteCollab, /branch=feature%2Faudit/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
+  assert.doesNotMatch(workflow, /github\.ref == 'refs\/heads\/feature\/audit'/);
 }
 
 testMigrationDiscoveryAndLedger();

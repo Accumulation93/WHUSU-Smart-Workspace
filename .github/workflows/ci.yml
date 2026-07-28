@@ -109,7 +109,7 @@ jobs:
   deploy-production:
     name: deploy-production
     needs: audit-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/audit'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     concurrency:

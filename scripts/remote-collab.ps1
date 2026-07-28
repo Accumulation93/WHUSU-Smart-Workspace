@@ -46,15 +46,15 @@ curl --fail --silent --show-error "http://127.0.0.1:${port}/api/health"
     Invoke-Remote $command
   }
   'retry' {
-    $runs = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs?branch=feature%2Faudit&event=push&per_page=1" -Headers @{ 'User-Agent' = 'WHUSU-Smart-Workspace-Remote-Collab' }
+    $runs = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs?branch=main&event=push&per_page=1" -Headers @{ 'User-Agent' = 'WHUSU-Smart-Workspace-Remote-Collab' }
     $run = $runs.workflow_runs[0]
     if (!$run -or $run.status -ne 'completed') {
-      throw 'Latest feature/audit workflow is not complete; retry is blocked'
+      throw 'Latest main workflow is not complete; retry is blocked'
     }
     $jobs = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/actions/runs/$($run.id)/jobs" -Headers @{ 'User-Agent' = 'WHUSU-Smart-Workspace-Remote-Collab' }
     $qualityJob = @($jobs.jobs | Where-Object { $_.name -eq 'audit-and-test' })
     if ($qualityJob.Count -ne 1 -or $qualityJob[0].conclusion -ne 'success') {
-      throw 'Latest feature/audit quality job has not passed; retry is blocked'
+      throw 'Latest main quality job has not passed; retry is blocked'
     }
     Invoke-Remote "/home/ubuntu/whusu-smart-workspace-deploy/bin/deploy-entrypoint $($run.head_sha)"
   }

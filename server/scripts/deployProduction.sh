@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 TARGET_SHA="${1:-}"
-BRANCH="${WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-feature/audit}"
+BRANCH="${WHUSU_SMART_WORKSPACE_DEPLOY_BRANCH:-main}"
 REPO_DIR="${WHUSU_SMART_WORKSPACE_REPO_DIR:-/home/ubuntu/whusu-smart-workspace}"
 RELEASES_DIR="${WHUSU_SMART_WORKSPACE_RELEASES_DIR:-/home/ubuntu/whusu-smart-workspace-releases}"
 CURRENT_LINK="${WHUSU_SMART_WORKSPACE_CURRENT_LINK:-/home/ubuntu/whusu-smart-workspace-current}"

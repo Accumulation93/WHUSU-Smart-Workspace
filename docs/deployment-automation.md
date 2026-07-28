@@ -2,10 +2,10 @@
 
 ## 日常链路
 
-1. 本地在 `feature/audit` 完成修改、测试、提交和推送。
+1. 本地在功能分支完成修改和测试，经合并后推送到唯一生产发布分支 `main`。
 2. GitHub Actions 执行全部质量门禁。
 3. 只有 `audit-and-test` 成功后，`deploy-production` 才通过固定 SSH 主机指纹连接生产服务器。
-4. 远端部署目标必须等于 `origin/feature/audit` 的完整 SHA；过期任务自动跳过。
+4. 远端部署目标必须等于 `origin/main` 的完整 SHA；过期任务自动跳过。
 5. 服务端有变化时创建独立 release，完成依赖安装、语法检查和迁移后原子切换 `whusu-smart-workspace-current`。
 
 小程序代码推送不会发布微信正式版本。若 `server/` 没有变化，远端只同步仓库，不重启 PM2。服务端 release 切换时，API、通知 Worker 与备份进程一起加载同一 SHA。
@@ -21,7 +21,7 @@
 .\scripts\remote-collab.ps1 attach
 ```
 
-`retry` 仅允许重试最新 `feature/audit` 提交，并会先通过 GitHub API确认对应 `audit-and-test` 已成功，不能绕过质量门禁。
+`retry` 仅允许重试最新 `main` 提交，并会先通过 GitHub API 确认对应 `audit-and-test` 已成功，不能绕过质量门禁。
 
 ## 远端目录
 
