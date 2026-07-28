@@ -584,8 +584,56 @@ const missingResponsiveDataSystem = !(
 );
 const missingDeviceSystem = !(
   /--ui-control-height:\s*48px/.test(GLOBAL_STYLE) &&
-  /--ui-font-md:\s*15px/.test(GLOBAL_STYLE) &&
+  /--ui-type-body:\s*15px/.test(GLOBAL_STYLE) &&
+  /--ui-font-md:\s*var\(--ui-type-body\)/.test(GLOBAL_STYLE) &&
   /input\.field-input[\s\S]*display:\s*block\s*!important/.test(GLOBAL_STYLE)
+);
+const typeScale = [
+  ['micro', '18rpx', '10.8px'],
+  ['caption', '20rpx', '12px'],
+  ['meta', '22rpx', '13.2px'],
+  ['label', '23rpx', '13.8px'],
+  ['control', '24rpx', '14.4px'],
+  ['body', '25rpx', '15px'],
+  ['emphasis', '26rpx', '15.6px'],
+  ['value', '28rpx', '16.8px'],
+  ['section', '30rpx', '18px'],
+  ['dialog', '32rpx', '19.2px'],
+  ['page', '46rpx', '27.6px']
+];
+const missingTypographySystem = typeScale.some(([name, phone, pad]) => {
+  const phoneIndex = GLOBAL_STYLE.indexOf(`--ui-type-${name}: ${phone};`);
+  const padIndex = GLOBAL_STYLE.indexOf(`--ui-type-${name}: ${pad};`);
+  return phoneIndex < 0 || padIndex < 0 || padIndex <= phoneIndex;
+}) || !(
+  /page \.hero-title,[\s\S]*?font-size:\s*var\(--ui-type-page\)\s*!important/.test(GLOBAL_STYLE) &&
+  /page \.section-title,[\s\S]*?font-size:\s*var\(--ui-type-section\)\s*!important/.test(GLOBAL_STYLE) &&
+  /page \.list-title,[\s\S]*?font-size:\s*var\(--ui-type-value\)\s*!important/.test(GLOBAL_STYLE) &&
+  /page \.list-desc,[\s\S]*?font-size:\s*var\(--ui-type-meta\)\s*!important/.test(GLOBAL_STYLE)
+);
+const missingTabSizeSystem = !(
+  /--ui-tab-font-size:\s*var\(--ui-type-control\)/.test(GLOBAL_STYLE) &&
+  /--ui-tab-min-height:\s*66rpx/.test(GLOBAL_STYLE) &&
+  /--ui-tab-min-height:\s*39\.6px/.test(GLOBAL_STYLE) &&
+  /--ui-tab-sidebar-min-height:\s*44\.4px/.test(GLOBAL_STYLE) &&
+  /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
+);
+const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'pages', 'home', 'home.wxss'), 'utf8');
+const portalStyle = fs.readFileSync(path.join(MINI_ROOT, 'pages', 'portal', 'portal.wxss'), 'utf8');
+const adminPermissionsStyle = fs.readFileSync(
+  path.join(MINI_ROOT, 'subpackages', 'org', 'pages', 'adminPermissions', 'adminPermissions.wxss'),
+  'utf8'
+);
+const unstableSummaryGrid = !(
+  /\.info-grid\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/m.test(homeStyle) &&
+  /\.info-grid\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/m.test(portalStyle) &&
+  !/@media\s*\(max-width:\s*360px\)\s*\{[\s\S]*?\.info-block\s*\{[^}]*width:\s*100%/m.test(homeStyle)
+);
+const typographyRoleDrift = !(
+  /\.popup-title,[\s\S]*?\.message-switch-title\s*\{[\s\S]*?font-size:\s*var\(--ui-type-dialog\)\s*!important/m.test(GLOBAL_STYLE) &&
+  /\.permission-hero-title\s*\{[^}]*font-size:\s*var\(--ui-type-page/m.test(adminPermissionsStyle) &&
+  /\.permission-dialog-title\s*\{[^}]*font-size:\s*var\(--ui-type-dialog/m.test(adminPermissionsStyle) &&
+  !/\.permission-hero-title\s*\{\s*font-size:\s*38px/m.test(adminPermissionsStyle)
 );
 const remoteAssets = walk(MINI_ROOT, '.wxml').flatMap(file => {
   const source = fs.readFileSync(file, 'utf8');
@@ -610,6 +658,10 @@ const report = {
     nativeInputFlex: nativeInputFlex.length,
     oversizedTimetable: oversizedTimetable.length,
     missingDeviceSystem: missingDeviceSystem ? 1 : 0,
+    missingTypographySystem: missingTypographySystem ? 1 : 0,
+    missingTabSizeSystem: missingTabSizeSystem ? 1 : 0,
+    unstableSummaryGrid: unstableSummaryGrid ? 1 : 0,
+    typographyRoleDrift: typographyRoleDrift ? 1 : 0,
     transitionAll: styles.reduce((sum, item) => sum + item.transitionAll, 0),
     willChange: styles.reduce((sum, item) => sum + item.willChange, 0),
     illegalColors: illegalColors.length,
@@ -666,6 +718,10 @@ const report = {
   stackedButtonMetrics,
   forcedDialogViewport,
   miscenteredDialogShell,
+  missingTypographySystem,
+  missingTabSizeSystem,
+  unstableSummaryGrid,
+  typographyRoleDrift,
   styles
 };
 
@@ -688,6 +744,7 @@ if (process.argv.includes('--json')) {
 if (process.argv.includes('--strict')) {
   const failed = report.summary.missingFeedback || report.summary.nestedRisks || report.summary.timingMismatches || report.summary.shellActive ||
     report.summary.nativeInputFlex || report.summary.oversizedTimetable || report.summary.missingDeviceSystem ||
+    report.summary.missingTypographySystem || report.summary.missingTabSizeSystem || report.summary.unstableSummaryGrid || report.summary.typographyRoleDrift ||
     report.summary.transitionAll || report.summary.willChange || report.summary.illegalColors || report.summary.remoteAssets ||
     report.summary.visibleInternalIds ||
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||

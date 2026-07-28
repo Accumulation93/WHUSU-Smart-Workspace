@@ -206,9 +206,6 @@ page {
     padding: 34rpx 26rpx 30rpx;
   }
 
-  .hero-title {
-    font-size: 42rpx;
-  }
 }
 
 @media (min-width: 520px) {

@@ -425,17 +425,19 @@ scroll-view {
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 12rpx;
+  gap: var(--ui-tab-gap, 8rpx);
   margin-bottom: 22rpx;
 }
 
 .tab {
-  padding: 16rpx 24rpx;
-  border-radius: 999rpx;
+  min-height: var(--ui-tab-min-height, 66rpx);
+  padding: var(--ui-tab-padding-y, 14rpx) var(--ui-tab-padding-x, 18rpx);
+  border-radius: var(--ui-tab-radius, 20rpx);
   background: rgba(255, 255, 255, 0.74);
   border: 1rpx solid rgba(255, 255, 255, 0.54);
   color: #53687f;
-  font-size: 24rpx;
+  font-size: var(--ui-tab-font-size, 24rpx);
+  line-height: var(--ui-leading-control, 1.35);
   font-weight: 600;
   box-shadow: 0 10rpx 22rpx rgba(15, 23, 42, 0.04);
   transition: transform 0.18s ease, box-shadow 0.22s ease, background 0.22s ease, color 0.22s ease;
@@ -2130,13 +2132,6 @@ scroll-view {
     padding: 34rpx 28rpx 30rpx;
   }
 
-  .hero-admin .hero-title {
-    font-size: 42rpx;
-  }
-
-  .hero-admin-subtitle {
-    font-size: 27rpx;
-  }
 }
 
 .filter-loading-bar {
@@ -3767,7 +3762,7 @@ scroll-view {
 
   .admin-workbench > .tabs .tab {
     width: 100%;
-    min-height: 44px;
+    min-height: var(--ui-tab-sidebar-min-height);
     justify-content: flex-start;
     padding: 10px 14px;
     text-align: left;

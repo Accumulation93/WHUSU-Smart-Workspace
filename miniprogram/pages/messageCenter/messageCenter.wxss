@@ -13,11 +13,11 @@
 .message-tabs {
   flex: 0 0 auto;
   display: flex;
-  gap: 12rpx;
+  gap: var(--ui-tab-gap, 8rpx);
   margin-bottom: 14rpx;
-  padding: 8rpx;
+  padding: var(--ui-tab-shell-padding, 8rpx);
   border: 1rpx solid rgba(255, 255, 255, 0.72);
-  border-radius: 24rpx;
+  border-radius: var(--ui-tab-shell-radius, 26rpx);
   background: linear-gradient(135deg, rgba(255,255,255,0.78), rgba(248,251,255,0.62));
   box-shadow: 0 14rpx 28rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.78);
   backdrop-filter: blur(24rpx);
@@ -26,11 +26,13 @@
 
 .message-tab {
   flex: 1;
-  padding: 18rpx;
+  min-height: var(--ui-tab-min-height, 66rpx);
+  padding: var(--ui-tab-padding-y, 14rpx) var(--ui-tab-padding-x, 18rpx);
   text-align: center;
-  border-radius: 18rpx;
+  border-radius: var(--ui-tab-radius, 20rpx);
   color: #64748b;
-  font-size: 25rpx;
+  font-size: var(--ui-tab-font-size, 24rpx);
+  line-height: var(--ui-leading-control, 1.35);
   font-weight: 700;
 }
 
@@ -66,7 +68,7 @@
   flex: 0 0 auto;
   margin-right: 20rpx;
   color: #64748b;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta, 22rpx);
   font-weight: 700;
 }
 
@@ -74,7 +76,7 @@
   flex: 1;
   min-width: 0;
   color: #1e293b;
-  font-size: 24rpx;
+  font-size: var(--ui-type-body, 25rpx);
   font-weight: 750;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -90,7 +92,7 @@
   border: 1rpx solid rgba(56,189,248,0.42);
   border-radius: 18rpx;
   color: #0369a1;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta, 22rpx);
   font-weight: 650;
   background: linear-gradient(135deg, rgba(240,249,255,0.94), rgba(224,242,254,0.72));
   box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.82);
@@ -117,7 +119,7 @@
   padding: 9rpx 12rpx;
   border-radius: 12rpx;
   color: #2563eb;
-  font-size: 23rpx;
+  font-size: var(--ui-type-label, 23rpx);
   font-weight: 700;
 }
 
@@ -195,7 +197,7 @@
   border: 1rpx solid rgba(147,197,253,0.58);
   border-radius: 12rpx;
   color: #2563eb;
-  font-size: 19rpx;
+  font-size: var(--ui-type-caption, 20rpx);
   font-weight: 800;
   line-height: 1.3;
   background: rgba(219,234,254,0.76);
@@ -210,7 +212,7 @@
   border: 1rpx solid rgba(186,210,232,0.72);
   border-radius: 14rpx;
   color: #475569;
-  font-size: 19rpx;
+  font-size: var(--ui-type-caption, 20rpx);
   font-weight: 700;
   line-height: 1.35;
   background: linear-gradient(135deg, rgba(248,250,252,0.94), rgba(241,245,249,0.78));
@@ -231,13 +233,13 @@
 .organization-current {
   flex: 0 0 auto;
   color: #2563eb;
-  font-size: 18rpx;
+  font-size: var(--ui-type-micro, 18rpx);
   font-weight: 800;
 }
 
 .message-title {
   color: #0f172a;
-  font-size: 26rpx;
+  font-size: var(--ui-type-emphasis, 26rpx);
   font-weight: 750;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -246,15 +248,15 @@
 .message-desc {
   margin-top: 4rpx;
   color: #64748b;
-  font-size: 22rpx;
-  line-height: 1.45;
+  font-size: var(--ui-type-meta, 22rpx);
+  line-height: var(--ui-leading-body, 1.6);
   overflow-wrap: anywhere;
 }
 
 .message-time {
   margin-top: 6rpx;
   color: #94a3b8;
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption, 20rpx);
 }
 
 .message-delete {
@@ -284,7 +286,7 @@
 .message-loading {
   padding: 56rpx 20rpx;
   color: #94a3b8;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control, 24rpx);
   text-align: center;
 }
 
@@ -326,7 +328,7 @@
 .message-switch-title {
   margin-top: 16rpx;
   color: #0f172a;
-  font-size: 32rpx;
+  font-size: var(--ui-type-dialog, 32rpx);
   font-weight: 800;
   line-height: 1.35;
 }
@@ -334,7 +336,8 @@
 .message-switch-desc {
   margin-top: 14rpx;
   color: #64748b;
-  font-size: 23rpx;
+  font-size: var(--ui-type-label, 23rpx);
+  line-height: var(--ui-leading-body, 1.6);
 }
 
 .message-switch-org {
@@ -343,7 +346,7 @@
   border: 1rpx solid rgba(147,197,253,0.58);
   border-radius: 16rpx;
   color: #2563eb;
-  font-size: 25rpx;
+  font-size: var(--ui-type-body, 25rpx);
   font-weight: 750;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -386,7 +389,11 @@
 
   .organization-filter-label,
   .organization-filter-value {
-    font-size: 15px;
+    font-size: var(--ui-type-body);
+  }
+
+  .organization-filter-label {
+    font-size: var(--ui-type-label);
   }
 
   .message-row {
@@ -397,13 +404,13 @@
   .organization-meta,
   .message-category {
     border-radius: 9px;
-    font-size: 13px;
+    font-size: var(--ui-type-caption);
   }
 
   .message-dialog-btn {
     min-height: 44px;
     border-radius: 12px;
-    font-size: 15px;
+    font-size: var(--ui-type-body);
   }
 
   .message-switch-dialog {

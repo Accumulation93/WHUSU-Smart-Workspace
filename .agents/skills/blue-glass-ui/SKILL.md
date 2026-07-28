@@ -161,6 +161,33 @@ For repeated rows inside cards:
 }
 ```
 
+## Typography And Device Scale
+
+Use the semantic type ladder from `miniprogram/app.wxss`. Do not create a page-local
+font scale or make Pad typography by independently guessing each class:
+
+- `--ui-type-micro` / `caption` / `meta` — counts, timestamps, metadata
+- `--ui-type-label` / `control` / `body` — labels, tabs, buttons, body copy
+- `--ui-type-emphasis` / `value` — emphasized values and repeated item titles
+- `--ui-type-section` / `dialog` / `page` — section, dialog, and page headings
+
+The role order is invariant on every device: metadata < labels/body < emphasized
+values < section titles < page titles. At the 520px Pad breakpoint every token is
+the phone ladder multiplied by the same factor and converted to controlled `px`;
+screen rotation may change layout, but must not change semantic rank. Never let a
+content value become larger than its containing section title on Pad when it is
+smaller on phone.
+
+Wrapped headings use about `1.4–1.5` line height; body, descriptions, organization
+names, and detail values use about `1.55–1.7`. A visually single-line label still
+needs a readable line height because device width or accessibility text can make it
+wrap.
+
+Compact summary pairs such as name/identity use a two-column
+`repeat(2, minmax(0, 1fr))` grid. Keep the cards on the same row across comparable
+phone widths; allow text to wrap inside its own card instead of forcing the entire
+card to a new row. Full-width rows explicitly span both columns.
+
 ## Titles And Panel Heads
 
 Use a compact panel header. Put action buttons in the header when there is one
@@ -236,12 +263,13 @@ tabs or large separated pills.
 
 .tab {
   flex: 1;
-  height: 66rpx;
-  line-height: 66rpx;
-  border-radius: 20rpx;
+  min-height: var(--ui-tab-min-height);
+  padding: var(--ui-tab-padding-y) var(--ui-tab-padding-x);
+  border-radius: var(--ui-tab-radius);
   color: #49627f;
-  font-size: 24rpx;
+  font-size: var(--ui-tab-font-size);
   font-weight: 700;
+  line-height: var(--ui-leading-control);
   text-align: center;
 }
 
@@ -390,6 +418,8 @@ Before finishing:
 - Compare against scoring/admin pages, not a generic SaaS template.
 - Hero is compact and premium, not huge.
 - Top tabs are admin segmented tabs.
+- Fonts and tabs use the global semantic tokens; phone/Pad scaling never reverses text hierarchy.
+- Comparable phone widths keep name/identity summary cards in the same two-column row.
 - Every major content group is a glass card.
 - Repeated rows use inner list-item cards with lighter shadows.
 - Buttons are sized for work, not marketing.

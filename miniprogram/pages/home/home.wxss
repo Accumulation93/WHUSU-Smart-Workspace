@@ -115,7 +115,7 @@ scroll-view {
 
 .hero-title {
   color: #ffffff;
-  font-size: 50rpx;
+  font-size: var(--ui-type-page, 46rpx);
   font-weight: 700;
   line-height: 1.24;
   letter-spacing: 1rpx;
@@ -125,8 +125,8 @@ scroll-view {
 .hero-subtitle {
   margin-top: 12rpx;
   color: rgba(255, 255, 255, 0.92);
-  font-size: 26rpx;
-  line-height: 1.72;
+  font-size: var(--ui-type-emphasis, 26rpx);
+  line-height: var(--ui-leading-relaxed, 1.7);
 }
 
 .tabs-card,
@@ -152,19 +152,21 @@ scroll-view {
 
 .tabs-card {
   display: flex;
-  gap: 16rpx;
-  padding: 16rpx;
+  gap: var(--ui-tab-gap, 8rpx);
+  padding: var(--ui-tab-shell-padding, 8rpx);
 }
 
 .feature-tab {
   position: relative;
   flex: 1;
   overflow: hidden;
-  padding: 24rpx 16rpx;
-  border-radius: 24rpx;
+  min-height: var(--ui-tab-min-height, 66rpx);
+  padding: var(--ui-tab-padding-y, 14rpx) var(--ui-tab-padding-x, 18rpx);
+  border-radius: var(--ui-tab-radius, 20rpx);
   text-align: center;
   color: #49627f;
-  font-size: 26rpx;
+  font-size: var(--ui-tab-font-size, 24rpx);
+  line-height: var(--ui-leading-control, 1.35);
   font-weight: 700;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 249, 255, 0.82) 100%);
   border: 1rpx solid rgba(219, 229, 241, 0.92);
@@ -240,7 +242,7 @@ scroll-view {
   margin-bottom: 10rpx;
   padding: 8rpx 4rpx 6rpx;
   color: #0f172a;
-  font-size: 34rpx;
+  font-size: var(--ui-type-value, 28rpx);
   font-weight: 700;
   line-height: 1.48;
   letter-spacing: 0.2rpx;
@@ -266,8 +268,8 @@ scroll-view {
   background: linear-gradient(135deg, rgba(250, 252, 255, 0.94) 0%, rgba(245, 248, 255, 0.86) 100%);
   border: 1rpx solid rgba(226, 232, 240, 0.52);
   color: #64748b;
-  font-size: 24rpx;
-  line-height: 1.8;
+  font-size: var(--ui-type-body, 25rpx);
+  line-height: var(--ui-leading-relaxed, 1.7);
 }
 
 .info-head {
@@ -284,7 +286,7 @@ scroll-view {
   position: relative;
   padding-left: 20rpx;
   color: #0f172a;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section, 30rpx);
   font-weight: 700;
   line-height: 1.4;
   letter-spacing: 0.2rpx;
@@ -350,16 +352,22 @@ scroll-view {
   margin-top: 8rpx;
 }
 
-.field-grid,
-.info-grid {
+.field-grid {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 20rpx;
 }
 
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20rpx;
+}
+
 .info-block {
-  width: calc(50% - 10rpx);
+  width: auto;
+  min-width: 0;
   padding: 24rpx 22rpx;
   border-radius: 24rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 251, 255, 0.80) 100%);
@@ -371,7 +379,8 @@ scroll-view {
 }
 
 .info-block-full {
-  width: 100%;
+  width: auto;
+  grid-column: 1 / -1;
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.6) 0%, rgba(219, 234, 254, 0.4) 100%);
   border: 1rpx solid rgba(191, 219, 254, 0.6);
 }
@@ -379,13 +388,13 @@ scroll-view {
 .info-label {
   margin-bottom: 10rpx;
   color: #64748b;
-  font-size: 23rpx;
+  font-size: var(--ui-type-label, 23rpx);
   line-height: 1.5;
 }
 
 .info-value {
   color: #0f172a;
-  font-size: 28rpx;
+  font-size: var(--ui-type-value, 28rpx);
   font-weight: 700;
   line-height: 1.5;
   word-break: break-word;
@@ -881,18 +890,6 @@ scroll-view {
 
   .hero {
     padding: 34rpx 26rpx 30rpx;
-  }
-
-  .hero-title {
-    font-size: 42rpx;
-  }
-
-  .tabs-card {
-    flex-direction: column;
-  }
-
-  .info-block {
-    width: 100%;
   }
 
   .target-main {
@@ -2145,7 +2142,7 @@ scroll-view {
   .filter-title,
   .audit-home-card-desc,
   .audit-step-meta {
-    font-size: 13px !important;
+    font-size: var(--ui-type-meta) !important;
     line-height: 1.55 !important;
   }
 
@@ -2154,13 +2151,13 @@ scroll-view {
   .member-name,
   .merit-card-name,
   .result-group-label {
-    font-size: 16px !important;
+    font-size: var(--ui-type-value) !important;
     line-height: 1.5 !important;
   }
 
   .activity-name,
   .status-title {
-    font-size: 20px !important;
+    font-size: var(--ui-type-value) !important;
     line-height: 1.45 !important;
   }
 
@@ -2170,7 +2167,7 @@ scroll-view {
   .readonly-tip,
   .profile-field-title,
   .profile-field-type {
-    font-size: 14px !important;
+    font-size: var(--ui-type-label) !important;
     line-height: 1.55 !important;
   }
 

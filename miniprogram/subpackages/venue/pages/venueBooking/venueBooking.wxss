@@ -1215,15 +1215,16 @@ page {
 
 @media (max-width: 519px) {
   .tabs-card {
-    gap: 8rpx;
-    padding: 10rpx;
+    gap: var(--ui-tab-gap, 8rpx);
+    padding: var(--ui-tab-shell-padding, 8rpx);
   }
 
   .tabs-card .feature-tab {
     min-width: 0;
-    padding: 20rpx 6rpx;
-    font-size: 24rpx;
-    line-height: 1.35;
+    min-height: var(--ui-tab-min-height, 66rpx);
+    padding: var(--ui-tab-padding-y, 14rpx) 6rpx;
+    font-size: var(--ui-tab-font-size, 24rpx);
+    line-height: var(--ui-leading-control, 1.35);
     white-space: nowrap;
     word-break: keep-all;
   }
@@ -1311,7 +1312,7 @@ page {
 
   .page > .tabs-card .feature-tab {
     width: 100%;
-    min-height: 46px;
+    min-height: var(--ui-tab-sidebar-min-height);
     justify-content: flex-start;
     padding: 10px 14px;
     text-align: left;

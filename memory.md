@@ -298,6 +298,17 @@ callFunction({ name, data, success, fail })
 - 底部 sheet 是常规例外，但 Pad 宽度封顶时必须使用 `left: 50% + translateX(-50%)` 明确居中，不得把手机端对称 inset 与 Pad 的 `max-width` 混用。
 - 手机、Pad 竖屏和 Pad 横屏必须实测弹窗左右视觉边距相等；`scripts/ui-audit.js --strict` 必须保持 `miscenteredDialogShell=0`。
 
+### Bug 20: 字体层级漂移与相近手机信息卡布局分叉
+
+**原因**: 各页面分别写死字号，Pad 断点只覆盖少量常用类，其余 `rpx` 继续随屏幕放大，导致正文、内容值和页签可能超过标题；首页还在 `max-width: 360px` 断点把信息块强制改为整行，使尺寸相近的手机出现姓名/身份卡片一行与分行两套结果。
+
+**永久规则**:
+- 全局字体只使用 `app.wxss` 的语义阶梯：微型、说明、元数据、标签、控件、正文、强调、值、章节、弹窗、页面标题；所有设备保持角色顺序不变。
+- 手机使用 `rpx` 阶梯，Pad 从 520px 起把整套阶梯按同一倍率映射为受控 `px`；横竖屏可以改变布局，不得改变标题、正文、标签之间的比例。
+- 页签字号、高度、内边距、间距和圆角统一使用 `--ui-tab-*` 令牌，禁止页面各自恢复胶囊页签或任意高度。
+- 姓名/身份等摘要对使用稳定的两列 `minmax(0, 1fr)` 网格；长文字在自己的卡片内安全换行，全宽信息显式跨两列，不得因 360px 等相近手机断点整块掉到下一行。
+- 多行标题使用约 `1.4–1.5` 行高，正文和说明使用约 `1.55–1.7`；`scripts/ui-audit.js --strict` 必须保持字体阶梯、页签令牌和摘要网格契约全部为 0 风险。
+
 ### 发布与编译配置锁
 
 - `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。

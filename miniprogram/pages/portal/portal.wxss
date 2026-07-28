@@ -104,7 +104,7 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .hero-title {
   color: #ffffff;
-  font-size: 50rpx;
+  font-size: var(--ui-type-page, 46rpx);
   font-weight: 700;
   line-height: 1.24;
   letter-spacing: 1rpx;
@@ -114,8 +114,8 @@ button, input, textarea, picker, view, text, scroll-view {
 .hero-subtitle {
   margin-top: 12rpx;
   color: rgba(255, 255, 255, 0.92);
-  font-size: 26rpx;
-  line-height: 1.72;
+  font-size: var(--ui-type-emphasis, 26rpx);
+  line-height: var(--ui-leading-relaxed, 1.7);
 }
 
 /* ── 玻璃卡片 ── */
@@ -155,7 +155,7 @@ button, input, textarea, picker, view, text, scroll-view {
   position: relative;
   padding-left: 20rpx;
   color: #0f172a;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section, 30rpx);
   font-weight: 700;
   line-height: 1.4;
   letter-spacing: 0.2rpx;
@@ -179,7 +179,7 @@ button, input, textarea, picker, view, text, scroll-view {
   margin-bottom: 10rpx;
   padding: 8rpx 4rpx 6rpx;
   color: #0f172a;
-  font-size: 34rpx;
+  font-size: var(--ui-type-value, 28rpx);
   font-weight: 700;
   line-height: 1.48;
   letter-spacing: 0.2rpx;
@@ -198,14 +198,14 @@ button, input, textarea, picker, view, text, scroll-view {
 
 /* ── 信息网格与信息块 ── */
 .info-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20rpx;
 }
 
 .info-block {
-  width: calc(50% - 10rpx);
+  width: auto;
+  min-width: 0;
   padding: 24rpx 22rpx;
   border-radius: 24rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 251, 255, 0.80) 100%);
@@ -217,7 +217,8 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .info-block-full {
-  width: 100%;
+  width: auto;
+  grid-column: 1 / -1;
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.6) 0%, rgba(219, 234, 254, 0.4) 100%);
   border: 1rpx solid rgba(191, 219, 254, 0.6);
 }
@@ -225,13 +226,13 @@ button, input, textarea, picker, view, text, scroll-view {
 .info-label {
   margin-bottom: 10rpx;
   color: #64748b;
-  font-size: 23rpx;
+  font-size: var(--ui-type-label, 23rpx);
   line-height: 1.5;
 }
 
 .info-value {
   color: #0f172a;
-  font-size: 28rpx;
+  font-size: var(--ui-type-value, 28rpx);
   font-weight: 700;
   line-height: 1.5;
   word-break: break-word;
@@ -667,7 +668,7 @@ button, input, textarea, picker, view, text, scroll-view {
 .dialog-title {
   margin-top: 18rpx;
   color: #0f172a;
-  font-size: 32rpx;
+  font-size: var(--ui-type-dialog, 32rpx);
   font-weight: 700;
   line-height: 1.4;
 }
@@ -675,8 +676,8 @@ button, input, textarea, picker, view, text, scroll-view {
 .dialog-desc {
   margin-top: 12rpx;
   color: #64748b;
-  font-size: 24rpx;
-  line-height: 1.72;
+  font-size: var(--ui-type-control, 24rpx);
+  line-height: var(--ui-leading-relaxed, 1.7);
 }
 
 .dialog-actions {
@@ -730,11 +731,11 @@ button, input, textarea, picker, view, text, scroll-view {
 /* ── 视图切换标签 ── */
 .app-view-tabs {
   display: flex;
-  gap: 6rpx;
+  gap: var(--ui-tab-gap, 8rpx);
   flex-shrink: 0;
-  padding: 6rpx;
+  padding: var(--ui-tab-shell-padding, 8rpx);
   background: linear-gradient(135deg, rgba(255,255,255,0.80) 0%, rgba(248,251,255,0.64) 100%);
-  border-radius: 20rpx;
+  border-radius: var(--ui-tab-shell-radius, 26rpx);
   border: 1rpx solid rgba(255,255,255,0.72);
   box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.82);
   overflow: hidden;
@@ -742,12 +743,13 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .app-view-tab {
-  padding: 10rpx 22rpx;
-  font-size: 22rpx;
+  min-height: var(--ui-tab-min-height, 66rpx);
+  padding: var(--ui-tab-padding-y, 14rpx) var(--ui-tab-padding-x, 18rpx);
+  font-size: var(--ui-tab-font-size, 24rpx);
   font-weight: 600;
   color: #64748b;
-  line-height: 1;
-  border-radius: 14rpx;
+  line-height: var(--ui-leading-control, 1.35);
+  border-radius: var(--ui-tab-radius, 20rpx);
   transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease;
 }
 
@@ -943,7 +945,7 @@ button, input, textarea, picker, view, text, scroll-view {
   .notification-desc,
   .notification-time,
   .app-grid-desc {
-    font-size: 13px !important;
+    font-size: var(--ui-type-meta) !important;
     line-height: 1.55 !important;
   }
 
@@ -951,23 +953,23 @@ button, input, textarea, picker, view, text, scroll-view {
   .nav-row-label,
   .notification-title,
   .app-grid-label {
-    font-size: 16px !important;
+    font-size: var(--ui-type-value) !important;
     line-height: 1.5 !important;
   }
 
   .activity-name {
-    font-size: 20px !important;
+    font-size: var(--ui-type-value) !important;
     line-height: 1.45 !important;
   }
 
   .app-search-input {
-    font-size: 14px !important;
+    font-size: var(--ui-type-label) !important;
     line-height: 1.55 !important;
   }
 
   .app-view-tab {
-    font-size: 13px !important;
-    line-height: 18px !important;
+    font-size: var(--ui-tab-font-size) !important;
+    line-height: var(--ui-leading-control) !important;
   }
 
   .app-grid-badge {
