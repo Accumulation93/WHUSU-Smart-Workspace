@@ -296,13 +296,13 @@
           <view class="info-label">所属部门</view>
           <view class="info-value">{{user.department}}</view>
         </view>
-        <view class="info-block">
+        <view class="info-block info-block-wide">
           <view class="info-label">身份</view>
           <view class="info-value">{{user.identity}}</view>
         </view>
-        <view class="info-block">
-          <view class="info-label">职能组</view>
-          <view class="info-value">{{user.workGroup || '未设置'}}</view>
+        <view class="info-block info-block-wide" wx:if="{{user.workGroup}}">
+          <view class="info-label">工作分工（职能组）</view>
+          <view class="info-value">{{user.workGroup}}</view>
         </view>
       </view>
 

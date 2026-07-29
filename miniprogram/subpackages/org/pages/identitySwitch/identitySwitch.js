@@ -1,5 +1,6 @@
 const { getErrorText } = require('../../../../utils/api');
 const authContext = require('../../../../utils/authContext');
+const contextRouteGuard = require('../../../../utils/contextRouteGuard');
 const orgSession = require('../../../../utils/orgSession');
 
 function normalizeText(value) {
@@ -126,7 +127,7 @@ Page({
       this.applyCatalog(catalog);
     } catch (error) {
       if (!orgSession.isRequestCurrent(this, request)) return;
-      this.setData({ errorText: getErrorText(error, '请稍后刷新') });
+      this.setData({ errorText: getErrorText(error, '未加载，请重试') });
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) {
         this.setData({ loading: false });
@@ -197,10 +198,10 @@ Page({
     }
     this.setData({ switchingIdentityId: identityId, errorText: '' });
     try {
-      await authContext.activateSelection(this.data.draftOrganizationId, identityId);
+      const activated = await authContext.activateSelection(this.data.draftOrganizationId, identityId);
       orgSession.invalidateRequests(this);
       this._active = false;
-      wx.navigateBack();
+      contextRouteGuard.finishSwitch(activated);
     } catch (error) {
       const errorText = getErrorText(error, '未切换，请重试');
       this.setData({ errorText });

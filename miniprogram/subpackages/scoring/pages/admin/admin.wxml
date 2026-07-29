@@ -888,9 +888,9 @@
           </picker>
         </view>
         <view class="field">
-          <view class="field-label">职能组</view>
+          <view class="field-label">工作分工（职能组）</view>
           <picker range="{{workGroupOptions}}" bindchange="onHrWorkGroupChange">
-            <view class="picker-value">{{hrForm.workGroup || ((!hrForm.departmentId && !hrForm.department) ? '请先选择所属部门' : '请选择职能组')}}</view>
+            <view class="picker-value">{{hrForm.workGroup || ((!hrForm.departmentId && !hrForm.department) ? '请先选择所属部门' : '请选择工作分工')}}</view>
           </picker>
         </view>
         <view class="button-row compact-row">
@@ -1085,9 +1085,9 @@
         </view>
         <view class="filter-row">
           <view class="field field-half">
-            <view class="field-label">职能组</view>
+            <view class="field-label">工作分工（职能组）</view>
             <picker range="{{hrProfileFilterOptions.workGroups}}" bindchange="onHrProfileFilterChange" data-field="workGroups">
-              <view class="picker-value">{{hrProfileFilters.workGroup !== '无' ? hrProfileFilters.workGroup : (hrProfileFilters.department === '全部部门' ? '请先选择所属部门' : '请选择职能组')}}</view>
+              <view class="picker-value">{{hrProfileFilters.workGroup !== '无' ? hrProfileFilters.workGroup : (hrProfileFilters.department === '全部部门' ? '请先选择所属部门' : '请选择工作分工')}}</view>
             </picker>
           </view>
           <view class="field field-half">
@@ -1112,7 +1112,10 @@
           <view class="hr-member-card ui-motion-card" wx:for="{{hrProfileRows}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="openHrPersonDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="hr-member-main">
               <view class="hr-member-top">
-                <view class="hr-member-name">{{item.name}}</view>
+                <view class="hr-member-person">
+                  <view class="hr-member-name">{{item.name}}</view>
+                  <view class="hr-member-id">{{item.studentId}}</view>
+                </view>
                 <view class="hr-member-chips">
                   <view class="status-chip current-chip" wx:if="{{item.wxBindStatus === 'bound'}}">已绑定</view>
                   <view class="status-chip activation-chip" wx:elif="{{item.wxBindStatus === 'pending_activation'}}">待激活</view>
@@ -1120,14 +1123,19 @@
                   <view class="status-chip {{item.auditStatus === 'pending' ? 'pending-chip' : item.auditStatus === 'approved' ? 'current-chip' : item.auditStatus === 'rejected' ? 'rejected-chip' : 'none-chip'}}">{{item.auditStatusText}}</view>
                 </view>
               </view>
-              <view class="hr-member-meta">
-                <text class="hr-member-id">{{item.studentId}}</text>
-                <text class="hr-member-sep">|</text>
-                <text>{{item.department}}</text>
-                <text class="hr-member-sep">|</text>
-                <text>{{item.identity}}</text>
-                <text wx:if="{{item.workGroup}}" class="hr-member-sep">|</text>
-                <text wx:if="{{item.workGroup}}">{{item.workGroup}}</text>
+              <view class="hr-member-facts">
+                <view class="hr-member-fact hr-member-fact-full">
+                  <text class="hr-member-fact-label">所属部门</text>
+                  <text class="hr-member-fact-value">{{item.department}}</text>
+                </view>
+                <view class="hr-member-fact hr-member-fact-full">
+                  <text class="hr-member-fact-label">身份</text>
+                  <text class="hr-member-fact-value">{{item.identity}}</text>
+                </view>
+                <view class="hr-member-fact hr-member-fact-full" wx:if="{{item.workGroup}}">
+                  <text class="hr-member-fact-label">工作分工（职能组）</text>
+                  <text class="hr-member-fact-value">{{item.workGroup}}</text>
+                </view>
               </view>
               <view class="hr-member-profile-summary">补充资料：{{item.currentSummary}}</view>
               <view class="hr-member-profile-summary hr-member-profile-pending" wx:if="{{item.pendingSummary}}">待审核：{{item.pendingSummary}}</view>
@@ -1264,9 +1272,9 @@
               </picker>
             </view>
             <view class="field">
-              <view class="field-label">职能组</view>
+              <view class="field-label">工作分工（职能组）</view>
               <picker disabled="{{!canManageHrPeople}}" range="{{detailWorkGroupOptions}}" value="{{detailWorkGroupValue}}" bindchange="onDetailWorkGroupChange">
-                <view class="picker-value">{{detailHrValues._workGroupName || (!detailHrValues._departmentId ? '请先选择所属部门' : '请选择职能组')}}</view>
+                <view class="picker-value">{{detailHrValues._workGroupName || (!detailHrValues._departmentId ? '请先选择所属部门' : '请选择工作分工')}}</view>
               </picker>
             </view>
           </view>
@@ -1332,7 +1340,7 @@
                 </view>
               </view>
               <view class="field">
-                <view class="field-label">职能组</view>
+                <view class="field-label">工作分工（职能组）</view>
                 <picker range="{{assignmentWorkGroupOptions}}" range-key="name" value="{{assignmentWorkGroupIndex}}" bindchange="onMembershipAssignmentWorkGroupChange">
                   <view class="picker-value">{{membershipAssignmentForm.workGroup || '不设置'}}</view>
                 </picker>
@@ -1519,7 +1527,7 @@
               <text class="hr-import-preview-empty" wx:else>无需新建</text>
             </view>
             <view class="hr-import-preview-dict-row">
-              <text class="hr-import-preview-dict-label">职能组 {{hrImportPreview.newWorkGroups.length}}</text>
+              <text class="hr-import-preview-dict-label">工作分工（职能组） {{hrImportPreview.newWorkGroups.length}}</text>
               <view class="hr-import-preview-chips" wx:if="{{hrImportPreview.newWorkGroups.length}}">
                 <text class="hr-import-preview-chip" wx:for="{{hrImportPreview.newWorkGroups}}" wx:key="*this">{{item}}</text>
               </view>

@@ -495,7 +495,7 @@ module.exports = Behavior({
         { key: 'studentId', label: '学号', groupLabel: '基本信息', source: 'studentId', checked: true },
         { key: 'department', label: '所属部门', groupLabel: '基本信息', source: 'department', checked: true },
         { key: 'identity', label: '身份', groupLabel: '基本信息', source: 'identity', checked: true },
-        { key: 'workGroup', label: '职能组', groupLabel: '基本信息', source: 'workGroup', checked: true },
+        { key: 'workGroup', label: '工作分工（职能组）', groupLabel: '基本信息', source: 'workGroup', checked: true },
         { key: 'wxBindStatus', label: '微信绑定状态', groupLabel: '基本信息', source: 'wxBindStatus', checked: true },
         { key: 'auditStatus', label: '补充资料状态', groupLabel: '基本信息', source: 'auditStatus', checked: true }
       ];
@@ -1817,7 +1817,7 @@ module.exports = Behavior({
       if (missingLabels.length) {
         wx.showModal({
           title: '请选择资料所在列',
-          content: '请选择以下资料所在列：' + missingLabels.join('、') + '。职能组可留空。',
+          content: '请选择以下资料所在列：' + missingLabels.join('、') + '。工作分工可留空。',
           showCancel: false,
           confirmText: '关闭'
         });

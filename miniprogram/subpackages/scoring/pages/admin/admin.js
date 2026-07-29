@@ -135,7 +135,7 @@ Page({
       { value: 'score_desc', label: '按分数从高到低' },
       { value: 'name_asc', label: '按姓名首字母' },
       { value: 'department_asc', label: '按所属部门' },
-      { value: 'workGroup_asc', label: '按职能组' }
+      { value: 'workGroup_asc', label: '按工作分工' }
     ],
     resultSortLabel: '按分数从高到低',
     resultPagination: {
@@ -634,7 +634,7 @@ Page({
         { value: 'score_desc', label: '按分数从高到低' },
         { value: 'name_asc', label: '按姓名首字母' },
         { value: 'department_asc', label: '按所属部门' },
-        { value: 'workGroup_asc', label: '按职能组' }
+        { value: 'workGroup_asc', label: '按工作分工' }
       ],
       resultSortLabel: '按分数从高到低',
       adminLevelOptions: isSuperAdmin ? ['普通管理员', '超级管理员'] : ['普通管理员'],

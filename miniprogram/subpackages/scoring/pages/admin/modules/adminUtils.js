@@ -688,7 +688,7 @@ function buildHrProfileFilterOptions(rows = []) {
   return {
     departments: ['全部部门', ...[...new Set(departments)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
     identities: ['全部身份', ...[...new Set(identities)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
-    workGroups: ['全部职能组', ...[...new Set(workGroups)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
+    workGroups: ['全部工作分工', ...[...new Set(workGroups)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
     statuses: HR_PROFILE_STATUS_OPTIONS
   };
 }
@@ -1141,7 +1141,7 @@ function autoMapCsvColumn(headerName, templateFields) {
 }
 
 function buildCsvMappingOptions(templateFields) {
-  let labels = ['— 不导入 —', '姓名', '学号', '所属部门', '身份', '职能组'];
+  let labels = ['— 不导入 —', '姓名', '学号', '所属部门', '身份', '工作分工（职能组）'];
   let values = ['ignore', 'name', 'studentId', 'department', 'identity', 'workGroup'];
   let fields = templateFields || [];
   for (let i = 0; i < fields.length; i++) {

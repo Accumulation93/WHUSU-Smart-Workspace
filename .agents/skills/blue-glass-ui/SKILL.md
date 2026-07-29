@@ -209,6 +209,13 @@ Compact summary pairs such as name/identity use a two-column
 phone widths; allow text to wrap inside its own card instead of forcing the entire
 card to a new row. Full-width rows explicitly span both columns.
 
+Personnel cards use stable labeled facts instead of joining department, identity,
+and work assignment into one flexible metadata line. Name and student number may
+share the first equal-width row; department, identity, and an available work
+assignment each occupy an explicit full-width row. Label the last field
+`工作分工（职能组）` and omit the entire row when no work assignment is configured;
+never render a placeholder card merely to preserve height.
+
 ## Titles And Panel Heads
 
 Use a compact panel header. Put action buttons in the header when there is one
