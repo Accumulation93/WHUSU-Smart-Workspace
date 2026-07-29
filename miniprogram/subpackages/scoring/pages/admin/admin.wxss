@@ -4542,7 +4542,7 @@ scroll-view {
   margin-bottom: 18rpx;
 }
 .context-switch-guard-card {
-  padding: 28rpx 26rpx 24rpx;
+  padding: 26rpx;
   text-align: center;
 }
 
@@ -4584,7 +4584,7 @@ scroll-view {
 }
 
 @media (min-width: 520px) {
-  .context-switch-guard-card { padding: 24px 26px 22px; }
+  .context-switch-guard-card { padding: 24px 26px; }
   .context-switch-guard-icon {
     width: 50px;
     height: 50px;

@@ -1,22 +1,7 @@
 <wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
 <page-meta page-style="{{dragActive ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
-  <view class="hero hero-admin" wx:if="{{hasPermission}}">
-    <view class="hero-badge">管理端</view>
-    <view class="hero-title">评分管理</view>
-    <view class="hero-subtitle hero-admin-subtitle">{{subAppLabel}} · {{user.name}} - {{isSuperAdmin ? '超级管理员' : '管理员'}}</view>
-    <view class="hero-org-context org-context-action" wx:if="{{currentOrganizationName}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
-      <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
-      <view class="hero-org-context-copy">
-        <view class="hero-org-context-label">当前组织</view>
-        <view class="hero-org-context-name">{{currentOrganizationName}}</view>
-      </view>
-      <view class="hero-org-context-action">
-        <text>切换</text>
-        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
-      </view>
-    </view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{subAppLabel || '考核评分'}}" tone="admin"></workspace-hero>
 
   <view class="empty-card" wx:if="{{!hasPermission}}">
     <view class="empty-title">暂无评分管理权限</view>

@@ -1,20 +1,5 @@
 <view class="page">
-  <view class="hero hero-admin" wx:if="{{hasPermission}}">
-    <view class="hero-badge">管理端</view>
-    <view class="hero-title">场地管理</view>
-    <view class="hero-subtitle hero-admin-subtitle">场地借用 · {{adminDisplayName}} - {{adminLevelLabel}}</view>
-    <view class="hero-org-context org-context-action" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
-      <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
-      <view class="hero-org-context-copy">
-        <view class="hero-org-context-label">当前组织</view>
-        <view class="hero-org-context-name">{{currentOrganizationName || '未选择组织'}}</view>
-      </view>
-      <view class="hero-org-context-action">
-        <text>切换</text>
-        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
-      </view>
-    </view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用 · 场地管理" tone="admin"></workspace-hero>
 
   <!-- Main Tabs -->
   <view class="empty-card" wx:if="{{!hasPermission}}">

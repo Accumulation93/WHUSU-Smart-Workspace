@@ -1,9 +1,5 @@
 <view class="page auth-page">
-  <view class="hero auth-hero">
-    <view class="hero-badge">管理端</view>
-    <view class="hero-title">身份认证</view>
-    <view class="hero-subtitle">管理身份认证和账号恢复</view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="身份认证" tone="admin"></workspace-hero>
 
   <view class="global-scope-notice" wx:if="{{showGlobalScopeNotice}}">
     <view class="global-scope-icon"><ui-icon name="shield" tone="primary" size="29" ariaLabel="全部组织" /></view>

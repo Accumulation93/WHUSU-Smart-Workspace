@@ -1,0 +1,37 @@
+<view class="workspace-hero workspace-hero-{{tone}}">
+  <view class="workspace-hero-heading">
+    <view class="workspace-hero-copy">
+      <view class="workspace-app-name">{{appName}}</view>
+      <view class="workspace-page-name" wx:if="{{pageName}}">{{pageName}}</view>
+    </view>
+    <view class="workspace-brand-mark" aria-hidden="true">
+      <ui-icon name="grid" tone="white" size="34" ariaLabel="WHUSU智慧工作台" />
+    </view>
+  </view>
+
+  <view
+    class="workspace-person workspace-person-card"
+    wx:if="{{signedIn}}"
+    catchtap="onSwitchTap"
+    hover-class="workspace-person-pressing"
+    hover-start-time="0"
+    hover-stay-time="160"
+    hover-stop-propagation="{{true}}"
+    aria-role="button"
+    aria-label="切换组织与身份"
+  >
+    <view class="workspace-person-avatar">{{personInitial}}</view>
+    <view class="workspace-person-copy">
+      <view class="workspace-person-primary">
+        <text class="workspace-person-name">{{personName}}</text>
+        <text class="workspace-identity">{{identityName}}</text>
+      </view>
+      <view class="workspace-organization">{{organizationName}}</view>
+      <view class="workspace-person-detail" wx:if="{{identityDetail}}">{{identityDetail}}</view>
+    </view>
+    <view class="workspace-switch-action">
+      <text>切换</text>
+      <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换组织与身份" />
+    </view>
+  </view>
+</view>

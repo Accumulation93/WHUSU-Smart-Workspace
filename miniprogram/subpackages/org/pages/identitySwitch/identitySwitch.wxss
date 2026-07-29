@@ -351,7 +351,7 @@ page {
 }
 
 .organization-search-empty {
-  padding: 36rpx 18rpx 24rpx;
+    padding: 28rpx 18rpx;
   color: #64748b;
   font-size: var(--ui-type-body);
   line-height: 1.6;
@@ -458,7 +458,7 @@ page {
 }
 
 .empty-state {
-  padding: 48rpx 22rpx 42rpx;
+    padding: 34rpx 22rpx;
   text-align: center;
 }
 

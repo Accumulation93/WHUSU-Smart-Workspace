@@ -1,48 +1,9 @@
 <view class="page">
-  <view class="hero">
-    <view class="hero-badge">{{heroIdentity}}</view>
-    <view class="hero-title">{{heroName}}</view>
-    <view class="hero-org-context org-context-action" wx:if="{{organizationName && hasUser}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换组织与身份">
-      <view class="hero-org-context-icon"><ui-icon name="grid" tone="white" size="28" ariaLabel="当前组织与身份" /></view>
-      <view class="hero-org-context-copy">
-        <view class="hero-org-context-label">当前组织与身份</view>
-        <view class="hero-org-context-name">{{organizationName}}</view>
-        <view class="hero-context-identity">{{heroIdentity}}</view>
-      </view>
-      <view class="hero-org-context-action">
-        <text>切换</text>
-        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
-      </view>
-    </view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="应用服务"></workspace-hero>
 
   <view class="portal-context-notice" wx:if="{{contextNotice}}">
     <ui-icon name="shield" tone="primary" size="27" ariaLabel="身份提示" />
     <text>{{contextNotice}}</text>
-  </view>
-
-  <view class="card portal-profile-card" wx:if="{{hasUser}}">
-    <view class="info-head">
-      <view class="section-title">个人信息</view>
-    </view>
-    <view class="info-grid">
-      <view class="info-block">
-        <view class="info-label">姓名</view>
-        <view class="info-value">{{heroName}}</view>
-      </view>
-      <view class="info-block">
-        <view class="info-label">身份</view>
-        <view class="info-value">{{heroIdentity}}</view>
-      </view>
-      <view class="info-block info-block-full" wx:if="{{userDepartment}}">
-        <view class="info-label">部门</view>
-        <view class="info-value">{{userDepartment}}</view>
-      </view>
-      <view class="info-block info-block-full" wx:if="{{showWorkGroup}}">
-        <view class="info-label">职能组</view>
-        <view class="info-value">{{userWorkGroup}}</view>
-      </view>
-    </view>
   </view>
 
   <view class="portal-message-partial" wx:if="{{hasUser && messagePartial}}">
@@ -58,7 +19,7 @@
         <view class="message-text-action ui-motion-chip" data-tab="todos" bindtap="openMessageCenter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">查看全部</view>
       </view>
     </view>
-    <scroll-view class="notification-list message-preview-scroll" style="height: {{todos.length ? todos.length * 154 : 112}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <scroll-view class="notification-list message-preview-scroll" style="height: {{todos.length ? todos.length * 154 : 52}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
       <view class="notification-empty" wx:if="{{!todos.length && !todoLoading}}">
         <text class="notification-empty-text">暂无待处理事项</text>
       </view>
@@ -96,7 +57,7 @@
         <view class="message-text-action ui-motion-chip" data-tab="notifications" bindtap="openMessageCenter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">查看全部</view>
       </view>
     </view>
-    <scroll-view class="notification-list message-preview-scroll" style="height: {{notifications.length ? notifications.length * 154 : 112}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <scroll-view class="notification-list message-preview-scroll" style="height: {{notifications.length ? notifications.length * 154 : 52}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
       <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading}}">
         <text class="notification-empty-text">暂无通知</text>
       </view>

@@ -1,8 +1,5 @@
 <view class="page page-narrow">
-  <view class="hero">
-    <view class="hero-badge">审核</view>
-    <view class="hero-title">我的审批记录</view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="审核审批 · 我的审批记录"></workspace-hero>
 
   <view class="section">
     <view class="card">

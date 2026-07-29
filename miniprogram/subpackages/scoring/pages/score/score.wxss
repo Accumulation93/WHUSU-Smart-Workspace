@@ -1226,8 +1226,13 @@ page {
   }
 
   .page-with-keyboard > .hero,
+  .page-with-keyboard > .workspace-hero-host,
   .page-with-keyboard > .target-sticky {
     grid-column: 1 / -1;
+  }
+
+  .page-with-keyboard > .workspace-hero-host {
+    margin-bottom: 0;
   }
 
   .page-with-keyboard > .score-workspace,

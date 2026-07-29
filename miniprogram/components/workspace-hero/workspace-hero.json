@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "消息中心 - WHUSU智慧工作台",
+  "component": true,
   "usingComponents": {
     "ui-icon": "/components/ui-icon/ui-icon"
   }

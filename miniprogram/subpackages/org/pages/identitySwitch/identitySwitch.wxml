@@ -1,17 +1,5 @@
 <view class="page">
-  <view class="hero context-hero">
-    <view class="hero-badge">组织与身份</view>
-    <view class="hero-title">组织与身份</view>
-    <view class="hero-subtitle">先选组织，再选身份</view>
-    <view class="current-context" wx:if="{{currentOrganizationName}}">
-      <view class="current-context-icon"><ui-icon name="grid" tone="white" size="30" ariaLabel="当前组织与身份" /></view>
-      <view class="current-context-copy">
-        <view class="current-context-label">当前使用</view>
-        <view class="current-context-org">{{currentOrganizationName}}</view>
-        <view class="current-context-identity">{{currentIdentityName || '身份信息加载中'}}</view>
-      </view>
-    </view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="组织与身份"></workspace-hero>
 
   <view class="context-notice context-notice-error" wx:if="{{errorText}}">
     <ui-icon name="shield" tone="primary" size="26" ariaLabel="提示" />

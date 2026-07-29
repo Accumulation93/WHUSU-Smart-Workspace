@@ -55,6 +55,9 @@
     "navigationBarTitleText": "WHUSU智慧工作台",
     "navigationBarBackgroundColor": "#ffffff"
   },
+  "usingComponents": {
+    "workspace-hero": "/components/workspace-hero/workspace-hero"
+  },
   "style": "v2",
   "componentFramework": "glass-easel",
   "lazyCodeLoading": "requiredComponents"

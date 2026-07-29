@@ -223,22 +223,85 @@ function scanAdminOrgContextContracts() {
   const findings = [];
   for (const page of pages) {
     const markup = fs.readFileSync(page.wxml, 'utf8');
-    const script = fs.readFileSync(page.script, 'utf8');
     const checks = [
-      ['管理端副标题', /hero-subtitle/],
-      ['当前组织提示', /hero-org-context/],
-      ['切换组织交互', /(?:bindtap|catchtap)="onOrgTap"/],
-      ['当前组织名称', /currentOrganizationName/]
+      ['统一顶部身份卡', /<workspace-hero\b/],
+      ['管理端视觉样式', /\btone="admin"/],
+      ['工作台品牌名称', /\bapp-name="WHUSU智慧工作台"/]
     ];
     for (const [label, pattern] of checks) {
       if (!pattern.test(markup)) findings.push({ page: page.name, message: `缺少${label}` });
     }
-    if (!/\bonOrgTap\s*\(\)/.test(script)) {
-      findings.push({ page: page.name, message: '缺少切换组织处理函数' });
+  }
+  const sharedHero = fs.readFileSync(
+    path.join(MINI_ROOT, 'components', 'workspace-hero', 'workspace-hero.wxml'),
+    'utf8'
+  );
+  const sharedHeroScript = fs.readFileSync(
+    path.join(MINI_ROOT, 'components', 'workspace-hero', 'workspace-hero.js'),
+    'utf8'
+  );
+  const sharedChecks = [
+    ['统一顶部卡缺少姓名', /personName/],
+    ['统一顶部卡缺少身份', /identityName/],
+    ['统一顶部卡缺少组织', /organizationName/],
+    ['统一顶部卡缺少切换入口', /catchtap="onSwitchTap"/]
+  ];
+  for (const [message, pattern] of sharedChecks) {
+    if (!pattern.test(sharedHero)) findings.push({ page: '统一顶部身份卡', message });
+  }
+  if (!/\/subpackages\/org\/pages\/identitySwitch\/identitySwitch/.test(sharedHeroScript)) {
+    findings.push({ page: '统一顶部身份卡', message: '切换入口未指向组织与身份页面' });
+  }
+  return findings;
+}
+
+function scanWorkspaceShellContracts() {
+  const config = JSON.parse(fs.readFileSync(path.join(MINI_ROOT, 'app.json'), 'utf8'));
+  const routes = [...(config.pages || [])];
+  for (const subpackage of config.subPackages || []) {
+    for (const page of subpackage.pages || []) routes.push(`${subpackage.root}/${page}`);
+  }
+  const heroExceptions = new Set([
+    'pages/login/login',
+    'subpackages/org/pages/switch/switch',
+    'subpackages/venue/pages/venueBookings/venueBookings'
+  ]);
+  const findings = [];
+
+  for (const route of routes) {
+    const jsonFile = path.join(MINI_ROOT, `${route}.json`);
+    const wxmlFile = path.join(MINI_ROOT, `${route}.wxml`);
+    const pageConfig = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+    if (!/^.+ - WHUSU智慧工作台$/.test(pageConfig.navigationBarTitleText || '')) {
+      findings.push({
+        file: relative(jsonFile),
+        message: '页面标题必须使用“子应用名称 - WHUSU智慧工作台”'
+      });
     }
-    if (!/\/subpackages\/org\/pages\/identitySwitch\/identitySwitch/.test(script)) {
-      findings.push({ page: page.name, message: '组织与身份切换未指向统一入口' });
+    if (heroExceptions.has(route)) continue;
+    const markup = fs.readFileSync(wxmlFile, 'utf8');
+    if (!/<workspace-hero\b[^>]*\bapp-name="WHUSU智慧工作台"/.test(markup)) {
+      findings.push({
+        file: relative(wxmlFile),
+        message: '业务页面缺少统一顶部身份卡'
+      });
     }
+  }
+
+  const portalStyleFile = path.join(MINI_ROOT, 'pages', 'portal', 'portal.wxss');
+  const portalStyle = fs.readFileSync(portalStyleFile, 'utf8');
+  const padStart = portalStyle.indexOf('@media (min-width: 520px)');
+  const landscapeStart = portalStyle.indexOf('@media (min-width: 900px)');
+  const phoneStyle = portalStyle.slice(0, padStart);
+  const padStyle = portalStyle.slice(padStart, landscapeStart);
+  const landscapeStyle = portalStyle.slice(landscapeStart);
+  const gridChecks = [
+    ['手机宫格必须铺满三列', phoneStyle, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/],
+    ['Pad 竖屏宫格必须铺满四列', padStyle, /grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/],
+    ['Pad 横屏宫格必须铺满五列', landscapeStyle, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/]
+  ];
+  for (const [message, source, pattern] of gridChecks) {
+    if (!pattern.test(source)) findings.push({ file: relative(portalStyleFile), message });
   }
   return findings;
 }
@@ -599,6 +662,7 @@ const forbiddenEmojiIcons = [
   ...walk(MINI_ROOT, '.js')
 ].flatMap(scanForbiddenEmojiIcons);
 const adminOrgContextIssues = scanAdminOrgContextContracts();
+const workspaceShellIssues = scanWorkspaceShellContracts();
 const venueFlowVisibilityIssues = scanVenueFlowVisibilityContract();
 const legacyRedirectUiIssues = scanLegacyRedirectUi();
 const missingFeedback = controls.filter(item => (
@@ -741,6 +805,7 @@ const report = {
     nativeButtonRoleIssues: nativeButtonRoleIssues.length,
     forbiddenEmojiIcons: forbiddenEmojiIcons.length,
     adminOrgContextIssues: adminOrgContextIssues.length,
+    workspaceShellIssues: workspaceShellIssues.length,
     venueFlowVisibilityIssues: venueFlowVisibilityIssues.length,
     legacyRedirectUiIssues: legacyRedirectUiIssues.length,
     staticInlineStyles: staticInlineStyles.length,
@@ -780,6 +845,7 @@ const report = {
   nativeButtonRoleIssues,
   forbiddenEmojiIcons,
   adminOrgContextIssues,
+  workspaceShellIssues,
   venueFlowVisibilityIssues,
   legacyRedirectUiIssues,
   staticInlineStyles,
@@ -811,7 +877,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -827,7 +893,7 @@ if (process.argv.includes('--strict')) {
     report.summary.transitionAll || report.summary.willChange || report.summary.illegalColors || report.summary.remoteAssets ||
     report.summary.visibleInternalIds ||
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
-    report.summary.adminOrgContextIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
+    report.summary.adminOrgContextIssues || report.summary.workspaceShellIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem;

@@ -13,11 +13,7 @@ module.exports = { hour: hour, min: min };
 </wxs>
 <view class="page">
   <!-- Hero -->
-  <view class="hero">
-    <view class="hero-badge">{{heroIdentity}}</view>
-    <view class="hero-title">{{heroName}}</view>
-    <view class="hero-subtitle">{{heroSubtitle}}</view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用"></workspace-hero>
 
   <!-- Tab bar -->
   <view class="tabs-card">

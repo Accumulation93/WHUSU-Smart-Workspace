@@ -13,10 +13,7 @@
     bindkeydown="onPhysicalKeyDown"
     bindkeyup="onPhysicalKeyUp"
   />
-  <view class="hero">
-    <view class="hero-badge">评分</view>
-    <view class="hero-title">填写评分</view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="考核评分 · 填写评分"></workspace-hero>
 
   <view class="target-sticky {{showStickyTarget ? 'target-sticky-show' : ''}}" wx:if="{{target.name}}">
     <view class="target-sticky-label">被评分人</view>

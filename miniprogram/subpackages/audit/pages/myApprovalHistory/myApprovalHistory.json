@@ -2,5 +2,5 @@
   "usingComponents": {
     "ui-icon": "/components/ui-icon/ui-icon"
   },
-  "navigationBarTitleText": "我的审批记录"
+  "navigationBarTitleText": "审核审批 - WHUSU智慧工作台"
 }

@@ -585,6 +585,9 @@ button[disabled],
 .rules-tab,
 .app-view-tab,
 .message-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: var(--ui-tab-min-height, 66rpx);
   padding: var(--ui-tab-padding-y, 14rpx) var(--ui-tab-padding-x, 18rpx);
   border-radius: var(--ui-tab-radius, 20rpx);
@@ -592,6 +595,7 @@ button[disabled],
   line-height: var(--ui-leading-control, 1.35) !important;
   white-space: nowrap;
   word-break: keep-all;
+  text-align: center;
 }
 
 .tab-active,
@@ -845,6 +849,37 @@ scroll-view.ui-dialog-scroll--x {
   overflow-wrap: anywhere;
 }
 
+/* 包裹型控件只由自身 padding 提供边缘留白，避免末项 margin 叠成空白尾部。 */
+.card > view:first-child,
+.edit-box > view:first-child,
+.list-card > view:first-child,
+.booking-panel > view:first-child,
+.filter-section > view:first-child,
+.popup-card > view:first-child,
+.modal-card > view:first-child,
+.ui-dialog-body > view:first-child,
+.list-item > view:first-child,
+.nav-row > view:first-child,
+.booking-item > view:first-child,
+.pending-item > view:first-child {
+  margin-top: 0;
+}
+
+.card > view:last-child,
+.edit-box > view:last-child,
+.list-card > view:last-child,
+.booking-panel > view:last-child,
+.filter-section > view:last-child,
+.popup-card > view:last-child,
+.modal-card > view:last-child,
+.ui-dialog-body > view:last-child,
+.list-item > view:last-child,
+.nav-row > view:last-child,
+.booking-item > view:last-child,
+.pending-item > view:last-child {
+  margin-bottom: 0;
+}
+
 .ui-data-grid--simple,
 .ui-data-grid--complex,
 .ui-data-grid--specialized,
@@ -1085,8 +1120,8 @@ button:active,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-top: 36rpx;
-  padding: 40rpx 24rpx 28rpx;
+  margin-top: 28rpx;
+  padding: 28rpx 24rpx;
   color: #94a3b8;
   font-size: var(--ui-type-caption);
   line-height: 1.7;

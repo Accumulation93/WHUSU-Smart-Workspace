@@ -1,16 +1,5 @@
 <view class="permission-page">
-  <view class="permission-hero">
-    <view class="permission-hero-badge">{{operatorLevelLabel || '权限管理'}}</view>
-    <view class="permission-hero-title">管理员权限</view>
-    <view class="permission-org ui-motion-chip" bindtap="onOrgTap" hover-class="permission-org-pressing" hover-start-time="0" hover-stay-time="160">
-      <ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" />
-      <view class="permission-org-copy">
-        <view class="permission-org-label">当前组织</view>
-        <view class="permission-org-name">{{organizationName || '未选择组织'}}</view>
-      </view>
-      <ui-icon name="chevron-right" tone="white" size="24" ariaLabel="切换组织" />
-    </view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="管理员权限" tone="admin"></workspace-hero>
 
   <view class="permission-card">
     <view class="permission-section-head">

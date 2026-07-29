@@ -301,7 +301,7 @@
 
 .message-empty,
 .message-loading {
-  padding: 56rpx 20rpx;
+  padding: 36rpx 20rpx;
   color: #94a3b8;
   font-size: var(--ui-type-control, 24rpx);
   text-align: center;
@@ -322,7 +322,7 @@
 .message-switch-dialog {
   position: relative;
   z-index: 1;
-  padding: 30rpx 28rpx 24rpx;
+  padding: 26rpx 28rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.9);
   border-radius: 28rpx;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(243, 248, 255, 0.95) 100%);

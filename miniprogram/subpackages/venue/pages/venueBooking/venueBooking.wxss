@@ -1295,8 +1295,13 @@ page {
   }
 
   .page > .hero,
+  .page > .workspace-hero-host,
   .page > .page-footer {
     grid-column: 1 / -1;
+  }
+
+  .page > .workspace-hero-host {
+    margin-bottom: 0;
   }
 
   .page > .tabs-card {

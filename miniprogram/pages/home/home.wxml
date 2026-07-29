@@ -1,20 +1,5 @@
 <view class="page">
-  <view class="hero">
-    <view class="hero-badge">{{heroIdentity}}</view>
-    <view class="hero-title">{{heroName}}</view>
-    <view class="hero-subtitle">{{heroSubtitle}}</view>
-    <view class="hero-org-context org-context-action" wx:if="{{organizationName}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
-      <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
-      <view class="hero-org-context-copy">
-        <view class="hero-org-context-label">当前组织</view>
-        <view class="hero-org-context-name">{{organizationName}}</view>
-      </view>
-      <view class="hero-org-context-action">
-        <text>切换</text>
-        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
-      </view>
-    </view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{heroSubtitle || '考核评分'}}"></workspace-hero>
 
   <view class="tabs-card" wx:if="{{hasUser && !isAdminRole}}">
     <view
@@ -29,7 +14,7 @@
   </view>
 
   <view class="panel {{activeTab === 'scoring' ? 'panel-active' : ''}}" wx:if="{{isAdminRole || !hasUser || activeTab === 'scoring'}}">
-    <view class="card activity-card">
+    <view class="card activity-card {{!currentActivity ? 'activity-card-empty' : ''}}">
       <view class="info-head">
         <view class="section-title">当前评分活动</view>
       </view>
@@ -40,31 +25,6 @@
 
       <view class="activity-desc" wx:if="{{currentActivity && currentActivity.description}}">
         {{currentActivity.description}}
-      </view>
-    </view>
-
-    <view class="card" wx:if="{{hasUser}}">
-      <view class="info-head">
-        <view class="section-title">评分人信息</view>
-      </view>
-
-      <view class="info-grid">
-        <view class="info-block">
-          <view class="info-label">姓名</view>
-          <view class="info-value">{{user.name}}</view>
-        </view>
-        <view class="info-block">
-          <view class="info-label">身份</view>
-          <view class="info-value">{{heroIdentity}}</view>
-        </view>
-        <view class="info-block info-block-full" wx:if="{{user.department}}">
-          <view class="info-label">部门</view>
-          <view class="info-value">{{user.department}}</view>
-        </view>
-        <view class="info-block info-block-full" wx:if="{{showWorkGroup}}">
-          <view class="info-label">职能组</view>
-          <view class="info-value">{{user.workGroup}}</view>
-        </view>
       </view>
     </view>
 
@@ -83,7 +43,7 @@
       </view>
     </view>
 
-    <view class="card targets-card" wx:if="{{hasUser && !isAdminRole && activeTab === 'scoring'}}">
+    <view class="card targets-card {{!targetsLoading && !targetList.length ? 'targets-card-empty' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'scoring'}}">
       <view class="info-head">
         <view class="section-title">被评分人</view>
       </view>

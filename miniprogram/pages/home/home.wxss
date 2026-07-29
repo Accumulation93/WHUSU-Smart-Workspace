@@ -207,6 +207,24 @@ scroll-view {
   overflow: hidden;
 }
 
+.activity-card-empty {
+  padding-bottom: 22rpx;
+}
+
+.activity-card-empty .info-head {
+  margin-bottom: 8rpx;
+}
+
+.activity-card-empty .activity-name {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 4rpx;
+}
+
+.activity-card-empty .activity-name::after {
+  margin-top: 8rpx;
+}
+
 .activity-card::before {
   content: "";
   position: absolute;
@@ -217,6 +235,10 @@ scroll-view {
 
 .targets-card {
   padding-bottom: 20rpx;
+}
+
+.targets-card-empty {
+  padding-bottom: 16rpx;
 }
 
 .profile-card {
@@ -523,7 +545,7 @@ scroll-view {
 }
 
 .target-state {
-  padding: 36rpx 20rpx;
+  padding: 20rpx;
   text-align: center;
   color: #94a3b8;
   font-size: var(--ui-type-body);
@@ -904,7 +926,7 @@ scroll-view {
 /* 空状态卡片 */
 .empty-state-card {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 64rpx 40rpx 56rpx; text-align: center;
+  padding: 38rpx 32rpx; text-align: center;
 }
 .empty-illustration {
   margin-bottom: 28rpx; display: flex; align-items: center; justify-content: center;
@@ -1681,7 +1703,7 @@ scroll-view {
 /* ── Audit empty state ── */
 .audit-empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 56rpx 32rpx 48rpx; text-align: center;
+  padding: 38rpx 32rpx; text-align: center;
 }
 .audit-empty-icon {
   width: 100rpx; height: 100rpx; margin-bottom: 20rpx; border-radius: 50%;

@@ -1,10 +1,5 @@
 <view class="page">
-  <view class="hero">
-    <view class="hero-badge">评分人任务</view>
-    <view class="hero-title">未完成评分任务</view>
-    <view class="hero-subtitle" wx:if="{{activityName}}">{{activityName}}</view>
-    <view class="hero-subtitle" wx:else> </view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="考核评分 · 评分任务"></workspace-hero>
 
   <view class="section">
     <view class="stats-grid scorer-stats-grid">

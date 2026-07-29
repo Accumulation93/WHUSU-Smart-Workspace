@@ -19,7 +19,7 @@ page {
 .permission-org-name { margin-top: 3rpx; font-size: var(--ui-type-emphasis); font-weight: 650; word-break: break-word; }
 .permission-org-pressing { background: rgba(255,255,255,.2); }
 
-.permission-card { margin-top: 24rpx; padding: 28rpx 26rpx; border-radius: 30rpx; background: linear-gradient(135deg, rgba(255,255,255,.88), rgba(248,251,255,.76)); border: 1rpx solid rgba(255,255,255,.72); box-shadow: 0 18rpx 38rpx rgba(15,23,42,.06), inset 0 1rpx 0 rgba(255,255,255,.82); backdrop-filter: blur(24rpx); -webkit-backdrop-filter: blur(24rpx); }
+.permission-card { margin-top: 0; padding: 28rpx 26rpx; border-radius: 30rpx; background: linear-gradient(135deg, rgba(255,255,255,.88), rgba(248,251,255,.76)); border: 1rpx solid rgba(255,255,255,.72); box-shadow: 0 18rpx 38rpx rgba(15,23,42,.06), inset 0 1rpx 0 rgba(255,255,255,.82); backdrop-filter: blur(24rpx); -webkit-backdrop-filter: blur(24rpx); }
 .permission-section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20rpx; }
 .permission-section-title { font-size: var(--ui-type-section, 30rpx); font-weight: 720; color: #0f172a; line-height: 1.4; }
 .permission-section-desc { margin-top: 7rpx; color: #64748b; font-size: var(--ui-type-label, 23rpx); line-height: var(--ui-leading-body, 1.6); }
@@ -27,7 +27,7 @@ page {
 .permission-search { display: flex; align-items: center; gap: 12rpx; margin-top: 22rpx; padding: 0 18rpx; min-height: 82rpx; border-radius: 20rpx; background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(246,249,255,.86)); border: 1rpx solid rgba(219,229,241,.96); box-shadow: 0 8rpx 18rpx rgba(15,23,42,.035), inset 0 1rpx 0 rgba(255,255,255,.88); box-sizing: border-box; }
 .permission-search-input { display: block; min-width: 0; flex: 1; height: 82rpx; line-height: 82rpx; font-size: var(--ui-type-emphasis); color: #0f172a; }
 .permission-search-clear { flex: none; padding: 10rpx; }
-.permission-loading, .permission-empty { padding: 70rpx 20rpx; text-align: center; color: #64748b; font-size: var(--ui-type-body); }
+.permission-loading, .permission-empty { padding: 36rpx 20rpx; text-align: center; color: #64748b; font-size: var(--ui-type-body); line-height: 1.65; }
 .permission-admin-list { display: flex; flex-direction: column; gap: 14rpx; margin-top: 20rpx; }
 .permission-admin-row { display: flex; align-items: center; gap: 18rpx; padding: 22rpx 20rpx; border-radius: 24rpx; background: linear-gradient(135deg, rgba(255,255,255,.94), rgba(249,251,255,.84)); border: 1rpx solid rgba(226,237,247,.96); box-shadow: 0 10rpx 24rpx rgba(15,23,42,.04), inset 0 1rpx 0 rgba(255,255,255,.82); }
 .permission-role-mark {
@@ -80,7 +80,18 @@ page {
 .permission-item:last-child { border-bottom: 0; }
 .permission-item-title { color: #1e293b; font-size: var(--ui-type-body, 25rpx); font-weight: 650; line-height: var(--ui-leading-heading, 1.45); }
 .permission-dialog-footer { display: flex; gap: 16rpx; padding: 18rpx 22rpx; flex: none; border-top: 1rpx solid rgba(226,237,247,.92); background: linear-gradient(180deg, rgba(248,251,255,.72), rgba(248,251,255,.96)); }
-.permission-secondary, .permission-primary { min-width: 0; height: 82rpx; flex: 1; border-radius: 20rpx; font-size: var(--ui-type-emphasis); font-weight: 680; line-height: 82rpx; }
+.permission-secondary, .permission-primary {
+  min-width: 0;
+  min-height: 76rpx;
+  height: auto;
+  flex: 1;
+  padding: 14rpx 20rpx;
+  border-radius: 20rpx;
+  font-size: var(--ui-type-emphasis);
+  font-weight: 680;
+  line-height: 1.35;
+  box-sizing: border-box;
+}
 .permission-secondary {
   color: #2563eb;
   background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(235,243,255,.88));
@@ -107,7 +118,7 @@ page {
   .permission-dialog { width: min(860px, calc(100vw - 64px)); }
 }
 .context-switch-guard-card {
-  padding: 28rpx 26rpx 24rpx;
+  padding: 26rpx;
   text-align: center;
 }
 
@@ -149,7 +160,7 @@ page {
 }
 
 @media (min-width: 520px) {
-  .context-switch-guard-card { padding: 24px 26px 22px; }
+  .context-switch-guard-card { padding: 24px 26px; }
   .context-switch-guard-icon {
     width: 50px;
     height: 50px;

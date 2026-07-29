@@ -433,6 +433,18 @@ Wrapper controls must follow the content instead of reserving an arbitrary viewp
 - Wrapped titles, descriptions, organization names, detail values, and button labels need explicit readable line height. Use about `1.4–1.5` for headings and `1.55–1.7` for body/detail text; never let a visually single-line label wrap with `line-height: 1`.
 - After changing a wrapper, inspect short content, long content, and two-line text on phone, Pad portrait, and Pad landscape. Script output is a regression gate, not a substitute for rendered visual review.
 
+## Shared Workspace Shell And Space Distribution
+
+Authenticated WHUSU Smart Workspace pages use one shared workspace shell:
+
+- Every navigation title follows `子应用名称 - WHUSU智慧工作台`.
+- Every portal, business sub-application, and administration page uses the shared workspace hero. It shows the workspace brand, the current sub-application or page name, the person's name, active identity, active organization, and the organization-and-identity switch entry.
+- Do not recreate a local hero that merely resembles the shared one. A shared shell keeps identity changes, long organization names, phone spacing, and Pad spacing consistent.
+- Application-service grids fill their usable row with CSS Grid: three columns on phones, four on Pad portrait, and five on Pad landscape. Do not calculate item widths with percentages minus fixed gaps; rounding can push the last item onto a new row and leave a false empty column.
+- A wrapper grows from its content. One visual gap has one owner, so do not combine outer bottom padding, inner last-child margins, and footer spacing for the same separation.
+- Buttons, tabs, choice tiles, and grid items use flex centering and symmetric vertical padding. Never stack a fixed height, equal line-height, and vertical padding. Wrapped labels use readable line-height and natural height.
+- Inspect short and long states on phone, Pad portrait, and Pad landscape, including nested cards, empty states, dialogs, and grid remainders. Strict audit must keep `workspaceShellIssues`, `stackedButtonMetrics`, `forcedDialogViewport`, and `oversizedContentPadding` at zero.
+
 ## Composition Checklist
 
 Before finishing:

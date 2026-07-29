@@ -1323,8 +1323,13 @@ page {
   }
 
   .page > .hero,
+  .page > .workspace-hero-host,
   .page > .page-footer {
     grid-column: 1 / -1;
+  }
+
+  .page > .workspace-hero-host {
+    margin-bottom: 0;
   }
 
   .page > .tabs {
@@ -1529,7 +1534,7 @@ page {
 .popup-close::before { display: none !important; content: none !important; }
 .popup-close::after { content: "×" !important; color: #2563eb !important; font-size: var(--ui-type-value) !important; font-weight: 800 !important; line-height: 1 !important; }
 .context-switch-guard-card {
-  padding: 28rpx 26rpx 24rpx;
+  padding: 26rpx;
   text-align: center;
 }
 
@@ -1571,7 +1576,7 @@ page {
 }
 
 @media (min-width: 520px) {
-  .context-switch-guard-card { padding: 24px 26px 22px; }
+  .context-switch-guard-card { padding: 24px 26px; }
   .context-switch-guard-icon {
     width: 50px;
     height: 50px;

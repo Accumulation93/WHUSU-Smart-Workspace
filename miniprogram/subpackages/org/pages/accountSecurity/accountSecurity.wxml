@@ -1,9 +1,5 @@
 <view class="page security-page">
-  <view class="hero security-hero">
-    <view class="hero-badge">账号保护</view>
-    <view class="hero-title">账号安全</view>
-    <view class="hero-subtitle">更换微信后，原微信和其他设备会自动退出</view>
-  </view>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="账号安全"></workspace-hero>
 
   <view class="card security-card">
     <view class="section-title">账号信息</view>
