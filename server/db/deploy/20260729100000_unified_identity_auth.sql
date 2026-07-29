@@ -412,7 +412,7 @@ SELECT MIN(ui.id), m.person_id, 'verified', 1, MIN(ui.created_at)
  GROUP BY m.person_id;
 
 INSERT IGNORE INTO accounts (id, person_id, status, token_version, verified_at)
-SELECT MIN(a.id), p.id, 'verified', 1, MIN(COALESCE(a.bound_at, a.created_at))
+SELECT MIN(a.id), p.id, 'verified', 1, MIN(COALESCE(a.bound_at, a.updated_at, NOW()))
   FROM admin_info a
   JOIN persons p
     ON p.normalized_student_id =
@@ -434,7 +434,7 @@ SELECT a.id, a.id, SHA2(MIN(source.openid), 256), 'sha256_legacy',
        AND m.org_id = CONVERT(ui.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci
      WHERE ui.openid IS NOT NULL AND TRIM(ui.openid) <> ''
     UNION ALL
-    SELECT p.id AS person_id, ai.openid, COALESCE(ai.bound_at, ai.created_at) AS bound_at
+    SELECT p.id AS person_id, ai.openid, COALESCE(ai.bound_at, ai.updated_at, NOW()) AS bound_at
       FROM admin_info ai
       JOIN persons p
         ON p.normalized_student_id =

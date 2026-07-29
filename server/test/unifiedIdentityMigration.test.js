@@ -69,7 +69,6 @@ CREATE TABLE admin_info (
   invite_code VARCHAR(64) DEFAULT NULL,
   invite_expires_at DATETIME DEFAULT NULL,
   bound_at DATETIME DEFAULT NULL,
-  created_at DATETIME NOT NULL,
   updated_at DATETIME DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE score_activities (
@@ -111,7 +110,7 @@ INSERT INTO user_info VALUES
   ('user-b1', 'openid-one', 'hr-b1', 'org-b', NOW(), NOW()),
   ('user-a2', 'openid-two', 'hr-a2', 'org-a', NOW(), NOW());
 INSERT INTO admin_info
-  (id, name, student_id, openid, org_id, admin_level, bind_status, bound_at, created_at)
+  (id, name, student_id, openid, org_id, admin_level, bind_status, bound_at, updated_at)
 VALUES ('admin-1', '同一人', '20260001', 'openid-one', '', 'super_admin', 'active', NOW(), NOW());
 INSERT INTO score_activities VALUES ('activity-1', 1);
 INSERT INTO score_records VALUES
