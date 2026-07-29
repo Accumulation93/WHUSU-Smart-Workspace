@@ -54,7 +54,7 @@ function notifyOrgContextRequired(result) {
     complete: function() {
       orgPromptVisible = false;
       wx.navigateTo({
-        url: '/subpackages/org/pages/switch/switch',
+        url: '/subpackages/org/pages/identitySwitch/identitySwitch',
         fail: function() { wx.reLaunch({ url: '/pages/portal/portal' }); }
       });
     }

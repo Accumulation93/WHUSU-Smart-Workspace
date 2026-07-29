@@ -112,10 +112,16 @@ router.get('/auth/contexts', async (req, res) => {
     const contexts = await unifiedAuth.decorateContexts(
       await identityModel.listContexts(req.authAccount.id)
     );
+    const currentContext = contexts.find((item) => item.contextId === req.authContext.contextId)
+      || req.authContext;
+    const catalog = unifiedAuth.buildContextCatalog(contexts, currentContext);
     return res.json({
       status: 'success',
       currentContextId: req.authContext.contextId,
-      contexts
+      contexts,
+      selection: catalog.selection,
+      organizations: catalog.organizations,
+      identities: catalog.identities
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -128,10 +134,16 @@ router.post('/auth/contexts', async (req, res) => {
     const contexts = await unifiedAuth.decorateContexts(
       await identityModel.listContexts(req.authAccount.id)
     );
+    const currentContext = contexts.find((item) => item.contextId === req.authContext.contextId)
+      || req.authContext;
+    const catalog = unifiedAuth.buildContextCatalog(contexts, currentContext);
     return res.json({
       status: 'success',
       currentContextId: req.authContext.contextId,
-      contexts
+      contexts,
+      selection: catalog.selection,
+      organizations: catalog.organizations,
+      identities: catalog.identities
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -141,10 +153,21 @@ router.post('/auth/contexts', async (req, res) => {
 router.post('/auth/contexts/activate', async (req, res) => {
   try {
     requireUnifiedSession(req);
-    const context = await identityModel.activateContext(
+    const requestedContextId = safeString(req.body && req.body.contextId);
+    const requestedOrganizationId = safeString(req.body && req.body.organizationId);
+    const requestedIdentityId = safeString(req.body && req.body.identityId);
+    if (!requestedContextId && (!requestedOrganizationId || !requestedIdentityId)) {
+      throw new identityModel.IdentityError('invalid_params', '请选择组织和身份', 400);
+    }
+    const previousContext = req.authContext;
+    const context = await identityModel.activateSelection(
       req.authSession.id,
       req.authAccount.id,
-      req.body && req.body.contextId
+      {
+        contextId: requestedContextId,
+        organizationId: requestedOrganizationId,
+        identityId: requestedIdentityId
+      }
     );
     const decorated = await unifiedAuth.decorateContext(context);
     await identityModel.appendAuditEvent({
@@ -156,7 +179,15 @@ router.post('/auth/contexts/activate', async (req, res) => {
       contextId: decorated.contextId,
       requestId: req.requestId,
       ip: req.ip,
-      detail: { role: decorated.role, identityType: decorated.identityType }
+      detail: {
+        previousOrganizationId: previousContext.organizationId,
+        previousIdentityId: previousContext.authIdentityId,
+        organizationId: decorated.organizationId,
+        identityId: decorated.authIdentityId,
+        role: decorated.role,
+        identityType: decorated.identityType,
+        identityScope: decorated.identityScope
+      }
     });
     return res.json({
       status: 'success',
@@ -168,6 +199,11 @@ router.post('/auth/contexts/activate', async (req, res) => {
         }
       ),
       context: decorated,
+      selection: {
+        organizationId: decorated.organizationId,
+        identityId: decorated.authIdentityId,
+        contextId: decorated.contextId
+      },
       user: unifiedAuth.profileFromContext(decorated),
       activeRole: decorated.role,
       activeOrg: { id: decorated.organizationId, name: decorated.organizationName }

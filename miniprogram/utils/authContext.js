@@ -3,6 +3,9 @@ const eventBus = require('./eventBus');
 const orgSession = require('./orgSession');
 
 const CONTEXTS_KEY = 'authContexts';
+const ORGANIZATIONS_KEY = 'authOrganizations';
+const IDENTITIES_KEY = 'authIdentities';
+const SELECTION_KEY = 'authSelection';
 const ACCOUNT_KEY = 'accountProfile';
 const PROFILE_KEY = 'roleProfiles';
 
@@ -51,6 +54,47 @@ function getContexts() {
   return Array.isArray(list) ? list : [];
 }
 
+function saveCatalog(result) {
+  const source = result || {};
+  const contexts = saveContexts(source.contexts || getContexts());
+  const organizations = Array.isArray(source.organizations) && source.organizations.length
+    ? source.organizations
+    : organizationsFromContexts(contexts);
+  const identities = Array.isArray(source.identities) ? source.identities : [];
+  const selection = source.selection || {};
+  wx.setStorageSync(ORGANIZATIONS_KEY, organizations);
+  wx.setStorageSync(IDENTITIES_KEY, identities);
+  wx.setStorageSync(SELECTION_KEY, selection);
+  wx.setStorageSync('availableOrgs', organizations);
+  wx.setStorageSync('availableOrgs:user', organizations.filter(function(item) {
+    return !item.roles || item.roles.indexOf('user') >= 0;
+  }));
+  wx.setStorageSync('availableOrgs:admin', organizations.filter(function(item) {
+    return !item.roles || item.roles.indexOf('admin') >= 0;
+  }));
+  return { contexts, organizations, identities, selection };
+}
+
+function getOrganizations() {
+  const values = wx.getStorageSync(ORGANIZATIONS_KEY);
+  return Array.isArray(values) ? values : organizationsFromContexts(getContexts());
+}
+
+function getIdentities() {
+  const values = wx.getStorageSync(IDENTITIES_KEY);
+  return Array.isArray(values) ? values : [];
+}
+
+function getSelection() {
+  const value = wx.getStorageSync(SELECTION_KEY);
+  if (value && typeof value === 'object') return value;
+  return {
+    organizationId: wx.getStorageSync('activeOrgId') || '',
+    identityId: wx.getStorageSync('activeIdentityId') || '',
+    contextId: wx.getStorageSync('activeContextId') || ''
+  };
+}
+
 function organizationsFromContexts(contexts) {
   const map = {};
   (contexts || []).forEach(function(context) {
@@ -85,7 +129,7 @@ function saveOrganizationsFromContexts(contexts) {
 function applyAuthenticatedResult(result) {
   const context = result && result.context ? result.context : null;
   if (!context || !result.token) throw new Error('登录上下文不完整');
-  const contexts = saveContexts(result.contexts || getContexts());
+  const catalog = saveCatalog(result);
   if (result.account) wx.setStorageSync(ACCOUNT_KEY, result.account);
   const profile = normalizeProfile(result.user);
   const roleProfiles = wx.getStorageSync(PROFILE_KEY) || {};
@@ -93,7 +137,7 @@ function applyAuthenticatedResult(result) {
   wx.setStorageSync(PROFILE_KEY, roleProfiles);
   const organizations = Array.isArray(result.availableOrgs) && result.availableOrgs.length
     ? result.availableOrgs
-    : organizationsFromContexts(contexts);
+    : catalog.organizations;
   wx.setStorageSync('availableOrgs', organizations);
   wx.setStorageSync('availableOrgs:user', organizations.filter(function(item) {
     return !item.roles || item.roles.indexOf('user') >= 0;
@@ -101,25 +145,84 @@ function applyAuthenticatedResult(result) {
   wx.setStorageSync('availableOrgs:admin', organizations.filter(function(item) {
     return !item.roles || item.roles.indexOf('admin') >= 0;
   }));
+  const selection = result.selection || catalog.selection || {};
+  if (selection.organizationId) wx.setStorageSync('lastOrganizationId', selection.organizationId);
+  if (selection.identityId) wx.setStorageSync('lastIdentityId', selection.identityId);
+  if (result.selectionNotice) wx.setStorageSync('authSelectionNotice', result.selectionNotice);
   return orgSession.commitContext({
     token: result.token,
     contextId: context.contextId,
+    identityId: selection.identityId || context.authIdentityId || '',
     role: context.role,
     orgId: context.organizationId,
     orgName: context.organizationName
   });
 }
 
-async function refreshContexts() {
+async function refreshCatalog() {
   const result = await callFunction({ name: 'auth/contexts', data: {} });
   if (!result || result.status !== 'success') {
     const error = new Error((result && result.message) || '身份列表加载失败');
     error.status = result && result.status;
     throw error;
   }
-  const contexts = saveContexts(result.contexts || []);
-  saveOrganizationsFromContexts(contexts);
-  return contexts;
+  return saveCatalog(result);
+}
+
+async function refreshContexts() {
+  const catalog = await refreshCatalog();
+  return catalog.contexts;
+}
+
+function applyActivatedResult(result) {
+  const context = result.context;
+  const selection = result.selection || {
+    organizationId: context.organizationId,
+    identityId: context.authIdentityId || '',
+    contextId: context.contextId
+  };
+  const before = orgSession.getSnapshot();
+  const profile = normalizeProfile(result.user);
+  const roleProfiles = wx.getStorageSync(PROFILE_KEY) || {};
+  roleProfiles[context.role] = profile;
+  wx.setStorageSync(PROFILE_KEY, roleProfiles);
+  wx.setStorageSync(SELECTION_KEY, selection);
+  wx.setStorageSync('lastOrganizationId', selection.organizationId || '');
+  wx.setStorageSync('lastIdentityId', selection.identityId || '');
+  const committed = orgSession.commitContext({
+    token: result.token,
+    contextId: context.contextId,
+    identityId: selection.identityId,
+    role: context.role,
+    orgId: context.organizationId,
+    orgName: context.organizationName
+  });
+  const payload = {
+    organizationId: context.organizationId,
+    organizationName: context.organizationName,
+    identityId: selection.identityId,
+    context: context,
+    user: profile,
+    version: committed.version
+  };
+  eventBus.emit('auth:selectionChanged', payload);
+  eventBus.emit('auth:contextChanged', {
+    context: context,
+    user: profile,
+    version: committed.version
+  });
+  if (before.orgId !== context.organizationId) {
+    eventBus.emit('org:changed', {
+      orgId: context.organizationId,
+      orgName: context.organizationName,
+      role: context.role,
+      contextId: context.contextId,
+      identityId: selection.identityId,
+      orgVersion: committed.version,
+      user: profile
+    });
+  }
+  return { context: context, user: profile, version: committed.version, selection };
 }
 
 async function activateContext(contextId) {
@@ -132,32 +235,23 @@ async function activateContext(contextId) {
     error.status = result && result.status;
     throw error;
   }
-  const context = result.context;
-  const profile = normalizeProfile(result.user);
-  const roleProfiles = wx.getStorageSync(PROFILE_KEY) || {};
-  roleProfiles[context.role] = profile;
-  wx.setStorageSync(PROFILE_KEY, roleProfiles);
-  const committed = orgSession.commitContext({
-    token: result.token,
-    contextId: context.contextId,
-    role: context.role,
-    orgId: context.organizationId,
-    orgName: context.organizationName
+  return applyActivatedResult(result);
+}
+
+async function activateSelection(organizationId, identityId) {
+  const result = await callFunction({
+    name: 'auth/contexts/activate',
+    data: {
+      organizationId: organizationId,
+      identityId: identityId
+    }
   });
-  eventBus.emit('org:changed', {
-    orgId: context.organizationId,
-    orgName: context.organizationName,
-    role: context.role,
-    contextId: context.contextId,
-    orgVersion: committed.version,
-    user: profile
-  });
-  eventBus.emit('auth:contextChanged', {
-    context: context,
-    user: profile,
-    version: committed.version
-  });
-  return { context: context, user: profile, version: committed.version };
+  if (!result || result.status !== 'success' || !result.context) {
+    const error = new Error((result && result.message) || '工作身份切换失败');
+    error.status = result && result.status;
+    throw error;
+  }
+  return applyActivatedResult(result);
 }
 
 async function activateOrganizationContext(organizationId, preferredRole) {
@@ -178,6 +272,9 @@ async function activateOrganizationContext(organizationId, preferredRole) {
 
 function clearUnifiedAuthentication() {
   wx.removeStorageSync(CONTEXTS_KEY);
+  wx.removeStorageSync(ORGANIZATIONS_KEY);
+  wx.removeStorageSync(IDENTITIES_KEY);
+  wx.removeStorageSync(SELECTION_KEY);
   wx.removeStorageSync(ACCOUNT_KEY);
   wx.removeStorageSync(PROFILE_KEY);
   wx.removeStorageSync('availableOrgs');
@@ -188,12 +285,18 @@ function clearUnifiedAuthentication() {
 
 module.exports = {
   normalizeProfile,
+  saveCatalog,
   saveContexts,
   getContexts,
+  getOrganizations,
+  getIdentities,
+  getSelection,
   organizationsFromContexts,
   applyAuthenticatedResult,
+  refreshCatalog,
   refreshContexts,
   activateContext,
+  activateSelection,
   activateOrganizationContext,
   clearUnifiedAuthentication
 };

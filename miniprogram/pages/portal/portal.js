@@ -19,7 +19,7 @@ const CATEGORY_LABELS = {
 
 const PORTAL_CARDS_USER = [
   { key: 'messages', label: '消息中心', iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
-  { key: 'identitySwitch', label: '身份切换', iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'identitySwitch', label: '组织与身份', iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'accountSecurity', label: '账号安全', iconName: 'shield', url: '/subpackages/org/pages/accountSecurity/accountSecurity', disabled: false },
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/pages/home/home?subApp=hr', disabled: false },
@@ -29,7 +29,7 @@ const PORTAL_CARDS_USER = [
 
 const PORTAL_CARDS_ADMIN = [
   { key: 'messages', label: '消息中心', iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
-  { key: 'identitySwitch', label: '身份切换', iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'identitySwitch', label: '组织与身份', iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'accountSecurity', label: '账号安全', iconName: 'shield', url: '/subpackages/org/pages/accountSecurity/accountSecurity', disabled: false },
   { key: 'authManagement', label: '身份认证', iconName: 'shield', url: '/subpackages/org/pages/authManagement/authManagement', disabled: false },
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
@@ -81,6 +81,7 @@ Page({
     messageSwitchOrganizationName: '',
     messageSwitchTitle: '切换组织与身份后查看',
     messageSwitchLoading: false,
+    contextNotice: '',
 
     // 应用服务视图与搜索
     appViewMode: 'grid',        // 宫格或列表
@@ -95,6 +96,11 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
+    const contextNotice = wx.getStorageSync('authSelectionNotice') || '';
+    if (contextNotice) {
+      wx.removeStorageSync('authSelectionNotice');
+      this.setData({ contextNotice });
+    }
     const organizationState = orgSession.consume(this);
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);
@@ -243,7 +249,7 @@ Page({
   },
 
   onOrgTap() {
-    wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
+    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
   },
 
   onIdentityTap() {
@@ -413,12 +419,17 @@ Page({
     if (failed.length) wx.setStorageSync(key, failed); else wx.removeStorageSync(key);
   },
 
-  onTodoTap(e) {
+  async onTodoTap(e) {
     const id = e.currentTarget.dataset.id;
     const item = (this.data.todos || []).find(function(row) { return row.id === id; });
     if (!item) return;
-    if (this.requiresMessageOrganizationSwitch(item)) {
+    const switchKind = this.messageSwitchKind(item);
+    if (switchKind === 'organization') {
       this.openMessageSwitchDialog(item, 'todo');
+      return;
+    }
+    if (switchKind === 'identity') {
+      await this.activateMessageTarget(item, 'todo');
       return;
     }
     navigateToTrustedRoute(item.targetUrl);
@@ -429,8 +440,13 @@ Page({
     const id = e.currentTarget.dataset.id;
     const current = (this.data.notifications || []).find(function(item) { return item.id === id; });
     if (!current) return;
-    if (this.requiresMessageOrganizationSwitch(current)) {
+    const switchKind = this.messageSwitchKind(current);
+    if (switchKind === 'organization') {
       this.openMessageSwitchDialog(current, 'notification');
+      return;
+    }
+    if (switchKind === 'identity') {
+      await this.activateMessageTarget(current, 'notification');
       return;
     }
     if (id && current && !current.isRead) {
@@ -457,13 +473,23 @@ Page({
     if (current.targetUrl) navigateToTrustedRoute(current.targetUrl);
   },
 
-  requiresMessageOrganizationSwitch(item) {
-    if (!item) return false;
-    if (item.contextId) {
-      return item.contextId !== String(wx.getStorageSync('activeContextId') || '');
+  messageSwitchKind(item) {
+    if (!item) return '';
+    if (item.organizationId
+      && item.organizationId !== String(wx.getStorageSync('activeOrgId') || '')) {
+      return 'organization';
     }
-    return !!(item.organizationId
-      && item.organizationId !== String(wx.getStorageSync('activeOrgId') || ''));
+    if (item.identityId) {
+      return item.identityId !== String(wx.getStorageSync('activeIdentityId') || '')
+        ? 'identity'
+        : '';
+    }
+    if (item.contextId) {
+      return item.contextId !== String(wx.getStorageSync('activeContextId') || '')
+        ? 'identity'
+        : '';
+    }
+    return '';
   },
 
   openMessageSwitchDialog(item, type) {
@@ -486,16 +512,46 @@ Page({
     });
   },
 
+  async activateMessageContext(item) {
+    if (item.organizationId && item.identityId) {
+      return authContext.activateSelection(item.organizationId, item.identityId);
+    }
+    if (item.contextId) return authContext.activateContext(item.contextId);
+    return activateOrganization(item.organizationId);
+  },
+
+  async activateMessageTarget(item, type) {
+    try {
+      await this.activateMessageContext(item);
+      this._activeOrgSnapshot = orgSession.getSnapshot();
+      if (type === 'notification' && !item.isRead) {
+        try {
+          const result = await callFunction({
+            name: 'markNotificationRead',
+            data: { id: item.id, organizationId: item.organizationId }
+          });
+          if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+        } catch (_) {
+          const key = this.pendingReadStorageKey(item.organizationId);
+          const queued = wx.getStorageSync(key) || [];
+          if (queued.indexOf(item.id) === -1) queued.push(item.id);
+          wx.setStorageSync(key, queued);
+        }
+      }
+      navigateToTrustedRoute(item.targetUrl);
+    } catch (error) {
+      const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
+      showShortToast(denied ? '权限已变更' : '身份切换失败');
+      this.loadMessageOverview();
+    }
+  },
+
   async confirmMessageOrganizationSwitch() {
     const pending = this._pendingMessageNavigation;
     if (!pending || this.data.messageSwitchLoading) return;
     this.setData({ messageSwitchLoading: true });
     try {
-      if (pending.item.contextId) {
-        await authContext.activateContext(pending.item.contextId);
-      } else {
-        await activateOrganization(pending.item.organizationId);
-      }
+      await this.activateMessageContext(pending.item);
       this._activeOrgSnapshot = orgSession.getSnapshot();
       if (pending.type === 'notification' && !pending.item.isRead) {
         try {

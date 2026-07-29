@@ -91,7 +91,11 @@ Page({
         try {
           const result = await callFunction({
             name: 'auth/wechat/session',
-            data: { code: loginResult.code }
+            data: {
+              code: loginResult.code,
+              preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
+              preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
+            }
           });
           this.handleWechatSession(result);
         } catch (error) {

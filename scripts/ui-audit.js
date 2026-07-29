@@ -236,8 +236,8 @@ function scanAdminOrgContextContracts() {
     if (!/\bonOrgTap\s*\(\)/.test(script)) {
       findings.push({ page: page.name, message: '缺少切换组织处理函数' });
     }
-    if (!/\/subpackages\/org\/pages\/switch\/switch/.test(script)) {
-      findings.push({ page: page.name, message: '切换组织未指向统一入口' });
+    if (!/\/subpackages\/org\/pages\/identitySwitch\/identitySwitch/.test(script)) {
+      findings.push({ page: page.name, message: '组织与身份切换未指向统一入口' });
     }
   }
   return findings;

@@ -85,6 +85,7 @@ jobs:
           node server/test/adminPermissionsMigration.test.js
           node server/test/authChallenge.test.js
           node server/test/unifiedAuthContextToken.test.js
+          node server/test/unifiedContextCatalog.test.js
           node server/test/loginBindingContract.test.js
           node server/test/requestDeduplication.test.js
           node server/test/clientVersion.test.js

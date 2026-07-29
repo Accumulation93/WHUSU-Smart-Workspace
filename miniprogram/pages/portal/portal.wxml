@@ -2,28 +2,23 @@
   <view class="hero">
     <view class="hero-badge">{{heroIdentity}}</view>
     <view class="hero-title">{{heroName}}</view>
-    <view class="hero-org-context org-context-action" wx:if="{{organizationName}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
-      <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
+    <view class="hero-org-context org-context-action" wx:if="{{organizationName && hasUser}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换组织与身份">
+      <view class="hero-org-context-icon"><ui-icon name="grid" tone="white" size="28" ariaLabel="当前工作上下文" /></view>
       <view class="hero-org-context-copy">
-        <view class="hero-org-context-label">当前组织</view>
+        <view class="hero-org-context-label">当前工作上下文</view>
         <view class="hero-org-context-name">{{organizationName}}</view>
+        <view class="hero-context-identity">{{heroIdentity}}</view>
       </view>
       <view class="hero-org-context-action">
         <text>切换</text>
         <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
       </view>
     </view>
-    <view class="hero-org-context org-context-action" wx:if="{{hasUser}}" catchtap="onIdentityTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前身份">
-      <view class="hero-org-context-icon"><ui-icon name="user" tone="white" size="28" ariaLabel="当前身份" /></view>
-      <view class="hero-org-context-copy">
-        <view class="hero-org-context-label">当前身份</view>
-        <view class="hero-org-context-name">{{heroIdentity}}</view>
-      </view>
-      <view class="hero-org-context-action">
-        <text>切换</text>
-        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
-      </view>
-    </view>
+  </view>
+
+  <view class="portal-context-notice" wx:if="{{contextNotice}}">
+    <ui-icon name="shield" tone="primary" size="27" ariaLabel="身份提示" />
+    <text>{{contextNotice}}</text>
   </view>
 
   <view class="card portal-profile-card" wx:if="{{hasUser}}">
@@ -209,7 +204,7 @@
   </view>
 
   <view class="actions">
-    <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">切换身份</button>
+    <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">组织与身份</button>
     <button class="secondary-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="openAccountSecurity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">账号安全</button>
     <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="logout" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">退出登录</button>
   </view>

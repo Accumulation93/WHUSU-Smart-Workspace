@@ -122,6 +122,41 @@ function buildAvailableOrganizations(contexts, currentContext) {
   }));
 }
 
+function buildContextCatalog(contexts, currentContext) {
+  const organizations = buildAvailableOrganizations(contexts, currentContext);
+  const identityMap = new Map();
+  contexts.forEach((context) => {
+    const identityId = safeString(context.authIdentityId);
+    if (!identityId || identityMap.has(identityId)) return;
+    const isGlobal = context.identityScope === 'global';
+    identityMap.set(identityId, {
+      identityId,
+      type: context.identityType,
+      name: context.identityName,
+      scope: isGlobal ? 'global' : 'organization',
+      organizationId: isGlobal ? null : context.organizationId,
+      role: context.role,
+      isPrimary: Boolean(context.isPrimary),
+      isCurrent: Boolean(
+        currentContext
+        && currentContext.authIdentityId === identityId
+      ),
+      detail: context.role === 'admin'
+        ? (isGlobal ? '可管理全部组织' : '管理当前组织')
+        : [context.department, context.identity, context.workGroup].filter(Boolean).join(' · ')
+    });
+  });
+  return {
+    selection: currentContext ? {
+      organizationId: currentContext.organizationId,
+      identityId: currentContext.authIdentityId,
+      contextId: currentContext.contextId
+    } : null,
+    organizations,
+    identities: Array.from(identityMap.values())
+  };
+}
+
 function profileFromContext(context) {
   if (!context) return null;
   if (context.role === 'admin') {
@@ -159,6 +194,7 @@ async function buildAuthenticatedPayload(account, session) {
   const contexts = await decorateContexts(rawContexts);
   const currentContext = contexts.find((item) => item.contextId === session.context.contextId)
     || await decorateContext(session.context);
+  const catalog = buildContextCatalog(contexts, currentContext);
   return {
     status: 'login_success',
     token: signAccessToken(session, account),
@@ -172,18 +208,24 @@ async function buildAuthenticatedPayload(account, session) {
     },
     context: currentContext,
     contexts,
+    selection: catalog.selection,
+    organizations: catalog.organizations,
+    identities: catalog.identities,
+    selectionNotice: session.selectionFallback
+      ? '原工作身份已失效，已为你选择当前可用身份'
+      : '',
     user: profileFromContext(currentContext),
     activeRole: currentContext.role,
     activeOrg: {
       id: currentContext.organizationId,
       name: currentContext.organizationName
     },
-    availableOrgs: buildAvailableOrganizations(contexts, currentContext)
+    availableOrgs: catalog.organizations
   };
 }
 
-async function createAuthenticatedSession(account, requestedContextId, metadata) {
-  const session = await identityModel.createSession(account, requestedContextId, metadata);
+async function createAuthenticatedSession(account, requestedSelection, metadata) {
+  const session = await identityModel.createSession(account, requestedSelection, metadata);
   return buildAuthenticatedPayload(account, session);
 }
 
@@ -193,7 +235,13 @@ async function startWechatSession(data, metadata) {
   if (account && account.status === 'frozen') {
     throw new identityModel.IdentityError('account_frozen', '账号已冻结，请联系管理员', 403);
   }
-  if (account) return createAuthenticatedSession(account, data.contextId, metadata);
+  if (account) {
+    return createAuthenticatedSession(account, {
+      contextId: data.contextId,
+      organizationId: data.preferredOrganizationId || data.organizationId,
+      identityId: data.preferredIdentityId || data.identityId
+    }, metadata);
+  }
   const bootstrap = await identityModel.createBootstrapSession(openid);
   const [policy, organizations] = await Promise.all([
     identityModel.getPolicy(),
@@ -232,6 +280,7 @@ module.exports = {
   decorateContexts,
   profileFromContext,
   buildAvailableOrganizations,
+  buildContextCatalog,
   buildAuthenticatedPayload,
   createAuthenticatedSession,
   startWechatSession,
