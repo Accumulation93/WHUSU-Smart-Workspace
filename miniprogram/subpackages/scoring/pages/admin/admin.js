@@ -59,6 +59,7 @@ Page({
     currentOrganizationId: null,
     currentOrganizationName: '',
     orgFormVisible: false,
+    contextSwitchGuardVisible: false,
     orgFormData: { name: '' },
     scopeOptions: utils.RULE_SCOPE_OPTIONS,
     profileEditModeOptions: utils.PROFILE_EDIT_MODE_OPTIONS,
@@ -518,10 +519,14 @@ Page({
       (this.data.ruleForm && (this.data.ruleForm.isRuleClauseEditorVisible || this.data.ruleForm.isTemplateConfigEditorVisible))
     );
     if (hasUnsavedWork) {
-      wx.showModal({ title: '存在未保存内容', content: '请先处理未保存内容。', showCancel: false });
+      this.setData({ contextSwitchGuardVisible: true });
       return;
     }
-    wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
+    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+  },
+
+  closeContextSwitchGuard() {
+    this.setData({ contextSwitchGuardVisible: false });
   },
 
   showCsvSampleValue(e) {

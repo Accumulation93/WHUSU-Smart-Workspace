@@ -22,6 +22,7 @@ assert.deepStrictEqual(initial.snapshot, {
   orgId: 'org-43',
   role: 'user',
   contextId: '',
+  identityId: '',
   token: 'token-43',
   version: 7
 });
@@ -36,6 +37,7 @@ assert.deepStrictEqual(switched.snapshot, {
   orgId: 'org-44',
   role: 'user',
   contextId: '',
+  identityId: '',
   token: 'token-43',
   version: 8
 });

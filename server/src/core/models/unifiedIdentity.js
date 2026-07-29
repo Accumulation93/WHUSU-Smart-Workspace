@@ -33,6 +33,10 @@ function contextId(type, subjectId, orgId) {
   return 'ctx_' + hmac([type, subjectId, orgId].join('|')).slice(0, 40);
 }
 
+function authIdentityId(type, subjectId) {
+  return 'idn_' + hmac([type, subjectId].join('|')).slice(0, 40);
+}
+
 function normalizeStudentId(value) {
   return safeString(value).toLowerCase();
 }
@@ -70,6 +74,8 @@ function normalizeAssignmentTitle(row) {
 function mapAssignmentContext(row) {
   return {
     contextId: contextId('assignment', row.assignment_id, row.organization_id),
+    authIdentityId: authIdentityId('assignment', row.assignment_id),
+    identityScope: 'organization',
     organizationId: safeString(row.organization_id),
     organizationName: safeString(row.organization_name),
     identityType: 'assignment',
@@ -96,8 +102,11 @@ function mapAssignmentContext(row) {
 }
 
 function mapAdminContext(row) {
+  const isGlobal = row.admin_level === 'super_admin' && safeString(row.grant_org_id) === '';
   return {
     contextId: contextId('admin', row.admin_grant_id, row.organization_id),
+    authIdentityId: authIdentityId('admin', row.admin_grant_id),
+    identityScope: isGlobal ? 'global' : 'organization',
     organizationId: safeString(row.organization_id),
     organizationName: safeString(row.organization_name),
     identityType: 'admin',
@@ -743,16 +752,57 @@ async function listContexts(accountId, connection) {
   });
 }
 
-async function resolveContext(accountId, requestedContextId, connection) {
-  const contexts = await listContexts(accountId, connection);
-  if (!contexts.length) return null;
-  const requested = safeString(requestedContextId);
-  return contexts.find((item) => item.contextId === requested)
-    || contexts.find((item) => item.isPrimary)
-    || contexts[0];
+function contextRank(context) {
+  if (context.identityType === 'assignment' && context.isPrimary) return 0;
+  if (context.identityType === 'assignment') return 1;
+  if (context.adminLevel !== 'super_admin') return 2;
+  return 3;
 }
 
-async function createSession(account, requestedContextId, metadata) {
+function chooseFallbackContext(contexts, preferredOrganizationId) {
+  const orgId = safeString(preferredOrganizationId);
+  const scoped = orgId
+    ? contexts.filter((item) => item.organizationId === orgId)
+    : [];
+  const candidates = scoped.length ? scoped : contexts;
+  return candidates.slice().sort((left, right) => contextRank(left) - contextRank(right))[0] || null;
+}
+
+async function resolveContextSelection(accountId, requestedSelection, connection) {
+  const contexts = await listContexts(accountId, connection);
+  if (!contexts.length) return { context: null, fallback: false, reason: 'no_context' };
+  const selection = requestedSelection && typeof requestedSelection === 'object'
+    ? requestedSelection
+    : { contextId: requestedSelection };
+  const requestedContextId = safeString(selection.contextId);
+  const requestedOrganizationId = safeString(selection.organizationId);
+  const requestedIdentityId = safeString(selection.identityId);
+  const hasPreference = Boolean(requestedContextId || requestedOrganizationId || requestedIdentityId);
+  let matched = null;
+  if (requestedContextId) {
+    matched = contexts.find((item) => item.contextId === requestedContextId) || null;
+  }
+  if (!matched && requestedOrganizationId && requestedIdentityId) {
+    matched = contexts.find((item) => (
+      item.organizationId === requestedOrganizationId
+      && item.authIdentityId === requestedIdentityId
+    )) || null;
+  }
+  if (matched) return { context: matched, fallback: false, reason: '' };
+  const fallback = chooseFallbackContext(contexts, requestedOrganizationId);
+  return {
+    context: fallback,
+    fallback: hasPreference,
+    reason: hasPreference ? 'selection_unavailable' : ''
+  };
+}
+
+async function resolveContext(accountId, requestedSelection, connection) {
+  const resolved = await resolveContextSelection(accountId, requestedSelection, connection);
+  return resolved.context;
+}
+
+async function createSession(account, requestedSelection, metadata) {
   return pool.withTransaction(async (connection) => {
     const [accountRows] = await connection.query(
       `SELECT a.id, a.person_id, a.status, a.token_version, b.openid_hash
@@ -770,7 +820,12 @@ async function createSession(account, requestedContextId, metadata) {
       activeAccount.id,
       decryptBindingOpenid.bind(null, connection, activeAccount.id)
     );
-    const activeContext = await resolveContext(activeAccount.id, requestedContextId, connection);
+    const resolvedSelection = await resolveContextSelection(
+      activeAccount.id,
+      requestedSelection,
+      connection
+    );
+    const activeContext = resolvedSelection.context;
     if (!activeContext) throw new IdentityError('no_context', '当前账号暂无可用身份', 403);
     const id = generateId();
     await connection.query(
@@ -807,7 +862,9 @@ async function createSession(account, requestedContextId, metadata) {
       id,
       context: activeContext,
       tokenVersion: Number(activeAccount.token_version || 1),
-      expiresInSeconds: SESSION_MINUTES * 60
+      expiresInSeconds: SESSION_MINUTES * 60,
+      selectionFallback: resolvedSelection.fallback,
+      selectionFallbackReason: resolvedSelection.reason
     };
   });
 }
@@ -841,7 +898,7 @@ async function loadSession(id) {
   return { session, context: activeContext, openid };
 }
 
-async function activateContext(sessionId, accountId, requestedContextId) {
+async function activateSelection(sessionId, accountId, requestedSelection) {
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query(
       `SELECT * FROM auth_sessions
@@ -851,8 +908,20 @@ async function activateContext(sessionId, accountId, requestedContextId) {
     );
     const session = rows[0];
     if (!session) throw new IdentityError('session_expired', '登录已过期，请重新登录', 401);
-    const activeContext = await resolveContext(accountId, requestedContextId, connection);
-    if (!activeContext || activeContext.contextId !== safeString(requestedContextId)) {
+    const contexts = await listContexts(accountId, connection);
+    const selection = requestedSelection && typeof requestedSelection === 'object'
+      ? requestedSelection
+      : { contextId: requestedSelection };
+    const requestedContextId = safeString(selection.contextId);
+    const requestedOrganizationId = safeString(selection.organizationId);
+    const requestedIdentityId = safeString(selection.identityId);
+    const activeContext = requestedContextId
+      ? contexts.find((item) => item.contextId === requestedContextId)
+      : contexts.find((item) => (
+        item.organizationId === requestedOrganizationId
+        && item.authIdentityId === requestedIdentityId
+      ));
+    if (!activeContext) {
       throw new IdentityError('context_forbidden', '该身份已失效，请刷新后重试', 403);
     }
     await syncLegacyBindings(connection, accountId, decryptBindingOpenid.bind(null, connection, accountId));
@@ -872,6 +941,10 @@ async function activateContext(sessionId, accountId, requestedContextId) {
     );
     return activeContext;
   });
+}
+
+async function activateContext(sessionId, accountId, requestedContextId) {
+  return activateSelection(sessionId, accountId, { contextId: requestedContextId });
 }
 
 async function decryptBindingOpenid(connection, accountId) {
@@ -1930,6 +2003,7 @@ module.exports = {
   SESSION_MINUTES,
   IdentityError,
   contextId,
+  authIdentityId,
   normalizeStudentId,
   listClaimOrganizations,
   syncLegacyHrRecords,
@@ -1945,9 +2019,11 @@ module.exports = {
   createBootstrapSession,
   getBootstrapSession,
   listContexts,
+  resolveContextSelection,
   resolveContext,
   createSession,
   loadSession,
+  activateSelection,
   activateContext,
   syncLegacyBindings,
   createClaim,

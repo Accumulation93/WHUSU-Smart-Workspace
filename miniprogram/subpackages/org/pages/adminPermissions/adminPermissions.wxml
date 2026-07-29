@@ -85,4 +85,16 @@
       </view>
     </view>
   </view>
+
+  <view class="permission-overlay ui-overlay" wx:if="{{contextSwitchGuardVisible}}">
+    <view class="permission-mask" bindtap="closeContextSwitchGuard"></view>
+    <view class="permission-dialog context-switch-guard-card hit-area ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
+      <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
+      <view class="context-switch-guard-title">请先处理未保存内容</view>
+      <view class="context-switch-guard-desc">管理员权限尚未保存。完成保存或取消编辑后，再切换组织与身份。</view>
+      <view class="context-switch-guard-actions ui-dialog-footer">
+        <button class="primary-btn permission-primary ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">继续编辑</button>
+      </view>
+    </view>
+  </view>
 </view>

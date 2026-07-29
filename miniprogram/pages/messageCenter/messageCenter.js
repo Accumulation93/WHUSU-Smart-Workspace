@@ -256,13 +256,23 @@ Page({
     return source.find(function(item) { return item.id === id; }) || null;
   },
 
-  requiresOrganizationSwitch(item) {
-    if (!item) return false;
-    if (item.contextId) {
-      return item.contextId !== String(wx.getStorageSync('activeContextId') || '');
+  contextSwitchKind(item) {
+    if (!item) return '';
+    if (item.organizationId
+      && item.organizationId !== String(wx.getStorageSync('activeOrgId') || '')) {
+      return 'organization';
     }
-    return !!(item.organizationId
-      && item.organizationId !== String(wx.getStorageSync('activeOrgId') || ''));
+    if (item.identityId) {
+      return item.identityId !== String(wx.getStorageSync('activeIdentityId') || '')
+        ? 'identity'
+        : '';
+    }
+    if (item.contextId) {
+      return item.contextId !== String(wx.getStorageSync('activeContextId') || '')
+        ? 'identity'
+        : '';
+    }
+    return '';
   },
 
   openSwitchDialog(item, type) {
@@ -282,11 +292,16 @@ Page({
     this.setData({ showSwitchDialog: false, switchOrganizationName: '' });
   },
 
-  onTodoTap(e) {
+  async onTodoTap(e) {
     const item = this.findItem('todo', e.currentTarget.dataset.id);
     if (!item) return;
-    if (this.requiresOrganizationSwitch(item)) {
+    const switchKind = this.contextSwitchKind(item);
+    if (switchKind === 'organization') {
       this.openSwitchDialog(item, 'todo');
+      return;
+    }
+    if (switchKind === 'identity') {
+      await this.activateAndOpen(item, 'todo');
       return;
     }
     navigateToTrustedRoute(item.targetUrl);
@@ -321,14 +336,50 @@ Page({
     }
   },
 
-  onNotificationTap(e) {
+  async onNotificationTap(e) {
     const item = this.findItem('notification', e.currentTarget.dataset.id);
     if (!item) return;
-    if (this.requiresOrganizationSwitch(item)) {
+    const switchKind = this.contextSwitchKind(item);
+    if (switchKind === 'organization') {
       this.openSwitchDialog(item, 'notification');
       return;
     }
+    if (switchKind === 'identity') {
+      await this.activateAndOpen(item, 'notification');
+      return;
+    }
     this.openNotification(item);
+  },
+
+  async activateItemContext(item) {
+    if (item.organizationId && item.identityId) {
+      return authContext.activateSelection(item.organizationId, item.identityId);
+    }
+    if (item.contextId) return authContext.activateContext(item.contextId);
+    return activateOrganization(item.organizationId);
+  },
+
+  async activateAndOpen(item, type) {
+    try {
+      const activated = await this.activateItemContext(item);
+      this._activeOrgSnapshot = orgSession.getSnapshot();
+      if (type === 'notification' && !item.isRead) {
+        try {
+          await this.markNotificationRead(item);
+        } catch (_) {
+          queuePendingRead(
+            item.organizationId,
+            (activated.selection && activated.selection.identityId) || activated.role || '',
+            item.id
+          );
+        }
+      }
+      navigateToTrustedRoute(item.targetUrl);
+    } catch (error) {
+      const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
+      showShortToast(denied ? '权限已变更' : '身份切换失败');
+      this.loadOverview(true);
+    }
   },
 
   async confirmOrganizationSwitch() {
@@ -336,9 +387,7 @@ Page({
     if (!pending || this.data.switchingOrganization) return;
     this.setData({ switchingOrganization: true });
     try {
-      const activated = pending.item.contextId
-        ? await authContext.activateContext(pending.item.contextId)
-        : await activateOrganization(pending.item.organizationId);
+      const activated = await this.activateItemContext(pending.item);
       this._activeOrgSnapshot = orgSession.getSnapshot();
       this.setData({ showSwitchDialog: false, switchingOrganization: false });
       if (pending.type === 'notification' && !pending.item.isRead) {
@@ -347,7 +396,9 @@ Page({
         } catch (_) {
           queuePendingRead(
             pending.item.organizationId,
-            (activated.context && activated.context.contextId) || activated.role,
+            (activated.selection && activated.selection.identityId)
+              || (activated.context && activated.context.contextId)
+              || activated.role,
             pending.item.id
           );
         }

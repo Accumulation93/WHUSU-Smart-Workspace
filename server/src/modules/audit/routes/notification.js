@@ -71,10 +71,23 @@ function organizationMetadata(context) {
     organizationName: context.organizationName,
     isCurrentOrganization: context.isCurrentOrganization,
     contextId: context.contextId || '',
+    identityId: context.authIdentityId || '',
     identityType: context.identityType || context.role || '',
     identityName: context.identityName || (context.role === 'admin' ? '管理员' : '普通岗位'),
-    isCurrentContext: Boolean(context.isCurrentContext)
+    identityScope: context.identityScope || 'organization',
+    isCurrentContext: Boolean(context.isCurrentContext),
+    _identityPriority: context.isCurrentContext
+      ? -1
+      : (context.identityType === 'assignment'
+        ? (context.isPrimary ? 0 : 1)
+        : (context.adminLevel === 'super_admin' ? 3 : 2))
   };
+}
+
+function withoutIdentityPriority(item) {
+  const value = Object.assign({}, item);
+  delete value._identityPriority;
+  return value;
 }
 
 function mapNotification(row, context) {
@@ -258,16 +271,24 @@ async function loadTodos(scope, body) {
   });
   const allItems = results
     .filter((item) => item.ok)
-    .flatMap((item) => item.value)
-    .sort(todoService.compareTodo);
-  const items = allItems.slice(offset, offset + limit);
+    .flatMap((item) => item.value);
+  const todoMap = new Map();
+  allItems.forEach((item) => {
+    const key = item.organizationId + '::' + item.category + '::' + item.id;
+    const existing = todoMap.get(key);
+    if (!existing || item._identityPriority < existing._identityPriority) {
+      todoMap.set(key, item);
+    }
+  });
+  const uniqueItems = Array.from(todoMap.values()).sort(todoService.compareTodo);
+  const items = uniqueItems.slice(offset, offset + limit).map(withoutIdentityPriority);
   const nextOffset = offset + items.length;
   return {
     data: {
       items,
-      total: allItems.length,
+      total: uniqueItems.length,
       unreadCount: 0,
-      nextCursor: nextOffset < allItems.length ? encodeCursor(nextOffset) : ''
+      nextCursor: nextOffset < uniqueItems.length ? encodeCursor(nextOffset) : ''
     },
     failures: collectFailures(results)
   };
@@ -296,11 +317,13 @@ async function loadNotifications(scope, body) {
     result.value.items.forEach((item) => {
       const key = item.organizationId + '::' + item.id;
       const existing = notificationMap.get(key);
-      if (!existing || item.isCurrentContext) notificationMap.set(key, item);
+      if (!existing || item._identityPriority < existing._identityPriority) {
+        notificationMap.set(key, item);
+      }
     });
   });
   const allItems = Array.from(notificationMap.values()).sort(compareNotifications);
-  const items = allItems.slice(0, limit);
+  const items = allItems.slice(0, limit).map(withoutIdentityPriority);
   const recipientCounts = new Map();
   successful.forEach((result) => {
     const actor = result.context.actor || {};

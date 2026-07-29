@@ -203,6 +203,38 @@ async function run() {
       ip: '127.0.0.1'
     });
     assert(session && session.context);
+    const contexts = await identityModel.listContexts(account.id);
+    const globalAdminContexts = contexts.filter((item) => item.identityScope === 'global');
+    assert.strictEqual(globalAdminContexts.length, 3);
+    assert.strictEqual(
+      new Set(globalAdminContexts.map((item) => item.authIdentityId)).size,
+      1
+    );
+    const targetGlobalContext = globalAdminContexts.find((item) => item.organizationId === 'org-b');
+    assert(targetGlobalContext);
+    const activatedGlobalContext = await identityModel.activateSelection(
+      session.id,
+      account.id,
+      {
+        organizationId: 'org-b',
+        identityId: targetGlobalContext.authIdentityId
+      }
+    );
+    assert.strictEqual(activatedGlobalContext.contextId, targetGlobalContext.contextId);
+    await assert.rejects(
+      identityModel.activateSelection(session.id, account.id, {
+        organizationId: 'org-not-allowed',
+        identityId: targetGlobalContext.authIdentityId
+      }),
+      /该身份已失效/
+    );
+    await assert.rejects(
+      identityModel.activateSelection(session.id, account.id, {
+        organizationId: 'org-b',
+        identityId: 'idn-forged'
+      }),
+      /该身份已失效/
+    );
     const [[syncedLegacyBinding]] = await pool.query(
       `SELECT COUNT(*) AS count
          FROM user_info

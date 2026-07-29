@@ -1,61 +1,160 @@
 <view class="page">
-  <view class="hero org-hero">
-    <view class="hero-badge">统一身份</view>
-    <view class="hero-title">切换身份</view>
-    <view class="hero-subtitle">业务权限严格跟随当前组织和岗位，不同身份互不混用</view>
+  <view class="hero context-hero">
+    <view class="hero-badge">统一工作上下文</view>
+    <view class="hero-title">组织与身份</view>
+    <view class="hero-subtitle">先选择工作组织，再明确选择本次使用的岗位或管理身份</view>
+    <view class="current-context" wx:if="{{currentOrganizationName}}">
+      <view class="current-context-icon"><ui-icon name="grid" tone="white" size="30" ariaLabel="当前工作上下文" /></view>
+      <view class="current-context-copy">
+        <view class="current-context-label">当前工作上下文</view>
+        <view class="current-context-org">{{currentOrganizationName}}</view>
+        <view class="current-context-identity">{{currentIdentityName || '身份信息加载中'}}</view>
+      </view>
+    </view>
   </view>
 
-  <view class="org-panel">
+  <view class="context-notice context-notice-error" wx:if="{{errorText}}">
+    <ui-icon name="shield" tone="primary" size="26" ariaLabel="错误提示" />
+    <text>{{errorText}}</text>
+  </view>
+
+  <view class="context-panel">
     <view class="panel-head">
       <view>
-        <view class="section-title">可用身份</view>
-        <view class="panel-note">共 {{contexts.length}} 个组织岗位或管理身份</view>
+        <view class="section-title">选择组织</view>
+        <view class="panel-note">选择后不会立即切换，请继续选择下方身份</view>
+      </view>
+      <view class="selection-status" wx:if="{{draftOrganizationName}}">已选组织</view>
+    </view>
+
+    <view class="organization-search" wx:if="{{showOrganizationSearch}}">
+      <ui-icon name="search" tone="muted" size="30" ariaLabel="搜索组织" />
+      <input class="organization-search-input" value="{{organizationKeyword}}" placeholder="搜索组织全称" bindinput="onOrganizationSearch" confirm-type="search" />
+      <view class="organization-search-clear" wx:if="{{organizationKeyword}}" bindtap="clearOrganizationSearch" hover-class="context-search-clear-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button">
+        <ui-icon name="x" tone="muted" size="27" ariaLabel="清除搜索" />
       </view>
     </view>
 
-    <view class="org-skeleton" wx:if="{{loading && !contexts.length}}">
+    <view class="context-skeleton" wx:if="{{loading && !organizations.length}}">
       <view class="skeleton-row" wx:for="{{skeletonRows}}" wx:key="*this">
         <view class="skeleton-icon"></view>
         <view class="skeleton-copy"><view></view><view></view></view>
       </view>
     </view>
 
-    <view class="empty-state" wx:elif="{{!loading && !contexts.length}}">
-      <view class="empty-icon"><ui-icon name="user" tone="muted" size="54" ariaLabel="暂无身份" /></view>
-      <view class="empty-title">暂无可用身份</view>
-      <view class="empty-desc">请联系组织管理员核对成员关系</view>
+    <view class="empty-state" wx:elif="{{!loading && !organizations.length}}">
+      <view class="empty-icon"><ui-icon name="home" tone="muted" size="50" ariaLabel="暂无组织" /></view>
+      <view class="empty-title">暂无可访问组织</view>
+      <view class="empty-desc">请联系组织管理员核对成员关系或管理授权</view>
     </view>
 
-    <view class="org-list" wx:else>
-      <view
-        class="org-item {{item.current ? 'org-item-active' : ''}} {{switchingContextId === item.contextId ? 'org-item-switching' : ''}}"
-        wx:for="{{contexts}}"
-        wx:key="contextId"
-        data-id="{{item.contextId}}"
-        catchtap="onContextTap"
-        hover-class="org-item-pressing"
-        hover-start-time="0"
-        hover-stay-time="160"
-        hover-stop-propagation="{{true}}"
-        aria-role="button"
-        aria-label="切换到{{item.organizationName}}{{item.identityName}}"
-      >
-        <view class="org-item-icon"><ui-icon name="{{item.role === 'admin' ? 'shield' : 'user'}}" tone="primary" size="34" ariaLabel="身份" /></view>
-        <view class="org-info">
-          <view class="org-name">{{item.identityName}}</view>
-          <view class="identity-org-name">{{item.organizationName}}</view>
-          <view class="identity-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
-          <view class="org-meta">
-            <view class="role-chip {{item.role === 'admin' ? 'role-chip-admin' : 'role-chip-user'}}">{{item.roleLabel}}</view>
-            <view class="current-chip" wx:if="{{item.current}}">当前身份</view>
+    <scroll-view class="organization-scroll" wx:else scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+      <view class="organization-list">
+        <view
+          class="organization-item {{item.selected ? 'organization-item-selected' : ''}}"
+          wx:for="{{filteredOrganizations}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          catchtap="onOrganizationTap"
+          hover-class="context-item-pressing"
+          hover-start-time="0"
+          hover-stay-time="160"
+          hover-stop-propagation="{{true}}"
+          aria-role="button"
+          aria-label="选择组织{{item.name}}"
+        >
+          <view class="organization-item-icon"><ui-icon name="home" tone="{{item.selected ? 'white' : 'primary'}}" size="30" ariaLabel="组织" /></view>
+          <view class="organization-item-copy">
+            <view class="organization-item-name">{{item.name}}</view>
+            <view class="organization-item-meta">
+              <text wx:if="{{item.current}}">当前组织</text>
+              <text wx:elif="{{item.selected}}">待选择身份</text>
+              <text wx:else>选择此组织</text>
+            </view>
           </view>
-        </view>
-        <view class="org-item-end">
-          <view class="switching-dot" wx:if="{{switchingContextId === item.contextId}}"></view>
-          <ui-icon wx:elif="{{item.current}}" name="check" tone="white" size="24" ariaLabel="当前身份" />
-          <ui-icon wx:else name="chevron-right" tone="muted" size="28" ariaLabel="进入" />
+          <ui-icon name="{{item.selected ? 'check' : 'chevron-right'}}" tone="{{item.selected ? 'white' : 'muted'}}" size="25" ariaLabel="{{item.selected ? '已选择' : '选择'}}" />
         </view>
       </view>
+      <view class="organization-search-empty" wx:if="{{showOrganizationSearch && !filteredOrganizations.length}}">没有匹配的组织</view>
+    </scroll-view>
+  </view>
+
+  <view class="context-panel identity-panel" wx:if="{{draftOrganizationId}}">
+    <view class="panel-head">
+      <view>
+        <view class="section-title">选择身份</view>
+        <view class="panel-note identity-panel-note">{{draftOrganizationName}}</view>
+      </view>
+    </view>
+
+    <view class="identity-group" wx:if="{{assignmentIdentities.length}}">
+      <view class="identity-group-title">组织岗位</view>
+      <view class="identity-list">
+        <view
+          class="identity-item {{item.current ? 'identity-item-current' : ''}} {{switchingIdentityId === item.identityId ? 'identity-item-switching' : ''}}"
+          wx:for="{{assignmentIdentities}}"
+          wx:key="identityId"
+          data-id="{{item.identityId}}"
+          catchtap="onIdentityTap"
+          hover-class="context-item-pressing"
+          hover-start-time="0"
+          hover-stay-time="160"
+          hover-stop-propagation="{{true}}"
+          aria-role="button"
+          aria-label="使用身份{{item.name}}"
+        >
+          <view class="identity-item-icon"><ui-icon name="user" tone="primary" size="31" ariaLabel="组织岗位" /></view>
+          <view class="identity-item-copy">
+            <view class="identity-item-name">{{item.name}}</view>
+            <view class="identity-item-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
+            <view class="identity-current-label" wx:if="{{item.current}}">当前身份</view>
+          </view>
+          <view class="identity-item-end">
+            <view class="switching-dot" wx:if="{{switchingIdentityId === item.identityId}}"></view>
+            <ui-icon wx:elif="{{item.current}}" name="check" tone="white" size="23" ariaLabel="当前身份" />
+            <ui-icon wx:else name="chevron-right" tone="muted" size="26" ariaLabel="使用此身份" />
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="identity-group" wx:if="{{adminIdentities.length}}">
+      <view class="identity-group-title">管理身份</view>
+      <view class="identity-list">
+        <view
+          class="identity-item {{item.current ? 'identity-item-current' : ''}} {{switchingIdentityId === item.identityId ? 'identity-item-switching' : ''}}"
+          wx:for="{{adminIdentities}}"
+          wx:key="identityId"
+          data-id="{{item.identityId}}"
+          catchtap="onIdentityTap"
+          hover-class="context-item-pressing"
+          hover-start-time="0"
+          hover-stay-time="160"
+          hover-stop-propagation="{{true}}"
+          aria-role="button"
+          aria-label="使用身份{{item.name}}"
+        >
+          <view class="identity-item-icon"><ui-icon name="shield" tone="primary" size="31" ariaLabel="管理身份" /></view>
+          <view class="identity-item-copy">
+            <view class="identity-title-row">
+              <view class="identity-item-name">{{item.name}}</view>
+              <view class="identity-scope-label" wx:if="{{item.scopeLabel}}">{{item.scopeLabel}}</view>
+            </view>
+            <view class="identity-item-detail">{{item.detail}}</view>
+            <view class="identity-current-label" wx:if="{{item.current}}">当前身份</view>
+          </view>
+          <view class="identity-item-end">
+            <view class="switching-dot" wx:if="{{switchingIdentityId === item.identityId}}"></view>
+            <ui-icon wx:elif="{{item.current}}" name="check" tone="white" size="23" ariaLabel="当前身份" />
+            <ui-icon wx:else name="chevron-right" tone="muted" size="26" ariaLabel="使用此身份" />
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-state identity-empty" wx:if="{{!assignmentIdentities.length && !adminIdentities.length}}">
+      <view class="empty-title">该组织暂无可用身份</view>
+      <view class="empty-desc">请选择其他组织，或联系管理员核对岗位与授权</view>
     </view>
   </view>
 </view>

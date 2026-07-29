@@ -4,6 +4,7 @@ const ORG_NAME_KEY = 'activeOrgName';
 const ROLE_KEY = 'activeRole';
 const TOKEN_KEY = 'token';
 const CONTEXT_KEY = 'activeContextId';
+const IDENTITY_KEY = 'activeIdentityId';
 const messageScope = require('./messageScope');
 
 function getVersion() {
@@ -21,6 +22,7 @@ function getSnapshot() {
     orgId: String(wx.getStorageSync(ORG_KEY) || ''),
     role: String(wx.getStorageSync(ROLE_KEY) || ''),
     contextId: String(wx.getStorageSync(CONTEXT_KEY) || ''),
+    identityId: String(wx.getStorageSync(IDENTITY_KEY) || ''),
     token: String(wx.getStorageSync(TOKEN_KEY) || ''),
     version: getVersion()
   };
@@ -31,6 +33,7 @@ function isSameSnapshot(left, right) {
   return left.orgId === right.orgId
     && left.role === right.role
     && left.contextId === right.contextId
+    && left.identityId === right.identityId
     && left.token === right.token
     && left.version === right.version;
 }
@@ -49,6 +52,7 @@ function commitContext(context) {
   if (has.call(next, 'token')) writeStorageValue(TOKEN_KEY, next.token);
   if (has.call(next, 'role')) writeStorageValue(ROLE_KEY, next.role);
   if (has.call(next, 'contextId')) writeStorageValue(CONTEXT_KEY, next.contextId);
+  if (has.call(next, 'identityId')) writeStorageValue(IDENTITY_KEY, next.identityId);
   if (has.call(next, 'orgId')) writeStorageValue(ORG_KEY, next.orgId);
   if (has.call(next, 'orgName')) writeStorageValue(ORG_NAME_KEY, next.orgName);
 
@@ -56,9 +60,11 @@ function commitContext(context) {
   const changed = before.orgId !== afterWrite.orgId
     || before.role !== afterWrite.role
     || before.contextId !== afterWrite.contextId
+    || before.identityId !== afterWrite.identityId
     || before.token !== afterWrite.token;
   if (before.role !== afterWrite.role
     || before.contextId !== afterWrite.contextId
+    || before.identityId !== afterWrite.identityId
     || before.token !== afterWrite.token) {
     messageScope.resetScope();
   }
@@ -75,6 +81,7 @@ function clearAuthentication(nextRole) {
     token: '',
     role: nextRole || '',
     contextId: '',
+    identityId: '',
     orgId: '',
     orgName: ''
   });

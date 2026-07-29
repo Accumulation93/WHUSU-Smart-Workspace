@@ -26,7 +26,8 @@ Page({
     keyword: '',
     selectedAdmin: null,
     permissionGroups: [],
-    editorVisible: false
+    editorVisible: false,
+    contextSwitchGuardVisible: false
   },
 
   onLoad() {
@@ -184,10 +185,14 @@ Page({
 
   onOrgTap() {
     if (this.data.editorVisible) {
-      wx.showModal({ title: '存在未保存内容', content: '请先处理未保存内容。', showCancel: false });
+      this.setData({ contextSwitchGuardVisible: true });
       return;
     }
-    wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
+    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+  },
+
+  closeContextSwitchGuard() {
+    this.setData({ contextSwitchGuardVisible: false });
   },
 
   noop() {}

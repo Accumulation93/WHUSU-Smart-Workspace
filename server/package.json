@@ -19,6 +19,7 @@
     "test:request-dedup": "node test/requestDeduplication.test.js",
     "test:client-version": "node test/clientVersion.test.js",
     "test:runtime-hardening": "node test/runtimeHardening.test.js",
+    "test:unified-context": "node test/unifiedContextCatalog.test.js",
     "test:hr-import": "node test/hrTableImport.test.js",
     "test:message-center": "node test/messageCenter.test.js",
     "test:message-center-cross-org": "node test/crossOrgMessageRoutes.test.js",

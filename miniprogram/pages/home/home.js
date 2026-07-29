@@ -564,7 +564,7 @@ Page({
   },
 
   onOrgTap() {
-    wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
+    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
   },
 
   processRateTargetsResult(result) {

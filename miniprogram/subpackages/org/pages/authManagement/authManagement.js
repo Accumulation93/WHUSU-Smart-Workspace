@@ -67,7 +67,9 @@ Page({
     showCodeDialog: false,
     showRecoveryDialog: false,
     pendingRecovery: null,
-    actionLoading: false
+    actionLoading: false,
+    showGlobalScopeNotice: false,
+    currentOrganizationName: ''
   },
 
   configureTabs() {
@@ -88,7 +90,13 @@ Page({
     }, this) ? this.data.activeTab : (tabs[0] ? tabs[0].key : '');
     this.setData({
       tabs: tabs,
-      activeTab: activeTab
+      activeTab: activeTab,
+      showGlobalScopeNotice: Boolean(
+        context
+        && context.adminLevel === 'super_admin'
+        && context.identityScope === 'global'
+      ),
+      currentOrganizationName: wx.getStorageSync('activeOrgName') || ''
     });
   },
 
