@@ -69,7 +69,7 @@ function buildClauseText(clause) {
   const completeText = clause.requireAllComplete ? '，要求全评后计入核算' : '，不要求全评';
   const questionText = clause.templateConfigs.length
     ? clause.templateConfigs.map((cfg) => (cfg.templateName || '未命名评分问题') + '（权重：' + cfg.weight + '，顺序：' + cfg.sortOrder + '）').join('、')
-    : '未配置评分问题';
+    : '暂未选择评分问题';
   return (clause.scopeLabel || '未设置被评分范围') + identityText + completeText + ' [' + questionText + ']';
 }
 
@@ -78,7 +78,7 @@ router.post('/listRateRules', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '无管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const activityId = safeString(req.body.activityId);
     const lookups = await fetchOrgLookups();
@@ -128,7 +128,7 @@ router.post('/listRateRules', async (req, res) => {
         scorerIdentity: safeString(lookups.identitiesById.get(item.scorer_identity_id)),
         allowSelfAssessment: item.allow_self_assessment !== 0,
         clauses,
-        clausesText: clauses.length ? clauses.map((c) => buildClauseText(c)).join(' | ') : '未配置被评分人规则'
+        clausesText: clauses.length ? clauses.map((c) => buildClauseText(c)).join(' | ') : '暂无被评分人范围'
       };
     }).sort((a, b) => {
       if (a.scorerDepartment !== b.scorerDepartment) return a.scorerDepartment.localeCompare(b.scorerDepartment, 'zh-CN');
@@ -146,7 +146,7 @@ router.post('/saveRateRule', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '无管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
     const activityId = safeString(req.body.activityId);
@@ -165,20 +165,20 @@ router.post('/saveRateRule', async (req, res) => {
       departmentModel.getById(scorerDepartmentId),
       identityModel.getById(scorerIdentityId)
     ]);
-    if (!activity) return res.json({ status: 'invalid_params', message: '评分活动不存在' });
-    if (!scorerDepartment || !scorerIdentity) return res.json({ status: 'invalid_params', message: '评分人部门或身份不存在' });
+    if (!activity) return res.json({ status: 'invalid_params', message: '请刷新评分活动后重试' });
+    if (!scorerDepartment || !scorerIdentity) return res.json({ status: 'invalid_params', message: '请重新选择评分人部门和身份' });
 
     const normalizedClauses = [];
     for (const clause of clauses) {
       const scopeType = safeString(clause.scopeType);
-      if (!VALID_SCOPES.includes(scopeType)) return res.json({ status: 'invalid_params', message: '无效的被评分范围' });
+      if (!VALID_SCOPES.includes(scopeType)) return res.json({ status: 'invalid_params', message: '请重新选择评分范围' });
 
       const targetIdentityId = IDENTITY_REQUIRED_SCOPES.includes(scopeType) ? safeString(clause.targetIdentityId) : '';
       if (targetIdentityId) {
         const targetIdentity = await identityModel.getById(targetIdentityId);
-        if (!targetIdentity) return res.json({ status: 'invalid_params', message: '被评分人身份不存在' });
+        if (!targetIdentity) return res.json({ status: 'invalid_params', message: '请重新选择被评分人身份' });
       } else if (IDENTITY_REQUIRED_SCOPES.includes(scopeType)) {
-        return res.json({ status: 'invalid_params', message: '请提供被评分人身份ID' });
+        return res.json({ status: 'invalid_params', message: '请选择被评分人身份' });
       }
 
       const templateConfigs = [];
@@ -188,11 +188,11 @@ router.post('/saveRateRule', async (req, res) => {
         const templateId = safeString(item.templateId);
         if (!templateId) continue;
         const tpl = await templateModel.getById(templateId);
-        if (!tpl) return res.json({ status: 'invalid_params', message: '评分问题模板不存在' });
+        if (!tpl) return res.json({ status: 'invalid_params', message: '请刷新评分问题后重试' });
         const weight = Number(item.weight);
         const sortOrder = Number(item.sortOrder);
         if (!Number.isFinite(weight) || weight <= 0 || !Number.isInteger(sortOrder) || sortOrder <= 0) {
-          return res.json({ status: 'invalid_params', message: '权重和顺序必须为正整数' });
+          return res.json({ status: 'invalid_params', message: '请在权重和顺序中填写正整数' });
         }
         const calculationMethod = safeString(item.calculationMethod) || 'weighted_average';
         const trimHighCount = Number(item.trimHighCount || 0);
@@ -218,7 +218,7 @@ router.post('/saveRateRule', async (req, res) => {
         if (mode === 'replace') {
           dedupedClauses[existingIndex] = clause;
         } else {
-          return res.json({ status: 'duplicate_clause', message: '同一评分人类别中，被评分范围和身份不能重复' });
+          return res.json({ status: 'duplicate_clause', message: '请调整重复的评分范围和身份' });
         }
       } else {
         seenKeys.set(clauseKey, dedupedClauses.length);
@@ -263,7 +263,7 @@ router.post('/saveRateRule', async (req, res) => {
             }
             await conn.query('DELETE FROM rate_rule_clauses WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
           } else {
-            throw Object.assign(new Error('duplicate_category'), { status: 'duplicate_category', message: '该评分人类别已存在' });
+            throw Object.assign(new Error('duplicate_category'), { status: 'duplicate_category', message: '请调整重复的评分人类别' });
           }
         } else {
           ruleId = generateId();
@@ -341,12 +341,12 @@ router.post('/generateRateTargetRules', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '无管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const activityId = safeString(req.body.activityId);
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请提供评分活动ID' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: '请选择评分活动' });
     const activity = await activityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'invalid_params', message: '评分活动不存在' });
+    if (!activity) return res.json({ status: 'invalid_params', message: '请刷新评分活动后重试' });
 
     const [hrRows, existingRules, departments, identities] = await Promise.all([
       hrInfoModel.getAll(), rateRuleModel.getByActivity(activityId), departmentModel.getAll(), identityModel.getAll()

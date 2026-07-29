@@ -34,9 +34,9 @@ function fmtDatetime(d) {
 router.post('/getVenueApprovalFlow', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
 
     const flow = await flowModel.getByVenueId(venueId);
     if (!flow) return res.json({ status: 'success', flow: null, steps: [] });
@@ -52,10 +52,10 @@ router.post('/getVenueApprovalFlow', async (req, res) => {
 router.post('/saveVenueApprovalFlow', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venueId = safeString(req.body.venueId);
     const name = safeString(req.body.name);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
 
     const existing = await flowModel.getByVenueId(venueId);
     if (existing) {
@@ -75,11 +75,11 @@ router.post('/saveVenueApprovalFlow', async (req, res) => {
 router.post('/deleteVenueApprovalFlow', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     const flow = await flowModel.getByVenueId(venueId);
-    if (!flow) return res.json({ status: 'not_found', message: '审批流不存在' });
+    if (!flow) return res.json({ status: 'not_found', message: '请刷新审批设置后重试' });
     await flowModel.remove(flow.id);
     res.json({ status: 'success', message: '审批流已删除' });
   } catch (e) {
@@ -95,19 +95,19 @@ router.post('/deleteVenueApprovalFlow', async (req, res) => {
 router.post('/saveVenueApprovalStep', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const flowId = safeString(req.body.flowId);
     const name = safeString(req.body.name);
     const sortOrder = parseInt(req.body.sortOrder) || 1;
     const approvalMode = safeString(req.body.approvalMode) === 'admin_any' ? 'admin_any' : 'hr_rule';
-    if (!flowId) return res.json({ status: 'invalid_params', message: '请提供流程ID' });
+    if (!flowId) return res.json({ status: 'invalid_params', message: '请重新打开审批设置' });
 
     const id = safeString(req.body.id) || generateId();
     const flow = await flowModel.getById(flowId);
-    if (!flow) return res.json({ status: 'not_found', message: '审批流程不存在' });
+    if (!flow) return res.json({ status: 'not_found', message: '请刷新审批设置后重试' });
     const existing = await stepModel.getById(id);
     if (existing) {
-      if (existing.flow_id !== flowId) return res.json({ status: 'invalid_params', message: '审批步骤不属于当前流程' });
+      if (existing.flow_id !== flowId) return res.json({ status: 'invalid_params', message: '请刷新审批设置后重试' });
       await stepModel.update(id, { sortOrder, name, approvalMode });
     } else {
       await stepModel.create(id, { flowId, sortOrder, name, approvalMode });
@@ -123,13 +123,13 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const venueId = safeString(req.body.venueId);
     const flowName = safeString(req.body.flowName) || '场地审批流程';
     const stepsData = normalizeFlowSteps(req.body.steps);
 
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
 
     await conn.beginTransaction();
 
@@ -196,9 +196,9 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
 router.post('/deleteVenueApprovalStep', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供步骤ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择审批步骤' });
     await stepModel.remove(id);
     res.json({ status: 'success', message: '步骤已删除' });
   } catch (e) {
@@ -214,11 +214,11 @@ router.post('/deleteVenueApprovalStep', async (req, res) => {
 router.post('/saveVenueApprovalStepRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const stepId = safeString(req.body.stepId);
-    if (!stepId) return res.json({ status: 'invalid_params', message: '请提供步骤ID' });
+    if (!stepId) return res.json({ status: 'invalid_params', message: '请重新选择审批步骤' });
     const step = await stepModel.getById(stepId);
-    if (!step) return res.json({ status: 'not_found', message: '审批步骤不存在' });
+    if (!step) return res.json({ status: 'not_found', message: '请刷新审批步骤后重试' });
 
     const id = safeString(req.body.id) || generateId();
     const normalized = normalizeRule(req.body);
@@ -230,7 +230,7 @@ router.post('/saveVenueApprovalStepRule', async (req, res) => {
 
     const existing = await ruleModel.getById(id);
     if (existing) {
-      if (existing.step_id !== stepId) return res.json({ status: 'invalid_params', message: '审批规则不属于当前步骤' });
+      if (existing.step_id !== stepId) return res.json({ status: 'invalid_params', message: '请刷新审批步骤后重试' });
       await ruleModel.update(id, data);
     } else {
       await ruleModel.create(id, data);
@@ -245,9 +245,9 @@ router.post('/saveVenueApprovalStepRule', async (req, res) => {
 router.post('/deleteVenueApprovalStepRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供规则ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择审批规则' });
     await ruleModel.remove(id);
     res.json({ status: 'success', message: '规则已删除' });
   } catch (e) {
@@ -281,7 +281,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
     const comment = safeString(req.body.comment);
 
     const actorResult = await resolveCurrentActor(req);
@@ -295,7 +295,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '借用记录不存在' });
+      return res.json({ status: 'not_found', message: '请刷新借用记录' });
     }
     if (booking.status !== 'pending') {
       await conn.rollback();
@@ -303,7 +303,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     }
     if (!booking.approval_flow_id || booking.approval_total_steps <= 0) {
       await conn.rollback();
-      return res.json({ status: 'invalid_state', message: '该借用没有审批流程' });
+      return res.json({ status: 'invalid_state', message: '请联系管理员补充审批设置' });
     }
 
     // Check if approver can approve current step
@@ -335,7 +335,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
         );
         await createVenueBookingStatusNotification(
           booking, 'booking_cancelled', '场地借用已自动取消',
-          '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
+          '您申请的「' + (booking.title || '场地借用') + '」因借用时间已结束，已自动取消。', conn
         );
         await conn.commit();
         return res.json({ status: 'expired', message: '审批时借用已结束，已自动取消' });
@@ -441,7 +441,7 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
     const comment = safeString(req.body.comment);
 
     const actorResult = await resolveCurrentActor(req);
@@ -455,7 +455,7 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '借用记录不存在' });
+      return res.json({ status: 'not_found', message: '请刷新借用记录' });
     }
     if (booking.status !== 'pending') {
       await conn.rollback();

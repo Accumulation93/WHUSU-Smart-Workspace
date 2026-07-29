@@ -38,7 +38,7 @@ async function createNotification(opts, conn) {
     recipientId,
     payload: {
       type: safeString(opts.type || 'system'),
-      title: safeString(opts.title || '系统通知'),
+      title: safeString(opts.title || '通知'),
       description: safeString(opts.description),
       category: safeString(opts.category || 'system'),
       targetType: safeString(opts.targetType),

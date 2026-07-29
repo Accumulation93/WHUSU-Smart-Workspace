@@ -40,14 +40,14 @@ router.post('/listOrganizations', async (req, res) => {
     // Require admin authentication
     const openid = req.openid;
     if (!openid) {
-      return res.json({ status: 'forbidden', message: '未登录' });
+      return res.json({ status: 'forbidden', message: '请微信登录' });
     }
     const [adminRows] = await pool.query(
       "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active'",
       [openid]
     );
     if (!adminRows.length) {
-      return res.json({ status: 'forbidden', message: '仅管理员可查看组织列表' });
+      return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     }
 
     const rows = await organizationModel.getAll();
@@ -66,7 +66,7 @@ router.post('/saveOrganization', async (req, res) => {
 
     // 仅全局超级管理员可操作
     if (!openid) {
-      return res.json({ status: 'forbidden', message: '未登录' });
+      return res.json({ status: 'forbidden', message: '请微信登录' });
     }
     const [adminRows] = await pool.query(
       "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active'",
@@ -74,7 +74,7 @@ router.post('/saveOrganization', async (req, res) => {
     );
     const operator = adminRows[0] || null;
     if (!operator || operator.admin_level !== 'super_admin' || operator.org_id !== '') {
-      return res.json({ status: 'forbidden', message: '仅超级管理员可操作' });
+      return res.json({ status: 'forbidden', message: '请使用超级管理员身份' });
     }
 
     if (!name) {
@@ -83,16 +83,16 @@ router.post('/saveOrganization', async (req, res) => {
 
     const [dups] = await pool.query('SELECT id FROM organizations WHERE name = ?', [name]);
     if (dups.some((r) => String(r.id) !== id)) {
-      return res.json({ status: 'duplicate', message: '组织名称重复' });
+      return res.json({ status: 'duplicate', message: '请使用其他组织名称' });
     }
 
     if (id) {
       await organizationModel.update(id, name);
-      res.json({ status: 'success', organization: { id, name }, message: '组织更新成功' });
+      res.json({ status: 'success', organization: { id, name }, message: '组织已更新' });
     } else {
       const newId = generateId();
       await organizationModel.create(newId, name);
-      res.json({ status: 'success', organization: { id: newId, name }, message: '组织创建成功' });
+      res.json({ status: 'success', organization: { id: newId, name }, message: '组织已创建' });
     }
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -106,7 +106,7 @@ router.post('/deleteOrganization', async (req, res) => {
   try {
     const openid = req.openid;
     const id = safeString(req.body.organizationId || req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供组织ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择组织' });
 
     // 仅全局超级管理员可操作
     const [adminRows] = await pool.query(
@@ -114,12 +114,12 @@ router.post('/deleteOrganization', async (req, res) => {
       [openid]
     );
     if (!adminRows.length) {
-      return res.json({ status: 'forbidden', message: '仅超级管理员可操作' });
+      return res.json({ status: 'forbidden', message: '请使用超级管理员身份' });
     }
 
     // 禁止删除空组织标识
     if (id === '') {
-      return res.json({ status: 'invalid_params', message: '无效的组织标识' });
+      return res.json({ status: 'invalid_params', message: '请重新选择组织' });
     }
 
     const { withTransaction } = require('../../config/db');
@@ -150,7 +150,7 @@ router.post('/deleteOrganization', async (req, res) => {
     });
 
     if (result.status === 'not_found') {
-      return res.json({ status: 'not_found', message: '组织不存在' });
+      return res.json({ status: 'not_found', message: '请刷新组织列表' });
     }
     if (result.status === 'current') {
       return res.json({ status: 'forbidden', message: '请先切换到其他组织' });
@@ -158,7 +158,7 @@ router.post('/deleteOrganization', async (req, res) => {
     if (result.status === 'not_empty') {
       return res.json({
         status: 'organization_not_empty',
-        message: '组织仍包含业务数据，为防止误删，请先归档或清理相关数据',
+        message: '请先归档或清理该组织的业务资料',
         dependencyCount: result.dependencies.length
       });
     }
@@ -194,12 +194,12 @@ router.post('/switchOrganization', async (req, res) => {
     const targetOrgName = safeString(req.body.organizationName);
 
     if (!targetOrgId || !targetOrgName) {
-      return res.json({ status: 'invalid_params', message: '请提供组织ID和名称' });
+      return res.json({ status: 'invalid_params', message: '请选择组织并填写名称' });
     }
 
     // Safety: prevent switching to empty org
     if (targetOrgId === '') {
-      return res.json({ status: 'invalid_params', message: '无效的组织标识' });
+      return res.json({ status: 'invalid_params', message: '请重新选择组织' });
     }
 
     // 仅全局超级管理员可切换系统默认组织
@@ -208,7 +208,7 @@ router.post('/switchOrganization', async (req, res) => {
       [openid]
     );
     if (!adminRows.length) {
-      return res.json({ status: 'forbidden', message: '仅超级管理员可切换组织' });
+      return res.json({ status: 'forbidden', message: '请使用超级管理员身份' });
     }
 
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -250,7 +250,7 @@ router.post('/switchOrganization', async (req, res) => {
         : `已切换至组织「${targetOrgName}」`
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '组织切换失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '未切换，请重试' });
   }
 });
 

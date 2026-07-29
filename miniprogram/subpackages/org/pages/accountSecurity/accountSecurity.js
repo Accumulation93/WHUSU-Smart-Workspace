@@ -37,7 +37,7 @@ Page({
       const result = await callFunction({ name: 'auth/security', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (!result || result.status !== 'success') {
-        showShortToast((result && result.message) || '安全信息加载失败');
+        showShortToast((result && result.message) || '请稍后刷新');
         return;
       }
       const policy = result.policy || {};
@@ -50,7 +50,7 @@ Page({
       });
     } catch (error) {
       if (!orgSession.isRequestCurrent(this, request)) return;
-      showShortToast(getErrorText(error, '安全信息加载失败'));
+      showShortToast(getErrorText(error, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -69,12 +69,12 @@ Page({
         data: { method: 'recovery_code' }
       });
       if (!result || result.status !== 'success' || !result.recoveryCode) {
-        showShortToast((result && result.message) || '恢复码生成失败');
+        showShortToast((result && result.message) || '未生成，请重试');
         return;
       }
       this.setData({ recoveryCode: result.recoveryCode });
     } catch (error) {
-      showShortToast(getErrorText(error, '恢复码生成失败'));
+      showShortToast(getErrorText(error, '未生成，请重试'));
     } finally {
       this.setData({ savingCredential: false });
     }
@@ -102,13 +102,13 @@ Page({
         data: { method: 'passphrase', value: this.data.passphrase }
       });
       if (!result || result.status !== 'success') {
-        showShortToast((result && result.message) || '恢复口令保存失败');
+        showShortToast((result && result.message) || '未保存，请重试');
         return;
       }
       this.setData({ passphrase: '' });
       showShortToast('恢复口令已更新', 'success');
     } catch (error) {
-      showShortToast(getErrorText(error, '恢复口令保存失败'));
+      showShortToast(getErrorText(error, '未保存，请重试'));
     } finally {
       this.setData({ savingCredential: false });
     }
@@ -124,13 +124,13 @@ Page({
         data: { sessionId: sessionId }
       });
       if (!result || (result.status !== 'success' && result.status !== 'not_found')) {
-        showShortToast((result && result.message) || '设备撤销失败');
+        showShortToast((result && result.message) || '请重试');
         return;
       }
       await this.loadSecurity();
-      showShortToast('设备会话已撤销', 'success');
+      showShortToast('该设备已退出', 'success');
     } catch (error) {
-      showShortToast(getErrorText(error, '设备撤销失败'));
+      showShortToast(getErrorText(error, '请重试'));
     } finally {
       this.setData({ revokingSessionId: '' });
     }

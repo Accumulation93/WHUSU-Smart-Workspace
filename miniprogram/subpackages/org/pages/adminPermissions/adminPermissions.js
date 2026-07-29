@@ -65,7 +65,7 @@ Page({
       if (!adminPermissions.canAccessPermissionSystem(profile)) {
         wx.showModal({
           title: '无法访问',
-          content: '当前账号没有权限。',
+          content: '请切换到管理员身份。',
           showCancel: false,
           success: function() { wx.navigateBack(); }
         });
@@ -73,7 +73,7 @@ Page({
       }
       const result = await callFunction({ name: 'listPermissionManagedAdmins', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || '读取管理员失败');
+      if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
       const admins = (result.list || []).slice();
       this.setData({
         admins: admins,
@@ -82,7 +82,7 @@ Page({
       });
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, '权限系统加载失败'));
+        showShortToast(getErrorText(error, '请稍后刷新'));
       }
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
@@ -111,14 +111,14 @@ Page({
     try {
       const result = await callFunction({ name: 'getAdminPermissionDetail', data: { adminId: adminId } });
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || '读取权限失败');
+      if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
       this.setData({
         selectedAdmin: result.admin,
         permissionGroups: cloneGroups(result.groups),
         editorVisible: true
       });
     } catch (error) {
-      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, '读取权限失败'));
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, '请稍后刷新'));
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -172,12 +172,12 @@ Page({
         name: 'saveAdminPermissions',
         data: { adminId: this.data.selectedAdmin.id, permissions: permissionMap }
       });
-      if (result.status !== 'success') throw new Error(result.message || '保存失败');
+      if (result.status !== 'success') throw new Error(result.message || '未保存，请重试');
       showShortToast('权限已生效', 'success');
       this.setData({ permissionGroups: cloneGroups(result.groups), editorVisible: false, selectedAdmin: null });
       await this.loadPage();
     } catch (error) {
-      showShortToast(getErrorText(error, '保存权限失败'));
+      showShortToast(getErrorText(error, '未保存，请重试'));
     } finally {
       if (this._active) this.setData({ saving: false });
     }

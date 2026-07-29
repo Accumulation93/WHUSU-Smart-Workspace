@@ -1,15 +1,15 @@
 <view class="page">
   <view class="login-layout">
     <view class="hero login-hero">
-      <view class="hero-badge">统一身份认证</view>
+      <view class="hero-badge">WHUSU智慧工作台</view>
       <view class="hero-title">微信登录</view>
-      <view class="hero-subtitle">登录后可在组织、岗位和管理员身份之间安全切换</view>
+      <view class="hero-subtitle">登录后选择组织与身份</view>
     </view>
 
     <view class="login-main">
       <view class="card login-card">
-        <view class="section-title">进入工作台</view>
-        <view class="card-desc">每次登录均通过微信临时凭证验证，不再区分普通用户和管理员登录。</view>
+        <view class="section-title">登录</view>
+        <view class="card-desc">请使用本人微信登录</view>
         <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">微信登录</button>
       </view>
     </view>
@@ -24,12 +24,12 @@
     <view class="sheet-mask" bindtap="closeSheet"></view>
     <view class="sheet-panel ui-dialog-shell ui-dialog-shell--compact">
       <view class="sheet-header">
-        <view class="sheet-title">{{stage === 'verify' ? '输入个人认证码' : (stage === 'recoveryVerify' ? '验证恢复凭据' : (stage === 'recoveryRotated' ? '保存新的恢复码' : (stage === 'recoveryPending' ? '等待恢复审核' : (stage === 'recovery' ? '恢复账号' : '认领身份'))))}}</view>
+        <view class="sheet-title">{{stage === 'verify' ? '输入个人认证码' : (stage === 'recoveryVerify' ? '验证恢复信息' : (stage === 'recoveryRotated' ? '保存新的恢复码' : (stage === 'recoveryPending' ? '等待管理员审核' : (stage === 'recovery' ? '更换微信' : '身份认证'))))}}</view>
         <view class="sheet-close ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭 ×</view>
       </view>
 
       <view wx:if="{{stage === 'claim' || stage === 'recovery'}}">
-        <view class="sheet-note">{{stage === 'recovery' ? '提交后可使用已配置的恢复凭据，或等待管理员审核。' : '姓名和学号只用于定位本人，必须再使用管理员签发的一次性个人认证码。'}}</view>
+        <view class="sheet-note">{{stage === 'recovery' ? '提交后可使用恢复码或恢复口令，也可以等待管理员审核。' : '填写姓名和学号后，再输入管理员提供的个人认证码。'}}</view>
 
         <view class="field">
           <view class="field-label">所属组织</view>
@@ -48,25 +48,25 @@
           <input class="field-input" placeholder="请输入学号" bindinput="onStudentId" value="{{studentId}}" />
         </view>
 
-        <button wx:if="{{stage === 'claim'}}" class="primary-btn ui-motion-button" loading="{{loading}}" disabled="{{!claimAvailable}}" bindtap="submitClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{claimAvailable ? '提交认领请求' : '认证活动暂未开放'}}</button>
+        <button wx:if="{{stage === 'claim'}}" class="primary-btn ui-motion-button" loading="{{loading}}" disabled="{{!claimAvailable}}" bindtap="submitClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{claimAvailable ? '继续' : '暂未开放认证'}}</button>
         <button wx:else class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="startRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">提交恢复请求</button>
 
-        <view class="sheet-link ui-motion-chip" wx:if="{{stage === 'claim'}}" bindtap="switchToRecovery" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">已认证但更换了微信？恢复账号</view>
-        <view class="sheet-link ui-motion-chip" wx:else bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">首次使用？返回认领身份</view>
+        <view class="sheet-link ui-motion-chip" wx:if="{{stage === 'claim'}}" bindtap="switchToRecovery" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">更换微信</view>
+        <view class="sheet-link ui-motion-chip" wx:else bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">返回身份认证</view>
       </view>
 
       <view wx:elif="{{stage === 'verify'}}">
-        <view class="sheet-note">请从所属组织的认证管理员处获取仅限本次请求使用的个人认证码。认证码 24 小时内有效，使用后立即作废。</view>
+        <view class="sheet-note">请向所属组织的管理员获取个人认证码。认证码有效期为 24 小时，使用后失效。</view>
         <view class="field">
           <view class="field-label">个人认证码</view>
           <input class="field-input verification-input" maxlength="12" placeholder="请输入 12 位认证码" bindinput="onVerificationCode" value="{{verificationCode}}" />
         </view>
         <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="verifyClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">完成身份认证</button>
-        <view class="sheet-link ui-motion-chip" bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">返回修改认领信息</view>
+        <view class="sheet-link ui-motion-chip" bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">返回修改信息</view>
       </view>
 
       <view wx:elif="{{stage === 'recoveryVerify'}}">
-        <view class="sheet-note">若系统未开启恢复凭据，请等待有账号恢复权限且不是您本人的管理员审核。审核完成后重新微信登录即可。</view>
+        <view class="sheet-note">如果没有可用的恢复方式，请等待其他管理员审核。审核通过后，用当前微信重新登录。</view>
         <view class="field">
           <view class="field-label">恢复方式</view>
           <picker range="{{recoveryMethods}}" value="{{recoveryMethodIndex}}" bindchange="onRecoveryMethodChange">
@@ -75,20 +75,20 @@
         </view>
         <view class="field">
           <view class="field-label">{{recoveryMethodLabel}}</view>
-          <input class="field-input" password="{{recoveryMethod === 'passphrase'}}" placeholder="请输入恢复凭据" bindinput="onRecoveryCredential" value="{{recoveryCredential}}" />
+          <input class="field-input" password="{{recoveryMethod === 'passphrase'}}" placeholder="请输入恢复码或恢复口令" bindinput="onRecoveryCredential" value="{{recoveryCredential}}" />
         </view>
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="completeRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">验证并接管账号</button>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="completeRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认更换微信</button>
         <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">等待管理员审核</view>
       </view>
       <view wx:elif="{{stage === 'recoveryRotated'}}">
-        <view class="sheet-note">旧恢复码已经失效。请妥善保存下面的新恢复码，它只在这里显示一次。</view>
+        <view class="sheet-note">请保存新的恢复码。关闭后不再显示。</view>
         <view class="recovery-code-box">{{rotatedRecoveryCode}}</view>
         <button class="secondary-btn ui-motion-button" bindtap="copyRotatedRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">复制恢复码</button>
-        <button class="primary-btn ui-motion-button" bindtap="finishRecoveredLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">我已安全保存</button>
+        <button class="primary-btn ui-motion-button" bindtap="finishRecoveredLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">完成</button>
       </view>
       <view wx:else>
-        <view class="sheet-note">恢复请求已提交。请联系具有账号恢复权限且不是您本人的管理员审核；审核完成后，使用当前微信重新登录即可。</view>
-        <button class="secondary-btn ui-motion-button" bindtap="closeSheet" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">我知道了</button>
+        <view class="sheet-note">恢复申请已提交。请等待其他管理员审核，审核通过后用当前微信重新登录。</view>
+        <button class="secondary-btn ui-motion-button" bindtap="closeSheet" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</button>
       </view>
     </view>
   </view>

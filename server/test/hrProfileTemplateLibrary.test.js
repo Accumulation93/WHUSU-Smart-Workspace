@@ -13,23 +13,23 @@ const numberTarget = {
 };
 const sequenceTarget = { type: 'sequence', options_json: JSON.stringify(['本科', '硕士']) };
 
-assert.strictEqual(validateDefinition('', 'direct', []), '模板名称不能为空');
+assert.strictEqual(validateDefinition('', 'direct', []), '请填写人事模板名称');
 assert.strictEqual(validateDefinition('学生资料', 'direct', [
   { label: '学院', type: 'text', options: [] },
   { label: '学院', type: 'text', options: [] }
-]), '字段名称重复：学院');
+]), '资料项名称重复：学院');
 assert.strictEqual(validateDefinition('学生资料', 'direct', [
   { label: '学历', type: 'sequence', options: [] }
-]), '学历至少需要一个选项');
+]), '请为学历添加选项');
 
 assert.strictEqual(isPotentiallyCompatible('sequence', 'text'), true);
 assert.strictEqual(isPotentiallyCompatible('text', 'number'), true);
 assert.strictEqual(isPotentiallyCompatible('text', 'date'), false);
 assert.strictEqual(validateMappedValue(numberTarget, '42'), '');
-assert.strictEqual(validateMappedValue(numberTarget, '42.5'), '不是整数');
-assert.strictEqual(validateMappedValue(numberTarget, '101'), '大于最大值');
+assert.strictEqual(validateMappedValue(numberTarget, '42.5'), '请填写整数');
+assert.strictEqual(validateMappedValue(numberTarget, '101'), '请填写不大于100的数字');
 assert.strictEqual(validateMappedValue(sequenceTarget, '本科'), '');
-assert.strictEqual(validateMappedValue(sequenceTarget, '博士'), '不在目标选项中');
+assert.strictEqual(validateMappedValue(sequenceTarget, '博士'), '请选择已有选项');
 
 const sources = [
   { id: 'old-a', label: '学院', type: 'text' },
@@ -50,9 +50,9 @@ assert.deepStrictEqual(actions, [
 assert.throws(() => normalizeActions(sources, targets, [
   { sourceSnapshotFieldId: 'old-a', action: 'map', targetTemplateFieldId: 'new-a' },
   { sourceSnapshotFieldId: 'old-b', action: 'map', targetTemplateFieldId: 'new-a' }
-]), /一个目标字段只能映射一个来源字段/);
+]), /请为每项资料选择不同的保存位置/);
 assert.throws(() => normalizeActions(sources, targets, [
   { sourceSnapshotFieldId: 'unknown', action: 'delete' }
-]), /已有字段信息有误/);
+]), /已有资料有误/);
 
-console.log('人事模板定义、字段兼容与一对一映射测试通过');
+console.log('人事模板定义、资料兼容与一对一保存位置测试通过');

@@ -47,7 +47,7 @@ Page({
             });
           },
           fail: function() {
-            showShortToast('读取文件失败');
+            showShortToast('请重新选择文件');
           }
         });
       }
@@ -76,12 +76,12 @@ Page({
       if (res.status === 'success') {
         this.setData({ result: res });
       } else if (res.status === 'forbidden') {
-        showShortToast('没有验签权限');
+        showShortToast('请切换到可验签的身份');
       } else {
-        showShortToast(res.message || '验证失败');
+        showShortToast(res.message || '未完成验签，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '验证失败'));
+      showShortToast(getErrorText(e, '未完成验签，请重试'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }

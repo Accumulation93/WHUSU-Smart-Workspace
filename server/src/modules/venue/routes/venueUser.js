@@ -242,7 +242,7 @@ function splitByDate(startDate, endDate) {
 
 router.post('/listVenuesForBooking', async (req, res) => {
   try {
-    if (!req.openid) return res.json({ status: 'forbidden', message: '请先登录' });
+    if (!req.openid) return res.json({ status: 'forbidden', message: '请微信登录' });
     const venues = await venueModel.getAll();
     const venueList = [];
     for (const v of venues) {
@@ -268,23 +268,23 @@ router.post('/listVenuesForBooking', async (req, res) => {
 
 router.post('/getVenueSchedule', async (req, res) => {
   try {
-    if (!req.openid) return res.json({ status: 'forbidden', message: '请先登录' });
+    if (!req.openid) return res.json({ status: 'forbidden', message: '请微信登录' });
     const venueId = safeString(req.body.venueId);
     const dateFrom = safeString(req.body.dateFrom);
     const dateTo = safeString(req.body.dateTo);
-    if (!venueId || !dateFrom) return res.json({ status: 'invalid_params', message: '请提供场地ID和日期' });
+    if (!venueId || !dateFrom) return res.json({ status: 'invalid_params', message: '请选择场地和日期' });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || (dateTo && !/^\d{4}-\d{2}-\d{2}$/.test(dateTo))) {
-      return res.json({ status: 'invalid_params', message: '日期格式不正确' });
+      return res.json({ status: 'invalid_params', message: '请重新选择日期' });
     }
 
     const venue = await venueModel.getById(venueId);
-    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '场地不存在或已停用' });
+    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '请选择其他场地' });
 
     const openRules = await venueOpenRuleModel.getByVenueId(venueId);
     const activityRules = await venueActivityRuleModel.getByVenueId(venueId);
     const endDate = dateTo || dateFrom;
     if (daysBetweenInclusive(dateFrom, endDate) < 1 || daysBetweenInclusive(dateFrom, endDate) > 31) {
-      return res.json({ status: 'invalid_params', message: '一次最多查询31天' });
+      return res.json({ status: 'invalid_params', message: '请选择31天以内的日期范围' });
     }
 
     // Fetch ALL bookings that overlap with the week range
@@ -428,7 +428,7 @@ router.post('/createVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: '请使用普通岗位身份' });
 
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
@@ -444,26 +444,26 @@ router.post('/createVenueBooking', async (req, res) => {
     }
 
     if (title.length > 100 || description.length > 1000) {
-      return res.json({ status: 'invalid_params', message: '借用事由或说明过长' });
+      return res.json({ status: 'invalid_params', message: '请缩短借用事由或说明' });
     }
 
     const startDate = parseDatetime(timeStartStr);
     const endDate = parseDatetime(timeEndStr);
     if (!startDate || !endDate) {
-      return res.json({ status: 'invalid_params', message: '时间格式不正确' });
+      return res.json({ status: 'invalid_params', message: '请重新选择时间' });
     }
     if (startDate >= endDate) {
-      return res.json({ status: 'invalid_params', message: '结束时间必须晚于开始时间' });
+      return res.json({ status: 'invalid_params', message: '请将结束时间设在开始时间之后' });
     }
 
     // Reject cross-day bookings
     if (fmtLocalDate(startDate) !== fmtLocalDate(endDate)) {
-      return res.json({ status: 'invalid_params', message: '借用时间不能跨天' });
+      return res.json({ status: 'invalid_params', message: '请选择同一天的开始和结束时间' });
     }
 
     // Check venue
     const venue = await venueModel.getById(venueId);
-    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '场地不存在或已停用' });
+    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '请选择其他场地' });
 
     const dbTimeStart = fmtDatetime(startDate);
     const dbTimeEnd = fmtDatetime(endDate);
@@ -576,8 +576,8 @@ router.post('/createVenueBooking', async (req, res) => {
 
     const response = {
       status: 'success', id, bookingStatus: status,
-      message: autoApprove ? '借用成功（直接通过）'
-        : (approvalFlowId ? ('借用申请已提交，共 ' + approvalTotalSteps + ' 步审批') : '借用申请已提交，等待审核')
+      message: autoApprove ? '借用已通过'
+        : (approvalFlowId ? ('借用申请已提交，等待 ' + approvalTotalSteps + ' 步审批') : '借用申请已提交，等待审批')
     };
     await requestDeduplication.complete(conn, {
       ...dedupClaim,
@@ -598,7 +598,7 @@ router.post('/createVenueBooking', async (req, res) => {
   } catch (e) {
     await conn.rollback();
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+      return res.json({ status: 'invalid_params', message: '请重新提交借用' });
     }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
@@ -613,7 +613,7 @@ router.post('/createVenueBooking', async (req, res) => {
 router.post('/listMyVenueBookings', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: '请使用普通岗位身份' });
     const bookings = await venueBookingModel.getByUserId(hrId);
     const list = bookings.map(b => ({
       id: b.id,
@@ -852,12 +852,12 @@ router.post('/cancelVenueBooking', async (req, res) => {
     const actor = actorResult.actor;
     const hrId = actor.id;
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
     const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
-    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '只能取消自己的借用' });
+    if (!booking) return res.json({ status: 'not_found', message: '请刷新借用记录' });
+    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '请打开自己的借用记录' });
     if (booking.status === 'cancelled') return res.json({ status: 'invalid_state', message: '该借用已被取消' });
-    if (booking.status === 'rejected') return res.json({ status: 'invalid_state', message: '已驳回的借用不能取消' });
+    if (booking.status === 'rejected') return res.json({ status: 'invalid_state', message: '已驳回的借用无需取消' });
     // 已通过的借用，如果已经开始（now >= timeStart），不能取消
     if (booking.status === 'approved') {
       const now = new Date();
@@ -881,13 +881,13 @@ router.post('/cancelVenueBooking', async (req, res) => {
 router.post('/endVenueBooking', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: '请使用普通岗位身份' });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
     const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '借用记录不存在' });
-    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '只能结束自己的借用' });
-    if (booking.status !== 'approved') return res.json({ status: 'invalid_state', message: '当前借用不能结束使用' });
+    if (!booking) return res.json({ status: 'not_found', message: '请刷新借用记录' });
+    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '请打开自己的借用记录' });
+    if (booking.status !== 'approved') return res.json({ status: 'invalid_state', message: '请在使用中结束借用' });
 
     const now = new Date();
     const timeStart = new Date(booking.time_start);

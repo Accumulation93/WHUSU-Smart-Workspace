@@ -166,7 +166,7 @@ Page({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '加载失败',
+            title: result.message || '请稍后刷新',
             icon: 'none'
           });
           return;
@@ -203,7 +203,7 @@ Page({
       }
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, '加载失败'));
+        showShortToast(getErrorText(error, '请稍后刷新'));
       }
     } finally {
       if (orgSession.isRequestCurrent(this, request)) {
@@ -272,12 +272,12 @@ Page({
           pendingPopupLoading: false
         });
       } else {
-        wx.showToast({ title: result.message || '加载失败', icon: 'none' });
+        wx.showToast({ title: result.message || '请稍后刷新', icon: 'none' });
         this.setData({ pendingPopupLoading: false });
       }
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, '加载失败'));
+        showShortToast(getErrorText(error, '请稍后刷新'));
         this.setData({ pendingPopupLoading: false });
       }
     }
@@ -327,7 +327,7 @@ Page({
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (result.status !== 'success' || !result.fileContent) {
         wx.showToast({
-          title: result.message || '导出失败',
+          title: result.message || '未导出，请重试',
           icon: 'none'
         });
         return;
@@ -336,7 +336,7 @@ Page({
       saveAndShareFile(result.fileContent, result.fileName || '未完成评分导出', result.extension || 'csv');
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, '导出失败'));
+        showShortToast(getErrorText(error, '未导出，请重试'));
       }
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setExportLoading(reportType, false);

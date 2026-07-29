@@ -1,7 +1,7 @@
 <view class="redirect-page">
   <view class="redirect-card">
     <view class="redirect-spinner" aria-role="img" aria-label="正在加载"></view>
-    <view class="redirect-title">正在进入借用管理</view>
-    <view class="redirect-desc">借用记录与审批已统一到场地管理工作台</view>
+    <view class="redirect-title">正在打开场地管理</view>
+    <view class="redirect-desc">可在场地管理中查看借用记录和审批事项</view>
   </view>
 </view>

@@ -126,7 +126,7 @@ async function listHrProfileItems(actor, orgId) {
     type: 'todo',
     sourceType: 'hr_profile_review',
     title: safeString(record.name || '人事资料变更'),
-    description: '学号 ' + safeString(record.student_id || '信息已失效') + ' · 待审核扩展资料',
+    description: '学号 ' + safeString(record.student_id || '信息已失效') + ' · 待审核补充资料',
     category: 'hr',
     targetType: 'hr_profile',
     targetId: safeString(record.hr_id),

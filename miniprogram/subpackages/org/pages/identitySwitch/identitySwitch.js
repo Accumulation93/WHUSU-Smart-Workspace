@@ -126,7 +126,7 @@ Page({
       this.applyCatalog(catalog);
     } catch (error) {
       if (!orgSession.isRequestCurrent(this, request)) return;
-      this.setData({ errorText: getErrorText(error, '组织与身份加载失败') });
+      this.setData({ errorText: getErrorText(error, '请稍后刷新') });
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) {
         this.setData({ loading: false });
@@ -202,7 +202,7 @@ Page({
       this._active = false;
       wx.navigateBack();
     } catch (error) {
-      const errorText = getErrorText(error, '工作身份切换失败');
+      const errorText = getErrorText(error, '未切换，请重试');
       this.setData({ errorText });
       if (error && ['context_forbidden', 'org_access_denied'].indexOf(error.status) >= 0) {
         await this.loadCatalog();

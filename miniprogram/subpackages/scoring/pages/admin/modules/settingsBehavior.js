@@ -56,12 +56,12 @@ module.exports = Behavior({
           timezone: this.data.systemConfig.timezone
         });
         if (result.status === 'success') {
-          wx.showToast({ title: '配置已保存', icon: 'success' });
+          wx.showToast({ title: '设置已保存', icon: 'success' });
         } else {
-          wx.showToast({ title: result.message || '保存失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
         }
       } catch (e) {
-        wx.showToast({ title: '保存失败', icon: 'none' });
+        wx.showToast({ title: '未保存，请重试', icon: 'none' });
       }
       this.setLoading('saveSystemConfig', false);
     },
@@ -125,10 +125,10 @@ module.exports = Behavior({
           this.closeOrgForm();
           await this.loadOrganizations();
         } else {
-          wx.showToast({ title: result.message || '保存失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
         }
       } catch (e) {
-        wx.showToast({ title: '保存组织失败', icon: 'none' });
+        wx.showToast({ title: '未保存，请重试', icon: 'none' });
       }
       this.setLoading('saveOrganization', false);
     },
@@ -154,10 +154,10 @@ module.exports = Behavior({
           wx.showToast({ title: '组织已删除', icon: 'success' });
           await this.loadOrganizations();
         } else {
-          wx.showToast({ title: result.message || '删除失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未删除，请重试', icon: 'none' });
         }
       } catch (e) {
-        wx.showToast({ title: '删除组织失败', icon: 'none' });
+        wx.showToast({ title: '未删除，请重试', icon: 'none' });
       }
       wx.hideLoading();
       this.setLoading('deleteOrganization', false);
@@ -168,8 +168,8 @@ module.exports = Behavior({
       if (!id || !name) return;
       const confirm = await new Promise(function (resolve) {
         wx.showModal({
-          title: '修改系统默认组织',
-          content: '此操作会将「' + name + '」设为全系统默认组织，并影响其他用户后续登录。确认继续？',
+          title: '设置登录默认组织',
+          content: '新用户登录后将优先进入「' + name + '」。',
           confirmText: '设为默认',
           cancelText: '取消',
           success: function (res) { resolve(res.confirm); }
@@ -186,13 +186,13 @@ module.exports = Behavior({
           organizationName: name
         });
         if (result.status === 'success') {
-          wx.showToast({ title: result.message || '切换成功', icon: 'success' });
+          wx.showToast({ title: result.message || '默认组织已更新', icon: 'success' });
           this.applySystemDefaultOrganization(id, name);
         } else {
-          wx.showToast({ title: result.message || '切换失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未切换，请重试', icon: 'none' });
         }
       } catch (e) {
-        wx.showToast({ title: '切换组织失败', icon: 'none' });
+        wx.showToast({ title: '未切换，请重试', icon: 'none' });
       }
       wx.hideLoading();
       this.setLoading('switchOrganization', false);
@@ -206,8 +206,8 @@ module.exports = Behavior({
       const organizationName = this.data.orgFormData.name;
       const confirm = await new Promise(function (resolve) {
         wx.showModal({
-          title: '新建并设为默认',
-          content: '将创建「' + organizationName + '」并设为全系统默认组织，这会影响其他用户后续登录。确认继续？',
+          title: '新建登录默认组织',
+          content: '新用户登录后将优先进入「' + organizationName + '」。',
           confirmText: '确认',
           cancelText: '取消',
           success: function (res) { resolve(res.confirm); }
@@ -223,7 +223,7 @@ module.exports = Behavior({
         const saveResult = await this.callCloud('saveOrganization', { name: organizationName });
         if (saveResult.status !== 'success') {
           wx.hideLoading();
-          wx.showToast({ title: saveResult.message || '创建组织失败', icon: 'none' });
+          wx.showToast({ title: saveResult.message || '未创建，请重试', icon: 'none' });
           this.setLoading('switchOrganization', false);
           return;
         }
@@ -234,14 +234,14 @@ module.exports = Behavior({
           organizationName
         });
         if (result.status === 'success') {
-          wx.showToast({ title: result.message || '切换成功', icon: 'success' });
+          wx.showToast({ title: result.message || '默认组织已更新', icon: 'success' });
           this.closeOrgForm();
           this.applySystemDefaultOrganization(saveResult.organization.id, organizationName);
         } else {
-          wx.showToast({ title: result.message || '切换失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未切换，请重试', icon: 'none' });
         }
       } catch (e) {
-        wx.showToast({ title: '切换失败，请重试', icon: 'none' });
+        wx.showToast({ title: '未切换，请重试', icon: 'none' });
       }
       wx.hideLoading();
       this.setLoading('switchOrganization', false);

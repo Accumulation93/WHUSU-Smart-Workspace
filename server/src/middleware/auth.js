@@ -51,7 +51,7 @@ async function authMiddleware(req, res, next) {
   if (!token) {
     req.openid = '';
     logger.warn('Missing auth token', { requestId: req.requestId, path: req.path });
-    return res.status(401).json({ status: 'auth_failed', message: '未登录' });
+    return res.status(401).json({ status: 'auth_failed', message: '请微信登录' });
   }
 
   try {
@@ -72,7 +72,7 @@ async function authMiddleware(req, res, next) {
           path: req.path,
           sessionId: decoded.sid || ''
         });
-        return res.status(401).json({ status: 'auth_failed', message: '登录已失效，请重新登录' });
+        return res.status(401).json({ status: 'auth_failed', message: '请重新微信登录' });
       }
       req.openid = loaded.openid;
       req.authSession = loaded.session;
@@ -91,13 +91,13 @@ async function authMiddleware(req, res, next) {
       req.openid = decoded.openid || '';
       if (!req.openid) {
         logger.warn('Empty openid in token', { requestId: req.requestId, path: req.path });
-        return res.status(401).json({ status: 'auth_failed', message: '登录凭证无效' });
+        return res.status(401).json({ status: 'auth_failed', message: '请重新微信登录' });
       }
     }
   } catch (e) {
     req.openid = '';
     logger.warn('Invalid or expired JWT', { requestId: req.requestId, path: req.path, error: e.message });
-    return res.status(401).json({ status: 'auth_failed', message: '登录已过期，请重新登录' });
+    return res.status(401).json({ status: 'auth_failed', message: '请重新微信登录' });
   }
   next();
 }

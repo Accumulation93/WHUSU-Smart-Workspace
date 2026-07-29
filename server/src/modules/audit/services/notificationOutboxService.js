@@ -37,7 +37,7 @@ async function createForRecipient(job, recipientType, recipientId, payload) {
     recipientId,
     eventKey,
     type: payload.type || job.event_type,
-    title: payload.title || '系统通知',
+    title: payload.title || '通知',
     description: payload.description || '',
     category: payload.category || 'system',
     targetType: payload.targetType || '',

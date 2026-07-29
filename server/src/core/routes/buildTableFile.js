@@ -10,7 +10,7 @@ const { LIMITS, buildWorkbookBuffer } = require('../../utils/excelFile');
 router.post('/buildTableFile', async (req, res) => {
   try {
     if (!req.openid || !req.admin) {
-      return res.status(403).json({ status: 'forbidden', message: '仅管理员可生成工作簿' });
+      return res.status(403).json({ status: 'forbidden', message: '请使用管理员身份' });
     }
 
     const headers = req.body.headers || [];
@@ -56,7 +56,7 @@ router.post('/buildTableFile', async (req, res) => {
     });
   } catch (e) {
     if (req.logger) req.logger.warn('Table file build rejected', { code: e.code || 'build_failed', error: e.message });
-    res.json({ status: 'error', message: e.code === 'invalid_workbook' ? e.message : '生成表格文件失败' });
+    res.json({ status: 'error', message: e.code === 'invalid_workbook' ? e.message : '表格未生成，请重试' });
   }
 });
 

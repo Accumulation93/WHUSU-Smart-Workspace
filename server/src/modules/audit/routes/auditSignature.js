@@ -74,7 +74,7 @@ router.post('/saveSignature', async (req, res) => {
     if (id) {
       const existing = await signatureTemplateModel.getById(id);
       if (!existing || existing.hr_id !== hrId) {
-        return res.json({ status: 'forbidden', message: '不能修改他人的签名' });
+        return res.json({ status: 'forbidden', message: '请选择自己的签名' });
       }
       await signatureTemplateModel.update(id, { name, imageData, isDefault }, hrId);
       res.json({ status: 'success', message: '签名已更新' });
@@ -96,11 +96,11 @@ router.post('/deleteSignature', async (req, res) => {
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供签名ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择签名' });
 
     const existing = await signatureTemplateModel.getById(id);
     if (!existing || existing.hr_id !== hrId) {
-      return res.json({ status: 'forbidden', message: '不能删除他人的签名' });
+      return res.json({ status: 'forbidden', message: '请选择自己的签名' });
     }
     await signatureTemplateModel.remove(id, hrId);
     res.json({ status: 'success', message: '签名已删除' });
@@ -117,11 +117,11 @@ router.post('/setDefaultSignature', async (req, res) => {
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供签名ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择签名' });
 
     const existing = await signatureTemplateModel.getById(id);
     if (!existing || existing.hr_id !== hrId) {
-      return res.json({ status: 'forbidden', message: '不能设置他人的签名' });
+      return res.json({ status: 'forbidden', message: '请选择自己的签名' });
     }
     await signatureTemplateModel.clearDefaults(hrId);
     await signatureTemplateModel.update(id, {
@@ -189,7 +189,7 @@ router.post('/verifySignatureChain', async (req, res) => {
     }
 
     if (!submission) {
-      return res.json({ status: 'not_found', message: '提交不存在' });
+      return res.json({ status: 'not_found', message: '请刷新申请记录' });
     }
 
     // Get signatures and files

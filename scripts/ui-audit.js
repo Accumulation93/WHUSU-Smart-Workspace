@@ -249,8 +249,8 @@ function scanVenueFlowVisibilityContract() {
   const findings = [];
   const checks = [
     ['借用规则页缺少当前组织审批状态卡片', /rule-org-context/],
-    ['借用规则页未展示组织专属流程状态', /组织专属审批流程/],
-    ['借用规则页未说明无专属流程时的处理方式', /尚未配置专属流程/]
+    ['借用规则页未展示审批步骤', /已设置.*审批步骤/],
+    ['借用规则页未说明暂无审批步骤', /暂无审批步骤/]
   ];
   for (const [message, pattern] of checks) {
     if (!pattern.test(source)) findings.push({ file: relative(file), message });

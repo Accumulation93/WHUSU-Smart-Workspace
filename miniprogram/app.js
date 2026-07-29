@@ -10,14 +10,14 @@ App({
       if (app) app._updateReady = true;
       wx.showModal({
         title: '新版本已就绪',
-        content: '为保证数据与权限正确，请立即重启应用。',
+        content: '请立即重启，使用最新版本。',
         showCancel: false,
         confirmText: '立即重启',
         success: function () { updateManager.applyUpdate(); }
       });
     });
     updateManager.onUpdateFailed(function () {
-      wx.showToast({ title: '新版本下载失败，请稍后重试', icon: 'none' });
+      wx.showToast({ title: '请稍后重新打开小程序', icon: 'none' });
     });
   },
 

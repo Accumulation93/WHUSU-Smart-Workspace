@@ -1,6 +1,6 @@
 <view class="permission-page">
   <view class="permission-hero">
-    <view class="permission-hero-badge">{{operatorLevelLabel || '权限系统'}}</view>
+    <view class="permission-hero-badge">{{operatorLevelLabel || '权限管理'}}</view>
     <view class="permission-hero-title">管理员权限</view>
     <view class="permission-org ui-motion-chip" bindtap="onOrgTap" hover-class="permission-org-pressing" hover-start-time="0" hover-stay-time="160">
       <ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" />
@@ -21,12 +21,12 @@
     </view>
     <view class="permission-search">
       <ui-icon name="search" tone="muted" size="32" ariaLabel="搜索" />
-      <input class="permission-search-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="搜索姓名、学号或层级" />
+      <input class="permission-search-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="搜索姓名、学号或管理员类型" />
       <view class="permission-search-clear ui-motion-chip" wx:if="{{keyword}}" bindtap="clearKeyword" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="28" ariaLabel="清除" /></view>
     </view>
 
-    <view class="permission-loading" wx:if="{{loading}}">正在读取权限配置…</view>
-    <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">当前组织没有可配置的下级管理员</view>
+    <view class="permission-loading" wx:if="{{loading}}">正在加载管理员…</view>
+    <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">当前组织暂无可管理的管理员</view>
     <view class="permission-admin-list" wx:else>
       <view class="permission-admin-row ui-motion-card" wx:for="{{filteredAdmins}}" wx:key="id" data-id="{{item.id}}" bindtap="openAdmin" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
         <view class="permission-role-mark" aria-label="管理员">
@@ -43,7 +43,7 @@
             <view class="permission-progress-text">已启用 {{item.grantedCount}} / {{item.applicableCount}}</view>
           </view>
         </view>
-        <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="配置权限" />
+        <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="设置权限" />
       </view>
     </view>
   </view>
@@ -66,7 +66,7 @@
               <view class="permission-group-desc">{{group.description}}</view>
             </view>
             <view class="permission-group-switch">
-              <text>整组</text>
+              <text>全部</text>
               <switch checked="{{group.allGranted}}" disabled="{{!group.editableCount}}" color="#2563eb" data-group-index="{{groupIndex}}" bindchange="onGroupChange" />
             </view>
           </view>
@@ -81,7 +81,7 @@
       </scroll-view>
       <view class="permission-dialog-footer ui-dialog-footer">
         <button class="secondary-btn permission-secondary ui-motion-button" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="primary-btn permission-primary ui-motion-button" loading="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并立即生效</button>
+        <button class="primary-btn permission-primary ui-motion-button" loading="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存</button>
       </view>
     </view>
   </view>
@@ -90,8 +90,8 @@
     <view class="permission-mask" bindtap="closeContextSwitchGuard"></view>
     <view class="permission-dialog context-switch-guard-card hit-area ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
-      <view class="context-switch-guard-title">请先处理未保存内容</view>
-      <view class="context-switch-guard-desc">管理员权限尚未保存。完成保存或取消编辑后，再切换组织与身份。</view>
+      <view class="context-switch-guard-title">有未保存内容</view>
+      <view class="context-switch-guard-desc">保存或取消修改后再切换组织。</view>
       <view class="context-switch-guard-actions ui-dialog-footer">
         <button class="primary-btn permission-primary ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">继续编辑</button>
       </view>

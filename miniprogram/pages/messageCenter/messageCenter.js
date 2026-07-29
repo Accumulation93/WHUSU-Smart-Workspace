@@ -10,7 +10,7 @@ const CATEGORY_LABELS = {
   venue: '场地',
   scoring: '考核',
   hr: '人事',
-  system: '系统'
+  system: '其他'
 };
 
 function pendingReadStorageKey(organizationId, role) {
@@ -141,11 +141,11 @@ Page({
           selectedOrganizationIndex: 0,
           loading: false
         });
-        showShortToast('组织权限已变更');
+        showShortToast('请重新选择组织或身份');
         this.loadOverview(true);
         return;
       }
-      if (result.status !== 'success') throw new Error(result.message || '消息加载失败');
+      if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
 
       const organizationOptions = this.buildOrganizationOptions(result.organizations);
       let selectedIndex = organizationOptions.findIndex((item) => (
@@ -160,7 +160,7 @@ Page({
           selectedOrganizationIndex: 0,
           loading: false
         });
-        showShortToast('组织权限已变更');
+        showShortToast('请重新选择组织或身份');
         this.loadOverview(true);
         return;
       }
@@ -184,7 +184,7 @@ Page({
         partial: !!result.partial
       });
     } catch (error) {
-      if (!(error && error.silent)) showShortToast('消息加载失败');
+      if (!(error && error.silent)) showShortToast('请稍后刷新');
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -245,7 +245,7 @@ Page({
         });
       }
     } catch (error) {
-      if (!(error && error.silent)) showShortToast('加载更多失败');
+      if (!(error && error.silent)) showShortToast('请稍后重试');
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loadingMore: false });
     }
@@ -312,7 +312,7 @@ Page({
       name: 'markNotificationRead',
       data: { id: item.id, organizationId: item.organizationId }
     });
-    if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+    if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
   },
 
   async openNotification(item) {
@@ -377,7 +377,7 @@ Page({
       navigateToTrustedRoute(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
-      showShortToast(denied ? '权限已变更' : '身份切换失败');
+      showShortToast(denied ? '请重新选择身份' : '未切换，请重试');
       this.loadOverview(true);
     }
   },
@@ -407,7 +407,7 @@ Page({
       navigateToTrustedRoute(pending.item.targetUrl);
     } catch (error) {
       const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
-      showShortToast(denied ? '组织权限已变更' : '组织切换失败');
+      showShortToast(denied ? '请重新选择组织' : '未切换，请重试');
       this._pendingNavigation = null;
       this.setData({
         showSwitchDialog: false,
@@ -433,12 +433,12 @@ Page({
         name: 'markAllNotificationsRead',
         data: this.selectedOrganizationData()
       });
-      if (result.status !== 'success') throw new Error(result.message || '操作失败');
+      if (result.status !== 'success') throw new Error(result.message || '未完成，请重试');
       if (result.partial) this.setData({ partial: true });
     } catch (_) {
       this.setData({ notifications: previous });
       this.loadOverview(true);
-      showShortToast('操作失败');
+      showShortToast('未完成，请重试');
     }
   },
 
@@ -457,11 +457,11 @@ Page({
         name: 'deleteNotification',
         data: { id: item.id, organizationId: item.organizationId }
       });
-      if (result.status !== 'success') throw new Error(result.message || '删除失败');
+      if (result.status !== 'success') throw new Error(result.message || '未删除，请重试');
     } catch (_) {
       this.setData({ notifications: previous });
       this.loadOverview(true);
-      showShortToast('删除失败');
+      showShortToast('未删除，请重试');
     }
   },
 
@@ -478,7 +478,7 @@ Page({
           name: 'markNotificationRead',
           data: { id, organizationId: orgId }
         });
-        if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+        if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
       } catch (_) {
         failed.push(id);
       }

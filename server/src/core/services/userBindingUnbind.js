@@ -6,7 +6,7 @@ async function unbindUserAcrossOrganizations(options) {
   const connection = options && options.connection;
   const bindingModel = (options && options.bindingModel) || require('../models/userInfo');
   if (!hrId || !orgId || !connection) {
-    throw new Error('解绑参数不完整');
+    throw new Error('请重新打开成员资料');
   }
 
   const currentBindings = await bindingModel.lockByHrIdInOrg(hrId, orgId, connection);

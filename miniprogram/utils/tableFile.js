@@ -391,7 +391,7 @@ function chooseTableFile(callCloudFn) {
               try {
                 let parsed = parseCsvContent(readRes.data);
                 if (!parsed.headers.length) {
-                  wx.showToast({ title: '表格文件为空', icon: 'none' });
+                  wx.showToast({ title: '请选择有内容的表格', icon: 'none' });
                   resolve(null);
                   return;
                 }
@@ -403,12 +403,12 @@ function chooseTableFile(callCloudFn) {
                   fileName: fileName
                 });
               } catch (err) {
-                wx.showToast({ title: 'CSV 解析失败: ' + (err.message || '格式错误'), icon: 'none' });
+                wx.showToast({ title: '请检查表格格式', icon: 'none' });
                 resolve(null);
               }
             },
             fail: function (err) {
-              wx.showToast({ title: '读取文件失败: ' + (err.errMsg || ''), icon: 'none' });
+              wx.showToast({ title: '请重新选择文件', icon: 'none' });
               resolve(null);
             }
           });
@@ -427,7 +427,7 @@ function chooseTableFile(callCloudFn) {
           success: function (readRes) {
             let buffer = readRes.data;
             if (!buffer || !buffer.byteLength) {
-              wx.showToast({ title: '文件为空', icon: 'none' });
+              wx.showToast({ title: '请选择有内容的文件', icon: 'none' });
               resolve(null);
               return;
             }
@@ -464,21 +464,21 @@ function chooseTableFile(callCloudFn) {
                   }
                 },
                 fail: function () {
-                  wx.showToast({ title: '读取文件失败', icon: 'none' });
+                  wx.showToast({ title: '请重新选择文件', icon: 'none' });
                   resolve(null);
                 }
               });
             }
           },
           fail: function (err) {
-            wx.showToast({ title: '读取文件失败: ' + (err.errMsg || ''), icon: 'none' });
+            wx.showToast({ title: '请重新选择文件', icon: 'none' });
             resolve(null);
           }
         });
       },
       fail: function (err) {
         if (err && err.errMsg && err.errMsg.indexOf('cancel') === -1) {
-          wx.showToast({ title: '选择文件失败', icon: 'none' });
+          wx.showToast({ title: '请重新选择文件', icon: 'none' });
         }
         resolve(null);
       }
@@ -497,7 +497,7 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
     success: function (readRes) {
       let base64 = readRes.data;
       if (!base64) {
-        wx.showToast({ title: '读取文件内容为空', icon: 'none' });
+        wx.showToast({ title: '请选择有内容的文件', icon: 'none' });
         resolve(null);
         return;
       }
@@ -511,7 +511,7 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
       callCloudFn('parseTableFile', { fileBase64: base64, fileName: fileName }).then(function (result) {
         wx.hideLoading();
         if (!result || result.status !== 'success' || !result.sheets || !result.sheets.length) {
-          wx.showToast({ title: (result && result.message) || '解析 Excel 文件失败', icon: 'none' });
+          wx.showToast({ title: (result && result.message) || '请检查表格格式', icon: 'none' });
           resolve(null);
           return;
         }
@@ -544,12 +544,12 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
         }
       }).catch(function (err) {
         wx.hideLoading();
-        wx.showToast({ title: '解析 Excel 失败: ' + ((err && err.message) || '网络错误'), icon: 'none' });
+        wx.showToast({ title: '请检查表格格式', icon: 'none' });
         resolve(null);
       });
     },
     fail: function (err) {
-      wx.showToast({ title: '读取文件失败: ' + (err.errMsg || ''), icon: 'none' });
+      wx.showToast({ title: '请重新选择文件', icon: 'none' });
       resolve(null);
     }
   });

@@ -213,7 +213,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     const stepOverrides = Array.isArray(req.body.stepOverrides) ? req.body.stepOverrides : [];
 
     if (!templateId) {
-      return res.json({ status: 'invalid_params', message: '请选择审核流模板' });
+      return res.json({ status: 'invalid_params', message: '请选择审核流程' });
     }
     if (!title) {
       return res.json({ status: 'invalid_params', message: '请输入提交标题' });
@@ -225,10 +225,10 @@ router.post('/startAuditSubmission', async (req, res) => {
     // Load template
     const template = await flowTemplateModel.getById(templateId);
     if (!template) {
-      return res.json({ status: 'not_found', message: '审核流模板不存在' });
+      return res.json({ status: 'not_found', message: '请刷新审核类型后重试' });
     }
     if (!template.is_active) {
-      return res.json({ status: 'invalid_params', message: '该审核流模板已停用' });
+      return res.json({ status: 'invalid_params', message: '请选择其他审核流程' });
     }
 
     // Check starter eligibility
@@ -271,28 +271,28 @@ router.post('/startAuditSubmission', async (req, res) => {
       }
       if (!starterMatch) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '您没有权限发起此审核流程' });
+        return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
       }
     } else if (template.starter_type === 'identity' && template.starter_identity_id && submitterFull) {
       // Legacy identity check
       const identIds = template.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       if (!identIds.includes(submitterFull.identity_id)) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '当前身份不能发起此审核' });
+        return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
       }
     } else if (template.starter_type === 'specific_person' && template.starter_hr_id && submitterFull) {
       // Legacy specific person check
       const personIds = template.starter_hr_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       if (!personIds.includes(hrId)) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '您没有权限发起此审核流程' });
+        return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
       }
     }
     // starter_type === 'self' means anyone can start — no check needed
 
     const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
     if (!templateSteps.length) {
-      return res.json({ status: 'invalid_params', message: '审核流模板没有配置步骤' });
+      return res.json({ status: 'invalid_params', message: '请联系管理员补充审批步骤' });
     }
 
     await conn.beginTransaction();
@@ -413,7 +413,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         stepConditionsJson = JSON.stringify(conditions);
       }
       if (!conditions.length && !ts.approver_hr_id && !ts.approver_identity_id) {
-        const configError = new Error('审核步骤必须配置明确的审批条件');
+        const configError = new Error('请为每个审批步骤选择审批人');
         configError.code = 'AUDIT_STEP_CONDITIONS_REQUIRED';
         throw configError;
       }
@@ -454,7 +454,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       status: 'success',
       id: submissionId,
       submissionNumber,
-      message: '审核提交成功'
+      message: '审核申请已提交'
     };
     await requestDeduplication.complete(conn, {
       ...dedupClaim,
@@ -471,7 +471,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       return res.json({ status: 'invalid_params', message: e.message });
     }
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+      return res.json({ status: 'invalid_params', message: '请重新提交申请' });
     }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
@@ -572,7 +572,7 @@ router.post('/startAdHocAudit', async (req, res) => {
         stepConditionsJson = JSON.stringify(conditions);
       }
       if (!conditions.length && !safeString(s.approverHrId) && !safeString(s.approverIdentityId)) {
-        const configError = new Error('每个审批步骤都必须配置审批人或审批条件');
+        const configError = new Error('请为每个审批步骤选择审批人');
         configError.code = 'AUDIT_STEP_CONDITIONS_REQUIRED';
         throw configError;
       }
@@ -621,7 +621,7 @@ router.post('/startAdHocAudit', async (req, res) => {
       return res.json({ status: 'invalid_params', message: e.message });
     }
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+      return res.json({ status: 'invalid_params', message: '请重新提交申请' });
     }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
@@ -736,10 +736,10 @@ router.post('/getSubmissionDetail', async (req, res) => {
     if (!hrId && !admin) return res.json({ status: 'forbidden', message: '请先登录' });
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
 
     const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
 
     const steps = await submissionStepModel.getBySubmissionId(submissionId);
 
@@ -1181,20 +1181,20 @@ async function checkStepAuthorization(step, submission, hrId, approverOverride) 
 // approveStep — Approve current step with optional signature/stamp
 async function validateStepForAction(step, submission, submissionId, conn) {
   if (step.submission_id !== submissionId) {
-    return { ok: false, status: 'invalid_params', message: '步骤不属于该审批提交' };
+    return { ok: false, status: 'invalid_params', message: '请刷新后重试' };
   }
   if (submission.status !== 'in_progress') {
-    return { ok: false, status: 'invalid_state', message: '提交状态不允许审批' };
+    return { ok: false, status: 'invalid_state', message: '请刷新页面查看最新进度' };
   }
   if (step.status !== 'pending') {
-    return { ok: false, status: 'invalid_state', message: '该步骤已经处理过' };
+    return { ok: false, status: 'invalid_state', message: '该审批已处理，请刷新页面' };
   }
   if (step.sort_order !== submission.current_step_index) {
-    return { ok: false, status: 'invalid_state', message: '只能处理当前审批步骤' };
+    return { ok: false, status: 'invalid_state', message: '请处理当前审批步骤' };
   }
   const maxRound = await submissionStepModel.getMaxRound(submission.id, step.sort_order, conn);
   if ((step.round || 1) !== maxRound) {
-    return { ok: false, status: 'invalid_state', message: '只能处理最新一轮审批步骤' };
+    return { ok: false, status: 'invalid_state', message: '请刷新页面查看最新进度' };
   }
   return { ok: true };
 }
@@ -1218,14 +1218,14 @@ router.post('/approveStep', async (req, res) => {
     const signatures = Array.isArray(req.body.signatures) ? req.body.signatures : [];
 
     if (!submissionId || !stepId) {
-      return res.json({ status: 'invalid_params', message: '请提供提交ID和步骤ID' });
+      return res.json({ status: 'invalid_params', message: '请重新打开审批详情' });
     }
 
     await conn.beginTransaction();
     const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
     if (!submission) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '提交不存在' });
+      return res.json({ status: 'not_found', message: '请刷新申请记录' });
     }
     if (submission.status !== 'in_progress') {
       await conn.rollback();
@@ -1235,7 +1235,7 @@ router.post('/approveStep', async (req, res) => {
     const step = await submissionStepModel.getByIdForUpdate(stepId, conn);
     if (!step) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '步骤不存在' });
+      return res.json({ status: 'not_found', message: '请刷新审批详情' });
     }
     if (step.status !== 'pending') {
       await conn.rollback();
@@ -1294,7 +1294,7 @@ router.post('/approveStep', async (req, res) => {
     for (const [fileId, fileSignatures] of signaturesByFile) {
       const file = await submissionFileModel.getById(fileId);
       if (!file || file.submission_id !== submissionId) {
-        throw new Error('签名文件不存在或不属于当前审批提交');
+        throw new Error('请重新选择签名');
       }
 
       if (file.file_path && fs.existsSync(file.file_path)) {
@@ -1515,7 +1515,7 @@ router.post('/rejectStep', async (req, res) => {
     const rejectionReason = safeString(req.body.rejectionReason);
 
     if (!submissionId || !stepId) {
-      return res.json({ status: 'invalid_params', message: '请提供提交ID和步骤ID' });
+      return res.json({ status: 'invalid_params', message: '请重新打开审批详情' });
     }
     if (!rejectionReason) {
       return res.json({ status: 'invalid_params', message: '请填写驳回理由' });
@@ -1525,13 +1525,13 @@ router.post('/rejectStep', async (req, res) => {
     const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
     if (!submission) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '提交不存在' });
+      return res.json({ status: 'not_found', message: '请刷新申请记录' });
     }
 
     const step = await submissionStepModel.getByIdForUpdate(stepId, conn);
     if (!step) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '步骤不存在' });
+      return res.json({ status: 'not_found', message: '请刷新审批详情' });
     }
     if (step.status !== 'pending') {
       await conn.rollback();
@@ -1611,17 +1611,17 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
 
     const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
     if (submission.submitted_by !== hrId) {
       return res.json({ status: 'forbidden', message: '只有提交人可以修改' });
     }
 
     const editableStatuses = ['draft', 'pending', 'rejected', 'withdrawn'];
     if (!editableStatuses.includes(submission.status)) {
-      return res.json({ status: 'invalid_state', message: '当前状态不能修改' });
+      return res.json({ status: 'invalid_state', message: '请在待修改时编辑申请' });
     }
 
     const title = safeString(req.body.title);
@@ -1797,15 +1797,15 @@ router.post('/resubmitAudit', async (req, res) => {
     const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
 
     const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
     if (submission.submitted_by !== hrId) {
       return res.json({ status: 'forbidden', message: '只有提交人可以重提交' });
     }
     if (submission.status !== 'rejected' && submission.status !== 'withdrawn' && submission.status !== 'pending') {
-      return res.json({ status: 'invalid_state', message: '当前状态不能重新提交' });
+      return res.json({ status: 'invalid_state', message: '请在待修改时重新提交' });
     }
 
     // Optional updates during resubmission
@@ -1975,15 +1975,15 @@ router.post('/withdrawSubmission', async (req, res) => {
     const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
 
     const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
     if (submission.submitted_by !== hrId) {
       return res.json({ status: 'forbidden', message: '只有提交人可以撤回' });
     }
     if (submission.status === 'approved') {
-      return res.json({ status: 'invalid_state', message: '已完成的审核不能撤回' });
+      return res.json({ status: 'invalid_state', message: '已完成的申请无需撤回' });
     }
     if (submission.status === 'withdrawn') {
       return res.json({ status: 'invalid_state', message: '该审核已经撤回' });
@@ -2119,10 +2119,10 @@ router.post('/previewTemplateSteps', async (req, res) => {
     if (!openid) return res.json({ status: 'forbidden', message: '请先登录' });
 
     const templateId = safeString(req.body.templateId);
-    if (!templateId) return res.json({ status: 'invalid_params', message: '请提供模板ID' });
+    if (!templateId) return res.json({ status: 'invalid_params', message: '请重新选择审核类型' });
 
     const template = await flowTemplateModel.getById(templateId);
-    if (!template) return res.json({ status: 'not_found', message: '模板不存在' });
+    if (!template) return res.json({ status: 'not_found', message: '请刷新审核类型后重试' });
 
     const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
     const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
@@ -2312,11 +2312,11 @@ router.post('/markSubmissionRead', async (req, res) => {
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '缺少提交ID' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
 
     // Get current submission state
     const sub = await submissionModel.getById(submissionId);
-    if (!sub) return res.json({ status: 'not_found', message: '提交不存在' });
+    if (!sub) return res.json({ status: 'not_found', message: '请刷新申请记录' });
     const orgId = await getCurrentOrgId();
 
     await pool.query(
@@ -2465,7 +2465,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
     if (submissionId) {
       // View mode: resolve next step's conditions from the submission
       const submission = await submissionModel.getById(submissionId);
-      if (!submission) return res.json({ status: 'not_found', message: '提交不存在' });
+      if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
 
       const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
       const currentIdx = submission.current_step_index || 0;
@@ -2502,7 +2502,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
       const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
       const targetStep = templateSteps.find(function(s) { return s.sort_order === stepIndex; });
       if (!targetStep) {
-        return res.json({ status: 'not_found', message: '模板步骤不存在' });
+        return res.json({ status: 'not_found', message: '请刷新审批详情' });
       }
 
       const tplConds = await submissionStepModel.getTemplateStepConditions(targetStep.id);

@@ -19,7 +19,7 @@ module.exports = Behavior({
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
-          title: '加载人事成员失败',
+          title: '请稍后刷新人事成员',
           icon: 'none'
         });
       } finally {
@@ -35,7 +35,7 @@ module.exports = Behavior({
         if (result.status !== 'success') {
           console.error('批量维护失败:', result.message);
           wx.showToast({
-            title: result.message || '批量维护失败',
+            title: result.message || '未完成，请重试',
             icon: 'none'
           });
           return;
@@ -56,7 +56,7 @@ module.exports = Behavior({
       } catch (error) {
         console.error('批量维护失败:', error);
         wx.showToast({
-          title: '批量维护失败',
+          title: '未完成，请重试',
           icon: 'none'
         });
       } finally {
@@ -72,7 +72,7 @@ module.exports = Behavior({
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '加载人事信息模板失败',
+            title: result.message || '请稍后刷新人事模板',
             icon: 'none'
           });
           return;
@@ -110,7 +110,7 @@ module.exports = Behavior({
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
-          title: '加载人事信息模板失败',
+          title: '请稍后刷新人事模板',
           icon: 'none'
         });
       } finally {
@@ -124,7 +124,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('listHrProfileTemplates');
         if (result.status !== 'success') {
-          showShortToast('加载失败');
+          showShortToast('请稍后刷新');
           return;
         }
         const active = result.activeSnapshot || null;
@@ -140,7 +140,7 @@ module.exports = Behavior({
               } else if (field.minValue != null || field.maxValue != null) {
                 ruleText = `范围 ${field.minValue == null ? '不限' : field.minValue}–${field.maxValue == null ? '不限' : field.maxValue}`;
               }
-              if (field.allowDecimal === false) ruleText = `${ruleText ? `${ruleText} · ` : ''}仅整数`;
+              if (field.allowDecimal === false) ruleText = `${ruleText ? `${ruleText} · ` : ''}填写整数`;
             } else if (field.type === 'sequence') {
               ruleText = (field.options || []).length ? `选项：${field.options.join(' / ')}` : '暂无选项';
             }
@@ -157,7 +157,7 @@ module.exports = Behavior({
           canSelectHrProfileTemplate: result.canSelect === true
         });
       } catch (_) {
-        showShortToast('加载失败');
+        showShortToast('请稍后刷新');
       } finally {
         this.setLoading('hrProfileTemplates', false);
       }
@@ -198,11 +198,11 @@ module.exports = Behavior({
       this.setLoading('duplicateHrProfileTemplate', true);
       try {
         const result = await this.callCloud('duplicateHrProfileTemplateDefinition', { id });
-        if (result.status !== 'success') return showShortToast('复制失败');
+        if (result.status !== 'success') return showShortToast('未复制，请重试');
         await this.loadHrProfileTemplates();
         showShortToast('已复制', 'success');
       } catch (_) {
-        showShortToast('复制失败');
+        showShortToast('未复制，请重试');
       } finally {
         this.setLoading('duplicateHrProfileTemplate', false);
       }
@@ -213,7 +213,7 @@ module.exports = Behavior({
       const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
       if (!template) return;
       wx.showModal({
-        title: '删除共享模板',
+        title: '删除人事模板',
         content: '确认删除此模板？',
         confirmText: '彻底删除',
         confirmColor: '#ef4444',
@@ -221,11 +221,11 @@ module.exports = Behavior({
           if (!modalResult.confirm) return;
           try {
             const result = await this.callCloud('deleteHrProfileTemplateDefinition', { id });
-            if (result.status !== 'success') return showShortToast('删除失败');
+            if (result.status !== 'success') return showShortToast('未删除，请重试');
             await this.loadHrProfileTemplates();
             showShortToast('已删除', 'success');
           } catch (_) {
-            showShortToast('删除失败');
+            showShortToast('未删除，请重试');
           }
         }
       });
@@ -237,10 +237,10 @@ module.exports = Behavior({
       this.setLoading('hrTemplateSwitch', true);
       try {
         const result = await this.callCloud('getHrProfileTemplateSwitchContext', { targetTemplateId });
-        if (result.status !== 'success') return showShortToast('读取失败');
+        if (result.status !== 'success') return showShortToast('请稍后刷新');
         const targetFields = (result.targetTemplate && result.targetTemplate.fields) || [];
         const sources = (result.sourceFields || []).map((source) => {
-          const targetOptions = [{ id: '', label: '请选择目标字段' }]
+          const targetOptions = [{ id: '', label: '请选择新资料项' }]
             .concat(targetFields.filter((target) => (source.compatibleTargetIds || []).indexOf(target.id) >= 0));
           return Object.assign({}, source, {
             action: 'hide',
@@ -249,7 +249,7 @@ module.exports = Behavior({
             targetIndex: 0,
             targetOptions,
             suggestionText: source.suggestedTargetId
-              ? `建议映射：${(targetFields.find((field) => field.id === source.suggestedTargetId) || {}).label || ''}`
+              ? `建议移入：${(targetFields.find((field) => field.id === source.suggestedTargetId) || {}).label || ''}`
               : ''
           });
         });
@@ -261,7 +261,7 @@ module.exports = Behavior({
           hrTemplateSwitchSummary: null
         });
       } catch (_) {
-        showShortToast('读取失败');
+        showShortToast('请稍后刷新');
       } finally {
         this.setLoading('hrTemplateSwitch', false);
       }
@@ -328,10 +328,10 @@ module.exports = Behavior({
         });
         if (result.status === 'mapping_blocked') {
           const invalidCount = (result.blockers || []).reduce((sum, item) => sum + Number(item.invalidCount || 0), 0);
-          wx.showModal({ title: '暂不能切换', content: `有${invalidCount}个值不符合目标字段限制，请调整映射。`, showCancel: false });
+          wx.showModal({ title: '请先调整资料', content: `有 ${invalidCount} 项资料不符合新模板要求，请修改后重试。`, showCancel: false });
           return;
         }
-        if (result.status !== 'success') return showShortToast('检查失败');
+        if (result.status !== 'success') return showShortToast('请稍后重试');
         this.setData({ hrTemplateSwitchToken: result.switchToken, hrTemplateSwitchSummary: result.summary });
         const summary = result.summary || {};
         const hasDelete = summary.hasDelete === true;
@@ -345,7 +345,7 @@ module.exports = Behavior({
           }
         });
       } catch (_) {
-        showShortToast('检查失败');
+        showShortToast('请稍后重试');
       } finally {
         this.setLoading('previewHrTemplateSwitch', false);
       }
@@ -363,14 +363,14 @@ module.exports = Behavior({
           confirmDelete: confirmDelete === true
         });
         if (result.status !== 'success') {
-          showShortToast(result.status === 'stale_switch' ? '请重新确认' : '应用失败');
+          showShortToast(result.status === 'stale_switch' ? '请重新确认' : '未应用，请重试');
           return;
         }
         this.closeHrProfileTemplateSwitch();
         await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
-        showShortToast('应用成功', 'success');
+        showShortToast('已应用', 'success');
       } catch (_) {
-        showShortToast('应用失败');
+        showShortToast('未应用，请重试');
       } finally {
         this.setLoading('applyHrTemplateSwitch', false);
       }
@@ -397,11 +397,11 @@ module.exports = Behavior({
           description: active.description || '',
           editMode: active.editMode || 'direct'
         });
-        if (result.status !== 'success') return showShortToast('保存失败');
+        if (result.status !== 'success') return showShortToast('未保存，请重试');
         await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
         showShortToast('已保存', 'success');
       } catch (_) {
-        showShortToast('保存失败');
+        showShortToast('未保存，请重试');
       } finally {
         this.setLoading('saveActiveHrProfileSettings', false);
       }
@@ -495,9 +495,9 @@ module.exports = Behavior({
         { key: 'studentId', label: '学号', groupLabel: '基本信息', source: 'studentId', checked: true },
         { key: 'department', label: '所属部门', groupLabel: '基本信息', source: 'department', checked: true },
         { key: 'identity', label: '身份', groupLabel: '基本信息', source: 'identity', checked: true },
-        { key: 'workGroup', label: '工作分工（职能组）', groupLabel: '基本信息', source: 'workGroup', checked: true },
+        { key: 'workGroup', label: '职能组', groupLabel: '基本信息', source: 'workGroup', checked: true },
         { key: 'wxBindStatus', label: '微信绑定状态', groupLabel: '基本信息', source: 'wxBindStatus', checked: true },
-        { key: 'auditStatus', label: '扩展资料状态', groupLabel: '基本信息', source: 'auditStatus', checked: true }
+        { key: 'auditStatus', label: '补充资料状态', groupLabel: '基本信息', source: 'auditStatus', checked: true }
       ];
       const pendingFieldMap = {};
       for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
@@ -514,7 +514,7 @@ module.exports = Behavior({
         columns.push({
           key: 'profile_' + fieldIndex,
           label: field.label,
-          groupLabel: '扩展资料',
+          groupLabel: '补充资料',
           source: 'profile',
           fieldId: field.id,
           checked: true
@@ -591,7 +591,7 @@ module.exports = Behavior({
     confirmHrProfileExport() {
       const columns = (this.data.hrProfileExportColumns || []).filter((column) => column.checked);
       if (!columns.length) {
-        showShortToast('请至少选择一列');
+        showShortToast('请选择导出内容');
         return;
       }
       const headers = columns.map((column) => ({ key: column.key, label: column.label }));
@@ -635,13 +635,13 @@ module.exports = Behavior({
           sheetName: '成员资料'
         });
         if (!result || result.status !== 'success' || !result.fileBase64) {
-          showShortToast((result && result.message) || '导出失败');
+          showShortToast((result && result.message) || '未导出，请重试');
           return;
         }
         this.setData({ hrProfileExportVisible: false });
         await saveAndShareFile(result.fileBase64, fileName, result.extension || format);
       } catch (error) {
-        showShortToast('导出失败');
+        showShortToast('未导出，请重试');
       } finally {
         this.setLoading('exportHrProfiles', false);
       }
@@ -670,7 +670,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('getHrPersonDetail', { hrId });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '加载失败', icon: 'none' });
+          wx.showToast({ title: result.message || '请稍后刷新', icon: 'none' });
           this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
           return;
         }
@@ -727,7 +727,7 @@ module.exports = Behavior({
         this._syncDetailPickerValues();
         await this.loadMembershipAssignments(hrId);
       } catch (err) {
-        wx.showToast({ title: '加载详情失败', icon: 'none' });
+        wx.showToast({ title: '请稍后刷新详情', icon: 'none' });
         this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
       }
     },
@@ -738,12 +738,12 @@ module.exports = Behavior({
           hrId: hrId || this.data.detailHrId
         });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '加载岗位失败', icon: 'none' });
+          wx.showToast({ title: result.message || '请稍后刷新岗位', icon: 'none' });
           return;
         }
         this.setData({ membershipAssignmentList: result.list || [] });
       } catch (error) {
-        wx.showToast({ title: '加载岗位失败', icon: 'none' });
+        wx.showToast({ title: '请稍后刷新岗位', icon: 'none' });
       }
     },
 
@@ -869,14 +869,14 @@ module.exports = Behavior({
           hrId: this.data.detailHrId
         });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '保存岗位失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
           return;
         }
         this.cancelMembershipAssignmentEdit();
         await this.loadMembershipAssignments();
         wx.showToast({ title: '岗位已保存', icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '保存岗位失败', icon: 'none' });
+        wx.showToast({ title: '未保存，请重试', icon: 'none' });
       } finally {
         this.setLoading('saveMembershipAssignment', false);
       }
@@ -887,19 +887,19 @@ module.exports = Behavior({
       if (!id) return;
       wx.showModal({
         title: '删除岗位',
-        content: '删除后该岗位不能再用于身份切换，历史业务记录仍会保留。',
+        content: '删除后将无法再选择该岗位，历史记录不受影响。',
         success: async (modalResult) => {
           if (!modalResult.confirm) return;
           try {
             const result = await this.callCloud('deleteMembershipAssignment', { id });
             if (result.status !== 'success') {
-              wx.showToast({ title: result.message || '删除岗位失败', icon: 'none' });
+              wx.showToast({ title: result.message || '未删除，请重试', icon: 'none' });
               return;
             }
             await this.loadMembershipAssignments();
             wx.showToast({ title: '岗位已删除', icon: 'success' });
           } catch (error) {
-            wx.showToast({ title: '删除岗位失败', icon: 'none' });
+            wx.showToast({ title: '未删除，请重试', icon: 'none' });
           }
         }
       });
@@ -1036,15 +1036,15 @@ module.exports = Behavior({
           hrId, name, studentId, departmentId, identityId, workGroupId, profileValues
         });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '保存失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
           return;
         }
-        wx.showToast({ title: '保存成功', icon: 'success' });
+        wx.showToast({ title: '已保存', icon: 'success' });
         this.setData({ showHrPersonDetail: false });
         this.loadHrProfileAdminData();
         this.loadHrList();
       } catch (err) {
-        wx.showToast({ title: '保存失败', icon: 'none' });
+        wx.showToast({ title: '未保存，请重试', icon: 'none' });
       } finally {
         this.setData({ savingDetailHr: false });
       }
@@ -1057,14 +1057,14 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'approve' });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '操作失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未完成，请重试', icon: 'none' });
           return;
         }
         wx.showToast({ title: '已通过', icon: 'success' });
         this.closeHrPersonDetail();
         this.loadHrProfileAdminData();
       } catch (err) {
-        wx.showToast({ title: '操作失败', icon: 'none' });
+        wx.showToast({ title: '未完成，请重试', icon: 'none' });
       }
     },
 
@@ -1075,14 +1075,14 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'reject' });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '操作失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未完成，请重试', icon: 'none' });
           return;
         }
         wx.showToast({ title: '已驳回', icon: 'success' });
         this.closeHrPersonDetail();
         this.loadHrProfileAdminData();
       } catch (err) {
-        wx.showToast({ title: '操作失败', icon: 'none' });
+        wx.showToast({ title: '未完成，请重试', icon: 'none' });
       }
     },
 
@@ -1237,18 +1237,18 @@ module.exports = Behavior({
   
         const existingFields = _this.data.hrProfileTemplateForm.fields || [];
         const headerPreview = headers.length > 5
-          ? headers.slice(0, 5).join('、') + ' 等' + headers.length + '个字段'
+          ? headers.slice(0, 5).join('、') + ' 等' + headers.length + '项资料'
           : headers.join('、');
   
         wx.showModal({
-          title: '导入字段',
-          content: '检测到 ' + headers.length + ' 个字段：' + headerPreview + '。是否替换现有字段？（取消则追加到末尾）',
+          title: '导入资料项',
+          content: '表格中有 ' + headers.length + ' 项资料：' + headerPreview + '。请选择替换现有内容，或追加到末尾。',
           confirmText: '替换',
           cancelText: '追加',
           success: function (modalRes) {
             const fields = modalRes.confirm ? newFields : existingFields.concat(newFields);
             _this.setData({ 'hrProfileTemplateForm.fields': fields });
-            wx.showToast({ title: '已导入 ' + headers.length + ' 个字段', icon: 'success' });
+            wx.showToast({ title: '已导入 ' + headers.length + ' 项', icon: 'success' });
           }
         });
         _this.setLoading('importTemplateFieldsCsv', false);
@@ -1299,7 +1299,7 @@ module.exports = Behavior({
 
       if (!fields.length || fields.some((item) => !item.label)) {
         wx.showToast({
-          title: '请填写完整的字段名称',
+          title: '请填写资料项名称',
           icon: 'none'
         });
         return;
@@ -1320,7 +1320,7 @@ module.exports = Behavior({
         });
   
         if (result.status !== 'success') {
-          showShortToast('更新失败');
+          showShortToast('未更新，请重试');
           return;
         }
   
@@ -1328,7 +1328,7 @@ module.exports = Behavior({
         await this.loadHrProfileTemplates();
         showShortToast('已更新', 'success');
       } catch (error) {
-        showShortToast('更新失败');
+        showShortToast('未更新，请重试');
       } finally {
         wx.hideLoading();
         this.setLoading('saveProfileTemplate', false);
@@ -1356,7 +1356,7 @@ module.exports = Behavior({
             });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '审核失败',
+                title: result.message || '未通过，请重试',
                 icon: 'none'
               });
               return;
@@ -1368,7 +1368,7 @@ module.exports = Behavior({
             });
           } catch (error) {
             wx.showToast({
-              title: '审核失败',
+              title: '未通过，请重试',
               icon: 'none'
             });
           }
@@ -1397,7 +1397,7 @@ module.exports = Behavior({
             });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '驳回失败',
+                title: result.message || '未驳回，请重试',
                 icon: 'none'
               });
               return;
@@ -1409,7 +1409,7 @@ module.exports = Behavior({
             });
           } catch (error) {
             wx.showToast({
-              title: '驳回失败',
+              title: '未驳回，请重试',
               icon: 'none'
             });
           }
@@ -1455,7 +1455,7 @@ module.exports = Behavior({
       const hrId = String(e.currentTarget.dataset.hrId || '');
       const index = (this.data.hrList || []).findIndex(item => String(item.id) === hrId);
       if (index < 0) {
-        wx.showToast({ title: '成员信息未加载', icon: 'none' });
+        wx.showToast({ title: '请稍后刷新成员', icon: 'none' });
         return;
       }
       this.editHr({ currentTarget: { dataset: { index } } });
@@ -1496,7 +1496,7 @@ module.exports = Behavior({
     
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '保存失败',
+            title: result.message || '未保存，请重试',
             icon: 'none'
           });
           return;
@@ -1511,7 +1511,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '保存人事成员失败',
+          title: '未保存，请重试',
           icon: 'none'
         });
       } finally {
@@ -1538,7 +1538,7 @@ module.exports = Behavior({
             });
           } catch (error) {
             wx.showToast({
-              title: '删除失败',
+              title: '未删除，请重试',
               icon: 'none'
             });
           }
@@ -1562,14 +1562,14 @@ module.exports = Behavior({
           try {
             const result = await this.callCloud('unbindHrWechat', { hrId });
             if (result.status !== 'success') {
-              wx.showToast({ title: result.message || '解绑失败', icon: 'none' });
+              wx.showToast({ title: result.message || '未解绑，请重试', icon: 'none' });
               return;
             }
             wx.showToast({ title: '已全部解绑', icon: 'success' });
             await this.loadHrProfileAdminData();
             await this.loadHrList();
           } catch (error) {
-            wx.showToast({ title: '解绑失败', icon: 'none' });
+            wx.showToast({ title: '未解绑，请重试', icon: 'none' });
           }
         }
       });
@@ -1607,7 +1607,7 @@ module.exports = Behavior({
         self._csvImportActive = false;
       }).catch(function (err) {
         console.error('Table file parse error:', err);
-        wx.showToast({ title: '读取文件失败: ' + (err.message || '格式错误'), icon: 'none' });
+        wx.showToast({ title: '请检查表格格式', icon: 'none' });
         self._csvImportActive = false;
       });
     },
@@ -1645,7 +1645,7 @@ module.exports = Behavior({
       let self = this;
       let errors = self.data.validationErrors || [];
       if (!errors.length) {
-        wx.showToast({ title: '没有错误数据可导出', icon: 'none' });
+        wx.showToast({ title: '暂无问题记录', icon: 'none' });
         return;
       }
       wx.showActionSheet({
@@ -1655,10 +1655,10 @@ module.exports = Behavior({
           let headers = [
             { key: 'name', label: '姓名' },
             { key: 'studentId', label: '学号' },
-            { key: 'fieldName', label: '字段名' },
-            { key: 'fieldType', label: '字段类型' },
-            { key: 'errorValue', label: '错误值' },
-            { key: 'errorReason', label: '错误原因' }
+            { key: 'fieldName', label: '资料项' },
+            { key: 'fieldType', label: '内容类型' },
+            { key: 'errorValue', label: '原内容' },
+            { key: 'errorReason', label: '问题说明' }
           ];
           let rows = errors.map(function (e) {
             return {
@@ -1671,17 +1671,17 @@ module.exports = Behavior({
             };
           });
           if (format === 'excel') {
-            self.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: '导入错误清单' }).then(function (result) {
+            self.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: '导入问题清单' }).then(function (result) {
               if (result && result.status === 'success' && result.fileBase64) {
-                saveAndShareFile(result.fileBase64, '导入错误明细', 'xlsx');
+                saveAndShareFile(result.fileBase64, '导入问题明细', 'xlsx');
               } else {
-                wx.showToast({ title: '生成Excel失败', icon: 'none' });
+                wx.showToast({ title: '未导出，请重试', icon: 'none' });
               }
             }).catch(function () {
-              wx.showToast({ title: '生成Excel失败', icon: 'none' });
+              wx.showToast({ title: '未导出，请重试', icon: 'none' });
             });
           } else {
-            saveAndShareFile(buildCsv(headers, rows), '导入错误明细', 'csv');
+            saveAndShareFile(buildCsv(headers, rows), '导入问题明细', 'csv');
           }
         }
       });
@@ -1771,8 +1771,8 @@ module.exports = Behavior({
         normalizedMappings.push({
           columnKey: 'preview-column-' + item.columnIndex,
           header: item.header || '未命名列',
-          targetLabel: item.targetLabel || '未命名字段',
-          targetTypeLabel: item.targetType === 'extension' ? '扩展字段' : '基础字段'
+          targetLabel: item.targetLabel || '未命名资料项',
+          targetTypeLabel: item.targetType === 'extension' ? '补充资料' : '基本资料'
         });
       }
       let normalizedIgnored = [];
@@ -1816,10 +1816,10 @@ module.exports = Behavior({
       }
       if (missingLabels.length) {
         wx.showModal({
-          title: '必填字段未映射',
-          content: '请先映射：' + missingLabels.join('、') + '。职能组可以留空。',
+          title: '请选择资料所在列',
+          content: '请选择以下资料所在列：' + missingLabels.join('、') + '。职能组可留空。',
           showCancel: false,
-          confirmText: '知道了'
+          confirmText: '关闭'
         });
         return;
       }
@@ -1829,7 +1829,7 @@ module.exports = Behavior({
       try {
         let result = await this.callCloud('previewHrTableImport', payload);
         if (!result || result.status !== 'success') {
-          wx.showToast({ title: (result && result.message) || '检查失败', icon: 'none' });
+          wx.showToast({ title: (result && result.message) || '请稍后重试', icon: 'none' });
           return;
         }
         this.setData({
@@ -1838,7 +1838,7 @@ module.exports = Behavior({
           hrImportPreview: this.buildHrImportPreviewView(result.preview)
         });
       } catch (error) {
-        wx.showToast({ title: '检查失败，请稍后重试', icon: 'none' });
+        wx.showToast({ title: '请稍后重试', icon: 'none' });
       } finally {
         this._csvImportActive = false;
         this.setData({ csvImportLoading: false });
@@ -1857,7 +1857,7 @@ module.exports = Behavior({
     async confirmHrTableImport() {
       let preview = this.data.hrImportPreview || {};
       if (!preview.canImport) {
-        wx.showToast({ title: '请修正错误记录', icon: 'none' });
+        wx.showToast({ title: '请修改问题记录', icon: 'none' });
         return;
       }
       this._csvImportActive = true;
@@ -1873,12 +1873,12 @@ module.exports = Behavior({
             showValidationErrors: true,
             validationErrors: validationErrors,
             validationErrorCards: this.buildValidationErrorCards(validationErrors),
-            validationErrorSummary: '导入前校验发现 ' + validationErrors.length + ' 个字段问题'
+            validationErrorSummary: '请修改 ' + validationErrors.length + ' 项内容'
           });
           return;
         }
         if (!result || result.status !== 'success') {
-          wx.showToast({ title: (result && result.message) || '导入失败', icon: 'none' });
+          wx.showToast({ title: (result && result.message) || '未导入，请重试', icon: 'none' });
           return;
         }
 
@@ -1898,14 +1898,14 @@ module.exports = Behavior({
             showValidationErrors: true,
             validationErrors: skippedErrors,
             validationErrorCards: this.buildValidationErrorCards(skippedErrors),
-            validationErrorSummary: '已导入 ' + Number(result.count || 0) + ' 条，另有 ' + skippedErrors.length + ' 个字段被跳过'
+            validationErrorSummary: '已导入 ' + Number(result.count || 0) + ' 条，另有 ' + skippedErrors.length + ' 项未导入'
           });
           wx.showToast({ title: '导入完成', icon: 'success' });
         } else {
-          wx.showToast({ title: '导入成功，共 ' + Number(result.count || 0) + ' 条', icon: 'success' });
+          wx.showToast({ title: '已导入 ' + Number(result.count || 0) + ' 条', icon: 'success' });
         }
       } catch (error) {
-        wx.showToast({ title: '导入失败', icon: 'none' });
+        wx.showToast({ title: '未导入，请重试', icon: 'none' });
       } finally {
         wx.hideLoading();
         this._csvImportActive = false;

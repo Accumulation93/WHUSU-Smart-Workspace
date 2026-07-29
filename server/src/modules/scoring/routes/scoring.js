@@ -147,7 +147,7 @@ router.post('/getRateTargets', async (req, res) => {
     const openid = req.openid;
     const role = safeString(req.get('X-Role')).toLowerCase();
     if (role !== 'admin' && role !== 'user') {
-      return res.json({ status: 'invalid_role', message: '当前身份无效，请重新选择身份' });
+      return res.json({ status: 'invalid_role', message: '请重新选择身份' });
     }
 
     const lookups = await fetchOrgLookups();
@@ -155,7 +155,7 @@ router.post('/getRateTargets', async (req, res) => {
 
     if (role === 'admin') {
       const admin = await adminInfoModel.getByOpenid(openid);
-      if (!admin) return res.json({ status: 'need_bind', message: '请先绑定管理员身份' });
+      if (!admin) return res.json({ status: 'need_bind', message: '请使用管理员身份' });
       scorer = {
         id: admin.id, name: admin.name, studentId: admin.student_id || '',
         departmentId: '', department: '', identityId: '', identity: '',
@@ -184,7 +184,7 @@ router.post('/getRateTargets', async (req, res) => {
     const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
 
     if (!scorer.departmentId || !scorer.identityId) {
-      return res.json({ status: 'invalid_scorer', message: '当前岗位的人事信息不完整' });
+      return res.json({ status: 'invalid_scorer', message: '请联系管理员完善岗位信息' });
     }
 
     if (!currentActivity) {
@@ -235,7 +235,7 @@ router.post('/getRateTargets', async (req, res) => {
     const rule = await rateRuleModel.getByKey(currentActivity.id, scorerKey);
 
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: '暂无被评分人规则' });
+      return res.json({ status: 'missing_rule', message: '暂无评分对象' });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -300,7 +300,7 @@ router.post('/getRateTargets', async (req, res) => {
       targets
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '获取评分任务失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新评分任务' });
   }
 });
 
@@ -319,7 +319,7 @@ router.post('/getScoreFormData', async (req, res) => {
   try {
     const timezone = parseTimezone(req.body.timezone);
     const targetId = safeString(req.body.targetId);
-    if (!targetId) return res.json({ status: 'invalid_params', message: '缺少被评分人信息' });
+    if (!targetId) return res.json({ status: 'invalid_params', message: '请重新选择被评分人' });
 
     const activity = await scoreActivityModel.getCurrent();
     if (!activity) return res.json({ status: 'missing_activity', message: '当前暂无评分活动' });
@@ -335,7 +335,7 @@ router.post('/getScoreFormData', async (req, res) => {
       fetchOrgLookups()
     ]);
     if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: '当前岗位已失效，请重新选择身份' });
-    if (!targetRecord) return res.json({ status: 'target_not_found', message: '被评分岗位不存在或已失效' });
+    if (!targetRecord) return res.json({ status: 'target_not_found', message: '请刷新被评分人' });
     const scorer = normalizeHrPerson(scorerRecord, lookups);
 
     if (activity.is_paused) {
@@ -360,7 +360,7 @@ router.post('/getScoreFormData', async (req, res) => {
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
     const rule = await rateRuleModel.getByKey(activity.id, scorerKey);
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: '暂无被评分人规则' });
+      return res.json({ status: 'missing_rule', message: '暂无评分对象' });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -388,10 +388,10 @@ router.post('/getScoreFormData', async (req, res) => {
     }
 
     if (!matchedClauseEntries.length) {
-      return res.json({ status: 'target_not_allowed', message: '当前被评分人不在你的评分范围内' });
+      return res.json({ status: 'target_not_allowed', message: '请选择可评分的成员' });
     }
     if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
-      return res.json({ status: 'target_not_allowed', message: '当前评分规则不允许自评' });
+      return res.json({ status: 'target_not_allowed', message: '请选择其他成员' });
     }
 
     const configuredClauseEntry = matchedClauseEntries.find(item =>
@@ -502,7 +502,7 @@ router.post('/getScoreFormData', async (req, res) => {
       }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '获取评分表单失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新评分内容' });
   }
 });
 
@@ -526,13 +526,13 @@ router.post('/submitScoreRecord', async (req, res) => {
       return res.json({ status: 'auth_failed', message: '未登录' });
     }
     if (!targetId || !activityId || !templateConfigSignature || !answers.length) {
-      return res.json({ status: 'invalid_params', message: '评分信息不完整' });
+      return res.json({ status: 'invalid_params', message: '请填写完整评分' });
     }
 
     // Validate activity is not paused and within date range
     const activity = await scoreActivityModel.getById(activityId);
     if (!activity) {
-      return res.json({ status: 'missing_activity', message: '当前评分活动不存在' });
+      return res.json({ status: 'missing_activity', message: '请刷新评分活动后重试' });
     }
     if (activity.is_paused) {
       return res.json({ status: 'activity_paused', message: '评分活动已暂停' });
@@ -565,7 +565,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     ]);
 
     if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: '当前岗位已失效，请重新选择身份' });
-    if (!targetRecord) return res.json({ status: 'target_not_found', message: '未找到被评分岗位' });
+    if (!targetRecord) return res.json({ status: 'target_not_found', message: '请刷新被评分人' });
 
     const scorer = normalizeHrPerson(scorerRecord, lookups);
     const targetPerson = normalizeHrPerson(targetRecord, lookups);
@@ -575,7 +575,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     const rule = await rateRuleModel.getByKey(activityId, scorerKey);
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: '当前评分规则不存在' });
+      return res.json({ status: 'missing_rule', message: '请刷新评分任务后重试' });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -605,13 +605,13 @@ router.post('/submitScoreRecord', async (req, res) => {
     }
 
     if (!targetInScope) {
-      return res.json({ status: 'target_not_allowed', message: '当前被评分人不在你的评分范围内' });
+      return res.json({ status: 'target_not_allowed', message: '请选择可评分的成员' });
     }
     if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
-      return res.json({ status: 'target_not_allowed', message: '当前评分规则不允许自评' });
+      return res.json({ status: 'target_not_allowed', message: '请选择其他成员' });
     }
     if (!matchedClause) {
-      return res.json({ status: 'missing_rule', message: '未匹配到当前评分规则子句' });
+      return res.json({ status: 'missing_rule', message: '评分范围已更新，请重新进入评分页' });
     }
 
     // Build question bundle from templates (parallel)
@@ -630,7 +630,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       const [templateDoc, questions] = templateResults[ti];
 
       if (!templateDoc || !questions.length) {
-        return res.json({ status: 'missing_template', message: '当前评分模板不存在' });
+        return res.json({ status: 'missing_template', message: '评分问题已更新，请重新进入评分页' });
       }
 
       templatesById.set(config.templateId, { ...templateDoc, questions });
@@ -647,7 +647,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     // Verify signature
     if (buildTemplateConfigSignature(matchedClause.templateConfigs, templatesById) !== safeString(templateConfigSignature)) {
-      return res.json({ status: 'template_mismatch', message: '评分模板配置已变更，请重新进入评分页' });
+      return res.json({ status: 'template_mismatch', message: '评分问题已更新，请重新进入评分页' });
     }
 
     questionBundle.sort((a, b) => {
@@ -739,7 +739,7 @@ router.post('/submitScoreRecord', async (req, res) => {
          FOR UPDATE`,
         [orgId, activityId, scorerSubjectKey, targetSubjectKey]
       );
-      if (!records.length) throw new Error('评分保存失败');
+      if (!records.length) throw new Error('未保存评分，请重试');
       const recordId = records[0].id;
       await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [recordId, orgId]);
 
@@ -767,9 +767,9 @@ router.post('/submitScoreRecord', async (req, res) => {
     res.json(duplicateResponse || { status: 'success', recordId: resultRecordId });
   } catch (e) {
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+      return res.json({ status: 'invalid_params', message: '请重新提交评分' });
     }
-    res.json({ status: 'error', message: safeString(e.message) || '提交评分失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '评分未提交，请重试' });
   }
 });
 
@@ -779,7 +779,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const activityId = safeString(req.body.activityId);
     const filters = req.body.filters || {};
@@ -910,7 +910,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
     if (identFilter && identFilter !== '全部' && identFilter !== '全部身份') {
       rows = rows.filter(r => r.identity === identFilter);
     }
-    if (wgFilter && wgFilter !== '全部' && wgFilter !== '全部工作分工') {
+    if (wgFilter && wgFilter !== '全部' && wgFilter !== '全部职能组' && wgFilter !== '全部工作分工') {
       rows = rows.filter(r => r.workGroup === wgFilter);
     }
     if (keyword) {
@@ -938,7 +938,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
       pagination: { offset, nextOffset: offset + 50, total: rows.length, hasMore: offset + 50 < rows.length, returnedCount: Math.min(50, Math.max(0, rows.length - offset)) }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '获取评分任务状态失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新评分进度' });
   }
 });
 
@@ -970,12 +970,12 @@ function buildTaskExportReport(activityName, reportType, rows) {
         { key: 'scorerStudentId', label: '评分人学号' },
         { key: 'department', label: '所属部门' },
         { key: 'identity', label: '身份' },
-        { key: 'workGroup', label: '工作分工（职能组）' },
+        { key: 'workGroup', label: '职能组' },
         { key: 'targetName', label: '未完成被评分人姓名' },
         { key: 'targetStudentId', label: '未完成被评分人学号' },
         { key: 'targetDepartment', label: '被评分人所属部门' },
         { key: 'targetIdentity', label: '被评分人身份' },
-        { key: 'targetWorkGroup', label: '被评分人工作分工（职能组）' }
+        { key: 'targetWorkGroup', label: '被评分人职能组' }
       ],
       rows: rows.flatMap(function (row) {
         return (row.pendingList || []).map(function (target) {
@@ -999,7 +999,7 @@ function buildTaskExportReport(activityName, reportType, rows) {
       { key: 'scorerStudentId', label: '评分人学号' },
       { key: 'department', label: '所属部门' },
       { key: 'identity', label: '身份' },
-      { key: 'workGroup', label: '工作分工（职能组）' },
+      { key: 'workGroup', label: '职能组' },
       { key: 'expectedCount', label: '应评分人数' },
       { key: 'submittedCount', label: '已评分人数' },
       { key: 'pendingCount', label: '未评分人数' },
@@ -1013,7 +1013,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const activityId = safeString(req.body.activityId);
     const reportType = safeString(req.body.reportType) || 'summary';
@@ -1148,7 +1148,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
     if (identFilter && identFilter !== '全部' && identFilter !== '全部身份') {
       rows = rows.filter(r => r.identity === identFilter);
     }
-    if (wgFilter && wgFilter !== '全部' && wgFilter !== '全部工作分工' && wgFilter !== '全部工作分工（职能组）') {
+    if (wgFilter && wgFilter !== '全部' && wgFilter !== '全部职能组' && wgFilter !== '全部工作分工' && wgFilter !== '全部工作分工（职能组）') {
       rows = rows.filter(r => r.workGroup === wgFilter);
     }
     if (keyword) {
@@ -1181,7 +1181,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
 
     res.json({ status: 'success', fileContent, fileName: report.fileName, extension });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '导出未完成评分任务失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '表格未导出，请重试' });
   }
 });
 

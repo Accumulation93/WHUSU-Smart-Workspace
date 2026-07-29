@@ -13,7 +13,7 @@ module.exports = Behavior({
         const result = await this.callCloud('listIdentities');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || '加载身份类别列表失败');
+          throw new Error(result.message || '请稍后刷新身份类别');
         }
         this.setData({
           identityList: result.identities || []
@@ -86,7 +86,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '保存身份类别失败',
+            title: result.message || '未保存，请重试',
             icon: 'none'
           });
           return;
@@ -100,7 +100,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '保存身份类别失败',
+          title: '未保存，请重试',
           icon: 'none'
         });
       } finally {
@@ -133,7 +133,7 @@ module.exports = Behavior({
         const result = await this.callCloud('deleteIdentity', { id });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '删除身份类别失败',
+            title: result.message || '未删除，请重试',
             icon: 'none'
           });
           return;
@@ -147,7 +147,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '删除身份类别失败',
+          title: '未删除，请重试',
           icon: 'none'
         });
       }

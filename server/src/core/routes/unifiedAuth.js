@@ -69,7 +69,7 @@ router.post('/auth/claims', async (req, res) => {
     if (!claimPolicyOpen(policy)) {
       return res.status(403).json({
         status: 'claim_paused',
-        message: '当前认证活动未开放，请联系管理员'
+        message: '身份认证暂未开放，请联系管理员'
       });
     }
     const result = await identityModel.createClaim(bootstrapId, {
@@ -82,7 +82,7 @@ router.post('/auth/claims', async (req, res) => {
     return res.json({
       status: 'accepted',
       claimId: result.claimId,
-      message: '认领请求已受理，请向所属组织管理员获取个人认证码'
+      message: '请向所属组织管理员获取个人认证码'
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -253,7 +253,7 @@ router.post('/auth/security/recovery-credential', async (req, res) => {
     requireUnifiedSession(req);
     const method = safeString(req.body && req.body.method);
     if (!['recovery_code', 'passphrase'].includes(method)) {
-      throw new identityModel.IdentityError('invalid_params', '恢复方式无效', 400);
+      throw new identityModel.IdentityError('invalid_params', '请选择恢复方式', 400);
     }
     const result = await identityModel.configureRecoveryCredential(
       req.authAccount.id,
@@ -287,7 +287,7 @@ router.post('/auth/security/sessions/revoke', async (req, res) => {
     );
     return res.json({
       status: revoked ? 'success' : 'not_found',
-      message: revoked ? '设备会话已撤销' : '设备会话已失效'
+      message: revoked ? '该设备已退出' : '该设备已退出'
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -305,7 +305,7 @@ router.post('/auth/recovery/start', async (req, res) => {
     return res.json({
       status: 'accepted',
       recoveryRequestId: result.recoveryRequestId,
-      message: '恢复请求已受理，可使用已配置凭据或等待管理员审核'
+      message: '请使用恢复码或恢复口令，或等待管理员审核'
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -317,7 +317,7 @@ router.post('/auth/recovery/complete', async (req, res) => {
     const bootstrapId = unifiedAuth.bootstrapIdFromRequest(req);
     const method = safeString(req.body && req.body.method);
     if (!['recovery_code', 'passphrase'].includes(method)) {
-      throw new identityModel.IdentityError('invalid_params', '恢复方式无效', 400);
+      throw new identityModel.IdentityError('invalid_params', '请选择恢复方式', 400);
     }
     const account = await identityModel.completeRecoveryWithCredential(
       bootstrapId,
@@ -368,7 +368,7 @@ router.post('/admin/auth/claims', async (req, res) => {
         status: 'success',
         verificationCode: result.code,
         expiresInHours: result.expiresInHours,
-        message: '认证码仅显示本次，请通过可信渠道交付本人'
+        message: '请将认证码单独发给本人'
       });
     }
     if (action === 'issue_codes') {
@@ -384,10 +384,10 @@ router.post('/admin/auth/claims', async (req, res) => {
       return res.json({
         status: 'success',
         issued,
-        message: '认证码仅显示本次，请分别通过可信渠道交付本人'
+        message: '请将认证码分别发给本人'
       });
     }
-    throw new identityModel.IdentityError('invalid_action', '操作类型无效', 400);
+    throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -423,9 +423,9 @@ router.post('/admin/auth/recoveries', async (req, res) => {
         actor,
         metadata(req)
       );
-      return res.json({ status: 'success', message: '账号恢复已完成，原微信及旧会话均已失效' });
+      return res.json({ status: 'success', message: '已更换微信，原微信和其他设备已退出' });
     }
-    throw new identityModel.IdentityError('invalid_action', '操作类型无效', 400);
+    throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -465,10 +465,10 @@ router.post('/admin/auth/accounts', async (req, res) => {
       return res.json({
         status: 'success',
         accountStatus: result.status,
-        message: action === 'freeze' ? '账号已冻结，全部会话已撤销' : '账号已解除冻结'
+        message: action === 'freeze' ? '账号已冻结，其他设备已退出' : '账号已解除冻结'
       });
     }
-    throw new identityModel.IdentityError('invalid_action', '操作类型无效', 400);
+    throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);
   } catch (error) {
     return sendError(req, res, error);
   }

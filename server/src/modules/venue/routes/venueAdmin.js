@@ -126,7 +126,7 @@ function minutesOf(value) {
 router.post('/listVenues', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venues = await venueModel.getAll();
     res.json({ status: 'success', venues });
   } catch (e) {
@@ -138,7 +138,7 @@ router.post('/listVenues', async (req, res) => {
 router.post('/saveVenue', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id) || generateId();
     const name = safeString(req.body.name);
     if (!name) return res.json({ status: 'invalid_params', message: '请输入场地名称' });
@@ -164,9 +164,9 @@ router.post('/saveVenue', async (req, res) => {
 router.post('/deleteVenue', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     await venueModel.remove(id);
     res.json({ status: 'success', message: '场地已删除' });
   } catch (e) {
@@ -182,9 +182,9 @@ router.post('/deleteVenue', async (req, res) => {
 router.post('/listVenueOpenRules', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     const rules = await venueOpenRuleModel.getByVenueId(venueId);
     res.json({ status: 'success', rules: rules.map(r => ({ ...r, time_start: (r.time_start||'').substring(0,5), time_end: (r.time_end||'').substring(0,5) })) });
   } catch (e) {
@@ -196,10 +196,10 @@ router.post('/listVenueOpenRules', async (req, res) => {
 router.post('/saveVenueOpenRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     const data = {
       venueId,
       name: safeString(req.body.name),
@@ -224,9 +224,9 @@ router.post('/saveVenueOpenRule', async (req, res) => {
 router.post('/deleteVenueOpenRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供规则ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择开放时间' });
     await venueOpenRuleModel.remove(id);
     res.json({ status: 'success', message: '规则已删除' });
   } catch (e) {
@@ -242,9 +242,9 @@ router.post('/deleteVenueOpenRule', async (req, res) => {
 router.post('/listVenueActivityRules', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     const rules = await venueActivityRuleModel.getByVenueId(venueId);
     res.json({ status: 'success', rules: rules.map(r => ({ ...r, time_start: (r.time_start||'').substring(0,5), time_end: (r.time_end||'').substring(0,5) })) });
   } catch (e) {
@@ -256,10 +256,10 @@ router.post('/listVenueActivityRules', async (req, res) => {
 router.post('/saveVenueActivityRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     const data = {
       venueId,
       activityName: safeString(req.body.activityName),
@@ -284,9 +284,9 @@ router.post('/saveVenueActivityRule', async (req, res) => {
 router.post('/deleteVenueActivityRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供规则ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择活动时间' });
     await venueActivityRuleModel.remove(id);
     res.json({ status: 'success', message: '规则已删除' });
   } catch (e) {
@@ -302,9 +302,9 @@ router.post('/deleteVenueActivityRule', async (req, res) => {
 router.post('/listVenueBookingRules', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     const rules = await venueBookingRuleModel.getByVenueId(venueId);
     res.json({ status: 'success', rules });
   } catch (e) {
@@ -316,10 +316,10 @@ router.post('/listVenueBookingRules', async (req, res) => {
 router.post('/saveVenueBookingRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请提供场地ID' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     const ruleType = safeString(req.body.ruleType) || 'admin';
 
     // Mutual exclusion + auto-cleanup
@@ -337,7 +337,7 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       }
     } else if (otherRules.some(r => r.rule_type === 'direct')) {
       // Adding a new non-direct rule alongside an existing direct rule — blocked
-      return res.json({ status: 'invalid_params', message: '“直接通过”不能与其他规则同时使用' });
+      return res.json({ status: 'invalid_params', message: '选择“直接通过”时，请清除其他规则' });
     }
 
     const data = {
@@ -365,9 +365,9 @@ router.post('/saveVenueBookingRule', async (req, res) => {
 router.post('/deleteVenueBookingRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供规则ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择借用规则' });
     await venueBookingRuleModel.remove(id);
     res.json({ status: 'success', message: '规则已删除' });
   } catch (e) {
@@ -384,18 +384,18 @@ router.post('/createAdminVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
     const start = parseAdminBookingDatetime(req.body.timeStart);
     const end = parseAdminBookingDatetime(req.body.timeEnd);
     if (!venueId || !title || !start || !end) return res.json({ status: 'invalid_params', message: '请填写完整借用信息' });
-    if (fmtLocalDate(start) !== fmtLocalDate(end)) return res.json({ status: 'invalid_params', message: '管理员排期借用仅支持当天' });
-    if (end <= start) return res.json({ status: 'invalid_params', message: '结束时间必须晚于开始时间' });
-    if (start < new Date()) return res.json({ status: 'invalid_params', message: '不能选择过去的时间' });
+    if (fmtLocalDate(start) !== fmtLocalDate(end)) return res.json({ status: 'invalid_params', message: '请选择同一天的开始和结束时间' });
+    if (end <= start) return res.json({ status: 'invalid_params', message: '请将结束时间设在开始时间之后' });
+    if (start < new Date()) return res.json({ status: 'invalid_params', message: '请选择当前时间之后' });
     const venue = await venueModel.getById(venueId);
-    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '场地不存在或已停用' });
+    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '请选择其他场地' });
 
     const dateText = fmtLocalDate(start);
     const rangeStart = start.getHours() * 60 + start.getMinutes();
@@ -467,10 +467,10 @@ router.post('/createAdminVenueBooking', async (req, res) => {
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请求标识格式不正确' });
+      return res.json({ status: 'invalid_params', message: '请重新提交借用' });
     }
     console.error('[venue:createAdminVenueBooking]', req.requestId || '-', e);
-    res.json({ status: 'error', message: '创建失败，请稍后重试' });
+    res.json({ status: 'error', message: '未创建，请重试' });
   } finally {
     conn.release();
   }
@@ -480,7 +480,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
 router.post('/listAllVenueBookings', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const filters = {
       venueId: safeString(req.body.venueId),
       status: safeString(req.body.status),
@@ -690,14 +690,14 @@ router.post('/approveVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
     const comment = safeString(req.body.comment);
     const orgId = await getCurrentOrgId();
     await conn.beginTransaction();
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '借用记录不存在' });
+      return res.json({ status: 'not_found', message: '请刷新借用记录' });
     }
     if (booking.status !== 'pending') {
       await conn.rollback();
@@ -707,7 +707,7 @@ router.post('/approveVenueBooking', async (req, res) => {
     const review = await canReviewVenueBooking(req, booking);
     if (!review.ok) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
+      return res.json({ status: 'forbidden', message: review.reason || '请使用对应的审批身份' });
     }
 
     // Flow-based approval
@@ -725,7 +725,7 @@ router.post('/approveVenueBooking', async (req, res) => {
           await venueBookingModel.updateStatus(id, 'cancelled', review.hrId, '审批时借用已结束，自动取消', conn, review.actor);
           await createVenueBookingStatusNotification(
             booking, 'booking_cancelled', '场地借用已自动取消',
-            '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
+            '您申请的「' + (booking.title || '场地借用') + '」因借用时间已结束，已自动取消。', conn
           );
           await conn.commit();
           return res.json({ status: 'expired', message: '审批时借用已结束，已自动取消' });
@@ -827,7 +827,7 @@ router.post('/approveVenueBooking', async (req, res) => {
       await venueBookingModel.updateStatus(id, 'cancelled', approverId, '审批时借用已结束，自动取消', conn, review.actor);
       await createVenueBookingStatusNotification(
         booking, 'booking_cancelled', '场地借用已自动取消',
-        '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
+        '您申请的「' + (booking.title || '场地借用') + '」因借用时间已结束，已自动取消。', conn
       );
       await conn.commit();
       return res.json({ status: 'expired', message: '审批时借用已结束，已自动取消' });
@@ -866,14 +866,14 @@ router.post('/rejectVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
     const comment = safeString(req.body.comment);
     const orgId = await getCurrentOrgId();
     await conn.beginTransaction();
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '借用记录不存在' });
+      return res.json({ status: 'not_found', message: '请刷新借用记录' });
     }
     if (booking.status !== 'pending') {
       await conn.rollback();
@@ -883,7 +883,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
     const review = await canReviewVenueBooking(req, booking);
     if (!review.ok) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
+      return res.json({ status: 'forbidden', message: review.reason || '请使用对应的审批身份' });
     }
 
     // Flow-based rejection: record which step was rejected
@@ -945,12 +945,12 @@ router.post(['/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'], (req, res
 // listVenueBookingPurposes (public — any authenticated user can read purposes)
 router.post('/listVenueBookingPurposes', async (req, res) => {
   try {
-    if (!req.openid) return res.json({ status: 'forbidden', message: '请先登录' });
+    if (!req.openid) return res.json({ status: 'forbidden', message: '请微信登录' });
     const purposes = await venueBookingPurposeModel.getAll();
     res.json({ status: 'success', purposes });
   } catch (e) {
     console.error('[venue:listVenueBookingPurposes]', req.requestId || '-', e);
-    res.json({ status: 'error', message: '加载失败，请稍后重试' });
+    res.json({ status: 'error', message: '请稍后刷新' });
   }
 });
 
@@ -958,7 +958,7 @@ router.post('/listVenueBookingPurposes', async (req, res) => {
 router.post('/saveVenueBookingPurpose', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id) || generateId();
     const text = safeString(req.body.text).trim();
     if (!text) return res.json({ status: 'invalid_params', message: '请输入事由内容' });
@@ -971,9 +971,9 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
     }
     res.json({ status: 'success', id, message: existing ? '事由已更新' : '事由已创建' });
   } catch (e) {
-    if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', message: '该事由已存在' });
+    if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', message: '请使用其他事由内容' });
     console.error('[venue:saveVenueBookingPurpose]', req.requestId || '-', e);
-    res.json({ status: 'error', message: '保存失败，请稍后重试' });
+    res.json({ status: 'error', message: '未保存，请重试' });
   }
 });
 
@@ -981,9 +981,9 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
 router.post('/deleteVenueBookingPurpose', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '仅管理员可操作' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供事由ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择事由' });
     await venueBookingPurposeModel.remove(id);
     res.json({ status: 'success', message: '事由已删除' });
   } catch (e) {

@@ -68,7 +68,7 @@ Page({
     adminLevelOptions: ['普通管理员'],
     adminLevelValues: ['admin'],
     participantGranularityOptions: [
-      { value: 'person', label: '按自然人评分' },
+      { value: 'person', label: '按人评分' },
       { value: 'assignment', label: '按岗位分别评分' }
     ],
     adminCandidateKeyword: '',
@@ -199,7 +199,7 @@ Page({
     hrTemplateSwitchVisible: false,
     hrTemplateSwitchTarget: null,
     hrTemplateSwitchSources: [],
-    hrTemplateSwitchActionOptions: ['隐藏保留', '转移到新字段', '永久删除'],
+    hrTemplateSwitchActionOptions: ['隐藏保留', '移入新资料项', '删除已有资料'],
     hrTemplateSwitchToken: '',
     hrTemplateSwitchSummary: null,
     _hrInfoKeywordInput: '',
@@ -288,7 +288,7 @@ Page({
     publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
 
     // View rule category form (mirrors ruleForm pattern)
-    pubViewRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] },
+    pubViewRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '查看本人评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] },
     pubViewRuleList: [], pubViewRuleListView: [],
     pubViewRuleFilters: { department: '全部', identity: '全部' },
     pubViewRuleFilterOptions: { departments: ['全部'], identities: ['全部'] },
@@ -538,7 +538,7 @@ Page({
       title: '完整示例值',
       content: value,
       showCancel: false,
-      confirmText: '知道了'
+      confirmText: '关闭'
     });
   },
 
@@ -552,7 +552,7 @@ Page({
     };
     const profile = profileOverride || adminPermissions.getAdminProfile();
     this._visibleTabs = adminPermissions.filterTabs(SUB_APP_ADMIN_TABS[subApp] || SUB_APP_ADMIN_TABS.scoring, profile);
-    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', system: '系统配置', audit: '审核管理' };
+    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', system: '基本设置', audit: '审核管理' };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
     this.setData({
       visibleTabs: this._visibleTabs,

@@ -1,7 +1,7 @@
 <view class="page page-narrow">
   <view class="hero">
     <view class="hero-badge">审核</view>
-    <view class="hero-title">我的审核</view>
+    <view class="hero-title">我的申请</view>
   </view>
 
   <view class="section">
@@ -13,13 +13,13 @@
         </picker>
       </view>
       <view class="audit-btn-bar">
-        <button class="primary-btn ui-motion-button" bindtap="goCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">发起新审核</button>
+        <button class="primary-btn ui-motion-button" bindtap="goCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">发起申请</button>
       </view>
     </view>
 
     <view class="card">
       <view class="section-title-row">
-        <view class="section-title">审核列表</view>
+        <view class="section-title">申请列表</view>
         <text class="mark-all-read ui-motion-chip" bindtap="markAllRead" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部已读</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
@@ -43,8 +43,8 @@
           <view class="audit-list-arrow">›</view>
         </view>
         <view class="audit-empty-state" wx:if="{{!submissions.length}}">
-          <view class="audit-empty-icon"><ui-icon name="file" tone="muted" size="54" ariaLabel="暂无审核记录" /></view>
-          <view class="audit-empty-text">暂无审核申请</view>
+          <view class="audit-empty-icon"><ui-icon name="file" tone="muted" size="54" ariaLabel="暂无申请" /></view>
+          <view class="audit-empty-text">暂无申请</view>
         </view>
         </block>
       </scroll-view>

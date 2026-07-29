@@ -492,7 +492,7 @@ module.exports = Behavior({
 
     // ── Build a human-readable summary for a single condition ──
     _auditConditionSummary(c) {
-      if (!c) return '未知条件';
+      if (!c) return '未设置条件';
       if (c.conditionType === 'person') {
         if (c.personHrIds) {
           let names = c.personHrIds.split(',').map(function (hid) {
@@ -1135,14 +1135,14 @@ module.exports = Behavior({
           steps: stepsToSend
         });
         if (res.status === 'success') {
-          showShortToast(form.id ? '模板更新成功' : '模板创建成功');
+          showShortToast(form.id ? '模板已更新' : '模板已创建');
           this.startCreateAuditTemplate();
           this.loadAuditFlowTemplates();
         } else {
-          showShortToast(res.message || '保存失败');
+          showShortToast(res.message || '未保存，请重试');
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '保存失败'));
+        showShortToast(getErrorText(e, '未保存，请重试'));
       } finally {
         this.setLoading('saveAuditTemplate', false);
       }
@@ -1153,7 +1153,7 @@ module.exports = Behavior({
       const that = this;
       wx.showModal({
         title: '确认删除',
-        content: '删除后不可恢复，确定删除此审核流模板吗？',
+        content: '删除后不可恢复，确定删除此审核流程吗？',
         success: async function (modalRes) {
           if (!modalRes.confirm) return;
           try {
@@ -1162,10 +1162,10 @@ module.exports = Behavior({
               showShortToast('模板已删除');
               that.loadAuditFlowTemplates();
             } else {
-              showShortToast(res.message || '删除失败');
+              showShortToast(res.message || '未删除，请重试');
             }
           } catch (e) {
-            showShortToast(getErrorText(e, '删除失败'));
+            showShortToast(getErrorText(e, '未删除，请重试'));
           }
         }
       });
@@ -1254,14 +1254,14 @@ module.exports = Behavior({
           imageData: form.imageData
         });
         if (res.status === 'success') {
-          showShortToast(form.id ? '印章更新成功' : '印章创建成功');
+          showShortToast(form.id ? '印章已更新' : '印章已创建');
           this.startCreateStamp();
           this.loadStamps();
         } else {
-          showShortToast(res.message || '保存失败');
+          showShortToast(res.message || '未保存，请重试');
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '保存失败'));
+        showShortToast(getErrorText(e, '未保存，请重试'));
       } finally {
         this.setLoading('saveStamp', false);
       }
@@ -1281,10 +1281,10 @@ module.exports = Behavior({
               showShortToast('印章已删除');
               that.loadStamps();
             } else {
-              showShortToast(res.message || '删除失败');
+              showShortToast(res.message || '未删除，请重试');
             }
           } catch (e) {
-            showShortToast(getErrorText(e, '删除失败'));
+            showShortToast(getErrorText(e, '未删除，请重试'));
           }
         }
       });
@@ -1327,10 +1327,10 @@ module.exports = Behavior({
           this.closeStampAssign();
           this.loadStamps();
         } else {
-          showShortToast(res.message || '保存失败');
+          showShortToast(res.message || '未保存，请重试');
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '保存失败'));
+        showShortToast(getErrorText(e, '未保存，请重试'));
       }
     },
 
@@ -1489,8 +1489,8 @@ module.exports = Behavior({
                 }
               }
 
-              const actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
-              const actionLabel = actionMap[s.actionType] || s.actionType || '仅通过';
+              const actionMap = { pass: '通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+              const actionLabel = actionMap[s.actionType] || s.actionType || '通过';
 
               if (s.status === 'rejected') {
                 flowNodeClass = 'flow-node-rejected'; flowDotClass = 'flow-dot-rejected';
@@ -1579,10 +1579,10 @@ module.exports = Behavior({
             auditSubmissionDetailVisible: true
           });
         } else {
-          showShortToast(res.message || '加载失败');
+          showShortToast(res.message || '请稍后刷新');
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '加载失败'));
+        showShortToast(getErrorText(e, '请稍后刷新'));
       } finally {
         this.setLoading('auditProgress', false);
       }
@@ -1640,10 +1640,10 @@ module.exports = Behavior({
           this.setData({ verificationGrantHrId: '', verificationGrantHrName: '' });
           this.loadVerificationPermissions();
         } else {
-          showShortToast(res.message || '授予失败');
+          showShortToast(res.message || '未授权，请重试');
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '授予失败'));
+        showShortToast(getErrorText(e, '未授权，请重试'));
       }
     },
 
@@ -1664,10 +1664,10 @@ module.exports = Behavior({
               showShortToast('验签权限已撤销');
               that.loadVerificationPermissions();
             } else {
-              showShortToast(res.message || '撤销失败');
+              showShortToast(res.message || '未撤销，请重试');
             }
           } catch (e) {
-            showShortToast(getErrorText(e, '撤销失败'));
+            showShortToast(getErrorText(e, '未撤销，请重试'));
           }
         }
       });
@@ -1701,7 +1701,7 @@ module.exports = Behavior({
               });
             },
             fail: function() {
-              showShortToast('读取文件失败');
+              showShortToast('请重新选择文件');
             }
           });
         }
@@ -1733,10 +1733,10 @@ module.exports = Behavior({
         if (res.status === 'success') {
           this.setData({ verificationResult: res });
         } else {
-          showShortToast(res.message || '验证失败');
+          showShortToast(res.message || '未完成验签，请重试');
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '验证失败'));
+        showShortToast(getErrorText(e, '未完成验签，请重试'));
       } finally {
         this.setLoading('verifyChain', false);
       }

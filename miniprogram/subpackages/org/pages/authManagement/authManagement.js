@@ -3,20 +3,20 @@ const authContext = require('../../../../utils/authContext');
 const orgSession = require('../../../../utils/orgSession');
 
 const AUTH_EVENT_LABELS = {
-  wechat_session_created: '微信会话登录',
+  wechat_session_created: '微信登录',
   auth_context_activated: '切换身份',
-  identity_claim_started: '发起身份认领',
+  identity_claim_started: '提交身份认证',
   identity_code_issued: '生成个人认证码',
   identity_claim_verified: '完成身份认证',
-  auth_policy_updated: '更新认证策略',
-  recovery_credential_configured: '更新恢复凭据',
-  account_recovery_started: '发起账号恢复',
-  account_wechat_recovered: '完成微信换绑',
+  auth_policy_updated: '更新认证设置',
+  recovery_credential_configured: '更新恢复方式',
+  account_recovery_started: '申请更换微信',
+  account_wechat_recovered: '完成更换微信',
   account_frozen: '冻结账号',
   account_unfrozen: '解除账号冻结',
-  membership_assignment_created: '新增岗位身份',
-  membership_assignment_updated: '更新岗位身份',
-  membership_assignment_revoked: '撤销岗位身份',
+  membership_assignment_created: '新增岗位',
+  membership_assignment_updated: '更新岗位',
+  membership_assignment_revoked: '删除岗位',
   account_binding_reset: '重置微信绑定'
 };
 
@@ -78,13 +78,13 @@ Page({
       return item.contextId === contextId;
     }) || null;
     const tabs = [];
-    if (hasPermission(context, 'auth.identity.verify')) tabs.push({ key: 'claims', label: '认领请求' });
+    if (hasPermission(context, 'auth.identity.verify')) tabs.push({ key: 'claims', label: '身份认证' });
     if (hasPermission(context, 'auth.accounts.recover')) {
       tabs.push({ key: 'recoveries', label: '账号恢复' });
-      tabs.push({ key: 'accounts', label: '账号治理' });
+      tabs.push({ key: 'accounts', label: '账号管理' });
     }
-    if (hasPermission(context, 'auth.policy.manage')) tabs.push({ key: 'policy', label: '认证策略' });
-    if (hasPermission(context, 'auth.accounts.audit')) tabs.push({ key: 'audit', label: '安全审计' });
+    if (hasPermission(context, 'auth.policy.manage')) tabs.push({ key: 'policy', label: '认证设置' });
+    if (hasPermission(context, 'auth.accounts.audit')) tabs.push({ key: 'audit', label: '操作记录' });
     const activeTab = tabs.some(function(item) {
       return item.key === this.data.activeTab;
     }, this) ? this.data.activeTab : (tabs[0] ? tabs[0].key : '');
@@ -129,7 +129,7 @@ Page({
           name: 'admin/auth/claims',
           data: { action: 'list' }
         });
-        if (result.status !== 'success') throw new Error(result.message || '认领请求加载失败');
+        if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           claims: formatRows(result.list).map(function(item) {
@@ -142,7 +142,7 @@ Page({
           name: 'admin/auth/recoveries',
           data: { action: 'list' }
         });
-        if (result.status !== 'success') throw new Error(result.message || '恢复申请加载失败');
+        if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({ recoveries: formatRows(result.list) });
       } else if (this.data.activeTab === 'accounts') {
@@ -150,7 +150,7 @@ Page({
           name: 'admin/auth/accounts',
           data: { action: 'list', limit: 200 }
         });
-        if (result.status !== 'success') throw new Error(result.message || '账号列表加载失败');
+        if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           accounts: (result.list || []).map(function(item) {
@@ -169,7 +169,7 @@ Page({
           name: 'admin/auth/policy',
           data: { action: 'get' }
         });
-        if (result.status !== 'success') throw new Error(result.message || '认证策略加载失败');
+        if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
         const policy = result.policy || {};
         const starts = splitPolicyDateTime(policy.claim_starts_at);
@@ -191,7 +191,7 @@ Page({
           name: 'admin/auth/audit',
           data: { limit: 80 }
         });
-        if (result.status !== 'success') throw new Error(result.message || '安全审计加载失败');
+        if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           auditEvents: (result.list || []).map(function(item) {
@@ -204,7 +204,7 @@ Page({
       }
     } catch (error) {
       if (!orgSession.isRequestCurrent(this, request)) return;
-      showShortToast(getErrorText(error, '加载失败'));
+      showShortToast(getErrorText(error, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -221,7 +221,7 @@ Page({
         data: { action: 'issue_code', claimId: claimId }
       });
       if (result.status !== 'success' || !result.verificationCode) {
-        throw new Error(result.message || '认证码生成失败');
+        throw new Error(result.message || '未生成，请重试');
       }
       this.setData({
         issuedCode: result.verificationCode,
@@ -235,7 +235,7 @@ Page({
       });
       await this.loadActiveTab();
     } catch (error) {
-      showShortToast(getErrorText(error, '认证码生成失败'));
+      showShortToast(getErrorText(error, '未生成，请重试'));
     } finally {
       this.setData({ actionLoading: false });
     }
@@ -301,7 +301,7 @@ Page({
       });
       if (result.status !== 'success' || !Array.isArray(result.issued)
         || result.issued.length !== claimIds.length) {
-        throw new Error(result.message || '认证码批量生成失败');
+        throw new Error(result.message || '未生成，请重试');
       }
       const issuedCodes = result.issued.map(function(item) {
         return {
@@ -318,7 +318,7 @@ Page({
       });
       await this.loadActiveTab();
     } catch (error) {
-      showShortToast(getErrorText(error, '认证码批量生成失败'));
+      showShortToast(getErrorText(error, '未生成，请重试'));
     } finally {
       this.setData({ actionLoading: false });
     }
@@ -355,12 +355,12 @@ Page({
         name: 'admin/auth/recoveries',
         data: { action: 'approve', recoveryRequestId: pending.id }
       });
-      if (result.status !== 'success') throw new Error(result.message || '账号恢复失败');
+      if (result.status !== 'success') throw new Error(result.message || '未通过，请重试');
       this.setData({ showRecoveryDialog: false, pendingRecovery: null });
       await this.loadActiveTab();
       showShortToast('账号恢复已完成', 'success');
     } catch (error) {
-      showShortToast(getErrorText(error, '账号恢复失败'));
+      showShortToast(getErrorText(error, '未通过，请重试'));
     } finally {
       this.setData({ actionLoading: false });
     }
@@ -380,11 +380,11 @@ Page({
           personId: personId
         }
       });
-      if (result.status !== 'success') throw new Error(result.message || '账号状态更新失败');
+      if (result.status !== 'success') throw new Error(result.message || '未更新，请重试');
       showShortToast(result.message || '账号状态已更新', 'success');
       await this.loadActiveTab();
     } catch (error) {
-      showShortToast(getErrorText(error, '账号状态更新失败'));
+      showShortToast(getErrorText(error, '未更新，请重试'));
     } finally {
       this.setData({ actionLoading: false });
     }
@@ -442,11 +442,11 @@ Page({
           )
         })
       });
-      if (result.status !== 'success') throw new Error(result.message || '认证策略保存失败');
-      showShortToast('认证策略已保存', 'success');
+      if (result.status !== 'success') throw new Error(result.message || '未保存，请重试');
+      showShortToast('已保存', 'success');
       await this.loadActiveTab();
     } catch (error) {
-      showShortToast(getErrorText(error, '认证策略保存失败'));
+      showShortToast(getErrorText(error, '未保存，请重试'));
     } finally {
       this.setData({ actionLoading: false });
     }

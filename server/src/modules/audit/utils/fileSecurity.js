@@ -116,7 +116,7 @@ async function resolveUploadedFile(uploadedFile, openid) {
   const tokenPayload = verifyUploadToken(uploadedFile.fileToken);
   const meta = tokenPayload;
   if (!meta) {
-    const err = new Error('上传文件凭证无效或已过期');
+    const err = new Error('请重新选择文件');
     err.status = 'invalid_params';
     throw err;
   }
@@ -133,13 +133,13 @@ async function resolveUploadedFile(uploadedFile, openid) {
   }
   const tempName = path.basename(safeString(meta.tempName));
   if (!tempName || tempName !== safeString(meta.tempName)) {
-    const err = new Error('上传文件凭证无效');
+    const err = new Error('请重新选择文件');
     err.status = 'invalid_params';
     throw err;
   }
   const tmpPath = path.join(TMP_DIR, tempName);
   if (!fs.existsSync(tmpPath)) {
-    const err = new Error('上传文件已过期或不存在');
+    const err = new Error('请重新选择文件');
     err.status = 'not_found';
     throw err;
   }
@@ -203,7 +203,7 @@ async function getAuthorizedAuditFile(fileId, openid) {
     [fileId, orgId]
   );
   const file = rows[0];
-  if (!file) return { status: 'not_found', message: '文件不存在' };
+  if (!file) return { status: 'not_found', message: '请重新选择文件' };
 
   const admin = await adminInfoModel.getByOpenid(openid);
   if (admin) return { status: 'success', file };

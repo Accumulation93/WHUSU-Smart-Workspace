@@ -102,7 +102,7 @@ async function orgContextMiddleware(req, res, next) {
   if (!orgId) {
     return res.status(400).json({
       status: 'org_context_required',
-      message: '缺少组织上下文，请重新登录或更新小程序',
+      message: '请重新选择组织和身份',
       requestId: req.requestId || ''
     });
   }
@@ -124,7 +124,7 @@ async function orgContextMiddleware(req, res, next) {
   if (!allowed) {
     return res.status(403).json({
       status: 'org_access_denied',
-      message: '当前账号无权访问所选组织，请重新选择',
+      message: '请重新选择组织',
       requestId: req.requestId || ''
     });
   }

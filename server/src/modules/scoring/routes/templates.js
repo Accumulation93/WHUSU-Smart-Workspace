@@ -42,7 +42,7 @@ router.post('/listScoreTemplates', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const [templates, questions] = await Promise.all([
       templateModel.getAll(),
@@ -86,14 +86,14 @@ router.post('/saveScoreTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const description = safeString(req.body.description);
     const questions = Array.isArray(req.body.questions) ? req.body.questions : [];
 
-    if (!name) return res.json({ status: 'invalid_params', message: '模板名称不能为空' });
+    if (!name) return res.json({ status: 'invalid_params', message: '请填写评分问题名称' });
 
     const normalizedQs = questions.map(normalizeQuestion).filter((item) => item.question);
     const validQs = normalizedQs.filter((item) =>
@@ -103,7 +103,7 @@ router.post('/saveScoreTemplate', async (req, res) => {
       item.startValue >= item.minValue && item.startValue <= item.maxValue
     );
 
-    if (!validQs.length) return res.json({ status: 'invalid_params', message: '请至少提供一个有效题目' });
+    if (!validQs.length) return res.json({ status: 'invalid_params', message: '请填写评分问题' });
 
     let targetTemplateId = id;
     let removedRecordCount = 0;
@@ -128,7 +128,7 @@ router.post('/saveScoreTemplate', async (req, res) => {
     } else {
       const [existing] = await pool.query('SELECT * FROM score_question_templates WHERE name = ? LIMIT 1', [name]);
       if (existing.length) {
-        return res.json({ status: 'duplicate', message: '评分问题模板名称重复' });
+        return res.json({ status: 'duplicate', message: '请使用其他评分问题名称' });
       } else {
         const newId = generateId();
         await templateModel.create(newId, { name, description, createdBy: admin.id });
@@ -168,10 +168,10 @@ router.post('/deleteScoreTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供模板记录' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择评分问题' });
 
     // Block deletion if template is referenced by any rule clause in current org
     const orgId = await getCurrentOrgId();
@@ -182,7 +182,7 @@ router.post('/deleteScoreTemplate', async (req, res) => {
     if (currentRefs[0].cnt > 0) {
       return res.json({
         status: 'forbidden',
-        message: '该模板正在使用，不能删除'
+        message: '请先移除使用该评分问题的评分人类别'
       });
     }
 
@@ -199,13 +199,13 @@ router.post('/duplicateScoreTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '缺少模板信息' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择评分问题' });
 
     const template = await templateModel.getById(id);
-    if (!template) return res.json({ status: 'not_found', message: '模板不存在' });
+    if (!template) return res.json({ status: 'not_found', message: '请刷新评分问题后重试' });
 
     const questions = await questionModel.getByTemplateId(id);
 

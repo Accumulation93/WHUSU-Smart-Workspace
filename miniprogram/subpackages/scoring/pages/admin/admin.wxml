@@ -3,8 +3,8 @@
 <view class="page">
   <view class="hero hero-admin" wx:if="{{hasPermission}}">
     <view class="hero-badge">管理端</view>
-    <view class="hero-title">评分管理工作台</view>
-    <view class="hero-subtitle hero-admin-subtitle">{{subAppLabel}} · {{user.name}} - {{isSuperAdmin ? '超级管理员' : '普通管理员'}}</view>
+    <view class="hero-title">评分管理</view>
+    <view class="hero-subtitle hero-admin-subtitle">{{subAppLabel}} · {{user.name}} - {{isSuperAdmin ? '超级管理员' : '管理员'}}</view>
     <view class="hero-org-context org-context-action" wx:if="{{currentOrganizationName}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
       <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
       <view class="hero-org-context-copy">
@@ -19,8 +19,8 @@
   </view>
 
   <view class="empty-card" wx:if="{{!hasPermission}}">
-    <view class="empty-title">当前没有管理权限</view>
-    <view class="empty-desc">当前账号没有此模块权限。</view>
+    <view class="empty-title">暂无评分管理权限</view>
+    <view class="empty-desc">请切换到有评分管理权限的身份</view>
   </view>
 
   <view class="admin-workbench" wx:if="{{hasPermission}}">
@@ -34,15 +34,15 @@
           <block wx:elif="{{tabKey === 'hrInfo'}}">人事信息</block>
           <block wx:elif="{{tabKey === 'hrTemplates'}}">人事模板</block>
           <block wx:elif="{{tabKey === 'departments'}}">部门维护</block>
-          <block wx:elif="{{tabKey === 'workGroups'}}">工作分工（职能组）</block>
+          <block wx:elif="{{tabKey === 'workGroups'}}">职能组</block>
           <block wx:elif="{{tabKey === 'identities'}}">身份类别</block>
           <block wx:elif="{{tabKey === 'admins'}}">管理员</block>
-          <block wx:elif="{{tabKey === 'settings'}}">基础配置</block>
+          <block wx:elif="{{tabKey === 'settings'}}">基本设置</block>
           <block wx:elif="{{tabKey === 'publications'}}">结果公示</block>
-          <block wx:elif="{{tabKey === 'auditTemplates'}}">审核流模板</block>
+          <block wx:elif="{{tabKey === 'auditTemplates'}}">审核模板</block>
           <block wx:elif="{{tabKey === 'auditStamps'}}">电子印章</block>
           <block wx:elif="{{tabKey === 'auditSubmissions'}}">审核记录</block>
-          <block wx:elif="{{tabKey === 'auditVerification'}}">验签管理</block>
+          <block wx:elif="{{tabKey === 'auditVerification'}}">文件验签</block>
         </view>
       </block>
     </view>
@@ -75,7 +75,7 @@
           </view>
         </view>
         <view class="field">
-          <view class="field-label">参与者粒度</view>
+          <view class="field-label">评分对象</view>
           <picker
             range="{{participantGranularityOptions}}"
             range-key="label"
@@ -87,7 +87,7 @@
             </view>
           </picker>
           <view class="field-help">
-            {{activityForm.participantGranularity === 'assignment' ? '同一人在同一组织的不同岗位将分别参与评分。' : '同一自然人在每个评分关系中只计一次，切换岗位不能重复提交。'}}
+            {{activityForm.participantGranularity === 'assignment' ? '同一人的不同岗位分别评分。' : '同一人只评分一次。'}}
           </view>
         </view>
         <view class="button-row">
@@ -253,7 +253,7 @@
           <button class="secondary-btn ui-motion-button" bindtap="importTableTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导入表格</button>
           <button class="secondary-btn ui-motion-button" bindtap="exportTemplate" disabled="{{!templateForm.questions.length}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出表格</button>
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveTemplate}}" bindtap="saveTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存评分问题</button>
-          <button class="secondary-btn ui-motion-button" bindtap="startCreateTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置表单</button>
+          <button class="secondary-btn ui-motion-button" bindtap="startCreateTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清空</button>
         </view>
       </view>
 
@@ -285,16 +285,16 @@
     <view class="modal-mask ui-overlay" wx:if="{{showTemplateCsvDialog}}" bindtap="cancelTemplateCsvImport">
       <view class="modal-card csv-mapping-card ui-dialog-shell ui-dialog-shell--complex" catchtap>
         <view class="modal-header ui-dialog-header">
-          <view class="modal-title">表格字段映射 - 评分问题</view>
+          <view class="modal-title">选择评分问题列</view>
           <view class="modal-close ui-motion-chip" catchtap="cancelTemplateCsvImport" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-scroll--fill ui-data-grid--complex" scroll-y>
           <view class="csv-mapping-tip">请选择“问题内容”对应列，其他列可选。</view>
           <view class="csv-mapping-row csv-mapping-row-header ui-data-row ui-data-row--header">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">表格列名</view>
-            <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">字段类型</view>
+            <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">内容类型</view>
             <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary">示例值</view>
-            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">映射到</view>
+            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">作为</view>
           </view>
           <view class="csv-mapping-row ui-data-row" wx:for="{{templateCsvImportRows}}" wx:key="header">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">
@@ -302,7 +302,7 @@
               <text class="csv-mapping-primary-text">{{item.header}}</text>
             </view>
             <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">
-              <text class="csv-mapping-mobile-label">字段类型</text>
+              <text class="csv-mapping-mobile-label">内容类型</text>
               <view class="csv-mapping-type-tag">{{item.fieldTypeLabel}}</view>
             </view>
             <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary ui-motion-chip" data-value="{{item.sampleValue}}" catchtap="showCsvSampleValue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="查看完整示例值">
@@ -311,7 +311,7 @@
               <text class="csv-mapping-sample-hint" wx:if="{{item.sampleValue}}">点击查看全文</text>
             </view>
             <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">
-              <text class="csv-mapping-mobile-label">映射到</text>
+              <text class="csv-mapping-mobile-label">作为</text>
               <picker range="{{templateCsvImportMappingLabels}}"
                       mode="selector" data-index="{{index}}"
                       bindchange="onTemplateCsvMappingChange"
@@ -390,7 +390,7 @@
               </view>
             </view>
           </view>
-          <view class="rule-empty small-empty" wx:else>未配置评分问题</view>
+          <view class="rule-empty small-empty" wx:else>未选择评分问题</view>
           <view class="pill-actions rule-card-actions">
             <text class="pill-link ui-motion-chip" data-index="{{index}}" bindtap="editRuleClause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
             <text class="pill-close ui-motion-chip" data-index="{{index}}" bindtap="removeRuleClause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
@@ -499,7 +499,7 @@
                     </view>
                   </view>
                   <view class="button-row compact-row">
-                    <button class="secondary-btn ui-motion-button" bindtap="saveClauseTemplateConfigInline" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存评分问题配置</button>
+                    <button class="secondary-btn ui-motion-button" bindtap="saveClauseTemplateConfigInline" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存评分问题</button>
                     <button class="secondary-btn ui-motion-button" bindtap="cancelClauseTemplateConfigInline" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
                   </view>
                 </view>
@@ -538,7 +538,7 @@
               </view>
             </view>
             <view class="button-row compact-row">
-              <button class="secondary-btn ui-motion-button" bindtap="saveClauseTemplateConfigInline" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存评分问题配置</button>
+              <button class="secondary-btn ui-motion-button" bindtap="saveClauseTemplateConfigInline" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存评分问题</button>
               <button class="secondary-btn ui-motion-button" bindtap="cancelClauseTemplateConfigInline" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
             </view>
           </view>
@@ -654,7 +654,7 @@
         </view>
         <view class="field field-row">
           <view class="field field-half">
-            <view class="field-label">工作分工（职能组）</view>
+            <view class="field-label">职能组</view>
             <picker range="{{resultFilterOptions.workGroups}}" bindchange="onResultFilterChange" data-field="workGroup">
               <view class="picker-value">{{resultFilters.workGroup}}</view>
             </picker>
@@ -783,7 +783,7 @@
               <view class="scorer-meta-lines">
                 <view class="list-desc">部门：{{item.departmentText}}</view>
                 <view class="list-desc">身份：{{item.identityText}}</view>
-                <view class="list-desc" wx:if="{{item.workGroupText}}">工作分工（职能组）：{{item.workGroupText}}</view>
+                <view class="list-desc" wx:if="{{item.workGroupText}}">职能组：{{item.workGroupText}}</view>
               </view>
               <view class="list-desc submitted-text" wx:if="{{item.submittedAt}}">{{item.submittedAt}}</view>
             </view>
@@ -815,7 +815,7 @@
               </view>
             </view>
           </view>
-          <view class="empty-inline" wx:if="{{!scoreResultsView.completionBoards.departments.length}}">暂无完成率数据</view>
+          <view class="empty-inline" wx:if="{{!scoreResultsView.completionBoards.departments.length}}">暂无完成率</view>
         </block>
       </view>
 
@@ -862,7 +862,7 @@
               </view>
             </view>
           </view>
-          <view class="empty-inline" wx:if="{{!departmentScorerRows.length}}">暂无评分人数据</view>
+          <view class="empty-inline" wx:if="{{!departmentScorerRows.length}}">暂无评分人</view>
         </block>
       </view>
 
@@ -903,9 +903,9 @@
           </picker>
         </view>
         <view class="field">
-          <view class="field-label">工作分工（职能组）</view>
+          <view class="field-label">职能组</view>
           <picker range="{{workGroupOptions}}" bindchange="onHrWorkGroupChange">
-            <view class="picker-value">{{hrForm.workGroup || ((!hrForm.departmentId && !hrForm.department) ? '请先选择所属部门' : '请选择工作分工（职能组）')}}</view>
+            <view class="picker-value">{{hrForm.workGroup || ((!hrForm.departmentId && !hrForm.department) ? '请先选择所属部门' : '请选择职能组')}}</view>
           </picker>
         </view>
         <view class="button-row compact-row">
@@ -916,7 +916,7 @@
 
       <view class="edit-box hr-template-editor" wx:if="{{activeTab === 'hrTemplates' && showHrTemplateEditor && canManageHrProfileTemplates}}">
         <view class="edit-box-header">
-          <view class="list-title">{{hrProfileTemplateForm.id ? '编辑共享模板' : '创建共享模板'}}</view>
+        <view class="list-title">{{hrProfileTemplateForm.id ? '编辑人事模板' : '创建人事模板'}}</view>
           <text class="link ui-motion-chip" bindtap="cancelHrProfileTemplateEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</text>
         </view>
         <view class="field">
@@ -928,28 +928,28 @@
           <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onHrProfileTemplateInput" value="{{hrProfileTemplateForm.description}}" placeholder="填写说明（选填）" />
         </view>
         <view class="field">
-          <view class="field-label">修改模式</view>
+          <view class="field-label">成员修改方式</view>
           <picker range="{{profileEditModeOptions}}" range-key="label" bindchange="onHrProfileEditModeChange">
             <view class="picker-value">{{hrProfileTemplateForm.editModeLabel}}</view>
           </picker>
         </view>
         <view class="list-card nested-card">
-          <view class="list-title">扩展字段</view>
+          <view class="list-title">补充资料</view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreScoreResults">
             <view class="question-card" wx:for="{{hrProfileTemplateForm.fields}}" wx:key="id">
-              <view class="question-title">字段 {{index + 1}}</view>
+              <view class="question-title">资料项 {{index + 1}}</view>
               <view class="field">
-                <view class="field-label">字段名称</view>
+                <view class="field-label">资料项名称</view>
                 <input class="field-input" data-index="{{index}}" data-field="label" bindinput="onHrProfileFieldInput" value="{{item.label}}" placeholder="如：宿舍号" />
               </view>
               <view class="field">
-                <view class="field-label">字段类型</view>
+                <view class="field-label">填写方式</view>
                 <picker range="{{profileFieldTypeOptions}}" range-key="label" bindchange="onHrProfileFieldTypeChange" data-index="{{index}}">
                   <view class="picker-value">{{item.typeLabel}}</view>
                 </picker>
               </view>
               <view class="field">
-                <view class="field-label">是否必填</view>
+                <view class="field-label">必填</view>
                 <switch checked="{{item.required}}" color="#2563eb" data-index="{{index}}" bindchange="onHrProfileFieldRequiredChange" />
               </view>
               <view class="field field-row" wx:if="{{item.type === 'text'}}">
@@ -964,7 +964,7 @@
               </view>
               <view wx:if="{{item.type === 'number'}}">
                 <view class="field">
-                  <view class="field-label">数字限制方式</view>
+                  <view class="field-label">数字要求</view>
                   <picker range="{{numberRuleOptions}}" range-key="label" bindchange="onHrProfileNumberRuleChange" data-index="{{index}}">
                     <view class="picker-value">{{item.numberRuleLabel}}</view>
                   </picker>
@@ -995,19 +995,19 @@
                 </view>
               </view>
               <view class="field" wx:if="{{item.type === 'sequence'}}">
-                <view class="field-label">序列选项</view>
+                <view class="field-label">可选内容</view>
                 <textarea class="field-textarea question-textarea" auto-height maxlength="-1" data-index="{{index}}" data-field="optionsText" bindinput="onHrProfileFieldInput" value="{{item.optionsText}}" placeholder="每行一个选项" />
               </view>
               <view class="button-row compact-row">
-                <button class="secondary-btn ui-motion-button" data-index="{{index}}" bindtap="removeHrProfileField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除字段</button>
+                <button class="secondary-btn ui-motion-button" data-index="{{index}}" bindtap="removeHrProfileField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除资料项</button>
               </view>
             </view>
           </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
         </view>
         <view class="button-row hr-template-editor-actions">
-          <button class="secondary-btn hr-template-editor-btn ui-motion-button" bindtap="addHrProfileField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增字段</button>
-          <button class="secondary-btn hr-template-editor-btn ui-motion-button" loading="{{loadingMap.importTemplateFieldsCsv}}" bindtap="importTableFields" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导入表格字段</button>
-          <button class="primary-btn template-save-btn hr-template-editor-btn hr-template-editor-save ui-motion-button" loading="{{loadingMap.saveProfileTemplate}}" bindtap="saveHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存共享模板</button>
+          <button class="secondary-btn hr-template-editor-btn ui-motion-button" bindtap="addHrProfileField" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增资料项</button>
+          <button class="secondary-btn hr-template-editor-btn ui-motion-button" loading="{{loadingMap.importTemplateFieldsCsv}}" bindtap="importTableFields" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">从表格导入</button>
+          <button class="primary-btn template-save-btn hr-template-editor-btn hr-template-editor-save ui-motion-button" loading="{{loadingMap.saveProfileTemplate}}" bindtap="saveHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存人事模板</button>
         </view>
       </view>
 
@@ -1015,16 +1015,16 @@
         <view class="list-card hr-template-current-card">
           <view class="list-card-header hr-template-library-header">
             <view>
-              <view class="list-title">当前组织快照</view>
+              <view class="list-title">当前人事模板</view>
             </view>
-            <view class="status-chip current-chip" wx:if="{{activeHrProfileSnapshot}}">已配置</view>
+            <view class="status-chip current-chip" wx:if="{{activeHrProfileSnapshot}}">使用中</view>
           </view>
           <view class="hr-template-empty" wx:if="{{!activeHrProfileSnapshot}}">尚未选择模板</view>
           <block wx:else>
-            <view class="hr-template-meta">{{activeHrProfileSnapshot.fields.length}} 个字段 · {{activeHrProfileSnapshot.editMode === 'audit' ? '修改需审核' : activeHrProfileSnapshot.editMode === 'readonly' ? '只读' : '可直接修改'}}</view>
+            <view class="hr-template-meta">{{activeHrProfileSnapshot.fields.length}} 项资料 · {{activeHrProfileSnapshot.editMode === 'audit' ? '修改后审核' : activeHrProfileSnapshot.editMode === 'readonly' ? '由管理员维护' : '可直接修改'}}</view>
             <view class="hr-snapshot-fields">
               <view class="hr-snapshot-fields-head">
-                <view class="hr-snapshot-fields-title">字段</view>
+                <view class="hr-snapshot-fields-title">补充资料</view>
               </view>
               <view class="hr-snapshot-field" wx:for="{{activeHrProfileSnapshot.fields}}" wx:key="id">
                 <view class="hr-snapshot-field-order">{{index + 1}}</view>
@@ -1037,16 +1037,16 @@
                   <view class="hr-snapshot-required-tag" wx:if="{{item.required}}">必填</view>
                 </view>
               </view>
-              <view class="empty-inline" wx:if="{{!activeHrProfileSnapshot.fields.length}}">该快照没有扩展字段</view>
+              <view class="empty-inline" wx:if="{{!activeHrProfileSnapshot.fields.length}}">暂无补充资料</view>
             </view>
             <view class="field" wx:if="{{canSelectHrProfileTemplate}}">
               <view class="field-label">本组织填写说明</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onActiveHrProfileSettingInput" value="{{activeHrProfileSnapshot.description}}" placeholder="仅影响当前组织" />
+              <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onActiveHrProfileSettingInput" value="{{activeHrProfileSnapshot.description}}" placeholder="填写本组织说明" />
             </view>
             <view class="field" wx:if="{{canSelectHrProfileTemplate}}">
-              <view class="field-label">本组织修改模式</view>
+              <view class="field-label">成员修改方式</view>
               <picker range="{{profileEditModeOptions}}" range-key="label" bindchange="onActiveHrProfileModeChange">
-                <view class="picker-value">{{activeHrProfileSnapshot.editMode === 'audit' ? '需审核后生效' : activeHrProfileSnapshot.editMode === 'readonly' ? '不允许自行修改' : '允许直接修改'}}</view>
+                <view class="picker-value">{{activeHrProfileSnapshot.editMode === 'audit' ? '提交后审核' : activeHrProfileSnapshot.editMode === 'readonly' ? '由管理员维护' : '可直接修改'}}</view>
               </picker>
             </view>
             <button class="primary-btn ui-motion-button" wx:if="{{canSelectHrProfileTemplate}}" loading="{{loadingMap.saveActiveHrProfileSettings}}" bindtap="saveActiveHrProfileSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存组织设置</button>
@@ -1056,7 +1056,7 @@
         <view class="list-card">
           <view class="list-card-header">
             <view>
-              <view class="list-title">共享模板</view>
+               <view class="list-title">人事模板</view>
             </view>
             <button class="primary-btn hr-template-add-btn ui-motion-button" wx:if="{{canManageHrProfileTemplates}}" bindtap="startCreateHrProfileTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">创建模板</button>
           </view>
@@ -1064,7 +1064,7 @@
             <view class="hr-template-card-head">
               <view>
                 <view class="hr-template-card-name">{{item.name}}</view>
-                <view class="hr-template-meta">{{item.fieldCount}} 个字段</view>
+                <view class="hr-template-meta">{{item.fieldCount}} 项资料</view>
               </view>
             </view>
             <view class="hr-template-description">{{item.description || '暂无填写说明'}}</view>
@@ -1100,9 +1100,9 @@
         </view>
         <view class="filter-row">
           <view class="field field-half">
-            <view class="field-label">工作分工（职能组）</view>
+            <view class="field-label">职能组</view>
             <picker range="{{hrProfileFilterOptions.workGroups}}" bindchange="onHrProfileFilterChange" data-field="workGroups">
-              <view class="picker-value">{{hrProfileFilters.workGroup !== '无' ? hrProfileFilters.workGroup : (hrProfileFilters.department === '全部部门' ? '请先选择所属部门' : '请选择工作分工（职能组）')}}</view>
+              <view class="picker-value">{{hrProfileFilters.workGroup !== '无' ? hrProfileFilters.workGroup : (hrProfileFilters.department === '全部部门' ? '请先选择所属部门' : '请选择职能组')}}</view>
             </picker>
           </view>
           <view class="field field-half">
@@ -1144,7 +1144,7 @@
                 <text wx:if="{{item.workGroup}}" class="hr-member-sep">|</text>
                 <text wx:if="{{item.workGroup}}">{{item.workGroup}}</text>
               </view>
-              <view class="hr-member-profile-summary">扩展资料：{{item.currentSummary}}</view>
+              <view class="hr-member-profile-summary">补充资料：{{item.currentSummary}}</view>
               <view class="hr-member-profile-summary hr-member-profile-pending" wx:if="{{item.pendingSummary}}">待审核：{{item.pendingSummary}}</view>
             </view>
             <view class="hr-member-actions" catchtap>
@@ -1166,7 +1166,7 @@
         <view class="modal-header ui-dialog-header">
           <view>
             <view class="modal-title">导出成员资料</view>
-            <view class="hr-profile-export-note">选择需要导出的基本信息和扩展资料列</view>
+            <view class="hr-profile-export-note">选择需要导出的基本信息和补充资料</view>
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrProfileExport" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
@@ -1210,36 +1210,36 @@
         <view class="modal-header ui-dialog-header">
           <view>
             <view class="modal-title">应用「{{hrTemplateSwitchTarget.name}}」</view>
-            <view class="hint-text">设置已有字段的处理方式。</view>
+            <view class="hint-text">请选择原有资料的处理方式</view>
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrProfileTemplateSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">✕</view>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-          <view class="hr-switch-empty" wx:if="{{!hrTemplateSwitchSources.length}}">没有需要处理的已有字段</view>
+          <view class="hr-switch-empty" wx:if="{{!hrTemplateSwitchSources.length}}">没有需要处理的原有资料</view>
           <view class="hr-switch-source" wx:for="{{hrTemplateSwitchSources}}" wx:key="id">
             <view class="hr-switch-source-head">
               <view>
                 <view class="hr-template-card-name">{{item.label}}</view>
-                <view class="hr-template-meta">{{item.isActive ? '当前字段' : '已隐藏字段'}} · 已填写 {{item.currentValueCount}} / 待审核 {{item.pendingValueCount}}</view>
+                <view class="hr-template-meta">{{item.isActive ? '当前资料' : '已隐藏资料'}} · 已填写 {{item.currentValueCount}} / 待审核 {{item.pendingValueCount}}</view>
               </view>
               <view class="status-chip none-chip">{{item.type}}</view>
             </view>
             <view class="hr-switch-suggestion" wx:if="{{item.suggestionText}}">{{item.suggestionText}}</view>
             <view class="field-row">
               <view class="field field-half">
-                <view class="field-label">处置方式</view>
+                <view class="field-label">处理方式</view>
                 <picker range="{{hrTemplateSwitchActionOptions}}" value="{{item.actionIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchActionChange">
                   <view class="picker-value">{{hrTemplateSwitchActionOptions[item.actionIndex]}}</view>
                 </picker>
               </view>
               <view class="field field-half" wx:if="{{item.action === 'map'}}">
-                <view class="field-label">目标字段</view>
+                <view class="field-label">新资料项</view>
                 <picker range="{{item.targetOptions}}" range-key="label" value="{{item.targetIndex}}" data-index="{{index}}" bindchange="onHrTemplateSwitchTargetChange">
                   <view class="picker-value">{{item.targetOptions[item.targetIndex].label}}</view>
                 </picker>
               </view>
             </view>
-            <view class="hr-switch-delete-warning" wx:if="{{item.action === 'delete'}}">此字段的全部数据将永久删除。</view>
+            <view class="hr-switch-delete-warning" wx:if="{{item.action === 'delete'}}">该资料项及已有内容将被删除</view>
           </view>
         </scroll-view>
         <view class="button-row hr-template-switch-footer ui-dialog-footer">
@@ -1279,9 +1279,9 @@
               </picker>
             </view>
             <view class="field">
-              <view class="field-label">工作分工（职能组）</view>
+              <view class="field-label">职能组</view>
               <picker disabled="{{!canManageHrPeople}}" range="{{detailWorkGroupOptions}}" value="{{detailWorkGroupValue}}" bindchange="onDetailWorkGroupChange">
-                <view class="picker-value">{{detailHrValues._workGroupName || (!detailHrValues._departmentId ? '请先选择所属部门' : '请选择工作分工（职能组）')}}</view>
+                <view class="picker-value">{{detailHrValues._workGroupName || (!detailHrValues._departmentId ? '请先选择所属部门' : '请选择职能组')}}</view>
               </picker>
             </view>
           </view>
@@ -1347,7 +1347,7 @@
                 </view>
               </view>
               <view class="field">
-                <view class="field-label">工作分工（职能组）</view>
+                <view class="field-label">职能组</view>
                 <picker range="{{assignmentWorkGroupOptions}}" range-key="name" value="{{assignmentWorkGroupIndex}}" bindchange="onMembershipAssignmentWorkGroupChange">
                   <view class="picker-value">{{membershipAssignmentForm.workGroup || '不设置'}}</view>
                 </picker>
@@ -1355,7 +1355,7 @@
               <view class="assignment-primary-row">
                 <view>
                   <view class="field-label">设为主要岗位</view>
-                  <view class="field-hint">主要岗位用于兼容旧业务页面和默认展示。</view>
+                  <view class="field-hint">主要岗位会优先显示</view>
                 </view>
                 <switch checked="{{membershipAssignmentForm.isPrimary}}" bindchange="onMembershipAssignmentPrimaryChange" color="#2563eb" />
               </view>
@@ -1366,7 +1366,7 @@
             </view>
           </view>
           <view class="detail-section" wx:if="{{detailHrTemplate && detailHrTemplate.fields && detailHrTemplate.fields.length}}">
-            <view class="detail-section-title">扩展资料</view>
+            <view class="detail-section-title">补充资料</view>
             <block wx:for="{{detailHrTemplate.fields}}" wx:key="id">
               <view class="field">
                 <view class="field-label">{{item.label}}<text wx:if="{{item.required}}" class="required-mark"> *</text></view>
@@ -1426,16 +1426,16 @@
     <view class="modal-mask ui-overlay" wx:if="{{showCsvMappingDialog}}" bindtap="closeCsvMappingDialog">
       <view class="modal-card csv-mapping-card ui-dialog-shell ui-dialog-shell--complex" catchtap>
         <view class="modal-header ui-dialog-header">
-          <view class="modal-title">表格字段映射</view>
+          <view class="modal-title">选择人事资料列</view>
           <view class="modal-close ui-motion-chip" catchtap="closeCsvMappingDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-scroll--fill ui-data-grid--complex" scroll-y>
-          <view class="csv-mapping-tip">请选择各字段对应列。</view>
+          <view class="csv-mapping-tip">请选择每项资料对应的表格列</view>
           <view class="csv-mapping-row csv-mapping-row-header ui-data-row ui-data-row--header">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">表格列名</view>
-            <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">字段类型</view>
+            <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">内容类型</view>
             <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary">示例值</view>
-            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">映射到</view>
+            <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">作为</view>
           </view>
           <view class="csv-mapping-row ui-data-row" wx:for="{{csvImportRows}}" wx:key="columnKey">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">
@@ -1443,7 +1443,7 @@
               <text class="csv-mapping-primary-text">{{item.header}}</text>
             </view>
             <view class="csv-mapping-col csv-mapping-col-type ui-data-cell">
-              <text class="csv-mapping-mobile-label">字段类型</text>
+              <text class="csv-mapping-mobile-label">内容类型</text>
               <view class="csv-mapping-type-tag">{{item.fieldTypeLabel}}</view>
             </view>
             <view class="csv-mapping-col csv-mapping-col-sample ui-data-cell ui-data-cell--secondary ui-motion-chip" data-value="{{item.sampleValue}}" catchtap="showCsvSampleValue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="查看完整示例值">
@@ -1452,7 +1452,7 @@
               <text class="csv-mapping-sample-hint" wx:if="{{item.sampleValue}}">点击查看全文</text>
             </view>
             <view class="csv-mapping-col csv-mapping-col-target ui-data-cell ui-data-cell--action">
-              <text class="csv-mapping-mobile-label">映射到</text>
+              <text class="csv-mapping-mobile-label">作为</text>
               <picker range="{{item.mappingLabels}}"
                       mode="selector" data-index="{{index}}"
                       bindchange="onCsvMappingTargetChange"
@@ -1464,14 +1464,14 @@
         </scroll-view><view class="scroll-hint csv-mapping-scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="csv-skip-invalid-row">
           <view class="csv-skip-invalid-label">
-            <text>字段无效时仍然导入</text>
-            <text class="csv-skip-invalid-desc">跳过格式错误的字段</text>
+            <text>忽略格式不正确的记录</text>
+            <text class="csv-skip-invalid-desc">开启后只导入可用记录</text>
           </view>
           <switch checked="{{csvImportSkipInvalid}}" bindchange="toggleCsvSkipInvalid" color="#2563eb"/>
         </view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closeCsvMappingDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-          <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">检查并导入</button>
+          <button class="primary-btn ui-motion-button" loading="{{csvImportLoading}}" catchtap="confirmCsvMapping" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">检查表格</button>
         </view>
       </view>
     </view>
@@ -1495,11 +1495,11 @@
           </view>
 
           <view class="hr-import-preview-warning" wx:if="{{hrImportPreview.invalidRows > 0}}">
-            {{hrImportPreview.invalidRows}} 条记录有误。{{hrImportPreview.skipInvalid ? '仅导入可用记录。' : '请修正表格或开启跳过。'}}
+            {{hrImportPreview.invalidRows}} 条记录有误。{{hrImportPreview.skipInvalid ? '将只导入可用记录。' : '请修改表格，或选择忽略问题记录。'}}
           </view>
 
           <view class="hr-import-preview-section">
-            <view class="hr-import-preview-heading">字段映射</view>
+            <view class="hr-import-preview-heading">导入内容</view>
             <view class="hr-import-preview-mapping" wx:for="{{hrImportPreview.mappings}}" wx:key="columnKey">
               <view class="hr-import-preview-column">{{item.header}}</view>
               <view class="hr-import-preview-arrow">→</view>
@@ -1511,14 +1511,14 @@
           </view>
 
           <view class="hr-import-preview-section" wx:if="{{hrImportPreview.ignoredColumns.length}}">
-            <view class="hr-import-preview-heading">明确忽略的列</view>
+            <view class="hr-import-preview-heading">不导入的表格列</view>
             <view class="hr-import-preview-chips">
               <text class="hr-import-preview-chip is-muted" wx:for="{{hrImportPreview.ignoredColumns}}" wx:key="columnKey">{{item.header}}</text>
             </view>
           </view>
 
           <view class="hr-import-preview-section">
-            <view class="hr-import-preview-heading">待创建字典</view>
+            <view class="hr-import-preview-heading">将新增的组织资料</view>
             <view class="hr-import-preview-dict-row">
               <text class="hr-import-preview-dict-label">部门 {{hrImportPreview.newDepartments.length}}</text>
               <view class="hr-import-preview-chips" wx:if="{{hrImportPreview.newDepartments.length}}">
@@ -1547,8 +1547,8 @@
           </view>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="modal-footer csv-mapping-footer ui-dialog-footer">
-          <button class="secondary-btn ui-motion-button" catchtap="cancelHrImportPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">返回映射</button>
-          <button class="primary-btn ui-motion-button" disabled="{{!hrImportPreview.canImport}}" loading="{{csvImportLoading}}" catchtap="confirmHrTableImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认写入</button>
+          <button class="secondary-btn ui-motion-button" catchtap="cancelHrImportPreview" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">返回修改</button>
+          <button class="primary-btn ui-motion-button" disabled="{{!hrImportPreview.canImport}}" loading="{{csvImportLoading}}" catchtap="confirmHrTableImport" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认导入</button>
         </view>
       </view>
     </view>
@@ -1557,7 +1557,7 @@
     <view class="modal-mask ui-overlay" wx:if="{{showValidationErrors}}" bindtap="closeValidationErrors">
       <view class="modal-card validation-errors-card ui-dialog-shell ui-dialog-shell--complex" catchtap>
         <view class="modal-header ui-dialog-header">
-          <view class="modal-title">数据校验失败</view>
+          <view class="modal-title">请检查表格内容</view>
           <view class="modal-close ui-motion-chip" catchtap="closeValidationErrors" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
         <view class="validation-errors-summary">{{validationErrorSummary}}，请修正后重新导入</view>
@@ -1582,8 +1582,8 @@
           </view>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
         <view class="modal-footer ui-dialog-footer">
-          <button class="secondary-btn ui-motion-button" catchtap="downloadErrorTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出错误清单</button>
-          <button class="primary-btn ui-motion-button" catchtap="closeValidationErrors" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button>
+          <button class="secondary-btn ui-motion-button" catchtap="downloadErrorTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出问题清单</button>
+          <button class="primary-btn ui-motion-button" catchtap="closeValidationErrors" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</button>
         </view>
       </view>
     </view>
@@ -1636,7 +1636,7 @@
         </view>
         <view class="button-row compact-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAdmin}}" bindtap="saveAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{adminForm.id ? '保存管理员' : '授予管理员身份'}}</button>
-          <button class="secondary-btn ui-motion-button" bindtap="resetAdminForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置表单</button>
+          <button class="secondary-btn ui-motion-button" bindtap="resetAdminForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清空</button>
         </view>
       </view>
 
@@ -1699,17 +1699,17 @@
           </view>
           </block>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="empty-inline" wx:if="{{!loadingMap.departments && !departmentList.length}}">当前没有部门数据。</view>
+        <view class="empty-inline" wx:if="{{!loadingMap.departments && !departmentList.length}}">暂无部门</view>
       </view>
     </view>
 
     <view class="section" wx:if="{{activeTab === 'workGroups'}}">
-      <view class="section-title">工作分工（职能组）维护</view>
+      <view class="section-title">职能组</view>
       <view class="edit-box">
-        <view class="list-title">{{workGroupForm.id ? '编辑工作分工' : '新增工作分工'}}</view>
+        <view class="list-title">{{workGroupForm.id ? '编辑职能组' : '新增职能组'}}</view>
         <view class="field">
-          <view class="field-label">工作分工名称</view>
-          <input class="field-input" data-field="name" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.name}}" placeholder="请输入工作分工名称" />
+          <view class="field-label">职能组名称</view>
+          <input class="field-input" data-field="name" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.name}}" placeholder="请输入职能组名称" />
         </view>
         <view class="field">
           <view class="field-label">所属部门</view>
@@ -1718,17 +1718,17 @@
           </picker>
         </view>
         <view class="field">
-          <view class="field-label">工作分工描述</view>
-          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.description}}" placeholder="请输入工作分工描述" />
+          <view class="field-label">职能组说明</view>
+          <textarea class="field-textarea" auto-height maxlength="-1" data-field="description" bindinput="onWorkGroupFieldInput" value="{{workGroupForm.description}}" placeholder="请输入职能组说明" />
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveWorkGroup}}" bindtap="saveWorkGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存工作分工</button>
-          <button class="secondary-btn ui-motion-button" bindtap="startCreateWorkGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增工作分工</button>
+          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveWorkGroup}}" bindtap="saveWorkGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存职能组</button>
+          <button class="secondary-btn ui-motion-button" bindtap="startCreateWorkGroup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增职能组</button>
         </view>
       </view>
 
       <view class="list-card">
-        <view class="list-title">工作分工列表</view>
+        <view class="list-title">职能组列表</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll medium-scroll" scroll-y>
           <view class="card-loading-overlay" wx:if="{{loadingMap.workGroups}}">
             <view class="card-loading-spinner"></view>
@@ -1747,7 +1747,7 @@
           </view>
           </block>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="empty-inline" wx:if="{{!loadingMap.workGroups && !workGroupList.length}}">当前没有工作分工数据。</view>
+        <view class="empty-inline" wx:if="{{!loadingMap.workGroups && !workGroupList.length}}">暂无职能组</view>
       </view>
     </view>
 
@@ -1788,12 +1788,12 @@
           </view>
           </block>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
-        <view class="empty-inline" wx:if="{{!loadingMap.identities && !identityList.length}}">当前没有身份类别数据。</view>
+        <view class="empty-inline" wx:if="{{!loadingMap.identities && !identityList.length}}">暂无身份类别</view>
       </view>
     </view>
 
     <view class="section" wx:if="{{activeTab === 'settings'}}">
-      <view class="section-title">基础配置</view>
+      <view class="section-title">基本设置</view>
 
       <view class="card-loading-overlay" wx:if="{{loadingMap.settings}}">
         <view class="card-loading-spinner"></view>
@@ -1838,7 +1838,7 @@
           </picker>
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveSystemConfig}}" bindtap="saveSystemConfig" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存配置</button>
+          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveSystemConfig}}" bindtap="saveSystemConfig" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存</button>
         </view>
       </view>
       </block>
@@ -1860,14 +1860,14 @@
       <view wx:if="{{publicationForm.id}}">
         <!-- ═══ 结果查看权限 ─── 类别 + 条款 ─── -->
         <view class="rule-panel">
-          <view class="rule-panel-head"><view class="rule-panel-title">查看权限类别</view></view>
+          <view class="rule-panel-head"><view class="rule-panel-title">查看权限</view></view>
           <view class="field"><view class="field-label">授权部门</view><picker range="{{departmentList}}" range-key="name" bindchange="onPubViewRuleDeptChange"><view class="picker-value">{{pubViewRuleForm.granteeDepartment || '请选择部门'}}</view></picker></view>
           <view class="field"><view class="field-label">授权身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubViewRuleIdentChange"><view class="picker-value">{{pubViewRuleForm.granteeIdentity || '请选择身份'}}</view></picker></view>
-          <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存类别</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建类别</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">批量应用到已选类别</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">生成默认类别</button></view>
+          <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePubViewRule}}" bindtap="savePubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存权限</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubViewRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建权限</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">应用到已选权限</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubViewRules}}" bindtap="generatePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">生成默认权限</button></view>
         </view>
 
         <view class="rule-panel" wx:if="{{pubViewRuleForm.granteeDepartmentId && pubViewRuleForm.granteeIdentityId}}">
-          <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">当前查看规则条款</view></view><button class="secondary-btn mini-action-btn ui-motion-button" bindtap="openPubViewClauseEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建查看规则条款</button></view>
+          <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">查看范围</view></view><button class="secondary-btn mini-action-btn ui-motion-button" bindtap="openPubViewClauseEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增查看范围</button></view>
           <view class="rule-empty" wx:if="{{!pubViewRuleForm.clauses.length}}">暂无查看规则</view>
           <view class="rule-clause-card" wx:for="{{pubViewRuleForm.clauses}}" wx:key="index" wx:for-item="c">
             <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || '不限身份'}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel || c.scopeType}}</text><text class="rule-tag tag-target" wx:if="{{c.targetIdentity}}">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">{{c.displayMode === 'grade' ? '等第' : '分数'}}</text></view></view>
@@ -1877,14 +1877,14 @@
         <view class="rule-empty" wx:elif="{{pubViewRuleForm.granteeDepartmentId || pubViewRuleForm.granteeIdentityId}}">请先选择部门和身份</view>
 
         <view class="rule-panel" wx:if="{{pubViewRuleForm.granteeDepartmentId && pubViewRuleForm.granteeIdentityId && pubViewRuleForm.isClauseEditorVisible}}">
-          <view class="rule-panel-head"><view class="rule-panel-title">查看规则条款编辑</view><view class="rule-panel-subtitle">{{pubViewRuleForm.clauseEditingIndex >= 0 ? '正在编辑已有条款' : '添加一条新的查看规则'}}</view></view>
+          <view class="rule-panel-head"><view class="rule-panel-title">编辑查看范围</view><view class="rule-panel-subtitle">{{pubViewRuleForm.clauseEditingIndex >= 0 ? '正在修改' : '新增查看范围'}}</view></view>
           <view class="field"><view class="field-label">查看范围</view><picker range="{{viewScopeOptions}}" range-key="label" bindchange="onPubViewClauseScopeChange"><view class="picker-value">{{pubViewRuleForm.clauseScopeLabel || '请选择范围'}}</view></picker></view>
           <view class="field" wx:if="{{pubViewRuleForm.clauseScopeType === 'same_department_identity' || pubViewRuleForm.clauseScopeType === 'same_work_group_identity'}}"><view class="field-label">目标身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubViewClauseTargetIdentChange"><view class="picker-value">{{pubViewRuleForm.clauseTargetIdentity || '请选择目标身份'}}</view></picker></view>
-          <view class="field"><view class="field-label">显示模式</view><picker range="{{displayModeOptions}}" range-key="label" bindchange="onPubViewClauseDisplayModeChange"><view class="picker-value">{{pubViewRuleForm.clauseDisplayMode === 'grade' ? '等第模式' : '分数模式'}}</view></picker></view>
+          <view class="field"><view class="field-label">显示内容</view><picker range="{{displayModeOptions}}" range-key="label" bindchange="onPubViewClauseDisplayModeChange"><view class="picker-value">{{pubViewRuleForm.clauseDisplayMode === 'grade' ? '显示等第' : '显示分数'}}</view></picker></view>
           <!-- 等第区间编辑器（仅等第模式，每条条款独立配置） -->
           <view wx:if="{{pubViewRuleForm.clauseDisplayMode === 'grade'}}">
             <view class="list-card nested-card">
-              <view class="list-title">等第区间配置</view>
+              <view class="list-title">等第范围</view>
               <view class="empty-inline" wx:if="{{!pubViewRuleForm.clauseGradeBands.length}}">暂无等第区间</view>
               <view class="question-card grade-band-card" wx:for="{{pubViewRuleForm.clauseGradeBands}}" wx:key="index">
                 <view class="question-header ui-motion-chip" data-index="{{index}}" bindtap="toggleGradeBandExpand" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -1912,11 +1912,11 @@
               <view class="button-row"><button class="secondary-btn ui-motion-button" bindtap="addClauseGradeBand" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增等第区间</button><button class="secondary-btn ui-motion-button" bindtap="generateClauseDefaultGradeBands" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">生成默认等第</button></view>
             </view>
           </view>
-          <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="addPubViewClause" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleForm.clauseEditingIndex >= 0 ? '保存条款' : '加入当前条款'}}</button><button class="secondary-btn ui-motion-button" bindtap="cancelPubViewClauseEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消编辑</button></view>
+          <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="addPubViewClause" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleForm.clauseEditingIndex >= 0 ? '保存范围' : '添加范围'}}</button><button class="secondary-btn ui-motion-button" bindtap="cancelPubViewClauseEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消编辑</button></view>
         </view>
 
         <view class="list-card rule-list-card">
-          <view class="rule-list-toolbar"><view><view class="list-title">查看权限类别列表</view></view><view class="rule-list-count">{{pubViewRuleListView.length}} / {{pubViewRuleList.length}}</view></view>
+          <view class="rule-list-toolbar"><view><view class="list-title">结果查看权限</view></view><view class="rule-list-count">{{pubViewRuleListView.length}} / {{pubViewRuleList.length}}</view></view>
           <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{pubViewRuleFilterOptions.departments}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{pubViewRuleFilterOptions.identities}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleAllSelected ? '取消全选' : '全选当前列表'}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">反选当前列表</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">批量删除选中</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll" style="max-height:500rpx;">
@@ -1926,24 +1926,24 @@
                   <view class="select-chip {{pubViewRuleSelectedIds[item.id] ? 'select-chip-active' : ''}} ui-motion-chip" data-id="{{item.id}}" catchtap="togglePubViewRuleSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleSelectedIds[item.id] ? '已选' : '选择'}}</view>
                   <view class="inline-actions rule-list-inline-actions"><text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="editPubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text></view>
                 </view>
-                <view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} 条查看规则</text></view></view>
+                <view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} 项查看范围</text></view></view>
               </view>
             </view>
-            <view class="rule-empty small-empty" wx:if="{{!pubViewRuleListView.length}}">暂无查看权限类别</view>
+            <view class="rule-empty small-empty" wx:if="{{!pubViewRuleListView.length}}">暂无结果查看权限</view>
           </scroll-view>
         </view>
 
         <!-- ═══ 评优名单指定权 ─── 类别 + 条款 ─── -->
         <view class="rule-panel" style="margin-top:28rpx;">
-          <view class="rule-panel-head"><view class="rule-panel-title">评优指定权类别</view><view class="rule-panel-subtitle">需先配置查看权限</view></view>
+          <view class="rule-panel-head"><view class="rule-panel-title">评优名单权限</view><view class="rule-panel-subtitle">请先设置结果查看权限</view></view>
           <view class="field"><view class="field-label">授权部门</view><picker range="{{departmentList}}" range-key="name" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || '请选择部门'}}</view></picker></view>
           <view class="field"><view class="field-label">授权身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || '请选择身份'}}</view></picker></view>
-          <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存类别</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建类别</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">批量应用到已选类别</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubMeritRules}}" bindtap="generatePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">生成默认类别</button></view>
+          <view class="button-row"><button class="primary-btn ui-motion-button" loading="{{loadingMap.savePubMeritRule}}" bindtap="savePubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存权限</button><button class="secondary-btn ui-motion-button" bindtap="startNewPubMeritRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建权限</button><button class="secondary-btn ui-motion-button" bindtap="batchSavePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">应用到已选权限</button><button class="secondary-btn ui-motion-button" disabled="{{loadingMap.generatePubMeritRules}}" bindtap="generatePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">生成默认权限</button></view>
         </view>
 
         <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId}}">
-          <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">当前评优规则条款</view></view><button class="secondary-btn mini-action-btn ui-motion-button" bindtap="openPubMeritClauseEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建评优规则条款</button></view>
-          <view class="rule-empty" wx:if="{{!pubMeritRuleForm.clauses.length}}">暂无评优规则</view>
+          <view class="rule-panel-head rule-panel-head-row"><view><view class="rule-panel-title">评优范围</view></view><button class="secondary-btn mini-action-btn ui-motion-button" bindtap="openPubMeritClauseEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增评优范围</button></view>
+          <view class="rule-empty" wx:if="{{!pubMeritRuleForm.clauses.length}}">暂无评优范围</view>
           <view class="rule-clause-card" wx:for="{{pubMeritRuleForm.clauses}}" wx:key="index" wx:for-item="c">
             <view class="rule-clause-main"><view class="rule-clause-title">{{c.targetIdentity || '未选择目标身份'}}</view><view class="rule-tag-row"><text class="rule-tag tag-scope">{{c.scopeLabel || c.scopeType}}</text><text class="rule-tag tag-target">{{c.targetIdentity}}</text><text class="rule-tag tag-weight">名额 {{c.quotaLimit || '不限'}}</text><text class="rule-tag {{c.requireExactQuota ? 'tag-required' : 'tag-free'}}">{{c.requireExactQuota ? '等额' : '可少于'}}</text></view></view>
             <view class="pill-actions rule-card-actions"><text class="pill-link ui-motion-chip" data-clause-id="{{c.id}}" data-pub-id="{{publicationForm.id}}" bindtap="openDesignationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">指定名单</text><text class="pill-link ui-motion-chip" data-index="{{index}}" bindtap="editPubMeritClause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text><text class="pill-close ui-motion-chip" data-index="{{index}}" bindtap="removePubMeritClause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text></view>
@@ -1952,18 +1952,18 @@
         <view class="rule-empty" wx:elif="{{pubMeritRuleForm.granteeDepartmentId || pubMeritRuleForm.granteeIdentityId}}">请先选择部门和身份</view>
 
         <view class="rule-panel" wx:if="{{pubMeritRuleForm.granteeDepartmentId && pubMeritRuleForm.granteeIdentityId && pubMeritRuleForm.isClauseEditorVisible}}">
-          <view class="rule-panel-head"><view class="rule-panel-title">评优规则条款编辑</view><view class="rule-panel-subtitle">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? '正在编辑已有条款' : '添加一条新的评优规则'}}</view></view>
+          <view class="rule-panel-head"><view class="rule-panel-title">编辑评优范围</view><view class="rule-panel-subtitle">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? '正在修改' : '新增评优范围'}}</view></view>
           <view class="field"><view class="field-label">指定范围</view><picker range="{{viewScopeOptions}}" range-key="label" bindchange="onPubMeritClauseScopeChange"><view class="picker-value">{{pubMeritRuleForm.clauseScopeLabel || '请选择范围'}}</view></picker></view>
           <view class="field"><view class="field-label">评优目标身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubMeritClauseTargetIdentChange"><view class="picker-value">{{pubMeritRuleForm.clauseTargetIdentity || '请选择目标身份'}}</view></picker></view>
-          <view class="field"><view class="field-label">名额上限（0=不限）</view><input class="field-input" type="number" value="{{pubMeritRuleForm.clauseQuotaLimit}}" bindinput="onPubMeritClauseQuotaInput"/></view>
-          <view class="rule-switch-row"><view><view class="field-label">必须等额</view><view class="rule-panel-subtitle">必须填满名额</view></view><switch checked="{{pubMeritRuleForm.clauseRequireExactQuota}}" color="#2563eb" bindchange="onPubMeritClauseExactToggle"/></view>
-          <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="addPubMeritClause" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? '保存条款' : '加入当前条款'}}</button><button class="secondary-btn ui-motion-button" bindtap="cancelPubMeritClauseEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消编辑</button></view>
+          <view class="field"><view class="field-label">名额上限</view><input class="field-input" type="number" value="{{pubMeritRuleForm.clauseQuotaLimit}}" bindinput="onPubMeritClauseQuotaInput" placeholder="留空表示不限"/></view>
+          <view class="rule-switch-row"><view><view class="field-label">按名额指定</view><view class="rule-panel-subtitle">开启后需选满名额</view></view><switch checked="{{pubMeritRuleForm.clauseRequireExactQuota}}" color="#2563eb" bindchange="onPubMeritClauseExactToggle"/></view>
+          <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="addPubMeritClause" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleForm.clauseEditingIndex >= 0 ? '保存范围' : '添加范围'}}</button><button class="secondary-btn ui-motion-button" bindtap="cancelPubMeritClauseEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消编辑</button></view>
         </view>
 
         <view class="list-card rule-list-card">
-          <view class="rule-list-toolbar"><view><view class="list-title">评优指定权类别列表</view></view><view class="rule-list-count">{{pubMeritRuleListView.length}} / {{pubMeritRuleList.length}}</view></view>
+          <view class="rule-list-toolbar"><view><view class="list-title">评优名单权限</view></view><view class="rule-list-count">{{pubMeritRuleListView.length}} / {{pubMeritRuleList.length}}</view></view>
           <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{pubMeritRuleFilterOptions.departments}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{pubMeritRuleFilterOptions.identities}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
-          <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleAllSelected ? '取消全选' : '全选当前列表'}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">反选当前列表</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">批量删除选中</button></view>
+          <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleAllSelected ? '取消全选' : '全选'}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">反选</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除已选</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll" style="max-height:500rpx;">
             <view class="list-item rule-list-item" wx:for="{{pubMeritRuleListView}}" wx:key="id">
               <view class="list-main">
@@ -2022,8 +2022,8 @@
         </view>
 
         <view class="rule-empty glass-empty" wx:elif="{{meritSummaryLoadFailed}}">
-          <view class="empty-title">评优名单加载失败</view>
-          <view class="empty-desc">请稍后重新进入此页签</view>
+          <view class="empty-title">暂未显示评优名单</view>
+          <view class="empty-desc">请稍后刷新</view>
         </view>
 
         <view class="rule-empty glass-empty" wx:elif="{{meritSummaryLoaded && !meritSummaryGroups.length}}">
@@ -2142,7 +2142,7 @@
         <view class="list-title" style="margin-top: 20rpx;">审批步骤（{{auditTemplateForm.steps.length}}步）</view>
         <view class="list-item" wx:for="{{auditTemplateForm.steps}}" wx:key="index">
           <view class="list-main">
-            <view class="list-name">{{item.name || ('第' + (index + 1) + '步')}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+            <view class="list-name">{{item.name || ('第' + (index + 1) + '步')}} — {{item.actionType === 'pass' ? '通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
             <!-- Each condition as separate bubble chips, OR-separated -->
             <view wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="margin-top:6rpx;display:flex;flex-wrap:wrap;align-items:center;">
               <block wx:if="{{cond.conditionType === 'person'}}">
@@ -2216,7 +2216,7 @@
               <view wx:for="{{item.steps}}" wx:for-item="step" wx:for-index="si" wx:key="si" class="audit-template-step-preview">
                 <view class="audit-template-step-head">
                   <text style="font-weight:700;font-size:25rpx;color:#0f172a;">第{{si + 1}}步：</text>
-                  <text style="font-size:21rpx;color:#64748b;margin-left:8rpx;">{{step.actionType === 'pass' ? '仅通过' : (step.actionType === 'sign' ? '签字' : (step.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</text>
+                  <text style="font-size:21rpx;color:#64748b;margin-left:8rpx;">{{step.actionType === 'pass' ? '通过' : (step.actionType === 'sign' ? '签字' : (step.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</text>
                 </view>
                 <!-- Each condition as bubble chips -->
                 <view wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="display:flex;flex-wrap:wrap;align-items:center;margin-left:12rpx;">
@@ -2244,7 +2244,7 @@
               <view wx:if="{{!item.steps || !item.steps.length}}" style="color:#9ca3af;font-size:22rpx;">暂无步骤</view>
             </view>
           </view>
-          <view class="empty-inline" wx:if="{{!auditFlowTemplates.length}}">暂无审核流模板</view>
+          <view class="empty-inline" wx:if="{{!auditFlowTemplates.length}}">暂无审核流程</view>
           </block>
         </scroll-view>
       </view>
@@ -2314,8 +2314,8 @@
             <!-- Action type -->
             <view class="field" style="padding:0 24rpx;">
               <view class="field-label">审批方式</view>
-              <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onStepActionTypeChange">
-                <view class="picker-value">{{auditTemplateStepForm.actionType === 'pass' ? '仅通过' : (auditTemplateStepForm.actionType === 'sign' ? '签字' : (auditTemplateStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+              <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onStepActionTypeChange">
+                <view class="picker-value">{{auditTemplateStepForm.actionType === 'pass' ? '通过' : (auditTemplateStepForm.actionType === 'sign' ? '签字' : (auditTemplateStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
               </picker>
             </view>
 
@@ -2582,7 +2582,7 @@
             </view>
             <view wx:if="{{!auditSubmissionDetail.flowTimeline.length}}" class="audit-empty-state">
               <view class="audit-empty-icon"><ui-icon name="list" tone="muted" size="54" ariaLabel="暂无详情" /></view>
-              <view class="audit-empty-text">暂无流程数据</view>
+              <view class="audit-empty-text">暂无审批记录</view>
             </view>
 
             <!-- Files -->
@@ -2628,11 +2628,11 @@
       </view>
 
       <view class="edit-box" style="margin-top: 24rpx;">
-        <view class="list-title">验证签名链</view>
+        <view class="list-title">文件验签</view>
         <view class="field">
-          <view class="field-label">验证方式</view>
-          <picker range="{{['提交编号查询','文件验证']}}" bindchange="onVerificationModeChange">
-            <view class="picker-value">{{verificationMode === 'number' ? '提交编号查询' : '文件验证'}}</view>
+          <view class="field-label">查询方式</view>
+          <picker range="{{['按提交编号','上传文件']}}" bindchange="onVerificationModeChange">
+            <view class="picker-value">{{verificationMode === 'number' ? '按提交编号' : '上传文件'}}</view>
           </picker>
         </view>
         <view class="field" wx:if="{{verificationMode === 'number'}}">
@@ -2641,20 +2641,18 @@
         </view>
         <view class="field" wx:if="{{verificationMode === 'file'}}">
           <view class="field-label">选择文件</view>
-          <view class="picker-value ui-motion-chip" bindtap="chooseVerifyFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{verificationFileName || '点击选择要验签的文件'}}</view>
-          <view class="list-desc" wx:if="{{verificationFileSize > 0}}" style="font-size:22rpx;color:#6b7280;">{{verificationFileName}} · {{verificationFileSize}} 字节</view>
+          <view class="picker-value ui-motion-chip" bindtap="chooseVerifyFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{verificationFileName || '选择要验签的文件'}}</view>
         </view>
         <view class="button-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.verifyChain}}" bindtap="verifySubmissionChain" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">验证哈希链</button>
+          <button class="primary-btn ui-motion-button" loading="{{loadingMap.verifyChain}}" bindtap="verifySubmissionChain" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">开始验签</button>
         </view>
         <view wx:if="{{verificationResult}}" class="audit-verify-result-card">
           <view class="audit-verify-result-badge {{verificationResult.valid ? 'audit-verify-valid' : 'audit-verify-invalid'}}">
-            {{verificationResult.valid ? '✓ 验证通过 — 所有签名链完整' : '✗ 验证失败 — 签名链存在问题'}}
+            {{verificationResult.valid ? '验签通过' : '验签未通过'}}
           </view>
           <view class="list-desc" wx:if="{{verificationResult.totalSignatures > 0}}">共 {{verificationResult.totalSignatures}} 个签名</view>
-          <view class="list-desc" wx:if="{{verificationResult.verifyByFileHash}}">验证文件哈希: {{verificationResult.verifyByFileHash}}</view>
           <view wx:for="{{verificationResult.files}}" wx:key="fileId" style="margin-top: 8rpx;">
-            <view class="list-desc">文件: {{item.fileHash === null ? '文件不可访问' : (item.hashVerified ? '✓ 哈希一致' : '✗ 哈希不匹配')}}</view>
+            <view class="list-desc">文件：{{item.fileHash === null ? '无法读取' : (item.hashVerified ? '内容一致' : '内容已变更')}}</view>
           </view>
         </view>
       </view>
@@ -2754,7 +2752,7 @@
             </view>
           </view>
         </view>
-        <view class="empty-inline" wx:if="{{!identityList.length}}">暂无身份数据</view>
+        <view class="empty-inline" wx:if="{{!identityList.length}}">暂无身份</view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeAuditIdentityPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
@@ -2792,7 +2790,7 @@
         </view>
         <view class="button-row compact-row ui-dialog-footer">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveOrganization}}" catchtap="saveOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存组织</button>
-          <button class="secondary-btn ui-motion-button" wx:if="{{!orgFormData.id}}" loading="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并设为默认</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{!orgFormData.id}}" loading="{{loadingMap.switchOrganization}}" catchtap="createAndSwitchOrganization" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存并设为登录默认</button>
         </view>
       </view>
     </view>
@@ -2904,8 +2902,8 @@
   <view class="modal-mask ui-overlay" wx:if="{{contextSwitchGuardVisible}}" bindtap="closeContextSwitchGuard">
     <view class="modal-card context-switch-guard-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
-      <view class="context-switch-guard-title">请先处理未保存内容</view>
-      <view class="context-switch-guard-desc">当前编辑内容尚未保存。完成保存或取消编辑后，再切换组织与身份。</view>
+      <view class="context-switch-guard-title">请先保存修改</view>
+      <view class="context-switch-guard-desc">保存或取消编辑后，即可切换组织与身份。</view>
       <view class="context-switch-guard-actions ui-dialog-footer">
         <button class="primary-btn ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">继续编辑</button>
       </view>

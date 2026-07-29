@@ -48,14 +48,14 @@ module.exports = Behavior({
         });
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status && result.status !== 'success') {
-          throw new Error(result.message || '加载评分人类别失败');
+          throw new Error(result.message || '请稍后刷新评分人类别');
         }
         this.setRuleListState(result.rules || [], this.data.selectedRuleIds, this.data.ruleFilters);
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         if (!silent) {
           wx.showToast({
-            title: '加载评分人类别失败',
+            title: '请稍后刷新评分人类别',
             icon: 'none'
           });
         }
@@ -401,7 +401,7 @@ module.exports = Behavior({
           if (result.status !== 'success') {
             wx.hideLoading();
             wx.showToast({
-              title: result.message || (`批量设置失败：${rule.scorerDepartment}/${rule.scorerIdentity}`),
+              title: result.message || (`未设置：${rule.scorerDepartment}/${rule.scorerIdentity}`),
               icon: 'none'
             });
             this.setLoading('batchSaveRules', false);
@@ -429,7 +429,7 @@ module.exports = Behavior({
       } catch (error) {
         wx.hideLoading();
         wx.showToast({
-          title: '批量设置规则失败',
+          title: '未设置，请重试',
           icon: 'none'
         });
       } finally {
@@ -473,7 +473,7 @@ module.exports = Behavior({
       const weight = Number(clauseTemplateWeight);
       if (!Number.isFinite(weight) || weight <= 0) {
         wx.showToast({
-          title: '评分问题权重必须大于 0',
+          title: '请输入大于 0 的评分问题权重',
           icon: 'none'
         });
         return;
@@ -610,7 +610,7 @@ module.exports = Behavior({
   
       const weight = Number(clauseTemplateWeight);
       if (!Number.isFinite(weight) || weight <= 0) {
-        wx.showToast({ title: '评分问题权重必须大于 0', icon: 'none' });
+        wx.showToast({ title: '请输入大于 0 的评分问题权重', icon: 'none' });
         return;
       }
   
@@ -914,7 +914,7 @@ module.exports = Behavior({
         });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '保存评分人类别失败',
+            title: result.message || '未保存，请重试',
             icon: 'none'
           });
           return;
@@ -935,7 +935,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '保存评分人类别失败',
+          title: '未保存，请重试',
           icon: 'none'
         });
       } finally {
@@ -960,7 +960,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '生成默认评分人类别失败',
+            title: result.message || '未生成，请重试',
             icon: 'none'
           });
           return;
@@ -973,7 +973,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '生成默认评分人类别失败',
+          title: '未生成，请重试',
           icon: 'none'
         });
       } finally {
@@ -999,7 +999,7 @@ module.exports = Behavior({
   
         if (!result || result.status !== 'success') {
           wx.showToast({
-            title: (result && result.message) || '生成默认评分人类别失败',
+            title: (result && result.message) || '未生成，请重试',
             icon: 'none'
           });
           return;
@@ -1033,7 +1033,7 @@ module.exports = Behavior({
         }
   
         wx.showToast({
-          title: '生成默认评分人类别失败',
+          title: '未生成，请重试',
           icon: 'none'
         });
       } finally {
@@ -1060,7 +1060,7 @@ module.exports = Behavior({
       } catch (error) {
         wx.hideLoading();
         wx.showToast({
-          title: '生成默认评分人类别失败',
+          title: '未生成，请重试',
           icon: 'none'
         });
         this.setLoading('generateRules', false);
@@ -1070,7 +1070,7 @@ module.exports = Behavior({
       if (!result || result.status !== 'success') {
         wx.hideLoading();
         wx.showToast({
-          title: (result && result.message) || '生成默认评分人类别失败',
+          title: (result && result.message) || '未生成，请重试',
           icon: 'none'
         });
         this.setLoading('generateRules', false);
@@ -1131,7 +1131,7 @@ module.exports = Behavior({
         });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '保存失败',
+            title: result.message || '未保存，请重试',
             icon: 'none'
           });
           return;
@@ -1145,7 +1145,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '保存评分人类别失败',
+          title: '未保存，请重试',
           icon: 'none'
         });
       } finally {
@@ -1171,7 +1171,7 @@ module.exports = Behavior({
             });
           } catch (error) {
             wx.showToast({
-              title: '删除失败',
+              title: '未删除，请重试',
               icon: 'none'
             });
           }
@@ -1200,7 +1200,7 @@ module.exports = Behavior({
         await this.loadRuleList();
       } catch (error) {
         wx.showToast({
-          title: '生成默认评分人类别失败',
+          title: '未生成，请重试',
           icon: 'none'
         });
       } finally {

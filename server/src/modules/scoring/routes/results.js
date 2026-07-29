@@ -777,7 +777,7 @@ function enrichScoreRecords(records, members, granularity) {
 }
 
 function isAllFilter(value) {
-  return !value || ['全部', '全部部门', '全部身份', '全部工作分工', '全部工作分工（职能组）'].includes(value) || value === '鍏ㄩ儴';
+  return !value || ['全部', '全部部门', '全部身份', '全部职能组', '全部工作分工', '全部工作分工（职能组）'].includes(value) || value === '鍏ㄩ儴';
 }
 
 function filterScorerRows(rows, filters) {
@@ -863,7 +863,7 @@ router.post('/getScoreResults', async (req, res) => {
 
     if (!activityId) return res.json({ status: 'invalid_params', message: '请先选择评分活动' });
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     // 活动归属必须在任何缓存读取之前验证，避免旧组织活动 ID 命中共享缓存。
     const orgId = await getCurrentOrgId();
@@ -1429,7 +1429,7 @@ router.post('/getScoreResults', async (req, res) => {
 
     res.json(filteredPayload);
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '获取评分结果失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新评分结果' });
   }
 });
 
@@ -1459,7 +1459,7 @@ router.post('/exportScoreResults', async (req, res) => {
 
     if (!activityId) return res.json({ status: 'invalid_params', message: '请先选择评分活动' });
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const activity = await activityModel.getById(activityId);
     if (!activity) return res.json({ status: 'activity_not_found', message: '未找到评分活动' });
@@ -1500,10 +1500,10 @@ router.post('/exportScoreResults', async (req, res) => {
         };
       });
       fileName = activityName + '_总分速览';
-      headers = [{ key: 'name', label: '姓名' }, { key: 'studentId', label: '学号' }, { key: 'department', label: '部门' }, { key: 'identity', label: '身份' }, { key: 'workGroup', label: '工作分工（职能组）' }, { key: 'finalScore', label: '最终得分' }, { key: 'submittedScorerCount', label: '已评人数' }, { key: 'expectedScorerCount', label: '应评人数' }, { key: 'completionRate', label: '完成率(%)' }];
+      headers = [{ key: 'name', label: '姓名' }, { key: 'studentId', label: '学号' }, { key: 'department', label: '部门' }, { key: 'identity', label: '身份' }, { key: 'workGroup', label: '职能组' }, { key: 'finalScore', label: '最终得分' }, { key: 'submittedScorerCount', label: '已评人数' }, { key: 'expectedScorerCount', label: '应评人数' }, { key: 'completionRate', label: '完成率(%)' }];
     } else if (reportType === 'detail') {
       const memberMap = new Map(members.map((m) => [m.id, m]));
-      headers = [{ key: 'scorerName', label: '评分人姓名' }, { key: 'scorerStudentId', label: '评分人学号' }, { key: 'scorerDepartment', label: '评分人部门' }, { key: 'scorerIdentity', label: '评分人身份' }, { key: 'scorerWorkGroup', label: '评分人工作分工（职能组）' }, { key: 'targetName', label: '被评人姓名' }, { key: 'targetStudentId', label: '被评人学号' }, { key: 'targetDepartment', label: '被评人部门' }, { key: 'targetIdentity', label: '被评人身份' }, { key: 'targetWorkGroup', label: '被评人工作分工（职能组）' }, { key: 'templateName', label: '评分模板' }, { key: 'question', label: '题目' }, { key: 'score', label: '得分' }, { key: 'maxValue', label: '最高分' }, { key: 'weight', label: '权重' }, { key: 'submittedAt', label: '提交时间' }];
+      headers = [{ key: 'scorerName', label: '评分人姓名' }, { key: 'scorerStudentId', label: '评分人学号' }, { key: 'scorerDepartment', label: '评分人部门' }, { key: 'scorerIdentity', label: '评分人身份' }, { key: 'scorerWorkGroup', label: '评分人职能组' }, { key: 'targetName', label: '被评人姓名' }, { key: 'targetStudentId', label: '被评人学号' }, { key: 'targetDepartment', label: '被评人部门' }, { key: 'targetIdentity', label: '被评人身份' }, { key: 'targetWorkGroup', label: '被评人职能组' }, { key: 'templateName', label: '评分问题' }, { key: 'question', label: '题目' }, { key: 'score', label: '得分' }, { key: 'maxValue', label: '最高分' }, { key: 'weight', label: '权重' }, { key: 'submittedAt', label: '提交时间' }];
       records.forEach((record) => {
         const scorer = memberMap.get(safeString(record.scorerId)) || {};
         const target = memberMap.get(safeString(record.targetId)) || {};
@@ -1546,7 +1546,7 @@ router.post('/exportScoreResults', async (req, res) => {
     } else {
       rows = taskData.scorerTaskRows;
       fileName = `${activityName}_评分人完成率`;
-      headers = [{ key: 'scorerName', label: '评分人姓名' }, { key: 'scorerStudentId', label: '评分人学号' }, { key: 'department', label: '所属部门' }, { key: 'identity', label: '身份' }, { key: 'workGroup', label: '工作分工（职能组）' }, { key: 'expectedCount', label: '应评分人数' }, { key: 'submittedCount', label: '已评分人数' }, { key: 'pendingCount', label: '待评分人数' }, { key: 'completionRate', label: '完成率(%)' }];
+      headers = [{ key: 'scorerName', label: '评分人姓名' }, { key: 'scorerStudentId', label: '评分人学号' }, { key: 'department', label: '所属部门' }, { key: 'identity', label: '身份' }, { key: 'workGroup', label: '职能组' }, { key: 'expectedCount', label: '应评分人数' }, { key: 'submittedCount', label: '已评分人数' }, { key: 'pendingCount', label: '待评分人数' }, { key: 'completionRate', label: '完成率(%)' }];
     }
 
     // Apply filters
@@ -1581,13 +1581,13 @@ router.post('/revokeScoreRecord', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const recordId = safeString(req.body.recordId);
-    if (!recordId) return res.json({ status: 'invalid_params', message: '缺少评分记录标识' });
+    if (!recordId) return res.json({ status: 'invalid_params', message: '请重新打开评分记录' });
 
     const record = await scoreRecordModel.getById(recordId);
-    if (!record) return res.json({ status: 'not_found', message: '评分记录不存在' });
+    if (!record) return res.json({ status: 'not_found', message: '请刷新评分记录' });
 
     // Delete answers and record atomically within a transaction
     const { withTransaction } = require('../../../config/db');

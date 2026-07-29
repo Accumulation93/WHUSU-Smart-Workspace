@@ -10,8 +10,10 @@ const VISIBLE_ATTRIBUTES = new Set([
   'placeholder', 'title', 'label', 'aria-label', 'confirm-text', 'cancel-text'
 ]);
 const RULES = [
-  { id: 'technical-detail', pattern: /(数据库|服务端|客户端|接口|后台|OpenID|openid|令牌|服务器本地|初始化脚本)/i },
-  { id: 'internal-workflow', pattern: /(预检|迁移来源字段|未授权接口|数据异常|不合法)/ },
+  { id: 'technical-detail', pattern: /(数据库|服务端|客户端|接口|后台|OpenID|openid|令牌|服务器本地|初始化脚本|上下文|会话|参数|标识|主体|字段|映射|快照|哈希|签名链|配置|校验|统一身份|账号体系|认领请求)/i },
+  { id: 'internal-workflow', pattern: /(预检|迁移来源字段|未授权接口|数据异常|不合法|失败|错误|异常)/ },
+  { id: 'architecture-slogan', pattern: /(一个账号[，,、 ]*全部身份|都从这里登录|从这里登录)/ },
+  { id: 'mechanical-success', pattern: /(?:操作|提交|保存|更新|创建|删除|登录|绑定)成功/ },
   { id: 'redundant-guidance', pattern: /(点击(?:上方|下方|右上角).*?(?:添加|发起)|将显示在这里|欢迎使用.*工作台系统|页面数据将同步更新)/ },
   { id: 'redundant-ui-feedback', pattern: /(已切换页签|页签已切换|切换页签成功)/ },
   { id: 'implementation-detail', pattern: /(互不关联|独立保存|自动创建|服务器日志|服务器返回了)/ },

@@ -12,7 +12,7 @@ const { decodeWorkbookBase64, parseWorkbookTables } = require('../../utils/excel
 router.post('/parseTableFile', async (req, res) => {
   try {
     if (!req.openid || !req.admin) {
-      return res.status(403).json({ status: 'forbidden', message: '仅管理员可解析工作簿' });
+      return res.status(403).json({ status: 'forbidden', message: '请使用管理员身份' });
     }
 
     const { fileBase64, fileName } = req.body;
@@ -63,7 +63,7 @@ router.post('/parseTableFile', async (req, res) => {
     if (req.logger) req.logger.warn('Workbook parse rejected', { code: e.code || 'parse_failed', error: e.message });
     res.json({
       status: 'error',
-      message: e.code === 'invalid_workbook' ? safeString(e.message) : '解析 Excel 文件失败'
+      message: e.code === 'invalid_workbook' ? safeString(e.message) : '请检查表格内容后重试'
     });
   }
 });

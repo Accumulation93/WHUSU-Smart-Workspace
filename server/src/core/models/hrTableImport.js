@@ -31,7 +31,7 @@ function normalizeEmptyValue(value) {
 function normalizeCell(value) {
   const text = safeString(value);
   if (text.length > MAX_CELL_LENGTH) {
-    throw new HrTableImportError('invalid_params', `单元格内容不能超过 ${MAX_CELL_LENGTH} 个字符`);
+    throw new HrTableImportError('invalid_params', `请将单项内容控制在 ${MAX_CELL_LENGTH} 个字以内`);
   }
   return text;
 }
@@ -41,22 +41,22 @@ function normalizeHeaders(rawHeaders) {
     throw new HrTableImportError('invalid_params', '表格缺少表头');
   }
   if (rawHeaders.length > MAX_IMPORT_COLUMNS) {
-    throw new HrTableImportError('invalid_params', `表格列数不能超过 ${MAX_IMPORT_COLUMNS} 列`);
+    throw new HrTableImportError('invalid_params', `请将表格控制在 ${MAX_IMPORT_COLUMNS} 列以内`);
   }
   return rawHeaders.map(normalizeCell);
 }
 
 function normalizeRows(rawRows, columnCount) {
   if (!Array.isArray(rawRows)) {
-    throw new HrTableImportError('invalid_params', '表格数据格式错误');
+    throw new HrTableImportError('invalid_params', '请检查表格内容');
   }
   if (rawRows.length > MAX_IMPORT_ROWS) {
-    throw new HrTableImportError('invalid_params', `单次导入不能超过 ${MAX_IMPORT_ROWS} 行`);
+    throw new HrTableImportError('invalid_params', `请将本次导入控制在 ${MAX_IMPORT_ROWS} 行以内`);
   }
   const rows = [];
   rawRows.forEach((rawRow, index) => {
     if (!Array.isArray(rawRow)) {
-      throw new HrTableImportError('invalid_params', `第 ${index + 2} 行不是有效的单元格数组`);
+      throw new HrTableImportError('invalid_params', `请检查第 ${index + 2} 行内容`);
     }
     const cells = [];
     for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
@@ -73,7 +73,7 @@ function normalizeColumnIndex(value, columnCount, label) {
   if (value === null || value === undefined || value === '') return null;
   const index = Number(value);
   if (!Number.isInteger(index) || index < 0 || index >= columnCount) {
-    throw new HrTableImportError('invalid_mapping', `${label}的列索引无效`);
+    throw new HrTableImportError('invalid_mapping', `请重新选择${label}所在列`);
   }
   return index;
 }
@@ -86,7 +86,7 @@ function normalizeBasicMapping(rawMapping, columnCount) {
     const index = normalizeColumnIndex(source[field], columnCount, BASIC_FIELD_LABELS[field]);
     if (index === null) return;
     if (usedColumns.has(index)) {
-      throw new HrTableImportError('invalid_mapping', '同一表格列不能映射到多个基础字段');
+      throw new HrTableImportError('invalid_mapping', '请为每项资料选择不同的表格列');
     }
     mapping[field] = index;
     usedColumns.add(index);
@@ -95,7 +95,7 @@ function normalizeBasicMapping(rawMapping, columnCount) {
   if (missing.length) {
     throw new HrTableImportError(
       'invalid_mapping',
-      `请完成必填映射：${missing.map((field) => BASIC_FIELD_LABELS[field]).join('、')}`
+      `请选择以下资料所在列：${missing.map((field) => BASIC_FIELD_LABELS[field]).join('、')}`
     );
   }
   return { mapping, usedColumns };
@@ -104,7 +104,7 @@ function normalizeBasicMapping(rawMapping, columnCount) {
 function normalizeExtensionMapping(rawMapping, columnCount, usedColumns) {
   if (!rawMapping) return [];
   if (!Array.isArray(rawMapping)) {
-    throw new HrTableImportError('invalid_mapping', '扩展字段映射格式错误');
+    throw new HrTableImportError('invalid_mapping', '请重新选择补充资料所在列');
   }
   const usedFieldIds = new Set();
   return rawMapping.map((item) => {
@@ -112,16 +112,16 @@ function normalizeExtensionMapping(rawMapping, columnCount, usedColumns) {
     const columnIndex = normalizeColumnIndex(
       item && item.columnIndex,
       columnCount,
-      '扩展字段'
+      '补充资料'
     );
     if (!fieldId || columnIndex === null) {
-      throw new HrTableImportError('invalid_mapping', '扩展字段映射缺少字段或列索引');
+      throw new HrTableImportError('invalid_mapping', '请选择补充资料所在列');
     }
     if (usedColumns.has(columnIndex)) {
-      throw new HrTableImportError('invalid_mapping', '同一表格列不能重复映射');
+      throw new HrTableImportError('invalid_mapping', '请为每项资料选择不同的表格列');
     }
     if (usedFieldIds.has(fieldId)) {
-      throw new HrTableImportError('invalid_mapping', '同一扩展字段不能由多列重复映射');
+      throw new HrTableImportError('invalid_mapping', '请为每项补充资料选择一列表格内容');
     }
     usedColumns.add(columnIndex);
     usedFieldIds.add(fieldId);
@@ -219,7 +219,7 @@ function buildError(field, value, message, fieldType) {
     field,
     value: safeString(value),
     error: message,
-    fieldType: fieldType || '基础字段'
+    fieldType: fieldType || '基本资料'
   };
 }
 
@@ -244,7 +244,7 @@ async function loadImportContext(orgId, extensionMapping) {
     );
     template = templates[0] || null;
     if (!template) {
-      throw new HrTableImportError('missing_template', '未配置人事信息模板，请先在管理端配置模板字段');
+      throw new HrTableImportError('missing_template', '请先在人事管理中选择人事模板');
     }
     const [fieldRows] = await pool.query(
       'SELECT * FROM org_hr_profile_template_snapshot_fields WHERE snapshot_id = ? AND is_active = 1 ORDER BY sort_order',
@@ -254,7 +254,7 @@ async function loadImportContext(orgId, extensionMapping) {
     const fieldIds = new Set(templateFields.map((field) => field.id));
     extensionMapping.forEach((mapping) => {
       if (!fieldIds.has(mapping.fieldId)) {
-        throw new HrTableImportError('invalid_mapping', '扩展字段不属于当前组织的人事模板');
+        throw new HrTableImportError('invalid_mapping', '请重新选择当前组织的人事资料项');
       }
     });
   }
@@ -293,7 +293,7 @@ function buildMappingSummary(headers, basicMapping, extensionMapping, templateFi
       columnIndex: mapping.columnIndex,
       header: headers[mapping.columnIndex],
       target: mapping.fieldId,
-      targetLabel: field ? field.label : '扩展字段',
+      targetLabel: field ? field.label : '补充资料',
       targetType: 'extension'
     });
   });
@@ -330,9 +330,9 @@ async function prepareHrTableImport(payload, orgId) {
     const rowErrors = [];
 
     if (!studentId) {
-      rowErrors.push(buildError('学号', '', '学号不能为空'));
+      rowErrors.push(buildError('学号', '', '请填写学号'));
     } else if (seenStudentIds.has(studentId)) {
-      rowErrors.push(buildError('学号', studentId, '同一表格中学号重复'));
+      rowErrors.push(buildError('学号', studentId, '请删除重复的学号'));
     } else {
       seenStudentIds.add(studentId);
     }
@@ -346,9 +346,9 @@ async function prepareHrTableImport(payload, orgId) {
     const identityName = mappedIdentity || names.identityNameById.get(safeString(existing && existing.identity_id)) || '';
     const workGroupName = mappedWorkGroup || names.workGroupNameById.get(safeString(existing && existing.work_group_id)) || '';
 
-    if (!name) rowErrors.push(buildError('姓名', '', '姓名不能为空'));
-    if (!departmentName) rowErrors.push(buildError('所属部门', '', '所属部门不能为空'));
-    if (!identityName) rowErrors.push(buildError('身份', '', '身份不能为空'));
+    if (!name) rowErrors.push(buildError('姓名', '', '请填写姓名'));
+    if (!departmentName) rowErrors.push(buildError('所属部门', '', '请选择所属部门'));
+    if (!identityName) rowErrors.push(buildError('身份', '', '请选择身份'));
 
     if (existing) {
       ['name', 'department', 'identity', 'workGroup'].forEach((field) => {
@@ -365,19 +365,19 @@ async function prepareHrTableImport(payload, orgId) {
       if (!value) {
         if (existing) preservedEmptyFields += 1;
         if (!existing && field && field.required) {
-          rowErrors.push(buildError(field.label, '', `${field.label}不能为空`, field.type));
+          rowErrors.push(buildError(field.label, '', `请填写${field.label}`, field.type));
         }
         return;
       }
-      const error = field ? validateFieldValue(field, value) : '扩展字段不存在';
+      const error = field ? validateFieldValue(field, value) : '该资料项已删除，请重新选择';
       if (error) {
-        rowErrors.push(buildError(field ? field.label : '扩展字段', value, error, field ? field.type : 'text'));
+        rowErrors.push(buildError(field ? field.label : '补充资料', value, error, field ? field.type : 'text'));
         return;
       }
       extensionValues[mapping.fieldId] = field && field.type === 'date' ? tryParseDate(value) : value;
     });
 
-    const basicErrorCount = rowErrors.filter((error) => error.fieldType === '基础字段').length;
+    const basicErrorCount = rowErrors.filter((error) => error.fieldType === '基本资料').length;
     if (!rowErrors.length || (skipInvalid && basicErrorCount === 0)) {
       parsedRows.push({
         rowNumber: tableRow.rowNumber,
@@ -507,7 +507,7 @@ async function importPreparedRows(prepared, orgId) {
   if (prepared.validationErrors.length && !prepared.skipInvalid) {
     return {
       status: 'validation_errors',
-      message: `共 ${prepared.validationErrors.length} 条记录存在字段问题`,
+      message: `请修改 ${prepared.validationErrors.length} 条内容不正确的记录`,
       errors: prepared.validationErrors,
       count: 0,
       preview: prepared.preview

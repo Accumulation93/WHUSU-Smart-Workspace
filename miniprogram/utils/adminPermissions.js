@@ -74,7 +74,7 @@ function savePermissionState(result) {
 async function refreshMyPermissions() {
   const result = await callFunction({ name: 'getMyAdminPermissions', data: {} });
   if (result.status !== 'success') {
-    const error = new Error(result.message || '读取管理员权限失败');
+    const error = new Error(result.message || '请稍后刷新');
     error.status = result.status;
     throw error;
   }

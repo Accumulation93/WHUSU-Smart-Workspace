@@ -26,7 +26,7 @@ module.exports = Behavior({
         this.setData({ activityList: [], currentActivityId: '', currentActivityName: '' });
         if (typeof this.clearScoreResultsState === 'function') this.clearScoreResultsState();
         wx.showToast({
-          title: '加载评分活动失败',
+          title: '请稍后刷新评分活动',
           icon: 'none'
         });
       } finally {
@@ -117,7 +117,7 @@ module.exports = Behavior({
         const result = await this.callCloud('saveScoreActivity', form);
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '保存活动失败',
+            title: result.message || '未保存，请重试',
             icon: 'none'
           });
           return;
@@ -131,7 +131,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '保存活动失败',
+          title: '未保存，请重试',
           icon: 'none'
         });
       } finally {
@@ -147,7 +147,7 @@ module.exports = Behavior({
   
       wx.showModal({
         title: '设为当前评分活动',
-        content: '设为当前评分活动？',
+        content: '后续评分将进入该活动。',
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -157,7 +157,7 @@ module.exports = Behavior({
             const result = await this.callCloud('setCurrentScoreActivity', { id });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '设置失败',
+                title: result.message || '未设置，请重试',
                 icon: 'none'
               });
               return;
@@ -168,13 +168,9 @@ module.exports = Behavior({
             if (this.data.activeTab === 'results') {
               await this.loadScoreResults();
             }
-            wx.showToast({
-              title: '当前活动已切换',
-              icon: 'success'
-            });
           } catch (error) {
             wx.showToast({
-              title: '设置当前活动失败',
+              title: '未设置，请重试',
               icon: 'none'
             });
           }
@@ -189,13 +185,13 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('toggleActivityPause', { id });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '操作失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未完成，请重试', icon: 'none' });
           return;
         }
         await this.loadActivityList();
-        wx.showToast({ title: result.message || '操作成功', icon: 'success' });
+        wx.showToast({ title: result.message || '已完成', icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '操作失败', icon: 'none' });
+        wx.showToast({ title: '未完成，请重试', icon: 'none' });
       }
     },
 
@@ -213,7 +209,7 @@ module.exports = Behavior({
             const result = await this.callCloud('deleteScoreActivity', { id });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '删除失败',
+                title: result.message || '未删除，请重试',
                 icon: 'none'
               });
               return;
@@ -230,7 +226,7 @@ module.exports = Behavior({
             });
           } catch (error) {
             wx.showToast({
-              title: '删除评分活动失败',
+              title: '未删除，请重试',
               icon: 'none'
             });
           }

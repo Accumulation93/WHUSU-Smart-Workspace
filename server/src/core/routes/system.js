@@ -16,7 +16,7 @@ router.post('/getSystemConfig', async (req, res) => {
       } : { timezone: 8, currentOrganization: null }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '获取配置失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新设置' });
   }
 });
 
@@ -25,10 +25,10 @@ router.post('/saveSystemConfig', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     if (req.body.currentOrganization !== undefined
       && (admin.admin_level !== 'super_admin' || admin.org_id !== '')) {
-      return res.status(403).json({ status: 'permission_denied', message: '仅超级管理员可修改系统默认组织' });
+      return res.status(403).json({ status: 'permission_denied', message: '请使用超级管理员身份' });
     }
 
     const timezone = toNumber(req.body.timezone, 8);
@@ -45,9 +45,9 @@ router.post('/saveSystemConfig', async (req, res) => {
       await systemConfigModel.setCurrentOrganization(currentOrganization, nowUtc);
     }
 
-    res.json({ status: 'success', message: '配置保存成功' });
+    res.json({ status: 'success', message: '设置已保存' });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '保存配置失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '设置未保存，请重试' });
   }
 });
 

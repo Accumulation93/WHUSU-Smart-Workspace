@@ -398,7 +398,7 @@ Page({
       success: function (res) {
         let result = res.result || {};
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '评分页加载失败', icon: 'none' });
+          wx.showToast({ title: result.message || '请重新打开评分页', icon: 'none' });
           self.setData({ loading: false, loadFailed: true });
           self._schedule(function () { self.redirectHome(); }, 1200);
           return;
@@ -413,7 +413,7 @@ Page({
         self.templateConfigSignature = result.rule ? result.rule.templateConfigSignature : '';
 
         let hasExistingRecord = !!result.existingRecord;
-        let existingRecordText = hasExistingRecord ? '已自动加载上次评分，可以直接修改后重新提交' : '';
+        let existingRecordText = hasExistingRecord ? '已载入上次评分，可修改后提交' : '';
 
         let summaries = computeSummaries(rawQuestionList);
         let questionList = summaries.questionList;
@@ -454,7 +454,7 @@ Page({
         }, 350);
       },
       fail: function () {
-        wx.showToast({ title: '评分页加载失败', icon: 'none' });
+        wx.showToast({ title: '请重新打开评分页', icon: 'none' });
         self.setData({ loading: false, loadFailed: true });
       }
     });
@@ -822,11 +822,11 @@ Page({
       success: function (res) {
         let result = res.result || {};
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '提交评分失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未提交，请重试', icon: 'none' });
           self.setData({ submitting: false });
           return;
         }
-        wx.showToast({ title: '提交成功', icon: 'success' });
+        wx.showToast({ title: '已提交', icon: 'success' });
         self._schedule(function () {
           wx.navigateBack({ fail: function () { self.redirectHome(); } });
         }, 1200);
@@ -839,17 +839,17 @@ Page({
             success: function (checkRes) {
               let checkResult = checkRes.result || {};
               if (checkResult.status === 'success' && checkResult.existingRecord) {
-                wx.showToast({ title: '提交成功', icon: 'success' });
+                wx.showToast({ title: '已提交', icon: 'success' });
                 self._schedule(function () {
                   wx.navigateBack({ fail: function () { self.redirectHome(); } });
                 }, 1200);
               } else {
-                wx.showToast({ title: '提交评分失败', icon: 'none' });
+                wx.showToast({ title: '未提交，请重试', icon: 'none' });
               }
               self.setData({ submitting: false });
             },
             fail: function () {
-              wx.showToast({ title: '提交评分失败', icon: 'none' });
+              wx.showToast({ title: '未提交，请重试', icon: 'none' });
               self.setData({ submitting: false });
             }
           });

@@ -14,6 +14,7 @@ const { createRateLimiter } = require('./middleware/rateLimiter');
 const { verifySchemaContract } = require('./utils/schemaContract');
 const unifiedIdentityModel = require('./core/models/unifiedIdentity');
 const notificationOutboxModel = require('./modules/audit/models/notificationOutbox');
+const { protectPublicMessage } = require('./utils/publicMessage');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3000', 10);
@@ -37,7 +38,7 @@ app.use((req, res, next) => {
     if (body && typeof body === 'object' && !Array.isArray(body) && !body.requestId) {
       body.requestId = req.requestId || '';
     }
-    return sendJson(body);
+    return sendJson(protectPublicMessage(body));
   };
   next();
 });
@@ -49,7 +50,7 @@ app.use((req, res, next) => {
   const timer = setTimeout(() => {
     req.timedOut = true;
     controller.abort(new Error('request_timeout'));
-    if (!res.headersSent) res.status(503).json({ status: 'request_timeout', message: '请求处理超时' });
+    if (!res.headersSent) res.status(503).json({ status: 'request_timeout', message: '请稍后重试' });
   }, REQUEST_TIMEOUT_MS);
   const clear = () => clearTimeout(timer);
   res.once('finish', clear);
@@ -110,7 +111,7 @@ app.use((req, res, next) => {
   const bodyLimit = LARGE_JSON_ROUTES.has(req.path) ? MAX_UPLOAD_JSON_BODY_BYTES : MAX_JSON_BODY_BYTES;
   const contentLength = Number(req.get('content-length') || 0);
   if (Number.isFinite(contentLength) && contentLength > bodyLimit) {
-    return res.status(413).json({ status: 'payload_too_large', message: '请求内容过大' });
+    return res.status(413).json({ status: 'payload_too_large', message: '请减少本次提交内容' });
   }
   return express.json({ limit: bodyLimit, strict: true })(req, res, next);
 });
@@ -123,7 +124,7 @@ app.use((req, res, next) => {
     const current = stack.pop();
     nodes += 1;
     if (current.depth > 24 || nodes > 100000) {
-      return res.status(413).json({ status: 'payload_too_complex', message: '请求结构过于复杂' });
+      return res.status(413).json({ status: 'payload_too_complex', message: '请减少本次提交内容' });
     }
     if (!current.value || typeof current.value !== 'object') continue;
     for (const value of Object.values(current.value)) {
@@ -161,7 +162,7 @@ app.get('/api/admin/health', async (req, res) => {
     });
   } catch (e) {
     req.logger.error('Protected health check failed', { error: e.message });
-    res.status(503).json({ status: 'degraded', message: '数据库不可用' });
+    res.status(503).json({ status: 'degraded', message: '服务暂不可用，请稍后重试' });
   }
 });
 
@@ -219,7 +220,7 @@ app.use('/api', require('./modules/venue/routes/venueApprovalAdmin'));
 
 // ---------- 404 handler (fail fast for unknown routes) ----------
 app.use('/api', (req, res) => {
-  res.status(404).json({ status: 'not_found', message: 'Route not found: ' + req.method + ' ' + req.path });
+  res.status(404).json({ status: 'not_found', message: '请重新打开页面后再试' });
 });
 
 // ---------- error handler ----------
@@ -234,7 +235,7 @@ app.use((err, req, res, next) => {
     requestId: req.requestId,
     openid: (req.openid || '').slice(0, 12) || undefined
   });
-  res.status(500).json({ status: 'error', message: 'Internal server error' });
+  res.status(500).json({ status: 'error', message: '服务暂不可用，请稍后重试' });
 });
 
 let server = null;

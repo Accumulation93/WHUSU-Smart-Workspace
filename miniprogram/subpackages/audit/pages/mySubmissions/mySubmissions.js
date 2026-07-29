@@ -31,7 +31,7 @@ Page({
         this.setData({ submissions: res.submissions || [] });
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '加载失败'));
+      showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -60,10 +60,10 @@ Page({
         showShortToast('已全部设为已读', 'success');
         this.loadData();
       } else {
-        showShortToast(res.message || '操作失败');
+        showShortToast(res.message || '未完成，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '操作失败'));
+      showShortToast(getErrorText(e, '未完成，请重试'));
     } finally {
       wx.hideLoading();
     }

@@ -14,7 +14,7 @@ const CATEGORY_LABELS = {
   venue: '场地',
   scoring: '考核',
   hr: '人事',
-  system: '系统'
+  system: '其他'
 };
 
 const PORTAL_CARDS_USER = [
@@ -34,7 +34,7 @@ const PORTAL_CARDS_ADMIN = [
   { key: 'authManagement', label: '身份认证', iconName: 'shield', url: '/subpackages/org/pages/authManagement/authManagement', disabled: false },
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
-  { key: 'system', label: '系统配置', iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
+  { key: 'system', label: '基本设置', iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
   { key: 'audit', label: '审核', iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
   { key: 'venue', label: '场地管理', iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false },
   { key: 'permissions', label: '权限管理', iconName: 'shield', url: '/subpackages/org/pages/adminPermissions/adminPermissions', disabled: false }
@@ -266,7 +266,7 @@ Page({
     const card = source.find(function(c) { return c.key === key; });
     if (!card) return;
     if (card.disabled) {
-      wx.showToast({ title: card.disabledReason || '暂不可用', icon: 'none' });
+      wx.showToast({ title: card.disabledReason || '请稍后再试', icon: 'none' });
       return;
     }
     navigateToTrustedRoute(card.url);
@@ -412,7 +412,7 @@ Page({
           name: 'markNotificationRead',
           data: { id: id, organizationId: wx.getStorageSync('activeOrgId') || '' }
         });
-        if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+        if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
       }
       catch (_) { failed.push(id); }
     }
@@ -461,7 +461,7 @@ Page({
           name: 'markNotificationRead',
           data: { id: id, organizationId: current.organizationId }
         });
-        if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+        if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
       } catch (error) {
         const key = this.pendingReadStorageKey(current.organizationId);
         const queued = wx.getStorageSync(key) || [];
@@ -530,7 +530,7 @@ Page({
             name: 'markNotificationRead',
             data: { id: item.id, organizationId: item.organizationId }
           });
-          if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+          if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
         } catch (_) {
           const key = this.pendingReadStorageKey(item.organizationId);
           const queued = wx.getStorageSync(key) || [];
@@ -541,7 +541,7 @@ Page({
       navigateToTrustedRoute(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
-      showShortToast(denied ? '权限已变更' : '身份切换失败');
+      showShortToast(denied ? '请重新选择身份' : '未切换，请重试');
       this.loadMessageOverview();
     }
   },
@@ -562,7 +562,7 @@ Page({
               organizationId: pending.item.organizationId
             }
           });
-          if (result.status !== 'success') throw new Error(result.message || '通知销记失败');
+          if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
         } catch (_) {
           const key = this.pendingReadStorageKey(pending.item.organizationId);
           const queued = wx.getStorageSync(key) || [];
@@ -579,7 +579,7 @@ Page({
       navigateToTrustedRoute(pending.item.targetUrl);
     } catch (error) {
       const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
-      wx.showToast({ title: denied ? '组织权限已变更' : '组织切换失败', icon: 'none' });
+      wx.showToast({ title: denied ? '请重新选择组织' : '未切换，请重试', icon: 'none' });
       this._pendingMessageNavigation = null;
       this.setData({
         showMessageSwitchDialog: false,
@@ -665,7 +665,7 @@ Page({
         name: 'deleteNotification',
         data: { id: id, organizationId: deleted && deleted.organizationId }
       });
-      if (result.status !== 'success') throw new Error(result.message || '删除失败');
+      if (result.status !== 'success') throw new Error(result.message || '未删除，请重试');
     } catch (err) {
       console.error('[portal] deleteNotification failed:', err);
       this.setData({ notifications: previous });
@@ -683,12 +683,12 @@ Page({
     });
     try {
       const result = await callFunction({ name: 'markAllNotificationsRead', data: {} });
-      if (result.status !== 'success') throw new Error(result.message || '全部已读失败');
+      if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
       if (result.partial) this.setData({ messagePartial: true });
     } catch (error) {
       this.setData({ notifications: previous });
       this.loadMessageOverview();
-      wx.showToast({ title: '操作失败，请重试', icon: 'none' });
+      wx.showToast({ title: '未完成，请重试', icon: 'none' });
     }
   },
 

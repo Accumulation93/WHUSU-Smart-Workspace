@@ -105,7 +105,7 @@ router.post('/userLogin', async (req, res) => {
     }
 
     if (!openid) {
-      return res.json({ status: 'auth_failed', message: '无法获取用户标识，请重试' });
+      return res.json({ status: 'auth_failed', message: '请重新微信登录' });
     }
 
     const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
@@ -205,10 +205,10 @@ router.post('/userLogin', async (req, res) => {
     // 老版本只允许已有绑定继续登录；新认领必须使用统一认证，避免恢复姓名学号直绑。
     return res.status(426).json({
       status: 'client_upgrade_required',
-      message: '请更新小程序并使用个人认证码完成身份认证'
+      message: '请更新小程序并完成身份认证'
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '登录失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '请重新微信登录' });
   }
 });
 
@@ -217,7 +217,7 @@ router.post('/adminLogin', async (req, res) => {
   try {
     const code = safeString(req.body.code);
     if (!code && !ALLOW_DEV_OPENID_LOGIN) {
-      return res.json({ status: 'invalid_params', message: '缺少登录凭证code' });
+      return res.json({ status: 'invalid_params', message: '请重新微信登录' });
     }
 
     let openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
@@ -236,7 +236,7 @@ router.post('/adminLogin', async (req, res) => {
     }
 
     if (!openid) {
-      return res.json({ status: 'auth_failed', message: '微信登录失败，请重试' });
+      return res.json({ status: 'auth_failed', message: '请重新微信登录' });
     }
 
     const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
@@ -247,7 +247,7 @@ router.post('/adminLogin', async (req, res) => {
     if (allAdminRecords.length === 0) {
       return res.status(426).json({
         status: 'client_upgrade_required',
-        message: '请更新小程序并使用统一身份认证'
+        message: '请更新小程序并完成身份认证'
       });
     }
 
@@ -318,10 +318,10 @@ router.post('/adminLogin', async (req, res) => {
     // 老版本只兼容已经绑定且组织仍有效的管理员。
     return res.status(426).json({
       status: 'client_upgrade_required',
-      message: '当前管理员身份需要在新版小程序中重新选择'
+      message: '请更新小程序并重新选择身份'
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '管理员登录失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '请重新微信登录' });
   }
 });
 
@@ -397,12 +397,12 @@ router.post('/activateOrganization', async (req, res) => {
 
     if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
     if (!orgId || (role !== 'user' && role !== 'admin')) {
-      return res.json({ status: 'invalid_params', message: '组织或身份参数无效' });
+      return res.json({ status: 'invalid_params', message: '请重新选择组织和身份' });
     }
 
     const organization = await organizationModel.getById(orgId);
     if (!organization) {
-      return res.json({ status: 'not_found', message: '所选组织不存在' });
+      return res.json({ status: 'not_found', message: '请重新选择组织' });
     }
 
     let user;
@@ -412,13 +412,13 @@ router.post('/activateOrganization', async (req, res) => {
       const orgAdmin = adminRecords.find((item) => item.org_id === orgId);
       const activeAdmin = superAdmin || orgAdmin;
       if (!activeAdmin) {
-        return res.json({ status: 'org_access_denied', message: '您不是该组织的管理员' });
+        return res.json({ status: 'org_access_denied', message: '请使用该组织的管理员身份' });
       }
       user = await buildAdminUser(activeAdmin, orgId);
     } else {
       const resolved = await resolveUserInOrganization(openid, orgId);
       if (!resolved) {
-        return res.json({ status: 'org_access_denied', message: '该组织中没有匹配的用户身份' });
+        return res.json({ status: 'org_access_denied', message: '请重新选择身份' });
       }
       user = await buildUserProfileCrossOrg(resolved.hr, orgId);
     }
@@ -441,7 +441,7 @@ router.post('/activateOrganization', async (req, res) => {
     }
     const message = e && e.code === 'ORG_IDENTITY_CONFLICT'
       ? e.message
-      : '组织切换失败，请稍后重试';
+      : '未切换，请重试';
     res.json({ status: 'error', message, requestId: req.requestId || '' });
   }
 });
@@ -526,7 +526,7 @@ router.post('/confirmAutoBind', async (req, res) => {
     );
     if (conflicts.length) {
       await conn.rollback();
-      return res.json({ status: 'already_bound', message: '该人事信息已被其他微信绑定' });
+      return res.json({ status: 'already_bound', message: '请使用账号恢复更换微信' });
     }
     const [existingRows] = await conn.query(
       'SELECT id FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1 FOR UPDATE',
@@ -539,13 +539,13 @@ router.post('/confirmAutoBind', async (req, res) => {
     }
     if (!await authChallengeModel.consume(conn, challenge.id)) {
       await conn.rollback();
-      return res.json({ status: 'challenge_expired', message: '绑定验证已使用，请重新登录' });
+      return res.json({ status: 'challenge_expired', message: '请重新微信登录' });
     }
     await conn.commit();
     const targetOrganization = await organizationModel.getById(payload.targetOrgId);
     res.json({
       status: 'success',
-      message: '绑定成功',
+      message: '微信已绑定',
       activeOrg: { id: payload.targetOrgId, name: targetOrganization ? targetOrganization.name : '' },
       user: await buildUserProfileCrossOrg(targetHr, payload.targetOrgId),
       availableOrgs: await buildAvailableOrgs(openid, null)
@@ -553,7 +553,7 @@ router.post('/confirmAutoBind', async (req, res) => {
   } catch (e) {
     try { await conn.rollback(); } catch (_) { /* 忽略回滚异常 */ }
     req.logger.error('confirmAutoBind failed', { error: e.message });
-    res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
+    res.json({ status: 'error', message: '未完成身份认证，请重试', requestId: req.requestId || '' });
   } finally {
     conn.release();
   }
@@ -563,7 +563,7 @@ router.post('/confirmAutoBind', async (req, res) => {
 router.post('/bindUserInfo', async (req, res) => {
   return res.status(426).json({
     status: 'client_upgrade_required',
-    message: '姓名学号直接绑定已停用，请更新小程序并使用个人认证码'
+    message: '请更新小程序并完成身份认证'
   });
 });
 
@@ -571,7 +571,7 @@ router.post('/bindUserInfo', async (req, res) => {
 router.post('/bindAdminInfo', async (req, res) => {
   return res.status(426).json({
     status: 'client_upgrade_required',
-    message: '管理员邀请码登录已停用，请更新小程序并使用统一身份认证'
+    message: '请更新小程序并使用微信登录'
   });
 });
 
@@ -580,7 +580,7 @@ router.post('/bindAdminInfo', async (req, res) => {
 router.post('/unbindRole', async (req, res) => {
   return res.status(410).json({
     status: 'recovery_required',
-    message: '统一账号不支持直接解绑，请在账号安全中使用账号恢复'
+    message: '请在账号安全中更换微信'
   });
 });
 

@@ -27,7 +27,7 @@ Page({
         this.setData({ signatures: res.signatures || [] });
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '加载失败'));
+      showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -71,10 +71,10 @@ Page({
         this.setData({ creating: false, editingSignature: null });
         this.loadSignatures();
       } else {
-        showShortToast(res.message || '保存失败');
+        showShortToast(res.message || '未保存，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '保存失败'));
+      showShortToast(getErrorText(e, '未保存，请重试'));
     } finally {
       this.setData({ loading: false });
     }
@@ -94,10 +94,10 @@ Page({
             showShortToast('签名已删除');
             that.loadSignatures();
           } else {
-            showShortToast(res.message || '删除失败');
+            showShortToast(res.message || '未删除，请重试');
           }
         } catch (e) {
-          showShortToast(getErrorText(e, '删除失败'));
+          showShortToast(getErrorText(e, '未删除，请重试'));
         }
       }
     });
@@ -111,10 +111,10 @@ Page({
         showShortToast('已设为默认签名');
         this.loadSignatures();
       } else {
-        showShortToast(res.message || '设置失败');
+        showShortToast(res.message || '未设置，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '设置失败'));
+      showShortToast(getErrorText(e, '未设置，请重试'));
     }
   }
 });

@@ -13,7 +13,7 @@ async function ensureAdmin(openid) {
 router.post('/listUserBindings', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const data = await userInfoModel.getAll();
     res.json({ status: 'success', data });

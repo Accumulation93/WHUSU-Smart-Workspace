@@ -43,7 +43,7 @@ Page({
       const res = await callFunction({ name: 'listMyVenueBookings', data: {} });
       if (orgSession.isRequestCurrent(this, request) && res.status === 'success') this.setData({ bookings: res.bookings || [] });
     } catch (e) {
-      showShortToast(getErrorText(e, '加载失败'));
+      showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -69,7 +69,7 @@ Page({
             eventBus.emit('approval:done');
           }
           else showShortToast(res.message);
-        } catch (e) { showShortToast(getErrorText(e, '取消失败')); }
+        } catch (e) { showShortToast(getErrorText(e, '未取消，请重试')); }
       }
     });
   },

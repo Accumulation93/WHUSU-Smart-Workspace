@@ -428,7 +428,7 @@ Page({
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') this.setData({ venues: res.venues || [] });
     } catch (e) {
-      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '加载失败'));
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -461,7 +461,7 @@ Page({
         this.setData({ editing: false });
         this.loadVenues();
       } else showShortToast(res.message);
-    } catch (e) { showShortToast(getErrorText(e, '保存失败')); }
+    } catch (e) { showShortToast(getErrorText(e, '未保存，请重试')); }
     finally { this.setData({ loading: false }); }
   },
 
@@ -476,7 +476,7 @@ Page({
           const res = await callFunction({ name: 'deleteVenue', data: { id } });
           if (res.status === 'success') { showShortToast('已删除'); that.loadVenues(); }
           else showShortToast(res.message);
-        } catch (e) { showShortToast(getErrorText(e, '删除失败')); }
+        } catch (e) { showShortToast(getErrorText(e, '未删除，请重试')); }
       }
     });
   },
@@ -746,7 +746,7 @@ Page({
     const ed = this.data.yearlyRangeEndDay;
     // Validate: start must be before or equal to end
     if (sm > em || (sm === em && sd > ed)) {
-      showShortToast('开始日期不能晚于结束日期'); return;
+      showShortToast('请将结束日期设在开始日期之后'); return;
     }
     let vals = [...(this.data.ruleForm.cycleValues || [])];
     // Check for duplicate
@@ -826,7 +826,7 @@ Page({
         ]);
         await this.loadBookingRules();
       } else showShortToast(res.message);
-    } catch (e) { showShortToast(getErrorText(e, '保存失败')); }
+    } catch (e) { showShortToast(getErrorText(e, '未保存，请重试')); }
   },
 
   async deleteRule(e) {
@@ -846,7 +846,7 @@ Page({
               this.setData({ approvalFlow: null, approvalFlowSteps: [] });
               this.loadBookingRules();
             } else showShortToast(res.message);
-          } catch (e) { showShortToast(getErrorText(e, '删除失败')); }
+          } catch (e) { showShortToast(getErrorText(e, '未删除，请重试')); }
         }
       });
       return;
@@ -861,7 +861,7 @@ Page({
         this.loadActivityRules();
         this.loadBookingRules();
       } else showShortToast(res.message);
-    } catch (e) { showShortToast(getErrorText(e, '删除失败')); }
+    } catch (e) { showShortToast(getErrorText(e, '未删除，请重试')); }
   },
 
   // ── Cycle helpers ──
@@ -922,9 +922,9 @@ Page({
 
       // 非 success 状态提示错误
       if (pendingRes.status !== 'success' && pendingRes.status !== undefined)
-        showShortToast(pendingRes.message || '加载失败');
+        showShortToast(pendingRes.message || '请稍后刷新');
       if (timeRes.status !== 'success' && timeRes.status !== undefined)
-        showShortToast(timeRes.message || '加载失败');
+        showShortToast(timeRes.message || '请稍后刷新');
 
       const pendingList = (pendingRes.status === 'success' ? pendingRes.bookings : []) || [];
       const timeList = (timeRes.status === 'success' ? timeRes.bookings : []) || [];
@@ -959,7 +959,7 @@ Page({
 
       this.setData({ bookings });
     } catch (e) {
-      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '加载失败'));
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ bookingsLoading: false });
     }
@@ -1062,7 +1062,7 @@ Page({
         showShortToast(res.message);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '操作失败'));
+      showShortToast(getErrorText(e, '未完成，请重试'));
     } finally {
       this.setData({ loading: false });
     }
@@ -1106,7 +1106,7 @@ Page({
         this._buildAdminTimetable(res.dailySchedules || []);
       }
     } catch (e) {
-      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '加载失败'));
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) wx.hideLoading();
     }
@@ -1259,7 +1259,7 @@ Page({
     let item = this.data.bookings.find(function(b) { return b.id === id; });
     if (!item) return;
     if (item.visibility === 'occupancy_only') {
-      showShortToast('仅共享场地占用信息');
+      showShortToast('其他组织只显示占用时段');
       return;
     }
     this.setData({ bookingDetailVisible: true, bookingDetail: item, expandedNodeKey: '' });
@@ -1326,9 +1326,9 @@ Page({
           });
         }
       } else {
-        showShortToast(res.message || '加载失败');
+        showShortToast(res.message || '请稍后刷新');
       }
-    } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
+    } catch (e) { showShortToast(getErrorText(e, '请稍后刷新')); }
     finally { wx.hideLoading(); }
   },
 
@@ -1456,7 +1456,7 @@ Page({
     if (!adminBookingTitle) { showShortToast('请填写借用事由'); return; }
     const timeStart = adminBookingStartDate + 'T' + adminBookingTimeStart;
     const timeEnd = adminBookingStartDate + 'T' + adminBookingTimeEnd;
-    if (timeStart >= timeEnd) { showShortToast('结束时间必须晚于开始时间'); return; }
+    if (timeStart >= timeEnd) { showShortToast('请将结束时间设在开始时间之后'); return; }
 
     // Validate range with interval merging
     if (_adminDayData) {
@@ -1493,7 +1493,7 @@ Page({
         this.setData({ adminBookingVisible: false });
         if (this.data.scheduleVisible) this.loadVenueTimetable();
       } else showShortToast(res.message);
-    } catch (e) { showShortToast(getErrorText(e, '借用失败')); }
+    } catch (e) { showShortToast(getErrorText(e, '未提交借用，请重试')); }
     finally { this.setData({ loading: false }); }
   },
 
@@ -1537,7 +1537,7 @@ Page({
         this.setData({ purposeEditId: '', purposeEditText: '' });
         this.loadPurposes();
       } else showShortToast(res.message);
-    } catch (e) { showShortToast(getErrorText(e, '保存失败')); }
+    } catch (e) { showShortToast(getErrorText(e, '未保存，请重试')); }
   },
 
   async deletePurpose(e) {
@@ -1546,7 +1546,7 @@ Page({
       const res = await callFunction({ name: 'deleteVenueBookingPurpose', data: { id } });
       if (res.status === 'success') { showShortToast('已删除'); this.loadPurposes(); }
       else showShortToast(res.message);
-    } catch (e) { showShortToast(getErrorText(e, '删除失败')); }
+    } catch (e) { showShortToast(getErrorText(e, '未删除，请重试')); }
   },
 
   // ═══════════════ APPROVAL FLOW MANAGEMENT (inline in rule editor) ═══════════════
@@ -1957,7 +1957,7 @@ Page({
           if (!tab.workGroups.length) continue;
           const hasSelection = tab.workGroups.some(wg => selected[String(wg.id)]);
           if (!hasSelection) {
-            wx.showToast({ title: (tab.deptName || tab.deptId) + ' 至少需要选择一个职能组', icon: 'none' });
+            wx.showToast({ title: '请为' + (tab.deptName || tab.deptId) + '选择职能组', icon: 'none' });
             return;
           }
         }

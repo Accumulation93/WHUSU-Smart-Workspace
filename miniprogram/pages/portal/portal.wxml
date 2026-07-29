@@ -3,9 +3,9 @@
     <view class="hero-badge">{{heroIdentity}}</view>
     <view class="hero-title">{{heroName}}</view>
     <view class="hero-org-context org-context-action" wx:if="{{organizationName && hasUser}}" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换组织与身份">
-      <view class="hero-org-context-icon"><ui-icon name="grid" tone="white" size="28" ariaLabel="当前工作上下文" /></view>
+      <view class="hero-org-context-icon"><ui-icon name="grid" tone="white" size="28" ariaLabel="当前组织与身份" /></view>
       <view class="hero-org-context-copy">
-        <view class="hero-org-context-label">当前工作上下文</view>
+        <view class="hero-org-context-label">当前组织与身份</view>
         <view class="hero-org-context-name">{{organizationName}}</view>
         <view class="hero-context-identity">{{heroIdentity}}</view>
       </view>
@@ -39,7 +39,7 @@
         <view class="info-value">{{userDepartment}}</view>
       </view>
       <view class="info-block info-block-full" wx:if="{{showWorkGroup}}">
-        <view class="info-label">工作分工（职能组）</view>
+        <view class="info-label">职能组</view>
         <view class="info-value">{{userWorkGroup}}</view>
       </view>
     </view>
@@ -219,7 +219,7 @@
     <view class="dialog-panel message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
       <view class="dialog-badge message-switch-badge">跨组织事项</view>
       <view class="dialog-title">{{messageSwitchTitle}}</view>
-      <view class="dialog-desc">当前上下文将切换为</view>
+      <view class="dialog-desc">切换到以下组织后查看</view>
       <view class="message-switch-org-name">{{messageSwitchOrganizationName}}</view>
       <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeMessageSwitchDialog" disabled="{{messageSwitchLoading}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>

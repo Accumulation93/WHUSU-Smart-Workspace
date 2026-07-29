@@ -19,7 +19,7 @@ module.exports = Behavior({
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
-          title: '加载评分问题失败',
+          title: '请稍后刷新评分问题',
           icon: 'none'
         });
       } finally {
@@ -374,7 +374,7 @@ module.exports = Behavior({
         };
   
         if (!q.question) {
-          validationErrors[qi] = { field: 'question', msg: '问题内容不能为空' };
+          validationErrors[qi] = { field: 'question', msg: '请填写问题内容' };
           if (firstInvalidIndex === -1) firstInvalidIndex = qi;
         }
         let min = parseFloat(q.minValue);
@@ -382,18 +382,18 @@ module.exports = Behavior({
         let step = parseFloat(q.stepValue);
         if (isNaN(max) || max <= 0) {
           if (!validationErrors[qi]) {
-            validationErrors[qi] = { field: 'maxValue', msg: '最高分必须为正数' };
+            validationErrors[qi] = { field: 'maxValue', msg: '请输入大于 0 的最高分' };
             if (firstInvalidIndex === -1) firstInvalidIndex = qi;
           }
         } else if (isNaN(min) || min >= max) {
           if (!validationErrors[qi]) {
-            validationErrors[qi] = { field: 'minValue', msg: '最低分必须小于最高分' };
+            validationErrors[qi] = { field: 'minValue', msg: '请将最低分设为小于最高分' };
             if (firstInvalidIndex === -1) firstInvalidIndex = qi;
           }
         }
         if (isNaN(step) || step <= 0) {
           if (!validationErrors[qi]) {
-            validationErrors[qi] = { field: 'stepValue', msg: '步进值必须为正数' };
+            validationErrors[qi] = { field: 'stepValue', msg: '请输入大于 0 的调整幅度' };
             if (firstInvalidIndex === -1) firstInvalidIndex = qi;
           }
         }
@@ -401,7 +401,7 @@ module.exports = Behavior({
       }
   
       if (!questions.length) {
-        wx.showToast({ title: '请至少填写一道题目', icon: 'none' });
+        wx.showToast({ title: '请填写评分问题', icon: 'none' });
         return;
       }
   
@@ -426,7 +426,7 @@ module.exports = Behavior({
         });
   
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '保存评分问题失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
           return;
         }
   
@@ -434,7 +434,7 @@ module.exports = Behavior({
         await this.loadTemplateList();
         wx.showToast({ title: '评分问题已保存', icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '保存评分问题失败', icon: 'none' });
+        wx.showToast({ title: '未保存，请重试', icon: 'none' });
       } finally {
         this.setLoading('saveTemplate', false);
       }
@@ -475,7 +475,7 @@ module.exports = Behavior({
         const result = await this.callCloud('duplicateScoreTemplate', { id });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '复制评分问题失败',
+            title: result.message || '未复制，请重试',
             icon: 'none'
           });
           return;
@@ -488,7 +488,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '复制评分问题失败',
+          title: '未复制，请重试',
           icon: 'none'
         });
       } finally {
@@ -549,7 +549,7 @@ module.exports = Behavior({
         });
       }).catch(function (err) {
         if (err && err.errMsg && err.errMsg.indexOf('cancel') === -1) {
-          wx.showToast({ title: '选择文件失败', icon: 'none' });
+          wx.showToast({ title: '请重新选择文件', icon: 'none' });
         }
       });
     },
@@ -695,7 +695,7 @@ module.exports = Behavior({
   
       const questionCol = fieldToCol['question'];
       if (questionCol == null) {
-        wx.showToast({ title: '请先将一个 CSV 列映射到"问题内容"', icon: 'none' });
+        wx.showToast({ title: '请选择“问题内容”对应的表格列', icon: 'none' });
         return;
       }
   
@@ -809,10 +809,10 @@ module.exports = Behavior({
               if (result && result.status === 'success' && result.fileBase64) {
                 saveAndShareFile(result.fileBase64, '评分问题模板', 'xlsx');
               } else {
-                wx.showToast({ title: '生成Excel失败', icon: 'none' });
+                wx.showToast({ title: '未导出，请重试', icon: 'none' });
               }
             }).catch(function () {
-              wx.showToast({ title: '生成Excel失败', icon: 'none' });
+              wx.showToast({ title: '未导出，请重试', icon: 'none' });
             });
           } else {
             saveAndShareFile(buildCsv(headers, rows), '评分问题模板', 'csv');
@@ -966,7 +966,7 @@ module.exports = Behavior({
             const result = await this.callCloud('deleteScoreTemplate', { id });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '删除失败',
+                title: result.message || '未删除，请重试',
                 icon: 'none'
               });
               return;
@@ -979,7 +979,7 @@ module.exports = Behavior({
             });
           } catch (error) {
             wx.showToast({
-              title: '删除评分问题失败',
+              title: '未删除，请重试',
               icon: 'none'
             });
           }

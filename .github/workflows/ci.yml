@@ -90,6 +90,7 @@ jobs:
           node server/test/requestDeduplication.test.js
           node server/test/clientVersion.test.js
           node server/test/runtimeHardening.test.js
+          node server/test/publicMessage.test.js
           node server/test/securityMigration.test.js
           node server/test/dataIntegrityMigration.test.js
           node server/test/hrTableImport.test.js

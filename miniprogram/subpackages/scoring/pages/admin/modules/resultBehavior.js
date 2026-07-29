@@ -109,7 +109,7 @@ module.exports = Behavior({
           if (result.status !== 'success') {
             this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
-              wx.showToast({ title: result.message || '加载评分结果失败', icon: 'none' });
+              wx.showToast({ title: result.message || '请稍后刷新评分结果', icon: 'none' });
             }
             this.setLoading('results', false);
             return;
@@ -149,7 +149,7 @@ module.exports = Behavior({
           if (result.status !== 'success') {
             this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
-              wx.showToast({ title: result.message || '加载评分结果失败', icon: 'none' });
+              wx.showToast({ title: result.message || '请稍后刷新评分结果', icon: 'none' });
             }
             return;
           }
@@ -188,7 +188,7 @@ module.exports = Behavior({
           if (result.status !== 'success') {
             this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
-              wx.showToast({ title: result.message || '加载评分结果失败', icon: 'none' });
+              wx.showToast({ title: result.message || '请稍后刷新评分结果', icon: 'none' });
             }
             return;
           }
@@ -281,7 +281,7 @@ module.exports = Behavior({
         this.clearScoreResultsState();
         console.error('加载评分结果失败：', error);
         wx.showToast({
-          title: getErrorText(error, '加载评分结果失败'),
+          title: getErrorText(error, '请稍后刷新评分结果'),
           icon: 'none'
         });
       } finally {
@@ -338,7 +338,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '加载评分记录失败',
+            title: result.message || '请稍后刷新评分记录',
             icon: 'none'
           });
           return;
@@ -381,7 +381,7 @@ module.exports = Behavior({
           return;
         }
         wx.showToast({
-          title: '加载评分记录失败',
+          title: '请稍后刷新评分记录',
           icon: 'none'
         });
       } finally {
@@ -428,7 +428,7 @@ module.exports = Behavior({
           || this.data.currentActivityId !== activityId) return;
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '加载评分详情失败',
+            title: result.message || '请稍后刷新评分详情',
             icon: 'none'
           });
           this.setData({ recordDetailPopupVisible: false });
@@ -456,7 +456,7 @@ module.exports = Behavior({
         if (this.recordDetailLoadToken !== requestToken || !orgSession.isCurrent(organizationSnapshot)) return;
         this.setData({ recordDetailPopupVisible: false });
         wx.showToast({
-          title: '加载评分详情失败',
+          title: '请稍后刷新评分详情',
           icon: 'none'
         });
       } finally {
@@ -709,7 +709,7 @@ module.exports = Behavior({
           || this.data.currentActivityId !== activityId) return;
   
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '加载失败', icon: 'none' });
+          wx.showToast({ title: result.message || '请稍后刷新', icon: 'none' });
           this.setData({ departmentScorerLoading: false });
           return;
         }
@@ -738,7 +738,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request)) return;
-        wx.showToast({ title: '加载评分人列表失败', icon: 'none' });
+        wx.showToast({ title: '请稍后刷新评分人', icon: 'none' });
         this.setData({ departmentScorerLoading: false });
       }
     },
@@ -781,7 +781,7 @@ module.exports = Behavior({
           || this.data.currentActivityId !== activityId) return;
   
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '加载失败', icon: 'none' });
+          wx.showToast({ title: result.message || '请稍后刷新', icon: 'none' });
           this.setData({ scorerTargetPopupLoading: false });
           return;
         }
@@ -797,7 +797,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request)) return;
-        wx.showToast({ title: '加载被评分人列表失败', icon: 'none' });
+        wx.showToast({ title: '请稍后刷新被评分人', icon: 'none' });
         this.setData({ scorerTargetPopupLoading: false });
       }
     },
@@ -899,13 +899,13 @@ module.exports = Behavior({
         });
   
         if (result.status !== 'success' || !result.fileContent || !result.fileName) {
-          wx.showToast({ title: result.message || '导出失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未导出，请重试', icon: 'none' });
           return;
         }
   
         saveAndShareFile(result.fileContent, result.fileName, result.extension || 'csv');
       } catch (error) {
-        wx.showToast({ title: '导出失败', icon: 'none' });
+        wx.showToast({ title: '未导出，请重试', icon: 'none' });
       } finally {
         this.setLoading('export_' + report, false);
       }
@@ -939,7 +939,7 @@ module.exports = Behavior({
         });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '撤销评分记录失败',
+            title: result.message || '未撤销，请重试',
             icon: 'none'
           });
           return;
@@ -984,7 +984,7 @@ module.exports = Behavior({
         }
       } catch (error) {
         wx.showToast({
-          title: '撤销评分记录失败',
+          title: '未撤销，请重试',
           icon: 'none'
         });
       } finally {

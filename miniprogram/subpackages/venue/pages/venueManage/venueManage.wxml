@@ -1,7 +1,7 @@
 <view class="page">
   <view class="hero hero-admin" wx:if="{{hasPermission}}">
     <view class="hero-badge">管理端</view>
-    <view class="hero-title">场地管理工作台</view>
+    <view class="hero-title">场地管理</view>
     <view class="hero-subtitle hero-admin-subtitle">场地借用 · {{adminDisplayName}} - {{adminLevelLabel}}</view>
     <view class="hero-org-context org-context-action" catchtap="onOrgTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前组织">
       <view class="hero-org-context-icon"><ui-icon name="home" tone="white" size="28" ariaLabel="当前组织" /></view>
@@ -18,8 +18,8 @@
 
   <!-- Main Tabs -->
   <view class="empty-card" wx:if="{{!hasPermission}}">
-    <view class="empty-title">当前没有管理权限</view>
-    <view class="empty-desc">当前账号没有场地管理权限。</view>
+    <view class="empty-title">暂无场地管理权限</view>
+    <view class="empty-desc">请切换到有场地管理权限的身份</view>
   </view>
   <view class="tabs" wx:if="{{hasPermission}}">
     <view class="tab {{activeTab === item.key ? 'tab-active' : ''}} ui-motion-chip" wx:for="{{visibleTabs}}" wx:key="key" data-tab="{{item.key}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</view>
@@ -32,7 +32,7 @@
       <view class="panel-head">
         <view class="panel-title-group">
           <view class="section-title">场地列表</view>
-          <view class="panel-note">维护场地资料、开放安排与组织审批规则</view>
+          <view class="panel-note">维护场地资料、开放安排与审批方式</view>
         </view>
         <button class="primary-btn panel-add-btn ui-motion-button" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增</button>
       </view>
@@ -70,7 +70,7 @@
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll venue-edit-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
         <view class="form-body">
           <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
-          <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="物理位置"/></view>
+          <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="场地所在位置"/></view>
           <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
         </view>
       </scroll-view>
@@ -179,7 +179,7 @@
         <view class="field-label">事由内容</view>
         <view class="input-row purpose-input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? '更新' : '添加'}}</button></view>
       </view>
-      <view wx:if="{{!purposes.length}}" class="empty-inline">暂无预设事由数据。</view>
+      <view wx:if="{{!purposes.length}}" class="empty-inline">暂无常用事由</view>
       <block wx:if="{{purposes.length}}">
         <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id">
           <view class="list-main">
@@ -242,15 +242,15 @@
             <view class="rule-org-context-copy">
               <view class="rule-org-context-title">{{currentOrganizationName || '当前组织'}} · 借用审批</view>
               <view class="rule-org-context-desc" wx:if="{{approvalFlow}}">
-                已配置 {{approvalFlowSteps.length}} 步组织专属审批流程
+                已设置 {{approvalFlowSteps.length}} 个审批步骤
               </view>
               <view class="rule-org-context-desc rule-org-context-desc-warn" wx:else>
-                当前组织尚未配置专属流程；可新增“用户审核”规则进行设置
+                暂无审批步骤，可新增“用户审核”规则
               </view>
             </view>
           </view>
           <button class="primary-btn rule-add-btn ui-motion-button" data-type="booking" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增借用规则</button>
-          <view wx:if="{{!bookingRules.length && !approvalFlow}}" class="empty-inline">暂无组织专属规则，当前由有权限的管理员处理</view>
+          <view wx:if="{{!bookingRules.length && !approvalFlow}}" class="empty-inline">暂无借用规则，由场地管理员处理</view>
           <block wx:if="{{bookingRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
               <view class="list-main">
@@ -276,19 +276,19 @@
         <view class="form-body">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
-            <view class="field"><view class="field-label">周期类型</view>
+            <view class="field"><view class="field-label">重复方式</view>
               <picker range="{{['每天','每周','每月','每年','日期范围']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : (ruleForm.cycleType === 'yearly' ? 3 : 4)))}}" bindchange="onCycleTypeChange">
                 <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : (ruleForm.cycleType === 'yearly' ? '每年' : '日期范围')))}}</view></picker></view>
 
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" class="chip-section">
-              <view class="field-label">选择星期（多选）</view>
+              <view class="field-label">选择星期</view>
               <view class="chip-row">
                 <text wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this"
                       class="chip {{weeklyChecked[index] ? 'active' : ''}} ui-motion-chip" data-idx="{{index}}" catchtap="onToggleWeekDay" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item}}</text>
               </view>
             </view>
             <view wx:if="{{ruleForm.cycleType === 'monthly'}}" class="chip-section">
-              <view class="field-label">选择日期（多选）</view>
+              <view class="field-label">选择日期</view>
               <view class="chip-row small">
                 <text wx:for="{{31}}" wx:key="*this"
                       class="chip sm {{monthlyChecked[index] ? 'active' : ''}} ui-motion-chip" data-idx="{{index}}" catchtap="onToggleMonthDay" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{index + 1}}</text>
@@ -334,7 +334,7 @@
           <block wx:if="{{ruleEditorType === 'booking'}}">
             <view class="field"><view class="field-label">审批类型</view>
               <picker range="{{['管理员审核','用户审核','直接通过']}}" value="{{ruleForm.ruleType === 'direct' ? 2 : (ruleForm.ruleType === 'flow' ? 1 : 0)}}" bindchange="onBookingRuleTypeChange">
-                <view class="picker-display">{{ruleForm.ruleType === 'direct' ? '直接通过' : (ruleForm.ruleType === 'flow' ? '用户审核（多步审批流程）' : '管理员审核')}}</view></picker></view>
+                <view class="picker-display">{{ruleForm.ruleType === 'direct' ? '直接通过' : (ruleForm.ruleType === 'flow' ? '用户分步审核' : '管理员审核')}}</view></picker></view>
 
             <!-- Flow editor — only shown when 用户审核 is selected -->
             <block wx:if="{{ruleForm.ruleType === 'flow'}}">
@@ -406,7 +406,7 @@
                   <!-- Dept scope -->
                   <view class="field"><view class="field-label">部门</view>
                     <picker range="{{['全部','同部门','指定部门']}}" value="{{ruleForm._editingCondition.deptScope === 'specific' ? 2 : (ruleForm._editingCondition.deptScope === 'same' ? 1 : 0)}}" bindchange="onCondDeptScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.deptScope === 'specific' ? '指定部门（可多选）' : (ruleForm._editingCondition.deptScope === 'same' ? '同部门（与申请人同部门）' : '全部')}}</view></picker></view>
+                      <view class="picker-display">{{ruleForm._editingCondition.deptScope === 'specific' ? '选择部门' : (ruleForm._editingCondition.deptScope === 'same' ? '与申请人同部门' : '全部')}}</view></picker></view>
                   <view class="field" wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}">
                     <view class="picker-value ui-motion-chip" data-target="dept" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._deptNames || '点击选择部门'}}</view>
                     <text class="link ui-motion-chip" wx:if="{{ruleForm._editingCondition._deptNames}}" catchtap="onCondFieldClear" data-field="dept" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
@@ -415,7 +415,7 @@
                   <!-- WG scope -->
                   <view class="field"><view class="field-label">职能组</view>
                     <picker range="{{['全部','同职能组','指定职能组']}}" value="{{ruleForm._editingCondition.wgScope === 'specific' ? 2 : (ruleForm._editingCondition.wgScope === 'same' ? 1 : 0)}}" bindchange="onCondWgScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.wgScope === 'specific' ? '指定职能组（可多选）' : (ruleForm._editingCondition.wgScope === 'same' ? '同职能组（与申请人同组）' : '全部')}}</view></picker></view>
+                      <view class="picker-display">{{ruleForm._editingCondition.wgScope === 'specific' ? '选择职能组' : (ruleForm._editingCondition.wgScope === 'same' ? '与申请人同组' : '全部')}}</view></picker></view>
                   <view class="field" wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}">
                     <view class="picker-value ui-motion-chip" data-target="wg" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._wgNames || '点击选择职能组'}}</view>
                     <text class="link ui-motion-chip" wx:if="{{ruleForm._editingCondition._wgNames}}" catchtap="onCondFieldClear" data-field="wg" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
@@ -424,7 +424,7 @@
                   <!-- Identity scope -->
                   <view class="field"><view class="field-label">身份</view>
                     <picker range="{{['全部','同身份','指定身份']}}" value="{{ruleForm._editingCondition.identScope === 'specific' ? 2 : (ruleForm._editingCondition.identScope === 'same' ? 1 : 0)}}" bindchange="onCondIdentScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.identScope === 'specific' ? '指定身份（可多选）' : (ruleForm._editingCondition.identScope === 'same' ? '同身份（与申请人同身份）' : '全部')}}</view></picker></view>
+                      <view class="picker-display">{{ruleForm._editingCondition.identScope === 'specific' ? '选择身份' : (ruleForm._editingCondition.identScope === 'same' ? '与申请人同身份' : '全部')}}</view></picker></view>
                   <view class="field" wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}">
                     <view class="picker-value ui-motion-chip" data-target="ident" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._identNames || '点击选择身份'}}</view>
                     <text class="link ui-motion-chip" wx:if="{{ruleForm._editingCondition._identNames}}" catchtap="onCondFieldClear" data-field="ident" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
@@ -547,7 +547,7 @@
             <view class="picker-display picker-display-locked">{{adminBookingStartDateDisplay || '请选择日期'}} · 仅当天</view></view>
           <view class="field" wx:if="{{adminTimelineBlocks.length}}">
             <view class="field-label">时间轴</view>
-            <view class="timeline-hint">拖动滑块或使用时间选择器</view>
+            <view class="timeline-hint">拖动滑块或输入时间</view>
             <view class="timeline-drag-container admin-timeline-drag">
               <view class="timeline-bar">
                 <view wx:for="{{adminTimelineBlocks}}" wx:key="left" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
@@ -579,7 +579,7 @@
             <view wx:else class="field-hint">{{adminBookingEndDate ? '请先选择开始时间' : '请先选择结束日期'}}</view>
           </view>
           <view class="field"><view class="field-label">详细说明（选填）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="补充使用说明"/></view>
-          <view class="field-hint">管理员提交后直接通过</view>
+          <view class="field-hint">提交后立即生效</view>
           <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认借用</button>
         </view>
       </scroll-view>
@@ -595,7 +595,7 @@
           <view class="field"><view class="field-label">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
             <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? '更新' : '添加'}}</button></view>
           </view>
-          <view wx:if="{{!purposes.length}}" class="empty-inline">暂无预设事由数据。</view>
+          <view wx:if="{{!purposes.length}}" class="empty-inline">暂无常用事由</view>
           <block wx:if="{{purposes.length}}">
             <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id">
               <view class="list-main">
@@ -708,7 +708,7 @@
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeApprovalPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         <button class="{{approvalPopupAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{loading}}" catchtap="submitApprovalAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          {{approvalPopupAction === 'approve' ? '✓ 确认通过' : '✗ 确认驳回'}}
+          {{approvalPopupAction === 'approve' ? '确认通过' : '确认驳回'}}
         </button>
       </view>
     </view>
@@ -717,8 +717,8 @@
   <view class="popup-mask ui-overlay" wx:if="{{contextSwitchGuardVisible}}" bindtap="closeContextSwitchGuard">
     <view class="popup-card context-switch-guard-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
-      <view class="context-switch-guard-title">请先处理未保存内容</view>
-      <view class="context-switch-guard-desc">当前编辑内容尚未保存。完成保存或取消编辑后，再切换组织与身份。</view>
+      <view class="context-switch-guard-title">请先保存修改</view>
+      <view class="context-switch-guard-desc">保存或取消编辑后，即可切换组织与身份。</view>
       <view class="context-switch-guard-actions ui-dialog-footer">
         <button class="primary-btn ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">继续编辑</button>
       </view>

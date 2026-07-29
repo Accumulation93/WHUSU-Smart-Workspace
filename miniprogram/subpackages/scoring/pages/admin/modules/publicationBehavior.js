@@ -158,9 +158,9 @@ module.exports = Behavior({
           saveAndShareFile(result.fileContent, result.fileName || '评优名单汇总', result.extension || 'xlsx');
           wx.showToast({ title: `已导出 ${result.rowCount || 0} 条记录`, icon: 'success' });
         } else {
-          wx.showToast({ title: result.message || '导出失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未导出，请重试', icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: '导出失败', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: '未导出，请重试', icon: 'none' }); }
       this.setLoading('exportMeritSummary', false);
     },
   
@@ -213,8 +213,8 @@ module.exports = Behavior({
         if (result.status === 'success') {
           if (!isSilent) wx.showToast({ title: result.message || '已保存', icon: 'success' });
           this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': !!result.publication.isPublished });
-        } else { if (!isSilent) wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
-      } catch (e) { if (!isSilent) wx.showToast({ title: '保存失败', icon: 'none' }); }
+        } else { if (!isSilent) wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' }); }
+      } catch (e) { if (!isSilent) wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
       this.setLoading('savePublication', false);
     },
   
@@ -267,14 +267,14 @@ module.exports = Behavior({
     // ─── View Rule Category CRUD ───,
 
     startNewPubViewRule() {
-      this.setData({ pubViewRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] } });
+      this.setData({ pubViewRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '查看本人评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] } });
     },
 
     editPubViewRule(e) {
       const id = e.currentTarget.dataset.id;
       const rule = this.data.pubViewRuleList.find(r => r.id === id);
       if (!rule) return;
-      this.setData({ pubViewRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '仅查看自己的评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: (rule.clauses || []).map(c => ({ scopeType: c.scopeType, scopeLabel: c.scopeLabel || '', targetIdentityId: c.targetIdentityId || '', targetIdentity: c.targetIdentity || '', displayMode: c.displayMode || 'score', gradeBands: (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) })) } });
+      this.setData({ pubViewRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '查看本人评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: (rule.clauses || []).map(c => ({ scopeType: c.scopeType, scopeLabel: c.scopeLabel || '', targetIdentityId: c.targetIdentityId || '', targetIdentity: c.targetIdentity || '', displayMode: c.displayMode || 'score', gradeBands: (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) })) } });
     },
 
     async savePubViewRule() {
@@ -285,8 +285,8 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('savePubViewRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] })) });
         if (result.status === 'success') { wx.showToast({ title: '已保存', icon: 'success' }); this.startNewPubViewRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
+        else { wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
       this.setLoading('savePubViewRule', false);
     },
 
@@ -294,12 +294,12 @@ module.exports = Behavior({
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
-      wx.showModal({ title: '确认删除', content: '删除此类别及全部条款？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '删除失败', icon: 'none' }); } } catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); } } });
+      wx.showModal({ title: '确认删除', content: '删除后将同时删除该类别的查看范围。确认删除？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '未删除，请重试', icon: 'none' }); } } catch (e) { wx.showToast({ title: '未删除，请重试', icon: 'none' }); } } });
     },
   
     // ─── View Rule Clause Editor ───,
 
-    openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': '仅查看自己的评分结果', 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '', 'pubViewRuleForm.clauseDisplayMode': 'score', 'pubViewRuleForm.clauseGradeBands': [] }); },
+    openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': '查看本人评分结果', 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '', 'pubViewRuleForm.clauseDisplayMode': 'score', 'pubViewRuleForm.clauseGradeBands': [] }); },
 
     cancelPubViewClauseEdit() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 }); },
 
@@ -403,8 +403,8 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('savePubMeritRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit, requireExactQuota: c.requireExactQuota })) });
         if (result.status === 'success') { wx.showToast({ title: '已保存', icon: 'success' }); this.startNewPubMeritRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
+        else { wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
       this.setLoading('savePubMeritRule', false);
     },
 
@@ -412,7 +412,7 @@ module.exports = Behavior({
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
-      wx.showModal({ title: '确认删除', content: '删除后将清空相关评优名单，是否继续？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '删除失败', icon: 'none' }); } } catch (e) { wx.showToast({ title: '删除失败', icon: 'none' }); } } });
+      wx.showModal({ title: '确认删除', content: '删除后将清空相关评优名单。确认删除？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '未删除，请重试', icon: 'none' }); } } catch (e) { wx.showToast({ title: '未删除，请重试', icon: 'none' }); } } });
     },
   
     // ─── Merit Rule Clause Editor ───,
@@ -475,9 +475,9 @@ module.exports = Behavior({
           wx.showToast({ title: msg, icon: 'success' });
           this.loadPublicationData(this.data.publicationForm.activityId);
         } else {
-          wx.showToast({ title: result.message || '生成失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未生成，请重试', icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: '生成失败: ' + (e.message || '网络错误'), icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: '未生成，请重试', icon: 'none' }); }
       this.setLoading('generatePubViewRules', false);
     },
 
@@ -496,9 +496,9 @@ module.exports = Behavior({
           wx.showToast({ title: msg, icon: 'success' });
           this.loadPublicationData(this.data.publicationForm.activityId);
         } else {
-          wx.showToast({ title: result.message || '生成失败', icon: 'none' });
+          wx.showToast({ title: result.message || '未生成，请重试', icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: '生成失败: ' + (e.message || '网络错误'), icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: '未生成，请重试', icon: 'none' }); }
       this.setLoading('generatePubMeritRules', false);
     },
   
@@ -507,7 +507,7 @@ module.exports = Behavior({
     async openDesignationPicker(e) {
       const ds = e.currentTarget.dataset;
       const clauseId = ds.clauseId; const pubId = ds.pubId;
-      if (!clauseId || !pubId) { wx.showToast({ title: '参数错误', icon: 'none' }); return; }
+      if (!clauseId || !pubId) { wx.showToast({ title: '请重新打开评优名单', icon: 'none' }); return; }
   
       // Show popup immediately with loading state
       this.setData({ showDesignationPicker: true, designationPickerClauseId: clauseId, designationPickerPubId: pubId, designationPickerHrList: [], designationPickerFilteredList: [], designationPickerSelectedIds: [], designationPickerSelectedList: [], desigSearchKeyword: '', desigFilterDept: '全部', desigFilterIdent: '全部', desigFilterDeptOptions: ['全部'], desigFilterIdentOptions: ['全部'] });
@@ -530,7 +530,7 @@ module.exports = Behavior({
   
         const currentIds = (this.data.designationList || []).filter(d => d.clauseId === clauseId).map(d => d.targetHrId);
         const hrResult = await this.callCloud('listHrInfo');
-        if (hrResult.status !== 'success') { wx.showToast({ title: '加载人事信息失败', icon: 'none' }); return; }
+        if (hrResult.status !== 'success') { wx.showToast({ title: '请稍后刷新人事信息', icon: 'none' }); return; }
   
         const currentIdSet = new Set(currentIds);
         let granteeWgId = '';
@@ -556,7 +556,7 @@ module.exports = Behavior({
           desigFilterIdentOptions: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
           desigSearchKeyword: ''
         });
-      } catch (e) { console.error('openDesignationPicker error:', e); wx.showToast({ title: '加载失败: ' + (e.message || '未知错误'), icon: 'none' }); }
+      } catch (e) { console.error('openDesignationPicker error:', e); wx.showToast({ title: '请稍后刷新', icon: 'none' }); }
     },
 
     closeDesignationPicker() { this.setData({ showDesignationPicker: false }); },
@@ -601,8 +601,8 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('saveMeritListDesignations', { clauseId, publicationId: pubId, designationHrIds: hrIds });
         if (result.status === 'success') { wx.showToast({ title: result.message || '已保存', icon: 'success' }); this.closeDesignationPicker(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || '保存失败', icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
+        else { wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
       this.setLoading('saveDesignations', false);
     },
     // ─── Batch category creation (replaces old batch form) ───,
@@ -645,7 +645,7 @@ module.exports = Behavior({
         }
         wx.showToast({ title: `已批量授权 ${count} 个类别`, icon: 'success' });
         this.loadPublicationData(this.data.publicationForm.activityId);
-      } catch (e) { wx.showToast({ title: '批量操作失败', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: '未完成，请重试', icon: 'none' }); }
       finally {
         this.setLoading('batchSavePubViewRules', false);
         this.setData({ pubBatchRunning: false });
@@ -669,10 +669,10 @@ module.exports = Behavior({
           const res = await this.callCloud('savePubMeritRule', { id: item.id, publicationId: pubId, granteeDepartmentId: item.granteeDepartmentId, granteeIdentityId: item.granteeIdentityId, clauses: templateClauses });
           if (res.status === 'success') ok++; else err++;
         }
-        let msg = `成功 ${ok} 个`; if (err > 0) msg += `，${err} 个失败`;
+        let msg = `已完成 ${ok} 个`; if (err > 0) msg += `，${err} 个未完成`;
         wx.showToast({ title: msg, icon: ok > 0 ? 'success' : 'none' });
         this.loadPublicationData(this.data.publicationForm.activityId);
-      } catch (e) { wx.showToast({ title: '批量操作失败', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: '未完成，请重试', icon: 'none' }); }
       finally {
         this.setLoading('batchSavePubMeritRules', false);
         this.setData({ pubBatchRunning: false });

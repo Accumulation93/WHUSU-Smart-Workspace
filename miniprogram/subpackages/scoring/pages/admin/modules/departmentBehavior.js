@@ -13,7 +13,7 @@ module.exports = Behavior({
         const result = await this.callCloud('listDepartments');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || '加载部门列表失败');
+          throw new Error(result.message || '请稍后刷新部门');
         }
         this.setData({
           departmentList: result.departments || []
@@ -86,7 +86,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '保存部门失败',
+            title: result.message || '未保存，请重试',
             icon: 'none'
           });
           return;
@@ -102,7 +102,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '保存部门失败',
+          title: '未保存，请重试',
           icon: 'none'
         });
       } finally {
@@ -135,7 +135,7 @@ module.exports = Behavior({
         const result = await this.callCloud('deleteDepartment', { id });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '删除部门失败',
+            title: result.message || '未删除，请重试',
             icon: 'none'
           });
           return;
@@ -150,7 +150,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         wx.showToast({
-          title: '删除部门失败',
+          title: '未删除，请重试',
           icon: 'none'
         });
       }

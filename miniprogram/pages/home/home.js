@@ -38,7 +38,7 @@ function emptyHrProfileState() {
     template: null,
     pendingValues: {},
     auditStatus: 'none',
-    statusText: '尚未提交扩展资料',
+    statusText: '尚未提交补充资料',
     rejectionReason: ''
   };
 }
@@ -119,21 +119,21 @@ function getNumericLength(value) {
 
 function getProfileFieldTypeLabel(type) {
   if (type === 'number') {
-    return '数字字段';
+    return '数字';
   }
   if (type === 'sequence') {
     return '序列选择';
   }
   if (type === 'date') {
-    return '日期字段';
+    return '日期';
   }
   if (type === 'phone') {
-    return '手机号字段';
+    return '手机号';
   }
   if (type === 'email') {
-    return '邮箱字段';
+    return '邮箱';
   }
-  return '文本字段';
+  return '文字';
 }
 
 function buildFieldHint(field = {}) {
@@ -149,7 +149,7 @@ function buildFieldHint(field = {}) {
   }
 
   if (field.type === 'number') {
-    const decimalText = field.allowDecimal === false ? '仅整数' : '允许小数';
+    const decimalText = field.allowDecimal === false ? '填写整数' : '可填小数';
     if (field.numberRule === 'length_range' && ((field.minDigits != null && field.minDigits !== '') || (field.maxDigits != null && field.maxDigits !== ''))) {
       const parts = [];
       if (field.minDigits != null && field.minDigits !== '') {
@@ -208,7 +208,7 @@ function validateProfileField(field = {}, rawValue) {
   const value = rawValue == null ? '' : String(rawValue).trim();
 
   if (field.required && !value) {
-    return `${field.label}不能为空`;
+    return `请填写${field.label}`;
   }
 
   if (!value) {
@@ -217,53 +217,53 @@ function validateProfileField(field = {}, rawValue) {
 
   if (field.type === 'text') {
     if (field.minLength != null && field.minLength !== '' && value.length < field.minLength) {
-      return `${field.label}长度不能少于 ${field.minLength}`;
+      return `${field.label}请填写至少 ${field.minLength} 个字符`;
     }
     if (field.maxLength != null && field.maxLength !== '' && value.length > field.maxLength) {
-      return `${field.label}长度不能超过 ${field.maxLength}`;
+      return `${field.label}请控制在 ${field.maxLength} 个字符内`;
     }
   }
 
   if (field.type === 'number') {
     if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) {
-      return `${field.label}必须是整数`;
+      return `${field.label}请输入整数`;
     }
     const numberValue = Number(value);
     if (!Number.isFinite(numberValue)) {
-      return `${field.label}必须是数字`;
+      return `${field.label}请输入数字`;
     }
     if (field.numberRule === 'length_range') {
       const numericLength = getNumericLength(value);
       if (field.minDigits != null && field.minDigits !== '' && numericLength < field.minDigits) {
-        return `${field.label}长度不能少于 ${field.minDigits}`;
+        return `${field.label}请输入至少 ${field.minDigits} 位`;
       }
       if (field.maxDigits != null && field.maxDigits !== '' && numericLength > field.maxDigits) {
-        return `${field.label}长度不能超过 ${field.maxDigits}`;
+        return `${field.label}请输入不超过 ${field.maxDigits} 位`;
       }
     } else {
       if (field.minValue != null && field.minValue !== '' && numberValue < field.minValue) {
-        return `${field.label}不能小于 ${field.minValue}`;
+        return `${field.label}请输入不小于 ${field.minValue} 的数值`;
       }
       if (field.maxValue != null && field.maxValue !== '' && numberValue > field.maxValue) {
-        return `${field.label}不能大于 ${field.maxValue}`;
+        return `${field.label}请输入不大于 ${field.maxValue} 的数值`;
       }
     }
   }
 
   if (field.type === 'sequence' && Array.isArray(field.options) && field.options.length && field.options.indexOf(value) === -1) {
-    return `${field.label}必须从预设选项中选择`;
+    return `请选择${field.label}`;
   }
 
   if (field.type === 'date' && !isValidDateString(value)) {
-    return `${field.label}必须是有效日期`;
+    return `请选择有效的${field.label}`;
   }
 
   if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
-    return `${field.label}必须是有效手机号`;
+    return `请检查${field.label}`;
   }
 
   if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-    return `${field.label}必须是有效邮箱`;
+    return `请检查${field.label}`;
   }
 
   return '';
@@ -278,7 +278,7 @@ Page({
     showWorkGroup: false,
     heroName: '欢迎使用',
     heroIdentity: '未登录',
-    heroSubtitle: '请先完成登录',
+    heroSubtitle: '请微信登录',
     organizationName: '',
     currentActivity: null,
     currentActivityText: '加载中...',
@@ -472,7 +472,7 @@ Page({
       showWorkGroup: shouldShowWorkGroup(currentUser),
       heroName: currentUser ? currentUser.name : '欢迎使用',
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
-      heroSubtitle: currentUser ? subAppLabel : '请先完成登录',
+      heroSubtitle: currentUser ? subAppLabel : '请微信登录',
       targetList: [],
       selectedTargetId: '',
       targetsEmptyText: '加载中...',
@@ -637,7 +637,7 @@ Page({
         this.setData({
           targetList: [],
           targetGroups: [],
-          targetsEmptyText: '加载被评分人失败',
+          targetsEmptyText: '请稍后刷新被评分人',
           scoringStats: { total: 0, scored: 0, pending: 0 }
         });
       },
@@ -680,7 +680,7 @@ Page({
         template: nextTemplate,
         pendingValues,
         auditStatus: result.auditStatus || 'none',
-        statusText: result.statusText || '尚未提交扩展资料',
+        statusText: result.statusText || '尚未提交补充资料',
         rejectionReason: result.rejectionReason || ''
       }
     });
@@ -774,7 +774,7 @@ Page({
     const template = hrProfile.template;
     if (!template || !Array.isArray(template.fields) || !template.fields.length) {
       wx.showToast({
-        title: '暂无模板配置',
+        title: '暂无人事资料',
         icon: 'none'
       });
       return;
@@ -782,7 +782,7 @@ Page({
 
     if (template.editMode === 'readonly') {
       wx.showToast({
-        title: '当前不可修改',
+        title: '请联系管理员修改',
         icon: 'none'
       });
       return;
@@ -814,7 +814,7 @@ Page({
       success: (res) => {
         const result = res.result || {};
         if (result.status !== 'success') {
-          showShortToast('更新失败');
+          showShortToast('未更新，请重试');
           return;
         }
 
@@ -822,7 +822,7 @@ Page({
         this.loadUserHrProfile();
       },
       fail: () => {
-        showShortToast('更新失败');
+        showShortToast('未更新，请重试');
       },
       complete: () => {
         this.setData({
@@ -890,7 +890,7 @@ Page({
       },
       fail: () => {
         wx.showToast({
-          title: `${name} 评分页加载失败`,
+          title: `请重新打开${name}评分页`,
           icon: 'none'
         });
       },
@@ -1241,7 +1241,7 @@ Page({
       if (filterIdentity) {
         meritClauses = meritClauses.filter(c => c.targetIdentity === filterIdentity);
       }
-      if (!meritClauses.length) { wx.showToast({ title: '暂无指定权限', icon: 'none' }); this.setData({ userDesigLoading: false }); return; }
+      if (!meritClauses.length) { wx.showToast({ title: '暂无评优名单', icon: 'none' }); this.setData({ userDesigLoading: false }); return; }
 
       // Use pre-fetched designationCandidates from getPublicMeritList (no admin auth needed)
       const allCandidates = this.data.userDesigCandidates || [];
@@ -1278,7 +1278,7 @@ Page({
         userDesigFilterIdentOptions: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
         userDesigSearchKeyword: ''
       });
-    } catch (e) { console.error(e); wx.showToast({ title: '加载失败', icon: 'none' }); }
+    } catch (e) { console.error(e); wx.showToast({ title: '请稍后刷新', icon: 'none' }); }
     this.setData({ userDesigLoading: false });
   },
 
@@ -1352,9 +1352,9 @@ Page({
         this.closeUserDesignation();
         this.checkPublication();
       } else {
-        wx.showToast({ title: res.message || '保存失败', icon: 'none' });
+        wx.showToast({ title: res.message || '未保存，请重试', icon: 'none' });
       }
-    } catch (e) { wx.showToast({ title: '保存失败', icon: 'none' }); }
+    } catch (e) { wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
     this.setData({ userDesigSaving: false });
   }
 });

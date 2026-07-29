@@ -62,17 +62,17 @@ function normalizeDefinitionField(field) {
 }
 
 function validateDefinition(name, editMode, fields) {
-  if (!safeString(name).trim()) return '模板名称不能为空';
-  if (!EDIT_MODES.includes(editMode)) return '请选择有效的修改方式';
-  if (!fields.length) return '至少需要配置一个字段';
+  if (!safeString(name).trim()) return '请填写人事模板名称';
+  if (!EDIT_MODES.includes(editMode)) return '请选择修改方式';
+  if (!fields.length) return '请添加至少一项资料';
   const labels = new Set();
   for (const field of fields) {
-    if (!field.label) return '字段名称不能为空';
-    if (!field.type) return '请选择有效的字段类型';
+    if (!field.label) return '请填写资料项名称';
+    if (!field.type) return '请选择资料类型';
     const labelKey = field.label.toLocaleLowerCase('zh-CN');
-    if (labels.has(labelKey)) return `字段名称重复：${field.label}`;
+    if (labels.has(labelKey)) return `资料项名称重复：${field.label}`;
     labels.add(labelKey);
-    if (field.type === 'sequence' && !field.options.length) return `${field.label}至少需要一个选项`;
+    if (field.type === 'sequence' && !field.options.length) return `请为${field.label}添加选项`;
     if (field.minLength != null && !Number.isFinite(field.minLength)) return `请检查${field.label}的长度限制`;
     if (field.maxLength != null && !Number.isFinite(field.maxLength)) return `请检查${field.label}的长度限制`;
     if (field.minValue != null && !Number.isFinite(field.minValue)) return `请检查${field.label}的数值限制`;
@@ -157,7 +157,7 @@ async function saveDefinition(data, operator) {
       const templateId = id || generateId();
       if (id) {
         const [existing] = await connection.query('SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE', [id]);
-        if (!existing.length) return { status: 'not_found', message: '模板不存在' };
+        if (!existing.length) return { status: 'not_found', message: '请刷新人事模板' };
         await connection.query(
           'UPDATE hr_profile_templates SET name = ?, description = ?, edit_mode = ?, updated_by = ?, updated_at = ? WHERE id = ?',
           [name, description, editMode, operator.id, now, id]
@@ -182,7 +182,7 @@ async function saveDefinition(data, operator) {
 async function duplicateDefinition(templateId, operator) {
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query('SELECT * FROM hr_profile_templates WHERE id = ? FOR UPDATE', [templateId]);
-    if (!rows.length) return { status: 'not_found', message: '模板不存在' };
+    if (!rows.length) return { status: 'not_found', message: '请刷新人事模板' };
     const source = rows[0];
     const [fields] = await connection.query('SELECT * FROM hr_profile_template_fields WHERE template_id = ? ORDER BY sort_order', [templateId]);
     let name = `${source.name} 副本`;
@@ -220,7 +220,7 @@ async function duplicateDefinition(templateId, operator) {
 async function deleteDefinition(templateId) {
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query('SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE', [templateId]);
-    if (!rows.length) return { status: 'not_found', message: '模板不存在' };
+    if (!rows.length) return { status: 'not_found', message: '请刷新人事模板' };
     await connection.query('DELETE FROM hr_profile_templates WHERE id = ?', [templateId]);
     return { status: 'success' };
   });
@@ -290,29 +290,29 @@ function validateMappedValue(targetField, rawValue) {
   const value = normalizeEmptyValue(rawValue);
   if (!value) return '';
   if (targetField.type === 'text') {
-    if (targetField.min_length != null && value.length < Number(targetField.min_length)) return '长度过短';
-    if (targetField.max_length != null && value.length > Number(targetField.max_length)) return '长度过长';
+    if (targetField.min_length != null && value.length < Number(targetField.min_length)) return `请填写至少${targetField.min_length}个字`;
+    if (targetField.max_length != null && value.length > Number(targetField.max_length)) return `请控制在${targetField.max_length}个字以内`;
     return '';
   }
   if (targetField.type === 'number') {
-    if (!targetField.allow_decimal && !/^[+-]?\d+$/.test(value)) return '不是整数';
+    if (!targetField.allow_decimal && !/^[+-]?\d+$/.test(value)) return '请填写整数';
     const numberValue = Number(value);
-    if (!Number.isFinite(numberValue)) return '不是数字';
+    if (!Number.isFinite(numberValue)) return '请填写数字';
     if (targetField.number_rule === 'length_range') {
       const length = value.replace(/^[+-]/, '').replace('.', '').length;
-      if (targetField.min_digits != null && length < Number(targetField.min_digits)) return '数字长度过短';
-      if (targetField.max_digits != null && length > Number(targetField.max_digits)) return '数字长度过长';
+      if (targetField.min_digits != null && length < Number(targetField.min_digits)) return `请填写至少${targetField.min_digits}位数字`;
+      if (targetField.max_digits != null && length > Number(targetField.max_digits)) return `请控制在${targetField.max_digits}位数字以内`;
     } else {
-      if (targetField.min_value != null && numberValue < Number(targetField.min_value)) return '小于最小值';
-      if (targetField.max_value != null && numberValue > Number(targetField.max_value)) return '大于最大值';
+      if (targetField.min_value != null && numberValue < Number(targetField.min_value)) return `请填写不小于${targetField.min_value}的数字`;
+      if (targetField.max_value != null && numberValue > Number(targetField.max_value)) return `请填写不大于${targetField.max_value}的数字`;
     }
     return '';
   }
-  if (targetField.type === 'sequence') return parseOptions(targetField.options_json).includes(value) ? '' : '不在目标选项中';
-  if (targetField.type === 'date') return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00`).getTime()) ? '' : '日期格式不合法';
-  if (targetField.type === 'phone') return /^1[3-9]\d{9}$/.test(value) ? '' : '手机号不合法';
-  if (targetField.type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? '' : '邮箱不合法';
-  return '字段类型不兼容';
+  if (targetField.type === 'sequence') return parseOptions(targetField.options_json).includes(value) ? '' : '请选择已有选项';
+  if (targetField.type === 'date') return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00`).getTime()) ? '' : '请按年-月-日填写日期';
+  if (targetField.type === 'phone') return /^1[3-9]\d{9}$/.test(value) ? '' : '请填写正确的手机号';
+  if (targetField.type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? '' : '请填写正确的邮箱';
+  return '资料类型不匹配';
 }
 
 function normalizeActions(sourceFields, targetFields, rawActions) {
@@ -322,8 +322,8 @@ function normalizeActions(sourceFields, targetFields, rawActions) {
   const rawMap = new Map();
   rawList.forEach((action) => {
     const sourceId = safeString(action && action.sourceSnapshotFieldId);
-    if (!sourceIds.has(sourceId)) throw new Error('已有字段信息有误，请重新打开页面');
-    if (rawMap.has(sourceId)) throw new Error('已有字段重复，请重新打开页面');
+    if (!sourceIds.has(sourceId)) throw new Error('已有资料有误，请重新打开页面');
+    if (rawMap.has(sourceId)) throw new Error('已有资料重复，请重新打开页面');
     rawMap.set(sourceId, action);
   });
   const usedTargets = new Set();
@@ -331,12 +331,12 @@ function normalizeActions(sourceFields, targetFields, rawActions) {
     const raw = rawMap.get(sourceField.id) || {};
     const action = SWITCH_ACTIONS.includes(raw.action) ? raw.action : 'hide';
     const targetTemplateFieldId = action === 'map' ? safeString(raw.targetTemplateFieldId) : '';
-    if (!sourceIds.has(sourceField.id)) throw new Error('已有字段信息有误，请重新打开页面');
+    if (!sourceIds.has(sourceField.id)) throw new Error('已有资料有误，请重新打开页面');
     if (action === 'map') {
       const target = targetMap.get(targetTemplateFieldId);
-      if (!target) throw new Error(`${sourceField.label}缺少有效的目标字段`);
-      if (!isPotentiallyCompatible(sourceField.type, target.type)) throw new Error(`${sourceField.label}与目标字段类型不匹配`);
-      if (usedTargets.has(targetTemplateFieldId)) throw new Error('一个目标字段只能映射一个来源字段');
+      if (!target) throw new Error(`请重新选择${sourceField.label}的保存位置`);
+      if (!isPotentiallyCompatible(sourceField.type, target.type)) throw new Error(`${sourceField.label}的资料类型不匹配`);
+      if (usedTargets.has(targetTemplateFieldId)) throw new Error('请为每项资料选择不同的保存位置');
       usedTargets.add(targetTemplateFieldId);
     }
     return { sourceSnapshotFieldId: sourceField.id, action, targetTemplateFieldId };
@@ -381,7 +381,7 @@ function decodeToken(token) {
 
 async function preflightSwitch(orgId, targetTemplateId, rawActions) {
   const context = await getSwitchContext(orgId, targetTemplateId);
-  if (!context) return { status: 'not_found', message: '所选模板不存在' };
+  if (!context) return { status: 'not_found', message: '请刷新人事模板' };
   let actions;
   try {
     actions = normalizeActions(context.sourceFields, context.targetTemplate.fields, rawActions);
@@ -410,7 +410,7 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
     }, row.field_value) ? 1 : 0), 0);
     if (invalidCount) blockers.push({ sourceSnapshotFieldId: action.sourceSnapshotFieldId, targetTemplateFieldId: target.id, invalidCount });
   }
-  if (blockers.length) return { status: 'mapping_blocked', message: '部分已有内容不符合新字段要求', blockers };
+  if (blockers.length) return { status: 'mapping_blocked', message: '请先修改不符合新模板的已有资料', blockers };
   const sourceMap = new Map(context.sourceFields.map((field) => [field.id, field]));
   const summary = actions.reduce((result, action) => {
     const source = sourceMap.get(action.sourceSnapshotFieldId);
@@ -447,9 +447,9 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
       'SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE',
       [targetTemplateId]
     );
-    if (!lockedTemplates.length) return { status: 'not_found', message: '所选模板不存在' };
+    if (!lockedTemplates.length) return { status: 'not_found', message: '请刷新人事模板' };
     const context = await getSwitchContext(orgId, targetTemplateId, connection);
-    if (!context) return { status: 'not_found', message: '所选模板不存在' };
+    if (!context) return { status: 'not_found', message: '请刷新人事模板' };
     let actions;
     try {
       actions = normalizeActions(context.sourceFields, context.targetTemplate.fields, rawActions);
@@ -485,7 +485,7 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
     const hasDelete = actions.some((action) => action.action === 'delete'
       && ((sourceMap.get(action.sourceSnapshotFieldId).currentValueCount || 0)
         + (sourceMap.get(action.sourceSnapshotFieldId).pendingValueCount || 0)) > 0);
-    if (hasDelete && confirmDelete !== true) return { status: 'delete_confirmation_required', message: '请确认永久删除历史字段值' };
+    if (hasDelete && confirmDelete !== true) return { status: 'delete_confirmation_required', message: '请确认删除已有资料' };
 
     const snapshotId = activeSnapshotId || generateId();
     if (activeSnapshotId) {

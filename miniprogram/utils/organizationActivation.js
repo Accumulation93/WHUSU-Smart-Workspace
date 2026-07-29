@@ -33,7 +33,7 @@ async function activateOrganization(organizationId) {
     data: { organizationId, role }
   });
   if (result.status !== 'success' || !result.activeOrg) {
-    const error = new Error(result.message || '组织切换失败');
+    const error = new Error(result.message || '未切换，请重试');
     error.status = result.status || 'error';
     throw error;
   }

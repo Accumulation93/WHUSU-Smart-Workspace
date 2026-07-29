@@ -57,28 +57,28 @@ function validateFieldValue(field, rawValue) {
   const value = normalizeEmptyValue(rawValue);
   if (!value) return '';
   if (field.type === 'text') {
-    if (field.minLength != null && value.length < field.minLength) return `${field.label}长度不能少于 ${field.minLength}`;
-    if (field.maxLength != null && value.length > field.maxLength) return `${field.label}长度不能超过 ${field.maxLength}`;
+    if (field.minLength != null && value.length < field.minLength) return `请将${field.label}填写至至少 ${field.minLength} 个字`;
+    if (field.maxLength != null && value.length > field.maxLength) return `请将${field.label}控制在 ${field.maxLength} 个字以内`;
     return '';
   }
   if (field.type === 'number') {
-    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return `${field.label}必须是整数`;
+    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return `请在${field.label}中填写整数`;
     const num = Number(value);
-    if (!Number.isFinite(num)) return `${field.label}必须是数字`;
+    if (!Number.isFinite(num)) return `请在${field.label}中填写数字`;
     if (field.numberRule === 'length_range') {
       const nlen = String(value).replace(/^[+-]/, '').replace('.', '').length;
-      if (field.minDigits != null && nlen < field.minDigits) return `${field.label}长度不能少于 ${field.minDigits}`;
-      if (field.maxDigits != null && nlen > field.maxDigits) return `${field.label}长度不能超过 ${field.maxDigits}`;
+      if (field.minDigits != null && nlen < field.minDigits) return `请将${field.label}填写至至少 ${field.minDigits} 位`;
+      if (field.maxDigits != null && nlen > field.maxDigits) return `请将${field.label}控制在 ${field.maxDigits} 位以内`;
     } else {
-      if (field.minValue != null && num < field.minValue) return `${field.label}不能小于 ${field.minValue}`;
-      if (field.maxValue != null && num > field.maxValue) return `${field.label}不能大于 ${field.maxValue}`;
+      if (field.minValue != null && num < field.minValue) return `请将${field.label}填写为 ${field.minValue} 或更大`;
+      if (field.maxValue != null && num > field.maxValue) return `请将${field.label}填写为 ${field.maxValue} 或更小`;
     }
     return '';
   }
-  if (field.type === 'sequence') { if (field.options.length && field.options.indexOf(value) === -1) return `${field.label}必须从预设选项中选择`; return ''; }
-  if (field.type === 'date' && !tryParseDate(value)) return `${field.label}必须是有效日期`;
-  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return `${field.label}必须是有效手机号`;
-  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `${field.label}必须是有效邮箱`;
+  if (field.type === 'sequence') { if (field.options.length && field.options.indexOf(value) === -1) return `请重新选择${field.label}`; return ''; }
+  if (field.type === 'date' && !tryParseDate(value)) return `请重新填写${field.label}日期`;
+  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return `请重新填写${field.label}手机号`;
+  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `请重新填写${field.label}邮箱`;
   return '';
 }
 
@@ -89,7 +89,7 @@ router.post('/listHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const orgId = await getCurrentOrgId();
     const [rows] = await pool.query(
@@ -133,9 +133,9 @@ router.post('/listHrInfo', async (req, res) => {
 router.post('/listMembershipAssignments', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const legacyHrId = safeString(req.body.hrId);
-    if (!legacyHrId) return res.json({ status: 'invalid_params', message: '请提供人事成员' });
+    if (!legacyHrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
     const orgId = await getCurrentOrgId();
     const rows = await unifiedIdentityModel.listMembershipAssignments(legacyHrId, orgId);
     return res.json({
@@ -154,14 +154,14 @@ router.post('/listMembershipAssignments', async (req, res) => {
       }))
     });
   } catch (error) {
-    return res.json({ status: 'error', message: safeString(error.message) || '加载岗位失败' });
+    return res.json({ status: 'error', message: safeString(error.message) || '请稍后刷新岗位' });
   }
 });
 
 router.post('/saveMembershipAssignment', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const orgId = await getCurrentOrgId();
     const result = await unifiedIdentityModel.saveMembershipAssignment({
       id: safeString(req.body.id),
@@ -181,7 +181,7 @@ router.post('/saveMembershipAssignment', async (req, res) => {
   } catch (error) {
     return res.json({
       status: error.code || 'error',
-      message: safeString(error.message) || '保存岗位失败'
+      message: safeString(error.message) || '岗位未保存，请重试'
     });
   }
 });
@@ -189,7 +189,7 @@ router.post('/saveMembershipAssignment', async (req, res) => {
 router.post('/deleteMembershipAssignment', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const orgId = await getCurrentOrgId();
     await unifiedIdentityModel.revokeMembershipAssignment({
       id: safeString(req.body.id),
@@ -202,7 +202,7 @@ router.post('/deleteMembershipAssignment', async (req, res) => {
   } catch (error) {
     return res.json({
       status: error.code || 'error',
-      message: safeString(error.message) || '删除岗位失败'
+      message: safeString(error.message) || '岗位未删除，请重试'
     });
   }
 });
@@ -212,7 +212,7 @@ router.post('/saveHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -230,11 +230,11 @@ router.post('/saveHrInfo', async (req, res) => {
 
     if (id) {
       await hrInfoModel.update(id, data);
-      res.json({ status: 'success', message: '人事信息更新成功' });
+      res.json({ status: 'success', message: '人事信息已更新' });
     } else {
       const newId = generateId();
       await hrInfoModel.create(newId, data);
-      res.json({ status: 'success', id: newId, message: '人事信息创建成功' });
+      res.json({ status: 'success', id: newId, message: '人事信息已创建' });
     }
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -246,10 +246,10 @@ router.post('/deleteHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供人事ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
     await hrInfoModel.remove(id);
     res.json({ status: 'success', message: '人事信息已删除' });
   } catch (e) {
@@ -269,7 +269,7 @@ function firstValue(row, fields) {
 async function handleStructuredHrImport(req, res, previewOnly) {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const orgId = await getCurrentOrgId();
     const result = previewOnly
       ? await hrTableImportModel.previewHrTableImport(req.body, orgId)
@@ -287,7 +287,7 @@ async function handleStructuredHrImport(req, res, previewOnly) {
     }
     return res.json({
       status: isExpectedImportError ? safeString(error.status) : 'error',
-      message: isExpectedImportError ? safeString(error.message) : '表格导入失败，请稍后重试',
+      message: isExpectedImportError ? safeString(error.message) : '表格未导入，请重试',
       requestId: req.requestId || ''
     });
   }
@@ -305,11 +305,11 @@ router.post('/importHrCsv', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const csvContent = safeString(req.body.csvContent);
     const rows = parseCsv(csvContent);
-    if (rows.length < 2) return res.json({ status: 'invalid_params', message: 'CSV 至少需要表头和一行数据' });
+    if (rows.length < 2) return res.json({ status: 'invalid_params', message: '请选择包含表头和人员资料的表格' });
 
     const headers = rows[0].map(item => safeString(item));
     const startIndex = Math.max(1, Number(req.body.startIndex || 1));
@@ -376,7 +376,7 @@ router.post('/importHrCsv', async (req, res) => {
       const extNames = Object.entries(extensionFields).map(([csvCol, fieldName]) => fieldName);
       for (const name of extNames) {
         if (!fieldLabelSet.has(name)) {
-          return res.json({ status: 'invalid_mapping', message: `人事模板中没有字段「${name}」` });
+          return res.json({ status: 'invalid_mapping', message: `人事模板中没有资料项“${name}”` });
         }
       }
     }
@@ -443,7 +443,7 @@ router.post('/importHrCsv', async (req, res) => {
         if (!skipInvalid) {
           return res.json({
             status: 'validation_errors',
-            message: `共 ${validationErrors.length} 条记录存在字段格式问题`,
+            message: `请修改 ${validationErrors.length} 条格式不正确的记录`,
             errors: validationErrors,
             count: 0,
             nextIndex: endIndex,
@@ -674,7 +674,7 @@ router.post('/importHrCsv', async (req, res) => {
       conn.release();
     }
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || 'CSV导入失败' });
+    res.json({ status: 'error', message: safeString(e.message) || '表格未导入，请重试' });
   }
 });
 
@@ -683,7 +683,7 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const [hrRows, departmentRows, identityRows, workGroupRows] = await Promise.all([
       hrInfoModel.getAll(), departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
@@ -735,12 +735,12 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
     if (stats.missingDepartments || stats.missingIdentities || stats.missingWorkGroups || stats.wrongDepartmentWorkGroups) {
       return res.json({
         status: 'error',
-        message: `组织字典未补齐：部门${stats.missingDepartments}条，身份${stats.missingIdentities}条，工作分工${stats.missingWorkGroups}条，部门不匹配工作分工${stats.wrongDepartmentWorkGroups}条`,
+        message: `请补充组织资料：部门 ${stats.missingDepartments} 条、身份 ${stats.missingIdentities} 条、职能组 ${stats.missingWorkGroups} 条、职能组归属 ${stats.wrongDepartmentWorkGroups} 条`,
         stats
       });
     }
 
-    res.json({ status: 'success', message: '组织字典引用完整', stats });
+    res.json({ status: 'success', message: '组织资料完整', stats });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -752,10 +752,10 @@ router.post('/unbindHrWechat', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const hrId = safeString(req.body.hrId);
-    if (!hrId) return res.json({ status: 'invalid_params', message: '请提供人事ID' });
+    if (!hrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
 
     const orgId = await getCurrentOrgId();
     connection = await pool.getConnection();
@@ -774,7 +774,7 @@ router.post('/unbindHrWechat', async (req, res) => {
       await connection.commit();
       return res.json({
         status: 'success',
-        message: '已将账号重置为待恢复，原微信和全部设备会话均已失效',
+        message: '账号已等待恢复，原微信和其他设备已退出',
         recoveryRequired: true
       });
     }

@@ -40,7 +40,7 @@ const RULE_SCOPE_OPTIONS = [
   { value: 'all_people', label: '全体成员' }
 ];
 const VIEW_SCOPE_OPTIONS = [
-  { value: 'own_results', label: '仅查看自己的评分结果' },
+  { value: 'own_results', label: '查看本人评分结果' },
   { value: 'same_work_group_identity', label: '查看同职能组内指定身份的成员结果' },
   { value: 'same_work_group_all', label: '查看同职能组内所有成员的结果' },
   { value: 'same_department_identity', label: '查看同部门内指定身份的成员结果' },
@@ -51,7 +51,7 @@ const VIEW_SCOPE_LABEL_MAP = VIEW_SCOPE_OPTIONS.reduce((map, item) => { map[item
 const PROFILE_EDIT_MODE_OPTIONS = [
   { value: 'direct', label: '允许直接修改' },
   { value: 'audit', label: '需审核修改' },
-  { value: 'readonly', label: '不允许修改' }
+  { value: 'readonly', label: '由管理员维护' }
 ];
 const PROFILE_FIELD_TYPE_OPTIONS = [
   { value: 'text', label: '文本' },
@@ -380,7 +380,7 @@ function buildPendingTemplateConfigForSave(form = {}) {
   if (!Number.isFinite(weight) || weight <= 0) {
     return {
       status: 'invalid',
-      message: '评分问题权重必须大于 0'
+      message: '请输入大于 0 的评分问题权重'
     };
   }
 
@@ -524,7 +524,7 @@ function buildRuleClauseText(clause = {}) {
     ? (clause.templateConfigs || [])
       .map((config) => `${config.templateName || '未命名评分问题'}（权重：${config.weight}，顺序：${config.sortOrder}）`)
       .join('、')
-    : '未配置评分问题';
+    : '未选择评分问题';
   return `${scopeText}${identityText}${completeText} [${questionText}]`;
 }
 
@@ -542,7 +542,7 @@ function buildRuleListItem(rule = {}) {
     ruleCount: clauses.length,
     clausesText: clauses.length
       ? clauses.map((clause) => buildRuleClauseText(clause)).join(' | ')
-      : '未配置被评分人规则'
+      : '未设置被评分人范围'
   };
 }
 
@@ -629,7 +629,8 @@ function showShortToast(title, icon = 'none') {
 }
 
 function getErrorText(error, fallback) {
-  const text = String((error && (error.errMsg || error.message)) || '').trim();
+  if (error && (error.silent || error.status === 'request_cancelled')) return '';
+  const text = String((error && error.message) || '').trim();
   return text || fallback;
 }
 
@@ -687,7 +688,7 @@ function buildHrProfileFilterOptions(rows = []) {
   return {
     departments: ['全部部门', ...[...new Set(departments)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
     identities: ['全部身份', ...[...new Set(identities)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
-    workGroups: ['全部工作分工', ...[...new Set(workGroups)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
+    workGroups: ['全部职能组', ...[...new Set(workGroups)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
     statuses: HR_PROFILE_STATUS_OPTIONS
   };
 }
@@ -701,7 +702,7 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
     if (filters.identity !== '全部身份' && item.identity !== filters.identity) {
       return false;
     }
-    if (filters.workGroup !== '无' && filters.workGroup !== '全部工作分工' && item.workGroup !== filters.workGroup) {
+    if (filters.workGroup !== '无' && filters.workGroup !== '全部职能组' && filters.workGroup !== '全部工作分工' && item.workGroup !== filters.workGroup) {
       return false;
     }
     if (filters.status !== '全部状态' && item.auditStatusText !== filters.status) {
@@ -756,21 +757,21 @@ function getNumericLength(value) {
 
 function getProfileFieldTypeLabel(type) {
   if (type === 'number') {
-    return '数字字段';
+    return '数字';
   }
   if (type === 'sequence') {
     return '序列选择';
   }
   if (type === 'date') {
-    return '日期字段';
+    return '日期';
   }
   if (type === 'phone') {
-    return '手机号字段';
+    return '手机号';
   }
   if (type === 'email') {
-    return '邮箱字段';
+    return '邮箱';
   }
-  return '文本字段';
+  return '文字';
 }
 
 function buildFieldHint(field = {}) {
@@ -786,7 +787,7 @@ function buildFieldHint(field = {}) {
   }
 
   if (field.type === 'number') {
-    const decimalText = field.allowDecimal === false ? '仅整数' : '允许小数';
+    const decimalText = field.allowDecimal === false ? '填写整数' : '可填小数';
     if (field.numberRule === 'length_range' && ((field.minDigits != null && field.minDigits !== '') || (field.maxDigits != null && field.maxDigits !== ''))) {
       const parts = [];
       if (field.minDigits != null && field.minDigits !== '') {
@@ -834,53 +835,53 @@ function validateProfileField(field = {}, rawValue) {
 
   if (field.type === 'text') {
     if (field.minLength != null && field.minLength !== '' && value.length < field.minLength) {
-      return `${field.label}长度不能少于 ${field.minLength}`;
+      return `${field.label}请填写至少 ${field.minLength} 个字符`;
     }
     if (field.maxLength != null && field.maxLength !== '' && value.length > field.maxLength) {
-      return `${field.label}长度不能超过 ${field.maxLength}`;
+      return `${field.label}请控制在 ${field.maxLength} 个字符内`;
     }
   }
 
   if (field.type === 'number') {
     if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) {
-      return `${field.label}必须是整数`;
+      return `${field.label}请输入整数`;
     }
     const numberValue = Number(value);
     if (!Number.isFinite(numberValue)) {
-      return `${field.label}必须是数字`;
+      return `${field.label}请输入数字`;
     }
     if (field.numberRule === 'length_range') {
       const numericLength = getNumericLength(value);
       if (field.minDigits != null && field.minDigits !== '' && numericLength < field.minDigits) {
-        return `${field.label}长度不能少于 ${field.minDigits}`;
+        return `${field.label}请输入至少 ${field.minDigits} 位`;
       }
       if (field.maxDigits != null && field.maxDigits !== '' && numericLength > field.maxDigits) {
-        return `${field.label}长度不能超过 ${field.maxDigits}`;
+        return `${field.label}请输入不超过 ${field.maxDigits} 位`;
       }
     } else {
       if (field.minValue != null && field.minValue !== '' && numberValue < field.minValue) {
-        return `${field.label}不能小于 ${field.minValue}`;
+        return `${field.label}请输入不小于 ${field.minValue} 的数值`;
       }
       if (field.maxValue != null && field.maxValue !== '' && numberValue > field.maxValue) {
-        return `${field.label}不能大于 ${field.maxValue}`;
+        return `${field.label}请输入不大于 ${field.maxValue} 的数值`;
       }
     }
   }
 
   if (field.type === 'sequence' && Array.isArray(field.options) && field.options.length && field.options.indexOf(value) === -1) {
-    return `${field.label}必须从预设选项中选择`;
+    return `请选择${field.label}`;
   }
 
   if (field.type === 'date' && !isValidDateString(value)) {
-    return `${field.label}必须是有效日期`;
+    return `请选择有效的${field.label}`;
   }
 
   if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
-    return `${field.label}必须是有效手机号`;
+    return `请检查${field.label}`;
   }
 
   if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-    return `${field.label}必须是有效邮箱`;
+    return `请检查${field.label}`;
   }
 
   return '';
@@ -991,34 +992,34 @@ function validateCsvValueAgainstField(value, fieldDef) {
 
   if (fieldType === 'text') {
     if (fieldDef.minLength && v.length < Number(fieldDef.minLength)) {
-      return { ok: false, reason: '长度不能少于' + fieldDef.minLength, fieldType: typeLabel };
+      return { ok: false, reason: '请填写至少' + fieldDef.minLength + '个字符', fieldType: typeLabel };
     }
     if (fieldDef.maxLength && v.length > Number(fieldDef.maxLength)) {
-      return { ok: false, reason: '长度不能超过' + fieldDef.maxLength, fieldType: typeLabel };
+      return { ok: false, reason: '请控制在' + fieldDef.maxLength + '个字符内', fieldType: typeLabel };
     }
     return { ok: true };
   }
 
   if (fieldType === 'number') {
     if (fieldDef.allowDecimal === false && !/^[+-]?\d+$/.test(v)) {
-      return { ok: false, reason: '必须是整数', fieldType: typeLabel };
+      return { ok: false, reason: '请输入整数', fieldType: typeLabel };
     }
     let num = Number(v);
     if (!isFinite(num)) return { ok: false, reason: '不是有效数字', fieldType: typeLabel };
     if (fieldDef.numberRule === 'length_range') {
       let nlen = String(v).replace(/^[+-]/, '').replace('.', '').length;
       if (fieldDef.minDigits && nlen < Number(fieldDef.minDigits)) {
-        return { ok: false, reason: '长度不能少于' + fieldDef.minDigits, fieldType: typeLabel };
+        return { ok: false, reason: '请输入至少' + fieldDef.minDigits + '位', fieldType: typeLabel };
       }
       if (fieldDef.maxDigits && nlen > Number(fieldDef.maxDigits)) {
-        return { ok: false, reason: '长度不能超过' + fieldDef.maxDigits, fieldType: typeLabel };
+        return { ok: false, reason: '请输入不超过' + fieldDef.maxDigits + '位', fieldType: typeLabel };
       }
     } else {
       if (fieldDef.minValue !== '' && fieldDef.minValue != null && num < Number(fieldDef.minValue)) {
-        return { ok: false, reason: '不能小于' + fieldDef.minValue, fieldType: typeLabel };
+        return { ok: false, reason: '请输入不小于' + fieldDef.minValue + '的数值', fieldType: typeLabel };
       }
       if (fieldDef.maxValue !== '' && fieldDef.maxValue != null && num > Number(fieldDef.maxValue)) {
-        return { ok: false, reason: '不能大于' + fieldDef.maxValue, fieldType: typeLabel };
+        return { ok: false, reason: '请输入不大于' + fieldDef.maxValue + '的数值', fieldType: typeLabel };
       }
     }
     return { ok: true };
@@ -1032,7 +1033,7 @@ function validateCsvValueAgainstField(value, fieldDef) {
       optionsArr = String(fieldDef.optionsText).split(/[\n,]/).map(function (s) { return s.trim(); }).filter(function (s) { return s; });
     }
     if (optionsArr.length && optionsArr.indexOf(v) === -1) {
-      return { ok: false, reason: '必须从预设选项中选择', fieldType: typeLabel };
+      return { ok: false, reason: '请选择可用选项', fieldType: typeLabel };
     }
     return { ok: true };
   }
@@ -1140,11 +1141,11 @@ function autoMapCsvColumn(headerName, templateFields) {
 }
 
 function buildCsvMappingOptions(templateFields) {
-  let labels = ['— 忽略 —', '→ 姓名（基础字段）', '→ 学号（基础字段）', '→ 所属部门（基础字段）', '→ 身份（基础字段）', '→ 工作分工（基础字段）'];
+  let labels = ['— 不导入 —', '姓名', '学号', '所属部门', '身份', '职能组'];
   let values = ['ignore', 'name', 'studentId', 'department', 'identity', 'workGroup'];
   let fields = templateFields || [];
   for (let i = 0; i < fields.length; i++) {
-    labels.push('→ ' + fields[i].label + '（扩展字段）');
+    labels.push('→ ' + fields[i].label + '（补充资料）');
     values.push(fields[i].id);
   }
   return { labels: labels, values: values };

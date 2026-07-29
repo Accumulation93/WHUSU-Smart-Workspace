@@ -37,7 +37,7 @@ async function resolveCurrentActor(req) {
     const hrId = safeString(context.legacyHrId);
     if (!hrId) return { ok: false, status: 'forbidden', message: '当前岗位身份已失效' };
     const hr = await hrInfoModel.getById(hrId);
-    if (!hr) return { ok: false, status: 'forbidden', message: '当前岗位对应的人事信息不存在' };
+    if (!hr) return { ok: false, status: 'forbidden', message: '请重新选择普通岗位' };
     const profile = Object.assign({}, hr, {
       department_id: safeString(context.departmentId),
       identity_id: safeString(context.identityId),
@@ -64,7 +64,7 @@ async function resolveCurrentActor(req) {
     return {
       ok: false,
       status: 'invalid_role',
-      message: '当前身份无效，请重新选择身份'
+      message: '请重新选择身份'
     };
   }
 
@@ -98,7 +98,7 @@ async function resolveCurrentActor(req) {
   }
   const hr = await hrInfoModel.getById(hrId);
   if (!hr) {
-    return { ok: false, status: 'forbidden', message: '绑定的人事信息不存在' };
+    return { ok: false, status: 'forbidden', message: '请重新选择普通岗位' };
   }
   return {
     ok: true,

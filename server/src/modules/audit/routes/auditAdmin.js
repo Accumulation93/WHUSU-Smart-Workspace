@@ -31,7 +31,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const templates = await flowTemplateModel.getAll();
     // Load steps for each template
@@ -104,7 +104,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -134,7 +134,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
         const vc = vconditions[vj];
         if (vc.conditionType === 'person') {
           if (!vc.personHrIds || !vc.personHrIds.trim()) {
-            return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步条件' + (vj + 1) + '：指定人员不能为空' });
+            return res.json({ status: 'invalid_params', message: '请选择第' + (vi + 1) + '步的指定人员' });
           }
         } else {
           if (vc.departmentScope === 'specific' && (!vc.specificDepartmentId || !vc.specificDepartmentId.trim())) {
@@ -252,7 +252,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       }
 
       await conn.commit();
-      res.json({ status: 'success', id: templateId, message: id ? '模板更新成功' : '模板创建成功' });
+      res.json({ status: 'success', id: templateId, message: id ? '模板已更新' : '模板已创建' });
     } catch (err) {
       await conn.rollback();
       throw err;
@@ -269,10 +269,10 @@ router.post('/deleteAuditFlowTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供模板ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择审核类型' });
 
     // Check if any submissions reference this template
     const orgId = await getCurrentOrgId();
@@ -281,7 +281,7 @@ router.post('/deleteAuditFlowTemplate', async (req, res) => {
       [id, orgId]
     );
     if (submissions[0] && submissions[0].cnt > 0) {
-      return res.json({ status: 'in_use', message: '该模板已有审核提交记录，不能删除' });
+      return res.json({ status: 'in_use', message: '该审核类型已有申请记录，可停用后保留' });
     }
 
     await flowTemplateModel.remove(id);
@@ -300,7 +300,7 @@ router.post('/listStamps', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const stamps = await stampModel.getAll();
     const assignments = await stampAssignmentModel.getAllGrouped();
@@ -335,7 +335,7 @@ router.post('/saveStamp', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -350,11 +350,11 @@ router.post('/saveStamp', async (req, res) => {
 
     if (id) {
       await stampModel.update(id, { name, imageData });
-      res.json({ status: 'success', message: '印章更新成功' });
+      res.json({ status: 'success', message: '印章已更新' });
     } else {
       const newId = generateId();
       await stampModel.create(newId, { name, imageData, createdBy: admin.id });
-      res.json({ status: 'success', id: newId, message: '印章创建成功' });
+      res.json({ status: 'success', id: newId, message: '印章已创建' });
     }
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -366,10 +366,10 @@ router.post('/deleteStamp', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请提供印章ID' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择印章' });
 
     await stampModel.remove(id);
     res.json({ status: 'success', message: '印章已删除' });
@@ -383,7 +383,7 @@ router.post('/saveStampAssignments', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const identityId = safeString(req.body.identityId);
     const stampIds = Array.isArray(req.body.stampIds) ? req.body.stampIds.map((s) => safeString(s)).filter(Boolean) : [];
@@ -406,7 +406,7 @@ router.post('/listIdentityStamps', async (req, res) => {
     const admin = await ensureAdmin(openid);
     const identityId = safeString(req.body.identityId);
     if (!identityId) {
-      return res.json({ status: 'invalid_params', message: '请提供身份ID' });
+      return res.json({ status: 'invalid_params', message: '请重新选择身份' });
     }
 
     const assignments = await stampAssignmentModel.getByIdentityId(identityId);
@@ -431,7 +431,7 @@ router.post('/listVerificationPermissions', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const perms = await verificationPermModel.getAll();
     // Load HR names
@@ -463,7 +463,7 @@ router.post('/saveVerificationPermission', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const granteeHrId = safeString(req.body.granteeHrId);
     const action = safeString(req.body.action) || 'grant'; // 'grant' or 'revoke'
@@ -499,7 +499,7 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const filters = {
       status: safeString(req.body.status) || null,
@@ -606,18 +606,18 @@ router.post('/getAuditProgress', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) {
-      return res.json({ status: 'invalid_params', message: '请提供提交ID' });
+      return res.json({ status: 'invalid_params', message: '请重新打开申请' });
     }
 
     const submission = await submissionModel.getById(submissionId);
     if (!submission) {
-      return res.json({ status: 'not_found', message: '提交不存在' });
+      return res.json({ status: 'not_found', message: '请刷新申请记录' });
     }
 
     const steps = await submissionStepModel.getBySubmissionId(submissionId);
@@ -790,7 +790,7 @@ router.post('/verifyAuditFile', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const fileHash = safeString(req.body.fileHash);
     const fileBase64 = safeString(req.body.fileBase64);
@@ -803,7 +803,7 @@ router.post('/verifyAuditFile', async (req, res) => {
     }
 
     if (!targetHash) {
-      return res.json({ status: 'invalid_params', message: '请提供文件或文件哈希' });
+      return res.json({ status: 'invalid_params', message: '请重新选择文件' });
     }
 
     const orgId = await getCurrentOrgId();

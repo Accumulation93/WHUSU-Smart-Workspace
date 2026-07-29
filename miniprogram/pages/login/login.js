@@ -22,7 +22,7 @@ Page({
     verificationCode: '',
     recoveryMethod: 'recovery_code',
     recoveryMethodIndex: 0,
-    recoveryMethodLabel: '系统恢复码',
+    recoveryMethodLabel: '账号恢复码',
     recoveryMethods: [],
     recoveryMethodValues: [],
     recoveryCredential: '',
@@ -63,7 +63,7 @@ Page({
     this.setData({
       recoveryMethod: selected,
       recoveryMethodIndex: Number(e.detail.value || 0),
-      recoveryMethodLabel: selected === 'passphrase' ? '自定义恢复口令' : '系统恢复码',
+      recoveryMethodLabel: selected === 'passphrase' ? '恢复口令' : '账号恢复码',
       recoveryCredential: ''
     });
   },
@@ -99,7 +99,7 @@ Page({
           });
           this.handleWechatSession(result);
         } catch (error) {
-          const message = getErrorText(error, '登录失败，请重试');
+          const message = getErrorText(error, '请重新微信登录');
           if (message) showShortToast(message);
         } finally {
           this._loginSubmitting = false;
@@ -109,14 +109,14 @@ Page({
       fail: () => {
         this._loginSubmitting = false;
         this.setData({ loading: false });
-        showShortToast('微信登录失败');
+        showShortToast('请重新微信登录');
       }
     });
   },
 
   handleWechatSession(result) {
     if (!result || !result.status) {
-      showShortToast('登录响应异常');
+      showShortToast('请重新微信登录');
       return;
     }
     if (result.status === 'login_success') {
@@ -124,7 +124,7 @@ Page({
         authContext.applyAuthenticatedResult(result);
         wx.redirectTo({ url: '/pages/portal/portal' });
       } catch (_) {
-        showShortToast('登录上下文异常');
+        showShortToast('请重新微信登录');
       }
       return;
     }
@@ -136,11 +136,11 @@ Page({
     const recoveryMethods = [];
     const recoveryMethodValues = [];
     if (result.recoveryMethods && result.recoveryMethods.recoveryCode) {
-      recoveryMethods.push('系统恢复码');
+      recoveryMethods.push('账号恢复码');
       recoveryMethodValues.push('recovery_code');
     }
     if (result.recoveryMethods && result.recoveryMethods.passphrase) {
-      recoveryMethods.push('自定义恢复口令');
+      recoveryMethods.push('恢复口令');
       recoveryMethodValues.push('passphrase');
     }
     orgSession.commitContext({
@@ -186,7 +186,7 @@ Page({
     if (this.data.loading) return;
     const organization = this.data.organizations[this.data.organizationIndex];
     if (!organization || !this.data.name || !this.data.studentId) {
-      showShortToast('请补全认证信息');
+      showShortToast('请填写组织、姓名和学号');
       return;
     }
     this.setData({ loading: true });
@@ -200,7 +200,7 @@ Page({
         }
       });
       if (!result || result.status !== 'accepted' || !result.claimId) {
-        showShortToast((result && result.message) || '认领请求提交失败');
+        showShortToast((result && result.message) || '未提交，请重试');
         return;
       }
       this.setData({
@@ -209,7 +209,7 @@ Page({
         verificationCode: ''
       });
     } catch (error) {
-      const message = getErrorText(error, '认领请求提交失败');
+      const message = getErrorText(error, '未提交，请重试');
       if (message) showShortToast(message);
     } finally {
       this.setData({ loading: false });
@@ -232,13 +232,13 @@ Page({
         }
       });
       if (!result || result.status !== 'login_success') {
-        showShortToast((result && result.message) || '身份认证失败');
+        showShortToast((result && result.message) || '请检查认证码');
         return;
       }
       authContext.applyAuthenticatedResult(result);
       wx.redirectTo({ url: '/pages/portal/portal' });
     } catch (error) {
-      const message = getErrorText(error, '身份认证失败');
+      const message = getErrorText(error, '请检查认证码');
       if (message) showShortToast(message);
     } finally {
       this.setData({ loading: false });
@@ -249,7 +249,7 @@ Page({
     if (this.data.loading) return;
     const organization = this.data.organizations[this.data.organizationIndex];
     if (!organization || !this.data.name || !this.data.studentId) {
-      showShortToast('请补全恢复信息');
+      showShortToast('请填写组织、姓名和学号');
       return;
     }
     this.setData({ loading: true });
@@ -263,7 +263,7 @@ Page({
         }
       });
       if (!result || result.status !== 'accepted' || !result.recoveryRequestId) {
-        showShortToast((result && result.message) || '恢复请求提交失败');
+        showShortToast((result && result.message) || '未提交，请重试');
         return;
       }
       this.setData({
@@ -272,7 +272,7 @@ Page({
         recoveryCredential: ''
       });
     } catch (error) {
-      const message = getErrorText(error, '恢复请求提交失败');
+      const message = getErrorText(error, '未提交，请重试');
       if (message) showShortToast(message);
     } finally {
       this.setData({ loading: false });
@@ -282,7 +282,7 @@ Page({
   async completeRecovery() {
     if (this.data.loading) return;
     if (!this.data.recoveryCredential) {
-      showShortToast('请输入恢复凭据');
+      showShortToast('请输入恢复码或恢复口令');
       return;
     }
     this.setData({ loading: true });
@@ -296,7 +296,7 @@ Page({
         }
       });
       if (!result || result.status !== 'login_success') {
-        showShortToast((result && result.message) || '账号恢复失败');
+        showShortToast((result && result.message) || '请检查恢复信息');
         return;
       }
       authContext.applyAuthenticatedResult(result);
@@ -310,7 +310,7 @@ Page({
         wx.redirectTo({ url: '/pages/portal/portal' });
       }
     } catch (error) {
-      const message = getErrorText(error, '账号恢复失败');
+      const message = getErrorText(error, '请检查恢复信息');
       if (message) showShortToast(message);
     } finally {
       this.setData({ loading: false });

@@ -1,12 +1,12 @@
 <view class="page">
   <view class="hero context-hero">
-    <view class="hero-badge">统一工作上下文</view>
+    <view class="hero-badge">组织与身份</view>
     <view class="hero-title">组织与身份</view>
-    <view class="hero-subtitle">先选择工作组织，再明确选择本次使用的岗位或管理身份</view>
+    <view class="hero-subtitle">先选组织，再选身份</view>
     <view class="current-context" wx:if="{{currentOrganizationName}}">
-      <view class="current-context-icon"><ui-icon name="grid" tone="white" size="30" ariaLabel="当前工作上下文" /></view>
+      <view class="current-context-icon"><ui-icon name="grid" tone="white" size="30" ariaLabel="当前组织与身份" /></view>
       <view class="current-context-copy">
-        <view class="current-context-label">当前工作上下文</view>
+        <view class="current-context-label">当前使用</view>
         <view class="current-context-org">{{currentOrganizationName}}</view>
         <view class="current-context-identity">{{currentIdentityName || '身份信息加载中'}}</view>
       </view>
@@ -14,7 +14,7 @@
   </view>
 
   <view class="context-notice context-notice-error" wx:if="{{errorText}}">
-    <ui-icon name="shield" tone="primary" size="26" ariaLabel="错误提示" />
+    <ui-icon name="shield" tone="primary" size="26" ariaLabel="提示" />
     <text>{{errorText}}</text>
   </view>
 
@@ -22,7 +22,7 @@
     <view class="panel-head">
       <view>
         <view class="section-title">选择组织</view>
-        <view class="panel-note">选择后不会立即切换，请继续选择下方身份</view>
+        <view class="panel-note">选好组织后，请在下方选择身份</view>
       </view>
       <view class="selection-status" wx:if="{{draftOrganizationName}}">已选组织</view>
     </view>
@@ -44,8 +44,8 @@
 
     <view class="empty-state" wx:elif="{{!loading && !organizations.length}}">
       <view class="empty-icon"><ui-icon name="home" tone="muted" size="50" ariaLabel="暂无组织" /></view>
-      <view class="empty-title">暂无可访问组织</view>
-      <view class="empty-desc">请联系组织管理员核对成员关系或管理授权</view>
+      <view class="empty-title">暂无可选组织</view>
+      <view class="empty-desc">请联系组织管理员添加您的成员信息</view>
     </view>
 
     <scroll-view class="organization-scroll" wx:else scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
@@ -153,8 +153,8 @@
     </view>
 
     <view class="empty-state identity-empty" wx:if="{{!assignmentIdentities.length && !adminIdentities.length}}">
-      <view class="empty-title">该组织暂无可用身份</view>
-      <view class="empty-desc">请选择其他组织，或联系管理员核对岗位与授权</view>
+      <view class="empty-title">该组织暂无可选身份</view>
+      <view class="empty-desc">请选择其他组织，或联系管理员添加岗位</view>
     </view>
   </view>
 </view>

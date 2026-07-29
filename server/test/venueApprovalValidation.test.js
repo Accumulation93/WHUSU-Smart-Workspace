@@ -19,19 +19,19 @@ assert.deepStrictEqual(normalizeRule({
 assert.throws(() => normalizeRule({
   departmentScope: 'specific',
   specificDepartmentId: ''
-}), /部门指定范围无效/);
-assert.throws(() => normalizeRule({ identityScope: 'unexpected' }), /审批范围无效/);
-assert.throws(() => normalizeFlowSteps([]), /至少需要一个步骤/);
+}), /请重新选择部门/);
+assert.throws(() => normalizeRule({ identityScope: 'unexpected' }), /请重新选择审批范围/);
+assert.throws(() => normalizeFlowSteps([]), /请添加审批步骤/);
 assert.throws(() => normalizeFlowSteps([{
   name: '负责人审批',
   approvalMode: 'hr_rule',
   rules: []
-}]), /至少需要一条规则/);
+}]), /请添加人事审批规则/);
 assert.throws(() => normalizeFlowSteps([{
   name: '管理员审批',
   approvalMode: 'admin_any',
   rules: [{ departmentScope: 'all' }]
-}]), /不能同时设置其他规则/);
+}]), /请清除其他规则/);
 
 const normalized = normalizeFlowSteps([{
   name: '负责人审批',

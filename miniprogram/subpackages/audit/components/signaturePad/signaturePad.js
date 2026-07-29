@@ -65,7 +65,7 @@ Component({
             if (retryCount < MAX_RETRIES) {
               that._scheduleRetry(retryCount + 1);
             } else {
-              wx.showToast({ title: '签名画板加载失败，请重试', icon: 'none' });
+              wx.showToast({ title: '请重新打开签名板', icon: 'none' });
             }
             return;
           }
@@ -281,7 +281,7 @@ Component({
       if (this._exporting) return;
       this._exporting = true; wx.showLoading({ title: '确认签名中...' });
       try { let d = await this.toDataURL(); this.triggerEvent('confirm', { imageData: d }); }
-      catch (e) { console.error('[sigPad] export:', e); wx.showToast({ title: '导出失败', icon: 'none' }); }
+      catch (e) { console.error('[sigPad] export:', e); wx.showToast({ title: '请重试', icon: 'none' }); }
       finally { this._exporting = false; wx.hideLoading(); }
     },
 

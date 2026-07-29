@@ -1,7 +1,7 @@
 <view class="page">
   <view class="hero">
     <view class="hero-badge">审核</view>
-    <view class="hero-title" wx:if="{{action === 'create'}}">发起新审核</view>
+    <view class="hero-title" wx:if="{{action === 'create'}}">发起申请</view>
     <view class="hero-title" wx:else>{{submission.title || submission.submissionNumber || '审核详情'}}</view>
     <view class="hero-subtitle" wx:if="{{action === 'view' && submission}}">{{submission.submissionNumber}} · {{submission.submitterName}}</view>
   </view>
@@ -9,16 +9,16 @@
   <!-- ═══════════ Create Mode ═══════════ -->
   <view class="section" wx:if="{{action === 'create'}}">
     <view class="card">
-      <view class="section-title">审核类型</view>
+      <view class="section-title">申请方式</view>
       <view class="button-row">
-        <button class="{{createMode === 'template' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-mode="template" bindtap="onCreateModeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">从模板创建</button>
-        <button class="{{createMode === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-mode="ad_hoc" bindtap="onCreateModeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">临时审批</button>
+        <button class="{{createMode === 'template' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-mode="template" bindtap="onCreateModeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">使用模板</button>
+        <button class="{{createMode === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-mode="ad_hoc" bindtap="onCreateModeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">自定义流程</button>
       </view>
     </view>
 
     <!-- Template mode -->
     <view class="card" wx:if="{{createMode === 'template'}}">
-      <view class="section-title">选择审核流模板</view>
+      <view class="section-title">选择审核模板</view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll small-scroll" scroll-y>
         <view class="template-select-item {{selectedTemplateId === item.id ? 'template-select-item-selected' : ''}} ui-motion-card" wx:for="{{flowTemplates}}" wx:key="id" data-id="{{item.id}}" catchtap="onTemplateSelect" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="radio-dot {{selectedTemplateId === item.id ? 'radio-dot-checked' : ''}}"></view>
@@ -29,7 +29,7 @@
         </view>
         <view class="audit-empty-state" wx:if="{{!flowTemplates.length}}">
           <view class="audit-empty-icon"><ui-icon name="file" tone="muted" size="54" ariaLabel="暂无模板" /></view>
-          <view class="audit-empty-text">暂无可用的审核流模板</view>
+          <view class="audit-empty-text">暂无可用模板</view>
         </view>
       </scroll-view>
     </view>
@@ -39,17 +39,17 @@
       <view class="section-title">审批步骤 ({{adHocSteps.length}}步)</view>
       <view class="ad-hoc-step-item" wx:for="{{adHocSteps}}" wx:key="index">
         <view class="ad-hoc-step-main">
-          <view class="ad-hoc-step-title">{{item.name || ('第' + (index + 1) + '步')}}：{{item.approverType === 'specific_person' ? (item.approverHrName || '未指定人员') : (item.approverIdentityName || '未指定身份') + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || '指定部门') : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : '全体')))) + '）'}} — {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+          <view class="ad-hoc-step-title">{{item.name || ('第' + (index + 1) + '步')}}：{{item.approverType === 'specific_person' ? (item.approverHrName || '未指定人员') : (item.approverIdentityName || '未指定身份') + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || '指定部门') : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : '全体')))) + '）'}} — {{item.actionType === 'pass' ? '通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
           <view class="ad-hoc-step-desc">{{item.approverType === 'identity' ? '按身份审批' : '指定人员审批'}}</view>
         </view>
         <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeAdHocStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view>
       </view>
       <view class="audit-empty-state" wx:if="{{!adHocSteps.length}}">
-        <view class="audit-empty-text">尚未添加审批步骤</view>
+        <view class="audit-empty-text">暂无审批步骤</view>
       </view>
-      <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="openAdHocStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加步骤 (按身份)</button><button class="secondary-btn ui-motion-button" bindtap="openPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加步骤 (指定人员)</button></view>
+      <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="openAdHocStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">按身份添加</button><button class="secondary-btn ui-motion-button" bindtap="openPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">指定人员添加</button></view>
       <view class="field field-mt-16">
-        <view class="field-label">驳回重提交模式</view>
+        <view class="field-label">驳回后重新提交</view>
         <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onResubmitModeChange">
           <view class="picker-value">{{resubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
         </picker>
@@ -106,7 +106,7 @@
         <button class="secondary-btn ui-motion-button" bindtap="chooseFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">选择文件</button>
       </view>
       <view class="audit-btn-bar">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="submitAudit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">提交审核</button>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="submitAudit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">提交申请</button>
       </view>
     </view>
 
@@ -122,8 +122,8 @@
             </view>
             <view class="field">
               <view class="field-label">审批动作</view>
-              <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onAdHocActionTypeChange">
-                <view class="picker-value">{{adHocStepForm.actionType === 'pass' ? '仅通过' : (adHocStepForm.actionType === 'sign' ? '签字' : (adHocStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+              <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onAdHocActionTypeChange">
+                <view class="picker-value">{{adHocStepForm.actionType === 'pass' ? '通过' : (adHocStepForm.actionType === 'sign' ? '签字' : (adHocStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
               </picker>
             </view>
             <view class="field">
@@ -176,7 +176,7 @@
           </view>
           <view class="info-block">
             <view class="info-label">类型</view>
-            <view class="info-value">{{submission.type === 'template' ? '模板审核' : '临时审批'}}</view>
+            <view class="info-value">{{submission.type === 'template' ? '使用模板' : '自定义流程'}}</view>
           </view>
           <view class="info-block info-block-full" wx:if="{{submission.templateName}}">
             <view class="info-label">模板</view>
@@ -244,7 +244,7 @@
               <view class="approval-sig-info">
                 <image wx:if="{{sig.imageData}}" src="{{sig.imageData}}" mode="aspectFit" class="approval-sig-thumb" />
                 <text class="approval-sig-name">{{sig.signatureType === 'stamp' ? (sig.stampName || '印章') : '签名'}}</text>
-                <text class="approval-sig-pos">{{sig.posText || '等待定位'}}</text>
+                <text class="approval-sig-pos">{{sig.posText || '请调整位置'}}</text>
               </view>
               <view class="approval-sig-actions">
                 <text class="approval-sig-action-adjust ui-motion-chip" data-sig-idx="{{index}}" bindtap="openPlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">调整位置</text>
@@ -274,7 +274,7 @@
             <view class="approval-designate-label">指定下一步审批人（可选）</view>
             <text class="audit-link-btn approval-designate-link ui-motion-chip" bindtap="openDesignateNextPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{designatedNextPersons.length ? '修改' : '选择'}}</text>
           </view>
-          <view wx:if="{{!designatedNextPersons.length}}" class="approval-designate-empty">留空则按流程审批</view>
+          <view wx:if="{{!designatedNextPersons.length}}" class="approval-designate-empty">不指定时由下一步审批人处理</view>
           <view wx:for="{{designatedNextPersons}}" wx:key="id" class="approval-designate-tag">
             {{item.name}}
             <text data-hr-id="{{item.id}}" bindtap="removeDesignatedNextPerson" class="approval-designate-remove ui-motion-chip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
@@ -327,7 +327,7 @@
                 <!-- Expanded detail -->
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <view class="flow-detail-text">
-                    <text class="flow-detail-label">操作人：</text>{{node.operatorName || '系统'}}
+                    <text class="flow-detail-label">操作人：</text>{{node.operatorName || '自动操作'}}
                   </view>
                   <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text">
                     <text class="flow-detail-label">{{node.event === 'approve' ? '审批意见：' : (node.event === 'reject' ? '驳回理由：' : '备注：')}}</text>{{node.comment}}
@@ -356,7 +356,7 @@
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
-                  {{node.operatorName || node.approverName || '未知'}} · {{node.processedAt || ''}}
+                  {{node.operatorName || node.approverName || '未记录'}} · {{node.processedAt || ''}}
                 </view>
                 <!-- Expand indicator -->
                 <view class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
@@ -365,7 +365,7 @@
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <!-- Processed info -->
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-text">
-                    <text class="flow-detail-label">处理人：</text>{{node.operatorName || node.approverName || '未知'}}
+                    <text class="flow-detail-label">处理人：</text>{{node.operatorName || node.approverName || '未记录'}}
                   </view>
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     处理时间：{{node.processedAt || ''}}
@@ -410,7 +410,7 @@
         <!-- Empty state when no timeline -->
         <view wx:if="{{!flowTimeline.length}}" class="audit-empty-state">
           <view class="audit-empty-icon"><ui-icon name="list" tone="muted" size="54" ariaLabel="暂无审批流程" /></view>
-          <view class="audit-empty-text">暂无流程数据</view>
+          <view class="audit-empty-text">暂无审批记录</view>
         </view>
       </view>
 
@@ -420,7 +420,6 @@
         <view class="file-attach-item ui-motion-card" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" data-file-name="{{item.fileName}}" bindtap="previewFile" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="附件" /></view>
           <view class="file-attach-name">{{item.fileName}}</view>
-          <view class="audit-file-type">{{item.mimeType}}</view>
         </view>
       </view>
 
@@ -442,9 +441,9 @@
 
       <!-- Actions — submitter-only buttons -->
       <view class="card" wx:if="{{userIsSubmitter}}">
-        <view class="section-title" wx:if="{{activeApprovalStepId}}">提交人操作</view>
+        <view class="section-title" wx:if="{{activeApprovalStepId}}">申请操作</view>
         <view class="audit-btn-bar">
-          <button class="secondary-btn ui-motion-button" wx:if="{{submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">修改审批</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">修改申请</button>
           <button class="primary-btn ui-motion-button" wx:if="{{submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="resubmit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重新提交</button>
           <button class="secondary-btn danger-btn ui-motion-button" wx:if="{{submission.status === 'in_progress' || submission.status === 'rejected'}}" bindtap="withdraw" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">撤回申请</button>
         </view>
@@ -453,14 +452,14 @@
       <!-- ═══════════ Edit Mode ═══════════ -->
       <view wx:if="{{editMode}}">
         <view class="card">
-          <view class="section-title">修改审批</view>
+          <view class="section-title">修改申请</view>
         </view>
 
         <view class="card">
           <view class="section-title">审批类型</view>
           <view class="button-row">
-            <button class="{{editType === 'template' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-type="template" bindtap="onEditTypeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">模板审核</button>
-            <button class="{{editType === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-type="ad_hoc" bindtap="onEditTypeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">临时审批</button>
+            <button class="{{editType === 'template' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-type="template" bindtap="onEditTypeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">使用模板</button>
+            <button class="{{editType === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-type="ad_hoc" bindtap="onEditTypeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">自定义流程</button>
           </view>
         </view>
 
@@ -482,8 +481,8 @@
           <view class="section-title">审批步骤 ({{editSteps.length}}步)</view>
           <view class="ad-hoc-step-item" wx:for="{{editSteps}}" wx:key="index">
             <view class="ad-hoc-step-main">
-              <view class="ad-hoc-step-title">第{{index + 1}}步 · {{item.actionType === 'pass' ? '仅通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
-              <view class="ad-hoc-step-desc">{{item.approverDesc || '未配置审批人'}}</view>
+              <view class="ad-hoc-step-title">第{{index + 1}}步 · {{item.actionType === 'pass' ? '通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+              <view class="ad-hoc-step-desc">{{item.approverDesc || '未选择审批人'}}</view>
               <!-- Show individual condition lines for OR logic -->
               <view wx:for="{{item.stepConditionsDisplay}}" wx:for-item="cond" wx:key="*this" wx:if="{{item.stepConditionsDisplay.length > 1}}" class="edit-cond-line">{{cond}}</view>
             </view>
@@ -493,11 +492,11 @@
             <view class="audit-empty-text">暂无审批步骤</view>
           </view>
           <view class="button-row compact-row">
-            <button class="secondary-btn ui-motion-button" bindtap="openEditStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加步骤 (按身份)</button>
-            <button class="secondary-btn ui-motion-button" bindtap="openEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加步骤 (指定人员)</button>
+            <button class="secondary-btn ui-motion-button" bindtap="openEditStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">按身份添加</button>
+            <button class="secondary-btn ui-motion-button" bindtap="openEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">指定人员添加</button>
           </view>
           <view class="field field-mt-16">
-            <view class="field-label">驳回重提交模式</view>
+            <view class="field-label">驳回后重新提交</view>
             <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onEditResubmitModeChange">
               <view class="picker-value">{{editResubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
             </picker>
@@ -544,8 +543,8 @@
               </view>
               <view class="field">
                 <view class="field-label">审批动作</view>
-                <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onEditActionTypeChange">
-                  <view class="picker-value">{{editStepForm.actionType === 'pass' ? '仅通过' : (editStepForm.actionType === 'sign' ? '签字' : (editStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+                <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onEditActionTypeChange">
+                  <view class="picker-value">{{editStepForm.actionType === 'pass' ? '通过' : (editStepForm.actionType === 'sign' ? '签字' : (editStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
                 </picker>
               </view>
               <view class="field">
@@ -594,7 +593,7 @@
                 <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
               </view>
             </view>
-            <view class="empty-inline" wx:if="{{!editPersonPickerSelectedList.length}}">尚未选择任何人</view>
+            <view class="empty-inline" wx:if="{{!editPersonPickerSelectedList.length}}">暂无已选人员</view>
           </scroll-view>
           <view class="list-title field-mt-8">可选人员</view>
           <view class="rule-filter-row">
@@ -615,8 +614,8 @@
           </scroll-view>
           <view class="field field-mt-8">
             <view class="field-label">审批动作</view>
-            <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onEditPersonPickerActionTypeChange">
-              <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? '仅通过' : (editPersonPickerStepActionType === 'sign' ? '签字' : (editPersonPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+            <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onEditPersonPickerActionTypeChange">
+              <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? '通过' : (editPersonPickerStepActionType === 'sign' ? '签字' : (editPersonPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
             </picker>
           </view>
           <view class="button-row ui-dialog-footer">
@@ -656,7 +655,7 @@
   <view class="popup-mask ui-overlay" wx:if="{{placementVisible}}" bindtap="closePlacement">
     <view class="popup-card placement-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">预览 · 定位 - {{placementFileName}}</view>
+        <view class="popup-title">调整签名位置 · {{placementFileName}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closePlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
 
@@ -747,7 +746,7 @@
 
       <view class="placement-actions ui-dialog-footer">
         <button class="secondary-btn placement-btn-cancel ui-motion-button" catchtap="closePlacement" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="secondary-btn placement-btn-copy ui-motion-button" catchtap="addPlacementCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增一处</button>
+        <button class="secondary-btn placement-btn-copy ui-motion-button" catchtap="addPlacementCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">再放一处</button>
         <button class="primary-btn placement-btn-save ui-motion-button" catchtap="confirmPlacement" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存位置</button>
       </view>
     </view>
@@ -891,7 +890,7 @@
               <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
             </view>
           </view>
-          <view class="empty-inline" wx:if="{{!personPickerSelectedList.length}}">尚未选择任何人</view>
+          <view class="empty-inline" wx:if="{{!personPickerSelectedList.length}}">暂无已选人员</view>
         </scroll-view>
 
         <!-- Filters -->
@@ -938,8 +937,8 @@
         <!-- Action type (only for ad-hoc mode; template/designate-next modes inherit step definition) -->
         <view class="field field-mt-8" wx:if="{{templateOverrideStepIndex < 0 && personPickerMode !== 'designateNext'}}">
           <view class="field-label">审批动作</view>
-          <picker range="{{['仅通过','签字','盖章','签字+盖章']}}" bindchange="onPersonPickerActionTypeChange">
-            <view class="picker-value">{{personPickerStepActionType === 'pass' ? '仅通过' : (personPickerStepActionType === 'sign' ? '签字' : (personPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+          <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onPersonPickerActionTypeChange">
+            <view class="picker-value">{{personPickerStepActionType === 'pass' ? '通过' : (personPickerStepActionType === 'sign' ? '签字' : (personPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
           </picker>
         </view>
 

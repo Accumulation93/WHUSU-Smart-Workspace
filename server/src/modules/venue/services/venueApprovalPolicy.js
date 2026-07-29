@@ -2,13 +2,13 @@ const { safeString } = require('../../../utils/helpers');
 const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
 
 const REASONS = Object.freeze({
-  NO_FLOW: '该借用没有配置审批流程',
+  NO_FLOW: '该借用未设置审批流程',
   REJECTED: '该借用已被驳回',
   COMPLETED: '该借用已完成所有审批步骤',
-  INVALID_STEP: '审批步骤配置异常',
+  INVALID_STEP: '审批步骤有误，请联系管理员',
   ADMIN_REQUIRED: '该步骤仅允许当前组织管理员审批',
   USER_ROLE_REQUIRED: '当前步骤需切换到普通用户身份审批',
-  NO_RULES: '当前人事审批步骤没有配置审批条件',
+  NO_RULES: '请联系管理员设置审批条件',
   INVALID_HR: '绑定的人事信息不存在',
   RULE_MISMATCH: '您不符合当前审批步骤的审批条件',
   ALREADY_APPROVED: '您已审批过该借用的前置步骤，为保障职责分离，请由其他审批人处理当前步骤'

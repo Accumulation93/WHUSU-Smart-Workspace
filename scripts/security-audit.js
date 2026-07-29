@@ -127,7 +127,7 @@ requireSourceContract('server/src/core/routes/auth.js', [
   {
     rule: 'admin-invite-binding-disabled',
     test: source => source.includes("router.post('/bindAdminInfo'")
-      && source.includes("message: '管理员邀请码登录已停用，请更新小程序并使用统一身份认证'")
+      && source.includes("message: '请更新小程序并使用微信登录'")
       && !source.includes('WHERE invite_code = ?')
   },
   {

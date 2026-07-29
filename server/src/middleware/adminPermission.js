@@ -19,7 +19,7 @@ async function adminPermissionMiddleware(req, res, next) {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
     if (!admin) {
-      return res.status(403).json({ status: 'forbidden', message: '当前管理员身份已失效' });
+      return res.status(403).json({ status: 'forbidden', message: '请重新选择管理员身份' });
     }
     const orgId = await getCurrentOrgId();
     const effective = await loadEffectivePermissions(admin, orgId);
@@ -27,7 +27,7 @@ async function adminPermissionMiddleware(req, res, next) {
       return res.status(403).json({
         status: 'permission_denied',
         permissionKey: rule.anyOf[0] || '',
-        message: '当前账号没有执行此操作的权限'
+        message: '请使用有相应权限的管理员身份'
       });
     }
     req.admin = admin;
@@ -35,7 +35,7 @@ async function adminPermissionMiddleware(req, res, next) {
     return next();
   } catch (error) {
     req.logger.error('Admin permission check failed', { error: error.message, path: routePath });
-    return res.status(500).json({ status: 'error', message: '权限校验失败' });
+    return res.status(500).json({ status: 'error', message: '请稍后重试' });
   }
 }
 

@@ -251,7 +251,7 @@ Page({
         this.setData({ flowTemplates: res.templates || [] });
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '加载模板失败'));
+      showShortToast(getErrorText(e, '请稍后刷新模板'));
     }
   },
 
@@ -291,7 +291,7 @@ Page({
       }
     } catch (e) {
       console.error('[audit] loadTemplatePreview failed:', e);
-      showShortToast('预览失败，仍可提交');
+      showShortToast('暂时无法预览，仍可提交');
     }
   },
 
@@ -586,7 +586,7 @@ Page({
 
     const selected = this.data.personPickerSelectedList;
     if (!selected.length) {
-      showShortToast('请至少选择一个人');
+      showShortToast('请选择审批人');
       return;
     }
 
@@ -630,7 +630,7 @@ Page({
     const identName = identOpts[identIdx];
     const identity = identities.find(i => i.name === identName);
     if (!identity) {
-      showShortToast('身份不可用');
+      showShortToast('请重新选择身份');
       return;
     }
 
@@ -653,7 +653,7 @@ Page({
       }
       const deptName = deptOpts[deptIdx];
       const dept = departments.find(d => d.name === deptName);
-      if (!dept) { showShortToast('部门不可用'); return; }
+      if (!dept) { showShortToast('请重新选择部门'); return; }
       scopeDepartmentId = dept.id;
       scopeDepartmentName = dept.name;
     }
@@ -667,7 +667,7 @@ Page({
       }
       const wgName = wgOpts[wgIdx];
       const wg = workGroups.find(w => w.name === wgName);
-      if (!wg) { showShortToast('职能组不可用'); return; }
+      if (!wg) { showShortToast('请重新选择职能组'); return; }
       scopeWorkGroupId = wg.id;
       scopeWorkGroupName = wg.name;
     }
@@ -727,11 +727,11 @@ Page({
   },
 
   getActionLabel(actionType) {
-    if (actionType === 'pass') return '仅通过';
+    if (actionType === 'pass') return '通过';
     if (actionType === 'sign') return '签字';
     if (actionType === 'estamp') return '盖章';
     if (actionType === 'both') return '签字+盖章';
-    return actionType || '仅通过';
+    return actionType || '通过';
   },
 
   getScopeLabel(scopeType, scopeDepartmentName, scopeWorkGroupName) {
@@ -760,7 +760,7 @@ Page({
   validateAuditUploadFile(fileName, fileSize, base64) {
     let mimeType = this.inferAuditFileMime(fileName, base64);
     if (!mimeType || AUDIT_ALLOWED_MIMES.indexOf(mimeType) < 0) {
-      return { ok: false, message: '仅支持 PNG/JPG/WEBP 图片或 PDF 文件' };
+      return { ok: false, message: '请上传 PNG、JPG、WEBP 图片或 PDF 文件' };
     }
     if ((fileSize || 0) > AUDIT_MAX_FILE_SIZE) {
       return { ok: false, message: '文件过大，最大支持 10MB' };
@@ -836,7 +836,7 @@ Page({
         });
       } catch (e) {
         errorCount++;
-        if (!firstError) firstError = getErrorText(e, '文件读取失败');
+        if (!firstError) firstError = getErrorText(e, '请重新选择文件');
         console.error('文件读取失败:', tf.name, e);
       }
     }
@@ -844,7 +844,7 @@ Page({
     if (uploaded.length > this.data.uploadedFiles.length) {
       this.setData({ uploadedFiles: uploaded });
     } else if (errorCount > 0) {
-      showShortToast(firstError || '文件读取失败，请重试');
+      showShortToast(firstError || '请重新选择文件');
     }
     this.setData({ uploading: false });
   },
@@ -860,7 +860,7 @@ Page({
     const { createMode, selectedTemplateId, createTitle, uploadedFiles, adHocSteps, resubmitMode } = this.data;
 
     if (!createTitle) { showShortToast('请输入标题'); return; }
-    if (!uploadedFiles.length) { showShortToast('请上传至少一份文件'); return; }
+    if (!uploadedFiles.length) { showShortToast('请上传文件'); return; }
 
     this.setData({ loading: true });
     const serverFiles = [];
@@ -884,19 +884,19 @@ Page({
             fileToken: uploadRes.fileToken
           });
         } else {
-          throw new Error(uploadRes.message || '文件上传失败');
+          throw new Error(uploadRes.message || '未上传，请重试');
         }
       }
     } catch (e) {
       this.setData({ loading: false });
-      showShortToast(getErrorText(e, '文件上传失败'));
+      showShortToast(getErrorText(e, '未上传，请重试'));
       return;
     }
 
     try {
       let res;
       if (createMode === 'template') {
-        if (!selectedTemplateId) { showShortToast('请选择审核流模板'); this.setData({ loading: false }); return; }
+        if (!selectedTemplateId) { showShortToast('请选择审核流程'); this.setData({ loading: false }); return; }
         // Collect step overrides from template step preview
         let stepOverrides = (this.data.templateStepOverrides || [])
           .filter(function(o) { return o.mode === 'specific' && o.personHrIds && o.personHrIds.length; })
@@ -925,13 +925,13 @@ Page({
       }
 
       if (res.status === 'success') {
-        showShortToast('提交成功');
+        showShortToast('已提交');
         wx.redirectTo({ url: `/subpackages/audit/pages/submissionDetail/submissionDetail?id=${res.id}` });
       } else {
-        showShortToast(res.message || '提交失败');
+        showShortToast(res.message || '未提交，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '提交失败'));
+      showShortToast(getErrorText(e, '未提交，请重试'));
     } finally {
       this.setData({ loading: false });
     }
@@ -1142,8 +1142,8 @@ Page({
               }
             }
 
-            let actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
-            let actionLabel = actionMap[step.actionType] || step.actionType || '仅通过';
+            let actionMap = { pass: '通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+            let actionLabel = actionMap[step.actionType] || step.actionType || '通过';
             let completedStepLabelMap = { pass: '✓ 步骤已通过', sign: '✓ 已签字', estamp: '✓ 已盖章', both: '✓ 已签字盖章' };
             let completedStepLabel = completedStepLabelMap[step.actionType] || '✓ 步骤已处理';
 
@@ -1366,7 +1366,7 @@ Page({
         // (handles edge cases where the flowTimeline filtering skips the active step)
         let computedActiveStepId = activeApprovalStep ? activeApprovalStep.id : '';
         if (!activeApprovalStep && rawSteps.length > 0 && submissionStatus === 'in_progress') {
-          let actionMap2 = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+          let actionMap2 = { pass: '通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
           // Find max round first
           let maxRound2 = 0;
           for (let si3 = 0; si3 < rawSteps.length; si3++) {
@@ -1381,7 +1381,7 @@ Page({
               activeApprovalStep = {
                 id: rawStep.id,
                 sortOrder: rawStep.sortOrder,
-                actionLabel: actionMap2[rawStep.actionType] || rawStep.actionType || '仅通过',
+                actionLabel: actionMap2[rawStep.actionType] || rawStep.actionType || '通过',
                 approverDesc: rawStep.approverDesc || '由未指定审批人审批',
                 round: rawStep.round || 1,
                 conditionsDisplay: rawStep.stepConditionsDisplay || []
@@ -1428,10 +1428,10 @@ Page({
           console.warn('[audit] markSubmissionRead network error:', e);
         }
       } else {
-        showShortToast(res.message || '加载失败');
+        showShortToast(res.message || '请稍后刷新');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '加载失败'));
+      showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       this.setData({ loading: false });
     }
@@ -1637,7 +1637,7 @@ Page({
     let fileId = sig.fileId;
     let files = this.data.files || [];
     let file = files.find(function(f) { return f.id === fileId; });
-    let fileName = file ? file.fileName : '未知文件';
+    let fileName = file ? file.fileName : '未命名文件';
     let fileMime = file ? file.mimeType : '';
 
     // Collect all sigs/stamps on the same file
@@ -1788,7 +1788,7 @@ Page({
       }
 
       if (res.status === 'success') {
-        showShortToast(res.message || '操作成功');
+        showShortToast(res.message || '已完成');
         this.closeApproval();
 
         // Optimistic UI: update local state immediately, sync in background
@@ -1833,10 +1833,10 @@ Page({
           }, 800);
         }
       } else {
-        showShortToast(res.message || '操作失败');
+        showShortToast(res.message || '未完成，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '操作失败'));
+      showShortToast(getErrorText(e, '未完成，请重试'));
     } finally {
       this.setData({ loading: false });
     }
@@ -2442,15 +2442,15 @@ Page({
       }
 
       if (res.status === 'success') {
-        showShortToast(res.message || '操作成功');
+        showShortToast(res.message || '已完成');
         this.setData({ approvalComment: '', rejectionReason: '', designatedNextPersons: [], nextStepInfo: null });
         require('../../../../utils/eventBus').emit('approval:done');
         this.loadDetail();
       } else {
-        showShortToast(res.message || '操作失败');
+        showShortToast(res.message || '未完成，请重试');
       }
     } catch (err) {
-      showShortToast(getErrorText(err, '操作失败'));
+      showShortToast(getErrorText(err, '未完成，请重试'));
     } finally {
       this.setData({ loading: false });
     }
@@ -2471,7 +2471,7 @@ Page({
     let steps = this.data.steps || [];
 
     if (!this.isEditableStatus(submission.status)) {
-      showShortToast('当前状态不允许编辑');
+      showShortToast('请在待修改状态下编辑');
       return;
     }
 
@@ -2588,7 +2588,7 @@ Page({
     if (identIdx <= 0) { showShortToast('请选择身份'); return; }
     let identName = identOpts[identIdx];
     let identity = identities.find(function(i) { return i.name === identName; });
-    if (!identity) { showShortToast('身份不可用'); return; }
+    if (!identity) { showShortToast('请重新选择身份'); return; }
 
     let scopeType = scopeValues[scopeIdx] || 'all';
     let scopeDepartmentId = '', scopeDepartmentName = '', scopeWorkGroupId = '', scopeWorkGroupName = '';
@@ -2599,7 +2599,7 @@ Page({
       if (deptIdx <= 0) { showShortToast('请选择部门'); return; }
       let deptName = deptOpts[deptIdx];
       let dept = departments.find(function(d) { return d.name === deptName; });
-      if (!dept) { showShortToast('部门不可用'); return; }
+      if (!dept) { showShortToast('请重新选择部门'); return; }
       scopeDepartmentId = dept.id;
       scopeDepartmentName = dept.name;
     }
@@ -2609,7 +2609,7 @@ Page({
       if (wgIdx <= 0) { showShortToast('请选择职能组'); return; }
       let wgName = wgOpts[wgIdx];
       let wg = workGroups.find(function(w) { return w.name === wgName; });
-      if (!wg) { showShortToast('职能组不可用'); return; }
+      if (!wg) { showShortToast('请重新选择职能组'); return; }
       scopeWorkGroupId = wg.id;
       scopeWorkGroupName = wg.name;
     }
@@ -2714,7 +2714,7 @@ Page({
 
   confirmEditPersonPicker() {
     let selected = this.data.editPersonPickerSelectedList;
-    if (!selected.length) { showShortToast('请至少选择一个人'); return; }
+    if (!selected.length) { showShortToast('请选择审批人'); return; }
     let steps = [...this.data.editSteps];
     let actionType = this.data.editPersonPickerStepActionType;
     for (let i = 0; i < selected.length; i++) {
@@ -2791,7 +2791,7 @@ Page({
           fileSize: tf.size || 0, fileHash: '', tmpPath: tf.path, base64: base64
         });
       } catch (e) {
-        if (!firstError) firstError = getErrorText(e, '文件读取失败');
+        if (!firstError) firstError = getErrorText(e, '请重新选择文件');
         console.error('文件读取失败:', tf.name, e);
       }
     }
@@ -2839,7 +2839,7 @@ Page({
             fileToken: uploadRes.fileToken
           });
         } else {
-          throw new Error(uploadRes.message || '文件上传失败');
+          throw new Error(uploadRes.message || '未上传，请重试');
         }
       }
 
@@ -2882,10 +2882,10 @@ Page({
         this.setData({ editMode: false });
         this.loadDetail();
       } else {
-        showShortToast(res.message || '保存失败');
+        showShortToast(res.message || '未保存，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '保存失败'));
+      showShortToast(getErrorText(e, '未保存，请重试'));
     } finally {
       this.setData({ loading: false });
     }
@@ -2903,10 +2903,10 @@ Page({
         showShortToast(res.message || '已重提交');
         this.loadDetail();
       } else {
-        showShortToast(res.message || '重提交失败');
+        showShortToast(res.message || '未重新提交，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '重提交失败'));
+      showShortToast(getErrorText(e, '未重新提交，请重试'));
     } finally {
       this.setData({ loading: false });
     }
@@ -2937,10 +2937,10 @@ Page({
             showShortToast('已撤回');
             wx.navigateBack();
           } else {
-            showShortToast(res.message || '撤回失败');
+            showShortToast(res.message || '未撤回，请重试');
           }
         } catch (e) {
-          showShortToast(getErrorText(e, '撤回失败'));
+          showShortToast(getErrorText(e, '未撤回，请重试'));
         }
       }
     });

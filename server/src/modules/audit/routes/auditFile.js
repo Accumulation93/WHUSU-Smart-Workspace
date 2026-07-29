@@ -46,7 +46,7 @@ async function assertSafeFileContent(buffer, mimeType) {
   const metadata = await require('sharp')(buffer, { limitInputPixels: MAX_IMAGE_PIXELS }).metadata();
   const pixels = Number(metadata.width || 0) * Number(metadata.height || 0);
   if (!pixels || pixels > MAX_IMAGE_PIXELS) {
-    const error = new Error('图片尺寸无效或像素数量超过限制');
+    const error = new Error('请重新选择尺寸较小的图片');
     error.status = 'invalid_params';
     throw error;
   }
@@ -239,14 +239,14 @@ router.post('/uploadAuditFile', function(req, res, next) {
 router.post('/getAuditFile', async (req, res) => {
   try {
     const fileId = safeString(req.body.fileId);
-    if (!fileId) return res.json({ status: 'invalid_params', message: '请提供文件ID' });
+    if (!fileId) return res.json({ status: 'invalid_params', message: '请重新选择文件' });
 
     const auth = await getAuthorizedAuditFile(fileId, req.openid);
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 
     if (!fs.existsSync(file.file_path)) {
-      return res.json({ status: 'not_found', message: '文件已被清理或不存在' });
+      return res.json({ status: 'not_found', message: '文件已过期，请重新上传' });
     }
 
     const buffer = fs.readFileSync(file.file_path);
@@ -268,7 +268,7 @@ router.post('/getAuditFile', async (req, res) => {
 router.get('/downloadAuditFile', async (req, res) => {
   try {
     const fileId = safeString(req.query.fileId);
-    if (!fileId) return res.status(400).json({ status: 'invalid_params', message: '请提供文件ID' });
+    if (!fileId) return res.status(400).json({ status: 'invalid_params', message: '请重新选择文件' });
 
     const auth = await getAuthorizedAuditFile(fileId, req.openid);
     if (auth.status !== 'success') {
@@ -278,7 +278,7 @@ router.get('/downloadAuditFile', async (req, res) => {
     const file = auth.file;
 
     if (!fs.existsSync(file.file_path)) {
-      return res.status(404).json({ status: 'not_found', message: '文件已被清理或不存在' });
+      return res.status(404).json({ status: 'not_found', message: '文件已过期，请重新上传' });
     }
 
     const mime = file.mime_type || 'application/octet-stream';
@@ -306,14 +306,14 @@ router.post('/getAuditFilePreview', async (req, res) => {
   try {
     const fileId = safeString(req.body.fileId);
     const page = parseInt(req.body.page) || 1;
-    if (!fileId) return res.json({ status: 'invalid_params', message: '请提供文件ID' });
+    if (!fileId) return res.json({ status: 'invalid_params', message: '请重新选择文件' });
 
     const auth = await getAuthorizedAuditFile(fileId, req.openid);
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 
     if (!fs.existsSync(file.file_path)) {
-      return res.json({ status: 'not_found', message: '文件已被清理或不存在' });
+      return res.json({ status: 'not_found', message: '文件已过期，请重新上传' });
     }
 
     const mimeType = file.mime_type;
@@ -354,7 +354,7 @@ router.post('/getAuditFilePreview', async (req, res) => {
           page: page,
           data: null,
           fallback: true,
-          message: 'PDF预览失败，请下载后查看',
+          message: '请下载文件后查看',
           requestId: req.requestId || ''
         });
       }
@@ -379,13 +379,13 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
   try {
     const fileId = safeString(req.body.fileId);
     const signatures = Array.isArray(req.body.signatures) ? req.body.signatures : [];
-    if (!fileId) return res.json({ status: 'invalid_params', message: '请提供文件ID' });
+    if (!fileId) return res.json({ status: 'invalid_params', message: '请重新选择文件' });
     if (signatures.length > 20) return res.json({ status: 'invalid_params', message: '单次最多处理20个签名' });
     let totalSignatureBytes = 0;
     for (const signature of signatures) {
       const imageData = safeString(signature && signature.imageData);
       if (!/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(imageData)) {
-        return res.json({ status: 'invalid_params', message: '签名图片格式无效' });
+        return res.json({ status: 'invalid_params', message: '请重新选择签名图片' });
       }
       const estimatedBytes = Math.ceil(imageData.length * 3 / 4);
       if (estimatedBytes > 2 * 1024 * 1024) {

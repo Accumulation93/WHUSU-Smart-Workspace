@@ -1,0 +1,39 @@
+'use strict';
+
+const INTERNAL_COPY_PATTERN = /(?:\b(?:id|sql|jwt|token|openid|route|internal|undefined|null|econn\w*|timeout|pool|server|column|table|constraint)\b|duplicate entry|foreign key|syntax error|ER_[A-Z_]+|参数|数据库|上下文|会话|凭据|主体|哈希|签名链|快照|字段映射|扩展字段|校验|配置格式|请求标识|组织标识|统一身份|账号体系|认领请求|服务端|客户端|接口|路由)/i;
+const FAILURE_COPY_PATTERN = /失败|异常|错误/;
+const PERMISSION_COPY_PATTERN = /没有.*权限|无权|仅.*(?:可|能)|不能.*(?:操作|修改|删除|访问|解绑)|不允许|禁止/;
+
+function fallbackForStatus(status) {
+  const value = String(status || '').toLowerCase();
+  if (value === 'auth_failed' || value === 'need_login') return '请重新微信登录';
+  if (
+    value === 'forbidden'
+    || value === 'permission_denied'
+    || value === 'org_access_denied'
+    || value === 'invalid_role'
+  ) {
+    return '请重新选择组织或身份';
+  }
+  if (value === 'invalid_params' || value === 'invalid_request') return '请重新打开页面后再试';
+  if (value === 'not_found' || value === 'conflict' || value === 'stale') return '请刷新后重试';
+  return '请稍后重试';
+}
+
+function protectPublicMessage(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+  if (typeof body.message !== 'string') return body;
+  if (
+    !INTERNAL_COPY_PATTERN.test(body.message)
+    && !FAILURE_COPY_PATTERN.test(body.message)
+    && !PERMISSION_COPY_PATTERN.test(body.message)
+  ) {
+    return body;
+  }
+  return Object.assign({}, body, { message: fallbackForStatus(body.status) });
+}
+
+module.exports = {
+  fallbackForStatus,
+  protectPublicMessage
+};

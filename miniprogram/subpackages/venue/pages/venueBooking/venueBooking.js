@@ -305,8 +305,8 @@ Page({
       let res = await callFunction({ name: 'listVenuesForBooking', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') this.setData({ venues: res.venues || [] });
-      else showShortToast(res.message || '加载失败');
-    } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
+      else showShortToast(res.message || '请稍后刷新');
+    } catch (e) { showShortToast(getErrorText(e, '请稍后刷新')); }
     finally { if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false }); }
   },
 
@@ -316,7 +316,7 @@ Page({
       let res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
-      else showShortToast(res.message || '加载失败');
+      else showShortToast(res.message || '请稍后刷新');
     } catch (_) {}
   },
 
@@ -348,8 +348,8 @@ Page({
       let res = await callFunction({name:'getVenueSchedule',data:{venueId:scheduleVenueId,dateFrom:scheduleWeekStart,dateTo}});
       if (!orgSession.isRequestCurrent(this, request)) return;
       if(res.status==='success') this._buildTimetable(res.dailySchedules||[]);
-	      else showShortToast(res.message || '加载失败');
-    } catch(e) { showShortToast(getErrorText(e,'加载失败')); }
+	      else showShortToast(res.message || '请稍后刷新');
+    } catch(e) { showShortToast(getErrorText(e,'请稍后刷新')); }
     finally { wx.hideLoading(); }
   },
 
@@ -467,8 +467,8 @@ Page({
         } else {
           this.setData({ timelineBlocks: [], timelineSelection: null, _dayData: null });
         }
-      } else { showShortToast(res.message || '加载时段失败'); }
-    } catch (e) { showShortToast(getErrorText(e, '加载失败')); }
+      } else { showShortToast(res.message || '请重新选择日期'); }
+    } catch (e) { showShortToast(getErrorText(e, '请稍后刷新')); }
     finally { wx.hideLoading(); }
   },
 
@@ -689,7 +689,7 @@ Page({
       return false;
     }
     if (endMin <= startMin) {
-      if (!opts.silent) showShortToast('结束时间必须晚于开始时间');
+      if (!opts.silent) showShortToast('请将结束时间设在开始时间之后');
       return false;
     }
     if (dayData && dayData.openSlots) {
@@ -1089,7 +1089,7 @@ Page({
       let prevDate = this.data.bookingStartDate;
       // Previous date was valid → restore it
       if (prevDate && prevDate >= today) {
-        showShortToast('不能选择过去的日期');
+        showShortToast('请选择今天或之后的日期');
         this.setData({
           bookingStartDate: prevDate,
           bookingStartDateDisplay: this.data.bookingStartDateDisplay
@@ -1417,9 +1417,9 @@ Page({
     if(!vid||!sd||!st||!et){showShortToast('请填写完整信息');return;}
     if(!title){showShortToast('请填写借用事由');return;}
     let now = new Date(), today = fmtLocalDate(now);
-    if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast('不能选择过去时间'); return; }
+    if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast('请选择当前时间之后'); return; }
     let ts = sd+'T'+st, te = sd+'T'+et;
-    if(ts >= te) { showShortToast('结束时间必须晚于开始时间'); return; }
+    if(ts >= te) { showShortToast('请将结束时间设在开始时间之后'); return; }
     let err = this._validateRange(dd, sd, st, et);
     if(err) { showShortToast(err); return; }
     this.setData({loading:true});
@@ -1433,7 +1433,7 @@ Page({
         if (this.data.scheduleVisible) this.loadTimetable();
         this._emitVenueChanged('create', res.id);
       }else showShortToast(res.message);
-    } catch(e) { showShortToast(getErrorText(e,'借用失败')); }
+    } catch(e) { showShortToast(getErrorText(e,'未提交借用，请重试')); }
     finally { this.setData({loading:false}); }
   },
 
@@ -1477,7 +1477,7 @@ Page({
         });
         this.setData({myBookings: bookings});
       }
-    } catch(e) { showShortToast(getErrorText(e,'加载失败')); }
+    } catch(e) { showShortToast(getErrorText(e,'请稍后刷新')); }
     finally { if (orgSession.isRequestCurrent(this, request)) this.setData({loading:false}); }
   },
 
@@ -1487,7 +1487,7 @@ Page({
     let booking = this.data.myBookings.find(function(b){return b.id===id;});
     if (!booking) return;
     if (booking.displayStatus === 'inUse') { showShortToast('请先结束使用'); return; }
-    if (booking.displayStatus === 'completed') { showShortToast('已完成的借用不能取消'); return; }
+    if (booking.displayStatus === 'completed') { showShortToast('已完成的借用无需取消'); return; }
     wx.showModal({
       title: '确认取消', content: '取消此次借用？',
       success: async function(r) {
@@ -1504,7 +1504,7 @@ Page({
             that.loadPendingCount();
             that._emitVenueChanged('cancel', id);
           }else showShortToast(res.message);
-        } catch(e) { showShortToast(getErrorText(e,'取消失败')); }
+        } catch(e) { showShortToast(getErrorText(e,'未取消，请重试')); }
       }
     });
   },
@@ -1524,7 +1524,7 @@ Page({
             that.loadPendingCount();
             that._emitVenueChanged('end', id);
           }else showShortToast(res.message);
-        } catch(e) { showShortToast(getErrorText(e,'操作失败')); }
+        } catch(e) { showShortToast(getErrorText(e,'未完成，请重试')); }
       }
     });
   },
@@ -1578,12 +1578,12 @@ Page({
           lastUpdateTime: this._formatTime()
         });
       } else if (res.status === 'forbidden') {
-        showShortToast(res.message || '请先绑定人事信息');
+        showShortToast(res.message || '请使用普通岗位身份');
       } else {
-        showShortToast(res.message || '加载失败');
+        showShortToast(res.message || '请稍后刷新');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '加载失败'));
+      showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -1718,10 +1718,10 @@ Page({
 
         setTimeout(function() { that.loadPendingData(); }, 2000);
       } else {
-        showShortToast(res.message || '操作失败');
+        showShortToast(res.message || '未完成，请重试');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '操作失败'));
+      showShortToast(getErrorText(e, '未完成，请重试'));
     } finally {
       this.setData({ approvalSubmitting: false });
     }

@@ -110,7 +110,7 @@ module.exports = { hour: hour, min: min };
         </view>
         <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
           <view class="audit-empty-icon"><ui-icon name="check" tone="primary" size="54" ariaLabel="当前暂无借用记录" /></view>
-          <view class="audit-empty-text">暂无待审批的场地借用</view>
+          <view class="audit-empty-text">暂无待审批事项</view>
         </view>
       </scroll-view>
     </view>
@@ -378,7 +378,7 @@ module.exports = { hour: hour, min: min };
       <view class="button-row ui-dialog-footer" wx:if="{{approvalAction}}">
         <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          {{approvalAction === 'approve' ? '✓ 通过' : '✗ 驳回'}}
+          {{approvalAction === 'approve' ? '确认通过' : '确认驳回'}}
         </button>
       </view>
     </view>

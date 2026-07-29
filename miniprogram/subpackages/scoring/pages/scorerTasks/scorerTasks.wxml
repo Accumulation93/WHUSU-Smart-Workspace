@@ -15,7 +15,7 @@
     </view>
 
     <view class="edit-box">
-      <view class="list-title">筛选条件</view>
+      <view class="list-title">筛选</view>
       <view class="field">
         <view class="field-label">搜索评分人</view>
         <input
@@ -42,7 +42,7 @@
         </view>
       </view>
       <view class="field">
-        <view class="field-label">工作分工（职能组）</view>
+        <view class="field-label">职能组</view>
         <picker range="{{filterOptions.workGroups}}" bindchange="onFilterChange" data-field="workGroup">
           <view class="picker-value">{{filters.workGroup}}</view>
         </picker>
@@ -53,7 +53,7 @@
     </view>
 
     <view class="edit-box">
-      <view class="list-title">按当前视图导出</view>
+      <view class="list-title">导出当前名单</view>
       <view class="button-row">
         <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出概览</button>
         <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出明细</button>
@@ -116,7 +116,7 @@
         <view class="popup-table ui-data-grid--complex" wx:else>
           <view class="popup-table-head ui-data-row ui-data-row--header">
             <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">被评分人</view>
-            <view class="popup-col popup-col-dept ui-data-cell">具体信息</view>
+            <view class="popup-col popup-col-dept ui-data-cell">部门与身份</view>
           </view>
           <view class="popup-table-row ui-data-row" wx:for="{{pendingPopupList}}" wx:key="targetId">
             <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">
@@ -124,11 +124,11 @@
               <view class="ui-data-cell-content"><view class="task-name">{{item.targetName}}</view><view class="task-meta">{{item.targetStudentId}}</view></view>
             </view>
             <view class="popup-col popup-col-dept ui-data-cell">
-              <text class="ui-data-cell-label">具体信息</text>
+              <text class="ui-data-cell-label">部门与身份</text>
               <view class="ui-data-cell-content"><view class="task-meta">{{item.targetDepartment}}</view><view class="task-meta">{{item.targetIdentity}} / {{item.targetWorkGroup}}</view></view>
             </view>
           </view>
-          <view class="empty-inline" wx:if="{{!pendingPopupList.length}}">当前没有未完成名单。</view>
+          <view class="empty-inline" wx:if="{{!pendingPopupList.length}}">评分已全部完成</view>
         </view>
       </scroll-view>
     </view>

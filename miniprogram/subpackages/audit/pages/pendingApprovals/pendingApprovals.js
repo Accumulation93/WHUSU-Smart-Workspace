@@ -91,12 +91,12 @@ Page({
           lastUpdateTime: this._formatTime()
         });
       } else if (res.status === 'forbidden') {
-        showShortToast(res.message || '请先绑定人事信息');
+        showShortToast(res.message || '请使用普通岗位身份');
       } else {
-        showShortToast(res.message || '加载失败');
+        showShortToast(res.message || '请稍后刷新');
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '加载失败'));
+      showShortToast(getErrorText(e, '请稍后刷新'));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }

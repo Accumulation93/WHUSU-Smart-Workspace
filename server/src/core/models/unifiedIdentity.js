@@ -50,7 +50,7 @@ function normalizePolicyDate(value, label) {
   if (!text) return null;
   const parsed = new Date(text.replace(' ', 'T'));
   if (Number.isNaN(parsed.getTime())) {
-    throw new IdentityError('invalid_policy_time', label + '格式无效', 400);
+    throw new IdentityError('invalid_policy_time', '请重新选择' + label, 400);
   }
   return text;
 }
@@ -242,7 +242,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
     );
     let person = personRows[0];
     if (person && safeString(person.name) !== name) {
-      throw new IdentityError('student_id_name_conflict', '该学号对应的姓名与统一身份档案不一致', 409);
+      throw new IdentityError('student_id_name_conflict', '请确认姓名和学号后重试', 409);
     }
     if (!person) {
       const personId = generateId();
@@ -267,7 +267,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
     );
     const membershipId = membershipRows[0] ? membershipRows[0].id : generateId();
     if (membershipRows[0] && membershipRows[0].person_id !== person.id) {
-      throw new IdentityError('membership_person_conflict', '人事记录与统一身份成员关系冲突', 409);
+      throw new IdentityError('membership_person_conflict', '请联系管理员核对人员资料', 409);
     }
     await connection.query(
       `INSERT INTO organization_memberships
@@ -336,7 +336,7 @@ async function validateAssignmentReferences(connection, organizationId, data) {
   const checks = [
     ['departments', data.departmentId, '部门'],
     ['identities', data.identityId, '身份'],
-    ['work_groups', data.workGroupId, '工作分工']
+    ['work_groups', data.workGroupId, '职能组']
   ];
   for (const [table, id, label] of checks) {
     if (!safeString(id)) continue;
@@ -366,7 +366,7 @@ async function saveMembershipAssignment(data, actor) {
       [legacyHrId, organizationId]
     );
     const membership = membershipRows[0];
-    if (!membership) throw new IdentityError('membership_not_found', '组织成员关系不存在', 404);
+    if (!membership) throw new IdentityError('membership_not_found', '请重新选择组织', 404);
     await validateAssignmentReferences(connection, organizationId, data);
 
     let existing = null;
@@ -378,7 +378,7 @@ async function saveMembershipAssignment(data, actor) {
         [assignmentId, membership.id, organizationId]
       );
       existing = assignmentRows[0];
-      if (!existing) throw new IdentityError('assignment_not_found', '岗位不存在或已失效', 404);
+      if (!existing) throw new IdentityError('assignment_not_found', '请重新选择身份', 404);
       if (existing.is_primary && !data.isPrimary) {
         throw new IdentityError('primary_assignment_required', '主要岗位不能直接取消，请将另一岗位设为主要岗位', 409);
       }
@@ -471,7 +471,7 @@ async function revokeMembershipAssignment(data, actor) {
       [assignmentId, organizationId]
     );
     const assignment = rows[0];
-    if (!assignment) throw new IdentityError('assignment_not_found', '岗位不存在或已失效', 404);
+    if (!assignment) throw new IdentityError('assignment_not_found', '请重新选择身份', 404);
     if (assignment.is_primary) {
       throw new IdentityError('primary_assignment_required', '主要岗位不能删除，请先将另一岗位设为主要岗位', 409);
     }
@@ -568,7 +568,7 @@ async function syncLegacyAdminGrant(connection, legacyAdminId) {
     [admin.id]
   );
   if (grantRows[0] && grantRows[0].person_id !== personId) {
-    throw new IdentityError('admin_grant_conflict', '管理员授权与统一身份档案冲突', 409);
+    throw new IdentityError('admin_grant_conflict', '请联系管理员核对人员资料', 409);
   }
   await connection.query(
     `INSERT INTO admin_grants
@@ -654,7 +654,7 @@ async function revokeLegacyAdminGrant(connection, legacyAdminId) {
         FOR UPDATE`
     );
     if (boundRows.length <= 1) {
-      throw new IdentityError('last_bound_super_admin', '系统必须始终保留一名已绑定超级管理员', 409);
+      throw new IdentityError('last_bound_super_admin', '请先绑定另一名超级管理员', 409);
     }
   }
   await connection.query(
@@ -1107,9 +1107,9 @@ async function issueVerificationCodeWithConnection(connection, claimId, actor, m
     [safeString(actor.organizationId), safeString(claimId)]
   );
   const claim = rows[0];
-  if (!claim) throw new IdentityError('claim_unavailable', '认领请求已失效，请刷新列表', 409);
+  if (!claim) throw new IdentityError('claim_unavailable', '请刷新身份认证列表', 409);
   if (actor.adminLevel !== 'super_admin' && !Boolean(claim.actor_org_matches)) {
-    throw new IdentityError('claim_forbidden', '只能认证本组织所属人员', 403);
+    throw new IdentityError('claim_forbidden', '请联系所属组织管理员', 403);
   }
   const code = randomCode(12);
   await connection.query(
@@ -1157,7 +1157,7 @@ async function issueVerificationCodes(claimIds, actor, metadata) {
     (Array.isArray(claimIds) ? claimIds : []).map(safeString).filter(Boolean)
   )).slice(0, 50);
   if (!normalizedIds.length) {
-    throw new IdentityError('invalid_params', '请选择认领请求', 400);
+    throw new IdentityError('invalid_params', '请选择身份认证申请', 400);
   }
   return pool.withTransaction(async (connection) => {
     const issued = [];
@@ -1305,7 +1305,7 @@ async function verifyClaim(bootstrapId, claimId, code, metadata) {
     return freshRows[0];
   });
   if (result && result.authenticationFailure) {
-    throw new IdentityError('verification_failed', '认证信息无效或已过期', 400);
+    throw new IdentityError('verification_failed', '请检查认证信息或重新获取认证码', 400);
   }
   return result;
 }
@@ -1321,7 +1321,7 @@ async function savePolicy(data, actor) {
   const claimStartsAt = normalizePolicyDate(data.claimStartsAt, '认证开始时间');
   const claimEndsAt = normalizePolicyDate(data.claimEndsAt, '认证截止时间');
   if (claimStartsAt && claimEndsAt && policyTimestamp(claimStartsAt) >= policyTimestamp(claimEndsAt)) {
-    throw new IdentityError('invalid_policy_time', '认证截止时间必须晚于开始时间', 400);
+    throw new IdentityError('invalid_policy_time', '请将截止时间设在开始时间之后', 400);
   }
   return pool.withTransaction(async (connection) => {
     const [policyRows] = await connection.query(
@@ -1374,7 +1374,7 @@ async function savePolicy(data, actor) {
 
 async function configureRecoveryCredential(accountId, method, value) {
   const policy = await getPolicy();
-  if (!policy) throw new IdentityError('policy_unavailable', '认证策略暂不可用', 503);
+  if (!policy) throw new IdentityError('policy_unavailable', '请稍后刷新认证设置', 503);
   if (method === 'recovery_code' && !policy.allow_recovery_code) {
     throw new IdentityError('method_disabled', '恢复码功能未开启', 403);
   }
@@ -1463,7 +1463,7 @@ async function completeRecoveryWithCredential(bootstrapId, recoveryRequestId, me
       [safeString(recoveryRequestId), bootstrap.openid_hash]
     );
     const request = requestRows[0];
-    if (!request) throw new IdentityError('recovery_failed', '恢复信息无效或已过期', 400);
+    if (!request) throw new IdentityError('recovery_failed', '请重新提交账号恢复申请', 400);
     const policy = await getPolicy(connection);
     const allowed = method === 'recovery_code'
       ? Boolean(policy && policy.allow_recovery_code)
@@ -1509,7 +1509,7 @@ async function completeRecoveryWithCredential(bootstrapId, recoveryRequestId, me
     });
   });
   if (result && result.authenticationFailure) {
-    throw new IdentityError('recovery_failed', '恢复信息无效或已过期', 400);
+    throw new IdentityError('recovery_failed', '请检查恢复信息或联系管理员', 400);
   }
   return result;
 }
@@ -1519,7 +1519,7 @@ async function transferWechatBinding(connection, data) {
     'SELECT status FROM accounts WHERE id = ? LIMIT 1 FOR UPDATE',
     [data.accountId]
   );
-  if (!accountRowsForUpdate.length) throw new IdentityError('account_not_found', '账号不存在', 404);
+  if (!accountRowsForUpdate.length) throw new IdentityError('account_not_found', '请刷新账号列表', 404);
   if (accountRowsForUpdate[0].status === 'frozen') {
     throw new IdentityError('account_frozen', '账号已冻结，请联系管理员', 403);
   }
@@ -1621,7 +1621,7 @@ async function transferWechatBinding(connection, data) {
       eventKey: 'account-security:wechat-recovered:' + (data.recoveryRequestId || data.bootstrap.id),
       type: 'account_security',
       title: '账号安全状态已更新',
-      description: '微信绑定已完成变更，其他设备会话已退出。若非本人操作，请立即联系管理员。',
+      description: '微信绑定已更新，其他设备已退出登录。若非本人操作，请立即联系管理员。',
       category: 'system',
       targetType: 'account_security',
       targetId: data.accountId,
@@ -1730,7 +1730,7 @@ async function setAccountFrozen(personId, frozen, actor, metadata) {
       [safeString(personId)]
     );
     const account = rows[0];
-    if (!account) throw new IdentityError('account_not_found', '账号不存在', 404);
+    if (!account) throw new IdentityError('account_not_found', '请刷新账号列表', 404);
     if (actor.adminLevel !== 'super_admin') {
       const [membershipRows] = await connection.query(
         `SELECT 1 FROM organization_memberships
@@ -1739,7 +1739,7 @@ async function setAccountFrozen(personId, frozen, actor, metadata) {
         [account.person_id, actor.organizationId]
       );
       if (!membershipRows.length) {
-        throw new IdentityError('account_forbidden', '只能管理本组织成员账号', 403);
+        throw new IdentityError('account_forbidden', '请切换到该成员所属组织', 403);
       }
     }
     if (account.person_id === actor.personId && frozen) {
@@ -1755,7 +1755,7 @@ async function setAccountFrozen(personId, frozen, actor, metadata) {
           FOR UPDATE`
       );
       if (boundRows.length <= 1) {
-        throw new IdentityError('last_bound_super_admin', '系统必须始终保留一名已绑定超级管理员', 409);
+        throw new IdentityError('last_bound_super_admin', '请先绑定另一名超级管理员', 409);
       }
     }
     const nextStatus = frozen ? 'frozen' : (account.recovery_required_at ? 'recovery_required' : 'verified');
@@ -1812,7 +1812,7 @@ async function approveRecovery(recoveryRequestId, actor, metadata) {
       throw new IdentityError('self_approval_forbidden', '不能审批自己的账号恢复', 403);
     }
     if (actor.adminLevel !== 'super_admin' && !Boolean(request.actor_org_matches)) {
-      throw new IdentityError('recovery_forbidden', '只能处理本组织所属人员', 403);
+      throw new IdentityError('recovery_forbidden', '请切换到该成员所属组织', 403);
     }
     const bootstrap = await getBootstrapByHash(request.new_openid_hash, true, connection);
     if (!bootstrap) throw new IdentityError('bootstrap_expired', '申请人的微信验证已过期', 409);
@@ -1895,7 +1895,7 @@ async function resetAccountByLegacyHr(connection, legacyHrId, organizationId, ac
         FOR UPDATE`
     );
     if (boundSuperRows.length <= 1) {
-      throw new IdentityError('last_bound_super_admin', '系统必须始终保留一名已绑定超级管理员', 409);
+      throw new IdentityError('last_bound_super_admin', '请先绑定另一名超级管理员', 409);
     }
   }
   await connection.query(

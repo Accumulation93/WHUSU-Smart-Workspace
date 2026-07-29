@@ -39,13 +39,13 @@ function isTrustedRoute(rawUrl) {
 function navigateToTrustedRoute(rawUrl) {
   const url = String(rawUrl || '').trim();
   if (!isTrustedRoute(url)) {
-    wx.showToast({ title: '目标页面不可用', icon: 'none' });
+    wx.showToast({ title: '请从应用服务重新进入', icon: 'none' });
     return false;
   }
   wx.navigateTo({
     url: url,
     fail: function() {
-      wx.showToast({ title: '目标页面不可用', icon: 'none' });
+      wx.showToast({ title: '请从应用服务重新进入', icon: 'none' });
     }
   });
   return true;

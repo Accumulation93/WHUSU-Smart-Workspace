@@ -27,7 +27,7 @@ function createRequestHeaders(requestId) {
 function cancelledError(requestId) {
   return {
     errMsg: 'request:fail request_cancelled',
-    message: '组织已切换，请求已取消',
+    message: '请稍后重试',
     status: 'request_cancelled',
     requestId: requestId,
     silent: true
@@ -48,7 +48,7 @@ function notifyOrgContextRequired(result) {
   orgPromptVisible = true;
   wx.showModal({
     title: '请选择组织',
-    content: result.message || '当前会话缺少组织上下文，请重新选择组织。',
+    content: result.message || '请重新选择组织和身份。',
     showCancel: false,
     confirmText: '去选择',
     complete: function() {
@@ -153,12 +153,12 @@ function showShortToast(title, icon) {
   if (!icon) icon = 'none';
   const t = String(title || '');
   if (!t) return;
-  wx.showToast({ title: t.length > 7 ? t.slice(0, 7) + '…' : t, icon: icon });
+  wx.showToast({ title: t, icon: icon });
 }
 
 function getErrorText(error, fallback) {
   if (error && (error.silent || error.status === 'request_cancelled')) return '';
-  const text = String((error && (error.message || error.errMsg)) || '').trim();
+  const text = String((error && error.message) || '').trim();
   return text || fallback;
 }
 

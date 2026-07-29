@@ -34,7 +34,7 @@ async function lock(conn, token, expectedType, openid) {
     return { status: 'challenge_expired', message: '绑定验证已过期，请重新登录' };
   }
   if (decoded.challengeType !== expectedType || !decoded.challengeId) {
-    return { status: 'invalid_params', message: '绑定验证类型无效' };
+    return { status: 'invalid_params', message: '请重新微信登录' };
   }
   const [rows] = await conn.query(
     `SELECT * FROM auth_challenges
@@ -50,7 +50,7 @@ async function lock(conn, token, expectedType, openid) {
   try {
     payload = JSON.parse(row.payload_json || '{}');
   } catch (_) {
-    return { status: 'invalid_params', message: '绑定验证内容无效' };
+    return { status: 'invalid_params', message: '请重新微信登录' };
   }
   return { status: 'success', id: row.id, payload };
 }

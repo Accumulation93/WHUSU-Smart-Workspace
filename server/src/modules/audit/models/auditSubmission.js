@@ -89,7 +89,7 @@ async function generateSubmissionNumber(conn) {
      WHERE org_id = ? AND business_date = ? FOR UPDATE`,
     [orgId, businessDate]
   );
-  if (!rows.length) throw new Error('提交编号生成失败');
+  if (!rows.length) throw new Error('未提交，请重试');
   const seq = Number(rows[0].next_value);
   await conn.query(
     `UPDATE audit_number_sequences SET next_value = next_value + 1

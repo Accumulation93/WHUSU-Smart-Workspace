@@ -18,7 +18,7 @@
     </view>
 
     <view class="card">
-      <view class="section-title">签名模板</view>
+      <view class="section-title">已保存签名</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>

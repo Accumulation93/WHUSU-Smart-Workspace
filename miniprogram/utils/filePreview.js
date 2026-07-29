@@ -84,7 +84,7 @@ function openLocalFile(filePath, fileName) {
         console.error('[filePreview] openDocument failed:', err);
         wx.showModal({
           title: '无法打开文件',
-          content: '该文件类型暂不支持直接预览，请使用其他应用打开。\n\n文件：' + (fileName || '未知'),
+          content: '请使用其他应用打开此文件。\n\n文件：' + (fileName || '未命名文件'),
           showCancel: false
         });
       }
@@ -111,14 +111,14 @@ function fallbackDownload(fileId, fileName, callback) {
       }
       hideLoading();
       if (res.statusCode !== 200 || !res.data || res.data.status !== 'success') {
-        toast((res.data && res.data.message) || '文件加载失败');
+        toast((res.data && res.data.message) || '请重新打开文件');
         if (callback) callback(new Error('api failed'));
         return;
       }
 
       const result = res.data;
       if (typeof result.data !== 'string' || result.data.length > MAX_BASE64_LENGTH) {
-        toast('文件过大或内容无效');
+        toast('请选择有效文件');
         if (callback) callback(new Error('invalid file payload'));
         return;
       }
@@ -154,10 +154,9 @@ function fallbackDownload(fileId, fileName, callback) {
             console.error('[filePreview] sync writeFile also failed:', syncErr);
             wx.showModal({
               title: '文件信息',
-              content: '文件名：' + (result.fileName || '未知') +
-                '\n类型：' + (result.mimeType || '未知') +
+              content: '文件名：' + (result.fileName || '未命名文件') +
                 '\n大小：' + ((result.fileSize / 1024).toFixed(1)) + ' KB' +
-                '\n\n文件写入失败，请清理小程序存储后重试',
+                '\n\n请清理小程序缓存后重试',
               showCancel: false
             });
             if (callback) callback(syncErr);
@@ -171,7 +170,7 @@ function fallbackDownload(fileId, fileName, callback) {
         if (callback) callback({ status: 'request_cancelled', silent: true });
         return;
       }
-      toast('网络请求失败，请检查网络连接');
+      toast('请检查网络后重试');
       if (callback) callback(new Error('network'));
     }
   });
@@ -186,7 +185,7 @@ function fallbackDownload(fileId, fileName, callback) {
  */
 function openAuditFile(options) {
   if (!options || !options.fileId) {
-    toast('文件信息无效');
+      toast('请重新选择文件');
     return;
   }
 
@@ -208,11 +207,11 @@ function openAuditFile(options) {
       if (res.statusCode === 200) {
         openLocalFile(res.tempFilePath, fileName);
       } else if (res.statusCode === 401) {
-        toast('登录已过期，请重新登录');
+        toast('请重新微信登录');
       } else if (res.statusCode === 403) {
-        toast('无权限访问此文件');
+        toast('请使用可查看该文件的身份');
       } else if (res.statusCode === 404) {
-        toast('文件已被清理或不存在');
+        toast('文件已失效');
       } else {
         // Non-200 status — try fallback
         console.warn('[filePreview] downloadFile returned ' + res.statusCode + ', trying fallback');
@@ -288,7 +287,7 @@ function writeAndOpen(options) {
         });
       } catch (syncErr) {
         console.error('[filePreview] writeAndOpen sync also failed:', syncErr);
-        wx.showToast({ title: '文件写入失败，请清理小程序存储后重试', icon: 'none' });
+        wx.showToast({ title: '请清理小程序缓存后重试', icon: 'none' });
       }
     }
   });

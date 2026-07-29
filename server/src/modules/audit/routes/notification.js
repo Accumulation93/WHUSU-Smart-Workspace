@@ -233,7 +233,7 @@ async function resolveScope(req, body, defaultToCurrent) {
     }).filter((context) => context.actor.id);
   } else {
     if (role !== 'user' && role !== 'admin') {
-      return { ok: false, status: 'invalid_role', message: '当前身份无效，请重新选择身份' };
+      return { ok: false, status: 'invalid_role', message: '请重新选择身份' };
     }
     allContexts = await listAccessibleActorContexts({ openid, role, currentOrgId });
   }
@@ -243,10 +243,10 @@ async function resolveScope(req, body, defaultToCurrent) {
     ? allContexts.filter((context) => context.organizationId === requestedOrganizationId)
     : allContexts;
   if (requestedOrganizationId && !contexts.length) {
-    return { ok: false, status: 'org_access_denied', message: '当前账号无权访问所选组织' };
+    return { ok: false, status: 'org_access_denied', message: '请选择可访问的组织' };
   }
   if (!allContexts.length) {
-    return { ok: false, status: 'forbidden', message: '当前身份已失效' };
+    return { ok: false, status: 'forbidden', message: '请重新选择身份' };
   }
   return {
     ok: true,
@@ -363,7 +363,7 @@ router.post('/getMessageOverview', async (req, res) => {
     ));
   } catch (error) {
     console.error('[message:overview] failed:', error);
-    res.json({ status: 'error', message: '消息加载失败，请稍后重试' });
+    res.json({ status: 'error', message: '请稍后刷新' });
   }
 });
 
@@ -379,7 +379,7 @@ router.post('/listTodos', async (req, res) => {
     ));
   } catch (error) {
     console.error('[todo:list] failed:', error);
-    res.json({ status: 'error', message: '待办加载失败，请稍后重试' });
+    res.json({ status: 'error', message: '请稍后刷新' });
   }
 });
 
@@ -394,7 +394,7 @@ router.post('/getTodoCount', async (req, res) => {
     ));
   } catch (error) {
     console.error('[todo:count] failed:', error);
-    res.json({ status: 'error', message: '待办数量加载失败' });
+    res.json({ status: 'error', message: '请稍后刷新' });
   }
 });
 
@@ -412,11 +412,11 @@ router.post('/listNotifications', async (req, res) => {
     if (error.code === 'INVALID_NOTIFICATION_CURSOR') {
       return res.json({
         status: 'invalid_params',
-        message: '通知分页状态已失效，请刷新列表'
+        message: '请刷新通知'
       });
     }
     console.error('[notification:list] failed:', error);
-    res.json({ status: 'error', message: '通知加载失败，请稍后重试' });
+    res.json({ status: 'error', message: '请稍后刷新' });
   }
 });
 
@@ -431,24 +431,24 @@ router.post('/getNotificationUnreadCount', async (req, res) => {
     ));
   } catch (error) {
     console.error('[notification:count] failed:', error);
-    res.json({ status: 'error', message: '未读数量加载失败' });
+    res.json({ status: 'error', message: '请稍后刷新' });
   }
 });
 
 router.post('/markNotificationRead', async (req, res) => {
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '缺少通知标识' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请刷新通知' });
     const scope = await resolveScope(req, req.body || {}, true);
     if (!scope.ok) return respondScopeError(res, scope);
     const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.markRead(id, context.actor));
     const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
       || { found: false };
-    if (!result.found) return res.json({ status: 'not_found', message: '通知不存在或已失效' });
+    if (!result.found) return res.json({ status: 'not_found', message: '请刷新通知' });
     res.json({ status: 'success', changed: result.changed, unreadCount: result.unreadCount });
   } catch (error) {
     console.error('[notification:markRead] failed:', error);
-    res.json({ status: 'error', message: '通知销记失败，请稍后重试' });
+    res.json({ status: 'error', message: '未标记已读，请重试' });
   }
 });
 
@@ -470,24 +470,24 @@ router.post('/markAllNotificationsRead', async (req, res) => {
     ));
   } catch (error) {
     console.error('[notification:markAllRead] failed:', error);
-    res.json({ status: 'error', message: '全部销记失败，请稍后重试' });
+    res.json({ status: 'error', message: '未标记已读，请重试' });
   }
 });
 
 router.post('/deleteNotification', async (req, res) => {
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '缺少通知标识' });
+    if (!id) return res.json({ status: 'invalid_params', message: '请刷新通知' });
     const scope = await resolveScope(req, req.body || {}, true);
     if (!scope.ok) return respondScopeError(res, scope);
     const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.deleteById(id, context.actor));
     const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
       || { found: false };
-    if (!result.found) return res.json({ status: 'not_found', message: '通知不存在或已删除' });
+    if (!result.found) return res.json({ status: 'not_found', message: '请刷新通知' });
     res.json({ status: 'success', unreadCount: result.unreadCount });
   } catch (error) {
     console.error('[notification:delete] failed:', error);
-    res.json({ status: 'error', message: '通知删除失败，请稍后重试' });
+    res.json({ status: 'error', message: '未删除，请重试' });
   }
 });
 

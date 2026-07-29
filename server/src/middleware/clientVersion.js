@@ -23,7 +23,7 @@ function clientVersionMiddleware(req, res, next) {
   if (comparison == null || comparison < 0) {
     return res.status(426).json({
       status: 'client_upgrade_required',
-      message: '当前小程序版本过低，请重启应用完成更新',
+      message: '请重新打开小程序完成更新',
       minimumVersion
     });
   }

@@ -13,7 +13,7 @@ module.exports = Behavior({
         const result = await this.callCloud('listWorkGroups');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || '加载工作分工列表失败');
+          throw new Error(result.message || '请稍后刷新职能组');
         }
         const workGroups = (result.workGroups || []).map((item) => {
           const department = this.data.departmentList.find(d => (
@@ -100,7 +100,7 @@ module.exports = Behavior({
       const form = this.data.workGroupForm;
       if (!form.name) {
         wx.showToast({
-          title: '请填写工作分工名称',
+          title: '请填写职能组名称',
           icon: 'none'
         });
         return;
@@ -118,7 +118,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '保存工作分工失败',
+            title: result.message || '未保存，请重试',
             icon: 'none'
           });
           return;
@@ -128,12 +128,12 @@ module.exports = Behavior({
         await this.loadWorkGroupList();
         this.updateWorkGroupOptions();
         wx.showToast({
-          title: '工作分工信息已保存',
+          title: '职能组已保存',
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '保存工作分工失败',
+          title: '未保存，请重试',
           icon: 'none'
         });
       } finally {
@@ -149,8 +149,8 @@ module.exports = Behavior({
   
       const confirm = await new Promise((resolve) => {
         wx.showModal({
-          title: '删除工作分工',
-          content: '确认删除这个工作分工吗？',
+          title: '删除职能组',
+          content: '确认删除这个职能组吗？',
           confirmText: '确认删除',
           cancelText: '取消',
           success: (res) => resolve(!!res.confirm),
@@ -166,7 +166,7 @@ module.exports = Behavior({
         const result = await this.callCloud('deleteWorkGroup', { id });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '删除工作分工失败',
+            title: result.message || '未删除，请重试',
             icon: 'none'
           });
           return;
@@ -175,12 +175,12 @@ module.exports = Behavior({
         await this.loadWorkGroupList();
         this.updateWorkGroupOptions();
         wx.showToast({
-          title: '工作分工已删除',
+          title: '职能组已删除',
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '删除工作分工失败',
+          title: '未删除，请重试',
           icon: 'none'
         });
       }

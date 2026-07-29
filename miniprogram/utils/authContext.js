@@ -128,7 +128,7 @@ function saveOrganizationsFromContexts(contexts) {
 
 function applyAuthenticatedResult(result) {
   const context = result && result.context ? result.context : null;
-  if (!context || !result.token) throw new Error('登录上下文不完整');
+  if (!context || !result.token) throw new Error('请重新微信登录');
   const catalog = saveCatalog(result);
   if (result.account) wx.setStorageSync(ACCOUNT_KEY, result.account);
   const profile = normalizeProfile(result.user);
@@ -162,7 +162,7 @@ function applyAuthenticatedResult(result) {
 async function refreshCatalog() {
   const result = await callFunction({ name: 'auth/contexts', data: {} });
   if (!result || result.status !== 'success') {
-    const error = new Error((result && result.message) || '身份列表加载失败');
+    const error = new Error((result && result.message) || '请重新打开组织与身份');
     error.status = result && result.status;
     throw error;
   }
@@ -231,7 +231,7 @@ async function activateContext(contextId) {
     data: { contextId: contextId }
   });
   if (!result || result.status !== 'success' || !result.context) {
-    const error = new Error((result && result.message) || '身份切换失败');
+    const error = new Error((result && result.message) || '未切换，请重试');
     error.status = result && result.status;
     throw error;
   }
@@ -247,7 +247,7 @@ async function activateSelection(organizationId, identityId) {
     }
   });
   if (!result || result.status !== 'success' || !result.context) {
-    const error = new Error((result && result.message) || '工作身份切换失败');
+    const error = new Error((result && result.message) || '未切换，请重试');
     error.status = result && result.status;
     throw error;
   }
@@ -263,7 +263,7 @@ async function activateOrganizationContext(organizationId, preferredRole) {
     return item.organizationId === organizationId;
   });
   if (!target) {
-    const error = new Error('当前账号无权访问所选组织');
+    const error = new Error('请选择可访问的组织');
     error.status = 'org_access_denied';
     throw error;
   }

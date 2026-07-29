@@ -20,7 +20,7 @@ const BOOTSTRAP_AUDIENCE = 'whusu-smart-workspace-bootstrap';
 async function exchangeWechatCode(code, devOpenid) {
   if (ALLOW_DEV_OPENID_LOGIN && safeString(devOpenid)) return safeString(devOpenid);
   const jsCode = safeString(code);
-  if (!jsCode) throw new identityModel.IdentityError('invalid_wechat_code', '微信登录失败，请重试', 401);
+  if (!jsCode) throw new identityModel.IdentityError('invalid_wechat_code', '请重新微信登录', 401);
   let response;
   try {
     response = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
@@ -36,7 +36,7 @@ async function exchangeWechatCode(code, devOpenid) {
     throw new identityModel.IdentityError('wechat_unavailable', '微信登录服务暂不可用，请稍后重试', 503);
   }
   const openid = safeString(response && response.data && response.data.openid);
-  if (!openid) throw new identityModel.IdentityError('invalid_wechat_code', '微信登录失败，请重试', 401);
+  if (!openid) throw new identityModel.IdentityError('invalid_wechat_code', '请重新微信登录', 401);
   return openid;
 }
 
@@ -212,7 +212,7 @@ async function buildAuthenticatedPayload(account, session) {
     organizations: catalog.organizations,
     identities: catalog.identities,
     selectionNotice: session.selectionFallback
-      ? '原工作身份已失效，已为你选择当前可用身份'
+      ? '身份已更新，请确认当前组织和身份'
       : '',
     user: profileFromContext(currentContext),
     activeRole: currentContext.role,
