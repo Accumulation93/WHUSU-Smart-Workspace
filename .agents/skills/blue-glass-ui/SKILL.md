@@ -125,6 +125,13 @@ not a huge marketing banner.
 Use the lighter blue-gradient hero from `home.wxss` for portal/home/product
 entry pages. Use the dark admin hero for management workbenches.
 
+Authentication, redirect, and other low-information utility pages stay in one
+centered column on Pad portrait and landscape. Do not invent a split-screen
+composition merely to fill horizontal space. A decorative Hero is always
+content-driven: it must not use a large fixed or minimum height, vertically pin
+copy to an edge, or consume more space than the primary task below it. At the
+900px breakpoint a simple Hero should remain a compact heading surface.
+
 ## Cards
 
 Cards should feel like glass surfaces, but content must remain readable:
@@ -177,6 +184,20 @@ the phone ladder multiplied by the same factor and converted to controlled `px`;
 screen rotation may change layout, but must not change semantic rank. Never let a
 content value become larger than its containing section title on Pad when it is
 smaller on phone.
+
+All user-visible text and font-based glyphs must use these semantic tokens. A
+page-local raw `font-size` in `rpx` is not responsive on Pad merely because
+`app.wxss` contains a media query; it continues to grow with the viewport and can
+reverse the hierarchy. Raw `rpx`/`px` font sizes are therefore forbidden in page
+and shared WXSS. `scripts/ui-audit.js --strict` must report both
+`rawFontSizes=0` and `oversizedDecorativeHero=0`.
+
+Ordinary cards, panels, sections, and wrappers are content-driven as well. Do not
+give them large fixed/minimum heights or use oversized one-sided padding to create
+visual balance. Reserve viewport-sized geometry for explicitly specialized
+surfaces such as timetables, signature canvases, and bidirectional data grids.
+The strict audit must also keep `forcedContentViewport=0` and
+`oversizedContentPadding=0`.
 
 Wrapped headings use about `1.4–1.5` line height; body, descriptions, organization
 names, and detail values use about `1.55–1.7`. A visually single-line label still

@@ -309,6 +309,17 @@ callFunction({ name, data, success, fail })
 - 姓名/身份等摘要对使用稳定的两列 `minmax(0, 1fr)` 网格；长文字在自己的卡片内安全换行，全宽信息显式跨两列，不得因 360px 等相近手机断点整块掉到下一行。
 - 多行标题使用约 `1.4–1.5` 行高，正文和说明使用约 `1.55–1.7`；`scripts/ui-audit.js --strict` 必须保持字体阶梯、页签令牌和摘要网格契约全部为 0 风险。
 
+### Bug 21: 全局媒体查询掩盖页面裸字号与 Pad 装饰区膨胀
+
+**原因**: 旧 UI 审计只要发现 `app.wxss` 存在 520px/900px 媒体查询，就把所有页面记为已适配；页面局部裸写的 `rpx/px` 字号没有被逐条检查。Pad 上这些字号继续随视口放大，语义层级倒挂。登录等低信息页面还在横屏断点强制双栏，并给装饰 Hero 设置大块 `min-height`，把真正操作区挤到一侧。
+
+**永久规则**:
+- 所有可见文字和字体字形只能使用 `--ui-type-*` 语义字阶，页面与共享 WXSS 禁止裸写 `font-size: ...rpx/px`；全局存在媒体查询不代表页面局部字号已经响应式化。
+- 登录、跳转、认证等低信息工具页在手机、Pad 竖屏和 Pad 横屏都保持单列居中；不得为了填满横向空间凭空拆成左右两栏。
+- 装饰 Hero 必须由内容和紧凑内边距决定高度，Pad 横屏禁止大于等于 240px 的固定或最小高度，不得把标题贴到大块空白的底边。
+- `scripts/ui-audit.js --strict` 必须保持 `rawFontSizes=0`、`oversizedDecorativeHero=0`；脚本中的每页媒体覆盖统计只能读取该文件自身，禁止再由 `app.wxss` 的断点替所有页面冒充通过。
+- 普通卡片、面板、章节和包裹容器必须由内容自然撑开，禁止用大块固定/最小高度或异常单侧内边距“做平衡”；严格审计同时保持 `forcedContentViewport=0`、`oversizedContentPadding=0`。
+
 ### 发布与编译配置锁
 
 - `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。

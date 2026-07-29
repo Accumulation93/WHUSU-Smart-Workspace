@@ -91,7 +91,7 @@ page {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.14) 100%);
   border: 1rpx solid rgba(255, 255, 255, 0.28);
   color: #f8fbff;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   font-weight: 600;
   letter-spacing: 1rpx;
   backdrop-filter: blur(14rpx);
@@ -100,7 +100,7 @@ page {
 
 .hero-title {
   color: #ffffff;
-  font-size: 50rpx;
+  font-size: var(--ui-type-page);
   font-weight: 700;
   line-height: 1.24;
   letter-spacing: 1rpx;
@@ -110,7 +110,7 @@ page {
 .hero-subtitle {
   margin-top: 12rpx;
   color: rgba(255, 255, 255, 0.92);
-  font-size: 26rpx;
+  font-size: var(--ui-type-emphasis);
   line-height: 1.72;
 }
 
@@ -143,7 +143,7 @@ page {
 
 .target-sticky-label {
   color: #64748b;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   margin-right: 16rpx;
 }
 
@@ -151,7 +151,7 @@ page {
   flex: 1;
   min-width: 0;
   color: #0f172a;
-  font-size: 26rpx;
+  font-size: var(--ui-type-emphasis);
   font-weight: 700;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -174,7 +174,7 @@ page {
   position: relative;
   padding-left: 18rpx;
   color: #0f172a;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section);
   font-weight: 700;
   margin-bottom: 18rpx;
 }
@@ -217,7 +217,7 @@ page {
 .question-meta,
 .empty-text {
   color: #64748b;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   line-height: 1.72;
   white-space: pre-wrap;
 }
@@ -225,7 +225,7 @@ page {
 .info-value {
   margin-top: 6rpx;
   color: #0f172a;
-  font-size: 27rpx;
+  font-size: var(--ui-type-value);
   font-weight: 700;
   line-height: 1.4;
   text-align: center;
@@ -234,7 +234,7 @@ page {
 .info-subvalue {
   margin-top: 4rpx;
   color: #64748b;
-  font-size: 18rpx;
+  font-size: var(--ui-type-micro);
   line-height: 1.45;
   white-space: pre-wrap;
   text-align: center;
@@ -267,7 +267,7 @@ page {
 
 .question-title {
   color: #0f172a;
-  font-size: 28rpx;
+  font-size: var(--ui-type-value);
   font-weight: 700;
   line-height: 1.5;
   margin-bottom: 10rpx;
@@ -282,7 +282,7 @@ page {
   border-radius: 999rpx;
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.90) 100%);
   color: #2563eb;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   font-weight: 700;
 }
 
@@ -327,26 +327,26 @@ page {
 
 .score-display-number {
   color: #0f172a;
-  font-size: 42rpx;
+  font-size: var(--ui-type-page);
   font-weight: 700;
   line-height: 1.2;
 }
 
 .score-display-unit {
   color: #64748b;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   font-weight: 500;
 }
 
 .score-display-placeholder {
   color: #94a3b8;
-  font-size: 26rpx;
+  font-size: var(--ui-type-emphasis);
 }
 
 .score-display-indicator {
   margin-left: auto;
   color: #2563eb;
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption);
   font-weight: 600;
   padding: 4rpx 12rpx;
   border-radius: 999rpx;
@@ -376,7 +376,7 @@ page {
   border-radius: 50%;
   background: #ef4444;
   color: #fff;
-  font-size: 18rpx;
+  font-size: var(--ui-type-micro);
   font-weight: 700;
   line-height: 1;
   flex-shrink: 0;
@@ -384,7 +384,7 @@ page {
 
 .score-warning-text {
   color: #b91c1c;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   line-height: 1.6;
 }
 
@@ -410,13 +410,13 @@ page {
 
 .template-footer-label {
   color: #2563eb;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   font-weight: 600;
 }
 
 .template-footer-score {
   color: #2563eb;
-  font-size: 28rpx;
+  font-size: var(--ui-type-value);
   font-weight: 700;
   letter-spacing: 0.5rpx;
 }
@@ -441,7 +441,7 @@ page {
   flex: 1;
   min-width: 0;
   color: #334155;
-  font-size: 26rpx;
+  font-size: var(--ui-type-emphasis);
   font-weight: 500;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -451,7 +451,7 @@ page {
   flex-shrink: 0;
   margin-left: 16rpx;
   color: #2563eb;
-  font-size: 28rpx;
+  font-size: var(--ui-type-value);
   font-weight: 700;
   letter-spacing: 0.5rpx;
 }
@@ -469,13 +469,13 @@ page {
 
 .summary-total-label {
   color: #0f172a;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section);
   font-weight: 700;
 }
 
 .summary-total-score {
   color: #2563eb;
-  font-size: 36rpx;
+  font-size: var(--ui-type-dialog);
   font-weight: 700;
   letter-spacing: 0.5rpx;
 }
@@ -495,7 +495,7 @@ page {
   background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%);
   border: 1rpx solid rgba(147, 197, 253, 0.58);
   color: #fff;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section);
   font-weight: 700;
   box-shadow:
     0 16rpx 32rpx rgba(37, 99, 235, 0.20),
@@ -518,7 +518,7 @@ page {
   background: linear-gradient(135deg, rgba(236, 253, 245, 0.96) 0%, rgba(209, 250, 229, 0.86) 100%);
   border: 1rpx solid rgba(134, 239, 172, 0.7);
   color: #15803d;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   line-height: 1.68;
 }
 
@@ -653,7 +653,7 @@ page {
 }
 
 .kb-nav-arrow {
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   color: #475569;
 }
 
@@ -663,7 +663,7 @@ page {
 }
 
 .kb-nav-label {
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   font-weight: 600;
   color: #334155;
 }
@@ -690,7 +690,7 @@ page {
 
 .kb-nav-display-hint {
   color: #94a3b8;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
 }
 
 .kb-nav-display-value {
@@ -701,14 +701,14 @@ page {
 
 .kb-nav-display-number {
   color: #0f172a;
-  font-size: 34rpx;
+  font-size: var(--ui-type-dialog);
   font-weight: 700;
   line-height: 1.2;
 }
 
 .kb-nav-display-unit {
   color: #64748b;
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption);
 }
 
 /* Quick scores row */
@@ -740,7 +740,7 @@ page {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.90) 0%, rgba(219, 234, 254, 0.66) 100%);
   border: 1rpx solid rgba(147, 197, 253, 0.55);
   color: #2563eb;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   font-weight: 700;
   box-shadow:
     0 8rpx 18rpx rgba(37, 99, 235, 0.08),
@@ -784,7 +784,7 @@ page {
   border-radius: 16rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 251, 255, 0.76) 100%);
   color: #0f172a;
-  font-size: 32rpx;
+  font-size: var(--ui-type-dialog);
   font-weight: 600;
   box-shadow:
     0 8rpx 18rpx rgba(37, 99, 235, 0.08),
@@ -835,7 +835,7 @@ page {
 }
 
 .kb-backspace-icon {
-  font-size: 36rpx;
+  font-size: var(--ui-type-dialog);
   color: #475569;
 }
 
@@ -875,7 +875,7 @@ page {
 }
 
 .kb-collapse-icon {
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption);
   color: #64748b;
   white-space: nowrap;
 }
@@ -940,7 +940,7 @@ page {
 }
 
 .kb-toggle-label {
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   font-weight: 600;
   color: #475569;
   white-space: nowrap;
@@ -974,17 +974,17 @@ page {
 }
 
 .kb-collapsed-icon {
-  font-size: 28rpx;
+  font-size: var(--ui-type-value);
 }
 
 .kb-collapsed-text {
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   color: #475569;
   font-weight: 600;
 }
 
 .kb-collapsed-arrow {
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption);
   color: #94a3b8;
 }
 
@@ -1049,28 +1049,28 @@ page {
   .question-title,
   .template-title,
   .section-title {
-    font-size: 18px !important;
+    font-size: var(--ui-type-section) !important;
     line-height: 1.45 !important;
   }
 
   .info-value,
   .score-display-number,
   .target-name {
-    font-size: 16px !important;
+    font-size: var(--ui-type-emphasis) !important;
     line-height: 1.5 !important;
   }
 
   .question-desc,
   .template-desc,
   .score-display-label {
-    font-size: 14px !important;
+    font-size: var(--ui-type-label) !important;
     line-height: 1.55 !important;
   }
 
   .info-label,
   .question-meta,
   .template-meta {
-    font-size: 13px !important;
+    font-size: var(--ui-type-meta) !important;
     line-height: 1.55 !important;
   }
 
@@ -1083,29 +1083,29 @@ page {
   .target-sticky-label {
     flex-shrink: 0;
     margin-right: 10px;
-    font-size: 13px;
+    font-size: var(--ui-type-meta);
   }
 
   .target-sticky-name {
-    font-size: 15px;
+    font-size: var(--ui-type-body);
     line-height: 20px;
   }
 
   .summary-name {
-    font-size: 15px;
+    font-size: var(--ui-type-body);
   }
 
   .summary-score,
   .template-footer-score {
-    font-size: 16px;
+    font-size: var(--ui-type-emphasis);
   }
 
   .summary-total-label {
-    font-size: 17px;
+    font-size: var(--ui-type-value);
   }
 
   .summary-total-score {
-    font-size: 22px;
+    font-size: var(--ui-type-page);
   }
 
   .kb-nav-row {
@@ -1150,17 +1150,17 @@ page {
   .kb-nav-label,
   .kb-nav-arrow,
   .kb-nav-display-hint {
-    font-size: 13px;
+    font-size: var(--ui-type-meta);
     line-height: 18px;
     white-space: nowrap;
   }
 
   .kb-nav-display-number {
-    font-size: 20px;
+    font-size: var(--ui-type-dialog);
   }
 
   .kb-nav-display-unit {
-    font-size: 12px;
+    font-size: var(--ui-type-caption);
   }
 
   .kb-quick-row {
@@ -1173,7 +1173,7 @@ page {
     height: 48px;
     line-height: 48px;
     border-radius: 12px;
-    font-size: 14px;
+    font-size: var(--ui-type-label);
   }
 
   .kb-numpad {
@@ -1189,11 +1189,11 @@ page {
     height: 52px;
     line-height: 52px;
     border-radius: 12px;
-    font-size: 20px;
+    font-size: var(--ui-type-dialog);
   }
 
   .kb-backspace-icon {
-    font-size: 22px;
+    font-size: var(--ui-type-page);
   }
 
   .kb-collapse-btn,
@@ -1209,7 +1209,7 @@ page {
 
   .kb-toggle-label,
   .kb-collapse-icon {
-    font-size: 13px;
+    font-size: var(--ui-type-meta);
     line-height: 18px;
     white-space: nowrap;
   }

@@ -37,7 +37,7 @@
 }
 
 .task-table-head .task-col {
-  font-size: 25rpx;
+  font-size: var(--ui-type-body);
   font-weight: 600;
 }
 
@@ -102,7 +102,7 @@
 
 .task-name {
   color: #0f172a;
-  font-size: 26rpx;
+  font-size: var(--ui-type-emphasis);
   font-weight: 700;
   line-height: 1.5;
   word-break: break-word;
@@ -112,7 +112,7 @@
 
 .task-meta {
   color: #64748b;
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption);
   line-height: 1.55;
   word-break: break-word;
   text-align: center;
@@ -121,7 +121,7 @@
 .no-wrap-link {
   display: inline-block;
   white-space: nowrap;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   text-align: center;
 }
 
@@ -193,13 +193,13 @@
 
 .popup-title {
   color: #0f172a;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section);
   font-weight: 700;
 }
 
 .popup-close {
   color: #2563eb;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   font-weight: 700;
   transition: transform 0.18s ease, opacity 0.18s ease, text-shadow 0.22s ease;
 }
@@ -223,13 +223,13 @@
 
 .progress-count {
   color: #0f172a;
-  font-size: 23rpx;
+  font-size: var(--ui-type-label);
   font-weight: 700;
 }
 
 .progress-percent {
   color: #64748b;
-  font-size: 21rpx;
+  font-size: var(--ui-type-caption);
   font-weight: 700;
 }
 
@@ -275,7 +275,7 @@
 
 .popup-loading-text {
   color: #2563eb;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   font-weight: 500;
 }
 
@@ -293,9 +293,9 @@
   background: transparent !important;
   box-shadow: none !important;
   color: #475569 !important;
-  font-size: 24rpx !important;
+  font-size: var(--ui-type-control) !important;
   font-weight: 700 !important;
 }
 
 .popup-close::before { display: none !important; content: none !important; }
-.popup-close::after { content: "×" !important; color: #2563eb !important; font-size: 28rpx !important; font-weight: 800 !important; line-height: 1 !important; }
+.popup-close::after { content: "×" !important; color: #2563eb !important; font-size: var(--ui-type-value) !important; font-weight: 800 !important; line-height: 1 !important; }

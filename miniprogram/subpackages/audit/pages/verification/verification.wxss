@@ -1,12 +1,12 @@
 @import '../../../../pages/home/home.wxss';
 @import '../../styles/blue-polish.wxss';
 
-.danger-text { color:#ef4444; font-size:24rpx; margin-top:4rpx; }
+.danger-text { color:#ef4444; font-size: var(--ui-type-control); margin-top:4rpx; }
 
 .verify-file-meta {
   margin-top: 8rpx;
   color: #64748b;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   line-height: 1.55;
   word-break: break-word;
 }
@@ -31,7 +31,7 @@
 }
 
 .verify-hash-value {
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption);
   line-height: 1.65;
 }
 
@@ -52,7 +52,7 @@
 
 .verify-hash-line {
   margin-top: 6rpx;
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption);
   line-height: 1.55;
 }
 
@@ -66,7 +66,7 @@
     margin-top: 24px;
     margin-bottom: 14px;
   }
-  .verify-file-meta { margin-top: 6px; font-size: 14px; }
+  .verify-file-meta { margin-top: 6px; font-size: var(--ui-type-label); }
   .verify-hash-value,
-  .verify-hash-line { font-size: 13px; }
+  .verify-hash-line { font-size: var(--ui-type-meta); }
 }

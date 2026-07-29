@@ -9,7 +9,7 @@
   padding:0 0 16rpx;
 }
 .header-nav-btn {
-  font-size:22rpx; padding:10rpx 20rpx; border-radius:20rpx; font-weight:600;
+  font-size: var(--ui-type-meta); padding:10rpx 20rpx; border-radius:20rpx; font-weight:600;
   background:rgba(255,255,255,0.8); color:#3b82f6; border:1rpx solid rgba(59,130,246,0.3);
   box-shadow:0 4rpx 12rpx rgba(59,130,246,0.08);
 }
@@ -25,12 +25,12 @@
 .booking-item:active { transform:translateY(1rpx) scale(0.992); }
 
 .booking-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12rpx; margin-bottom:8rpx; }
-.booking-title { flex:1; min-width:0; font-size:27rpx; font-weight:700; color:#0f172a; overflow-wrap:anywhere; }
-.booking-meta { font-size:22rpx; color:#64748b; line-height:1.7; }
+.booking-title { flex:1; min-width:0; font-size: var(--ui-type-value); font-weight:700; color:#0f172a; overflow-wrap:anywhere; }
+.booking-meta { font-size: var(--ui-type-meta); color:#64748b; line-height:1.7; }
 
 .booking-status {
   flex-shrink: 0;
-  font-size:21rpx; font-weight:700; padding:6rpx 16rpx; border-radius:16rpx; white-space:nowrap;
+  font-size: var(--ui-type-caption); font-weight:700; padding:6rpx 16rpx; border-radius:16rpx; white-space:nowrap;
 }
 .booking-status.pending { background:#fef3c7; color:#92400e; }
 .booking-status.approved { background:#d1fae5; color:#065f46; }
@@ -39,7 +39,7 @@
 
 .cancel-btn {
   display:inline-block; margin-top:10rpx;
-  font-size:21rpx; font-weight:600; color:#ef4444;
+  font-size: var(--ui-type-caption); font-weight:600; color:#ef4444;
   padding:8rpx 20rpx; border-radius:16rpx;
   background:rgba(254,226,226,0.6); border:1rpx solid rgba(252,165,165,0.4);
 }
@@ -87,7 +87,7 @@ page {
 }
 
 .hero-title {
-  font-size: 48rpx;
+  font-size: var(--ui-type-page);
   font-weight: 800;
   line-height: 1.22;
   letter-spacing: 0;
@@ -95,7 +95,7 @@ page {
 
 .hero-subtitle {
   margin-top: 10rpx;
-  font-size: 25rpx;
+  font-size: var(--ui-type-body);
   line-height: 1.62;
 }
 
@@ -112,7 +112,7 @@ page {
   padding: 8rpx 20rpx;
   border-radius: 999rpx;
   color: #2563eb;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   font-weight: 800;
   background: rgba(219,234,254,0.76);
   border: 1rpx solid rgba(147,197,253,0.64);
@@ -138,7 +138,7 @@ page {
   margin: 0 0 20rpx;
   padding-left: 20rpx;
   color: #0f172a;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section);
   font-weight: 800;
   line-height: 1.4;
 }
@@ -164,7 +164,7 @@ page {
   flex: 1;
   min-width: 0;
   color: #0f172a;
-  font-size: 28rpx;
+  font-size: var(--ui-type-value);
   font-weight: 800;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -172,7 +172,7 @@ page {
 
 .booking-meta {
   color: #64748b;
-  font-size: 23rpx;
+  font-size: var(--ui-type-label);
   line-height: 1.68;
   word-break: break-word;
 }
@@ -181,7 +181,7 @@ page {
   min-height: 38rpx;
   padding: 6rpx 16rpx;
   border-radius: 999rpx;
-  font-size: 21rpx;
+  font-size: var(--ui-type-caption);
   font-weight: 800;
   line-height: 1.35;
   border: 1rpx solid transparent;
@@ -220,7 +220,7 @@ page {
   padding: 6rpx 16rpx;
   border-radius: 999rpx;
   color: #dc2626;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   font-weight: 800;
   background: rgba(254,226,226,0.78);
   border: 1rpx solid rgba(252,165,165,0.58);
@@ -236,7 +236,7 @@ page {
 
 .audit-empty-text {
   color: #64748b;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
 }
 
 .inner-scroll.large-scroll {

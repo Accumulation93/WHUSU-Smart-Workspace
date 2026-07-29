@@ -399,11 +399,55 @@ function scanWxss(file) {
   const stackedButtonMetrics = [];
   const forcedDialogViewport = [];
   const miscenteredDialogShell = [];
+  const rawFontSizes = [];
+  const oversizedDecorativeHero = [];
+  const forcedContentViewport = [];
+  const oversizedContentPadding = [];
   const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
   let ruleMatch;
   while ((ruleMatch = rulePattern.exec(source))) {
     const selector = ruleMatch[1];
     const declarations = ruleMatch[2];
+    for (const fontSize of declarations.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/gi)) {
+      rawFontSizes.push({
+        file: relative(file),
+        line: lineAt(source, ruleMatch.index + fontSize.index),
+        selector: selector.trim().replace(/\s+/g, ' '),
+        value: `${fontSize[1]}${fontSize[2]}`,
+        message: '可见文字和字形必须使用统一语义字阶，禁止页面局部裸写 rpx/px 破坏跨设备比例'
+      });
+    }
+    const ordinaryContentShell = /(card|panel|section|wrapper|wrap|container|hero|banner)/i.test(selector) &&
+      !/(^|[\s,>])(?:page|\.page)\b|::(?:before|after)|timetable|signature|canvas|keyboard|ui-data-grid|ui-dialog-scroll|preview|placement/i.test(selector);
+    if (ordinaryContentShell) {
+      for (const dimension of declarations.matchAll(/(?:^|;)\s*(height|min-height)\s*:\s*(\d+(?:\.\d+)?)(r?px|vh)\b/gi)) {
+        const value = Number(dimension[2]);
+        const unit = dimension[3].toLowerCase();
+        const tooLarge = (unit === 'rpx' && value >= 240) ||
+          (unit === 'px' && value >= 180) ||
+          (unit === 'vh' && value >= 35);
+        if (!tooLarge) continue;
+        forcedContentViewport.push({
+          file: relative(file),
+          line: lineAt(source, ruleMatch.index + dimension.index),
+          selector: selector.trim().replace(/\s+/g, ' '),
+          value: `${dimension[1]}: ${dimension[2]}${dimension[3]}`,
+          message: '普通包裹型控件不得用大块固定/最小高度制造空白，应由内容自然撑开'
+        });
+      }
+      for (const padding of declarations.matchAll(/padding-(top|bottom)\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/gi)) {
+        const value = Number(padding[2]);
+        const unit = padding[3].toLowerCase();
+        if ((unit === 'rpx' && value < 96) || (unit === 'px' && value < 64)) continue;
+        oversizedContentPadding.push({
+          file: relative(file),
+          line: lineAt(source, ruleMatch.index + padding.index),
+          selector: selector.trim().replace(/\s+/g, ' '),
+          value: `padding-${padding[1]}: ${padding[2]}${padding[3]}`,
+          message: '普通包裹型控件不得用异常大的单侧内边距制造无信息空区'
+        });
+      }
+    }
     if (/\.field-input\b/.test(selector) && /display\s*:\s*flex\b/i.test(declarations)) {
       nativeInputFlex.push({
         file: relative(file),
@@ -493,6 +537,25 @@ function scanWxss(file) {
       }
     }
   }
+
+  for (const media of source.matchAll(/@media\s*\(min-width:\s*900px\)\s*\{([\s\S]*?)(?=\n@media|\s*$)/g)) {
+    const mediaBody = media[1];
+    const heroRule = /([^{}]*(?:hero|banner|welcome)[^{}]*)\{([^{}]*)\}/gi;
+    let heroMatch;
+    while ((heroMatch = heroRule.exec(mediaBody))) {
+      const declarations = heroMatch[2];
+      const forcedHeight = declarations.match(/(?:min-)?height\s*:\s*(\d+(?:\.\d+)?)px\b/i);
+      if (!forcedHeight || Number(forcedHeight[1]) < 240) continue;
+      oversizedDecorativeHero.push({
+        file: relative(file),
+        line: lineAt(source, media.index + heroMatch.index),
+        selector: heroMatch[1].trim().replace(/\s+/g, ' '),
+        value: `${forcedHeight[1]}px`,
+        message: 'Pad 横屏装饰性 Hero 不得强占大块固定高度，应由内容和紧凑内边距决定高度'
+      });
+    }
+  }
+
   return {
     file: relative(file),
     important: (source.match(/!important/g) || []).length,
@@ -503,8 +566,8 @@ function scanWxss(file) {
       line: lineAt(source, match.index),
       color: match[0].toLowerCase()
     })),
-    media520: GLOBAL_MEDIA_520 || /@media\s*\(min-width:\s*520px\)/.test(source),
-    media900: GLOBAL_MEDIA_900 || /@media\s*\(min-width:\s*900px\)/.test(source),
+    media520: /@media\s*\(min-width:\s*520px\)/.test(source),
+    media900: /@media\s*\(min-width:\s*900px\)/.test(source),
     shellActive,
     nativeInputFlex,
     unsafeControlEllipsis,
@@ -513,6 +576,10 @@ function scanWxss(file) {
     stackedButtonMetrics,
     forcedDialogViewport,
     miscenteredDialogShell,
+    rawFontSizes,
+    oversizedDecorativeHero,
+    forcedContentViewport,
+    oversizedContentPadding,
     oversizedTimetable: [...source.matchAll(/\.timetable-scroll\s*\{[^{}]*height\s*:\s*(\d{3,})rpx/gi)]
       .filter(match => Number(match[1]) >= 900)
       .map(match => ({ file: relative(file), line: lineAt(source, match.index), height: match[1] + 'rpx' }))
@@ -559,6 +626,10 @@ const pillButtonRadius = styles.flatMap(item => item.pillButtonRadius);
 const stackedButtonMetrics = styles.flatMap(item => item.stackedButtonMetrics);
 const forcedDialogViewport = styles.flatMap(item => item.forcedDialogViewport);
 const miscenteredDialogShell = styles.flatMap(item => item.miscenteredDialogShell);
+const rawFontSizes = styles.flatMap(item => item.rawFontSizes);
+const oversizedDecorativeHero = styles.flatMap(item => item.oversizedDecorativeHero);
+const forcedContentViewport = styles.flatMap(item => item.forcedContentViewport);
+const oversizedContentPadding = styles.flatMap(item => item.oversizedContentPadding);
 const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
@@ -683,6 +754,10 @@ const report = {
     stackedButtonMetrics: stackedButtonMetrics.length,
     forcedDialogViewport: forcedDialogViewport.length,
     miscenteredDialogShell: miscenteredDialogShell.length,
+    rawFontSizes: rawFontSizes.length,
+    oversizedDecorativeHero: oversizedDecorativeHero.length,
+    forcedContentViewport: forcedContentViewport.length,
+    oversizedContentPadding: oversizedContentPadding.length,
     missingStableDialogSystem: missingStableDialogSystem ? 1 : 0,
     missingDialogCenteringSystem: missingDialogCenteringSystem ? 1 : 0,
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
@@ -718,6 +793,10 @@ const report = {
   stackedButtonMetrics,
   forcedDialogViewport,
   miscenteredDialogShell,
+  rawFontSizes,
+  oversizedDecorativeHero,
+  forcedContentViewport,
+  oversizedContentPadding,
   missingTypographySystem,
   missingTabSizeSystem,
   unstableSummaryGrid,
@@ -732,7 +811,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -750,7 +829,7 @@ if (process.argv.includes('--strict')) {
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
     report.summary.adminOrgContextIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogScrollSystem ||
+    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem;
   process.exitCode = failed ? 1 : 0;
 }

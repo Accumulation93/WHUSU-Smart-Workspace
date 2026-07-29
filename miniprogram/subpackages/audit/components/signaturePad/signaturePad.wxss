@@ -45,7 +45,7 @@
   height: auto;
   padding: 14rpx 22rpx;
   line-height: 1.35;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   font-weight: 700;
   border-radius: 22rpx;
   letter-spacing: 0.3rpx;
@@ -96,7 +96,7 @@
     min-height: 48px;
     padding: 12px 18px;
     border-radius: 14px;
-    font-size: 15px;
+    font-size: var(--ui-type-body);
     line-height: 20px;
   }
 }

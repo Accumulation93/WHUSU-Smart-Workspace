@@ -15,17 +15,17 @@
 .pending-item:active { transform: translateY(1rpx) scale(0.992); }
 
 .pending-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8rpx; }
-.pending-item-name { color: #0f172a; font-size: 28rpx; font-weight: 700; line-height: 1.4; }
+.pending-item-name { color: #0f172a; font-size: var(--ui-type-value); font-weight: 700; line-height: 1.4; }
 
 .pending-item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10rpx; }
 .pending-item-step {
-  font-size: 21rpx; font-weight: 600; color: #475569;
+  font-size: var(--ui-type-caption); font-weight: 600; color: #475569;
   padding: 4rpx 12rpx; border-radius: 999rpx;
   background: rgba(241,245,249,0.7); border: 1rpx solid rgba(148,163,184,0.2);
 }
 .pending-item-info {
   color: #94a3b8;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -37,7 +37,7 @@
 .pending-action-link {
   display: flex; align-items: center; justify-content: center;
   min-width: 80rpx; height: 48rpx; border-radius: 999rpx;
-  font-size: 22rpx; font-weight: 700; line-height: 48rpx;
+  font-size: var(--ui-type-meta); font-weight: 700; line-height: 48rpx;
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
 .pending-action-link:active { transform: scale(0.94); opacity: 0.85; }
@@ -58,10 +58,10 @@
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 0 14rpx 0;
 }
-.pending-update-time { font-size: 20rpx; color: #94a3b8; }
+.pending-update-time { font-size: var(--ui-type-caption); color: #94a3b8; }
 .pending-refresh-btn {
   display: inline-flex; align-items: center; gap: 6rpx;
-  font-size: 21rpx; font-weight: 600; color: #2563eb;
+  font-size: var(--ui-type-caption); font-weight: 600; color: #2563eb;
   padding: 6rpx 18rpx; border-radius: 999rpx;
   background: rgba(219,234,254,0.65); border: 1rpx solid rgba(147,197,253,0.4);
   line-height: 1;
@@ -79,26 +79,26 @@
   display: flex; flex-direction: column; align-items: center;
   padding: 40rpx 20rpx;
 }
-.audit-empty-icon { font-size: 56rpx; margin-bottom: 16rpx; }
-.audit-empty-text { font-size: 26rpx; font-weight: 700; color: #475569; margin-bottom: 6rpx; }
+.audit-empty-icon { font-size: var(--ui-type-page); margin-bottom: 16rpx; }
+.audit-empty-text { font-size: var(--ui-type-emphasis); font-weight: 700; color: #475569; margin-bottom: 6rpx; }
 .audit-empty-tip {
-  font-size: 22rpx; color: #94a3b8; margin-top: 8rpx;
+  font-size: var(--ui-type-meta); color: #94a3b8; margin-top: 8rpx;
   text-align: center; line-height: 1.6;
 }
 
 /* ── Status tag ── */
 .status-tag {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 4rpx 14rpx; border-radius: 999rpx; font-size: 20rpx; font-weight: 700;
+  padding: 4rpx 14rpx; border-radius: 999rpx; font-size: var(--ui-type-caption); font-weight: 700;
 }
 .status-tag.pending { background: rgba(255,237,213,0.78); color: #c2410c; border: 1rpx solid rgba(253,186,116,0.58); }
 
 /* ── Flow info (audit-style timeline) ── */
-.flow-info-title { font-size: 22rpx; font-weight: 700; color: #0f172a; line-height: 1.4; }
+.flow-info-title { font-size: var(--ui-type-meta); font-weight: 700; color: #0f172a; line-height: 1.4; }
 .flow-info-desc {
   margin-top: 4rpx;
   color: #64748b;
-  font-size: 20rpx;
+  font-size: var(--ui-type-caption);
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -108,7 +108,7 @@
 .detail-title {
   margin-bottom: 16rpx;
   color: #0f172a;
-  font-size: 32rpx;
+  font-size: var(--ui-type-dialog);
   font-weight: 700;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -126,14 +126,14 @@
   flex-shrink: 0;
   width: 100rpx;
   color: #64748b;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   line-height: 1.62;
 }
 .detail-val {
   flex: 1;
   min-width: 0;
   color: #0f172a;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   font-weight: 600;
   line-height: 1.62;
   white-space: pre-wrap;
@@ -149,7 +149,7 @@
   padding: 14rpx 20rpx;
   line-height: 1.35;
   border-radius: 20rpx;
-  font-size: 24rpx;
+  font-size: var(--ui-type-control);
   font-weight: 700;
   border: none;
   box-shadow: 0 16rpx 32rpx rgba(37,99,235,0.18);

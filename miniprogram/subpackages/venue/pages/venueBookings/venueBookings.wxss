@@ -43,14 +43,14 @@ page {
 .redirect-title {
   margin-top: 24rpx;
   color: #0f172a;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section);
   font-weight: 720;
 }
 
 .redirect-desc {
   margin-top: 10rpx;
   color: #64748b;
-  font-size: 23rpx;
+  font-size: var(--ui-type-label);
   line-height: 1.6;
 }
 
@@ -71,8 +71,8 @@ page {
     height: 40px;
     border-width: 4px;
   }
-  .redirect-title { margin-top: 20px; font-size: 24px; }
-  .redirect-desc { margin-top: 8px; font-size: 15px; }
+  .redirect-title { margin-top: 20px; font-size: var(--ui-type-page); }
+  .redirect-desc { margin-top: 8px; font-size: var(--ui-type-body); }
 }
 
 @media (min-width: 900px) {
