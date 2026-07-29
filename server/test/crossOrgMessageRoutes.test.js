@@ -4,6 +4,7 @@ const orgContextPath = require.resolve('../src/utils/orgContext');
 const accessiblePath = require.resolve('../src/core/services/accessibleOrganizations');
 const notificationModelPath = require.resolve('../src/modules/audit/models/notification');
 const todoServicePath = require.resolve('../src/modules/audit/services/todoService');
+const unifiedIdentityPath = require.resolve('../src/core/models/unifiedIdentity');
 const routePath = require.resolve('../src/modules/audit/routes/notification');
 
 const contexts = [
@@ -104,6 +105,14 @@ require.cache[todoServicePath] = {
   filename: todoServicePath,
   loaded: true,
   exports: todoService
+};
+require.cache[unifiedIdentityPath] = {
+  id: unifiedIdentityPath,
+  filename: unifiedIdentityPath,
+  loaded: true,
+  exports: {
+    async listContexts() { return []; }
+  }
 };
 delete require.cache[routePath];
 const router = require(routePath);

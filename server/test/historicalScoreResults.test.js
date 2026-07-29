@@ -10,6 +10,8 @@ const activity = {
 const members = [
   {
     id: 'target-1',
+    legacy_hr_id: 'target-1',
+    person_id: 'person-target-1',
     name: '被评人',
     student_id: '20260001',
     department_id: '',
@@ -18,6 +20,8 @@ const members = [
   },
   {
     id: 'scorer-1',
+    legacy_hr_id: 'scorer-1',
+    person_id: 'person-scorer-1',
     name: '评分人',
     student_id: '20260002',
     department_id: '',
@@ -74,6 +78,11 @@ const mocks = {
   },
   '../models/scoreAnswer': {
     async getByRecordIds() { return []; }
+  },
+  '../services/participants': {
+    normalizeGranularity(value) { return value === 'assignment' ? 'assignment' : 'person'; },
+    async listParticipants() { return members; },
+    participantRecordId(record, side) { return record[side + '_id']; }
   },
   '../../../core/models/systemConfig': {},
   '../../../config/db': {

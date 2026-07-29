@@ -74,6 +74,22 @@
             </picker>
           </view>
         </view>
+        <view class="field">
+          <view class="field-label">参与者粒度</view>
+          <picker
+            range="{{participantGranularityOptions}}"
+            range-key="label"
+            value="{{activityForm.participantGranularityIndex}}"
+            bindchange="onActivityGranularityChange"
+          >
+            <view class="picker-value">
+              {{participantGranularityOptions[activityForm.participantGranularityIndex].label}}
+            </view>
+          </picker>
+          <view class="field-help">
+            {{activityForm.participantGranularity === 'assignment' ? '同一人在同一组织的不同岗位将分别参与评分。' : '同一自然人在每个评分关系中只计一次，切换岗位不能重复提交。'}}
+          </view>
+        </view>
         <view class="button-row">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveActivity}}" bindtap="saveActivity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存活动</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateActivity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建活动</button>
@@ -93,6 +109,7 @@
               <view class="chip-row">
                 <view class="status-chip current-chip" wx:if="{{item.isCurrent}}">当前活动</view>
                 <view class="status-chip paused-chip" wx:if="{{item.isPaused}}">已暂停</view>
+                <view class="status-chip">{{item.participantGranularity === 'assignment' ? '按岗位' : '按人'}}</view>
               </view>
               <view class="list-desc">{{item.description}}</view>
               <view class="list-desc">{{item.startDate}} {{item.endDate}}</view>
@@ -1268,6 +1285,86 @@
               </picker>
             </view>
           </view>
+          <view class="detail-section" wx:if="{{canManageHrPeople}}">
+            <view class="detail-section-heading">
+              <view>
+                <view class="detail-section-title">岗位身份</view>
+                <view class="field-hint">同一成员可以拥有多个岗位；主要岗位同步到现有人事资料。</view>
+              </view>
+              <button
+                class="secondary-btn compact-action-btn ui-motion-button"
+                wx:if="{{!membershipAssignmentFormVisible}}"
+                catchtap="startCreateMembershipAssignment"
+                hover-class="ui-press-button"
+                hover-start-time="0"
+                hover-stay-time="160"
+                hover-stop-propagation="{{true}}"
+              >新增岗位</button>
+            </view>
+            <view class="assignment-list" wx:if="{{membershipAssignmentList.length}}">
+              <view class="assignment-card" wx:for="{{membershipAssignmentList}}" wx:key="id">
+                <view class="assignment-card-main">
+                  <view class="assignment-card-title-row">
+                    <view class="assignment-card-title">{{item.title || item.identity || '未命名岗位'}}</view>
+                    <view class="status-chip current-chip" wx:if="{{item.isPrimary}}">主要岗位</view>
+                  </view>
+                  <view class="assignment-card-meta">
+                    {{item.assignmentKind === 'liaison' ? '学院学生会对接岗位' : (item.assignmentKind === 'other' ? '其他岗位' : '校学生会岗位')}}
+                    · {{item.department || '未设置部门'}} · {{item.identity || '未设置身份'}}
+                    <text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text>
+                  </view>
+                </view>
+                <view class="inline-actions assignment-actions">
+                  <text class="link ui-motion-chip" data-index="{{index}}" catchtap="editMembershipAssignment" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
+                  <text class="link danger ui-motion-chip" wx:if="{{!item.isPrimary}}" data-id="{{item.id}}" catchtap="deleteMembershipAssignment" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+                </view>
+              </view>
+            </view>
+            <view class="empty-inline" wx:else>暂无岗位</view>
+            <view class="assignment-editor" wx:if="{{membershipAssignmentFormVisible}}">
+              <view class="field">
+                <view class="field-label">岗位类型</view>
+                <picker range="{{assignmentKindOptions}}" value="{{membershipAssignmentForm.assignmentKindIndex}}" bindchange="onMembershipAssignmentKindChange">
+                  <view class="picker-value">{{assignmentKindOptions[membershipAssignmentForm.assignmentKindIndex]}}</view>
+                </picker>
+              </view>
+              <view class="field">
+                <view class="field-label">岗位名称</view>
+                <input class="field-input" data-field="title" bindinput="onMembershipAssignmentInput" value="{{membershipAssignmentForm.title}}" placeholder="例如：主席团成员、学院对接人员" />
+              </view>
+              <view class="field-row">
+                <view class="field field-half">
+                  <view class="field-label">所属部门</view>
+                  <picker range="{{departmentOptions}}" value="{{assignmentDepartmentIndex}}" bindchange="onMembershipAssignmentDepartmentChange">
+                    <view class="picker-value">{{membershipAssignmentForm.department || '请选择部门'}}</view>
+                  </picker>
+                </view>
+                <view class="field field-half">
+                  <view class="field-label">身份</view>
+                  <picker range="{{identityOptions}}" value="{{assignmentIdentityIndex}}" bindchange="onMembershipAssignmentIdentityChange">
+                    <view class="picker-value">{{membershipAssignmentForm.identity || '请选择身份'}}</view>
+                  </picker>
+                </view>
+              </view>
+              <view class="field">
+                <view class="field-label">工作分工（职能组）</view>
+                <picker range="{{assignmentWorkGroupOptions}}" range-key="name" value="{{assignmentWorkGroupIndex}}" bindchange="onMembershipAssignmentWorkGroupChange">
+                  <view class="picker-value">{{membershipAssignmentForm.workGroup || '不设置'}}</view>
+                </picker>
+              </view>
+              <view class="assignment-primary-row">
+                <view>
+                  <view class="field-label">设为主要岗位</view>
+                  <view class="field-hint">主要岗位用于兼容旧业务页面和默认展示。</view>
+                </view>
+                <switch checked="{{membershipAssignmentForm.isPrimary}}" bindchange="onMembershipAssignmentPrimaryChange" color="#2563eb" />
+              </view>
+              <view class="button-row compact-row">
+                <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveMembershipAssignment}}" catchtap="saveMembershipAssignment" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存岗位</button>
+                <button class="secondary-btn ui-motion-button" catchtap="cancelMembershipAssignmentEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+              </view>
+            </view>
+          </view>
           <view class="detail-section" wx:if="{{detailHrTemplate && detailHrTemplate.fields && detailHrTemplate.fields.length}}">
             <view class="detail-section-title">扩展资料</view>
             <block wx:for="{{detailHrTemplate.fields}}" wx:key="id">
@@ -1538,12 +1635,8 @@
           </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
         </view>
         <view class="button-row compact-row">
-          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAdmin}}" bindtap="saveAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{adminForm.id ? '保存管理员' : '保存并生成邀请码'}}</button>
+          <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAdmin}}" bindtap="saveAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{adminForm.id ? '保存管理员' : '授予管理员身份'}}</button>
           <button class="secondary-btn ui-motion-button" bindtap="resetAdminForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置表单</button>
-        </view>
-        <view class="invite-banner" wx:if="{{latestInviteCode}}">
-          <text>最新邀请码：{{latestInviteCode}}</text>
-          <text class="link ui-motion-chip" data-code="{{latestInviteCode}}" bindtap="copyAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">复制</text>
         </view>
       </view>
 
@@ -1557,12 +1650,9 @@
           <view class="list-item list-item-stacked" wx:for="{{adminList}}" wx:key="id">
             <view class="list-main">
               <view class="list-name">{{item.name}} - {{item.adminLevelLabel}}</view>
-              <view class="list-desc">{{item.studentId}} - {{item.bindStatusLabel}}</view>
-              <view class="invite-chip" wx:if="{{item.canViewInviteCode}}">邀请码：{{item.inviteCode || '尚未生成'}}</view>
-              <view class="inline-actions list-actions-below" wx:if="{{item.canEdit || item.canDelete || item.canRegenerateInvite || item.canCopyInviteCode}}">
+              <view class="list-desc">{{item.studentId}} - {{item.authenticationStatusLabel}}</view>
+              <view class="inline-actions list-actions-below" wx:if="{{item.canEdit || item.canDelete}}">
                 <text class="link ui-motion-chip" wx:if="{{item.canEdit}}" data-index="{{index}}" bindtap="editAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                <text class="link ui-motion-chip" wx:if="{{item.canCopyInviteCode}}" data-code="{{item.inviteCode}}" bindtap="copyAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">复制邀请码</text>
-                <text class="link ui-motion-chip" wx:if="{{item.canRegenerateInvite}}" data-id="{{item.id}}" bindtap="regenerateAdminInvite" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.inviteCode ? '重置邀请码' : '生成邀请码'}}</text>
                 <text class="link danger ui-motion-chip" wx:if="{{item.canDelete}}" data-id="{{item.id}}" bindtap="deleteAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
               </view>
             </view>

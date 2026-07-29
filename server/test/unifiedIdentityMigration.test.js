@@ -1,0 +1,286 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const mysql = require('mysql2/promise');
+
+if (!process.env.DEPLOY_TEST_DB_HOST) {
+  console.log('未配置 DEPLOY_TEST_DB_HOST，跳过统一身份迁移集成测试');
+  process.exit(0);
+}
+
+const databaseName = `whusu_unified_identity_test_${Date.now()}_${process.pid}`;
+const baseConfig = {
+  host: process.env.DEPLOY_TEST_DB_HOST,
+  port: Number(process.env.DEPLOY_TEST_DB_PORT || 3306),
+  user: process.env.DEPLOY_TEST_DB_USER || 'root',
+  password: process.env.DEPLOY_TEST_DB_PASSWORD || ''
+};
+const runtimeUser = baseConfig.password ? baseConfig.user : `unified_${process.pid}`;
+const runtimePassword = baseConfig.password || `Unified-${process.pid}-Test!`;
+let createdRuntimeUser = false;
+
+const legacySchema = `
+CREATE TABLE organizations (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE departments (
+  id VARCHAR(64) PRIMARY KEY,
+  org_id VARCHAR(64) NOT NULL,
+  name VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE identities (
+  id VARCHAR(64) PRIMARY KEY,
+  org_id VARCHAR(64) NOT NULL,
+  name VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE work_groups (
+  id VARCHAR(64) PRIMARY KEY,
+  org_id VARCHAR(64) NOT NULL,
+  name VARCHAR(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE hr_info (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  student_id VARCHAR(32) NOT NULL,
+  org_id VARCHAR(64) NOT NULL,
+  department_id VARCHAR(64) DEFAULT NULL,
+  identity_id VARCHAR(64) DEFAULT NULL,
+  work_group_id VARCHAR(64) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE user_info (
+  id VARCHAR(64) PRIMARY KEY,
+  openid VARCHAR(128) NOT NULL,
+  hr_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME DEFAULT NULL,
+  UNIQUE KEY uk_user_org_openid (org_id, openid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE admin_info (
+  id VARCHAR(64) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  student_id VARCHAR(32) NOT NULL,
+  openid VARCHAR(128) DEFAULT NULL,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  admin_level VARCHAR(32) NOT NULL,
+  bind_status VARCHAR(24) DEFAULT 'active',
+  invite_code VARCHAR(64) DEFAULT NULL,
+  invite_expires_at DATETIME DEFAULT NULL,
+  bound_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE score_activities (
+  id VARCHAR(64) PRIMARY KEY,
+  is_current TINYINT(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE score_records (
+  id VARCHAR(64) PRIMARY KEY,
+  org_id VARCHAR(64) NOT NULL,
+  activity_id VARCHAR(64) NOT NULL,
+  scorer_id VARCHAR(64) NOT NULL,
+  target_id VARCHAR(64) NOT NULL,
+  UNIQUE KEY uk_sr_business (org_id, activity_id, scorer_id, target_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE audit_events (
+  id VARCHAR(64) PRIMARY KEY,
+  operator_hr_id VARCHAR(64) DEFAULT NULL,
+  operator_name VARCHAR(100) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE venue_bookings (
+  id VARCHAR(64) PRIMARY KEY,
+  user_hr_id VARCHAR(64) DEFAULT NULL,
+  approver_hr_id VARCHAR(64) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`;
+
+const seedSql = `
+INSERT INTO organizations VALUES
+  ('org-a', '组织甲', NOW()),
+  ('org-b', '组织乙', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+  ('org-c', '组织丙', DATE_SUB(NOW(), INTERVAL 2 DAY));
+INSERT INTO hr_info VALUES
+  ('hr-a1', '同一人', '20260001', 'org-a', 'dept-a', 'identity-a', ''),
+  ('hr-b1', '同一人', '20260001', 'org-b', 'dept-b', 'identity-b', ''),
+  ('hr-c1', '同一人', '20260001', 'org-c', NULL, NULL, ''),
+  ('hr-a2', '第二人', '20260002', 'org-a', 'dept-a', 'identity-a', '');
+INSERT INTO user_info VALUES
+  ('user-a1', 'openid-one', 'hr-a1', 'org-a', NOW(), NOW()),
+  ('user-b1', 'openid-one', 'hr-b1', 'org-b', NOW(), NOW()),
+  ('user-a2', 'openid-two', 'hr-a2', 'org-a', NOW(), NOW());
+INSERT INTO admin_info
+  (id, name, student_id, openid, org_id, admin_level, bind_status, bound_at, created_at)
+VALUES ('admin-1', '同一人', '20260001', 'openid-one', '', 'super_admin', 'active', NOW(), NOW());
+INSERT INTO score_activities VALUES ('activity-1', 1);
+INSERT INTO score_records VALUES
+  ('record-1', 'org-a', 'activity-1', 'hr-a1', 'hr-a2');
+INSERT INTO audit_events VALUES ('event-1', 'hr-a1', '同一人');
+INSERT INTO venue_bookings VALUES ('booking-1', 'hr-a1', 'hr-a2');
+`;
+
+async function run() {
+  const admin = await mysql.createConnection(baseConfig);
+  let database;
+  try {
+    await admin.query(`CREATE DATABASE \`${databaseName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    if (!baseConfig.password) {
+      await admin.query(
+        `CREATE USER \`${runtimeUser}\`@\`%\` IDENTIFIED BY ?`,
+        [runtimePassword]
+      );
+      createdRuntimeUser = true;
+      await admin.query(
+        `GRANT ALL PRIVILEGES ON \`${databaseName}\`.* TO \`${runtimeUser}\`@\`%\``
+      );
+    }
+    database = await mysql.createConnection(Object.assign({}, baseConfig, {
+      database: databaseName,
+      multipleStatements: true
+    }));
+    await database.query(legacySchema);
+    await database.query(seedSql);
+    await database.query(fs.readFileSync(
+      path.resolve(__dirname, '../db/deploy/20260729100000_unified_identity_auth.sql'),
+      'utf8'
+    ));
+
+    const [[counts]] = await database.query(`
+      SELECT
+        (SELECT COUNT(*) FROM persons) AS persons,
+        (SELECT COUNT(*) FROM organization_memberships) AS memberships,
+        (SELECT COUNT(*) FROM membership_assignments) AS assignments,
+        (SELECT COUNT(*) FROM accounts) AS accounts,
+        (SELECT COUNT(*) FROM account_wechat_bindings) AS bindings,
+        (SELECT COUNT(*) FROM admin_grants) AS grants
+    `);
+    assert.deepStrictEqual(
+      Object.values(counts).map(Number),
+      [2, 4, 4, 2, 2, 1]
+    );
+
+    const [[record]] = await database.query(
+      'SELECT scorer_subject_key, target_subject_key FROM score_records WHERE id = ?',
+      ['record-1']
+    );
+    assert.match(record.scorer_subject_key, /^person:/);
+    assert.match(record.target_subject_key, /^person:/);
+
+    await assert.rejects(
+      database.query(`
+        INSERT INTO membership_assignments
+          (id, membership_id, org_id, is_primary, status, active_primary_membership_id)
+        VALUES ('assignment-conflict', 'hr-a1', 'org-a', 1, 'active', 'hr-a1')
+      `),
+      /Duplicate entry/
+    );
+    await assert.rejects(
+      database.query(`
+        INSERT INTO account_wechat_bindings
+          (id, account_id, openid_hash, status, active_account_id)
+        VALUES ('binding-conflict', 'user-a1', SHA2('another-openid', 256), 'active', 'user-a1')
+      `),
+      /Duplicate entry/
+    );
+
+    await database.end();
+    database = null;
+
+    process.env.DB_HOST = baseConfig.host;
+    process.env.DB_PORT = String(baseConfig.port);
+    process.env.DB_USER = runtimeUser;
+    process.env.DB_PASSWORD = runtimePassword;
+    process.env.DB_NAME = databaseName;
+    process.env.AUTH_IDENTITY_SECRET = 'unified-identity-migration-test-secret';
+    const identityModel = require('../src/core/models/unifiedIdentity');
+    const pool = require('../src/config/db');
+    const upgraded = await identityModel.upgradeLegacyWechatBindings();
+    assert.strictEqual(upgraded.upgraded, 2);
+    const account = await identityModel.findAccountByOpenid('openid-one');
+    assert(account);
+    const session = await identityModel.createSession(account, '', {
+      requestId: 'request-login-sync',
+      ip: '127.0.0.1'
+    });
+    assert(session && session.context);
+    const [[syncedLegacyBinding]] = await pool.query(
+      `SELECT COUNT(*) AS count
+         FROM user_info
+        WHERE openid = 'openid-one' AND org_id = 'org-c' AND hr_id = 'hr-c1'`
+    );
+    assert.strictEqual(Number(syncedLegacyBinding.count), 1);
+    const [[securityState]] = await pool.query(`
+      SELECT
+        SUM(legacy_openid IS NOT NULL) AS plaintext_count,
+        SUM(openid_ciphertext IS NULL) AS missing_ciphertext,
+        SUM(hash_version <> 'hmac_sha256_v1') AS legacy_hash_count
+      FROM account_wechat_bindings
+      WHERE status = 'active'
+    `);
+    assert.strictEqual(Number(securityState.plaintext_count), 0);
+    assert.strictEqual(Number(securityState.missing_ciphertext), 0);
+    assert.strictEqual(Number(securityState.legacy_hash_count), 0);
+
+    await pool.query(`
+      INSERT INTO identity_claim_requests
+        (id, person_id, requested_org_id, openid_hash, status, expires_at)
+      VALUES
+        ('claim-batch-1', 'hr-a1', 'org-a', REPEAT('1', 64), 'pending', DATE_ADD(NOW(), INTERVAL 1 DAY)),
+        ('claim-batch-2', 'hr-a2', 'org-a', REPEAT('2', 64), 'pending', DATE_ADD(NOW(), INTERVAL 1 DAY))
+    `);
+    const issued = await identityModel.issueVerificationCodes(
+      ['claim-batch-1', 'claim-batch-2'],
+      {
+        personId: 'hr-a1',
+        organizationId: 'org-a',
+        contextId: 'ctx-test-admin',
+        adminLevel: 'super_admin'
+      },
+      { requestId: 'request-batch-success', ip: '127.0.0.1' }
+    );
+    assert.strictEqual(issued.length, 2);
+    assert.strictEqual(new Set(issued.map((item) => item.code)).size, 2);
+
+    await pool.query(`
+      INSERT INTO identity_claim_requests
+        (id, person_id, requested_org_id, openid_hash, status, expires_at)
+      VALUES
+        ('claim-batch-rollback', 'hr-a2', 'org-a', REPEAT('3', 64), 'pending', DATE_ADD(NOW(), INTERVAL 1 DAY))
+    `);
+    await assert.rejects(
+      identityModel.issueVerificationCodes(
+        ['claim-batch-rollback', 'claim-does-not-exist'],
+        {
+          personId: 'hr-a1',
+          organizationId: 'org-a',
+          contextId: 'ctx-test-admin',
+          adminLevel: 'super_admin'
+        },
+        { requestId: 'request-batch-rollback', ip: '127.0.0.1' }
+      ),
+      /认领请求已失效/
+    );
+    const [[rollbackState]] = await pool.query(
+      `SELECT COUNT(*) AS count
+         FROM identity_verification_tokens
+        WHERE claim_request_id = 'claim-batch-rollback'`
+    );
+    assert.strictEqual(Number(rollbackState.count), 0);
+    await pool.end();
+
+    console.log('统一身份旧库回填、并发唯一约束、批量认证码事务与微信凭据加密迁移测试通过');
+  } finally {
+    if (database) await database.end();
+    await admin.query(`DROP DATABASE IF EXISTS \`${databaseName}\``);
+    if (createdRuntimeUser) {
+      await admin.query(`DROP USER IF EXISTS \`${runtimeUser}\`@\`%\``);
+    }
+    await admin.end();
+  }
+}
+
+run().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

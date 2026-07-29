@@ -100,15 +100,25 @@ async function _batchLoadTemplateConditions(templateStepIds) {
  * Supports both legacy flat fields and new step_conditions_json multi-condition OR logic.
  * Also falls back to template step conditions for legacy submissions.
  */
-async function getPendingByApprover(hrId) {
+async function getPendingByApprover(hrId, approverOverride) {
   const orgId = await getCurrentOrgId();
 
   // Get the approver's HR info for identity/scope matching
-  const [hrRows] = await pool.query(
-    'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-    [hrId, orgId]
-  );
-  const approver = hrRows[0] || null;
+  let approver = null;
+  if (approverOverride) {
+    approver = {
+      id: hrId,
+      department_id: String(approverOverride.department_id || ''),
+      identity_id: String(approverOverride.identity_id || ''),
+      work_group_id: String(approverOverride.work_group_id || '')
+    };
+  } else {
+    const [hrRows] = await pool.query(
+      'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+      [hrId, orgId]
+    );
+    approver = hrRows[0] || null;
+  }
   if (!approver) return [];
 
   // Direct matches: specific_person steps assigned to this hrId (legacy field)

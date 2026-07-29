@@ -6,6 +6,7 @@ const { safeString } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const adminInfoModel = require('../models/adminInfo');
 const adminPermissionModel = require('../models/adminPermission');
+const unifiedIdentityModel = require('../models/unifiedIdentity');
 const {
   PERMISSION_DEFINITIONS,
   loadEffectivePermissions,
@@ -57,19 +58,29 @@ router.post('/listPermissionManagedAdmins', async (req, res) => {
       return res.status(403).json({ status: 'permission_denied', message: '没有访问权限系统的权限' });
     }
     const rows = await adminPermissionModel.listTargets(orgId, ['admin']);
+    const authenticationStates = await unifiedIdentityModel.listLegacyAdminAuthenticationStates(
+      rows.map((item) => item.id)
+    );
     const items = [];
     for (const row of rows.filter((item) => item.id !== operator.id)) {
       const targetEffective = await loadEffectivePermissions(Object.assign({ org_id: orgId }, row), orgId);
       const applicableCount = Array.from(PERMISSION_DEFINITIONS.keys()).filter((key) => isApplicable(key, row.admin_level)).length;
       const grantedCount = Array.from(PERMISSION_DEFINITIONS.keys()).filter((key) => isApplicable(key, row.admin_level) && targetEffective.permissions[key]).length;
+      const authenticationStatus = authenticationStates[row.id] || 'pending_verification';
+      const authenticationLabels = {
+        verified: '已认证',
+        frozen: '已冻结',
+        recovery_required: '待恢复',
+        pending_verification: '待认证'
+      };
       items.push({
         id: row.id,
         name: safeString(row.name),
         studentId: safeString(row.student_id),
         adminLevel: row.admin_level,
         adminLevelLabel: levelLabel(row.admin_level),
-        bindStatus: row.bind_status,
-        bindStatusLabel: row.bind_status === 'active' ? '已绑定' : '待绑定',
+        authenticationStatus,
+        bindStatusLabel: authenticationLabels[authenticationStatus] || '待认证',
         grantedCount,
         applicableCount
       });

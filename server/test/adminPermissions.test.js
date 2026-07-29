@@ -15,6 +15,7 @@ const {
   assert.strictEqual(isApplicable('permissions.manage_regular_admins', 'admin'), true);
   assert.strictEqual(isApplicable('permissions.manage_regular_admins', 'super_admin'), false);
   assert.strictEqual(isApplicable('system.organizations', 'admin'), false);
+  assert.strictEqual(isApplicable('auth.policy.manage', 'admin'), true);
   assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('hr.people')), false);
   assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('system.admin_accounts.read')), false);
   assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('hr.profile_templates.manage')), false);

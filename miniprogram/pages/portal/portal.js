@@ -2,6 +2,7 @@ const { callFunction, formatAuditTime } = require('../../utils/api');
 const eventBus = require('../../utils/eventBus');
 const orgSession = require('../../utils/orgSession');
 const adminPermissions = require('../../utils/adminPermissions');
+const authContext = require('../../utils/authContext');
 const { activateOrganization } = require('../../utils/organizationActivation');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const STORAGE_KEY = 'roleProfiles';
@@ -18,6 +19,8 @@ const CATEGORY_LABELS = {
 
 const PORTAL_CARDS_USER = [
   { key: 'messages', label: '消息中心', iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
+  { key: 'identitySwitch', label: '身份切换', iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'accountSecurity', label: '账号安全', iconName: 'shield', url: '/subpackages/org/pages/accountSecurity/accountSecurity', disabled: false },
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/pages/home/home?subApp=hr', disabled: false },
   { key: 'audit', label: '审核', iconName: 'file', url: '/pages/home/home?subApp=audit', disabled: false },
@@ -26,6 +29,9 @@ const PORTAL_CARDS_USER = [
 
 const PORTAL_CARDS_ADMIN = [
   { key: 'messages', label: '消息中心', iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
+  { key: 'identitySwitch', label: '身份切换', iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'accountSecurity', label: '账号安全', iconName: 'shield', url: '/subpackages/org/pages/accountSecurity/accountSecurity', disabled: false },
+  { key: 'authManagement', label: '身份认证', iconName: 'shield', url: '/subpackages/org/pages/authManagement/authManagement', disabled: false },
   { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
   { key: 'hr', label: '人事信息', iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
   { key: 'system', label: '系统配置', iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
@@ -60,8 +66,6 @@ Page({
     isAdminRole: false,
     activeRole: '',
     organizationName: '',
-    showUnbindDialog: false,
-    unbindLoading: false,
     todoCount: 0,
     todos: [],
     todoLoading: false,
@@ -75,6 +79,7 @@ Page({
     messagePartial: false,
     showMessageSwitchDialog: false,
     messageSwitchOrganizationName: '',
+    messageSwitchTitle: '切换组织与身份后查看',
     messageSwitchLoading: false,
 
     // 应用服务视图与搜索
@@ -239,6 +244,10 @@ Page({
 
   onOrgTap() {
     wx.navigateTo({ url: '/subpackages/org/pages/switch/switch' });
+  },
+
+  onIdentityTap() {
+    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
   },
 
   _onOrgChanged() {
@@ -449,15 +458,22 @@ Page({
   },
 
   requiresMessageOrganizationSwitch(item) {
-    return !!(item && item.organizationId
+    if (!item) return false;
+    if (item.contextId) {
+      return item.contextId !== String(wx.getStorageSync('activeContextId') || '');
+    }
+    return !!(item.organizationId
       && item.organizationId !== String(wx.getStorageSync('activeOrgId') || ''));
   },
 
   openMessageSwitchDialog(item, type) {
     this._pendingMessageNavigation = { item: item, type: type };
+    const sameOrganization = item.organizationId === String(wx.getStorageSync('activeOrgId') || '');
     this.setData({
       showMessageSwitchDialog: true,
-      messageSwitchOrganizationName: item.organizationName || '目标组织'
+      messageSwitchTitle: sameOrganization ? '切换身份后查看' : '切换组织与身份后查看',
+      messageSwitchOrganizationName: (item.organizationName || '目标组织')
+        + (item.identityName ? ' · ' + item.identityName : '')
     });
   },
 
@@ -475,7 +491,11 @@ Page({
     if (!pending || this.data.messageSwitchLoading) return;
     this.setData({ messageSwitchLoading: true });
     try {
-      await activateOrganization(pending.item.organizationId);
+      if (pending.item.contextId) {
+        await authContext.activateContext(pending.item.contextId);
+      } else {
+        await activateOrganization(pending.item.organizationId);
+      }
       this._activeOrgSnapshot = orgSession.getSnapshot();
       if (pending.type === 'notification' && !pending.item.isRead) {
         try {
@@ -642,57 +662,16 @@ Page({
   },
 
   goLogin() {
+    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+  },
+
+  openAccountSecurity() {
+    wx.navigateTo({ url: '/subpackages/org/pages/accountSecurity/accountSecurity' });
+  },
+
+  logout() {
+    authContext.clearUnifiedAuthentication();
     wx.redirectTo({ url: '/pages/login/login' });
   },
 
-  openUnbindDialog() {
-    if (!this.data.activeRole || this.data.unbindLoading) return;
-    this.setData({ showUnbindDialog: true });
-  },
-
-  closeUnbindDialog() {
-    if (this.data.unbindLoading) return;
-    this.setData({ showUnbindDialog: false });
-  },
-
-  confirmUnbind() {
-    if (this.data.unbindLoading) return;
-    this.setData({ unbindLoading: true });
-
-    const activeRole = this.data.activeRole;
-
-    // 调用服务端解除当前角色与微信 openid 的绑定
-    callFunction({
-      name: 'unbindRole',
-      data: { role: activeRole },
-      success: (res) => {
-        const result = res.result || {};
-        if (result.status !== 'unbind_success' && result.status !== 'already_unbound') {
-          wx.showToast({ title: result.message || '解绑失败', icon: 'none' });
-          this.setData({ unbindLoading: false });
-          return;
-        }
-
-        // 清理全部认证状态
-        const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-        delete roleProfiles[activeRole];
-        wx.setStorageSync(STORAGE_KEY, roleProfiles);
-
-        const roleKeys = Object.keys(roleProfiles);
-        orgSession.clearAuthentication(roleKeys.length ? roleKeys[0] : '');
-
-        wx.showToast({ title: '解绑成功', icon: 'success' });
-        this.setData({ showUnbindDialog: false, unbindLoading: false });
-
-        // 跳转到登录页
-        setTimeout(function() {
-          wx.redirectTo({ url: '/pages/login/login' });
-        }, 800);
-      },
-      fail: () => {
-        wx.showToast({ title: '解绑失败', icon: 'none' });
-        this.setData({ unbindLoading: false });
-      }
-    });
-  }
 });

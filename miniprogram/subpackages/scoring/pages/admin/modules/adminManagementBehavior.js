@@ -7,33 +7,6 @@ const orgSession = require('../../../../../utils/orgSession');
 
 module.exports = Behavior({
   methods: {
-    copyInviteCode(inviteCode) {
-      const code = String(inviteCode || '').trim();
-      if (!code) return;
-      wx.setClipboardData({
-        data: code,
-        success: () => wx.showToast({ title: '邀请码已复制', icon: 'success' })
-      });
-    },
-
-    presentInviteCode(inviteCode) {
-      const code = String(inviteCode || '').trim();
-      if (!code) return;
-      wx.showModal({
-        title: '管理员邀请码',
-        content: `邀请码：${code}`,
-        confirmText: '复制',
-        cancelText: '关闭',
-        success: (res) => {
-          if (res.confirm) this.copyInviteCode(code);
-        }
-      });
-    },
-
-    copyAdminInvite(e) {
-      this.copyInviteCode(e.currentTarget.dataset.code);
-    },
-
     filterAdminCandidates(keyword) {
       const text = String(keyword || '').trim().toLowerCase();
       const sourceList = this.data.hrList || [];
@@ -90,9 +63,7 @@ module.exports = Behavior({
 
     onAdminFieldInput(e) {
       const { field } = e.currentTarget.dataset;
-      const value = field === 'inviteCode'
-        ? e.detail.value.trim().toUpperCase()
-        : e.detail.value.trim();
+      const value = e.detail.value.trim();
   
       this.setData({
         adminForm: {
@@ -163,10 +134,8 @@ module.exports = Behavior({
           id: item.id,
           name: item.name,
           studentId: item.studentId,
-          adminLevel,
-          inviteCode: ''
+          adminLevel
         },
-        latestInviteCode: '',
         activeTab: 'admins'
       });
     },
@@ -176,8 +145,7 @@ module.exports = Behavior({
       form.adminLevel = this.data.adminLevelValues[0] || 'admin';
       this.setData({
         adminForm: form,
-        adminLevelIndex: 0,
-        latestInviteCode: ''
+        adminLevelIndex: 0
       });
     },
 
@@ -216,15 +184,11 @@ module.exports = Behavior({
         }
   
         this.resetAdminForm();
-        this.setData({
-          latestInviteCode: result.inviteCode || ''
-        });
         await this.loadAdminList();
         wx.showToast({
           title: '管理员已保存',
           icon: 'success'
         });
-        if (result.inviteCode) this.presentInviteCode(result.inviteCode);
       } catch (error) {
         wx.showToast({
           title: '保存管理员失败',
@@ -232,24 +196,6 @@ module.exports = Behavior({
         });
       } finally {
         this.setLoading('saveAdmin', false);
-      }
-    },
-
-    async regenerateAdminInvite(e) {
-      const adminId = e.currentTarget.dataset.id;
-      if (!adminId) return;
-      try {
-        const result = await this.callCloud('generateAdminInviteCode', { adminId });
-        if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '生成失败', icon: 'none' });
-          return;
-        }
-        this.setData({ latestInviteCode: result.inviteCode || '' });
-        await this.loadAdminList();
-        wx.showToast({ title: '邀请码已生成', icon: 'success' });
-        this.presentInviteCode(result.inviteCode);
-      } catch (_) {
-        wx.showToast({ title: '生成失败', icon: 'none' });
       }
     },
 

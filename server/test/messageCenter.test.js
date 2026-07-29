@@ -178,10 +178,11 @@ function testMigrationAndFrontendContract() {
   );
   assert.doesNotMatch(portal, /loadNotificationUnreadCount/);
   const adminPermissions = fs.readFileSync(path.join(root, '../miniprogram/utils/adminPermissions.js'), 'utf8');
-  assert.match(adminPermissions, /card\.key === 'messages'\) return true/);
+  assert.match(adminPermissions, /card\.key === 'messages'[\s\S]*return true/);
   const portalView = fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.wxml'), 'utf8');
   assert.match(portalView, /portal-organization-meta/);
-  assert.match(portalView, /切换组织后查看/);
+  assert.match(portalView, /\{\{messageSwitchTitle\}\}/);
+  assert.match(portalView, /切换并查看/);
   assert.doesNotMatch(portalView, /length \* 102/);
 
   const messageCenter = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.js'), 'utf8');

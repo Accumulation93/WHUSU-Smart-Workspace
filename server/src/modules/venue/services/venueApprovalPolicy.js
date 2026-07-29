@@ -40,6 +40,18 @@ function evaluateVenueApprovalStep({ booking, actor, steps, applicantHrInfo }) {
   }
 
   const step = flowSteps[currentStep];
+  const actorPersonId = safeString(actor && actor.personId);
+  const actorLegacyId = safeString(actor && actor.id);
+  const alreadyApproved = parseSnapshots(booking.approval_snapshots_json)
+    .some((snapshot) => {
+      const snapshotPersonId = safeString(snapshot.approverPersonId);
+      if (actorPersonId && snapshotPersonId) return snapshotPersonId === actorPersonId;
+      return actorLegacyId && safeString(snapshot.approverHrId) === actorLegacyId;
+    });
+  if (alreadyApproved) {
+    return { ok: false, reason: REASONS.ALREADY_APPROVED, step };
+  }
+
   const approvalMode = safeString(step.approval_mode) || ((step.rules || []).length ? 'hr_rule' : 'admin_any');
   if (approvalMode === 'admin_any') {
     return actor && actor.type === 'admin'
@@ -58,13 +70,6 @@ function evaluateVenueApprovalStep({ booking, actor, steps, applicantHrInfo }) {
   }
   if (!matchesAnyRule(step.rules, actor.profile, applicantHrInfo || null)) {
     return { ok: false, reason: REASONS.RULE_MISMATCH, step };
-  }
-
-  const actorId = safeString(actor.id);
-  const alreadyApproved = parseSnapshots(booking.approval_snapshots_json)
-    .some(snapshot => safeString(snapshot.approverHrId) === actorId);
-  if (alreadyApproved) {
-    return { ok: false, reason: REASONS.ALREADY_APPROVED, step };
   }
 
   return {

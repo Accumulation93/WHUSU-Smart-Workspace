@@ -22,7 +22,7 @@ function buildHrMap(rows) {
 
 async function listAuditItems(actor, orgId) {
   if (actor.type !== 'user') return [];
-  const steps = await submissionStepModel.getPendingByApprover(actor.id);
+  const steps = await submissionStepModel.getPendingByApprover(actor.id, actor.profile);
   const submitterIds = [...new Set(steps.map((item) => item.submitted_by).filter(Boolean))];
   const submitters = await messageDataModel.getHrPeople(submitterIds, orgId);
   const submitterMap = buildHrMap(submitters);
@@ -101,7 +101,7 @@ async function listVenueItems(actor, orgId) {
 
 async function listScoringItems(actor) {
   if (actor.type !== 'user') return [];
-  const task = await getUserScoringTask(actor.profile);
+  const task = await getUserScoringTask(actor.profile, null, null, actor);
   if (!task) return [];
   return [{
     id: 'scoring:' + safeString(task.activity.id),

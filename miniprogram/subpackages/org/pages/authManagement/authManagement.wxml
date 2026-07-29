@@ -1,0 +1,148 @@
+<view class="page auth-page">
+  <view class="hero auth-hero">
+    <view class="hero-badge">管理端</view>
+    <view class="hero-title">身份认证管理</view>
+    <view class="hero-subtitle">认证码仅显示一次；账号恢复会立即撤销原微信和所有旧会话</view>
+  </view>
+
+  <view class="card auth-card" wx:if="{{tabs.length}}">
+    <view class="auth-tabs">
+      <view class="auth-tab {{activeTab === item.key ? 'auth-tab-active' : ''}} ui-motion-chip" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{item.label}}</view>
+    </view>
+
+    <view class="loading-text" wx:if="{{loading}}">正在加载…</view>
+
+    <view wx:elif="{{activeTab === 'claims'}}">
+      <view class="empty-state" wx:if="{{!claims.length}}">暂无待处理认领请求</view>
+      <view class="claim-toolbar" wx:else>
+        <view class="claim-toolbar-copy">已选择 {{selectedClaimIds.length}} 项</view>
+        <view class="claim-toolbar-actions">
+          <view class="claim-tool ui-motion-chip" bindtap="selectAllClaims" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全选</view>
+          <view class="claim-tool ui-motion-chip" bindtap="clearClaimSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</view>
+          <button class="primary-btn compact-btn batch-issue-btn ui-motion-button" disabled="{{!selectedClaimIds.length}}" loading="{{actionLoading}}" bindtap="issueSelectedCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">批量生成</button>
+        </view>
+      </view>
+      <view class="request-item" wx:for="{{claims}}" wx:key="id">
+        <view class="claim-selector {{item.selected ? 'claim-selector-active' : ''}} ui-motion-chip" data-id="{{item.id}}" bindtap="toggleClaimSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" aria-role="checkbox" aria-checked="{{item.selected}}">
+          <view class="claim-selector-mark">{{item.selected ? '✓' : ''}}</view>
+        </view>
+        <view class="request-copy">
+          <view class="request-name">{{item.name}}</view>
+          <view class="request-meta">{{item.studentId}} · {{item.requestedOrganizationName}}</view>
+          <view class="request-meta">提交于 {{item.createdText}}</view>
+        </view>
+        <button class="primary-btn compact-btn ui-motion-button" data-id="{{item.id}}" data-name="{{item.name}}" loading="{{actionLoading}}" bindtap="issueCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.hasActiveCode ? '轮换认证码' : '生成认证码'}}</button>
+      </view>
+    </view>
+
+    <view wx:elif="{{activeTab === 'recoveries'}}">
+      <view class="empty-state" wx:if="{{!recoveries.length}}">暂无待处理账号恢复</view>
+      <view class="request-item" wx:for="{{recoveries}}" wx:key="id">
+        <view class="request-copy">
+          <view class="request-name">{{item.name}}</view>
+          <view class="request-meta">{{item.studentId}} · {{item.requestedOrganizationName}}</view>
+          <view class="request-meta">提交于 {{item.createdText}}</view>
+        </view>
+        <button class="primary-btn compact-btn ui-motion-button" data-id="{{item.id}}" bindtap="openRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">审核恢复</button>
+      </view>
+    </view>
+
+    <view wx:elif="{{activeTab === 'accounts'}}">
+      <view class="empty-state" wx:if="{{!accounts.length}}">暂无统一认证账号</view>
+      <view class="request-item" wx:for="{{accounts}}" wx:key="accountId">
+        <view class="request-copy">
+          <view class="request-name">{{item.name}}</view>
+          <view class="request-meta">{{item.studentId}} · {{item.statusLabel}}{{item.isSuperAdmin ? ' · 超级管理员' : ''}}</view>
+        </view>
+        <button class="{{item.accountStatus === 'frozen' ? 'primary-btn' : 'secondary-btn'}} compact-btn ui-motion-button" data-id="{{item.personId}}" data-frozen="{{item.accountStatus === 'frozen'}}" loading="{{actionLoading}}" bindtap="toggleAccountFrozen" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.accountStatus === 'frozen' ? '解除冻结' : '冻结账号'}}</button>
+      </view>
+    </view>
+
+    <view wx:elif="{{activeTab === 'policy' && policy}}">
+      <view class="policy-row">
+        <view><view class="request-name">开放首次认领</view><view class="request-meta">关闭后未使用认证码立即失效</view></view>
+        <switch color="#3b82f6" checked="{{policy.initialClaimEnabled}}" data-field="initialClaimEnabled" bindchange="onPolicySwitch" />
+      </view>
+      <view class="policy-field">
+        <view class="request-name">认证开放时间</view>
+        <view class="policy-time-grid">
+          <picker mode="date" value="{{policy.claimStartsDate}}" data-field="claimStartsDate" bindchange="onPolicyDateChange">
+            <view class="field-picker">{{policy.claimStartsDate || '立即开放'}}<text class="field-picker-arrow">›</text></view>
+          </picker>
+          <picker mode="time" value="{{policy.claimStartsTime}}" data-field="claimStartsTime" bindchange="onPolicyTimeChange">
+            <view class="field-picker">{{policy.claimStartsTime || '00:00'}}<text class="field-picker-arrow">›</text></view>
+          </picker>
+          <view class="policy-clear ui-motion-chip" data-prefix="claimStarts" bindtap="clearPolicyTime" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</view>
+        </view>
+      </view>
+      <view class="policy-field">
+        <view class="request-name">认证截止时间</view>
+        <view class="policy-time-grid">
+          <picker mode="date" value="{{policy.claimEndsDate}}" data-field="claimEndsDate" bindchange="onPolicyDateChange">
+            <view class="field-picker">{{policy.claimEndsDate || '不设截止'}}<text class="field-picker-arrow">›</text></view>
+          </picker>
+          <picker mode="time" value="{{policy.claimEndsTime}}" data-field="claimEndsTime" bindchange="onPolicyTimeChange">
+            <view class="field-picker">{{policy.claimEndsTime || '23:59'}}<text class="field-picker-arrow">›</text></view>
+          </picker>
+          <view class="policy-clear ui-motion-chip" data-prefix="claimEnds" bindtap="clearPolicyTime" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</view>
+        </view>
+      </view>
+      <view class="policy-row">
+        <view><view class="request-name">允许系统恢复码</view><view class="request-meta">高熵一次性凭据，使用后自动失效</view></view>
+        <switch color="#3b82f6" checked="{{policy.allowRecoveryCode}}" data-field="allowRecoveryCode" bindchange="onPolicySwitch" />
+      </view>
+      <view class="policy-row">
+        <view><view class="request-name">允许自定义恢复口令</view><view class="request-meta">采用独立加盐强哈希保存</view></view>
+        <switch color="#3b82f6" checked="{{policy.allowPassphrase}}" data-field="allowPassphrase" bindchange="onPolicySwitch" />
+      </view>
+      <view class="policy-field" wx:if="{{policy.allowPassphrase}}">
+        <view class="request-name">恢复口令最短长度</view>
+        <input class="field-input policy-input" type="number" value="{{policy.passphraseMinLength}}" bindinput="onMinLengthInput" />
+      </view>
+      <button class="primary-btn policy-save ui-motion-button" loading="{{actionLoading}}" bindtap="savePolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存认证策略</button>
+    </view>
+
+    <view wx:elif="{{activeTab === 'audit'}}">
+      <view class="empty-state" wx:if="{{!auditEvents.length}}">暂无安全审计记录</view>
+      <view class="audit-item" wx:for="{{auditEvents}}" wx:key="id">
+        <view class="request-name">{{item.eventTypeLabel}}</view>
+        <view class="request-meta">{{item.actorName || '系统'}} → {{item.targetName || '系统'}}</view>
+        <view class="request-meta">{{item.createdText}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card auth-card empty-state" wx:else>当前身份没有认证管理权限</view>
+
+  <view class="dialog-layer ui-overlay" wx:if="{{showCodeDialog}}">
+    <view class="dialog-mask"></view>
+    <view class="dialog-panel auth-dialog ui-dialog-shell ui-dialog-shell--compact">
+      <view class="dialog-badge">仅显示一次</view>
+      <view class="dialog-title">{{issuedCodes.length > 1 ? '个人认证码已批量生成' : issuedPersonName + '的个人认证码'}}</view>
+      <scroll-view class="issued-code-list ui-dialog-scroll--pane" scroll-y="{{issuedCodes.length > 3}}">
+        <view class="issued-code-row" wx:for="{{issuedCodes}}" wx:key="claimId">
+          <view class="issued-person">{{item.personName}}</view>
+          <view class="issued-code">{{item.verificationCode}}</view>
+        </view>
+      </scroll-view>
+      <view class="dialog-desc">请通过可信的线下或既有沟通渠道交付本人，24 小时后失效。</view>
+      <view class="dialog-actions ui-dialog-footer">
+        <button class="secondary-btn dialog-btn ui-motion-button" bindtap="copyIssuedCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{issuedCodes.length > 1 ? '复制全部' : '复制认证码'}}</button>
+        <button class="primary-btn dialog-btn ui-motion-button" bindtap="closeCodeDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">已安全保存</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="dialog-layer ui-overlay" wx:if="{{showRecoveryDialog}}">
+    <view class="dialog-mask" bindtap="closeRecoveryDialog"></view>
+    <view class="dialog-panel auth-dialog ui-dialog-shell ui-dialog-shell--compact">
+      <view class="dialog-badge">安全操作</view>
+      <view class="dialog-title">确认恢复{{pendingRecovery.name}}的账号？</view>
+      <view class="dialog-desc">批准后，新微信将接管账号，原微信和其他设备会立即退出。不能审批自己的恢复申请。</view>
+      <view class="dialog-actions ui-dialog-footer">
+        <button class="secondary-btn dialog-btn ui-motion-button" disabled="{{actionLoading}}" bindtap="closeRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">取消</button>
+        <button class="primary-btn dialog-btn ui-motion-button" loading="{{actionLoading}}" bindtap="approveRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">确认恢复</button>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,47 +1,21 @@
 const assert = require('assert');
-const jwt = require('jsonwebtoken');
 const Module = require('module');
 
 process.env.WECHAT_APPID = process.env.WECHAT_APPID || 'test-appid';
 process.env.WECHAT_SECRET = process.env.WECHAT_SECRET || 'test-secret';
 
-const JWT_SECRET = 'login-binding-contract-secret';
-const organization = { id: 'org-44', name: '第四十四届' };
-
 const mocks = {
-  '../../middleware/auth': { JWT_SECRET },
+  '../../middleware/auth': { JWT_SECRET: 'legacy-binding-disabled-test' },
   '../../middleware/orgContext': { clearOrgAccessCache() {} },
-  '../../utils/orgContext': { async getCurrentOrgId() { return organization.id; } },
-  '../models/userInfo': {
-    async getByOpenidInOrg() { return null; },
-    async getByOpenidGlobal() { return []; }
-  },
-  '../models/adminInfo': {
-    async getByOpenidAcrossOrgs() { return []; }
-  },
+  '../../utils/orgContext': { async getCurrentOrgId() { return 'org-44'; } },
+  '../models/userInfo': {},
+  '../models/adminInfo': {},
   '../models/hrInfo': {},
-  '../models/organization': {
-    async getAll() { return [organization]; },
-    async getById(id) { return id === organization.id ? organization : null; }
-  },
-  '../models/authChallenge': {
-    async create(type, openid, payload) {
-      assert.strictEqual(type, 'user_bind');
-      assert.strictEqual(openid, 'openid-new-user');
-      assert.deepStrictEqual(payload, { targetOrgId: organization.id });
-      return 'signed-user-binding-context';
-    }
-  },
-  '../services/adminPermissions': { async loadEffectivePermissions() { return {}; } },
-  '../services/accessibleOrganizations': { async listAvailableOrganizations() { return []; } },
-  '../../config/db': {
-    async query(sql) {
-      if (sql.includes('FROM system_config')) {
-        return [[{ current_organization: organization.id }]];
-      }
-      throw new Error(`Unexpected SQL: ${sql}`);
-    }
-  }
+  '../models/organization': {},
+  '../models/authChallenge': {},
+  '../services/adminPermissions': {},
+  '../services/accessibleOrganizations': {},
+  '../../config/db': {}
 };
 
 const originalLoad = Module._load;
@@ -58,37 +32,51 @@ function routeHandler(path) {
   return layer.route.stack[0].handle;
 }
 
-async function invoke(path, openid) {
+async function invoke(path) {
   let body;
+  let statusCode = 200;
   const req = {
-    openid,
+    openid: 'legacy-openid',
     body: {},
     headers: {},
-    requestId: 'login-binding-contract-request',
+    requestId: 'legacy-binding-disabled',
     logger: { warn() {}, error() {} }
   };
   const res = {
+    status(value) {
+      statusCode = value;
+      return this;
+    },
     json(value) {
       body = value;
       return value;
     }
   };
   await routeHandler(path)(req, res);
-  return body;
+  return { statusCode, body };
 }
 
 async function run() {
-  const user = await invoke('/userLogin', 'openid-new-user');
-  assert.strictEqual(user.status, 'need_bind');
-  assert.strictEqual(user.bindingContext, 'signed-user-binding-context');
-  assert.strictEqual(user.bindingOrg.id, organization.id);
-  assert.strictEqual(jwt.verify(user.token, JWT_SECRET).openid, 'openid-new-user');
+  const previous = process.env.ENABLE_LEGACY_IDENTITY_BINDING;
+  process.env.ENABLE_LEGACY_IDENTITY_BINDING = '1';
+  try {
+    const user = await invoke('/bindUserInfo');
+    assert.strictEqual(user.statusCode, 426);
+    assert.strictEqual(user.body.status, 'client_upgrade_required');
 
-  const admin = await invoke('/adminLogin', 'openid-new-admin');
-  assert.strictEqual(admin.status, 'need_bind');
-  assert.strictEqual(jwt.verify(admin.token, JWT_SECRET).openid, 'openid-new-admin');
+    const admin = await invoke('/bindAdminInfo');
+    assert.strictEqual(admin.statusCode, 426);
+    assert.strictEqual(admin.body.status, 'client_upgrade_required');
 
-  console.log('服务端登录绑定凭证契约测试通过');
+    const unbind = await invoke('/unbindRole');
+    assert.strictEqual(unbind.statusCode, 410);
+    assert.strictEqual(unbind.body.status, 'recovery_required');
+  } finally {
+    if (previous == null) delete process.env.ENABLE_LEGACY_IDENTITY_BINDING;
+    else process.env.ENABLE_LEGACY_IDENTITY_BINDING = previous;
+  }
+
+  console.log('旧姓名学号、管理员邀请码与直接解绑入口禁用契约测试通过');
 }
 
 run().catch((error) => {

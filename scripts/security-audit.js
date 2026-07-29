@@ -108,13 +108,28 @@ requireSourceContract('server/src/core/services/adminAuthorization.js', [
   { rule: 'admin-last-super-protected', test: source => source.includes('Number(activeSuperAdminCount) > 1') }
 ]);
 requireSourceContract('server/src/core/models/adminInfo.js', [
-  { rule: 'admin-invite-plaintext-storage', test: source => source.includes('SET invite_code = ?') && !source.includes('invite_code_hash') }
+  {
+    rule: 'legacy-admin-invite-isolated',
+    test: source => source.includes('async function updateInvite(')
+      && source.includes('module.exports')
+  }
 ]);
 requireSourceContract('server/src/core/routes/admin.js', [
-  { rule: 'admin-invite-authorized-display', test: source => source.includes('canViewInviteCode: canAccessInvite') && source.includes('canRegenerateInvite: canAccessInvite') }
+  {
+    rule: 'admin-invite-disabled',
+    test: source => source.includes("router.post('/createAdminInvite'")
+      && source.includes("router.post('/generateAdminInviteCode'")
+      && (source.match(/status: 'legacy_auth_disabled'/g) || []).length >= 2
+      && !source.includes('createInviteCredential')
+  }
 ]);
 requireSourceContract('server/src/core/routes/auth.js', [
-  { rule: 'admin-invite-plaintext-binding', test: source => source.includes('WHERE invite_code = ?') && !source.includes('invite_code_hash') },
+  {
+    rule: 'admin-invite-binding-disabled',
+    test: source => source.includes("router.post('/bindAdminInfo'")
+      && source.includes("message: '管理员邀请码登录已停用，请更新小程序并使用统一身份认证'")
+      && !source.includes('WHERE invite_code = ?')
+  },
   {
     rule: 'auth-role-from-body',
     test: source => source.includes("const role = safeString(req.headers['x-role']).toLowerCase()")
@@ -164,7 +179,10 @@ requireSourceContract('server/src/modules/audit/routes/auditSignature.js', [
 requireSourceContract('server/src/modules/audit/routes/auditUser.js', [
   {
     rule: 'audit-detail-role-confusion',
-    test: source => source.includes("const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null")
+    test: source => (
+      source.includes("const detailActorResult = selectedRole === 'user' ? await resolveCurrentActor(req) : null")
+      || source.includes("const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null")
+    )
       && source.includes("const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null")
   },
   {

@@ -37,10 +37,31 @@ async function getByScorerTarget(scorerId, targetId, activityId) {
   return rows;
 }
 
+async function getBySubjects(scorerSubjectKey, targetSubjectKey, activityId) {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await pool.query(
+    `SELECT * FROM score_records
+      WHERE scorer_subject_key = ? AND target_subject_key = ?
+        AND activity_id = ? AND org_id = ?
+      ORDER BY submitted_at DESC`,
+    [scorerSubjectKey, targetSubjectKey, activityId, orgId]
+  );
+  return rows;
+}
+
 async function getByScorer(scorerId, activityId) {
   const orgId = await getCurrentOrgId();
   let sql = 'SELECT * FROM score_records WHERE scorer_id = ? AND org_id = ?';
   const params = [scorerId, orgId];
+  if (activityId) { sql += ' AND activity_id = ?'; params.push(activityId); }
+  const [rows] = await pool.query(sql + ' ORDER BY submitted_at DESC', params);
+  return rows;
+}
+
+async function getByScorerSubject(scorerSubjectKey, activityId) {
+  const orgId = await getCurrentOrgId();
+  let sql = 'SELECT * FROM score_records WHERE scorer_subject_key = ? AND org_id = ?';
+  const params = [scorerSubjectKey, orgId];
   if (activityId) { sql += ' AND activity_id = ?'; params.push(activityId); }
   const [rows] = await pool.query(sql + ' ORDER BY submitted_at DESC', params);
   return rows;
@@ -63,12 +84,23 @@ async function query(conditions = {}) {
 }
 
 async function create(id, data) {
-  const { activityId, ruleId, scorerId, targetId, templateConfigSignature, submittedAt } = data;
+  const {
+    activityId, ruleId, scorerId, scorerPersonId, scorerAssignmentId, scorerSubjectKey,
+    targetId, targetPersonId, targetAssignmentId, targetSubjectKey,
+    templateConfigSignature, submittedAt
+  } = data;
   const orgId = await getCurrentOrgId();
   await pool.query(
-    `INSERT INTO score_records (id, activity_id, rule_id, scorer_id, target_id, template_config_signature, submitted_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, activityId, ruleId, scorerId, targetId, templateConfigSignature || '', submittedAt || null, orgId]
+    `INSERT INTO score_records
+       (id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
+        scorer_subject_key, target_id, target_person_id, target_assignment_id,
+        target_subject_key, template_config_signature, submitted_at, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id, activityId, ruleId, scorerId, scorerPersonId || null, scorerAssignmentId || null,
+      scorerSubjectKey, targetId, targetPersonId || null, targetAssignmentId || null,
+      targetSubjectKey, templateConfigSignature || '', submittedAt || null, orgId
+    ]
   );
 }
 
@@ -87,4 +119,16 @@ async function remove(id) {
   await pool.query('DELETE FROM score_records WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getAll, getByActivity, getById, getByScorerTarget, getByScorer, query, create, update, remove };
+module.exports = {
+  getAll,
+  getByActivity,
+  getById,
+  getByScorerTarget,
+  getBySubjects,
+  getByScorer,
+  getByScorerSubject,
+  query,
+  create,
+  update,
+  remove
+};

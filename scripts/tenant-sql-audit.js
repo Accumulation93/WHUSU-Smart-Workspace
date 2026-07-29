@@ -38,7 +38,29 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/modules/venue/routes/venueUser.js', sql: /SELECT id, name FROM admin_info WHERE id IN/i, reason: '全局场地记录展示创建管理员名称' },
   { file: 'server/src/modules/audit/models/notification.js', sql: /DELETE FROM notifications WHERE created_at </i, reason: '后台全局保留期清理' },
   { file: 'server/src/modules/audit/models/notificationOutbox.js', sql: /notification_outbox/i, reason: '后台工作进程跨组织领取与清理事件' },
-  { file: 'server/src/utils/requestDeduplication.js', sql: /DELETE FROM request_deduplication/i, reason: '后台全局幂等记录保留期清理' }
+  { file: 'server/src/utils/requestDeduplication.js', sql: /DELETE FROM request_deduplication/i, reason: '后台全局幂等记录保留期清理' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM organization_memberships WHERE legacy_hr_id = \?/i, reason: '由已授权的旧人员主键解析统一成员关系' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM membership_assignments\s+WHERE membership_id = \?/i, reason: '在已授权成员关系内解析岗位' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET is_primary = 0[\s\S]*WHERE membership_id = \?/i, reason: '在已锁定成员关系内原子切换主岗位' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET assignment_kind = \?/i, reason: '按已授权岗位主键更新岗位' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET status = 'revoked'[\s\S]*WHERE id = \?/i, reason: '按已授权岗位主键撤销岗位' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /DELETE FROM membership_assignments WHERE membership_id = \?/i, reason: '旧人事删除事务同步清理成员岗位' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /DELETE FROM organization_memberships WHERE id = \?/i, reason: '旧人事删除事务同步清理成员关系' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM organization_memberships WHERE person_id = \?/i, reason: '判断自然人是否仍有任一组织成员关系' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM admin_grants WHERE person_id = \?/i, reason: '解析自然人的全局管理员授权' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM admin_info WHERE id = \? LIMIT 1 FOR UPDATE/i, reason: '按已授权管理员主键锁定旧映射' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM admin_grants WHERE legacy_admin_id = \?/i, reason: '由已授权旧管理员主键解析统一授权' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT ag\.legacy_admin_id, a\.status AS account_status/i, reason: '管理员列表批量解析统一账号认证状态' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE admin_info(?:\s+ai)?[\s\S]*(?:JOIN admin_grants|WHERE id = \?)/i, reason: '统一账号换绑事务同步旧管理员只读映射' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT ag\.\*,[\s\S]*has_binding[\s\S]*FROM admin_grants\s+ag/i, reason: '全局超级管理员存续保护' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT DISTINCT other\.person_id\s+FROM admin_grants/i, reason: '全局超级管理员存续保护' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE admin_grants SET status = 'revoked'[\s\S]*WHERE id = \?/i, reason: '按已授权管理员授权主键撤销' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT a\.id AS account_id[\s\S]*FROM accounts a/i, reason: '获授权账号治理列表跨组织汇总' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT a\.\*,[\s\S]*FROM accounts a[\s\S]*WHERE a\.person_id = \?/i, reason: '获授权账号治理按自然人锁定账号' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT DISTINCT ag\.person_id\s+FROM admin_grants\s+ag/i, reason: '全局超级管理员存续保护' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT 1\s+FROM admin_grants\s+WHERE person_id = \? AND admin_level = 'super_admin'/i, reason: '锁定目标自然人的超级管理员授权' },
+  { file: 'server/src/utils/schemaContract.js', sql: /SELECT\s+\(SELECT COUNT\(\*\)\s+FROM persons p\s+LEFT JOIN organization_memberships/i, reason: '启动时统一身份全局一致性检查' },
+  { file: 'server/src/utils/schemaContract.js', sql: /SELECT\s+COUNT\(DISTINCT ag\.id\) AS total,\s+COUNT/i, reason: '启动时超级管理员绑定存续检查' }
 ];
 
 function walk(directory, output = []) {

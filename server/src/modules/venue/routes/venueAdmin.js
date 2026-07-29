@@ -52,11 +52,8 @@ async function matchesBookingRule(rule, hrId) {
   return !!rule.approver_identity_id;
 }
 
-async function canReviewVenueBooking(openid, booking, selectedRole) {
-  const actorResult = await resolveCurrentActor({
-    openid,
-    headers: { 'x-role': selectedRole }
-  });
+async function canReviewVenueBooking(req, booking) {
+  const actorResult = await resolveCurrentActor(req);
   if (!actorResult.ok) {
     return { ok: false, admin: null, hrId: null, reason: actorResult.message };
   }
@@ -67,19 +64,19 @@ async function canReviewVenueBooking(openid, booking, selectedRole) {
   // 流程审批统一使用共享授权器，确保查询、待办和写操作结论一致。
   if (booking.approval_flow_id && booking.approval_total_steps > 0) {
     const authorization = await authorizeCurrentVenueApproval(booking, actor);
-    return { ...authorization, admin, hrId };
+    return { ...authorization, admin, hrId, actor };
   }
 
   // Legacy rule-based approval
   const rules = await venueBookingRuleModel.getByVenueId(booking.venue_id);
-  if (!rules.length) return { ok: !!admin, admin, hrId };
+  if (!rules.length) return { ok: !!admin, admin, hrId, actor };
 
   for (const rule of rules) {
-    if (rule.rule_type === 'direct') return { ok: false, admin, hrId, reason: '该场地为直接通过，无需审批' };
-    if (rule.rule_type === 'admin' && admin) return { ok: true, admin, hrId };
-    if (await matchesBookingRule(rule, hrId)) return { ok: true, admin, hrId };
+    if (rule.rule_type === 'direct') return { ok: false, admin, hrId, actor, reason: '该场地为直接通过，无需审批' };
+    if (rule.rule_type === 'admin' && admin) return { ok: true, admin, hrId, actor };
+    if (await matchesBookingRule(rule, hrId)) return { ok: true, admin, hrId, actor };
   }
-  return { ok: false, admin, hrId };
+  return { ok: false, admin, hrId, actor };
 }
 
 function fmtLocalDate(d) {
@@ -440,6 +437,15 @@ router.post('/createAdminVenueBooking', async (req, res) => {
       venueId,
       creatorType: 'admin',
       creatorAdminId: admin.id,
+      creatorPersonId: req.authContext && req.authContext.personId,
+      creatorAdminGrantId: req.authContext && req.authContext.adminGrantId,
+      creatorContextSnapshot: req.authContext ? {
+        contextId: req.authContext.contextId,
+        organizationId: req.authContext.organizationId,
+        role: req.authContext.role,
+        identityName: req.authContext.identityName,
+        adminLevel: req.authContext.adminLevel
+      } : null,
       creatorOrgId: orgId,
       approvalOrgId: orgId,
       title,
@@ -698,7 +704,7 @@ router.post('/approveVenueBooking', async (req, res) => {
       return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
     }
 
-    const review = await canReviewVenueBooking(req.openid, booking, safeString(req.headers['x-role']));
+    const review = await canReviewVenueBooking(req, booking);
     if (!review.ok) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
@@ -716,7 +722,7 @@ router.post('/approveVenueBooking', async (req, res) => {
 
         // If approved after booking end, cancel instead
         if (approvedAt > bookingTimeEnd) {
-          await venueBookingModel.updateStatus(id, 'cancelled', review.hrId, '审批时借用已结束，自动取消', conn);
+          await venueBookingModel.updateStatus(id, 'cancelled', review.hrId, '审批时借用已结束，自动取消', conn, review.actor);
           await createVenueBookingStatusNotification(
             booking, 'booking_cancelled', '场地借用已自动取消',
             '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
@@ -753,16 +759,33 @@ router.post('/approveVenueBooking', async (req, res) => {
         stepIndex: currentStep,
         stepName,
         approverHrId: review.hrId,
+        approverPersonId: review.actor && review.actor.personId || '',
+        approverAssignmentId: review.actor && review.actor.assignmentId || '',
+        approverAdminGrantId: review.actor && review.actor.adminGrantId || '',
+        approverContextId: review.actor && review.actor.contextId || '',
         approverName: snapApproverName,
         comment: comment || '',
         approvedAt: fmtDatetime(new Date())
       });
 
       const newStatus = isLastStep ? 'approved' : 'pending';
+      const approvalContextSnapshot = JSON.stringify({
+        contextId: review.actor && review.actor.contextId || '',
+        role: review.actor && review.actor.type || '',
+        identityName: review.actor && review.actor.name || '',
+        adminLevel: review.actor && review.actor.adminLevel || ''
+      });
       const [updateResult] = await conn.query(
-        `UPDATE venue_bookings SET approval_current_step = ?, approval_snapshots_json = ?, status = ?, approver_hr_id = ?, approval_comment = ? WHERE id = ?`,
-        [newStepIndex, JSON.stringify(snapshots), newStatus,
-         isLastStep ? review.hrId : booking.approver_hr_id,
+        `UPDATE venue_bookings
+            SET approval_current_step = ?, approval_snapshots_json = ?, status = ?,
+                approver_hr_id = ?, approver_person_id = ?, approver_assignment_id = ?,
+                approver_admin_grant_id = ?, approver_context_snapshot = ?, approval_comment = ?
+          WHERE id = ?`,
+        [newStepIndex, JSON.stringify(snapshots), newStatus, review.hrId || (review.admin && review.admin.id),
+         review.actor && review.actor.personId || null,
+         review.actor && review.actor.assignmentId || null,
+         review.actor && review.actor.adminGrantId || null,
+         approvalContextSnapshot,
          isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
          id]
       );
@@ -801,7 +824,7 @@ router.post('/approveVenueBooking', async (req, res) => {
 
     // If approved after booking end, cancel instead
     if (approvedAt > bookingTimeEnd) {
-      await venueBookingModel.updateStatus(id, 'cancelled', approverId, '审批时借用已结束，自动取消', conn);
+      await venueBookingModel.updateStatus(id, 'cancelled', approverId, '审批时借用已结束，自动取消', conn, review.actor);
       await createVenueBookingStatusNotification(
         booking, 'booking_cancelled', '场地借用已自动取消',
         '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
@@ -820,7 +843,7 @@ router.post('/approveVenueBooking', async (req, res) => {
       await conn.rollback();
       return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
     }
-    await venueBookingModel.updateStatus(id, 'approved', approverId, comment, conn);
+    await venueBookingModel.updateStatus(id, 'approved', approverId, comment, conn, review.actor);
     const venueName = booking.venue_name || '';
     await createVenueBookingStatusNotification(
       booking, 'booking_approved', '场地借用已通过',
@@ -857,7 +880,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
       return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
     }
 
-    const review = await canReviewVenueBooking(req.openid, booking, safeString(req.headers['x-role']));
+    const review = await canReviewVenueBooking(req, booking);
     if (!review.ok) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: review.reason || '没有该场地借用审批权限' });
@@ -865,12 +888,27 @@ router.post('/rejectVenueBooking', async (req, res) => {
 
     // Flow-based rejection: record which step was rejected
     if (booking.approval_flow_id && booking.approval_total_steps > 0) {
+      await venueBookingModel.updateStatus(
+        id,
+        'rejected',
+        review.hrId || (review.admin && review.admin.id),
+        comment,
+        conn,
+        review.actor
+      );
       await conn.query(
-        'UPDATE venue_bookings SET status = ?, approver_hr_id = ?, approval_comment = ?, approval_current_step = -1, approval_reject_step = ? WHERE id = ?',
-        ['rejected', review.hrId || (review.admin && review.admin.id), comment, booking.approval_current_step, id]
+        'UPDATE venue_bookings SET approval_current_step = -1, approval_reject_step = ? WHERE id = ?',
+        [booking.approval_current_step, id]
       );
     } else {
-      await venueBookingModel.updateStatus(id, 'rejected', review.hrId || (review.admin && review.admin.id), comment, conn);
+      await venueBookingModel.updateStatus(
+        id,
+        'rejected',
+        review.hrId || (review.admin && review.admin.id),
+        comment,
+        conn,
+        review.actor
+      );
     }
     const venueNameRej = booking.venue_name || '';
     await createVenueBookingStatusNotification(

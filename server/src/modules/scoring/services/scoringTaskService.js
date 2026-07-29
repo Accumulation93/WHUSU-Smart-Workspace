@@ -4,7 +4,8 @@ const rateRuleModel = require('../models/rateRule');
 const rateRuleClauseModel = require('../models/rateRuleClause');
 const clauseTemplateConfigModel = require('../models/clauseTemplateConfig');
 const scoreRecordModel = require('../models/scoreRecord');
-const hrInfoModel = require('../../../core/models/hrInfo');
+const participantService = require('./participants');
+const { getCurrentOrgId } = require('../../../utils/orgContext');
 
 function parseDateOnly(value) {
   if (!value) return null;
@@ -80,13 +81,18 @@ function targetMatchesClause(target, clause, scorer) {
   return scopeType === 'all_people';
 }
 
-async function getUserScoringTask(hrRecord, activityOverride, nowOverride) {
+async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actorOverride) {
   if (!hrRecord || !hrRecord.id || !hrRecord.department_id || !hrRecord.identity_id) return null;
   const now = nowOverride || new Date();
   const activity = activityOverride || await scoreActivityModel.getCurrent();
   if (!isActivityActionable(activity, now)) return null;
+  const orgId = await getCurrentOrgId();
+  const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+  const actor = actorOverride || { id: safeString(hrRecord.id) };
+  const scorer = await participantService.resolveActorParticipant(orgId, actor, granularity);
+  if (!scorer) return null;
 
-  const scorerKey = makeOrgRuleKey(hrRecord.department_id, hrRecord.identity_id);
+  const scorerKey = makeOrgRuleKey(scorer.department_id, scorer.identity_id);
   const rule = await rateRuleModel.getByKey(activity.id, scorerKey);
   if (!rule || !rule.is_active) return null;
 
@@ -95,18 +101,23 @@ async function getUserScoringTask(hrRecord, activityOverride, nowOverride) {
   const configs = await clauseTemplateConfigModel.getByClauseIds(clauses.map((item) => item.id));
   const configuredClauseIds = new Set(configs.map((item) => item.clause_id));
   const activeClauses = clauses.filter((item) => configuredClauseIds.has(item.id));
-  const scopes = activeClauses.map((item) => buildClauseScope(item, hrRecord)).filter(Boolean);
+  const scopes = activeClauses.map((item) => buildClauseScope(item, scorer)).filter(Boolean);
   if (!scopes.length) return null;
 
   const [targets, records] = await Promise.all([
-    hrInfoModel.getByScopes(scopes),
-    scoreRecordModel.getByScorer(hrRecord.id, activity.id)
+    participantService.listParticipants(orgId, granularity),
+    scoreRecordModel.getByScorerSubject(
+      participantService.participantSubjectKey(scorer, granularity),
+      activity.id
+    )
   ]);
-  const scoredIds = new Set(records.map((item) => safeString(item.target_id)).filter(Boolean));
+  const scoredIds = new Set(
+    records.map((item) => participantService.participantRecordId(item, 'target', granularity)).filter(Boolean)
+  );
   const expectedIds = new Set();
   for (const target of targets) {
-    if (!rule.allow_self_assessment && target.id === hrRecord.id) continue;
-    if (activeClauses.some((clause) => targetMatchesClause(target, clause, hrRecord))) {
+    if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(target, scorer)) continue;
+    if (activeClauses.some((clause) => targetMatchesClause(target, clause, scorer))) {
       expectedIds.add(target.id);
     }
   }

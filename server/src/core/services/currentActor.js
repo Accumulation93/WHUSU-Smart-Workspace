@@ -10,6 +10,55 @@ const ACTIVE_ROLES = new Set(['user', 'admin']);
  * X-Role 只用于选择身份类型，真正的账号与权限始终重新查询数据库。
  */
 async function resolveCurrentActor(req) {
+  if (req.authContext && req.authAccount) {
+    const context = req.authContext;
+    if (context.role === 'admin') {
+      const admin = context.legacyAdminId
+        ? await adminInfoModel.getByIdGlobal(context.legacyAdminId)
+        : null;
+      if (!admin) {
+        return { ok: false, status: 'forbidden', message: '当前管理员身份已失效' };
+      }
+      return {
+        ok: true,
+        actor: {
+          type: 'admin',
+          id: safeString(admin.id),
+          openid: safeString(req.openid),
+          personId: safeString(context.personId),
+          contextId: safeString(context.contextId),
+          adminGrantId: safeString(context.adminGrantId),
+          adminLevel: safeString(context.adminLevel),
+          name: safeString(context.name),
+          profile: admin
+        }
+      };
+    }
+    const hrId = safeString(context.legacyHrId);
+    if (!hrId) return { ok: false, status: 'forbidden', message: '当前岗位身份已失效' };
+    const hr = await hrInfoModel.getById(hrId);
+    if (!hr) return { ok: false, status: 'forbidden', message: '当前岗位对应的人事信息不存在' };
+    const profile = Object.assign({}, hr, {
+      department_id: safeString(context.departmentId),
+      identity_id: safeString(context.identityId),
+      work_group_id: safeString(context.workGroupId)
+    });
+    return {
+      ok: true,
+      actor: {
+        type: 'user',
+        id: hrId,
+        openid: safeString(req.openid),
+        personId: safeString(context.personId),
+        membershipId: safeString(context.membershipId),
+        assignmentId: safeString(context.assignmentId),
+        contextId: safeString(context.contextId),
+        name: safeString(context.name),
+        profile
+      }
+    };
+  }
+
   const activeRole = safeString(req.headers['x-role']).toLowerCase();
   if (!ACTIVE_ROLES.has(activeRole)) {
     return {

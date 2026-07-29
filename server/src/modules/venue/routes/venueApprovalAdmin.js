@@ -325,7 +325,14 @@ router.post('/approveVenueBookingStep', async (req, res) => {
 
       // If approved after booking end, cancel instead
       if (approvedAt > bookingTimeEnd) {
-        await venueBookingModel.updateStatus(id, 'cancelled', approverActorId, '审批时借用已结束，自动取消', conn);
+        await venueBookingModel.updateStatus(
+          id,
+          'cancelled',
+          approverActorId,
+          '审批时借用已结束，自动取消',
+          conn,
+          actor
+        );
         await createVenueBookingStatusNotification(
           booking, 'booking_cancelled', '场地借用已自动取消',
           '您申请的「' + (booking.title || '场地借用') + '」审批时已超过结束时间，系统已自动取消。', conn
@@ -357,6 +364,11 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       stepIndex: currentStep,
       stepName: check.stepName,
       approverHrId: approverActorId,
+      approverPersonId: actor.personId || '',
+      approverAssignmentId: actor.assignmentId || '',
+      approverAdminGrantId: actor.adminGrantId || '',
+      approverContextId: actor.contextId || '',
+      approverIdentityType: actor.type || '',
       approverName,
       comment: comment || '',
       approvedAt: fmtDatetime(new Date())
@@ -364,14 +376,26 @@ router.post('/approveVenueBookingStep', async (req, res) => {
 
     // Update booking
     const newStatus = isLastStep ? 'approved' : 'pending';
+    const approverContextSnapshot = JSON.stringify({
+      contextId: actor.contextId || '',
+      role: actor.type || '',
+      identityName: actor.name || '',
+      adminLevel: actor.adminLevel || ''
+    });
     const sql = `UPDATE venue_bookings
-      SET approval_current_step = ?, approval_snapshots_json = ?, status = ?, approver_hr_id = ?, approval_comment = ?
+      SET approval_current_step = ?, approval_snapshots_json = ?, status = ?,
+          approver_hr_id = ?, approver_person_id = ?, approver_assignment_id = ?,
+          approver_admin_grant_id = ?, approver_context_snapshot = ?, approval_comment = ?
       WHERE id = ?`;
     const [updateResult] = await conn.query(sql, [
       newStepIndex,
       JSON.stringify(snapshots),
       newStatus,
-      isLastStep ? approverActorId : booking.approver_hr_id,
+      approverActorId,
+      actor.personId || null,
+      actor.assignmentId || null,
+      actor.adminGrantId || null,
+      approverContextSnapshot,
       isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
       id
     ]);
@@ -447,7 +471,14 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     const approverActorId = actor.id;
 
     // Reject: set step to -1, update status atomically within transaction
-    await venueBookingModel.updateStatus(id, 'rejected', approverActorId, comment || '驳回', conn);
+    await venueBookingModel.updateStatus(
+      id,
+      'rejected',
+      approverActorId,
+      comment || '驳回',
+      conn,
+      actor
+    );
 
     // Update approval tracking (same transaction)
     const setSql = `UPDATE venue_bookings

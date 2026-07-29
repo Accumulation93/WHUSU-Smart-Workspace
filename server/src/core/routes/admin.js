@@ -5,11 +5,10 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 const adminInfoModel = require('../models/adminInfo');
 const userInfoModel = require('../models/userInfo');
 const pool = require('../../config/db');
+const unifiedIdentityModel = require('../models/unifiedIdentity');
 const {
   ADMIN_LEVELS,
-  createInviteCredential,
   isSuperAdmin,
-  canViewTarget,
   canManageTarget,
   canCreateLevel,
   canDeleteTarget
@@ -23,8 +22,14 @@ function getAdminLevelLabel(adminLevel) {
   return adminLevel === 'super_admin' ? '超级管理员' : '普通管理员';
 }
 
-function getBindStatusLabel(bindStatus) {
-  return bindStatus === 'active' ? '已绑定' : '已邀请';
+function getAuthenticationStatusLabel(status) {
+  const labels = {
+    verified: '已认证',
+    frozen: '已冻结',
+    recovery_required: '待恢复',
+    pending_verification: '待认证'
+  };
+  return labels[status] || '待认证';
 }
 
 function hasAccountWrite(req, operator) {
@@ -66,18 +71,18 @@ async function createAdminRecord(connection, operator, orgId, body) {
   }
 
   const id = generateId();
-  const invite = createInviteCredential();
   await adminInfoModel.create(id, {
     name,
     studentId,
     adminLevel,
     orgId: targetOrgId,
     bindStatus: 'invited',
-    inviteCode: invite.inviteCode,
-    invitedAt: invite.invitedAt,
-    inviteExpiresAt: invite.inviteExpiresAt
+    inviteCode: null,
+    invitedAt: null,
+    inviteExpiresAt: null
   }, connection);
-  return { id, invite };
+  await unifiedIdentityModel.syncLegacyAdminGrant(connection, id);
+  return { id };
 }
 
 router.post('/listAdmins', async (req, res) => {
@@ -89,25 +94,23 @@ router.post('/listAdmins', async (req, res) => {
     const orgId = await getCurrentOrgId();
     const canWrite = hasAccountWrite(req, operator);
     const rows = await adminInfoModel.listVisible(operator, orgId);
+    const authenticationStates = await unifiedIdentityModel.listLegacyAdminAuthenticationStates(
+      rows.map((item) => item.id)
+    );
     const list = rows.map((item) => {
       const canManage = canWrite && canManageTarget(operator, item, orgId);
-      const canAccessInvite = canWrite && canViewTarget(operator, item, orgId);
+      const authenticationStatus = authenticationStates[item.id] || 'pending_verification';
       return {
         id: item.id,
         name: safeString(item.name),
         studentId: safeString(item.student_id),
         adminLevel: item.admin_level,
         adminLevelLabel: getAdminLevelLabel(item.admin_level),
-        inviteCode: canAccessInvite ? safeString(item.invite_code) : '',
-        inviteExpiresAt: canAccessInvite && item.invite_expires_at ? item.invite_expires_at : null,
-        canViewInviteCode: canAccessInvite,
-        canCopyInviteCode: canAccessInvite && Boolean(safeString(item.invite_code)),
         canManage,
         canEdit: canManage,
         canDelete: canManage,
-        canRegenerateInvite: canAccessInvite,
-        bindStatus: safeString(item.bind_status),
-        bindStatusLabel: getBindStatusLabel(safeString(item.bind_status))
+        authenticationStatus,
+        authenticationStatusLabel: getAuthenticationStatusLabel(authenticationStatus)
       };
     });
     const levels = creatableLevels(operator, canWrite);
@@ -163,6 +166,7 @@ router.post('/saveAdmin', async (req, res) => {
         return res.json({ status: 'duplicate', message: '该学号已存在' });
       }
       await adminInfoModel.updateProfile(connection, target, { name, studentId });
+      await unifiedIdentityModel.syncLegacyAdminGrant(connection, target.id);
       await connection.commit();
       return res.json({ status: 'success', message: '管理员更新成功' });
     }
@@ -176,9 +180,7 @@ router.post('/saveAdmin', async (req, res) => {
     return res.json({
       status: 'success',
       id: created.id,
-      inviteCode: created.invite.inviteCode,
-      expiresAt: created.invite.inviteExpiresAt.toISOString(),
-      message: '管理员创建成功'
+      message: '管理员身份已授予；本人完成统一身份认证后即可使用'
     });
   } catch (error) {
     if (connection) {
@@ -219,6 +221,7 @@ router.post('/deleteAdmin', async (req, res) => {
         return res.json({ status: 'forbidden', message: '系统必须保留一名有效超级管理员' });
       }
     }
+    await unifiedIdentityModel.revokeLegacyAdminGrant(connection, target.id);
     await adminInfoModel.removeExact(connection, target);
     await connection.commit();
     res.json({ status: 'success', message: '管理员已删除' });
@@ -233,69 +236,17 @@ router.post('/deleteAdmin', async (req, res) => {
 });
 
 router.post('/createAdminInvite', async (req, res) => {
-  let connection;
-  try {
-    const operator = await ensureAdmin(req);
-    if (!operator || !hasAccountWrite(req, operator)) {
-      return res.status(403).json({ status: 'permission_denied', message: '没有管理员写入权限' });
-    }
-    const orgId = await getCurrentOrgId();
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const created = await createAdminRecord(connection, operator, orgId, req.body);
-    if (created.error) {
-      await connection.rollback();
-      return res.json(created.error);
-    }
-    await connection.commit();
-    res.json({
-      status: 'success',
-      inviteCode: created.invite.inviteCode,
-      expiresAt: created.invite.inviteExpiresAt.toISOString(),
-      adminId: created.id,
-      message: '邀请链接创建成功'
-    });
-  } catch (error) {
-    if (connection) {
-      try { await connection.rollback(); } catch (_) {}
-    }
-    res.json({ status: 'error', message: safeString(error.message) });
-  } finally {
-    if (connection) connection.release();
-  }
+  return res.status(410).json({
+    status: 'legacy_auth_disabled',
+    message: '管理员邀请码已停用，请在身份认证中授予管理员身份'
+  });
 });
 
 router.post('/generateAdminInviteCode', async (req, res) => {
-  let connection;
-  try {
-    const operator = await ensureAdmin(req);
-    if (!operator || !hasAccountWrite(req, operator)) {
-      return res.status(403).json({ status: 'permission_denied', message: '没有管理员写入权限' });
-    }
-    const orgId = await getCurrentOrgId();
-    connection = await pool.getConnection();
-    await connection.beginTransaction();
-    const target = await adminInfoModel.getByIdGlobal(safeString(req.body.adminId), connection, true);
-    if (!target) {
-      await connection.rollback();
-      return res.json({ status: 'not_found', message: '管理员不存在' });
-    }
-    if (!canViewTarget(operator, target, orgId)) {
-      await connection.rollback();
-      return res.json({ status: 'forbidden', message: '不能管理该管理员邀请码' });
-    }
-    const invite = createInviteCredential();
-    await adminInfoModel.updateInvite(connection, target, invite);
-    await connection.commit();
-    res.json({ status: 'success', inviteCode: invite.inviteCode, expiresAt: invite.inviteExpiresAt.toISOString() });
-  } catch (error) {
-    if (connection) {
-      try { await connection.rollback(); } catch (_) {}
-    }
-    res.json({ status: 'error', message: safeString(error.message) });
-  } finally {
-    if (connection) connection.release();
-  }
+  return res.status(410).json({
+    status: 'legacy_auth_disabled',
+    message: '管理员邀请码已停用，请使用统一身份认证'
+  });
 });
 
 router.post('/bootstrapRootAdmin', async (req, res) => {
@@ -316,6 +267,28 @@ router.post('/adminUnbindUser', async (req, res) => {
     if (!userId) return res.json({ status: 'invalid_params', message: '请提供用户ID' });
     const targetUser = await userInfoModel.getById(userId);
     if (!targetUser) return res.json({ status: 'not_found', message: '用户绑定记录不存在' });
+    if (req.authSession && targetUser.hr_id) {
+      const orgId = await getCurrentOrgId();
+      const unifiedResult = await pool.withTransaction((connection) => (
+        unifiedIdentityModel.resetAccountByLegacyHr(
+          connection,
+          targetUser.hr_id,
+          orgId,
+          {
+            personId: req.authAccount && req.authAccount.personId,
+            contextId: req.authContext && req.authContext.contextId
+          },
+          'administrator_account_reset'
+        )
+      ));
+      if (unifiedResult) {
+        return res.json({
+          status: 'success',
+          message: '账号已重置为待恢复，原微信和全部设备会话均已失效',
+          recoveryRequired: true
+        });
+      }
+    }
     const targetAdmin = await adminInfoModel.getByOpenidAny(safeString(targetUser.openid));
     if (targetAdmin) {
       const orgId = await getCurrentOrgId();

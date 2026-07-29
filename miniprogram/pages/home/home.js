@@ -289,8 +289,6 @@ Page({
     targetsLoading: false,
     targetsEmptyText: '加载中...',
     scoringStats: { total: 0, scored: 0, pending: 0 },
-    showUnbindDialog: false,
-    unbindLoading: false,
     // Start with only always-available tabs; results/meritList added after permission check
     userTabs: [{ key: 'scoring', label: '考核评分' }, { key: 'profile', label: '人事信息' }],
     activeTab: 'scoring',
@@ -956,85 +954,6 @@ Page({
     } catch (e) {
       console.error('[home] getUnreadCounts failed:', e);
     }
-  },
-
-  openUnbindDialog() {
-    if (!this.data.activeRole || this.data.unbindLoading) {
-      return;
-    }
-
-    this.setData({
-      showUnbindDialog: true
-    });
-  },
-
-  closeUnbindDialog() {
-    if (this.data.unbindLoading) {
-      return;
-    }
-
-    this.setData({
-      showUnbindDialog: false
-    });
-  },
-
-  confirmUnbind() {
-    if (!this.data.activeRole || this.data.unbindLoading) {
-      return;
-    }
-
-    this.setData({
-      unbindLoading: true
-    });
-
-    callFunction({
-      name: 'unbindRole',
-      data: {
-        role: this.data.activeRole
-      },
-      success: (res) => {
-        const result = res.result || {};
-
-        if (result.status !== 'unbind_success' && result.status !== 'already_unbound') {
-          wx.showToast({
-            title: result.message || '解绑失败',
-            icon: 'none'
-          });
-          return;
-        }
-
-        const roleProfiles = wx.getStorageSync(STORAGE_KEY) || {};
-        delete roleProfiles[this.data.activeRole];
-        wx.setStorageSync(STORAGE_KEY, roleProfiles);
-
-        const roleList = Object.keys(roleProfiles);
-        orgSession.clearAuthentication(roleList.length ? roleList[0] : '');
-
-        this.setData({
-          showUnbindDialog: false
-        });
-
-        wx.showToast({
-          title: '解绑成功',
-          icon: 'success'
-        });
-
-        wx.redirectTo({
-          url: '/pages/login/login'
-        });
-      },
-      fail: () => {
-        wx.showToast({
-          title: '解绑失败',
-          icon: 'none'
-        });
-      },
-      complete: () => {
-        this.setData({
-          unbindLoading: false
-        });
-      }
-    });
   },
 
   async checkPublication() {

@@ -20,31 +20,34 @@ async function getCurrent() {
 }
 
 async function create(id, data) {
-  const { name, description, startDate, endDate, isCurrent, isPaused, createdBy } = data;
+  const { name, description, startDate, endDate, isCurrent, isPaused, participantGranularity, createdBy } = data;
   const orgId = await getCurrentOrgId();
   await pool.query(
-    `INSERT INTO score_activities (id, name, description, start_date, end_date, is_current, is_paused, created_by, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, name || '', description || '', startDate || null, endDate || null, isCurrent ? 1 : 0, isPaused ? 1 : 0, createdBy || '', orgId]
+    `INSERT INTO score_activities
+       (id, name, description, start_date, end_date, is_current, participant_granularity,
+        is_paused, created_by, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, name || '', description || '', startDate || null, endDate || null, isCurrent ? 1 : 0,
+     participantGranularity || 'person', isPaused ? 1 : 0, createdBy || '', orgId]
   );
 }
 
 async function update(id, data) {
-  const { name, description, startDate, endDate, isCurrent, isPaused, updatedBy, updatedAt } = data;
+  const { name, description, startDate, endDate, isCurrent, isPaused, participantGranularity, updatedBy, updatedAt } = data;
   const orgId = await getCurrentOrgId();
   if (isPaused != null) {
     await pool.query(
       `UPDATE score_activities SET name = ?, description = ?, start_date = ?, end_date = ?,
-       is_current = ?, is_paused = ?, updated_by = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
+       is_current = ?, participant_granularity = ?, is_paused = ?, updated_by = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
       [name || '', description || '', startDate || null, endDate || null,
-       isCurrent ? 1 : 0, isPaused ? 1 : 0, updatedBy || '', updatedAt || null, id, orgId]
+       isCurrent ? 1 : 0, participantGranularity || 'person', isPaused ? 1 : 0, updatedBy || '', updatedAt || null, id, orgId]
     );
   } else {
     await pool.query(
       `UPDATE score_activities SET name = ?, description = ?, start_date = ?, end_date = ?,
-       is_current = ?, updated_by = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
+       is_current = ?, participant_granularity = ?, updated_by = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
       [name || '', description || '', startDate || null, endDate || null,
-       isCurrent ? 1 : 0, updatedBy || '', updatedAt || null, id, orgId]
+       isCurrent ? 1 : 0, participantGranularity || 'person', updatedBy || '', updatedAt || null, id, orgId]
     );
   }
 }

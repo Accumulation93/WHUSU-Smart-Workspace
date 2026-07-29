@@ -88,28 +88,20 @@ async function buildAvailableOrgs(openid, adminRecords) {
 // userLogin - 微信登录（普通用户）— 4 层 fallback 智能组织匹配
 router.post('/userLogin', async (req, res) => {
   try {
-    // 已登录时优先使用 JWT 中的 openid，否则通过微信 code 换取
-    let openid = req.openid || '';
-
-    if (!openid) {
-      const code = safeString(req.body.code);
-
-      // 通过微信接口用 code 换取 openid，开发环境允许显式回退
-      openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
-      if (!openid && code) {
-        try {
-          const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
-            params: { appid: WECHAT_APPID, secret: WECHAT_SECRET, js_code: code, grant_type: 'authorization_code' },
-            timeout: 3000
-          });
-          if (wxRes.data && wxRes.data.openid) {
-            openid = safeString(wxRes.data.openid);
-          }
-        } catch (e) {
-          req.logger.warn('WeChat API failed in userLogin', { error: e.message });
+    const code = safeString(req.body.code);
+    let openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
+    if (!openid && code) {
+      try {
+        const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
+          params: { appid: WECHAT_APPID, secret: WECHAT_SECRET, js_code: code, grant_type: 'authorization_code' },
+          timeout: 3000
+        });
+        if (wxRes.data && wxRes.data.openid) {
+          openid = safeString(wxRes.data.openid);
         }
+      } catch (e) {
+        req.logger.warn('WeChat API failed in userLogin', { error: e.message });
       }
-
     }
 
     if (!openid) {
@@ -210,21 +202,10 @@ router.post('/userLogin', async (req, res) => {
       }
     }
 
-    // ====== 第 4 层：完全找不到 → need_bind ======
-    const bindingOrg = systemDefaultOrgId
-      ? allOrgs.find((org) => org.id === systemDefaultOrgId)
-      : allOrgs[0];
-    if (!bindingOrg) {
-      return res.json({ status: 'binding_unavailable', token, message: '当前没有可绑定的组织' });
-    }
-    const bindingContext = await authChallengeModel.create('user_bind', openid, {
-      targetOrgId: bindingOrg.id
-    });
-    return res.json({
-      status: 'need_bind',
-      token,
-      bindingContext,
-      bindingOrg: { id: bindingOrg.id, name: bindingOrg.name }
+    // 老版本只允许已有绑定继续登录；新认领必须使用统一认证，避免恢复姓名学号直绑。
+    return res.status(426).json({
+      status: 'client_upgrade_required',
+      message: '请更新小程序并使用个人认证码完成身份认证'
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || '登录失败' });
@@ -234,30 +215,24 @@ router.post('/userLogin', async (req, res) => {
 // adminLogin - 管理员登录（智能组织匹配）
 router.post('/adminLogin', async (req, res) => {
   try {
-    // 已登录时优先使用 JWT 中的 openid，否则通过微信 code 换取
-    let openid = req.openid || '';
+    const code = safeString(req.body.code);
+    if (!code && !ALLOW_DEV_OPENID_LOGIN) {
+      return res.json({ status: 'invalid_params', message: '缺少登录凭证code' });
+    }
 
-    if (!openid) {
-      const code = safeString(req.body.code);
-      if (!code) {
-        return res.json({ status: 'invalid_params', message: '缺少登录凭证code' });
-      }
-
-      openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
-      if (!openid && code) {
-        try {
-          const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
-            params: { appid: WECHAT_APPID, secret: WECHAT_SECRET, js_code: code, grant_type: 'authorization_code' },
-            timeout: 3000
-          });
-          if (wxRes.data && wxRes.data.openid) {
-            openid = safeString(wxRes.data.openid);
-          }
-        } catch (e) {
-          req.logger.warn('WeChat API failed in adminLogin', { error: e.message });
+    let openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
+    if (!openid && code) {
+      try {
+        const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
+          params: { appid: WECHAT_APPID, secret: WECHAT_SECRET, js_code: code, grant_type: 'authorization_code' },
+          timeout: 3000
+        });
+        if (wxRes.data && wxRes.data.openid) {
+          openid = safeString(wxRes.data.openid);
         }
+      } catch (e) {
+        req.logger.warn('WeChat API failed in adminLogin', { error: e.message });
       }
-
     }
 
     if (!openid) {
@@ -270,10 +245,9 @@ router.post('/adminLogin', async (req, res) => {
     const allAdminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
 
     if (allAdminRecords.length === 0) {
-      return res.json({
-        status: 'need_bind',
-        token,
-        message: '请使用邀请码绑定'
+      return res.status(426).json({
+        status: 'client_upgrade_required',
+        message: '请更新小程序并使用统一身份认证'
       });
     }
 
@@ -341,11 +315,10 @@ router.post('/adminLogin', async (req, res) => {
       }
     }
 
-    // 所有组织都不匹配 → need_bind（管理员不属于任何当前存在的组织）
-    return res.json({
-      status: 'need_bind',
-      token,
-      message: '请使用邀请码重新绑定'
+    // 老版本只兼容已经绑定且组织仍有效的管理员。
+    return res.status(426).json({
+      status: 'client_upgrade_required',
+      message: '当前管理员身份需要在新版小程序中重新选择'
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || '管理员登录失败' });
@@ -588,194 +561,27 @@ router.post('/confirmAutoBind', async (req, res) => {
 
 // bindUserInfo - 普通用户绑定人事信息
 router.post('/bindUserInfo', async (req, res) => {
-  const conn = await pool.getConnection();
-  try {
-    const openid = req.openid;
-    const studentId = safeString(req.body.studentId);
-    const name = safeString(req.body.name);
-
-    if (!openid) {
-      return res.json({ status: 'auth_failed', message: '请先登录' });
-    }
-    if (!studentId || !name) {
-      return res.json({ status: 'invalid_params', message: '请提供学号和姓名' });
-    }
-
-    await conn.beginTransaction();
-    const challenge = await authChallengeModel.lock(conn, req.body.bindingContext, 'user_bind', openid);
-    if (challenge.status !== 'success') {
-      await conn.rollback();
-      return res.json(challenge);
-    }
-    const targetOrgId = safeString(challenge.payload.targetOrgId);
-    const [orgRows] = await conn.query('SELECT id FROM organizations WHERE id = ? LIMIT 1', [targetOrgId]);
-    if (!orgRows.length) {
-      await conn.rollback();
-      return res.json({ status: 'not_found', message: '绑定组织不存在' });
-    }
-    const [hrRows] = await conn.query(
-      'SELECT * FROM hr_info WHERE student_id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
-      [studentId, targetOrgId]
-    );
-    const hrRecord = hrRows[0];
-    if (!hrRecord) {
-      await conn.rollback();
-      return res.json({ status: 'not_found', message: '未找到匹配的人事信息，请联系管理员' });
-    }
-
-    if (safeString(hrRecord.name) !== name) {
-      await conn.rollback();
-      return res.json({ status: 'name_mismatch', message: '姓名与人事信息不匹配' });
-    }
-
-    // 检查该人事身份是否已经绑定其他微信账号
-    const [conflicts] = await conn.query(
-      'SELECT id FROM user_info WHERE hr_id = ? AND openid != ? AND org_id = ? LIMIT 1 FOR UPDATE',
-      [hrRecord.id, openid, targetOrgId]
-    );
-    if (conflicts.length) {
-      await conn.rollback();
-      return res.json({ status: 'already_bound', message: '该人事信息已被其他微信绑定' });
-    }
-
-    const [userRows] = await conn.query(
-      'SELECT id FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1 FOR UPDATE',
-      [openid, targetOrgId]
-    );
-    if (userRows.length) {
-      await conn.query('UPDATE user_info SET hr_id = ?, updated_at = NOW() WHERE id = ? AND org_id = ?', [hrRecord.id, userRows[0].id, targetOrgId]);
-    } else {
-      const id = generateId();
-      await conn.query('INSERT INTO user_info (id, openid, hr_id, org_id) VALUES (?, ?, ?, ?)', [id, openid, hrRecord.id, targetOrgId]);
-    }
-    if (!await authChallengeModel.consume(conn, challenge.id)) {
-      await conn.rollback();
-      return res.json({ status: 'challenge_expired', message: '绑定验证已使用，请重新登录' });
-    }
-    await conn.commit();
-
-    res.json({
-      status: 'success',
-      message: '绑定成功',
-      hrInfo: {
-        id: hrRecord.id,
-        name: hrRecord.name,
-        studentId: hrRecord.student_id
-      },
-      activeOrg: { id: targetOrgId }
-    });
-  } catch (e) {
-    try { await conn.rollback(); } catch (_) { /* 忽略回滚异常 */ }
-    req.logger.error('bindUserInfo failed', { error: e.message });
-    res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
-  } finally {
-    conn.release();
-  }
+  return res.status(426).json({
+    status: 'client_upgrade_required',
+    message: '姓名学号直接绑定已停用，请更新小程序并使用个人认证码'
+  });
 });
 
 // bindAdminInfo - 管理员绑定（通过邀请码）
 router.post('/bindAdminInfo', async (req, res) => {
-  const conn = await pool.getConnection();
-  try {
-    const openid = req.openid;
-    const inviteCode = safeString(req.body.inviteCode);
-
-    if (!openid) {
-      return res.json({ status: 'auth_failed', message: '请先登录' });
-    }
-    if (!inviteCode) {
-      return res.json({ status: 'invalid_params', message: '请提供邀请码' });
-    }
-
-    const normalizedInviteCode = inviteCode.toUpperCase();
-    await conn.beginTransaction();
-    const [adminRows] = await conn.query(
-      `SELECT *, (invite_expires_at > NOW()) AS invite_valid FROM admin_info
-        WHERE invite_code = ?
-          AND bind_status = 'invited'
-          AND invite_consumed_at IS NULL
-        LIMIT 1 FOR UPDATE`,
-      [normalizedInviteCode]
-    );
-    const admin = adminRows[0];
-    if (!admin) {
-      await conn.rollback();
-      return res.json({ status: 'invalid_code', message: '邀请码无效' });
-    }
-    if (!admin.invite_valid) {
-      await conn.rollback();
-      return res.json({ status: 'invite_expired', message: '邀请码已过期，请联系管理员重新生成' });
-    }
-
-    // 仅在管理员已经绑定其他 openid 时拒绝
-    const boundOpenid = safeString(admin.openid);
-    if (boundOpenid && boundOpenid !== openid) {
-      await conn.rollback();
-      return res.json({ status: 'already_bound', message: '该邀请码已被使用' });
-    }
-
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    const [updateResult] = await conn.query(
-      `UPDATE admin_info
-          SET openid = ?, bind_status = 'active', bound_at = ?, updated_at = ?,
-              invite_consumed_at = ?
-        WHERE id = ? AND invite_code = ? AND bind_status = 'invited' AND invite_consumed_at IS NULL`,
-      [openid, nowUtc, nowUtc, nowUtc, admin.id, normalizedInviteCode]
-    );
-    if (updateResult.affectedRows !== 1) {
-      await conn.rollback();
-      return res.json({ status: 'invite_expired', message: '邀请码已失效，请重新获取' });
-    }
-    await conn.commit();
-
-    const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
-
-    res.json({
-      status: 'success',
-      message: '管理员绑定成功',
-      token,
-      adminLevel: admin.admin_level,
-      activeOrg: admin.org_id ? { id: admin.org_id } : null
-    });
-  } catch (e) {
-    try { await conn.rollback(); } catch (_) { /* 忽略回滚异常 */ }
-    req.logger.error('bindAdminInfo failed', { error: e.message });
-    res.json({ status: 'error', message: '绑定失败，请稍后重试', requestId: req.requestId || '' });
-  } finally {
-    conn.release();
-  }
+  return res.status(426).json({
+    status: 'client_upgrade_required',
+    message: '管理员邀请码登录已停用，请更新小程序并使用统一身份认证'
+  });
 });
 
-// unbindRole - 解绑角色（用户或管理员）
+// 统一账号上线后禁止客户端直接解绑。换绑和人工恢复必须经过统一认证流程，
+// 老版本调用同样拒绝，避免通过旧会话绕过会话撤销与安全审计。
 router.post('/unbindRole', async (req, res) => {
-  try {
-    const openid = req.openid;
-    const role = safeString(req.headers['x-role']).toLowerCase();
-
-    if (!openid) {
-      return res.json({ status: 'auth_failed', message: '请先登录' });
-    }
-    if (role !== 'user' && role !== 'admin') {
-      return res.json({ status: 'invalid_params', message: '身份参数无效' });
-    }
-
-    if (role === 'admin') {
-      const admin = await adminInfoModel.getByOpenid(openid);
-      if (admin) {
-        const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        await adminInfoModel.update(admin.id, { bindStatus: 'invited', openid: '', updatedAt: nowUtc });
-      }
-    } else {
-      const user = await userInfoModel.getByOpenid(openid);
-      if (user) {
-        await userInfoModel.remove(user.id);
-      }
-    }
-
-    res.json({ status: 'unbind_success', message: '解绑成功' });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '解绑失败' });
-  }
+  return res.status(410).json({
+    status: 'recovery_required',
+    message: '统一账号不支持直接解绑，请在账号安全中使用账号恢复'
+  });
 });
 
 module.exports = router;

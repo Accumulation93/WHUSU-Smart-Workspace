@@ -1,0 +1,23 @@
+@import "../switch/switch.wxss";
+
+.identity-org-name {
+  margin-top: 5rpx;
+  color: #334155;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.identity-detail {
+  margin-top: 4rpx;
+  color: #64748b;
+  font-size: 21rpx;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 520px) {
+  .identity-org-name { font-size: 14px; }
+  .identity-detail { font-size: 12px; }
+}

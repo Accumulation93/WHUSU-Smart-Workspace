@@ -19,6 +19,8 @@ const { buildWorkbookBuffer } = require('../../../utils/excelFile');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pubCache = require('../utils/pubCache');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const participantService = require('../services/participants');
 
 const VALID_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
 const IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity'];
@@ -588,16 +590,28 @@ router.post('/getPublicResults', async (req, res) => {
     const publication = await publicationModel.getByActivity(activityId);
     if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: '当前评分活动结果尚未公示' });
 
-    const user = await userInfoModel.getByOpenid(openid);
-    if (!user || !safeString(user.hr_id)) return res.json({ status: 'not_bound', message: '请先绑定人事信息' });
-
-    const lookups = await fetchOrgLookups();
-    const viewerHr = await hrInfoModel.getById(safeString(user.hr_id));
-    if (!viewerHr) return res.json({ status: 'not_bound', message: '人事信息不存在' });
-
-    const viewer = { id: safeString(viewerHr.id), departmentId: safeString(viewerHr.department_id), identityId: safeString(viewerHr.identity_id), workGroupId: safeString(viewerHr.work_group_id) };
-
     const orgId = await getCurrentOrgId();
+    const activity = await activityModel.getById(activityId);
+    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到评分活动' });
+    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'not_bound', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const [viewerRecord, participantRows, lookups] = await Promise.all([
+      participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
+      participantService.listParticipants(orgId, granularity),
+      fetchOrgLookups()
+    ]);
+    if (!viewerRecord) return res.json({ status: 'not_bound', message: '当前岗位已失效，请重新选择身份' });
+    const viewer = {
+      id: safeString(viewerRecord.id),
+      personId: safeString(viewerRecord.person_id),
+      departmentId: safeString(viewerRecord.department_id),
+      identityId: safeString(viewerRecord.identity_id),
+      workGroupId: safeString(viewerRecord.work_group_id)
+    };
+
     const [viewRuleRows] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     const matchingRules = viewRuleRows.filter(r => safeString(r.grantee_department_id) === viewer.departmentId && safeString(r.grantee_identity_id) === viewer.identityId);
     if (!matchingRules.length) return res.json({ status: 'no_permission', message: '暂无查看评分结果的权限' });
@@ -637,9 +651,9 @@ router.post('/getPublicResults', async (req, res) => {
       }
     }
 
-    const hrRows = await fetchHrMembers(orgId);
-    const allMembers = hrRows.map(m => ({
+    const allMembers = participantRows.map(m => ({
       id: safeString(m.id), name: safeString(m.name), studentId: safeString(m.student_id),
+      personId: safeString(m.person_id),
       departmentId: safeString(m.department_id), identityId: safeString(m.identity_id), workGroupId: safeString(m.work_group_id)
     }));
 

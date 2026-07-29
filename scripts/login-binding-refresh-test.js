@@ -2,9 +2,7 @@ const assert = require('assert');
 const Module = require('module');
 
 let pageDefinition = null;
-let scenario = 'expired-user-bind';
-let bindAttempts = 0;
-let autoBindAttempts = 0;
+let scenario = 'claim';
 const calls = [];
 const storage = {};
 const toasts = [];
@@ -12,64 +10,38 @@ const redirects = [];
 
 async function callFunction(options) {
   calls.push({ name: options.name, data: Object.assign({}, options.data || {}) });
-  if (scenario === 'expired-user-bind') {
-    if (options.name === 'bindUserInfo') {
-      bindAttempts += 1;
-      if (bindAttempts === 1) {
-        return { status: 'challenge_expired', message: '绑定验证已过期，请重新登录' };
-      }
-      return { status: 'success', message: '绑定成功' };
-    }
-    if (options.name === 'userLogin') {
-      return {
-        status: 'need_bind',
-        token: 'fresh-token',
-        bindingContext: 'fresh-binding-context',
-        bindingOrg: { id: 'org-44', name: '第四十四届' }
-      };
-    }
+  if (options.name === 'auth/wechat/session') {
+    return {
+      status: 'need_claim',
+      bootstrapToken: 'bootstrap-token',
+      organizations: [{ id: 'org-44', name: '第四十四届' }],
+      recoveryMethods: { recoveryCode: false, passphrase: false }
+    };
   }
-  if (scenario === 'expired-auth-user') {
-    if (options.name === 'bindUserInfo') {
-      bindAttempts += 1;
-      if (bindAttempts === 1) {
-        const error = new Error('登录已过期');
-        error.status = 'auth_failed';
-        throw error;
-      }
-      return { status: 'success', message: '绑定成功' };
-    }
-    if (options.name === 'userLogin') {
-      return {
-        status: 'need_bind',
-        token: 'renewed-auth-token',
-        bindingContext: 'renewed-binding-context',
-        bindingOrg: { id: 'org-44', name: '第四十四届' }
-      };
-    }
+  if (options.name === 'auth/claims') {
+    return { status: 'accepted', claimId: 'claim-1' };
   }
-  if (scenario === 'auto-bind') {
-    if (options.name === 'confirmAutoBind') {
-      autoBindAttempts += 1;
-      if (autoBindAttempts === 1) {
-        return { status: 'challenge_expired', message: '绑定验证已过期，请重新登录' };
-      }
-      return {
-        status: 'success',
-        activeOrg: { id: 'org-44', name: '第四十四届' },
-        availableOrgs: [{ id: 'org-44', name: '第四十四届' }],
-        user: { id: 'display-user', name: '测试用户', studentId: '20260001' }
-      };
-    }
-    if (options.name === 'userLogin') {
-      return {
-        status: 'auto_bind_available',
-        token: 'fresh-auto-bind-token',
-        autoBindChallenge: 'fresh-auto-bind-challenge',
-        targetOrg: { id: 'org-44', name: '第四十四届' },
-        availableOrgs: []
-      };
-    }
+  if (options.name === 'auth/claims/verify') {
+    return {
+      status: 'login_success',
+      token: 'access-token',
+      context: {
+        contextId: 'assignment:one:org-44',
+        role: 'user',
+        organizationId: 'org-44',
+        organizationName: '第四十四届'
+      },
+      contexts: [{
+        contextId: 'assignment:one:org-44',
+        role: 'user',
+        organizationId: 'org-44',
+        organizationName: '第四十四届'
+      }],
+      user: { id: 'hr-1', name: '测试用户' }
+    };
+  }
+  if (options.name === 'auth/recovery/start' && scenario === 'recovery') {
+    return { status: 'accepted', recoveryRequestId: 'recovery-1' };
   }
   throw new Error('未预期的 API 调用：' + options.name);
 }
@@ -89,9 +61,8 @@ Module._load = function(request, parent, isMain) {
   if (request === '../../utils/api') {
     return {
       callFunction,
-      showShortToast(title, icon) {
-        toasts.push({ title, icon: icon || 'none' });
-      }
+      showShortToast(title, icon) { toasts.push({ title, icon: icon || 'none' }); },
+      getErrorText(error, fallback) { return error && error.message ? error.message : fallback; }
     };
   }
   return originalLoad.call(this, request, parent, isMain);
@@ -111,91 +82,38 @@ function createPage(overrides) {
 async function run() {
   assert(pageDefinition, '登录页应成功注册');
 
-  const page = createPage({
-    activeRole: 'user',
-    name: '测试用户',
-    studentId: '20260001',
-    bindingContext: 'expired-binding-context'
-  });
-  let handled = null;
-  page.handleBindResult = function(role, result) {
-    handled = { role, result };
-  };
+  const page = createPage();
+  page.onLoad();
+  page.onLogin();
+  page.onLogin();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(calls.filter((item) => item.name === 'auth/wechat/session').length, 1);
+  assert.strictEqual(page.data.stage, 'claim');
 
-  await page.onBind();
+  page.setData({ name: '测试用户', studentId: '20260001' });
+  await page.submitClaim();
+  assert.strictEqual(page.data.stage, 'verify');
+  assert.strictEqual(page.data.claimId, 'claim-1');
 
-  assert.strictEqual(bindAttempts, 2, '挑战过期后应只重试一次绑定');
-  assert.deepStrictEqual(calls.map((item) => item.name), [
-    'bindUserInfo',
-    'userLogin',
-    'bindUserInfo'
-  ]);
-  assert.strictEqual(calls[0].data.bindingContext, 'expired-binding-context');
-  assert.strictEqual(calls[2].data.bindingContext, 'fresh-binding-context');
-  assert.strictEqual(calls[2].data.name, '测试用户');
-  assert.strictEqual(calls[2].data.studentId, '20260001');
-  assert.strictEqual(storage.token, 'fresh-token');
-  assert.strictEqual(page.data.bindingContext, 'fresh-binding-context');
-  assert.strictEqual(page.data.bindingOrgName, '第四十四届');
-  assert.strictEqual(page.data.loading, false);
-  assert.strictEqual(handled.role, 'user');
-  assert.strictEqual(handled.result.status, 'success');
-
-  scenario = 'expired-auth-user';
-  bindAttempts = 0;
-  calls.length = 0;
-  const authPage = createPage({
-    activeRole: 'user',
-    name: '测试用户',
-    studentId: '20260001',
-    bindingContext: 'old-binding-context'
-  });
-  let authHandled = null;
-  authPage.handleBindResult = function(role, result) {
-    authHandled = { role, result };
-  };
-  await authPage.onBind();
-  assert.deepStrictEqual(calls.map((item) => item.name), [
-    'bindUserInfo',
-    'userLogin',
-    'bindUserInfo'
-  ]);
-  assert.strictEqual(storage.token, 'renewed-auth-token');
-  assert.strictEqual(calls[2].data.bindingContext, 'renewed-binding-context');
-  assert.strictEqual(authHandled.result.status, 'success');
-
-  const guardedPage = createPage({
-    activeRole: 'user',
-    name: '测试用户',
-    studentId: '20260001',
-    bindingContext: 'binding-context'
-  });
-  guardedPage._bindSubmitting = true;
-  const callCountBeforeGuard = calls.length;
-  await guardedPage.onBind();
-  assert.strictEqual(calls.length, callCountBeforeGuard, '同步提交锁必须阻止重复绑定请求');
-
-  scenario = 'auto-bind';
-  calls.length = 0;
-  const autoPage = createPage({ activeRole: 'user' });
-  await autoPage.confirmAutoBind({
-    token: 'auto-bind-token',
-    autoBindChallenge: 'auto-bind-challenge',
-    targetOrg: { id: 'org-44', name: '第四十四届' },
-    availableOrgs: []
-  });
-  assert.strictEqual(autoBindAttempts, 2, '自动绑定挑战过期后应只重试一次');
-  assert.deepStrictEqual(calls.map((item) => item.name), [
-    'confirmAutoBind',
-    'userLogin',
-    'confirmAutoBind'
-  ]);
-  assert.strictEqual(calls[2].data.autoBindChallenge, 'fresh-auto-bind-challenge');
-  assert.strictEqual(storage.token, 'fresh-auto-bind-token');
-  assert(toasts.some((item) => item.title === '同步成功'));
+  page.setData({ verificationCode: 'ABCD1234' });
+  await page.verifyClaim();
+  assert.strictEqual(storage.token, 'access-token');
+  assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
   assert(redirects.includes('/pages/portal/portal'));
 
-  console.log('登录绑定挑战自动刷新测试通过');
+  scenario = 'recovery';
+  const recoveryPage = createPage({
+    stage: 'recovery',
+    organizations: [{ id: 'org-44', name: '第四十四届' }],
+    name: '测试用户',
+    studentId: '20260001',
+    recoveryMethodValues: []
+  });
+  await recoveryPage.startRecovery();
+  assert.strictEqual(recoveryPage.data.stage, 'recoveryPending');
+  assert.strictEqual(recoveryPage.data.recoveryRequestId, 'recovery-1');
+
+  console.log('统一登录、认领与默认人工恢复流程测试通过');
 }
 
 run().catch((error) => {

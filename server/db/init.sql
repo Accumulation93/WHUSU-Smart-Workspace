@@ -175,6 +175,7 @@ CREATE TABLE IF NOT EXISTS score_activities (
   start_date DATE DEFAULT NULL,
   end_date DATE DEFAULT NULL,
   is_current TINYINT(1) NOT NULL DEFAULT 0,
+  participant_granularity VARCHAR(16) NOT NULL DEFAULT 'person',
   is_paused TINYINT(1) NOT NULL DEFAULT 0,
   created_by VARCHAR(64) DEFAULT NULL,
   updated_by VARCHAR(64) DEFAULT NULL,
@@ -288,17 +289,25 @@ CREATE TABLE IF NOT EXISTS score_records (
   activity_id VARCHAR(64) NOT NULL,
   rule_id VARCHAR(64) NOT NULL,
   scorer_id VARCHAR(64) NOT NULL,
+  scorer_person_id VARCHAR(64) DEFAULT NULL,
+  scorer_assignment_id VARCHAR(64) DEFAULT NULL,
+  scorer_subject_key VARCHAR(96) NOT NULL,
   target_id VARCHAR(64) NOT NULL,
+  target_person_id VARCHAR(64) DEFAULT NULL,
+  target_assignment_id VARCHAR(64) DEFAULT NULL,
+  target_subject_key VARCHAR(96) NOT NULL,
   template_config_signature TEXT,
   submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   INDEX idx_sr_activity (activity_id),
   INDEX idx_sr_rule (rule_id),
   INDEX idx_sr_scorer (scorer_id),
+  INDEX idx_sr_scorer_person (scorer_person_id),
   INDEX idx_sr_target (target_id),
+  INDEX idx_sr_target_person (target_person_id),
   INDEX idx_sr_scorer_target (scorer_id, target_id),
   INDEX idx_sr_org (org_id),
-  UNIQUE INDEX uk_sr_business (org_id, activity_id, scorer_id, target_id),
+  UNIQUE INDEX uk_sr_business (org_id, activity_id, scorer_subject_key, target_subject_key),
   CONSTRAINT fk_sr_activity FOREIGN KEY (activity_id)
     REFERENCES score_activities(id) ON DELETE CASCADE,
   CONSTRAINT fk_sr_rule FOREIGN KEY (rule_id)
@@ -885,6 +894,10 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   venue_id VARCHAR(64) NOT NULL,
   user_hr_id VARCHAR(64) DEFAULT NULL,
+  creator_person_id VARCHAR(64) DEFAULT NULL,
+  creator_assignment_id VARCHAR(64) DEFAULT NULL,
+  creator_admin_grant_id VARCHAR(64) DEFAULT NULL,
+  creator_context_snapshot TEXT DEFAULT NULL,
   creator_type VARCHAR(16) NOT NULL DEFAULT 'user',
   creator_admin_id VARCHAR(64) DEFAULT NULL,
   creator_org_id VARCHAR(64) NOT NULL DEFAULT '',
@@ -900,6 +913,10 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   approval_reject_step INT DEFAULT NULL,
   approval_snapshots_json TEXT DEFAULT NULL,
   approver_hr_id VARCHAR(64) DEFAULT NULL,
+  approver_person_id VARCHAR(64) DEFAULT NULL,
+  approver_assignment_id VARCHAR(64) DEFAULT NULL,
+  approver_admin_grant_id VARCHAR(64) DEFAULT NULL,
+  approver_context_snapshot TEXT DEFAULT NULL,
   approval_comment TEXT,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -957,7 +974,11 @@ CREATE TABLE IF NOT EXISTS audit_events (
   step_index INT DEFAULT NULL,
   round INT NOT NULL DEFAULT 1,
   operator_hr_id VARCHAR(64) DEFAULT NULL,
+  operator_person_id VARCHAR(64) DEFAULT NULL,
+  operator_assignment_id VARCHAR(64) DEFAULT NULL,
+  operator_admin_grant_id VARCHAR(64) DEFAULT NULL,
   operator_name VARCHAR(128) DEFAULT NULL,
+  operator_context_snapshot TEXT DEFAULT NULL,
   comment TEXT DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
@@ -1049,4 +1070,265 @@ CREATE TABLE IF NOT EXISTS _shared_cache (
   created_at BIGINT NOT NULL,
   expires_at BIGINT NOT NULL,
   INDEX idx_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- 13. 统一身份认证、会话、认领、恢复与安全审计
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS identity_migration_guards (
+  guard_key VARCHAR(64) NOT NULL PRIMARY KEY,
+  guard_value TINYINT NOT NULL,
+  checked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_identity_migration_guard CHECK (guard_value = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS persons (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  student_id VARCHAR(32) NOT NULL,
+  normalized_student_id VARCHAR(32) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_person_student (normalized_student_id),
+  INDEX idx_person_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS organization_memberships (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  person_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL,
+  legacy_hr_id VARCHAR(64) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_membership_person_org (person_id, org_id),
+  UNIQUE INDEX uk_membership_legacy_hr (legacy_hr_id),
+  INDEX idx_membership_org_status (org_id, status),
+  CONSTRAINT fk_membership_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS membership_assignments (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  membership_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL,
+  assignment_kind VARCHAR(32) NOT NULL DEFAULT 'staff',
+  title VARCHAR(200) DEFAULT NULL,
+  department_id VARCHAR(64) DEFAULT NULL,
+  identity_id VARCHAR(64) DEFAULT NULL,
+  work_group_id VARCHAR(64) DEFAULT NULL,
+  is_primary TINYINT(1) NOT NULL DEFAULT 0,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  active_primary_membership_id VARCHAR(64) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_assignment_membership (membership_id, status),
+  INDEX idx_assignment_org (org_id, status),
+  INDEX idx_assignment_rule (org_id, department_id, identity_id, work_group_id),
+  UNIQUE INDEX uk_assignment_active_primary (active_primary_membership_id),
+  CONSTRAINT chk_assignment_primary_key CHECK (
+    (status = 'active' AND is_primary = 1 AND active_primary_membership_id IS NOT NULL
+      AND active_primary_membership_id = membership_id)
+    OR ((status <> 'active' OR is_primary = 0) AND active_primary_membership_id IS NULL)
+  ),
+  CONSTRAINT fk_assignment_membership FOREIGN KEY (membership_id)
+    REFERENCES organization_memberships(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS accounts (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  person_id VARCHAR(64) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'verified',
+  token_version INT NOT NULL DEFAULT 1,
+  verified_at DATETIME DEFAULT NULL,
+  recovery_required_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_account_person (person_id),
+  INDEX idx_account_status (status),
+  CONSTRAINT fk_account_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS account_wechat_bindings (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  account_id VARCHAR(64) NOT NULL,
+  app_id VARCHAR(64) NOT NULL DEFAULT 'whusu-smart-workspace',
+  openid_hash CHAR(64) NOT NULL,
+  hash_version VARCHAR(24) NOT NULL DEFAULT 'hmac_sha256_v1',
+  openid_ciphertext TEXT DEFAULT NULL,
+  legacy_openid VARCHAR(128) DEFAULT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  active_openid_hash CHAR(64)
+    GENERATED ALWAYS AS (CASE WHEN status = 'active' THEN openid_hash ELSE NULL END) STORED,
+  active_account_id VARCHAR(64) DEFAULT NULL,
+  bound_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  revoked_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_wechat_account_app (account_id, app_id, status),
+  INDEX idx_wechat_openid_hash (app_id, openid_hash, status),
+  INDEX idx_wechat_status (status),
+  UNIQUE INDEX uk_wechat_active_openid (app_id, active_openid_hash),
+  UNIQUE INDEX uk_wechat_active_account (app_id, active_account_id),
+  CONSTRAINT chk_wechat_active_account CHECK (
+    (status = 'active' AND active_account_id IS NOT NULL AND active_account_id = account_id)
+    OR (status <> 'active' AND active_account_id IS NULL)
+  ),
+  CONSTRAINT fk_wechat_account FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin_grants (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  person_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL DEFAULT '',
+  admin_level VARCHAR(32) NOT NULL DEFAULT 'admin',
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  legacy_admin_id VARCHAR(64) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_admin_grant_person_org (person_id, org_id),
+  UNIQUE INDEX uk_admin_grant_legacy (legacy_admin_id),
+  INDEX idx_admin_grant_scope (org_id, admin_level, status),
+  CONSTRAINT fk_admin_grant_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_admin_grant_level CHECK (admin_level IN ('super_admin', 'admin'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  account_id VARCHAR(64) NOT NULL,
+  openid_hash CHAR(64) NOT NULL,
+  context_id VARCHAR(160) DEFAULT NULL,
+  context_type VARCHAR(24) DEFAULT NULL,
+  context_subject_id VARCHAR(64) DEFAULT NULL,
+  organization_id VARCHAR(64) DEFAULT NULL,
+  role VARCHAR(16) DEFAULT NULL,
+  token_version INT NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  expires_at DATETIME NOT NULL,
+  last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  revoked_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_auth_session_account (account_id, status),
+  INDEX idx_auth_session_expiry (expires_at),
+  CONSTRAINT fk_auth_session_account FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_bootstrap_sessions (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  openid_hash CHAR(64) NOT NULL,
+  openid_ciphertext TEXT NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  failed_attempts INT NOT NULL DEFAULT 0,
+  locked_until DATETIME DEFAULT NULL,
+  expires_at DATETIME NOT NULL,
+  consumed_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_auth_bootstrap_owner (openid_hash, status),
+  INDEX idx_auth_bootstrap_expiry (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS identity_claim_requests (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  person_id VARCHAR(64) NOT NULL,
+  requested_org_id VARCHAR(64) NOT NULL,
+  openid_hash CHAR(64) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'pending',
+  failed_attempts INT NOT NULL DEFAULT 0,
+  locked_until DATETIME DEFAULT NULL,
+  verified_at DATETIME DEFAULT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_claim_org_status (requested_org_id, status, created_at),
+  INDEX idx_claim_person (person_id, status),
+  INDEX idx_claim_openid (openid_hash, status),
+  CONSTRAINT fk_claim_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS identity_verification_tokens (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  claim_request_id VARCHAR(64) NOT NULL,
+  person_id VARCHAR(64) NOT NULL,
+  issued_by_person_id VARCHAR(64) NOT NULL,
+  issued_by_context_id VARCHAR(160) NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  expires_at DATETIME NOT NULL,
+  consumed_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_identity_token_hash (token_hash),
+  INDEX idx_identity_token_claim (claim_request_id, status),
+  CONSTRAINT fk_identity_token_claim FOREIGN KEY (claim_request_id)
+    REFERENCES identity_claim_requests(id) ON DELETE CASCADE,
+  CONSTRAINT fk_identity_token_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS account_recovery_credentials (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  account_id VARCHAR(64) NOT NULL,
+  method VARCHAR(24) NOT NULL,
+  credential_hash TEXT NOT NULL,
+  salt VARCHAR(128) DEFAULT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  failed_attempts INT NOT NULL DEFAULT 0,
+  locked_until DATETIME DEFAULT NULL,
+  expires_at DATETIME DEFAULT NULL,
+  used_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_recovery_account_method (account_id, method),
+  CONSTRAINT fk_recovery_credential_account FOREIGN KEY (account_id)
+    REFERENCES accounts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS account_recovery_requests (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  person_id VARCHAR(64) NOT NULL,
+  account_id VARCHAR(64) NOT NULL,
+  requested_org_id VARCHAR(64) NOT NULL,
+  new_openid_hash CHAR(64) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'pending',
+  approved_by_person_id VARCHAR(64) DEFAULT NULL,
+  approved_by_context_id VARCHAR(160) DEFAULT NULL,
+  reviewed_at DATETIME DEFAULT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_recovery_org_status (requested_org_id, status, created_at),
+  INDEX idx_recovery_account (account_id, status),
+  CONSTRAINT fk_recovery_request_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_recovery_request_account FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS auth_policy (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  initial_claim_enabled TINYINT(1) NOT NULL DEFAULT 1,
+  claim_starts_at DATETIME DEFAULT NULL,
+  claim_ends_at DATETIME DEFAULT NULL,
+  allow_recovery_code TINYINT(1) NOT NULL DEFAULT 0,
+  allow_passphrase TINYINT(1) NOT NULL DEFAULT 0,
+  passphrase_min_length INT NOT NULL DEFAULT 12,
+  updated_by_person_id VARCHAR(64) DEFAULT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO auth_policy (id) VALUES ('default');
+
+CREATE TABLE IF NOT EXISTS auth_audit_events (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  event_type VARCHAR(64) NOT NULL,
+  actor_person_id VARCHAR(64) DEFAULT NULL,
+  target_person_id VARCHAR(64) DEFAULT NULL,
+  account_id VARCHAR(64) DEFAULT NULL,
+  organization_id VARCHAR(64) DEFAULT NULL,
+  context_id VARCHAR(160) DEFAULT NULL,
+  request_id VARCHAR(64) DEFAULT NULL,
+  ip_hash CHAR(64) DEFAULT NULL,
+  outcome VARCHAR(24) NOT NULL DEFAULT 'success',
+  detail_json TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_auth_audit_target (target_person_id, created_at),
+  INDEX idx_auth_audit_type (event_type, created_at),
+  INDEX idx_auth_audit_org (organization_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -18,7 +18,10 @@ const TRUSTED_ROUTES = new Set([
   '/subpackages/venue/pages/myVenueBookings/myVenueBookings',
   '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals',
   '/subpackages/org/pages/switch/switch',
-  '/subpackages/org/pages/adminPermissions/adminPermissions'
+  '/subpackages/org/pages/adminPermissions/adminPermissions',
+  '/subpackages/org/pages/identitySwitch/identitySwitch',
+  '/subpackages/org/pages/accountSecurity/accountSecurity',
+  '/subpackages/org/pages/authManagement/authManagement'
 ]);
 
 function isTrustedRoute(rawUrl) {

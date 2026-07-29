@@ -226,8 +226,7 @@ function emptyAdminForm() {
     id: '',
     name: '',
     studentId: '',
-    adminLevel: 'admin',
-    inviteCode: ''
+    adminLevel: 'admin'
   };
 }
 
@@ -264,7 +263,9 @@ function emptyActivityForm() {
     name: '',
     description: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    participantGranularity: 'person',
+    participantGranularityIndex: 0
   };
 }
 

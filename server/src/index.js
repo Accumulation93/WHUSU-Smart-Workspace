@@ -12,6 +12,7 @@ const { adminPermissionMiddleware } = require('./middleware/adminPermission');
 const { clientVersionMiddleware } = require('./middleware/clientVersion');
 const { createRateLimiter } = require('./middleware/rateLimiter');
 const { verifySchemaContract } = require('./utils/schemaContract');
+const unifiedIdentityModel = require('./core/models/unifiedIdentity');
 const notificationOutboxModel = require('./modules/audit/models/notificationOutbox');
 
 const app = express();
@@ -72,13 +73,12 @@ app.get('/api/health', async (req, res) => {
 // ---------- morgan custom tokens ----------
 morgan.token('ip', req => req.ip || '-');
 morgan.token('rid', req => req.requestId || '-');
-morgan.token('uid', req => req.openid ? req.openid.slice(0, 12) : '-');
 morgan.token('ua', req => (req.get('user-agent') || '-').slice(0, 80));
 morgan.token('ref', req => (req.get('referer') || '-').slice(0, 60));
 morgan.token('res-size', (req, res) => res.get('content-length') || '-');
 
 // ---------- middleware ----------
-app.use(morgan(':method :url :status :response-time ms ip=:ip uid=:uid ua=:ua ref=:ref rid=:rid size=:res-size', {
+app.use(morgan(':method :url :status :response-time ms ip=:ip ua=:ua ref=:ref rid=:rid size=:res-size', {
   stream: createRequestLogger(),
   skip: (req) => req.path === '/api/ping' || req.path === '/api/health'
 }));
@@ -175,7 +175,7 @@ app.use((req, res, next) => {
         path: req.path,
         method: req.method,
         message: body.message,
-        openid: (req.openid || '').slice(0, 12) || undefined,
+        accountId: req.authAccount ? req.authAccount.id : undefined,
         requestId: req.requestId,
         stack: new Error().stack
       });
@@ -186,6 +186,7 @@ app.use((req, res, next) => {
 });
 
 // ---------- business routes ----------
+app.use('/api', require('./core/routes/unifiedAuth'));
 app.use('/api', require('./core/routes/auth'));
 app.use('/api', require('./core/routes/org'));
 app.use('/api', require('./core/routes/departments'));
@@ -236,28 +237,37 @@ app.use((err, req, res, next) => {
   res.status(500).json({ status: 'error', message: 'Internal server error' });
 });
 
-const server = app.listen(PORT, '127.0.0.1', async () => {
-  logger.info('Server started', {
-    event: 'server.start',
-    port: PORT,
-    env: process.env.NODE_ENV || 'development',
-    node: process.version,
-    pid: process.pid
-  });
-
+let server = null;
+async function startServer() {
   try {
     const t0 = Date.now();
     await pool.query('SELECT 1');
+    const bindingUpgrade = await unifiedIdentityModel.upgradeLegacyWechatBindings();
     const schema = await verifySchemaContract(pool);
-    logger.info('Database connected', { event: 'db.connect', latency: Date.now() - t0, schemaRevision: schema.revision });
+    logger.info('Database connected', {
+      event: 'db.connect',
+      latency: Date.now() - t0,
+      schemaRevision: schema.revision,
+      upgradedWechatBindings: bindingUpgrade.upgraded
+    });
   } catch (e) {
     logger.error('Database or schema unavailable', { event: 'db.error', error: e.message, code: e.code });
-    setImmediate(() => shutdown('SCHEMA_CHECK_FAILED'));
+    await pool.end().catch(() => {});
+    process.exitCode = 1;
     return;
   }
+  server = app.listen(PORT, '127.0.0.1', () => {
+    logger.info('Server is ready', {
+      event: 'server.start',
+      port: PORT,
+      env: process.env.NODE_ENV || 'development',
+      node: process.version,
+      pid: process.pid
+    });
+  });
+}
 
-  logger.info('Server is ready');
-});
+startServer();
 
 // ---------- graceful shutdown ----------
 let shuttingDown = false;
@@ -270,6 +280,10 @@ function shutdown(signal) {
     signal,
     uptime: Math.floor((Date.now() - startTime) / 1000)
   });
+  if (!server) {
+    pool.end().then(() => { process.exit(0); }).catch(() => { process.exit(0); });
+    return;
+  }
   server.close(() => {
     logger.info('HTTP server closed');
     pool.end().then(() => { process.exit(0); }).catch(() => { process.exit(0); });

@@ -19,6 +19,7 @@ const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const sharedCache = require('../utils/sharedCache');
 const { buildWorkbookBuffer } = require('../../../utils/excelFile');
+const participantService = require('../services/participants');
 
 const DEFAULT_WORK_GROUP = '';
 const RESPONSE_SAFE_LIMIT = 850 * 1024;
@@ -212,6 +213,10 @@ function normalizeMember(record, orgLookups) {
   const workGroupId = safeString(record.work_group_id);
   return {
     id: safeString(record.id),
+    legacyHrId: safeString(record.legacy_hr_id || record.id),
+    personId: safeString(record.person_id),
+    assignmentId: safeString(record.assignment_id),
+    assignmentTitle: safeString(record.assignment_title),
     name: safeString(record.name),
     studentId: safeString(record.student_id),
     departmentId, department: getLookupName(orgLookups.departmentsById, departmentId),
@@ -746,15 +751,17 @@ async function enrichRecordsWithAnswers(records) {
   return records.map((r) => ({ ...r, answers: answersByRecord.get(r.id) || [] }));
 }
 
-function enrichScoreRecords(records, members) {
+function enrichScoreRecords(records, members, granularity) {
   const memberById = new Map(members.map((m) => [safeString(m.id), m]));
   return records.map((record) => {
-    const scorer = memberById.get(safeString(record.scorer_id)) || {};
-    const target = memberById.get(safeString(record.target_id)) || {};
+    const scorerId = participantService.participantRecordId(record, 'scorer', granularity);
+    const targetId = participantService.participantRecordId(record, 'target', granularity);
+    const scorer = memberById.get(scorerId) || {};
+    const target = memberById.get(targetId) || {};
     return {
       ...record,
-      scorerId: safeString(record.scorer_id),
-      targetId: safeString(record.target_id),
+      scorerId,
+      targetId,
       ruleId: safeString(record.rule_id),
       submittedAt: record.submitted_at,
       scorerName: safeString(scorer.name), scorerStudentId: safeString(scorer.studentId),
@@ -879,8 +886,9 @@ router.post('/getScoreResults', async (req, res) => {
         });
       }
       // Cache miss — compute via unified scoring engine (same as user-side, millisecond-fast)
+      const granularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
       const [memRaw, orgLk] = await Promise.all([
-        hrInfoModel.getAll(),
+        participantService.listParticipants(orgId, granularity),
         fetchOrgLookups(orgId)
       ]);
 
@@ -981,15 +989,16 @@ router.post('/getScoreResults', async (req, res) => {
     }
 
     // ── Non-overview dataTypes: load full data ──
+    const granularity = participantService.normalizeGranularity(scopedActivity.participant_granularity);
     const [membersRaw, recordsRaw, orgLookups] = await Promise.all([
-      hrInfoModel.getAll(),
+      participantService.listParticipants(orgId, granularity),
       scoreRecordModel.getByActivity(activityId),
       fetchOrgLookups(orgId)
     ]);
 
     const members = membersRaw.map((item) => normalizeMember(item, orgLookups));
     const recordsWithAnswers = await enrichRecordsWithAnswers(recordsRaw);
-    const records = enrichScoreRecords(recordsWithAnswers, members);
+    const records = enrichScoreRecords(recordsWithAnswers, members, granularity);
     const activityBrief = { id: scopedActivity.id, name: safeString(scopedActivity.name), description: safeString(scopedActivity.description) };
     const rules = await loadRulesWithClauses(activityId, orgLookups);
 
@@ -1452,15 +1461,19 @@ router.post('/exportScoreResults', async (req, res) => {
     const admin = await ensureAdmin(openid);
     if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
 
-    const [activity, membersRaw, recordsRaw, orgLookups] = await Promise.all([
-      activityModel.getById(activityId), hrInfoModel.getAll(),
-      scoreRecordModel.getByActivity(activityId), fetchOrgLookups()
-    ]);
+    const activity = await activityModel.getById(activityId);
     if (!activity) return res.json({ status: 'activity_not_found', message: '未找到评分活动' });
+    const orgId = await getCurrentOrgId();
+    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const [membersRaw, recordsRaw, orgLookups] = await Promise.all([
+      participantService.listParticipants(orgId, granularity),
+      scoreRecordModel.getByActivity(activityId),
+      fetchOrgLookups()
+    ]);
 
     const members = membersRaw.map((item) => normalizeMember(item, orgLookups));
     const recordsWithAnswers = await enrichRecordsWithAnswers(recordsRaw);
-    const records = enrichScoreRecords(recordsWithAnswers, members);
+    const records = enrichScoreRecords(recordsWithAnswers, members, granularity);
     const rules = await loadRulesWithClauses(activityId, orgLookups);
     const taskData = buildTaskData(members, rules, records);
     const activityName = safeString(activity.name);
@@ -1470,7 +1483,6 @@ router.post('/exportScoreResults', async (req, res) => {
     if (reportType === 'overview') {
       // Use unified scoring engine (same as getScoreResults overview)
       const { computeValidScoreMap } = require('../utils/scoreCalc');
-      const orgId = await getCurrentOrgId();
       const { finalScoreMap, submittedByTarget, expectedByCount } = await computeValidScoreMap(activityId, orgId, { includeCounts: true });
 
       rows = members.map(function (m) {

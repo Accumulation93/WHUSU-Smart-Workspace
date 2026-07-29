@@ -13,6 +13,17 @@
         <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
       </view>
     </view>
+    <view class="hero-org-context org-context-action" wx:if="{{hasUser}}" catchtap="onIdentityTap" hover-class="hero-org-context-pressing" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}" aria-role="button" aria-label="切换当前身份">
+      <view class="hero-org-context-icon"><ui-icon name="user" tone="white" size="28" ariaLabel="当前身份" /></view>
+      <view class="hero-org-context-copy">
+        <view class="hero-org-context-label">当前身份</view>
+        <view class="hero-org-context-name">{{heroIdentity}}</view>
+      </view>
+      <view class="hero-org-context-action">
+        <text>切换</text>
+        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="切换" />
+      </view>
+    </view>
   </view>
 
   <view class="card portal-profile-card" wx:if="{{hasUser}}">
@@ -67,6 +78,7 @@
               <text class="portal-organization-name">{{item.organizationName}}</text>
               <text class="portal-organization-current" wx:if="{{item.isCurrentOrganization}}">当前</text>
             </view>
+            <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.identityName}}</text>
           </view>
           <view class="notification-title">
             {{item.title}}
@@ -111,6 +123,7 @@
                 <text class="portal-organization-name">{{item.organizationName}}</text>
                 <text class="portal-organization-current" wx:if="{{item.isCurrentOrganization}}">当前</text>
               </view>
+              <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.identityName}}</text>
             </view>
             <view class="notification-title">
               {{item.title}}
@@ -197,7 +210,8 @@
 
   <view class="actions">
     <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">切换身份</button>
-    <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="openUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑当前身份</button>
+    <button class="secondary-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="openAccountSecurity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">账号安全</button>
+    <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="logout" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">退出登录</button>
   </view>
 
   <view class="page-footer">
@@ -209,8 +223,8 @@
     <view class="dialog-mask" bindtap="closeMessageSwitchDialog"></view>
     <view class="dialog-panel message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
       <view class="dialog-badge message-switch-badge">跨组织事项</view>
-      <view class="dialog-title">切换组织后查看</view>
-      <view class="dialog-desc">当前组织将切换为</view>
+      <view class="dialog-title">{{messageSwitchTitle}}</view>
+      <view class="dialog-desc">当前上下文将切换为</view>
       <view class="message-switch-org-name">{{messageSwitchOrganizationName}}</view>
       <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeMessageSwitchDialog" disabled="{{messageSwitchLoading}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
@@ -219,16 +233,4 @@
     </view>
   </view>
 
-  <view class="dialog-layer ui-overlay" wx:if="{{showUnbindDialog}}">
-    <view class="dialog-mask" bindtap="closeUnbindDialog"></view>
-    <view class="dialog-panel ui-dialog-shell ui-dialog-shell--compact">
-      <view class="dialog-badge">危险操作</view>
-      <view class="dialog-title">确认解绑当前身份？</view>
-      <view class="dialog-desc">解绑后需重新验证身份。</view>
-      <view class="dialog-actions ui-dialog-footer">
-        <button class="secondary-btn dialog-btn ui-motion-button" bindtap="closeUnbindDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">再想想</button>
-        <button class="danger-btn dialog-btn ui-motion-button" loading="{{unbindLoading}}" bindtap="confirmUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认解绑</button>
-      </view>
-    </view>
-  </view>
 </view>

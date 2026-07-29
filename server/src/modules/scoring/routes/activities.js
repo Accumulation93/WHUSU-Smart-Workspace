@@ -10,6 +10,8 @@ const scoreRecordModel = require('../models/scoreRecord');
 const scoreAnswerModel = require('../models/scoreAnswer');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const pubCache = require('../utils/pubCache');
+const sharedCache = require('../utils/sharedCache');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -42,6 +44,7 @@ router.post('/listScoreActivities', async (req, res) => {
       startDate: fmtDate(item.start_date),
       endDate: fmtDate(item.end_date),
       isCurrent: !!item.is_current,
+      participantGranularity: item.participant_granularity || 'person',
       isPaused: !!item.is_paused,
       updatedAt: item.updated_at || null
     })).sort((a, b) => {
@@ -71,9 +74,14 @@ router.post('/saveScoreActivity', async (req, res) => {
     const description = safeString(req.body.description);
     const startDate = safeString(req.body.startDate);
     const endDate = safeString(req.body.endDate);
-    const isPaused = req.body.isPaused === true || req.body.isPaused === 1 ? 1 : 0;
+    const hasPausedValue = Object.prototype.hasOwnProperty.call(req.body, 'isPaused');
+    const requestedPaused = req.body.isPaused === true || req.body.isPaused === 1 ? 1 : 0;
+    const participantGranularity = safeString(req.body.participantGranularity || 'person');
 
     if (!name) return res.json({ status: 'invalid_params', message: '评分活动名称不能为空' });
+    if (!['person', 'assignment'].includes(participantGranularity)) {
+      return res.json({ status: 'invalid_params', message: '评分参与粒度无效' });
+    }
     if (startDate && endDate && startDate > endDate) {
       return res.json({ status: 'invalid_params', message: '活动开始时间不能晚于结束时间' });
     }
@@ -81,10 +89,22 @@ router.post('/saveScoreActivity', async (req, res) => {
     if (id) {
       const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
       const current = await activityModel.getById(id);
+      if (!current) return res.json({ status: 'not_found', message: '评分活动不存在或不属于当前组织' });
+      if (current && current.participant_granularity !== participantGranularity) {
+        const orgId = await getCurrentOrgId();
+        const [recordRows] = await pool.query(
+          'SELECT 1 FROM score_records WHERE activity_id = ? AND org_id = ? LIMIT 1',
+          [id, orgId]
+        );
+        if (recordRows.length) {
+          return res.json({ status: 'conflict', message: '已有评分记录的活动不能修改参与粒度' });
+        }
+      }
       await activityModel.update(id, {
         name, description, startDate: startDate || null, endDate: endDate || null,
         isCurrent: current ? !!current.is_current : false,
-        isPaused: isPaused,
+        isPaused: hasPausedValue ? requestedPaused : Boolean(current.is_paused),
+        participantGranularity,
         updatedBy: admin.id, updatedAt: nowUtc
       });
     } else {
@@ -96,10 +116,13 @@ router.post('/saveScoreActivity', async (req, res) => {
         const newId = generateId();
         await activityModel.create(newId, {
           name, description, startDate: startDate || null, endDate: endDate || null,
-          isCurrent: false, isPaused: isPaused, createdBy: admin.id
+          isCurrent: false, isPaused: requestedPaused, participantGranularity, createdBy: admin.id
         });
       }
     }
+    const orgId = await getCurrentOrgId();
+    if (id) await pubCache.invalidate(id, orgId);
+    await sharedCache.invalidatePrefix('overview_' + orgId + '_');
     res.json({ status: 'success' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -169,6 +192,7 @@ router.post('/setCurrentScoreActivity', async (req, res) => {
       startDate: target.start_date,
       endDate: target.end_date,
       isCurrent: true,
+      participantGranularity: target.participant_granularity || 'person',
       updatedBy: admin.id, updatedAt: nowUtc
     });
     res.json({ status: 'success' });
@@ -203,7 +227,8 @@ router.post('/getCurrentScoreActivity', async (req, res) => {
         description: item.description || '',
         startDate: fmtDate(item.start_date),
         endDate: fmtDate(item.end_date),
-        isPaused: !!item.is_paused
+        isPaused: !!item.is_paused,
+        participantGranularity: item.participant_granularity || 'person'
       }
     });
   } catch (e) {

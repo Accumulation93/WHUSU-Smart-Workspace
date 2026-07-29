@@ -17,6 +17,7 @@
 const { safeString, toNumber, roundScore } = require('../../../utils/helpers');
 const pool = require('../../../config/db');
 const { logger } = require('../../../utils/logger');
+const participantService = require('../services/participants');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -104,16 +105,23 @@ function applyCalcMethod(scores, weight, method, trimH, trimL) {
  */
 async function computeValidScoreMap(activityId, orgId, options = {}) {
   const { visibleTargetIds } = options;
+  const [activityRows] = await pool.query(
+    'SELECT participant_granularity FROM score_activities WHERE id = ? AND org_id = ? LIMIT 1',
+    [activityId, orgId]
+  );
+  const granularity = participantService.normalizeGranularity(
+    activityRows[0] && activityRows[0].participant_granularity
+  );
 
   // ── 1. Load all current data ──────────────────────────────────────────
   const [
-    [hrRows],
+    hrRows,
     [ruleRows],
     [recordRows],
     [tplRows],
     [questionRows]
   ] = await Promise.all([
-    pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]),
+    participantService.listParticipants(orgId, granularity),
     pool.query('SELECT * FROM rate_target_rules WHERE activity_id = ? AND org_id = ?', [activityId, orgId]),
     pool.query('SELECT * FROM score_records WHERE activity_id = ? AND org_id = ?', [activityId, orgId]),
     pool.query('SELECT * FROM score_question_templates'),
@@ -141,6 +149,9 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
 
   // Build lookup maps
   const hrById = new Map(hrRows.map(h => [safeString(h.id), h]));
+  const samePerson = function (leftId, rightId) {
+    return participantService.isSameNaturalPerson(hrById.get(leftId), hrById.get(rightId));
+  };
   const questionsByTemplate = new Map();
   questionRows.forEach(q => {
     if (!questionsByTemplate.has(q.template_id)) questionsByTemplate.set(q.template_id, []);
@@ -302,14 +313,14 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
           // O(targets): per-target count = N_scorers_in_WG (minus self if applicable)
           wgTargetIds.forEach(function (tid) {
             let cnt = scorerN;
-            if (!allowSelf && wgScorerSet.has(tid)) cnt--;
+            if (!allowSelf && wgScorerIds.some(function (sid) { return samePerson(sid, tid); })) cnt--;
             expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
           });
 
           // O(scorers): per-scorer count = N_targets_in_WG (minus self if applicable)
           wgScorerIds.forEach(function (sid) {
             let cnt = targetN;
-            if (!allowSelf && wgTargetSet.has(sid)) cnt--;
+            if (!allowSelf && wgTargetIds.some(function (tid) { return samePerson(sid, tid); })) cnt--;
             scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
           });
         });
@@ -348,14 +359,14 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
       // O(targets): per-target count = N_scorers (minus self if applicable)
       targetIds.forEach(function (tid) {
         let cnt = scorerN;
-        if (!allowSelf && scorerIdSet.has(tid)) cnt--;
+        if (!allowSelf && scorerIds.some(function (sid) { return samePerson(sid, tid); })) cnt--;
         expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
       });
 
       // O(scorers): per-scorer count = N_targets (minus self if applicable)
       scorerIds.forEach(function (sid) {
         let cnt = targetN;
-        if (!allowSelf && targetIdSet.has(sid)) cnt--;
+        if (!allowSelf && targetIds.some(function (tid) { return samePerson(sid, tid); })) cnt--;
         scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
       });
     });
@@ -402,14 +413,15 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   // First pass: validate and collect
   for (const record of recordRows) {
     diag_total++;
-    const targetId = safeString(record.target_id);
+    const targetId = participantService.participantRecordId(record, 'target', granularity);
+    const scorerParticipantId = participantService.participantRecordId(record, 'scorer', granularity);
     const ruleId = safeString(record.rule_id);
 
     // Optionally filter by visible targets (user view)
     if (visibleTargetIds && !visibleTargetIds.has(targetId)) { diag_skipped_visible++; continue; }
 
     // (a) Scorer's CURRENT hr_info must exist
-    const scorerHr = hrById.get(safeString(record.scorer_id));
+    const scorerHr = hrById.get(scorerParticipantId);
     if (!scorerHr) { diag_skipped_noHr++; continue; } // scorer no longer exists — exclude record
 
     // (b) Scorer's CURRENT (department, identity) must match a current rule
@@ -454,7 +466,10 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
     if (!matchedClause) { diag_skipped_noScope++; continue; } // target not in scope of current rule
 
     // (d) Self-assessment check
-    if (!effectiveRule.allowSelfAssessment && safeString(record.scorer_id) === targetId) { diag_skipped_self++; continue; }
+    if (!effectiveRule.allowSelfAssessment && samePerson(scorerParticipantId, targetId)) {
+      diag_skipped_self++;
+      continue;
+    }
 
     // (e) Template signature check — build current signature and compare structure
     const currentSig = matchedClause.signature;
@@ -505,21 +520,23 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
           method: safeString(cfg.calculation_method) || 'weighted_average',
           trimHigh: Number(cfg.trim_high_count || 0),
           trimLow: Number(cfg.trim_low_count || 0),
-          scores: [],
-          scorerKey: safeString(record.scorer_id)
+          scoreEntries: []
         });
       }
-      calculationMap.get(groupKey).scores.push(tplScore);
+      calculationMap.get(groupKey).scoreEntries.push({
+        score: tplScore,
+        scorerKey: scorerParticipantId
+      });
 
       templateScores.push({ templateId, tplScore, cfg });
     }
 
     // Track valid submission for overview counts (only when needed)
-    if (options.includeCounts) addSubmittedPair(targetId, safeString(record.scorer_id));
+    if (options.includeCounts) addSubmittedPair(targetId, scorerParticipantId);
 
     // Track for requireAllComplete
     if (matchedClause.requireAllComplete && templateScores.length > 0) {
-      const scorerKey = safeString(record.scorer_id);
+      const scorerKey = scorerParticipantId;
       const clauseTaskKey = `${effectiveRule.id}::${matchedClause.id}::${scorerKey}::${targetId}`;
       if (!scorerCompletionMap.has(effectiveRule.id + '::' + matchedClause.id + '::' + scorerKey)) {
         scorerCompletionMap.set(effectiveRule.id + '::' + matchedClause.id + '::' + scorerKey, new Set());
@@ -604,6 +621,21 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
         ? (hrCountByDeptWgIdent.get(scorerDeptId + '::' + scorerWgId + '::' + tid) || 0)
         : (hrCountByDeptWg.get(scorerDeptId) || new Map()).get(scorerWgId) || 0;
     }
+    if (!rule.allowSelfAssessment && scorerHr) {
+      const ownTargetCount = hrRows.filter((target) => {
+        if (!participantService.isSameNaturalPerson(scorerHr, target)) return false;
+        if (tid && safeString(target.identity_id) !== tid) return false;
+        if (st === 'same_department_identity' || st === 'same_department_all') {
+          return safeString(target.department_id) === scorerDeptId;
+        }
+        if (st === 'same_work_group_identity' || st === 'same_work_group_all') {
+          return safeString(target.department_id) === scorerDeptId
+            && safeString(target.work_group_id) === scorerWgId;
+        }
+        return st === 'all_people' || st === 'identity_only';
+      }).length;
+      expectedTargetCount = Math.max(0, expectedTargetCount - ownTargetCount);
+    }
 
     if (completedTargets.size < expectedTargetCount) {
       invalidScorerClauseKeys.add(key);
@@ -614,16 +646,14 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   const finalScoreMap = new Map();
 
   calculationMap.forEach((item, groupKey) => {
-    // Check requireAllComplete exclusion: a scorer who hasn't completed all
-    // required targets for a specific clause should have that clause's scores excluded.
-    // The invalidScorerClauseKeys set stores keys in the format ruleId::clauseId::scorerKey.
-    if (invalidScorerClauseKeys.size > 0) {
-      const itemClauseKey = `${item.ruleId || ''}::${item.clauseId || ''}::${item.scorerKey}`;
-      if (invalidScorerClauseKeys.has(itemClauseKey)) return;
-    }
-
-    if (!item.scores.length) return;
-    const result = applyCalcMethod(item.scores, item.weight, item.method, item.trimHigh, item.trimLow);
+    // 完成性必须逐评分人过滤，不能用分组中第一个评分人的状态代表整个分组。
+    const validScores = (item.scoreEntries || [])
+      .filter((entry) => !invalidScorerClauseKeys.has(
+        `${item.ruleId || ''}::${item.clauseId || ''}::${entry.scorerKey}`
+      ))
+      .map((entry) => entry.score);
+    if (!validScores.length) return;
+    const result = applyCalcMethod(validScores, item.weight, item.method, item.trimHigh, item.trimLow);
     const current = finalScoreMap.get(item.targetId) || { finalScore: 0, contributorCount: 0 };
     current.finalScore = roundScore(current.finalScore + result.contributionScore);
     current.contributorCount += 1;

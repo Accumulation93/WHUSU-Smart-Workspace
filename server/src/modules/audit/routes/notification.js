@@ -5,6 +5,7 @@ const { getCurrentOrgId, orgStorage } = require('../../../utils/orgContext');
 const { listAccessibleActorContexts } = require('../../../core/services/accessibleOrganizations');
 const notificationModel = require('../models/notification');
 const todoService = require('../services/todoService');
+const unifiedIdentityModel = require('../../../core/models/unifiedIdentity');
 
 const AGGREGATION_CONCURRENCY = 4;
 
@@ -68,7 +69,11 @@ function organizationMetadata(context) {
   return {
     organizationId: context.organizationId,
     organizationName: context.organizationName,
-    isCurrentOrganization: context.isCurrentOrganization
+    isCurrentOrganization: context.isCurrentOrganization,
+    contextId: context.contextId || '',
+    identityType: context.identityType || context.role || '',
+    identityName: context.identityName || (context.role === 'admin' ? '管理员' : '普通岗位'),
+    isCurrentContext: Boolean(context.isCurrentContext)
   };
 }
 
@@ -80,7 +85,8 @@ function mapNotification(row, context) {
     score_activity: '/pages/home/home?subApp=scoring',
     result_publication: '/pages/home/home?subApp=scoring',
     hr_profile: '/pages/home/home?subApp=hr',
-    account: '/pages/portal/portal'
+    account: '/pages/portal/portal',
+    account_security: '/subpackages/org/pages/accountSecurity/accountSecurity'
   };
   return Object.assign({
     id: safeString(row.id),
@@ -150,12 +156,18 @@ function mergeFailures() {
 }
 
 function scopeMetadata(scope, failures) {
+  const organizationMap = new Map();
+  scope.allContexts.forEach((context) => {
+    if (!organizationMap.has(context.organizationId)) {
+      organizationMap.set(context.organizationId, {
+        id: context.organizationId,
+        name: context.organizationName,
+        isCurrentOrganization: context.isCurrentOrganization
+      });
+    }
+  });
   return {
-    organizations: scope.allContexts.map((context) => ({
-      id: context.organizationId,
-      name: context.organizationName,
-      isCurrentOrganization: context.isCurrentOrganization
-    })),
+    organizations: Array.from(organizationMap.values()),
     selectedOrganizationId: scope.selectedOrganizationId,
     partial: failures.length > 0,
     failedOrganizations: failures
@@ -163,17 +175,55 @@ function scopeMetadata(scope, failures) {
 }
 
 async function resolveScope(req, body, defaultToCurrent) {
-  const role = safeString(req.headers['x-role']).toLowerCase();
   const openid = safeString(req.openid);
   if (!openid) {
     return { ok: false, status: 'auth_failed', message: '请先登录' };
   }
-  if (role !== 'user' && role !== 'admin') {
-    return { ok: false, status: 'invalid_role', message: '当前身份无效，请重新选择身份' };
-  }
-
   const currentOrgId = await getCurrentOrgId();
-  const allContexts = await listAccessibleActorContexts({ openid, role, currentOrgId });
+  let role = safeString(req.headers['x-role']).toLowerCase();
+  let allContexts;
+  if (req.authAccount && req.authContext) {
+    role = 'unified';
+    const identityContexts = await unifiedIdentityModel.listContexts(req.authAccount.id);
+    allContexts = identityContexts.map((context) => {
+      const isAdmin = context.role === 'admin';
+      return Object.assign({}, context, {
+        isCurrentOrganization: context.organizationId === currentOrgId,
+        isCurrentContext: context.contextId === req.authContext.contextId,
+        actor: isAdmin ? {
+          type: 'admin',
+          id: context.legacyAdminId,
+          personId: context.personId,
+          adminLevel: context.adminLevel,
+          name: context.name,
+          profile: {
+            id: context.legacyAdminId,
+            admin_level: context.adminLevel,
+            name: context.name
+          }
+        } : {
+          type: 'user',
+          id: context.legacyHrId,
+          personId: context.personId,
+          assignmentId: context.assignmentId,
+          name: context.name,
+          profile: {
+            id: context.legacyHrId,
+            name: context.name,
+            student_id: context.studentId,
+            department_id: context.departmentId,
+            identity_id: context.identityId,
+            work_group_id: context.workGroupId
+          }
+        }
+      });
+    }).filter((context) => context.actor.id);
+  } else {
+    if (role !== 'user' && role !== 'admin') {
+      return { ok: false, status: 'invalid_role', message: '当前身份无效，请重新选择身份' };
+    }
+    allContexts = await listAccessibleActorContexts({ openid, role, currentOrgId });
+  }
   const requestedOrganizationId = safeString(body && body.organizationId)
     || (defaultToCurrent ? currentOrgId : '');
   const contexts = requestedOrganizationId
@@ -241,10 +291,26 @@ async function loadNotifications(scope, body) {
     };
   });
   const successful = results.filter((item) => item.ok);
-  const allItems = successful.flatMap((item) => item.value.items).sort(compareNotifications);
+  const notificationMap = new Map();
+  successful.forEach((result) => {
+    result.value.items.forEach((item) => {
+      const key = item.organizationId + '::' + item.id;
+      const existing = notificationMap.get(key);
+      if (!existing || item.isCurrentContext) notificationMap.set(key, item);
+    });
+  });
+  const allItems = Array.from(notificationMap.values()).sort(compareNotifications);
   const items = allItems.slice(0, limit);
-  const total = successful.reduce((sum, item) => sum + item.value.total, 0);
-  const unreadCount = successful.reduce((sum, item) => sum + item.value.unreadCount, 0);
+  const recipientCounts = new Map();
+  successful.forEach((result) => {
+    const actor = result.context.actor || {};
+    const key = result.context.organizationId + '::' + actor.type + '::' + actor.id;
+    if (!recipientCounts.has(key)) recipientCounts.set(key, result.value);
+  });
+  const total = Array.from(recipientCounts.values())
+    .reduce((sum, value) => sum + Number(value.total || 0), 0);
+  const unreadCount = Array.from(recipientCounts.values())
+    .reduce((sum, value) => sum + Number(value.unreadCount || 0), 0);
   return {
     data: {
       items,
@@ -352,11 +418,9 @@ router.post('/markNotificationRead', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: '缺少通知标识' });
     const scope = await resolveScope(req, req.body || {}, true);
     if (!scope.ok) return respondScopeError(res, scope);
-    const context = scope.contexts[0];
-    const result = await orgStorage.run(
-      context.organizationId,
-      () => notificationModel.markRead(id, context.actor)
-    );
+    const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.markRead(id, context.actor));
+    const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
+      || { found: false };
     if (!result.found) return res.json({ status: 'not_found', message: '通知不存在或已失效' });
     res.json({ status: 'success', changed: result.changed, unreadCount: result.unreadCount });
   } catch (error) {
@@ -393,11 +457,9 @@ router.post('/deleteNotification', async (req, res) => {
     if (!id) return res.json({ status: 'invalid_params', message: '缺少通知标识' });
     const scope = await resolveScope(req, req.body || {}, true);
     if (!scope.ok) return respondScopeError(res, scope);
-    const context = scope.contexts[0];
-    const result = await orgStorage.run(
-      context.organizationId,
-      () => notificationModel.deleteById(id, context.actor)
-    );
+    const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.deleteById(id, context.actor));
+    const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
+      || { found: false };
     if (!result.found) return res.json({ status: 'not_found', message: '通知不存在或已删除' });
     res.json({ status: 'success', unreadCount: result.unreadCount });
   } catch (error) {

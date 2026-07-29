@@ -1,5 +1,6 @@
 const pool = require('../../config/db');
 const { getCurrentOrgId } = require('../../utils/orgContext');
+const unifiedIdentityModel = require('./unifiedIdentity');
 
 async function getAll() {
   const orgId = await getCurrentOrgId();
@@ -22,26 +23,35 @@ async function getByStudentId(studentId) {
 async function create(id, data) {
   const { name, studentId, departmentId, identityId, workGroupId } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
-    `INSERT INTO hr_info (id, name, student_id, department_id, identity_id, work_group_id, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, name || '', studentId || '', departmentId || '', identityId || '', workGroupId || '', orgId]
-  );
+  await pool.withTransaction(async (connection) => {
+    await connection.query(
+      `INSERT INTO hr_info (id, name, student_id, department_id, identity_id, work_group_id, org_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, name || '', studentId || '', departmentId || '', identityId || '', workGroupId || '', orgId]
+    );
+    await unifiedIdentityModel.syncLegacyHrRecords(connection, [id]);
+  });
 }
 
 async function update(id, data) {
   const { name, studentId, departmentId, identityId, workGroupId, updatedAt } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
-    `UPDATE hr_info SET name = ?, student_id = ?, department_id = ?, identity_id = ?,
-     work_group_id = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
-    [name || '', studentId || '', departmentId || '', identityId || '', workGroupId || '', updatedAt || null, id, orgId]
-  );
+  await pool.withTransaction(async (connection) => {
+    await connection.query(
+      `UPDATE hr_info SET name = ?, student_id = ?, department_id = ?, identity_id = ?,
+       work_group_id = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
+      [name || '', studentId || '', departmentId || '', identityId || '', workGroupId || '', updatedAt || null, id, orgId]
+    );
+    await unifiedIdentityModel.syncLegacyHrRecords(connection, [id]);
+  });
 }
 
 async function remove(id) {
   const orgId = await getCurrentOrgId();
-  await pool.query('DELETE FROM hr_info WHERE id = ? AND org_id = ?', [id, orgId]);
+  await pool.withTransaction(async (connection) => {
+    await unifiedIdentityModel.removeLegacyHrRecord(connection, id, orgId);
+    await connection.query('DELETE FROM hr_info WHERE id = ? AND org_id = ?', [id, orgId]);
+  });
 }
 
 async function getByIds(ids) {

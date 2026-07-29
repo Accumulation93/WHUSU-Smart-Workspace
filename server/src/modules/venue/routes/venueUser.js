@@ -558,6 +558,17 @@ router.post('/createVenueBooking', async (req, res) => {
 
     await venueBookingModel.create(id, {
       venueId, userHrId: hrId, title, description,
+      creatorPersonId: req.authContext && req.authContext.personId,
+      creatorAssignmentId: req.authContext && req.authContext.assignmentId,
+      creatorContextSnapshot: req.authContext ? {
+        contextId: req.authContext.contextId,
+        organizationId: req.authContext.organizationId,
+        role: req.authContext.role,
+        identityName: req.authContext.identityName,
+        department: req.authContext.department,
+        identity: req.authContext.identity,
+        workGroup: req.authContext.workGroup
+      } : null,
       creatorOrgId: orgId, approvalOrgId: orgId,
       timeStart: dbTimeStart, timeEnd: dbTimeEnd, status,
       approvalFlowId, approvalTotalSteps
@@ -834,8 +845,12 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
 
 router.post('/cancelVenueBooking', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const actor = actorResult.actor;
+    const hrId = actor.id;
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请提供借用ID' });
     const booking = await venueBookingModel.getById(id);
@@ -851,7 +866,7 @@ router.post('/cancelVenueBooking', async (req, res) => {
         return res.json({ status: 'invalid_state', message: '借用已开始，请结束使用' });
       }
     }
-    await venueBookingModel.updateStatus(id, 'cancelled', null, null);
+    await venueBookingModel.updateStatus(id, 'cancelled', hrId, '申请人取消', null, actor);
     await notificationModel.deleteByTarget('booking', id);
     res.json({ status: 'success', message: '借用已取消' });
   } catch (e) {

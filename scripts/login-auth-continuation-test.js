@@ -3,6 +3,7 @@ const assert = require('assert');
 const storage = {};
 const requests = [];
 const toasts = [];
+const redirects = [];
 let pageDefinition = null;
 
 global.getApp = function() { return null; };
@@ -11,11 +12,12 @@ global.wx = {
   setStorageSync(key, value) { storage[key] = value; },
   removeStorageSync(key) { delete storage[key]; },
   showToast(options) { toasts.push(options || {}); },
+  redirectTo(options) { redirects.push(options.url); },
   request(options) {
     requests.push(options);
     options.success({
       statusCode: 200,
-      data: { status: 'success' },
+      data: { status: 'accepted', claimId: 'claim-1' },
       header: {}
     });
   }
@@ -36,43 +38,59 @@ function createPage() {
   return page;
 }
 
-async function assertAuthenticatedRequest(role, token, apiName) {
-  const page = createPage();
-  page.handleLoginResult(role, {
-    status: 'need_bind',
-    token,
-    bindingContext: role === 'user' ? 'binding-context' : '',
-    bindingOrg: role === 'user' ? { id: 'org-44', name: '第四十四届' } : null
-  });
-
-  assert.strictEqual(storage.token, token);
-  assert.strictEqual(storage.activeRole, role);
-  assert.strictEqual(storage.activeOrgId, undefined);
-  assert.strictEqual(page.data.showBind, true);
-
-  await api.callFunction({ name: apiName, data: {} });
-  const request = requests[requests.length - 1];
-  assert.strictEqual(request.header.Authorization, `Bearer ${token}`);
-  assert.strictEqual(request.header['X-Role'], role);
-  assert.strictEqual(request.header['X-Active-Org'], '');
-}
-
 async function run() {
   assert(pageDefinition, '登录页必须成功注册');
-
-  await assertAuthenticatedRequest('user', 'user-pre-bind-token', 'bindUserInfo');
-  await assertAuthenticatedRequest('admin', 'admin-pre-bind-token', 'bindAdminInfo');
-
   const page = createPage();
-  page.handleLoginResult('user', {
-    status: 'need_bind',
-    bindingContext: 'binding-context',
-    bindingOrg: { id: 'org-44', name: '第四十四届' }
-  });
-  assert.strictEqual(page.data.showBind, false);
-  assert(toasts.some((item) => item.title === '登录凭证异常'));
 
-  console.log('登录到绑定的认证续接契约测试通过');
+  page.handleWechatSession({
+    status: 'need_claim',
+    bootstrapToken: 'bootstrap-token',
+    claimAvailable: true,
+    organizations: [{ id: 'org-44', name: '第四十四届' }],
+    recoveryMethods: { recoveryCode: false, passphrase: false }
+  });
+
+  assert.strictEqual(storage.token, 'bootstrap-token');
+  assert.strictEqual(storage.activeRole, undefined);
+  assert.strictEqual(storage.activeOrgId, undefined);
+  assert.strictEqual(page.data.stage, 'claim');
+  assert.strictEqual(page.data.organizationName, '第四十四届');
+
+  await api.callFunction({
+    name: 'auth/claims',
+    data: { organizationId: 'org-44', name: '测试用户', studentId: '20260001' }
+  });
+  const request = requests[requests.length - 1];
+  assert.strictEqual(request.header.Authorization, 'Bearer bootstrap-token');
+  assert.strictEqual(request.header['X-Role'], '');
+  assert.strictEqual(request.header['X-Active-Org'], '');
+
+  page.handleWechatSession({
+    status: 'login_success',
+    token: 'access-token',
+    context: {
+      contextId: 'assignment:one:org-44',
+      role: 'user',
+      organizationId: 'org-44',
+      organizationName: '第四十四届'
+    },
+    contexts: [{
+      contextId: 'assignment:one:org-44',
+      role: 'user',
+      organizationId: 'org-44',
+      organizationName: '第四十四届'
+    }],
+    user: { id: 'hr-1', name: '测试用户' },
+    account: { id: 'account-1', name: '测试用户' }
+  });
+
+  assert.strictEqual(storage.token, 'access-token');
+  assert.strictEqual(storage.activeRole, 'user');
+  assert.strictEqual(storage.activeOrgId, 'org-44');
+  assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
+  assert(redirects.includes('/pages/portal/portal'));
+
+  console.log('统一登录引导与认证令牌续接契约测试通过');
 }
 
 run().catch((error) => {

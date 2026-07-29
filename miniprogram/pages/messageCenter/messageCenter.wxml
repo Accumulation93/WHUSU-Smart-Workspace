@@ -46,6 +46,7 @@
                 <text class="organization-meta-name">{{item.organizationName}}</text>
                 <text class="organization-current" wx:if="{{item.isCurrentOrganization}}">当前</text>
               </view>
+              <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
             </view>
             <view class="message-title">{{item.title}}</view>
             <view class="message-desc">{{item.description}}</view>
@@ -68,6 +69,7 @@
                   <text class="organization-meta-name">{{item.organizationName}}</text>
                   <text class="organization-current" wx:if="{{item.isCurrentOrganization}}">当前</text>
                 </view>
+                <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
               </view>
               <view class="message-title">{{item.title}}</view>
               <view class="message-desc">{{item.description}}</view>
@@ -85,8 +87,8 @@
     <view class="message-switch-mask" bindtap="closeSwitchDialog"></view>
     <view class="message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
       <view class="message-switch-badge">跨组织事项</view>
-      <view class="message-switch-title">切换组织后查看</view>
-      <view class="message-switch-desc">当前组织将切换为</view>
+      <view class="message-switch-title">{{switchDialogTitle}}</view>
+      <view class="message-switch-desc">当前上下文将切换为</view>
       <view class="message-switch-org">{{switchOrganizationName}}</view>
       <view class="message-switch-actions ui-dialog-footer">
         <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeSwitchDialog" disabled="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>

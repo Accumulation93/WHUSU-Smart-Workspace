@@ -16,6 +16,9 @@ const clauseTemplateConfigModel = require('../models/clauseTemplateConfig');
 const scoreRecordModel = require('../models/scoreRecord');
 const scoreAnswerModel = require('../models/scoreAnswer');
 const adminInfoModel = require('../../../core/models/adminInfo');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const participantService = require('../services/participants');
+const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
 
 // ──────────────────────────── helpers ────────────────────────────
@@ -56,6 +59,11 @@ function normalizeHrPerson(record, lookups) {
   const workGroupId = safeString(record.work_group_id);
   return {
     id: record.id, name: safeString(record.name), studentId: safeString(record.student_id),
+    legacyHrId: safeString(record.legacy_hr_id || record.id),
+    personId: safeString(record.person_id),
+    membershipId: safeString(record.membership_id),
+    assignmentId: safeString(record.assignment_id),
+    assignmentTitle: safeString(record.assignment_title),
     departmentId, identityId, workGroupId,
     department: lookups.departmentsById.get(departmentId) || '',
     identity: lookups.identitiesById.get(identityId) || '',
@@ -159,23 +167,26 @@ router.post('/getRateTargets', async (req, res) => {
       return res.json({ status: 'success', scorer, targets: [] });
     }
 
-    // User role
-    const user = await userInfoModel.getByOpenid(openid);
-    if (!user) return res.json({ status: 'need_bind', message: '请先绑定用户身份' });
-
-    const hrId = safeString(user.hr_id);
-    if (!hrId) return res.json({ status: 'need_bind', message: '绑定记录缺少人事ID，请重新绑定' });
-
-    const hrRecord = await hrInfoModel.getById(hrId);
-    if (!hrRecord) return res.json({ status: 'need_bind', message: '绑定的人事信息不存在，请重新绑定' });
-
-    scorer = normalizeHrPerson(hrRecord, lookups);
+    const currentActivity = await scoreActivityModel.getCurrent();
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'need_bind', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const orgId = await getCurrentOrgId();
+    const granularity = participantService.normalizeGranularity(
+      currentActivity && currentActivity.participant_granularity
+    );
+    const scorerRecord = await participantService.resolveActorParticipant(orgId, actorResult.actor, granularity);
+    if (!scorerRecord) {
+      return res.json({ status: 'invalid_scorer', message: '当前岗位已失效，请重新选择身份' });
+    }
+    scorer = normalizeHrPerson(scorerRecord, lookups);
+    const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
 
     if (!scorer.departmentId || !scorer.identityId) {
-      return res.json({ status: 'invalid_scorer', message: '人事信息不完整' });
+      return res.json({ status: 'invalid_scorer', message: '当前岗位的人事信息不完整' });
     }
 
-    const currentActivity = await scoreActivityModel.getCurrent();
     if (!currentActivity) {
       return res.json({ status: 'success', scorer, rule: null, currentActivity: null, targets: [] });
     }
@@ -230,13 +241,17 @@ router.post('/getRateTargets', async (req, res) => {
     const ruleFull = await loadRuleFull(rule.id);
 
     // Get scored targets
-    const scoredRecords = await scoreRecordModel.getByScorer(scorer.id, currentActivity.id);
-    const scoredTargetIdSet = new Set(scoredRecords.map(r => r.target_id).filter(Boolean));
+    const scoredRecords = await scoreRecordModel.getByScorerSubject(scorerSubjectKey, currentActivity.id);
+    const scoredTargetIdSet = new Set(
+      scoredRecords.map((record) => participantService.participantRecordId(record, 'target', granularity)).filter(Boolean)
+    );
 
     // Collect targets from all clauses — load only scoped HR records
     const targetMap = new Map();
     const clauseScopes = buildClauseScopes(ruleFull.clauses, scorer);
-    const allHrInfo = clauseScopes.length ? await hrInfoModel.getByScopes(clauseScopes) : [];
+    const allHrInfo = clauseScopes.length
+      ? await participantService.listParticipants(orgId, granularity)
+      : [];
 
     for (const clause of ruleFull.clauses) {
       if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) {
@@ -255,7 +270,7 @@ router.post('/getRateTargets', async (req, res) => {
       });
 
       targets.forEach(item => {
-        if (!rule.allow_self_assessment && item.id === scorer.id) return;
+        if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(item, scorerRecord)) return;
         if (!targetMap.has(item.id)) {
           const person = normalizeHrPerson(item, lookups);
           const isScored = scoredTargetIdSet.has(item.id);
@@ -277,7 +292,11 @@ router.post('/getRateTargets', async (req, res) => {
     res.json({
       status: 'success', scorer,
       rule: ruleFull,
-      currentActivity: { id: currentActivity.id, name: currentActivity.name },
+      currentActivity: {
+        id: currentActivity.id,
+        name: currentActivity.name,
+        participantGranularity: granularity
+      },
       targets
     });
   } catch (e) {
@@ -299,28 +318,25 @@ const RULE_SCOPE_LABEL_MAP = {
 router.post('/getScoreFormData', async (req, res) => {
   try {
     const timezone = parseTimezone(req.body.timezone);
-    const openid = req.openid;
     const targetId = safeString(req.body.targetId);
     if (!targetId) return res.json({ status: 'invalid_params', message: '缺少被评分人信息' });
 
-    const user = await userInfoModel.getByOpenid(openid);
-    if (!user) return res.json({ status: 'user_not_found', message: '未找到当前用户信息，请重新登录' });
-
-    const hrId = safeString(user.hr_id);
-    if (!hrId) return res.json({ status: 'invalid_scorer', message: '人事信息不完整' });
-
-    const hrRecord = await hrInfoModel.getById(hrId);
-    if (!hrRecord) return res.json({ status: 'invalid_scorer', message: '当前用户人事信息不存在，请重新绑定' });
-
-    const lookups = await fetchOrgLookups();
-    const scorer = normalizeHrPerson(hrRecord, lookups);
-
-    if (!scorer.departmentId || !scorer.identityId) {
-      return res.json({ status: 'invalid_scorer', message: '人事信息不完整' });
-    }
-
     const activity = await scoreActivityModel.getCurrent();
     if (!activity) return res.json({ status: 'missing_activity', message: '当前暂无评分活动' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const orgId = await getCurrentOrgId();
+    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const [scorerRecord, targetRecord, lookups] = await Promise.all([
+      participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
+      participantService.resolveParticipant(orgId, targetId, granularity),
+      fetchOrgLookups()
+    ]);
+    if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: '当前岗位已失效，请重新选择身份' });
+    if (!targetRecord) return res.json({ status: 'target_not_found', message: '被评分岗位不存在或已失效' });
+    const scorer = normalizeHrPerson(scorerRecord, lookups);
 
     if (activity.is_paused) {
       return res.json({ status: 'activity_paused', message: '当前评分活动已暂停' });
@@ -350,11 +366,7 @@ router.post('/getScoreFormData', async (req, res) => {
     const ruleFull = await loadRuleFull(rule.id);
 
     // Find matching clauses for this target — load only the target record
-    const targetDoc = await hrInfoModel.getById(targetId);
-    if (!targetDoc) {
-      return res.json({ status: 'target_not_found', message: '被评分人不存在' });
-    }
-    const targetPerson = normalizeHrPerson(targetDoc, lookups);
+    const targetPerson = normalizeHrPerson(targetRecord, lookups);
     const matchedClauseEntries = [];
 
     for (const clause of ruleFull.clauses) {
@@ -377,6 +389,9 @@ router.post('/getScoreFormData', async (req, res) => {
 
     if (!matchedClauseEntries.length) {
       return res.json({ status: 'target_not_allowed', message: '当前被评分人不在你的评分范围内' });
+    }
+    if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
+      return res.json({ status: 'target_not_allowed', message: '当前评分规则不允许自评' });
     }
 
     const configuredClauseEntry = matchedClauseEntries.find(item =>
@@ -434,7 +449,13 @@ router.post('/getScoreFormData', async (req, res) => {
     );
 
     // Check existing records
-    const existingRecords = await scoreRecordModel.getByScorerTarget(scorer.id, targetId, activity.id);
+    const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
+    const targetSubjectKey = participantService.participantSubjectKey(targetRecord, granularity);
+    const existingRecords = await scoreRecordModel.getBySubjects(
+      scorerSubjectKey,
+      targetSubjectKey,
+      activity.id
+    );
     let existingRecord = null;
     for (const record of existingRecords) {
       if (safeString(record.template_config_signature) === templateConfigSignature) {
@@ -459,7 +480,8 @@ router.post('/getScoreFormData', async (req, res) => {
       status: 'success', scorer,
       target: configuredClauseEntry.person,
       currentActivity: { id: activity.id, name: activity.name, description: activity.description,
-        startDate: activity.start_date, endDate: activity.end_date },
+        startDate: activity.start_date, endDate: activity.end_date,
+        participantGranularity: granularity },
       existingRecord: existingRecord ? { id: existingRecord.id, submittedAt: existingRecord.submittedAt } : null,
       rule: {
         id: rule.id, scorerDepartment: scorer.department, scorerIdentity: scorer.identity,
@@ -495,17 +517,15 @@ function isStepAligned(score, startValue, stepValue) {
 
 router.post('/submitScoreRecord', async (req, res) => {
   try {
-    const openid = req.openid;
     const targetId = safeString(req.body.targetId);
     const activityId = safeString(req.body.activityId);
     const templateConfigSignature = safeString(req.body.templateConfigSignature);
     const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
-    const scorerId = safeString(req.body.scorerId);
 
-    if (!openid) {
+    if (!req.openid) {
       return res.json({ status: 'auth_failed', message: '未登录' });
     }
-    if (!scorerId || !targetId || !templateConfigSignature || !answers.length) {
+    if (!targetId || !activityId || !templateConfigSignature || !answers.length) {
       return res.json({ status: 'invalid_params', message: '评分信息不完整' });
     }
 
@@ -532,22 +552,25 @@ router.post('/submitScoreRecord', async (req, res) => {
       }
     }
 
-    // Verify that the authenticated user matches the scorer identity
-    const currentUser = await userInfoModel.getByOpenid(openid);
-    if (!currentUser || safeString(currentUser.hr_id) !== scorerId) {
-      return res.json({ status: 'forbidden', message: '身份验证失败' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
     }
-
-    const lookups = await fetchOrgLookups();
-    const [hrRecord, targetRecord] = await Promise.all([
-      hrInfoModel.getById(scorerId),
-      hrInfoModel.getById(targetId)
+    const orgId = await getCurrentOrgId();
+    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const [scorerRecord, targetRecord, lookups] = await Promise.all([
+      participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
+      participantService.resolveParticipant(orgId, targetId, granularity),
+      fetchOrgLookups()
     ]);
 
-    if (!hrRecord) return res.json({ status: 'invalid_scorer', message: '当前评分人信息不存在，请重新登录' });
-    if (!targetRecord) return res.json({ status: 'target_not_found', message: '未找到被评分人' });
+    if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: '当前岗位已失效，请重新选择身份' });
+    if (!targetRecord) return res.json({ status: 'target_not_found', message: '未找到被评分岗位' });
 
-    const scorer = normalizeHrPerson(hrRecord, lookups);
+    const scorer = normalizeHrPerson(scorerRecord, lookups);
+    const targetPerson = normalizeHrPerson(targetRecord, lookups);
+    const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
+    const targetSubjectKey = participantService.participantSubjectKey(targetRecord, granularity);
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
 
     const rule = await rateRuleModel.getByKey(activityId, scorerKey);
@@ -558,7 +581,6 @@ router.post('/submitScoreRecord', async (req, res) => {
     const ruleFull = await loadRuleFull(rule.id);
 
     // Validate target is in scope — check only the target person, not all HR
-    const targetPerson = normalizeHrPerson(targetRecord, lookups);
     let matchedClause = null;
     let targetInScope = false;
 
@@ -584,6 +606,9 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     if (!targetInScope) {
       return res.json({ status: 'target_not_allowed', message: '当前被评分人不在你的评分范围内' });
+    }
+    if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
+      return res.json({ status: 'target_not_allowed', message: '当前评分规则不允许自评' });
     }
     if (!matchedClause) {
       return res.json({ status: 'missing_rule', message: '未匹配到当前评分规则子句' });
@@ -653,8 +678,6 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     // Save record — update existing or create new, then insert answers — all in a transaction
     const { withTransaction } = require('../../../config/db');
-    const { getCurrentOrgId } = require('../../../utils/orgContext');
-    const orgId = await getCurrentOrgId();
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
     let resultRecordId;
     let duplicateResponse = null;
@@ -665,7 +688,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       const candidateRecordId = generateId();
       const claim = await dedup.claim(conn, {
         orgId,
-        actorKey: 'user:' + scorer.id,
+        actorKey: 'score-subject:' + scorerSubjectKey,
         operationType: 'submit_score',
         clientRequestId,
         resourceId: candidateRecordId
@@ -678,18 +701,43 @@ router.post('/submitScoreRecord', async (req, res) => {
 
       await conn.query(
         `INSERT INTO score_records
-          (id, activity_id, rule_id, scorer_id, target_id, template_config_signature, submitted_at, org_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          (id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
+           scorer_subject_key, target_id, target_person_id, target_assignment_id,
+           target_subject_key, template_config_signature, submitted_at, org_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
           rule_id = VALUES(rule_id),
+          scorer_id = VALUES(scorer_id),
+          scorer_person_id = VALUES(scorer_person_id),
+          scorer_assignment_id = VALUES(scorer_assignment_id),
+          target_id = VALUES(target_id),
+          target_person_id = VALUES(target_person_id),
+          target_assignment_id = VALUES(target_assignment_id),
           template_config_signature = VALUES(template_config_signature),
           submitted_at = VALUES(submitted_at)`,
-        [candidateRecordId, activityId, rule.id, scorer.id, targetRecord.id, templateConfigSignature, nowUtc, orgId]
+        [
+          candidateRecordId,
+          activityId,
+          rule.id,
+          safeString(scorerRecord.legacy_hr_id || scorerRecord.id),
+          safeString(scorerRecord.person_id) || null,
+          safeString(scorerRecord.assignment_id) || null,
+          scorerSubjectKey,
+          safeString(targetRecord.legacy_hr_id || targetRecord.id),
+          safeString(targetRecord.person_id) || null,
+          safeString(targetRecord.assignment_id) || null,
+          targetSubjectKey,
+          templateConfigSignature,
+          nowUtc,
+          orgId
+        ]
       );
       const [records] = await conn.query(
         `SELECT id FROM score_records
-         WHERE org_id = ? AND activity_id = ? AND scorer_id = ? AND target_id = ? FOR UPDATE`,
-        [orgId, activityId, scorer.id, targetId]
+         WHERE org_id = ? AND activity_id = ?
+           AND scorer_subject_key = ? AND target_subject_key = ?
+         FOR UPDATE`,
+        [orgId, activityId, scorerSubjectKey, targetSubjectKey]
       );
       if (!records.length) throw new Error('评分保存失败');
       const recordId = records[0].id;
@@ -708,7 +756,7 @@ router.post('/submitScoreRecord', async (req, res) => {
         ...claim,
         resourceId: recordId,
         orgId,
-        actorKey: 'user:' + scorer.id,
+        actorKey: 'score-subject:' + scorerSubjectKey,
         operationType: 'submit_score'
       }, { status: 'success', recordId });
     });
@@ -740,15 +788,16 @@ router.post('/getScorerTaskStatus', async (req, res) => {
 
     if (!activityId) return res.json({ status: 'invalid_params', message: '请先选择评分活动' });
 
-    const [activity, allMembers, allRules, allRecords, lookups] = await Promise.all([
-      scoreActivityModel.getById(activityId),
-      hrInfoModel.getAll(),
+    const activity = await scoreActivityModel.getById(activityId);
+    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到对应的评分活动' });
+    const orgId = await getCurrentOrgId();
+    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const [allMembers, allRules, allRecords, lookups] = await Promise.all([
+      participantService.listParticipants(orgId, granularity),
       rateRuleModel.getByActivity(activityId),
       scoreRecordModel.getByActivity(activityId),
       fetchOrgLookups()
     ]);
-
-    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到对应的评分活动' });
 
     const members = allMembers.map(m => normalizeHrPerson(m, lookups));
 
@@ -768,6 +817,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
       const clauses = allClauses.filter(c => c.rule_id === rule.id);
       return {
         ...rule,
+        allowSelfAssessment: Boolean(rule.allow_self_assessment),
         scorerKey: makeOrgRuleKey(rule.scorer_department_id, rule.scorer_identity_id),
         clauses: clauses.map(c => ({
           scopeType: safeString(c.scope_type),
@@ -812,7 +862,9 @@ router.post('/getScorerTaskStatus', async (req, res) => {
             else if (clause.scopeType === 'same_work_group_all') match = target.departmentId === sc.departmentId && target.workGroupId === sc.workGroupId;
             else if (clause.scopeType === 'identity_only') match = target.identityId === clause.targetIdentityId;
             else if (clause.scopeType === 'all_people') match = true;
-            if (match) sr.expectedTargets.set(target.id, target);
+            if (match && (rule.allowSelfAssessment || !participantService.isSameNaturalPerson(sc, target))) {
+              sr.expectedTargets.set(target.id, target);
+            }
           });
         });
       });
@@ -820,10 +872,11 @@ router.post('/getScorerTaskStatus', async (req, res) => {
 
     // Mark submitted
     allRecords.forEach(record => {
-      const sk = safeString(record.scorer_id);
+      const sk = participantService.participantRecordId(record, 'scorer', granularity);
+      const targetParticipantId = participantService.participantRecordId(record, 'target', granularity);
       const sr = scorerMap.get(sk);
-      if (sr && sr.expectedTargets.has(record.target_id)) {
-        sr.submittedTargetIds.add(record.target_id);
+      if (sr && sr.expectedTargets.has(targetParticipantId)) {
+        sr.submittedTargetIds.add(targetParticipantId);
       }
     });
 
@@ -969,15 +1022,16 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
 
     if (!activityId) return res.json({ status: 'invalid_params', message: '请先选择评分活动' });
 
-    const [activity, allMembers, allRules, allRecords, lookups] = await Promise.all([
-      scoreActivityModel.getById(activityId),
-      hrInfoModel.getAll(),
+    const activity = await scoreActivityModel.getById(activityId);
+    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到对应的评分活动' });
+    const orgId = await getCurrentOrgId();
+    const granularity = participantService.normalizeGranularity(activity.participant_granularity);
+    const [allMembers, allRules, allRecords, lookups] = await Promise.all([
+      participantService.listParticipants(orgId, granularity),
       rateRuleModel.getByActivity(activityId),
       scoreRecordModel.getByActivity(activityId),
       fetchOrgLookups()
     ]);
-
-    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到对应的评分活动' });
 
     const members = allMembers.map(m => normalizeHrPerson(m, lookups));
 
@@ -997,6 +1051,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
       const clauses = allClauses.filter(c => c.rule_id === rule.id);
       return {
         ...rule,
+        allowSelfAssessment: Boolean(rule.allow_self_assessment),
         scorerKey: makeOrgRuleKey(rule.scorer_department_id, rule.scorer_identity_id),
         clauses: clauses.map(c => ({
           scopeType: safeString(c.scope_type),
@@ -1041,17 +1096,20 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
             else if (clause.scopeType === 'same_work_group_all') match = target.departmentId === sc.departmentId && target.workGroupId === sc.workGroupId;
             else if (clause.scopeType === 'identity_only') match = target.identityId === clause.targetIdentityId;
             else if (clause.scopeType === 'all_people') match = true;
-            if (match) sr.expectedTargets.set(target.id, target);
+            if (match && (rule.allowSelfAssessment || !participantService.isSameNaturalPerson(sc, target))) {
+              sr.expectedTargets.set(target.id, target);
+            }
           });
         });
       });
     });
 
     allRecords.forEach(record => {
-      const sk = safeString(record.scorer_id);
+      const sk = participantService.participantRecordId(record, 'scorer', granularity);
+      const targetParticipantId = participantService.participantRecordId(record, 'target', granularity);
       const sr = scorerMap.get(sk);
-      if (sr && sr.expectedTargets.has(record.target_id)) {
-        sr.submittedTargetIds.add(record.target_id);
+      if (sr && sr.expectedTargets.has(targetParticipantId)) {
+        sr.submittedTargetIds.add(targetParticipantId);
       }
     });
 

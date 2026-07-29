@@ -43,7 +43,10 @@
       "name": "org",
       "pages": [
         "pages/switch/switch",
-        "pages/adminPermissions/adminPermissions"
+        "pages/adminPermissions/adminPermissions",
+        "pages/identitySwitch/identitySwitch",
+        "pages/accountSecurity/accountSecurity",
+        "pages/authManagement/authManagement"
       ]
     }
   ],

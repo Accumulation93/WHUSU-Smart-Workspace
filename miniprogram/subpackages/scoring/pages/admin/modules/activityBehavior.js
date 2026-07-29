@@ -57,6 +57,19 @@ module.exports = Behavior({
       });
     },
 
+    onActivityGranularityChange(e) {
+      const options = this.data.participantGranularityOptions || [];
+      const index = Math.max(0, Number(e.detail.value) || 0);
+      const selected = options[index] || options[0] || { value: 'person' };
+      this.setData({
+        activityForm: {
+          ...this.data.activityForm,
+          participantGranularity: selected.value,
+          participantGranularityIndex: index
+        }
+      });
+    },
+
     resetActivityForm() {
       this.setData({
         activityForm: emptyActivityForm()
@@ -76,7 +89,9 @@ module.exports = Behavior({
           name: item.name,
           description: item.description || '',
           startDate: item.startDate || '',
-          endDate: item.endDate || ''
+          endDate: item.endDate || '',
+          participantGranularity: item.participantGranularity === 'assignment' ? 'assignment' : 'person',
+          participantGranularityIndex: item.participantGranularity === 'assignment' ? 1 : 0
         },
         activeTab: 'activities'
       });

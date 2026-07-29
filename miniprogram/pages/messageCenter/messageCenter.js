@@ -2,6 +2,7 @@ const { callFunction, formatAuditTime, showShortToast } = require('../../utils/a
 const orgSession = require('../../utils/orgSession');
 const messageScope = require('../../utils/messageScope');
 const { activateOrganization } = require('../../utils/organizationActivation');
+const authContext = require('../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 
 const CATEGORY_LABELS = {
@@ -44,6 +45,7 @@ Page({
     partial: false,
     showSwitchDialog: false,
     switchOrganizationName: '',
+    switchDialogTitle: '切换组织与身份后查看',
     switchingOrganization: false
   },
 
@@ -255,15 +257,22 @@ Page({
   },
 
   requiresOrganizationSwitch(item) {
-    return !!(item && item.organizationId
+    if (!item) return false;
+    if (item.contextId) {
+      return item.contextId !== String(wx.getStorageSync('activeContextId') || '');
+    }
+    return !!(item.organizationId
       && item.organizationId !== String(wx.getStorageSync('activeOrgId') || ''));
   },
 
   openSwitchDialog(item, type) {
     this._pendingNavigation = { item, type };
+    const sameOrganization = item.organizationId === String(wx.getStorageSync('activeOrgId') || '');
     this.setData({
       showSwitchDialog: true,
-      switchOrganizationName: item.organizationName || '目标组织'
+      switchDialogTitle: sameOrganization ? '切换身份后查看' : '切换组织与身份后查看',
+      switchOrganizationName: (item.organizationName || '目标组织')
+        + (item.identityName ? ' · ' + item.identityName : '')
     });
   },
 
@@ -327,14 +336,20 @@ Page({
     if (!pending || this.data.switchingOrganization) return;
     this.setData({ switchingOrganization: true });
     try {
-      const activated = await activateOrganization(pending.item.organizationId);
+      const activated = pending.item.contextId
+        ? await authContext.activateContext(pending.item.contextId)
+        : await activateOrganization(pending.item.organizationId);
       this._activeOrgSnapshot = orgSession.getSnapshot();
       this.setData({ showSwitchDialog: false, switchingOrganization: false });
       if (pending.type === 'notification' && !pending.item.isRead) {
         try {
           await this.markNotificationRead(pending.item);
         } catch (_) {
-          queuePendingRead(pending.item.organizationId, activated.role, pending.item.id);
+          queuePendingRead(
+            pending.item.organizationId,
+            (activated.context && activated.context.contextId) || activated.role,
+            pending.item.id
+          );
         }
       }
       this._pendingNavigation = null;

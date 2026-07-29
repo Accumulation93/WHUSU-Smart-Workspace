@@ -27,6 +27,7 @@ const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
 const { createNotification } = require('../utils/notificationHelper');
 const requestDeduplication = require('../../../utils/requestDeduplication');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
 
 const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
 
@@ -53,6 +54,26 @@ async function resolveHrId(openid) {
     [openid, orgId]
   );
   return rows[0] ? rows[0].hr_id : null;
+}
+
+function buildAuditOperatorContext(req) {
+  const context = req.authContext || {};
+  return {
+    operatorPersonId: safeString(context.personId),
+    operatorAssignmentId: safeString(context.assignmentId),
+    operatorAdminGrantId: safeString(context.adminGrantId),
+    operatorContextSnapshot: context.contextId ? {
+      contextId: safeString(context.contextId),
+      organizationId: safeString(context.organizationId),
+      role: safeString(context.role),
+      identityType: safeString(context.identityType),
+      identityName: safeString(context.identityName),
+      department: safeString(context.department),
+      identity: safeString(context.identity),
+      workGroup: safeString(context.workGroup),
+      adminLevel: safeString(context.adminLevel)
+    } : null
+  };
 }
 
 // ═══════════════════════════════════════════════════
@@ -115,11 +136,13 @@ router.post('/listMySubmissions', async (req, res) => {
 // Used by the mini-program for periodic background refresh without loading full list
 router.post('/checkPendingCount', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const hrId = actorResult.actor.id;
 
-    const steps = await submissionStepModel.getPendingByApprover(hrId);
+    const steps = await submissionStepModel.getPendingByApprover(hrId, actorResult.actor.profile);
     const count = steps.length;
     const latestAt = count > 0 ? steps[0].created_at : null; // Already sorted DESC in model
 
@@ -132,11 +155,13 @@ router.post('/checkPendingCount', async (req, res) => {
 // listPendingApprovals — Submissions waiting for the current user to approve
 router.post('/listPendingApprovals', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const hrId = actorResult.actor.id;
 
-    const steps = await submissionStepModel.getPendingByApprover(hrId);
+    const steps = await submissionStepModel.getPendingByApprover(hrId, actorResult.actor.profile);
 
     // Load submitter names
     const submitterIds = [...new Set(steps.map((s) => s.submitted_by))];
@@ -415,6 +440,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     // Insert submit event
     const submitterName = submitterInfo ? submitterInfo.name : '';
     await auditEventModel.create(generateId(), {
+      ...buildAuditOperatorContext(req),
       submissionId,
       eventType: 'submit',
       stepIndex: null,
@@ -569,6 +595,7 @@ router.post('/startAdHocAudit', async (req, res) => {
     const [adHocNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     const adHocSubmitterName = adHocNameRows[0] ? adHocNameRows[0].name : '';
     await auditEventModel.create(generateId(), {
+      ...buildAuditOperatorContext(req),
       submissionId,
       eventType: 'submit',
       stepIndex: null,
@@ -699,7 +726,11 @@ router.post('/getSubmissionDetail', async (req, res) => {
   try {
     const openid = req.openid;
     const selectedRole = safeString(req.get('X-Role')).toLowerCase();
-    const hrId = selectedRole === 'user' ? await resolveHrId(openid) : null;
+    const detailActorResult = selectedRole === 'user' ? await resolveCurrentActor(req) : null;
+    const detailActor = detailActorResult && detailActorResult.ok && detailActorResult.actor.type === 'user'
+      ? detailActorResult.actor
+      : null;
+    const hrId = detailActor ? detailActor.id : null;
     const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null;
     const orgId = await getCurrentOrgId();
     if (!hrId && !admin) return res.json({ status: 'forbidden', message: '请先登录' });
@@ -721,11 +752,12 @@ router.post('/getSubmissionDetail', async (req, res) => {
     if (!isApprover && hrId) {
       const orgId = await getCurrentOrgId();
       // Load approver HR info for identity/scope matching
-      const [approverRows] = await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [hrId, orgId]
-      );
-      const approverInfo = approverRows[0] || null;
+      const approverInfo = detailActor ? {
+        id: hrId,
+        department_id: safeString(detailActor.profile.department_id),
+        identity_id: safeString(detailActor.profile.identity_id),
+        work_group_id: safeString(detailActor.profile.work_group_id)
+      } : null;
       if (approverInfo) {
         // Load submitter info
         const [subRows] = await pool.query(
@@ -1058,8 +1090,14 @@ router.post('/getSubmissionDetail', async (req, res) => {
  * Checks: 1) step_conditions_json, 2) template step conditions fallback, 3) legacy flat fields.
  * @returns {boolean} authorized
  */
-async function checkStepAuthorization(step, submission, hrId) {
+async function checkStepAuthorization(step, submission, hrId, approverOverride) {
   const orgId = await getCurrentOrgId();
+  const currentApprover = approverOverride ? {
+    id: hrId,
+    department_id: safeString(approverOverride.department_id),
+    identity_id: safeString(approverOverride.identity_id),
+    work_group_id: safeString(approverOverride.work_group_id)
+  } : null;
 
   let hasExplicitConditions = false;
 
@@ -1068,11 +1106,10 @@ async function checkStepAuthorization(step, submission, hrId) {
     hasExplicitConditions = true;
     try {
       const conditions = JSON.parse(step.step_conditions_json);
-      const [approverRows] = await pool.query(
+      const approver = currentApprover || (await pool.query(
         'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
         [hrId, orgId]
-      );
-      const approver = approverRows[0];
+      ))[0][0];
       if (approver) {
         const [subRows] = await pool.query(
           'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
@@ -1095,11 +1132,10 @@ async function checkStepAuthorization(step, submission, hrId) {
     try {
       const tplConds = await submissionStepModel.getTemplateStepConditions(step.template_step_id);
       if (tplConds) {
-        const [approverRows] = await pool.query(
+        const approver = currentApprover || (await pool.query(
           'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
           [hrId, orgId]
-        );
-        const approver = approverRows[0];
+        ))[0][0];
         if (approver) {
           const [subRows] = await pool.query(
             'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
@@ -1118,11 +1154,10 @@ async function checkStepAuthorization(step, submission, hrId) {
     if (step.approver_type === 'specific_person' && step.approver_hr_id) {
       if (inCsv(step.approver_hr_id, hrId)) return true;
     } else if (step.approver_type === 'identity' && step.approver_identity_id) {
-      const [approverRows] = await pool.query(
+      const approver = currentApprover || (await pool.query(
         'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
         [hrId, orgId]
-      );
-      const approver = approverRows[0];
+      ))[0][0];
       if (approver && inCsv(step.approver_identity_id, approver.identity_id)) {
         let submitter = null;
         const [subRows] = await pool.query(
@@ -1168,9 +1203,12 @@ router.post('/approveStep', async (req, res) => {
   const conn = await pool.getConnection();
   const signedFileBackups = [];
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const actor = actorResult.actor;
+    const hrId = actor.id;
 
     const orgId = await getCurrentOrgId();
 
@@ -1211,7 +1249,7 @@ router.post('/approveStep', async (req, res) => {
       return res.json({ status: stepState.status, message: stepState.message });
     }
 
-    const authorized = await checkStepAuthorization(step, submission, hrId);
+    const authorized = await checkStepAuthorization(step, submission, hrId, actor.profile);
     if (!authorized) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
@@ -1406,6 +1444,7 @@ router.post('/approveStep', async (req, res) => {
     const [approverNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     const approverEventName = approverNameRows[0] ? approverNameRows[0].name : '';
     await auditEventModel.create(generateId(), {
+      ...buildAuditOperatorContext(req),
       submissionId,
       eventType: 'approve',
       stepIndex: step.sort_order,
@@ -1462,9 +1501,12 @@ router.post('/approveStep', async (req, res) => {
 router.post('/rejectStep', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const actor = actorResult.actor;
+    const hrId = actor.id;
 
     const orgId = await getCurrentOrgId();
 
@@ -1503,7 +1545,7 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: stepState.status, message: stepState.message });
     }
 
-    const authorized = await checkStepAuthorization(step, submission, hrId);
+    const authorized = await checkStepAuthorization(step, submission, hrId, actor.profile);
     if (!authorized) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
@@ -1528,6 +1570,7 @@ router.post('/rejectStep', async (req, res) => {
     const [rejecterNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     const rejecterEventName = rejecterNameRows[0] ? rejecterNameRows[0].name : '';
     await auditEventModel.create(generateId(), {
+      ...buildAuditOperatorContext(req),
       submissionId,
       eventType: 'reject',
       stepIndex: step.sort_order,
@@ -1723,6 +1766,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const [editorNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     const editorName = editorNameRows[0] ? editorNameRows[0].name : '';
     await auditEventModel.create(generateId(), {
+      ...buildAuditOperatorContext(req),
       submissionId,
       eventType: 'edit',
       stepIndex: null,
@@ -1800,6 +1844,7 @@ router.post('/resubmitAudit', async (req, res) => {
       // Insert submit event (first submit from pending state)
       const [resubNameRows1] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
       await auditEventModel.create(generateId(), {
+        ...buildAuditOperatorContext(req),
         submissionId,
         eventType: 'submit',
         stepIndex: null,
@@ -1892,6 +1937,7 @@ router.post('/resubmitAudit', async (req, res) => {
     // Insert resubmit event
     const [resubNameRows2] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     await auditEventModel.create(generateId(), {
+      ...buildAuditOperatorContext(req),
       submissionId,
       eventType: 'resubmit',
       stepIndex: null,
@@ -1959,6 +2005,7 @@ router.post('/withdrawSubmission', async (req, res) => {
     }
     const [withdrawNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     await auditEventModel.create(generateId(), {
+      ...buildAuditOperatorContext(req),
       submissionId,
       eventType: 'withdraw',
       stepIndex: null,
@@ -2208,14 +2255,11 @@ router.post('/listMyStamps', async (req, res) => {
 // getUnreadCounts — returns unread counts for my submissions + pending count
 // Each section is independently fault-tolerant: one failure won't zero out the others
 router.post('/getUnreadCounts', async (req, res) => {
-  const openid = req.openid;
-  let hrId;
-  try {
-    hrId = await resolveHrId(openid);
-  } catch (e) {
-    return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+  const actorResult = await resolveCurrentActor(req);
+  if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
   }
-  if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+  const hrId = actorResult.actor.id;
 
   let pendingCount = 0;
   let mySubmissionsUnread = 0;
@@ -2224,7 +2268,7 @@ router.post('/getUnreadCounts', async (req, res) => {
 
   // ── Pending count (items needing my action) ──
   try {
-    const pendingSteps = await submissionStepModel.getPendingByApprover(hrId);
+    const pendingSteps = await submissionStepModel.getPendingByApprover(hrId, actorResult.actor.profile);
     pendingCount = pendingSteps.length;
   } catch (e) {
     console.error('[getUnreadCounts] pendingCount failed:', e.message);

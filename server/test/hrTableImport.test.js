@@ -103,6 +103,29 @@ async function main() {
         created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL,
         UNIQUE KEY idx_hr_student (student_id, org_id)
       );
+      CREATE TABLE persons (
+        id VARCHAR(64) PRIMARY KEY, name VARCHAR(100) NOT NULL, student_id VARCHAR(32) NOT NULL,
+        normalized_student_id VARCHAR(32) NOT NULL UNIQUE, status VARCHAR(24) NOT NULL DEFAULT 'active',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      );
+      CREATE TABLE organization_memberships (
+        id VARCHAR(64) PRIMARY KEY, person_id VARCHAR(64) NOT NULL, org_id VARCHAR(64) NOT NULL,
+        legacy_hr_id VARCHAR(64) NOT NULL UNIQUE, status VARCHAR(24) NOT NULL DEFAULT 'active',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_membership_person_org (person_id, org_id)
+      );
+      CREATE TABLE membership_assignments (
+        id VARCHAR(64) PRIMARY KEY, membership_id VARCHAR(64) NOT NULL, org_id VARCHAR(64) NOT NULL,
+        assignment_kind VARCHAR(32) NOT NULL DEFAULT 'staff', title VARCHAR(200),
+        department_id VARCHAR(64), identity_id VARCHAR(64), work_group_id VARCHAR(64),
+        is_primary TINYINT(1) NOT NULL DEFAULT 0, status VARCHAR(24) NOT NULL DEFAULT 'active',
+        active_primary_membership_id VARCHAR(64),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_assignment_active_primary (active_primary_membership_id)
+      );
       CREATE TABLE hr_profile_templates (
         id VARCHAR(64) PRIMARY KEY, name VARCHAR(200) NOT NULL, description TEXT,
         edit_mode VARCHAR(32) NOT NULL, updated_at DATETIME

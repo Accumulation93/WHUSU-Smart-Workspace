@@ -16,6 +16,25 @@ const REQUIRED_COLUMNS = [
   ['org_hr_profile_template_snapshot_fields', 'is_active'],
   ['org_hr_profile_template_switches', 'snapshot_id'],
   ['hr_profile_records', 'template_snapshot_id']
+  ,['score_activities', 'participant_granularity']
+  ,['score_records', 'scorer_person_id']
+  ,['score_records', 'scorer_assignment_id']
+  ,['score_records', 'scorer_subject_key']
+  ,['score_records', 'target_person_id']
+  ,['score_records', 'target_assignment_id']
+  ,['score_records', 'target_subject_key']
+  ,['audit_events', 'operator_person_id']
+  ,['audit_events', 'operator_assignment_id']
+  ,['audit_events', 'operator_admin_grant_id']
+  ,['audit_events', 'operator_context_snapshot']
+  ,['venue_bookings', 'creator_person_id']
+  ,['venue_bookings', 'creator_assignment_id']
+  ,['venue_bookings', 'creator_admin_grant_id']
+  ,['venue_bookings', 'creator_context_snapshot']
+  ,['venue_bookings', 'approver_person_id']
+  ,['venue_bookings', 'approver_assignment_id']
+  ,['venue_bookings', 'approver_admin_grant_id']
+  ,['venue_bookings', 'approver_context_snapshot']
 ];
 
 const FORBIDDEN_COLUMNS = [
@@ -42,6 +61,21 @@ const REQUIRED_TABLES = [
   'org_hr_profile_template_snapshot_fields',
   'org_hr_profile_template_switches',
   'org_hr_profile_template_switch_actions'
+  ,'identity_migration_guards'
+  ,'persons'
+  ,'organization_memberships'
+  ,'membership_assignments'
+  ,'accounts'
+  ,'account_wechat_bindings'
+  ,'admin_grants'
+  ,'auth_sessions'
+  ,'auth_bootstrap_sessions'
+  ,'identity_claim_requests'
+  ,'identity_verification_tokens'
+  ,'account_recovery_credentials'
+  ,'account_recovery_requests'
+  ,'auth_policy'
+  ,'auth_audit_events'
 ];
 
 const REQUIRED_INDEXES = [
@@ -56,6 +90,15 @@ const REQUIRED_INDEXES = [
   ['hr_profile_templates', 'idx_hpt_name'],
   ['org_hr_profile_template_snapshots', 'uk_ohpts_org'],
   ['hr_profile_record_values', 'uk_hprv_value']
+  ,['persons', 'uk_person_student']
+  ,['organization_memberships', 'uk_membership_person_org']
+  ,['account_wechat_bindings', 'idx_wechat_openid_hash']
+  ,['account_wechat_bindings', 'uk_wechat_active_openid']
+  ,['account_wechat_bindings', 'uk_wechat_active_account']
+  ,['membership_assignments', 'uk_assignment_active_primary']
+  ,['auth_sessions', 'idx_auth_session_account']
+  ,['identity_claim_requests', 'idx_claim_org_status']
+  ,['auth_audit_events', 'idx_auth_audit_type']
 ];
 
 async function verifySchemaContract(pool) {
@@ -130,7 +173,75 @@ async function verifySchemaContract(pool) {
     error.missing = ['data:hr_profile_snapshot_integrity'];
     throw error;
   }
-  return { status: 'ok', revision: '2026-07-unique-hr-profile-snapshot-v2' };
+  const [identityIntegrityRows] = await pool.query(
+    `SELECT
+       (SELECT COUNT(*)
+          FROM persons p
+          LEFT JOIN organization_memberships om ON om.person_id = p.id
+         WHERE p.status = 'active' AND om.id IS NULL) AS persons_without_membership,
+       (SELECT COUNT(*)
+          FROM accounts a
+          LEFT JOIN account_wechat_bindings b
+            ON b.account_id = a.id AND b.status = 'active'
+         WHERE a.status = 'verified' AND b.id IS NULL) AS verified_accounts_without_binding,
+       (SELECT COUNT(*)
+          FROM account_wechat_bindings b
+         WHERE b.status = 'active'
+         GROUP BY b.account_id
+        HAVING COUNT(*) > 1
+         LIMIT 1) AS account_multi_binding,
+       (SELECT COUNT(*)
+          FROM account_wechat_bindings b
+         WHERE b.status = 'active'
+           AND (b.hash_version <> 'hmac_sha256_v1'
+                OR b.openid_ciphertext IS NULL
+                OR b.legacy_openid IS NOT NULL)) AS insecure_active_bindings,
+       (SELECT COUNT(*)
+          FROM hr_info h
+          LEFT JOIN organization_memberships om
+            ON om.legacy_hr_id = h.id AND om.org_id = h.org_id
+         WHERE om.id IS NULL) AS unmapped_hr_records,
+       (SELECT COUNT(*)
+          FROM organization_memberships om
+          LEFT JOIN membership_assignments ma
+            ON ma.membership_id = om.id AND ma.status = 'active' AND ma.is_primary = 1
+         WHERE om.status = 'active' AND ma.id IS NULL) AS memberships_without_primary_assignment,
+       (SELECT COUNT(*)
+          FROM admin_info ai
+          LEFT JOIN admin_grants ag
+            ON ag.legacy_admin_id = ai.id AND ag.status = 'active'
+         WHERE ag.id IS NULL) AS unmapped_admin_records`
+  );
+  const identityIntegrity = identityIntegrityRows[0] || {};
+  if (Number(identityIntegrity.persons_without_membership)
+    || Number(identityIntegrity.verified_accounts_without_binding)
+    || Number(identityIntegrity.account_multi_binding)
+    || Number(identityIntegrity.insecure_active_bindings)
+    || Number(identityIntegrity.unmapped_hr_records)
+    || Number(identityIntegrity.memberships_without_primary_assignment)
+    || Number(identityIntegrity.unmapped_admin_records)) {
+    const error = new Error('数据库迁移未完成: data:unified_identity_integrity');
+    error.code = 'schema_contract_failed';
+    error.missing = ['data:unified_identity_integrity'];
+    throw error;
+  }
+  const [boundSuperAdmins] = await pool.query(
+    `SELECT
+       COUNT(DISTINCT ag.id) AS total,
+       COUNT(DISTINCT CASE WHEN a.status = 'verified' AND b.status = 'active' THEN ag.id END) AS bound_count
+       FROM admin_grants ag
+       LEFT JOIN accounts a ON a.person_id = ag.person_id
+       LEFT JOIN account_wechat_bindings b ON b.account_id = a.id AND b.status = 'active'
+      WHERE ag.admin_level = 'super_admin' AND ag.status = 'active'`
+  );
+  const superAdminState = boundSuperAdmins[0] || {};
+  if (Number(superAdminState.total) > 0 && Number(superAdminState.bound_count) < 1) {
+    const error = new Error('数据库迁移中止: 必须至少保留一名已绑定超级管理员');
+    error.code = 'schema_contract_failed';
+    error.missing = ['data:unified_identity_bound_super_admin'];
+    throw error;
+  }
+  return { status: 'ok', revision: '2026-07-unified-identity-v1' };
 }
 
 module.exports = {

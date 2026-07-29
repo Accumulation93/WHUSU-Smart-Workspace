@@ -1,5 +1,6 @@
 const pool = require('../../config/db');
 const { safeString, generateId } = require('../../utils/helpers');
+const unifiedIdentityModel = require('./unifiedIdentity');
 
 const REQUIRED_BASIC_FIELDS = ['name', 'studentId', 'department', 'identity'];
 const BASIC_FIELD_LABELS = {
@@ -526,6 +527,7 @@ async function importPreparedRows(prepared, orgId) {
     const workGroupIds = new Map(workGroups.map((item) => [`${safeString(item.name)}::${safeString(item.department_id)}`, safeString(item.id)]));
     const hrByStudentId = new Map(hrRows.map((item) => [safeString(item.student_id), item]));
 
+    const affectedHrIds = [];
     for (const row of prepared.parsedRows) {
       if (!departmentIds.has(row.departmentName)) {
         const id = generateId();
@@ -583,9 +585,11 @@ async function importPreparedRows(prepared, orgId) {
         );
         hrByStudentId.set(row.studentId, { id: hrId, student_id: row.studentId });
       }
+      affectedHrIds.push(hrId);
       await writeProfileValues(conn, prepared, row, hrId, orgId, nowUtc);
     }
 
+    await unifiedIdentityModel.syncLegacyHrRecords(conn, affectedHrIds);
     await conn.commit();
     const result = {
       status: 'success',

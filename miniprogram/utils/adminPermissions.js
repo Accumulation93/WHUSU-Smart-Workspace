@@ -32,7 +32,8 @@ const PORTAL_PERMISSION_MAP = {
   hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.departments', 'hr.work_groups', 'hr.identities'],
   system: ['system.admin_accounts.read', 'system.admin_accounts.write', 'system.settings', 'system.organizations'],
   audit: ['audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'],
-  venue: ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.purposes']
+  venue: ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.purposes'],
+  authManagement: ['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.audit', 'auth.policy.manage']
 };
 
 function getAdminProfile() {
@@ -89,7 +90,7 @@ function filterTabs(tabs, profile, map) {
 
 function filterPortalCards(cards, profile) {
   return (cards || []).filter(function(card) {
-    if (card.key === 'messages') return true;
+    if (card.key === 'messages' || card.key === 'identitySwitch' || card.key === 'accountSecurity') return true;
     if (card.key === 'permissions') return canAccessPermissionSystem(profile);
     return hasAny(profile, PORTAL_PERMISSION_MAP[card.key] || []);
   });

@@ -725,10 +725,184 @@ module.exports = Behavior({
         this._ensureDetailFormOptions();
         this.updateDetailWorkGroupOptions();
         this._syncDetailPickerValues();
+        await this.loadMembershipAssignments(hrId);
       } catch (err) {
         wx.showToast({ title: '加载详情失败', icon: 'none' });
         this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
       }
+    },
+
+    async loadMembershipAssignments(hrId) {
+      try {
+        const result = await this.callCloud('listMembershipAssignments', {
+          hrId: hrId || this.data.detailHrId
+        });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || '加载岗位失败', icon: 'none' });
+          return;
+        }
+        this.setData({ membershipAssignmentList: result.list || [] });
+      } catch (error) {
+        wx.showToast({ title: '加载岗位失败', icon: 'none' });
+      }
+    },
+
+    startCreateMembershipAssignment() {
+      this.setData({
+        membershipAssignmentFormVisible: true,
+        membershipAssignmentForm: {
+          id: '',
+          assignmentKind: 'staff',
+          assignmentKindIndex: 0,
+          title: '',
+          departmentId: '',
+          department: '',
+          identityId: '',
+          identity: '',
+          workGroupId: '',
+          workGroup: '',
+          isPrimary: false
+        },
+        assignmentDepartmentIndex: 0,
+        assignmentIdentityIndex: 0,
+        assignmentWorkGroupIndex: 0,
+        assignmentWorkGroupOptions: []
+      });
+    },
+
+    editMembershipAssignment(e) {
+      const index = Number(e.currentTarget.dataset.index);
+      const item = (this.data.membershipAssignmentList || [])[index];
+      if (!item) return;
+      const departments = this.data.departmentList || [];
+      const identities = this.data.identityList || [];
+      const workGroups = [{ id: '', name: '不设置' }].concat(
+        (this.data.workGroupList || [])
+          .filter((row) => String(row.departmentId) === String(item.departmentId))
+      );
+      this.setData({
+        membershipAssignmentFormVisible: true,
+        membershipAssignmentForm: {
+          ...item,
+          assignmentKindIndex: Math.max(0, (this.data.assignmentKindValues || []).indexOf(item.assignmentKind))
+        },
+        assignmentDepartmentIndex: Math.max(0, departments.findIndex((row) => String(row.id) === String(item.departmentId))),
+        assignmentIdentityIndex: Math.max(0, identities.findIndex((row) => String(row.id) === String(item.identityId))),
+        assignmentWorkGroupIndex: Math.max(0, workGroups.findIndex((row) => String(row.id) === String(item.workGroupId))),
+        assignmentWorkGroupOptions: workGroups
+      });
+    },
+
+    cancelMembershipAssignmentEdit() {
+      this.setData({
+        membershipAssignmentFormVisible: false,
+        membershipAssignmentForm: {},
+        assignmentWorkGroupOptions: []
+      });
+    },
+
+    onMembershipAssignmentInput(e) {
+      const field = String(e.currentTarget.dataset.field || '');
+      this.setData({ ['membershipAssignmentForm.' + field]: e.detail.value });
+    },
+
+    onMembershipAssignmentKindChange(e) {
+      const index = Number(e.detail.value) || 0;
+      this.setData({
+        'membershipAssignmentForm.assignmentKindIndex': index,
+        'membershipAssignmentForm.assignmentKind': (this.data.assignmentKindValues || [])[index] || 'staff'
+      });
+    },
+
+    onMembershipAssignmentDepartmentChange(e) {
+      const index = Number(e.detail.value) || 0;
+      const department = (this.data.departmentList || [])[index] || {};
+      const workGroups = [{ id: '', name: '不设置' }].concat(
+        (this.data.workGroupList || [])
+          .filter((row) => String(row.departmentId) === String(department.id))
+      );
+      this.setData({
+        assignmentDepartmentIndex: index,
+        assignmentWorkGroupIndex: 0,
+        assignmentWorkGroupOptions: workGroups,
+        'membershipAssignmentForm.departmentId': department.id || '',
+        'membershipAssignmentForm.department': department.name || '',
+        'membershipAssignmentForm.workGroupId': '',
+        'membershipAssignmentForm.workGroup': ''
+      });
+    },
+
+    onMembershipAssignmentIdentityChange(e) {
+      const index = Number(e.detail.value) || 0;
+      const identity = (this.data.identityList || [])[index] || {};
+      this.setData({
+        assignmentIdentityIndex: index,
+        'membershipAssignmentForm.identityId': identity.id || '',
+        'membershipAssignmentForm.identity': identity.name || ''
+      });
+    },
+
+    onMembershipAssignmentWorkGroupChange(e) {
+      const index = Number(e.detail.value) || 0;
+      const workGroup = (this.data.assignmentWorkGroupOptions || [])[index] || {};
+      this.setData({
+        assignmentWorkGroupIndex: index,
+        'membershipAssignmentForm.workGroupId': workGroup.id || '',
+        'membershipAssignmentForm.workGroup': workGroup.name || ''
+      });
+    },
+
+    onMembershipAssignmentPrimaryChange(e) {
+      this.setData({ 'membershipAssignmentForm.isPrimary': Boolean(e.detail.value) });
+    },
+
+    async saveMembershipAssignment() {
+      const form = this.data.membershipAssignmentForm || {};
+      if (!form.departmentId || !form.identityId) {
+        wx.showToast({ title: '请选择部门和身份', icon: 'none' });
+        return;
+      }
+      this.setLoading('saveMembershipAssignment', true);
+      try {
+        const result = await this.callCloud('saveMembershipAssignment', {
+          ...form,
+          hrId: this.data.detailHrId
+        });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || '保存岗位失败', icon: 'none' });
+          return;
+        }
+        this.cancelMembershipAssignmentEdit();
+        await this.loadMembershipAssignments();
+        wx.showToast({ title: '岗位已保存', icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: '保存岗位失败', icon: 'none' });
+      } finally {
+        this.setLoading('saveMembershipAssignment', false);
+      }
+    },
+
+    deleteMembershipAssignment(e) {
+      const id = String(e.currentTarget.dataset.id || '');
+      if (!id) return;
+      wx.showModal({
+        title: '删除岗位',
+        content: '删除后该岗位不能再用于身份切换，历史业务记录仍会保留。',
+        success: async (modalResult) => {
+          if (!modalResult.confirm) return;
+          try {
+            const result = await this.callCloud('deleteMembershipAssignment', { id });
+            if (result.status !== 'success') {
+              wx.showToast({ title: result.message || '删除岗位失败', icon: 'none' });
+              return;
+            }
+            await this.loadMembershipAssignments();
+            wx.showToast({ title: '岗位已删除', icon: 'success' });
+          } catch (error) {
+            wx.showToast({ title: '删除岗位失败', icon: 'none' });
+          }
+        }
+      });
     },
 
     closeHrPersonDetail() {
@@ -738,7 +912,10 @@ module.exports = Behavior({
         detailDepartmentValue: 0,
         detailIdentityValue: 0,
         detailWorkGroupValue: 0,
-        detailFieldValues: {}
+        detailFieldValues: {},
+        membershipAssignmentList: [],
+        membershipAssignmentFormVisible: false,
+        membershipAssignmentForm: {}
       });
     },
 

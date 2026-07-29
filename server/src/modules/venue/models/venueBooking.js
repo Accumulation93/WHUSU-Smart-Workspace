@@ -68,23 +68,68 @@ async function getByIdForUpdate(id, conn) {
 }
 
 async function create(id, data, conn) {
-  const { venueId, userHrId, creatorType, creatorAdminId, creatorOrgId, approvalOrgId, title, description, timeStart, timeEnd, status, approvalFlowId, approvalTotalSteps } = data;
+  const {
+    venueId,
+    userHrId,
+    creatorPersonId,
+    creatorAssignmentId,
+    creatorAdminGrantId,
+    creatorContextSnapshot,
+    creatorType,
+    creatorAdminId,
+    creatorOrgId,
+    approvalOrgId,
+    title,
+    description,
+    timeStart,
+    timeEnd,
+    status,
+    approvalFlowId,
+    approvalTotalSteps
+  } = data;
   const db = conn || pool;
+  const contextSnapshot = creatorContextSnapshot && typeof creatorContextSnapshot === 'object'
+    ? JSON.stringify(creatorContextSnapshot)
+    : creatorContextSnapshot || null;
   await db.query(
-    `INSERT INTO venue_bookings (id, venue_id, user_hr_id, creator_type, creator_admin_id, creator_org_id, approval_org_id, title, description, time_start, time_end, status,
-      approval_flow_id, approval_current_step, approval_total_steps)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, venueId, userHrId || null, creatorType || 'user', creatorAdminId || null, creatorOrgId, approvalOrgId, title || '', description || '',
+    `INSERT INTO venue_bookings
+      (id, venue_id, user_hr_id, creator_person_id, creator_assignment_id,
+       creator_admin_grant_id, creator_context_snapshot, creator_type, creator_admin_id,
+       creator_org_id, approval_org_id, title, description, time_start, time_end, status,
+       approval_flow_id, approval_current_step, approval_total_steps)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, venueId, userHrId || null, creatorPersonId || null, creatorAssignmentId || null,
+     creatorAdminGrantId || null, contextSnapshot, creatorType || 'user', creatorAdminId || null,
+     creatorOrgId, approvalOrgId, title || '', description || '',
      timeStart, timeEnd, status || 'pending',
      approvalFlowId || null, 0, approvalTotalSteps || 0]
   );
 }
 
-async function updateStatus(id, status, approverHrId, approvalComment, conn) {
+async function updateStatus(id, status, approverHrId, approvalComment, conn, actor) {
   const db = conn || pool;
+  const contextSnapshot = actor && actor.contextId ? JSON.stringify({
+    contextId: actor.contextId,
+    role: actor.type,
+    identityName: actor.name || '',
+    adminLevel: actor.adminLevel || ''
+  }) : null;
   await db.query(
-    'UPDATE venue_bookings SET status = ?, approver_hr_id = ?, approval_comment = ? WHERE id = ?',
-    [status, approverHrId || null, approvalComment || null, id]
+    `UPDATE venue_bookings
+        SET status = ?, approver_hr_id = ?, approver_person_id = ?,
+            approver_assignment_id = ?, approver_admin_grant_id = ?,
+            approver_context_snapshot = ?, approval_comment = ?
+      WHERE id = ?`,
+    [
+      status,
+      approverHrId || null,
+      actor && actor.personId || null,
+      actor && actor.assignmentId || null,
+      actor && actor.adminGrantId || null,
+      contextSnapshot,
+      approvalComment || null,
+      id
+    ]
   );
 }
 

@@ -1,5 +1,16 @@
 const PERMISSION_GROUPS = [
   {
+    key: 'authentication',
+    label: '身份认证',
+    description: '',
+    permissions: [
+      { key: 'auth.identity.verify', label: '身份认证', description: '处理认领请求并签发个人认证码' },
+      { key: 'auth.accounts.recover', label: '账号恢复', description: '审核他人的微信账号恢复申请' },
+      { key: 'auth.accounts.audit', label: '安全审计', description: '查看本组织认证与账号安全记录' },
+      { key: 'auth.policy.manage', label: '认证策略', description: '管理全局认证与恢复策略', targetLevels: ['admin'], defaultLevels: [] }
+    ]
+  },
+  {
     key: 'permissions',
     label: '权限管理',
     description: '',
@@ -64,7 +75,7 @@ const PERMISSION_GROUPS = [
     description: '',
     permissions: [
       { key: 'system.admin_accounts.read', label: '管理员账号读取', description: '查看并导出同组织管理员账号' },
-      { key: 'system.admin_accounts.write', label: '管理员账号写入', description: '管理普通管理员和邀请码' },
+      { key: 'system.admin_accounts.write', label: '管理员账号写入', description: '管理普通管理员身份授权' },
       { key: 'system.settings', label: '系统参数', description: '查看和修改系统运行参数' },
       { key: 'system.organizations', label: '全局组织配置', description: '管理组织和默认组织', targetLevels: [], defaultLevels: [] }
     ]
@@ -122,7 +133,15 @@ mapAny(['/listHrInfo'], [
   'hr.people', 'hr.import', 'hr.profile_review', 'venue.resources',
   'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'
 ]);
-mapRoutes('hr.people', ['/saveHrInfo', '/deleteHrInfo', '/batchMaintainFromHrInfo', '/unbindHrWechat']);
+mapRoutes('hr.people', [
+  '/saveHrInfo',
+  '/deleteHrInfo',
+  '/batchMaintainFromHrInfo',
+  '/unbindHrWechat',
+  '/listMembershipAssignments',
+  '/saveMembershipAssignment',
+  '/deleteMembershipAssignment'
+]);
 mapRoutes('hr.import', ['/previewHrTableImport', '/importHrTable', '/importHrCsv']);
 mapAny(['/listHrProfileAdminData'], ['hr.people', 'hr.profile_review']);
 mapAny(['/getHrPersonDetail', '/saveHrPersonFull'], ['hr.people', 'hr.profile_review']);
@@ -175,6 +194,10 @@ mapRoutes('system.admin_accounts.write', [
 ]);
 mapRoutes('system.settings', ['/getSystemConfig', '/saveSystemConfig', '/listOrganizations', '/admin/health']);
 mapRoutes('system.organizations', ['/saveOrganization', '/deleteOrganization', '/switchOrganization']);
+mapRoutes('auth.identity.verify', ['/admin/auth/claims']);
+mapRoutes('auth.accounts.recover', ['/admin/auth/recoveries', '/admin/auth/accounts']);
+mapRoutes('auth.accounts.audit', ['/admin/auth/audit']);
+mapRoutes('auth.policy.manage', ['/admin/auth/policy']);
 mapAny(['/parseTableFile', '/buildTableFile'], [
   'hr.import', 'hr.people', 'hr.profile_review', 'scoring.templates'
 ]);

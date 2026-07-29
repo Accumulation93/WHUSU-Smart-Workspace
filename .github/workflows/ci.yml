@@ -67,6 +67,7 @@ jobs:
           node server/test/venueApprovalValidation.test.js
           node server/test/auditApprovalConditionSecurity.test.js
           node server/test/scoreRecordQuerySecurity.test.js
+          node server/test/scoreCalculationIdentity.test.js
           node server/test/publicationOrgIsolation.test.js
           node server/test/tableFileAuthorization.test.js
           node server/test/tableFileExport.test.js
@@ -83,6 +84,7 @@ jobs:
           node server/test/adminPermissionMiddleware.test.js
           node server/test/adminPermissionsMigration.test.js
           node server/test/authChallenge.test.js
+          node server/test/unifiedAuthContextToken.test.js
           node server/test/loginBindingContract.test.js
           node server/test/requestDeduplication.test.js
           node server/test/clientVersion.test.js
@@ -98,6 +100,7 @@ jobs:
           node server/test/auditUploadMigration.test.js
           node server/test/deploymentAutomation.test.js
           node server/test/deploymentMigrationIntegration.test.js
+          node server/test/unifiedIdentityMigration.test.js
           node server/test/venueFlowRestoreMigration.test.js
           node server/test/freshSchemaVenue.test.js
           bash -n server/scripts/deployProduction.sh

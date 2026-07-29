@@ -6,6 +6,7 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 const { resolveHrBindingStates } = require('../services/userBindingStatus');
 const { unbindUserAcrossOrganizations } = require('../services/userBindingUnbind');
 const { clearOrgAccessCache } = require('../../middleware/orgContext');
+const unifiedIdentityModel = require('../models/unifiedIdentity');
 
 const EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
 
@@ -126,6 +127,83 @@ router.post('/listHrInfo', async (req, res) => {
     res.json({ status: 'success', list });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/listMembershipAssignments', async (req, res) => {
+  try {
+    const admin = await adminInfoModel.getByOpenid(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    const legacyHrId = safeString(req.body.hrId);
+    if (!legacyHrId) return res.json({ status: 'invalid_params', message: '请提供人事成员' });
+    const orgId = await getCurrentOrgId();
+    const rows = await unifiedIdentityModel.listMembershipAssignments(legacyHrId, orgId);
+    return res.json({
+      status: 'success',
+      list: rows.map((item) => ({
+        id: safeString(item.id),
+        assignmentKind: safeString(item.assignment_kind),
+        title: safeString(item.title),
+        departmentId: safeString(item.department_id),
+        department: safeString(item.department_name),
+        identityId: safeString(item.identity_id),
+        identity: safeString(item.identity_name),
+        workGroupId: safeString(item.work_group_id),
+        workGroup: safeString(item.work_group_name),
+        isPrimary: Boolean(item.is_primary)
+      }))
+    });
+  } catch (error) {
+    return res.json({ status: 'error', message: safeString(error.message) || '加载岗位失败' });
+  }
+});
+
+router.post('/saveMembershipAssignment', async (req, res) => {
+  try {
+    const admin = await adminInfoModel.getByOpenid(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    const orgId = await getCurrentOrgId();
+    const result = await unifiedIdentityModel.saveMembershipAssignment({
+      id: safeString(req.body.id),
+      legacyHrId: safeString(req.body.hrId),
+      organizationId: orgId,
+      assignmentKind: safeString(req.body.assignmentKind),
+      title: safeString(req.body.title),
+      departmentId: safeString(req.body.departmentId),
+      identityId: safeString(req.body.identityId),
+      workGroupId: safeString(req.body.workGroupId),
+      isPrimary: req.body.isPrimary === true || req.body.isPrimary === 1
+    }, {
+      personId: req.authAccount && req.authAccount.personId,
+      contextId: req.authContext && req.authContext.contextId
+    });
+    return res.json({ status: 'success', id: result.id, message: '岗位已保存' });
+  } catch (error) {
+    return res.json({
+      status: error.code || 'error',
+      message: safeString(error.message) || '保存岗位失败'
+    });
+  }
+});
+
+router.post('/deleteMembershipAssignment', async (req, res) => {
+  try {
+    const admin = await adminInfoModel.getByOpenid(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '没有管理权限' });
+    const orgId = await getCurrentOrgId();
+    await unifiedIdentityModel.revokeMembershipAssignment({
+      id: safeString(req.body.id),
+      organizationId: orgId
+    }, {
+      personId: req.authAccount && req.authAccount.personId,
+      contextId: req.authContext && req.authContext.contextId
+    });
+    return res.json({ status: 'success', message: '岗位已删除' });
+  } catch (error) {
+    return res.json({
+      status: error.code || 'error',
+      message: safeString(error.message) || '删除岗位失败'
+    });
   }
 });
 
@@ -572,6 +650,10 @@ router.post('/importHrCsv', async (req, res) => {
         }
       }
 
+      await unifiedIdentityModel.syncLegacyHrRecords(
+        conn,
+        parsedRows.map((row) => hrInfoMap.get(row.studentId)).filter(Boolean)
+      );
       await conn.commit();
       const result = {
         status: 'success',
@@ -678,6 +760,24 @@ router.post('/unbindHrWechat', async (req, res) => {
     const orgId = await getCurrentOrgId();
     connection = await pool.getConnection();
     await connection.beginTransaction();
+    const unifiedResult = await unifiedIdentityModel.resetAccountByLegacyHr(
+      connection,
+      hrId,
+      orgId,
+      {
+        personId: req.authAccount && req.authAccount.personId,
+        contextId: req.authContext && req.authContext.contextId
+      },
+      'administrator_hr_reset'
+    );
+    if (unifiedResult) {
+      await connection.commit();
+      return res.json({
+        status: 'success',
+        message: '已将账号重置为待恢复，原微信和全部设备会话均已失效',
+        recoveryRequired: true
+      });
+    }
     const result = await unbindUserAcrossOrganizations({
       hrId,
       orgId,

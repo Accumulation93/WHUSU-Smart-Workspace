@@ -1,6 +1,7 @@
 const { callFunction } = require('./api');
 const eventBus = require('./eventBus');
 const orgSession = require('./orgSession');
+const authContext = require('./authContext');
 
 const STORAGE_KEY = 'roleProfiles';
 
@@ -14,6 +15,19 @@ function saveRoleProfile(role, user) {
 
 async function activateOrganization(organizationId) {
   const role = wx.getStorageSync('activeRole') === 'admin' ? 'admin' : 'user';
+  if (wx.getStorageSync('activeContextId')) {
+    const activated = await authContext.activateOrganizationContext(organizationId, role);
+    return {
+      activeOrg: {
+        id: activated.context.organizationId,
+        name: activated.context.organizationName
+      },
+      role: activated.context.role,
+      user: activated.user,
+      version: activated.version,
+      context: activated.context
+    };
+  }
   const result = await callFunction({
     name: 'activateOrganization',
     data: { organizationId, role }
