@@ -27,11 +27,17 @@ Page({
     recoveryMethodValues: [],
     recoveryCredential: '',
     rotatedRecoveryCode: '',
-    claimAvailable: true
+    claimAvailable: true,
+    authNotice: ''
   },
 
   onLoad() {
     this._loginSubmitting = false;
+    const authNotice = String(wx.getStorageSync('authLoginNotice') || '');
+    if (authNotice) {
+      wx.removeStorageSync('authLoginNotice');
+      this.setData({ authNotice: authNotice });
+    }
   },
 
   onName(e) {
@@ -85,7 +91,7 @@ Page({
   onLogin() {
     if (this._loginSubmitting || this.data.loading) return;
     this._loginSubmitting = true;
-    this.setData({ loading: true });
+    this.setData({ loading: true, authNotice: '' });
     wx.login({
       success: async (loginResult) => {
         try {

@@ -1,4 +1,9 @@
-const { callFunction } = require('./api');
+const {
+  callFunction,
+  markAuthenticationReady,
+  beginContextActivation,
+  endContextActivation
+} = require('./api');
 const eventBus = require('./eventBus');
 const orgSession = require('./orgSession');
 
@@ -149,7 +154,7 @@ function applyAuthenticatedResult(result) {
   if (selection.organizationId) wx.setStorageSync('lastOrganizationId', selection.organizationId);
   if (selection.identityId) wx.setStorageSync('lastIdentityId', selection.identityId);
   if (result.selectionNotice) wx.setStorageSync('authSelectionNotice', result.selectionNotice);
-  return orgSession.commitContext({
+  const committed = orgSession.commitContext({
     token: result.token,
     contextId: context.contextId,
     identityId: selection.identityId || context.authIdentityId || '',
@@ -157,6 +162,8 @@ function applyAuthenticatedResult(result) {
     orgId: context.organizationId,
     orgName: context.organizationName
   });
+  markAuthenticationReady();
+  return committed;
 }
 
 async function refreshCatalog() {
@@ -226,32 +233,42 @@ function applyActivatedResult(result) {
 }
 
 async function activateContext(contextId) {
-  const result = await callFunction({
-    name: 'auth/contexts/activate',
-    data: { contextId: contextId }
-  });
-  if (!result || result.status !== 'success' || !result.context) {
-    const error = new Error((result && result.message) || '未切换，请重试');
-    error.status = result && result.status;
-    throw error;
+  beginContextActivation();
+  try {
+    const result = await callFunction({
+      name: 'auth/contexts/activate',
+      data: { contextId: contextId }
+    });
+    if (!result || result.status !== 'success' || !result.context) {
+      const error = new Error((result && result.message) || '未切换，请重试');
+      error.status = result && result.status;
+      throw error;
+    }
+    return applyActivatedResult(result);
+  } finally {
+    endContextActivation();
   }
-  return applyActivatedResult(result);
 }
 
 async function activateSelection(organizationId, identityId) {
-  const result = await callFunction({
-    name: 'auth/contexts/activate',
-    data: {
-      organizationId: organizationId,
-      identityId: identityId
+  beginContextActivation();
+  try {
+    const result = await callFunction({
+      name: 'auth/contexts/activate',
+      data: {
+        organizationId: organizationId,
+        identityId: identityId
+      }
+    });
+    if (!result || result.status !== 'success' || !result.context) {
+      const error = new Error((result && result.message) || '未切换，请重试');
+      error.status = result && result.status;
+      throw error;
     }
-  });
-  if (!result || result.status !== 'success' || !result.context) {
-    const error = new Error((result && result.message) || '未切换，请重试');
-    error.status = result && result.status;
-    throw error;
+    return applyActivatedResult(result);
+  } finally {
+    endContextActivation();
   }
-  return applyActivatedResult(result);
 }
 
 async function activateOrganizationContext(organizationId, preferredRole) {

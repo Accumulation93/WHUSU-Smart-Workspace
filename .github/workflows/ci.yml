@@ -55,6 +55,7 @@ jobs:
         run: |
           node scripts/org-session-test.js
           node scripts/api-cancellation-test.js
+          node scripts/api-auth-recovery-test.js
           node scripts/admin-activity-org-switch-test.js
           node scripts/notification-org-switch-role-test.js
           node scripts/publication-summary-refresh-test.js
@@ -84,6 +85,7 @@ jobs:
           node server/test/adminPermissionMiddleware.test.js
           node server/test/adminPermissionsMigration.test.js
           node server/test/authChallenge.test.js
+          node server/test/unifiedSessionPolicy.test.js
           node server/test/unifiedAuthContextToken.test.js
           node server/test/unifiedContextCatalog.test.js
           node server/test/loginBindingContract.test.js

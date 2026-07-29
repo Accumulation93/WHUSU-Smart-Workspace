@@ -439,6 +439,8 @@ Authenticated WHUSU Smart Workspace pages use one shared workspace shell:
 
 - Every navigation title follows `子应用名称 - WHUSU智慧工作台`.
 - Every portal, business sub-application, and administration page uses the shared workspace hero. It shows the workspace brand, the current sub-application or page name, the person's name, active identity, active organization, and the organization-and-identity switch entry.
+- Use the established portal hierarchy inside the shared hero: the person's full name is the primary heading directly on the hero surface; identity and optional department/work-group details sit beneath it; the organization switch remains a compact inner glass row. The current page name is secondary metadata, never the largest heading.
+- Do not generate initials, avatar monograms, enlarged first-character decorations, or a separate decorative brand tile in the shared hero. These elements compete with the person's full name and make the page feel like an account directory rather than a workspace.
 - Do not recreate a local hero that merely resembles the shared one. A shared shell keeps identity changes, long organization names, phone spacing, and Pad spacing consistent.
 - Application-service grids fill their usable row with CSS Grid: three columns on phones, four on Pad portrait, and five on Pad landscape. Do not calculate item widths with percentages minus fixed gaps; rounding can push the last item onto a new row and leave a false empty column.
 - A wrapper grows from its content. One visual gap has one owner, so do not combine outer bottom padding, inner last-child margins, and footer spacing for the same separation.

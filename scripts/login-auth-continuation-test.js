@@ -41,6 +41,10 @@ function createPage() {
 async function run() {
   assert(pageDefinition, '登录页必须成功注册');
   const page = createPage();
+  storage.authLoginNotice = '登录已过期，请重新登录';
+  page.onLoad();
+  assert.strictEqual(page.data.authNotice, '登录已过期，请重新登录');
+  assert.strictEqual(storage.authLoginNotice, undefined, '登录提示读取后应立即清除');
 
   page.handleWechatSession({
     status: 'need_claim',

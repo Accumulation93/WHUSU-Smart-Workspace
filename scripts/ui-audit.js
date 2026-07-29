@@ -244,13 +244,18 @@ function scanAdminOrgContextContracts() {
     ['统一顶部卡缺少姓名', /personName/],
     ['统一顶部卡缺少身份', /identityName/],
     ['统一顶部卡缺少组织', /organizationName/],
-    ['统一顶部卡缺少切换入口', /catchtap="onSwitchTap"/]
+    ['统一顶部卡缺少切换入口', /catchtap="onSwitchTap"/],
+    ['统一顶部卡未将姓名作为主标题', /class="workspace-person-name"[^>]*>\{\{personName\}\}/],
+    ['统一顶部卡未将页面名称降为元数据', /class="workspace-page-name"/]
   ];
   for (const [message, pattern] of sharedChecks) {
     if (!pattern.test(sharedHero)) findings.push({ page: '统一顶部身份卡', message });
   }
   if (!/\/subpackages\/org\/pages\/identitySwitch\/identitySwitch/.test(sharedHeroScript)) {
     findings.push({ page: '统一顶部身份卡', message: '切换入口未指向组织与身份页面' });
+  }
+  if (/personInitial|workspace-person-avatar|workspace-brand-mark/.test(sharedHero + sharedHeroScript)) {
+    findings.push({ page: '统一顶部身份卡', message: '禁止首字头像或装饰性品牌方块' });
   }
   return findings;
 }

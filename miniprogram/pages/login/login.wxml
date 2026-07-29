@@ -7,6 +7,10 @@
     </view>
 
     <view class="login-main">
+      <view class="login-notice" wx:if="{{authNotice}}">
+        <ui-icon name="shield" tone="primary" size="26" ariaLabel="登录提示" />
+        <text>{{authNotice}}</text>
+      </view>
       <view class="card login-card">
         <view class="section-title">登录</view>
         <view class="card-desc">请使用本人微信登录</view>

@@ -12,7 +12,7 @@ const {
 } = require('../services/identityCrypto');
 
 const APP_ID = 'whusu-smart-workspace';
-const SESSION_MINUTES = 30;
+const SESSION_MINUTES = 7 * 24 * 60;
 const BOOTSTRAP_MINUTES = 15;
 const CLAIM_HOURS = 48;
 const VERIFY_TOKEN_HOURS = 24;

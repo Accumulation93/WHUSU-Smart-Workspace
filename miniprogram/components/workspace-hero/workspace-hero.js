@@ -44,7 +44,6 @@ Component({
     identityName: '',
     identityDetail: '',
     organizationName: '',
-    personInitial: '',
     signedIn: false
   },
 
@@ -83,7 +82,6 @@ Component({
         identityName: profile.identityName || '身份信息加载中',
         identityDetail: detailParts.join(' · '),
         organizationName: profile.organizationName || '组织信息加载中',
-        personInitial: profile.name ? profile.name.charAt(0) : '',
         signedIn: Boolean(profile.name)
       });
     },

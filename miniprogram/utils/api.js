@@ -8,6 +8,17 @@ const IDEMPOTENT_WRITE_APIS = {
   createVenueBooking: true,
   createAdminVenueBooking: true
 };
+const AUTH_ENTRY_APIS = {
+  'auth/wechat/session': true,
+  'auth/claims': true,
+  'auth/claims/verify': true,
+  'auth/recovery/start': true,
+  'auth/recovery/complete': true
+};
+
+let authenticationRefreshPromise = null;
+let authenticationRedirecting = false;
+let contextActivationDepth = 0;
 
 function createRequestId() {
   return 'mp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
@@ -61,6 +72,202 @@ function notifyOrgContextRequired(result) {
   });
 }
 
+function createResponseError(res) {
+  const responseData = res.data || {};
+  return {
+    errMsg: 'request:fail statusCode ' + res.statusCode,
+    message: responseData.message || '',
+    status: responseData.status || '',
+    statusCode: res.statusCode,
+    data: responseData,
+    requestId: (res.header && (res.header['X-Request-Id'] || res.header['x-request-id'])) || ''
+  };
+}
+
+function isAuthenticationFailure(statusCode, result) {
+  if (Number(statusCode) !== 401) return false;
+  const status = String((result && result.status) || '');
+  return !status || [
+    'auth_failed',
+    'session_expired',
+    'binding_missing',
+    'account_unavailable'
+  ].indexOf(status) >= 0;
+}
+
+function getFreshWechatCode() {
+  return new Promise(function(resolve, reject) {
+    wx.login({
+      success: function(result) {
+        const code = String((result && result.code) || '');
+        if (code) resolve(code);
+        else reject({ status: 'auth_failed', message: '登录已过期，请重新登录' });
+      },
+      fail: function() {
+        reject({ status: 'auth_failed', message: '登录已过期，请重新登录' });
+      }
+    });
+  });
+}
+
+function requestWechatSession(code) {
+  return new Promise(function(resolve, reject) {
+    wx.request({
+      url: API_BASE + '/auth/wechat/session',
+      method: 'POST',
+      timeout: 15000,
+      header: createRequestHeaders(createRequestId()),
+      data: {
+        code: code,
+        preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
+        preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
+      },
+      success: function(res) {
+        const result = res.data || {};
+        if (res.statusCode === 200 && result.status === 'login_success') {
+          resolve(result);
+          return;
+        }
+        const error = createResponseError(res);
+        if (!error.message) error.message = result.message || '登录已过期，请重新登录';
+        reject(error);
+      },
+      fail: function(error) {
+        reject({
+          status: 'auth_failed',
+          message: '登录已过期，请重新登录',
+          errMsg: (error && error.errMsg) || 'request:fail'
+        });
+      }
+    });
+  });
+}
+
+function refreshAuthentication() {
+  if (authenticationRefreshPromise) return authenticationRefreshPromise;
+  authenticationRefreshPromise = getFreshWechatCode()
+    .then(requestWechatSession)
+    .then(function(result) {
+      // 延迟加载可避免 api.js 与 authContext.js 在初始化阶段互相引用。
+      require('./authContext').applyAuthenticatedResult(result);
+      authenticationRefreshPromise = null;
+      authenticationRedirecting = false;
+      return result;
+    }, function(error) {
+      authenticationRefreshPromise = null;
+      throw error;
+    });
+  return authenticationRefreshPromise;
+}
+
+function authenticationMessage(error) {
+  const status = String((error && error.status) || '');
+  if (status === 'account_frozen') return '账号已冻结，请联系管理员';
+  if (status === 'need_claim' || status === 'binding_missing') return '请重新登录';
+  return '登录已过期，请重新登录';
+}
+
+function redirectToLogin(error) {
+  if (authenticationRedirecting) return;
+  authenticationRedirecting = true;
+  const message = authenticationMessage(error);
+  try {
+    require('./authContext').clearUnifiedAuthentication();
+  } catch (_) {
+    orgSession.clearAuthentication('');
+  }
+  wx.setStorageSync('authLoginNotice', message);
+  wx.showToast({ title: message, icon: 'none', duration: 1800 });
+  wx.reLaunch({ url: '/pages/login/login?reason=expired' });
+}
+
+function markAuthenticationReady() {
+  authenticationRedirecting = false;
+}
+
+function beginContextActivation() {
+  contextActivationDepth += 1;
+}
+
+function endContextActivation() {
+  contextActivationDepth = Math.max(0, contextActivationDepth - 1);
+}
+
+function hasSameSelection(left, right) {
+  if (!left || !right) return false;
+  return left.orgId === right.orgId
+    && left.role === right.role
+    && left.contextId === right.contextId
+    && left.identityId === right.identityId;
+}
+
+function requestOnce(name, data, requestId, allowAuthenticationRefresh) {
+  const organizationSnapshot = orgSession.getSnapshot();
+  return new Promise(function(resolve, reject) {
+    wx.request({
+      url: API_BASE + '/' + name,
+      method: 'POST',
+      timeout: 15000,
+      header: createRequestHeaders(requestId),
+      data: data,
+      success: function(res) {
+        if (!orgSession.isCurrent(organizationSnapshot)) {
+          const currentSnapshot = orgSession.getSnapshot();
+          if (allowAuthenticationRefresh
+            && hasSameSelection(organizationSnapshot, currentSnapshot)
+            && currentSnapshot.token
+            && currentSnapshot.token !== organizationSnapshot.token) {
+            requestOnce(name, data, requestId, false).then(resolve, reject);
+            return;
+          }
+          reject(cancelledError(requestId));
+          return;
+        }
+        if (res.statusCode === 200) {
+          notifyUpgrade(res.data);
+          notifyOrgContextRequired(res.data);
+          resolve(res.data);
+          return;
+        }
+        const responseData = res.data || {};
+        notifyUpgrade(responseData);
+        notifyOrgContextRequired(responseData);
+        const responseError = createResponseError(res);
+        if (responseData.status === 'org_context_required') responseError.silent = true;
+        if (contextActivationDepth > 0
+          && name !== 'auth/contexts/activate'
+          && isAuthenticationFailure(res.statusCode, responseData)) {
+          reject(cancelledError(requestId));
+          return;
+        }
+        if (allowAuthenticationRefresh
+          && !AUTH_ENTRY_APIS[name]
+          && isAuthenticationFailure(res.statusCode, responseData)) {
+          refreshAuthentication().then(function() {
+            return requestOnce(name, data, requestId, false);
+          }).then(resolve, function(error) {
+            redirectToLogin(error);
+            error.silent = true;
+            reject(error);
+          });
+          return;
+        }
+        reject(responseError);
+      },
+      fail: function(err) {
+        if (!orgSession.isCurrent(organizationSnapshot)) {
+          reject(cancelledError(requestId));
+          return;
+        }
+        console.error('[API] Request failed:', name, JSON.stringify(err));
+        const requestError = err || { errMsg: 'request:fail unknown' };
+        if (/timeout/i.test(requestError.errMsg || '')) requestError.timedOut = true;
+        reject(requestError);
+      }
+    });
+  });
+}
+
 function callFunction(options) {
   const name = options.name || '';
   const data = Object.assign({}, options.data || {});
@@ -77,60 +284,9 @@ function callFunction(options) {
     return rejected;
   }
 
-  let settled = false;
-  const organizationSnapshot = orgSession.getSnapshot();
   const requestId = createRequestId();
   if (IDEMPOTENT_WRITE_APIS[name] && !data.clientRequestId) data.clientRequestId = requestId;
-  const promise = new Promise(function(resolve, reject) {
-    function settle(err, result) {
-      if (settled) return;
-      settled = true;
-      if (err) { reject(err); } else { resolve(result); }
-    }
-
-    wx.request({
-      url: API_BASE + '/' + name,
-      method: 'POST',
-      timeout: 15000,
-      header: createRequestHeaders(requestId),
-      data: data,
-      success: function(res) {
-        if (!orgSession.isCurrent(organizationSnapshot)) {
-          settle(cancelledError(requestId));
-          return;
-        }
-        if (res.statusCode === 200) {
-          notifyUpgrade(res.data);
-          notifyOrgContextRequired(res.data);
-          settle(null, res.data);
-        } else {
-          const responseData = res.data || {};
-          notifyUpgrade(responseData);
-          notifyOrgContextRequired(responseData);
-          const responseError = {
-            errMsg: 'request:fail statusCode ' + res.statusCode,
-            message: responseData.message || '',
-            status: responseData.status || '',
-            statusCode: res.statusCode,
-            data: responseData,
-            requestId: (res.header && (res.header['X-Request-Id'] || res.header['x-request-id'])) || ''
-          };
-          if (responseData.status === 'org_context_required') responseError.silent = true;
-          settle(responseError);
-        }
-      },
-      fail: function(err) {
-        if (!orgSession.isCurrent(organizationSnapshot)) {
-          settle(cancelledError(requestId));
-          return;
-        }
-        console.error('[API] Request failed:', name, JSON.stringify(err));
-        const requestError = err || { errMsg: 'request:fail unknown' };
-        if (/timeout/i.test(requestError.errMsg || '')) requestError.timedOut = true;
-        settle(requestError);
-      }
-    });
-  });
+  const promise = requestOnce(name, data, requestId, true);
 
   // Backward compatibility: wire up callbacks if provided
   if (success || fail || complete) {
@@ -192,6 +348,9 @@ module.exports = {
   callFunction: callFunction,
   createRequestId: createRequestId,
   createRequestHeaders: createRequestHeaders,
+  markAuthenticationReady: markAuthenticationReady,
+  beginContextActivation: beginContextActivation,
+  endContextActivation: endContextActivation,
   showShortToast: showShortToast,
   getErrorText: getErrorText,
   isRequestCancelled: function(error) { return !!(error && (error.silent || error.status === 'request_cancelled')); },
