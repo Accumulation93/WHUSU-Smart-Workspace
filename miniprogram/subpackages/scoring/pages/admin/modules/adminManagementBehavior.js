@@ -103,6 +103,7 @@ module.exports = Behavior({
       this.setData({
         adminForm: {
           ...this.data.adminForm,
+          hrId: item.id,
           name: item.name,
           studentId: item.studentId
         }
@@ -132,10 +133,12 @@ module.exports = Behavior({
         adminLevelIndex,
         adminForm: {
           id: item.id,
+          hrId: '',
           name: item.name,
           studentId: item.studentId,
           adminLevel
         },
+        adminFormVisible: true,
         activeTab: 'admins'
       });
     },
@@ -145,7 +148,8 @@ module.exports = Behavior({
       form.adminLevel = this.data.adminLevelValues[0] || 'admin';
       this.setData({
         adminForm: form,
-        adminLevelIndex: 0
+        adminLevelIndex: 0,
+        adminFormVisible: false
       });
     },
 
@@ -155,7 +159,7 @@ module.exports = Behavior({
       }
   
       this.resetAdminForm();
-      this.setData({ activeTab: 'admins' });
+      this.setData({ activeTab: 'admins', adminFormVisible: true });
     },
 
     async saveAdmin() {
@@ -232,36 +236,39 @@ module.exports = Behavior({
         return;
       }
   
-      const { id } = e.currentTarget.dataset;
-      wx.showModal({
-        title: '删除管理员',
-        content: '删除后该账号将无法继续登录。是否继续？',
-        success: async (res) => {
-          if (!res.confirm) {
-            return;
-          }
-          try {
-            const result = await this.callCloud('deleteAdmin', { id });
-            if (result.status !== 'success') {
-              wx.showToast({
-                title: result.message || '未删除，请重试',
-                icon: 'none'
-              });
-              return;
-            }
-            await this.loadAdminList();
-            wx.showToast({
-              title: '管理员已删除',
-              icon: 'success'
-            });
-          } catch (error) {
-            wx.showToast({
-              title: '未删除，请重试',
-              icon: 'none'
-            });
-          }
-        }
+      const id = String(e.currentTarget.dataset.id || '');
+      const target = (this.data.adminList || []).find((item) => String(item.id) === id);
+      if (!id) return;
+      this.setData({
+        adminDeleteConfirmVisible: true,
+        adminDeleteConfirmId: id,
+        adminDeleteConfirmName: target ? target.name : ''
       });
+    },
+
+    closeAdminDeleteConfirm() {
+      this.setData({
+        adminDeleteConfirmVisible: false,
+        adminDeleteConfirmId: '',
+        adminDeleteConfirmName: ''
+      });
+    },
+
+    async confirmDeleteAdmin() {
+      const id = this.data.adminDeleteConfirmId;
+      if (!id) return;
+      this.closeAdminDeleteConfirm();
+      try {
+        const result = await this.callCloud('deleteAdmin', { id });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || '未删除，请重试', icon: 'none' });
+          return;
+        }
+        await this.loadAdminList();
+        wx.showToast({ title: '管理员已删除', icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: '未删除，请重试', icon: 'none' });
+      }
     },
   
     // ─── Publication Management (类别-条款层级架构) ───

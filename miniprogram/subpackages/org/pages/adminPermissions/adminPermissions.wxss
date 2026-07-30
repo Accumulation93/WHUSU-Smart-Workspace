@@ -101,21 +101,21 @@ page {
 .permission-primary { color: #fff; background: linear-gradient(135deg, #2563eb 0%, #3b82f6 58%, #60a5fa 100%); border: 0; box-shadow: 0 12rpx 24rpx rgba(37,99,235,.2), inset 0 1rpx 0 rgba(255,255,255,.24); }
 
 @media (min-width: 520px) {
-  .permission-page { width: min(720px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 48px; }
-  .permission-hero { padding: 34px; border-radius: 28px; }
+  .permission-page { width: min(720px, calc(100% - 40px)); margin: 0 auto; padding: 22px 0 32px; }
+  .permission-hero { padding: 24px 26px; border-radius: 20px; }
   .permission-hero-title { font-size: var(--ui-type-page); }
-  .permission-card { padding: 26px; border-radius: 24px; }
-  .permission-dialog { width: min(720px, calc(100vw - 48px)); max-height: calc(100vh - 48px); border-radius: 26px; }
-  .permission-dialog-header { padding: 24px 26px 18px; }
-  .permission-dialog-body { padding: 18px 22px; }
-  .permission-dialog-footer { padding: 16px 22px; }
-  .permission-role-mark { width: 42px; height: 42px; border-radius: 12px; }
+  .permission-card { padding: 18px; border-radius: 16px; }
+  .permission-dialog { width: min(720px, calc(100vw - 36px)); max-height: calc(100vh - 36px); border-radius: 18px; }
+  .permission-dialog-header { padding: 18px 20px 12px; }
+  .permission-dialog-body { padding: 12px 18px; }
+  .permission-dialog-footer { padding: 12px 18px; }
+  .permission-role-mark { width: 36px; height: 36px; border-radius: 10px; }
 }
 
 @media (min-width: 900px) {
-  .permission-page { width: min(1040px, calc(100% - 72px)); }
+  .permission-page { width: min(1040px, calc(100% - 56px)); }
   .permission-admin-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .permission-dialog { width: min(860px, calc(100vw - 64px)); }
+  .permission-dialog { width: min(860px, calc(100vw - 48px)); }
 }
 .context-switch-guard-card {
   padding: 26rpx;
@@ -160,13 +160,13 @@ page {
 }
 
 @media (min-width: 520px) {
-  .context-switch-guard-card { padding: 24px 26px; }
+  .context-switch-guard-card { padding: 18px 20px; }
   .context-switch-guard-icon {
-    width: 50px;
-    height: 50px;
-    margin-bottom: 13px;
-    border-radius: 14px;
+    width: 42px;
+    height: 42px;
+    margin-bottom: 10px;
+    border-radius: 11px;
   }
   .context-switch-guard-desc { margin-top: 8px; }
-  .context-switch-guard-actions { margin-top: 16px; }
+  .context-switch-guard-actions { margin-top: 12px; }
 }

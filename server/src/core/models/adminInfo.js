@@ -70,6 +70,20 @@ async function getAll(operator) {
   return listVisible(operator, orgId);
 }
 
+async function getByOpenidForOrganization(openid, orgId, connection, lock) {
+  const db = connection || pool;
+  const [rows] = await db.query(
+    `SELECT * FROM admin_info
+      WHERE openid = ? AND bind_status = 'active'
+        AND ((admin_level = 'super_admin' AND org_id = '')
+          OR (admin_level = 'admin' AND org_id = ?))
+      ORDER BY admin_level = 'super_admin' DESC
+      LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
+    [openid, orgId]
+  );
+  return rows[0] || null;
+}
+
 async function listByIdsInOrg(ids, orgId) {
   const adminIds = Array.isArray(ids) ? [...new Set(ids.filter(Boolean))] : [];
   if (!adminIds.length || !orgId) return [];
@@ -216,7 +230,8 @@ async function getByOpenidAcrossOrgs(openid) {
 }
 
 module.exports = {
-  getByOpenid, getByOpenidAny, getByOpenidGlobal, getByOpenidAcrossOrgs, getById, getByIdGlobal,
+  getByOpenid, getByOpenidAny, getByOpenidGlobal, getByOpenidForOrganization,
+  getByOpenidAcrossOrgs, getById, getByIdGlobal,
   listVisible, getAll, listByIdsInOrg, create, update, remove, studentExists, updateProfile, updateInvite, removeExact,
   lockSuperAdmins, getByInviteCode, getSuperAdmin, getByAdminLevel
 };

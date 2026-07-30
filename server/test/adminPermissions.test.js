@@ -23,6 +23,8 @@ const {
 
   assert(ROUTE_RULES.get('/listAdmins').anyOf.includes('system.admin_accounts.read'));
   assert(ROUTE_RULES.get('/saveAdmin').anyOf.includes('system.admin_accounts.write'));
+  assert(ROUTE_RULES.get('/listPersonIdentities').anyOf.includes('hr.people'));
+  assert(ROUTE_RULES.get('/listPersonIdentities').anyOf.includes('system.admin_accounts.read'));
   assert(ROUTE_RULES.get('/saveScoreActivity').anyOf.includes('scoring.activities'));
   assert(ROUTE_RULES.get('/saveOrganization').anyOf.includes('system.organizations'));
   assert.deepStrictEqual(ROUTE_RULES.get('/admin/health').anyOf, ['system.settings']);

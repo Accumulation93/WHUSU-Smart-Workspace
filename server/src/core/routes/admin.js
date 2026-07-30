@@ -6,6 +6,11 @@ const adminInfoModel = require('../models/adminInfo');
 const userInfoModel = require('../models/userInfo');
 const pool = require('../../config/db');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
+const personIdentityOverviewModel = require('../models/personIdentityOverview');
+const {
+  AdminOrganizationAccessError,
+  requireAdminOrganizationPermission
+} = require('../services/adminOrganizationAccess');
 const {
   ADMIN_LEVELS,
   isSuperAdmin,
@@ -56,8 +61,11 @@ function creatableLevels(operator, canWrite) {
 }
 
 async function createAdminRecord(connection, operator, orgId, body) {
-  const name = safeString(body.name);
-  const studentId = safeString(body.studentId);
+  const selectedPerson = safeString(body.hrId)
+    ? await personIdentityOverviewModel.resolvePersonByLegacyHrId(body.hrId, connection)
+    : null;
+  const name = selectedPerson ? safeString(selectedPerson.name) : safeString(body.name);
+  const studentId = selectedPerson ? safeString(selectedPerson.student_id) : safeString(body.studentId);
   const adminLevel = safeString(body.adminLevel || 'admin');
   if (!name || !studentId) return { error: { status: 'invalid_params', message: '请填写姓名和学号' } };
   if (!ADMIN_LEVELS.includes(adminLevel)) return { error: { status: 'invalid_params', message: '请选择管理员类别' } };
@@ -124,22 +132,20 @@ router.post('/listAdmins', async (req, res) => {
       manageableLevel: levels.length === 1 ? levels[0].value : ''
     });
   } catch (error) {
-    res.json({ status: 'error', message: safeString(error.message) });
+    req.logger.error('List admins failed', { error: error.message });
+    res.status(500).json({ status: 'error', message: '请稍后刷新管理员' });
   }
 });
 
 router.post('/saveAdmin', async (req, res) => {
   let connection;
   try {
-    const operator = await ensureAdmin(req);
-    if (!operator || !hasAccountWrite(req, operator)) {
-      return res.status(403).json({ status: 'permission_denied', message: '请使用可管理管理员的身份' });
-    }
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
     const requestedLevel = safeString(req.body.adminLevel || 'admin');
-    const orgId = await getCurrentOrgId();
+    const currentOrgId = await getCurrentOrgId();
+    const requestedOrgId = safeString(req.body.organizationId) || currentOrgId;
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
@@ -153,7 +159,15 @@ router.post('/saveAdmin', async (req, res) => {
         await connection.rollback();
         return res.json({ status: 'not_found', message: '请刷新管理员列表' });
       }
-      if (!canManageTarget(operator, target, orgId)) {
+      const targetOrgId = target.admin_level === 'super_admin' ? requestedOrgId : safeString(target.org_id);
+      const access = await requireAdminOrganizationPermission(
+        req,
+        targetOrgId,
+        ['system.admin_accounts.write'],
+        connection
+      );
+      const operator = access.admin;
+      if (!canManageTarget(operator, target, targetOrgId)) {
         await connection.rollback();
         return res.json({ status: 'forbidden', message: '请选择可管理的管理员' });
       }
@@ -171,7 +185,13 @@ router.post('/saveAdmin', async (req, res) => {
       return res.json({ status: 'success', message: '管理员已更新' });
     }
 
-    const created = await createAdminRecord(connection, operator, orgId, req.body);
+    const access = await requireAdminOrganizationPermission(
+      req,
+      requestedOrgId,
+      ['system.admin_accounts.write'],
+      connection
+    );
+    const created = await createAdminRecord(connection, access.admin, requestedOrgId, req.body);
     if (created.error) {
       await connection.rollback();
       return res.json(created.error);
@@ -186,7 +206,13 @@ router.post('/saveAdmin', async (req, res) => {
     if (connection) {
       try { await connection.rollback(); } catch (_) {}
     }
-    res.json({ status: 'error', message: safeString(error.message) });
+    const isExpected = error instanceof AdminOrganizationAccessError
+      || error instanceof unifiedIdentityModel.IdentityError;
+    if (!isExpected) req.logger.error('Save admin failed', { error: error.message });
+    res.status(isExpected ? (error.httpStatus || 400) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : '未保存，请重试'
+    });
   } finally {
     if (connection) connection.release();
   }
@@ -195,13 +221,9 @@ router.post('/saveAdmin', async (req, res) => {
 router.post('/deleteAdmin', async (req, res) => {
   let connection;
   try {
-    const operator = await ensureAdmin(req);
-    if (!operator || !hasAccountWrite(req, operator)) {
-      return res.status(403).json({ status: 'permission_denied', message: '请使用可管理管理员的身份' });
-    }
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: '请重新选择管理员' });
-    const orgId = await getCurrentOrgId();
+    const currentOrgId = await getCurrentOrgId();
     connection = await pool.getConnection();
     await connection.beginTransaction();
     const target = await adminInfoModel.getByIdGlobal(id, connection, true);
@@ -209,6 +231,16 @@ router.post('/deleteAdmin', async (req, res) => {
       await connection.rollback();
       return res.json({ status: 'not_found', message: '请刷新管理员列表' });
     }
+    const orgId = target.admin_level === 'super_admin'
+      ? (safeString(req.body.organizationId) || currentOrgId)
+      : safeString(target.org_id);
+    const access = await requireAdminOrganizationPermission(
+      req,
+      orgId,
+      ['system.admin_accounts.write'],
+      connection
+    );
+    const operator = access.admin;
     if (!canManageTarget(operator, target, orgId)) {
       await connection.rollback();
       return res.json({ status: 'forbidden', message: '请选择可管理的管理员' });
@@ -229,7 +261,13 @@ router.post('/deleteAdmin', async (req, res) => {
     if (connection) {
       try { await connection.rollback(); } catch (_) {}
     }
-    res.json({ status: 'error', message: safeString(error.message) });
+    const isExpected = error instanceof AdminOrganizationAccessError
+      || error instanceof unifiedIdentityModel.IdentityError;
+    if (!isExpected) req.logger.error('Delete admin failed', { error: error.message });
+    res.status(isExpected ? (error.httpStatus || 400) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : '未删除，请重试'
+    });
   } finally {
     if (connection) connection.release();
   }

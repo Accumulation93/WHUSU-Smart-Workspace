@@ -7,6 +7,12 @@ const { resolveHrBindingStates } = require('../services/userBindingStatus');
 const { unbindUserAcrossOrganizations } = require('../services/userBindingUnbind');
 const { clearOrgAccessCache } = require('../../middleware/orgContext');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
+const personIdentityOverviewModel = require('../models/personIdentityOverview');
+const {
+  AdminOrganizationAccessError,
+  listAdminOrganizationAccess,
+  requireAdminOrganizationPermission
+} = require('../services/adminOrganizationAccess');
 
 const EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
 
@@ -26,6 +32,16 @@ const profileTemplateModel = require('../models/hrProfileTemplate');
 const profileFieldModel = require('../models/hrProfileField');
 const hrTableImportModel = require('../models/hrTableImport');
 const pool = require('../../config/db');
+
+function authenticationStatus(row) {
+  const accountStatus = safeString(row.account_status);
+  if (accountStatus === 'frozen') return { value: 'frozen', label: '已冻结' };
+  if (accountStatus === 'recovery_required') return { value: 'recovery_required', label: '待恢复' };
+  if (accountStatus === 'verified' && Boolean(row.has_active_binding)) {
+    return { value: 'verified', label: '已认证' };
+  }
+  return { value: 'pending_verification', label: '待认证' };
+}
 
 function tryParseDate(rawValue) {
   const value = (rawValue == null ? '' : String(rawValue)).trim();
@@ -132,11 +148,10 @@ router.post('/listHrInfo', async (req, res) => {
 
 router.post('/listMembershipAssignments', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const legacyHrId = safeString(req.body.hrId);
     if (!legacyHrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
-    const orgId = await getCurrentOrgId();
+    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
+    await requireAdminOrganizationPermission(req, orgId, ['hr.people']);
     const rows = await unifiedIdentityModel.listMembershipAssignments(legacyHrId, orgId);
     return res.json({
       status: 'success',
@@ -157,11 +172,133 @@ router.post('/listMembershipAssignments', async (req, res) => {
   }
 });
 
+router.post('/listPersonIdentities', async (req, res) => {
+  try {
+    const legacyHrId = safeString(req.body.hrId);
+    if (!legacyHrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
+    const accessList = await listAdminOrganizationAccess(req);
+    const readableAccess = accessList.filter((item) => item.canReadAssignments || item.canReadAdmins);
+    const readableOrganizationIds = readableAccess.map((item) => item.organizationId);
+    const editableOrganizationIds = readableAccess
+      .filter((item) => item.canEditAssignments)
+      .map((item) => item.organizationId);
+    const data = await personIdentityOverviewModel.listPersonIdentityData(
+      legacyHrId,
+      readableOrganizationIds,
+      editableOrganizationIds
+    );
+    if (!data) return res.json({ status: 'not_found', message: '请刷新人员列表' });
+
+    const accessByOrg = new Map(readableAccess.map((item) => [item.organizationId, item]));
+    const assignmentsByOrg = new Map();
+    data.assignments.forEach((item) => {
+      const orgId = safeString(item.org_id);
+      const rows = assignmentsByOrg.get(orgId) || [];
+      rows.push({
+        id: safeString(item.id),
+        assignmentKind: safeString(item.assignment_kind),
+        title: safeString(item.title),
+        departmentId: safeString(item.department_id),
+        department: safeString(item.department_name),
+        identityId: safeString(item.identity_id),
+        identity: safeString(item.identity_name),
+        workGroupId: safeString(item.work_group_id),
+        workGroup: safeString(item.work_group_name)
+      });
+      assignmentsByOrg.set(orgId, rows);
+    });
+    const grantsByOrg = new Map();
+    data.grants.filter((item) => safeString(item.org_id)).forEach((item) => {
+      const orgId = safeString(item.org_id);
+      const rows = grantsByOrg.get(orgId) || [];
+      const auth = authenticationStatus(item);
+      rows.push({
+        id: safeString(item.legacy_admin_id),
+        grantId: safeString(item.id),
+        adminLevel: safeString(item.admin_level),
+        adminLevelLabel: '普通管理员',
+        authenticationStatus: auth.value,
+        authenticationStatusLabel: auth.label
+      });
+      grantsByOrg.set(orgId, rows);
+    });
+    const dictionariesByOrg = new Map();
+    const appendDictionary = (kind, item) => {
+      const orgId = safeString(item.org_id);
+      const current = dictionariesByOrg.get(orgId) || {
+        departments: [], identities: [], workGroups: []
+      };
+      const value = { id: safeString(item.id), name: safeString(item.name) };
+      if (kind === 'workGroups') value.departmentId = safeString(item.department_id);
+      current[kind].push(value);
+      dictionariesByOrg.set(orgId, current);
+    };
+    data.dictionaries.departments.forEach((item) => appendDictionary('departments', item));
+    data.dictionaries.identities.forEach((item) => appendDictionary('identities', item));
+    data.dictionaries.workGroups.forEach((item) => appendDictionary('workGroups', item));
+
+    const operatorPersonId = safeString(req.authAccount && req.authAccount.personId);
+    const organizations = data.memberships.map((membership) => {
+      const orgId = safeString(membership.org_id);
+      const access = accessByOrg.get(orgId) || {};
+      const adminIdentities = access.canReadAdmins ? (grantsByOrg.get(orgId) || []) : [];
+      const dictionaries = dictionariesByOrg.get(orgId) || {
+        departments: [], identities: [], workGroups: []
+      };
+      return {
+        organizationId: orgId,
+        organizationName: safeString(membership.organization_name),
+        hrId: safeString(membership.legacy_hr_id),
+        canReadAssignments: Boolean(access.canReadAssignments),
+        canEditAssignments: Boolean(access.canEditAssignments),
+        canReadAdmins: Boolean(access.canReadAdmins),
+        canEditAdmins: Boolean(access.canEditAdmins),
+        assignments: access.canReadAssignments ? (assignmentsByOrg.get(orgId) || []) : [],
+        adminIdentities,
+        canAddAdmin: Boolean(access.canEditAdmins && !adminIdentities.length),
+        dictionaries
+      };
+    });
+    const operatorIsSuperAdmin = accessList.some((item) => item.isSuperAdmin);
+    const currentOrganizationId = safeString(req.authContext && req.authContext.organizationId);
+    const managementOrganizationId = accessList.some((item) => item.organizationId === currentOrganizationId)
+      ? currentOrganizationId
+      : safeString(accessList[0] && accessList[0].organizationId);
+    const globalAdminIdentities = operatorIsSuperAdmin
+      ? data.grants.filter((item) => safeString(item.org_id) === '').map((item) => {
+          const auth = authenticationStatus(item);
+          return {
+            id: safeString(item.legacy_admin_id),
+            grantId: safeString(item.id),
+            adminLevel: 'super_admin',
+            adminLevelLabel: '超级管理员',
+            authenticationStatus: auth.value,
+            authenticationStatusLabel: auth.label,
+            canDelete: safeString(item.person_id) !== operatorPersonId
+          };
+        })
+      : [];
+    res.json({
+      status: 'success',
+      person: { name: safeString(data.person.name), studentId: safeString(data.person.student_id) },
+      organizations,
+      globalAdminIdentities,
+      managementOrganizationId,
+      canAddGlobalSuperAdmin: Boolean(operatorIsSuperAdmin && !globalAdminIdentities.length)
+    });
+  } catch (error) {
+    const isExpected = error instanceof AdminOrganizationAccessError;
+    if (!isExpected) req.logger.error('List person identities failed', { error: error.message });
+    return res.status(isExpected ? (error.httpStatus || 403) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : '请稍后刷新身份信息'
+    });
+  }
+});
+
 router.post('/saveMembershipAssignment', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
-    const orgId = await getCurrentOrgId();
+    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
     const result = await unifiedIdentityModel.saveMembershipAssignment({
       id: safeString(req.body.id),
       legacyHrId: safeString(req.body.hrId),
@@ -174,33 +311,37 @@ router.post('/saveMembershipAssignment', async (req, res) => {
     }, {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
-    });
+    }, (connection) => requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection));
     return res.json({ status: 'success', id: result.id, message: '岗位已保存' });
   } catch (error) {
-    return res.json({
-      status: error.code || 'error',
-      message: safeString(error.message) || '岗位未保存，请重试'
+    const isExpected = error instanceof AdminOrganizationAccessError
+      || error instanceof unifiedIdentityModel.IdentityError;
+    if (!isExpected) req.logger.error('Save membership assignment failed', { error: error.message });
+    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : '岗位未保存，请重试'
     });
   }
 });
 
 router.post('/deleteMembershipAssignment', async (req, res) => {
   try {
-    const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
-    const orgId = await getCurrentOrgId();
+    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
     await unifiedIdentityModel.revokeMembershipAssignment({
       id: safeString(req.body.id),
       organizationId: orgId
     }, {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
-    });
+    }, (connection) => requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection));
     return res.json({ status: 'success', message: '岗位已删除' });
   } catch (error) {
-    return res.json({
-      status: error.code || 'error',
-      message: safeString(error.message) || '岗位未删除，请重试'
+    const isExpected = error instanceof AdminOrganizationAccessError
+      || error instanceof unifiedIdentityModel.IdentityError;
+    if (!isExpected) req.logger.error('Delete membership assignment failed', { error: error.message });
+    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : '岗位未删除，请重试'
     });
   }
 });

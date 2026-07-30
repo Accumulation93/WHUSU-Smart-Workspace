@@ -323,6 +323,9 @@ Native text/action buttons must be compact rounded rectangles, never capsules or
 - Never combine wrapped button text with a fixed `line-height` equal to the button height. Use `height: auto`, a controlled `min-height`, `line-height: 1.3` to `1.4`, and balanced vertical padding.
 - A full-size text button must not declare an absolute `line-height` close to its `min-height`; inherited vertical padding will stack on top and create an abnormally tall control. `scripts/ui-audit.js --strict` must reject this pattern.
 - On narrow phones, show at most two text buttons per row. Long labels should use a two-column or full-width layout, never three cramped columns that force vertical word wrapping.
+- Pad controls must become denser rather than scaling up with the viewport: full text buttons use about `44px` minimum height, compact actions about `32px`, and tabs about `40px`, all with balanced vertical padding. Do not retain a 48px-plus desktop-style control merely because more space is available.
+- Management navigation keeps the same top segmented-control language on phone, Pad portrait, and Pad landscape. Do not turn the same tabs into a wide left sidebar on landscape; it changes the product language and wastes horizontal space between navigation text and content.
+- Status labels such as “使用中” use a small rounded rectangle (`7px` to `9px` radius on Pad) with `3px` to `4px` vertical padding. They must not become inflated oval bubbles.
 
 Baseline:
 

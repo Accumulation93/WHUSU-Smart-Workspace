@@ -93,6 +93,8 @@ module.exports = Behavior({
           hrProfileFilterOptions.workGroups = ['无', ...wgs];
         }
         const hrProfileRows = applyHrProfileFilters(rawRows, this.data.hrProfileFilters);
+        // 原始数据只用于本页筛选和导出，不参与视图渲染；避免与筛选结果重复传入 setData。
+        this._hrProfileRawRows = rawRows;
         this.setData({
           hrProfileTemplateForm: template ? {
             description: template.description || '',
@@ -102,7 +104,6 @@ module.exports = Behavior({
               ? template.fields.map((item) => normalizeHrProfileFieldForForm(item))
               : [createEmptyProfileField()]
           } : emptyHrProfileTemplateForm(),
-          hrProfileRawRows: rawRows,
           hrProfileFields,
           hrProfileFilterOptions,
           hrProfileRows
@@ -407,7 +408,7 @@ module.exports = Behavior({
       }
     },
 
-    refreshHrProfileRows(nextFilters = this.data.hrProfileFilters, nextRawRows = this.data.hrProfileRawRows) {
+    refreshHrProfileRows(nextFilters = this.data.hrProfileFilters, nextRawRows = this._hrProfileRawRows || []) {
       this.setData({
         hrProfileRows: applyHrProfileFilters(nextRawRows, nextFilters)
       });
@@ -716,29 +717,42 @@ module.exports = Behavior({
           detailHrHasPending: !!result.hasPending,
           loadingDetailHr: false
         });
-        await this.loadMembershipAssignments(hrId);
+        await this.loadPersonIdentities(hrId);
       } catch (err) {
         wx.showToast({ title: '请稍后刷新详情', icon: 'none' });
         this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
       }
     },
 
-    async loadMembershipAssignments(hrId) {
+    async loadPersonIdentities(hrId) {
       try {
-        const result = await this.callCloud('listMembershipAssignments', {
+        const result = await this.callCloud('listPersonIdentities', {
           hrId: hrId || this.data.detailHrId
         });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '请稍后刷新岗位', icon: 'none' });
+          wx.showToast({ title: result.message || '请稍后刷新身份', icon: 'none' });
           return;
         }
-        this.setData({ membershipAssignmentList: result.list || [] });
+        this.setData({
+          personIdentityOrganizations: result.organizations || [],
+          globalAdminIdentities: result.globalAdminIdentities || [],
+          identityManagementOrganizationId: result.managementOrganizationId || '',
+          canAddGlobalSuperAdmin: result.canAddGlobalSuperAdmin === true
+        });
       } catch (error) {
-        wx.showToast({ title: '请稍后刷新岗位', icon: 'none' });
+        wx.showToast({ title: '请稍后刷新身份', icon: 'none' });
       }
     },
 
-    startCreateMembershipAssignment() {
+    async loadMembershipAssignments(hrId) {
+      return this.loadPersonIdentities(hrId);
+    },
+
+    startCreateMembershipAssignment(e) {
+      const orgIndex = Number(e && e.currentTarget && e.currentTarget.dataset.orgIndex);
+      const organization = (this.data.personIdentityOrganizations || [])[Number.isFinite(orgIndex) ? orgIndex : 0];
+      if (!organization || !organization.canEditAssignments) return;
+      const dictionaries = organization.dictionaries || {};
       this.setData({
         membershipAssignmentFormVisible: true,
         membershipAssignmentForm: {
@@ -751,8 +765,12 @@ module.exports = Behavior({
           identityId: '',
           identity: '',
           workGroupId: '',
-          workGroup: ''
+          workGroup: '',
+          organizationId: organization.organizationId,
+          hrId: organization.hrId
         },
+        assignmentDepartmentOptions: dictionaries.departments || [],
+        assignmentIdentityOptions: dictionaries.identities || [],
         assignmentDepartmentIndex: 0,
         assignmentIdentityIndex: 0,
         assignmentWorkGroupIndex: 0,
@@ -761,21 +779,28 @@ module.exports = Behavior({
     },
 
     editMembershipAssignment(e) {
-      const index = Number(e.currentTarget.dataset.index);
-      const item = (this.data.membershipAssignmentList || [])[index];
-      if (!item) return;
-      const departments = this.data.departmentList || [];
-      const identities = this.data.identityList || [];
+      const orgIndex = Number(e.currentTarget.dataset.orgIndex);
+      const assignmentIndex = Number(e.currentTarget.dataset.assignmentIndex);
+      const organization = (this.data.personIdentityOrganizations || [])[orgIndex];
+      const item = organization && (organization.assignments || [])[assignmentIndex];
+      if (!organization || !organization.canEditAssignments || !item) return;
+      const dictionaries = organization.dictionaries || {};
+      const departments = dictionaries.departments || [];
+      const identities = dictionaries.identities || [];
       const workGroups = [{ id: '', name: '不设置' }].concat(
-        (this.data.workGroupList || [])
+        (dictionaries.workGroups || [])
           .filter((row) => String(row.departmentId) === String(item.departmentId))
       );
       this.setData({
         membershipAssignmentFormVisible: true,
         membershipAssignmentForm: {
           ...item,
+          organizationId: organization.organizationId,
+          hrId: organization.hrId,
           assignmentKindIndex: Math.max(0, (this.data.assignmentKindValues || []).indexOf(item.assignmentKind))
         },
+        assignmentDepartmentOptions: departments,
+        assignmentIdentityOptions: identities,
         assignmentDepartmentIndex: Math.max(0, departments.findIndex((row) => String(row.id) === String(item.departmentId))),
         assignmentIdentityIndex: Math.max(0, identities.findIndex((row) => String(row.id) === String(item.identityId))),
         assignmentWorkGroupIndex: Math.max(0, workGroups.findIndex((row) => String(row.id) === String(item.workGroupId))),
@@ -787,6 +812,8 @@ module.exports = Behavior({
       this.setData({
         membershipAssignmentFormVisible: false,
         membershipAssignmentForm: {},
+        assignmentDepartmentOptions: [],
+        assignmentIdentityOptions: [],
         assignmentWorkGroupOptions: [],
         detailScrollTarget: ''
       });
@@ -813,9 +840,12 @@ module.exports = Behavior({
 
     onMembershipAssignmentDepartmentChange(e) {
       const index = Number(e.detail.value) || 0;
-      const department = (this.data.departmentList || [])[index] || {};
+      const department = (this.data.assignmentDepartmentOptions || [])[index] || {};
+      const organization = (this.data.personIdentityOrganizations || []).find((item) => (
+        String(item.organizationId) === String(this.data.membershipAssignmentForm.organizationId)
+      ));
       const workGroups = [{ id: '', name: '不设置' }].concat(
-        (this.data.workGroupList || [])
+        (((organization && organization.dictionaries) || {}).workGroups || [])
           .filter((row) => String(row.departmentId) === String(department.id))
       );
       this.setData({
@@ -831,7 +861,7 @@ module.exports = Behavior({
 
     onMembershipAssignmentIdentityChange(e) {
       const index = Number(e.detail.value) || 0;
-      const identity = (this.data.identityList || [])[index] || {};
+      const identity = (this.data.assignmentIdentityOptions || [])[index] || {};
       this.setData({
         assignmentIdentityIndex: index,
         'membershipAssignmentForm.identityId': identity.id || '',
@@ -859,14 +889,15 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('saveMembershipAssignment', {
           ...form,
-          hrId: this.data.detailHrId
+          hrId: form.hrId || this.data.detailHrId,
+          organizationId: form.organizationId
         });
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
           return;
         }
         this.cancelMembershipAssignmentEdit();
-        await this.loadMembershipAssignments();
+        await this.loadPersonIdentities();
         this.loadHrProfileAdminData();
         wx.showToast({ title: '岗位已保存', icon: 'success' });
       } catch (error) {
@@ -878,26 +909,118 @@ module.exports = Behavior({
 
     deleteMembershipAssignment(e) {
       const id = String(e.currentTarget.dataset.id || '');
+      const organizationId = String(e.currentTarget.dataset.organizationId || '');
       if (!id) return;
-      wx.showModal({
-        title: '删除岗位',
-        content: '删除后将无法再选择该岗位，历史记录不受影响。',
-        success: async (modalResult) => {
-          if (!modalResult.confirm) return;
-          try {
-            const result = await this.callCloud('deleteMembershipAssignment', { id });
-            if (result.status !== 'success') {
-              wx.showToast({ title: result.message || '未删除，请重试', icon: 'none' });
-              return;
-            }
-            await this.loadMembershipAssignments();
-            this.loadHrProfileAdminData();
-            wx.showToast({ title: '岗位已删除', icon: 'success' });
-          } catch (error) {
-            wx.showToast({ title: '未删除，请重试', icon: 'none' });
-          }
+      this.setData({
+        identityActionConfirmVisible: true,
+        identityActionConfirmTitle: '删除岗位',
+        identityActionConfirmText: '删除后，该岗位将不再用于后续业务。历史记录不受影响。',
+        identityActionConfirmAction: { type: 'deleteAssignment', id, organizationId }
+      });
+    },
+
+    async addPersonAdminIdentity(e) {
+      const orgIndex = Number(e.currentTarget.dataset.orgIndex);
+      const organization = (this.data.personIdentityOrganizations || [])[orgIndex];
+      if (!organization || !organization.canAddAdmin) return;
+      await this._savePersonAdminIdentity({
+        organizationId: organization.organizationId,
+        hrId: organization.hrId,
+        adminLevel: 'admin'
+      });
+    },
+
+    addPersonSuperAdmin() {
+      const organization = (this.data.personIdentityOrganizations || [])[0];
+      if (!organization || !this.data.canAddGlobalSuperAdmin || !this.data.identityManagementOrganizationId) return;
+      this.setData({
+        identityActionConfirmVisible: true,
+        identityActionConfirmTitle: '添加超级管理员',
+        identityActionConfirmText: '添加后，此人可管理全部组织。',
+        identityActionConfirmAction: {
+          type: 'addSuperAdmin',
+          organizationId: this.data.identityManagementOrganizationId,
+          hrId: organization.hrId
         }
       });
+    },
+
+    removePersonAdminIdentity(e) {
+      const id = String(e.currentTarget.dataset.id || '');
+      const organizationId = String(e.currentTarget.dataset.organizationId || '');
+      const level = String(e.currentTarget.dataset.level || 'admin');
+      if (!id) return;
+      this.setData({
+        identityActionConfirmVisible: true,
+        identityActionConfirmTitle: level === 'super_admin' ? '移除超级管理员' : '移除管理员',
+        identityActionConfirmText: '移除后，此人将无法再使用这项管理身份。',
+        identityActionConfirmAction: { type: 'deleteAdmin', id, organizationId }
+      });
+    },
+
+    async _savePersonAdminIdentity(data) {
+      this.setLoading('savePersonAdminIdentity', true);
+      try {
+        const profile = this.data.detailHrProfile || {};
+        const result = await this.callCloud('saveAdmin', {
+          organizationId: data.organizationId,
+          hrId: data.hrId,
+          name: profile.name || '',
+          studentId: profile.studentId || '',
+          adminLevel: data.adminLevel
+        });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
+          return;
+        }
+        await this.loadPersonIdentities();
+        wx.showToast({ title: '管理员已添加', icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: '未保存，请重试', icon: 'none' });
+      } finally {
+        this.setLoading('savePersonAdminIdentity', false);
+      }
+    },
+
+    closeIdentityActionConfirm() {
+      this.setData({
+        identityActionConfirmVisible: false,
+        identityActionConfirmAction: null
+      });
+    },
+
+    async confirmIdentityAction() {
+      const action = this.data.identityActionConfirmAction;
+      if (!action) return;
+      this.closeIdentityActionConfirm();
+      if (action.type === 'addSuperAdmin') {
+        await this._savePersonAdminIdentity({
+          organizationId: action.organizationId,
+          hrId: action.hrId,
+          adminLevel: 'super_admin'
+        });
+        return;
+      }
+      try {
+        const result = action.type === 'deleteAssignment'
+          ? await this.callCloud('deleteMembershipAssignment', {
+              id: action.id,
+              organizationId: action.organizationId
+            })
+          : await this.callCloud('deleteAdmin', {
+              id: action.id,
+              organizationId: action.organizationId
+            });
+        if (result.status !== 'success') {
+          wx.showToast({ title: result.message || '未删除，请重试', icon: 'none' });
+          return;
+        }
+        await this.loadPersonIdentities();
+        this.loadHrProfileAdminData();
+        wx.showToast({ title: '已删除', icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: '未删除，请重试', icon: 'none' });
+      }
     },
 
     closeHrPersonDetail() {
@@ -909,8 +1032,14 @@ module.exports = Behavior({
         detailWorkGroupValue: 0,
         detailFieldValues: {},
         membershipAssignmentList: [],
+        personIdentityOrganizations: [],
+        globalAdminIdentities: [],
+        identityManagementOrganizationId: '',
+        canAddGlobalSuperAdmin: false,
         membershipAssignmentFormVisible: false,
         membershipAssignmentForm: {},
+        assignmentDepartmentOptions: [],
+        assignmentIdentityOptions: [],
         detailScrollTarget: ''
       });
     },

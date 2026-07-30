@@ -40,6 +40,7 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/modules/audit/models/notificationOutbox.js', sql: /notification_outbox/i, reason: '后台工作进程跨组织领取与清理事件' },
   { file: 'server/src/utils/requestDeduplication.js', sql: /DELETE FROM request_deduplication/i, reason: '后台全局幂等记录保留期清理' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM organization_memberships WHERE legacy_hr_id = \?/i, reason: '由已授权的旧人员主键解析统一成员关系' },
+  { file: 'server/src/core/models/personIdentityOverview.js', sql: /FROM organization_memberships om[\s\S]*WHERE om\.legacy_hr_id = \?/i, reason: '由当前人事列表已授权的旧人员主键解析自然人，后续结果仍按服务端可访问组织过滤' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM membership_assignments\s+WHERE membership_id = \?/i, reason: '在已授权成员关系内解析岗位' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET assignment_kind = \?/i, reason: '按已授权岗位主键更新岗位' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET status = 'revoked'[\s\S]*WHERE id = \?/i, reason: '按已授权岗位主键撤销岗位' },

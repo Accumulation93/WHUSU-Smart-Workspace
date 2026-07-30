@@ -1,0 +1,99 @@
+const assert = require('assert');
+const Module = require('module');
+
+const permissionByAdminId = {
+  'super-1': { isSuper: true, permissions: {} },
+  'hr-only': { isSuper: false, permissions: { 'hr.people': true } },
+  'admin-reader': { isSuper: false, permissions: { 'system.admin_accounts.read': true } },
+  'admin-writer': { isSuper: false, permissions: { 'system.admin_accounts.write': true } }
+};
+
+let lockedLookup = null;
+const mocks = {
+  '../models/adminInfo': {
+    async getByOpenidForOrganization(openid, orgId, connection, lock) {
+      lockedLookup = { openid, orgId, connection, lock };
+      if (orgId === 'org-denied') return null;
+      return { id: orgId === 'org-44' ? 'admin-writer' : 'hr-only', admin_level: 'admin', org_id: orgId };
+    }
+  },
+  './accessibleOrganizations': {
+    async listAccessibleActorContexts() {
+      return [
+        { organizationId: 'org-44', organizationName: '第四十四届', actor: { profile: { id: 'admin-writer' } } },
+        { organizationId: 'org-43', organizationName: '第四十三届', actor: { profile: { id: 'hr-only' } } },
+        { organizationId: 'org-college', organizationName: '学院学生会', actor: { profile: { id: 'admin-reader' } } }
+      ];
+    }
+  },
+  './adminPermissions': {
+    async loadEffectivePermissions(admin) {
+      return permissionByAdminId[admin.id] || { isSuper: false, permissions: {} };
+    },
+    hasAnyPermission(effective, keys) {
+      return Boolean(effective && (effective.isSuper || keys.some((key) => effective.permissions[key])));
+    }
+  }
+};
+
+const originalLoad = Module._load;
+Module._load = function(request, parent, isMain) {
+  if (Object.prototype.hasOwnProperty.call(mocks, request)) return mocks[request];
+  return originalLoad.call(this, request, parent, isMain);
+};
+const {
+  AdminOrganizationAccessError,
+  listAdminOrganizationAccess,
+  requireAdminOrganizationPermission
+} = require('../src/core/services/adminOrganizationAccess');
+Module._load = originalLoad;
+
+(async () => {
+  const req = {
+    openid: 'openid-1',
+    authContext: { organizationId: 'org-44' }
+  };
+  const access = await listAdminOrganizationAccess(req);
+  assert.deepStrictEqual(access.map((item) => item.organizationId), ['org-44', 'org-43', 'org-college']);
+  assert.strictEqual(access[0].canEditAdmins, true);
+  assert.strictEqual(access[0].canReadAssignments, false);
+  assert.strictEqual(access[1].canReadAssignments, true);
+  assert.strictEqual(access[1].canReadAdmins, false);
+  assert.strictEqual(access[2].canReadAdmins, true);
+  assert.strictEqual(access[2].canEditAdmins, false);
+
+  const connection = { marker: 'transaction' };
+  const allowed = await requireAdminOrganizationPermission(
+    req,
+    'org-44',
+    ['system.admin_accounts.write'],
+    connection
+  );
+  assert.strictEqual(allowed.organizationId, 'org-44');
+  assert.deepStrictEqual(lockedLookup, {
+    openid: 'openid-1',
+    orgId: 'org-44',
+    connection,
+    lock: true
+  });
+
+  await assert.rejects(
+    () => requireAdminOrganizationPermission(req, 'org-43', ['system.admin_accounts.write']),
+    (error) => error instanceof AdminOrganizationAccessError
+      && error.code === 'permission_denied'
+      && error.message === '您没有该组织的管理权限'
+  );
+  await assert.rejects(
+    () => requireAdminOrganizationPermission(req, 'org-denied', ['hr.people']),
+    (error) => error instanceof AdminOrganizationAccessError && error.code === 'organization_forbidden'
+  );
+  await assert.rejects(
+    () => requireAdminOrganizationPermission(req, '', ['hr.people']),
+    (error) => error instanceof AdminOrganizationAccessError && error.code === 'invalid_organization'
+  );
+
+  console.log('管理员跨组织权限推导与目标组织写入验权测试通过');
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

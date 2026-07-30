@@ -417,7 +417,7 @@ async function refreshLegacyHrCompatibilitySnapshot(connection, membership) {
   );
 }
 
-async function saveMembershipAssignment(data, actor) {
+async function saveMembershipAssignment(data, actor, authorize) {
   const organizationId = safeString(data.organizationId);
   const legacyHrId = safeString(data.legacyHrId);
   const assignmentId = safeString(data.id);
@@ -428,6 +428,7 @@ async function saveMembershipAssignment(data, actor) {
     throw new IdentityError('invalid_params', '缺少成员或组织信息', 400);
   }
   return pool.withTransaction(async (connection) => {
+    if (authorize) await authorize(connection);
     const [membershipRows] = await connection.query(
       `SELECT * FROM organization_memberships
         WHERE legacy_hr_id = ? AND org_id = ? AND status = 'active'
@@ -498,10 +499,11 @@ async function saveMembershipAssignment(data, actor) {
   });
 }
 
-async function revokeMembershipAssignment(data, actor) {
+async function revokeMembershipAssignment(data, actor, authorize) {
   const organizationId = safeString(data.organizationId);
   const assignmentId = safeString(data.id);
   return pool.withTransaction(async (connection) => {
+    if (authorize) await authorize(connection);
     const [rows] = await connection.query(
       `SELECT ma.*, om.person_id, om.legacy_hr_id
          FROM membership_assignments ma

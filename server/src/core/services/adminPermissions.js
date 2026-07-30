@@ -142,6 +142,7 @@ mapRoutes('hr.people', [
   '/saveMembershipAssignment',
   '/deleteMembershipAssignment'
 ]);
+mapAny(['/listPersonIdentities'], ['hr.people', 'system.admin_accounts.read', 'system.admin_accounts.write']);
 mapRoutes('hr.import', ['/previewHrTableImport', '/importHrTable', '/importHrCsv']);
 mapAny(['/listHrProfileAdminData'], ['hr.people', 'hr.profile_review']);
 mapAny(['/getHrPersonDetail', '/saveHrPersonFull'], ['hr.people', 'hr.profile_review']);
@@ -189,8 +190,9 @@ mapAny(['/listVenueBookingPurposes'], [
 mapRoutes('venue.purposes', ['/saveVenueBookingPurpose', '/deleteVenueBookingPurpose']);
 
 mapRoutes('system.admin_accounts.read', ['/listAdmins', '/exportAdmins', '/listUserBindings']);
+mapAny(['/saveAdmin', '/deleteAdmin'], ['system.admin_accounts.write', 'hr.people']);
 mapRoutes('system.admin_accounts.write', [
-  '/saveAdmin', '/deleteAdmin', '/createAdminInvite', '/generateAdminInviteCode', '/adminUnbindUser'
+  '/createAdminInvite', '/generateAdminInviteCode', '/adminUnbindUser'
 ]);
 mapRoutes('system.settings', ['/getSystemConfig', '/saveSystemConfig', '/listOrganizations', '/admin/health']);
 mapRoutes('system.organizations', ['/saveOrganization', '/deleteOrganization', '/switchOrganization']);
