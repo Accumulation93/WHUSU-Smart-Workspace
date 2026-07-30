@@ -500,7 +500,7 @@ module.exports = Behavior({
     },
 
     exportHrProfiles() {
-      const rows = this._hrProfileFilteredRows || [];
+      const rows = this._hrProfileFilteredRows || this.data.hrProfileRows || [];
       if (!rows.length) {
         showShortToast('暂无可导出资料');
         return;
@@ -612,7 +612,7 @@ module.exports = Behavior({
         return;
       }
       const headers = columns.map((column) => ({ key: column.key, label: column.label }));
-      const rows = (this._hrProfileFilteredRows || []).map((item) => {
+      const rows = (this._hrProfileFilteredRows || this.data.hrProfileRows || []).map((item) => {
         const exportRow = {};
         for (let index = 0; index < columns.length; index += 1) {
           const column = columns[index];
