@@ -56,6 +56,7 @@ jobs:
           node scripts/org-session-test.js
           node scripts/context-route-guard-test.js
           node scripts/hr-profile-layout-test.js
+          node scripts/workspace-navigation-test.js
           node scripts/api-cancellation-test.js
           node scripts/api-auth-recovery-test.js
           node scripts/admin-activity-org-switch-test.js

@@ -11,6 +11,7 @@ function min(t) {
 }
 module.exports = { hour: hour, min: min };
 </wxs>
+<workspace-navigation></workspace-navigation>
 <view class="page">
   <!-- Hero -->
   <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用"></workspace-hero>

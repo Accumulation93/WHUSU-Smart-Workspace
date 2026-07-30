@@ -1,0 +1,25 @@
+<view class="workspace-navigation-spacer" style="height: {{totalHeight}}px;">
+  <view class="workspace-navigation" style="height: {{totalHeight}}px;">
+    <view class="workspace-navigation-status" style="height: {{statusBarHeight}}px;"></view>
+    <view
+      class="workspace-navigation-bar"
+      style="height: {{navigationBarHeight}}px; padding-left: {{leftWidth}}px; padding-right: {{rightWidth}}px;"
+    >
+      <view
+        class="workspace-navigation-back ui-motion-chip"
+        style="width: {{leftWidth}}px; height: {{navigationBarHeight}}px;"
+        wx:if="{{canGoBack}}"
+        bindtap="goBack"
+        hover-class="workspace-navigation-back-active"
+        hover-start-time="0"
+        hover-stay-time="160"
+        hover-stop-propagation="{{true}}"
+        aria-role="button"
+        aria-label="返回"
+      >
+        <view class="workspace-navigation-back-icon"></view>
+      </view>
+      <text class="workspace-navigation-title">{{title}}</text>
+    </view>
+  </view>
+</view>

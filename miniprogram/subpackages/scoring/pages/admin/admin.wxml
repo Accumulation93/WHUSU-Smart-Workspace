@@ -1,5 +1,6 @@
 <wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
 <page-meta page-style="{{dragActive ? 'overflow: hidden;' : ''}}"></page-meta>
+<workspace-navigation></workspace-navigation>
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{subAppLabel || '考核评分'}}" tone="admin"></workspace-hero>
 
