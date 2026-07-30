@@ -96,7 +96,6 @@ function mapAssignmentContext(row) {
     workGroupId: safeString(row.work_group_id),
     workGroup: safeString(row.work_group_name),
     adminLevel: '',
-    isPrimary: Boolean(row.is_primary),
     permissions: []
   };
 }
@@ -127,7 +126,6 @@ function mapAdminContext(row) {
     workGroupId: '',
     workGroup: '',
     adminLevel: safeString(row.admin_level),
-    isPrimary: false,
     permissions: []
   };
 }
@@ -277,32 +275,31 @@ async function syncLegacyHrRecords(connection, hrIds) {
          status = 'active', updated_at = NOW()`,
       [membershipId, person.id, row.org_id, row.id]
     );
-    const [assignmentRows] = await connection.query(
-      `SELECT id FROM membership_assignments
-        WHERE membership_id = ? AND is_primary = 1
-        ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
-      [membershipId]
-    );
-    const assignmentId = assignmentRows[0] ? assignmentRows[0].id : generateId();
-    await connection.query(
-      `INSERT INTO membership_assignments
-         (id, membership_id, org_id, assignment_kind, department_id, identity_id,
-          work_group_id, is_primary, status, active_primary_membership_id)
-       VALUES (?, ?, ?, 'staff', ?, ?, ?, 1, 'active', ?)
-       ON DUPLICATE KEY UPDATE org_id = VALUES(org_id), department_id = VALUES(department_id),
-         identity_id = VALUES(identity_id), work_group_id = VALUES(work_group_id),
-         is_primary = 1, status = 'active',
-         active_primary_membership_id = VALUES(active_primary_membership_id), updated_at = NOW()`,
-      [
-        assignmentId,
-        membershipId,
-        row.org_id,
-        safeString(row.department_id) || null,
-        safeString(row.identity_id) || null,
-        safeString(row.work_group_id) || null,
-        membershipId
-      ]
-    );
+    const legacyAssignmentValues = [
+      safeString(row.department_id),
+      safeString(row.identity_id),
+      safeString(row.work_group_id)
+    ];
+    if (legacyAssignmentValues.some(Boolean)) {
+      const assignmentId = safeString(row.id);
+      await connection.query(
+        `INSERT INTO membership_assignments
+           (id, membership_id, org_id, assignment_kind, department_id, identity_id,
+            work_group_id, status)
+         VALUES (?, ?, ?, 'staff', ?, ?, ?, 'active')
+         ON DUPLICATE KEY UPDATE membership_id = VALUES(membership_id), org_id = VALUES(org_id), department_id = VALUES(department_id),
+           identity_id = VALUES(identity_id), work_group_id = VALUES(work_group_id),
+           status = IF(status = 'revoked', status, 'active'), updated_at = NOW()`,
+        [
+          assignmentId,
+          membershipId,
+          row.org_id,
+          legacyAssignmentValues[0] || null,
+          legacyAssignmentValues[1] || null,
+          legacyAssignmentValues[2] || null
+        ]
+      );
+    }
   }
   return { synced: rows.length };
 }
@@ -310,7 +307,7 @@ async function syncLegacyHrRecords(connection, hrIds) {
 async function listMembershipAssignments(legacyHrId, organizationId) {
   const [rows] = await pool.query(
     `SELECT ma.id, ma.membership_id, ma.assignment_kind, ma.title,
-            ma.department_id, ma.identity_id, ma.work_group_id, ma.is_primary,
+            ma.department_id, ma.identity_id, ma.work_group_id,
             d.name AS department_name, i.name AS identity_name,
             w.name AS work_group_name
        FROM organization_memberships om
@@ -326,10 +323,57 @@ async function listMembershipAssignments(legacyHrId, organizationId) {
          ON CONVERT(w.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.work_group_id
         AND CONVERT(w.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.org_id
       WHERE om.legacy_hr_id = ? AND om.org_id = ? AND om.status = 'active'
-      ORDER BY ma.is_primary DESC, ma.created_at ASC`,
+      ORDER BY ma.created_at ASC, ma.id ASC`,
     [safeString(legacyHrId), safeString(organizationId)]
   );
   return rows;
+}
+
+async function listMembershipAssignmentSummaries(legacyHrIds, organizationId) {
+  const ids = Array.from(new Set((legacyHrIds || []).map(safeString).filter(Boolean)));
+  if (!ids.length) return new Map();
+  const placeholders = ids.map(() => '?').join(',');
+  const [rows] = await pool.query(
+    `SELECT om.legacy_hr_id, ma.id AS assignment_id,
+            d.name AS department_name, i.name AS identity_name, w.name AS work_group_name
+       FROM organization_memberships om
+       LEFT JOIN membership_assignments ma
+         ON ma.membership_id = om.id AND ma.org_id = om.org_id AND ma.status = 'active'
+       LEFT JOIN departments d
+         ON CONVERT(d.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.department_id
+        AND CONVERT(d.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.org_id
+       LEFT JOIN identities i
+         ON CONVERT(i.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.identity_id
+        AND CONVERT(i.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.org_id
+       LEFT JOIN work_groups w
+         ON CONVERT(w.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.work_group_id
+        AND CONVERT(w.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.org_id
+      WHERE om.org_id = ? AND om.status = 'active'
+        AND om.legacy_hr_id IN (${placeholders})
+      ORDER BY ma.created_at ASC, ma.id ASC`,
+    [safeString(organizationId), ...ids]
+  );
+  const summaries = new Map();
+  rows.forEach((row) => {
+    const legacyHrId = safeString(row.legacy_hr_id);
+    const summary = summaries.get(legacyHrId) || {
+      count: 0,
+      departments: [],
+      identities: [],
+      workGroups: []
+    };
+    if (safeString(row.assignment_id)) summary.count += 1;
+    const values = [
+      ['departments', safeString(row.department_name)],
+      ['identities', safeString(row.identity_name)],
+      ['workGroups', safeString(row.work_group_name)]
+    ];
+    values.forEach(([key, value]) => {
+      if (value && !summary[key].includes(value)) summary[key].push(value);
+    });
+    summaries.set(legacyHrId, summary);
+  });
+  return summaries;
 }
 
 async function validateAssignmentReferences(connection, organizationId, data) {
@@ -346,6 +390,31 @@ async function validateAssignmentReferences(connection, organizationId, data) {
     );
     if (!rows.length) throw new IdentityError('assignment_reference_invalid', label + '不属于当前组织', 400);
   }
+}
+
+async function refreshLegacyHrCompatibilitySnapshot(connection, membership) {
+  const membershipId = safeString(membership.membership_id || membership.id);
+  const [rows] = await connection.query(
+    `SELECT department_id, identity_id, work_group_id
+       FROM membership_assignments
+      WHERE membership_id = ? AND org_id = ? AND status = 'active'
+      ORDER BY created_at ASC, id ASC
+      LIMIT 1`,
+    [membershipId, membership.org_id]
+  );
+  const assignment = rows[0] || {};
+  await connection.query(
+    `UPDATE hr_info
+        SET department_id = ?, identity_id = ?, work_group_id = ?, updated_at = NOW()
+      WHERE id = ? AND org_id = ?`,
+    [
+      safeString(assignment.department_id) || null,
+      safeString(assignment.identity_id) || null,
+      safeString(assignment.work_group_id) || null,
+      membership.legacy_hr_id,
+      membership.org_id
+    ]
+  );
 }
 
 async function saveMembershipAssignment(data, actor) {
@@ -379,26 +448,14 @@ async function saveMembershipAssignment(data, actor) {
       );
       existing = assignmentRows[0];
       if (!existing) throw new IdentityError('assignment_not_found', '请重新选择身份', 404);
-      if (existing.is_primary && !data.isPrimary) {
-        throw new IdentityError('primary_assignment_required', '主要岗位不能直接取消，请将另一岗位设为主要岗位', 409);
-      }
     }
 
     const nextId = existing ? existing.id : generateId();
-    if (data.isPrimary) {
-      await connection.query(
-        `UPDATE membership_assignments
-            SET is_primary = 0, active_primary_membership_id = NULL, updated_at = NOW()
-          WHERE membership_id = ? AND status = 'active' AND id <> ?`,
-        [membership.id, nextId]
-      );
-    }
     if (existing) {
       await connection.query(
         `UPDATE membership_assignments
             SET assignment_kind = ?, title = ?, department_id = ?, identity_id = ?,
-                work_group_id = ?, is_primary = ?, active_primary_membership_id = ?,
-                updated_at = NOW()
+                work_group_id = ?, updated_at = NOW()
           WHERE id = ?`,
         [
           assignmentKind,
@@ -406,17 +463,15 @@ async function saveMembershipAssignment(data, actor) {
           safeString(data.departmentId) || null,
           safeString(data.identityId) || null,
           safeString(data.workGroupId) || null,
-          data.isPrimary ? 1 : 0,
-          data.isPrimary ? membership.id : null,
           nextId
         ]
       );
     } else {
       await connection.query(
-        `INSERT INTO membership_assignments
+         `INSERT INTO membership_assignments
            (id, membership_id, org_id, assignment_kind, title, department_id,
-            identity_id, work_group_id, is_primary, status, active_primary_membership_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+            identity_id, work_group_id, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
         [
           nextId,
           membership.id,
@@ -425,26 +480,11 @@ async function saveMembershipAssignment(data, actor) {
           safeString(data.title).slice(0, 200) || null,
           safeString(data.departmentId) || null,
           safeString(data.identityId) || null,
-          safeString(data.workGroupId) || null,
-          data.isPrimary ? 1 : 0,
-          data.isPrimary ? membership.id : null
+          safeString(data.workGroupId) || null
         ]
       );
     }
-    if (data.isPrimary) {
-      await connection.query(
-        `UPDATE hr_info
-            SET department_id = ?, identity_id = ?, work_group_id = ?, updated_at = NOW()
-          WHERE id = ? AND org_id = ?`,
-        [
-          safeString(data.departmentId),
-          safeString(data.identityId),
-          safeString(data.workGroupId),
-          legacyHrId,
-          organizationId
-        ]
-      );
-    }
+    await refreshLegacyHrCompatibilitySnapshot(connection, membership);
     await appendAuditEvent({
       connection,
       eventType: existing ? 'membership_assignment_updated' : 'membership_assignment_created',
@@ -452,7 +492,7 @@ async function saveMembershipAssignment(data, actor) {
       targetPersonId: membership.person_id,
       organizationId,
       contextId: actor && actor.contextId,
-      detail: { assignmentId: nextId, assignmentKind, isPrimary: Boolean(data.isPrimary) }
+      detail: { assignmentId: nextId, assignmentKind }
     });
     return { id: nextId };
   });
@@ -463,7 +503,7 @@ async function revokeMembershipAssignment(data, actor) {
   const assignmentId = safeString(data.id);
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query(
-      `SELECT ma.*, om.person_id
+      `SELECT ma.*, om.person_id, om.legacy_hr_id
          FROM membership_assignments ma
          JOIN organization_memberships om ON om.id = ma.membership_id
         WHERE ma.id = ? AND ma.org_id = ? AND ma.status = 'active'
@@ -472,15 +512,13 @@ async function revokeMembershipAssignment(data, actor) {
     );
     const assignment = rows[0];
     if (!assignment) throw new IdentityError('assignment_not_found', '请重新选择身份', 404);
-    if (assignment.is_primary) {
-      throw new IdentityError('primary_assignment_required', '主要岗位不能删除，请先将另一岗位设为主要岗位', 409);
-    }
     await connection.query(
       `UPDATE membership_assignments
-          SET status = 'revoked', active_primary_membership_id = NULL, updated_at = NOW()
+          SET status = 'revoked', updated_at = NOW()
         WHERE id = ?`,
       [assignmentId]
     );
+    await refreshLegacyHrCompatibilitySnapshot(connection, assignment);
     await connection.query(
       `UPDATE auth_sessions
           SET status = 'revoked', revoked_at = NOW()
@@ -705,7 +743,7 @@ async function listContexts(accountId, connection) {
   const executor = connection || pool;
   const [assignmentRows] = await executor.query(
     `SELECT ma.id AS assignment_id, ma.title AS assignment_title, ma.assignment_kind,
-            ma.department_id, ma.identity_id, ma.work_group_id, ma.is_primary,
+            ma.department_id, ma.identity_id, ma.work_group_id,
             om.id AS membership_id, om.org_id AS organization_id, om.legacy_hr_id,
             p.id AS person_id, p.name AS person_name, p.student_id,
             o.name AS organization_name, d.name AS department_name,
@@ -727,7 +765,7 @@ async function listContexts(accountId, connection) {
          ON CONVERT(w.id USING utf8mb4) COLLATE utf8mb4_unicode_ci = ma.work_group_id
         AND CONVERT(w.org_id USING utf8mb4) COLLATE utf8mb4_unicode_ci = om.org_id
       WHERE a.id = ? AND a.status = 'verified'
-      ORDER BY ma.is_primary DESC, o.created_at DESC, ma.created_at ASC`,
+      ORDER BY o.created_at DESC, ma.created_at ASC, ma.id ASC`,
     [safeString(accountId)]
   );
   const [adminRows] = await executor.query(
@@ -753,10 +791,9 @@ async function listContexts(accountId, connection) {
 }
 
 function contextRank(context) {
-  if (context.identityType === 'assignment' && context.isPrimary) return 0;
-  if (context.identityType === 'assignment') return 1;
-  if (context.adminLevel !== 'super_admin') return 2;
-  return 3;
+  if (context.identityType === 'assignment') return 0;
+  if (context.adminLevel !== 'super_admin') return 1;
+  return 2;
 }
 
 function chooseFallbackContext(contexts, preferredOrganizationId) {
@@ -1605,10 +1642,8 @@ async function transferWechatBinding(connection, data) {
   const [recipientRows] = await connection.query(
     `SELECT om.org_id, om.legacy_hr_id
        FROM organization_memberships om
-       LEFT JOIN membership_assignments ma ON ma.membership_id = om.id
-         AND ma.status = 'active' AND ma.is_primary = 1
       WHERE om.person_id = ? AND om.status = 'active'
-      ORDER BY ma.is_primary DESC, om.created_at ASC
+      ORDER BY om.created_at ASC, om.id ASC
       LIMIT 1`,
     [data.personId]
   );
@@ -2008,6 +2043,7 @@ module.exports = {
   listClaimOrganizations,
   syncLegacyHrRecords,
   listMembershipAssignments,
+  listMembershipAssignmentSummaries,
   saveMembershipAssignment,
   revokeMembershipAssignment,
   removeLegacyHrRecord,

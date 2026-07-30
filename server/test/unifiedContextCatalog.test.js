@@ -30,7 +30,6 @@ const contexts = [
     organizationId: 'org-a',
     organizationName: '组织甲',
     role: 'user',
-    isPrimary: true,
     department: '主席团',
     identity: '主席团成员',
     workGroup: ''
@@ -44,7 +43,6 @@ const contexts = [
     organizationId: 'org-b',
     organizationName: '组织乙',
     role: 'user',
-    isPrimary: true,
     department: '办公室',
     identity: '学院对接人员',
     workGroup: ''
@@ -103,5 +101,6 @@ assert.strictEqual(globalIdentities[0].detail, '可管理全部组织');
 const organizationAdmin = catalog.identities.find((item) => item.identityId === 'idn-admin-a');
 assert.strictEqual(organizationAdmin.scope, 'organization');
 assert.strictEqual(organizationAdmin.organizationId, 'org-a');
+assert.strictEqual(Object.prototype.hasOwnProperty.call(catalog.identities[0], 'isPrimary'), false);
 
 console.log('组织与身份目录去重、作用域和当前选择测试通过');

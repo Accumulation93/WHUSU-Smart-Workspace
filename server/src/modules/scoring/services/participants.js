@@ -12,13 +12,13 @@ async function listParticipants(orgId, granularity) {
       `SELECT ma.id, ma.id AS assignment_id, ma.membership_id, om.legacy_hr_id,
               om.person_id, p.name, p.student_id, ma.title AS assignment_title,
               ma.assignment_kind, ma.department_id, ma.identity_id, ma.work_group_id,
-              ma.is_primary, ma.status
+              ma.status
          FROM membership_assignments ma
          JOIN organization_memberships om
            ON om.id = ma.membership_id AND om.org_id = ma.org_id AND om.status = 'active'
          JOIN persons p ON p.id = om.person_id AND p.status = 'active'
         WHERE ma.org_id = ? AND ma.status = 'active'
-        ORDER BY p.name, ma.is_primary DESC, ma.created_at ASC`,
+        ORDER BY p.name, ma.created_at ASC, ma.id ASC`,
       [safeString(orgId)]
     );
     return rows;
@@ -26,14 +26,11 @@ async function listParticipants(orgId, granularity) {
 
   const [rows] = await pool.query(
     `SELECT h.*, h.id AS legacy_hr_id, om.id AS membership_id, om.person_id,
-            ma.id AS assignment_id, ma.title AS assignment_title,
-            ma.assignment_kind, ma.is_primary
+            NULL AS assignment_id, NULL AS assignment_title,
+            NULL AS assignment_kind
        FROM hr_info h
        JOIN organization_memberships om
          ON om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
-       LEFT JOIN membership_assignments ma
-         ON ma.membership_id = om.id AND ma.org_id = om.org_id
-        AND ma.is_primary = 1 AND ma.status = 'active'
       WHERE h.org_id = ?
       ORDER BY h.name`,
     [safeString(orgId)]

@@ -149,8 +149,7 @@ router.post('/listMembershipAssignments', async (req, res) => {
         identityId: safeString(item.identity_id),
         identity: safeString(item.identity_name),
         workGroupId: safeString(item.work_group_id),
-        workGroup: safeString(item.work_group_name),
-        isPrimary: Boolean(item.is_primary)
+        workGroup: safeString(item.work_group_name)
       }))
     });
   } catch (error) {
@@ -171,8 +170,7 @@ router.post('/saveMembershipAssignment', async (req, res) => {
       title: safeString(req.body.title),
       departmentId: safeString(req.body.departmentId),
       identityId: safeString(req.body.identityId),
-      workGroupId: safeString(req.body.workGroupId),
-      isPrimary: req.body.isPrimary === true || req.body.isPrimary === 1
+      workGroupId: safeString(req.body.workGroupId)
     }, {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
@@ -214,28 +212,36 @@ router.post('/saveHrInfo', async (req, res) => {
     const admin = await adminInfoModel.getByOpenid(openid);
     if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
-    const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
-    const departmentId = safeString(req.body.departmentId);
-    const identityId = safeString(req.body.identityId);
-    const workGroupId = safeString(req.body.workGroupId);
 
     if (!name || !studentId) {
       return res.json({ status: 'invalid_params', message: '请提供姓名和学号' });
     }
 
-    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    const data = { name, studentId, departmentId, identityId, workGroupId, updatedAt: nowUtc };
-
-    if (id) {
-      await hrInfoModel.update(id, data);
-      res.json({ status: 'success', message: '人事信息已更新' });
-    } else {
-      const newId = generateId();
-      await hrInfoModel.create(newId, data);
-      res.json({ status: 'success', id: newId, message: '人事信息已创建' });
+    const existingId = safeString(req.body.id);
+    if (existingId) {
+      const existing = await hrInfoModel.getById(existingId);
+      if (!existing) {
+        return res.json({ status: 'not_found', message: '请重新选择成员' });
+      }
+      await hrInfoModel.updatePersonBasics(existingId, {
+        name,
+        studentId,
+        updatedAt: new Date()
+      });
+      return res.json({ status: 'success', id: existingId, message: '成员已保存' });
     }
+
+    const newId = generateId();
+    await hrInfoModel.create(newId, {
+      name,
+      studentId,
+      departmentId: '',
+      identityId: '',
+      workGroupId: ''
+    });
+    res.json({ status: 'success', id: newId, message: '成员已保存' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

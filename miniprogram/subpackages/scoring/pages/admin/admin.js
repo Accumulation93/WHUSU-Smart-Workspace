@@ -223,6 +223,7 @@ Page({
     membershipAssignmentList: [],
     membershipAssignmentFormVisible: false,
     membershipAssignmentForm: {},
+    detailScrollTarget: '',
     assignmentKindOptions: ['校学生会岗位', '学院学生会对接岗位', '其他岗位'],
     assignmentKindValues: ['staff', 'liaison', 'other'],
     assignmentDepartmentIndex: 0,

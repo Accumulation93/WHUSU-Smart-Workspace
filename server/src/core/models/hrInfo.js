@@ -46,6 +46,20 @@ async function update(id, data) {
   });
 }
 
+async function updatePersonBasics(id, data) {
+  const { name, studentId, updatedAt } = data;
+  const orgId = await getCurrentOrgId();
+  await pool.withTransaction(async (connection) => {
+    await connection.query(
+      `UPDATE hr_info
+          SET name = ?, student_id = ?, updated_at = ?
+        WHERE id = ? AND org_id = ?`,
+      [name || '', studentId || '', updatedAt || null, id, orgId]
+    );
+    await unifiedIdentityModel.syncLegacyHrRecords(connection, [id]);
+  });
+}
+
 async function remove(id) {
   const orgId = await getCurrentOrgId();
   await pool.withTransaction(async (connection) => {
@@ -117,4 +131,17 @@ async function getByIdInOrg(id, orgId) {
   return rows[0] || null;
 }
 
-module.exports = { getAll, getById, getByIdInOrg, getByIds, getByStudentId, getByStudentIdGlobal, getByStudentIdInOrg, getByScopes, create, update, remove };
+module.exports = {
+  getAll,
+  getById,
+  getByIdInOrg,
+  getByIds,
+  getByStudentId,
+  getByStudentIdGlobal,
+  getByStudentIdInOrg,
+  getByScopes,
+  create,
+  update,
+  updatePersonBasics,
+  remove
+};

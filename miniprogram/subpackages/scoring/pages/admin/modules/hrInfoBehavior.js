@@ -493,9 +493,9 @@ module.exports = Behavior({
       const columns = [
         { key: 'name', label: '姓名', groupLabel: '基本信息', source: 'name', checked: true },
         { key: 'studentId', label: '学号', groupLabel: '基本信息', source: 'studentId', checked: true },
-        { key: 'department', label: '所属部门', groupLabel: '基本信息', source: 'department', checked: true },
-        { key: 'identity', label: '身份', groupLabel: '基本信息', source: 'identity', checked: true },
-        { key: 'workGroup', label: '工作分工（职能组）', groupLabel: '基本信息', source: 'workGroup', checked: true },
+        { key: 'department', label: '所属部门（全部岗位）', groupLabel: '岗位身份', source: 'department', checked: true },
+        { key: 'identity', label: '身份（全部岗位）', groupLabel: '岗位身份', source: 'identity', checked: true },
+        { key: 'workGroup', label: '工作分工（职能组，全部岗位）', groupLabel: '岗位身份', source: 'workGroup', checked: true },
         { key: 'wxBindStatus', label: '微信绑定状态', groupLabel: '基本信息', source: 'wxBindStatus', checked: true },
         { key: 'auditStatus', label: '补充资料状态', groupLabel: '基本信息', source: 'auditStatus', checked: true }
       ];
@@ -678,12 +678,6 @@ module.exports = Behavior({
         const profile = result.profile || {};
         if (profile.name) vals._name = profile.name;
         if (profile.studentId) vals._studentId = profile.studentId;
-        if (profile.departmentId) vals._departmentId = profile.departmentId;
-        if (profile.department) vals._departmentName = profile.department;
-        if (profile.identityId) vals._identityId = profile.identityId;
-        if (profile.identity) vals._identityName = profile.identity;
-        if (profile.workGroupId) vals._workGroupId = profile.workGroupId;
-        if (profile.workGroup) vals._workGroupName = profile.workGroup;
         if (result.values) {
           Object.keys(result.values).forEach(k => { vals[k] = result.values[k]; });
         }
@@ -722,9 +716,6 @@ module.exports = Behavior({
           detailHrHasPending: !!result.hasPending,
           loadingDetailHr: false
         });
-        this._ensureDetailFormOptions();
-        this.updateDetailWorkGroupOptions();
-        this._syncDetailPickerValues();
         await this.loadMembershipAssignments(hrId);
       } catch (err) {
         wx.showToast({ title: '请稍后刷新详情', icon: 'none' });
@@ -760,14 +751,13 @@ module.exports = Behavior({
           identityId: '',
           identity: '',
           workGroupId: '',
-          workGroup: '',
-          isPrimary: false
+          workGroup: ''
         },
         assignmentDepartmentIndex: 0,
         assignmentIdentityIndex: 0,
         assignmentWorkGroupIndex: 0,
         assignmentWorkGroupOptions: []
-      });
+      }, () => this._scrollHrDetailTo('hr-assignment-editor'));
     },
 
     editMembershipAssignment(e) {
@@ -790,14 +780,21 @@ module.exports = Behavior({
         assignmentIdentityIndex: Math.max(0, identities.findIndex((row) => String(row.id) === String(item.identityId))),
         assignmentWorkGroupIndex: Math.max(0, workGroups.findIndex((row) => String(row.id) === String(item.workGroupId))),
         assignmentWorkGroupOptions: workGroups
-      });
+      }, () => this._scrollHrDetailTo('hr-assignment-editor'));
     },
 
     cancelMembershipAssignmentEdit() {
       this.setData({
         membershipAssignmentFormVisible: false,
         membershipAssignmentForm: {},
-        assignmentWorkGroupOptions: []
+        assignmentWorkGroupOptions: [],
+        detailScrollTarget: ''
+      });
+    },
+
+    _scrollHrDetailTo(target) {
+      this.setData({ detailScrollTarget: '' }, () => {
+        wx.nextTick(() => this.setData({ detailScrollTarget: target }));
       });
     },
 
@@ -852,10 +849,6 @@ module.exports = Behavior({
       });
     },
 
-    onMembershipAssignmentPrimaryChange(e) {
-      this.setData({ 'membershipAssignmentForm.isPrimary': Boolean(e.detail.value) });
-    },
-
     async saveMembershipAssignment() {
       const form = this.data.membershipAssignmentForm || {};
       if (!form.departmentId || !form.identityId) {
@@ -874,6 +867,7 @@ module.exports = Behavior({
         }
         this.cancelMembershipAssignmentEdit();
         await this.loadMembershipAssignments();
+        this.loadHrProfileAdminData();
         wx.showToast({ title: '岗位已保存', icon: 'success' });
       } catch (error) {
         wx.showToast({ title: '未保存，请重试', icon: 'none' });
@@ -897,6 +891,7 @@ module.exports = Behavior({
               return;
             }
             await this.loadMembershipAssignments();
+            this.loadHrProfileAdminData();
             wx.showToast({ title: '岗位已删除', icon: 'success' });
           } catch (error) {
             wx.showToast({ title: '未删除，请重试', icon: 'none' });
@@ -915,7 +910,8 @@ module.exports = Behavior({
         detailFieldValues: {},
         membershipAssignmentList: [],
         membershipAssignmentFormVisible: false,
-        membershipAssignmentForm: {}
+        membershipAssignmentForm: {},
+        detailScrollTarget: ''
       });
     },
 
@@ -950,64 +946,16 @@ module.exports = Behavior({
       this.setData(updates);
     },
 
-    onDetailDepartmentChange(e) {
-      const index = Number(e.detail.value);
-      const dept = this.data.departmentList[index] || {};
-      this.setData({
-        'detailHrValues._departmentId': dept.id || '',
-        'detailHrValues._departmentName': dept.name || '',
-        'detailHrValues._workGroupId': '',
-        'detailHrValues._workGroupName': '',
-        detailDepartmentValue: index
-      });
-      this.updateDetailWorkGroupOptions(dept.id);
-    },
-
-    onDetailIdentityChange(e) {
-      const index = Number(e.detail.value);
-      const ident = this.data.identityList[index] || {};
-      this.setData({
-        'detailHrValues._identityId': ident.id || '',
-        'detailHrValues._identityName': ident.name || '',
-        detailIdentityValue: index
-      });
-    },
-
-    onDetailWorkGroupChange(e) {
-      const index = Number(e.detail.value);
-      if (index === 0) {
-        this.setData({
-          'detailHrValues._workGroupId': '',
-          'detailHrValues._workGroupName': '',
-          detailWorkGroupValue: 0
-        });
-        return;
-      }
-      const deptId = this.data.detailHrValues._departmentId || (this.data.detailHrProfile || {}).departmentId || '';
-      const idStr = String(deptId);
-      const wgs = this.data.workGroupList.filter(w => String(w.departmentId) === idStr);
-      const wg = wgs[index - 1] || {};
-      this.setData({
-        'detailHrValues._workGroupId': wg.id || '',
-        'detailHrValues._workGroupName': wg.name || '',
-        detailWorkGroupValue: index
-      });
-    },
-
     async saveHrPersonDetail() {
       const vals = this.data.detailHrValues || {};
-      const profile = this.data.detailHrProfile || {};
       const hrId = this.data.detailHrId;
       if (!hrId) return;
   
       const name = (vals._name || '').trim();
       const studentId = (vals._studentId || '').trim();
-      const departmentId = vals._departmentId || profile.departmentId || '';
-      const identityId = vals._identityId || profile.identityId || '';
-      const workGroupId = vals._workGroupId || profile.workGroupId || '';
-  
-      if (!name || !studentId || !departmentId || !identityId) {
-        wx.showToast({ title: '请填写完整的姓名、学号、部门和身份', icon: 'none' });
+
+      if (!name || !studentId) {
+        wx.showToast({ title: '请填写姓名和学号', icon: 'none' });
         return;
       }
   
@@ -1033,7 +981,7 @@ module.exports = Behavior({
       this.setData({ savingDetailHr: true });
       try {
         const result = await this.callCloud('saveHrPersonFull', {
-          hrId, name, studentId, departmentId, identityId, workGroupId, profileValues
+          hrId, name, studentId, profileValues
         });
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
@@ -1428,39 +1376,6 @@ module.exports = Behavior({
       });
     },
 
-    editHr(e) {
-      const index = Number(e.currentTarget.dataset.index);
-      const item = this.data.hrList[index];
-      if (!item) {
-        return;
-      }
-  
-      this.setData({
-        hrForm: {
-          id: item.id,
-          name: item.name,
-          studentId: item.studentId,
-          departmentId: item.departmentId || '',
-          department: item.department,
-          identityId: item.identityId || '',
-          identity: item.identity,
-          workGroupId: item.workGroupId || '',
-          workGroup: item.workGroup || ''
-        },
-        showAddEditForm: true
-      });
-    },
-
-    editHrFromProfile(e) {
-      const hrId = String(e.currentTarget.dataset.hrId || '');
-      const index = (this.data.hrList || []).findIndex(item => String(item.id) === hrId);
-      if (index < 0) {
-        wx.showToast({ title: '请稍后刷新成员', icon: 'none' });
-        return;
-      }
-      this.editHr({ currentTarget: { dataset: { index } } });
-    },
-
     resetHrForm() {
       this.setData({
         hrForm: emptyHrForm()
@@ -1473,11 +1388,11 @@ module.exports = Behavior({
     },
 
     async saveHr() {
-      const { id, name, studentId, departmentId, identityId, workGroupId } = this.data.hrForm;
+      const { name, studentId } = this.data.hrForm;
     
-      if (!name || !studentId || !departmentId || !identityId) {
+      if (!name || !studentId) {
         wx.showToast({
-          title: '请填写完整人事信息',
+          title: '请填写姓名学号',
           icon: 'none'
         });
         return;
@@ -1486,12 +1401,8 @@ module.exports = Behavior({
       this.setLoading('saveHr', true);
       try {
         const result = await this.callCloud('saveHrInfo', {
-          id,
           name,
-          studentId,
-          departmentId,
-          identityId,
-          workGroupId
+          studentId
         });
     
         if (result.status !== 'success') {
@@ -1502,13 +1413,13 @@ module.exports = Behavior({
           return;
         }
     
-        this.resetHrForm();
         await this.loadHrList();
-        await this.loadHrProfileAdminData(); // refresh unified list
-        wx.showToast({
-          title: '人事成员已保存',
-          icon: 'success'
+        await this.loadHrProfileAdminData();
+        this.setData({
+          hrForm: emptyHrForm(),
+          showAddEditForm: false
         });
+        await this.openHrPersonDetail({ currentTarget: { dataset: { hrId: result.id } } });
       } catch (error) {
         wx.showToast({
           title: '未保存，请重试',

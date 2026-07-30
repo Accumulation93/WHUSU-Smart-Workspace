@@ -105,6 +105,12 @@ INSERT INTO hr_info VALUES
   ('hr-b1', '同一人', '20260001', 'org-b', 'dept-b', 'identity-b', ''),
   ('hr-c1', '同一人', '20260001', 'org-c', NULL, NULL, ''),
   ('hr-a2', '第二人', '20260002', 'org-a', 'dept-a', 'identity-a', '');
+INSERT INTO departments VALUES
+  ('dept-a', 'org-a', '主席团'),
+  ('dept-b', 'org-b', '办公室');
+INSERT INTO identities VALUES
+  ('identity-a', 'org-a', '主席团成员'),
+  ('identity-b', 'org-b', '学院对接人员');
 INSERT INTO user_info VALUES
   ('user-a1', 'openid-one', 'hr-a1', 'org-a', NOW(), NOW()),
   ('user-b1', 'openid-one', 'hr-b1', 'org-b', NOW(), NOW()),
@@ -166,14 +172,21 @@ async function run() {
     assert.match(record.scorer_subject_key, /^person:/);
     assert.match(record.target_subject_key, /^person:/);
 
-    await assert.rejects(
-      database.query(`
-        INSERT INTO membership_assignments
-          (id, membership_id, org_id, is_primary, status, active_primary_membership_id)
-        VALUES ('assignment-conflict', 'hr-a1', 'org-a', 1, 'active', 'hr-a1')
-      `),
-      /Duplicate entry/
-    );
+    await database.query(fs.readFileSync(
+      path.resolve(__dirname, '../db/deploy/20260730143000_remove_primary_assignment.sql'),
+      'utf8'
+    ));
+    const [primaryColumns] = await database.query(`
+      SELECT COLUMN_NAME
+        FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'membership_assignments'
+         AND COLUMN_NAME IN ('is_primary', 'active_primary_membership_id')
+    `, [databaseName]);
+    assert.deepStrictEqual(primaryColumns, []);
+    await database.query(fs.readFileSync(
+      path.resolve(__dirname, '../db/deploy/20260730143000_remove_primary_assignment.sql'),
+      'utf8'
+    ));
     await assert.rejects(
       database.query(`
         INSERT INTO account_wechat_bindings
@@ -204,6 +217,7 @@ async function run() {
     });
     assert(session && session.context);
     const contexts = await identityModel.listContexts(account.id);
+    assert.strictEqual(contexts.some((item) => Object.prototype.hasOwnProperty.call(item, 'isPrimary')), false);
     const globalAdminContexts = contexts.filter((item) => item.identityScope === 'global');
     assert.strictEqual(globalAdminContexts.length, 3);
     assert.strictEqual(
@@ -235,6 +249,74 @@ async function run() {
       }),
       /该身份已失效/
     );
+    await identityModel.revokeMembershipAssignment({
+      id: 'hr-a1',
+      organizationId: 'org-a'
+    }, {
+      personId: 'hr-a1',
+      contextId: 'ctx-test-admin'
+    });
+    await pool.withTransaction(async (connection) => {
+      await identityModel.syncLegacyHrRecords(connection, ['hr-a1']);
+    });
+    const [[revokedLegacyAssignment]] = await pool.query(
+      `SELECT status FROM membership_assignments WHERE id = 'hr-a1'`
+    );
+    assert.strictEqual(revokedLegacyAssignment.status, 'revoked');
+    const [[clearedLegacyFields]] = await pool.query(
+      `SELECT department_id, identity_id, work_group_id FROM hr_info WHERE id = 'hr-a1'`
+    );
+    assert.strictEqual(clearedLegacyFields.department_id, null);
+    assert.strictEqual(clearedLegacyFields.identity_id, null);
+    assert.strictEqual(clearedLegacyFields.work_group_id, null);
+
+    await identityModel.saveMembershipAssignment({
+      legacyHrId: 'hr-a1',
+      organizationId: 'org-a',
+      assignmentKind: 'staff',
+      title: '主席团成员',
+      departmentId: 'dept-a',
+      identityId: 'identity-a',
+      workGroupId: ''
+    }, {
+      personId: 'hr-a1',
+      contextId: 'ctx-test-admin'
+    });
+    await identityModel.saveMembershipAssignment({
+      legacyHrId: 'hr-a1',
+      organizationId: 'org-a',
+      assignmentKind: 'liaison',
+      title: '学院对接人员',
+      departmentId: 'dept-a',
+      identityId: 'identity-a',
+      workGroupId: ''
+    }, {
+      personId: 'hr-a1',
+      contextId: 'ctx-test-admin'
+    });
+    const assignments = await identityModel.listMembershipAssignments('hr-a1', 'org-a');
+    assert.strictEqual(assignments.length, 2);
+    assert.strictEqual(assignments.some((item) => Object.prototype.hasOwnProperty.call(item, 'is_primary')), false);
+    const summaries = await identityModel.listMembershipAssignmentSummaries(['hr-a1'], 'org-a');
+    assert.strictEqual(summaries.get('hr-a1').count, 2);
+    await identityModel.revokeMembershipAssignment({
+      id: assignments[0].id,
+      organizationId: 'org-a'
+    }, {
+      personId: 'hr-a1',
+      contextId: 'ctx-test-admin'
+    });
+    const [[compatibilitySnapshot]] = await pool.query(
+      `SELECT department_id, identity_id
+         FROM hr_info
+        WHERE id = 'hr-a1' AND org_id = 'org-a'`
+    );
+    assert.strictEqual(compatibilitySnapshot.department_id, 'dept-a');
+    assert.strictEqual(compatibilitySnapshot.identity_id, 'identity-a');
+    const remainingAssignments = await identityModel.listMembershipAssignments('hr-a1', 'org-a');
+    assert.strictEqual(remainingAssignments.length, 1);
+    assert.deepStrictEqual(summaries.get('hr-a1').departments, ['主席团']);
+    assert.deepStrictEqual(summaries.get('hr-a1').identities, ['主席团成员']);
     const [[syncedLegacyBinding]] = await pool.query(
       `SELECT COUNT(*) AS count
          FROM user_info
