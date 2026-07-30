@@ -186,7 +186,6 @@ Page({
     hrProfileTemplateForm: emptyHrProfileTemplateForm(),
     hrProfileFilters: emptyHrProfileFilters(),
     hrProfileFilterOptions: emptyHrProfileFilterOptions(),
-    hrProfileRawRows: [],
     hrProfileRows: [],
     hrProfileFields: [],
     hrProfileExportVisible: false,
@@ -370,6 +369,8 @@ Page({
       this._bootstrapKey = '';
       this._bootstrapComplete = false;
       this._bootstrapPromise = null;
+      this._hrProfileRawRows = [];
+      this._hrProfileFilteredRows = [];
       this.setData({
         activeTab: preservedTab,
         activityList: [],
@@ -395,7 +396,6 @@ Page({
         meritSummaryLoaded: false,
         meritSummaryLoadFailed: false,
         hrList: [],
-        hrProfileRawRows: [],
         hrProfileRows: [],
         hrProfileFields: [],
         hrProfileTemplateList: [],

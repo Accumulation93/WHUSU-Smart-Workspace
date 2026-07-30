@@ -7,6 +7,7 @@ const homeWxml = fs.readFileSync(path.join(root, 'miniprogram/pages/home/home.wx
 const homeWxss = fs.readFileSync(path.join(root, 'miniprogram/pages/home/home.wxss'), 'utf8');
 const adminWxml = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8');
 const adminWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxss'), 'utf8');
+const hrInfoBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'), 'utf8');
 
 assert(
   /\.field-grid\s*\{[\s\S]*?display:\s*grid;[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(homeWxss),
@@ -37,6 +38,11 @@ assert(
 assert(
   !/主要岗位|设为主要岗位|isPrimary/.test(adminWxml),
   '人事界面不得保留主要岗位概念'
+);
+assert(
+  /filteredRows\.map\(toHrProfileListRow\)/.test(hrInfoBehavior)
+    && /this\._hrProfileFilteredRows/.test(hrInfoBehavior),
+  '人事列表必须只向视图传递摘要字段，完整补充资料应留在逻辑层供筛选和导出'
 );
 const createMemberForm = adminWxml.match(/<view class="edit-box" wx:if="\{\{activeTab === 'hrInfo'[\s\S]*?<\/view>\s*<view class="edit-box hr-template-editor"/);
 assert(createMemberForm, '应保留新增成员表单');

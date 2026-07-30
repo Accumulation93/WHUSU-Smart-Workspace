@@ -5,6 +5,19 @@ const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIO
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
 
+function toHrProfileListRow(item) {
+  return {
+    id: item.id,
+    name: item.name,
+    studentId: item.studentId,
+    wxBindStatus: item.wxBindStatus,
+    auditStatus: item.auditStatus,
+    auditStatusText: item.auditStatusText,
+    assignmentCount: item.assignmentCount,
+    hasPending: item.hasPending
+  };
+}
+
 module.exports = Behavior({
   methods: {
     async loadHrList() {
@@ -92,9 +105,10 @@ module.exports = Behavior({
             .map(w => w.name);
           hrProfileFilterOptions.workGroups = ['无', ...wgs];
         }
-        const hrProfileRows = applyHrProfileFilters(rawRows, this.data.hrProfileFilters);
-        // 原始数据只用于本页筛选和导出，不参与视图渲染；避免与筛选结果重复传入 setData。
+        const filteredRows = applyHrProfileFilters(rawRows, this.data.hrProfileFilters);
+        // 完整资料仅留在逻辑层供筛选和导出，视图层只接收列表真正需要的摘要字段。
         this._hrProfileRawRows = rawRows;
+        this._hrProfileFilteredRows = filteredRows;
         this.setData({
           hrProfileTemplateForm: template ? {
             description: template.description || '',
@@ -106,7 +120,7 @@ module.exports = Behavior({
           } : emptyHrProfileTemplateForm(),
           hrProfileFields,
           hrProfileFilterOptions,
-          hrProfileRows
+          hrProfileRows: filteredRows.map(toHrProfileListRow)
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
@@ -409,8 +423,10 @@ module.exports = Behavior({
     },
 
     refreshHrProfileRows(nextFilters = this.data.hrProfileFilters, nextRawRows = this._hrProfileRawRows || []) {
+      const filteredRows = applyHrProfileFilters(nextRawRows, nextFilters);
+      this._hrProfileFilteredRows = filteredRows;
       this.setData({
-        hrProfileRows: applyHrProfileFilters(nextRawRows, nextFilters)
+        hrProfileRows: filteredRows.map(toHrProfileListRow)
       });
     },
 
@@ -484,7 +500,7 @@ module.exports = Behavior({
     },
 
     exportHrProfiles() {
-      const rows = this.data.hrProfileRows || [];
+      const rows = this._hrProfileFilteredRows || [];
       if (!rows.length) {
         showShortToast('暂无可导出资料');
         return;
@@ -596,7 +612,7 @@ module.exports = Behavior({
         return;
       }
       const headers = columns.map((column) => ({ key: column.key, label: column.label }));
-      const rows = (this.data.hrProfileRows || []).map((item) => {
+      const rows = (this._hrProfileFilteredRows || []).map((item) => {
         const exportRow = {};
         for (let index = 0; index < columns.length; index += 1) {
           const column = columns[index];
