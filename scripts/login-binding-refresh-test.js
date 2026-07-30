@@ -6,7 +6,7 @@ let scenario = 'claim';
 const calls = [];
 const storage = {};
 const toasts = [];
-const redirects = [];
+const navigations = [];
 
 async function callFunction(options) {
   calls.push({ name: options.name, data: Object.assign({}, options.data || {}) });
@@ -52,7 +52,7 @@ global.wx = {
   removeStorageSync(key) { delete storage[key]; },
   login(options) { options.success({ code: 'fresh-wx-code' }); },
   showToast(options) { toasts.push(options); },
-  redirectTo(options) { redirects.push(options.url); }
+  navigateTo(options) { navigations.push(options.url); }
 };
 global.Page = function(definition) { pageDefinition = definition; };
 
@@ -99,7 +99,7 @@ async function run() {
   await page.verifyClaim();
   assert.strictEqual(storage.token, 'access-token');
   assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
-  assert(redirects.includes('/pages/portal/portal'));
+  assert(navigations.includes('/pages/portal/portal'));
 
   scenario = 'recovery';
   const recoveryPage = createPage({

@@ -467,6 +467,7 @@ function scanWxss(file) {
   const stackedButtonMetrics = [];
   const forcedDialogViewport = [];
   const miscenteredDialogShell = [];
+  const misalignedTitleAccent = [];
   const rawFontSizes = [];
   const oversizedDecorativeHero = [];
   const forcedContentViewport = [];
@@ -476,6 +477,20 @@ function scanWxss(file) {
   while ((ruleMatch = rulePattern.exec(source))) {
     const selector = ruleMatch[1];
     const declarations = ruleMatch[2];
+    if (
+      /\.(?:section-title|list-title|profile-field-title|merit-group-label|rule-panel-title)::before\b/.test(selector) &&
+      /content\s*:\s*["']{2}/.test(declarations) &&
+      /position\s*:\s*absolute/.test(declarations) &&
+      !/display\s*:\s*none/.test(declarations) &&
+      (!/top\s*:\s*50%/.test(declarations) || !/transform\s*:\s*translateY\(-50%\)/.test(declarations))
+    ) {
+      misalignedTitleAccent.push({
+        file: relative(file),
+        line: lineAt(source, ruleMatch.index),
+        selector: selector.trim().replace(/\s+/g, ' '),
+        message: '标题左侧色条必须相对完整标题块垂直居中，不能使用固定顶部偏移'
+      });
+    }
     for (const fontSize of declarations.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/gi)) {
       rawFontSizes.push({
         file: relative(file),
@@ -644,6 +659,7 @@ function scanWxss(file) {
     stackedButtonMetrics,
     forcedDialogViewport,
     miscenteredDialogShell,
+    misalignedTitleAccent,
     rawFontSizes,
     oversizedDecorativeHero,
     forcedContentViewport,
@@ -695,6 +711,7 @@ const pillButtonRadius = styles.flatMap(item => item.pillButtonRadius);
 const stackedButtonMetrics = styles.flatMap(item => item.stackedButtonMetrics);
 const forcedDialogViewport = styles.flatMap(item => item.forcedDialogViewport);
 const miscenteredDialogShell = styles.flatMap(item => item.miscenteredDialogShell);
+const misalignedTitleAccent = styles.flatMap(item => item.misalignedTitleAccent);
 const rawFontSizes = styles.flatMap(item => item.rawFontSizes);
 const oversizedDecorativeHero = styles.flatMap(item => item.oversizedDecorativeHero);
 const forcedContentViewport = styles.flatMap(item => item.forcedContentViewport);
@@ -753,9 +770,9 @@ const missingTypographySystem = typeScale.some(([name, phone, pad]) => {
 );
 const missingTabSizeSystem = !(
   /--ui-tab-font-size:\s*var\(--ui-type-control\)/.test(GLOBAL_STYLE) &&
-  /--ui-tab-min-height:\s*66rpx/.test(GLOBAL_STYLE) &&
-  /--ui-tab-min-height:\s*39\.6px/.test(GLOBAL_STYLE) &&
-  /--ui-tab-sidebar-min-height:\s*44\.4px/.test(GLOBAL_STYLE) &&
+  /--ui-tab-min-height:\s*76rpx/.test(GLOBAL_STYLE) &&
+  /--ui-tab-min-height:\s*45\.6px/.test(GLOBAL_STYLE) &&
+  /--ui-tab-sidebar-min-height:\s*50\.4px/.test(GLOBAL_STYLE) &&
   /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
 );
 const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'pages', 'home', 'home.wxss'), 'utf8');
@@ -824,6 +841,7 @@ const report = {
     stackedButtonMetrics: stackedButtonMetrics.length,
     forcedDialogViewport: forcedDialogViewport.length,
     miscenteredDialogShell: miscenteredDialogShell.length,
+    misalignedTitleAccent: misalignedTitleAccent.length,
     rawFontSizes: rawFontSizes.length,
     oversizedDecorativeHero: oversizedDecorativeHero.length,
     forcedContentViewport: forcedContentViewport.length,
@@ -864,6 +882,7 @@ const report = {
   stackedButtonMetrics,
   forcedDialogViewport,
   miscenteredDialogShell,
+  misalignedTitleAccent,
   rawFontSizes,
   oversizedDecorativeHero,
   forcedContentViewport,
@@ -882,7 +901,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -900,7 +919,7 @@ if (process.argv.includes('--strict')) {
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
     report.summary.adminOrgContextIssues || report.summary.workspaceShellIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogScrollSystem ||
+    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem;
   process.exitCode = failed ? 1 : 0;
 }

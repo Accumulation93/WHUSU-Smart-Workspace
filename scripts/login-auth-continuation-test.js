@@ -3,7 +3,7 @@ const assert = require('assert');
 const storage = {};
 const requests = [];
 const toasts = [];
-const redirects = [];
+const navigations = [];
 let pageDefinition = null;
 
 global.getApp = function() { return null; };
@@ -12,7 +12,7 @@ global.wx = {
   setStorageSync(key, value) { storage[key] = value; },
   removeStorageSync(key) { delete storage[key]; },
   showToast(options) { toasts.push(options || {}); },
-  redirectTo(options) { redirects.push(options.url); },
+  navigateTo(options) { navigations.push(options.url); },
   request(options) {
     requests.push(options);
     options.success({
@@ -92,7 +92,7 @@ async function run() {
   assert.strictEqual(storage.activeRole, 'user');
   assert.strictEqual(storage.activeOrgId, 'org-44');
   assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
-  assert(redirects.includes('/pages/portal/portal'));
+  assert(navigations.includes('/pages/portal/portal'));
 
   console.log('统一登录引导与认证令牌续接契约测试通过');
 }

@@ -38,9 +38,9 @@ page {
   --ui-control-padding-x: 28rpx;
   --ui-compact-height: 52rpx;
   --ui-tab-font-size: var(--ui-type-control);
-  --ui-tab-min-height: 66rpx;
-  --ui-tab-sidebar-min-height: 74rpx;
-  --ui-tab-padding-y: 14rpx;
+  --ui-tab-min-height: 76rpx;
+  --ui-tab-sidebar-min-height: 84rpx;
+  --ui-tab-padding-y: 16rpx;
   --ui-tab-padding-x: 18rpx;
   --ui-tab-gap: 8rpx;
   --ui-tab-shell-padding: 8rpx;
@@ -1168,9 +1168,9 @@ button:active,
     --ui-control-padding-y: 12px;
     --ui-control-padding-x: 20px;
     --ui-compact-height: 36px;
-    --ui-tab-min-height: 39.6px;
-    --ui-tab-sidebar-min-height: 44.4px;
-    --ui-tab-padding-y: 8.4px;
+    --ui-tab-min-height: 45.6px;
+    --ui-tab-sidebar-min-height: 50.4px;
+    --ui-tab-padding-y: 9.6px;
     --ui-tab-padding-x: 10.8px;
     --ui-tab-gap: 4.8px;
     --ui-tab-shell-padding: 4.8px;

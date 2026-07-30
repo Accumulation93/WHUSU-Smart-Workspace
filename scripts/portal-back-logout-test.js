@@ -41,6 +41,10 @@ const portalSource = fs.readFileSync(
   path.resolve(__dirname, '..', 'miniprogram', 'pages', 'portal', 'portal.js'),
   'utf8'
 );
+const loginSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.js'),
+  'utf8'
+);
 assert.match(
   portalSource,
   /shouldClearAuthenticationOnPortalExit\(getCurrentPages\(\), this\)/,
@@ -50,6 +54,26 @@ assert.match(
   portalSource,
   /if \(returningToLogin\) authContext\.clearUnifiedAuthentication\(\)/,
   '门户返回登录页时必须复用完整退出登录清理'
+);
+assert.match(
+  loginSource,
+  /wx\.navigateTo\(\{ url: '\/pages\/portal\/portal' \}\)/,
+  '登录成功必须保留登录页，使门户显示原生返回键'
+);
+assert.doesNotMatch(
+  loginSource,
+  /wx\.redirectTo\(\{ url: '\/pages\/portal\/portal' \}\)/,
+  '登录成功不能替换登录页，否则门户不会显示原生返回键'
+);
+assert.match(
+  portalSource,
+  /previousPage\.route === 'pages\/login\/login'[\s\S]*wx\.navigateBack\(\)/,
+  '门户显式退出时应返回现有登录页，避免叠加重复登录页'
+);
+assert.match(
+  portalSource,
+  /wx\.reLaunch\(\{ url: '\/pages\/login\/login' \}\)/,
+  '门户没有历史登录页时应重建干净的登录页'
 );
 
 console.log('门户返回登录页退出测试通过。');

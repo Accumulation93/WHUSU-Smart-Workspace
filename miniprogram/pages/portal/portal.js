@@ -730,7 +730,13 @@ Page({
 
   logout() {
     authContext.clearUnifiedAuthentication();
-    wx.redirectTo({ url: '/pages/login/login' });
+    const pages = getCurrentPages();
+    const previousPage = pages.length > 1 ? pages[pages.length - 2] : null;
+    if (previousPage && previousPage.route === 'pages/login/login') {
+      wx.navigateBack();
+      return;
+    }
+    wx.reLaunch({ url: '/pages/login/login' });
   },
 
 });

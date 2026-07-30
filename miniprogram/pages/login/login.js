@@ -40,6 +40,21 @@ Page({
     }
   },
 
+  openPortal() {
+    this.setData({
+      sheetClass: 'sheet',
+      stage: 'login',
+      name: '',
+      studentId: '',
+      claimId: '',
+      recoveryRequestId: '',
+      verificationCode: '',
+      recoveryCredential: '',
+      rotatedRecoveryCode: ''
+    });
+    wx.navigateTo({ url: '/pages/portal/portal' });
+  },
+
   onName(e) {
     this.setData({ name: String(e.detail.value || '').trim() });
   },
@@ -128,7 +143,7 @@ Page({
     if (result.status === 'login_success') {
       try {
         authContext.applyAuthenticatedResult(result);
-        wx.redirectTo({ url: '/pages/portal/portal' });
+        this.openPortal();
       } catch (_) {
         showShortToast('请重新微信登录');
       }
@@ -242,7 +257,7 @@ Page({
         return;
       }
       authContext.applyAuthenticatedResult(result);
-      wx.redirectTo({ url: '/pages/portal/portal' });
+      this.openPortal();
     } catch (error) {
       const message = getErrorText(error, '请检查认证码');
       if (message) showShortToast(message);
@@ -313,7 +328,7 @@ Page({
           recoveryCredential: ''
         });
       } else {
-        wx.redirectTo({ url: '/pages/portal/portal' });
+        this.openPortal();
       }
     } catch (error) {
       const message = getErrorText(error, '请检查恢复信息');
@@ -329,6 +344,6 @@ Page({
   },
 
   finishRecoveredLogin() {
-    wx.redirectTo({ url: '/pages/portal/portal' });
+    this.openPortal();
   }
 });
