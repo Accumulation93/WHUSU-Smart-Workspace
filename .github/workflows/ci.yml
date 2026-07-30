@@ -84,6 +84,8 @@ jobs:
           node server/test/orgContextSecurity.test.js
           node server/test/adminAuthorization.test.js
           node server/test/adminPermissions.test.js
+          node server/test/adminOrganizationAccess.test.js
+          node server/test/personIdentityOverview.test.js
           node server/test/userBindingStatus.test.js
           node server/test/userBindingUnbind.test.js
           node server/test/adminPermissionMiddleware.test.js

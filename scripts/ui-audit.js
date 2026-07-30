@@ -740,7 +740,7 @@ const missingResponsiveDataSystem = !(
   /\.task-table\.ui-data-grid--complex\s*>\s*\.ui-data-row--header/.test(GLOBAL_STYLE)
 );
 const missingDeviceSystem = !(
-  /--ui-control-height:\s*48px/.test(GLOBAL_STYLE) &&
+  /--ui-control-height:\s*44px/.test(GLOBAL_STYLE) &&
   /--ui-type-body:\s*15px/.test(GLOBAL_STYLE) &&
   /--ui-font-md:\s*var\(--ui-type-body\)/.test(GLOBAL_STYLE) &&
   /input\.field-input[\s\S]*display:\s*block\s*!important/.test(GLOBAL_STYLE)
@@ -771,8 +771,8 @@ const missingTypographySystem = typeScale.some(([name, phone, pad]) => {
 const missingTabSizeSystem = !(
   /--ui-tab-font-size:\s*var\(--ui-type-control\)/.test(GLOBAL_STYLE) &&
   /--ui-tab-min-height:\s*76rpx/.test(GLOBAL_STYLE) &&
-  /--ui-tab-min-height:\s*45\.6px/.test(GLOBAL_STYLE) &&
-  /--ui-tab-sidebar-min-height:\s*50\.4px/.test(GLOBAL_STYLE) &&
+  /--ui-tab-min-height:\s*40px/.test(GLOBAL_STYLE) &&
+  /--ui-tab-sidebar-min-height:\s*40px/.test(GLOBAL_STYLE) &&
   /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
 );
 const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'pages', 'home', 'home.wxss'), 'utf8');

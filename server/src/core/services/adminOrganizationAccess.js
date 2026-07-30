@@ -1,0 +1,80 @@
+const { safeString } = require('../../utils/helpers');
+const adminInfoModel = require('../models/adminInfo');
+const { listAccessibleActorContexts } = require('./accessibleOrganizations');
+const { loadEffectivePermissions, hasAnyPermission } = require('./adminPermissions');
+
+class AdminOrganizationAccessError extends Error {
+  constructor(code, message, httpStatus) {
+    super(message);
+    this.name = 'AdminOrganizationAccessError';
+    this.code = code;
+    this.httpStatus = httpStatus || 403;
+  }
+}
+
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const runners = new Array(Math.min(limit, items.length)).fill(null).map(async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+async function listAdminOrganizationAccess(req) {
+  const contexts = await listAccessibleActorContexts({
+    openid: safeString(req.openid),
+    role: 'admin',
+    currentOrgId: safeString(req.authContext && req.authContext.organizationId)
+  });
+  return mapWithConcurrency(contexts, 4, async (context) => {
+    const admin = context.actor && context.actor.profile;
+    const effective = await loadEffectivePermissions(admin, context.organizationId);
+    const permissions = effective.permissions || {};
+    return {
+      organizationId: context.organizationId,
+      organizationName: context.organizationName,
+      admin,
+      isSuperAdmin: Boolean(effective.isSuper),
+      canReadAssignments: Boolean(permissions['hr.people']),
+      canEditAssignments: Boolean(permissions['hr.people']),
+      canReadAdmins: Boolean(
+        permissions['system.admin_accounts.read']
+        || permissions['system.admin_accounts.write']
+      ),
+      canEditAdmins: Boolean(permissions['system.admin_accounts.write'])
+    };
+  });
+}
+
+async function requireAdminOrganizationPermission(req, organizationId, permissionKeys, connection) {
+  const orgId = safeString(organizationId);
+  if (!orgId) {
+    throw new AdminOrganizationAccessError('invalid_organization', '请重新选择组织', 400);
+  }
+  const admin = await adminInfoModel.getByOpenidForOrganization(
+    safeString(req.openid),
+    orgId,
+    connection,
+    Boolean(connection)
+  );
+  if (!admin) {
+    throw new AdminOrganizationAccessError('organization_forbidden', '您已无法管理该组织', 403);
+  }
+  const effective = await loadEffectivePermissions(admin, orgId, connection);
+  if (!hasAnyPermission(effective, permissionKeys)) {
+    throw new AdminOrganizationAccessError('permission_denied', '您没有该组织的管理权限', 403);
+  }
+  return { admin, effective, organizationId: orgId };
+}
+
+module.exports = {
+  AdminOrganizationAccessError,
+  listAdminOrganizationAccess,
+  requireAdminOrganizationPermission
+};
