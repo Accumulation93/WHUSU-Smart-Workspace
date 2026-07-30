@@ -1,4 +1,3 @@
-<workspace-navigation></workspace-navigation>
 <view class="page auth-page">
   <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="身份认证" tone="admin"></workspace-hero>
 

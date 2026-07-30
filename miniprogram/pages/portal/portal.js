@@ -3,6 +3,7 @@ const eventBus = require('../../utils/eventBus');
 const orgSession = require('../../utils/orgSession');
 const adminPermissions = require('../../utils/adminPermissions');
 const authContext = require('../../utils/authContext');
+const { shouldClearAuthenticationOnPortalExit } = require('../../utils/portalExit');
 const { activateOrganization } = require('../../utils/organizationActivation');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const STORAGE_KEY = 'roleProfiles';
@@ -164,6 +165,7 @@ Page({
   },
 
   onUnload() {
+    const returningToLogin = this._isPageVisible && shouldClearAuthenticationOnPortalExit(getCurrentPages(), this);
     this.stopPolling();
     if (this._boundOnApprovalDone) {
       eventBus.off('approval:done', this._boundOnApprovalDone);
@@ -177,6 +179,7 @@ Page({
       eventBus.off('org:changed', this._boundOnOrgChanged);
       this._boundOnOrgChanged = null;
     }
+    if (returningToLogin) authContext.clearUnifiedAuthentication();
   },
 
   refreshCurrentUser() {

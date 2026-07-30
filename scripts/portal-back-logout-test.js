@@ -1,0 +1,55 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const {
+  getPortalExitTargetRoute,
+  shouldClearAuthenticationOnPortalExit
+} = require('../miniprogram/utils/portalExit');
+
+const loginPage = { route: 'pages/login/login' };
+const portalPage = { route: 'pages/portal/portal' };
+const businessPage = { route: 'pages/home/home' };
+
+assert.strictEqual(
+  shouldClearAuthenticationOnPortalExit([loginPage, portalPage], portalPage),
+  true,
+  '门户从页面栈返回登录页时必须退出登录'
+);
+assert.strictEqual(
+  shouldClearAuthenticationOnPortalExit([loginPage], portalPage),
+  true,
+  '门户卸载后页面栈只剩登录页时必须退出登录'
+);
+assert.strictEqual(
+  shouldClearAuthenticationOnPortalExit([portalPage], portalPage),
+  false,
+  '关闭唯一门户页面时不能误判为返回登录页'
+);
+assert.strictEqual(
+  shouldClearAuthenticationOnPortalExit([portalPage, businessPage], portalPage),
+  false,
+  '进入业务页面时不能清除登录状态'
+);
+assert.strictEqual(
+  shouldClearAuthenticationOnPortalExit([loginPage, portalPage, businessPage], portalPage),
+  false,
+  '门户隐藏在业务页面下方时不能把历史登录页误判为返回目标'
+);
+assert.strictEqual(getPortalExitTargetRoute([], portalPage), '', '空页面栈不应产生退出目标');
+
+const portalSource = fs.readFileSync(
+  path.resolve(__dirname, '..', 'miniprogram', 'pages', 'portal', 'portal.js'),
+  'utf8'
+);
+assert.match(
+  portalSource,
+  /shouldClearAuthenticationOnPortalExit\(getCurrentPages\(\), this\)/,
+  '门户卸载时必须判断是否返回登录页'
+);
+assert.match(
+  portalSource,
+  /if \(returningToLogin\) authContext\.clearUnifiedAuthentication\(\)/,
+  '门户返回登录页时必须复用完整退出登录清理'
+);
+
+console.log('门户返回登录页退出测试通过。');

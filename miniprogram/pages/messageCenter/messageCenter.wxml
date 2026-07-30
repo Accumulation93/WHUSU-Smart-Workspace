@@ -1,4 +1,3 @@
-<workspace-navigation></workspace-navigation>
 <view class="page message-page">
   <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="消息中心"></workspace-hero>
 

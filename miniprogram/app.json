@@ -51,13 +51,11 @@
     }
   ],
   "window": {
-    "navigationStyle": "custom",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "WHUSU智慧工作台",
     "navigationBarBackgroundColor": "#ffffff"
   },
   "usingComponents": {
-    "workspace-navigation": "/components/workspace-navigation/workspace-navigation",
     "workspace-hero": "/components/workspace-hero/workspace-hero"
   },
   "style": "v2",
