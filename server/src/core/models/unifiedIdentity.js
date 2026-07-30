@@ -405,7 +405,7 @@ async function refreshLegacyHrCompatibilitySnapshot(connection, membership) {
   const assignment = rows[0] || {};
   await connection.query(
     `UPDATE hr_info
-        SET department_id = ?, identity_id = ?, work_group_id = ?, updated_at = NOW()
+        SET department_id = ?, identity_id = ?, work_group_id = ?
       WHERE id = ? AND org_id = ?`,
     [
       safeString(assignment.department_id) || null,
