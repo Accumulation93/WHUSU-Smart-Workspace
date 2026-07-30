@@ -95,7 +95,6 @@ const REQUIRED_INDEXES = [
   ,['account_wechat_bindings', 'idx_wechat_openid_hash']
   ,['account_wechat_bindings', 'uk_wechat_active_openid']
   ,['account_wechat_bindings', 'uk_wechat_active_account']
-  ,['membership_assignments', 'uk_assignment_active_primary']
   ,['auth_sessions', 'idx_auth_session_account']
   ,['identity_claim_requests', 'idx_claim_org_status']
   ,['auth_audit_events', 'idx_auth_audit_type']
@@ -202,11 +201,6 @@ async function verifySchemaContract(pool) {
             ON om.legacy_hr_id = h.id AND om.org_id = h.org_id
          WHERE om.id IS NULL) AS unmapped_hr_records,
        (SELECT COUNT(*)
-          FROM organization_memberships om
-          LEFT JOIN membership_assignments ma
-            ON ma.membership_id = om.id AND ma.status = 'active' AND ma.is_primary = 1
-         WHERE om.status = 'active' AND ma.id IS NULL) AS memberships_without_primary_assignment,
-       (SELECT COUNT(*)
           FROM admin_info ai
           LEFT JOIN admin_grants ag
             ON ag.legacy_admin_id = ai.id AND ag.status = 'active'
@@ -218,7 +212,6 @@ async function verifySchemaContract(pool) {
     || Number(identityIntegrity.account_multi_binding)
     || Number(identityIntegrity.insecure_active_bindings)
     || Number(identityIntegrity.unmapped_hr_records)
-    || Number(identityIntegrity.memberships_without_primary_assignment)
     || Number(identityIntegrity.unmapped_admin_records)) {
     const error = new Error('数据库迁移未完成: data:unified_identity_integrity');
     error.code = 'schema_contract_failed';

@@ -16,6 +16,7 @@ const profileValueModel = require('../models/hrProfileValue');
 const templateLibrary = require('../services/hrProfileTemplateLibrary');
 const { loadEffectivePermissions, hasAnyPermission } = require('../services/adminPermissions');
 const { resolveHrBindingStates } = require('../services/userBindingStatus');
+const unifiedIdentityModel = require('../models/unifiedIdentity');
 const pool = require('../../config/db');
 
 const TEMPLATE_KEY = 'default_hr_profile_template';
@@ -417,18 +418,17 @@ router.post('/listHrProfileAdminData', async (req, res) => {
     if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
 
     const orgId = await getCurrentOrgId();
-    const [template, hrRows, records, departments, identities, workGroups] = await Promise.all([
+    const [template, hrRows, records] = await Promise.all([
       profileTemplateModel.getByTemplateKey(TEMPLATE_KEY),
       hrInfoModel.getAll(),
-      profileRecordModel.getAll(),
-      departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
+      profileRecordModel.getAll()
     ]);
 
-    const bindingStates = await resolveHrBindingStates(hrRows, orgId);
+    const [bindingStates, assignmentSummaries] = await Promise.all([
+      resolveHrBindingStates(hrRows, orgId),
+      unifiedIdentityModel.listMembershipAssignmentSummaries(hrRows.map((row) => row.id), orgId)
+    ]);
 
-    const deptMap = buildNameMap(departments);
-    const identMap = buildNameMap(identities);
-    const wgMap = buildNameMap(workGroups);
     const recordMap = new Map(records.map((r) => [safeString(r.hr_id), r]));
 
     const recordIds = records.map(r => r.id).filter(Boolean);
@@ -493,14 +493,24 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         userInfoId: '',
         boundOpenid: ''
       };
+      const assignmentSummary = assignmentSummaries.get(safeString(item.id)) || {
+        count: 0,
+        departments: [],
+        identities: [],
+        workGroups: []
+      };
       rows.push({
         id: item.id,
         recordId: safeString(record ? record.id : ''),
         name: safeString(item.name),
         studentId: safeString(item.student_id),
-        department: deptMap.get(safeString(item.department_id)) || '',
-        identity: identMap.get(safeString(item.identity_id)) || '',
-        workGroup: wgMap.get(safeString(item.work_group_id)) || '',
+        assignmentCount: assignmentSummary.count,
+        departments: assignmentSummary.departments,
+        identities: assignmentSummary.identities,
+        workGroups: assignmentSummary.workGroups,
+        department: assignmentSummary.departments.join('、'),
+        identity: assignmentSummary.identities.join('、'),
+        workGroup: assignmentSummary.workGroups.join('、'),
         currentSummary: summarizeValues(currentValues) || '暂无补充资料',
         pendingSummary: summarizeValues(pendingValues),
         currentValues,
@@ -690,12 +700,9 @@ router.post('/saveHrPersonFull', async (req, res) => {
     const hrId = safeString(req.body.hrId);
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
-    const departmentId = safeString(req.body.departmentId);
-    const identityId = safeString(req.body.identityId);
-    const workGroupId = safeString(req.body.workGroupId);
     const profileValues = req.body.profileValues && typeof req.body.profileValues === 'object' ? req.body.profileValues : {};
 
-    if (!name || !studentId || !departmentId || !identityId) {
+    if (!name || !studentId) {
       return res.json({ status: 'invalid_params', message: '基础信息不完整' });
     }
     if (!hrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
@@ -705,30 +712,16 @@ router.post('/saveHrPersonFull', async (req, res) => {
     const canManagePeople = Boolean(req.adminPermissions && req.adminPermissions['hr.people']);
     if (!canManagePeople) {
       const basicInfoChanged = name !== safeString(hr.name)
-        || studentId !== safeString(hr.student_id)
-        || departmentId !== safeString(hr.department_id)
-        || identityId !== safeString(hr.identity_id)
-        || workGroupId !== safeString(hr.work_group_id);
+        || studentId !== safeString(hr.student_id);
       if (basicInfoChanged) {
         return res.json({ status: 'permission_denied', message: '请使用可管理成员的管理员身份' });
       }
     }
 
-    const [departments, identities, workGroups] = await Promise.all([
-      departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
-    ]);
-    const deptMap = buildNameMap(departments);
-    const identMap = buildNameMap(identities);
-    const wgMap = buildNameMap(workGroups);
-
-    if (!deptMap.has(departmentId)) return res.json({ status: 'invalid_params', message: '请重新选择部门' });
-    if (!identMap.has(identityId)) return res.json({ status: 'invalid_params', message: '请重新选择身份' });
-    if (workGroupId && !wgMap.has(workGroupId)) return res.json({ status: 'invalid_params', message: '请重新选择职能组' });
-
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     if (canManagePeople) {
-      await hrInfoModel.update(hrId, {
-        name, studentId, departmentId, identityId, workGroupId,
+      await hrInfoModel.updatePersonBasics(hrId, {
+        name, studentId,
         updatedAt: now
       });
     }

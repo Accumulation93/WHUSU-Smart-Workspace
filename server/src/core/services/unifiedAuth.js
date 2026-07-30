@@ -136,7 +136,6 @@ function buildContextCatalog(contexts, currentContext) {
       scope: isGlobal ? 'global' : 'organization',
       organizationId: isGlobal ? null : context.organizationId,
       role: context.role,
-      isPrimary: Boolean(context.isPrimary),
       isCurrent: Boolean(
         currentContext
         && currentContext.authIdentityId === identityId

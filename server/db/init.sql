@@ -1118,20 +1118,12 @@ CREATE TABLE IF NOT EXISTS membership_assignments (
   department_id VARCHAR(64) DEFAULT NULL,
   identity_id VARCHAR(64) DEFAULT NULL,
   work_group_id VARCHAR(64) DEFAULT NULL,
-  is_primary TINYINT(1) NOT NULL DEFAULT 0,
   status VARCHAR(24) NOT NULL DEFAULT 'active',
-  active_primary_membership_id VARCHAR(64) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_assignment_membership (membership_id, status),
   INDEX idx_assignment_org (org_id, status),
   INDEX idx_assignment_rule (org_id, department_id, identity_id, work_group_id),
-  UNIQUE INDEX uk_assignment_active_primary (active_primary_membership_id),
-  CONSTRAINT chk_assignment_primary_key CHECK (
-    (status = 'active' AND is_primary = 1 AND active_primary_membership_id IS NOT NULL
-      AND active_primary_membership_id = membership_id)
-    OR ((status <> 'active' OR is_primary = 0) AND active_primary_membership_id IS NULL)
-  ),
   CONSTRAINT fk_assignment_membership FOREIGN KEY (membership_id)
     REFERENCES organization_memberships(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

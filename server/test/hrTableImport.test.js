@@ -120,11 +120,9 @@ async function main() {
         id VARCHAR(64) PRIMARY KEY, membership_id VARCHAR(64) NOT NULL, org_id VARCHAR(64) NOT NULL,
         assignment_kind VARCHAR(32) NOT NULL DEFAULT 'staff', title VARCHAR(200),
         department_id VARCHAR(64), identity_id VARCHAR(64), work_group_id VARCHAR(64),
-        is_primary TINYINT(1) NOT NULL DEFAULT 0, status VARCHAR(24) NOT NULL DEFAULT 'active',
-        active_primary_membership_id VARCHAR(64),
+        status VARCHAR(24) NOT NULL DEFAULT 'active',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uk_assignment_active_primary (active_primary_membership_id)
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
       CREATE TABLE hr_profile_templates (
         id VARCHAR(64) PRIMARY KEY, name VARCHAR(200) NOT NULL, description TEXT,

@@ -209,12 +209,15 @@ Compact summary pairs such as name/identity use a two-column
 phone widths; allow text to wrap inside its own card instead of forcing the entire
 card to a new row. Full-width rows explicitly span both columns.
 
-Personnel cards use stable labeled facts instead of joining department, identity,
-and work assignment into one flexible metadata line. Name and student number may
-share the first equal-width row; department, identity, and an available work
-assignment each occupy an explicit full-width row. Label the last field
-`工作分工（职能组）` and omit the entire row when no work assignment is configured;
-never render a placeholder card merely to preserve height.
+Personnel list cards represent the person, not one arbitrarily selected position.
+Keep them compact: show name, student number, binding/audit status, and an optional
+position count only. Never place department, identity, work assignment, or a
+"primary position" on the summary card. Show position details only in the person
+editor, where every position owns its own department, identity, and
+`工作分工（职能组）`; omit an unset work-assignment row instead of rendering a
+placeholder. Long person editors must use a content-driven shell with a capped,
+independently scrollable body. Adding or editing a position should scroll that
+editor into view, and supplemental profile fields must remain reachable below it.
 
 ## Titles And Panel Heads
 

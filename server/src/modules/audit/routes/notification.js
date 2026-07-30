@@ -79,8 +79,8 @@ function organizationMetadata(context) {
     _identityPriority: context.isCurrentContext
       ? -1
       : (context.identityType === 'assignment'
-        ? (context.isPrimary ? 0 : 1)
-        : (context.adminLevel === 'super_admin' ? 3 : 2))
+        ? 0
+        : (context.adminLevel === 'super_admin' ? 2 : 1))
   };
 }
 

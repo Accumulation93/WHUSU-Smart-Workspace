@@ -674,15 +674,9 @@ function buildHrProfileFilterOptions(rows = []) {
   const workGroups = [];
 
   rows.forEach((item) => {
-    if (item.department) {
-      departments.push(item.department);
-    }
-    if (item.identity) {
-      identities.push(item.identity);
-    }
-    if (item.workGroup) {
-      workGroups.push(item.workGroup);
-    }
+    departments.push(...(Array.isArray(item.departments) ? item.departments : (item.department ? [item.department] : [])));
+    identities.push(...(Array.isArray(item.identities) ? item.identities : (item.identity ? [item.identity] : [])));
+    workGroups.push(...(Array.isArray(item.workGroups) ? item.workGroups : (item.workGroup ? [item.workGroup] : [])));
   });
 
   return {
@@ -696,13 +690,16 @@ function buildHrProfileFilterOptions(rows = []) {
 function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
   const keyword = String(filters.keyword || '').trim().toLowerCase();
   return (rows || []).filter((item) => {
-    if (filters.department !== '全部部门' && item.department !== filters.department) {
+    const departments = Array.isArray(item.departments) ? item.departments : [item.department];
+    const identities = Array.isArray(item.identities) ? item.identities : [item.identity];
+    const workGroups = Array.isArray(item.workGroups) ? item.workGroups : [item.workGroup];
+    if (filters.department !== '全部部门' && !departments.includes(filters.department)) {
       return false;
     }
-    if (filters.identity !== '全部身份' && item.identity !== filters.identity) {
+    if (filters.identity !== '全部身份' && !identities.includes(filters.identity)) {
       return false;
     }
-    if (filters.workGroup !== '无' && filters.workGroup !== '全部职能组' && filters.workGroup !== '全部工作分工' && item.workGroup !== filters.workGroup) {
+    if (filters.workGroup !== '无' && filters.workGroup !== '全部职能组' && filters.workGroup !== '全部工作分工' && !workGroups.includes(filters.workGroup)) {
       return false;
     }
     if (filters.status !== '全部状态' && item.auditStatusText !== filters.status) {

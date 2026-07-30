@@ -41,7 +41,6 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/utils/requestDeduplication.js', sql: /DELETE FROM request_deduplication/i, reason: '后台全局幂等记录保留期清理' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM organization_memberships WHERE legacy_hr_id = \?/i, reason: '由已授权的旧人员主键解析统一成员关系' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM membership_assignments\s+WHERE membership_id = \?/i, reason: '在已授权成员关系内解析岗位' },
-  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET is_primary = 0[\s\S]*WHERE membership_id = \?/i, reason: '在已锁定成员关系内原子切换主岗位' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET assignment_kind = \?/i, reason: '按已授权岗位主键更新岗位' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET status = 'revoked'[\s\S]*WHERE id = \?/i, reason: '按已授权岗位主键撤销岗位' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /DELETE FROM membership_assignments WHERE membership_id = \?/i, reason: '旧人事删除事务同步清理成员岗位' },
