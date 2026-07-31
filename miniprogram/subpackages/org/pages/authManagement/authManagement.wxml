@@ -119,7 +119,7 @@
   <view class="card auth-card empty-state" wx:else>请使用可管理账号认证的管理员身份</view>
 
   <view class="dialog-layer ui-overlay" wx:if="{{showCodeDialog}}">
-    <view class="dialog-mask"></view>
+    <view class="dialog-mask" catchtouchmove="noop"></view>
     <view class="dialog-panel auth-dialog modal-card ui-dialog-shell ui-dialog-shell--compact">
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view class="dialog-badge">个人认证码</view>
@@ -140,7 +140,7 @@
   </view>
 
   <view class="dialog-layer ui-overlay" wx:if="{{showRecoveryDialog}}">
-    <view class="dialog-mask" bindtap="closeRecoveryDialog"></view>
+    <view class="dialog-mask" bindtap="closeRecoveryDialog" catchtouchmove="noop"></view>
     <view class="dialog-panel auth-dialog modal-card ui-dialog-shell ui-dialog-shell--compact">
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view class="dialog-badge">账号恢复</view>

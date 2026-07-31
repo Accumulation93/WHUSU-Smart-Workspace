@@ -450,5 +450,7 @@ Page({
     } finally {
       this.setData({ actionLoading: false });
     }
-  }
+  },
+
+  noop() {}
 });

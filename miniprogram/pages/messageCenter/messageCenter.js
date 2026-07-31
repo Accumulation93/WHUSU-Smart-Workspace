@@ -42,6 +42,8 @@ Page({
     selectedOrganizationId: '',
     selectedOrganizationName: '全部组织',
     selectedOrganizationIndex: 0,
+    organizationPickerVisible: false,
+    pendingOrganizationIndex: 0,
     partial: false,
     showSwitchDialog: false,
     switchOrganizationName: '',
@@ -190,10 +192,30 @@ Page({
     }
   },
 
-  onOrganizationChange(e) {
-    const index = Number(e.detail.value);
+  openOrganizationPicker() {
+    this.setData({
+      organizationPickerVisible: true,
+      pendingOrganizationIndex: this.data.selectedOrganizationIndex
+    });
+  },
+
+  closeOrganizationPicker() {
+    if (this.data.loading) return;
+    this.setData({ organizationPickerVisible: false });
+  },
+
+  selectOrganizationOption(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    if (!Number.isInteger(index) || !this.data.organizationOptions[index]) return;
+    this.setData({ pendingOrganizationIndex: index });
+  },
+
+  confirmOrganizationPicker() {
+    const index = Number(this.data.pendingOrganizationIndex);
     const organization = this.data.organizationOptions[index];
-    if (!organization || organization.id === this.data.selectedOrganizationId) return;
+    if (!organization) return;
+    this.setData({ organizationPickerVisible: false });
+    if (organization.id === this.data.selectedOrganizationId) return;
     messageScope.setScope(organization);
     this._messageRevision = (this._messageRevision || 0) + 1;
     orgSession.invalidateRequests(this);
@@ -210,7 +232,8 @@ Page({
       notificationCursor: '',
       partial: false,
       loading: false,
-      loadingMore: false
+      loadingMore: false,
+      pendingOrganizationIndex: index
     });
     this.loadOverview(true);
   },
@@ -485,5 +508,7 @@ Page({
     }
     if (failed.length) wx.setStorageSync(key, failed);
     else wx.removeStorageSync(key);
-  }
+  },
+
+  noop() {}
 });

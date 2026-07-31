@@ -10,13 +10,13 @@
     </view>
   </view>
 
-  <picker class="organization-picker" mode="selector" range="{{organizationOptions}}" range-key="name" value="{{selectedOrganizationIndex}}" bindchange="onOrganizationChange">
+  <view class="organization-picker" bindtap="openOrganizationPicker" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
     <view class="organization-filter ui-motion-card" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
       <view class="organization-filter-label">组织范围</view>
       <view class="organization-filter-value">{{selectedOrganizationName}}</view>
       <ui-icon name="chevron-right" tone="muted" size="26" ariaLabel="选择组织" />
     </view>
-  </picker>
+  </view>
 
   <view class="partial-notice" wx:if="{{partial}}">
     <ui-icon name="bell" tone="primary" size="28" ariaLabel="加载提示" />
@@ -81,7 +81,7 @@
   </view>
 
   <view class="message-switch-layer ui-overlay" wx:if="{{showSwitchDialog}}">
-    <view class="message-switch-mask" bindtap="closeSwitchDialog"></view>
+    <view class="message-switch-mask" bindtap="closeSwitchDialog" catchtouchmove="noop"></view>
     <view class="message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view class="message-switch-badge">跨组织事项</view>
@@ -92,6 +92,26 @@
       <view class="message-switch-actions ui-dialog-footer">
         <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeSwitchDialog" disabled="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationSwitch" loading="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">切换并查看</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="organization-picker-overlay ui-overlay" wx:if="{{organizationPickerVisible}}">
+    <view class="organization-picker-mask" bindtap="closeOrganizationPicker" catchtouchmove="noop"></view>
+    <view class="organization-picker-dialog hit-area ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
+      <view class="organization-picker-header ui-dialog-header">
+        <view class="organization-picker-title">选择组织范围</view>
+        <text class="organization-picker-close ui-motion-chip" catchtap="closeOrganizationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">关闭</text>
+      </view>
+      <scroll-view class="organization-picker-options ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll" scroll-y enhanced="{{true}}" show-scrollbar="{{true}}" nested-scroll-enabled="{{true}}">
+        <view class="organization-picker-option organization-picker-item {{pendingOrganizationIndex === index ? 'organization-picker-option-active' : ''}}" wx:for="{{organizationOptions}}" wx:key="id" data-index="{{index}}" catchtap="selectOrganizationOption">
+          <text class="organization-picker-option-name">{{item.name}}</text>
+          <ui-icon wx:if="{{pendingOrganizationIndex === index}}" name="check" tone="primary" size="26" ariaLabel="已选择" />
+        </view>
+      </scroll-view>
+      <view class="organization-picker-actions ui-dialog-footer">
+        <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeOrganizationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button>
       </view>
     </view>
   </view>

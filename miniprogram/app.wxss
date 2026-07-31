@@ -716,36 +716,44 @@ button[disabled],
 .ui-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99;
+  z-index: 2000 !important;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 100vw;
   height: 100vh;
   padding: 16rpx 16rpx calc(16rpx + env(safe-area-inset-bottom));
   overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  background: rgba(15,23,42,0.34) !important;
+  backdrop-filter: blur(6rpx);
+  -webkit-backdrop-filter: blur(6rpx);
   box-sizing: border-box;
 }
 
 .ui-overlay .ui-dialog-shell {
   position: relative;
-  z-index: 1;
+  z-index: 1 !important;
   display: flex;
   flex-direction: column;
   align-self: center;
-  width: 100%;
+  flex: 0 0 auto;
+  width: calc(100vw - 32rpx);
   min-width: 0;
   max-width: 100%;
+  margin-top: auto;
   margin-left: auto;
   margin-right: auto;
+  margin-bottom: auto;
+  left: auto;
+  right: auto;
+  transform: none;
   max-height: calc(100vh - 32rpx - env(safe-area-inset-bottom));
   overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow-y: hidden !important;
+  overscroll-behavior: none;
   box-sizing: border-box;
 }
 
@@ -774,10 +782,41 @@ button[disabled],
   min-height: 0;
   max-height: none;
   overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: hidden;
   overscroll-behavior: contain;
   box-sizing: border-box;
+}
+
+/* 弹窗内部的滚动只能发生在显式 scroll-view 中，避免普通 view 形成竞争滚动层。 */
+.ui-overlay .ui-dialog-shell > scroll-view.ui-dialog-body,
+.ui-overlay .ui-dialog-shell > scroll-view.ui-dialog-scroll--fill,
+.ui-overlay .ui-dialog-shell > scroll-view.ui-dialog-scroll--both,
+.ui-overlay .ui-dialog-shell > scroll-view.ui-dialog-scroll--pane {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* 内部关闭遮罩只负责点击，不重复绘制一层会造成错位的阴影。 */
+.ui-overlay .dialog-mask,
+.ui-overlay .message-switch-mask,
+.ui-overlay .permission-mask {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 防止页面级 popup-mask/modal-mask 把背景按钮抬到弹窗之上。 */
+view.popup-mask.ui-overlay,
+view.dialog-layer.ui-overlay,
+view.modal-mask.ui-overlay,
+view.permission-overlay.ui-overlay,
+view.message-switch-layer.ui-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2000 !important;
+  overflow: hidden !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .ui-overlay .ui-dialog-shell > .ui-dialog-header,

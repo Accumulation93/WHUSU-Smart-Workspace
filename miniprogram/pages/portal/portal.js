@@ -728,6 +728,8 @@ Page({
     wx.navigateTo({ url: '/subpackages/org/pages/accountSecurity/accountSecurity' });
   },
 
+  noop() {},
+
   logout() {
     authContext.clearUnifiedAuthentication();
     const pages = getCurrentPages();
