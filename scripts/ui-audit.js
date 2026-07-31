@@ -17,9 +17,59 @@ const LEGACY_COMPLEX_GRIDS = new Set(['task-table', 'result-table', 'popup-table
 const STANDARD_BUTTON_ROLE = /\b(?:primary-btn|secondary-btn|danger-btn)\b/;
 const FULL_SIZE_BUTTON_SELECTOR = /(?:^|[\s,>])button\b|\.(?:primary-btn|secondary-btn|danger-btn|approve-btn|reject-btn|profile-submit-btn|page-submit-btn|template-save-btn|purpose-save-btn|dialog-btn|sigpad-btn|panel-add-btn)\b/;
 const FORBIDDEN_EMOJI_ICON = /(?:\u{1F4CE}|\u{1F4C4}|\u{1F4E4}|\u{1F504}|\u{270F}\u{FE0F}?|\u{2705}|\u{274C}|\u{1F4CC}|\u{21A9}\u{FE0F}?|\u{23F3}|\u{1F512}|\u{1F3C6}|\u{1F534}|\u{1F4AC})/gu;
+const COMPACT_META_CLASSES = [
+  'status-tag', 'booking-status', 'audit-chip', 'green-chip', 'blue-chip', 'orange-chip',
+  'gray-chip', 'red-chip', 'mode-chip', 'venue-tag', 'flow-step-status-tag',
+  'permission-count', 'permission-level', 'app-grid-badge', 'hero-badge', 'result-group-mode-chip',
+  'action-btn', 'link', 'audit-link-btn', 'flow-action-btn', 'step-action-link',
+  'pending-action-link', 'header-nav-btn', 'mark-all-read', 'placement-page-btn', 'cancel-btn',
+  'filter-chip', 'chip', 'select-chip', 'grade-chip', 'dept-tab', 'role-pill'
+];
+const COMPACT_META_SELECTOR = new RegExp(`\\.(?:${COMPACT_META_CLASSES.join('|')})\\b`, 'i');
 const GLOBAL_STYLE = fs.readFileSync(path.join(MINI_ROOT, 'app.wxss'), 'utf8');
 const GLOBAL_MEDIA_520 = /@media\s*\(min-width:\s*520px\)/.test(GLOBAL_STYLE);
 const GLOBAL_MEDIA_900 = /@media\s*\(min-width:\s*900px\)/.test(GLOBAL_STYLE);
+
+function scanCompactVisualContract() {
+  const findings = [];
+  const required = [
+    ['全局状态标签圆角', /page \.status-tag,[\s\S]*?border-radius:\s*10rpx\s*!important/],
+    ['全局文本操作圆角', /page text\.action-btn,[\s\S]*?border-radius:\s*10rpx\s*!important/],
+    ['全局说明文字行高', /page \.booking-meta,[\s\S]*?line-height:\s*1\.42\s*!important/],
+    ['横屏页签高度', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-tab-min-height:\s*50px/],
+    ['横屏页签均分', /page \.tabs,[\s\S]*?display:\s*flex\s*!important[\s\S]*?width:\s*100%\s*!important/],
+    ['横屏页签点击高度', /page \.tabs\s*>\s*\.tab,[\s\S]*?min-height:\s*50px\s*!important/]
+  ];
+  for (const [message, pattern] of required) {
+    if (!pattern.test(GLOBAL_STYLE)) findings.push({ file: 'miniprogram/app.wxss', message });
+  }
+
+  const styles = walk(MINI_ROOT, '.wxss');
+  for (const file of styles) {
+    const source = fs.readFileSync(file, 'utf8');
+    const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
+    let ruleMatch;
+    while ((ruleMatch = rulePattern.exec(source))) {
+      const selector = ruleMatch[1].trim().replace(/\s+/g, ' ');
+      const declarations = ruleMatch[2];
+      if (!COMPACT_META_SELECTOR.test(selector)) continue;
+      if (/border-radius\s*:\s*999(?:r?px)\b/i.test(declarations) &&
+        !/page\s+(?:text\.)?(?:status-tag|action-btn)/i.test(selector)) {
+        const coveredByGlobal = COMPACT_META_CLASSES.some(name => selector.includes(`.${name}`)) &&
+          new RegExp(`page[^{}]*\\.${COMPACT_META_CLASSES.find(name => selector.includes(`.${name}`))}[^{}]*\\{[\\s\\S]*?border-radius:\\s*(?:10rpx|9px)\\s*!important`, 'i').test(GLOBAL_STYLE);
+        if (!coveredByGlobal) {
+          findings.push({
+            file: relative(file),
+            line: lineAt(source, ruleMatch.index),
+            selector,
+            message: '文本状态或操作控件仍使用胶囊圆角，且没有全局紧凑规则覆盖'
+          });
+        }
+      }
+    }
+  }
+  return findings;
+}
 
 function walk(dir, extension, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -676,6 +726,7 @@ const visibleInternalIds = wxmlFiles.flatMap(scanVisibleInternalIds);
 const staticInlineStyles = wxmlFiles.flatMap(scanStaticInlineStyles);
 const layoutContracts = wxmlFiles.map(scanLayoutContracts);
 const styles = walk(MINI_ROOT, '.wxss').map(scanWxss);
+const compactVisualContractIssues = scanCompactVisualContract();
 const nativeButtonRoleIssues = controls.filter(item => item.tag === 'button' && !STANDARD_BUTTON_ROLE.test(item.className));
 const forbiddenEmojiIcons = [
   ...wxmlFiles,
@@ -772,6 +823,7 @@ const missingTabSizeSystem = !(
   /--ui-tab-font-size:\s*var\(--ui-type-control\)/.test(GLOBAL_STYLE) &&
   /--ui-tab-min-height:\s*76rpx/.test(GLOBAL_STYLE) &&
   /--ui-tab-min-height:\s*40px/.test(GLOBAL_STYLE) &&
+  /--ui-tab-min-height:\s*50px/.test(GLOBAL_STYLE) &&
   /--ui-tab-sidebar-min-height:\s*40px/.test(GLOBAL_STYLE) &&
   /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
 );
@@ -850,6 +902,7 @@ const report = {
     missingDialogCenteringSystem: missingDialogCenteringSystem ? 1 : 0,
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
+    compactVisualContractIssues: compactVisualContractIssues.length,
     important: styles.reduce((sum, item) => sum + item.important, 0),
     missingTabletPortrait: styles.filter(item => !item.media520).length,
     missingTabletLandscape: styles.filter(item => !item.media900).length
@@ -891,6 +944,7 @@ const report = {
   missingTabSizeSystem,
   unstableSummaryGrid,
   typographyRoleDrift,
+  compactVisualContractIssues,
   styles
 };
 
@@ -901,7 +955,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...compactVisualContractIssues]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -920,6 +974,6 @@ if (process.argv.includes('--strict')) {
     report.summary.adminOrgContextIssues || report.summary.workspaceShellIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogScrollSystem ||
-    report.summary.missingResponsiveDataSystem;
+    report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues;
   process.exitCode = failed ? 1 : 0;
 }
