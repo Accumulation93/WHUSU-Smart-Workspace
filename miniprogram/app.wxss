@@ -1639,6 +1639,211 @@ button:active,
   page {
     --ui-tab-radius: 10px;
     --ui-tab-shell-radius: 13px;
+    --ui-tab-min-height: 38px;
+    --ui-tab-padding-y: 6px;
+    --ui-tab-padding-x: 14px;
+    --ui-tab-gap: 6px;
+    --ui-tab-shell-padding: 5px;
+  }
+
+  /* 横屏以完整可视宽度为基准，子页面自己的窄容器只保留给明确的阅读/登录场景。 */
+  page .page {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 16px 16px 24px !important;
+  }
+
+  /* 除门户待办/通知等明确分屏外，内容卡片和工作区都铺满横屏可用宽度。 */
+  page .workspace-hero-host,
+  page .portal-profile-card,
+  page .portal-services-card,
+  page .portal-message-partial,
+  page .admin-workbench,
+  page .score-workspace,
+  page .section,
+  page .card,
+  page .edit-box,
+  page .list-card,
+  page .filter-section,
+  page .rule-panel,
+  page .merit-summary-panel,
+  page .permission-page,
+  page .message-page {
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box;
+  }
+
+  /* 统一收紧横屏上下节奏，避免卡片呈现出过高的空壳。 */
+  page .hero,
+  page .hero-admin,
+  page .workspace-hero,
+  page .workspace-hero-host {
+    margin-bottom: 10px !important;
+  }
+
+  page .hero,
+  page .hero-admin,
+  page .workspace-hero {
+    padding: 16px 20px 14px !important;
+  }
+
+  page .card,
+  page .section,
+  page .edit-box,
+  page .list-card,
+  page .filter-section,
+  page .permission-card,
+  page .permission-group,
+  page .message-card,
+  page .booking-panel,
+  page .results-panel-card,
+  page .targets-card {
+    margin-bottom: 10px !important;
+    padding: 14px 16px !important;
+  }
+
+  page .workspace-context-card {
+    margin-top: 10px !important;
+    padding: 10px 12px !important;
+  }
+
+  /* 页签无论有几个选项都按当前行均分，避免内容居左后右侧留空。 */
+  page .tabs,
+  page .tabs-card,
+  page .message-tabs,
+  page .auth-tabs,
+  page .rules-tabs,
+  page .app-view-tabs,
+  page .page > .tabs,
+  page .page > .tabs-card {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)) !important;
+    gap: 6px !important;
+    width: 100% !important;
+    padding: 5px !important;
+    margin-bottom: 10px !important;
+    box-sizing: border-box;
+  }
+
+  page .tabs > .tab,
+  page .tabs-card > .feature-tab,
+  page .message-tabs > .message-tab,
+  page .auth-tabs > .auth-tab,
+  page .rules-tabs > .rules-tab,
+  page .app-view-tabs > .app-view-tab,
+  page .page > .tabs > .tab,
+  page .page > .tabs-card > .feature-tab {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    padding: 6px 14px !important;
+    border-radius: 10px !important;
+    box-sizing: border-box;
+  }
+
+  /* 门户宫格使用弹性换行：最后一行的少量应用自动拉伸填满，不留下半行空白。 */
+  page .app-grid,
+  page .portal-services-card .app-grid {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  page .app-grid-item,
+  page .portal-services-card .app-grid-item {
+    flex: 1 1 calc((100% - 40px) / 5) !important;
+    width: auto !important;
+    min-width: 0 !important;
+    min-height: 86px !important;
+    padding: 11px 8px !important;
+    box-sizing: border-box;
+  }
+
+  page .app-grid-icon {
+    margin-bottom: 4px !important;
+    font-size: var(--ui-type-page) !important;
+  }
+
+  /* 门户“应用服务”标题与视图切换同排时，页签只占自身需要的宽度，不能把标题挤成竖排。 */
+  page .info-head > .app-view-tabs {
+    width: auto !important;
+    min-width: 190px;
+    flex: 0 0 auto;
+  }
+
+  page .info-head > .section-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  /* 评分管理的评优名单与结果卡片横向铺开，筛选和名单不再挤在左半边。 */
+  page .desig-popup-card,
+  page .completion-popup-card,
+  page .placement-popup,
+  page .merit-summary-filter-bar,
+  page .merit-group-card,
+  page .merit-member-card {
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box;
+  }
+
+  page .desig-popup-card {
+    padding: 16px 18px 14px !important;
+  }
+
+  page .desig-inner-scroll {
+    margin-bottom: 6px !important;
+    padding: 6px !important;
+    border-radius: 12px !important;
+  }
+
+  page .desig-current-scroll {
+    height: 170px !important;
+  }
+
+  page .desig-candidate-scroll {
+    height: 300px !important;
+  }
+
+  page .merit-summary-filter-bar {
+    gap: 10px !important;
+    margin-bottom: 12px !important;
+    padding: 10px 14px !important;
+  }
+
+  page .merit-summary-filter-field {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  page .merit-summary-filter-value {
+    min-width: 0 !important;
+    flex: 1 1 auto;
+    padding: 6px 10px !important;
+  }
+
+  page .merit-group-head {
+    padding: 14px 16px !important;
+  }
+
+  page .merit-group-head-meta {
+    gap: 6px !important;
+    margin-top: 5px !important;
+  }
+
+  page .merit-member-card {
+    margin-bottom: 6px !important;
+    padding: 10px 12px !important;
+  }
+
+  page .merit-member-tags {
+    gap: 5px !important;
+    margin-top: 4px !important;
   }
 
   page .hero,
