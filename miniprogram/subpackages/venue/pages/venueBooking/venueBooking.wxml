@@ -114,6 +114,7 @@ module.exports = { hour: hour, min: min };
 
   <!-- ═══════════════════ TIMETABLE POPUP ═══════════════════ -->
   <view class="popup-mask ui-overlay" wx:if="{{scheduleVisible}}" bindtap="closeSchedule">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{scheduleVenueName}}</view>
@@ -156,6 +157,7 @@ module.exports = { hour: hour, min: min };
 
   <!-- Booking detail popup -->
   <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">借用详情</view>
@@ -208,6 +210,7 @@ module.exports = { hour: hour, min: min };
 
   <!-- ═══════════════════ BOOKING FORM ═══════════════════ -->
   <view class="popup-mask ui-overlay" wx:if="{{bookingVisible}}" bindtap="closeBooking">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card booking-form-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">借用申请 · {{bookingVenueName}}</view>
@@ -317,6 +320,7 @@ module.exports = { hour: hour, min: min };
 
   <!-- ═══════════════════ APPROVAL / DETAIL POPUP ═══════════════════ -->
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>

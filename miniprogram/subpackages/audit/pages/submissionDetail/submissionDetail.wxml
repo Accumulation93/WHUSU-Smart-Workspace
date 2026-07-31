@@ -107,6 +107,7 @@
 
     <!-- ═══ Identity step editor popup ═══ -->
     <view class="popup-mask ui-overlay" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
@@ -528,6 +529,7 @@
 
       <!-- ═══ Edit: Identity step editor popup ═══ -->
       <view class="popup-mask ui-overlay" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
+        <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
@@ -574,6 +576,7 @@
 
       <!-- ═══ Edit: Person picker popup ═══ -->
       <view class="popup-mask ui-overlay" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker">
+        <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
@@ -626,6 +629,7 @@
 
   <!-- ═══ Stamp Picker Popup ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{stampPickerVisible}}" bindtap="closeStampPicker">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">选择印章</view>
@@ -650,6 +654,7 @@
 
   <!-- ═══ Placement / File Preview Popup (positioning sig/stamp on file) ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{placementVisible}}" bindtap="closePlacement">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card placement-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">调整签名位置 · {{placementFileName}}</view>
@@ -751,6 +756,7 @@
 
   <!-- Approval Dialog -->
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalAction === 'approve' ? '审批通过' : '驳回'}}</view>
@@ -795,6 +801,7 @@
 
   <!-- ═══ Signature Source Picker Popup (saved signatures + new drawing) ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{sigSourcePickerVisible}}" bindtap="closeSigSourcePicker">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">选择签名方式</view>
@@ -858,6 +865,7 @@
   <!-- Signature Pad Popup (with save-to-library controls) -->
   <!-- ★ catchtouchmove="noop" 阻止触摸滑动穿透到底层页面，防止签名时页面翻动 -->
   <view class="popup-mask ui-overlay ui-dialog-touch-lock" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad" catchtouchmove="noop">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-touch-lock" catchtap="noop" catchtouchmove="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">手写签名</view>
@@ -871,6 +879,7 @@
 
     <!-- ═══ Person picker popup (multi-select) ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closePersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">

@@ -45,6 +45,7 @@
 
   <!-- Venue editor popup -->
   <view class="popup-mask ui-overlay" wx:if="{{editing}}" bindtap="cancelEdit">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card venue-edit-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view>
@@ -181,6 +182,7 @@
 
   <!-- ═══ Rules Popup ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{rulesVisible}}" bindtap="closeRules">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">规则管理 · {{rulesVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <view class="rules-tabs">
@@ -255,6 +257,7 @@
 
   <!-- ═══ Rule Editor ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view><text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
@@ -431,6 +434,7 @@
 
   <!-- ═══ Timetable Popup ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{scheduleVisible}}" bindtap="closeVenueSchedule">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <view class="schedule-nav">
@@ -470,6 +474,7 @@
 
   <!-- Booking detail popup -->
   <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">借用详情</view><text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
@@ -518,6 +523,7 @@
 
   <!-- ═══ Admin Booking Popup ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{adminBookingVisible}}" bindtap="closeAdminBooking">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}} · 使用场地</view><text class="popup-close ui-motion-chip" catchtap="closeAdminBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
@@ -573,6 +579,7 @@
 
   <!-- ═══ Purpose Management Popup (kept for backward compat from old links) ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">借用事由管理</view><text class="popup-close ui-motion-chip" catchtap="closePurposeManager" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
@@ -599,6 +606,7 @@
 
   <!-- ═══ Condition Multi-Picker (replicates audit multi-picker pattern) ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{condMultiPickerVisible}}" bindtap="closeCondMultiPicker">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
@@ -645,6 +653,7 @@
 
   <!-- ═══ Approval Popup (step-aware approve/reject with comment) ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{approvalPopupVisible}}" bindtap="closeApprovalPopup">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalPopupAction === 'approve' ? '通过借用申请' : '驳回借用申请'}}</view>
@@ -702,6 +711,7 @@
   </view>
 
   <view class="popup-mask ui-overlay" wx:if="{{contextSwitchGuardVisible}}" bindtap="closeContextSwitchGuard">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card context-switch-guard-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
       <view class="context-switch-guard-title">请先保存修改</view>

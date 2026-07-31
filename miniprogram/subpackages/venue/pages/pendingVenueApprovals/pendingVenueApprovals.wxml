@@ -37,6 +37,7 @@
 
   <!-- ═══ Approval / Detail Popup ═══ -->
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>

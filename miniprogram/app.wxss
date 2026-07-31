@@ -731,6 +731,7 @@ button[disabled],
   backdrop-filter: blur(6rpx);
   -webkit-backdrop-filter: blur(6rpx);
   box-sizing: border-box;
+  isolation: isolate;
 }
 
 .ui-overlay .ui-dialog-shell {
@@ -738,11 +739,11 @@ button[disabled],
   z-index: 1 !important;
   display: flex;
   flex-direction: column;
-  align-self: center;
   flex: 0 0 auto;
   width: calc(100vw - 32rpx);
   min-width: 0;
   max-width: 100%;
+  align-self: center;
   margin-top: auto;
   margin-left: auto;
   margin-right: auto;
@@ -755,6 +756,16 @@ button[disabled],
   overflow-y: hidden !important;
   overscroll-behavior: none;
   box-sizing: border-box;
+}
+
+/* 透明挡板只拦截背景滑动；弹窗外壳在其上方，内部 scroll-view 仍可独立滚动。 */
+.ui-overlay > .ui-overlay-blocker {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
 }
 
 .ui-overlay .ui-dialog-shell--compact {
@@ -1620,5 +1631,164 @@ button:active,
 
   .ui-overlay .ui-dialog-shell--wide {
     max-width: 1040px;
+  }
+}
+
+/* iPad 横屏：沿用手机与 Pad 竖屏的紧凑比例，避免横屏控件显得臃肿。 */
+@media (min-width: 900px) and (orientation: landscape) {
+  page {
+    --ui-tab-radius: 10px;
+    --ui-tab-shell-radius: 13px;
+  }
+
+  page .hero,
+  page .hero-admin,
+  page .permission-hero,
+  page .template-hero,
+  page .context-hero,
+  page .login-hero,
+  page .message-hero,
+  page .card,
+  page .section,
+  page .edit-box,
+  page .list-card,
+  page .filter-section,
+  page .permission-group,
+  page .tabs-card,
+  page .booking-panel,
+  page .results-panel-card,
+  page .targets-card,
+  page .empty-state-card,
+  page .audit-home-card,
+  page .audit-step-card,
+  page .audit-sig-card,
+  page .rank-card,
+  page .message-card,
+  page .app-grid-item,
+  page .portal-profile-card,
+  page .portal-services-card,
+  page .portal-message-partial,
+  page .permission-card,
+  page .workspace-hero-host {
+    border-radius: 18px !important;
+  }
+
+  page .popup-card,
+  page .modal-card,
+  page .dialog-panel,
+  page .permission-hero,
+  page .login-card,
+  page .organization-picker-dialog,
+  page .completion-popup-card,
+  page .placement-popup,
+  page .desig-popup-card,
+  page .sheet-panel,
+  page .message-switch-dialog,
+  page .permission-dialog,
+  page .ui-dialog-shell {
+    border-radius: 16px !important;
+  }
+
+  page .venue-card,
+  page .booking-item,
+  page .pending-item,
+  page .list-item,
+  page .message-row,
+  page .audit-person-item,
+  page .audit-submission-item,
+  page .audit-template-item,
+  page .merit-card-item,
+  page .nav-row,
+  page .permission-admin-row,
+  page .target-card,
+  page .activity-card,
+  page .profile-card {
+    border-radius: 14px !important;
+  }
+
+  page button,
+  page .primary-btn,
+  page .secondary-btn,
+  page .danger-btn,
+  page .approve-btn,
+  page .reject-btn,
+  page .dialog-btn,
+  page .profile-submit-btn,
+  page .page-submit-btn,
+  page .template-save-btn,
+  page .purpose-save-btn,
+  page .sigpad-btn {
+    min-height: 40px !important;
+    padding: 8px 14px !important;
+    border-radius: 12px !important;
+  }
+
+  page .link,
+  page .action-btn,
+  page .audit-link-btn,
+  page .flow-action-btn,
+  page .step-action-link,
+  page .pending-action-link,
+  page .header-nav-btn,
+  page .mark-all-read,
+  page .placement-page-btn,
+  page .cancel-btn {
+    min-height: 30px !important;
+    padding: 5px 10px !important;
+    border-radius: 10px !important;
+  }
+
+  page .popup-close,
+  page .permission-close,
+  page .message-dialog-btn,
+  page .app-grid-badge,
+  page .hero-badge,
+  page .status-chip,
+  page .mode-chip,
+  page .audit-chip,
+  page .blue-chip,
+  page .gray-chip,
+  page .green-chip,
+  page .orange-chip,
+  page .red-chip {
+    border-radius: 10px !important;
+  }
+
+  page .section-title,
+  page .list-title,
+  page .filter-label,
+  page .profile-field-title,
+  page .merit-group-label,
+  page .rule-panel-title {
+    padding-left: 15px !important;
+  }
+
+  page .section-title::before,
+  page .list-title::before,
+  page .filter-label::before,
+  page .profile-field-title::before,
+  page .merit-group-label::before,
+  page .rule-panel-title::before {
+    width: 5px !important;
+    height: 20px !important;
+    border-radius: 3px !important;
+    box-shadow: none !important;
+  }
+
+  page .ui-tab,
+  page .tab,
+  page .feature-tab,
+  page .rules-tab,
+  page .app-view-tab,
+  page .message-tab,
+  page .filter-chip,
+  page .chip,
+  page .select-chip,
+  page .grade-chip,
+  page .dept-tab,
+  page .role-pill {
+    min-height: 36px !important;
+    padding: 7px 10px !important;
+    border-radius: 10px !important;
   }
 }

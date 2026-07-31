@@ -268,6 +268,7 @@
 
     <!-- Template CSV import mapping dialog -->
     <view class="modal-mask ui-overlay" wx:if="{{showTemplateCsvDialog}}" bindtap="cancelTemplateCsvImport">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="modal-card csv-mapping-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view class="modal-title">选择评分问题列</view>
@@ -1125,6 +1126,7 @@
     </view>
 
     <view class="modal-mask ui-overlay" wx:if="{{hrProfileExportVisible}}" bindtap="closeHrProfileExport">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="modal-card hr-profile-export-modal ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view>
@@ -1169,6 +1171,7 @@
     </view>
 
     <view class="modal-mask ui-overlay" wx:if="{{hrTemplateSwitchVisible}}" bindtap="closeHrProfileTemplateSwitch">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="modal-card hr-template-switch-modal ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view>
@@ -1213,6 +1216,7 @@
     </view>
 
     <view class="modal-mask ui-overlay" wx:if="{{showHrPersonDetail}}" bindtap="closeHrPersonDetail">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="modal-card hr-person-editor-shell ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view class="modal-title">人事详情</view>
@@ -1420,6 +1424,7 @@
 
     <!-- CSV column mapping dialog -->
     <view class="modal-mask ui-overlay" wx:if="{{showCsvMappingDialog}}" bindtap="closeCsvMappingDialog">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="modal-card csv-mapping-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view class="modal-title">选择人事资料列</view>
@@ -1474,6 +1479,7 @@
 
     <!-- HR table import read-only preview -->
     <view class="modal-mask ui-overlay" wx:if="{{showHrImportPreview}}" bindtap="closeHrImportPreview">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="modal-card hr-import-preview-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view>
@@ -1551,6 +1557,7 @@
 
     <!-- Validation errors dialog -->
     <view class="modal-mask ui-overlay" wx:if="{{showValidationErrors}}" bindtap="closeValidationErrors">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="modal-card validation-errors-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="modal-header ui-dialog-header">
           <view class="modal-title">请检查表格内容</view>
@@ -2247,6 +2254,7 @@
 
       <!-- Step editor popup (condition-based) -->
       <view class="popup-mask ui-overlay" wx:if="{{auditTemplateStepEditorVisible}}" bindtap="closeAuditTemplateStepEditor">
+        <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop" style="max-height:90vh;">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? '编辑步骤' : '添加步骤'}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-scroll--fill">
@@ -2385,6 +2393,7 @@
 
       <!-- Starter condition editor popup -->
       <view class="popup-mask ui-overlay" wx:if="{{auditStarterConditionEditorVisible}}" bindtap="closeStarterConditionEditor">
+        <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditStarterConditionEditingIndex >= 0 ? '编辑发起条件' : '添加发起条件'}}</view><text class="popup-close ui-motion-chip" catchtap="closeStarterConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-scroll--fill">
@@ -2520,6 +2529,7 @@
 
       <!-- Progress detail popup -->
       <view class="popup-mask ui-overlay" wx:if="{{auditSubmissionDetailVisible}}" bindtap="closeAuditSubmissionDetail">
+        <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop" style="max-height: 85vh;">
           <view class="popup-header ui-dialog-header"><view class="popup-title">审核流程</view><text class="popup-close ui-motion-chip" catchtap="closeAuditSubmissionDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y wx:if="{{auditSubmissionDetail}}">
@@ -2662,6 +2672,7 @@
 
   <!-- ══════════════ Unified Multi-Select Picker (step conditions) ══════════════ -->
   <view class="popup-mask ui-overlay" wx:if="{{auditMultiPickerVisible}}" bindtap="closeAuditMultiPicker">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
@@ -2713,6 +2724,7 @@
 
   <!-- ══════════════ Audit Personnel Picker (page level) ══════════════ -->
   <view class="popup-mask ui-overlay" wx:if="{{auditPersonnelPickerVisible}}" bindtap="closeAuditPersonnelPicker">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">选择人员 — {{auditPersonnelPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
@@ -2740,6 +2752,7 @@
 
   <!-- ══════════════ Audit Identity Picker (page level) ══════════════ -->
   <view class="popup-mask ui-overlay" wx:if="{{auditIdentityPickerVisible}}" bindtap="closeAuditIdentityPicker">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">选择身份 — {{auditIdentityPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditIdentityPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
@@ -2765,6 +2778,7 @@
 
   <!-- Designation Picker Popup (page level, outside tab sections) -->
   <view class="popup-mask ui-overlay" wx:if="{{showDesignationPicker}}" bindtap="closeDesignationPicker">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">指定评优名单</view><text class="popup-close ui-motion-chip" catchtap="closeDesignationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
@@ -2790,6 +2804,7 @@
   </view>
 
   <view class="popup-mask ui-overlay" wx:if="{{orgFormVisible}}" bindtap="closeOrgForm">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="list-title">{{orgFormData.id ? '编辑组织名称' : '新建组织'}}</view>
@@ -2809,6 +2824,7 @@
   </view>
 
   <view class="popup-mask ui-overlay" wx:if="{{scorerTargetPopupVisible}}" bindtap="closeScorerTargetPopup">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card completion-popup-card ui-dialog-shell ui-dialog-shell--wide" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{scorerTargetPopupTitle}}</view>
@@ -2850,6 +2866,7 @@
   </view>
 
   <view class="popup-mask ui-overlay" wx:if="{{recordDetailPopupVisible}}" bindtap="closeScoreRecordDetail">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card completion-popup-card ui-dialog-shell ui-dialog-shell--wide" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">评分详情</view>
@@ -2911,7 +2928,8 @@
     </view>
   </view>
 
-  <view class="modal-mask ui-overlay" wx:if="{{contextSwitchGuardVisible}}" bindtap="closeContextSwitchGuard">
+    <view class="modal-mask ui-overlay" wx:if="{{contextSwitchGuardVisible}}" bindtap="closeContextSwitchGuard">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="modal-card context-switch-guard-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
       <view class="context-switch-guard-title">请先保存修改</view>
@@ -2922,7 +2940,8 @@
     </view>
   </view>
 
-  <view class="modal-mask ui-overlay identity-action-confirm-overlay" wx:if="{{identityActionConfirmVisible}}" bindtap="closeIdentityActionConfirm">
+    <view class="modal-mask ui-overlay identity-action-confirm-overlay" wx:if="{{identityActionConfirmVisible}}" bindtap="closeIdentityActionConfirm">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="modal-card identity-action-confirm-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="context-switch-guard-title">{{identityActionConfirmTitle}}</view>
       <view class="context-switch-guard-desc">{{identityActionConfirmText}}</view>
@@ -2933,7 +2952,8 @@
     </view>
   </view>
 
-  <view class="modal-mask ui-overlay" wx:if="{{adminDeleteConfirmVisible}}" bindtap="closeAdminDeleteConfirm">
+    <view class="modal-mask ui-overlay" wx:if="{{adminDeleteConfirmVisible}}" bindtap="closeAdminDeleteConfirm">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="modal-card identity-action-confirm-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="modal-title">删除管理员</view>
       <view class="modal-desc">{{adminDeleteConfirmName ? '将删除“' + adminDeleteConfirmName + '”的管理身份。' : '将删除该管理身份。'}}</view>
