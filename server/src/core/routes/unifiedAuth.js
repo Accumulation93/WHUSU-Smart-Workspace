@@ -517,7 +517,7 @@ router.post('/admin/auth/accounts', async (req, res) => {
       const orgId = actor.adminLevel === 'super_admin'
         ? safeString(req.body && req.body.organizationId)
         : actor.organizationId;
-      const rows = await identityModel.listAccounts(orgId, { limit: req.body && req.body.limit });
+      const rows = await identityModel.listAccounts(orgId, { limit: req.body && req.body.limit, search: req.body && req.body.search });
       return res.json({
         status: 'success',
         list: rows.map((row) => ({

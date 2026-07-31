@@ -71,7 +71,11 @@ Page({
     recoveries: [],
     recoveryAccounts: [],
     selectedRecoveryAccountIds: [],
+    recoverySearch: '',
+    recoveryOrganizationId: '',
+    recoveryOrganizationName: '',
     accounts: [],
+    accountSearch: '',
     auditEvents: [],
     policy: null,
     issuedCode: '',
@@ -162,12 +166,12 @@ Page({
         });
         if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
-        const eligible = await callFunction({ name: 'admin/auth/recoveries', data: { action: 'eligible_accounts', limit: 200 } });
-        this.setData({ recoveries: formatRows(result.list), recoveryAccounts: (eligible.list || []).map(function(item) { return Object.assign({}, item, { selected: false }); }), selectedRecoveryAccountIds: [] });
+        const eligible = await callFunction({ name: 'admin/auth/recoveries', data: { action: 'eligible_accounts', limit: 200, search: this.data.recoverySearch, organizationId: this.data.recoveryOrganizationId } });
+        this.setData({ recoveries: formatRows(result.list), recoveryAccounts: (eligible.list || []).map(function(item) { return Object.assign({}, item, { selected: false, statusLabel: ({ verified: '已认证', recovery_required: '待恢复', frozen: '已冻结' })[item.accountStatus] || '可恢复' }); }), selectedRecoveryAccountIds: [] });
       } else if (this.data.activeTab === 'accounts') {
         const result = await callFunction({
           name: 'admin/auth/accounts',
-          data: { action: 'list', limit: 200 }
+          data: { action: 'list', limit: 200, search: this.data.accountSearch }
         });
         if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
@@ -489,6 +493,14 @@ Page({
   },
 
   filterEligible() { this.loadActiveTab(); },
+
+  onRecoverySearch(e) { this.setData({ recoverySearch: String(e.detail.value || '').trim() }); },
+
+  filterRecovery() { this.loadActiveTab(); },
+
+  onAccountSearch(e) { this.setData({ accountSearch: String(e.detail.value || '').trim() }); },
+
+  filterAccounts() { this.loadActiveTab(); },
 
   toggleEligibleSelection(e) {
     const id = e.currentTarget.dataset.id; const selected = new Set(this.data.selectedEligiblePersonIds || []);

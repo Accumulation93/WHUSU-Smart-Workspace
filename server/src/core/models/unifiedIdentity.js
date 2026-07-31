@@ -1103,6 +1103,11 @@ async function listClaims(organizationId, options) {
     scopeSql = "AND EXISTS (SELECT 1 FROM organization_memberships scope_m WHERE scope_m.person_id = r.person_id AND scope_m.org_id = ? AND scope_m.status = 'active')";
     params.push(orgId);
   }
+  const search = safeString(options && options.search);
+  if (search) {
+    scopeSql += ' AND (p.name LIKE ? OR p.student_id LIKE ?)';
+    params.push('%' + search + '%', '%' + search + '%');
+  }
   params.push(limit);
   const [rows] = await pool.query(
     `SELECT r.id, r.requested_org_id, r.status, r.created_at, r.expires_at,
@@ -1730,6 +1735,11 @@ async function listAccounts(organizationId, options) {
   if (orgId) {
     scopeSql = "AND EXISTS (SELECT 1 FROM organization_memberships scope_m WHERE scope_m.person_id = p.id AND scope_m.org_id = ? AND scope_m.status = 'active')";
     params.push(orgId);
+  }
+  const search = safeString(options && options.search);
+  if (search) {
+    scopeSql += ' AND (p.name LIKE ? OR p.student_id LIKE ?)';
+    params.push('%' + search + '%', '%' + search + '%');
   }
   params.push(limit);
   const [rows] = await pool.query(
