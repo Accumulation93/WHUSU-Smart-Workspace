@@ -206,6 +206,12 @@ page {
   transition: transform 0.28s cubic-bezier(0.16,0.84,0.28,1);
   backdrop-filter: blur(28rpx);
   -webkit-backdrop-filter: blur(28rpx);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 36rpx - env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .sheet-show .sheet-panel {
@@ -213,11 +219,16 @@ page {
 }
 
 .sheet-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18rpx;
   margin-bottom: 22rpx;
+}
+
+.sheet-body {
+  padding: 2rpx;
 }
 
 .sheet-title {

@@ -576,8 +576,9 @@
       <view class="popup-mask ui-overlay" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker">
         <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
           <view class="list-title">已选人员（{{editPersonPickerSelectedIds.length}}人）</view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body ui-dialog-scroll--pane">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
             <view class="audit-person-item" wx:for="{{editPersonPickerSelectedList}}" wx:key="id">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
               <view class="audit-person-info">
@@ -597,7 +598,7 @@
             <view class="rule-filter-field"><view class="field-label">职能组</view><picker range="{{personPickerWgOpts}}" bindchange="onEditPersonPickerWgChange"><view class="picker-value compact-picker-value">{{editPersonPickerWg}}</view></picker></view>
           </view>
           <view class="field field-mb-8"><input class="field-input" placeholder="搜索姓名/学号" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body ui-dialog-scroll--pane">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
             <view wx:if="{{!editPersonPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
             <view class="audit-person-item ui-motion-card" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
@@ -613,6 +614,7 @@
               <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? '通过' : (editPersonPickerStepActionType === 'sign' ? '签字' : (editPersonPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
             </picker>
           </view>
+          </scroll-view>
           <view class="button-row ui-dialog-footer">
             <button class="secondary-btn ui-motion-button" catchtap="closeEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
             <button class="primary-btn ui-motion-button" catchtap="confirmEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加 {{editPersonPickerSelectedIds.length}} 人</button>
@@ -871,10 +873,11 @@
     <view class="popup-mask ui-overlay" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
       <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closePersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
 
         <!-- Selected persons -->
         <view class="list-title">已选人员（{{personPickerSelectedIds.length}}人）</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body ui-dialog-scroll--pane">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
           <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="id">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
             <view class="audit-person-info">
@@ -915,7 +918,7 @@
         </view>
 
         <!-- Candidate list -->
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body ui-dialog-scroll--pane">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
           <view wx:if="{{!personPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
           <view class="audit-person-item ui-motion-card" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
@@ -936,6 +939,7 @@
             <view class="picker-value">{{personPickerStepActionType === 'pass' ? '通过' : (personPickerStepActionType === 'sign' ? '签字' : (personPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
           </picker>
         </view>
+        </scroll-view>
 
         <view class="button-row ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closePersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>

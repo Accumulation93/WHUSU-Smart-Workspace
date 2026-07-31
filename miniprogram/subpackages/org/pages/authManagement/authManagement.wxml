@@ -120,16 +120,18 @@
 
   <view class="dialog-layer ui-overlay" wx:if="{{showCodeDialog}}">
     <view class="dialog-mask"></view>
-    <view class="dialog-panel auth-dialog ui-dialog-shell ui-dialog-shell--compact">
-      <view class="dialog-badge">个人认证码</view>
-      <view class="dialog-title">{{issuedCodes.length > 1 ? '个人认证码已批量生成' : issuedPersonName + '的个人认证码'}}</view>
-      <scroll-view class="issued-code-list ui-dialog-scroll--pane" scroll-y="{{issuedCodes.length > 3}}">
-        <view class="issued-code-row" wx:for="{{issuedCodes}}" wx:key="claimId">
-          <view class="issued-person">{{item.personName}}</view>
-          <view class="issued-code">{{item.verificationCode}}</view>
-        </view>
+    <view class="dialog-panel auth-dialog modal-card ui-dialog-shell ui-dialog-shell--compact">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+        <view class="dialog-badge">个人认证码</view>
+        <view class="dialog-title">{{issuedCodes.length > 1 ? '个人认证码已批量生成' : issuedPersonName + '的个人认证码'}}</view>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="issued-code-list ui-dialog-scroll--pane" scroll-y>
+          <view class="issued-code-row" wx:for="{{issuedCodes}}" wx:key="claimId">
+            <view class="issued-person">{{item.personName}}</view>
+            <view class="issued-code">{{item.verificationCode}}</view>
+          </view>
+        </scroll-view>
+        <view class="dialog-desc">请立即保存并单独发给本人，24 小时后失效。</view>
       </scroll-view>
-      <view class="dialog-desc">请立即保存并单独发给本人，24 小时后失效。</view>
       <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" bindtap="copyIssuedCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{issuedCodes.length > 1 ? '复制全部' : '复制认证码'}}</button>
         <button class="primary-btn dialog-btn ui-motion-button" bindtap="closeCodeDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">关闭</button>
@@ -139,10 +141,12 @@
 
   <view class="dialog-layer ui-overlay" wx:if="{{showRecoveryDialog}}">
     <view class="dialog-mask" bindtap="closeRecoveryDialog"></view>
-    <view class="dialog-panel auth-dialog ui-dialog-shell ui-dialog-shell--compact">
-      <view class="dialog-badge">账号恢复</view>
-      <view class="dialog-title">确认恢复{{pendingRecovery.name}}的账号？</view>
-      <view class="dialog-desc">通过后，新微信将登录该账号，原微信和其他设备会退出。本人的申请请由其他管理员处理。</view>
+    <view class="dialog-panel auth-dialog modal-card ui-dialog-shell ui-dialog-shell--compact">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+        <view class="dialog-badge">账号恢复</view>
+        <view class="dialog-title">确认恢复{{pendingRecovery.name}}的账号？</view>
+        <view class="dialog-desc">通过后，新微信将登录该账号，原微信和其他设备会退出。本人的申请请由其他管理员处理。</view>
+      </scroll-view>
       <view class="dialog-actions ui-dialog-footer">
         <button class="secondary-btn dialog-btn ui-motion-button" disabled="{{actionLoading}}" bindtap="closeRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">取消</button>
         <button class="primary-btn dialog-btn ui-motion-button" loading="{{actionLoading}}" bindtap="approveRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">确认恢复</button>

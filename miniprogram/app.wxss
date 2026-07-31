@@ -723,7 +723,9 @@ button[disabled],
   width: 100vw;
   height: 100vh;
   padding: 16rpx 16rpx calc(16rpx + env(safe-area-inset-bottom));
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   box-sizing: border-box;
 }
@@ -740,7 +742,10 @@ button[disabled],
   margin-left: auto;
   margin-right: auto;
   max-height: calc(100vh - 32rpx - env(safe-area-inset-bottom));
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-sizing: border-box;
 }
 
@@ -768,7 +773,10 @@ button[disabled],
   min-width: 0;
   min-height: 0;
   max-height: none;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-sizing: border-box;
 }
 
@@ -810,6 +818,39 @@ scroll-view.ui-dialog-scroll--pane {
   min-height: 120rpx;
   overflow: hidden;
   overscroll-behavior: contain;
+}
+
+/* 长表单或组合选择器：外层负责整组内容滚动，内层列表仍可独立翻动。 */
+scroll-view.ui-dialog-stack-scroll {
+  display: block;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: 68vh;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+scroll-view.ui-dialog-selection-current {
+  height: 280rpx;
+  min-height: 200rpx;
+  max-height: 34vh;
+}
+
+scroll-view.ui-dialog-selection-options {
+  height: 480rpx;
+  min-height: 320rpx;
+  max-height: 52vh;
+}
+
+/* 手写区域必须锁定触摸，防止画线时被识别为弹窗滚动。 */
+.ui-dialog-touch-lock,
+.ui-dialog-touch-lock .ui-dialog-shell,
+.ui-dialog-touch-lock .ui-dialog-body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
 }
 
 scroll-view.ui-dialog-scroll--x {
@@ -1410,6 +1451,23 @@ button:active,
   .ui-dialog-footer {
     padding-top: 14px;
     padding-bottom: 0;
+  }
+
+  scroll-view.ui-dialog-stack-scroll {
+    min-height: 0;
+    max-height: calc(100vh - 170px);
+  }
+
+  scroll-view.ui-dialog-selection-current {
+    height: 190px;
+    min-height: 150px;
+    max-height: 32vh;
+  }
+
+  scroll-view.ui-dialog-selection-options {
+    height: 340px;
+    min-height: 260px;
+    max-height: 50vh;
   }
 
   .field-input,

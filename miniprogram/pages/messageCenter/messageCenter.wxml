@@ -83,10 +83,12 @@
   <view class="message-switch-layer ui-overlay" wx:if="{{showSwitchDialog}}">
     <view class="message-switch-mask" bindtap="closeSwitchDialog"></view>
     <view class="message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
-      <view class="message-switch-badge">跨组织事项</view>
-      <view class="message-switch-title">{{switchDialogTitle}}</view>
-      <view class="message-switch-desc">切换到以下组织后查看</view>
-      <view class="message-switch-org">{{switchOrganizationName}}</view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+        <view class="message-switch-badge">跨组织事项</view>
+        <view class="message-switch-title">{{switchDialogTitle}}</view>
+        <view class="message-switch-desc">切换到以下组织后查看</view>
+        <view class="message-switch-org">{{switchOrganizationName}}</view>
+      </scroll-view>
       <view class="message-switch-actions ui-dialog-footer">
         <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeSwitchDialog" disabled="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
         <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationSwitch" loading="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">切换并查看</button>

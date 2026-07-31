@@ -452,8 +452,9 @@
   <view class="popup-mask ui-overlay" wx:if="{{showUserDesigPopup}}" bindtap="closeUserDesignation">
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">指定评优名单</view><text class="popup-close ui-motion-chip" catchtap="closeUserDesignation" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <view class="list-title">当前名单（{{userDesigSelectedIds.length}}人）</view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-body ui-dialog-scroll--pane">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
         <view class="list-item desig-current-item" wx:for="{{userDesigSelectedList}}" wx:key="id">
           <view class="list-main">
             <view class="list-name">{{item.name}}</view>
@@ -484,7 +485,7 @@
           <input class="field-input" placeholder="姓名/学号" value="{{userDesigSearchKeyword}}" bindinput="onUserDesigSearchInput"/>
         </view>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-body ui-dialog-scroll--pane">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
         <view wx:if="{{!userDesigFilteredList.length}}" class="empty-inline">没有匹配的成员</view>
         <view class="list-item ui-motion-card" wx:for="{{userDesigFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" wx:if="{{userDesigFilteredList.length}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
@@ -495,6 +496,7 @@
             <view class="list-desc">{{item.studentId}} · {{item.department}}</view>
           </view>
         </view>
+      </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeUserDesignation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>

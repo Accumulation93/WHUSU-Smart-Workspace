@@ -601,13 +601,14 @@
   <view class="popup-mask ui-overlay" wx:if="{{condMultiPickerVisible}}" bindtap="closeCondMultiPicker">
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
       <view class="rule-filter-row" style="padding:0 24rpx 12rpx;">
         <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->
       <view class="dept-tab-scroll" wx:if="{{condMultiPickerDeptTabs.length}}">
-        <scroll-view scroll-x class="dept-tab-scroll-view ui-dialog-body ui-dialog-scroll--x">
+        <scroll-view scroll-x class="dept-tab-scroll-view ui-dialog-scroll--x">
           <view class="dept-tab-row">
             <view class="dept-tab {{condMultiPickerActiveDeptTab === item.deptId ? 'dept-tab-active' : ''}} ui-motion-chip"
                   wx:for="{{condMultiPickerDeptTabs}}" wx:key="deptId"
@@ -618,11 +619,11 @@
         </scroll-view>
       </view>
       <!-- Select-all / Deselect-all -->
-      <view class="button-row compact-row ui-dialog-footer" style="padding:0 24rpx 8rpx;">
+      <view class="button-row compact-row" style="padding:0 24rpx 8rpx;">
         <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全选</button>
         <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerDeselectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消全选</button>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="inner-scroll large-scroll ui-dialog-body ui-dialog-scroll--fill" style="max-height:600rpx;">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="inner-scroll large-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
         <view class="list-item ui-motion-card" wx:for="{{condMultiPickerFilteredList}}" wx:key="id" data-id="{{item.id}}" catchtap="onCondMultiPickerToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">
@@ -633,6 +634,7 @@
           </view>
         </view>
         <view class="empty-inline" wx:if="{{!condMultiPickerFilteredList.length}}">没有匹配的选项</view>
+      </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
