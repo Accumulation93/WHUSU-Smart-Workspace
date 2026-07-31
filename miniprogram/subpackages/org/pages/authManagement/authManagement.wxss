@@ -1,3 +1,5 @@
+@import '../../../../pages/home/home.wxss';
+
 .auth-page {
   min-height: 100vh;
   padding: 28rpx 24rpx 44rpx;
@@ -15,16 +17,6 @@
 .auth-card {
   padding: 24rpx;
 }
-
-.auth-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-  margin-bottom: 20rpx;
-}
-
-.auth-tabs.tabs-card { display: flex; flex-wrap: wrap; }
-.auth-tabs .feature-tab { flex: 1 1 180rpx; }
 
 .request-item,
 .policy-row {
@@ -69,14 +61,14 @@
 }
 
 .claim-tool {
-  min-height: 52rpx;
+  min-height: 46rpx;
   padding: 0 14rpx;
   border: 1rpx solid rgba(203,213,225,0.82);
   border-radius: 12rpx;
   color: #52677f;
   font-size: var(--ui-type-caption);
-  line-height: 52rpx;
-  background: rgba(248,250,252,0.8);
+  line-height: 46rpx;
+  background: rgba(255,255,255,0.74);
 }
 
 .batch-issue-btn {
@@ -111,7 +103,8 @@
   color: #0f172a;
   font-size: var(--ui-type-emphasis);
   font-weight: 800;
-  line-height: 1.5;
+  line-height: 1.35;
+  letter-spacing: 0;
 }
 
 .request-meta,
@@ -120,7 +113,8 @@
   margin-top: 5rpx;
   color: #64748b;
   font-size: var(--ui-type-meta);
-  line-height: 1.65;
+  line-height: 1.45;
+  letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 
@@ -133,12 +127,13 @@
 .compact-btn {
   width: auto;
   min-width: 146rpx;
-  min-height: 66rpx;
+  min-height: 58rpx;
   margin: 0;
-  padding: 12rpx 18rpx;
-  border-radius: 16rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
   font-size: var(--ui-type-meta);
-  line-height: 1.45;
+  line-height: 1.35;
+  letter-spacing: 0;
 }
 
 .policy-field {
@@ -231,7 +226,7 @@
 
 @media (min-width: 520px) {
   .auth-page {
-    max-width: 820px;
+    max-width: 760px;
     margin: 0 auto;
     padding: 28px 24px 42px;
   }
@@ -247,7 +242,6 @@
   .request-meta,
   .loading-text,
   .empty-state { font-size: var(--ui-type-meta); }
-  .auth-tab { font-size: var(--ui-tab-font-size); }
   .request-name { font-size: var(--ui-type-emphasis); }
 
   .compact-btn {

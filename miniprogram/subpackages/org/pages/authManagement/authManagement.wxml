@@ -10,8 +10,8 @@
   </view>
 
   <view class="card auth-card" wx:if="{{tabs.length}}">
-    <view class="auth-tabs tabs-card">
-      <view class="auth-tab feature-tab {{activeTab === item.key ? 'feature-tab-active auth-tab-active' : ''}} ui-motion-chip" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{item.label}}</view>
+    <view class="tabs-card">
+      <view class="feature-tab {{activeTab === item.key ? 'feature-tab-active' : ''}} ui-motion-chip" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{item.label}}</view>
     </view>
 
     <view class="loading-text" wx:if="{{loading}}">正在加载…</view>
