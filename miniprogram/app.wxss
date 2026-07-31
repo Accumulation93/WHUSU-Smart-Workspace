@@ -1745,16 +1745,17 @@ button:active,
   /* 门户宫格使用弹性换行：最后一行的少量应用自动拉伸填满，不留下半行空白。 */
   page .app-grid,
   page .portal-services-card .app-grid {
-    display: flex !important;
-    flex-wrap: wrap;
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
     align-items: stretch;
+    justify-content: start !important;
     gap: 10px !important;
     width: 100% !important;
   }
 
   page .app-grid-item,
   page .portal-services-card .app-grid-item {
-    flex: 1 1 calc((100% - 40px) / 5) !important;
+    flex: none !important;
     width: auto !important;
     min-width: 0 !important;
     min-height: 86px !important;
