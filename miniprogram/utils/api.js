@@ -12,6 +12,8 @@ const AUTH_ENTRY_APIS = {
   'auth/wechat/session': true,
   'auth/claims': true,
   'auth/claims/verify': true,
+  'auth/claims/redeem': true,
+  'auth/password/session': true,
   'auth/recovery/start': true,
   'auth/recovery/complete': true
 };

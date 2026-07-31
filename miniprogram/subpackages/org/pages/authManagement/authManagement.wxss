@@ -23,26 +23,8 @@
   margin-bottom: 20rpx;
 }
 
-.auth-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--ui-tab-min-height);
-  padding: var(--ui-tab-padding-y) var(--ui-tab-padding-x);
-  border: 1rpx solid rgba(203,213,225,0.86);
-  border-radius: 14rpx;
-  color: #52677f;
-  font-size: var(--ui-tab-font-size);
-  font-weight: 700;
-  line-height: var(--ui-leading-control);
-  background: rgba(248,250,252,0.76);
-}
-
-.auth-tab-active {
-  color: #2563eb;
-  border-color: rgba(96,165,250,0.64);
-  background: rgba(219,234,254,0.78);
-}
+.auth-tabs.tabs-card { display: flex; flex-wrap: wrap; }
+.auth-tabs .feature-tab { flex: 1 1 180rpx; }
 
 .request-item,
 .policy-row {
@@ -67,6 +49,10 @@
   padding: 4rpx 0 14rpx;
   border-bottom: 1rpx solid rgba(226,232,240,0.9);
 }
+
+.auth-filter-row { display: flex; align-items: center; gap: 12rpx; margin: 4rpx 0 18rpx; }
+.auth-filter-input { flex: 1; min-width: 0; }
+.auth-filter-picker { min-width: 180rpx; padding: 14rpx 16rpx; }
 
 .claim-toolbar-copy {
   color: #64748b;

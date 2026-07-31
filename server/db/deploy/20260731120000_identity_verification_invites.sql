@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS identity_verification_invites (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  person_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL,
+  code_hash CHAR(64) NOT NULL,
+  issued_by_person_id VARCHAR(64) NOT NULL,
+  issued_by_context_id VARCHAR(160) NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  failed_attempts INT NOT NULL DEFAULT 0,
+  locked_until DATETIME DEFAULT NULL,
+  expires_at DATETIME NOT NULL,
+  consumed_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_identity_invite_code (code_hash),
+  INDEX idx_identity_invite_person (person_id, org_id, status),
+  INDEX idx_identity_invite_org_status (org_id, status, expires_at),
+  CONSTRAINT fk_identity_invite_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_identity_invite_org FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

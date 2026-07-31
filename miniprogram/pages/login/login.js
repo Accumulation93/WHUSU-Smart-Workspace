@@ -28,7 +28,9 @@ Page({
     recoveryCredential: '',
     rotatedRecoveryCode: '',
     claimAvailable: true,
-    authNotice: ''
+    authNotice: '',
+    passwordStudentId: '',
+    password: ''
   },
 
   onLoad() {
@@ -61,6 +63,45 @@ Page({
 
   onStudentId(e) {
     this.setData({ studentId: String(e.detail.value || '').trim() });
+  },
+
+  onPasswordStudentId(e) {
+    this.setData({ passwordStudentId: String(e.detail.value || '').trim() });
+  },
+
+  onPasswordInput(e) {
+    this.setData({ password: String(e.detail.value || '') });
+  },
+
+  openPasswordLogin() {
+    this.setData({ sheetClass: 'sheet sheet-show', stage: 'password', passwordStudentId: '', password: '' });
+  },
+
+  async onPasswordLogin() {
+    if (this.data.loading) return;
+    if (!this.data.passwordStudentId || !this.data.password) {
+      showShortToast('请输入学号和口令');
+      return;
+    }
+    this.setData({ loading: true });
+    try {
+      const result = await callFunction({
+        name: 'auth/password/session',
+        data: {
+          studentId: this.data.passwordStudentId,
+          passphrase: this.data.password,
+          preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
+          preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
+        }
+      });
+      if (!result || result.status !== 'login_success') throw new Error('登录信息不正确');
+      authContext.applyAuthenticatedResult(result);
+      this.openPortal();
+    } catch (error) {
+      showShortToast(getErrorText(error, '登录信息不正确'));
+    } finally {
+      this.setData({ loading: false });
+    }
   },
 
   onVerificationCode(e) {
@@ -245,6 +286,25 @@ Page({
     }
     this.setData({ loading: true });
     try {
+      const organization = this.data.organizations[this.data.organizationIndex];
+      try {
+        const inviteResult = await callFunction({
+          name: 'auth/claims/redeem',
+          data: {
+            organizationId: organization && organization.id,
+            name: this.data.name,
+            studentId: this.data.studentId,
+            code: this.data.verificationCode
+          }
+        });
+        if (inviteResult && inviteResult.status === 'login_success') {
+          authContext.applyAuthenticatedResult(inviteResult);
+          this.openPortal();
+          return;
+        }
+      } catch (_) {
+        // 普通认领申请继续使用原有的申请码流程。
+      }
       const result = await callFunction({
         name: 'auth/claims/verify',
         data: {

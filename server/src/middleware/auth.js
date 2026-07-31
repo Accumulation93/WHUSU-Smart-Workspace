@@ -16,6 +16,8 @@ const PUBLIC_PATHS = new Set([
   '/api/auth/wechat/session',
   '/api/auth/claims',
   '/api/auth/claims/verify',
+  '/api/auth/claims/redeem',
+  '/api/auth/password/session',
   '/api/auth/recovery/start',
   '/api/auth/recovery/complete'
 ]);

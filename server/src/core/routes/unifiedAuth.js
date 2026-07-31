@@ -106,6 +106,38 @@ router.post('/auth/claims/verify', async (req, res) => {
   }
 });
 
+router.post('/auth/claims/redeem', async (req, res) => {
+  try {
+    const bootstrapId = unifiedAuth.bootstrapIdFromRequest(req);
+    const account = await identityModel.redeemInitialInvite(bootstrapId, {
+      name: req.body && req.body.name,
+      studentId: req.body && req.body.studentId,
+      organizationId: req.body && req.body.organizationId,
+      code: req.body && (req.body.code || req.body.verificationCode)
+    }, metadata(req));
+    return res.json(await unifiedAuth.createAuthenticatedSession(account, '', metadata(req)));
+  } catch (error) {
+    return sendError(req, res, error);
+  }
+});
+
+router.post('/auth/password/session', async (req, res) => {
+  try {
+    const account = await identityModel.authenticateWithPassphrase(
+      req.body && req.body.studentId,
+      req.body && req.body.passphrase
+    );
+    await identityModel.appendAuditEvent({ eventType: 'password_session_created', targetPersonId: account.person_id,
+      accountId: account.id, requestId: req.requestId, ip: req.ip });
+    return res.json(await unifiedAuth.createAuthenticatedSession(account, {
+      organizationId: req.body && req.body.preferredOrganizationId,
+      identityId: req.body && req.body.preferredIdentityId
+    }, metadata(req)));
+  } catch (error) {
+    return sendError(req, res, error);
+  }
+});
+
 router.get('/auth/contexts', async (req, res) => {
   try {
     requireUnifiedSession(req);
@@ -358,6 +390,27 @@ router.post('/admin/auth/claims', async (req, res) => {
       const rows = await identityModel.listClaims(orgId, { limit: req.body && req.body.limit });
       return res.json({ status: 'success', list: rows });
     }
+    if (action === 'eligible') {
+      const orgId = actor.adminLevel === 'super_admin'
+        ? safeString(req.body && req.body.organizationId)
+        : actor.organizationId;
+      const rows = await identityModel.listEligibleInitialInvitePeople(orgId, req.body || {});
+      return res.json({ status: 'success', list: rows });
+    }
+    if (action === 'issue_invites') {
+      const orgId = actor.adminLevel === 'super_admin'
+        ? safeString(req.body && req.body.organizationId)
+        : actor.organizationId;
+      const results = await identityModel.issueInitialInvites(req.body && req.body.personIds, orgId, actor, metadata(req));
+      return res.json({ status: 'success', issued: results, message: '认证码已生成，请及时交给对应人员' });
+    }
+    if (action === 'revoke_invites') {
+      const orgId = actor.adminLevel === 'super_admin'
+        ? safeString(req.body && req.body.organizationId)
+        : actor.organizationId;
+      const result = await identityModel.revokeInitialInvites(req.body && req.body.personIds, orgId, actor, metadata(req));
+      return res.json({ status: 'success', revoked: result.revoked });
+    }
     if (action === 'issue_code') {
       const result = await identityModel.issueVerificationCode(
         req.body && req.body.claimId,
@@ -417,6 +470,31 @@ router.post('/admin/auth/recoveries', async (req, res) => {
       const rows = await identityModel.listRecoveryRequests(orgId, { limit: req.body && req.body.limit });
       return res.json({ status: 'success', list: rows });
     }
+    if (action === 'eligible_accounts') {
+      const orgId = actor.adminLevel === 'super_admin'
+        ? safeString(req.body && req.body.organizationId)
+        : actor.organizationId;
+      const rows = await identityModel.listEligibleRecoveryAccounts(orgId, req.body || {});
+      return res.json({ status: 'success', list: rows.map((row) => ({
+        accountId: safeString(row.account_id), personId: safeString(row.person_id), name: safeString(row.name),
+        studentId: safeString(row.student_id), accountStatus: safeString(row.status),
+        hasActiveBinding: Boolean(row.has_active_binding), hasRecoveryCode: Boolean(row.has_recovery_code)
+      })) });
+    }
+    if (action === 'issue_codes') {
+      const orgId = actor.adminLevel === 'super_admin'
+        ? safeString(req.body && req.body.organizationId)
+        : actor.organizationId;
+      const results = await identityModel.issueAdminRecoveryCodes(req.body && req.body.accountIds, orgId, actor, metadata(req));
+      return res.json({ status: 'success', issued: results, message: '恢复码已生成，请及时交给对应人员' });
+    }
+    if (action === 'revoke_codes') {
+      const orgId = actor.adminLevel === 'super_admin'
+        ? safeString(req.body && req.body.organizationId)
+        : actor.organizationId;
+      const result = await identityModel.revokeAdminRecoveryCodes(req.body && req.body.accountIds, orgId, actor, metadata(req));
+      return res.json({ status: 'success', revoked: result.revoked });
+    }
     if (action === 'approve') {
       await identityModel.approveRecovery(
         req.body && req.body.recoveryRequestId,
@@ -449,6 +527,7 @@ router.post('/admin/auth/accounts', async (req, res) => {
           studentId: safeString(row.student_id),
           accountStatus: safeString(row.status),
           hasActiveBinding: Boolean(row.has_active_binding),
+          hasRecoveryCode: Boolean(row.has_recovery_code),
           isSuperAdmin: Boolean(row.is_super_admin),
           verifiedAt: row.verified_at,
           recoveryRequiredAt: row.recovery_required_at

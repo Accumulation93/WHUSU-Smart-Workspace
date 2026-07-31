@@ -15,6 +15,7 @@
         <view class="section-title">登录</view>
         <view class="card-desc">请使用本人微信登录</view>
         <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">微信登录</button>
+        <view class="login-secondary-link ui-motion-chip" bindtap="openPasswordLogin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">口令登录</view>
       </view>
     </view>
   </view>
@@ -28,7 +29,7 @@
     <view class="sheet-mask" bindtap="closeSheet"></view>
     <view class="sheet-panel ui-dialog-shell ui-dialog-shell--compact">
       <view class="sheet-header">
-        <view class="sheet-title">{{stage === 'verify' ? '输入个人认证码' : (stage === 'recoveryVerify' ? '验证恢复信息' : (stage === 'recoveryRotated' ? '保存新的恢复码' : (stage === 'recoveryPending' ? '等待管理员审核' : (stage === 'recovery' ? '更换微信' : '身份认证'))))}}</view>
+        <view class="sheet-title">{{stage === 'password' ? '口令登录' : (stage === 'verify' ? '输入个人认证码' : (stage === 'recoveryVerify' ? '验证恢复信息' : (stage === 'recoveryRotated' ? '保存新的恢复码' : (stage === 'recoveryPending' ? '等待管理员审核' : (stage === 'recovery' ? '更换微信' : '身份认证')))))}}</view>
         <view class="sheet-close ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭 ×</view>
       </view>
 
@@ -60,6 +61,13 @@
         <view class="sheet-link ui-motion-chip" wx:else bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">返回身份认证</view>
       </view>
 
+        <view wx:elif="{{stage === 'password'}}">
+          <view class="sheet-note">使用已设置的口令登录</view>
+          <view class="field"><view class="field-label">学号</view><input class="field-input" placeholder="请输入学号" bindinput="onPasswordStudentId" value="{{passwordStudentId}}" /></view>
+          <view class="field"><view class="field-label">口令</view><input class="field-input" password="{{true}}" placeholder="请输入口令" bindinput="onPasswordInput" value="{{password}}" /></view>
+          <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onPasswordLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">登录</button>
+          <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">返回微信登录</view>
+        </view>
         <view wx:elif="{{stage === 'verify'}}">
         <view class="sheet-note">请向所属组织的管理员获取个人认证码。认证码有效期为 24 小时，使用后失效。</view>
         <view class="field">

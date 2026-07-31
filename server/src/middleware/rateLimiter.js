@@ -17,11 +17,13 @@ function createRateLimiter(options) {
   return function rateLimiter(req, res, next) {
     const now = Date.now();
     const routePath = normalizeRoutePath(req.path);
-    const isLoginPath = routePath === '/api/userLogin'
+  const isLoginPath = routePath === '/api/userLogin'
       || routePath === '/api/adminLogin'
       || routePath === '/api/auth/wechat/session'
       || routePath === '/api/auth/claims'
       || routePath === '/api/auth/claims/verify'
+      || routePath === '/api/auth/claims/redeem'
+      || routePath === '/api/auth/password/session'
       || routePath === '/api/auth/recovery/start'
       || routePath === '/api/auth/recovery/complete';
     const maxRequests = isLoginPath ? loginMax : defaultMax;

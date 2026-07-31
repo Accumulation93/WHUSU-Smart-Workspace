@@ -214,6 +214,15 @@ page {
   overscroll-behavior: contain;
 }
 
+.login-secondary-link {
+  margin: 16rpx auto 0;
+  width: fit-content;
+  padding: 8rpx 14rpx;
+  color: #2563eb;
+  font-size: var(--ui-type-label);
+  line-height: 1.4;
+}
+
 .sheet-show .sheet-panel {
   transform: translateY(0);
 }

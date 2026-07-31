@@ -7,6 +7,9 @@ const AUTH_EVENT_LABELS = {
   auth_context_activated: '切换身份',
   identity_claim_started: '提交身份认证',
   identity_code_issued: '生成个人认证码',
+  identity_invite_issued: '生成初始化认证码',
+  identity_invites_revoked: '撤销初始化认证码',
+  identity_invite_redeemed: '使用初始化认证码',
   identity_claim_verified: '完成身份认证',
   auth_policy_updated: '更新认证设置',
   recovery_credential_configured: '更新恢复方式',
@@ -17,7 +20,10 @@ const AUTH_EVENT_LABELS = {
   membership_assignment_created: '新增岗位',
   membership_assignment_updated: '更新岗位',
   membership_assignment_revoked: '删除岗位',
-  account_binding_reset: '重置微信绑定'
+  account_binding_reset: '重置微信绑定',
+  admin_recovery_code_issued: '生成恢复码',
+  admin_recovery_codes_revoked: '撤销恢复码',
+  password_session_created: '口令登录'
 };
 
 function hasPermission(context, key) {
@@ -56,7 +62,15 @@ Page({
     activeTab: '',
     loading: false,
     claims: [],
+    eligibleClaims: [],
+    selectedEligiblePersonIds: [],
+    eligibleSearch: '',
+    eligibleOrganizationId: '',
+    eligibleOrganizationName: '',
+    eligibleOrganizations: [],
     recoveries: [],
+    recoveryAccounts: [],
+    selectedRecoveryAccountIds: [],
     accounts: [],
     auditEvents: [],
     policy: null,
@@ -97,6 +111,7 @@ Page({
         && context.identityScope === 'global'
       ),
       currentOrganizationName: wx.getStorageSync('activeOrgName') || ''
+      ,eligibleOrganizations: authContext.getOrganizations()
     });
   },
 
@@ -129,13 +144,16 @@ Page({
           name: 'admin/auth/claims',
           data: { action: 'list' }
         });
+        const eligible = await callFunction({ name: 'admin/auth/claims', data: { action: 'eligible', limit: 200, search: this.data.eligibleSearch, organizationId: this.data.eligibleOrganizationId } });
         if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           claims: formatRows(result.list).map(function(item) {
             return Object.assign({}, item, { selected: false });
           }),
-          selectedClaimIds: []
+          selectedClaimIds: [],
+          eligibleClaims: formatRows(eligible.list).map(function(item) { return Object.assign({}, item, { selected: false }); }),
+          selectedEligiblePersonIds: []
         });
       } else if (this.data.activeTab === 'recoveries') {
         const result = await callFunction({
@@ -144,7 +162,8 @@ Page({
         });
         if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
         if (!orgSession.isRequestCurrent(this, request)) return;
-        this.setData({ recoveries: formatRows(result.list) });
+        const eligible = await callFunction({ name: 'admin/auth/recoveries', data: { action: 'eligible_accounts', limit: 200 } });
+        this.setData({ recoveries: formatRows(result.list), recoveryAccounts: (eligible.list || []).map(function(item) { return Object.assign({}, item, { selected: false }); }), selectedRecoveryAccountIds: [] });
       } else if (this.data.activeTab === 'accounts') {
         const result = await callFunction({
           name: 'admin/auth/accounts',
@@ -248,6 +267,16 @@ Page({
       return item.personName + '：' + item.verificationCode;
     }).join('\n');
     wx.setClipboardData({ data: content });
+  },
+
+  exportIssuedCodes() {
+    const rows = this.data.issuedCodes || [];
+    if (!rows.length) return;
+    const content = ['姓名,认证码'].concat(rows.map(function(item) {
+      return String(item.personName || '').replace(/,/g, ' ') + ',' + String(item.verificationCode || '');
+    })).join('\n');
+    wx.setClipboardData({ data: content });
+    showShortToast('已复制导出内容', 'success');
   },
 
   toggleClaimSelection(e) {
@@ -450,6 +479,95 @@ Page({
     } finally {
       this.setData({ actionLoading: false });
     }
+  },
+
+  onEligibleSearch(e) { this.setData({ eligibleSearch: String(e.detail.value || '').trim() }); },
+
+  onEligibleOrganizationChange(e) {
+    const item = this.data.eligibleOrganizations[Number(e.detail.value || 0)];
+    this.setData({ eligibleOrganizationId: item ? item.id : '', eligibleOrganizationName: item ? item.name : '' });
+  },
+
+  filterEligible() { this.loadActiveTab(); },
+
+  toggleEligibleSelection(e) {
+    const id = e.currentTarget.dataset.id; const selected = new Set(this.data.selectedEligiblePersonIds || []);
+    if (selected.has(id)) selected.delete(id); else selected.add(id);
+    const values = Array.from(selected);
+    this.setData({ selectedEligiblePersonIds: values, eligibleClaims: this.data.eligibleClaims.map(function(item) { return Object.assign({}, item, { selected: selected.has(item.personId) }); }) });
+  },
+
+  selectAllEligible() {
+    const ids = this.data.eligibleClaims.map(function(item) { return item.personId; });
+    this.setData({ selectedEligiblePersonIds: ids, eligibleClaims: this.data.eligibleClaims.map(function(item) { return Object.assign({}, item, { selected: true }); }) });
+  },
+
+  clearEligibleSelection() {
+    this.setData({ selectedEligiblePersonIds: [], eligibleClaims: this.data.eligibleClaims.map(function(item) { return Object.assign({}, item, { selected: false }); }) });
+  },
+
+  async issueSelectedInvites() {
+    if (this.data.actionLoading || !this.data.selectedEligiblePersonIds.length) return;
+    this.setData({ actionLoading: true });
+    try {
+      const result = await callFunction({ name: 'admin/auth/claims', data: { action: 'issue_invites', personIds: this.data.selectedEligiblePersonIds } });
+      if (result.status !== 'success') throw new Error(result.message || '未生成，请重试');
+      this.setData({ issuedCodes: (result.issued || []).map(function(item) { return { claimId: item.inviteId, personName: item.name, verificationCode: item.code }; }), showCodeDialog: true, selectedEligiblePersonIds: [] });
+      await this.loadActiveTab();
+    } catch (error) { showShortToast(getErrorText(error, '未生成，请重试')); }
+    finally { this.setData({ actionLoading: false }); }
+  },
+
+  async revokeSelectedInvites() {
+    if (this.data.actionLoading || !this.data.selectedEligiblePersonIds.length) return;
+    this.setData({ actionLoading: true });
+    try {
+      const result = await callFunction({ name: 'admin/auth/claims', data: { action: 'revoke_invites', personIds: this.data.selectedEligiblePersonIds } });
+      if (result.status !== 'success') throw new Error(result.message || '未撤销，请重试');
+      showShortToast('已撤销旧认证码', 'success');
+      await this.loadActiveTab();
+    } catch (error) { showShortToast(getErrorText(error, '未撤销，请重试')); }
+    finally { this.setData({ actionLoading: false }); }
+  },
+
+  toggleRecoverySelection(e) {
+    const id = e.currentTarget.dataset.id; const selected = new Set(this.data.selectedRecoveryAccountIds || []);
+    if (selected.has(id)) selected.delete(id); else selected.add(id);
+    const values = Array.from(selected);
+    this.setData({ selectedRecoveryAccountIds: values, recoveryAccounts: this.data.recoveryAccounts.map(function(item) { return Object.assign({}, item, { selected: selected.has(item.accountId) }); }) });
+  },
+
+  selectAllRecoveryAccounts() {
+    const ids = this.data.recoveryAccounts.map(function(item) { return item.accountId; });
+    this.setData({ selectedRecoveryAccountIds: ids, recoveryAccounts: this.data.recoveryAccounts.map(function(item) { return Object.assign({}, item, { selected: true }); }) });
+  },
+
+  clearRecoverySelection() {
+    this.setData({ selectedRecoveryAccountIds: [], recoveryAccounts: this.data.recoveryAccounts.map(function(item) { return Object.assign({}, item, { selected: false }); }) });
+  },
+
+  async issueSelectedRecoveryCodes() {
+    if (this.data.actionLoading || !this.data.selectedRecoveryAccountIds.length) return;
+    this.setData({ actionLoading: true });
+    try {
+      const result = await callFunction({ name: 'admin/auth/recoveries', data: { action: 'issue_codes', accountIds: this.data.selectedRecoveryAccountIds } });
+      if (result.status !== 'success') throw new Error(result.message || '未生成，请重试');
+      this.setData({ issuedCodes: (result.issued || []).map(function(item) { return { claimId: item.accountId, personName: item.name, verificationCode: item.code }; }), showCodeDialog: true, selectedRecoveryAccountIds: [] });
+      await this.loadActiveTab();
+    } catch (error) { showShortToast(getErrorText(error, '未生成，请重试')); }
+    finally { this.setData({ actionLoading: false }); }
+  },
+
+  async revokeSelectedRecoveryCodes() {
+    if (this.data.actionLoading || !this.data.selectedRecoveryAccountIds.length) return;
+    this.setData({ actionLoading: true });
+    try {
+      const result = await callFunction({ name: 'admin/auth/recoveries', data: { action: 'revoke_codes', accountIds: this.data.selectedRecoveryAccountIds } });
+      if (result.status !== 'success') throw new Error(result.message || '未撤销，请重试');
+      showShortToast('已撤销旧恢复码', 'success');
+      await this.loadActiveTab();
+    } catch (error) { showShortToast(getErrorText(error, '未撤销，请重试')); }
+    finally { this.setData({ actionLoading: false }); }
   },
 
   noop() {}

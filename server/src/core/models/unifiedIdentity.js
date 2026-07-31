@@ -1742,7 +1742,12 @@ async function listAccounts(organizationId, options) {
             EXISTS (
               SELECT 1 FROM admin_grants ag
                WHERE ag.person_id = p.id AND ag.admin_level = 'super_admin' AND ag.status = 'active'
-            ) AS is_super_admin
+            ) AS is_super_admin,
+            EXISTS (
+              SELECT 1 FROM account_recovery_credentials rc
+               WHERE rc.account_id = a.id AND rc.method = 'recovery_code' AND rc.status = 'active'
+            ) AS has_recovery_code,
+            (a.status = 'frozen') AS is_frozen
        FROM accounts a
        JOIN persons p ON p.id = a.person_id
       WHERE p.status = 'active' ${scopeSql}
@@ -2035,6 +2040,246 @@ async function listAuditEvents(organizationId, limit) {
   return rows;
 }
 
+function normalizeInviteCode(value) {
+  return safeString(value).replace(/[^0-9a-z]/gi, '').toUpperCase();
+}
+
+async function listEligibleInitialInvitePeople(organizationId, options) {
+  const orgId = safeString(organizationId);
+  const limit = Math.min(Math.max(Number(options && options.limit) || 200, 1), 500);
+  const params = [];
+  const where = [
+    "p.status = 'active'",
+    "om.status = 'active'",
+    "NOT EXISTS (SELECT 1 FROM account_wechat_bindings history_b JOIN accounts history_a ON history_a.id = history_b.account_id WHERE history_a.person_id = p.id)",
+    "NOT EXISTS (SELECT 1 FROM accounts existing_a WHERE existing_a.person_id = p.id AND existing_a.status = 'frozen')"
+  ];
+  if (orgId) { where.push('om.org_id = ?'); params.push(orgId); }
+  const search = safeString(options && options.search);
+  if (search) { where.push('(p.name LIKE ? OR p.student_id LIKE ?)'); params.push('%' + search + '%', '%' + search + '%'); }
+  if (safeString(options && options.departmentId)) { where.push('ma.department_id = ?'); params.push(safeString(options.departmentId)); }
+  if (safeString(options && options.identityId)) { where.push('ma.identity_id = ?'); params.push(safeString(options.identityId)); }
+  if (safeString(options && options.workGroupId)) { where.push('ma.work_group_id = ?'); params.push(safeString(options.workGroupId)); }
+  params.push(limit);
+  const [rows] = await pool.query(
+    `SELECT DISTINCT p.id AS person_id, p.name, p.student_id, om.org_id,
+            o.name AS organization_name, d.name AS department_name,
+            i.name AS identity_name, w.name AS work_group_name,
+            EXISTS (SELECT 1 FROM identity_verification_invites inv
+              WHERE inv.person_id = p.id AND inv.org_id = om.org_id
+                AND inv.status = 'active' AND inv.expires_at > NOW()) AS has_active_invite
+       FROM persons p
+       JOIN organization_memberships om ON om.person_id = p.id
+       JOIN organizations o ON o.id = om.org_id
+       LEFT JOIN membership_assignments ma ON ma.membership_id = om.id AND ma.org_id = om.org_id AND ma.status = 'active'
+       LEFT JOIN departments d ON d.id = ma.department_id AND d.org_id = ma.org_id
+       LEFT JOIN identities i ON i.id = ma.identity_id AND i.org_id = ma.org_id
+       LEFT JOIN work_groups w ON w.id = ma.work_group_id AND w.org_id = ma.org_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY p.name ASC, p.student_id ASC, om.org_id ASC
+      LIMIT ?`,
+    params
+  );
+  return rows.map((row) => ({
+    personId: safeString(row.person_id), name: safeString(row.name), studentId: safeString(row.student_id),
+    organizationId: safeString(row.org_id), organizationName: safeString(row.organization_name),
+    departmentName: safeString(row.department_name), identityName: safeString(row.identity_name),
+    workGroupName: safeString(row.work_group_name), hasActiveInvite: Boolean(row.has_active_invite)
+  }));
+}
+
+async function issueInitialInvites(personIds, organizationId, actor, options) {
+  const ids = Array.from(new Set((Array.isArray(personIds) ? personIds : []).map(safeString).filter(Boolean))).slice(0, 100);
+  const orgId = safeString(organizationId);
+  if (!ids.length) throw new IdentityError('invalid_params', '请选择人员', 400);
+  const hours = Math.min(Math.max(Number(options && options.expiresInHours) || 24, 1), 168);
+  return pool.withTransaction(async (connection) => {
+    const results = [];
+    for (const personId of ids) {
+      const orgParams = [personId];
+      const orgWhere = orgId ? 'AND om.org_id = ?' : '';
+      if (orgId) orgParams.push(orgId);
+      const [rows] = await connection.query(
+        `SELECT p.id AS person_id, p.name, p.student_id, om.org_id
+           FROM persons p JOIN organization_memberships om ON om.person_id = p.id
+          WHERE p.id = ? ${orgWhere} AND om.status = 'active' AND p.status = 'active'
+            AND NOT EXISTS (SELECT 1 FROM account_wechat_bindings b JOIN accounts a ON a.id = b.account_id WHERE a.person_id = p.id)
+          ORDER BY om.org_id LIMIT 20 FOR UPDATE`, orgParams
+      );
+      for (const row of rows) {
+        const targetOrgId = safeString(row.org_id);
+        const inviteId = generateId();
+        const code = randomCode(12);
+        await connection.query(
+          `UPDATE identity_verification_invites SET status = 'revoked', updated_at = NOW()
+            WHERE person_id = ? AND org_id = ? AND status = 'active'`, [personId, targetOrgId]
+        );
+        await connection.query(
+          `INSERT INTO identity_verification_invites
+             (id, person_id, org_id, code_hash, issued_by_person_id, issued_by_context_id, expires_at)
+           VALUES (?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? HOUR))`,
+          [inviteId, personId, targetOrgId, hmac('identity-invite:' + inviteId + ':' + code), actor.personId, actor.contextId, hours]
+        );
+        await appendAuditEvent({ connection, eventType: 'identity_invite_issued', actorPersonId: actor.personId,
+          targetPersonId: personId, organizationId: targetOrgId, contextId: actor.contextId,
+          requestId: options && options.requestId, ip: options && options.ip });
+        results.push({ inviteId, personId, name: row.name, studentId: row.student_id, organizationId: targetOrgId, code, expiresInHours: hours });
+      }
+    }
+    return results;
+  });
+}
+
+async function revokeInitialInvites(personIds, organizationId, actor, metadata) {
+  const ids = Array.from(new Set((Array.isArray(personIds) ? personIds : []).map(safeString).filter(Boolean))).slice(0, 100);
+  if (!ids.length) return { revoked: 0 };
+  const placeholders = ids.map(() => '?').join(',');
+  const params = [...ids];
+  let scope = '';
+  if (safeString(organizationId)) { scope = ' AND org_id = ?'; params.push(safeString(organizationId)); }
+  const [result] = await pool.query(`UPDATE identity_verification_invites SET status = 'revoked', updated_at = NOW()
+    WHERE status = 'active' AND person_id IN (${placeholders})${scope}`, params);
+  await appendAuditEvent({ eventType: 'identity_invites_revoked', actorPersonId: actor.personId,
+    organizationId: safeString(organizationId), contextId: actor.contextId, requestId: metadata && metadata.requestId, ip: metadata && metadata.ip,
+    detail: { count: Number(result.affectedRows || 0) } });
+  return { revoked: Number(result.affectedRows || 0) };
+}
+
+async function redeemInitialInvite(bootstrapId, data, metadata) {
+  const result = await pool.withTransaction(async (connection) => {
+    const bootstrap = await getBootstrapSession(bootstrapId, true, connection);
+    if (!bootstrap) throw new IdentityError('bootstrap_expired', '微信验证已过期，请重新登录', 401);
+    const policy = await getPolicy(connection);
+    if (!policy || !policy.initial_claim_enabled) throw new IdentityError('claim_paused', '当前暂未开放认证', 403);
+    const studentId = normalizeStudentId(data.studentId);
+    const name = normalizeName(data.name);
+    const orgId = safeString(data.organizationId);
+    const code = normalizeInviteCode(data.code);
+    if (!studentId || !name || !orgId || !code) throw new IdentityError('verification_failed', '请检查认证信息', 400);
+    const [rows] = await connection.query(
+      `SELECT inv.*, p.name, p.student_id
+         FROM identity_verification_invites inv JOIN persons p ON p.id = inv.person_id
+        WHERE inv.org_id = ? AND p.normalized_student_id = ? AND p.name = ?
+          AND inv.status = 'active' AND inv.expires_at > NOW()
+          AND (inv.locked_until IS NULL OR inv.locked_until <= NOW())
+        LIMIT 1 FOR UPDATE`, [orgId, studentId, name]
+    );
+    const invite = rows[0];
+    const matches = invite && secureEqualHex(invite.code_hash, hmac('identity-invite:' + invite.id + ':' + code))
+      && invite.failed_attempts < MAX_VERIFY_ATTEMPTS;
+    if (!matches) {
+      if (invite) await connection.query(`UPDATE identity_verification_invites SET failed_attempts = failed_attempts + 1,
+        locked_until = IF(failed_attempts + 1 >= ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE), locked_until), updated_at = NOW() WHERE id = ?`, [MAX_VERIFY_ATTEMPTS, invite.id]);
+      await connection.query(`UPDATE auth_bootstrap_sessions SET failed_attempts = failed_attempts + 1,
+        locked_until = IF(failed_attempts + 1 >= ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE), locked_until) WHERE id = ?`, [MAX_VERIFY_ATTEMPTS, bootstrap.id]);
+      throw new IdentityError('verification_failed', '请检查认证信息', 400);
+    }
+    const [existingBindings] = await connection.query(`SELECT 1 FROM account_wechat_bindings b JOIN accounts a ON a.id = b.account_id
+      WHERE a.person_id = ? LIMIT 1 FOR UPDATE`, [invite.person_id]);
+    if (existingBindings.length) throw new IdentityError('already_verified', '该人员已完成认证', 409);
+    const [accounts] = await connection.query('SELECT * FROM accounts WHERE person_id = ? LIMIT 1 FOR UPDATE', [invite.person_id]);
+    const account = accounts[0];
+    const accountId = account ? account.id : generateId();
+    if (account) await connection.query(`UPDATE accounts SET status = 'verified', token_version = token_version + 1,
+      verified_at = NOW(), recovery_required_at = NULL WHERE id = ?`, [accountId]);
+    else await connection.query(`INSERT INTO accounts (id, person_id, status, token_version, verified_at) VALUES (?, ?, 'verified', 1, NOW())`, [accountId, invite.person_id]);
+    const openid = decryptOpenid(bootstrap.openid_ciphertext);
+    await insertActiveWechatBinding(connection, accountId, openid);
+    await syncLegacyBindings(connection, accountId, openid);
+    await connection.query(`UPDATE identity_verification_invites SET status = 'consumed', consumed_at = NOW(), updated_at = NOW() WHERE id = ?`, [invite.id]);
+    await connection.query(`UPDATE auth_bootstrap_sessions SET status = 'consumed', consumed_at = NOW() WHERE id = ?`, [bootstrap.id]);
+    await appendAuditEvent({ connection, eventType: 'identity_invite_redeemed', targetPersonId: invite.person_id,
+      accountId, organizationId: orgId, requestId: metadata && metadata.requestId, ip: metadata && metadata.ip });
+    const [fresh] = await connection.query(`SELECT a.*, b.openid_hash, p.name, p.student_id FROM accounts a
+      JOIN account_wechat_bindings b ON b.account_id = a.id AND b.status = 'active' JOIN persons p ON p.id = a.person_id WHERE a.id = ?`, [accountId]);
+    return fresh[0];
+  });
+  return result;
+}
+
+async function listEligibleRecoveryAccounts(organizationId, options) {
+  const rows = await listAccounts(organizationId, Object.assign({}, options, { limit: options && options.limit ? options.limit : 200 }));
+  return rows.filter((row) => ['verified', 'recovery_required'].includes(safeString(row.status)) && !Boolean(row.is_frozen));
+}
+
+async function issueAdminRecoveryCodes(accountIds, organizationId, actor, options) {
+  const ids = Array.from(new Set((Array.isArray(accountIds) ? accountIds : []).map(safeString).filter(Boolean))).slice(0, 100);
+  if (!ids.length) throw new IdentityError('invalid_params', '请选择账号', 400);
+  const policy = await getPolicy();
+  if (!policy || !policy.allow_recovery_code) throw new IdentityError('method_disabled', '恢复码功能未开启', 403);
+  return pool.withTransaction(async (connection) => {
+    const result = [];
+    for (const accountId of ids) {
+      const orgParams = [accountId];
+      const orgScope = safeString(organizationId)
+        ? 'AND EXISTS (SELECT 1 FROM organization_memberships om WHERE om.person_id = a.person_id AND om.org_id = ? AND om.status = \'active\')'
+        : '';
+      if (safeString(organizationId)) orgParams.push(safeString(organizationId));
+      const [rows] = await connection.query(`SELECT a.id AS account_id, a.person_id, a.status, p.name, p.student_id
+        FROM accounts a JOIN persons p ON p.id = a.person_id
+        WHERE a.id = ? AND a.status IN ('verified','recovery_required')
+          ${orgScope}
+        LIMIT 1 FOR UPDATE`, orgParams);
+      if (!rows.length) continue;
+      const code = randomCode(20); const credential = hashPassphrase(code);
+      await connection.query(`INSERT INTO account_recovery_credentials (id, account_id, method, credential_hash, salt, status)
+        VALUES (?, ?, 'recovery_code', ?, ?, 'active') ON DUPLICATE KEY UPDATE credential_hash = VALUES(credential_hash), salt = VALUES(salt),
+          status = 'active', failed_attempts = 0, locked_until = NULL, used_at = NULL, updated_at = NOW()`,
+        [generateId(), accountId, credential.hash, credential.salt]);
+      await appendAuditEvent({ connection, eventType: 'admin_recovery_code_issued', actorPersonId: actor.personId,
+        targetPersonId: rows[0].person_id, accountId, organizationId: safeString(organizationId), contextId: actor.contextId,
+        requestId: options && options.requestId, ip: options && options.ip });
+      result.push({ accountId, personId: rows[0].person_id, name: rows[0].name, studentId: rows[0].student_id, code });
+    }
+    return result;
+  });
+}
+
+async function revokeAdminRecoveryCodes(accountIds, organizationId, actor, metadata) {
+  const ids = Array.from(new Set((Array.isArray(accountIds) ? accountIds : []).map(safeString).filter(Boolean))).slice(0, 100);
+  if (!ids.length) return { revoked: 0 };
+  const orgScope = safeString(organizationId)
+    ? ' AND EXISTS (SELECT 1 FROM organization_memberships om WHERE om.person_id = a.person_id AND om.org_id = ? AND om.status = \'active\')'
+    : '';
+  const params = [...ids];
+  if (safeString(organizationId)) params.push(safeString(organizationId));
+  const [result] = await pool.query(`UPDATE account_recovery_credentials c JOIN accounts a ON a.id = c.account_id
+    SET c.status = 'revoked', c.updated_at = NOW() WHERE c.method = 'recovery_code' AND c.status = 'active'
+      AND a.id IN (${ids.map(() => '?').join(',')})${orgScope}`, params);
+  await appendAuditEvent({ eventType: 'admin_recovery_codes_revoked', actorPersonId: actor.personId,
+    organizationId: safeString(organizationId), contextId: actor.contextId, requestId: metadata && metadata.requestId, ip: metadata && metadata.ip,
+    detail: { count: Number(result.affectedRows || 0) } });
+  return { revoked: Number(result.affectedRows || 0) };
+}
+
+async function authenticateWithPassphrase(studentId, passphrase) {
+  const policy = await getPolicy();
+  if (!policy || !policy.allow_passphrase) throw new IdentityError('login_failed', '登录信息不正确', 401);
+  const normalized = normalizeStudentId(studentId); const value = safeString(passphrase);
+  if (!normalized || !value) throw new IdentityError('login_failed', '登录信息不正确', 401);
+  return pool.withTransaction(async (connection) => {
+    const [rows] = await connection.query(`SELECT a.*, p.name, p.student_id, b.openid_hash, c.id AS credential_id,
+      c.credential_hash, c.salt, c.failed_attempts, c.locked_until
+      FROM persons p JOIN accounts a ON a.person_id = p.id
+      JOIN account_wechat_bindings b ON b.account_id = a.id AND b.status = 'active'
+      LEFT JOIN account_recovery_credentials c ON c.account_id = a.id AND c.method = 'passphrase' AND c.status = 'active'
+      WHERE p.normalized_student_id = ? AND p.status = 'active' LIMIT 1 FOR UPDATE`, [normalized]);
+    const account = rows[0];
+    const valid = account && account.status === 'verified' && account.credential_id
+      && (!account.locked_until || new Date(account.locked_until).getTime() <= Date.now())
+      && verifyPassphrase(value, account.salt, account.credential_hash);
+    if (!valid) {
+      if (account && account.credential_id) {
+        const attempts = Number(account.failed_attempts || 0) + 1;
+        await connection.query(`UPDATE account_recovery_credentials SET failed_attempts = ?, locked_until = IF(? >= ?, DATE_ADD(NOW(), INTERVAL 30 MINUTE), locked_until), updated_at = NOW() WHERE id = ?`, [attempts, attempts, MAX_RECOVERY_ATTEMPTS, account.credential_id]);
+      }
+      throw new IdentityError('login_failed', '登录信息不正确', 401);
+    }
+    await connection.query(`UPDATE account_recovery_credentials SET failed_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = ?`, [account.credential_id]);
+    return account;
+  });
+}
+
 module.exports = {
   APP_ID,
   SESSION_MINUTES,
@@ -2083,4 +2328,12 @@ module.exports = {
   resetAccountByLegacyHr,
   appendAuditEvent,
   listAuditEvents
+  ,listEligibleInitialInvitePeople
+  ,issueInitialInvites
+  ,revokeInitialInvites
+  ,redeemInitialInvite
+  ,listEligibleRecoveryAccounts
+  ,issueAdminRecoveryCodes
+  ,revokeAdminRecoveryCodes
+  ,authenticateWithPassphrase
 };

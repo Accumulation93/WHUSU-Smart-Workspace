@@ -72,6 +72,7 @@ const REQUIRED_TABLES = [
   ,'auth_bootstrap_sessions'
   ,'identity_claim_requests'
   ,'identity_verification_tokens'
+  ,'identity_verification_invites'
   ,'account_recovery_credentials'
   ,'account_recovery_requests'
   ,'auth_policy'
@@ -97,6 +98,7 @@ const REQUIRED_INDEXES = [
   ,['account_wechat_bindings', 'uk_wechat_active_account']
   ,['auth_sessions', 'idx_auth_session_account']
   ,['identity_claim_requests', 'idx_claim_org_status']
+  ,['identity_verification_invites', 'idx_identity_invite_org_status']
   ,['auth_audit_events', 'idx_auth_audit_type']
 ];
 
