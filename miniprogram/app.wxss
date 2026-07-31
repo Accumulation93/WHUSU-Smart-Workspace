@@ -1998,6 +1998,24 @@ button:active,
   }
 }
 
+/* 子应用保留各自的内容宽度：横屏时门户与评分工作区可以铺开，
+ * 审核/场地页面仍按页面自身的 760/1180px 阅读宽度居中，避免被全局铺满规则拉宽。 */
+@media (min-width: 900px) and (orientation: landscape) {
+  page .page.subapp-audit-page,
+  page .page.subapp-venue-page {
+    width: 100% !important;
+    max-width: 1180px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box;
+  }
+
+  page .page.page-narrow.subapp-audit-page,
+  page .page.page-narrow.subapp-venue-page {
+    max-width: 760px !important;
+  }
+}
+
 /* 全局紧凑控件契约：状态元数据使用克制的圆角矩形，禁止胖胶囊。 */
 page .status-tag,
 page .booking-status,

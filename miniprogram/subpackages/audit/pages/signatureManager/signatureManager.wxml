@@ -1,4 +1,4 @@
-<view class="page page-narrow">
+<view class="page page-narrow subapp-audit-page">
   <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="审核审批 · 我的签名"></workspace-hero>
 
   <view class="section">

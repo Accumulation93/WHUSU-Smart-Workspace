@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page subapp-venue-page">
   <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用 · 场地管理" tone="admin"></workspace-hero>
 
   <!-- Main Tabs -->
