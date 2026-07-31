@@ -58,6 +58,9 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT a\.id AS account_id[\s\S]*FROM accounts a/i, reason: '获授权账号治理列表跨组织汇总' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT a\.\*,[\s\S]*FROM accounts a[\s\S]*WHERE a\.person_id = \?/i, reason: '获授权账号治理按自然人锁定账号' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT DISTINCT ag\.person_id\s+FROM admin_grants\s+ag/i, reason: '全局超级管理员存续保护' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE identity_verification_invites SET status = 'revoked'/i, reason: '按服务端已核准范围撤销初始化认证码' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE identity_verification_invites SET failed_attempts/i, reason: '按单个认证邀请控制失败次数和锁定' },
+  { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE identity_verification_invites SET status = 'consumed'/i, reason: '按已验证的一次性邀请单元消费' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /SELECT 1\s+FROM admin_grants\s+WHERE person_id = \? AND admin_level = 'super_admin'/i, reason: '锁定目标自然人的超级管理员授权' },
   { file: 'server/src/utils/schemaContract.js', sql: /SELECT\s+\(SELECT COUNT\(\*\)\s+FROM persons p\s+LEFT JOIN organization_memberships/i, reason: '启动时统一身份全局一致性检查' },
   { file: 'server/src/utils/schemaContract.js', sql: /SELECT\s+COUNT\(DISTINCT ag\.id\) AS total,\s+COUNT/i, reason: '启动时超级管理员绑定存续检查' }
