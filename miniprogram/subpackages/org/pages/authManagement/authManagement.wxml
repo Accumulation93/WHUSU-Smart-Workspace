@@ -17,7 +17,7 @@
     <view class="loading-text" wx:if="{{loading}}">正在加载…</view>
 
     <view wx:elif="{{activeTab === 'claims'}}">
-      <view class="auth-filter-row"><input class="field-input auth-filter-input" placeholder="按姓名或学号查找" value="{{eligibleSearch}}" bindinput="onEligibleSearch" /><picker wx:if="{{eligibleOrganizations.length > 1}}" range="{{eligibleOrganizations}}" range-key="name" bindchange="onEligibleOrganizationChange"><view class="field-picker auth-filter-picker">{{eligibleOrganizationName || '全部组织'}} ›</view></picker><button class="secondary-btn compact-btn ui-motion-button" bindtap="filterEligible" hover-class="ui-press-button">筛选</button></view>
+      <view class="auth-filter-row"><input class="field-input auth-filter-input" placeholder="按姓名或学号查找" value="{{eligibleSearch}}" bindinput="onEligibleSearch" /><picker wx:if="{{eligibleOrganizations.length > 1}}" range="{{eligibleOrganizations}}" range-key="name" bindchange="onEligibleOrganizationChange"><view class="field-picker auth-filter-picker">{{eligibleOrganizationName || '全部组织'}} ›</view></picker><button class="secondary-btn compact-btn ui-motion-button" bindtap="filterEligible" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">筛选</button></view>
       <view class="empty-state" wx:if="{{!claims.length}}">暂无待处理身份认证</view>
       <view class="claim-toolbar" wx:else>
         <view class="claim-toolbar-copy">已选择 {{selectedClaimIds.length}} 项</view>
@@ -42,13 +42,13 @@
       <view class="claim-toolbar" wx:if="{{eligibleClaims.length}}">
         <view class="claim-toolbar-copy">已选 {{selectedEligiblePersonIds.length}} 人</view>
         <view class="claim-toolbar-actions">
-          <view class="claim-tool ui-motion-chip" bindtap="selectAllEligible" hover-class="ui-press-chip">全选</view>
-          <view class="claim-tool ui-motion-chip" bindtap="clearEligibleSelection" hover-class="ui-press-chip">清除</view>
-          <button class="primary-btn compact-btn ui-motion-button" disabled="{{!selectedEligiblePersonIds.length}}" loading="{{actionLoading}}" bindtap="issueSelectedInvites" hover-class="ui-press-button">生成初始化码</button><button class="secondary-btn compact-btn ui-motion-button" disabled="{{!selectedEligiblePersonIds.length}}" loading="{{actionLoading}}" bindtap="revokeSelectedInvites" hover-class="ui-press-button">撤销旧码</button>
+          <view class="claim-tool ui-motion-chip" bindtap="selectAllEligible" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全选</view>
+          <view class="claim-tool ui-motion-chip" bindtap="clearEligibleSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</view>
+          <button class="primary-btn compact-btn ui-motion-button" disabled="{{!selectedEligiblePersonIds.length}}" loading="{{actionLoading}}" bindtap="issueSelectedInvites" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成初始化码</button><button class="secondary-btn compact-btn ui-motion-button" disabled="{{!selectedEligiblePersonIds.length}}" loading="{{actionLoading}}" bindtap="revokeSelectedInvites" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销旧码</button>
         </view>
       </view>
       <view class="request-item" wx:for="{{eligibleClaims}}" wx:key="personId">
-        <view class="claim-selector {{item.selected ? 'claim-selector-active' : ''}} ui-motion-chip" data-id="{{item.personId}}" bindtap="toggleEligibleSelection" hover-class="ui-press-chip"><view class="claim-selector-mark">{{item.selected ? '✓' : ''}}</view></view>
+        <view class="claim-selector {{item.selected ? 'claim-selector-active' : ''}} ui-motion-chip" data-id="{{item.personId}}" bindtap="toggleEligibleSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><view class="claim-selector-mark">{{item.selected ? '✓' : ''}}</view></view>
         <view class="request-copy"><view class="request-name">{{item.name}}</view><view class="request-meta">{{item.studentId}} · {{item.organizationName}}</view><view class="request-meta">{{item.departmentName || ''}} {{item.identityName || ''}} {{item.workGroupName || ''}}</view></view>
       </view>
     </view>
@@ -64,8 +64,8 @@
         <button class="primary-btn compact-btn ui-motion-button" data-id="{{item.id}}" bindtap="openRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">审核恢复</button>
       </view>
       <view class="section-divider" wx:if="{{recoveryAccounts.length}}">已认证账号</view>
-      <view class="claim-toolbar" wx:if="{{recoveryAccounts.length}}"><view class="claim-toolbar-copy">已选 {{selectedRecoveryAccountIds.length}} 人</view><view class="claim-toolbar-actions"><view class="claim-tool ui-motion-chip" bindtap="selectAllRecoveryAccounts" hover-class="ui-press-chip">全选</view><view class="claim-tool ui-motion-chip" bindtap="clearRecoverySelection" hover-class="ui-press-chip">清除</view><button class="primary-btn compact-btn ui-motion-button" disabled="{{!selectedRecoveryAccountIds.length}}" loading="{{actionLoading}}" bindtap="issueSelectedRecoveryCodes" hover-class="ui-press-button">生成恢复码</button><button class="secondary-btn compact-btn ui-motion-button" disabled="{{!selectedRecoveryAccountIds.length}}" loading="{{actionLoading}}" bindtap="revokeSelectedRecoveryCodes" hover-class="ui-press-button">撤销旧码</button></view></view>
-      <view class="request-item" wx:for="{{recoveryAccounts}}" wx:key="accountId"><view class="claim-selector {{item.selected ? 'claim-selector-active' : ''}} ui-motion-chip" data-id="{{item.accountId}}" bindtap="toggleRecoverySelection" hover-class="ui-press-chip"><view class="claim-selector-mark">{{item.selected ? '✓' : ''}}</view></view><view class="request-copy"><view class="request-name">{{item.name}}</view><view class="request-meta">{{item.studentId}} · {{item.accountStatus}}</view></view></view>
+      <view class="claim-toolbar" wx:if="{{recoveryAccounts.length}}"><view class="claim-toolbar-copy">已选 {{selectedRecoveryAccountIds.length}} 人</view><view class="claim-toolbar-actions"><view class="claim-tool ui-motion-chip" bindtap="selectAllRecoveryAccounts" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全选</view><view class="claim-tool ui-motion-chip" bindtap="clearRecoverySelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</view><button class="primary-btn compact-btn ui-motion-button" disabled="{{!selectedRecoveryAccountIds.length}}" loading="{{actionLoading}}" bindtap="issueSelectedRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成恢复码</button><button class="secondary-btn compact-btn ui-motion-button" disabled="{{!selectedRecoveryAccountIds.length}}" loading="{{actionLoading}}" bindtap="revokeSelectedRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销旧码</button></view></view>
+      <view class="request-item" wx:for="{{recoveryAccounts}}" wx:key="accountId"><view class="claim-selector {{item.selected ? 'claim-selector-active' : ''}} ui-motion-chip" data-id="{{item.accountId}}" bindtap="toggleRecoverySelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><view class="claim-selector-mark">{{item.selected ? '✓' : ''}}</view></view><view class="request-copy"><view class="request-name">{{item.name}}</view><view class="request-meta">{{item.studentId}} · {{item.accountStatus}}</view></view></view>
     </view>
 
     <view wx:elif="{{activeTab === 'accounts'}}">
