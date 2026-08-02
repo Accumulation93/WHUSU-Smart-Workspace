@@ -71,6 +71,7 @@ jobs:
           node server/test/venueApprovalAuthorization.test.js
           node server/test/venueApprovalValidation.test.js
           node server/test/auditApprovalConditionSecurity.test.js
+          node server/test/auditWorkflowContract.test.js
           node server/test/scoreRecordQuerySecurity.test.js
           node server/test/scoreCalculationIdentity.test.js
           node server/test/publicationOrgIsolation.test.js

@@ -108,6 +108,8 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
+    const orgId = await getCurrentOrgId();
+    if (!orgId) return res.json({ status: 'invalid_params', message: '请先选择组织' });
     const description = safeString(req.body.description);
     const starterType = safeString(req.body.starterType) || 'conditions';
     const starterIdentityId = safeString(req.body.starterIdentityId);

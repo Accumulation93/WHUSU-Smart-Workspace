@@ -1,3 +1,4 @@
+<page-meta page-style="{{adHocStepEditorVisible || editStepEditorVisible || editPersonPickerVisible || stampPickerVisible || placementVisible || approvalVisible || sigSourcePickerVisible || signaturePadVisible || personPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page subapp-audit-page">
   <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{action === 'create' ? '审核审批 · 发起申请' : '审核审批 · 审核详情'}}"></workspace-hero>
 
@@ -106,7 +107,7 @@
     </view>
 
     <!-- ═══ Identity step editor popup ═══ -->
-    <view class="popup-mask ui-overlay" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
+    <view class="popup-mask ui-overlay" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor" catchtouchmove="noop">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
@@ -528,7 +529,7 @@
       </view>
 
       <!-- ═══ Edit: Identity step editor popup ═══ -->
-      <view class="popup-mask ui-overlay" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
+      <view class="popup-mask ui-overlay" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor" catchtouchmove="noop">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
@@ -575,7 +576,7 @@
       </view>
 
       <!-- ═══ Edit: Person picker popup ═══ -->
-      <view class="popup-mask ui-overlay" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker">
+      <view class="popup-mask ui-overlay" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker" catchtouchmove="noop">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
@@ -628,7 +629,7 @@
   </view>
 
   <!-- ═══ Stamp Picker Popup ═══ -->
-  <view class="popup-mask ui-overlay" wx:if="{{stampPickerVisible}}" bindtap="closeStampPicker">
+  <view class="popup-mask ui-overlay" wx:if="{{stampPickerVisible}}" bindtap="closeStampPicker" catchtouchmove="noop">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
@@ -653,7 +654,7 @@
   </view>
 
   <!-- ═══ Placement / File Preview Popup (positioning sig/stamp on file) ═══ -->
-  <view class="popup-mask ui-overlay" wx:if="{{placementVisible}}" bindtap="closePlacement">
+  <view class="popup-mask ui-overlay" wx:if="{{placementVisible}}" bindtap="closePlacement" catchtouchmove="noop">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card placement-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
       <view class="popup-header ui-dialog-header">
@@ -755,7 +756,7 @@
   </view>
 
   <!-- Approval Dialog -->
-  <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
+  <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval" catchtouchmove="noop">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
@@ -800,7 +801,7 @@
   </view>
 
   <!-- ═══ Signature Source Picker Popup (saved signatures + new drawing) ═══ -->
-  <view class="popup-mask ui-overlay" wx:if="{{sigSourcePickerVisible}}" bindtap="closeSigSourcePicker">
+  <view class="popup-mask ui-overlay" wx:if="{{sigSourcePickerVisible}}" bindtap="closeSigSourcePicker" catchtouchmove="noop">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
@@ -878,7 +879,7 @@
   </view>
 
     <!-- ═══ Person picker popup (multi-select) ═══ -->
-  <view class="popup-mask ui-overlay" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
+  <view class="popup-mask ui-overlay" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker" catchtouchmove="noop">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closePersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>

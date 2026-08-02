@@ -394,7 +394,8 @@ module.exports = Behavior({
             personHrNames: cond.personHrNames || (cond._personNames ? cond._personNames.join('、') : '')
           },
           auditStepConditionEditingIndex: index,
-          auditStepConditionEditorVisible: true
+          auditStepConditionEditorVisible: true,
+          _auditConditionTarget: 'step'
         });
       } else {
         this.setData({
@@ -406,7 +407,8 @@ module.exports = Behavior({
             personHrIds: '', personHrNames: ''
           },
           auditStepConditionEditingIndex: -1,
-          auditStepConditionEditorVisible: true
+          auditStepConditionEditorVisible: true,
+          _auditConditionTarget: 'step'
         });
       }
     },
@@ -642,6 +644,7 @@ module.exports = Behavior({
         auditMultiPickerDeptOptions: deptOpts,
         auditMultiPickerIdentOptions: identOpts,
         auditMultiPickerFilteredList: [],
+        auditMultiPickerSelectedCount: Object.keys(selectedIds).length,
         auditMultiPickerDeptTabs: deptTabs,
         auditMultiPickerActiveDeptTab: activeDeptTab
       });
@@ -653,27 +656,31 @@ module.exports = Behavior({
     },
 
     onAuditMultiPickerDeptTab(e) {
-      this.setData({ auditMultiPickerActiveDeptTab: e.currentTarget.dataset.dept });
-      this._applyAuditMultiPickerFilters();
+      this.setData({ auditMultiPickerActiveDeptTab: e.currentTarget.dataset.dept }, () => {
+        this._applyAuditMultiPickerFilters();
+      });
     },
 
     onAuditMultiPickerSearch(e) {
-      this.setData({ auditMultiPickerSearchKeyword: e.detail.value });
-      this._applyAuditMultiPickerFilters();
+      this.setData({ auditMultiPickerSearchKeyword: e.detail.value }, () => {
+        this._applyAuditMultiPickerFilters();
+      });
     },
 
     onAuditMultiPickerFilterDept(e) {
       let idx = e.detail.value;
       let options = this.data.auditMultiPickerDeptOptions;
-      this.setData({ auditMultiPickerFilterDept: options[idx] || '全部' });
-      this._applyAuditMultiPickerFilters();
+      this.setData({ auditMultiPickerFilterDept: options[idx] || '全部' }, () => {
+        this._applyAuditMultiPickerFilters();
+      });
     },
 
     onAuditMultiPickerFilterIdent(e) {
       let idx = e.detail.value;
       let options = this.data.auditMultiPickerIdentOptions;
-      this.setData({ auditMultiPickerFilterIdent: options[idx] || '全部' });
-      this._applyAuditMultiPickerFilters();
+      this.setData({ auditMultiPickerFilterIdent: options[idx] || '全部' }, () => {
+        this._applyAuditMultiPickerFilters();
+      });
     },
 
     _applyAuditMultiPickerFilters() {
@@ -689,13 +696,13 @@ module.exports = Behavior({
         if (filterDept !== '全部') {
           let deptId = this._auditDeptIdByName(filterDept);
           let filteredIds = {};
-          hrList.filter(function(h) { return h.departmentId === deptId; }).forEach(function(h) { filteredIds[h.id] = true; });
+          hrList.filter(function(h) { return String(h.departmentId || '') === String(deptId || ''); }).forEach(function(h) { filteredIds[h.id] = true; });
           items = items.filter(function(item) { return filteredIds[item.id]; });
         }
         if (filterIdent !== '全部') {
           let identId = this._auditIdentIdByName(filterIdent);
           let filteredIds2 = {};
-          hrList.filter(function(h) { return h.identityId === identId; }).forEach(function(h) { filteredIds2[h.id] = true; });
+          hrList.filter(function(h) { return String(h.identityId || '') === String(identId || ''); }).forEach(function(h) { filteredIds2[h.id] = true; });
           items = items.filter(function(item) { return filteredIds2[item.id]; });
         }
       }
@@ -703,7 +710,7 @@ module.exports = Behavior({
       // Department tab filter for work group picker
       if (target === 'specificWorkGroupId' && this.data.auditMultiPickerDeptTabs.length) {
         let activeTab = this.data.auditMultiPickerActiveDeptTab;
-        items = items.filter(function(item) { return item.deptId === activeTab; });
+        items = items.filter(function(item) { return String(item.deptId || '') === String(activeTab || ''); });
       }
 
       if (keyword) {

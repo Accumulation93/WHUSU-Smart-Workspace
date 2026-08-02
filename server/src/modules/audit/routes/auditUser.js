@@ -205,12 +205,26 @@ router.post('/startAuditSubmission', async (req, res) => {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const orgId = await getCurrentOrgId();
 
     const templateId = safeString(req.body.templateId);
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
-    const stepOverrides = Array.isArray(req.body.stepOverrides) ? req.body.stepOverrides : [];
+    const rawStepOverrides = Array.isArray(req.body.stepOverrides) ? req.body.stepOverrides : [];
+    // Public step numbers are one-based. Normalize the old zero-based client
+    // payload when it is still encountered during the compatibility window.
+    const legacyZeroBasedOverrides = rawStepOverrides.some(function(o) {
+      return Number(o && o.stepIndex) === 0;
+    });
+    const stepOverrides = rawStepOverrides.map(function(o) {
+      const normalized = Object.assign({}, o);
+      const rawIndex = Number(normalized.stepIndex);
+      normalized.stepIndex = legacyZeroBasedOverrides && Number.isInteger(rawIndex)
+        ? rawIndex + 1
+        : rawIndex;
+      return normalized;
+    });
 
     if (!templateId) {
       return res.json({ status: 'invalid_params', message: '请选择审核流程' });
@@ -360,7 +374,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       // NARROW the scope: only designated persons can approve this step,
       // but they must be eligible under the original conditions (can't expand).
       const stepOverride = stepOverrides.find(function(o) {
-        return o.stepIndex === i;
+        return Number(o.stepIndex) === i + 1;
       });
       if (stepOverride && stepOverride.personHrIds && stepOverride.personHrIds.length) {
         // Validate each designated person against original conditions
@@ -2195,8 +2209,8 @@ router.post('/previewTemplateSteps', async (req, res) => {
       const display = buildStepConditionsDisplay(condJson, { hrMap, identityMap, deptMap, wgMap });
 
       return {
-        stepIndex: idx,
-        sortOrder: idx + 1,
+        stepIndex: Number(ts.sort_order) || idx + 1,
+        sortOrder: Number(ts.sort_order) || idx + 1,
         name: ts.name || '',
         actionType: ts.action_type || 'sign',
         actionLabel: actionLabel,
@@ -2500,7 +2514,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
     } else if (templateId && stepIndex > 0) {
       // Create mode: resolve template step conditions
       const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
-      const targetStep = templateSteps.find(function(s) { return s.sort_order === stepIndex; });
+      const targetStep = templateSteps.find(function(s) { return Number(s.sort_order) === stepIndex; });
       if (!targetStep) {
         return res.json({ status: 'not_found', message: '请刷新审批详情' });
       }

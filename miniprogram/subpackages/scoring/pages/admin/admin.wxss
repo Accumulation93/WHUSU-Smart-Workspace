@@ -635,6 +635,35 @@ scroll-view {
   margin-top: 10rpx;
 }
 
+/* The condition editor is a centered sub-panel inside the step dialog.
+   The page-level field utility adds left padding for full-width forms; that
+   padding must not be accumulated again inside this nested panel. */
+.audit-step-condition-editor {
+  width: calc(100% - 32rpx);
+  margin-left: auto !important;
+  margin-right: auto !important;
+  box-sizing: border-box;
+  text-align: left;
+}
+.audit-step-condition-editor .field,
+.audit-step-condition-editor .button-row,
+.audit-step-condition-editor .list-title {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+.audit-step-condition-editor .field-label,
+.audit-step-condition-editor .field-value {
+  padding-left: 0;
+}
+.audit-step-condition-editor .field-input,
+.audit-step-condition-editor .picker-value,
+.audit-step-condition-editor .field-textarea {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .rule-panel {
   margin-top: 18rpx;
   padding: 24rpx;
