@@ -331,6 +331,17 @@ callFunction({ name, data, success, fail })
 - Pad 竖屏弹窗保留约 24px 屏幕边距和受控阅读宽度；Pad 横屏弹窗使用 860px 常规上限、1040px 宽表格上限。所有弹窗继续遵守物理视口定位与内部滚动契约。
 - 子应用的局部卡片、列表和工具栏不得只依赖全局媒体查询；存在独立 `rpx` 留白时必须分别补充 Pad 竖屏与 Pad 横屏覆盖，并完成真实设备方向视觉检查。
 
+### Bug 23: 关闭的 RootPortal 使旧页面覆盖新页面
+
+**原因**: 页面直接声明原生 `root-portal` 时，即使外层 `wx:if` 当前为假，部分微信客户端和开发者工具仍可能保留该页面的顶层合成宿主。页面栈已经进入新页面后，旧页面会继续覆盖屏幕，形成“导航栏和逻辑层已变化、画面仍停在旧页面”的假象；登录页、门户及所有含弹窗页面都可能受影响。
+
+**永久规则**:
+- 业务页面禁止直接声明 `root-portal`。全系统统一使用 `viewport-portal` 组件，并把 `wx:if` 放在该组件实例上；只有弹窗实际打开时才创建内部原生 `root-portal`，关闭后整个组件必须销毁。
+- `viewport-portal` 仍负责把遮罩提升到物理可视区域根层，弹窗的全屏遮罩、屏幕居中和内部滚动契约保持不变。
+- 登录成功后先用 `setData` 卸载弹层，再在 `wx.nextTick` 中 `navigateTo` 门户，确保登录页保留在页面栈且旧合成层已经释放。
+- 所有页面跳转都不得被关闭的原生顶层挂载节点覆盖；UI 审计必须拒绝业务 WXML 中直接出现 `root-portal`。
+- 门户导航必须处理成功和失败回调并防止重复提交；失败时给出明确提示，不能静默停留。
+
 ### 发布与编译配置锁
 
 - `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。

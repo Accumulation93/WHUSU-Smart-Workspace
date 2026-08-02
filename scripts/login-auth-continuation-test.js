@@ -12,7 +12,11 @@ global.wx = {
   setStorageSync(key, value) { storage[key] = value; },
   removeStorageSync(key) { delete storage[key]; },
   showToast(options) { toasts.push(options || {}); },
-  navigateTo(options) { navigations.push(options.url); },
+  nextTick(callback) { callback(); },
+  navigateTo(options) {
+    navigations.push(options.url);
+    if (typeof options.success === 'function') options.success();
+  },
   request(options) {
     requests.push(options);
     options.success({
@@ -32,8 +36,9 @@ require('../miniprogram/pages/login/login');
 function createPage() {
   const page = Object.assign({}, pageDefinition);
   page.data = Object.assign({}, pageDefinition.data);
-  page.setData = function(changes) {
+  page.setData = function(changes, callback) {
     Object.assign(this.data, changes || {});
+    if (typeof callback === 'function') callback();
   };
   return page;
 }
@@ -93,6 +98,8 @@ async function run() {
   assert.strictEqual(storage.activeOrgId, 'org-44');
   assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
   assert(navigations.includes('/pages/portal/portal'));
+  assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
+  assert.strictEqual(page._portalNavigating, false, '门户导航完成后必须释放导航锁');
 
   console.log('统一登录引导与认证令牌续接契约测试通过');
 }

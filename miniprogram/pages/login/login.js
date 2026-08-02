@@ -35,6 +35,7 @@ Page({
 
   onLoad() {
     this._loginSubmitting = false;
+    this._portalNavigating = false;
     const authNotice = String(wx.getStorageSync('authLoginNotice') || '');
     if (authNotice) {
       wx.removeStorageSync('authLoginNotice');
@@ -43,6 +44,8 @@ Page({
   },
 
   openPortal() {
+    if (this._portalNavigating) return;
+    this._portalNavigating = true;
     this.setData({
       sheetClass: 'sheet',
       stage: 'login',
@@ -53,8 +56,25 @@ Page({
       verificationCode: '',
       recoveryCredential: '',
       rotatedRecoveryCode: ''
+    }, () => {
+      const navigate = () => {
+        wx.navigateTo({
+          url: '/pages/portal/portal',
+          success: () => {
+            this._portalNavigating = false;
+          },
+          fail: () => {
+            this._portalNavigating = false;
+            showShortToast('请重新登录');
+          }
+        });
+      };
+      if (typeof wx.nextTick === 'function') {
+        wx.nextTick(navigate);
+      } else {
+        navigate();
+      }
     });
-    wx.navigateTo({ url: '/pages/portal/portal' });
   },
 
   onName(e) {

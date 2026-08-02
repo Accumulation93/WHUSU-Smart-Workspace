@@ -57,13 +57,21 @@ assert.match(
 );
 assert.match(
   loginSource,
-  /wx\.navigateTo\(\{ url: '\/pages\/portal\/portal' \}\)/,
+  /wx\.navigateTo\(\{[\s\S]*url: '\/pages\/portal\/portal'/,
   '登录成功必须保留登录页，使门户显示原生返回键'
 );
 assert.doesNotMatch(
   loginSource,
   /wx\.redirectTo\(\{ url: '\/pages\/portal\/portal' \}\)/,
   '登录成功不能替换登录页，否则门户不会显示原生返回键'
+);
+assert.match(
+  fs.readFileSync(
+    path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.wxml'),
+    'utf8'
+  ),
+  /<viewport-portal\s+wx:if="\{\{stage !== 'login'\}\}">/,
+  '登录页认证弹层关闭时必须卸载，不能覆盖已经进入的门户页面'
 );
 assert.match(
   portalSource,

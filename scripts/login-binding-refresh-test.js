@@ -52,7 +52,11 @@ global.wx = {
   removeStorageSync(key) { delete storage[key]; },
   login(options) { options.success({ code: 'fresh-wx-code' }); },
   showToast(options) { toasts.push(options); },
-  navigateTo(options) { navigations.push(options.url); }
+  nextTick(callback) { callback(); },
+  navigateTo(options) {
+    navigations.push(options.url);
+    if (typeof options.success === 'function') options.success();
+  }
 };
 global.Page = function(definition) { pageDefinition = definition; };
 
@@ -73,8 +77,9 @@ Module._load = originalLoad;
 function createPage(overrides) {
   const page = Object.assign({}, pageDefinition);
   page.data = Object.assign({}, pageDefinition.data, overrides || {});
-  page.setData = function(changes) {
+  page.setData = function(changes, callback) {
     Object.assign(this.data, changes || {});
+    if (typeof callback === 'function') callback();
   };
   return page;
 }
@@ -100,6 +105,7 @@ async function run() {
   assert.strictEqual(storage.token, 'access-token');
   assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
   assert(navigations.includes('/pages/portal/portal'));
+  assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
 
   scenario = 'recovery';
   const recoveryPage = createPage({
