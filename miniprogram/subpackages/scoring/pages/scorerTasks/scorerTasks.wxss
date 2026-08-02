@@ -212,6 +212,18 @@
   width: 100%;
 }
 
+@media (min-width: 900px) and (orientation: landscape) {
+  .task-table,
+  .popup-table {
+    border-radius: 14px;
+  }
+
+  .task-col,
+  .popup-col {
+    padding: 10px 12px;
+  }
+}
+
 .progress-top {
   width: 100%;
   display: flex;

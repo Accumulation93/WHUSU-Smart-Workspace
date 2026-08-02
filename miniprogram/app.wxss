@@ -21,7 +21,7 @@ page {
   --ui-type-emphasis: 26rpx;
   --ui-type-value: 28rpx;
   --ui-type-section: 30rpx;
-  --ui-type-dialog: 32rpx;
+  --ui-type-dialog: 30rpx;
   --ui-type-page: 46rpx;
   --ui-font-xs: var(--ui-type-caption);
   --ui-font-sm: var(--ui-type-meta);
@@ -2018,6 +2018,11 @@ button:active,
 }
 
 /* 全局紧凑控件契约：状态元数据使用克制的圆角矩形，禁止胖胶囊。 */
+/*
+ * 手机竖屏使用舒展但不过度膨胀的密度。下面这些规则是移动端基线，
+ * Pad 竖屏与 Pad 横屏分别在各自媒体查询中重新取值，禁止再把横屏压缩值
+ * 直接写成全设备规则。
+ */
 page .status-tag,
 page .booking-status,
 page .audit-chip,
@@ -2034,11 +2039,11 @@ page .permission-level,
 page .app-grid-badge,
 page .hero-badge,
 page .result-group-mode-chip {
-  min-height: 34rpx !important;
+  min-height: 46rpx !important;
   height: auto !important;
-  padding: 4rpx 10rpx !important;
-  border-radius: 10rpx !important;
-  line-height: 1.25 !important;
+  padding: 6rpx 14rpx !important;
+  border-radius: 14rpx !important;
+  line-height: 1.35 !important;
   box-sizing: border-box;
 }
 
@@ -2053,11 +2058,11 @@ page text.header-nav-btn,
 page text.mark-all-read,
 page text.placement-page-btn,
 page text.cancel-btn {
-  min-height: 40rpx !important;
+  min-height: 60rpx !important;
   height: auto !important;
-  padding: 6rpx 12rpx !important;
-  border-radius: 10rpx !important;
-  line-height: 1.25 !important;
+  padding: 10rpx 18rpx !important;
+  border-radius: 14rpx !important;
+  line-height: 1.35 !important;
   box-sizing: border-box;
 }
 
@@ -2079,7 +2084,7 @@ page .audit-submission-meta,
 page .audit-submission-desc-text,
 page .list-item-meta,
 page .nav-row-desc {
-  line-height: 1.42 !important;
+  line-height: 1.55 !important;
 }
 
 page .card,
@@ -2093,8 +2098,8 @@ page .message-card,
 page .booking-panel,
 page .results-panel-card,
 page .targets-card {
-  margin-bottom: 14rpx !important;
-  padding: 20rpx !important;
+  margin-bottom: 20rpx !important;
+  padding: 28rpx 26rpx !important;
 }
 
 /* 小型筛选标签与身份标签保持同一紧凑矩形语言。 */
@@ -2104,10 +2109,103 @@ page .select-chip,
 page .grade-chip,
 page .dept-tab,
 page .role-pill {
-  min-height: 34rpx !important;
-  padding: 4rpx 10rpx !important;
-  border-radius: 10rpx !important;
-  line-height: 1.25 !important;
+  min-height: 48rpx !important;
+  padding: 7rpx 16rpx !important;
+  border-radius: 14rpx !important;
+  line-height: 1.35 !important;
+}
+
+/* Pad 竖屏：保持手机的视觉呼吸感，但以稳定 px 控制，不让 rpx 随宽屏放大。 */
+@media (min-width: 520px) and (max-width: 899px),
+       (min-width: 520px) and (orientation: portrait) {
+  page {
+    --ui-type-dialog: 18px;
+  }
+
+  page .status-tag,
+  page .booking-status,
+  page .audit-chip,
+  page .green-chip,
+  page .blue-chip,
+  page .orange-chip,
+  page .gray-chip,
+  page .red-chip,
+  page .mode-chip,
+  page .venue-tag,
+  page .flow-step-status-tag,
+  page .permission-count,
+  page .permission-level,
+  page .app-grid-badge,
+  page .hero-badge,
+  page .result-group-mode-chip {
+    min-height: 28px !important;
+    padding: 5px 11px !important;
+    border-radius: 10px !important;
+    line-height: 18px !important;
+  }
+
+  page text.action-btn,
+  page text.link,
+  page text.audit-link-btn,
+  page text.flow-action-btn,
+  page text.step-action-link,
+  page text.pending-action-link,
+  page text.header-nav-btn,
+  page text.mark-all-read,
+  page text.placement-page-btn,
+  page text.cancel-btn {
+    min-height: 34px !important;
+    padding: 7px 12px !important;
+    border-radius: 10px !important;
+    line-height: 18px !important;
+  }
+
+  page .list-desc,
+  page .section-desc,
+  page .panel-note,
+  page .field-hint,
+  page .message-desc,
+  page .notification-desc,
+  page .pending-meta,
+  page .booking-meta,
+  page .booking-item-meta,
+  page .venue-loc,
+  page .detail-val,
+  page .flow-info-desc,
+  page .audit-step-meta,
+  page .audit-submission-meta,
+  page .audit-submission-desc-text,
+  page .list-item-meta,
+  page .nav-row-desc {
+    line-height: 1.55 !important;
+  }
+
+  page .card,
+  page .section,
+  page .edit-box,
+  page .list-card,
+  page .filter-section,
+  page .permission-card,
+  page .permission-group,
+  page .message-card,
+  page .booking-panel,
+  page .results-panel-card,
+  page .targets-card {
+    margin-bottom: 14px !important;
+    padding: 18px !important;
+  }
+
+  page .filter-chip,
+  page .chip,
+  page .select-chip,
+  page .grade-chip,
+  page .dept-tab,
+  page .role-pill {
+    min-height: 30px !important;
+    padding: 6px 12px !important;
+    border-radius: 10px !important;
+    line-height: 18px !important;
+  }
 }
 
 /* 横屏页签：50px 高、整行均分；应用服务标题旁的视图切换保留自身宽度。 */
@@ -2281,9 +2379,9 @@ page .role-pill {
   left: 50vw !important;
   right: auto !important;
   bottom: auto !important;
-  width: calc(100vw - 32rpx) !important;
-  max-width: calc(100vw - 32rpx) !important;
-  max-height: calc(100vh - 32rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  width: calc(100vw - 48rpx) !important;
+  max-width: calc(100vw - 48rpx) !important;
+  max-height: calc(100vh - 48rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   margin: 0 !important;
   transform: translate(-50%, -50%) !important;
   box-sizing: border-box !important;
@@ -2300,7 +2398,12 @@ page .role-pill {
  * body consume the remaining space between the fixed header and footer.
  */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
-  height: calc(100vh - 32rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  height: calc(100vh - 48rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+}
+
+.ui-overlay .ui-dialog-body {
+  font-size: var(--ui-type-body) !important;
+  line-height: 1.55 !important;
 }
 
 .ui-overlay scroll-view.ui-dialog-scroll--fill,
@@ -2345,4 +2448,62 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:active,
 page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus,
 page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   transform: translateX(-50%) !important;
+}
+
+/*
+ * Pad 竖屏弹窗保留稳定的屏幕边距和阅读宽度。使用 px 防止 rpx 因竖屏宽度
+ * 被放大；标题和正文沿用 Pad 语义字号，不受页面局部弹窗样式抬高。
+ */
+@media (min-width: 520px) and (max-width: 899px),
+       (min-width: 520px) and (orientation: portrait) {
+  .ui-overlay .ui-dialog-shell {
+    width: calc(100vw - 48px) !important;
+    max-width: 720px !important;
+    max-height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
+    max-width: 520px !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
+    height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    max-width: 720px !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
+    max-width: 720px !important;
+  }
+
+  .ui-overlay .popup-title,
+  .ui-overlay .dialog-title,
+  .ui-overlay .modal-title,
+  .ui-overlay .sheet-title,
+  .ui-overlay .message-switch-title,
+  .ui-overlay .permission-dialog-title {
+    font-size: var(--ui-type-dialog) !important;
+    line-height: 1.4 !important;
+  }
+}
+
+/* Pad 横屏只压缩密度，不扩大控件和字体；弹窗仍以物理视口为定位基准。 */
+@media (min-width: 900px) and (orientation: landscape) {
+  .ui-overlay .ui-dialog-shell {
+    width: calc(100vw - 32px) !important;
+    max-width: 860px !important;
+    max-height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
+    max-width: 520px !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
+    height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    max-width: 860px !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
+    max-width: 1040px !important;
+  }
 }

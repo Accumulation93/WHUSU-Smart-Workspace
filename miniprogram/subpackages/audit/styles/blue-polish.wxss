@@ -367,3 +367,19 @@ textarea {
     line-height: 18px !important;
   }
 }
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .audit-submission-item,
+  .pending-item,
+  .audit-sig-card,
+  .template-select-item {
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+
+  .popup-close {
+    min-height: 30px !important;
+    padding: 5px 0 5px 10px !important;
+    line-height: 18px !important;
+  }
+}

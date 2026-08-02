@@ -33,15 +33,29 @@ const GLOBAL_MEDIA_900 = /@media\s*\(min-width:\s*900px\)/.test(GLOBAL_STYLE);
 function scanCompactVisualContract() {
   const findings = [];
   const required = [
-    ['全局状态标签圆角', /page \.status-tag,[\s\S]*?border-radius:\s*10rpx\s*!important/],
-    ['全局文本操作圆角', /page text\.action-btn,[\s\S]*?border-radius:\s*10rpx\s*!important/],
-    ['全局说明文字行高', /page \.booking-meta,[\s\S]*?line-height:\s*1\.42\s*!important/],
+    ['手机状态标签舒适密度', /page \.status-tag,[\s\S]*?min-height:\s*46rpx\s*!important[\s\S]*?border-radius:\s*14rpx\s*!important/],
+    ['手机文本操作舒适密度', /page text\.action-btn,[\s\S]*?min-height:\s*60rpx\s*!important[\s\S]*?border-radius:\s*14rpx\s*!important/],
+    ['手机说明文字舒适行高', /page \.booking-meta,[\s\S]*?line-height:\s*1\.55\s*!important/],
+    ['Pad 竖屏独立密度', /@media\s*\(min-width:\s*520px\)\s*and\s*\(max-width:\s*899px\),[\s\S]*?page \.status-tag,[\s\S]*?min-height:\s*28px\s*!important/],
     ['横屏页签高度', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-tab-min-height:\s*50px/],
     ['横屏页签均分', /page \.tabs,[\s\S]*?display:\s*flex\s*!important[\s\S]*?width:\s*100%\s*!important/],
     ['横屏页签点击高度', /page \.tabs\s*>\s*\.tab,[\s\S]*?min-height:\s*50px\s*!important/]
   ];
   for (const [message, pattern] of required) {
     if (!pattern.test(GLOBAL_STYLE)) findings.push({ file: 'miniprogram/app.wxss', message });
+  }
+
+  const responsiveContracts = [
+    ['miniprogram/subpackages/org/pages/authManagement/authManagement.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.auth-card\s*\{[\s\S]*?padding:\s*14px 16px/],
+    ['miniprogram/subpackages/org/pages/accountSecurity/accountSecurity.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.security-card\s*\{[\s\S]*?padding:\s*14px 16px/],
+    ['miniprogram/subpackages/org/pages/identitySwitch/identitySwitch.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.context-panel\s*\{[\s\S]*?padding:\s*14px 16px/],
+    ['miniprogram/subpackages/audit/styles/blue-polish.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.audit-submission-item,[\s\S]*?padding:\s*12px 14px/],
+    ['miniprogram/subpackages/venue/styles/blue-polish.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.venue-card,[\s\S]*?padding:\s*12px 14px/],
+    ['miniprogram/subpackages/scoring/pages/scorerTasks/scorerTasks.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.task-col,[\s\S]*?padding:\s*10px 12px/]
+  ];
+  for (const [file, pattern] of responsiveContracts) {
+    const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    if (!pattern.test(source)) findings.push({ file, message: '页面局部横屏密度未按设备独立收紧' });
   }
 
   const styles = walk(MINI_ROOT, '.wxss');
@@ -56,7 +70,7 @@ function scanCompactVisualContract() {
       if (/border-radius\s*:\s*999(?:r?px)\b/i.test(declarations) &&
         !/page\s+(?:text\.)?(?:status-tag|action-btn)/i.test(selector)) {
         const coveredByGlobal = COMPACT_META_CLASSES.some(name => selector.includes(`.${name}`)) &&
-          new RegExp(`page[^{}]*\\.${COMPACT_META_CLASSES.find(name => selector.includes(`.${name}`))}[^{}]*\\{[\\s\\S]*?border-radius:\\s*(?:10rpx|9px)\\s*!important`, 'i').test(GLOBAL_STYLE);
+          new RegExp(`page[^{}]*\\.${COMPACT_META_CLASSES.find(name => selector.includes(`.${name}`))}[^{}]*\\{[\\s\\S]*?border-radius:\\s*(?:14rpx|10px|9px)\\s*!important`, 'i').test(GLOBAL_STYLE);
         if (!coveredByGlobal) {
           findings.push({
             file: relative(file),
@@ -889,7 +903,7 @@ const typeScale = [
   ['emphasis', '26rpx', '15.6px'],
   ['value', '28rpx', '16.8px'],
   ['section', '30rpx', '18px'],
-  ['dialog', '32rpx', '19.2px'],
+  ['dialog', '30rpx', '19.2px'],
   ['page', '46rpx', '27.6px']
 ];
 const missingTypographySystem = typeScale.some(([name, phone, pad]) => {

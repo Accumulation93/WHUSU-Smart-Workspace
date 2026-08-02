@@ -321,6 +321,16 @@ callFunction({ name, data, success, fail })
 - `scripts/ui-audit.js --strict` 必须保持 `rawFontSizes=0`、`oversizedDecorativeHero=0`；脚本中的每页媒体覆盖统计只能读取该文件自身，禁止再由 `app.wxss` 的断点替所有页面冒充通过。
 - 普通卡片、面板、章节和包裹容器必须由内容自然撑开，禁止用大块固定/最小高度或异常单侧内边距“做平衡”；严格审计同时保持 `forcedContentViewport=0`、`oversizedContentPadding=0`。
 
+### Bug 22: Pad 横屏压缩规则误伤手机与 Pad 竖屏
+
+**原因**: 为 Pad 横屏收紧标签、说明文字和卡片留白时，把规则写在横屏媒体查询之外；全局 `!important` 随后覆盖页面原有移动端尺度，造成手机内容过密、Pad 竖屏字体与弹窗比例失衡，而真正的横屏局部控件仍保留被 `rpx` 放大的留白。
+
+**永久规则**:
+- 手机竖屏、Pad 竖屏、Pad 横屏必须拥有三套明确的密度取值：手机以舒适 `rpx` 为基线，Pad 竖屏使用稳定 `px` 保持呼吸感，只有 Pad 横屏使用紧凑 `px` 降低纵向浪费。
+- 横屏专用的卡片内边距、行距、按钮高度和圆角必须位于 `@media (min-width: 900px) and (orientation: landscape)` 内；禁止把横屏压缩值作为全局 `!important` 规则。
+- Pad 竖屏弹窗保留约 24px 屏幕边距和受控阅读宽度；Pad 横屏弹窗使用 860px 常规上限、1040px 宽表格上限。所有弹窗继续遵守物理视口定位与内部滚动契约。
+- 子应用的局部卡片、列表和工具栏不得只依赖全局媒体查询；存在独立 `rpx` 留白时必须分别补充 Pad 竖屏与 Pad 横屏覆盖，并完成真实设备方向视觉检查。
+
 ### 发布与编译配置锁
 
 - `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。

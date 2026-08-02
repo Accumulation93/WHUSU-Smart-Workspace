@@ -588,3 +588,67 @@ page {
     border-radius: 9px;
   }
 }
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .page {
+    max-width: none;
+    padding: 16px 16px 24px;
+  }
+
+  .context-hero {
+    margin-bottom: 10px;
+    padding: 16px 20px 14px;
+    border-radius: 18px;
+  }
+
+  .current-context {
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .context-panel {
+    margin-bottom: 10px;
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  .context-notice {
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+
+  .panel-head {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .organization-search {
+    min-height: 40px;
+    margin-bottom: 10px;
+    padding: 0 12px;
+    border-radius: 11px;
+  }
+
+  .organization-search-input {
+    height: 40px;
+    line-height: 40px;
+  }
+
+  .organization-list,
+  .identity-list,
+  .context-skeleton {
+    gap: 8px;
+  }
+
+  .organization-item,
+  .identity-item,
+  .skeleton-row {
+    min-height: 72px;
+    padding: 11px 12px;
+    border-radius: 13px;
+  }
+}

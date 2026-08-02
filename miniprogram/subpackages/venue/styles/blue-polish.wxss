@@ -374,3 +374,14 @@ textarea {
     line-height: 1.55 !important;
   }
 }
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .venue-card,
+  .booking-item,
+  .pending-item,
+  .list-item,
+  .nav-row {
+    padding: 12px 14px;
+    border-radius: 14px;
+  }
+}

@@ -128,16 +128,16 @@
   .security-page {
     max-width: 760px;
     margin: 0 auto;
-    padding: 28px 24px 42px;
+    padding: 24px 22px 36px;
   }
 
   .security-hero {
-    padding: 28px 30px;
-    border-radius: 26px;
+    padding: 24px 26px;
+    border-radius: 20px;
   }
 
   .security-card {
-    padding: 24px;
+    padding: 20px;
   }
 
   .security-main { font-size: var(--ui-type-emphasis); }
@@ -147,9 +147,54 @@
   .status-tag { font-size: var(--ui-type-caption); }
 
   .compact-btn {
-    min-height: 42px;
-    padding: 10px 16px;
-    border-radius: 12px;
+    min-height: 40px;
+    padding: 9px 14px;
+    border-radius: 10px;
     font-size: var(--ui-type-label);
+  }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .security-page {
+    max-width: none;
+    padding: 16px 16px 24px;
+  }
+
+  .security-hero {
+    margin-bottom: 10px;
+    padding: 16px 20px 14px;
+    border-radius: 18px;
+  }
+
+  .security-card {
+    margin-bottom: 10px;
+    padding: 14px 16px;
+  }
+
+  .security-row,
+  .credential-head,
+  .session-item {
+    gap: 12px;
+  }
+
+  .security-row,
+  .credential-block {
+    margin-top: 12px;
+  }
+
+  .credential-block,
+  .recovery-code-panel {
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .session-item {
+    padding: 12px 0;
+  }
+
+  .compact-btn {
+    min-height: 36px;
+    padding: 7px 12px;
+    border-radius: 10px;
   }
 }
