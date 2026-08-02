@@ -759,7 +759,7 @@ button[disabled],
 }
 
 /* 透明挡板只拦截背景滑动；弹窗外壳在其上方，内部 scroll-view 仍可独立滚动。 */
-.ui-overlay > .ui-overlay-blocker {
+.ui-overlay .ui-overlay-blocker {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -2259,7 +2259,7 @@ page .role-pill {
   isolation: isolate;
 }
 
-.ui-overlay > .ui-overlay-blocker {
+.ui-overlay .ui-overlay-blocker {
   position: fixed !important;
   top: 0 !important;
   right: 0 !important;
@@ -2271,7 +2271,7 @@ page .role-pill {
   z-index: 0 !important;
 }
 
-.ui-overlay > .ui-dialog-shell {
+.ui-overlay .ui-dialog-shell {
   position: fixed !important;
   top: 50vh !important;
   left: 50vw !important;
@@ -2285,12 +2285,12 @@ page .role-pill {
   box-sizing: border-box !important;
 }
 
-.ui-overlay > .ui-dialog-shell.ui-dialog-shell--compact {
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
   max-width: 640rpx !important;
 }
 
 /* 宽表格/时间表需要占满可用高度，但仍以视口中心的水平轴居中。 */
-.ui-overlay > .ui-dialog-shell.ui-dialog-shell--wide {
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
   top: calc(env(safe-area-inset-top) + 16rpx) !important;
   bottom: calc(env(safe-area-inset-bottom) + 16rpx) !important;
   height: auto !important;
