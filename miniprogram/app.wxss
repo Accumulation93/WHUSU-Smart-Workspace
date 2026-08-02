@@ -2392,13 +2392,29 @@ page .role-pill {
 }
 
 /*
- * Complex dialogs own a real viewport. A vertical scroll-view cannot reliably
- * calculate its scroll range when every ancestor is only constrained by
- * max-height, so reserve the available viewport for long forms and let the
- * body consume the remaining space between the fixed header and footer.
+ * “复杂”只描述结构，不代表必须占满屏幕。窗口默认按实际内容收缩；正文
+ * 超过可用高度后由 scroll-view 自己滚动，标题和操作栏始终固定。只有真正
+ * 需要整屏工作区的表格、时间表等，才显式使用 --viewport / --wide。
  */
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
+  height: auto !important;
+}
+
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
   height: calc(100vh - 48rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+}
+
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
+  flex: 0 1 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: calc(100vh - 260rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+}
+
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport > .ui-dialog-body,
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--wide > .ui-dialog-body {
+  flex: 1 1 auto !important;
+  max-height: none !important;
 }
 
 .ui-overlay .ui-dialog-body {
@@ -2467,8 +2483,16 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
-    height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    height: auto !important;
     max-width: 720px !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
+    height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
+    max-height: calc(100vh - 190px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
@@ -2499,8 +2523,16 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
-    height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    height: auto !important;
     max-width: 860px !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
+    height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  }
+
+  .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
+    max-height: calc(100vh - 150px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {

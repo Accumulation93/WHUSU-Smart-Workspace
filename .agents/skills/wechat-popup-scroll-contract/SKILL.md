@@ -53,7 +53,9 @@ Keep the blocker and shell as siblings, with the blocker first. Put `catchtouchm
 ## Assign scrolling ownership
 
 - Overlay and shell never scroll; both clip overflow.
-- Complex and wide shells reserve a real viewport height so WeChat can calculate the vertical `scroll-view` range.
+- `ui-dialog-shell--complex` describes a header/body/footer structure, not a full-height window. It must stay content-driven so short and collapsed forms do not leave blank space.
+- Give the body an explicit maximum available height and let its `scroll-view` take over only after the content overflows. Expanding or collapsing conditional fields must therefore grow or shrink the centred shell naturally.
+- Only data workspaces that genuinely require a stable full-screen working area may add `ui-dialog-shell--viewport`; wide timetables continue to use `ui-dialog-shell--wide`. Never add a viewport height merely because a dialog is a long form.
 - Header and footer are non-scrolling flex items. The direct body is the only outer scrolling region.
 - Every vertical dialog `scroll-view` enables `enhanced`, `scroll-y`, and `nested-scroll-enabled`.
 - Give nested lists `ui-dialog-scroll--pane` and `nested-scroll-enabled`; a gesture beginning inside that pane scrolls the pane first. The body handles gestures only outside the pane or after the pane reaches its boundary.

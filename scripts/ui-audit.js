@@ -706,7 +706,7 @@ function scanWxss(file) {
     }
     if (/(popup|modal|dialog|sheet)/i.test(selector) &&
       /(?:^|;)\s*height\s*:\s*(?:\d+(?:\.\d+)?vh|calc\(\s*100vh\b)/i.test(declarations) &&
-      !/(timetable|placement|signature|canvas|keyboard|ui-dialog-shell--wide|ui-dialog-shell--complex|ui-dialog-scroll--both|sheet-mask|^\s*\.sheet\s*$)/i.test(selector)) {
+      !/(timetable|placement|signature|canvas|keyboard|ui-dialog-shell--wide|ui-dialog-shell--viewport|ui-dialog-scroll--both|sheet-mask|^\s*\.sheet\s*$)/i.test(selector)) {
       forcedDialogViewport.push({
         file: relative(file),
         line: lineAt(source, ruleMatch.index),
@@ -859,7 +859,9 @@ const oversizedContentPadding = styles.flatMap(item => item.oversizedContentPadd
 const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*\{[^}]*height:\s*calc\(100vh[^}]*!important;/m.test(GLOBAL_STYLE)
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*\{[^}]*height:\s*auto\s*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--viewport\s*\{[^}]*height:\s*calc\(100vh[^}]*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*flex:\s*0\s+1\s+auto\s*!important;[^}]*max-height:\s*calc\(100vh/m.test(GLOBAL_STYLE)
 );
 const missingDialogCenteringSystem = !(
   /\.ui-overlay\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/m.test(GLOBAL_STYLE) &&
