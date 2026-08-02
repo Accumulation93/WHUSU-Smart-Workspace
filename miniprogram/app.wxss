@@ -47,6 +47,8 @@ page {
   --ui-tab-radius: 20rpx;
   --ui-tab-shell-radius: 26rpx;
   min-height: 100%;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
   color: #0f172a;
   color: var(--ui-text, #0f172a);
   line-height: 1.55;
@@ -2257,6 +2259,8 @@ page .role-pill {
   overflow: hidden !important;
   box-sizing: border-box !important;
   isolation: isolate;
+  touch-action: manipulation !important;
+  -webkit-text-size-adjust: 100%;
 }
 
 .ui-overlay .ui-overlay-blocker {
@@ -2283,6 +2287,8 @@ page .role-pill {
   margin: 0 !important;
   transform: translate(-50%, -50%) !important;
   box-sizing: border-box !important;
+  touch-action: manipulation !important;
+  -webkit-text-size-adjust: 100%;
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {

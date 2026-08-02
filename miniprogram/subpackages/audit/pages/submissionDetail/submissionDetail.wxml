@@ -107,6 +107,7 @@
     </view>
 
     <!-- ═══ Identity step editor popup ═══ -->
+    <root-portal wx:if="{{adHocStepEditorVisible}}">
     <view class="popup-mask ui-overlay" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -152,6 +153,7 @@
         <view class="audit-btn-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="confirmAdHocStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button></view>
       </view>
     </view>
+    </root-portal>
 
   </view>
 
@@ -529,6 +531,7 @@
       </view>
 
       <!-- ═══ Edit: Identity step editor popup ═══ -->
+      <root-portal wx:if="{{editStepEditorVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -574,8 +577,10 @@
           <view class="audit-btn-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="confirmEditIdentityStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button></view>
         </view>
       </view>
+      </root-portal>
 
       <!-- ═══ Edit: Person picker popup ═══ -->
+      <root-portal wx:if="{{editPersonPickerVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -625,10 +630,12 @@
           </view>
         </view>
       </view>
+      </root-portal>
     </block>
   </view>
 
   <!-- ═══ Stamp Picker Popup ═══ -->
+  <root-portal wx:if="{{stampPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{stampPickerVisible}}" bindtap="closeStampPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -652,8 +659,10 @@
       </scroll-view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Placement / File Preview Popup (positioning sig/stamp on file) ═══ -->
+  <root-portal wx:if="{{placementVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{placementVisible}}" bindtap="closePlacement">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card placement-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
@@ -754,8 +763,10 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
   <!-- Approval Dialog -->
+  <root-portal wx:if="{{approvalVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -799,8 +810,10 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Signature Source Picker Popup (saved signatures + new drawing) ═══ -->
+  <root-portal wx:if="{{sigSourcePickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{sigSourcePickerVisible}}" bindtap="closeSigSourcePicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -862,9 +875,11 @@
       </scroll-view>
     </view>
   </view>
+  </root-portal>
 
   <!-- Signature Pad Popup (with save-to-library controls) -->
   <!-- ★ catchtouchmove="noop" 阻止触摸滑动穿透到底层页面，防止签名时页面翻动 -->
+  <root-portal wx:if="{{signaturePadVisible}}">
   <view class="popup-mask ui-overlay ui-dialog-touch-lock" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad" catchtouchmove="noop">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-touch-lock" catchtap="noop" catchtouchmove="noop">
@@ -877,8 +892,10 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
     <!-- ═══ Person picker popup (multi-select) ═══ -->
+  <root-portal wx:if="{{personPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -957,6 +974,7 @@
         </view>
       </view>
     </view>
+  </root-portal>
 
   <view class="page-footer">
     <view class="footer-name">WHUSU智慧工作台</view>

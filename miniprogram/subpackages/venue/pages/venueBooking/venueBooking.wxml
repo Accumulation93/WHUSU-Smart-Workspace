@@ -113,6 +113,7 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- ═══════════════════ TIMETABLE POPUP ═══════════════════ -->
+  <root-portal wx:if="{{scheduleVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{scheduleVisible}}" bindtap="closeSchedule">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
@@ -154,8 +155,10 @@ module.exports = { hour: hour, min: min };
       </view>
     </view>
   </view>
+  </root-portal>
 
   <!-- Booking detail popup -->
+  <root-portal wx:if="{{bookingDetailVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -207,8 +210,10 @@ module.exports = { hour: hour, min: min };
       </scroll-view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══════════════════ BOOKING FORM ═══════════════════ -->
+  <root-portal wx:if="{{bookingVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{bookingVisible}}" bindtap="closeBooking">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card booking-form-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -317,8 +322,10 @@ module.exports = { hour: hour, min: min };
       </scroll-view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══════════════════ APPROVAL / DETAIL POPUP ═══════════════════ -->
+  <root-portal wx:if="{{approvalVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -383,6 +390,7 @@ module.exports = { hour: hour, min: min };
       </view>
     </view>
   </view>
+  </root-portal>
 
   <view class="page-footer">
     <view class="footer-name">WHUSU智慧工作台</view>

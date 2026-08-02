@@ -44,6 +44,7 @@
   </view>
 
   <!-- Venue editor popup -->
+  <root-portal wx:if="{{editing}}">
   <view class="popup-mask ui-overlay" wx:if="{{editing}}" bindtap="cancelEdit">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card venue-edit-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -66,6 +67,7 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Bookings Tab ═══ -->
   <view class="section" wx:if="{{activeTab === 'bookings'}}">
@@ -181,6 +183,7 @@
   </view>
 
   <!-- ═══ Rules Popup ═══ -->
+  <root-portal wx:if="{{rulesVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{rulesVisible}}" bindtap="closeRules">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -254,8 +257,10 @@
       </scroll-view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Rule Editor ═══ -->
+  <root-portal wx:if="{{ruleEditorVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -431,8 +436,10 @@
       <view class="rule-save-bar"><button class="primary-btn ui-motion-button" catchtap="saveRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存规则</button></view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Timetable Popup ═══ -->
+  <root-portal wx:if="{{scheduleVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{scheduleVisible}}" bindtap="closeVenueSchedule">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
@@ -471,8 +478,10 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
   <!-- Booking detail popup -->
+  <root-portal wx:if="{{bookingDetailVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -520,8 +529,10 @@
       </scroll-view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Admin Booking Popup ═══ -->
+  <root-portal wx:if="{{adminBookingVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{adminBookingVisible}}" bindtap="closeAdminBooking">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -576,8 +587,10 @@
       </scroll-view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Purpose Management Popup (kept for backward compat from old links) ═══ -->
+  <root-portal wx:if="{{purposeVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -603,8 +616,10 @@
       </scroll-view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Condition Multi-Picker (replicates audit multi-picker pattern) ═══ -->
+  <root-portal wx:if="{{condMultiPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{condMultiPickerVisible}}" bindtap="closeCondMultiPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -650,8 +665,10 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ═══ Approval Popup (step-aware approve/reject with comment) ═══ -->
+  <root-portal wx:if="{{approvalPopupVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{approvalPopupVisible}}" bindtap="closeApprovalPopup">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -709,7 +726,9 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
+  <root-portal wx:if="{{contextSwitchGuardVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{contextSwitchGuardVisible}}" bindtap="closeContextSwitchGuard">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card context-switch-guard-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
@@ -721,6 +740,7 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
   <view class="page-footer"><view class="footer-name">WHUSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
 </view>

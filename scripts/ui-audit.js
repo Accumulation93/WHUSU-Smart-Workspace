@@ -451,6 +451,9 @@ function scanLayoutContracts(file) {
     if ([...classes].some(name => LEGACY_OVERLAYS.has(name)) && !classes.has('ui-overlay')) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗遮罩缺少 ui-overlay', className: [...classes].join(' ') });
     }
+    if (classes.has('ui-overlay') && !stack.some(item => item.tag === 'root-portal')) {
+      dialogIssues.push({ file: relative(file), line, message: '弹窗必须由 root-portal 提升到页面根层，不能跟随页面滚动', className: [...classes].join(' ') });
+    }
 
     let dialog = null;
     if ([...classes].some(name => LEGACY_DIALOG_SHELLS.has(name))) {
@@ -781,6 +784,11 @@ const missingDialogCenteringSystem = !(
   (/\.ui-overlay\s+(?:>\s*)?\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50vh\s*!important;[\s\S]*?left:\s*50vw\s*!important;[\s\S]*?transform:\s*translate\(\s*-50%\s*,\s*-50%\s*\)\s*!important;/m.test(GLOBAL_STYLE) ||
     /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*relative;[\s\S]*?align-self:\s*center;[\s\S]*?margin-left:\s*auto;[\s\S]*?margin-right:\s*auto;/m.test(GLOBAL_STYLE))
 );
+const missingDialogGestureSystem = !(
+  /page\s*\{[\s\S]*?touch-action:\s*manipulation;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s*\{[\s\S]*?touch-action:\s*manipulation\s*!important;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?touch-action:\s*manipulation\s*!important;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE)
+);
 const missingDialogScrollSystem = !(
   /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-height:\s*56vh;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--pane\s*\{[^}]*min-height:\s*120rpx;/m.test(GLOBAL_STYLE) &&
@@ -905,6 +913,7 @@ const report = {
     oversizedContentPadding: oversizedContentPadding.length,
     missingStableDialogSystem: missingStableDialogSystem ? 1 : 0,
     missingDialogCenteringSystem: missingDialogCenteringSystem ? 1 : 0,
+    missingDialogGestureSystem: missingDialogGestureSystem ? 1 : 0,
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
     compactVisualContractIssues: compactVisualContractIssues.length,
@@ -978,7 +987,7 @@ if (process.argv.includes('--strict')) {
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
     report.summary.adminOrgContextIssues || report.summary.workspaceShellIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogScrollSystem ||
+    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem ||
     report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues;
   process.exitCode = failed ? 1 : 0;
 }
