@@ -665,6 +665,18 @@ function scanWxss(file) {
       (transformValue && !/^none\b/i.test(transformValue[1].trim())) ||
       (animationValue && !/^none\b/i.test(animationValue[1].trim()))
     );
+    const clearsCenteredDialogTransform = Boolean(
+      transformValue && /^none\b/i.test(transformValue[1].trim()) &&
+      /\.(?:popup-card|modal-card):active\b/i.test(selector)
+    );
+    if (clearsCenteredDialogTransform) {
+      shellActive.push({
+        file: relative(file),
+        line: lineAt(source, ruleMatch.index),
+        selector: selector.trim().replace(/\s+/g, ' '),
+        message: '弹窗按下时不得清除用于视口居中的 transform'
+      });
+    }
     if (!hasMotion) continue;
     for (const shell of SHELL_NAMES) {
       const pattern = new RegExp(`\\.${shell.replace('-', '\\-')}:active`);

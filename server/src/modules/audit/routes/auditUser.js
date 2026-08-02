@@ -203,8 +203,11 @@ router.post('/startAuditSubmission', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const hrId = actorResult.actor.id;
     const orgId = await getCurrentOrgId();
 
     const templateId = safeString(req.body.templateId);
@@ -309,6 +312,19 @@ router.post('/startAuditSubmission', async (req, res) => {
       return res.json({ status: 'invalid_params', message: '请联系管理员补充审批步骤' });
     }
 
+    const requestedOverrides = stepOverrides.filter(function(o) {
+      return Array.isArray(o.personHrIds) && o.personHrIds.length > 0;
+    });
+    if (requestedOverrides.some(function(o) { return Number(o.stepIndex) !== 1; })) {
+      return res.json({ status: 'invalid_params', message: '后续步骤由上一环节选择审批人' });
+    }
+    if (requestedOverrides.length > 1) {
+      return res.json({ status: 'invalid_params', message: '请重新选择第一步审批人' });
+    }
+    if (requestedOverrides.length && Number(templateSteps[0].allow_approver_designation) !== 1) {
+      return res.json({ status: 'invalid_params', message: '第一步按审批条件确定审批人' });
+    }
+
     await conn.beginTransaction();
 
     // Create submission
@@ -374,7 +390,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       // NARROW the scope: only designated persons can approve this step,
       // but they must be eligible under the original conditions (can't expand).
       const stepOverride = stepOverrides.find(function(o) {
-        return Number(o.stepIndex) === i + 1;
+        return i === 0 && Number(ts.allow_approver_designation) === 1 && Number(o.stepIndex) === 1;
       });
       if (stepOverride && stepOverride.personHrIds && stepOverride.personHrIds.length) {
         // Validate each designated person against original conditions
@@ -395,6 +411,9 @@ router.post('/startAuditSubmission', async (req, res) => {
           if (person && matchesAnyCondition(conditions, person, submitterFull)) {
             validPersonIds.push(pid);
           }
+        }
+        if (validPersonIds.length !== stepOverride.personHrIds.length) {
+          throw new Error('所选第一步审批人已不符合审批条件');
         }
         // Replace original conditions with person-only conditions (narrow scope)
         if (validPersonIds.length > 0) {
@@ -445,6 +464,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         approverHrId,
         approverIdentityId: ts.approver_identity_id,
         actionType: ts.action_type,
+        allowApproverDesignation: Number(ts.allow_approver_designation) === 1,
         stepName: ts.name || '',
         round: 1,
         stepConditionsJson
@@ -599,6 +619,7 @@ router.post('/startAdHocAudit', async (req, res) => {
         approverHrId: safeString(s.approverHrId) || null,
         approverIdentityId: safeString(s.approverIdentityId) || null,
         actionType: safeString(s.actionType) || 'sign',
+        allowApproverDesignation: false,
         stepName: safeString(s.name) || '',
         round: 1,
         stepConditionsJson
@@ -1055,6 +1076,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         scopeWorkGroupId: safeString(s.scope_work_group_id),
         scopeWorkGroupName: resolveMultiNames(s.scope_work_group_id, wgMap),
         actionType: safeString(s.action_type),
+        allowApproverDesignation: Number(s.allow_approver_designation) === 1,
         status: safeString(s.status),
         comment: safeString(s.comment),
         rejectionReason: safeString(s.rejection_reason),
@@ -1272,6 +1294,18 @@ router.post('/approveStep', async (req, res) => {
     const now = new Date();
     const nowISO = nowLocal();
     const currentRound = step.round;
+    const designatedNextPersonIds = Array.isArray(req.body.designatedNextPersonIds)
+      ? [...new Set(req.body.designatedNextPersonIds.map(function(id) { return safeString(id); }).filter(Boolean))]
+      : [];
+    const allSteps = await submissionStepModel.getBySubmissionId(submissionId, conn);
+    const currentSteps = allSteps
+      .filter((s) => s.round === currentRound)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const nextStep = currentSteps.find((s) => s.sort_order === step.sort_order + 1);
+    if (designatedNextPersonIds.length && (!nextStep || Number(nextStep.allow_approver_designation) !== 1)) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_params', message: nextStep ? '下一步按审批条件确定审批人' : '已是最后一步' });
+    }
 
     // Update step status to approved
     await submissionStepModel.updateStatus(stepId, {
@@ -1369,16 +1403,6 @@ router.post('/approveStep', async (req, res) => {
     }
 
     // Check if there are more steps
-    const allSteps = await submissionStepModel.getBySubmissionId(submissionId, conn);
-    const currentSteps = allSteps.filter((s) => s.round === currentRound).sort((a, b) => a.sort_order - b.sort_order);
-    const currentIndex = step.sort_order;
-    const nextStep = currentSteps.find((s) => s.sort_order === currentIndex + 1);
-
-    // Handle designated next-step approvers (optional person override)
-    const designatedNextPersonIds = Array.isArray(req.body.designatedNextPersonIds)
-      ? req.body.designatedNextPersonIds.map(function(id) { return safeString(id); }).filter(Boolean)
-      : [];
-
     if (nextStep) {
       // If the approver designated specific people for the next step,
       // NARROW the scope: only designated persons can approve, BUT they
@@ -1424,6 +1448,10 @@ router.post('/approveStep', async (req, res) => {
           if (person && matchesAnyCondition(originalConds, person, submitter2)) {
             validPersonIds.push(pid);
           }
+        }
+
+        if (validPersonIds.length !== designatedNextPersonIds.length) {
+          throw new Error('所选下一步审批人已不符合审批条件');
         }
 
         if (validPersonIds.length > 0) {
@@ -1694,6 +1722,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
         templateStepId: ts.id,
         sortOrder: idx + 1,
         actionType: ts.action_type || 'sign',
+        allowApproverDesignation: Number(ts.allow_approver_designation) === 1,
         name: ts.name || '',
         conditions: stepConditionMap[ts.id] || []
       }));
@@ -1733,6 +1762,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
           approverHrId: safeString(s.approverHrId) || null,
           approverIdentityId: safeString(s.approverIdentityId) || null,
           actionType: safeString(s.actionType) || 'sign',
+          allowApproverDesignation: false,
           name: safeString(s.name) || '',
           conditions
         };
@@ -1752,6 +1782,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
           approverHrId: s.approverHrId || null,
           approverIdentityId: s.approverIdentityId || null,
           actionType: s.actionType || 'sign',
+          allowApproverDesignation: s.allowApproverDesignation === true,
           stepName: s.name || s.stepName || '',
           round: 1,
           stepConditionsJson
@@ -1916,6 +1947,7 @@ router.post('/resubmitAudit', async (req, res) => {
           approverHrId: rs.approver_hr_id,
           approverIdentityId: rs.approver_identity_id,
           actionType: rs.action_type,
+          allowApproverDesignation: Number(rs.allow_approver_designation) === 1,
           stepName: rs.step_name || rs.name || '',
           round: newRound,
           stepConditionsJson: rs.step_conditions_json
@@ -1934,6 +1966,7 @@ router.post('/resubmitAudit', async (req, res) => {
           approverHrId: ts.approver_hr_id,
           approverIdentityId: ts.approver_identity_id,
           actionType: ts.action_type,
+          allowApproverDesignation: Number(ts.allow_approver_designation) === 1,
           stepName: ts.step_name || ts.name || '',
           round: newRound,
           stepConditionsJson: ts.step_conditions_json
@@ -2214,6 +2247,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
         name: ts.name || '',
         actionType: ts.action_type || 'sign',
         actionLabel: actionLabel,
+        allowApproverDesignation: Number(ts.allow_approver_designation) === 1,
         displayParts: display.displayParts,
         approverDesc: display.approverDesc || '由全体成员审批',
         // Pass raw conditions for client-side person override logic
@@ -2464,9 +2498,11 @@ router.post('/listMyApprovalHistory', async (req, res) => {
 // Used by both Create mode (template step preview) and View mode (designate next approver)
 router.post('/listEligibleApprovers', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    }
+    const hrId = actorResult.actor.id;
 
     const orgId = await getCurrentOrgId();
     const submissionId = safeString(req.body.submissionId);
@@ -2487,10 +2523,17 @@ router.post('/listEligibleApprovers', async (req, res) => {
       const currentRoundSteps = allSteps
         .filter(function(s) { return (s.round || 1) === currentRound; })
         .sort(function(a, b) { return a.sort_order - b.sort_order; });
+      const currentStep = currentRoundSteps.find(function(s) { return s.sort_order === currentIdx; });
       const nextStep = currentRoundSteps.find(function(s) { return s.sort_order === currentIdx + 1; });
 
+      if (!currentStep || !(await checkStepAuthorization(currentStep, submission, hrId, actorResult.actor.profile))) {
+        return res.json({ status: 'forbidden', message: '您不是当前步骤的审批人' });
+      }
       if (!nextStep) {
         return res.json({ status: 'success', approvers: [], message: '已是最后一步，无需指定下一步审批人' });
+      }
+      if (Number(nextStep.allow_approver_designation) !== 1) {
+        return res.json({ status: 'forbidden', message: '下一步按审批条件确定审批人' });
       }
 
       // Parse next step's conditions
@@ -2513,10 +2556,20 @@ router.post('/listEligibleApprovers', async (req, res) => {
       submitterInfo = subRows[0] || null;
     } else if (templateId && stepIndex > 0) {
       // Create mode: resolve template step conditions
+      if (stepIndex !== 1) {
+        return res.json({ status: 'forbidden', message: '后续步骤由上一环节选择审批人' });
+      }
+      const template = await flowTemplateModel.getById(templateId);
+      if (!template || !template.is_active) {
+        return res.json({ status: 'not_found', message: '请刷新审核类型后重试' });
+      }
       const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
       const targetStep = templateSteps.find(function(s) { return Number(s.sort_order) === stepIndex; });
       if (!targetStep) {
         return res.json({ status: 'not_found', message: '请刷新审批详情' });
+      }
+      if (Number(targetStep.allow_approver_designation) !== 1) {
+        return res.json({ status: 'forbidden', message: '第一步按审批条件确定审批人' });
       }
 
       const tplConds = await submissionStepModel.getTemplateStepConditions(targetStep.id);
@@ -2528,6 +2581,25 @@ router.post('/listEligibleApprovers', async (req, res) => {
         [hrId, orgId]
       );
       submitterInfo = subRows[0] || null;
+      let starterConditions = [];
+      if (template.starter_conditions_json) {
+        try { starterConditions = JSON.parse(template.starter_conditions_json); } catch (_) { starterConditions = []; }
+      }
+      if (starterConditions.length && (!submitterInfo || !matchesAnyCondition(starterConditions, submitterInfo, submitterInfo))) {
+        return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+      }
+      if (!starterConditions.length && template.starter_type === 'identity' && template.starter_identity_id) {
+        const identityIds = String(template.starter_identity_id).split(',').map(function(id) { return id.trim(); }).filter(Boolean);
+        if (!submitterInfo || !identityIds.includes(String(submitterInfo.identity_id))) {
+          return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+        }
+      }
+      if (!starterConditions.length && template.starter_type === 'specific_person' && template.starter_hr_id) {
+        const personIds = String(template.starter_hr_id).split(',').map(function(id) { return id.trim(); }).filter(Boolean);
+        if (!personIds.includes(String(hrId))) {
+          return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+        }
+      }
     } else {
       return res.json({ status: 'invalid_params', message: '缺少必要信息' });
     }

@@ -390,7 +390,7 @@ async function create(id, data, conn) {
     submissionId, templateStepId, sortOrder,
     approverType, approverHrId, approverIdentityId,
     actionType, round,
-    stepConditionsJson, stepName
+    stepConditionsJson, stepName, allowApproverDesignation
   } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
@@ -398,13 +398,13 @@ async function create(id, data, conn) {
     `INSERT INTO audit_submission_steps
      (id, submission_id, template_step_id, sort_order, approver_type, approver_hr_id, approver_identity_id,
       step_conditions_json,
-      action_type, step_name, status, round, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      action_type, allow_approver_designation, step_name, status, round, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
     [
       id, submissionId, templateStepId || null, sortOrder || 1,
       approverType || 'identity', approverHrId || null, approverIdentityId || null,
       stepConditionsJson || null,
-      actionType || 'sign', stepName || '', round || 1, orgId
+      actionType || 'sign', allowApproverDesignation ? 1 : 0, stepName || '', round || 1, orgId
     ]
   );
 }

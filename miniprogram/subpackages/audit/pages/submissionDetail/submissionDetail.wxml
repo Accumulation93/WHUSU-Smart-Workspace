@@ -55,7 +55,7 @@
     <!-- Template step preview (person override) -->
     <view class="card" wx:if="{{createMode === 'template' && selectedTemplateId && templatePreviewSteps.length}}">
       <view class="section-title">审批步骤预览（共{{templatePreviewSteps.length}}步）</view>
-      <view class="section-desc section-desc-sm">可指定审批人</view>
+      <view class="section-desc section-desc-sm">审批人按流程设置确定</view>
       <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
         <view class="tpl-step-preview-main">
           <view class="tpl-step-preview-num">{{item.name || ('第' + (item.sortOrder || (index + 1)) + '步')}}</view>
@@ -63,9 +63,10 @@
           <view class="tpl-step-preview-action">{{item.actionLabel || '审批'}}</view>
         </view>
         <view class="tpl-step-preview-mode">
+          <block wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation}}">
           <block wx:for="{{templateStepOverrides}}" wx:for-item="ovr" wx:key="stepIndex">
             <block wx:if="{{ovr.stepIndex === item.stepIndex}}">
-              <text class="tpl-step-toggle {{ovr.mode === 'specific' ? 'tpl-step-toggle-active' : ''}} ui-motion-chip" data-step-index="{{item.stepIndex}}" bindtap="onTemplateStepModeToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ovr.mode === 'auto' ? '按角色' : '已指定'}}</text>
+              <text class="tpl-step-toggle {{ovr.mode === 'specific' ? 'tpl-step-toggle-active' : ''}} ui-motion-chip" data-step-index="{{item.stepIndex}}" bindtap="onTemplateStepModeToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ovr.mode === 'auto' ? '按条件' : '已指定'}}</text>
               <!-- Show selected persons when in specific mode -->
               <view wx:if="{{ovr.mode === 'specific' && ovr.personHrNames.length}}" class="tpl-step-override-persons">
                 <view class="tpl-step-person-tag" wx:for="{{ovr.personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
@@ -76,6 +77,8 @@
               <text wx:if="{{ovr.mode === 'specific'}}" class="audit-link-btn tpl-step-override-link ui-motion-chip" data-step-index="{{item.stepIndex}}" bindtap="openTemplateStepPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ovr.personHrIds.length ? '修改人员' : '选择人员'}}</text>
             </block>
           </block>
+          </block>
+          <view wx:else class="tpl-step-fixed-mode">按审批条件</view>
         </view>
       </view>
     </view>
@@ -268,7 +271,7 @@
           <textarea class="approval-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="填写驳回理由"></textarea>
 
         <!-- Designate next-step approvers (optional) -->
-        <view class="approval-designate-row">
+        <view class="approval-designate-row" wx:if="{{nextStepInfo && nextStepInfo.allowApproverDesignation}}">
           <view class="approval-designate-header">
             <view class="approval-designate-label">指定下一步审批人（可选）</view>
             <text class="audit-link-btn approval-designate-link ui-motion-chip" bindtap="openDesignateNextPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{designatedNextPersons.length ? '修改' : '选择'}}</text>

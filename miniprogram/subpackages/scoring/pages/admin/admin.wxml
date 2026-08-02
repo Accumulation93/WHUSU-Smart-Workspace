@@ -2160,6 +2160,7 @@
         <view class="list-item" wx:for="{{auditTemplateForm.steps}}" wx:key="index">
           <view class="list-main">
             <view class="list-name">{{item.name || ('第' + (index + 1) + '步')}} — {{item.actionType === 'pass' ? '通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+            <view class="list-desc">{{item.allowApproverDesignation ? (index === 0 ? '提交人可指定本步骤审批人' : '上一环节可指定本步骤审批人') : '按审批条件确定审批人'}}</view>
             <!-- Each condition as separate bubble chips, OR-separated -->
             <view wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="margin-top:6rpx;display:flex;flex-wrap:wrap;align-items:center;">
               <block wx:if="{{cond.conditionType === 'person'}}">
@@ -2336,6 +2337,15 @@
               <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onStepActionTypeChange">
                 <view class="picker-value">{{auditTemplateStepForm.actionType === 'pass' ? '通过' : (auditTemplateStepForm.actionType === 'sign' ? '签字' : (auditTemplateStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
               </picker>
+            </view>
+
+            <view class="field" style="padding:0 24rpx;">
+              <view class="field-label">允许指定本步骤审批人</view>
+              <view class="audit-designation-options">
+                <view class="audit-designation-option {{!auditTemplateStepForm.allowApproverDesignation ? 'audit-designation-option-active' : ''}} ui-motion-chip" data-enabled="false" catchtap="onStepApproverDesignationChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">不允许</view>
+                <view class="audit-designation-option {{auditTemplateStepForm.allowApproverDesignation ? 'audit-designation-option-active' : ''}} ui-motion-chip" data-enabled="true" catchtap="onStepApproverDesignationChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">允许</view>
+              </view>
+              <view class="field-help">第一步由提交人指定；后续步骤由上一环节审批人指定。</view>
             </view>
 
             <!-- Condition editor (inline sub-panel) -->

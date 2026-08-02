@@ -76,6 +76,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
           approverHrId: safeString(s.approver_hr_id),
           relatedRelation: safeString(s.related_relation),
           actionType: safeString(s.action_type),
+          allowApproverDesignation: s.allow_approver_designation === 1,
           conditions: (s.conditions || []).map((c) => ({
             id: safeString(c.id),
             sortOrder: c.sort_order,
@@ -208,6 +209,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           templateId,
           sortOrder: i + 1,
           actionType: safeString(step.actionType) || 'sign',
+          allowApproverDesignation: step.allowApproverDesignation === true,
           name: safeString(step.name) || ''
         });
 
@@ -763,6 +765,7 @@ router.post('/getAuditProgress', async (req, res) => {
           scopeWorkGroupId: safeString(s.scope_work_group_id),
           scopeWorkGroupName: wgMap[s.scope_work_group_id] || '',
           actionType: safeString(s.action_type),
+          allowApproverDesignation: s.allow_approver_designation === 1,
           status: safeString(s.status),
           comment: safeString(s.comment),
           rejectionReason: safeString(s.rejection_reason),

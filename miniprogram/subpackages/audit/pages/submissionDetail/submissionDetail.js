@@ -275,8 +275,10 @@ Page({
       let res = await callFunction({ name: 'previewTemplateSteps', data: { templateId: templateId } });
       if (res.status === 'success') {
         let steps = res.steps || [];
-        // Initialize overrides: auto mode for all steps
-        let overrides = steps.map(function(s) {
+        // The submitter may only designate the first step when that step allows it.
+        let overrides = steps.filter(function(s) {
+          return Number(s.stepIndex) === 1 && s.allowApproverDesignation === true;
+        }).map(function(s) {
           return {
             stepIndex: s.stepIndex,
             mode: 'auto',
@@ -313,6 +315,13 @@ Page({
   // Open person picker for a specific template step override
   async openTemplateStepPersonPicker(e) {
     let stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
+    let targetStep = (this.data.templatePreviewSteps || []).find(function(s) {
+      return Number(s.stepIndex) === stepIndex;
+    });
+    if (stepIndex !== 1 || !targetStep || targetStep.allowApproverDesignation !== true) {
+      showShortToast('该步骤按审批条件确定审批人');
+      return;
+    }
     // Load eligible approvers from server (stepIndex is 1-based in UI)
     let eligibleList = [];
     try {
@@ -1222,6 +1231,7 @@ Page({
               scopeWorkGroupId: step.scopeWorkGroupId,
               scopeWorkGroupName: step.scopeWorkGroupName,
               actionType: step.actionType,
+              allowApproverDesignation: step.allowApproverDesignation === true,
               status: step.status,
               comment: actualComment,
               rejectionReason: step.status === 'rejected' ? (eventInfo.comment || step.rejectionReason || '') : step.rejectionReason,
@@ -1356,7 +1366,8 @@ Page({
             if (!nextStepInfo && activeApprovalStep && flowTimeline[fi].sortOrder === (activeApprovalStep.sortOrder + 1)) {
               nextStepInfo = {
                 sortOrder: flowTimeline[fi].sortOrder,
-                approverDesc: flowTimeline[fi].approverDesc
+                approverDesc: flowTimeline[fi].approverDesc,
+                allowApproverDesignation: flowTimeline[fi].allowApproverDesignation === true
               };
             }
           }
@@ -1389,6 +1400,22 @@ Page({
               computedActiveStepId = rawStep.id;
               break;
             }
+          }
+        }
+
+        if (activeApprovalStep && !nextStepInfo) {
+          let latestRound = rawSteps.reduce(function(max, item) {
+            return Math.max(max, item.round || 1);
+          }, 1);
+          let nextRawStep = rawSteps.find(function(item) {
+            return (item.round || 1) === latestRound && item.sortOrder === activeApprovalStep.sortOrder + 1;
+          });
+          if (nextRawStep) {
+            nextStepInfo = {
+              sortOrder: nextRawStep.sortOrder,
+              approverDesc: nextRawStep.approverDesc || '按审批条件确定审批人',
+              allowApproverDesignation: nextRawStep.allowApproverDesignation === true
+            };
           }
         }
 
@@ -1845,6 +1872,10 @@ Page({
   // ── Next-step person designation ──
 
   async openDesignateNextPersonPicker() {
+    if (!this.data.nextStepInfo || this.data.nextStepInfo.allowApproverDesignation !== true) {
+      showShortToast('下一步按审批条件确定审批人');
+      return;
+    }
     // Load eligible approvers from server
     let eligibleList = [];
     try {

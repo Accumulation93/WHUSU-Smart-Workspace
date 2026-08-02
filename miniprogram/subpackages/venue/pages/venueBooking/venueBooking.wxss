@@ -40,8 +40,7 @@
 /* Final local motion: venue containers do not move when inner buttons are tapped. */
 .venue-card:active,
 .card:active,
-.section:active,
-.popup-card:active {
+.section:active {
   transform: none !important;
   filter: none !important;
 }
@@ -1207,7 +1206,6 @@ page {
 /* Final local motion override loaded after legacy :active rules. */
 .card:active,
 .section:active,
-.popup-card:active,
 .venue-card:active {
   transform: none !important;
   filter: none !important;

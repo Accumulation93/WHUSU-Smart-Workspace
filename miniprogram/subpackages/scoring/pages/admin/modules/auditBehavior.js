@@ -30,6 +30,7 @@ module.exports = Behavior({
       name: '',
       conditions: [],          // [{ conditionType, personHrIds, personHrNames, departmentScope, ... }]
       actionType: 'sign',
+      allowApproverDesignation: false,
       editingIndex: -1
     },
     auditTemplateStepEditorVisible: false,
@@ -246,8 +247,10 @@ module.exports = Behavior({
           steps: []
         },
         auditTemplateStepForm: {
+          name: '',
           conditions: [],
           actionType: 'sign',
+          allowApproverDesignation: false,
           editingIndex: -1
         },
         auditTemplateStepEditorVisible: false,
@@ -276,8 +279,10 @@ module.exports = Behavior({
           resubmitMode: template.resubmitMode || 'fresh',
           steps: (template.steps || []).map(function(s) {
             return {
+              name: s.name || '',
               conditions: (s.conditions || []).map(function(c) { return that._auditResolveCondition(c); }),
-              actionType: s.actionType || 'sign'
+              actionType: s.actionType || 'sign',
+              allowApproverDesignation: s.allowApproverDesignation === true
             };
           })
         },
@@ -309,6 +314,7 @@ module.exports = Behavior({
             name: step.name || '',
             conditions: (step.conditions || []).map(function(c) { return Object.assign({}, c); }),
             actionType: step.actionType || 'sign',
+            allowApproverDesignation: step.allowApproverDesignation === true,
             editingIndex: index
           },
           auditTemplateStepEditorVisible: true
@@ -319,6 +325,7 @@ module.exports = Behavior({
             name: '',
             conditions: [],
             actionType: 'sign',
+            allowApproverDesignation: false,
             editingIndex: -1
           },
           auditTemplateStepEditorVisible: true
@@ -332,6 +339,13 @@ module.exports = Behavior({
 
     onStepActionTypeChange(e) {
       this.setData({ 'auditTemplateStepForm.actionType': ['pass', 'sign', 'estamp', 'both'][e.detail.value] || 'sign' });
+    },
+
+    onStepApproverDesignationChange(e) {
+      this.setData({
+        'auditTemplateStepForm.allowApproverDesignation': e.currentTarget.dataset.enabled === true
+          || e.currentTarget.dataset.enabled === 'true'
+      });
     },
 
     confirmAuditTemplateStep() {
@@ -350,7 +364,8 @@ module.exports = Behavior({
       const newStep = {
         name: stepName,
         conditions: step.conditions.map(function(c) { return Object.assign({}, c); }),
-        actionType: step.actionType || 'sign'
+        actionType: step.actionType || 'sign',
+        allowApproverDesignation: step.allowApproverDesignation === true
       };
 
       if (step.editingIndex >= 0) {
@@ -1111,7 +1126,8 @@ module.exports = Behavior({
               }
               return cond;
             }),
-            actionType: s.actionType || 'sign'
+            actionType: s.actionType || 'sign',
+            allowApproverDesignation: s.allowApproverDesignation === true
           };
         });
 

@@ -1184,8 +1184,6 @@ button:active,
 .list-card:active,
 .booking-panel:active,
 .filter-section:active,
-.popup-card:active,
-.modal-card:active,
 .sheet-panel:active {
   transform: none;
   opacity: 1;
@@ -2291,6 +2289,18 @@ page .role-pill {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+ * A dialog is centred with transform, so a generic container :active rule
+ * must never replace that transform while the user taps inside the dialog.
+ * Keep every focus/press state on the exact same viewport anchor.
+ */
+page .ui-overlay .ui-dialog-shell:active,
+page .ui-overlay .ui-dialog-shell:focus,
+page .ui-overlay .ui-dialog-shell:focus-within {
+  transform: translate(-50%, -50%) !important;
+  transition-property: opacity, box-shadow, border-color, background-color !important;
+}
+
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
   max-width: 640rpx !important;
 }
@@ -2301,5 +2311,11 @@ page .role-pill {
   bottom: calc(env(safe-area-inset-bottom) + 16rpx) !important;
   height: auto !important;
   max-height: none !important;
+  transform: translateX(-50%) !important;
+}
+
+page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:active,
+page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus,
+page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   transform: translateX(-50%) !important;
 }
