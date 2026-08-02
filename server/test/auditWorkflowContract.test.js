@@ -8,11 +8,13 @@ const routePath = path.resolve(__dirname, '../src/modules/audit/routes/auditUser
 const adminRoutePath = path.resolve(__dirname, '../src/modules/audit/routes/auditAdmin.js');
 const behaviorPath = path.resolve(__dirname, '../../miniprogram/subpackages/scoring/pages/admin/modules/auditBehavior.js');
 const adminWxmlPath = path.resolve(__dirname, '../../miniprogram/subpackages/scoring/pages/admin/admin.wxml');
+const appWxssPath = path.resolve(__dirname, '../../miniprogram/app.wxss');
 
 const routeSource = fs.readFileSync(routePath, 'utf8');
 const adminRouteSource = fs.readFileSync(adminRoutePath, 'utf8');
 const behaviorSource = fs.readFileSync(behaviorPath, 'utf8');
 const adminWxmlSource = fs.readFileSync(adminWxmlPath, 'utf8');
+const appWxssSource = fs.readFileSync(appWxssPath, 'utf8');
 
 const startRoute = routeSource.slice(
   routeSource.indexOf("router.post('/startAuditSubmission'"),
@@ -52,5 +54,23 @@ assert(adminRouteSource.includes("const orgId = await getCurrentOrgId();")
 assert(adminWxmlSource.includes('auditTemplateStepEditorVisible')
   && adminWxmlSource.includes('catchtouchmove="noop"'),
   '审批步骤弹窗必须锁住背景触摸，内部 scroll-view 才能独立滚动');
+
+for (const visibleState of [
+  'auditTemplateStepEditorVisible',
+  'auditStarterConditionEditorVisible',
+  'auditSubmissionDetailVisible',
+  'auditMultiPickerVisible',
+  'auditPersonnelPickerVisible',
+  'auditIdentityPickerVisible'
+]) {
+  const portalPattern = new RegExp(`<root-portal\\s+wx:if="\\{\\{${visibleState}\\}\\}">[\\s\\S]*?<view\\s+class="popup-mask ui-overlay"\\s+wx:if="\\{\\{${visibleState}\\}\\}"`);
+  assert(portalPattern.test(adminWxmlSource),
+    `${visibleState} 必须由 root-portal 提升到页面根层，不能跟随背景页面滚动`);
+}
+
+assert(/\.ui-overlay\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*0\s*!important;[\s\S]*?left:\s*0\s*!important;/m.test(appWxssSource),
+  '弹窗遮罩必须固定覆盖整个可视区域');
+assert(/\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50vh\s*!important;[\s\S]*?left:\s*50vw\s*!important;/m.test(appWxssSource),
+  '弹窗外壳必须固定在可视区域中心');
 
 console.log('审批流程：建流程、首步指定、发起和弹窗交互契约测试通过');

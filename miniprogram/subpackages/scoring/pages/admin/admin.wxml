@@ -2253,6 +2253,7 @@
       </view>
 
       <!-- Step editor popup (condition-based) -->
+      <root-portal wx:if="{{auditTemplateStepEditorVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{auditTemplateStepEditorVisible}}" bindtap="closeAuditTemplateStepEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop" style="max-height:90vh;">
@@ -2390,8 +2391,10 @@
           </view>
         </view>
       </view>
+      </root-portal>
 
       <!-- Starter condition editor popup -->
+      <root-portal wx:if="{{auditStarterConditionEditorVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{auditStarterConditionEditorVisible}}" bindtap="closeStarterConditionEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -2452,6 +2455,7 @@
           </view>
         </view>
       </view>
+      </root-portal>
     </view>
 
     <!-- ══════════════ Audit: Stamps ══════════════ -->
@@ -2528,6 +2532,7 @@
       </view>
 
       <!-- Progress detail popup -->
+      <root-portal wx:if="{{auditSubmissionDetailVisible}}">
       <view class="popup-mask ui-overlay" wx:if="{{auditSubmissionDetailVisible}}" bindtap="closeAuditSubmissionDetail">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop" style="max-height: 85vh;">
@@ -2601,6 +2606,7 @@
           </scroll-view>
         </view>
       </view>
+      </root-portal>
     </view>
 
     <!-- ══════════════ Audit: Verification ══════════════ -->
@@ -2671,6 +2677,7 @@
   </view>
 
   <!-- ══════════════ Unified Multi-Select Picker (step conditions) ══════════════ -->
+  <root-portal wx:if="{{auditMultiPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{auditMultiPickerVisible}}" bindtap="closeAuditMultiPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -2721,8 +2728,10 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ══════════════ Audit Personnel Picker (page level) ══════════════ -->
+  <root-portal wx:if="{{auditPersonnelPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{auditPersonnelPickerVisible}}" bindtap="closeAuditPersonnelPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -2749,8 +2758,10 @@
       <view class="button-row ui-dialog-footer"><button class="secondary-btn ui-motion-button" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button><button class="primary-btn ui-motion-button" catchtap="confirmAuditPersonnelPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定选择</button></view>
     </view>
   </view>
+  </root-portal>
 
   <!-- ══════════════ Audit Identity Picker (page level) ══════════════ -->
+  <root-portal wx:if="{{auditIdentityPickerVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{auditIdentityPickerVisible}}" bindtap="closeAuditIdentityPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -2775,6 +2786,7 @@
       </view>
     </view>
   </view>
+  </root-portal>
 
   <!-- Designation Picker Popup (page level, outside tab sections) -->
   <view class="popup-mask ui-overlay" wx:if="{{showDesignationPicker}}" bindtap="closeDesignationPicker">
