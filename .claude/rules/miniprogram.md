@@ -81,7 +81,7 @@ module.exports = { hour: hour };
 
 ### 3.3 `position: fixed` 在 scroll-view 中的行为
 
-`position: fixed` 元素若放在 `scroll-view` 内部，iOS 上可能不跟随视口。**所有浮层必须放在 scroll-view 外部。**
+`position: fixed` 元素若放在 `scroll-view` 内部，iOS 上可能不跟随视口。**所有弹窗必须使用 `root-portal` 提升到页面根层，不能留在页面或组件的滚动、transform、flex 布局链中。**
 
 ```xml
 <scroll-view>...</scroll-view>
@@ -90,7 +90,9 @@ module.exports = { hour: hour };
 
 ### 3.4 `popup-mask` + flexbox 居中 → 子元素位置异常
 
-`popup-mask` 用 `display: flex; align-items: center; justify-content: center` 居中弹窗。若把 `position: fixed; bottom: 0` 元素放在其内部，flex 布局会把它也居中。**固定在底部的元素不要放在 popup-mask 内。**
+弹窗使用 `.ui-overlay`、`.ui-overlay-blocker`、`.ui-dialog-shell` 三层契约：遮罩和阻断层固定覆盖 `100vw × 100vh`，窗口固定在 `50vw / 50vh` 并平移居中。阻断层和窗口必须是同级元素，阻断层在前、窗口在后。**`catchtouchmove="noop"` 只能放在独立阻断层，不能放在普通遮罩、窗口外壳、正文或滚动区祖先上。**
+
+复杂窗口必须给外壳明确的可用视口高度，标题和底部操作区固定，直接子级 `scroll-view.ui-dialog-body` 占据剩余空间。纵向滚动区统一启用 `enhanced`、`scroll-y` 与 `nested-scroll-enabled`；内层列表使用 `ui-dialog-scroll--pane`，手势落在内层时优先滚动内层。签名板、拖拽手柄等专用触摸区才允许使用 `ui-dialog-touch-lock`。
 
 ### 3.5 setData 批处理 — 必须一次调用
 
@@ -106,7 +108,7 @@ this.setData({ _kbField: 'min', _kbGray: gray, _kbSelected: true });
 
 ### 3.6 `scroll-view` 的 `scroll-y` 不能动态关闭
 
-`scroll-y="{{false}}"` 会使 scroll-view 忽略 `scroll-top` 程序化更新。用 `catchtouchmove` 阻止事件冒泡代替。
+`scroll-y="{{false}}"` 会使 scroll-view 忽略 `scroll-top` 程序化更新。弹窗背景锁定由正文之外的同级 `ui-overlay-blocker` 负责，不得在 `scroll-view` 自身或其祖先用 `catchtouchmove` 代替，否则会同时锁死窗口正文。
 
 ### 3.7 `clientY` vs `pageY`
 

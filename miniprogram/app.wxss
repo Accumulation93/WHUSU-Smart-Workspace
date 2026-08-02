@@ -2271,6 +2271,8 @@ page .role-pill {
   height: 100vh !important;
   margin: 0 !important;
   z-index: 0 !important;
+  pointer-events: auto !important;
+  touch-action: none !important;
 }
 
 .ui-overlay .ui-dialog-shell {
@@ -2285,8 +2287,33 @@ page .role-pill {
   margin: 0 !important;
   transform: translate(-50%, -50%) !important;
   box-sizing: border-box !important;
-  touch-action: manipulation !important;
+  z-index: 1 !important;
+  pointer-events: auto !important;
+  touch-action: auto !important;
   -webkit-text-size-adjust: 100%;
+}
+
+/*
+ * Complex dialogs own a real viewport. A vertical scroll-view cannot reliably
+ * calculate its scroll range when every ancestor is only constrained by
+ * max-height, so reserve the available viewport for long forms and let the
+ * body consume the remaining space between the fixed header and footer.
+ */
+.ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
+  height: calc(100vh - 32rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+}
+
+.ui-overlay scroll-view.ui-dialog-scroll--fill,
+.ui-overlay scroll-view.ui-dialog-scroll--pane {
+  touch-action: pan-y !important;
+}
+
+.ui-overlay scroll-view.ui-dialog-scroll--x {
+  touch-action: pan-x !important;
+}
+
+.ui-overlay scroll-view.ui-dialog-scroll--both {
+  touch-action: pan-x pan-y !important;
 }
 
 /*

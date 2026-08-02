@@ -11,7 +11,7 @@ const VOID_TAGS = new Set(['input', 'textarea', 'image', 'icon', 'progress', 'sl
 const SHELL_NAMES = ['card', 'section', 'edit-box', 'list-card', 'popup-card', 'modal-card', 'sheet-panel'];
 const NON_VISUAL_TARGET = /(mask|canvas|ghost|drag|handle|hit-area|physical-keyboard-capture)/;
 const BANNED_COLORS = /#(?:1d4ed8|1e40af|172554)\b/gi;
-const LEGACY_OVERLAYS = new Set(['popup-mask', 'modal-mask', 'dialog-layer', 'sheet-layer']);
+const LEGACY_OVERLAYS = new Set(['popup-mask', 'modal-mask', 'dialog-layer', 'sheet-layer', 'ui-sheet-overlay']);
 const LEGACY_DIALOG_SHELLS = new Set(['popup-card', 'modal-card', 'dialog-panel', 'sheet-panel']);
 const LEGACY_COMPLEX_GRIDS = new Set(['task-table', 'result-table', 'popup-table']);
 const STANDARD_BUTTON_ROLE = /\b(?:primary-btn|secondary-btn|danger-btn)\b/;
@@ -402,6 +402,7 @@ function scanLayoutContracts(file) {
   const source = fs.readFileSync(file, 'utf8');
   const stack = [];
   const dialogs = [];
+  const overlays = [];
   const dialogIssues = [];
   const dataLayoutIssues = [];
   const scrollContractIssues = [];
@@ -414,6 +415,18 @@ function scanLayoutContracts(file) {
       for (let index = stack.length - 1; index >= 0; index -= 1) {
         if (stack[index].tag !== close[1]) continue;
         const item = stack[index];
+        if (item.overlay) {
+          const overlay = item.overlay;
+          if (!overlay.hasBlocker) overlay.issues.push('弹窗遮罩缺少独立的全屏触摸阻断层');
+          if (!overlay.hasShell) overlay.issues.push('弹窗遮罩缺少位于阻断层上方的窗口外壳');
+          if (overlay.blockerIndex != null && overlay.shellIndex != null && overlay.blockerIndex > overlay.shellIndex) {
+            overlay.issues.push('触摸阻断层必须位于窗口外壳之前，且与窗口外壳保持同级');
+          }
+          for (const message of overlay.issues) {
+            scrollContractIssues.push({ file: relative(file), line: overlay.line, message });
+          }
+          overlays.push(overlay);
+        }
         if (item.dialog) {
           const dialog = item.dialog;
           const modifiers = ['ui-dialog-shell--compact', 'ui-dialog-shell--complex', 'ui-dialog-shell--wide']
@@ -446,13 +459,47 @@ function scanLayoutContracts(file) {
     const classes = new Set(classList(raw));
     const line = lineAt(source, token.index);
     const dialogAncestor = [...stack].reverse().find(item => item.dialog);
+    const overlayAncestor = [...stack].reverse().find(item => item.overlay);
     const scrollAncestor = [...stack].reverse().find(item => item.tag === 'scroll-view');
 
-    if ([...classes].some(name => LEGACY_OVERLAYS.has(name)) && !classes.has('ui-overlay')) {
+    if ([...classes].some(name => LEGACY_OVERLAYS.has(name)) &&
+      !classes.has('ui-overlay') && !classes.has('ui-sheet-overlay')) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗遮罩缺少 ui-overlay', className: [...classes].join(' ') });
     }
-    if (classes.has('ui-overlay') && !stack.some(item => item.tag === 'root-portal')) {
+    if ((classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) && !stack.some(item => item.tag === 'root-portal')) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗必须由 root-portal 提升到页面根层，不能跟随页面滚动', className: [...classes].join(' ') });
+    }
+
+    let overlay = null;
+    if (classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) {
+      overlay = {
+        line,
+        classes,
+        hasBlocker: false,
+        hasShell: false,
+        blockerIndex: null,
+        shellIndex: null,
+        issues: []
+      };
+    } else if (overlayAncestor) {
+      const currentOverlay = overlayAncestor.overlay;
+      if (classes.has('ui-overlay-blocker')) {
+        currentOverlay.hasBlocker = true;
+        currentOverlay.blockerIndex = token.index;
+        if (stack[stack.length - 1]?.overlay !== currentOverlay) {
+          currentOverlay.issues.push(`第 ${line} 行的全屏阻断层必须是遮罩的直接子级`);
+        }
+        if (tag !== 'view' || !/\bcatchtouchmove\s*=\s*(["'])noop\1/.test(raw)) {
+          currentOverlay.issues.push(`第 ${line} 行的全屏阻断层必须使用 view + catchtouchmove=\"noop\"`);
+        }
+      }
+      if (classes.has('ui-dialog-shell')) {
+        currentOverlay.hasShell = true;
+        currentOverlay.shellIndex = token.index;
+        if (stack[stack.length - 1]?.overlay !== currentOverlay) {
+          currentOverlay.issues.push(`第 ${line} 行的窗口外壳必须与全屏阻断层同级`);
+        }
+      }
     }
 
     let dialog = null;
@@ -492,6 +539,8 @@ function scanLayoutContracts(file) {
         .filter(name => classes.has(name));
       const hasScrollX = /\sscroll-x(?:\s*=|\s|\/?\>)/.test(raw);
       const hasScrollY = /\sscroll-y(?:\s*=|\s|\/?\>)/.test(raw);
+      const hasEnhanced = /\benhanced\s*=\s*(["'])\{\{true\}\}\1/.test(raw);
+      const hasNestedScroll = /\bnested-scroll-enabled\s*=\s*(["'])\{\{true\}\}\1/.test(raw);
       if (modifiers.length !== 1) {
         scrollContractIssues.push({ file: relative(file), line, message: '弹窗 scroll-view 必须且只能声明一种滚动视口类型' });
       } else if (modifiers[0] === 'ui-dialog-scroll--x' && (!hasScrollX || hasScrollY)) {
@@ -501,13 +550,20 @@ function scanLayoutContracts(file) {
       } else if (['ui-dialog-scroll--fill', 'ui-dialog-scroll--pane'].includes(modifiers[0]) && !hasScrollY) {
         scrollContractIssues.push({ file: relative(file), line, message: '纵向滚动视口必须启用 scroll-y' });
       }
+      if (hasScrollY && (!hasEnhanced || !hasNestedScroll)) {
+        scrollContractIssues.push({
+          file: relative(file),
+          line,
+          message: '弹窗纵向滚动区必须启用 enhanced 与 nested-scroll-enabled，保证内层列表优先滚动'
+        });
+      }
     }
 
     const selfClosing = raw.endsWith('/>') || VOID_TAGS.has(tag);
-    if (!selfClosing) stack.push({ tag, dialog });
+    if (!selfClosing) stack.push({ tag, dialog, overlay });
   }
 
-  return { dialogs, dialogIssues, dataLayoutIssues, scrollContractIssues };
+  return { dialogs, overlays, dialogIssues, dataLayoutIssues, scrollContractIssues };
 }
 
 function scanWxss(file) {
@@ -636,7 +692,7 @@ function scanWxss(file) {
     }
     if (/(popup|modal|dialog|sheet)/i.test(selector) &&
       /(?:^|;)\s*height\s*:\s*(?:\d+(?:\.\d+)?vh|calc\(\s*100vh\b)/i.test(declarations) &&
-      !/(timetable|placement|signature|canvas|keyboard|ui-dialog-shell--wide|ui-dialog-scroll--both)/i.test(selector)) {
+      !/(timetable|placement|signature|canvas|keyboard|ui-dialog-shell--wide|ui-dialog-shell--complex|ui-dialog-scroll--both|sheet-mask|^\s*\.sheet\s*$)/i.test(selector)) {
       forcedDialogViewport.push({
         file: relative(file),
         line: lineAt(source, ruleMatch.index),
@@ -789,7 +845,7 @@ const oversizedContentPadding = styles.flatMap(item => item.oversizedContentPadd
 const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell--complex\s*\{[^}]*height:\s*auto;/m.test(GLOBAL_STYLE)
+  /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*\{[^}]*height:\s*calc\(100vh[^}]*!important;/m.test(GLOBAL_STYLE)
 );
 const missingDialogCenteringSystem = !(
   /\.ui-overlay\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/m.test(GLOBAL_STYLE) &&
@@ -799,13 +855,15 @@ const missingDialogCenteringSystem = !(
 const missingDialogGestureSystem = !(
   /page\s*\{[\s\S]*?touch-action:\s*manipulation;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s*\{[\s\S]*?touch-action:\s*manipulation\s*!important;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?touch-action:\s*manipulation\s*!important;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE)
+  /\.ui-overlay\s+\.ui-overlay-blocker\s*\{[^}]*touch-action:\s*none\s*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?touch-action:\s*auto\s*!important;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE)
 );
 const missingDialogScrollSystem = !(
   /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-height:\s*56vh;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--pane\s*\{[^}]*min-height:\s*120rpx;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--x\s*\{[^}]*height:\s*auto;/m.test(GLOBAL_STYLE) &&
   /scroll-view\.ui-dialog-scroll--both\s*\{[^}]*height:\s*64vh;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+scroll-view\.ui-dialog-scroll--fill,[\s\S]*?touch-action:\s*pan-y\s*!important;/m.test(GLOBAL_STYLE) &&
   !/scroll-view\.ui-dialog-scroll--(?:fill|both)\s*\{[^}]*(?:^|;)\s*height:\s*0\s*;/m.test(GLOBAL_STYLE)
 );
 const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxss'), 'utf8');

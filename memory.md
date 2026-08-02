@@ -277,26 +277,27 @@ callFunction({ name, data, success, fail })
 - 跨组织通知使用 `(created_at, id)` 键集游标，各组织先按相同边界查询后全局合并排序；禁止恢复为随页码增长的全量 offset 查询。
 - 门户和消息中心的轮询请求必须防止同一页面重复并发；组织或身份切换后作废旧请求，再补发一次当前上下文请求。
 
-### Bug 18: 居中弹窗固定占满视口导致底部大段留白
+### Bug 18: 弹窗高度、滚动范围与背景触摸职责混淆
 
 **原因**: 普通详情、确认框和短表单与时间表等专业视口共用了固定 `vh` 高度；外层遮罩已经处理安全区，内部操作栏又重复叠加 `env(safe-area-inset-bottom)`，部分页面还同时添加壳体 padding、页脚 padding 和 footer margin，导致按钮下方及内容末尾出现大段空白。
 
 **永久规则**:
-- 普通居中弹窗和纵向 `scroll-view` 必须 `height: auto`，只用 `max-height` 限制溢出；固定视口仅限时间表、签名定位、双向数据网格等确有需要的专业界面。
+- 短确认框保持内容自适应；复杂长表单和宽窗口必须让外壳占据明确的可用视口高度，使标题、正文和底部操作区组成可计算的 flex 布局。正文由直接子级 `scroll-view` 独立滚动，禁止让只有 `max-height` 的外壳裁切一个实际没有滚动范围的 `scroll-view`。
 - 居中弹窗的安全区只由 overlay 负责，footer 禁止再次添加底部安全区；底部 sheet 和固定键盘只允许在最外层底边处理一次。
 - 同一处垂直间距只能由一层负责，禁止壳体底部 padding、footer padding 与 footer margin 三重叠加。
 - 可能换行的标题、详情值、组织名、说明和按钮文案必须显式设置舒展行高：标题约 `1.4–1.5`，正文约 `1.55–1.7`。
 - 每次修改包裹型控件都要人工检查短内容、长内容、两行文字及手机/Pad 竖横屏；`scripts/ui-audit.js --strict` 必须保持 `forcedDialogViewport=0`，但脚本不得代替实际渲染检查。
 
-### Bug 19: Pad 弹窗宽度封顶后横向偏移
+### Bug 19: 弹窗跟随页面滚动、Pad 横向偏移与背景穿透
 
 **原因**: 门户和首页的居中弹窗同时使用了父层 flex 居中，以及子层 `position: absolute + left/right + top: 50% + translateY(-50%)`。手机上左右锚点恰好填满可用宽度，不易察觉；Pad 规则把弹窗 `max-width` 封顶后，绝对定位的约束变为过度约束，弹窗仍从左侧锚点开始布局，右侧间距被浏览器重算，最终明显左偏。
 
 **永久规则**:
-- 居中弹窗只能有一个几何定位责任层：统一由 `.ui-overlay` 的 flex 布局负责水平和垂直居中。
-- `.ui-dialog-shell` 必须保持 `position: relative`、`align-self: center` 和左右自动外边距；普通居中弹窗壳禁止再写 `left/right`、`top: 50%` 或平移居中。
+- 所有弹窗使用 `root-portal` 脱离页面滚动链；`.ui-overlay` 和 `.ui-overlay-blocker` 固定覆盖 `100vw × 100vh`，`.ui-dialog-shell` 固定使用 `50vw / 50vh + translate(-50%, -50%)` 相对物理可视区域居中。
+- 全屏阻断层与窗口外壳必须为同级：阻断层使用 `catchtouchmove="noop"`、`z-index: 0`，窗口使用 `z-index: 1` 且不得拦截祖先触摸移动。这样只锁定背景，不会锁死正文和内层列表。
 - 底部 sheet 是常规例外，但 Pad 宽度封顶时必须使用 `left: 50% + translateX(-50%)` 明确居中，不得把手机端对称 inset 与 Pad 的 `max-width` 混用。
 - 手机、Pad 竖屏和 Pad 横屏必须实测弹窗左右视觉边距相等；`scripts/ui-audit.js --strict` 必须保持 `miscenteredDialogShell=0`。
+- 所有纵向弹窗 `scroll-view` 必须启用 `enhanced`、`scroll-y`、`nested-scroll-enabled`；内层列表优先滚动，标题、底部操作区、遮罩和背景页面均不随之移动。新增或修改弹窗时必须应用 `.agents/skills/wechat-popup-scroll-contract/SKILL.md`。
 
 ### Bug 20: 字体层级漂移与相近手机信息卡布局分叉
 

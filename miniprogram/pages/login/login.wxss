@@ -170,7 +170,10 @@ page {
 .sheet {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 120;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -179,8 +182,10 @@ page {
 }
 
 .sheet-mask {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(15,23,42,0.36);
   opacity: 0;
   transition: opacity 0.24s ease;
@@ -191,7 +196,7 @@ page {
 }
 
 .sheet-panel {
-  position: absolute;
+  position: fixed;
   left: 18rpx;
   right: 18rpx;
   bottom: calc(18rpx + env(safe-area-inset-bottom));
@@ -210,8 +215,9 @@ page {
   flex-direction: column;
   max-height: calc(100vh - 36rpx - env(safe-area-inset-bottom));
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   overscroll-behavior: contain;
+  z-index: 1;
 }
 
 .login-secondary-link {

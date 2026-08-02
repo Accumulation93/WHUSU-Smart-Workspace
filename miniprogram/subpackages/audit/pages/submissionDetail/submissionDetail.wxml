@@ -115,7 +115,7 @@
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
           <view class="detail-popup-form">
             <view class="field">
               <view class="field-label">步骤名称</view>
@@ -539,7 +539,7 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
             <view class="detail-popup-form">
               <view class="field">
                 <view class="field-label">步骤名称</view>
@@ -646,7 +646,7 @@
         <view class="popup-title">选择印章</view>
         <text class="popup-close ui-motion-chip" catchtap="closeStampPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form">
           <view wx:if="{{!availableStamps.length}}" class="stamp-empty">暂无可用的印章</view>
           <view wx:for="{{availableStamps}}" wx:key="id"
@@ -697,6 +697,10 @@
 
       <!-- Placement canvas — scrollable to show full file -->
       <scroll-view id="placementCanvas"
+            enhanced="{{true}}"
+            show-scrollbar="{{true}}"
+            bounces="{{true}}"
+            nested-scroll-enabled="{{true}}"
             scroll-y="{{true}}"
             class="placement-canvas ui-dialog-body ui-dialog-scroll--fill"
             bindtap="onPlacementTap">
@@ -777,7 +781,7 @@
         <view class="popup-title">{{approvalAction === 'approve' ? '审批通过' : '驳回'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form">
           <!-- Signature section (only for approve) -->
           <view wx:if="{{approvalAction === 'approve'}}">
@@ -824,7 +828,7 @@
         <view class="popup-title">选择签名方式</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSigSourcePicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form">
           <view class="sig-source-file-name">{{sigSourceFileName}}</view>
 
