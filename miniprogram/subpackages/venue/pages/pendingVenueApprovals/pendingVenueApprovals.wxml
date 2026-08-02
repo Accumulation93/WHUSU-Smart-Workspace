@@ -36,7 +36,7 @@
   </view>
 
   <!-- ═══ Approval / Detail Popup ═══ -->
-  <viewport-portal wx:if="{{approvalVisible}}">
+  <root-portal enable="{{approvalVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -101,7 +101,7 @@
       </view>
     </view>
   </view>
-  </viewport-portal>
+  </root-portal>
 
   <view class="page-footer">
     <view class="footer-name">WHUSU智慧工作台</view>

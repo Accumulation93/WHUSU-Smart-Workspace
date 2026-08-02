@@ -1,6 +1,7 @@
 const { callFunction, showShortToast, getErrorText } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
 const authContext = require('../../utils/authContext');
+const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 
 function selectedOrganizationName(organizations, index) {
   const item = organizations[Number(index) || 0];
@@ -58,14 +59,13 @@ Page({
       rotatedRecoveryCode: ''
     }, () => {
       const navigate = () => {
-        wx.navigateTo({
-          url: '/pages/portal/portal',
+        navigateToTrustedRoute('/pages/portal/portal', {
           success: () => {
             this._portalNavigating = false;
           },
           fail: () => {
             this._portalNavigating = false;
-            showShortToast('请重新登录');
+            showShortToast('页面未打开，请重试');
           }
         });
       };
@@ -122,6 +122,10 @@ Page({
     } finally {
       this.setData({ loading: false });
     }
+  },
+
+  onShow() {
+    this._portalNavigating = false;
   },
 
   onVerificationCode(e) {

@@ -1,4 +1,5 @@
 const eventBus = require('../../utils/eventBus');
+const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 
 function getIdentityName(profile, role) {
   if (!profile) return '';
@@ -93,7 +94,7 @@ Component({
         wx.pageScrollTo({ scrollTop: 0, duration: 220 });
         return;
       }
-      wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+      navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
     }
   }
 });

@@ -1,6 +1,8 @@
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+
 Page({
   data: {
     items: [],
@@ -44,7 +46,7 @@ Page({
 
   viewDetail(e) {
     const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: `/subpackages/audit/pages/submissionDetail/submissionDetail?id=${id}` });
+    navigateToTrustedRoute(`/subpackages/audit/pages/submissionDetail/submissionDetail?id=${id}`);
   },
 
 });

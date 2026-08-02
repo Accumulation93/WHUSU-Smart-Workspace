@@ -3,6 +3,7 @@
 const utils = require('./adminUtils');
 const { RULE_SCOPE_OPTIONS, emptyRuleForm, emptyRuleFilters, buildRuleListItem, buildRuleFilterOptions, markSelectedRules, filterRuleList, normalizeRuleFilters, createSelectedRuleIdMap, getScopeLabel, buildRuleClausesForBatchApply, buildRuleClausesForSave, normalizeClauseForEdit, moveItem, refreshTemplateConfigSortOrder } = utils;
 const orgSession = require('../../../../../utils/orgSession');
+const { navigateToTrustedRoute } = require('../../../../../utils/trustedNavigation');
 
 module.exports = Behavior({
   methods: {
@@ -167,9 +168,7 @@ module.exports = Behavior({
         });
         return;
       }
-      wx.navigateTo({
-        url: `/subpackages/scoring/pages/scorerTasks/scorerTasks?activityId=${encodeURIComponent(this.data.currentActivityId)}&activityName=${encodeURIComponent(this.data.currentActivityName || '')}`
-      });
+      navigateToTrustedRoute(`/subpackages/scoring/pages/scorerTasks/scorerTasks?activityId=${encodeURIComponent(this.data.currentActivityId)}&activityName=${encodeURIComponent(this.data.currentActivityName || '')}`);
     },
 
     onClauseRequireAllCompleteChange(e) {

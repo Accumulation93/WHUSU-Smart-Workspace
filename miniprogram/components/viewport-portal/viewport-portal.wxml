@@ -1,3 +1,0 @@
-<root-portal enable="{{true}}">
-  <slot></slot>
-</root-portal>

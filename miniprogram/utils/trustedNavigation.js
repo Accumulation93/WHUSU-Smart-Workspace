@@ -36,19 +36,57 @@ function isTrustedRoute(rawUrl) {
   return TRUSTED_ROUTES.has(pathname) && (!query || /^[A-Za-z0-9_.~%=&+-]+$/.test(query));
 }
 
-function navigateToTrustedRoute(rawUrl) {
+function routePath(url) {
+  return String(url || '').split('?')[0].replace(/^\//, '');
+}
+
+function isCurrentRoute(url) {
+  if (typeof getCurrentPages !== 'function') return false;
+  const pages = getCurrentPages();
+  const current = pages && pages[pages.length - 1];
+  return !!current && current.route === routePath(url);
+}
+
+function navigateToTrustedRouteFallback(url, callbacks, finishFailure) {
+  if (!isTrustedRoute(url) || typeof wx.redirectTo !== 'function') {
+    finishFailure({ errMsg: 'redirectTo:fail untrusted route' });
+    return;
+  }
+  wx.redirectTo({
+    url: url,
+    success: function(result) {
+      if (typeof callbacks.success === 'function') callbacks.success(result);
+    },
+    fail: finishFailure
+  });
+}
+
+function navigateToTrustedRoute(rawUrl, handlers) {
   const url = String(rawUrl || '').trim();
+  const callbacks = handlers || {};
   if (!isTrustedRoute(url)) {
     wx.showToast({ title: '请从应用服务重新进入', icon: 'none' });
     return false;
   }
+  const finishFailure = function(error) {
+    if (typeof callbacks.fail === 'function') callbacks.fail(error);
+    else wx.showToast({ title: '页面未打开，请重试', icon: 'none' });
+  };
   wx.navigateTo({
     url: url,
-    fail: function() {
-      wx.showToast({ title: '请从应用服务重新进入', icon: 'none' });
+    success: function(result) {
+      if (typeof callbacks.success === 'function') callbacks.success(result);
+    },
+    fail: function(error) {
+      const timedOut = /timeout/i.test(String(error && error.errMsg || ''));
+      if (!timedOut || !isCurrentRoute(url)) {
+        finishFailure(error);
+        return;
+      }
+      navigateToTrustedRouteFallback(url, callbacks, finishFailure);
     }
   });
   return true;
 }
 
-module.exports = { isTrustedRoute, navigateToTrustedRoute };
+module.exports = { isTrustedRoute, navigateToTrustedRoute, isCurrentRoute };

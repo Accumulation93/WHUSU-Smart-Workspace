@@ -2,6 +2,8 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+
 Page({
   data: {
     bookings: [],
@@ -75,6 +77,6 @@ Page({
   },
 
   goVenueBooking() {
-    wx.navigateTo({ url: '/subpackages/venue/pages/venueBooking/venueBooking' });
+    navigateToTrustedRoute('/subpackages/venue/pages/venueBooking/venueBooking');
   }
 });

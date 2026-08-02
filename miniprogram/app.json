@@ -57,8 +57,7 @@
     "navigationBarBackgroundColor": "#ffffff"
   },
   "usingComponents": {
-    "workspace-hero": "/components/workspace-hero/workspace-hero",
-    "viewport-portal": "/components/viewport-portal/viewport-portal"
+    "workspace-hero": "/components/workspace-hero/workspace-hero"
   },
   "style": "v2",
   "componentFramework": "glass-easel",

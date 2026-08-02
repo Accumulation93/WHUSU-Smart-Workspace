@@ -3,6 +3,7 @@ const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 const utils = require('./modules/adminUtils');
 const { STORAGE_KEY, TAB_LIST, TIMEZONE_OPTIONS, RULE_SCOPE_OPTIONS, VIEW_SCOPE_OPTIONS, VIEW_SCOPE_LABEL_MAP, RULE_SCOPE_LABEL_MAP, PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyActivityForm, emptyTemplateForm, emptyRuleForm, emptyHrForm, emptyDepartmentForm, emptyWorkGroupForm, emptyIdentityForm, emptyAdminForm, emptyHrProfileTemplateForm, emptyRuleFilters, emptyHrProfileFilters, emptyHrProfileFilterOptions, emptyResultFilters, buildRuleListItem, buildRuleFilterOptions, filterRuleList, getScopeLabel, normalizeRuleFilters, createSelectedRuleIdMap, markSelectedRules, getProgressColor, buildProgressFillStyle, toNumber, clampNumber, formatScoreFixed3, applyHrProfileFilters } = utils;
 
@@ -537,7 +538,7 @@ Page({
       this.setData({ contextSwitchGuardVisible: true });
       return;
     }
-    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
   closeContextSwitchGuard() {

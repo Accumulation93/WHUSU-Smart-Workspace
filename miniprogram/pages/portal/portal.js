@@ -252,11 +252,11 @@ Page({
   },
 
   onOrgTap() {
-    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
   onIdentityTap() {
-    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
   _onOrgChanged() {
@@ -396,7 +396,7 @@ Page({
 
   openMessageCenter(e) {
     const tab = e.currentTarget.dataset.tab === 'notifications' ? 'notifications' : 'todos';
-    wx.navigateTo({ url: '/pages/messageCenter/messageCenter?tab=' + tab });
+    navigateToTrustedRoute('/pages/messageCenter/messageCenter?tab=' + tab);
   },
 
   pendingReadStorageKey(organizationId) {
@@ -721,11 +721,11 @@ Page({
   },
 
   goLogin() {
-    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
   openAccountSecurity() {
-    wx.navigateTo({ url: '/subpackages/org/pages/accountSecurity/accountSecurity' });
+    navigateToTrustedRoute('/subpackages/org/pages/accountSecurity/accountSecurity');
   },
 
   noop() {},

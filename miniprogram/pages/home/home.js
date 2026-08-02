@@ -1,5 +1,6 @@
 const { callFunction } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
+const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
@@ -567,7 +568,7 @@ Page({
   },
 
   onOrgTap() {
-    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
   processRateTargetsResult(result) {
@@ -887,9 +888,7 @@ Page({
           return;
         }
 
-        wx.navigateTo({
-          url: `/subpackages/scoring/pages/score/score?targetId=${encodeURIComponent(id)}`
-        });
+        navigateToTrustedRoute(`/subpackages/scoring/pages/score/score?targetId=${encodeURIComponent(id)}`);
       },
       fail: () => {
         wx.showToast({
@@ -916,28 +915,20 @@ Page({
   },
 
   goAdmin() {
-    wx.navigateTo({
-      url: '/subpackages/scoring/pages/admin/admin'
-    });
+    navigateToTrustedRoute('/subpackages/scoring/pages/admin/admin');
   },
 
   // ── Audit navigation ──
   goMySubmissions() {
-    wx.navigateTo({
-      url: '/subpackages/audit/pages/mySubmissions/mySubmissions'
-    });
+    navigateToTrustedRoute('/subpackages/audit/pages/mySubmissions/mySubmissions');
   },
 
   goPendingApprovals() {
-    wx.navigateTo({
-      url: '/subpackages/audit/pages/pendingApprovals/pendingApprovals'
-    });
+    navigateToTrustedRoute('/subpackages/audit/pages/pendingApprovals/pendingApprovals');
   },
 
   goMyApprovalHistory() {
-    wx.navigateTo({
-      url: '/subpackages/audit/pages/myApprovalHistory/myApprovalHistory'
-    });
+    navigateToTrustedRoute('/subpackages/audit/pages/myApprovalHistory/myApprovalHistory');
   },
 
   async loadAuditBadgeCounts() {

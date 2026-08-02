@@ -66,10 +66,10 @@ function notifyOrgContextRequired(result) {
     confirmText: '去选择',
     complete: function() {
       orgPromptVisible = false;
-      wx.navigateTo({
-        url: '/subpackages/org/pages/identitySwitch/identitySwitch',
-        fail: function() { wx.reLaunch({ url: '/pages/portal/portal' }); }
-      });
+      require('./trustedNavigation').navigateToTrustedRoute(
+        '/subpackages/org/pages/identitySwitch/identitySwitch',
+        { fail: function() { wx.reLaunch({ url: '/pages/portal/portal' }); } }
+      );
     }
   });
 }

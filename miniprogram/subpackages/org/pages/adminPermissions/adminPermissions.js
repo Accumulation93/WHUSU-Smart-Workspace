@@ -1,6 +1,7 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 function cloneGroups(groups) {
   return (groups || []).map(function(group) {
@@ -188,7 +189,7 @@ Page({
       this.setData({ contextSwitchGuardVisible: true });
       return;
     }
-    wx.navigateTo({ url: '/subpackages/org/pages/identitySwitch/identitySwitch' });
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
   closeContextSwitchGuard() {

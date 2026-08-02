@@ -476,16 +476,16 @@ function scanLayoutContracts(file) {
     const overlayAncestor = [...stack].reverse().find(item => item.overlay);
     const scrollAncestor = [...stack].reverse().find(item => item.tag === 'scroll-view');
 
-    if (tag === 'root-portal' && !relative(file).endsWith('components/viewport-portal/viewport-portal.wxml')) {
-      dialogIssues.push({ file: relative(file), line, message: '页面不得直接声明 root-portal，必须通过按需实例化的 viewport-portal 防止旧页面覆盖新页面', className: '' });
+    if (tag === 'root-portal' && !/\benable="\{\{[^}]+\}\}"/.test(raw)) {
+      dialogIssues.push({ file: relative(file), line, message: 'root-portal 必须显式绑定 enable 状态，关闭时禁止脱离页面以免阻塞后续跳转', className: '' });
     }
 
     if ([...classes].some(name => LEGACY_OVERLAYS.has(name)) &&
       !classes.has('ui-overlay') && !classes.has('ui-sheet-overlay')) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗遮罩缺少 ui-overlay', className: [...classes].join(' ') });
     }
-    if ((classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) && !stack.some(item => item.tag === 'viewport-portal')) {
-      dialogIssues.push({ file: relative(file), line, message: '弹窗必须由 viewport-portal 按需提升到页面根层，不能跟随页面滚动或覆盖后续页面', className: [...classes].join(' ') });
+    if ((classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) && !stack.some(item => item.tag === 'root-portal')) {
+      dialogIssues.push({ file: relative(file), line, message: '弹窗必须由带 enable 状态的 root-portal 提升到页面根层，不能跟随页面滚动', className: [...classes].join(' ') });
     }
 
     let overlay = null;

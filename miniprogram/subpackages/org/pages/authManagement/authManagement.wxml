@@ -137,7 +137,7 @@
 
   <view class="card auth-card empty-state" wx:else>请使用可管理账号认证的管理员身份</view>
 
-  <viewport-portal wx:if="{{showCodeDialog}}">
+  <root-portal enable="{{showCodeDialog}}">
   <view class="dialog-layer ui-overlay" wx:if="{{showCodeDialog}}">
     <view class="dialog-mask ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="dialog-panel auth-dialog modal-card ui-dialog-shell ui-dialog-shell--compact">
@@ -159,9 +159,9 @@
       </view>
     </view>
   </view>
-  </viewport-portal>
+  </root-portal>
 
-  <viewport-portal wx:if="{{showRecoveryDialog}}">
+  <root-portal enable="{{showRecoveryDialog}}">
   <view class="dialog-layer ui-overlay" wx:if="{{showRecoveryDialog}}">
     <view class="dialog-mask ui-overlay-blocker" bindtap="closeRecoveryDialog" catchtouchmove="noop"></view>
     <view class="dialog-panel auth-dialog modal-card ui-dialog-shell ui-dialog-shell--compact">
@@ -176,5 +176,5 @@
       </view>
     </view>
   </view>
-  </viewport-portal>
+  </root-portal>
 </view>

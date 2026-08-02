@@ -57,6 +57,7 @@ jobs:
           node scripts/context-route-guard-test.js
           node scripts/portal-back-logout-test.js
           node scripts/native-navigation-test.js
+          node scripts/trusted-navigation-recovery-test.js
           node scripts/hr-profile-layout-test.js
           node scripts/api-cancellation-test.js
           node scripts/api-auth-recovery-test.js

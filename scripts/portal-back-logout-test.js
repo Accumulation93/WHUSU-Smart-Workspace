@@ -57,7 +57,7 @@ assert.match(
 );
 assert.match(
   loginSource,
-  /wx\.navigateTo\(\{[\s\S]*url: '\/pages\/portal\/portal'/,
+  /navigateToTrustedRoute\('\/pages\/portal\/portal'/,
   '登录成功必须保留登录页，使门户显示原生返回键'
 );
 assert.doesNotMatch(
@@ -70,8 +70,8 @@ assert.match(
     path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.wxml'),
     'utf8'
   ),
-  /<viewport-portal\s+wx:if="\{\{stage !== 'login'\}\}">/,
-  '登录页认证弹层关闭时必须卸载，不能覆盖已经进入的门户页面'
+  /<root-portal\s+enable="\{\{stage !== 'login'\}\}">[\s\S]*?ui-sheet-overlay"\s+wx:if="\{\{stage !== 'login'\}\}"/,
+  '登录页认证弹层关闭时必须禁用并卸载内容，不能阻塞门户页面'
 );
 assert.match(
   portalSource,
