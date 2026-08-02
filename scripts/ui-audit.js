@@ -641,9 +641,13 @@ function scanWxss(file) {
         message: '普通内容弹窗不得强制占据固定视口高度；应按内容生长并只在溢出时滚动'
       });
     }
+    const isViewportAnchoredDialog = /\.ui-overlay\s*>?\s*\.ui-dialog-shell\b/i.test(selector) &&
+      /position\s*:\s*fixed\b/i.test(declarations) &&
+      /(?:top\s*:\s*50vh|left\s*:\s*50vw|transform\s*:\s*translate\(\s*-?50%)/i.test(declarations);
     if (/(?:\.ui-dialog-shell\b|\.dialog-panel\b|\.message-switch-dialog\b|\.permission-dialog\b|\.popup-card\b|\.modal-card\b)/i.test(selector) &&
       /position\s*:\s*(?:absolute|fixed)\b/i.test(declarations) &&
       /(?:left|right|inset|transform)\s*:/i.test(declarations) &&
+      !isViewportAnchoredDialog &&
       !/(sheet-panel|timetable|placement|signature|canvas|keyboard)/i.test(selector)) {
       miscenteredDialogShell.push({
         file: relative(file),
@@ -774,7 +778,8 @@ const missingStableDialogSystem = !(
 );
 const missingDialogCenteringSystem = !(
   /\.ui-overlay\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/m.test(GLOBAL_STYLE) &&
-  /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*relative;[\s\S]*?align-self:\s*center;[\s\S]*?margin-left:\s*auto;[\s\S]*?margin-right:\s*auto;/m.test(GLOBAL_STYLE)
+  (/.\.ui-overlay\s*>\s*\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50vh\s*!important;[\s\S]*?left:\s*50vw\s*!important;[\s\S]*?transform:\s*translate\(\s*-50%\s*,\s*-50%\s*\)\s*!important;/m.test(GLOBAL_STYLE) ||
+    /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*relative;[\s\S]*?align-self:\s*center;[\s\S]*?margin-left:\s*auto;[\s\S]*?margin-right:\s*auto;/m.test(GLOBAL_STYLE))
 );
 const missingDialogScrollSystem = !(
   /scroll-view\.ui-dialog-scroll--fill\s*\{[^}]*height:\s*auto;[^}]*min-height:\s*0;[^}]*max-height:\s*56vh;/m.test(GLOBAL_STYLE) &&

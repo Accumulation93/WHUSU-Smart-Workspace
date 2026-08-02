@@ -2235,3 +2235,65 @@ page .role-pill {
     padding: 14px 16px !important;
   }
 }
+
+/*
+ * 视口级弹窗契约（必须位于所有页面级样式之后）
+ *
+ * 弹窗不是页面内容的一部分：遮罩固定覆盖整个可视视口，弹窗壳直接
+ * 以视口中心为锚点。这样背景页面即使曾经滚动到任意位置，打开或滚动
+ * 弹窗时也不会把遮罩和弹窗一起带偏。正文仍由显式 scroll-view 承担滚动。
+ */
+.ui-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  isolation: isolate;
+}
+
+.ui-overlay > .ui-overlay-blocker {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  z-index: 0 !important;
+}
+
+.ui-overlay > .ui-dialog-shell {
+  position: fixed !important;
+  top: 50vh !important;
+  left: 50vw !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: calc(100vw - 32rpx) !important;
+  max-width: calc(100vw - 32rpx) !important;
+  max-height: calc(100vh - 32rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  box-sizing: border-box !important;
+}
+
+.ui-overlay > .ui-dialog-shell.ui-dialog-shell--compact {
+  max-width: 640rpx !important;
+}
+
+/* 宽表格/时间表需要占满可用高度，但仍以视口中心的水平轴居中。 */
+.ui-overlay > .ui-dialog-shell.ui-dialog-shell--wide {
+  top: calc(env(safe-area-inset-top) + 16rpx) !important;
+  bottom: calc(env(safe-area-inset-bottom) + 16rpx) !important;
+  height: auto !important;
+  max-height: none !important;
+  transform: translateX(-50%) !important;
+}
