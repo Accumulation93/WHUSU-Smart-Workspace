@@ -113,7 +113,8 @@ module.exports = { hour: hour, min: min };
   </view>
 
   <!-- ═══════════════════ TIMETABLE POPUP ═══════════════════ -->
-  <root-portal enable="{{scheduleVisible}}">
+  <block wx:if="{{scheduleVisible}}">
+  <root-portal enable="{{true}}">
   <view class="popup-mask ui-overlay" wx:if="{{scheduleVisible}}" bindtap="closeSchedule">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
@@ -156,9 +157,11 @@ module.exports = { hour: hour, min: min };
     </view>
   </view>
   </root-portal>
+  </block>
 
   <!-- Booking detail popup -->
-  <root-portal enable="{{bookingDetailVisible}}">
+  <block wx:if="{{bookingDetailVisible}}">
+  <root-portal enable="{{true}}">
   <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -211,9 +214,11 @@ module.exports = { hour: hour, min: min };
     </view>
   </view>
   </root-portal>
+  </block>
 
   <!-- ═══════════════════ BOOKING FORM ═══════════════════ -->
-  <root-portal enable="{{bookingVisible}}">
+  <block wx:if="{{bookingVisible}}">
+  <root-portal enable="{{true}}">
   <view class="popup-mask ui-overlay" wx:if="{{bookingVisible}}" bindtap="closeBooking">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card booking-form-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -323,9 +328,11 @@ module.exports = { hour: hour, min: min };
     </view>
   </view>
   </root-portal>
+  </block>
 
   <!-- ═══════════════════ APPROVAL / DETAIL POPUP ═══════════════════ -->
-  <root-portal enable="{{approvalVisible}}">
+  <block wx:if="{{approvalVisible}}">
+  <root-portal enable="{{true}}">
   <view class="popup-mask ui-overlay" wx:if="{{approvalVisible}}" bindtap="closeApproval">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -391,6 +398,7 @@ module.exports = { hour: hour, min: min };
     </view>
   </view>
   </root-portal>
+  </block>
 
   <view class="page-footer">
     <view class="footer-name">WHUSU智慧工作台</view>

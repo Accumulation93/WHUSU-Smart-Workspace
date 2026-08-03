@@ -476,8 +476,11 @@ function scanLayoutContracts(file) {
     const overlayAncestor = [...stack].reverse().find(item => item.overlay);
     const scrollAncestor = [...stack].reverse().find(item => item.tag === 'scroll-view');
 
-    if (tag === 'root-portal' && !/\benable="\{\{[^}]+\}\}"/.test(raw)) {
-      dialogIssues.push({ file: relative(file), line, message: 'root-portal 必须显式绑定 enable 状态，关闭时禁止脱离页面以免阻塞后续跳转', className: '' });
+    if (tag === 'root-portal') {
+      const conditionalBlock = stack[stack.length - 1];
+      if (!conditionalBlock || conditionalBlock.tag !== 'block' || !conditionalBlock.conditional || !/\benable="\{\{true\}\}"/.test(raw)) {
+        dialogIssues.push({ file: relative(file), line, message: 'root-portal 必须放在带 wx:if 的直接 block 内并仅在创建后启用，关闭时必须销毁原生脱离层', className: '' });
+      }
     }
 
     if ([...classes].some(name => LEGACY_OVERLAYS.has(name)) &&
@@ -485,7 +488,7 @@ function scanLayoutContracts(file) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗遮罩缺少 ui-overlay', className: [...classes].join(' ') });
     }
     if ((classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) && !stack.some(item => item.tag === 'root-portal')) {
-      dialogIssues.push({ file: relative(file), line, message: '弹窗必须由带 enable 状态的 root-portal 提升到页面根层，不能跟随页面滚动', className: [...classes].join(' ') });
+      dialogIssues.push({ file: relative(file), line, message: '弹窗必须由按需创建的 root-portal 提升到页面根层，不能跟随页面滚动', className: [...classes].join(' ') });
     }
 
     let overlay = null;
@@ -578,7 +581,7 @@ function scanLayoutContracts(file) {
     }
 
     const selfClosing = raw.endsWith('/>') || VOID_TAGS.has(tag);
-    if (!selfClosing) stack.push({ tag, dialog, overlay });
+    if (!selfClosing) stack.push({ tag, dialog, overlay, conditional: /\bwx:if="\{\{[^}]+\}\}"/.test(raw) });
   }
 
   return { dialogs, overlays, dialogIssues, dataLayoutIssues, scrollContractIssues };

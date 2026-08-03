@@ -25,7 +25,8 @@
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
-  <root-portal enable="{{stage !== 'login'}}">
+  <block wx:if="{{stage !== 'login'}}">
+  <root-portal enable="{{true}}">
   <view class="{{sheetClass}} ui-sheet-overlay" wx:if="{{stage !== 'login'}}">
     <view class="sheet-mask ui-overlay-blocker" bindtap="closeSheet" catchtouchmove="noop"></view>
     <view class="sheet-panel ui-dialog-shell ui-dialog-shell--compact">
@@ -108,4 +109,5 @@
     </view>
   </view>
   </root-portal>
+  </block>
 </view>

@@ -175,7 +175,8 @@
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
-  <root-portal enable="{{showMessageSwitchDialog}}">
+  <block wx:if="{{showMessageSwitchDialog}}">
+  <root-portal enable="{{true}}">
   <view class="dialog-layer ui-overlay" wx:if="{{showMessageSwitchDialog}}">
     <view class="dialog-mask ui-overlay-blocker" bindtap="closeMessageSwitchDialog" catchtouchmove="noop"></view>
     <view class="dialog-panel message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
@@ -192,5 +193,6 @@
     </view>
   </view>
   </root-portal>
+  </block>
 
 </view>

@@ -97,7 +97,9 @@
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
-  <root-portal enable="{{pendingPopupVisible}}">
+  <block wx:if="{{pendingPopupVisible}}">
+
+  <root-portal enable="{{true}}">
   <view class="popup-mask ui-overlay" wx:if="{{pendingPopupVisible}}" bindtap="closePendingPopup">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -131,4 +133,5 @@
     </view>
   </view>
   </root-portal>
+  </block>
 </view>

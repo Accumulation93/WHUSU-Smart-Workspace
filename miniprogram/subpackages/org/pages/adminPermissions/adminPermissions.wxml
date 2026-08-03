@@ -37,7 +37,9 @@
     </view>
   </view>
 
-  <root-portal enable="{{editorVisible}}">
+  <block wx:if="{{editorVisible}}">
+
+  <root-portal enable="{{true}}">
   <view class="permission-overlay ui-overlay" wx:if="{{editorVisible}}">
     <view class="permission-mask ui-overlay-blocker" bindtap="closeEditor" catchtouchmove="noop"></view>
     <view class="permission-dialog hit-area ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -76,8 +78,11 @@
     </view>
   </view>
   </root-portal>
+  </block>
 
-  <root-portal enable="{{contextSwitchGuardVisible}}">
+  <block wx:if="{{contextSwitchGuardVisible}}">
+
+  <root-portal enable="{{true}}">
   <view class="permission-overlay ui-overlay" wx:if="{{contextSwitchGuardVisible}}">
     <view class="permission-mask ui-overlay-blocker" bindtap="closeContextSwitchGuard" catchtouchmove="noop"></view>
     <view class="permission-dialog context-switch-guard-card hit-area ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
@@ -90,4 +95,5 @@
     </view>
   </view>
   </root-portal>
+  </block>
 </view>
