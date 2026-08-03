@@ -902,28 +902,31 @@ const missingResponsiveDataSystem = !(
 );
 const missingDeviceSystem = !(
   /--ui-control-height:\s*44px/.test(GLOBAL_STYLE) &&
-  /--ui-type-body:\s*15px/.test(GLOBAL_STYLE) &&
+  /--ui-type-body:\s*16px/.test(GLOBAL_STYLE) &&
   /--ui-font-md:\s*var\(--ui-type-body\)/.test(GLOBAL_STYLE) &&
   /input\.field-input[\s\S]*display:\s*block\s*!important/.test(GLOBAL_STYLE)
 );
 const typeScale = [
-  ['micro', '18rpx', '10.8px'],
-  ['caption', '20rpx', '12px'],
-  ['meta', '22rpx', '13.2px'],
-  ['label', '23rpx', '13.8px'],
-  ['control', '24rpx', '14.4px'],
-  ['body', '25rpx', '15px'],
-  ['emphasis', '26rpx', '15.6px'],
-  ['value', '28rpx', '16.8px'],
-  ['section', '30rpx', '18px'],
-  ['dialog', '30rpx', '19.2px'],
-  ['page', '46rpx', '27.6px']
+  ['micro', '10px', '10.5px', '12px', '12.5px'],
+  ['caption', '11px', '11.5px', '13px', '13.5px'],
+  ['meta', '12px', '12.5px', '14px', '14.5px'],
+  ['label', '12.5px', '13px', '14.5px', '15px'],
+  ['control', '13px', '13.5px', '15px', '15.5px'],
+  ['body', '13.5px', '14px', '16px', '16.5px'],
+  ['emphasis', '14px', '14.5px', '16.5px', '17px'],
+  ['value', '15px', '15.5px', '17.5px', '18px'],
+  ['section', '16px', '17px', '19px', '20px'],
+  ['page', '24px', '25.5px', '29px', '30px']
 ];
-const missingTypographySystem = typeScale.some(([name, phone, pad]) => {
-  const phoneIndex = GLOBAL_STYLE.indexOf(`--ui-type-${name}: ${phone};`);
-  const padIndex = GLOBAL_STYLE.indexOf(`--ui-type-${name}: ${pad};`);
-  return phoneIndex < 0 || padIndex < 0 || padIndex <= phoneIndex;
+const missingTypographySystem = typeScale.some(([name, compactPhone, phone, pad, largePad]) => {
+  const indexes = [compactPhone, phone, pad, largePad].map(value => GLOBAL_STYLE.indexOf(`--ui-type-${name}: ${value};`));
+  return indexes.some(index => index < 0) || indexes.some((index, position) => position > 0 && index <= indexes[position - 1]);
 }) || !(
+  /--ui-type-dialog:\s*var\(--ui-type-section\)/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-title-size:\s*var\(--ui-type-section\)/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-body-size:\s*var\(--ui-type-body\)/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*390px\)\s*and\s*\(max-width:\s*519px\)/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-type-body:\s*16\.5px/.test(GLOBAL_STYLE) &&
   /page \.hero-title,[\s\S]*?font-size:\s*var\(--ui-type-page\)\s*!important/.test(GLOBAL_STYLE) &&
   /page \.section-title,[\s\S]*?font-size:\s*var\(--ui-type-section\)\s*!important/.test(GLOBAL_STYLE) &&
   /page \.list-title,[\s\S]*?font-size:\s*var\(--ui-type-value\)\s*!important/.test(GLOBAL_STYLE) &&
@@ -949,9 +952,11 @@ const unstableSummaryGrid = !(
   !/@media\s*\(max-width:\s*360px\)\s*\{[\s\S]*?\.info-block\s*\{[^}]*width:\s*100%/m.test(homeStyle)
 );
 const typographyRoleDrift = !(
-  /\.popup-title,[\s\S]*?\.message-switch-title\s*\{[\s\S]*?font-size:\s*var\(--ui-type-dialog\)\s*!important/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay \.popup-title,[\s\S]*?\.ui-sheet-overlay \.permission-dialog-title\s*\{[\s\S]*?font-size:\s*var\(--ui-dialog-title-size\)\s*!important/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay \.ui-dialog-body\s*\{[^}]*font-size:\s*var\(--ui-dialog-body-size\)\s*!important/m.test(GLOBAL_STYLE) &&
+  GLOBAL_STYLE.includes('.ui-sheet-overlay .sheet-note') &&
+  /font-size:\s*var\(--ui-dialog-meta-size\)\s*!important/.test(GLOBAL_STYLE) &&
   /\.permission-hero-title\s*\{[^}]*font-size:\s*var\(--ui-type-page/m.test(adminPermissionsStyle) &&
-  /\.permission-dialog-title\s*\{[^}]*font-size:\s*var\(--ui-type-dialog/m.test(adminPermissionsStyle) &&
   !/\.permission-hero-title\s*\{\s*font-size:\s*38px/m.test(adminPermissionsStyle)
 );
 const remoteAssets = walk(MINI_ROOT, '.wxml').flatMap(file => {

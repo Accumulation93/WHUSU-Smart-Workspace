@@ -179,11 +179,20 @@ font scale or make Pad typography by independently guessing each class:
 - `--ui-type-section` / `dialog` / `page` — section, dialog, and page headings
 
 The role order is invariant on every device: metadata < labels/body < emphasized
-values < section titles < page titles. At the 520px Pad breakpoint every token is
-the phone ladder multiplied by the same factor and converted to controlled `px`;
-screen rotation may change layout, but must not change semantic rank. Never let a
-content value become larger than its containing section title on Pad when it is
-smaller on phone.
+values < section titles < page titles. Typography uses controlled logical `px`
+instead of `rpx`, so a wide phone cannot mechanically magnify every line of text.
+Use four ordered bands: compact phone below 390px, standard phone from 390px to
+519px, Pad from 520px, and large landscape Pad from 900px. Every Pad role must be
+larger than the corresponding phone role, while every role within a band keeps the
+same semantic rank. Screen rotation may change layout but must not reverse that
+rank.
+
+Dialogs do not own a larger independent font scale. A dialog title uses the same
+token as a page section title; dialog body, helper copy, labels, inputs, and buttons
+reuse the matching page body, meta, label, and control tokens. Apply the contract to
+both `ui-overlay` and the login page's `ui-sheet-overlay`, including content rendered
+through `viewport-portal`. A local dialog selector may change color or weight but
+must not increase its semantic size.
 
 All user-visible text and font-based glyphs must use these semantic tokens. A
 page-local raw `font-size` in `rpx` is not responsive on Pad merely because

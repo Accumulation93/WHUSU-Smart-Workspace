@@ -12,17 +12,24 @@ page {
   --ui-line-blue: rgba(147, 197, 253, 0.64);
   --ui-danger: #ef4444;
   /* 语义字体阶梯：所有设备只整体缩放，不改变角色之间的比例。 */
-  --ui-type-micro: 18rpx;
-  --ui-type-caption: 20rpx;
-  --ui-type-meta: 22rpx;
-  --ui-type-label: 23rpx;
-  --ui-type-control: 24rpx;
-  --ui-type-body: 25rpx;
-  --ui-type-emphasis: 26rpx;
-  --ui-type-value: 28rpx;
-  --ui-type-section: 30rpx;
-  --ui-type-dialog: 30rpx;
-  --ui-type-page: 46rpx;
+  /* 设备自适应语义字阶：使用逻辑 px，避免宽屏手机通过 rpx 继续放大文字。 */
+  --ui-type-micro: 10px;
+  --ui-type-caption: 11px;
+  --ui-type-meta: 12px;
+  --ui-type-label: 12.5px;
+  --ui-type-control: 13px;
+  --ui-type-body: 13.5px;
+  --ui-type-emphasis: 14px;
+  --ui-type-value: 15px;
+  --ui-type-section: 16px;
+  --ui-type-dialog: var(--ui-type-section);
+  --ui-type-page: 24px;
+  /* 弹窗复用页面文字角色，不再单独维护一套更大的字号。 */
+  --ui-dialog-title-size: var(--ui-type-section);
+  --ui-dialog-body-size: var(--ui-type-body);
+  --ui-dialog-meta-size: var(--ui-type-meta);
+  --ui-dialog-label-size: var(--ui-type-label);
+  --ui-dialog-control-size: var(--ui-type-control);
   --ui-font-xs: var(--ui-type-caption);
   --ui-font-sm: var(--ui-type-meta);
   --ui-font-md: var(--ui-type-body);
@@ -58,6 +65,22 @@ page {
     radial-gradient(circle at 86% 18%, rgba(191, 219, 254, 0.22) 0%, transparent 24%),
     radial-gradient(circle at 18% 88%, rgba(125, 211, 252, 0.10) 0%, transparent 22%),
     linear-gradient(135deg, #f8fbff 0%, #f1f6fc 48%, #edf3fa 100%);
+}
+
+/* 标准宽度手机仅做克制的一级增大。 */
+@media (min-width: 390px) and (max-width: 519px) {
+  page {
+    --ui-type-micro: 10.5px;
+    --ui-type-caption: 11.5px;
+    --ui-type-meta: 12.5px;
+    --ui-type-label: 13px;
+    --ui-type-control: 13.5px;
+    --ui-type-body: 14px;
+    --ui-type-emphasis: 14.5px;
+    --ui-type-value: 15.5px;
+    --ui-type-section: 17px;
+    --ui-type-page: 25.5px;
+  }
 }
 
 button,
@@ -114,6 +137,8 @@ textarea {
   position: relative;
   min-height: 100vh;
   padding: 30rpx 24rpx calc(42rpx + env(safe-area-inset-bottom));
+  font-size: var(--ui-type-body);
+  line-height: var(--ui-leading-body);
   box-sizing: border-box;
 }
 
@@ -312,7 +337,7 @@ page .panel-title {
 page .popup-title,
 page .dialog-title,
 page .message-switch-title {
-  font-size: var(--ui-type-dialog) !important;
+  font-size: var(--ui-dialog-title-size) !important;
   line-height: var(--ui-leading-heading) !important;
 }
 
@@ -1242,18 +1267,17 @@ button:active,
 /* Pad 竖屏 */
 @media (min-width: 520px) {
   page {
-    /* Pad 以手机阶梯的 0.6 倍映射到 px，语义比例完全一致。 */
-    --ui-type-micro: 10.8px;
-    --ui-type-caption: 12px;
-    --ui-type-meta: 13.2px;
-    --ui-type-label: 13.8px;
-    --ui-type-control: 14.4px;
-    --ui-type-body: 15px;
-    --ui-type-emphasis: 15.6px;
-    --ui-type-value: 16.8px;
-    --ui-type-section: 18px;
-    --ui-type-dialog: 19.2px;
-    --ui-type-page: 27.6px;
+    /* Pad 使用更大的稳定 px 阶梯，字号明确高于手机且不受 rpx 横向放大。 */
+    --ui-type-micro: 12px;
+    --ui-type-caption: 13px;
+    --ui-type-meta: 14px;
+    --ui-type-label: 14.5px;
+    --ui-type-control: 15px;
+    --ui-type-body: 16px;
+    --ui-type-emphasis: 16.5px;
+    --ui-type-value: 17.5px;
+    --ui-type-section: 19px;
+    --ui-type-page: 29px;
     --ui-line-control: 20px;
     --ui-control-height: 44px;
     --ui-control-padding-y: 10px;
@@ -1315,7 +1339,7 @@ button:active,
   .popup-title,
   .dialog-title,
   .message-switch-title {
-    font-size: var(--ui-type-dialog) !important;
+    font-size: var(--ui-dialog-title-size) !important;
     line-height: var(--ui-leading-heading) !important;
   }
 
@@ -1637,6 +1661,16 @@ button:active,
 /* iPad 横屏：沿用手机与 Pad 竖屏的紧凑比例，避免横屏控件显得臃肿。 */
 @media (min-width: 900px) and (orientation: landscape) {
   page {
+    --ui-type-micro: 12.5px;
+    --ui-type-caption: 13.5px;
+    --ui-type-meta: 14.5px;
+    --ui-type-label: 15px;
+    --ui-type-control: 15.5px;
+    --ui-type-body: 16.5px;
+    --ui-type-emphasis: 17px;
+    --ui-type-value: 18px;
+    --ui-type-section: 20px;
+    --ui-type-page: 30px;
     --ui-tab-radius: 10px;
     --ui-tab-shell-radius: 13px;
     --ui-tab-min-height: 38px;
@@ -2118,10 +2152,6 @@ page .role-pill {
 /* Pad 竖屏：保持手机的视觉呼吸感，但以稳定 px 控制，不让 rpx 随宽屏放大。 */
 @media (min-width: 520px) and (max-width: 899px),
        (min-width: 520px) and (orientation: portrait) {
-  page {
-    --ui-type-dialog: 18px;
-  }
-
   page .status-tag,
   page .booking-status,
   page .audit-chip,
@@ -2418,8 +2448,80 @@ page .role-pill {
 }
 
 .ui-overlay .ui-dialog-body {
-  font-size: var(--ui-type-body) !important;
+  font-size: var(--ui-dialog-body-size) !important;
   line-height: 1.55 !important;
+}
+
+.ui-overlay .ui-dialog-shell,
+.ui-sheet-overlay .ui-dialog-shell {
+  font-size: var(--ui-dialog-body-size) !important;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 所有设备上的弹窗文字角色都与页面对应角色保持一致。 */
+.ui-overlay .popup-title,
+.ui-overlay .dialog-title,
+.ui-overlay .modal-title,
+.ui-overlay .sheet-title,
+.ui-overlay .message-switch-title,
+.ui-overlay .permission-dialog-title,
+.ui-sheet-overlay .popup-title,
+.ui-sheet-overlay .dialog-title,
+.ui-sheet-overlay .modal-title,
+.ui-sheet-overlay .sheet-title,
+.ui-sheet-overlay .message-switch-title,
+.ui-sheet-overlay .permission-dialog-title {
+  font-size: var(--ui-dialog-title-size) !important;
+  line-height: var(--ui-leading-heading) !important;
+}
+
+.ui-overlay .dialog-desc,
+.ui-overlay .message-switch-desc,
+.ui-overlay .sheet-note,
+.ui-overlay .field-hint,
+.ui-overlay .panel-note,
+.ui-sheet-overlay .dialog-desc,
+.ui-sheet-overlay .message-switch-desc,
+.ui-sheet-overlay .sheet-note,
+.ui-sheet-overlay .field-hint,
+.ui-sheet-overlay .panel-note {
+  font-size: var(--ui-dialog-meta-size) !important;
+  line-height: var(--ui-leading-body) !important;
+}
+
+.ui-overlay .field-label,
+.ui-overlay .filter-label,
+.ui-overlay .detail-key,
+.ui-sheet-overlay .field-label,
+.ui-sheet-overlay .filter-label,
+.ui-sheet-overlay .detail-key {
+  font-size: var(--ui-dialog-label-size) !important;
+}
+
+.ui-overlay button,
+.ui-overlay .dialog-btn,
+.ui-overlay .popup-close,
+.ui-overlay .sheet-close,
+.ui-sheet-overlay button,
+.ui-sheet-overlay .dialog-btn,
+.ui-sheet-overlay .popup-close,
+.ui-sheet-overlay .sheet-close {
+  font-size: var(--ui-dialog-control-size) !important;
+}
+
+.ui-overlay input,
+.ui-overlay textarea,
+.ui-overlay .field-input,
+.ui-overlay .field-textarea,
+.ui-overlay .picker-display,
+.ui-overlay .picker-value,
+.ui-sheet-overlay input,
+.ui-sheet-overlay textarea,
+.ui-sheet-overlay .field-input,
+.ui-sheet-overlay .field-textarea,
+.ui-sheet-overlay .picker-display,
+.ui-sheet-overlay .picker-value {
+  font-size: var(--ui-dialog-body-size) !important;
 }
 
 .ui-overlay scroll-view.ui-dialog-scroll--fill,
@@ -2505,7 +2607,7 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   .ui-overlay .sheet-title,
   .ui-overlay .message-switch-title,
   .ui-overlay .permission-dialog-title {
-    font-size: var(--ui-type-dialog) !important;
+    font-size: var(--ui-dialog-title-size) !important;
     line-height: 1.4 !important;
   }
 }
