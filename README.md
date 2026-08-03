@@ -1,5 +1,9 @@
 # WHUSU Smart Workspace
 
+前端 UI 规范、共享组件清单和页面模板分别见：
+`docs/ui-kit.md`、`docs/ui-components.md`、`docs/ui-page-templates.md`。
+这些文档与 `miniprogram/app.wxss` 的设备令牌保持同步；手机、Pad 竖屏和 Pad 横屏保留独立的字号、间距与控件密度。
+
 武汉大学部门成员互评考核系统 — 微信小程序 + Node.js Express + MySQL
 
 ## 技术栈

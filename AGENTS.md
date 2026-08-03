@@ -67,6 +67,7 @@
 ## 5. 技能与专项规则
 
 - 蓝色轻奢玻璃 UI 任务使用 `.agents/skills/blue-glass-ui/SKILL.md`。
+- 前端 UI Kit 的运行时令牌、组件清单和页面模板以 `docs/ui-kit.md`、`docs/ui-components.md`、`docs/ui-page-templates.md` 为准；Blue Glass skill 提供实施约束，不覆盖这些设备分层尺寸。
 - 微信小程序长按拖拽排序任务使用 `.agents/skills/wechat-miniprogram-drag-sort/SKILL.md`。
 - 微信小程序弹窗定位、遮罩、窗口内外滚动和触摸穿透任务使用 `.agents/skills/wechat-popup-scroll-contract/SKILL.md`。
 - 本地连接生产服务端、SSH/tmux 协作调试、GitHub 自动部署、数据库迁移和回退任务使用 `.agents/skills/whusu-smart-workspace-server-collaboration/SKILL.md`。

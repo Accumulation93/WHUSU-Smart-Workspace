@@ -9,6 +9,9 @@ description: >
 
 # Blue Glass UI for WHUSU Smart Workspace Mini Program
 
+> UI Kit 事实来源（2026-08）：`docs/ui-kit.md`、`docs/ui-components.md`、`docs/ui-page-templates.md`。
+> `miniprogram/app.wxss` 的手机、Pad 竖屏和 Pad 横屏令牌必须分别保留；本技能中的示例只说明结构，若尺寸冲突，以 UI Kit 和运行时令牌为准。
+
 This project already has a mature visual language in the scoring admin pages and
 portal/home pages. Follow those pages first. Do not invent a new unrelated
 palette, and do not make the UI look like a generic white SaaS dashboard.

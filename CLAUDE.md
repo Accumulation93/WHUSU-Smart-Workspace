@@ -82,7 +82,8 @@ Scope 用具体模块名：`venue`, `audit`, `scoring`, `portal`, `auth`, `notif
 
 ## 4. 设计系统 — 蓝奢玻璃风格
 
-> 完整规范：`.claude/skills/blue-glass-ui/SKILL.md`
+> UI Kit 事实来源：`docs/ui-kit.md`、`docs/ui-components.md`、`docs/ui-page-templates.md`。
+> `.claude/skills/blue-glass-ui/SKILL.md` 负责 Blue Glass 实施约束；设备差异和最终尺寸以 UI Kit 文档及 `miniprogram/app.wxss` 为准。
 
 ### 4.1 色板
 
@@ -129,7 +130,7 @@ page {
 ### 4.6 其他硬性约束
 
 - 唯一动画：`glassFadeUp`（`opacity: 0→1, translateY: 18rpx→0`），不创建自定义动画
-- 圆角：Hero `38rpx`，卡片 `30rpx`，按钮 `24rpx`，Chip `999rpx`
+- 圆角和密度由 `miniprogram/app.wxss` 的设备令牌控制：手机、Pad 竖屏、Pad 横屏分别维护，不得在页面级重新写死一套尺寸；状态标签使用克制的圆角矩形，不使用胖胶囊。
 - **禁止新增**按钮颜色、chip 颜色、自定义动画
 
 ### 4.7 响应式布局（平板适配）

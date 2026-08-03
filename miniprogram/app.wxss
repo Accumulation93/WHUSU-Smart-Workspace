@@ -1,4 +1,12 @@
-/* WHUSU Smart Workspace 统一蓝色轻奢玻璃设计系统 */
+/*
+ * WHUSU Smart Workspace 前端 UI Kit（2026-08）
+ *
+ * 这里是共享视觉令牌的唯一运行时入口。手机、Pad 竖屏、Pad 横屏
+ * 使用同一套语义角色，但各自拥有独立的字号、间距、半径和控件高度。
+ * 页面 WXSS 只负责布局差异，不重新猜测基础尺寸。
+ * 设计说明、组件清单和页面模板：docs/ui-kit.md、docs/ui-components.md、
+ * docs/ui-page-templates.md。
+ */
 
 page {
   --ui-blue-700: #2563eb;
@@ -11,8 +19,7 @@ page {
   --ui-line: rgba(226, 237, 247, 0.96);
   --ui-line-blue: rgba(147, 197, 253, 0.64);
   --ui-danger: #ef4444;
-  /* 语义字体阶梯：所有设备只整体缩放，不改变角色之间的比例。 */
-  /* 设备自适应语义字阶：使用逻辑 px，避免宽屏手机通过 rpx 继续放大文字。 */
+  /* compact phone：<390px。单位保留 rpx，适合窄屏的触控密度。 */
   --ui-type-micro: 10px;
   --ui-type-caption: 11px;
   --ui-type-meta: 12px;
@@ -30,6 +37,25 @@ page {
   --ui-dialog-meta-size: 11.5px;
   --ui-dialog-label-size: 12px;
   --ui-dialog-control-size: 12.5px;
+  --ui-page-padding-top: 30rpx;
+  --ui-page-padding-x: 24rpx;
+  --ui-page-padding-bottom: 42rpx;
+  --ui-hero-gap: 24rpx;
+  --ui-hero-padding-top: 40rpx;
+  --ui-hero-padding-x: 34rpx;
+  --ui-hero-padding-bottom: 36rpx;
+  --ui-hero-radius: 38rpx;
+  --ui-card-gap: 24rpx;
+  --ui-card-padding-y: 28rpx;
+  --ui-card-padding-x: 26rpx;
+  --ui-card-radius: 30rpx;
+  --ui-list-gap: 14rpx;
+  --ui-list-padding-y: 22rpx;
+  --ui-list-padding-x: 20rpx;
+  --ui-list-radius: 20rpx;
+  --ui-control-radius: 24rpx;
+  --ui-field-radius: 20rpx;
+  --ui-section-title-inset: 20rpx;
   --ui-font-xs: var(--ui-type-caption);
   --ui-font-sm: var(--ui-type-meta);
   --ui-font-md: var(--ui-type-body);
@@ -67,7 +93,7 @@ page {
     linear-gradient(135deg, #f8fbff 0%, #f1f6fc 48%, #edf3fa 100%);
 }
 
-/* 标准宽度手机仅做克制的一级增大。 */
+/* standard phone：390–519px。字号略增，触控和卡片密度保持手机比例。 */
 @media (min-width: 390px) and (max-width: 519px) {
   page {
     --ui-type-micro: 10.5px;
@@ -85,6 +111,12 @@ page {
     --ui-dialog-meta-size: 12px;
     --ui-dialog-label-size: 12.5px;
     --ui-dialog-control-size: 13px;
+    --ui-page-padding-top: 30rpx;
+    --ui-page-padding-x: 24rpx;
+    --ui-page-padding-bottom: 42rpx;
+    --ui-hero-gap: 22rpx;
+    --ui-card-gap: 22rpx;
+    --ui-list-gap: 14rpx;
   }
 }
 
@@ -112,7 +144,7 @@ button {
   min-height: var(--ui-control-height, 82rpx);
   height: auto;
   padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
-  border-radius: 24rpx;
+  border-radius: var(--ui-control-radius, 24rpx);
   font-size: var(--ui-font-md, 25rpx);
   line-height: var(--ui-line-control, 1.35);
   white-space: normal;
@@ -141,7 +173,7 @@ textarea {
 .page {
   position: relative;
   min-height: 100vh;
-  padding: 30rpx 24rpx calc(42rpx + env(safe-area-inset-bottom));
+  padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   font-size: var(--ui-type-body);
   line-height: var(--ui-leading-body);
   box-sizing: border-box;
@@ -151,9 +183,9 @@ textarea {
 .hero-admin {
   position: relative;
   overflow: hidden;
-  margin-bottom: 24rpx;
-  padding: 40rpx 34rpx 36rpx;
-  border-radius: 38rpx;
+  margin-bottom: var(--ui-hero-gap);
+  padding: var(--ui-hero-padding-top) var(--ui-hero-padding-x) var(--ui-hero-padding-bottom);
+  border-radius: var(--ui-hero-radius);
   border: 1rpx solid rgba(255, 255, 255, 0.22);
   box-shadow:
     0 24rpx 48rpx rgba(37, 99, 235, 0.18),
@@ -235,7 +267,7 @@ textarea {
 .edit-box,
 .list-card,
 .booking-panel {
-  border-radius: 30rpx;
+  border-radius: var(--ui-card-radius, 30rpx);
   background: linear-gradient(135deg, rgba(255,255,255,0.86), rgba(248,251,255,0.72));
   border: 1rpx solid rgba(255,255,255,0.72);
   box-shadow:
@@ -278,7 +310,7 @@ textarea {
 .section-title {
   position: relative;
   margin: 0;
-  padding-left: 20rpx;
+  padding-left: var(--ui-section-title-inset, 20rpx);
   color: #0f172a;
   font-size: var(--ui-type-section);
   font-size: var(--ui-font-lg, 30rpx);
@@ -660,7 +692,7 @@ button[disabled],
   width: 100%;
   min-height: 76rpx;
   padding: 16rpx 20rpx;
-  border-radius: 20rpx;
+  border-radius: var(--ui-field-radius, 20rpx);
   color: #10233d;
   font-size: var(--ui-type-body);
   line-height: 1.55;
@@ -1272,7 +1304,7 @@ button:active,
 /* Pad 竖屏 */
 @media (min-width: 520px) {
   page {
-    /* Pad 使用更大的稳定 px 阶梯，字号明确高于手机且不受 rpx 横向放大。 */
+    /* Pad 竖屏：字号明确高于手机，布局收紧但保留充足触控间距。 */
     --ui-type-micro: 12px;
     --ui-type-caption: 13px;
     --ui-type-meta: 14px;
@@ -1301,13 +1333,32 @@ button:active,
     --ui-tab-shell-padding: 4px;
     --ui-tab-radius: 10px;
     --ui-tab-shell-radius: 13px;
+    --ui-page-padding-top: 24px;
+    --ui-page-padding-x: 22px;
+    --ui-page-padding-bottom: 32px;
+    --ui-hero-gap: 18px;
+    --ui-hero-padding-top: 24px;
+    --ui-hero-padding-x: 26px;
+    --ui-hero-padding-bottom: 22px;
+    --ui-hero-radius: 20px;
+    --ui-card-gap: 18px;
+    --ui-card-padding-y: 18px;
+    --ui-card-padding-x: 18px;
+    --ui-card-radius: 18px;
+    --ui-list-gap: 10px;
+    --ui-list-padding-y: 12px;
+    --ui-list-padding-x: 14px;
+    --ui-list-radius: 12px;
+    --ui-control-radius: 12px;
+    --ui-field-radius: 10px;
+    --ui-section-title-inset: 12px;
   }
 
   .page {
     width: 100%;
     max-width: 760px;
     margin: 0 auto;
-    padding: 24px 22px 32px;
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) var(--ui-page-padding-bottom);
     font-size: var(--ui-type-body);
     line-height: var(--ui-leading-body);
   }
@@ -1318,8 +1369,8 @@ button:active,
 
   .hero,
   .hero-admin {
-    padding: 24px 26px 22px;
-    border-radius: 20px;
+    padding: var(--ui-hero-padding-top) var(--ui-hero-padding-x) var(--ui-hero-padding-bottom);
+    border-radius: var(--ui-hero-radius);
   }
 
   .hero-title {
@@ -1638,9 +1689,18 @@ button:active,
 
 /* Pad 横屏工作台 */
 @media (min-width: 900px) {
+  page {
+    /* 大屏竖向或窗口化视图：使用独立工作区边距，不套用手机比例。 */
+    --ui-page-padding-top: 22px;
+    --ui-page-padding-x: 28px;
+    --ui-page-padding-bottom: 30px;
+    --ui-hero-gap: 16px;
+    --ui-card-gap: 16px;
+  }
+
   .page {
     max-width: 1180px;
-    padding: 22px 28px 30px;
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) var(--ui-page-padding-bottom);
   }
 
   .hero,
@@ -1671,6 +1731,7 @@ button:active,
 /* iPad 横屏：沿用手机与 Pad 竖屏的紧凑比例，避免横屏控件显得臃肿。 */
 @media (min-width: 900px) and (orientation: landscape) {
   page {
+    /* Pad 横屏：以横向工作区为基准，控件更矮更密，字号仍高于手机。 */
     --ui-type-micro: 12.5px;
     --ui-type-caption: 13.5px;
     --ui-type-meta: 14.5px;
@@ -1693,13 +1754,32 @@ button:active,
     --ui-tab-padding-x: 14px;
     --ui-tab-gap: 6px;
     --ui-tab-shell-padding: 5px;
+    --ui-page-padding-top: 16px;
+    --ui-page-padding-x: 16px;
+    --ui-page-padding-bottom: 24px;
+    --ui-hero-gap: 10px;
+    --ui-hero-padding-top: 16px;
+    --ui-hero-padding-x: 20px;
+    --ui-hero-padding-bottom: 14px;
+    --ui-hero-radius: 18px;
+    --ui-card-gap: 10px;
+    --ui-card-padding-y: 14px;
+    --ui-card-padding-x: 16px;
+    --ui-card-radius: 18px;
+    --ui-list-gap: 6px;
+    --ui-list-padding-y: 10px;
+    --ui-list-padding-x: 12px;
+    --ui-list-radius: 10px;
+    --ui-control-radius: 10px;
+    --ui-field-radius: 10px;
+    --ui-section-title-inset: 10px;
   }
 
   /* 横屏以完整可视宽度为基准，子页面自己的窄容器只保留给明确的阅读/登录场景。 */
   page .page {
     width: 100% !important;
     max-width: none !important;
-    padding: 16px 16px 24px !important;
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) var(--ui-page-padding-bottom) !important;
   }
 
   /* 除门户待办/通知等明确分屏外，内容卡片和工作区都铺满横屏可用宽度。 */
@@ -1734,7 +1814,7 @@ button:active,
   page .hero,
   page .hero-admin,
   page .workspace-hero {
-    padding: 16px 20px 14px !important;
+    padding: var(--ui-hero-padding-top) var(--ui-hero-padding-x) var(--ui-hero-padding-bottom) !important;
   }
 
   page .card,
@@ -1748,8 +1828,8 @@ button:active,
   page .booking-panel,
   page .results-panel-card,
   page .targets-card {
-    margin-bottom: 10px !important;
-    padding: 14px 16px !important;
+    margin-bottom: var(--ui-card-gap) !important;
+    padding: var(--ui-card-padding-y) var(--ui-card-padding-x) !important;
   }
 
   page .workspace-context-card {

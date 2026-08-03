@@ -10,6 +10,9 @@ description: >
 
 # Blue Luxury Glass — WHUSU Smart Workspace WHUSU智慧工作台 Design System
 
+> UI Kit 事实来源（2026-08）：`docs/ui-kit.md`、`docs/ui-components.md`、`docs/ui-page-templates.md`。
+> `miniprogram/app.wxss` 为运行时令牌唯一入口，手机、Pad 竖屏、Pad 横屏保留各自字号、间距和控件密度；本文件的旧示例不覆盖这些令牌。
+
 ## When to use this skill
 
 Invoke this skill before writing any WXML or WXSS for this project. It ensures every new UI element matches the
@@ -150,8 +153,8 @@ page {
   align-items: center;
   justify-content: center;
   margin-bottom: 18rpx;
-  padding: 10rpx 24rpx;
-  border-radius: 999rpx;
+  padding: 8rpx 14rpx;
+  border-radius: 10rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,255,255,0.14));
   border: 1rpx solid rgba(255,255,255,0.28);
   color: #f8fbff;
@@ -373,8 +376,8 @@ WXML pattern:
   align-items: center;
   justify-content: center;
   min-height: 36-38rpx;
-  padding: 5-6rpx 14rpx;
-  border-radius: 999rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 10rpx;
   font-size: 20rpx;
   font-weight: 700;
   line-height: 1.35;
@@ -467,8 +470,8 @@ style="animation: glassFadeUp 0.42s {{0.06 * index}}s ease both;"
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10rpx 20rpx;
-  border-radius: 999rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 10rpx;
   background: linear-gradient(135deg, rgba(219,234,254,0.94), rgba(191,219,254,0.86));
   color: #2563eb;
   font-size: 22rpx;
@@ -530,7 +533,7 @@ style="animation: glassFadeUp 0.42s {{0.06 * index}}s ease both;"
    - Info blocks: `24rpx`
    - List rows: `22rpx`
    - Buttons: `24rpx`
-   - Chips: `999rpx` (full round)
+   - Status labels and metadata chips: compact rounded rectangles; do not use `999rpx` capsules
 
 5. **Font weight hierarchy:**
    - Hero title: `700`
