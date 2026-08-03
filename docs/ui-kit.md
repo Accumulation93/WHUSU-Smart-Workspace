@@ -58,6 +58,12 @@
 | `--ui-field-radius` | 输入、选择器和表单控件圆角 |
 | `--ui-tab-*` | 页签字号、高度、内边距和圆角 |
 | `--ui-section-title-inset` | 标题蓝色竖线与标题文字的距离 |
+| `--ui-dialog-edge` | 弹窗与物理视口的安全边距 |
+| `--ui-dialog-width-inset` | 弹窗横向两侧安全边距之和，供兼容性良好的 `calc()` 使用 |
+| `--ui-dialog-padding` | 弹窗表面的对称内边距 |
+| `--ui-dialog-section-gap` | 弹窗标题、正文分组和控件之间的间距 |
+| `--ui-dialog-footer-gap` | 弹窗正文与底部操作区的距离 |
+| `--ui-dialog-radius` | 弹窗表面圆角 |
 
 圆角按设备收紧：手机可使用较柔和的圆角，Pad 竖屏更克制，Pad 横屏使用更小的矩形圆角。状态标签可以是小型圆角矩形，主按钮、页签和弹窗不能使用胖胶囊。
 
@@ -68,7 +74,9 @@
 - `.card`、`.section`、`.edit-box`、`.list-card` 是主要玻璃表面。
 - `.tabs`、`.tabs-card`、`.tab` 使用共享页签令牌；横屏页签必须整行均分或明确横向滚动。
 - `.primary-btn`、`.secondary-btn`、`.danger-btn` 是三种主按钮角色；小型操作使用链接式控件。
-- `.ui-overlay` 和 `.ui-dialog-shell` 是弹窗唯一几何所有者，遮罩固定覆盖视口，正文由明确的 `scroll-view` 滚动。
+- `.ui-overlay` 和 `.ui-dialog-shell` 是弹窗唯一几何所有者：全局只允许一处几何定义，遮罩固定覆盖 `100vw × 100vh`，弹窗以 `50vw / 50vh` 为锚点居中。
+- `.ui-overlay-blocker` 只负责阻止背景触摸；弹窗壳不滚动，正文由直接子级 `scroll-view.ui-dialog-body` 滚动，嵌套列表继续使用 `nested-scroll-enabled`。
+- 普通 WXML 不写静态 `style` 或 `placeholder-style`。进度宽度、时间表坐标、拖拽位置、动画延时等运行时几何可以保留动态行内样式；其余表现必须进入语义类并引用设备令牌。
 - 页面返回、组织与身份切换、登录失效等系统行为使用现有共享流程，不在页面内重新实现一套。
 
 ## 样式所有权
@@ -79,6 +87,7 @@
 4. 业务状态和内容：对应页面 JS/WXML
 
 页面 WXSS 可以改变布局方向、列数和内容排列，但不应覆盖全局字体角色、设备断点、弹窗定位、按钮角色或基础控件高度。
+页面级弹窗类可以定义业务内容排列，但不得再次声明遮罩定位、弹窗中心点或独立的视口边距。
 
 ## 更新规则
 

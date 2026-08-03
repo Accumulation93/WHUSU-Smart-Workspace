@@ -2405,3 +2405,15 @@ scroll-view {
     font-size: var(--ui-type-emphasis);
   }
 }
+.target-group-label--flush {
+  margin-top: 0;
+}
+
+.candidate-list-title {
+  margin-top: var(--ui-tab-gap, 8rpx);
+}
+
+.rule-filter-field--grow {
+  flex: 1 1 0;
+  min-width: 0;
+}

@@ -20,7 +20,7 @@
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
         <block wx:else>
         <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
-          <view class="list-name">{{item.name}} <text wx:if="{{item.isDefault}}" class="audit-chip audit-chip-approved" style="margin-left:8rpx;">默认</text></view>
+          <view class="list-name">{{item.name}} <text wx:if="{{item.isDefault}}" class="audit-chip audit-chip-approved audit-chip--inline">默认</text></view>
           <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-sig-preview" />
           <view class="inline-actions list-actions-below">
             <text class="audit-link-btn ui-motion-chip" data-id="{{item.id}}" bindtap="editSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>

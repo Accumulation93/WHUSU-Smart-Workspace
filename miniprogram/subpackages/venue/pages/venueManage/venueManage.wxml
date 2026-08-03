@@ -393,7 +393,7 @@
 
               <!-- Inline rule condition editor (within step editor) -->
               <block wx:if="{{ruleForm._editingConditionIdx !== undefined}}">
-                <view class="rule-edit-box" style="margin-top:12rpx;">
+                <view class="rule-edit-box rule-edit-box--spaced">
                   <view class="section-title-sm">{{ruleForm._editingConditionIdx >= 0 ? '编辑规则' : '新增规则'}}</view>
 
                   <!-- Dept scope -->
@@ -402,7 +402,7 @@
                       <view class="picker-display">{{ruleForm._editingCondition.deptScope === 'specific' ? '选择部门' : (ruleForm._editingCondition.deptScope === 'same' ? '与申请人同部门' : '全部')}}</view></picker></view>
                   <view class="field" wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}">
                     <view class="picker-value ui-motion-chip" data-target="dept" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._deptNames || '点击选择部门'}}</view>
-                    <text class="link ui-motion-chip" wx:if="{{ruleForm._editingCondition._deptNames}}" catchtap="onCondFieldClear" data-field="dept" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                    <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._deptNames}}" catchtap="onCondFieldClear" data-field="dept" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
                   </view>
 
                   <!-- WG scope -->
@@ -411,7 +411,7 @@
                       <view class="picker-display">{{ruleForm._editingCondition.wgScope === 'specific' ? '选择职能组' : (ruleForm._editingCondition.wgScope === 'same' ? '与申请人同组' : '全部')}}</view></picker></view>
                   <view class="field" wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}">
                     <view class="picker-value ui-motion-chip" data-target="wg" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._wgNames || '点击选择职能组'}}</view>
-                    <text class="link ui-motion-chip" wx:if="{{ruleForm._editingCondition._wgNames}}" catchtap="onCondFieldClear" data-field="wg" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                    <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._wgNames}}" catchtap="onCondFieldClear" data-field="wg" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
                   </view>
 
                   <!-- Identity scope -->
@@ -420,7 +420,7 @@
                       <view class="picker-display">{{ruleForm._editingCondition.identScope === 'specific' ? '选择身份' : (ruleForm._editingCondition.identScope === 'same' ? '与申请人同身份' : '全部')}}</view></picker></view>
                   <view class="field" wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}">
                     <view class="picker-value ui-motion-chip" data-target="ident" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._identNames || '点击选择身份'}}</view>
-                    <text class="link ui-motion-chip" wx:if="{{ruleForm._editingCondition._identNames}}" catchtap="onCondFieldClear" data-field="ident" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                    <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._identNames}}" catchtap="onCondFieldClear" data-field="ident" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
                   </view>
 
                   <view class="button-row">
@@ -498,13 +498,13 @@
         <view class="detail-row" wx:if="{{bookingDetail.approvalComment}}"><text class="detail-key">审批意见</text><text class="detail-val">{{bookingDetail.approvalComment}}</text></view>
         <view class="detail-row"><text class="detail-key">状态</text><text class="status-tag {{bookingDetail.displayStatus || bookingDetail.status}}">{{statusLabels[bookingDetail.displayStatus || bookingDetail.status] || (bookingDetail.status === 'approved' ? '已通过' : (bookingDetail.status === 'pending' ? '待审核' : bookingDetail.status))}}</text></view>
         <!-- Flow progress bar -->
-        <view wx:if="{{bookingDetail.approvalProgress}}" class="audit-flow-summary" style="margin-top:8rpx;">
+        <view wx:if="{{bookingDetail.approvalProgress}}" class="audit-flow-summary audit-flow-summary--spaced">
           <view class="audit-flow-progress-bar">
             <view class="audit-flow-progress-fill" style="width:{{bookingDetail._approvalPercent}}%;{{bookingDetail._approvalBarColor || ''}}"></view>
           </view>
           <text class="audit-flow-progress-text">{{bookingDetail.approvalProgress.isRejected ? '已驳回' : (bookingDetail.approvalProgress.isApproved ? '已完成' : (bookingDetail.approvalProgress.currentStep + '/' + bookingDetail.approvalProgress.totalSteps))}}</text>
         </view>
-        <view wx:if="{{bookingDetail._flowTimeline && bookingDetail._flowTimeline.length}}" class="audit-flow" style="margin-top:6rpx;">
+        <view wx:if="{{bookingDetail._flowTimeline && bookingDetail._flowTimeline.length}}" class="audit-flow audit-flow--spaced">
           <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{bookingDetail._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="flow-left-col">
               <view class="{{node.dotClass}}">{{node.icon}}</view>
@@ -512,9 +512,9 @@
             </view>
             <view class="flow-right-col">
               <view class="flow-info">
-                <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                 <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
-                <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+                <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
                 <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
               </view>
               <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
@@ -626,8 +626,8 @@
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
-      <view class="rule-filter-row" style="padding:0 24rpx 12rpx;">
-        <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
+      <view class="rule-filter-row rule-filter-row--dialog">
+        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->
       <view class="dept-tab-scroll" wx:if="{{condMultiPickerDeptTabs.length}}">
@@ -642,7 +642,7 @@
         </scroll-view>
       </view>
       <!-- Select-all / Deselect-all -->
-      <view class="button-row compact-row" style="padding:0 24rpx 8rpx;">
+      <view class="button-row compact-row compact-row--dialog">
         <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全选</button>
         <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerDeselectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消全选</button>
       </view>
@@ -684,13 +684,13 @@
             <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalPopupTarget.userName}}<text wx:if="{{approvalPopupTarget.userDept}}"> · {{approvalPopupTarget.userDept}}</text></text></view>
             <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalPopupTarget.timeStart}} — {{approvalPopupTarget.timeEnd}}</text></view>
             <!-- Flow progress bar -->
-            <view wx:if="{{approvalPopupTarget.approvalProgress}}" class="audit-flow-summary" style="margin-top:8rpx;">
+            <view wx:if="{{approvalPopupTarget.approvalProgress}}" class="audit-flow-summary audit-flow-summary--spaced">
               <view class="audit-flow-progress-bar">
                 <view class="audit-flow-progress-fill" style="width:{{approvalPopupTarget._approvalPercent}}%;{{approvalPopupTarget._approvalBarColor || ''}}"></view>
               </view>
               <text class="audit-flow-progress-text">{{approvalPopupTarget.approvalProgress.isRejected ? '已驳回' : (approvalPopupTarget.approvalProgress.isApproved ? '已完成' : (approvalPopupTarget.approvalProgress.currentStep + '/' + approvalPopupTarget.approvalProgress.totalSteps))}}</text>
             </view>
-            <view wx:if="{{approvalPopupTarget._flowTimeline && approvalPopupTarget._flowTimeline.length}}" class="audit-flow" style="margin-top:6rpx;">
+            <view wx:if="{{approvalPopupTarget._flowTimeline && approvalPopupTarget._flowTimeline.length}}" class="audit-flow audit-flow--spaced">
               <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{approvalPopupTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                 <view class="flow-left-col">
                   <view class="{{node.dotClass}}">{{node.icon}}</view>
@@ -698,9 +698,9 @@
                 </view>
                 <view class="flow-right-col">
                   <view class="flow-info">
-                    <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                    <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                     <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
-                    <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+                    <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
                     <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
                   </view>
                   <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
@@ -712,7 +712,7 @@
               </view>
             </view>
           </view>
-          <view class="field" style="margin-top:16rpx;">
+          <view class="field field--approval-comment">
             <view class="field-label">审批意见（选填）</view>
             <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalPopupComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalPopupAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
           </view>

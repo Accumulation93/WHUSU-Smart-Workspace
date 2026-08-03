@@ -383,3 +383,12 @@ textarea {
     line-height: 18px !important;
   }
 }
+.audit-chip--inline {
+  margin-left: 8rpx;
+}
+
+@media (min-width: 520px) {
+  .audit-chip--inline {
+    margin-left: 6px;
+  }
+}

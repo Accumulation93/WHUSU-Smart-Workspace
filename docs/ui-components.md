@@ -23,6 +23,9 @@
 | `.primary-btn` / `.secondary-btn` / `.danger-btn` | 三种主操作角色 | 保存、取消、删除和提交 |
 | `.field-input` / `.field-textarea` / `.picker-value` | 表单控件 | 人事、认证、场地、权限 |
 | `.ui-overlay` / `.ui-dialog-shell` | 弹窗遮罩和壳 | 详情、选择、确认、编辑弹窗 |
+| `.ui-overlay-blocker` | 背景触摸拦截层 | 所有居中弹窗，位于弹窗壳下方 |
+| `.ui-dialog-header` / `.ui-dialog-body` / `.ui-dialog-footer` | 固定标题、可滚动正文、固定操作区 | 长表单、人员选择、审批步骤和详情 |
+| `.ui-dialog-inset` | 使用弹窗令牌的对称水平留白 | 弹窗内独立字段、提示和操作行 |
 
 ## 状态表达
 
@@ -40,3 +43,4 @@
 - 页面负责把业务数据映射成组件需要的展示字段。
 - 子应用可以拥有专用列表行，但必须复用全局字体、设备令牌、按钮角色和弹窗契约。
 - 不为单个页面复制 `workspace-hero`、弹窗遮罩或一套新的按钮基础样式。
+- 页面 WXML 的静态间距、字号、颜色和圆角必须使用语义类；只有数据驱动的坐标、进度或动画允许动态行内样式。

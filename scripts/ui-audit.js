@@ -847,6 +847,18 @@ const staticInlineStyles = wxmlFiles.flatMap(scanStaticInlineStyles);
 const layoutContracts = wxmlFiles.map(scanLayoutContracts);
 const styles = walk(MINI_ROOT, '.wxss').map(scanWxss);
 const compactVisualContractIssues = scanCompactVisualContract();
+const dialogGeometryOwnerCount = [...GLOBAL_STYLE.matchAll(/^\s*\.ui-overlay\s*\{/gm)].length;
+const landscapeTabTokenCount = [...GLOBAL_STYLE.matchAll(/--ui-tab-min-height:\s*50px\s*;/g)].length;
+const duplicateGlobalUiContracts = [
+  ...(dialogGeometryOwnerCount === 1 ? [] : [{
+    file: 'miniprogram/app.wxss',
+    message: `ui-overlay 物理视口定位必须只有一个全局定义，当前为 ${dialogGeometryOwnerCount} 个`
+  }]),
+  ...(landscapeTabTokenCount === 1 ? [] : [{
+    file: 'miniprogram/app.wxss',
+    message: `Pad 横屏页签高度令牌必须只有一个定义，当前为 ${landscapeTabTokenCount} 个`
+  }])
+];
 const nativeButtonRoleIssues = controls.filter(item => item.tag === 'button' && !STANDARD_BUTTON_ROLE.test(item.className));
 const forbiddenEmojiIcons = [
   ...wxmlFiles,
@@ -895,9 +907,8 @@ const missingStableDialogSystem = !(
   /\.ui-overlay\s+\.ui-dialog-shell\.ui-dialog-shell--complex\s*>\s*\.ui-dialog-body\s*\{[^}]*flex:\s*0\s+1\s+auto\s*!important;[^}]*max-height:\s*calc\(100vh/m.test(GLOBAL_STYLE)
 );
 const missingDialogCenteringSystem = !(
-  /\.ui-overlay\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?justify-content:\s*center;/m.test(GLOBAL_STYLE) &&
-  (/\.ui-overlay\s+(?:>\s*)?\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50vh\s*!important;[\s\S]*?left:\s*50vw\s*!important;[\s\S]*?transform:\s*translate\(\s*-50%\s*,\s*-50%\s*\)\s*!important;/m.test(GLOBAL_STYLE) ||
-    /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*relative;[\s\S]*?align-self:\s*center;[\s\S]*?margin-left:\s*auto;[\s\S]*?margin-right:\s*auto;/m.test(GLOBAL_STYLE))
+  /^\s*\.ui-overlay\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?width:\s*100vw\s*!important;[\s\S]*?height:\s*100vh\s*!important;/m.test(GLOBAL_STYLE) &&
+  /\.ui-overlay\s+\.ui-dialog-shell\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*50vh\s*!important;[\s\S]*?left:\s*50vw\s*!important;[\s\S]*?transform:\s*translate\(\s*-50%\s*,\s*-50%\s*\)\s*!important;/m.test(GLOBAL_STYLE)
 );
 const missingDialogGestureSystem = !(
   /page\s*\{[\s\S]*?touch-action:\s*manipulation;[\s\S]*?-webkit-text-size-adjust:\s*100%;/m.test(GLOBAL_STYLE) &&
@@ -1044,6 +1055,7 @@ const report = {
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
     compactVisualContractIssues: compactVisualContractIssues.length,
+    duplicateGlobalUiContracts: duplicateGlobalUiContracts.length,
     important: styles.reduce((sum, item) => sum + item.important, 0),
     missingTabletPortrait: styles.filter(item => !item.media520).length,
     missingTabletLandscape: styles.filter(item => !item.media900).length
@@ -1086,6 +1098,7 @@ const report = {
   unstableSummaryGrid,
   typographyRoleDrift,
   compactVisualContractIssues,
+  duplicateGlobalUiContracts,
   styles
 };
 
@@ -1096,7 +1109,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...compactVisualContractIssues]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...compactVisualContractIssues, ...duplicateGlobalUiContracts]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -1113,8 +1126,9 @@ if (process.argv.includes('--strict')) {
     report.summary.visibleInternalIds ||
     report.summary.nativeButtonRoleIssues || report.summary.forbiddenEmojiIcons ||
     report.summary.adminOrgContextIssues || report.summary.workspaceShellIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
+    report.summary.staticInlineStyles ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem ||
-    report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues;
+    report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts;
   process.exitCode = failed ? 1 : 0;
 }

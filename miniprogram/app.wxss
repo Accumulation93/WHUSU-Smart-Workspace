@@ -79,6 +79,12 @@ page {
   --ui-tab-shell-padding: 8rpx;
   --ui-tab-radius: 20rpx;
   --ui-tab-shell-radius: 26rpx;
+  --ui-dialog-edge: 24rpx;
+  --ui-dialog-width-inset: 48rpx;
+  --ui-dialog-padding: 26rpx;
+  --ui-dialog-section-gap: 18rpx;
+  --ui-dialog-footer-gap: 16rpx;
+  --ui-dialog-radius: 30rpx;
   min-height: 100%;
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
@@ -746,8 +752,8 @@ button[disabled],
 .modal-card {
   width: 100%;
   max-height: 88vh;
-  padding: 26rpx;
-  border-radius: 30rpx;
+  padding: var(--ui-dialog-padding);
+  border-radius: var(--ui-dialog-radius);
   overflow: hidden;
   background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(248,251,255,0.91));
   border: 1rpx solid rgba(255,255,255,0.84);
@@ -762,8 +768,8 @@ button[disabled],
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18rpx;
-  margin-bottom: 18rpx;
+  gap: var(--ui-dialog-section-gap);
+  margin-bottom: var(--ui-dialog-section-gap);
 }
 
 .popup-title {
@@ -778,17 +784,17 @@ button[disabled],
 
 /* 稳定弹窗与响应式数据布局契约 */
 .ui-overlay {
-  position: fixed;
-  inset: 0;
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
   z-index: 2000 !important;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100vw;
-  height: 100vh;
-  padding: 16rpx 16rpx calc(16rpx + env(safe-area-inset-bottom));
-  overflow-x: hidden;
+  display: block !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
   overflow: hidden !important;
   overscroll-behavior: none;
   background: rgba(15,23,42,0.34) !important;
@@ -796,45 +802,54 @@ button[disabled],
   -webkit-backdrop-filter: blur(6rpx);
   box-sizing: border-box;
   isolation: isolate;
+  touch-action: manipulation !important;
+  -webkit-text-size-adjust: 100%;
 }
 
 .ui-overlay .ui-dialog-shell {
-  position: relative;
+  position: fixed !important;
+  top: 50vh !important;
+  left: 50vw !important;
+  right: auto !important;
+  bottom: auto !important;
   z-index: 1 !important;
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  width: calc(100vw - 32rpx);
+  width: calc(100vw - var(--ui-dialog-width-inset)) !important;
   min-width: 0;
-  max-width: 100%;
-  align-self: center;
-  margin-top: auto;
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: auto;
-  left: auto;
-  right: auto;
-  transform: none;
-  max-height: calc(100vh - 32rpx - env(safe-area-inset-bottom));
+  max-width: calc(100vw - var(--ui-dialog-width-inset)) !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  max-height: calc(100vh - var(--ui-dialog-width-inset) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   overflow-x: hidden;
   overflow-y: hidden !important;
   overscroll-behavior: none;
   box-sizing: border-box;
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* 透明挡板只拦截背景滑动；弹窗外壳在其上方，内部 scroll-view 仍可独立滚动。 */
 .ui-overlay .ui-overlay-blocker {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  z-index: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
   background: transparent;
+  pointer-events: auto !important;
+  touch-action: none !important;
 }
 
 .ui-overlay .ui-dialog-shell--compact {
   height: auto;
-  max-width: 640rpx;
+  max-width: 640rpx !important;
 }
 
 .ui-overlay .ui-dialog-shell--complex {
@@ -842,7 +857,40 @@ button[disabled],
 }
 
 .ui-overlay .ui-dialog-shell--wide {
-  height: calc(100vh - 32rpx - env(safe-area-inset-bottom));
+  top: calc(env(safe-area-inset-top) + var(--ui-dialog-edge)) !important;
+  bottom: calc(env(safe-area-inset-bottom) + var(--ui-dialog-edge)) !important;
+  height: auto !important;
+  max-height: none !important;
+  transform: translateX(-50%) !important;
+}
+
+/* 弹窗表面与内部留白统一由 UI Kit 令牌控制，页面只定义业务布局。 */
+.ui-overlay .popup-card,
+.ui-overlay .modal-card,
+.ui-overlay .dialog-panel,
+.ui-overlay .organization-picker-dialog,
+.ui-overlay .message-switch-dialog {
+  padding: var(--ui-dialog-padding) !important;
+  border-radius: var(--ui-dialog-radius) !important;
+  box-sizing: border-box !important;
+}
+
+.ui-overlay .permission-dialog {
+  border-radius: var(--ui-dialog-radius) !important;
+}
+
+.ui-overlay .permission-dialog-header {
+  gap: var(--ui-dialog-section-gap) !important;
+  padding: var(--ui-dialog-padding) var(--ui-dialog-padding) var(--ui-dialog-section-gap) !important;
+}
+
+.ui-overlay .permission-dialog-body {
+  padding: var(--ui-dialog-section-gap) var(--ui-dialog-padding) !important;
+}
+
+.ui-overlay .permission-dialog-footer {
+  gap: var(--ui-dialog-section-gap) !important;
+  padding: var(--ui-dialog-footer-gap) var(--ui-dialog-padding) !important;
 }
 
 .ui-dialog-header {
@@ -980,7 +1028,7 @@ scroll-view.ui-dialog-scroll--x {
   flex: 0 0 auto;
   width: 100%;
   min-width: 0;
-  padding-top: 16rpx;
+  padding-top: var(--ui-dialog-footer-gap);
   padding-bottom: 0;
   background: linear-gradient(180deg, rgba(248,251,255,0.12), rgba(248,251,255,0.96) 26%);
   box-sizing: border-box;
@@ -1333,6 +1381,12 @@ button:active,
     --ui-tab-shell-padding: 4px;
     --ui-tab-radius: 10px;
     --ui-tab-shell-radius: 13px;
+    --ui-dialog-edge: 24px;
+    --ui-dialog-width-inset: 48px;
+    --ui-dialog-padding: 18px;
+    --ui-dialog-section-gap: 14px;
+    --ui-dialog-footer-gap: 14px;
+    --ui-dialog-radius: 18px;
     --ui-page-padding-top: 24px;
     --ui-page-padding-x: 22px;
     --ui-page-padding-bottom: 32px;
@@ -1560,17 +1614,8 @@ button:active,
   .popup-card,
   .modal-card {
     max-width: 720px;
-    padding: 18px;
-    border-radius: 18px;
-  }
-
-  .ui-overlay {
-    padding: 18px;
-  }
-
-  .ui-overlay .ui-dialog-shell {
-    height: auto;
-    max-height: calc(100vh - 36px);
+    padding: var(--ui-dialog-padding);
+    border-radius: var(--ui-dialog-radius);
   }
 
   .ui-overlay .ui-dialog-shell--compact {
@@ -1584,7 +1629,7 @@ button:active,
   }
 
   .ui-dialog-footer {
-    padding-top: 14px;
+    padding-top: var(--ui-dialog-footer-gap);
     padding-bottom: 0;
   }
 
@@ -1749,8 +1794,8 @@ button:active,
     --ui-dialog-control-size: 14.5px;
     --ui-tab-radius: 10px;
     --ui-tab-shell-radius: 13px;
-    --ui-tab-min-height: 38px;
-    --ui-tab-padding-y: 6px;
+    --ui-tab-min-height: 50px;
+    --ui-tab-padding-y: 8px;
     --ui-tab-padding-x: 14px;
     --ui-tab-gap: 6px;
     --ui-tab-shell-padding: 5px;
@@ -1773,6 +1818,12 @@ button:active,
     --ui-control-radius: 10px;
     --ui-field-radius: 10px;
     --ui-section-title-inset: 10px;
+    --ui-dialog-edge: 16px;
+    --ui-dialog-width-inset: 32px;
+    --ui-dialog-padding: 16px;
+    --ui-dialog-section-gap: 10px;
+    --ui-dialog-footer-gap: 10px;
+    --ui-dialog-radius: 16px;
   }
 
   /* 横屏以完整可视宽度为基准，子页面自己的窄容器只保留给明确的阅读/登录场景。 */
@@ -2335,16 +2386,6 @@ page .role-pill {
 
 /* 横屏页签：50px 高、整行均分；应用服务标题旁的视图切换保留自身宽度。 */
 @media (min-width: 900px) and (orientation: landscape) {
-  page {
-    --ui-tab-min-height: 50px;
-    --ui-tab-padding-y: 8px;
-    --ui-tab-padding-x: 14px;
-    --ui-tab-gap: 6px;
-    --ui-tab-shell-padding: 6px;
-    --ui-tab-radius: 10px;
-    --ui-tab-shell-radius: 12px;
-  }
-
   page .tabs,
   page .tabs-card,
   page .message-tabs,
@@ -2466,56 +2507,6 @@ page .role-pill {
  * 以视口中心为锚点。这样背景页面即使曾经滚动到任意位置，打开或滚动
  * 弹窗时也不会把遮罩和弹窗一起带偏。正文仍由显式 scroll-view 承担滚动。
  */
-.ui-overlay {
-  position: fixed !important;
-  top: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  display: block !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-  isolation: isolate;
-  touch-action: manipulation !important;
-  -webkit-text-size-adjust: 100%;
-}
-
-.ui-overlay .ui-overlay-blocker {
-  position: fixed !important;
-  top: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  margin: 0 !important;
-  z-index: 0 !important;
-  pointer-events: auto !important;
-  touch-action: none !important;
-}
-
-.ui-overlay .ui-dialog-shell {
-  position: fixed !important;
-  top: 50vh !important;
-  left: 50vw !important;
-  right: auto !important;
-  bottom: auto !important;
-  width: calc(100vw - 48rpx) !important;
-  max-width: calc(100vw - 48rpx) !important;
-  max-height: calc(100vh - 48rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
-  margin: 0 !important;
-  transform: translate(-50%, -50%) !important;
-  box-sizing: border-box !important;
-  z-index: 1 !important;
-  pointer-events: auto !important;
-  touch-action: auto !important;
-  -webkit-text-size-adjust: 100%;
-}
-
 /*
  * “复杂”只描述结构，不代表必须占满屏幕。窗口默认按实际内容收缩；正文
  * 超过可用高度后由 scroll-view 自己滚动，标题和操作栏始终固定。只有真正
@@ -2674,19 +2665,6 @@ page .ui-overlay .ui-dialog-shell:focus,
 page .ui-overlay .ui-dialog-shell:focus-within {
   transform: translate(-50%, -50%) !important;
   transition-property: opacity, box-shadow, border-color, background-color !important;
-}
-
-.ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
-  max-width: 640rpx !important;
-}
-
-/* 宽表格/时间表需要占满可用高度，但仍以视口中心的水平轴居中。 */
-.ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
-  top: calc(env(safe-area-inset-top) + 16rpx) !important;
-  bottom: calc(env(safe-area-inset-bottom) + 16rpx) !important;
-  height: auto !important;
-  max-height: none !important;
-  transform: translateX(-50%) !important;
 }
 
 page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:active,

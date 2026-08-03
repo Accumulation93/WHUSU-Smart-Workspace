@@ -244,7 +244,7 @@
       </view>
       <view class="card targets-card" wx:for="{{meritRuleGroups}}" wx:key="targetIdentity" style="animation: glassFadeUp 0.42s {{0.08 * index}}s ease both;">
         <view class="merit-rule-head">
-          <view class="target-group-label" style="margin-top:0;">{{item.targetIdentity}}</view>
+          <view class="target-group-label target-group-label--flush">{{item.targetIdentity}}</view>
           <view class="merit-group-count">{{item.quotaInfo}}</view>
           <text class="merit-edit-btn ui-motion-chip" bindtap="openUserDesignation" data-identity="{{item.targetIdentity}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✎ 编辑</text>
         </view>
@@ -468,7 +468,7 @@
         </view>
         <view class="empty-inline" wx:if="{{!userDesigSelectedList.length}}">暂无人选</view>
       </scroll-view>
-      <view class="list-title" style="margin-top:8rpx;">可选成员</view>
+      <view class="list-title candidate-list-title">可选成员</view>
       <view class="rule-filter-row">
         <view class="rule-filter-field">
           <view class="field-label">部门</view>
@@ -482,7 +482,7 @@
             <view class="picker-value compact-picker-value">{{userDesigFilterIdent}}</view>
           </picker>
         </view>
-        <view class="rule-filter-field" style="flex:1;">
+        <view class="rule-filter-field rule-filter-field--grow">
           <view class="field-label">搜索</view>
           <input class="field-input" placeholder="姓名/学号" value="{{userDesigSearchKeyword}}" bindinput="onUserDesigSearchInput"/>
         </view>

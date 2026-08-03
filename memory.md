@@ -344,6 +344,16 @@ callFunction({ name, data, success, fail })
 - 全系统页面跳转统一经过可信导航工具。若目标页已经成为当前页但 `navigateTo` 仍超时，使用 `redirectTo` 原位重建故障目标页，保留前一页和原生返回关系；禁止用 `reLaunch` 清空正常页面栈。
 - 登录页每次重新显示都必须释放导航锁；失败提示只能说明页面未打开，不能把已经成功的认证误报为“请重新登录”。
 
+### Bug 24: UI Kit 规则重复定义与静态行内样式绕过设备体系
+
+**原因**: `app.wxss` 曾同时保留两套 `.ui-overlay / .ui-dialog-shell` 几何定义，并在两个横屏媒体块中重复声明页签高度；页面 WXML 又用静态 `style`、`placeholder-style` 写死手机 rpx 间距、字号和颜色。最终表现取决于加载顺序，Pad 可能沿用手机尺寸，弹窗也可能被页面局部规则重新偏移。
+
+**永久规则**:
+- `.ui-overlay` 的物理视口几何在 `app.wxss` 中只能有一个定义；设备差异只覆盖令牌和受控宽度，不再复制整套遮罩、中心点与触摸规则。
+- 弹窗边距、内边距、分组间距、操作区间距和圆角统一使用 `--ui-dialog-*` 令牌，手机、Pad 竖屏、Pad 横屏分别取值。
+- WXML 禁止静态 `style` 和 `placeholder-style`；进度、坐标、拖拽、时间表和动画等数据驱动几何可以保留动态行内样式，其余表现必须进入语义类。
+- `scripts/ui-audit.js --strict` 必须保持 `staticInlineStyles=0`、`duplicateGlobalUiContracts=0`，并继续保持全部弹窗定位、滚动和触摸契约为 0 风险。
+
 ### 发布与编译配置锁
 
 - `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。基础库升级必须单独完成全页面绘制与导航回归，不能和故障修复混在同一次变更中。

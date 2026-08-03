@@ -1936,7 +1936,7 @@
           <view class="rule-list-toolbar"><view><view class="list-title">结果查看权限</view></view><view class="rule-list-count">{{pubViewRuleListView.length}} / {{pubViewRuleList.length}}</view></view>
           <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{pubViewRuleFilterOptions.departments}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{pubViewRuleFilterOptions.identities}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleAllSelected ? '取消全选' : '全选当前列表'}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">反选当前列表</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">批量删除选中</button></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll" style="max-height:500rpx;">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item" wx:for="{{pubViewRuleListView}}" wx:key="id">
               <view class="list-main">
                 <view class="rule-list-action-row">
@@ -1951,7 +1951,7 @@
         </view>
 
         <!-- ═══ 评优名单指定权 ─── 类别 + 条款 ─── -->
-        <view class="rule-panel" style="margin-top:28rpx;">
+        <view class="rule-panel rule-panel--spaced">
           <view class="rule-panel-head"><view class="rule-panel-title">评优名单权限</view><view class="rule-panel-subtitle">请先设置结果查看权限</view></view>
           <view class="field"><view class="field-label">授权部门</view><picker range="{{departmentList}}" range-key="name" bindchange="onPubMeritRuleDeptChange"><view class="picker-value">{{pubMeritRuleForm.granteeDepartment || '请选择部门'}}</view></picker></view>
           <view class="field"><view class="field-label">授权身份</view><picker range="{{identityList}}" range-key="name" bindchange="onPubMeritRuleIdentChange"><view class="picker-value">{{pubMeritRuleForm.granteeIdentity || '请选择身份'}}</view></picker></view>
@@ -1981,7 +1981,7 @@
           <view class="rule-list-toolbar"><view><view class="list-title">评优名单权限</view></view><view class="rule-list-count">{{pubMeritRuleListView.length}} / {{pubMeritRuleList.length}}</view></view>
           <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{pubMeritRuleFilterOptions.departments}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{pubMeritRuleFilterOptions.identities}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleAllSelected ? '取消全选' : '全选'}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">反选</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除已选</button></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll" style="max-height:500rpx;">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item" wx:for="{{pubMeritRuleListView}}" wx:key="id">
               <view class="list-main">
                 <view class="rule-list-action-row">
@@ -1997,7 +1997,7 @@
       </view>
 
       <!-- ═══ 评优名单汇总（Feature 5） ═══ -->
-      <view class="rule-panel merit-summary-panel" wx:if="{{publicationForm.id}}" style="margin-top:28rpx;">
+      <view class="rule-panel merit-summary-panel rule-panel--spaced" wx:if="{{publicationForm.id}}">
         <view class="rule-panel-head">
           <view class="rule-panel-head-row">
             <view>
@@ -2109,39 +2109,39 @@
       </view>
 
       <!-- Starter Conditions (multi-condition OR-ed) -->
-      <view class="list-card nested-card" style="margin:0 0 16rpx;">
+      <view class="list-card nested-card audit-condition-card">
         <view class="list-title">可发起人（满足任一条件）</view>
         <view class="list-item" wx:for="{{auditTemplateForm.starterConditions}}" wx:key="index" wx:for-item="cond">
           <view class="list-main">
             <view class="list-name">{{cond.conditionType === 'person' ? '人员条件' : '身份范围条件'}}</view>
-            <view class="chip-row" style="flex-wrap:wrap;">
+            <view class="chip-row chip-row--wrap">
               <block wx:if="{{cond.conditionType === 'person'}}">
-                <view class="status-chip info-chip" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" style="margin:2rpx;">{{pname}}</view>
-                <view class="list-desc" wx:if="{{!cond._personNames || !cond._personNames.length}}" style="margin:2rpx;">未选择人员</view>
+                <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">{{pname}}</view>
+                <view class="list-desc audit-condition-token" wx:if="{{!cond._personNames || !cond._personNames.length}}">未选择人员</view>
               </block>
               <block wx:else>
                 <block wx:if="{{cond.departmentScope === 'own'}}">
-                  <view class="status-chip info-chip" style="margin:2rpx;">同部门</view>
+                  <view class="status-chip info-chip audit-condition-token">同部门</view>
                 </block>
                 <block wx:elif="{{cond.departmentScope === 'specific'}}">
-                  <view class="status-chip info-chip" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" style="margin:2rpx;">{{dname}}</view>
-                  <view class="status-chip info-chip" wx:if="{{!cond._deptNames || !cond._deptNames.length}}" style="margin:2rpx;">指定部门</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index">{{dname}}</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._deptNames || !cond._deptNames.length}}">指定部门</view>
                 </block>
                 <block wx:if="{{cond.workGroupScope === 'own'}}">
-                  <view class="status-chip info-chip" style="margin:2rpx;">同职能组</view>
+                  <view class="status-chip info-chip audit-condition-token">同职能组</view>
                 </block>
                 <block wx:elif="{{cond.workGroupScope === 'specific'}}">
-                  <view class="status-chip info-chip" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" style="margin:2rpx;">{{wname}}</view>
-                  <view class="status-chip info-chip" wx:if="{{!cond._wgNames || !cond._wgNames.length}}" style="margin:2rpx;">指定职能组</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index">{{wname}}</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._wgNames || !cond._wgNames.length}}">指定职能组</view>
                 </block>
                 <block wx:if="{{cond.identityScope === 'own'}}">
-                  <view class="status-chip info-chip" style="margin:2rpx;">同身份</view>
+                  <view class="status-chip info-chip audit-condition-token">同身份</view>
                 </block>
                 <block wx:elif="{{cond.identityScope === 'specific'}}">
-                  <view class="status-chip info-chip" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" style="margin:2rpx;">{{iname}}</view>
-                  <view class="status-chip info-chip" wx:if="{{!cond._identNames || !cond._identNames.length}}" style="margin:2rpx;">指定身份</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index">{{iname}}</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._identNames || !cond._identNames.length}}">指定身份</view>
                 </block>
-                <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
+                <view class="list-desc audit-condition-token" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}">不限（所有人）</view>
               </block>
             </view>
           </view>
@@ -2150,48 +2150,48 @@
             <text class="link danger-link ui-motion-chip" data-index="{{index}}" bindtap="removeStarterCondition" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
           </view>
         </view>
-        <view class="empty-inline" wx:if="{{!auditTemplateForm.starterConditions.length}}" style="padding:0 24rpx;">任何人均可发起</view>
-        <view class="button-row" style="padding:0 24rpx;">
+        <view class="empty-inline ui-dialog-inset" wx:if="{{!auditTemplateForm.starterConditions.length}}">任何人均可发起</view>
+        <view class="button-row ui-dialog-inset">
           <button class="secondary-btn ui-motion-button" bindtap="openStarterConditionEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加发起条件</button>
         </view>
       </view>
 
-        <view class="list-title" style="margin-top: 20rpx;">审批步骤（{{auditTemplateForm.steps.length}}步）</view>
+        <view class="list-title audit-section-title">审批步骤（{{auditTemplateForm.steps.length}}步）</view>
         <view class="list-item" wx:for="{{auditTemplateForm.steps}}" wx:key="index">
           <view class="list-main">
             <view class="list-name">{{item.name || ('第' + (index + 1) + '步')}} — {{item.actionType === 'pass' ? '通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
             <view class="list-desc">{{item.allowApproverDesignation ? (index === 0 ? '提交人可指定本步骤审批人' : '上一环节可指定本步骤审批人') : '按审批条件确定审批人'}}</view>
             <!-- Each condition as separate bubble chips, OR-separated -->
-            <view wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="margin-top:6rpx;display:flex;flex-wrap:wrap;align-items:center;">
+            <view class="audit-condition-row" wx:for="{{item.conditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci">
               <block wx:if="{{cond.conditionType === 'person'}}">
                 <block wx:if="{{cond._personNames && cond._personNames.length}}">
-                  <view class="status-chip info-chip" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" style="margin:2rpx;">{{pname}}</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">{{pname}}</view>
                 </block>
-                <view class="status-chip current-chip" wx:else style="margin:2rpx;">人员未选择</view>
+                <view class="status-chip current-chip audit-condition-token" wx:else>人员未选择</view>
               </block>
               <block wx:else>
                 <block wx:if="{{cond.departmentScope === 'own'}}">
-                  <view class="status-chip info-chip" style="margin:2rpx;">同部门</view>
+                  <view class="status-chip info-chip audit-condition-token">同部门</view>
                 </block>
                 <block wx:elif="{{cond.departmentScope === 'specific'}}">
-                  <view class="status-chip info-chip" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" style="margin:2rpx;">{{dname}}</view>
-                  <view class="status-chip info-chip" wx:if="{{!cond._deptNames || !cond._deptNames.length}}" style="margin:2rpx;">指定部门</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index">{{dname}}</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._deptNames || !cond._deptNames.length}}">指定部门</view>
                 </block>
                 <block wx:if="{{cond.workGroupScope === 'own'}}">
-                  <view class="status-chip info-chip" style="margin:2rpx;">同职能组</view>
+                  <view class="status-chip info-chip audit-condition-token">同职能组</view>
                 </block>
                 <block wx:elif="{{cond.workGroupScope === 'specific'}}">
-                  <view class="status-chip info-chip" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" style="margin:2rpx;">{{wname}}</view>
-                  <view class="status-chip info-chip" wx:if="{{!cond._wgNames || !cond._wgNames.length}}" style="margin:2rpx;">指定职能组</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index">{{wname}}</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._wgNames || !cond._wgNames.length}}">指定职能组</view>
                 </block>
                 <block wx:if="{{cond.identityScope === 'own'}}">
-                  <view class="status-chip info-chip" style="margin:2rpx;">同身份</view>
+                  <view class="status-chip info-chip audit-condition-token">同身份</view>
                 </block>
                 <block wx:elif="{{cond.identityScope === 'specific'}}">
-                  <view class="status-chip info-chip" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" style="margin:2rpx;">{{iname}}</view>
-                  <view class="status-chip info-chip" wx:if="{{!cond._identNames || !cond._identNames.length}}" style="margin:2rpx;">指定身份</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index">{{iname}}</view>
+                  <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._identNames || !cond._identNames.length}}">指定身份</view>
                 </block>
-                <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
+                <view class="list-desc audit-condition-token" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}">不限（所有人）</view>
               </block>
               <text wx:if="{{ci < item.conditions.length - 1}}" class="audit-or-sep">或</text>
             </view>
@@ -2204,7 +2204,7 @@
         <view class="button-row compact-row">
           <button class="secondary-btn ui-motion-button" bindtap="openAuditTemplateStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加步骤</button>
         </view>
-        <view class="button-row" style="margin-top: 16rpx;">
+        <view class="button-row audit-button-row--spaced">
           <button class="primary-btn ui-motion-button" loading="{{loadingMap.saveAuditTemplate}}" bindtap="saveAuditFlowTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存模板</button>
           <button class="secondary-btn ui-motion-button" bindtap="startCreateAuditTemplate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新建模板</button>
         </view>
@@ -2216,7 +2216,7 @@
           <view class="card-loading-overlay" wx:if="{{loadingMap.auditTemplates}}"><view class="card-loading-spinner"></view></view>
           <block wx:else>
           <view class="list-item audit-template-list-item" wx:for="{{auditFlowTemplates}}" wx:key="id">
-            <view data-id="{{item.id}}" bindtap="toggleAuditTemplateExpand" style="display:flex;justify-content:space-between;width:100%;" hover-class="ui-press-chip ui-motion-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+            <view class="audit-template-toggle" data-id="{{item.id}}" bindtap="toggleAuditTemplateExpand" hover-class="ui-press-chip ui-motion-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="list-main">
                 <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}步 · {{item.resubmitMode === 'fresh' ? '重新逐层' : '回到驳回人'}})</text></view>
                 <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
@@ -2225,7 +2225,7 @@
                 <text>{{auditExpandedTemplateId === item.id ? '收起 ▲' : '展开 ▼'}}</text>
               </view>
             </view>
-            <view class="list-actions" style="position:absolute;right:80rpx;top:16rpx;">
+            <view class="list-actions audit-template-actions">
               <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="editAuditTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
               <text class="link danger-link ui-motion-chip" data-id="{{item.id}}" catchtap="deleteAuditFlowTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
             </view>
@@ -2233,11 +2233,11 @@
             <view wx:if="{{auditExpandedTemplateId === item.id}}" class="audit-template-expanded">
               <view wx:for="{{item.steps}}" wx:for-item="step" wx:for-index="si" wx:key="si" class="audit-template-step-preview">
                 <view class="audit-template-step-head">
-                  <text style="font-weight:700;font-size:25rpx;color:#0f172a;">第{{si + 1}}步：</text>
-                  <text style="font-size:21rpx;color:#64748b;margin-left:8rpx;">{{step.actionType === 'pass' ? '通过' : (step.actionType === 'sign' ? '签字' : (step.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</text>
+                  <text class="audit-step-index">第{{si + 1}}步：</text>
+                  <text class="audit-step-action">{{step.actionType === 'pass' ? '通过' : (step.actionType === 'sign' ? '签字' : (step.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</text>
                 </view>
                 <!-- Each condition as bubble chips -->
-                <view wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci" style="display:flex;flex-wrap:wrap;align-items:center;margin-left:12rpx;">
+                <view class="audit-resolved-condition-row" wx:for="{{step._resolvedConditions}}" wx:for-item="cond" wx:for-index="ci" wx:key="ci">
                   <block wx:if="{{cond.conditionType === 'person'}}">
                     <block wx:if="{{cond._personNames && cond._personNames.length}}">
                       <view wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" class="audit-cond-chip audit-cond-person">{{pname}}</view>
@@ -2259,7 +2259,7 @@
                   <text wx:if="{{ci < step._resolvedConditions.length - 1}}" class="audit-or-sep">或</text>
                 </view>
               </view>
-              <view wx:if="{{!item.steps || !item.steps.length}}" style="color:#9ca3af;font-size:22rpx;">暂无步骤</view>
+              <view class="audit-empty-muted" wx:if="{{!item.steps || !item.steps.length}}">暂无步骤</view>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!auditFlowTemplates.length}}">暂无审核流程</view>
@@ -2275,47 +2275,47 @@
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? '编辑步骤' : '添加步骤'}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-scroll--fill">
             <!-- Step name -->
-            <view class="field" style="padding:0 24rpx;">
+            <view class="field ui-dialog-inset">
               <view class="field-label">步骤名称</view>
               <input class="field-input" value="{{auditTemplateStepForm.name}}" data-field="name" bindinput="onAuditTemplateStepField" placeholder="如：部门负责人审批"/>
             </view>
             <!-- Conditions list -->
-            <view class="list-title" style="padding:0 24rpx;">审批条件（满足任一条件）</view>
+            <view class="list-title ui-dialog-inset">审批条件（满足任一条件）</view>
             <view class="list-item" wx:for="{{auditTemplateStepForm.conditions}}" wx:key="index" wx:for-item="cond">
               <view class="list-main">
                 <view class="list-name">{{cond.conditionType === 'person' ? '人员条件' : '身份范围条件'}}</view>
-                <view class="chip-row" style="flex-wrap:wrap;">
+                <view class="chip-row chip-row--wrap">
                   <block wx:if="{{cond.conditionType === 'person'}}">
-                    <view class="status-chip info-chip" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index" style="margin:2rpx;">{{pname}}</view>
-                    <view class="list-desc" wx:if="{{!cond._personNames || !cond._personNames.length}}" style="margin:2rpx;">未选择人员</view>
+                    <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._personNames}}" wx:for-item="pname" wx:key="index">{{pname}}</view>
+                    <view class="list-desc audit-condition-token" wx:if="{{!cond._personNames || !cond._personNames.length}}">未选择人员</view>
                   </block>
                   <block wx:else>
                     <!-- Department badges -->
                     <block wx:if="{{cond.departmentScope === 'own'}}">
-                      <view class="status-chip info-chip" style="margin:2rpx;">同部门</view>
+                      <view class="status-chip info-chip audit-condition-token">同部门</view>
                     </block>
                     <block wx:elif="{{cond.departmentScope === 'specific'}}">
-                      <view class="status-chip info-chip" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index" style="margin:2rpx;">{{dname}}</view>
-                      <view class="status-chip info-chip" wx:if="{{!cond._deptNames || !cond._deptNames.length}}" style="margin:2rpx;">指定部门</view>
+                      <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._deptNames}}" wx:for-item="dname" wx:key="index">{{dname}}</view>
+                      <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._deptNames || !cond._deptNames.length}}">指定部门</view>
                     </block>
                     <!-- Work Group badges -->
                     <block wx:if="{{cond.workGroupScope === 'own'}}">
-                      <view class="status-chip info-chip" style="margin:2rpx;">同职能组</view>
+                      <view class="status-chip info-chip audit-condition-token">同职能组</view>
                     </block>
                     <block wx:elif="{{cond.workGroupScope === 'specific'}}">
-                      <view class="status-chip info-chip" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index" style="margin:2rpx;">{{wname}}</view>
-                      <view class="status-chip info-chip" wx:if="{{!cond._wgNames || !cond._wgNames.length}}" style="margin:2rpx;">指定职能组</view>
+                      <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._wgNames}}" wx:for-item="wname" wx:key="index">{{wname}}</view>
+                      <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._wgNames || !cond._wgNames.length}}">指定职能组</view>
                     </block>
                     <!-- Identity badges -->
                     <block wx:if="{{cond.identityScope === 'own'}}">
-                      <view class="status-chip info-chip" style="margin:2rpx;">同身份</view>
+                      <view class="status-chip info-chip audit-condition-token">同身份</view>
                     </block>
                     <block wx:elif="{{cond.identityScope === 'specific'}}">
-                      <view class="status-chip info-chip" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index" style="margin:2rpx;">{{iname}}</view>
-                      <view class="status-chip info-chip" wx:if="{{!cond._identNames || !cond._identNames.length}}" style="margin:2rpx;">指定身份</view>
+                      <view class="status-chip info-chip audit-condition-token" wx:for="{{cond._identNames}}" wx:for-item="iname" wx:key="index">{{iname}}</view>
+                      <view class="status-chip info-chip audit-condition-token" wx:if="{{!cond._identNames || !cond._identNames.length}}">指定身份</view>
                     </block>
                     <!-- All scopes = anyone -->
-                    <view class="list-desc" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}" style="margin:2rpx;">不限（所有人）</view>
+                    <view class="list-desc audit-condition-token" wx:if="{{cond.departmentScope === 'all' && cond.workGroupScope === 'all' && cond.identityScope === 'all'}}">不限（所有人）</view>
                   </block>
                 </view>
               </view>
@@ -2324,22 +2324,22 @@
                 <text class="link danger-link ui-motion-chip" data-index="{{index}}" catchtap="removeStepCondition" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
               </view>
             </view>
-            <view class="empty-inline" wx:if="{{!auditTemplateStepForm.conditions.length}}" style="padding:0 24rpx;">暂无审批条件</view>
+            <view class="empty-inline ui-dialog-inset" wx:if="{{!auditTemplateStepForm.conditions.length}}">暂无审批条件</view>
 
             <!-- Add condition button -->
-            <view class="button-row" style="padding:0 24rpx;">
+            <view class="button-row ui-dialog-inset">
               <button class="secondary-btn ui-motion-button" catchtap="openStepConditionEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加审批条件</button>
             </view>
 
             <!-- Action type -->
-            <view class="field" style="padding:0 24rpx;">
+            <view class="field ui-dialog-inset">
               <view class="field-label">审批方式</view>
               <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onStepActionTypeChange">
                 <view class="picker-value">{{auditTemplateStepForm.actionType === 'pass' ? '通过' : (auditTemplateStepForm.actionType === 'sign' ? '签字' : (auditTemplateStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
               </picker>
             </view>
 
-            <view class="field" style="padding:0 24rpx;">
+            <view class="field ui-dialog-inset">
               <view class="field-label">允许指定本步骤审批人</view>
               <view class="audit-designation-options">
                 <view class="audit-designation-option {{!auditTemplateStepForm.allowApproverDesignation ? 'audit-designation-option-active' : ''}} ui-motion-chip" data-enabled="false" catchtap="onStepApproverDesignationChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">不允许</view>
@@ -2349,7 +2349,7 @@
             </view>
 
             <!-- Condition editor (inline sub-panel) -->
-            <view class="list-card nested-card audit-step-condition-editor" wx:if="{{auditStepConditionEditorVisible}}" style="margin:0 16rpx 16rpx;">
+            <view class="list-card nested-card audit-step-condition-editor audit-step-condition-editor--inset" wx:if="{{auditStepConditionEditorVisible}}">
               <view class="list-title">{{auditStepConditionEditingIndex >= 0 ? '编辑条件' : '添加条件'}}</view>
               <view class="field">
                 <view class="field-label">条件类型</view>
@@ -2363,7 +2363,7 @@
                 <view class="field">
                   <view class="field-label">指定人员（可多选）</view>
                   <view class="picker-value ui-motion-chip" data-target="personHrIds" data-title="选择人员" catchtap="openStepConditionPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStepConditionForm.personHrNames || '点击选择人员'}}</view>
-                  <text class="link ui-motion-chip" wx:if="{{auditStepConditionForm.personHrIds}}" catchtap="onStepConditionFieldClear" data-field="personHrIds" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                  <text class="link danger-clear-link ui-motion-chip" wx:if="{{auditStepConditionForm.personHrIds}}" catchtap="onStepConditionFieldClear" data-field="personHrIds" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
                 </view>
               </block>
 
@@ -2410,7 +2410,7 @@
             </view>
 
           </scroll-view>
-          <view class="button-row ui-dialog-footer" style="padding-left:24rpx;padding-right:24rpx;">
+          <view class="button-row ui-dialog-footer ui-dialog-inset">
             <button class="primary-btn ui-motion-button" catchtap="confirmAuditTemplateStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定步骤</button>
           </view>
         </view>
@@ -2434,7 +2434,7 @@
               <view class="field">
                 <view class="field-label">指定人员（可多选）</view>
                 <view class="picker-value ui-motion-chip" data-target="personHrIds" data-title="选择人员" catchtap="openStarterConditionPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStarterConditionForm.personHrNames || '点击选择人员'}}</view>
-                <text class="link ui-motion-chip" wx:if="{{auditStarterConditionForm.personHrIds}}" catchtap="onStarterConditionFieldClear" data-field="personHrIds" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                <text class="link danger-clear-link ui-motion-chip" wx:if="{{auditStarterConditionForm.personHrIds}}" catchtap="onStarterConditionFieldClear" data-field="personHrIds" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
               </view>
             </block>
             <block wx:else>
@@ -2447,7 +2447,7 @@
               <view class="field" wx:if="{{auditStarterConditionForm.departmentScope === 'specific'}}">
                 <view class="field-label">指定部门（可多选）</view>
                 <view class="picker-value ui-motion-chip" data-target="specificDepartmentId" data-title="选择部门" catchtap="openStarterConditionPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStarterConditionForm.specificDepartmentName || '点击选择部门'}}</view>
-                <text class="link ui-motion-chip" wx:if="{{auditStarterConditionForm.specificDepartmentId}}" catchtap="onStarterConditionFieldClear" data-field="specificDepartmentId" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                <text class="link danger-clear-link ui-motion-chip" wx:if="{{auditStarterConditionForm.specificDepartmentId}}" catchtap="onStarterConditionFieldClear" data-field="specificDepartmentId" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
               </view>
               <view class="field">
                 <view class="field-label">职能组范围</view>
@@ -2458,7 +2458,7 @@
               <view class="field" wx:if="{{auditStarterConditionForm.workGroupScope === 'specific'}}">
                 <view class="field-label">指定职能组（可多选）</view>
                 <view class="picker-value ui-motion-chip" data-target="specificWorkGroupId" data-title="选择职能组" catchtap="openStarterConditionPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStarterConditionForm.specificWorkGroupName || '点击选择职能组'}}</view>
-                <text class="link ui-motion-chip" wx:if="{{auditStarterConditionForm.specificWorkGroupId}}" catchtap="onStarterConditionFieldClear" data-field="specificWorkGroupId" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                <text class="link danger-clear-link ui-motion-chip" wx:if="{{auditStarterConditionForm.specificWorkGroupId}}" catchtap="onStarterConditionFieldClear" data-field="specificWorkGroupId" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
               </view>
               <view class="field">
                 <view class="field-label">身份范围</view>
@@ -2469,7 +2469,7 @@
               <view class="field" wx:if="{{auditStarterConditionForm.identityScope === 'specific'}}">
                 <view class="field-label">指定身份（可多选）</view>
                 <view class="picker-value ui-motion-chip" data-target="specificIdentityId" data-title="选择身份" catchtap="openStarterConditionPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{auditStarterConditionForm.specificIdentityName || '点击选择身份'}}</view>
-                <text class="link ui-motion-chip" wx:if="{{auditStarterConditionForm.specificIdentityId}}" catchtap="onStarterConditionFieldClear" data-field="specificIdentityId" style="font-size:22rpx;color:#ef4444;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                <text class="link danger-clear-link ui-motion-chip" wx:if="{{auditStarterConditionForm.specificIdentityId}}" catchtap="onStarterConditionFieldClear" data-field="specificIdentityId" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
               </view>
             </block>
           </scroll-view>
@@ -2493,7 +2493,7 @@
         </view>
         <view class="field">
           <view class="field-label">印章图片</view>
-          <image wx:if="{{stampForm.imageData}}" src="{{stampForm.imageData}}" mode="widthFix" class="audit-stamp-preview" style="width:200rpx;" />
+          <image wx:if="{{stampForm.imageData}}" src="{{stampForm.imageData}}" mode="widthFix" class="audit-stamp-preview audit-stamp-preview--large" />
           <button class="secondary-btn ui-motion-button" bindtap="chooseStampImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{stampForm.imageData ? '更换图片' : '选择图片'}}</button>
         </view>
         <view class="button-row">
@@ -2510,7 +2510,7 @@
           <view class="list-item" wx:for="{{stamps}}" wx:key="id">
             <view class="list-main">
               <view class="list-name">{{item.name}}</view>
-              <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-stamp-preview" style="width:160rpx;" />
+              <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-stamp-preview audit-stamp-preview--small" />
             </view>
             <view class="list-actions">
               <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="editStamp" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
@@ -2529,7 +2529,7 @@
       <view class="audit-filter-bar">
         <text class="audit-filter-label">状态筛选</text>
         <picker range="{{['全部','草稿','待提交','审核中','已驳回','已完成','已撤回']}}" bindchange="onAuditSubmissionStatusFilter">
-          <view class="picker-value" style="min-height:60rpx;font-size:22rpx;padding:0 18rpx;border-radius:14rpx;">{{auditSubmissionFilters.status === 'draft' ? '草稿' : (auditSubmissionFilters.status === 'pending' ? '待提交' : (auditSubmissionFilters.status === 'in_progress' ? '审核中' : (auditSubmissionFilters.status === 'rejected' ? '已驳回' : (auditSubmissionFilters.status === 'approved' ? '已完成' : (auditSubmissionFilters.status === 'withdrawn' ? '已撤回' : '全部')))))}}</view>
+          <view class="picker-value compact-status-picker">{{auditSubmissionFilters.status === 'draft' ? '草稿' : (auditSubmissionFilters.status === 'pending' ? '待提交' : (auditSubmissionFilters.status === 'in_progress' ? '审核中' : (auditSubmissionFilters.status === 'rejected' ? '已驳回' : (auditSubmissionFilters.status === 'approved' ? '已完成' : (auditSubmissionFilters.status === 'withdrawn' ? '已撤回' : '全部')))))}}</view>
         </picker>
       </view>
       <view class="card">
@@ -2621,8 +2621,8 @@
             </view>
 
             <!-- Files -->
-            <view class="list-title" wx:if="{{auditSubmissionDetail.files.length}}" style="margin-top:8rpx;">附件 ({{auditSubmissionDetail.files.length}}份)</view>
-            <view class="file-attach-item ui-motion-card" wx:for="{{auditSubmissionDetail.files}}" wx:key="id" style="margin-bottom:6rpx;" data-file-id="{{item.id}}" data-file-name="{{item.fileName}}" catchtap="previewAuditFile" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+            <view class="list-title audit-file-section-title" wx:if="{{auditSubmissionDetail.files.length}}">附件 ({{auditSubmissionDetail.files.length}}份)</view>
+            <view class="file-attach-item file-attach-item--spaced ui-motion-card" wx:for="{{auditSubmissionDetail.files}}" wx:key="id" data-file-id="{{item.id}}" data-file-name="{{item.fileName}}" catchtap="previewAuditFile" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="附件" /></view>
               <view class="file-attach-name">{{item.fileName}}</view>
             </view>
@@ -2641,7 +2641,7 @@
         <view class="field">
           <view class="field-label">授权人员</view>
           <view class="picker-value ui-motion-chip" data-target="grantHrId" data-label="授权人员" bindtap="openAuditPersonnelPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{verificationGrantHrName || '点击选择人员'}}</view>
-          <text class="link ui-motion-chip" wx:if="{{verificationGrantHrId}}" data-target="grantHrId" bindtap="clearAuditPersonnel" style="font-size:22rpx;color:#ef4444;margin-left:8rpx;" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+          <text class="link danger-clear-link danger-clear-link--inline ui-motion-chip" wx:if="{{verificationGrantHrId}}" data-target="grantHrId" bindtap="clearAuditPersonnel" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
         </view>
         <view class="button-row">
           <button class="primary-btn ui-motion-button" bindtap="grantVerificationPermission" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">授予权限</button>
@@ -2663,7 +2663,7 @@
         </scroll-view>
       </view>
 
-      <view class="edit-box" style="margin-top: 24rpx;">
+      <view class="edit-box admin-section--spaced">
         <view class="list-title">文件验签</view>
         <view class="field">
           <view class="field-label">查询方式</view>
@@ -2687,14 +2687,14 @@
             {{verificationResult.valid ? '验签通过' : '验签未通过'}}
           </view>
           <view class="list-desc" wx:if="{{verificationResult.totalSignatures > 0}}">共 {{verificationResult.totalSignatures}} 个签名</view>
-          <view wx:for="{{verificationResult.files}}" wx:key="fileId" style="margin-top: 8rpx;">
+          <view class="verification-file-result" wx:for="{{verificationResult.files}}" wx:key="fileId">
             <view class="list-desc">文件：{{item.fileHash === null ? '无法读取' : (item.hashVerified ? '内容一致' : '内容已变更')}}</view>
           </view>
         </view>
       </view>
     </view>
 
-    <view class="actions" style="padding: 28rpx 8rpx 12rpx;">
+    <view class="actions page-actions">
       <button class="secondary-btn ui-motion-button" bindtap="goPortal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">返回门户</button>
     </view>
 
@@ -2708,11 +2708,11 @@
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
-      <view class="rule-filter-row" style="padding:0 24rpx 12rpx;">
-        <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch"/></view>
+      <view class="rule-filter-row ui-dialog-filter-row">
+        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch"/></view>
       </view>
       <!-- Filters (only for personnel picker) -->
-      <view class="rule-filter-row" style="padding:0 24rpx 12rpx;" wx:if="{{auditMultiPickerTarget === 'personHrIds'}}">
+      <view class="rule-filter-row ui-dialog-filter-row" wx:if="{{auditMultiPickerTarget === 'personHrIds'}}">
         <view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{auditMultiPickerDeptOptions}}" bindchange="onAuditMultiPickerFilterDept"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterDept}}</view></picker></view>
         <view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{auditMultiPickerIdentOptions}}" bindchange="onAuditMultiPickerFilterIdent"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterIdent}}</view></picker></view>
       </view>
@@ -2729,7 +2729,7 @@
         </scroll-view>
       </view>
       <!-- Select-all / Deselect-all -->
-      <view class="button-row compact-row" style="padding:0 24rpx 8rpx;">
+      <view class="button-row compact-row ui-dialog-compact-actions">
         <button class="secondary-btn ui-motion-button" catchtap="onAuditMultiPickerSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全选当前</button>
         <button class="secondary-btn ui-motion-button" catchtap="onAuditMultiPickerDeselectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消全选</button>
       </view>
@@ -2764,7 +2764,7 @@
       <view class="rule-filter-row">
         <view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{auditPersonnelDeptOptions}}" bindchange="onAuditPersonnelFilterDept"><view class="picker-value compact-picker-value">{{auditPersonnelFilterDept}}</view></picker></view>
         <view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{auditPersonnelIdentOptions}}" bindchange="onAuditPersonnelFilterIdent"><view class="picker-value compact-picker-value">{{auditPersonnelFilterIdent}}</view></picker></view>
-        <view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="姓名/学号" value="{{auditPersonnelSearchKeyword}}" bindinput="onAuditPersonnelSearch"/></view>
+        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">搜索</view><input class="field-input" placeholder="姓名/学号" value="{{auditPersonnelSearchKeyword}}" bindinput="onAuditPersonnelSearch"/></view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
         <view class="list-item ui-motion-card" wx:for="{{auditPersonnelFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onAuditPersonnelToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -2791,7 +2791,7 @@
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">选择身份 — {{auditIdentityPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditIdentityPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
-      <view class="list-desc" style="padding:0 24rpx 12rpx;color:#6b7280;">{{auditIdentityPickerMulti ? '可多选身份' : '点击选择一个身份'}}</view>
+      <view class="list-desc ui-dialog-help-text">{{auditIdentityPickerMulti ? '可多选身份' : '点击选择一个身份'}}</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
         <view class="list-item ui-motion-card" wx:for="{{identityList}}" wx:key="id" data-id="{{item.id}}" catchtap="onAuditIdentityToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
@@ -2824,8 +2824,8 @@
           <view class="list-item desig-current-item" wx:for="{{designationPickerSelectedList}}" wx:key="id"><view class="list-main"><view class="list-name">{{item.name}}</view><view class="list-desc">{{item.department}} · {{item.studentId}}</view></view><view class="inline-actions list-actions-below"><text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view></view>
           <view class="empty-inline" wx:if="{{!designationPickerSelectedList.length}}">尚未指定任何人</view>
         </scroll-view>
-        <view class="list-title" style="margin-top:8rpx;">可选成员</view>
-        <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{desigFilterDeptOptions}}" bindchange="onDesigFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{desigFilterDept}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{desigFilterIdentOptions}}" bindchange="onDesigFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{desigFilterIdent}}</view></picker></view><view class="rule-filter-field" style="flex:1;"><view class="field-label">搜索</view><input class="field-input" placeholder="姓名/学号" value="{{desigSearchKeyword}}" bindinput="onDesigSearchInput"/></view></view>
+        <view class="list-title audit-file-section-title">可选成员</view>
+        <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{desigFilterDeptOptions}}" bindchange="onDesigFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{desigFilterDept}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{desigFilterIdentOptions}}" bindchange="onDesigFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{desigFilterIdent}}</view></picker></view><view class="rule-filter-field rule-filter-field--grow"><view class="field-label">搜索</view><input class="field-input" placeholder="姓名/学号" value="{{desigSearchKeyword}}" bindinput="onDesigSearchInput"/></view></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
           <view class="list-item ui-motion-card" wx:for="{{designationPickerFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="list-main">

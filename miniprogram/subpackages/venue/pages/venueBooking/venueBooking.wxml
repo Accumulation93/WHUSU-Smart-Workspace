@@ -178,14 +178,14 @@ module.exports = { hour: hour, min: min };
         <view class="detail-row" wx:if="{{bookingDetail.approvalComment}}"><text class="detail-key">审批意见</text><text class="detail-val">{{bookingDetail.approvalComment}}</text></view>
         <view class="detail-row"><text class="detail-key">状态</text><text class="status-tag {{bookingDetail.displayStatus || bookingDetail.status}}">{{statusLabels[bookingDetail.displayStatus || bookingDetail.status] || bookingDetail.status}}</text></view>
         <!-- Flow progress bar -->
-        <view wx:if="{{bookingDetail.approvalProgress}}" class="audit-flow-summary" style="margin-top:8rpx;">
+        <view wx:if="{{bookingDetail.approvalProgress}}" class="audit-flow-summary audit-flow-summary--spaced">
           <view class="audit-flow-progress-bar">
             <view class="audit-flow-progress-fill" style="width:{{bookingDetail._approvalPercent}}%;{{bookingDetail._approvalBarColor || ''}}"></view>
           </view>
           <text class="audit-flow-progress-text">{{bookingDetail.approvalProgress.isRejected ? '已驳回' : (bookingDetail.approvalProgress.isApproved ? '已完成' : (bookingDetail.approvalProgress.currentStep + '/' + bookingDetail.approvalProgress.totalSteps))}}</text>
         </view>
         <!-- Full flow timeline -->
-        <view wx:if="{{bookingDetail._flowTimeline && bookingDetail._flowTimeline.length}}" class="audit-flow" style="margin-top:6rpx;">
+        <view wx:if="{{bookingDetail._flowTimeline && bookingDetail._flowTimeline.length}}" class="audit-flow audit-flow--spaced">
           <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{bookingDetail._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="flow-left-col">
               <view class="{{node.dotClass}}">{{node.icon}}</view>
@@ -193,9 +193,9 @@ module.exports = { hour: hour, min: min };
             </view>
             <view class="flow-right-col">
               <view class="flow-info">
-                <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                 <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
-                <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+                <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
                 <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
               </view>
               <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
@@ -226,7 +226,7 @@ module.exports = { hour: hour, min: min };
           <!-- Title -->
           <view class="field">
             <view class="field-label">借用事由 <text class="required">*</text></view>
-            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="选择或输入借用事由" placeholder-style="font-size:24rpx;line-height:44rpx;color:#94a3b8;"/>
+            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="选择或输入借用事由" placeholder-class="field-placeholder"/>
             <view class="chip-row" wx:if="{{purposes.length}}">
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{bookingTitle === item.text ? 'active' : ''}} ui-motion-chip" data-text="{{item.text}}" catchtap="onSelectPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.text}}</text>
             </view>
@@ -352,9 +352,9 @@ module.exports = { hour: hour, min: min };
               </view>
               <view class="flow-right-col">
                 <view class="flow-info">
-                  <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-tag-{{node.state}}" style="margin-left:8rpx;">{{node.label}}</text></view>
+                  <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                   <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
-                  <view class="flow-info-desc" wx:if="{{node.comment}}" style="font-style:italic;color:#94a3b8;">{{node.comment}}</view>
+                  <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
                   <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
                 </view>
                 <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
@@ -375,7 +375,7 @@ module.exports = { hour: hour, min: min };
 
           <!-- Approval action area -->
           <view wx:if="{{approvalAction}}" class="approval-action-area">
-            <view class="field" style="margin-top:16rpx;">
+            <view class="field field--approval-comment">
               <view class="field-label">审批意见（选填）</view>
               <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
             </view>

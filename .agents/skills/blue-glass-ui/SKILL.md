@@ -11,6 +11,7 @@ description: >
 
 > UI Kit 事实来源（2026-08）：`docs/ui-kit.md`、`docs/ui-components.md`、`docs/ui-page-templates.md`。
 > `miniprogram/app.wxss` 的手机、Pad 竖屏和 Pad 横屏令牌必须分别保留；本技能中的示例只说明结构，若尺寸冲突，以 UI Kit 和运行时令牌为准。
+> WXML 的静态间距、字号、颜色和圆角必须进入语义类；仅运行时坐标、进度、拖拽、时间表和动画允许动态行内样式。`.ui-overlay` 物理视口几何只能在 `app.wxss` 定义一次。
 
 This project already has a mature visual language in the scoring admin pages and
 portal/home pages. Follow those pages first. Do not invent a new unrelated
