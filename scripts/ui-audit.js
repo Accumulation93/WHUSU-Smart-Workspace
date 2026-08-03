@@ -947,13 +947,20 @@ const missingDialogScrollSystem = !(
   !/scroll-view\.ui-dialog-scroll--(?:fill|both)\s*\{[^}]*(?:^|;)\s*height:\s*0\s*;/m.test(GLOBAL_STYLE)
 );
 const missingDialogInteriorSystem = !(
-  /--ui-dialog-padding:\s*30rpx/.test(GLOBAL_STYLE) &&
-  /--ui-dialog-body-padding:\s*18rpx/.test(GLOBAL_STYLE) &&
-  /--ui-dialog-section-padding:\s*22rpx/.test(GLOBAL_STYLE) &&
-  /@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-dialog-padding:\s*22px[\s\S]*?--ui-dialog-body-padding:\s*14px[\s\S]*?--ui-dialog-section-padding:\s*16px/.test(GLOBAL_STYLE) &&
-  /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-dialog-padding:\s*20px[\s\S]*?--ui-dialog-body-padding:\s*12px[\s\S]*?--ui-dialog-section-padding:\s*14px/.test(GLOBAL_STYLE) &&
-  /\.ui-dialog-content[^\{]*\{[^}]*padding:\s*var\(--ui-dialog-body-padding\)/m.test(GLOBAL_STYLE) &&
-  /\.ui-dialog-section,[\s\S]*?\.ui-dialog-compact-content\s*\{[^}]*padding:\s*var\(--ui-dialog-section-padding\)/m.test(GLOBAL_STYLE)
+  /--ui-dialog-padding:\s*36rpx/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-body-padding:\s*20rpx/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-section-padding:\s*26rpx/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-dialog-padding:\s*26px[\s\S]*?--ui-dialog-body-padding:\s*16px[\s\S]*?--ui-dialog-section-padding:\s*18px/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-dialog-padding:\s*24px[\s\S]*?--ui-dialog-body-padding:\s*14px[\s\S]*?--ui-dialog-section-padding:\s*16px/.test(GLOBAL_STYLE) &&
+  /\.ui-dialog-content[^\{]*\{[^}]*padding:\s*var\(--ui-dialog-body-padding(?:,\s*20rpx)?\)/m.test(GLOBAL_STYLE) &&
+  /\.ui-dialog-section,[\s\S]*?\.ui-dialog-compact-content\s*\{[^}]*padding:\s*var\(--ui-dialog-section-padding(?:,\s*26rpx)?\)/m.test(GLOBAL_STYLE)
+);
+const missingDialogPortalTokenSystem = !(
+  /page,\s*\.ui-overlay,\s*\.ui-sheet-overlay\s*\{[\s\S]*?--ui-dialog-width-inset:\s*32rpx;[\s\S]*?--ui-dialog-height-inset:\s*72rpx;/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*520px\)[\s\S]*?page,\s*\.ui-overlay,\s*\.ui-sheet-overlay\s*\{[\s\S]*?--ui-dialog-width-inset:\s*40px;[\s\S]*?--ui-dialog-height-inset:\s*48px;/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?page,\s*\.ui-overlay,\s*\.ui-sheet-overlay\s*\{[\s\S]*?--ui-dialog-width-inset:\s*48px;[\s\S]*?--ui-dialog-height-inset:\s*48px;/.test(GLOBAL_STYLE) &&
+  /width:\s*calc\(100vw\s*-\s*var\(--ui-dialog-width-inset,\s*32rpx\)\)\s*!important;/.test(GLOBAL_STYLE) &&
+  /max-height:\s*calc\(100vh\s*-\s*var\(--ui-dialog-height-inset,\s*72rpx\)/.test(GLOBAL_STYLE)
 );
 const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxss'), 'utf8');
 const missingResponsiveDataSystem = !(
@@ -1086,6 +1093,7 @@ const report = {
     missingDialogGestureSystem: missingDialogGestureSystem ? 1 : 0,
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
     missingDialogInteriorSystem: missingDialogInteriorSystem ? 1 : 0,
+    missingDialogPortalTokenSystem: missingDialogPortalTokenSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
     compactVisualContractIssues: compactVisualContractIssues.length,
     duplicateGlobalUiContracts: duplicateGlobalUiContracts.length,
@@ -1162,7 +1170,7 @@ if (process.argv.includes('--strict')) {
     report.summary.adminOrgContextIssues || report.summary.workspaceShellIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.staticInlineStyles ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.flattenedDialogSurfaces || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem || report.summary.missingDialogInteriorSystem ||
+    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.flattenedDialogSurfaces || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem || report.summary.missingDialogInteriorSystem || report.summary.missingDialogPortalTokenSystem ||
     report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts;
   process.exitCode = failed ? 1 : 0;
 }

@@ -329,7 +329,7 @@ callFunction({ name, data, success, fail })
 **永久规则**:
 - 手机竖屏、Pad 竖屏、Pad 横屏必须拥有明确的密度取值：字体统一使用受控逻辑 `px` 字阶；手机布局间距可使用舒适 `rpx`，Pad 竖屏使用稳定 `px` 保持呼吸感，只有 Pad 横屏使用紧凑 `px` 降低纵向浪费。
 - 横屏专用的卡片内边距、行距、按钮高度和圆角必须位于 `@media (min-width: 900px) and (orientation: landscape)` 内；禁止把横屏压缩值作为全局 `!important` 规则。
-- Pad 竖屏弹窗保留约 24px 屏幕边距和受控阅读宽度；Pad 横屏弹窗使用 860px 常规上限、1040px 宽表格上限。所有弹窗继续遵守物理视口定位与内部滚动契约。
+- Pad 竖屏弹窗保留约 20px 单侧屏幕边距和受控阅读宽度，常规上限为 760px；Pad 横屏弹窗使用 1024px 常规上限、1120px 宽表格上限。所有弹窗继续遵守物理视口定位与内部滚动契约。
 - 子应用的局部卡片、列表和工具栏不得只依赖全局媒体查询；存在独立 `rpx` 留白时必须分别补充 Pad 竖屏与 Pad 横屏覆盖，并完成真实设备方向视觉检查。
 
 ### Bug 23: RootPortal 生命周期导致页面跳转超时
@@ -358,8 +358,9 @@ callFunction({ name, data, success, fail })
 
 - 弹窗物理视口定位、正文滚动和内部视觉层级必须分开维护：`ui-dialog-shell` 负责窗口留白，`ui-dialog-content` 负责正文表面，功能分区使用 `ui-dialog-section / summary / toolbar / list-panel`。
 - 普通弹窗正文不能贴边，也不能同时使用 `padding:0 + background:none + border:none` 清空视觉层级；短确认框使用单一 `ui-dialog-compact-content`，禁止无意义多层套娃。
-- 手机、Pad 竖屏、Pad 横屏的外壳/正文/分区留白固定分别为约 `30rpx/18rpx/22rpx`、`22px/14px/16px`、`20px/12px/14px`。横屏更紧凑但不能把压缩值泄漏到手机。
-- `scripts/ui-audit.js --strict` 必须检查每个弹窗正文表面、短弹窗内容卡、扁平化反向样式和三档弹窗间距令牌；脚本通过仍不能替代微信开发者工具逐窗视觉检查。
+- 手机、Pad 竖屏、Pad 横屏的外壳/正文/分区留白固定分别为约 `36rpx/20rpx/26rpx`、`26px/16px/18px`、`24px/14px/16px`。横屏更紧凑但不能把压缩值泄漏到手机。
+- `RootPortal` 原生顶层宿主不保证继承 `page` 上的 CSS 自定义属性。所有弹窗尺寸、间距、字体和颜色令牌必须直接作用于 `.ui-overlay / .ui-sheet-overlay`，关键宽高和 padding 声明必须提供手机安全回退值；否则 `calc()` 会整体失效并让窗口按内容收缩、内部留白归零。
+- `scripts/ui-audit.js --strict` 必须检查每个弹窗正文表面、短弹窗内容卡、扁平化反向样式、三档弹窗间距令牌，以及 RootPortal 内部令牌所有权；脚本通过仍不能替代微信开发者工具逐窗视觉检查。
 
 ### 发布与编译配置锁
 

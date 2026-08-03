@@ -7,7 +7,7 @@
 | 组件 | 路径 | 用途 | 必须保留的差异 |
 | --- | --- | --- | --- |
 | `workspace-hero` | `miniprogram/components/workspace-hero/` | 品牌、姓名、身份、组织与切换入口 | 手机换行更自然，Pad 收紧内边距，横屏压缩高度 |
-| `viewport-portal` | `miniprogram/components/viewport-portal/` | 将共享弹窗内容提升到视口层 | 三种设备都固定遮罩和弹窗位置 |
+| `viewport-portal` | `miniprogram/components/viewport-portal/` | 将共享弹窗内容提升到视口层 | 三种设备都固定遮罩和弹窗位置；弹窗令牌由 portal 内的遮罩直接持有，不依赖页面变量继承 |
 | `ui-icon` | `miniprogram/components/ui-icon/` | 统一 SVG 图标加载和色调 | 图标尺寸随语义和设备令牌调整，不用 emoji |
 | `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 审核签名输入 | 保留画布专用触摸锁和横向空间 |
 
@@ -50,3 +50,4 @@
 - 不为单个页面复制 `workspace-hero`、弹窗遮罩或一套新的按钮基础样式。
 - 页面 WXML 的静态间距、字号、颜色和圆角必须使用语义类；只有数据驱动的坐标、进度或动画允许动态行内样式。
 - 弹窗正文不得直接贴着 `scroll-view` 边缘；功能分区按语义使用内卡，禁止每个字段套卡或清空整个正文表面。
+- 弹窗壳使用设备对应的受控宽度上限，优先给表单、列表和说明留下合理横向空间；不得因变量继承失败或内容收缩而退化为窄条窗口。

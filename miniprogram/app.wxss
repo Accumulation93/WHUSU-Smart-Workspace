@@ -8,7 +8,9 @@
  * docs/ui-page-templates.md。
  */
 
-page {
+page,
+.ui-overlay,
+.ui-sheet-overlay {
   --ui-blue-700: #2563eb;
   --ui-blue-500: #3b82f6;
   --ui-blue-400: #60a5fa;
@@ -79,22 +81,26 @@ page {
   --ui-tab-shell-padding: 8rpx;
   --ui-tab-radius: 20rpx;
   --ui-tab-shell-radius: 26rpx;
-  --ui-dialog-edge: 24rpx;
-  --ui-dialog-width-inset: 48rpx;
-  --ui-dialog-padding: 30rpx;
-  --ui-dialog-body-padding: 18rpx;
-  --ui-dialog-section-padding: 22rpx;
+  --ui-dialog-edge: 36rpx;
+  --ui-dialog-width-inset: 32rpx;
+  --ui-dialog-height-inset: 72rpx;
+  --ui-dialog-padding: 36rpx;
+  --ui-dialog-body-padding: 20rpx;
+  --ui-dialog-section-padding: 26rpx;
   --ui-dialog-section-radius: 22rpx;
-  --ui-dialog-section-gap: 18rpx;
-  --ui-dialog-footer-gap: 18rpx;
+  --ui-dialog-section-gap: 22rpx;
+  --ui-dialog-footer-gap: 22rpx;
   --ui-dialog-radius: 30rpx;
-  min-height: 100%;
-  touch-action: manipulation;
-  -webkit-text-size-adjust: 100%;
   color: #0f172a;
   color: var(--ui-text, #0f172a);
   line-height: 1.55;
   font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+}
+
+page {
+  min-height: 100%;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
   background:
     radial-gradient(circle at 12% 10%, rgba(96, 165, 250, 0.16) 0%, transparent 26%),
     radial-gradient(circle at 86% 18%, rgba(191, 219, 254, 0.22) 0%, transparent 24%),
@@ -104,7 +110,9 @@ page {
 
 /* standard phone：390–519px。字号略增，触控和卡片密度保持手机比例。 */
 @media (min-width: 390px) and (max-width: 519px) {
-  page {
+  page,
+  .ui-overlay,
+  .ui-sheet-overlay {
     --ui-type-micro: 10.5px;
     --ui-type-caption: 11.5px;
     --ui-type-meta: 12.5px;
@@ -755,8 +763,8 @@ button[disabled],
 .modal-card {
   width: 100%;
   max-height: 88vh;
-  padding: var(--ui-dialog-padding);
-  border-radius: var(--ui-dialog-radius);
+  padding: var(--ui-dialog-padding, 36rpx);
+  border-radius: var(--ui-dialog-radius, 30rpx);
   overflow: hidden;
   background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(248,251,255,0.91));
   border: 1rpx solid rgba(255,255,255,0.84);
@@ -771,8 +779,8 @@ button[disabled],
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--ui-dialog-section-gap);
-  margin-bottom: var(--ui-dialog-section-gap);
+  gap: var(--ui-dialog-section-gap, 22rpx);
+  margin-bottom: var(--ui-dialog-section-gap, 22rpx);
 }
 
 .popup-title {
@@ -819,12 +827,12 @@ button[disabled],
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  width: calc(100vw - var(--ui-dialog-width-inset)) !important;
+  width: calc(100vw - var(--ui-dialog-width-inset, 32rpx)) !important;
   min-width: 0;
-  max-width: calc(100vw - var(--ui-dialog-width-inset)) !important;
+  max-width: calc(100vw - var(--ui-dialog-width-inset, 32rpx)) !important;
   margin: 0 !important;
   transform: translate(-50%, -50%) !important;
-  max-height: calc(100vh - var(--ui-dialog-width-inset) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  max-height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   overflow-x: hidden;
   overflow-y: hidden !important;
   overscroll-behavior: none;
@@ -860,8 +868,8 @@ button[disabled],
 }
 
 .ui-overlay .ui-dialog-shell--wide {
-  top: calc(env(safe-area-inset-top) + var(--ui-dialog-edge)) !important;
-  bottom: calc(env(safe-area-inset-bottom) + var(--ui-dialog-edge)) !important;
+  top: calc(env(safe-area-inset-top) + var(--ui-dialog-edge, 36rpx)) !important;
+  bottom: calc(env(safe-area-inset-bottom) + var(--ui-dialog-edge, 36rpx)) !important;
   height: auto !important;
   max-height: none !important;
   transform: translateX(-50%) !important;
@@ -873,27 +881,27 @@ button[disabled],
 .ui-overlay .dialog-panel,
 .ui-overlay .organization-picker-dialog,
 .ui-overlay .message-switch-dialog {
-  padding: var(--ui-dialog-padding);
-  border-radius: var(--ui-dialog-radius);
+  padding: var(--ui-dialog-padding, 36rpx);
+  border-radius: var(--ui-dialog-radius, 30rpx);
   box-sizing: border-box;
 }
 
 .ui-overlay .permission-dialog {
-  border-radius: var(--ui-dialog-radius);
+  border-radius: var(--ui-dialog-radius, 30rpx);
 }
 
 .ui-overlay .permission-dialog-header {
-  gap: var(--ui-dialog-section-gap);
-  padding: var(--ui-dialog-padding) var(--ui-dialog-padding) var(--ui-dialog-section-gap);
+  gap: var(--ui-dialog-section-gap, 22rpx);
+  padding: var(--ui-dialog-padding, 36rpx) var(--ui-dialog-padding, 36rpx) var(--ui-dialog-section-gap, 22rpx);
 }
 
 .ui-overlay .permission-dialog-body {
-  padding: var(--ui-dialog-section-gap) var(--ui-dialog-padding);
+  padding: var(--ui-dialog-section-gap, 22rpx) var(--ui-dialog-padding, 36rpx);
 }
 
 .ui-overlay .permission-dialog-footer {
-  gap: var(--ui-dialog-section-gap);
-  padding: var(--ui-dialog-footer-gap) var(--ui-dialog-padding);
+  gap: var(--ui-dialog-section-gap, 22rpx);
+  padding: var(--ui-dialog-footer-gap, 22rpx) var(--ui-dialog-padding, 36rpx);
 }
 
 .ui-dialog-header {
@@ -904,7 +912,7 @@ button[disabled],
 .ui-overlay .popup-header,
 .ui-overlay .modal-header,
 .ui-overlay .organization-picker-header {
-  margin-bottom: var(--ui-dialog-section-gap);
+  margin-bottom: var(--ui-dialog-section-gap, 22rpx);
 }
 
 .ui-overlay .popup-close,
@@ -943,8 +951,8 @@ button[disabled],
  */
 .ui-overlay .ui-dialog-body.ui-dialog-content,
 .ui-sheet-overlay .ui-dialog-body.ui-dialog-content {
-  padding: var(--ui-dialog-body-padding);
-  border-radius: var(--ui-dialog-section-radius);
+  padding: var(--ui-dialog-body-padding, 20rpx);
+  border-radius: var(--ui-dialog-section-radius, 22rpx);
   background: linear-gradient(145deg, rgba(255,255,255,0.86), rgba(247,250,255,0.74));
   border: 1rpx solid rgba(219,229,241,0.82);
   box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.88);
@@ -953,7 +961,7 @@ button[disabled],
 
 .ui-overlay .ui-dialog-body.ui-dialog-content--workspace,
 .ui-sheet-overlay .ui-dialog-body.ui-dialog-content--workspace {
-  padding: var(--ui-dialog-body-padding);
+  padding: var(--ui-dialog-body-padding, 20rpx);
   background: linear-gradient(145deg, rgba(248,251,255,0.90), rgba(241,247,255,0.76));
 }
 
@@ -968,7 +976,7 @@ button[disabled],
 .ui-dialog-stack > .ui-dialog-toolbar + .ui-dialog-section,
 .ui-dialog-stack > .ui-dialog-section + .ui-dialog-list-panel,
 .ui-dialog-stack > .ui-dialog-toolbar + .ui-dialog-list-panel {
-  margin-top: var(--ui-dialog-section-gap);
+  margin-top: var(--ui-dialog-section-gap, 22rpx);
 }
 
 .ui-dialog-section,
@@ -979,8 +987,8 @@ button[disabled],
   position: relative;
   width: 100%;
   min-width: 0;
-  padding: var(--ui-dialog-section-padding);
-  border-radius: var(--ui-dialog-section-radius);
+  padding: var(--ui-dialog-section-padding, 26rpx);
+  border-radius: var(--ui-dialog-section-radius, 22rpx);
   border: 1rpx solid rgba(226,237,247,0.92);
   box-sizing: border-box;
 }
@@ -1137,7 +1145,7 @@ scroll-view.ui-dialog-scroll--x {
   flex: 0 0 auto;
   width: 100%;
   min-width: 0;
-  padding-top: var(--ui-dialog-footer-gap);
+  padding-top: var(--ui-dialog-footer-gap, 22rpx);
   padding-bottom: 0;
   background: linear-gradient(180deg, rgba(248,251,255,0.12), rgba(248,251,255,0.96) 26%);
   box-sizing: border-box;
@@ -1460,7 +1468,9 @@ button:active,
 
 /* Pad 竖屏 */
 @media (min-width: 520px) {
-  page {
+  page,
+  .ui-overlay,
+  .ui-sheet-overlay {
     /* Pad 竖屏：字号明确高于手机，布局收紧但保留充足触控间距。 */
     --ui-type-micro: 12px;
     --ui-type-caption: 13px;
@@ -1491,13 +1501,14 @@ button:active,
     --ui-tab-radius: 10px;
     --ui-tab-shell-radius: 13px;
     --ui-dialog-edge: 24px;
-    --ui-dialog-width-inset: 48px;
-    --ui-dialog-padding: 22px;
-    --ui-dialog-body-padding: 14px;
-    --ui-dialog-section-padding: 16px;
+    --ui-dialog-width-inset: 40px;
+    --ui-dialog-height-inset: 48px;
+    --ui-dialog-padding: 26px;
+    --ui-dialog-body-padding: 16px;
+    --ui-dialog-section-padding: 18px;
     --ui-dialog-section-radius: 12px;
-    --ui-dialog-section-gap: 14px;
-    --ui-dialog-footer-gap: 14px;
+    --ui-dialog-section-gap: 16px;
+    --ui-dialog-footer-gap: 16px;
     --ui-dialog-radius: 18px;
     --ui-page-padding-top: 24px;
     --ui-page-padding-x: 22px;
@@ -1725,19 +1736,19 @@ button:active,
 
   .popup-card,
   .modal-card {
-    max-width: 720px;
+    max-width: 760px;
     padding: var(--ui-dialog-padding);
     border-radius: var(--ui-dialog-radius);
   }
 
   .ui-overlay .ui-dialog-shell--compact {
-    max-width: 520px;
+    max-width: 600px;
   }
 
   .ui-overlay .ui-dialog-shell--complex,
   .ui-overlay .ui-dialog-shell--wide {
     width: 100%;
-    max-width: 720px;
+    max-width: 760px;
   }
 
   .ui-dialog-footer {
@@ -1875,27 +1886,29 @@ button:active,
 
   .popup-card,
   .modal-card {
-    max-width: 860px;
+    max-width: 1024px;
   }
 
   .completion-popup-card,
   .timetable-popup,
   .placement-popup {
-    max-width: 1040px;
+    max-width: 1120px;
   }
 
   .ui-overlay .ui-dialog-shell--complex {
-    max-width: 860px;
+    max-width: 1024px;
   }
 
   .ui-overlay .ui-dialog-shell--wide {
-    max-width: 1040px;
+    max-width: 1120px;
   }
 }
 
 /* iPad 横屏：沿用手机与 Pad 竖屏的紧凑比例，避免横屏控件显得臃肿。 */
 @media (min-width: 900px) and (orientation: landscape) {
-  page {
+  page,
+  .ui-overlay,
+  .ui-sheet-overlay {
     /* Pad 横屏：以横向工作区为基准，控件更矮更密，字号仍高于手机。 */
     --ui-type-micro: 12.5px;
     --ui-type-caption: 13.5px;
@@ -1938,14 +1951,15 @@ button:active,
     --ui-control-radius: 10px;
     --ui-field-radius: 10px;
     --ui-section-title-inset: 10px;
-    --ui-dialog-edge: 16px;
-    --ui-dialog-width-inset: 32px;
-    --ui-dialog-padding: 20px;
-    --ui-dialog-body-padding: 12px;
-    --ui-dialog-section-padding: 14px;
+    --ui-dialog-edge: 24px;
+    --ui-dialog-width-inset: 48px;
+    --ui-dialog-height-inset: 48px;
+    --ui-dialog-padding: 24px;
+    --ui-dialog-body-padding: 14px;
+    --ui-dialog-section-padding: 16px;
     --ui-dialog-section-radius: 10px;
-    --ui-dialog-section-gap: 12px;
-    --ui-dialog-footer-gap: 12px;
+    --ui-dialog-section-gap: 14px;
+    --ui-dialog-footer-gap: 14px;
     --ui-dialog-radius: 16px;
   }
 
@@ -2640,7 +2654,7 @@ page .role-pill {
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
-  height: calc(100vh - 48rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
 }
 
 .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
@@ -2803,18 +2817,18 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
 @media (min-width: 520px) and (max-width: 899px),
        (min-width: 520px) and (orientation: portrait) {
   .ui-overlay .ui-dialog-shell {
-    width: calc(100vw - 48px) !important;
-    max-width: 720px !important;
+    width: calc(100vw - 40px) !important;
+    max-width: 760px !important;
     max-height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
-    max-width: 520px !important;
+    max-width: 600px !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
     height: auto !important;
-    max-width: 720px !important;
+    max-width: 760px !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
@@ -2826,7 +2840,7 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
-    max-width: 720px !important;
+    max-width: 760px !important;
   }
 
   .ui-overlay .popup-title,
@@ -2843,22 +2857,22 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
 /* Pad 横屏只压缩密度，不扩大控件和字体；弹窗仍以物理视口为定位基准。 */
 @media (min-width: 900px) and (orientation: landscape) {
   .ui-overlay .ui-dialog-shell {
-    width: calc(100vw - 32px) !important;
-    max-width: 860px !important;
-    max-height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    width: calc(100vw - 48px) !important;
+    max-width: 1024px !important;
+    max-height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--compact {
-    max-width: 520px !important;
+    max-width: 600px !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex {
     height: auto !important;
-    max-width: 860px !important;
+    max-width: 1024px !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--viewport {
-    height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    height: calc(100vh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--complex > .ui-dialog-body {
@@ -2866,7 +2880,7 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
   }
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
-    max-width: 1040px !important;
+    max-width: 1120px !important;
   }
 
   .ui-overlay .popup-close,

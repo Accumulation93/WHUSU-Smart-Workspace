@@ -60,6 +60,7 @@
 | `--ui-section-title-inset` | 标题蓝色竖线与标题文字的距离 |
 | `--ui-dialog-edge` | 弹窗与物理视口的安全边距 |
 | `--ui-dialog-width-inset` | 弹窗横向两侧安全边距之和，供兼容性良好的 `calc()` 使用 |
+| `--ui-dialog-height-inset` | 弹窗纵向两侧安全边距之和，供最大高度计算使用 |
 | `--ui-dialog-padding` | 弹窗表面的对称内边距 |
 | `--ui-dialog-section-gap` | 弹窗标题、正文分组和控件之间的间距 |
 | `--ui-dialog-footer-gap` | 弹窗正文与底部操作区的距离 |
@@ -75,6 +76,7 @@
 - `.tabs`、`.tabs-card`、`.tab` 使用共享页签令牌；横屏页签必须整行均分或明确横向滚动。
 - `.primary-btn`、`.secondary-btn`、`.danger-btn` 是三种主按钮角色；小型操作使用链接式控件。
 - `.ui-overlay` 和 `.ui-dialog-shell` 是弹窗唯一几何所有者：全局只允许一处几何定义，遮罩固定覆盖 `100vw × 100vh`，弹窗以 `50vw / 50vh` 为锚点居中。
+- `viewport-portal` 会把弹窗提升到 `RootPortal` 原生顶层宿主。所有 `--ui-dialog-*`、弹窗字号和颜色令牌必须同时直接声明在 `.ui-overlay` / `.ui-sheet-overlay` 上，禁止只依赖 `page` 的变量继承；否则宽度和内边距声明会整体失效。
 - `.ui-overlay-blocker` 只负责阻止背景触摸；弹窗壳不滚动，正文由直接子级 `scroll-view.ui-dialog-body` 滚动，嵌套列表继续使用 `nested-scroll-enabled`。
 - 普通 WXML 不写静态 `style` 或 `placeholder-style`。进度宽度、时间表坐标、拖拽位置、动画延时等运行时几何可以保留动态行内样式；其余表现必须进入语义类并引用设备令牌。
 - 页面返回、组织与身份切换、登录失效等系统行为使用现有共享流程，不在页面内重新实现一套。
@@ -101,5 +103,6 @@
 - 弹窗外壳、正文表面和功能分区是三个不同层级：外壳负责整窗安全留白，正文表面负责隔开滚动视口边缘，功能分区只用于摘要、表单组、筛选区和列表区等独立语义。
 - 所有普通弹窗正文使用 `.ui-dialog-content`；时间表、签名定位等专业工作区叠加 `.ui-dialog-content--workspace`。短确认框没有滚动正文时，使用 `.ui-dialog-compact-content` 包裹提示内容，操作区保持独立。
 - 功能分区使用 `.ui-dialog-section`、`.ui-dialog-summary`、`.ui-dialog-toolbar`、`.ui-dialog-list-panel`。禁止给每个字段单独套卡，也禁止把正文容器写成 `padding: 0; background: none; border: none`。
-- 手机使用约 `30rpx` 外壳留白、`18rpx` 正文留白和 `22rpx` 分区留白；Pad 竖屏为 `22px / 14px / 16px`；Pad 横屏为 `20px / 12px / 14px`。设备差异必须保留，不能用横屏压缩值覆盖手机。
+- 手机使用约 `36rpx` 外壳留白、`20rpx` 正文留白和 `26rpx` 分区留白；Pad 竖屏为 `26px / 16px / 18px`；Pad 横屏为 `24px / 14px / 16px`。设备差异必须保留，不能用横屏压缩值覆盖手机。
+- 手机常规弹窗横向只保留必要的屏幕安全边距，Pad 竖屏常规上限为 `760px`，Pad 横屏常规上限为 `1024px`、专业宽窗口上限为 `1120px`。窗口应充分利用可视宽度，内部则保留清晰的四向留白，不能用收窄窗口代替内容排版。
 - 标题、正文卡片和底部操作左右对齐；同一垂直间距只能由一层负责。正文与内层列表保持原有滚动契约，增加卡片表面不得引入新的滚动容器。

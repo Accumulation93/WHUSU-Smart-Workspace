@@ -454,7 +454,9 @@ Wrapper controls must follow the content instead of reserving an arbitrary viewp
 
 - Every ordinary dialog body uses `ui-dialog-content` as its visible inner glass surface. Specialized timetable or placement workspaces add `ui-dialog-content--workspace`; compact dialogs without a body wrap their message in `ui-dialog-compact-content`.
 - Divide content only by real function with `ui-dialog-section`, `ui-dialog-summary`, `ui-dialog-toolbar`, and `ui-dialog-list-panel`. Do not wrap every field, but never flatten the complete dialog body with zero padding, no background, and no border.
-- Keep the device-specific breathing room: phone `30rpx / 18rpx / 22rpx`, Pad portrait `22px / 14px / 16px`, and Pad landscape `20px / 12px / 14px` for shell/body/section padding.
+- Keep the device-specific breathing room: phone `36rpx / 20rpx / 26rpx`, Pad portrait `26px / 16px / 18px`, and Pad landscape `24px / 14px / 16px` for shell/body/section padding.
+- `viewport-portal` renders dialogs under a native `RootPortal` host. Declare dialog tokens directly on `ui-overlay` and `ui-sheet-overlay` as well as `page`; never assume page custom properties will inherit across that boundary. Every critical dialog dimension must also have a safe fallback.
+- Give forms and lists a useful working width: phone dialogs use the available width with safe screen insets, Pad portrait uses up to `760px`, Pad landscape up to `1024px`, and specialized wide workspaces up to `1120px`. Do not let a missing token collapse a dialog to its contents.
 
 - A centered dialog has exactly one geometry owner: the overlay uses flexbox with `align-items: center` and `justify-content: center`; the dialog shell stays `position: relative`, participates in that flex layout, and uses `margin-left/right: auto`.
 - Never put `position: absolute`, `left/right`, `top: 50%`, or `translateY(-50%)` on a centered dialog shell. Combining fixed side anchors with a Pad `max-width` cap makes the capped shell remain attached to one side instead of remaining centered.
