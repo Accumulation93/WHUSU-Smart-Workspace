@@ -45,7 +45,7 @@
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-body ui-dialog-section">
+        <view class="detail-body ui-dialog-stack">
           <!-- Flow progress bar -->
           <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow-summary">
             <view class="audit-flow-progress-bar">

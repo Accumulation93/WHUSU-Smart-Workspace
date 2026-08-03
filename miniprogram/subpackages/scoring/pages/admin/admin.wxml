@@ -1234,7 +1234,7 @@
           <view class="detail-loading-line"></view>
           <view class="detail-loading-line"></view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body detail-body ui-dialog-body ui-dialog-content ui-dialog-scroll--pane" scroll-y scroll-into-view="{{detailScrollTarget}}" wx:if="{{!loadingDetailHr}}">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body detail-body ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--pane" scroll-y scroll-into-view="{{detailScrollTarget}}" wx:if="{{!loadingDetailHr}}">
           <view class="detail-section detail-basic-section">
             <view class="detail-section-title">基本信息</view>
             <view class="field">
@@ -1246,7 +1246,7 @@
               <input class="field-input" disabled="{{!canManageHrPeople}}" data-field="_studentId" bindinput="onDetailBasicFieldInput" value="{{detailHrValues._studentId}}" placeholder="学号" />
             </view>
           </view>
-          <view class="detail-section identity-overview-section" id="hr-assignment-section" wx:if="{{canBrowseHrInfo}}">
+          <view class="identity-overview-section ui-dialog-stack" id="hr-assignment-section" wx:if="{{canBrowseHrInfo}}">
             <view class="detail-section-heading">
               <view>
                 <view class="detail-section-title">全部身份</view>

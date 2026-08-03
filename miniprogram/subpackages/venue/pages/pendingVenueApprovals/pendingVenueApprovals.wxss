@@ -117,7 +117,6 @@
 }
 
 /* ── Detail popup ── */
-.detail-body { padding: 8rpx 0 12rpx; }
 .detail-title {
   margin-bottom: 16rpx;
   color: #0f172a;

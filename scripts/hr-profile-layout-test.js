@@ -32,7 +32,7 @@ assert(
   '部门、身份和工作分工必须在岗位详情中分别展示'
 );
 assert(
-  /class="modal-body detail-body ui-dialog-body ui-dialog-content ui-dialog-scroll--pane"[\s\S]*?scroll-into-view="\{\{detailScrollTarget\}\}"/.test(adminWxml),
+  /class="[^"]*modal-body[^"]*detail-body[^"]*ui-dialog-body[^"]*ui-dialog-content[^"]*ui-dialog-content--stack[^"]*ui-dialog-scroll--pane[^"]*"[\s\S]*?scroll-into-view="\{\{detailScrollTarget\}\}"/.test(adminWxml),
   '岗位和补充资料编辑必须位于可滚动详情视口中'
 );
 assert(

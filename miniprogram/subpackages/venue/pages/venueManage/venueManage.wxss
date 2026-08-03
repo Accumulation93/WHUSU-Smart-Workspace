@@ -784,15 +784,6 @@ page {
   box-shadow: 0 6rpx 14rpx rgba(37, 99, 235, 0.20);
 }
 
-.form-body {
-  padding: var(--ui-dialog-section-padding);
-  border-radius: var(--ui-dialog-section-radius);
-  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(249,251,255,0.86));
-  border: 1rpx solid rgba(226,237,247,0.94);
-  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.88);
-  box-sizing: border-box;
-}
-
 /* ═══ Button rows ═══ */
 .button-row {
   display: flex;
@@ -1096,10 +1087,6 @@ page {
   max-height: 52vh;
 }
 
-.venue-edit-popup .form-body {
-  padding: var(--ui-dialog-section-padding);
-}
-
 .venue-edit-popup .field:last-child {
   margin-bottom: 0;
 }
@@ -1118,15 +1105,6 @@ page {
 }
 
 /* ═══ Detail popup ═══ */
-.detail-body {
-  padding: var(--ui-dialog-section-padding);
-  border-radius: var(--ui-dialog-section-radius);
-  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(249,251,255,0.86));
-  border: 1rpx solid rgba(226,237,247,0.94);
-  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.88);
-  box-sizing: border-box;
-}
-
 .detail-title {
   margin-bottom: 16rpx;
   color: #0f172a;

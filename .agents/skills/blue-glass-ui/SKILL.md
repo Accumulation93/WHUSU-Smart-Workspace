@@ -452,9 +452,10 @@ Filter blocks can be inner glass panels, but keep them compact:
 
 Wrapper controls must follow the content instead of reserving an arbitrary viewport:
 
-- Every ordinary dialog body uses `ui-dialog-content` as its visible inner glass surface. Specialized timetable or placement workspaces add `ui-dialog-content--workspace`; compact dialogs without a body wrap their message in `ui-dialog-compact-content`.
-- Divide content only by real function with `ui-dialog-section`, `ui-dialog-summary`, `ui-dialog-toolbar`, and `ui-dialog-list-panel`. Do not wrap every field, but never flatten the complete dialog body with zero padding, no background, and no border.
-- Keep the device-specific breathing room: phone `36rpx / 20rpx / 26rpx`, Pad portrait `26px / 16px / 18px`, and Pad landscape `24px / 14px / 16px` for shell/body/section padding.
+- Every ordinary dialog body uses `ui-dialog-content` as its visible inner glass surface. When two or more distinct sibling sections provide the visual grouping, add `ui-dialog-content--stack` so the body becomes a transparent scrolling stack. Specialized timetable or placement workspaces add `ui-dialog-content--workspace`; compact dialogs without a body wrap their message in `ui-dialog-compact-content`.
+- Default to two visual layers: shell plus body. A single form or detail wrapper uses the layout-only `ui-dialog-stack` and must not repaint the body with another background, border, radius, or shadow. Use `ui-dialog-section`, `ui-dialog-summary`, `ui-dialog-toolbar`, and `ui-dialog-list-panel` only when they add real semantic or scrolling separation.
+- Never place one `ui-dialog-section` as the sole direct child of an ordinary `ui-dialog-content`. Do not wrap every field, and do not add an outer section around organization cards or other already meaningful repeated records.
+- Keep the device-specific breathing room: phone `32rpx / 18rpx / 22rpx`, Pad portrait `24px / 14px / 16px`, and Pad landscape `22px / 12px / 14px` for shell/body/section padding.
 - `viewport-portal` renders dialogs under a native `RootPortal` host. Declare dialog tokens directly on `ui-overlay` and `ui-sheet-overlay` as well as `page`; never assume page custom properties will inherit across that boundary. Every critical dialog dimension must also have a safe fallback.
 - Give forms and lists a useful working width: phone dialogs use the available width with safe screen insets, Pad portrait uses up to `760px`, Pad landscape up to `1024px`, and specialized wide workspaces up to `1120px`. Do not let a missing token collapse a dialog to its contents.
 

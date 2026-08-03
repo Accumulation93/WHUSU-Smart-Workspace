@@ -116,7 +116,7 @@
       <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-          <view class="detail-popup-form ui-dialog-section">
+          <view class="detail-popup-form ui-dialog-stack">
             <view class="field">
               <view class="field-label">步骤名称</view>
               <input class="field-input" value="{{adHocStepForm.name}}" data-field="name" bindinput="onAdHocStepField" placeholder="如：部门负责人审批"/>
@@ -540,7 +540,7 @@
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-            <view class="detail-popup-form ui-dialog-section">
+            <view class="detail-popup-form ui-dialog-stack">
               <view class="field">
                 <view class="field-label">步骤名称</view>
                 <input class="field-input" value="{{editStepForm.name}}" data-field="name" bindinput="onEditStepFieldInput" placeholder="如：部门负责人审批"/>
@@ -647,7 +647,7 @@
         <text class="popup-close ui-motion-chip" catchtap="closeStampPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-popup-form ui-dialog-section">
+        <view class="detail-popup-form ui-dialog-stack">
           <view wx:if="{{!availableStamps.length}}" class="stamp-empty">暂无可用的印章</view>
           <view wx:for="{{availableStamps}}" wx:key="id"
                 class="stamp-picker-item ui-motion-card"
@@ -782,7 +782,7 @@
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-popup-form ui-dialog-section">
+        <view class="detail-popup-form ui-dialog-stack">
           <!-- Signature section (only for approve) -->
           <view wx:if="{{approvalAction === 'approve'}}">
             <view class="list-title">签名/盖章</view>
@@ -829,7 +829,7 @@
         <text class="popup-close ui-motion-chip" catchtap="closeSigSourcePicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-popup-form ui-dialog-section">
+        <view class="detail-popup-form ui-dialog-stack">
           <view class="sig-source-file-name">{{sigSourceFileName}}</view>
 
           <!-- Saved Signatures -->

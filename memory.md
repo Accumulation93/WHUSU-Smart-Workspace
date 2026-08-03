@@ -356,11 +356,12 @@ callFunction({ name, data, success, fail })
 
 ### 弹窗内部卡片与留白规则（2026-08-03）
 
-- 弹窗物理视口定位、正文滚动和内部视觉层级必须分开维护：`ui-dialog-shell` 负责窗口留白，`ui-dialog-content` 负责正文表面，功能分区使用 `ui-dialog-section / summary / toolbar / list-panel`。
-- 普通弹窗正文不能贴边，也不能同时使用 `padding:0 + background:none + border:none` 清空视觉层级；短确认框使用单一 `ui-dialog-compact-content`，禁止无意义多层套娃。
-- 手机、Pad 竖屏、Pad 横屏的外壳/正文/分区留白固定分别为约 `36rpx/20rpx/26rpx`、`26px/16px/18px`、`24px/14px/16px`。横屏更紧凑但不能把压缩值泄漏到手机。
+- 弹窗物理视口定位、正文滚动和内部视觉层级必须分开维护。默认只使用 `ui-dialog-shell + ui-dialog-content` 两个视觉层；单一表单或详情使用纯布局 `ui-dialog-stack`，禁止重复绘制同质内卡。
+- 多个独立分区共同存在时，正文叠加 `ui-dialog-content--stack` 变为透明滚动层，由 `ui-dialog-section / summary / toolbar / list-panel` 承担视觉分组。`.ui-dialog-section` 不得成为普通正文中的唯一分区。
+- 页面级 `.form-body / .detail-body / .detail-popup-form` 在通用正文表面内只能承担布局或专用子控件样式，不能再次同时声明 padding、背景、边框和阴影。
+- 手机、Pad 竖屏、Pad 横屏的外壳/正文/分区留白固定分别为约 `32rpx/18rpx/22rpx`、`24px/14px/16px`、`22px/12px/14px`。横屏更紧凑但不能把压缩值泄漏到手机。
 - `RootPortal` 原生顶层宿主不保证继承 `page` 上的 CSS 自定义属性。所有弹窗尺寸、间距、字体和颜色令牌必须直接作用于 `.ui-overlay / .ui-sheet-overlay`，关键宽高和 padding 声明必须提供手机安全回退值；否则 `calc()` 会整体失效并让窗口按内容收缩、内部留白归零。
-- `scripts/ui-audit.js --strict` 必须检查每个弹窗正文表面、短弹窗内容卡、扁平化反向样式、三档弹窗间距令牌，以及 RootPortal 内部令牌所有权；脚本通过仍不能替代微信开发者工具逐窗视觉检查。
+- `scripts/ui-audit.js --strict` 必须保持 `redundantDialogSingleSection=0`、`duplicateDialogWrapperSurfaces=0`，并检查正文表面、短弹窗内容卡、三档弹窗间距令牌和 RootPortal 内部令牌所有权；脚本通过仍不能替代微信开发者工具逐窗视觉检查。
 
 ### 发布与编译配置锁
 
