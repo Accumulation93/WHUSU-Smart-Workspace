@@ -19,6 +19,9 @@ const VERIFY_TOKEN_HOURS = 24;
 const RECOVERY_HOURS = 24;
 const MAX_VERIFY_ATTEMPTS = 8;
 const MAX_RECOVERY_ATTEMPTS = 8;
+// 管理端需要一次取得当前权限范围内的完整人员目录，再在本地完成即时筛选。
+// 该上限只对已通过管理员权限校验的接口开放，避免旧的 100/200 条截断。
+const MAX_AUTH_DIRECTORY_LIMIT = 2000;
 
 class IdentityError extends Error {
   constructor(code, message, httpStatus) {
@@ -1096,7 +1099,7 @@ async function createClaim(bootstrapId, data) {
 
 async function listClaims(organizationId, options) {
   const orgId = safeString(organizationId);
-  const limit = Math.min(Math.max(Number(options && options.limit) || 50, 1), 100);
+  const limit = Math.min(Math.max(Number(options && options.limit) || 200, 1), MAX_AUTH_DIRECTORY_LIMIT);
   const params = [];
   let scopeSql = '';
   if (orgId) {
@@ -1693,7 +1696,7 @@ async function transferWechatBinding(connection, data) {
 
 async function listRecoveryRequests(organizationId, options) {
   const orgId = safeString(organizationId);
-  const limit = Math.min(Math.max(Number(options && options.limit) || 50, 1), 100);
+  const limit = Math.min(Math.max(Number(options && options.limit) || 200, 1), MAX_AUTH_DIRECTORY_LIMIT);
   const params = [];
   let scopeSql = '';
   if (orgId) {
@@ -1729,7 +1732,7 @@ async function listRecoveryRequests(organizationId, options) {
 
 async function listAccounts(organizationId, options) {
   const orgId = safeString(organizationId);
-  const limit = Math.min(Math.max(Number(options && options.limit) || 100, 1), 200);
+  const limit = Math.min(Math.max(Number(options && options.limit) || 500, 1), MAX_AUTH_DIRECTORY_LIMIT);
   const params = [];
   let scopeSql = '';
   if (orgId) {
@@ -2056,7 +2059,7 @@ function normalizeInviteCode(value) {
 
 async function listEligibleInitialInvitePeople(organizationId, options) {
   const orgId = safeString(organizationId);
-  const limit = Math.min(Math.max(Number(options && options.limit) || 200, 1), 500);
+  const limit = Math.min(Math.max(Number(options && options.limit) || 500, 1), MAX_AUTH_DIRECTORY_LIMIT);
   const params = [];
   const where = [
     "p.status = 'active'",
@@ -2208,7 +2211,9 @@ async function redeemInitialInvite(bootstrapId, data, metadata) {
 }
 
 async function listEligibleRecoveryAccounts(organizationId, options) {
-  const rows = await listAccounts(organizationId, Object.assign({}, options, { limit: options && options.limit ? options.limit : 200 }));
+  const rows = await listAccounts(organizationId, Object.assign({}, options, {
+    limit: options && options.limit ? options.limit : MAX_AUTH_DIRECTORY_LIMIT
+  }));
   return rows.filter((row) => ['verified', 'recovery_required'].includes(safeString(row.status)) && !Boolean(row.is_frozen));
 }
 

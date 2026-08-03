@@ -5188,3 +5188,431 @@ scroll-view {
     padding: 12px 6px 8px;
   }
 }
+/* 账号与认证：沿用人事管理的卡片、筛选和列表层级，不再形成独立子应用。 */
+.auth-personnel-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-card-gap, 20rpx);
+}
+
+.auth-personnel-intro,
+.auth-personnel-group,
+.auth-policy-card {
+  border: 1rpx solid rgba(219, 231, 244, 0.9);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.82));
+  box-shadow: 0 12rpx 30rpx rgba(51, 95, 145, 0.07), inset 0 1rpx 0 rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(22rpx);
+}
+
+.auth-personnel-intro {
+  padding: 22rpx 24rpx;
+  border-radius: var(--ui-card-radius, 22rpx);
+}
+
+.auth-personnel-intro-main {
+  color: #17243a;
+  font-size: var(--ui-type-emphasis);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.auth-personnel-intro-sub,
+.auth-group-note,
+.auth-dialog-subtitle {
+  margin-top: 6rpx;
+  color: #64748b;
+  font-size: var(--ui-type-meta);
+  line-height: 1.48;
+}
+
+.auth-personnel-nav {
+  margin: 0;
+}
+
+.auth-personnel-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240rpx, 0.48fr);
+  gap: 16rpx;
+  align-items: stretch;
+}
+
+.auth-search-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 16rpx;
+  border: 1rpx solid rgba(207, 220, 235, 0.9);
+  border-radius: var(--ui-field-radius, 14rpx);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(247, 250, 255, 0.84));
+}
+
+.auth-personnel-search {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  margin: 0 12rpx;
+  padding-left: 0;
+  padding-right: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.auth-search-clear {
+  flex: 0 0 auto;
+  color: #2563eb;
+  font-size: var(--ui-type-caption);
+  line-height: 1.4;
+}
+
+.auth-scope-picker {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10rpx;
+  align-items: center;
+  height: 100%;
+}
+
+.auth-scope-label {
+  color: #64748b;
+  font-size: var(--ui-type-caption);
+}
+
+.auth-scope-name {
+  min-width: 0;
+  color: #1e293b;
+  overflow-wrap: anywhere;
+}
+
+.auth-personnel-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14rpx;
+  min-height: 180rpx;
+  color: #64748b;
+  font-size: var(--ui-type-meta);
+}
+
+.auth-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.auth-summary-card {
+  padding: 20rpx 22rpx;
+  border: 1rpx solid rgba(191, 219, 254, 0.76);
+  border-radius: var(--ui-list-radius, 18rpx);
+  background: linear-gradient(145deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.86));
+}
+
+.auth-summary-value {
+  color: #2563eb;
+  font-size: var(--ui-type-section);
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.auth-summary-label {
+  margin-top: 5rpx;
+  color: #64748b;
+  font-size: var(--ui-type-meta);
+  line-height: 1.4;
+}
+
+.auth-personnel-group,
+.auth-policy-card {
+  padding: var(--ui-card-padding, 24rpx);
+  border-radius: var(--ui-card-radius, 22rpx);
+}
+
+.auth-group-head,
+.auth-policy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.auth-selection-actions,
+.auth-policy-clear-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.compact-action {
+  width: auto;
+  min-width: 0;
+  min-height: var(--ui-button-compact-height, 58rpx);
+  margin: 0;
+  padding: 8rpx 18rpx;
+  border-radius: var(--ui-control-radius, 14rpx);
+  font-size: var(--ui-type-label);
+  line-height: 1.35;
+}
+
+.auth-directory-list {
+  margin-top: 18rpx;
+  border-top: 1rpx solid rgba(219, 231, 244, 0.82);
+}
+
+.auth-person-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 16rpx;
+  align-items: center;
+  min-width: 0;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid rgba(226, 234, 243, 0.82);
+}
+
+.auth-person-row:last-child {
+  border-bottom: 0;
+}
+
+.auth-select-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
+  border: 1rpx solid rgba(148, 163, 184, 0.62);
+  border-radius: 10rpx;
+  color: #2563eb;
+  background: rgba(248, 250, 252, 0.9);
+  box-sizing: border-box;
+}
+
+.auth-select-box.is-selected {
+  border-color: rgba(59, 130, 246, 0.76);
+  background: linear-gradient(145deg, rgba(219, 234, 254, 0.94), rgba(239, 246, 255, 0.9));
+}
+
+.auth-person-copy {
+  min-width: 0;
+}
+
+.auth-person-name,
+.auth-code-name,
+.auth-recovery-person {
+  color: #17243a;
+  font-size: var(--ui-type-emphasis);
+  font-weight: 800;
+  line-height: 1.38;
+  overflow-wrap: anywhere;
+}
+
+.auth-person-meta {
+  margin-top: 4rpx;
+  color: #64748b;
+  font-size: var(--ui-type-meta);
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.auth-row-state {
+  padding: 7rpx 12rpx;
+  border: 1rpx solid rgba(203, 213, 225, 0.76);
+  border-radius: 10rpx;
+  color: #64748b;
+  font-size: var(--ui-type-caption);
+  line-height: 1.3;
+  background: rgba(241, 245, 249, 0.82);
+  white-space: nowrap;
+}
+
+.auth-row-state.is-ready {
+  border-color: rgba(134, 239, 172, 0.72);
+  color: #15803d;
+  background: rgba(240, 253, 244, 0.86);
+}
+
+.auth-row-state.is-frozen {
+  border-color: rgba(252, 165, 165, 0.7);
+  color: #b91c1c;
+  background: rgba(254, 242, 242, 0.88);
+}
+
+.auth-policy-workspace {
+  display: grid;
+  gap: var(--ui-card-gap, 20rpx);
+}
+
+.auth-policy-head + .auth-policy-head {
+  margin-top: 22rpx;
+  padding-top: 22rpx;
+  border-top: 1rpx solid rgba(219, 231, 244, 0.82);
+}
+
+.auth-policy-time-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14rpx;
+  margin-top: 20rpx;
+}
+
+.auth-policy-clear-row {
+  margin-top: 10rpx;
+}
+
+.auth-policy-save {
+  margin: 0;
+}
+
+.auth-code-dialog {
+  width: min(92vw, 860rpx);
+}
+
+.auth-code-list {
+  display: grid;
+  gap: 14rpx;
+}
+
+.auth-code-row {
+  padding: 18rpx 20rpx;
+  border: 1rpx solid rgba(191, 219, 254, 0.84);
+  border-radius: var(--ui-list-radius, 16rpx);
+  background: linear-gradient(145deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.86));
+}
+
+.auth-code-value {
+  margin-top: 8rpx;
+  color: #2563eb;
+  font-size: var(--ui-type-section);
+  font-weight: 850;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.auth-dialog-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-dialog-footer-gap, 20rpx);
+}
+
+.auth-dialog-actions button {
+  margin: 0;
+}
+
+@media (max-width: 519px) {
+  .auth-personnel-tools,
+  .auth-policy-time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-group-head,
+  .auth-policy-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .auth-selection-actions {
+    justify-content: flex-start;
+  }
+
+  .auth-person-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .auth-person-row > .compact-action {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+}
+
+@media (min-width: 520px) {
+  .auth-personnel-section {
+    gap: var(--ui-card-gap, 16px);
+  }
+
+  .auth-personnel-intro {
+    padding: 17px 19px;
+  }
+
+  .auth-personnel-tools {
+    gap: 12px;
+  }
+
+  .auth-search-wrap {
+    padding: 0 13px;
+    border-radius: var(--ui-field-radius, 10px);
+  }
+
+  .auth-personnel-search {
+    margin: 0 10px;
+  }
+
+  .auth-summary-grid {
+    gap: 12px;
+  }
+
+  .auth-summary-card {
+    padding: 15px 17px;
+    border-radius: var(--ui-list-radius, 12px);
+  }
+
+  .auth-personnel-group,
+  .auth-policy-card {
+    padding: var(--ui-card-padding, 18px);
+    border-radius: var(--ui-card-radius, 14px);
+  }
+
+  .auth-person-row {
+    gap: 13px;
+    padding: 14px 0;
+  }
+
+  .auth-select-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .compact-action {
+    min-height: var(--ui-button-compact-height, 40px);
+    padding: 8px 14px;
+    border-radius: var(--ui-control-radius, 10px);
+  }
+
+  .auth-policy-time-grid {
+    gap: 12px;
+  }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .auth-personnel-section {
+    gap: 12px;
+  }
+
+  .auth-personnel-intro {
+    padding: 14px 16px;
+  }
+
+  .auth-personnel-group,
+  .auth-policy-card {
+    padding: 14px 16px;
+    border-radius: var(--ui-card-radius, 12px);
+  }
+
+  .auth-person-row {
+    padding: 11px 0;
+  }
+
+  .auth-summary-card {
+    padding: 12px 14px;
+  }
+
+  .auth-policy-workspace {
+    grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.8fr);
+    align-items: start;
+    gap: 12px;
+  }
+
+  .auth-policy-save {
+    grid-column: 1 / -1;
+  }
+}

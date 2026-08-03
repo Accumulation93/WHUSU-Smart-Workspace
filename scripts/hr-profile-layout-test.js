@@ -8,6 +8,11 @@ const homeWxss = fs.readFileSync(path.join(root, 'miniprogram/pages/home/home.wx
 const adminWxml = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8');
 const adminWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxss'), 'utf8');
 const hrInfoBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'), 'utf8');
+const authPersonnelBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js'), 'utf8');
+const authManagementJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/org/pages/authManagement/authManagement.js'), 'utf8');
+const accountSecurityJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/org/pages/accountSecurity/accountSecurity.js'), 'utf8');
+const identityModel = fs.readFileSync(path.join(root, 'server/src/core/models/unifiedIdentity.js'), 'utf8');
+const portalJs = fs.readFileSync(path.join(root, 'miniprogram/pages/portal/portal.js'), 'utf8');
 
 assert(
   /\.field-grid\s*\{[\s\S]*?display:\s*grid;[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(homeWxss),
@@ -48,5 +53,28 @@ const createMemberForm = adminWxml.match(/<view class="edit-box" wx:if="\{\{acti
 assert(createMemberForm, '应保留新增成员表单');
 assert(!/所属部门|工作分工（职能组）/.test(createMemberForm[0]), '新增成员表单只能填写人员基础信息');
 assert(/保存并完善资料/.test(createMemberForm[0]), '新增成员后应继续进入详情完善岗位和补充资料');
+
+assert(/activeTab === 'hrAccounts'/.test(adminWxml) && /账号与认证/.test(adminWxml),
+  '管理员认证功能必须并入人事信息子应用');
+assert(/人员认证/.test(authPersonnelBehavior) && /账号与恢复/.test(authPersonnelBehavior) && /认证设置/.test(authPersonnelBehavior),
+  '账号与认证必须按人员认证、账号恢复和设置分组');
+assert(!/操作记录|安全审计/.test(adminWxml), '管理员页面不得向用户展示内部操作记录');
+assert(!/label:\s*['"]身份认证['"]|label:\s*['"]账号安全['"]/.test(portalJs),
+  '应用服务不得继续展示独立身份认证或账号安全入口');
+assert(/id="account-and-login"/.test(homeWxml) && /账号与登录/.test(homeWxml),
+  '普通用户账号设置必须并入人事信息');
+assert(/tab=hrAccounts/.test(authManagementJs), '旧认证管理地址必须重定向到人事信息');
+assert(/subApp=hr&section=account/.test(accountSecurityJs), '旧账号安全地址必须重定向到普通用户人事信息');
+assert(/const DIRECTORY_LIMIT = 2000/.test(authPersonnelBehavior)
+    && /const MAX_AUTH_DIRECTORY_LIMIT = 2000/.test(identityModel),
+  '账号与认证目录必须一次加载完整人员范围，不得沿用 100/200 条截断');
+assert(/runBatchedAuthAction/.test(authPersonnelBehavior)
+    && /batchSize: 50/.test(authPersonnelBehavior)
+    && /batchSize: 100/.test(authPersonnelBehavior),
+  '全选批量操作必须按服务端安全批次处理全部选中人员');
+const freezeMethod = authPersonnelBehavior.match(/async toggleAuthAccountFrozen\(e\)\s*\{[\s\S]*?\n\s*\},\n\n\s*async issueSelectedRecoveryCodes/);
+assert(freezeMethod, '应保留账号冻结操作');
+assert(!/loadAuthPersonnel|loadAuthAccounts|loadActiveTab/.test(freezeMethod[0]),
+  '冻结账号只能局部更新当前人员，不得重新加载整个认证页面');
 
 console.log('hr profile layout tests passed');

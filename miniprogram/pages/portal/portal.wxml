@@ -166,7 +166,6 @@
 
   <view class="actions">
     <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">组织与身份</button>
-    <button class="secondary-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="openAccountSecurity" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">账号安全</button>
     <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="logout" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">退出登录</button>
   </view>
 

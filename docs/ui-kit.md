@@ -75,6 +75,8 @@
 - `.card`、`.section`、`.edit-box`、`.list-card` 是主要玻璃表面。
 - `.tabs`、`.tabs-card`、`.tab` 使用共享页签令牌；横屏页签必须整行均分或明确横向滚动。
 - `.primary-btn`、`.secondary-btn`、`.danger-btn` 是三种主按钮角色；小型操作使用链接式控件。
+- 账号认证不是独立视觉域：管理端并入人事信息的“账号与认证”，普通用户并入人事信息的“账号与登录”，两端都复用现有人事卡片、人员行、筛选器和设备密度。
+- 大型人员目录在当前权限范围内完整获取，并在本地筛选；单人状态变更只更新对应列表行，不能用全页加载状态打断用户。
 - `.ui-overlay` 和 `.ui-dialog-shell` 是弹窗唯一几何所有者：全局只允许一处几何定义，遮罩固定覆盖 `100vw × 100vh`，弹窗以 `50vw / 50vh` 为锚点居中。
 - `viewport-portal` 会把弹窗提升到 `RootPortal` 原生顶层宿主。所有 `--ui-dialog-*`、弹窗字号和颜色令牌必须同时直接声明在 `.ui-overlay` / `.ui-sheet-overlay` 上，禁止只依赖 `page` 的变量继承；否则宽度和内边距声明会整体失效。
 - `.ui-overlay-blocker` 只负责阻止背景触摸；弹窗壳不滚动，正文由直接子级 `scroll-view.ui-dialog-body` 滚动，嵌套列表继续使用 `nested-scroll-enabled`。

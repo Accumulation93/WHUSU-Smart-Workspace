@@ -49,8 +49,8 @@ function scanCompactVisualContract() {
   }
 
   const responsiveContracts = [
-    ['miniprogram/subpackages/org/pages/authManagement/authManagement.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.auth-card\s*\{[\s\S]*?padding:\s*14px 16px/],
-    ['miniprogram/subpackages/org/pages/accountSecurity/accountSecurity.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.security-card\s*\{[\s\S]*?padding:\s*14px 16px/],
+    ['miniprogram/subpackages/scoring/pages/admin/admin.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.auth-personnel-intro\s*\{[\s\S]*?padding:\s*14px 16px/],
+    ['miniprogram/pages/home/home.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.profile-security-note,[\s\S]*?padding:\s*14px 16px/],
     ['miniprogram/subpackages/org/pages/identitySwitch/identitySwitch.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.context-panel\s*\{[\s\S]*?padding:\s*14px 16px/],
     ['miniprogram/subpackages/audit/styles/blue-polish.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.audit-submission-item,[\s\S]*?padding:\s*12px 14px/],
     ['miniprogram/subpackages/venue/styles/blue-polish.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.venue-card,[\s\S]*?padding:\s*12px 14px/],

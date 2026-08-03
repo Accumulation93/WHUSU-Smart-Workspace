@@ -398,6 +398,57 @@
           {{hrProfile.template.editMode === 'audit' ? '提交审核' : '保存人事信息'}}
         </button>
       </view>
+
+      <view class="profile-account-section" id="account-and-login">
+        <view class="profile-account-head">
+          <view>
+            <view class="section-title">账号与登录</view>
+            <view class="profile-account-note">管理账号恢复方式和已登录设备</view>
+          </view>
+          <view class="profile-account-status" wx:if="{{accountSecurity.account}}">已认证</view>
+        </view>
+
+        <view class="target-state" wx:if="{{accountSecurity.loading}}">正在加载账号信息…</view>
+        <block wx:elif="{{accountSecurity.loaded}}">
+          <view class="profile-account-summary" wx:if="{{accountSecurity.account}}">
+            <view class="info-block"><view class="info-label">姓名</view><view class="info-value">{{accountSecurity.account.name}}</view></view>
+            <view class="info-block"><view class="info-label">学号</view><view class="info-value">{{accountSecurity.account.studentId}}</view></view>
+          </view>
+
+          <view class="profile-security-note" wx:if="{{!accountSecurity.allowRecoveryCode && !accountSecurity.allowPassphrase}}">如需更换微信，请联系管理员。</view>
+
+          <view class="profile-account-grid" wx:if="{{accountSecurity.allowRecoveryCode || accountSecurity.allowPassphrase}}">
+            <view class="profile-credential-card" wx:if="{{accountSecurity.allowRecoveryCode}}">
+              <view class="profile-credential-head">
+                <view><view class="profile-credential-title">账号恢复码</view><view class="profile-credential-note">新码生成后，旧码立即失效</view></view>
+                <button class="secondary-btn profile-account-action ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="rotateAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成新码</button>
+              </view>
+              <view class="profile-recovery-code" wx:if="{{accountSecurity.recoveryCode}}">
+                <view class="profile-recovery-value">{{accountSecurity.recoveryCode}}</view>
+                <view class="profile-recovery-actions"><button class="secondary-btn profile-account-action ui-motion-button" bindtap="copyAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">复制</button><button class="primary-btn profile-account-action ui-motion-button" bindtap="hideAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">已保存</button></view>
+              </view>
+            </view>
+
+            <view class="profile-credential-card" wx:if="{{accountSecurity.allowPassphrase}}">
+              <view class="profile-credential-title">登录口令</view>
+              <view class="profile-credential-note">至少 {{accountSecurity.passphraseMinLength}} 位，可用于口令登录</view>
+              <view class="profile-passphrase-row"><input class="field-input profile-passphrase-input" password="{{true}}" value="{{accountSecurity.passphrase}}" bindinput="onAccountPassphraseInput" placeholder="输入新的登录口令" /><button class="primary-btn profile-account-action ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="saveAccountPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存口令</button></view>
+            </view>
+          </view>
+
+          <view class="profile-session-panel">
+            <view class="profile-session-head"><view><view class="profile-credential-title">登录设备</view><view class="profile-credential-note">可退出不再使用的设备</view></view><view class="profile-session-count">{{accountSecurity.sessions.length}} 台</view></view>
+            <view class="profile-session-list">
+              <view class="profile-session-row" wx:for="{{accountSecurity.sessions}}" wx:key="id">
+                <view class="profile-session-copy"><view class="profile-session-title">{{item.current ? '当前设备' : '已登录设备'}}</view><view class="profile-credential-note">{{item.roleLabel}} · 最近活动 {{item.lastSeenText}}</view></view>
+                <view class="profile-account-status" wx:if="{{item.current}}">当前</view>
+                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-id="{{item.id}}" loading="{{accountSecurity.revokingSessionId === item.id}}" bindtap="revokeAccountSession" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">退出设备</button>
+              </view>
+              <view class="empty-inline" wx:if="{{!accountSecurity.sessions.length}}">暂无登录设备</view>
+            </view>
+          </view>
+        </block>
+      </view>
     </view>
   </view>
 

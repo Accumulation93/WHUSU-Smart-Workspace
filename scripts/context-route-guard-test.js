@@ -42,6 +42,14 @@ assert.strictEqual(
 assert.strictEqual(
   guard.isPageSupported(
     { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'hr' },
+    activated('admin', { 'auth.identity.verify': true })
+  ),
+  true,
+  '具备人员认证权限的管理员应从人事信息进入账号与认证'
+);
+assert.strictEqual(
+  guard.isPageSupported(
+    { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'hr' },
     activated('admin', { 'scoring.activities': true })
   ),
   false,

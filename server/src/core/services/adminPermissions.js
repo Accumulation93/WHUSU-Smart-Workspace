@@ -6,7 +6,8 @@ const PERMISSION_GROUPS = [
     permissions: [
       { key: 'auth.identity.verify', label: '身份认证', description: '审核身份认证并生成个人认证码' },
       { key: 'auth.accounts.recover', label: '账号恢复', description: '审核他人的微信账号恢复申请' },
-      { key: 'auth.accounts.audit', label: '操作记录', description: '查看本组织身份认证和账号安全记录' },
+      // 保留权限键和服务端审计能力以兼容既有授权，但不再把内部安全日志展示为管理界面功能。
+      { key: 'auth.accounts.audit', label: '安全审计', description: '', hidden: true },
       { key: 'auth.policy.manage', label: '认证设置', description: '管理身份认证和账号恢复方式', targetLevels: ['admin'], defaultLevels: [] }
     ]
   },
@@ -285,7 +286,7 @@ function serializeCatalog(targetLevel, effectivePermissions, editableKeys) {
     label: group.label,
     description: group.description,
     permissions: group.permissions
-      .filter((item) => isApplicable(item.key, targetLevel))
+      .filter((item) => !item.hidden && isApplicable(item.key, targetLevel))
       .map((item) => ({
         key: item.key,
         label: item.label,

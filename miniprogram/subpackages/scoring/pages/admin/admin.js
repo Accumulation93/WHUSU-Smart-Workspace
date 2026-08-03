@@ -20,6 +20,7 @@ const adminManagementBehavior = require('./modules/adminManagementBehavior');
 const settingsBehavior = require('./modules/settingsBehavior');
 const publicationBehavior = require('./modules/publicationBehavior');
 const auditBehavior = require('./modules/auditBehavior');
+const authPersonnelBehavior = require('./modules/authPersonnelBehavior');
 
 Page({
   behaviors: [
@@ -36,6 +37,7 @@ Page({
     settingsBehavior,
     publicationBehavior,
     auditBehavior,
+    authPersonnelBehavior,
   ],
   data: {
     user: null,
@@ -50,6 +52,9 @@ Page({
     canBrowseHrInfo: false,
     canManageHrProfileTemplates: false,
     canSelectHrProfileTemplate: false,
+    canVerifyIdentity: false,
+    canRecoverAccounts: false,
+    canManageAuthPolicy: false,
     canReadAdmins: false,
     canWriteAdmins: false,
     activeTab: utils.TAB_LIST[0],
@@ -357,6 +362,7 @@ Page({
 
   onLoad(options) {
     this._subApp = (options && options.subApp) || 'scoring';
+    this._requestedTab = (options && options.tab) || '';
     this.applySubAppFilter();
   },
 
@@ -500,6 +506,10 @@ Page({
         if (this.data.canBrowseHrInfo) loads.push(this.loadHrList(), this.loadHrProfileAdminData());
         return Promise.all(loads);
       },
+      hrAccounts: () => {
+        this.initializeAuthPersonnel();
+        return this.loadAuthPersonnel(true);
+      },
       hrTemplates: () => this.loadHrProfileTemplates(),
       departments: () => this.loadDepartmentList(),
       workGroups: () => this.loadWorkGroupList(),
@@ -562,12 +572,14 @@ Page({
     const subApp = this._subApp || 'scoring';
     const SUB_APP_ADMIN_TABS = {
       scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
-      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities'],
+      hr: ['hrInfo', 'hrAccounts', 'hrTemplates', 'departments', 'workGroups', 'identities'],
       system: ['admins', 'settings'],
       audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification']
     };
     const profile = profileOverride || adminPermissions.getAdminProfile();
     this._visibleTabs = adminPermissions.filterTabs(SUB_APP_ADMIN_TABS[subApp] || SUB_APP_ADMIN_TABS.scoring, profile);
+    const requestedTab = this._requestedTab;
+    const requestedVisible = requestedTab && this._visibleTabs.indexOf(requestedTab) >= 0;
     const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', system: '基本设置', audit: '审核' };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
     wx.setNavigationBarTitle({
@@ -576,8 +588,11 @@ Page({
     this.setData({
       visibleTabs: this._visibleTabs,
       subAppLabel: this._subAppLabel,
-      activeTab: this._visibleTabs.indexOf(this.data.activeTab) >= 0 ? this.data.activeTab : (this._visibleTabs[0] || '')
+      activeTab: requestedVisible
+        ? requestedTab
+        : (this._visibleTabs.indexOf(this.data.activeTab) >= 0 ? this.data.activeTab : (this._visibleTabs[0] || ''))
     });
+    if (requestedVisible) this._requestedTab = '';
   },
 
   async bootstrapPage() {
@@ -640,6 +655,9 @@ Page({
       canBrowseHrInfo,
       canManageHrProfileTemplates: adminPermissions.hasAny(adminProfile, ['hr.profile_templates.manage']),
       canSelectHrProfileTemplate: adminPermissions.hasAny(adminProfile, ['hr.profile_templates.select']),
+      canVerifyIdentity: adminPermissions.hasAny(adminProfile, ['auth.identity.verify']),
+      canRecoverAccounts: adminPermissions.hasAny(adminProfile, ['auth.accounts.recover']),
+      canManageAuthPolicy: adminPermissions.hasAny(adminProfile, ['auth.policy.manage']),
       currentOrganizationName: activeOrgName || this.data.currentOrganizationName,
       resultViewOptions: [
         { value: 'overview', label: '明细查看' },
@@ -677,14 +695,21 @@ Page({
       }
 
       if (this._subApp === 'hr') {
-        await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
-        await this.loadWorkGroupList();
+        this.initializeAuthPersonnel();
+        const needsHrDirectory = visibleTabs.some((tab) => tab !== 'hrAccounts');
+        if (needsHrDirectory) {
+          await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
+          await this.loadWorkGroupList();
+        }
         const canBrowseHr = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
         const canUseTemplates = adminPermissions.hasAny(adminProfile, ['hr.profile_templates.manage', 'hr.profile_templates.select']);
         if (visibleTabs.indexOf('hrInfo') >= 0 && canBrowseHr && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
           await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
         }
         if (visibleTabs.indexOf('hrTemplates') >= 0 && canUseTemplates) await this.loadHrProfileTemplates();
+        if (visibleTabs.indexOf('hrAccounts') >= 0 && this.data.activeTab === 'hrAccounts') {
+          await this.loadAuthPersonnel();
+        }
         this.updateHrFormOptions();
         return;
       }
@@ -761,6 +786,10 @@ Page({
     }
     if (tab === 'hrTemplates') {
       this.loadHrProfileTemplates();
+    }
+    if (tab === 'hrAccounts') {
+      this.initializeAuthPersonnel();
+      this.loadAuthPersonnel();
     }
     if (tab === 'departments') {
       this.loadDepartmentList();

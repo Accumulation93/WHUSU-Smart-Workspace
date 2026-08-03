@@ -1,4 +1,4 @@
-const { callFunction } = require('../../utils/api');
+const { callFunction, getErrorText, formatAuditTime } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const STORAGE_KEY = 'roleProfiles';
@@ -42,6 +42,31 @@ function emptyHrProfileState() {
     statusText: '尚未提交补充资料',
     rejectionReason: ''
   };
+}
+
+function emptyAccountSecurityState() {
+  return {
+    loading: false,
+    loaded: false,
+    account: null,
+    sessions: [],
+    allowRecoveryCode: false,
+    allowPassphrase: false,
+    passphraseMinLength: 12,
+    passphrase: '',
+    recoveryCode: '',
+    savingCredential: false,
+    revokingSessionId: ''
+  };
+}
+
+function decorateAccountSessions(sessions) {
+  return (sessions || []).map(function(item) {
+    return Object.assign({}, item, {
+      roleLabel: item.role === 'admin' ? '管理身份' : '普通岗位',
+      lastSeenText: formatAuditTime(String(item.lastSeenAt || ''))
+    });
+  });
 }
 
 function emptyPublicationState() {
@@ -294,6 +319,7 @@ Page({
     userTabs: [{ key: 'scoring', label: '考核评分' }, { key: 'profile', label: '人事信息' }],
     activeTab: 'scoring',
     hrProfile: emptyHrProfileState(),
+    accountSecurity: emptyAccountSecurityState(),
     publishedResults: [],
     publishedGroups: [],
     publishedMeritList: [],
@@ -366,6 +392,7 @@ Page({
 
   onLoad(options) {
     this._subApp = (options && options.subApp) || 'scoring';
+    this._focusAccountSecurity = Boolean(options && options.section === 'account');
   },
 
   applySubAppFilter() {
@@ -448,6 +475,7 @@ Page({
           this.rebuildUserTabs();
           this.fetchRateTargets('user');
           this.loadUserHrProfile();
+          if (this._subApp === 'hr') this.loadAccountSecurity();
         }
       }
     });
@@ -510,6 +538,9 @@ Page({
 
     if (tab === 'profile' && this.data.activeRole === 'user' && !this.data.hrProfile.loaded) {
       this.loadUserHrProfile();
+    }
+    if (tab === 'profile' && this.data.activeRole === 'user' && !this.data.accountSecurity.loaded) {
+      this.loadAccountSecurity();
     }
     if (tab === 'audit') {
       this.loadAuditBadgeCounts();
@@ -716,6 +747,126 @@ Page({
         });
       }
     });
+  },
+
+  async loadAccountSecurity() {
+    if (this.data.activeRole !== 'user' || !this.data.hasUser) return;
+    const request = orgSession.beginRequest(this, 'accountSecurityInProfile');
+    this.setData({ 'accountSecurity.loading': true });
+    try {
+      const result = await callFunction({ name: 'auth/security', data: {} });
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      if (!result || result.status !== 'success') {
+        throw new Error((result && result.message) || '请稍后重试');
+      }
+      const policy = result.policy || {};
+      this.setData({
+        accountSecurity: Object.assign({}, this.data.accountSecurity, {
+          loading: false,
+          loaded: true,
+          account: result.account || null,
+          sessions: decorateAccountSessions(result.sessions),
+          allowRecoveryCode: Boolean(policy.allowRecoveryCode),
+          allowPassphrase: Boolean(policy.allowPassphrase),
+          passphraseMinLength: Number(policy.passphraseMinLength || 12)
+        })
+      });
+      if (this._focusAccountSecurity) {
+        this._focusAccountSecurity = false;
+        setTimeout(function() {
+          wx.pageScrollTo({ selector: '#account-and-login', duration: 240 });
+        }, 80);
+      }
+    } catch (error) {
+      if (!orgSession.isRequestCurrent(this, request)) return;
+      this.setData({
+        accountSecurity: Object.assign({}, this.data.accountSecurity, {
+          loading: false,
+          loaded: true
+        })
+      });
+      showShortToast(getErrorText(error, '请稍后重试'));
+    }
+  },
+
+  onAccountPassphraseInput(e) {
+    this.setData({ 'accountSecurity.passphrase': String(e.detail.value || '') });
+  },
+
+  async rotateAccountRecoveryCode() {
+    const security = this.data.accountSecurity;
+    if (security.savingCredential) return;
+    this.setData({ 'accountSecurity.savingCredential': true });
+    try {
+      const result = await callFunction({
+        name: 'auth/security/recovery-credential',
+        data: { method: 'recovery_code' }
+      });
+      if (!result || result.status !== 'success' || !result.recoveryCode) {
+        throw new Error((result && result.message) || '未生成，请重试');
+      }
+      this.setData({ 'accountSecurity.recoveryCode': result.recoveryCode });
+    } catch (error) {
+      showShortToast(getErrorText(error, '未生成，请重试'));
+    } finally {
+      this.setData({ 'accountSecurity.savingCredential': false });
+    }
+  },
+
+  copyAccountRecoveryCode() {
+    const code = this.data.accountSecurity.recoveryCode;
+    if (code) wx.setClipboardData({ data: code });
+  },
+
+  hideAccountRecoveryCode() {
+    this.setData({ 'accountSecurity.recoveryCode': '' });
+  },
+
+  async saveAccountPassphrase() {
+    const security = this.data.accountSecurity;
+    if (security.savingCredential) return;
+    if (security.passphrase.length < security.passphraseMinLength) {
+      showShortToast('口令长度不足');
+      return;
+    }
+    this.setData({ 'accountSecurity.savingCredential': true });
+    try {
+      const result = await callFunction({
+        name: 'auth/security/recovery-credential',
+        data: { method: 'passphrase', value: security.passphrase }
+      });
+      if (!result || result.status !== 'success') {
+        throw new Error((result && result.message) || '未保存，请重试');
+      }
+      this.setData({ 'accountSecurity.passphrase': '' });
+      showShortToast('口令已更新', 'success');
+    } catch (error) {
+      showShortToast(getErrorText(error, '未保存，请重试'));
+    } finally {
+      this.setData({ 'accountSecurity.savingCredential': false });
+    }
+  },
+
+  async revokeAccountSession(e) {
+    const sessionId = String(e.currentTarget.dataset.id || '');
+    if (!sessionId || this.data.accountSecurity.revokingSessionId) return;
+    this.setData({ 'accountSecurity.revokingSessionId': sessionId });
+    try {
+      const result = await callFunction({
+        name: 'auth/security/sessions/revoke',
+        data: { sessionId }
+      });
+      if (!result || (result.status !== 'success' && result.status !== 'not_found')) {
+        throw new Error((result && result.message) || '请重试');
+      }
+      const sessions = this.data.accountSecurity.sessions.filter((item) => item.id !== sessionId);
+      this.setData({ 'accountSecurity.sessions': sessions });
+      showShortToast('该设备已退出', 'success');
+    } catch (error) {
+      showShortToast(getErrorText(error, '请重试'));
+    } finally {
+      this.setData({ 'accountSecurity.revokingSessionId': '' });
+    }
   },
 
   onHrProfileInput(e) {

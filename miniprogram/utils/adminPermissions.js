@@ -9,6 +9,7 @@ const TAB_PERMISSION_MAP = {
   results: ['scoring.results'],
   publications: ['scoring.publications'],
   hrInfo: ['hr.people', 'hr.import', 'hr.profile_review'],
+  hrAccounts: ['auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'],
   hrTemplates: ['hr.profile_templates.manage', 'hr.profile_templates.select'],
   departments: ['hr.departments'],
   workGroups: ['hr.work_groups'],
@@ -29,11 +30,10 @@ const VENUE_TAB_PERMISSION_MAP = {
 
 const PORTAL_PERMISSION_MAP = {
   scoring: ['scoring.activities', 'scoring.templates', 'scoring.rules', 'scoring.results', 'scoring.publications'],
-  hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.departments', 'hr.work_groups', 'hr.identities'],
+  hr: ['hr.people', 'hr.import', 'hr.profile_review', 'hr.profile_templates.manage', 'hr.profile_templates.select', 'hr.departments', 'hr.work_groups', 'hr.identities', 'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'],
   system: ['system.admin_accounts.read', 'system.admin_accounts.write', 'system.settings', 'system.organizations'],
   audit: ['audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'],
   venue: ['venue.resources', 'venue.bookings', 'venue.approvals', 'venue.purposes'],
-  authManagement: ['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.audit', 'auth.policy.manage']
 };
 
 function getAdminProfile() {
@@ -90,7 +90,7 @@ function filterTabs(tabs, profile, map) {
 
 function filterPortalCards(cards, profile) {
   return (cards || []).filter(function(card) {
-    if (card.key === 'messages' || card.key === 'identitySwitch' || card.key === 'accountSecurity') return true;
+    if (card.key === 'messages' || card.key === 'identitySwitch') return true;
     if (card.key === 'permissions') return canAccessPermissionSystem(profile);
     return hasAny(profile, PORTAL_PERMISSION_MAP[card.key] || []);
   });

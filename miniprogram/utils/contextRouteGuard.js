@@ -58,7 +58,7 @@ function isPageSupported(page, activated) {
     return role === 'admin' && adminPermissions.canAccessPermissionSystem(profile);
   }
   if (route === '/subpackages/org/pages/authManagement/authManagement') {
-    return role === 'admin' && canUseAdminArea(profile, 'authManagement');
+    return role === 'admin' && canUseAdminArea(profile, 'hr');
   }
   return true;
 }
