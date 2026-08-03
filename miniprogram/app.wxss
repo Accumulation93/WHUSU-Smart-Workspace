@@ -81,9 +81,12 @@ page {
   --ui-tab-shell-radius: 26rpx;
   --ui-dialog-edge: 24rpx;
   --ui-dialog-width-inset: 48rpx;
-  --ui-dialog-padding: 26rpx;
+  --ui-dialog-padding: 30rpx;
+  --ui-dialog-body-padding: 18rpx;
+  --ui-dialog-section-padding: 22rpx;
+  --ui-dialog-section-radius: 22rpx;
   --ui-dialog-section-gap: 18rpx;
-  --ui-dialog-footer-gap: 16rpx;
+  --ui-dialog-footer-gap: 18rpx;
   --ui-dialog-radius: 30rpx;
   min-height: 100%;
   touch-action: manipulation;
@@ -870,32 +873,56 @@ button[disabled],
 .ui-overlay .dialog-panel,
 .ui-overlay .organization-picker-dialog,
 .ui-overlay .message-switch-dialog {
-  padding: var(--ui-dialog-padding) !important;
-  border-radius: var(--ui-dialog-radius) !important;
-  box-sizing: border-box !important;
+  padding: var(--ui-dialog-padding);
+  border-radius: var(--ui-dialog-radius);
+  box-sizing: border-box;
 }
 
 .ui-overlay .permission-dialog {
-  border-radius: var(--ui-dialog-radius) !important;
+  border-radius: var(--ui-dialog-radius);
 }
 
 .ui-overlay .permission-dialog-header {
-  gap: var(--ui-dialog-section-gap) !important;
-  padding: var(--ui-dialog-padding) var(--ui-dialog-padding) var(--ui-dialog-section-gap) !important;
+  gap: var(--ui-dialog-section-gap);
+  padding: var(--ui-dialog-padding) var(--ui-dialog-padding) var(--ui-dialog-section-gap);
 }
 
 .ui-overlay .permission-dialog-body {
-  padding: var(--ui-dialog-section-gap) var(--ui-dialog-padding) !important;
+  padding: var(--ui-dialog-section-gap) var(--ui-dialog-padding);
 }
 
 .ui-overlay .permission-dialog-footer {
-  gap: var(--ui-dialog-section-gap) !important;
-  padding: var(--ui-dialog-footer-gap) var(--ui-dialog-padding) !important;
+  gap: var(--ui-dialog-section-gap);
+  padding: var(--ui-dialog-footer-gap) var(--ui-dialog-padding);
 }
 
 .ui-dialog-header {
   flex: 0 0 auto;
   min-width: 0;
+}
+
+.ui-overlay .popup-header,
+.ui-overlay .modal-header,
+.ui-overlay .organization-picker-header {
+  margin-bottom: var(--ui-dialog-section-gap);
+}
+
+.ui-overlay .popup-close,
+.ui-overlay .organization-picker-close,
+.ui-sheet-overlay .sheet-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46rpx;
+  height: auto;
+  padding: 6rpx 14rpx;
+  border-radius: 12rpx;
+  color: var(--ui-blue-700);
+  line-height: 1.35;
+  background: linear-gradient(145deg, rgba(255,255,255,0.94), rgba(239,246,255,0.84));
+  border: 1rpx solid rgba(191,219,254,0.76);
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.88);
+  box-sizing: border-box;
 }
 
 .ui-dialog-body {
@@ -908,6 +935,88 @@ button[disabled],
   overflow-y: hidden;
   overscroll-behavior: contain;
   box-sizing: border-box;
+}
+
+/*
+ * 弹窗正文表面：外壳负责整窗留白，正文表面负责把内容从滚动视口边缘
+ * 托起来。功能分区只在有独立语义时使用，避免每个字段都套一层卡片。
+ */
+.ui-overlay .ui-dialog-body.ui-dialog-content,
+.ui-sheet-overlay .ui-dialog-body.ui-dialog-content {
+  padding: var(--ui-dialog-body-padding);
+  border-radius: var(--ui-dialog-section-radius);
+  background: linear-gradient(145deg, rgba(255,255,255,0.86), rgba(247,250,255,0.74));
+  border: 1rpx solid rgba(219,229,241,0.82);
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.88);
+  box-sizing: border-box;
+}
+
+.ui-overlay .ui-dialog-body.ui-dialog-content--workspace,
+.ui-sheet-overlay .ui-dialog-body.ui-dialog-content--workspace {
+  padding: var(--ui-dialog-body-padding);
+  background: linear-gradient(145deg, rgba(248,251,255,0.90), rgba(241,247,255,0.76));
+}
+
+.ui-dialog-stack {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ui-dialog-stack > .ui-dialog-section + .ui-dialog-section,
+.ui-dialog-stack > .ui-dialog-summary + .ui-dialog-section,
+.ui-dialog-stack > .ui-dialog-toolbar + .ui-dialog-section,
+.ui-dialog-stack > .ui-dialog-section + .ui-dialog-list-panel,
+.ui-dialog-stack > .ui-dialog-toolbar + .ui-dialog-list-panel {
+  margin-top: var(--ui-dialog-section-gap);
+}
+
+.ui-dialog-section,
+.ui-dialog-summary,
+.ui-dialog-toolbar,
+.ui-dialog-list-panel,
+.ui-dialog-compact-content {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: var(--ui-dialog-section-padding);
+  border-radius: var(--ui-dialog-section-radius);
+  border: 1rpx solid rgba(226,237,247,0.92);
+  box-sizing: border-box;
+}
+
+.ui-dialog-section,
+.ui-dialog-list-panel,
+.ui-dialog-compact-content {
+  background: linear-gradient(145deg, rgba(255,255,255,0.94), rgba(249,251,255,0.84));
+  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.88);
+}
+
+.ui-dialog-summary {
+  background: linear-gradient(145deg, rgba(239,246,255,0.94), rgba(248,251,255,0.88));
+  border-color: rgba(191,219,254,0.72);
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.90);
+}
+
+.ui-dialog-toolbar {
+  background: linear-gradient(145deg, rgba(248,251,255,0.92), rgba(241,247,255,0.78));
+  box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.86);
+}
+
+.ui-dialog-section > view:first-child,
+.ui-dialog-summary > view:first-child,
+.ui-dialog-toolbar > view:first-child,
+.ui-dialog-list-panel > view:first-child,
+.ui-dialog-compact-content > view:first-child {
+  margin-top: 0;
+}
+
+.ui-dialog-section > view:last-child,
+.ui-dialog-summary > view:last-child,
+.ui-dialog-toolbar > view:last-child,
+.ui-dialog-list-panel > view:last-child,
+.ui-dialog-compact-content > view:last-child {
+  margin-bottom: 0;
 }
 
 /* 弹窗内部的滚动只能发生在显式 scroll-view 中，避免普通 view 形成竞争滚动层。 */
@@ -1383,7 +1492,10 @@ button:active,
     --ui-tab-shell-radius: 13px;
     --ui-dialog-edge: 24px;
     --ui-dialog-width-inset: 48px;
-    --ui-dialog-padding: 18px;
+    --ui-dialog-padding: 22px;
+    --ui-dialog-body-padding: 14px;
+    --ui-dialog-section-padding: 16px;
+    --ui-dialog-section-radius: 12px;
     --ui-dialog-section-gap: 14px;
     --ui-dialog-footer-gap: 14px;
     --ui-dialog-radius: 18px;
@@ -1633,6 +1745,14 @@ button:active,
     padding-bottom: 0;
   }
 
+  .ui-overlay .popup-close,
+  .ui-overlay .organization-picker-close,
+  .ui-sheet-overlay .sheet-close {
+    min-height: 30px;
+    padding: 5px 10px;
+    border-radius: 8px;
+  }
+
   scroll-view.ui-dialog-stack-scroll {
     min-height: 0;
     max-height: calc(100vh - 170px);
@@ -1820,9 +1940,12 @@ button:active,
     --ui-section-title-inset: 10px;
     --ui-dialog-edge: 16px;
     --ui-dialog-width-inset: 32px;
-    --ui-dialog-padding: 16px;
-    --ui-dialog-section-gap: 10px;
-    --ui-dialog-footer-gap: 10px;
+    --ui-dialog-padding: 20px;
+    --ui-dialog-body-padding: 12px;
+    --ui-dialog-section-padding: 14px;
+    --ui-dialog-section-radius: 10px;
+    --ui-dialog-section-gap: 12px;
+    --ui-dialog-footer-gap: 12px;
     --ui-dialog-radius: 16px;
   }
 
@@ -2744,5 +2867,13 @@ page .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide:focus-within {
 
   .ui-overlay .ui-dialog-shell.ui-dialog-shell--wide {
     max-width: 1040px !important;
+  }
+
+  .ui-overlay .popup-close,
+  .ui-overlay .organization-picker-close,
+  .ui-sheet-overlay .sheet-close {
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 8px;
   }
 }

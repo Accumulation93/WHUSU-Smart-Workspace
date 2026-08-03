@@ -54,8 +54,8 @@
         </view>
         <text class="popup-close ui-motion-chip" catchtap="cancelEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll venue-edit-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll venue-edit-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <view class="form-body ui-dialog-section">
           <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
           <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="场地所在位置"/></view>
           <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
@@ -193,7 +193,7 @@
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}} ui-motion-chip" data-tab="activity" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">活动时间</view>
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用规则</view>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">
           <button class="primary-btn rule-add-btn ui-motion-button" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增开放时间</button>
           <view wx:if="{{!openRules.length}}" class="empty-inline">暂无开放时间规则。</view>
@@ -265,8 +265,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view><text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <view class="form-body ui-dialog-section">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
             <view class="field"><view class="field-label">重复方式</view>
@@ -449,7 +449,7 @@
         <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
         <text class="nav-arrow ui-motion-card" catchtap="onTimetableNextWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'›'}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-dialog-scroll--both ui-data-grid--specialized" bindscroll="onTimetableScroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-dialog-content ui-dialog-content--workspace ui-dialog-scroll--both ui-data-grid--specialized" bindscroll="onTimetableScroll">
         <view class="timetable-body">
           <view class="tt-time-col">
             <view class="tt-time-header">时间</view>
@@ -486,8 +486,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">借用详情</view><text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-      <view class="detail-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+      <view class="detail-body ui-dialog-section">
         <view class="detail-title">{{bookingDetail.title || '借用'}}</view>
         <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-key">借用人</text><text class="detail-val">{{bookingDetail.userName}}</text></view>
@@ -537,8 +537,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}} · 使用场地</view><text class="popup-close ui-motion-chip" catchtap="closeAdminBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <view class="form-body ui-dialog-section">
           <view class="field"><view class="field-label">借用事由 <text class="required">*</text></view>
             <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="选择或输入借用事由"/>
             <view class="chip-row" wx:if="{{purposes.length}}">
@@ -595,8 +595,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">借用事由管理</view><text class="popup-close ui-motion-chip" catchtap="closePurposeManager" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <view class="form-body ui-dialog-section">
           <view class="field"><view class="field-label">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
             <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? '更新' : '添加'}}</button></view>
           </view>
@@ -624,7 +624,7 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
       <view class="rule-filter-row rule-filter-row--dialog">
         <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
@@ -676,8 +676,8 @@
         <view class="popup-title">{{approvalPopupAction === 'approve' ? '通过借用申请' : '驳回借用申请'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApprovalPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <view class="detail-body ui-dialog-section">
           <view wx:if="{{approvalPopupTarget}}">
             <view class="detail-title">{{approvalPopupTarget.title || '借用申请'}}</view>
             <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalPopupTarget.venueName}}</text></view>
@@ -732,9 +732,11 @@
   <view class="popup-mask ui-overlay" wx:if="{{contextSwitchGuardVisible}}" bindtap="closeContextSwitchGuard">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card context-switch-guard-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
-      <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
-      <view class="context-switch-guard-title">请先保存修改</view>
-      <view class="context-switch-guard-desc">保存或取消编辑后，即可切换组织与身份。</view>
+      <view class="ui-dialog-compact-content">
+        <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
+        <view class="context-switch-guard-title">请先保存修改</view>
+        <view class="context-switch-guard-desc">保存或取消编辑后，即可切换组织与身份。</view>
+      </view>
       <view class="context-switch-guard-actions ui-dialog-footer">
         <button class="primary-btn ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">继续编辑</button>
       </view>

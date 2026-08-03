@@ -469,6 +469,10 @@ function scanLayoutContracts(file) {
           const requiresStructure = dialog.classes.has('ui-dialog-shell--complex') || dialog.classes.has('ui-dialog-shell--wide');
           if (requiresStructure && !dialog.hasHeader) dialog.issues.push('复杂弹窗缺少 ui-dialog-header');
           if (requiresStructure && !dialog.hasBody) dialog.issues.push('复杂弹窗缺少 ui-dialog-body');
+          if (dialog.hasBody && !dialog.hasContentSurface) dialog.issues.push('弹窗正文缺少 ui-dialog-content 内容表面');
+          if (dialog.classes.has('ui-dialog-shell--compact') && !dialog.hasBody && !dialog.hasCompactContent) {
+            dialog.issues.push('短弹窗必须使用 ui-dialog-compact-content 包裹正文');
+          }
           for (const message of dialog.issues) {
             dialogIssues.push({ file: relative(file), line: dialog.line, message, className: [...dialog.classes].join(' ') });
           }
@@ -548,19 +552,23 @@ function scanLayoutContracts(file) {
     }
 
     let dialog = null;
-    if ([...classes].some(name => LEGACY_DIALOG_SHELLS.has(name))) {
+    if (classes.has('ui-dialog-shell') || [...classes].some(name => LEGACY_DIALOG_SHELLS.has(name))) {
       dialog = {
         line,
         classes,
         hasHeader: false,
         hasBody: false,
         hasFooter: false,
+        hasContentSurface: false,
+        hasCompactContent: false,
         issues: classes.has('ui-dialog-shell') ? [] : ['弹窗壳缺少 ui-dialog-shell']
       };
     } else if (dialogAncestor) {
       const current = dialogAncestor.dialog;
       if (classes.has('ui-dialog-header')) current.hasHeader = true;
       if (classes.has('ui-dialog-body')) current.hasBody = true;
+      if (classes.has('ui-dialog-content')) current.hasContentSurface = true;
+      if (classes.has('ui-dialog-compact-content')) current.hasCompactContent = true;
       if (classes.has('ui-dialog-footer')) {
         current.hasFooter = true;
         if (scrollAncestor) current.issues.push(`第 ${line} 行操作栏位于 scroll-view 内`);
@@ -626,11 +634,23 @@ function scanWxss(file) {
   const oversizedDecorativeHero = [];
   const forcedContentViewport = [];
   const oversizedContentPadding = [];
+  const flattenedDialogSurfaces = [];
   const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
   let ruleMatch;
   while ((ruleMatch = rulePattern.exec(source))) {
     const selector = ruleMatch[1];
     const declarations = ruleMatch[2];
+    if (/(?:detail-popup-form|form-body|detail-body|ui-dialog-content)/i.test(selector) &&
+      /padding\s*:\s*0(?:\s|;|$)/i.test(declarations) &&
+      /background\s*:\s*(?:none|transparent)/i.test(declarations) &&
+      /border\s*:\s*(?:none|0)/i.test(declarations)) {
+      flattenedDialogSurfaces.push({
+        file: relative(file),
+        line: lineAt(source, ruleMatch.index),
+        selector: selector.trim().replace(/\s+/g, ' '),
+        message: '弹窗正文分区不得同时清空内边距、背景和边框，避免内容贴边且失去层级'
+      });
+    }
     if (
       /\.(?:section-title|list-title|profile-field-title|merit-group-label|rule-panel-title)::before\b/.test(selector) &&
       /content\s*:\s*["']{2}/.test(declarations) &&
@@ -834,6 +854,7 @@ function scanWxss(file) {
     oversizedDecorativeHero,
     forcedContentViewport,
     oversizedContentPadding,
+    flattenedDialogSurfaces,
     oversizedTimetable: [...source.matchAll(/\.timetable-scroll\s*\{[^{}]*height\s*:\s*(\d{3,})rpx/gi)]
       .filter(match => Number(match[1]) >= 900)
       .map(match => ({ file: relative(file), line: lineAt(source, match.index), height: match[1] + 'rpx' }))
@@ -899,6 +920,7 @@ const rawFontSizes = styles.flatMap(item => item.rawFontSizes);
 const oversizedDecorativeHero = styles.flatMap(item => item.oversizedDecorativeHero);
 const forcedContentViewport = styles.flatMap(item => item.forcedContentViewport);
 const oversizedContentPadding = styles.flatMap(item => item.oversizedContentPadding);
+const flattenedDialogSurfaces = styles.flatMap(item => item.flattenedDialogSurfaces);
 const missingStableDialogSystem = !(
   /\.ui-dialog-body\s*\{[\s\S]*?flex:\s*1\s+1\s+auto;[\s\S]*?min-height:\s*0;/m.test(GLOBAL_STYLE) &&
   /\.ui-dialog-footer\s*\{[\s\S]*?flex:\s*0\s+0\s+auto;[\s\S]*?padding-bottom:\s*0;/m.test(GLOBAL_STYLE) &&
@@ -923,6 +945,15 @@ const missingDialogScrollSystem = !(
   /scroll-view\.ui-dialog-scroll--both\s*\{[^}]*height:\s*64vh;/m.test(GLOBAL_STYLE) &&
   /\.ui-overlay\s+scroll-view\.ui-dialog-scroll--fill,[\s\S]*?touch-action:\s*pan-y\s*!important;/m.test(GLOBAL_STYLE) &&
   !/scroll-view\.ui-dialog-scroll--(?:fill|both)\s*\{[^}]*(?:^|;)\s*height:\s*0\s*;/m.test(GLOBAL_STYLE)
+);
+const missingDialogInteriorSystem = !(
+  /--ui-dialog-padding:\s*30rpx/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-body-padding:\s*18rpx/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-section-padding:\s*22rpx/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-dialog-padding:\s*22px[\s\S]*?--ui-dialog-body-padding:\s*14px[\s\S]*?--ui-dialog-section-padding:\s*16px/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-dialog-padding:\s*20px[\s\S]*?--ui-dialog-body-padding:\s*12px[\s\S]*?--ui-dialog-section-padding:\s*14px/.test(GLOBAL_STYLE) &&
+  /\.ui-dialog-content[^\{]*\{[^}]*padding:\s*var\(--ui-dialog-body-padding\)/m.test(GLOBAL_STYLE) &&
+  /\.ui-dialog-section,[\s\S]*?\.ui-dialog-compact-content\s*\{[^}]*padding:\s*var\(--ui-dialog-section-padding\)/m.test(GLOBAL_STYLE)
 );
 const adminStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'scoring', 'pages', 'admin', 'admin.wxss'), 'utf8');
 const missingResponsiveDataSystem = !(
@@ -1049,10 +1080,12 @@ const report = {
     oversizedDecorativeHero: oversizedDecorativeHero.length,
     forcedContentViewport: forcedContentViewport.length,
     oversizedContentPadding: oversizedContentPadding.length,
+    flattenedDialogSurfaces: flattenedDialogSurfaces.length,
     missingStableDialogSystem: missingStableDialogSystem ? 1 : 0,
     missingDialogCenteringSystem: missingDialogCenteringSystem ? 1 : 0,
     missingDialogGestureSystem: missingDialogGestureSystem ? 1 : 0,
     missingDialogScrollSystem: missingDialogScrollSystem ? 1 : 0,
+    missingDialogInteriorSystem: missingDialogInteriorSystem ? 1 : 0,
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
     compactVisualContractIssues: compactVisualContractIssues.length,
     duplicateGlobalUiContracts: duplicateGlobalUiContracts.length,
@@ -1093,6 +1126,7 @@ const report = {
   oversizedDecorativeHero,
   forcedContentViewport,
   oversizedContentPadding,
+  flattenedDialogSurfaces,
   missingTypographySystem,
   missingTabSizeSystem,
   unstableSummaryGrid,
@@ -1109,7 +1143,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...compactVisualContractIssues, ...duplicateGlobalUiContracts]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...flattenedDialogSurfaces, ...compactVisualContractIssues, ...duplicateGlobalUiContracts]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -1128,7 +1162,7 @@ if (process.argv.includes('--strict')) {
     report.summary.adminOrgContextIssues || report.summary.workspaceShellIssues || report.summary.venueFlowVisibilityIssues || report.summary.legacyRedirectUiIssues ||
     report.summary.staticInlineStyles ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.unsafeControlEllipsis ||
-    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem ||
+    report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.flattenedDialogSurfaces || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem || report.summary.missingDialogInteriorSystem ||
     report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts;
   process.exitCode = failed ? 1 : 0;
 }

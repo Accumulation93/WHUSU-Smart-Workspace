@@ -33,7 +33,7 @@
         <view class="sheet-close ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭 ×</view>
       </view>
 
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="sheet-body ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="sheet-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view wx:if="{{stage === 'claim' || stage === 'recovery'}}">
         <view class="sheet-note">{{stage === 'recovery' ? '提交后可使用恢复码或恢复口令，也可以等待管理员审核。' : '填写姓名和学号后，再输入管理员提供的个人认证码。'}}</view>
 

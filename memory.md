@@ -354,6 +354,13 @@ callFunction({ name, data, success, fail })
 - WXML 禁止静态 `style` 和 `placeholder-style`；进度、坐标、拖拽、时间表和动画等数据驱动几何可以保留动态行内样式，其余表现必须进入语义类。
 - `scripts/ui-audit.js --strict` 必须保持 `staticInlineStyles=0`、`duplicateGlobalUiContracts=0`，并继续保持全部弹窗定位、滚动和触摸契约为 0 风险。
 
+### 弹窗内部卡片与留白规则（2026-08-03）
+
+- 弹窗物理视口定位、正文滚动和内部视觉层级必须分开维护：`ui-dialog-shell` 负责窗口留白，`ui-dialog-content` 负责正文表面，功能分区使用 `ui-dialog-section / summary / toolbar / list-panel`。
+- 普通弹窗正文不能贴边，也不能同时使用 `padding:0 + background:none + border:none` 清空视觉层级；短确认框使用单一 `ui-dialog-compact-content`，禁止无意义多层套娃。
+- 手机、Pad 竖屏、Pad 横屏的外壳/正文/分区留白固定分别为约 `30rpx/18rpx/22rpx`、`22px/14px/16px`、`20px/12px/14px`。横屏更紧凑但不能把压缩值泄漏到手机。
+- `scripts/ui-audit.js --strict` 必须检查每个弹窗正文表面、短弹窗内容卡、扁平化反向样式和三档弹窗间距令牌；脚本通过仍不能替代微信开发者工具逐窗视觉检查。
+
 ### 发布与编译配置锁
 
 - `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。基础库升级必须单独完成全页面绘制与导航回归，不能和故障修复混在同一次变更中。

@@ -114,7 +114,13 @@
 
 /* ── Popup form tweaks ── */
 .detail-popup-form {
-  margin: 0; padding: 0; background: none; border: none; box-shadow: none;
+  margin: 0;
+  padding: var(--ui-dialog-section-padding);
+  border-radius: var(--ui-dialog-section-radius);
+  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(249,251,255,0.86));
+  border: 1rpx solid rgba(226,237,247,0.94);
+  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.88);
+  box-sizing: border-box;
 }
 .detail-popup-form .field-textarea {
   min-height: 120rpx; border-radius: 18rpx; font-size: var(--ui-type-control);

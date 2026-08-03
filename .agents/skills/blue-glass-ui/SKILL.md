@@ -452,6 +452,10 @@ Filter blocks can be inner glass panels, but keep them compact:
 
 Wrapper controls must follow the content instead of reserving an arbitrary viewport:
 
+- Every ordinary dialog body uses `ui-dialog-content` as its visible inner glass surface. Specialized timetable or placement workspaces add `ui-dialog-content--workspace`; compact dialogs without a body wrap their message in `ui-dialog-compact-content`.
+- Divide content only by real function with `ui-dialog-section`, `ui-dialog-summary`, `ui-dialog-toolbar`, and `ui-dialog-list-panel`. Do not wrap every field, but never flatten the complete dialog body with zero padding, no background, and no border.
+- Keep the device-specific breathing room: phone `30rpx / 18rpx / 22rpx`, Pad portrait `22px / 14px / 16px`, and Pad landscape `20px / 12px / 14px` for shell/body/section padding.
+
 - A centered dialog has exactly one geometry owner: the overlay uses flexbox with `align-items: center` and `justify-content: center`; the dialog shell stays `position: relative`, participates in that flex layout, and uses `margin-left/right: auto`.
 - Never put `position: absolute`, `left/right`, `top: 50%`, or `translateY(-50%)` on a centered dialog shell. Combining fixed side anchors with a Pad `max-width` cap makes the capped shell remain attached to one side instead of remaining centered.
 - Bottom sheets are the only normal exception. They may anchor to the bottom, but their Pad rule must explicitly center the bounded width with `left: 50%` and `translateX(-50%)`; do not mix symmetric phone insets with a capped Pad width.

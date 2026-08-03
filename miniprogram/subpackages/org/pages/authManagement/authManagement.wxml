@@ -141,10 +141,10 @@
   <view class="dialog-layer ui-overlay" wx:if="{{showCodeDialog}}">
     <view class="dialog-mask ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="dialog-panel auth-dialog modal-card ui-dialog-shell ui-dialog-shell--compact">
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view class="dialog-badge">个人认证码</view>
         <view class="dialog-title">{{issuedCodes.length > 1 ? '个人认证码已批量生成' : issuedPersonName + '的个人认证码'}}</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="issued-code-list ui-dialog-scroll--pane" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="issued-code-list ui-dialog-list-panel ui-dialog-scroll--pane" scroll-y>
           <view class="issued-code-row" wx:for="{{issuedCodes}}" wx:key="claimId">
             <view class="issued-person">{{item.personName}}</view>
             <view class="issued-code">{{item.verificationCode}}</view>
@@ -165,7 +165,7 @@
   <view class="dialog-layer ui-overlay" wx:if="{{showRecoveryDialog}}">
     <view class="dialog-mask ui-overlay-blocker" bindtap="closeRecoveryDialog" catchtouchmove="noop"></view>
     <view class="dialog-panel auth-dialog modal-card ui-dialog-shell ui-dialog-shell--compact">
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view class="dialog-badge">账号恢复</view>
         <view class="dialog-title">确认恢复{{pendingRecovery.name}}的账号？</view>
         <view class="dialog-desc">通过后，新微信将登录该账号，原微信和其他设备会退出。本人的申请请由其他管理员处理。</view>

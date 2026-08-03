@@ -2446,7 +2446,7 @@ scroll-view {
   width: 100%;
   height: 60vh;
   max-height: calc(100vh - 250rpx - env(safe-area-inset-bottom));
-  padding: 0 8rpx 20rpx;
+  padding: var(--ui-dialog-body-padding);
   box-sizing: border-box;
 }
 
@@ -4691,7 +4691,7 @@ scroll-view {
   .detail-body {
     height: 520px;
     max-height: calc(100vh - 176px);
-    padding: 0 14px 16px;
+    padding: var(--ui-dialog-body-padding);
   }
 
   .assignment-editor-grid {
@@ -4876,7 +4876,7 @@ scroll-view {
     height: auto;
     min-height: 0;
     max-height: calc(100vh - 148px);
-    padding: 0 12px 12px;
+    padding: var(--ui-dialog-body-padding);
   }
 
   .identity-overview-section { gap: 12px; }

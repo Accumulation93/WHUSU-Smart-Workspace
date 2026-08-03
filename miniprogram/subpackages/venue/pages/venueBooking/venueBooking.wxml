@@ -126,7 +126,7 @@ module.exports = { hour: hour, min: min };
         <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
         <text class="nav-arrow ui-motion-card" catchtap="onTimetableNextWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'›'}}</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-dialog-scroll--both ui-data-grid--specialized">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-dialog-content ui-dialog-content--workspace ui-dialog-scroll--both ui-data-grid--specialized">
         <view class="timetable-body">
           <view class="tt-time-col">
             <view class="tt-time-header">时间</view>
@@ -166,8 +166,8 @@ module.exports = { hour: hour, min: min };
         <view class="popup-title">借用详情</view>
         <text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-      <view class="detail-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+      <view class="detail-body ui-dialog-section">
         <view class="detail-title">{{bookingDetail.title || '借用'}}</view>
         <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-key">借用人</text><text class="detail-val">{{bookingDetail.userName}}</text></view>
@@ -221,8 +221,8 @@ module.exports = { hour: hour, min: min };
         <view class="popup-title">借用申请 · {{bookingVenueName}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-        <view class="form-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <view class="form-body ui-dialog-section">
           <!-- Title -->
           <view class="field">
             <view class="field-label">借用事由 <text class="required">*</text></view>
@@ -333,8 +333,8 @@ module.exports = { hour: hour, min: min };
         <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y>
-        <view class="detail-body">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+        <view class="detail-body ui-dialog-section">
           <!-- Flow progress bar -->
           <view wx:if="{{approvalTarget.approvalTotalSteps > 0}}" class="audit-flow-summary">
             <view class="audit-flow-progress-bar">

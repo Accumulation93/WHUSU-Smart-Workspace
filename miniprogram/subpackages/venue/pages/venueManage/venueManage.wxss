@@ -784,7 +784,14 @@ page {
   box-shadow: 0 6rpx 14rpx rgba(37, 99, 235, 0.20);
 }
 
-.form-body { padding: 4rpx 8rpx 20rpx; }
+.form-body {
+  padding: var(--ui-dialog-section-padding);
+  border-radius: var(--ui-dialog-section-radius);
+  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(249,251,255,0.86));
+  border: 1rpx solid rgba(226,237,247,0.94);
+  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.88);
+  box-sizing: border-box;
+}
 
 /* ═══ Button rows ═══ */
 .button-row {
@@ -1056,7 +1063,7 @@ page {
 .popup-scroll {
   width: 100%;
   max-height: 65vh;
-  padding: 0 26rpx 14rpx;
+  padding: var(--ui-dialog-body-padding);
   box-sizing: border-box;
 }
 
@@ -1090,7 +1097,7 @@ page {
 }
 
 .venue-edit-popup .form-body {
-  padding: 8rpx 0 18rpx;
+  padding: var(--ui-dialog-section-padding);
 }
 
 .venue-edit-popup .field:last-child {
@@ -1111,7 +1118,14 @@ page {
 }
 
 /* ═══ Detail popup ═══ */
-.detail-body { padding: 8rpx 0 12rpx; }
+.detail-body {
+  padding: var(--ui-dialog-section-padding);
+  border-radius: var(--ui-dialog-section-radius);
+  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(249,251,255,0.86));
+  border: 1rpx solid rgba(226,237,247,0.94);
+  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.88);
+  box-sizing: border-box;
+}
 
 .detail-title {
   margin-bottom: 16rpx;

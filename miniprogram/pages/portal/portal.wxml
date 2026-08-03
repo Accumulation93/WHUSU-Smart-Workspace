@@ -179,7 +179,7 @@
   <view class="dialog-layer ui-overlay">
     <view class="dialog-mask ui-overlay-blocker" bindtap="closeMessageSwitchDialog" catchtouchmove="noop"></view>
     <view class="dialog-panel message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view class="dialog-badge message-switch-badge">跨组织事项</view>
         <view class="dialog-title">{{messageSwitchTitle}}</view>
         <view class="dialog-desc">切换到以下组织后查看</view>

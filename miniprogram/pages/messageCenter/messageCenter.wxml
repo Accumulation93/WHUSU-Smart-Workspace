@@ -84,7 +84,7 @@
   <view class="message-switch-layer ui-overlay" wx:if="{{showSwitchDialog}}">
     <view class="message-switch-mask ui-overlay-blocker" bindtap="closeSwitchDialog" catchtouchmove="noop"></view>
     <view class="message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view class="message-switch-badge">跨组织事项</view>
         <view class="message-switch-title">{{switchDialogTitle}}</view>
         <view class="message-switch-desc">切换到以下组织后查看</view>
@@ -106,7 +106,7 @@
         <view class="organization-picker-title">选择组织范围</view>
         <text class="organization-picker-close ui-motion-chip" catchtap="closeOrganizationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">关闭</text>
       </view>
-      <scroll-view class="organization-picker-options ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll" scroll-y enhanced="{{true}}" show-scrollbar="{{true}}" nested-scroll-enabled="{{true}}">
+      <scroll-view class="organization-picker-options ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll" scroll-y enhanced="{{true}}" show-scrollbar="{{true}}" nested-scroll-enabled="{{true}}">
         <view class="organization-picker-option organization-picker-item {{pendingOrganizationIndex === index ? 'organization-picker-option-active' : ''}}" wx:for="{{organizationOptions}}" wx:key="id" data-index="{{index}}" catchtap="selectOrganizationOption">
           <text class="organization-picker-option-name">{{item.name}}</text>
           <ui-icon wx:if="{{pendingOrganizationIndex === index}}" name="check" tone="primary" size="26" ariaLabel="已选择" />

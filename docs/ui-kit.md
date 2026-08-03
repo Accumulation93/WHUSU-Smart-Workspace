@@ -95,3 +95,11 @@
 - 新增可复用模式时，先补令牌或共享组件，再写页面局部样式。
 - 改变字体、间距、圆角或断点时，同步更新本文件和 `miniprogram/app.wxss` 注释。
 - UI 变更至少运行 `node scripts/ui-audit.js --strict`、`node scripts/miniprogram-compat-audit.js` 和 `git diff --check`，并在手机、Pad 竖屏、Pad 横屏各看一次。
+
+## 弹窗内部层级（2026-08）
+
+- 弹窗外壳、正文表面和功能分区是三个不同层级：外壳负责整窗安全留白，正文表面负责隔开滚动视口边缘，功能分区只用于摘要、表单组、筛选区和列表区等独立语义。
+- 所有普通弹窗正文使用 `.ui-dialog-content`；时间表、签名定位等专业工作区叠加 `.ui-dialog-content--workspace`。短确认框没有滚动正文时，使用 `.ui-dialog-compact-content` 包裹提示内容，操作区保持独立。
+- 功能分区使用 `.ui-dialog-section`、`.ui-dialog-summary`、`.ui-dialog-toolbar`、`.ui-dialog-list-panel`。禁止给每个字段单独套卡，也禁止把正文容器写成 `padding: 0; background: none; border: none`。
+- 手机使用约 `30rpx` 外壳留白、`18rpx` 正文留白和 `22rpx` 分区留白；Pad 竖屏为 `22px / 14px / 16px`；Pad 横屏为 `20px / 12px / 14px`。设备差异必须保留，不能用横屏压缩值覆盖手机。
+- 标题、正文卡片和底部操作左右对齐；同一垂直间距只能由一层负责。正文与内层列表保持原有滚动契约，增加卡片表面不得引入新的滚动容器。

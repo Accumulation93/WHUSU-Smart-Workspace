@@ -84,7 +84,14 @@
 .empty-text { color:#94a3b8; font-size: var(--ui-type-emphasis); line-height:1.7; }
 
 /* ═══ Popup detail ═══ */
-.detail-body { padding: 8rpx 8rpx 12rpx; }
+.detail-body {
+  padding: var(--ui-dialog-section-padding);
+  border-radius: var(--ui-dialog-section-radius);
+  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(249,251,255,0.86));
+  border: 1rpx solid rgba(226,237,247,0.94);
+  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.88);
+  box-sizing: border-box;
+}
 .detail-title {
   margin-bottom: 16rpx;
   color: #0f172a;
@@ -118,7 +125,14 @@
 }
 
 /* ═══ Form ═══ */
-.form-body { padding:4rpx 8rpx 20rpx; }
+.form-body {
+  padding: var(--ui-dialog-section-padding);
+  border-radius: var(--ui-dialog-section-radius);
+  background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(249,251,255,0.86));
+  border: 1rpx solid rgba(226,237,247,0.94);
+  box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.045), inset 0 1rpx 0 rgba(255,255,255,0.88);
+  box-sizing: border-box;
+}
 
 /* ═══ Chips ═══ */
 .chip-row { display:flex; flex-wrap:wrap; gap:10rpx; margin-top:10rpx; }
@@ -797,7 +811,7 @@ page {
   font-size: var(--ui-type-control);
 }
 .booking-form-popup .form-body {
-  padding: 0 8rpx 10rpx;          /* 4/8/20→2/8/16→0/8/10 */
+  padding: var(--ui-dialog-section-padding);
 }
 
 /* ═══ Custom time keyboard ═══ */

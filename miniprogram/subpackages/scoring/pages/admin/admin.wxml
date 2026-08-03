@@ -275,7 +275,7 @@
           <view class="modal-title">选择评分问题列</view>
           <view class="modal-close ui-motion-chip" catchtap="cancelTemplateCsvImport" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-scroll--fill ui-data-grid--complex" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-data-grid--complex" scroll-y>
           <view class="csv-mapping-tip">请选择“问题内容”对应列，其他列可选。</view>
           <view class="csv-mapping-row csv-mapping-row-header ui-data-row ui-data-row--header">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">表格列名</view>
@@ -1145,7 +1145,7 @@
             <text class="link ui-motion-chip" catchtap="clearHrProfileExportColumns" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清空</text>
           </view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-profile-export-body ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-profile-export-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
           <checkbox-group bindchange="onHrProfileExportColumnChange">
             <label class="hr-profile-export-column" wx:for="{{hrProfileExportColumns}}" wx:key="key">
               <checkbox value="{{item.key}}" checked="{{item.checked}}" color="#2563eb" />
@@ -1185,7 +1185,7 @@
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrProfileTemplateSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">✕</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-template-switch-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
           <view class="hr-switch-empty" wx:if="{{!hrTemplateSwitchSources.length}}">没有需要处理的原有资料</view>
           <view class="hr-switch-source" wx:for="{{hrTemplateSwitchSources}}" wx:key="id">
             <view class="hr-switch-source-head">
@@ -1234,7 +1234,7 @@
           <view class="detail-loading-line"></view>
           <view class="detail-loading-line"></view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body detail-body ui-dialog-body ui-dialog-scroll--pane" scroll-y scroll-into-view="{{detailScrollTarget}}" wx:if="{{!loadingDetailHr}}">
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body detail-body ui-dialog-body ui-dialog-content ui-dialog-scroll--pane" scroll-y scroll-into-view="{{detailScrollTarget}}" wx:if="{{!loadingDetailHr}}">
           <view class="detail-section detail-basic-section">
             <view class="detail-section-title">基本信息</view>
             <view class="field">
@@ -1439,7 +1439,7 @@
           <view class="modal-title">选择人事资料列</view>
           <view class="modal-close ui-motion-chip" catchtap="closeCsvMappingDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-scroll--fill ui-data-grid--complex" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body csv-mapping-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-data-grid--complex" scroll-y>
           <view class="csv-mapping-tip">请选择每项资料对应的表格列</view>
           <view class="csv-mapping-row csv-mapping-row-header ui-data-row ui-data-row--header">
             <view class="csv-mapping-col csv-mapping-col-csv ui-data-cell ui-data-cell--primary">表格列名</view>
@@ -1499,7 +1499,7 @@
           </view>
           <view class="modal-close ui-motion-chip" catchtap="closeHrImportPreview" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-import-preview-body ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body hr-import-preview-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
           <view class="hr-import-preview-stats">
             <view class="hr-import-preview-stat"><text>表格记录</text><text class="hr-import-preview-stat-value">{{hrImportPreview.totalRows}}</text></view>
             <view class="hr-import-preview-stat is-success"><text>可导入</text><text class="hr-import-preview-stat-value">{{hrImportPreview.validRows}}</text></view>
@@ -1577,7 +1577,7 @@
           <view class="modal-close ui-motion-chip" catchtap="closeValidationErrors" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
         <view class="validation-errors-summary">{{validationErrorSummary}}，请修正后重新导入</view>
-        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body validation-errors-body ui-dialog-body ui-dialog-scroll--fill" scroll-y>
+        <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="modal-body validation-errors-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
           <view class="validation-error-card" wx:for="{{validationErrorCards}}" wx:key="studentId">
             <view class="ve-card-top">
               <view class="ve-card-name">{{item.name || '—'}}</view>
@@ -2273,7 +2273,7 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditTemplateStepForm.editingIndex >= 0 ? '编辑步骤' : '添加步骤'}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-scroll--fill">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill">
             <!-- Step name -->
             <view class="field ui-dialog-inset">
               <view class="field-label">步骤名称</view>
@@ -2423,7 +2423,7 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditStarterConditionEditingIndex >= 0 ? '编辑发起条件' : '添加发起条件'}}</view><text class="popup-close ui-motion-chip" catchtap="closeStarterConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-scroll--fill">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill">
             <view class="field">
               <view class="field-label">条件类型</view>
               <picker range="{{['身份范围','指定人员']}}" bindchange="onStarterConditionTypeChange">
@@ -2561,11 +2561,11 @@
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">审核流程</view><text class="popup-close ui-motion-chip" catchtap="closeAuditSubmissionDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y wx:if="{{auditSubmissionDetail}}">
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y wx:if="{{auditSubmissionDetail}}">
             <view class="card-loading-overlay" wx:if="{{loadingMap.auditProgress}}"><view class="card-loading-spinner"></view></view>
             <block wx:else>
             <!-- Header -->
-            <view class="audit-progress-header">
+            <view class="audit-progress-header ui-dialog-summary">
               <view class="list-name">{{auditSubmissionDetail.submission.title || auditSubmissionDetail.submission.submissionNumber}}</view>
               <view class="list-desc">{{auditSubmissionDetail.submission.submissionNumber}} · {{auditSubmissionDetail.submission.submitterName}} · {{auditSubmissionDetail.submission.status === 'draft' ? '草稿' : (auditSubmissionDetail.submission.status === 'pending' ? '待提交' : (auditSubmissionDetail.submission.status === 'in_progress' ? '审核中' : (auditSubmissionDetail.submission.status === 'rejected' ? '已驳回' : (auditSubmissionDetail.submission.status === 'approved' ? '已完成' : '已撤回'))))}}</view>
             </view>
@@ -2706,7 +2706,7 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
       <view class="rule-filter-row ui-dialog-filter-row">
         <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch"/></view>
@@ -2760,7 +2760,7 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">选择人员 — {{auditPersonnelPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <view class="rule-filter-row">
         <view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{auditPersonnelDeptOptions}}" bindchange="onAuditPersonnelFilterDept"><view class="picker-value compact-picker-value">{{auditPersonnelFilterDept}}</view></picker></view>
         <view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{auditPersonnelIdentOptions}}" bindchange="onAuditPersonnelFilterIdent"><view class="picker-value compact-picker-value">{{auditPersonnelFilterIdent}}</view></picker></view>
@@ -2790,7 +2790,7 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">选择身份 — {{auditIdentityPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditIdentityPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <view class="list-desc ui-dialog-help-text">{{auditIdentityPickerMulti ? '可多选身份' : '点击选择一个身份'}}</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
         <view class="list-item ui-motion-card" wx:for="{{identityList}}" wx:key="id" data-id="{{item.id}}" catchtap="onAuditIdentityToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -2818,7 +2818,7 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">指定评优名单</view><text class="popup-close ui-motion-chip" catchtap="closeDesignationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-scroll--fill ui-dialog-stack-scroll">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <view class="list-title">当前名单（{{designationPickerSelectedIds.length}}人）</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
           <view class="list-item desig-current-item" wx:for="{{designationPickerSelectedList}}" wx:key="id"><view class="list-main"><view class="list-name">{{item.name}}</view><view class="list-desc">{{item.department}} · {{item.studentId}}</view></view><view class="inline-actions list-actions-below"><text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view></view>
@@ -2849,7 +2849,7 @@
         <view class="list-title">{{orgFormData.id ? '编辑组织名称' : '新建组织'}}</view>
         <text class="popup-close ui-motion-chip" catchtap="closeOrgForm" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <view class="popup-body">
+      <view class="popup-body ui-dialog-compact-content">
         <view class="field">
           <view class="field-label">组织名称</view>
           <input class="field-input" bindinput="onOrgFieldInput" value="{{orgFormData.name}}" placeholder="请输入组织名称" />
@@ -2874,7 +2874,7 @@
       <view class="popup-loading-overlay" wx:if="{{scorerTargetPopupLoading}}">
         <view class="card-loading-spinner"></view>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y wx:else>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y wx:else>
         <view class="result-table ui-data-grid--complex">
           <view class="result-table-head ui-data-row ui-data-row--header">
             <view class="result-col result-col-target-name ui-data-cell ui-data-cell--primary">被评人</view>
@@ -2915,7 +2915,7 @@
         <view class="popup-title">评分详情</view>
         <text class="popup-close ui-motion-chip" catchtap="closeScoreRecordDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-scroll--fill" scroll-y wx:if="{{recordDetail}}">
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y wx:if="{{recordDetail}}">
         <view class="list-item detail-summary-card">
           <view class="list-main">
             <view class="detail-people-row">
@@ -2976,9 +2976,11 @@
     <view class="modal-mask ui-overlay" wx:if="{{contextSwitchGuardVisible}}" bindtap="closeContextSwitchGuard">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="modal-card context-switch-guard-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
-      <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
-      <view class="context-switch-guard-title">请先保存修改</view>
-      <view class="context-switch-guard-desc">保存或取消编辑后，即可切换组织与身份。</view>
+      <view class="ui-dialog-compact-content">
+        <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
+        <view class="context-switch-guard-title">请先保存修改</view>
+        <view class="context-switch-guard-desc">保存或取消编辑后，即可切换组织与身份。</view>
+      </view>
       <view class="context-switch-guard-actions ui-dialog-footer">
         <button class="primary-btn ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">继续编辑</button>
       </view>
@@ -2990,8 +2992,10 @@
     <view class="modal-mask ui-overlay identity-action-confirm-overlay" wx:if="{{identityActionConfirmVisible}}" bindtap="closeIdentityActionConfirm">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="modal-card identity-action-confirm-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
-      <view class="context-switch-guard-title">{{identityActionConfirmTitle}}</view>
-      <view class="context-switch-guard-desc">{{identityActionConfirmText}}</view>
+      <view class="ui-dialog-compact-content">
+        <view class="context-switch-guard-title">{{identityActionConfirmTitle}}</view>
+        <view class="context-switch-guard-desc">{{identityActionConfirmText}}</view>
+      </view>
       <view class="button-row identity-action-confirm-actions ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeIdentityActionConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">取消</button>
         <button class="danger-btn ui-motion-button" catchtap="confirmIdentityAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">确认</button>
@@ -3004,8 +3008,10 @@
     <view class="modal-mask ui-overlay" wx:if="{{adminDeleteConfirmVisible}}" bindtap="closeAdminDeleteConfirm">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="modal-card identity-action-confirm-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
-      <view class="modal-title">删除管理员</view>
-      <view class="modal-desc">{{adminDeleteConfirmName ? '将删除“' + adminDeleteConfirmName + '”的管理身份。' : '将删除该管理身份。'}}</view>
+      <view class="ui-dialog-compact-content">
+        <view class="modal-title">删除管理员</view>
+        <view class="modal-desc">{{adminDeleteConfirmName ? '将删除“' + adminDeleteConfirmName + '”的管理身份。' : '将删除该管理身份。'}}</view>
+      </view>
       <view class="button-row identity-action-confirm-actions ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="closeAdminDeleteConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">取消</button>
         <button class="danger-btn ui-motion-button" catchtap="confirmDeleteAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">删除</button>
