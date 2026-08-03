@@ -45,7 +45,7 @@
   },
   "appid": "wxa0946295a962ee2e",
   "projectname": "WHUSU Smart Workspace",
-  "libVersion": "3.16.2",
+  "libVersion": "2.27.0",
   "condition": {
     "miniprogram": {
       "list": []

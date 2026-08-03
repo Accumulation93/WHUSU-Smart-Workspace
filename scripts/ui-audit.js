@@ -477,17 +477,21 @@ function scanLayoutContracts(file) {
     const scrollAncestor = [...stack].reverse().find(item => item.tag === 'scroll-view');
 
     if (tag === 'root-portal') {
-      const conditionalBlock = stack[stack.length - 1];
-      if (!conditionalBlock || conditionalBlock.tag !== 'block' || !conditionalBlock.conditional || !/\benable="\{\{true\}\}"/.test(raw)) {
-        dialogIssues.push({ file: relative(file), line, message: 'root-portal 必须放在带 wx:if 的直接 block 内并仅在创建后启用，关闭时必须销毁原生脱离层', className: '' });
+      if (relative(file) !== 'miniprogram/components/viewport-portal/viewport-portal.wxml' || !/\benable="\{\{true\}\}"/.test(raw)) {
+        dialogIssues.push({ file: relative(file), line, message: '业务页面不得直接声明 root-portal，必须通过按需创建的 viewport-portal 使用', className: '' });
       }
+    }
+    if (tag === 'viewport-portal' && !/\bwx:if=/.test(raw)) {
+      dialogIssues.push({ file: relative(file), line, message: 'viewport-portal 必须直接带 wx:if，关闭弹窗时销毁整个原生脱离层', className: '' });
     }
 
     if ([...classes].some(name => LEGACY_OVERLAYS.has(name)) &&
       !classes.has('ui-overlay') && !classes.has('ui-sheet-overlay')) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗遮罩缺少 ui-overlay', className: [...classes].join(' ') });
     }
-    if ((classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) && !stack.some(item => item.tag === 'root-portal')) {
+    const isLoginSheet = relative(file) === 'miniprogram/pages/login/login.wxml' && classes.has('ui-sheet-overlay');
+    if ((classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) &&
+      !isLoginSheet && !stack.some(item => item.tag === 'root-portal' || item.tag === 'viewport-portal')) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗必须由按需创建的 root-portal 提升到页面根层，不能跟随页面滚动', className: [...classes].join(' ') });
     }
 

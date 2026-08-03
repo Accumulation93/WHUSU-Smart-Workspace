@@ -92,9 +92,9 @@ for (const visibleState of [
   'auditPersonnelPickerVisible',
   'auditIdentityPickerVisible'
 ]) {
-  const portalPattern = new RegExp(`<block\\s+wx:if="\\{\\{${visibleState}\\}\\}">\\s*<root-portal\\s+enable="\\{\\{true\\}\\}">[\\s\\S]*?<view\\s+class="popup-mask ui-overlay"\\s+wx:if="\\{\\{${visibleState}\\}\\}"`);
+  const portalPattern = new RegExp(`<viewport-portal\\s+wx:if="\\{\\{${visibleState}\\}\\}">[\\s\\S]*?<view\\s+class="popup-mask ui-overlay"\\s+wx:if="\\{\\{${visibleState}\\}\\}"`);
   assert(portalPattern.test(adminWxmlSource),
-    `${visibleState} 必须由按需创建的 root-portal 提升到页面根层，关闭时必须销毁原生脱离层`);
+    `${visibleState} 必须由按需创建的 viewport-portal 提升到页面根层，关闭时必须销毁原生脱离层`);
 }
 
 assert(/\.ui-overlay\s*\{[\s\S]*?position:\s*fixed\s*!important;[\s\S]*?top:\s*0\s*!important;[\s\S]*?left:\s*0\s*!important;/m.test(appWxssSource),

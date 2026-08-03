@@ -333,18 +333,19 @@ callFunction({ name, data, success, fail })
 
 ### Bug 23: RootPortal 生命周期导致页面跳转超时
 
-**原因**: 原生 `root-portal` 即使 `enable=false`，常驻实例仍可能让微信的原生页面提交进入半完成状态；把它再次包进全局自定义组件也会扩大该风险。此时目标页逻辑、标题、`onShow` 和 `onReady` 均可能已经执行，`wx.navigateTo` 却在约 10 秒后超时，甚至出现标题已更新但内容层空白。这不是登录接口或会话失败，而是页面栈与原生绘制层没有一起完成切换。
+**原因**: 业务页面源码直接声明 `root-portal` 时，即使外层 `wx:if` 为假，旧基础库仍可能提前注册该页面的原生顶层宿主。导航后目标页逻辑、标题、`onShow` 和 `onReady` 均已执行，旧页的绘制层却继续覆盖目标页。这不是登录接口或会话失败，而是页面栈与原生绘制层没有一起完成切换。
 
 **永久规则**:
-- 不得使用自定义组件再次包裹 `root-portal`，也不得把 `wx:if` 直接挂在 `root-portal` 上（当前基础库会导致整页内容层不绘制）。必须使用无布局的 `<block wx:if="{{对应弹窗状态}}">` 作为直接父级，内部的 `root-portal` 仅在创建后使用 `enable="{{true}}"`；关闭时销毁整个原生脱离层，不能只卸载内容或只设置 `enable=false`。
+- 业务页面 WXML 禁止直接声明 `root-portal`。统一使用全局 `viewport-portal` 组件，并且必须把 `wx:if` 写在组件实例本身；弹窗关闭时销毁整个组件，打开时才创建其内部 `root-portal`。禁止让组件常驻后只切换 `enable`。
+- 登录页的认证表单只覆盖当前登录页面，使用普通固定弹层，不创建原生脱离层，避免登录页成为后续所有页面的顶层宿主。
 - `root-portal` 继续负责把遮罩提升到物理可视区域根层，弹窗的全屏遮罩、屏幕居中和内部滚动契约保持不变。
 - 登录成功后先用 `setData` 卸载弹层，再在 `wx.nextTick` 中 `navigateTo` 门户，确保登录页保留在页面栈且旧合成层已经释放。
-- 全系统页面跳转统一经过可信导航工具。开发者工具可能在目标页已经 `onReady`、已经进入页面栈并正常绘制后，仍延迟返回 `navigateTo:fail timeout`；此时必须按导航成功处理，禁止 `redirectTo` 或 `reLaunch` 破坏正确页面与原生返回栈。只有目标页没有成为当前页时才是真正的导航失败。
+- 全系统页面跳转统一经过可信导航工具。若目标页已经成为当前页但 `navigateTo` 仍超时，使用 `redirectTo` 原位重建故障目标页，保留前一页和原生返回关系；禁止用 `reLaunch` 清空正常页面栈。
 - 登录页每次重新显示都必须释放导航锁；失败提示只能说明页面未打开，不能把已经成功的认证误报为“请重新登录”。
 
 ### 发布与编译配置锁
 
-- `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；开发者工具基础库固定为已验证的稳定版 `3.16.2`，禁止退回 `2.27.0`，否则多 WebView 与 `root-portal` 的旧合成实现会出现“目标页已就绪但旧页仍在最上层”的假超时。兼容审计分别检查两份配置，禁止私有配置覆盖安全值。
+- `project.config.json` 与已跟踪的 `project.private.config.json` 必须同时固定 `nodeModules=false`、`es6=false`、`enhance=false`、`swc=false`、`disableSWC=true`、`useCompilerPlugins=false`、`compileHotReLoad=false`；兼容审计分别检查两份配置，禁止私有配置覆盖安全值。基础库升级必须单独完成全页面绘制与导航回归，不能和故障修复混在同一次变更中。
 - 生产连接池固定通过 `DB_POOL_LIMIT` 控制：两个 API 实例各 20，通知 Worker 10；单进程上限 50，禁止恢复为每进程 50 的默认值。
 
 ---

@@ -70,8 +70,16 @@ assert.match(
     path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.wxml'),
     'utf8'
   ),
-  /<block\s+wx:if="\{\{stage !== 'login'\}\}">\s*<root-portal\s+enable="\{\{true\}\}">[\s\S]*?ui-sheet-overlay"\s+wx:if="\{\{stage !== 'login'\}\}"/,
-  '登录页认证弹层必须由无布局 block 按需创建，关闭时销毁原生脱离层，不能阻塞门户页面'
+  /ui-sheet-overlay"\s+wx:if="\{\{stage !== 'login'\}\}"/,
+  '登录页认证弹层必须仅在认证流程中创建'
+);
+assert.doesNotMatch(
+  fs.readFileSync(
+    path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.wxml'),
+    'utf8'
+  ),
+  /root-portal|viewport-portal/,
+  '登录页不得注册原生脱离层，否则会覆盖登录后打开的应用服务页面'
 );
 assert.match(
   portalSource,

@@ -47,6 +47,20 @@ function isCurrentRoute(url) {
   return !!current && current.route === routePath(url);
 }
 
+function navigateToTrustedRouteFallback(url, callbacks, finishFailure) {
+  if (!isTrustedRoute(url) || typeof wx.redirectTo !== 'function') {
+    finishFailure({ errMsg: 'redirectTo:fail unavailable' });
+    return;
+  }
+  wx.redirectTo({
+    url: url,
+    success: function(result) {
+      if (typeof callbacks.success === 'function') callbacks.success(result);
+    },
+    fail: finishFailure
+  });
+}
+
 function navigateToTrustedRoute(rawUrl, handlers) {
   const url = String(rawUrl || '').trim();
   const callbacks = handlers || {};
@@ -69,9 +83,7 @@ function navigateToTrustedRoute(rawUrl, handlers) {
         finishFailure(error);
         return;
       }
-      if (typeof callbacks.success === 'function') {
-        callbacks.success({ errMsg: 'navigateTo:ok recovered from delayed callback' });
-      }
+      navigateToTrustedRouteFallback(url, callbacks, finishFailure);
     }
   });
   return true;

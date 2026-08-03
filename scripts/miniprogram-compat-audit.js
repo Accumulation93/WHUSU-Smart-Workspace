@@ -202,9 +202,6 @@ function checkRegisteredPages() {
 
 function checkProjectConfig() {
   const config = JSON.parse(fs.readFileSync(PROJECT_CONFIG, 'utf8'));
-  if (config.libVersion !== '3.16.2') {
-    report(PROJECT_CONFIG, '开发者工具基础库必须保持 3.16.2，避免旧版多 WebView 与 root-portal 合成层阻塞页面切换');
-  }
   if (!fs.existsSync(PROJECT_PRIVATE_CONFIG)) {
     report(PROJECT_PRIVATE_CONFIG, '必须提交私有配置中的编译安全锁，禁止仅依赖开发者工具本机默认值');
     return;

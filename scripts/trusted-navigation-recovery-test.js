@@ -1,6 +1,7 @@
 const assert = require('assert');
 
 const toasts = [];
+const redirects = [];
 let navigateMode = 'timeout';
 
 global.getCurrentPages = function() {
@@ -15,6 +16,10 @@ global.wx = {
     }
     options.fail({ errMsg: navigateMode === 'timeout' ? 'navigateTo:fail timeout' : 'navigateTo:fail page not found' });
   },
+  redirectTo(options) {
+    redirects.push(options.url);
+    options.success({ errMsg: 'redirectTo:ok' });
+  },
   showToast(options) {
     toasts.push(options || {});
   }
@@ -26,8 +31,9 @@ let successCount = 0;
 navigateToTrustedRoute('/pages/portal/portal', {
   success() { successCount += 1; }
 });
-assert.strictEqual(successCount, 1, '目标页已进入页面栈时，延迟的超时回调必须按成功处理');
-assert.strictEqual(toasts.length, 0, '目标页已进入页面栈时不得误报页面打开失败');
+assert.deepStrictEqual(redirects, ['/pages/portal/portal'], '目标页绘制切换超时时必须原位重建目标页面');
+assert.strictEqual(successCount, 1, '页面重建完成后必须按导航成功处理');
+assert.strictEqual(toasts.length, 0, '页面重建成功时不得误报页面打开失败');
 
 navigateMode = 'failure';
 navigateToTrustedRoute('/pages/portal/portal');

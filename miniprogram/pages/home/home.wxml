@@ -449,9 +449,7 @@
     <view class="footer-org">武汉大学学生会</view>
   </view>
 
-  <block wx:if="{{showUserDesigPopup}}">
-
-  <root-portal enable="{{true}}">
+  <viewport-portal wx:if="{{showUserDesigPopup}}">
   <view class="popup-mask ui-overlay" wx:if="{{showUserDesigPopup}}" bindtap="closeUserDesignation">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
@@ -508,6 +506,5 @@
       </view>
     </view>
   </view>
-  </root-portal>
-  </block>
+  </viewport-portal>
 </view>
