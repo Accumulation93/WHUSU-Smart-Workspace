@@ -1583,6 +1583,8 @@ scroll-view {
 /* ── Audit home navigation cards ── */
 .audit-home-cards {
   display: flex; flex-direction: column; gap: 10rpx;
+  /* 审核中心标题与第一张卡片留出明确呼吸区，后续卡片随整组自然下移。 */
+  margin-top: 18rpx;
 }
 .audit-home-card {
   display: flex; align-items: center; gap: 14rpx;
@@ -2282,6 +2284,10 @@ scroll-view {
     min-height: 68px;
     padding: 13px 14px;
     border-radius: 14px;
+  }
+
+  .audit-home-cards {
+    margin-top: 14px;
   }
 
   .audit-home-card-icon {
