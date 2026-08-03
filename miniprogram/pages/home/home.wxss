@@ -1585,8 +1585,8 @@ scroll-view {
   display: flex; flex-direction: column; gap: 10rpx;
 }
 .audit-home-card {
-  display: flex; align-items: center; gap: 12rpx;
-  padding: 14rpx 16rpx; border-radius: 16rpx;
+  display: flex; align-items: center; gap: 14rpx;
+  min-height: 108rpx; padding: 22rpx 18rpx; border-radius: 16rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(248,251,255,0.84) 100%);
   border: 1rpx solid rgba(226,237,247,0.94);
   box-shadow: 0 10rpx 24rpx rgba(15,23,42,0.035), inset 0 1rpx 0 rgba(255,255,255,0.78);
@@ -1594,7 +1594,7 @@ scroll-view {
 }
 .audit-home-card:active { transform: none !important; filter: none !important; }
 .audit-home-card-icon {
-  flex-shrink: 0; width: 52rpx; height: 52rpx; border-radius: 14rpx;
+  flex-shrink: 0; width: 58rpx; height: 58rpx; border-radius: 14rpx;
   display: flex; align-items: center; justify-content: center; font-size: var(--ui-type-dialog);
   background: linear-gradient(135deg, rgba(239,246,255,0.96) 0%, rgba(219,234,254,0.88) 100%);
   border: 1rpx solid rgba(147,197,253,0.45);
@@ -2278,14 +2278,15 @@ scroll-view {
   }
 
   .audit-home-card {
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 12px;
+    min-height: 68px;
+    padding: 13px 14px;
     border-radius: 14px;
   }
 
   .audit-home-card-icon {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     border-radius: 12px;
   }
 

@@ -7,6 +7,7 @@ const calls = [];
 const storage = {};
 const toasts = [];
 const navigations = [];
+const redirects = [];
 
 async function callFunction(options) {
   calls.push({ name: options.name, data: Object.assign({}, options.data || {}) });
@@ -56,6 +57,10 @@ global.wx = {
   navigateTo(options) {
     navigations.push(options.url);
     if (typeof options.success === 'function') options.success();
+  },
+  redirectTo(options) {
+    redirects.push(options.url);
+    if (typeof options.success === 'function') options.success();
   }
 };
 global.Page = function(definition) { pageDefinition = definition; };
@@ -104,7 +109,7 @@ async function run() {
   await page.verifyClaim();
   assert.strictEqual(storage.token, 'access-token');
   assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
-  assert(navigations.includes('/pages/portal/portal'));
+  assert(redirects.includes('/pages/portal/portal'));
   assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
 
   scenario = 'recovery';

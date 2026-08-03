@@ -58,6 +58,23 @@ function scanCompactVisualContract() {
     if (!pattern.test(source)) findings.push({ file, message: '页面局部横屏密度未按设备独立收紧' });
   }
 
+  const pageContracts = [
+    [
+      'miniprogram/subpackages/venue/pages/venueBooking/venueBooking.wxss',
+      /\.duration-chip\.duration-chip-active\s*\{[\s\S]*?background:[^;]+!important[\s\S]*?color:\s*#ffffff\s*!important/,
+      '场地快捷时长选中态必须保持蓝底白字，不能被通用白底规则覆盖'
+    ],
+    [
+      'miniprogram/pages/home/home.wxss',
+      /\.audit-home-card\s*\{[\s\S]*?min-height:\s*108rpx[\s\S]*?padding:\s*22rpx 18rpx/,
+      '审核首页入口卡片必须保留对称留白和足够高度'
+    ]
+  ];
+  for (const [file, pattern, message] of pageContracts) {
+    const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    if (!pattern.test(source)) findings.push({ file, message });
+  }
+
   const styles = walk(MINI_ROOT, '.wxss');
   for (const file of styles) {
     const source = fs.readFileSync(file, 'utf8');
@@ -923,8 +940,13 @@ const missingTypographySystem = typeScale.some(([name, compactPhone, phone, pad,
   return indexes.some(index => index < 0) || indexes.some((index, position) => position > 0 && index <= indexes[position - 1]);
 }) || !(
   /--ui-type-dialog:\s*var\(--ui-type-section\)/.test(GLOBAL_STYLE) &&
-  /--ui-dialog-title-size:\s*var\(--ui-type-section\)/.test(GLOBAL_STYLE) &&
-  /--ui-dialog-body-size:\s*var\(--ui-type-body\)/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-title-size:\s*15px/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-body-size:\s*12\.5px/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-meta-size:\s*11\.5px/.test(GLOBAL_STYLE) &&
+  /--ui-dialog-control-size:\s*12\.5px/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*390px\)\s*and\s*\(max-width:\s*519px\)[\s\S]*?--ui-dialog-title-size:\s*15\.5px[\s\S]*?--ui-dialog-body-size:\s*13px/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-dialog-title-size:\s*17px[\s\S]*?--ui-dialog-body-size:\s*14\.5px/.test(GLOBAL_STYLE) &&
+  /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-dialog-title-size:\s*17\.5px[\s\S]*?--ui-dialog-body-size:\s*15px/.test(GLOBAL_STYLE) &&
   /@media\s*\(min-width:\s*390px\)\s*and\s*\(max-width:\s*519px\)/.test(GLOBAL_STYLE) &&
   /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-type-body:\s*16\.5px/.test(GLOBAL_STYLE) &&
   /page \.hero-title,[\s\S]*?font-size:\s*var\(--ui-type-page\)\s*!important/.test(GLOBAL_STYLE) &&

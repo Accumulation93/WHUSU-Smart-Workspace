@@ -136,7 +136,7 @@ function applyAuthenticatedResult(result) {
   if (!context || !result.token) throw new Error('请重新微信登录');
   const catalog = saveCatalog(result);
   if (result.account) wx.setStorageSync(ACCOUNT_KEY, result.account);
-  const profile = normalizeProfile(result.user);
+  const profile = normalizeProfile(Object.assign({}, result.account || {}, context || {}, result.user || {}));
   const roleProfiles = wx.getStorageSync(PROFILE_KEY) || {};
   roleProfiles[context.role] = profile;
   wx.setStorageSync(PROFILE_KEY, roleProfiles);
@@ -156,7 +156,7 @@ function applyAuthenticatedResult(result) {
   if (result.selectionNotice) wx.setStorageSync('authSelectionNotice', result.selectionNotice);
   const committed = orgSession.commitContext({
     token: result.token,
-    contextId: context.contextId,
+    contextId: context.contextId || selection.contextId || context.id || '',
     identityId: selection.identityId || context.authIdentityId || '',
     role: context.role,
     orgId: context.organizationId,
@@ -189,7 +189,7 @@ function applyActivatedResult(result) {
     contextId: context.contextId
   };
   const before = orgSession.getSnapshot();
-  const profile = normalizeProfile(result.user);
+  const profile = normalizeProfile(Object.assign({}, result.account || {}, context || {}, result.user || {}));
   const roleProfiles = wx.getStorageSync(PROFILE_KEY) || {};
   roleProfiles[context.role] = profile;
   wx.setStorageSync(PROFILE_KEY, roleProfiles);
@@ -198,7 +198,7 @@ function applyActivatedResult(result) {
   wx.setStorageSync('lastIdentityId', selection.identityId || '');
   const committed = orgSession.commitContext({
     token: result.token,
-    contextId: context.contextId,
+    contextId: context.contextId || selection.contextId || context.id || '',
     identityId: selection.identityId,
     role: context.role,
     orgId: context.organizationId,

@@ -24,12 +24,12 @@ page {
   --ui-type-section: 16px;
   --ui-type-dialog: var(--ui-type-section);
   --ui-type-page: 24px;
-  /* 弹窗复用页面文字角色，不再单独维护一套更大的字号。 */
-  --ui-dialog-title-size: var(--ui-type-section);
-  --ui-dialog-body-size: var(--ui-type-body);
-  --ui-dialog-meta-size: var(--ui-type-meta);
-  --ui-dialog-label-size: var(--ui-type-label);
-  --ui-dialog-control-size: var(--ui-type-control);
+  /* 弹窗空间更集中，使用独立的紧凑字阶，避免手机上产生“老年机”式放大。 */
+  --ui-dialog-title-size: 15px;
+  --ui-dialog-body-size: 12.5px;
+  --ui-dialog-meta-size: 11.5px;
+  --ui-dialog-label-size: 12px;
+  --ui-dialog-control-size: 12.5px;
   --ui-font-xs: var(--ui-type-caption);
   --ui-font-sm: var(--ui-type-meta);
   --ui-font-md: var(--ui-type-body);
@@ -80,6 +80,11 @@ page {
     --ui-type-value: 15.5px;
     --ui-type-section: 17px;
     --ui-type-page: 25.5px;
+    --ui-dialog-title-size: 15.5px;
+    --ui-dialog-body-size: 13px;
+    --ui-dialog-meta-size: 12px;
+    --ui-dialog-label-size: 12.5px;
+    --ui-dialog-control-size: 13px;
   }
 }
 
@@ -1278,6 +1283,11 @@ button:active,
     --ui-type-value: 17.5px;
     --ui-type-section: 19px;
     --ui-type-page: 29px;
+    --ui-dialog-title-size: 17px;
+    --ui-dialog-body-size: 14.5px;
+    --ui-dialog-meta-size: 13px;
+    --ui-dialog-label-size: 13.5px;
+    --ui-dialog-control-size: 14px;
     --ui-line-control: 20px;
     --ui-control-height: 44px;
     --ui-control-padding-y: 10px;
@@ -1671,6 +1681,11 @@ button:active,
     --ui-type-value: 18px;
     --ui-type-section: 20px;
     --ui-type-page: 30px;
+    --ui-dialog-title-size: 17.5px;
+    --ui-dialog-body-size: 15px;
+    --ui-dialog-meta-size: 13.5px;
+    --ui-dialog-label-size: 14px;
+    --ui-dialog-control-size: 14.5px;
     --ui-tab-radius: 10px;
     --ui-tab-shell-radius: 13px;
     --ui-tab-min-height: 38px;
@@ -2458,7 +2473,7 @@ page .role-pill {
   -webkit-text-size-adjust: 100%;
 }
 
-/* 所有设备上的弹窗文字角色都与页面对应角色保持一致。 */
+/* 弹窗保持和页面同一字体体系，但整体降低一级，有限空间内仍清晰紧凑。 */
 .ui-overlay .popup-title,
 .ui-overlay .dialog-title,
 .ui-overlay .modal-title,
@@ -2522,6 +2537,38 @@ page .role-pill {
 .ui-sheet-overlay .picker-display,
 .ui-sheet-overlay .picker-value {
   font-size: var(--ui-dialog-body-size) !important;
+}
+
+/* 页面业务标题进入弹窗后必须回到弹窗字阶，禁止页面级大标题穿透进来。 */
+.ui-overlay .ui-dialog-shell .section-title,
+.ui-overlay .ui-dialog-shell .card-title,
+.ui-overlay .ui-dialog-shell .panel-title,
+.ui-overlay .ui-dialog-shell .list-title,
+.ui-overlay .ui-dialog-shell .list-name,
+.ui-overlay .ui-dialog-shell .activity-name,
+.ui-overlay .ui-dialog-shell .info-value,
+.ui-overlay .ui-dialog-shell .detail-value,
+.ui-overlay .ui-dialog-shell .venue-name,
+.ui-overlay .ui-dialog-shell .booking-title,
+.ui-overlay .ui-dialog-shell .pending-title,
+.ui-sheet-overlay .ui-dialog-shell .section-title,
+.ui-sheet-overlay .ui-dialog-shell .card-title,
+.ui-sheet-overlay .ui-dialog-shell .panel-title,
+.ui-sheet-overlay .ui-dialog-shell .list-title,
+.ui-sheet-overlay .ui-dialog-shell .list-name,
+.ui-sheet-overlay .ui-dialog-shell .info-value,
+.ui-sheet-overlay .ui-dialog-shell .detail-value {
+  font-size: var(--ui-dialog-body-size) !important;
+  line-height: 1.45 !important;
+}
+
+.ui-overlay .ui-dialog-shell .section-title,
+.ui-overlay .ui-dialog-shell .card-title,
+.ui-overlay .ui-dialog-shell .panel-title,
+.ui-sheet-overlay .ui-dialog-shell .section-title,
+.ui-sheet-overlay .ui-dialog-shell .card-title,
+.ui-sheet-overlay .ui-dialog-shell .panel-title {
+  font-size: var(--ui-dialog-title-size) !important;
 }
 
 .ui-overlay scroll-view.ui-dialog-scroll--fill,

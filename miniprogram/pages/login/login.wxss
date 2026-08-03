@@ -2,10 +2,18 @@ page {
   min-height: 100%;
 }
 
+/* 路由切换前主动卸下旧登录视图，避免 WebKit 合成层滞留遮住门户。 */
+.page.page-leaving {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .page::before,
 .page::after {
   content: "";
-  position: fixed;
+  /* 纯装饰层必须随登录页一起销毁，fixed 会在部分 WebKit 合成层中覆盖下一页。 */
+  position: absolute;
   z-index: 0;
   border-radius: 50%;
   pointer-events: none;

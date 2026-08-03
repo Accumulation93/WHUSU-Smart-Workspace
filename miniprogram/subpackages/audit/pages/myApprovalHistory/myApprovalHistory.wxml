@@ -1,5 +1,5 @@
 <view class="page page-narrow subapp-audit-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="审核审批 · 我的审批记录"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="审核 · 我的审批记录"></workspace-hero>
 
   <view class="section">
     <view class="card">

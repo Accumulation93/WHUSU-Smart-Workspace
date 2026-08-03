@@ -187,12 +187,15 @@ larger than the corresponding phone role, while every role within a band keeps t
 same semantic rank. Screen rotation may change layout but must not reverse that
 rank.
 
-Dialogs do not own a larger independent font scale. A dialog title uses the same
-token as a page section title; dialog body, helper copy, labels, inputs, and buttons
-reuse the matching page body, meta, label, and control tokens. Apply the contract to
-both `ui-overlay` and the login page's `ui-sheet-overlay`, including content rendered
-through `viewport-portal`. A local dialog selector may change color or weight but
-must not increase its semantic size.
+Dialogs use a separate compact semantic scale because their content is concentrated
+inside a smaller surface. On phones, dialog titles and body copy sit about one role
+below page card titles and body copy. Pad values increase in logical `px`, but remain
+compact relative to the surrounding page. Apply `--ui-dialog-title-size`,
+`--ui-dialog-body-size`, `--ui-dialog-meta-size`, `--ui-dialog-label-size`, and
+`--ui-dialog-control-size` to both `ui-overlay` and the login page's
+`ui-sheet-overlay`, including content rendered through `viewport-portal`. Never
+reuse a hero or page-title size inside a dialog, and never let a page business-title
+selector raise text after it enters `.ui-dialog-shell`.
 
 All user-visible text and font-based glyphs must use these semantic tokens. A
 page-local raw `font-size` in `rpx` is not responsive on Pad merely because

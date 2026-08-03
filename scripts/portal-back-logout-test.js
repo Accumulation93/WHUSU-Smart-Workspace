@@ -57,13 +57,14 @@ assert.match(
 );
 assert.match(
   loginSource,
-  /navigateToTrustedRoute\('\/pages\/portal\/portal'/,
-  '登录成功必须保留登录页，使门户显示原生返回键'
+  /wx\.redirectTo\(\{[\s\S]*?url: '\/pages\/portal\/portal'/,
+  '登录成功必须替换旧登录渲染层，避免旧页面覆盖门户'
 );
-assert.doesNotMatch(
-  loginSource,
-  /wx\.redirectTo\(\{ url: '\/pages\/portal\/portal' \}\)/,
-  '登录成功不能替换登录页，否则门户不会显示原生返回键'
+assert.match(loginSource, /leavingPortal:\s*true/, '跳转门户前必须先隐藏旧登录渲染层');
+assert.match(
+  fs.readFileSync(path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.wxss'), 'utf8'),
+  /\.page::before,\s*\.page::after\s*\{[^}]*position:\s*absolute/,
+  '登录页装饰层必须随页面销毁，不能固定在视口上遮住门户'
 );
 assert.match(
   fs.readFileSync(

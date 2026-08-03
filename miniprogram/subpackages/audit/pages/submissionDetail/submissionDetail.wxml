@@ -1,6 +1,6 @@
 <page-meta page-style="{{adHocStepEditorVisible || editStepEditorVisible || editPersonPickerVisible || stampPickerVisible || placementVisible || approvalVisible || sigSourcePickerVisible || signaturePadVisible || personPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page subapp-audit-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{action === 'create' ? '审核审批 · 发起申请' : '审核审批 · 审核详情'}}"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{action === 'create' ? '审核 · 发起申请' : '审核 · 审核详情'}}"></workspace-hero>
 
   <!-- ═══════════ Create Mode ═══════════ -->
   <view class="section" wx:if="{{action === 'create'}}">

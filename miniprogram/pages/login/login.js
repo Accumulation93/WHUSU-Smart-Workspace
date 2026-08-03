@@ -1,7 +1,6 @@
 const { callFunction, showShortToast, getErrorText } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
 const authContext = require('../../utils/authContext');
-const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 
 function selectedOrganizationName(organizations, index) {
   const item = organizations[Number(index) || 0];
@@ -31,7 +30,8 @@ Page({
     claimAvailable: true,
     authNotice: '',
     passwordStudentId: '',
-    password: ''
+    password: '',
+    leavingPortal: false
   },
 
   onLoad() {
@@ -56,24 +56,24 @@ Page({
       recoveryRequestId: '',
       verificationCode: '',
       recoveryCredential: '',
-      rotatedRecoveryCode: ''
+      rotatedRecoveryCode: '',
+      leavingPortal: true
     }, () => {
       const navigate = () => {
-        navigateToTrustedRoute('/pages/portal/portal', {
+        wx.redirectTo({
+          url: '/pages/portal/portal',
           success: () => {
             this._portalNavigating = false;
           },
           fail: () => {
             this._portalNavigating = false;
+            this.setData({ leavingPortal: false });
             showShortToast('页面未打开，请重试');
           }
         });
       };
-      if (typeof wx.nextTick === 'function') {
-        wx.nextTick(navigate);
-      } else {
-        navigate();
-      }
+      if (typeof wx.nextTick === 'function') wx.nextTick(navigate);
+      else navigate();
     });
   },
 
@@ -126,6 +126,7 @@ Page({
 
   onShow() {
     this._portalNavigating = false;
+    if (this.data.leavingPortal) this.setData({ leavingPortal: false });
   },
 
   onVerificationCode(e) {

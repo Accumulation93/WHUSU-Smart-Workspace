@@ -376,7 +376,7 @@ Page({
       audit: ['audit']
     };
     this._subAppAllowedTabs = SUB_APP_USER_TABS[subApp] || SUB_APP_USER_TABS.scoring;
-    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', audit: '审核审批' };
+    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', audit: '审核' };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
     wx.setNavigationBarTitle({
       title: (this._subAppLabel || '考核评分') + ' - WHUSU智慧工作台'

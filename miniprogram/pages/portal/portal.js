@@ -97,6 +97,12 @@ Page({
 
   onShow() {
     this._isPageVisible = true;
+    const activeSession = orgSession.getSnapshot();
+    if (!activeSession.token || !activeSession.role) {
+      authContext.clearUnifiedAuthentication();
+      wx.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
     const contextNotice = wx.getStorageSync('authSelectionNotice') || '';
     if (contextNotice) {
       wx.removeStorageSync('authSelectionNotice');
@@ -125,10 +131,10 @@ Page({
     if (savedView && (savedView === 'grid' || savedView === 'list')) {
       this.setData({ appViewMode: savedView });
     }
-    this.refreshCurrentUser();
-    if (this.data.isAdminRole) this.refreshAdminPermissionState();
+    const currentUserState = this.refreshCurrentUser();
+    if (currentUserState.isAdminRole) this.refreshAdminPermissionState();
     this.loadOrganizationName();
-    if (this.data.hasUser) {
+    if (currentUserState.hasUser) {
       this.retryPendingNotificationReads();
       this.loadMessageOverview();
     }
@@ -165,7 +171,7 @@ Page({
   },
 
   onUnload() {
-    const returningToLogin = this._isPageVisible && shouldClearAuthenticationOnPortalExit(getCurrentPages(), this);
+    const returningToLogin = shouldClearAuthenticationOnPortalExit(getCurrentPages(), this);
     this.stopPolling();
     if (this._boundOnApprovalDone) {
       eventBus.off('approval:done', this._boundOnApprovalDone);
@@ -180,6 +186,7 @@ Page({
       this._boundOnOrgChanged = null;
     }
     if (returningToLogin) authContext.clearUnifiedAuthentication();
+    if (returningToLogin) wx.reLaunch({ url: '/pages/login/login' });
   },
 
   refreshCurrentUser() {
@@ -196,7 +203,21 @@ Page({
       orgSession.commitContext({ role: activeRole });
     }
 
-    const user = activeRole ? (roleProfiles[activeRole] || null) : null;
+    let user = activeRole ? (roleProfiles[activeRole] || null) : null;
+    if (!user && activeRole) {
+      const account = wx.getStorageSync('accountProfile') || {};
+      const contexts = wx.getStorageSync('authContexts') || [];
+      const activeContextId = wx.getStorageSync('activeContextId') || '';
+      const activeContext = Array.isArray(contexts)
+        ? (contexts.find(function(item) { return item.contextId === activeContextId; }) || {})
+        : {};
+      const fallback = authContext.normalizeProfile(Object.assign({}, account, activeContext));
+      if (fallback.name) {
+        user = fallback;
+        roleProfiles[activeRole] = fallback;
+        wx.setStorageSync(STORAGE_KEY, roleProfiles);
+      }
+    }
     const isAdminRole = activeRole === 'admin';
     const portalCards = isAdminRole ? adminPermissions.filterPortalCards(PORTAL_CARDS_ADMIN, user) : PORTAL_CARDS_USER;
 
@@ -213,7 +234,8 @@ Page({
       showWorkGroup: shouldShowWorkGroup(user),
       portalCards: portalCards
     });
-    this._applyAppFilter();
+    this._applyAppFilter(portalCards);
+    return { user, activeRole, isAdminRole, hasUser: !!user, portalCards };
   },
 
   async refreshAdminPermissionState() {
@@ -294,9 +316,9 @@ Page({
     this._applyAppFilter();
   },
 
-  _applyAppFilter() {
+  _applyAppFilter(sourceCards) {
     const keyword = (this.data.appSearchKeyword || '').trim().toLowerCase();
-    const cards = this.data.portalCards || [];
+    const cards = Array.isArray(sourceCards) ? sourceCards : (this.data.portalCards || []);
     if (!keyword) {
       this.setData({ filteredPortalCards: cards });
       return;
