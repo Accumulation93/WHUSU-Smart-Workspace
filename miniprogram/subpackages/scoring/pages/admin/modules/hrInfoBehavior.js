@@ -26,8 +26,6 @@ function toHrProfileListRow(item) {
     accountStateClass: item.accountStateClass || 'unbound-chip',
     verificationText: item.verificationText || '',
     recoveryText: item.recoveryText || '',
-    wechatBindingText: item.wechatBindingText || '未绑定',
-    recoveryMethodText: item.recoveryMethodText || '未设置',
     showVerificationStatus: Boolean(item.showVerificationStatus),
     canIssueVerification: Boolean(item.canIssueVerification),
     canRevokeVerification: Boolean(item.canRevokeVerification),

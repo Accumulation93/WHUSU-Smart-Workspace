@@ -588,7 +588,7 @@ scroll-view {
   min-height: 76rpx;
   height: auto;
   padding: 14rpx 20rpx;
-  border-radius: 20rpx;
+  border-radius: 24rpx;
   line-height: 1.35;
   font-size: var(--ui-type-control);
   font-weight: 700;
@@ -2393,9 +2393,9 @@ scroll-view {
 }
 
 .hr-member-tools {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
   gap: 12rpx 16rpx;
   margin: 16rpx 0 20rpx;
 }
@@ -2413,18 +2413,17 @@ scroll-view {
 }
 
 .hr-member-tools-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  flex-wrap: wrap;
-  flex: 1 1 520rpx;
   gap: 10rpx;
+  min-width: 0;
 }
 
 .hr-member-tools-actions .compact-action {
-  width: auto;
+  width: 100%;
   min-width: 0;
   margin: 0;
-  flex: 0 1 auto;
 }
 
 .hr-member-tools-actions button[disabled] {
@@ -2473,7 +2472,7 @@ scroll-view {
 .status-chip {
   font-size: var(--ui-type-caption);
   padding: 6rpx 14rpx;
-  border-radius: 12rpx;
+  border-radius: 18rpx;
   font-weight: 600;
   white-space: nowrap;
   border: 1rpx solid transparent;
@@ -5089,7 +5088,7 @@ scroll-view {
   .hr-template-status {
     min-height: 0 !important;
     padding: 3px 8px !important;
-    border-radius: 7px !important;
+    border-radius: 9px !important;
     line-height: 16px !important;
   }
 }
@@ -5661,12 +5660,9 @@ scroll-view {
     align-items: flex-start;
   }
 
+  .hr-member-tools-summary,
   .hr-member-tools-actions {
-    flex-basis: 100%;
-  }
-
-  .hr-member-tools-actions .compact-action {
-    flex: 1 1 calc(50% - 5rpx);
+    grid-column: 1 / -1;
   }
 
   .hr-account-facts,
@@ -5710,6 +5706,7 @@ scroll-view {
   }
 
   .hr-member-tools-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
   }
 

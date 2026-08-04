@@ -1097,9 +1097,9 @@
           <view class="hr-member-tools-summary" wx:if="{{canVerifyIdentity || canRecoverAccounts}}">已选 {{hrMemberSelectionCount}} 人</view>
           <view class="hr-member-tools-actions">
             <button class="secondary-btn compact-action ui-motion-button" bindtap="resetHrProfileFilters" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置筛选</button>
-            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanSelectAll}}" bindtap="selectAllFilteredHrMembers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">全选当前结果</button>
-            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanInvertSelection}}" bindtap="invertFilteredHrMembers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">反选当前结果</button>
-            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{authActionLoadingKey || !hrCanClearSelection}}" bindtap="clearHrMemberSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">清空选择</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanSelectAll}}" bindtap="selectAllFilteredHrMembers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">全选</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanInvertSelection}}" bindtap="invertFilteredHrMembers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">反选</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{authActionLoadingKey || !hrCanClearSelection}}" bindtap="clearHrMemberSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">清空</button>
             <button class="primary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanIssueVerification}}" loading="{{authActionLoadingKey === 'member-verify-batch'}}" bindtap="issueSelectedHrVerificationCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成认证码</button>
             <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanRevokeVerification}}" loading="{{authActionLoadingKey === 'member-verify-revoke-batch'}}" bindtap="revokeSelectedHrVerificationCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销认证码</button>
             <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanIssueRecovery}}" loading="{{authActionLoadingKey === 'member-recovery-batch'}}" bindtap="issueSelectedHrRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成恢复码</button>
@@ -1298,24 +1298,12 @@
               <view class="hr-detail-assignment-count" wx:if="{{detailHrGovernance.assignmentCount > 0}}">{{detailHrGovernance.assignmentCount}} 个岗位</view>
             </view>
           </view>
-          <view class="detail-section hr-account-detail-section" wx:if="{{detailHrGovernance && detailHrGovernance.governanceAvailable && (canVerifyIdentity || canRecoverAccounts || canManageHrPeople)}}">
+          <view class="detail-section hr-account-detail-section" wx:if="{{detailHrGovernance && detailHrGovernance.governanceAvailable && (canVerifyIdentity || canRecoverAccounts || (canManageHrPeople && detailHrGovernance.canUnbindWechat))}}">
             <view class="detail-section-title">账号与认证</view>
-            <view class="hr-account-facts">
-              <view class="hr-account-fact">
-                <text class="hr-account-fact-label">当前状态</text>
-                <text class="hr-account-fact-value">{{detailHrGovernance.accountStateText}}</text>
-              </view>
-              <view class="hr-account-fact">
-                <text class="hr-account-fact-label">微信绑定</text>
-                <text class="hr-account-fact-value">{{detailHrGovernance.wechatBindingText}}</text>
-              </view>
+            <view class="hr-account-facts" wx:if="{{(canVerifyIdentity && detailHrGovernance.showVerificationStatus) || (canRecoverAccounts && detailHrGovernance.accountId)}}">
               <view class="hr-account-fact" wx:if="{{canVerifyIdentity && detailHrGovernance.showVerificationStatus}}">
                 <text class="hr-account-fact-label">认证码</text>
                 <text class="hr-account-fact-value">{{detailHrGovernance.verificationText}}</text>
-              </view>
-              <view class="hr-account-fact" wx:if="{{canRecoverAccounts && detailHrGovernance.accountId}}">
-                <text class="hr-account-fact-label">恢复方式</text>
-                <text class="hr-account-fact-value">{{detailHrGovernance.recoveryMethodText}}</text>
               </view>
               <view class="hr-account-fact" wx:if="{{canRecoverAccounts && detailHrGovernance.accountId}}">
                 <text class="hr-account-fact-label">恢复码</text>

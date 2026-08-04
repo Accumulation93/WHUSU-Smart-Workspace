@@ -76,18 +76,6 @@ function decorateGovernanceRow(item, selected) {
     : item && item.accountId
       ? '尚未生成恢复码'
       : '认证后可设置恢复码';
-  const wechatBindingText = bindStatus === 'bound'
-    ? '已绑定'
-    : bindStatus === 'pending_activation' || auth.hasActiveBinding
-      ? '待激活'
-      : '未绑定';
-  const recoveryMethodText = auth.hasRecoveryCode && auth.hasPassphrase
-    ? '恢复码、登录口令'
-    : auth.hasRecoveryCode
-      ? '恢复码'
-      : auth.hasPassphrase
-        ? '登录口令'
-        : '未设置';
   return Object.assign({}, item, {
     auth,
     governanceAvailable: hasGovernance,
@@ -97,8 +85,6 @@ function decorateGovernanceRow(item, selected) {
     accountStateClass,
     verificationText,
     recoveryText,
-    wechatBindingText,
-    recoveryMethodText,
     showVerificationStatus: accountState === 'unbound',
     canIssueVerification: Boolean(hasGovernance && (auth.hasPendingClaim || !auth.hasBindingHistory)),
     canRevokeVerification: Boolean(hasGovernance && (auth.hasActiveClaimCode || auth.hasActiveInvite)),

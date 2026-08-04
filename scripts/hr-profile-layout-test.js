@@ -69,6 +69,10 @@ assert(!/冻结账号|解绑微信|生成认证码|生成恢复码/.test(memberC
   '单人账号操作不得暴露在成员外卡');
 const detailAccountSection = adminWxml.match(/<view class="detail-section hr-account-detail-section[\s\S]*?<view class="identity-overview-section/);
 assert(detailAccountSection, '成员详情必须包含账号与认证分区');
+assert(!/>当前状态</.test(detailAccountSection[0])
+    && !/>微信绑定</.test(detailAccountSection[0])
+    && !/>恢复方式</.test(detailAccountSection[0]),
+  '成员详情不得用字段卡重复展示顶部账号状态，也不得创造微信绑定或恢复方式重复字段');
 assert(/issueHrMemberVerificationCode/.test(detailAccountSection[0])
     && /issueHrMemberRecoveryCode/.test(detailAccountSection[0])
     && /requestAuthAccountFreeze/.test(detailAccountSection[0])
@@ -82,6 +86,11 @@ assert(/loadHrGovernanceRows/.test(authPersonnelBehavior)
     && /selectedHrMemberIds/.test(authPersonnelBehavior)
     && /patchHrGovernance/.test(authPersonnelBehavior),
   '成员资料必须直接合并账号治理数据并支持局部状态更新');
+assert(/\.hr-member-tools-actions\s*\{[\s\S]*?display:\s*grid;[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(adminWxss)
+    && /@media\s*\(min-width:\s*520px\)[\s\S]*?\.hr-member-tools-actions\s*\{[\s\S]*?repeat\(4,\s*minmax\(0,\s*1fr\)\)/.test(adminWxss),
+  '成员批量工具必须在手机双列、Pad 四列并排，不能退化为每个按钮独占一行');
+assert(/\.status-chip\s*\{[\s\S]*?border-radius:\s*18rpx;/.test(adminWxss),
+  '成员状态标签必须保留柔和圆角，不能退化成方形');
 assert(!/操作记录|安全审计/.test(adminWxml), '管理员页面不得向用户展示内部操作记录');
 assert(!/label:\s*['"]身份认证['"]|label:\s*['"]账号安全['"]/.test(portalJs),
   '应用服务不得继续展示独立身份认证或账号安全入口');
