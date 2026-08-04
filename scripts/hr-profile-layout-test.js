@@ -54,7 +54,7 @@ assert(createMemberForm, '应保留新增成员表单');
 assert(!/所属部门|工作分工（职能组）/.test(createMemberForm[0]), '新增成员表单只能填写人员基础信息');
 assert(/保存并完善资料/.test(createMemberForm[0]), '新增成员后应继续进入详情完善岗位和补充资料');
 
-assert(/activeTab === 'hrAccounts'/.test(adminWxml) && /账号与认证/.test(adminWxml),
+assert(/activeTab === 'hrInfo' && hrInfoMode === 'auth'/.test(adminWxml) && /认证与账号/.test(adminWxml),
   '管理员认证功能必须并入人事信息子应用');
 assert(/人员认证/.test(authPersonnelBehavior) && /账号与恢复/.test(authPersonnelBehavior) && /认证设置/.test(authPersonnelBehavior),
   '账号与认证必须按人员认证、账号恢复和设置分组');
@@ -72,7 +72,7 @@ assert(/runBatchedAuthAction/.test(authPersonnelBehavior)
     && /batchSize: 50/.test(authPersonnelBehavior)
     && /batchSize: 100/.test(authPersonnelBehavior),
   '全选批量操作必须按服务端安全批次处理全部选中人员');
-const freezeMethod = authPersonnelBehavior.match(/async toggleAuthAccountFrozen\(e\)\s*\{[\s\S]*?\n\s*\},\n\n\s*async issueSelectedRecoveryCodes/);
+const freezeMethod = authPersonnelBehavior.match(/async toggleAuthAccountFrozen\(e\)\s*\{[\s\S]*?\r?\n\s*\},\r?\n\r?\n\s*async issueSelectedRecoveryCodes/);
 assert(freezeMethod, '应保留账号冻结操作');
 assert(!/loadAuthPersonnel|loadAuthAccounts|loadActiveTab/.test(freezeMethod[0]),
   '冻结账号只能局部更新当前人员，不得重新加载整个认证页面');
