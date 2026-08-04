@@ -2713,7 +2713,8 @@ page .hr-profile-export-btn,
 page .kb-nav-btn,
 page .kb-quick-btn,
 page .kb-collapse-btn,
-page .kb-toggle-btn {
+page .kb-toggle-btn,
+page .hr-action-chip {
   border-radius: var(--ui-control-radius, 28rpx) !important;
 }
 
@@ -2819,7 +2820,8 @@ page .pending-refresh-btn {
   page .kb-nav-btn,
   page .kb-quick-btn,
   page .kb-collapse-btn,
-  page .kb-toggle-btn {
+  page .kb-toggle-btn,
+  page .hr-action-chip {
     border-radius: 14px !important;
   }
 
@@ -2925,7 +2927,8 @@ page .pending-refresh-btn {
   page .kb-nav-btn,
   page .kb-quick-btn,
   page .kb-collapse-btn,
-  page .kb-toggle-btn {
+  page .kb-toggle-btn,
+  page .hr-action-chip {
     border-radius: 12px !important;
   }
 

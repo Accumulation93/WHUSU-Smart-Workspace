@@ -2392,7 +2392,7 @@ scroll-view {
 
 .hr-member-actions .link {
   min-width: 92rpx;
-  border-radius: var(--ui-compact-radius, 18rpx);
+  border-radius: var(--ui-control-radius, 28rpx);
   box-sizing: border-box;
 }
 
@@ -2445,6 +2445,7 @@ scroll-view {
   justify-content: center;
   flex-shrink: 0;
   align-self: center;
+  min-width: 92rpx;
   min-height: 44rpx;
   padding: 8rpx 16rpx;
   border: 1rpx solid rgba(147, 197, 253, 0.8);
@@ -5719,6 +5720,7 @@ scroll-view {
   }
 
   .hr-member-select {
+    min-width: 56px;
     min-height: 28px;
     padding: 6px 12px;
     border-radius: 12px;
@@ -5806,6 +5808,7 @@ scroll-view {
   }
 
   .hr-member-select {
+    min-width: 52px;
     min-height: 26px;
     padding: 5px 11px;
     border-radius: 11px;
