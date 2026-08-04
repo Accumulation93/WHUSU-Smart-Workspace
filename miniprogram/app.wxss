@@ -2784,6 +2784,8 @@ page .add-range-btn,
 page .merit-edit-btn,
 page .mini-action-btn,
 page .placement-mini-btn,
+page .tpl-step-toggle,
+page .rule-list-count,
 page .pending-refresh-btn {
   border-radius: var(--ui-compact-radius, 18rpx) !important;
 }
@@ -2884,6 +2886,8 @@ page .pending-refresh-btn {
   page .merit-edit-btn,
   page .mini-action-btn,
   page .placement-mini-btn,
+  page .tpl-step-toggle,
+  page .rule-list-count,
   page .pending-refresh-btn {
     border-radius: 12px !important;
   }
@@ -2984,6 +2988,8 @@ page .pending-refresh-btn {
   page .merit-edit-btn,
   page .mini-action-btn,
   page .placement-mini-btn,
+  page .tpl-step-toggle,
+  page .rule-list-count,
   page .pending-refresh-btn {
     border-radius: 11px !important;
   }

@@ -39,7 +39,8 @@ const COMPACT_META_CLASSES = [
   'audit-home-card-badge', 'audit-home-card-badge-pending', 'audit-home-card-badge-history',
   'status-chip', 'invite-chip', 'hr-snapshot-type-tag', 'hr-snapshot-required-tag',
   'hr-template-status', 'template-hero-badge', 'hour-chip', 'min-chip', 'duration-chip', 'add-range-btn',
-  'merit-edit-btn', 'mini-action-btn', 'placement-mini-btn', 'pending-refresh-btn'
+  'merit-edit-btn', 'mini-action-btn', 'placement-mini-btn', 'pending-refresh-btn',
+  'tpl-step-toggle', 'rule-list-count'
 ];
 const COMPACT_META_SELECTOR = new RegExp(`\\.(?:${COMPACT_META_CLASSES.join('|')})\\b`, 'i');
 const GLOBAL_STYLE = fs.readFileSync(path.join(MINI_ROOT, 'app.wxss'), 'utf8');
