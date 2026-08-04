@@ -2786,6 +2786,10 @@ page .mini-action-btn,
 page .placement-mini-btn,
 page .tpl-step-toggle,
 page .rule-list-count,
+page .hr-member-select,
+page .csv-mapping-type-tag,
+page .ve-error-type-tag,
+page .auth-select-box,
 page .pending-refresh-btn {
   border-radius: var(--ui-compact-radius, 18rpx) !important;
 }
@@ -2888,6 +2892,10 @@ page .pending-refresh-btn {
   page .placement-mini-btn,
   page .tpl-step-toggle,
   page .rule-list-count,
+  page .hr-member-select,
+  page .csv-mapping-type-tag,
+  page .ve-error-type-tag,
+  page .auth-select-box,
   page .pending-refresh-btn {
     border-radius: 12px !important;
   }
@@ -2990,6 +2998,10 @@ page .pending-refresh-btn {
   page .placement-mini-btn,
   page .tpl-step-toggle,
   page .rule-list-count,
+  page .hr-member-select,
+  page .csv-mapping-type-tag,
+  page .ve-error-type-tag,
+  page .auth-select-box,
   page .pending-refresh-btn {
     border-radius: 11px !important;
   }

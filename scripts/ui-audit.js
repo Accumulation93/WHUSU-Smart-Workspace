@@ -16,6 +16,7 @@ const LEGACY_DIALOG_SHELLS = new Set(['popup-card', 'modal-card', 'dialog-panel'
 const LEGACY_COMPLEX_GRIDS = new Set(['task-table', 'result-table', 'popup-table']);
 const STANDARD_BUTTON_ROLE = /\b(?:primary-btn|secondary-btn|danger-btn)\b/;
 const FULL_SIZE_BUTTON_SELECTOR = /(?:^|[\s,>])button\b|\.(?:primary-btn|secondary-btn|danger-btn|approve-btn|reject-btn|profile-submit-btn|page-submit-btn|template-save-btn|purpose-save-btn|dialog-btn|sigpad-btn|panel-add-btn)\b/;
+const TAB_RADIUS_SELECTOR = /(?:^|[\s,>])\.(?:tab|feature-tab|rules-tab|app-view-tab|message-tab|auth-tab|ui-tab)(?![A-Za-z0-9_-])/;
 const FORBIDDEN_EMOJI_ICON = /(?:\u{1F4CE}|\u{1F4C4}|\u{1F4E4}|\u{1F504}|\u{270F}\u{FE0F}?|\u{2705}|\u{274C}|\u{1F4CC}|\u{21A9}\u{FE0F}?|\u{23F3}|\u{1F512}|\u{1F3C6}|\u{1F534}|\u{1F4AC})/gu;
 const COMPACT_META_CLASSES = [
   'status-tag', 'booking-status', 'audit-chip', 'green-chip', 'blue-chip', 'orange-chip',
@@ -40,7 +41,8 @@ const COMPACT_META_CLASSES = [
   'status-chip', 'invite-chip', 'hr-snapshot-type-tag', 'hr-snapshot-required-tag',
   'hr-template-status', 'template-hero-badge', 'hour-chip', 'min-chip', 'duration-chip', 'add-range-btn',
   'merit-edit-btn', 'mini-action-btn', 'placement-mini-btn', 'pending-refresh-btn',
-  'tpl-step-toggle', 'rule-list-count'
+  'tpl-step-toggle', 'rule-list-count', 'hr-member-select', 'csv-mapping-type-tag',
+  've-error-type-tag', 'auth-select-box'
 ];
 const COMPACT_META_SELECTOR = new RegExp(`\\.(?:${COMPACT_META_CLASSES.join('|')})\\b`, 'i');
 const GLOBAL_STYLE = fs.readFileSync(path.join(MINI_ROOT, 'app.wxss'), 'utf8');
@@ -118,6 +120,31 @@ function scanCompactVisualContract() {
     while ((ruleMatch = rulePattern.exec(source))) {
       const selector = ruleMatch[1].trim().replace(/\s+/g, ' ');
       const declarations = ruleMatch[2];
+      const radiusMatch = declarations.match(/border-radius\s*:\s*([^;}]+)/i);
+      if (radiusMatch && !selector.includes('::')) {
+        const val = radiusMatch[1].trim().replace(/!important/gi, '').trim();
+        if (val !== '0' && !/var\(/i.test(val) && !/^(?:999r?px|50%)$/i.test(val)) {
+          const allowed = new Set();
+          if (FULL_SIZE_BUTTON_SELECTOR.test(selector)) {
+            allowed.add('28rpx'); allowed.add('14px'); allowed.add('12px');
+          }
+          if (TAB_RADIUS_SELECTOR.test(selector)) {
+            allowed.add('24rpx'); allowed.add('12px');
+          }
+          if (COMPACT_META_SELECTOR.test(selector)) {
+            allowed.add('18rpx'); allowed.add('12px'); allowed.add('11px');
+          }
+          const decorative = /arrow|chevron|close|clear|dot|node|indicator|spinner|skeleton|avatar|track|handle|mark|accent|step|progress|toggle|timeline|badge|member-select|select-box|pending-entry|time-valid/i.test(selector);
+          if (allowed.size && !allowed.has(val) && !decorative) {
+            findings.push({
+              file: relative(file),
+              line: lineAt(source, ruleMatch.index),
+              selector,
+              message: `控件固定圆角 ${val} 与设备档位不符，应使用令牌或 18rpx/12px/11px（按钮 28rpx/14px/12px，页签 24rpx/12px/12px）`
+            });
+          }
+        }
+      }
       if (!COMPACT_META_SELECTOR.test(selector)) continue;
       if (/border-radius\s*:\s*999(?:r?px)\b/i.test(declarations) &&
         !/page\s+(?:text\.)?(?:status-tag|action-btn)/i.test(selector)) {

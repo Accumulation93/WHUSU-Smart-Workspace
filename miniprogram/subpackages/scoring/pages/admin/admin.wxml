@@ -1113,9 +1113,9 @@
           </view>
           <block wx:else>
           <view class="hr-member-card ui-motion-card" wx:for="{{hrProfileRows}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="openHrPersonDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-            <view class="hr-member-select {{item.selected ? 'is-selected' : ''}} {{item.canSelectForAuth ? '' : 'is-disabled'}} ui-motion-chip" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" data-hr-id="{{item.id}}" catchtap="toggleHrMemberSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><text>{{item.selected ? '✓' : ''}}</text></view>
             <view class="hr-member-main">
               <view class="hr-member-top">
+                <view class="hr-member-select {{item.selected ? 'is-selected' : ''}} {{item.canSelectForAuth ? '' : 'is-disabled'}} ui-motion-chip" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" data-hr-id="{{item.id}}" catchtap="toggleHrMemberSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><text>{{item.selected ? '✓ 已选' : '选择'}}</text></view>
                 <view class="hr-member-person">
                   <view class="hr-member-name">{{item.name}}</view>
                   <view class="hr-member-id">{{item.studentId}}</view>

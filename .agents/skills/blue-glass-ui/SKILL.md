@@ -342,6 +342,7 @@ Native text/action buttons must be compact rounded rectangles, never capsules or
 - Pad controls must become denser rather than scaling up with the viewport: full text buttons use about `44px` minimum height, compact actions about `32px`, and tabs about `40px`, all with balanced vertical padding. Do not retain a 48px-plus desktop-style control merely because more space is available.
 - Management navigation keeps the same top segmented-control language on phone, Pad portrait, and Pad landscape. Do not turn the same tabs into a wide left sidebar on landscape; it changes the product language and wastes horizontal space between navigation text and content.
 - Status labels such as “使用中” use a visibly softened rounded rectangle (`11px` to `12px` radius on Pad) with `3px` to `4px` vertical padding. They must neither become inflated oval bubbles nor regress to square badges. Text buttons also keep a visible, sub-half-height radius instead of looking square.
+- 控件类的固定圆角必须命中设备档位：紧凑 `18rpx/12px/11px`、按钮 `28rpx/14px/12px`、页签 `24rpx/12px/12px`；`999rpx/50%` 仅保留给头像、加载圈、进度节点、时间轴节点和纯图标圆钮。严格 UI 审计会把任何固定圆角偏差判为违规。
 
 Baseline:
 
