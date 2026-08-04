@@ -20,7 +20,7 @@ powershell -File scripts/remote-collab.ps1 attach
 
 1. 检查工作区，只修改当前任务文件。
 2. 按 `AGENTS.md` 执行语法、兼容、安全、UI 和集成测试。
-3. 提交并推送当前 `feature/audit`。
+3. 提交并推送当前 `main`。
 4. 记录新提交的完整 SHA 和 GitHub Actions 运行号。
 5. 等待 `audit-and-test` 成功；失败时读取对应 job 日志并在本地修复。
 6. 等待 `deploy-production`；不要同时手工运行部署入口。
@@ -28,7 +28,7 @@ powershell -File scripts/remote-collab.ps1 attach
 
 ## 安全重试
 
-仅当最新 `feature/audit` 的质量 job 已成功、但部署 job 因临时基础设施问题失败时运行：
+仅当最新 `main` 的质量 job 已成功、但部署 job 因临时基础设施问题失败时运行：
 
 ```powershell
 powershell -File scripts/remote-collab.ps1 retry

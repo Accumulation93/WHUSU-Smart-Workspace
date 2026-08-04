@@ -33,12 +33,12 @@ Host whusu-smart-workspace-prod
 ## GitHub 发布入口
 
 - 仓库：`Accumulation93/WHUSU-Smart-Workspace`
-- 生产来源分支：`feature/audit`
+- 生产来源分支：`main`
 - 工作流：`.github/workflows/ci.yml`
 - Environment：`production`
 - Secret 名称：`PROD_SSH_KEY`、`PROD_KNOWN_HOSTS`、`PROD_HOST`、`PROD_USER`
 
-工作流条件本身限定只有 `refs/heads/feature/audit` 的 push 可以运行 `deploy-production`。不得在日志中打印 Secret，PR 流程不得读取生产密钥。
+工作流条件本身限定只有 `refs/heads/main` 的 push 可以运行 `deploy-production`。不得在日志中打印 Secret，PR 流程不得读取生产密钥。
 
 ## 远端目录
 

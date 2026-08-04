@@ -1238,6 +1238,53 @@ async function issueVerificationCodes(claimIds, actor, metadata) {
   });
 }
 
+async function revokeVerificationCodes(claimIds, actor, metadata) {
+  const normalizedIds = Array.from(new Set(
+    (Array.isArray(claimIds) ? claimIds : []).map(safeString).filter(Boolean)
+  )).slice(0, 50);
+  if (!normalizedIds.length) {
+    throw new IdentityError('invalid_params', '请选择身份认证申请', 400);
+  }
+  return pool.withTransaction(async (connection) => {
+    const revokedClaimIds = [];
+    for (const claimId of normalizedIds) {
+      const [rows] = await connection.query(
+        `SELECT r.id, r.person_id, EXISTS (
+            SELECT 1 FROM organization_memberships om
+             WHERE om.person_id = r.person_id AND om.org_id = ? AND om.status = 'active'
+          ) AS actor_org_matches
+           FROM identity_claim_requests r
+          WHERE r.id = ? AND r.status = 'pending' AND r.expires_at > NOW()
+          LIMIT 1 FOR UPDATE`,
+        [safeString(actor.organizationId), claimId]
+      );
+      const claim = rows[0];
+      if (!claim) throw new IdentityError('claim_unavailable', '请刷新身份认证列表', 409);
+      if (actor.adminLevel !== 'super_admin' && !Boolean(claim.actor_org_matches)) {
+        throw new IdentityError('claim_forbidden', '请联系所属组织管理员', 403);
+      }
+      await connection.query(
+        `UPDATE identity_verification_tokens
+            SET status = 'revoked'
+          WHERE claim_request_id = ? AND status = 'active'`,
+        [claim.id]
+      );
+      await appendAuditEvent({
+        connection,
+        eventType: 'identity_code_revoked',
+        actorPersonId: actor.personId,
+        targetPersonId: claim.person_id,
+        organizationId: actor.organizationId,
+        contextId: actor.contextId,
+        requestId: metadata && metadata.requestId,
+        ip: metadata && metadata.ip
+      });
+      revokedClaimIds.push(safeString(claim.id));
+    }
+    return revokedClaimIds;
+  });
+}
+
 async function verifyClaim(bootstrapId, claimId, code, metadata) {
   const result = await pool.withTransaction(async (connection) => {
     const bootstrap = await getBootstrapSession(bootstrapId, true, connection);
@@ -2349,6 +2396,7 @@ module.exports = {
   listClaims,
   issueVerificationCode,
   issueVerificationCodes,
+  revokeVerificationCodes,
   verifyClaim,
   getPolicy,
   savePolicy,

@@ -40,9 +40,11 @@ const governance = new Map([['hr-1', {
   personId: 'person-1',
   accountId: 'account-1',
   organizationId: 'org-1',
+  wxBindStatus: 'bound',
   auth: {
     status: 'verified',
     hasBindingHistory: true,
+    hasActiveBinding: true,
     hasRecoveryCode: false,
     activeSessionCount: 1
   }
@@ -64,10 +66,36 @@ const merged = context.mergeHrGovernanceRows([
   { id: 'hr-2', name: '乙', studentId: '002' }
 ], governance);
 assert.strictEqual(merged.length, 2);
-assert.strictEqual(merged[0].authStatusText, '账号正常');
+assert.strictEqual(merged[0].accountStateText, '已绑定');
 assert.strictEqual(merged[0].recoveryText, '尚未生成恢复码');
 assert.strictEqual(merged[1].verificationText, '尚未生成认证码');
 assert.strictEqual(merged[1].canSelectForAuth, true);
+assert.strictEqual(merged[1].showVerificationStatus, true);
+
+const priorityRows = context.mergeHrGovernanceRows([
+  { id: 'frozen', wxBindStatus: 'bound' },
+  { id: 'recovering', wxBindStatus: 'bound' },
+  { id: 'bound', wxBindStatus: 'bound' },
+  { id: 'activation', wxBindStatus: 'pending_activation' },
+  { id: 'unbound', wxBindStatus: 'unbound' }
+], new Map([
+  ['frozen', { id: 'frozen', personId: 'p-frozen', auth: { status: 'frozen', hasBindingHistory: true } }],
+  ['recovering', { id: 'recovering', personId: 'p-recovering', auth: { status: 'recovery_required', hasBindingHistory: true } }],
+  ['bound', { id: 'bound', personId: 'p-bound', auth: { status: 'verified', hasBindingHistory: true } }],
+  ['activation', { id: 'activation', personId: 'p-activation', auth: { status: 'verified', hasBindingHistory: true } }],
+  ['unbound', { id: 'unbound', personId: 'p-unbound', auth: { status: 'pending_verification', hasBindingHistory: false } }]
+]));
+assert.deepStrictEqual(priorityRows.map((item) => item.accountStateText), [
+  '冻结中', '待恢复', '已绑定', '待激活', '未绑定'
+]);
+context.data.canVerifyIdentity = false;
+const recoveryOnlyRows = context.mergeHrGovernanceRows([
+  { id: 'hr-1', name: '甲', studentId: '001' },
+  { id: 'hr-2', name: '乙', studentId: '002' }
+], governance);
+assert.strictEqual(recoveryOnlyRows[0].canSelectForAuth, true);
+assert.strictEqual(recoveryOnlyRows[1].canSelectForAuth, false);
+context.data.canVerifyIdentity = true;
 
 context._hrProfileRawRows = merged;
 context._hrProfileFilteredRows = merged;
@@ -79,10 +107,12 @@ assert.strictEqual(context.data.hrProfileRows[1].selected, true);
 context.patchHrGovernance('person-2', { hasActiveInvite: true });
 assert.strictEqual(context.data.hrProfileRows[1].auth.hasActiveInvite, true);
 assert.strictEqual(context.data.hrProfileRows[1].verificationText, '认证码有效');
+assert.strictEqual(context.data.hrProfileRows[1].canRevokeVerification, true);
 
-const activeTab = context.initializeAuthPersonnel();
-assert.strictEqual(activeTab, 'policy');
-assert.deepStrictEqual(context.data.authPersonnelTabs.map((item) => item.key), ['policy']);
+context.invertFilteredHrMembers();
+assert.deepStrictEqual(context.data.selectedHrMemberIds, ['hr-1']);
+context.clearHrMemberSelection();
+assert.deepStrictEqual(context.data.selectedHrMemberIds, []);
 
 console.log('成员资料认证与恢复合并测试通过');
 
@@ -94,6 +124,20 @@ assert.ok(
   !/JOIN\s+organizations\s+o\s+ON[^\n]*o\.status/i.test(hrRouteSource),
   'organizations 表没有 status 字段，人员治理目录不得引用 o.status'
 );
+
+const authRouteSource = fs.readFileSync(
+  path.join(__dirname, '..', 'server', 'src', 'core', 'routes', 'unifiedAuth.js'),
+  'utf8'
+);
+const claimsRouteStart = authRouteSource.indexOf("router.post('/admin/auth/claims'");
+const recoveriesRouteStart = authRouteSource.indexOf("router.get('/admin/auth/recoveries'");
+const verificationRevokeAction = authRouteSource.indexOf("action === 'revoke_codes'", claimsRouteStart);
+const verificationRevokeCall = authRouteSource.indexOf('revokeVerificationCodes', claimsRouteStart);
+assert.ok(claimsRouteStart >= 0
+    && verificationRevokeAction > claimsRouteStart
+    && verificationRevokeCall > verificationRevokeAction
+    && verificationRevokeCall < recoveriesRouteStart,
+  '管理员必须能通过既有认证接口撤销待认领申请的认证码');
 
 const hrInfoBehavior = require('../miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
 

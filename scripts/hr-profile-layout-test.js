@@ -46,7 +46,7 @@ assert(
   '人事界面不得保留主要岗位概念'
 );
 assert(
-  /filteredRows\.map\(toHrProfileListRow\)/.test(hrInfoBehavior)
+  /synchronizedRows\.map\(toHrProfileListRow\)/.test(hrInfoBehavior)
     && /this\._hrProfileFilteredRows/.test(hrInfoBehavior),
   '人事列表必须只向视图传递摘要字段，完整补充资料应留在逻辑层供筛选和导出'
 );
@@ -56,13 +56,27 @@ assert(!/所属部门|工作分工（职能组）/.test(createMemberForm[0]), '�
 assert(/保存并完善资料/.test(createMemberForm[0]), '新增成员后应继续进入详情完善岗位和补充资料');
 
 assert(/activeTab === 'hrInfo' && hrInfoMode === 'profiles'/.test(adminWxml)
-    && /issueHrMemberVerificationCode/.test(adminWxml)
-    && /issueHrMemberRecoveryCode/.test(adminWxml)
     && /issueSelectedHrVerificationCodes/.test(adminWxml)
-    && /issueSelectedHrRecoveryCodes/.test(adminWxml),
-  '人员认证和账号恢复必须并入成员资料卡片与现有批量工具栏');
+    && /revokeSelectedHrVerificationCodes/.test(adminWxml)
+    && /issueSelectedHrRecoveryCodes/.test(adminWxml)
+    && /revokeSelectedHrRecoveryCodes/.test(adminWxml)
+    && /disabled="\{\{hrGovernanceUnavailable \|\| authActionLoadingKey/.test(adminWxml),
+  '人员认证和账号恢复的批量操作必须常驻成员资料工具区，并在不可用时原生禁用');
+const memberCard = adminWxml.match(/<view class="hr-member-card[\s\S]*?<\/view>\s*<view class="empty-inline"/);
+assert(memberCard, '应保留成员资料卡片');
+assert(/accountStateText/.test(memberCard[0]), '成员外卡只需展示合并账号状态');
+assert(!/冻结账号|解绑微信|生成认证码|生成恢复码/.test(memberCard[0]),
+  '单人账号操作不得暴露在成员外卡');
+const detailAccountSection = adminWxml.match(/<view class="detail-section hr-account-detail-section[\s\S]*?<view class="identity-overview-section/);
+assert(detailAccountSection, '成员详情必须包含账号与认证分区');
+assert(/issueHrMemberVerificationCode/.test(detailAccountSection[0])
+    && /issueHrMemberRecoveryCode/.test(detailAccountSection[0])
+    && /requestAuthAccountFreeze/.test(detailAccountSection[0])
+    && /requestHrWechatUnbind/.test(detailAccountSection[0]),
+  '单人认证、恢复、冻结和解绑必须位于成员详情');
 assert(/hrInfoMode === 'policy'/.test(adminWxml) && /认证设置/.test(adminWxml)
-    && !/hrInfoMode === 'auth'/.test(adminWxml),
+    && !/hrInfoMode === 'auth'/.test(adminWxml)
+    && !/activeAuthPersonnelTab/.test(adminWxml),
   '认证设置可以独立显示，但不得保留重复的认证人员目录模式');
 assert(/loadHrGovernanceRows/.test(authPersonnelBehavior)
     && /selectedHrMemberIds/.test(authPersonnelBehavior)

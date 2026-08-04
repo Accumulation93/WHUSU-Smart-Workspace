@@ -41,13 +41,29 @@ function decorateAccount(item) {
 }
 
 function decorateGovernanceRow(item, selected) {
+  const hasGovernance = Boolean(item && item.auth);
   const auth = Object.assign({}, item && item.auth || {});
-  const statusLabels = {
-    verified: '账号正常',
-    frozen: '账号已冻结',
-    recovery_required: '等待恢复',
-    pending_verification: '尚未认证'
-  };
+  const bindStatus = String(item && item.wxBindStatus || '');
+  let accountState = 'unbound';
+  let accountStateText = '未绑定';
+  let accountStateClass = 'unbound-chip';
+  if (auth.status === 'frozen') {
+    accountState = 'frozen';
+    accountStateText = '冻结中';
+    accountStateClass = 'frozen-chip';
+  } else if (auth.status === 'recovery_required') {
+    accountState = 'recovery_required';
+    accountStateText = '待恢复';
+    accountStateClass = 'pending-chip';
+  } else if (bindStatus === 'bound') {
+    accountState = 'bound';
+    accountStateText = '已绑定';
+    accountStateClass = 'current-chip';
+  } else if (bindStatus === 'pending_activation' || auth.hasActiveBinding) {
+    accountState = 'pending_activation';
+    accountStateText = '待激活';
+    accountStateClass = 'activation-chip';
+  }
   const verificationText = auth.hasActiveClaimCode || auth.hasActiveInvite
     ? '认证码有效'
     : auth.hasPendingClaim
@@ -60,16 +76,39 @@ function decorateGovernanceRow(item, selected) {
     : item && item.accountId
       ? '尚未生成恢复码'
       : '认证后可设置恢复码';
+  const wechatBindingText = bindStatus === 'bound'
+    ? '已绑定'
+    : bindStatus === 'pending_activation' || auth.hasActiveBinding
+      ? '待激活'
+      : '未绑定';
+  const recoveryMethodText = auth.hasRecoveryCode && auth.hasPassphrase
+    ? '恢复码、登录口令'
+    : auth.hasRecoveryCode
+      ? '恢复码'
+      : auth.hasPassphrase
+        ? '登录口令'
+        : '未设置';
   return Object.assign({}, item, {
     auth,
+    governanceAvailable: hasGovernance,
     selected: Boolean(selected),
-    authStatusText: statusLabels[auth.status] || '尚未认证',
+    accountState,
+    accountStateText,
+    accountStateClass,
     verificationText,
     recoveryText,
-    canSelectForAuth: Boolean(
+    wechatBindingText,
+    recoveryMethodText,
+    showVerificationStatus: accountState === 'unbound',
+    canIssueVerification: Boolean(hasGovernance && (auth.hasPendingClaim || !auth.hasBindingHistory)),
+    canRevokeVerification: Boolean(hasGovernance && (auth.hasActiveClaimCode || auth.hasActiveInvite)),
+    canIssueRecovery: Boolean(hasGovernance && item && item.accountId && auth.status !== 'frozen'),
+    canRevokeRecovery: Boolean(hasGovernance && item && item.accountId && auth.hasRecoveryCode && auth.status !== 'frozen'),
+    canUnbindWechat: Boolean(hasGovernance && item && item.personId && (bindStatus === 'bound' || auth.hasActiveBinding)),
+    canSelectForAuth: Boolean(hasGovernance && (
       (auth.hasPendingClaim || !auth.hasBindingHistory)
       || (item && item.accountId && auth.status !== 'frozen')
-    )
+    ))
   });
 }
 
@@ -172,11 +211,30 @@ module.exports = Behavior({
     selectedAuthEligiblePersonIds: [],
     selectedAuthAccountIds: [],
     selectedHrMemberIds: [],
+    hrMemberSelectionCount: 0,
+    hrFilteredSelectableCount: 0,
+    hrCanSelectAll: false,
+    hrCanInvertSelection: false,
+    hrCanClearSelection: false,
+    hrCanIssueVerification: false,
+    hrCanRevokeVerification: false,
+    hrCanIssueRecovery: false,
+    hrCanRevokeRecovery: false,
     authPolicy: null,
+    authPolicyLoading: false,
+    authPolicyLoadFailed: false,
     authIssuedCodes: [],
     showAuthCodeDialog: false,
     showAuthRecoveryDialog: false,
-    pendingAuthRecovery: null
+    pendingAuthRecovery: null,
+    authMemberConfirmVisible: false,
+    authMemberConfirmAction: '',
+    authMemberConfirmTitle: '',
+    authMemberConfirmMessage: '',
+    authMemberConfirmPersonId: '',
+    authMemberConfirmHrId: '',
+    authMemberConfirmName: '',
+    authMemberConfirmFrozen: false
   },
 
   methods: {
@@ -223,19 +281,62 @@ module.exports = Behavior({
       const selected = new Set(this.data.selectedHrMemberIds || []);
       return (profileRows || []).map((row) => {
         const governance = governanceByHrId && governanceByHrId.get(String(row.id || ''));
-        if (!governance) return Object.assign({}, row, { selected: selected.has(String(row.id || '')) });
-        return decorateGovernanceRow(Object.assign({}, row, governance, {
+        if (!governance) return this.applyHrGovernancePermissions(
+          decorateGovernanceRow(row, selected.has(String(row.id || '')))
+        );
+        return this.applyHrGovernancePermissions(decorateGovernanceRow(Object.assign({}, row, governance, {
           id: row.id,
           hrId: row.id,
           name: row.name,
           studentId: row.studentId
-        }), selected.has(String(row.id || '')));
+        }), selected.has(String(row.id || ''))));
       });
+    },
+
+    applyHrGovernancePermissions(row) {
+      const canSelect = Boolean(row && (
+        (this.data.canVerifyIdentity && (row.canIssueVerification || row.canRevokeVerification))
+        || (this.data.canRecoverAccounts && (row.canIssueRecovery || row.canRevokeRecovery))
+      ));
+      return Object.assign({}, row, { canSelectForAuth: canSelect });
+    },
+
+    buildHrMemberActionState(rows, selectedIds) {
+      const visibleRows = Array.isArray(rows) ? rows : [];
+      const selectableIds = new Set(visibleRows
+        .filter((item) => item.canSelectForAuth)
+        .map((item) => String(item.id || ''))
+        .filter(Boolean));
+      const selected = Array.from(new Set((selectedIds || this.data.selectedHrMemberIds || [])
+        .map(String)
+        .filter((id) => selectableIds.has(id))));
+      const selectedSet = new Set(selected);
+      const selectedRows = visibleRows.filter((item) => selectedSet.has(String(item.id || '')));
+      return {
+        selectedHrMemberIds: selected,
+        hrMemberSelectionCount: selected.length,
+        hrFilteredSelectableCount: selectableIds.size,
+        hrCanSelectAll: selectableIds.size > 0 && selected.length < selectableIds.size,
+        hrCanInvertSelection: selectableIds.size > 0,
+        hrCanClearSelection: selected.length > 0,
+        hrCanIssueVerification: selectedRows.some((item) => item.canIssueVerification),
+        hrCanRevokeVerification: selectedRows.some((item) => item.canRevokeVerification),
+        hrCanIssueRecovery: selectedRows.some((item) => item.canIssueRecovery),
+        hrCanRevokeRecovery: selectedRows.some((item) => item.canRevokeRecovery)
+      };
+    },
+
+    getHrGovernanceRow(hrId) {
+      const target = String(hrId || this.data.detailHrId || '');
+      if (!target) return null;
+      return (this._hrProfileRawRows || []).find((item) => String(item.id || '') === target) || null;
     },
 
     toggleHrMemberSelection(e) {
       const hrId = String(e.currentTarget.dataset.hrId || '');
       if (!hrId) return;
+      const row = this.getHrGovernanceRow(hrId);
+      if (!row || !row.canSelectForAuth) return;
       const selected = new Set(this.data.selectedHrMemberIds || []);
       if (selected.has(hrId)) selected.delete(hrId); else selected.add(hrId);
       this.setData({ selectedHrMemberIds: Array.from(selected) });
@@ -251,17 +352,34 @@ module.exports = Behavior({
       this.refreshHrMemberSelection();
     },
 
+    invertFilteredHrMembers() {
+      const selected = new Set(this.data.selectedHrMemberIds || []);
+      const ids = (this._hrProfileFilteredRows || [])
+        .filter((item) => item.canSelectForAuth)
+        .map((item) => String(item.id || ''))
+        .filter(Boolean)
+        .filter((id) => !selected.has(id));
+      this.setData({ selectedHrMemberIds: ids });
+      this.refreshHrMemberSelection();
+    },
+
     clearHrMemberSelection() {
       this.setData({ selectedHrMemberIds: [] });
       this.refreshHrMemberSelection();
     },
 
     refreshHrMemberSelection() {
-      const selected = new Set(this.data.selectedHrMemberIds || []);
+      const actionState = this.buildHrMemberActionState(
+        this._hrProfileFilteredRows || [],
+        this.data.selectedHrMemberIds || []
+      );
+      const selected = new Set(actionState.selectedHrMemberIds);
       const apply = (row) => Object.assign({}, row, { selected: selected.has(String(row.id || '')) });
       this._hrProfileRawRows = (this._hrProfileRawRows || []).map(apply);
       this._hrProfileFilteredRows = (this._hrProfileFilteredRows || []).map(apply);
-      this.setData({ hrProfileRows: (this.data.hrProfileRows || []).map(apply) });
+      this.setData(Object.assign({}, actionState, {
+        hrProfileRows: (this.data.hrProfileRows || []).map(apply)
+      }));
     },
 
     getSelectedHrGovernanceRows() {
@@ -269,16 +387,43 @@ module.exports = Behavior({
       return (this._hrProfileFilteredRows || []).filter((item) => selected.has(String(item.id || '')));
     },
 
-    patchHrGovernance(personId, patch) {
+    patchHrGovernance(personId, patch, rowPatch) {
+      this.patchHrGovernanceBatch([{ personId, patch, rowPatch }]);
+    },
+
+    patchHrGovernanceBatch(entries) {
+      const patchByPerson = new Map();
+      (entries || []).forEach((entry) => {
+        const personId = String(entry && entry.personId || '');
+        if (!personId) return;
+        const previous = patchByPerson.get(personId) || { patch: {}, rowPatch: {} };
+        patchByPerson.set(personId, {
+          patch: Object.assign({}, previous.patch, entry.patch || {}),
+          rowPatch: Object.assign({}, previous.rowPatch, entry.rowPatch || {})
+        });
+      });
+      if (!patchByPerson.size) return;
       const apply = (row) => {
-        if (String(row.personId || '') !== String(personId || '')) return row;
-        return decorateGovernanceRow(Object.assign({}, row, {
-          auth: Object.assign({}, row.auth || {}, patch || {})
-        }), row.selected);
+        const target = patchByPerson.get(String(row.personId || ''));
+        if (!target) return row;
+        return this.applyHrGovernancePermissions(decorateGovernanceRow(Object.assign({}, row, target.rowPatch, {
+          auth: Object.assign({}, row.auth || {}, target.patch)
+        }), row.selected));
       };
       this._hrProfileRawRows = (this._hrProfileRawRows || []).map(apply);
       this._hrProfileFilteredRows = (this._hrProfileFilteredRows || []).map(apply);
-      this.setData({ hrProfileRows: (this.data.hrProfileRows || []).map(apply) });
+      const actionState = this.buildHrMemberActionState(
+        this._hrProfileFilteredRows,
+        this.data.selectedHrMemberIds || []
+      );
+      const detail = this.data.detailHrGovernance;
+      const updates = Object.assign({}, actionState, {
+        hrProfileRows: (this.data.hrProfileRows || []).map(apply)
+      });
+      if (detail && patchByPerson.has(String(detail.personId || ''))) {
+        updates.detailHrGovernance = apply(detail);
+      }
+      this.setData(updates);
     },
 
     async issueHrMemberVerificationCode(e) {
@@ -313,7 +458,7 @@ module.exports = Behavior({
     },
 
     async issueSelectedHrVerificationCodes() {
-      const rows = this.getSelectedHrGovernanceRows();
+      const rows = this.getSelectedHrGovernanceRows().filter((item) => item.canIssueVerification);
       if (!rows.length || this.data.authActionLoadingKey) return;
       const claimRows = rows.filter((item) => item.auth && item.auth.pendingClaimId);
       const inviteRows = rows.filter((item) => item.personId && item.auth && !item.auth.pendingClaimId && !item.auth.hasBindingHistory);
@@ -321,6 +466,7 @@ module.exports = Behavior({
       this.setData({ authActionLoadingKey: 'member-verify-batch' });
       try {
         const issued = [];
+        const patches = [];
         if (claimRows.length) {
           const names = new Map(claimRows.map((item) => [item.auth.pendingClaimId, item]));
           const result = await runBatchedAuthAction({
@@ -332,7 +478,7 @@ module.exports = Behavior({
             const row = names.get(item.claimId);
             if (row) {
               issued.push({ key: item.claimId, personName: row.name, code: item.verificationCode });
-              this.patchHrGovernance(row.personId, { hasActiveClaimCode: true });
+              patches.push({ personId: row.personId, patch: { hasActiveClaimCode: true } });
             }
           });
         }
@@ -348,11 +494,12 @@ module.exports = Behavior({
             const row = rowsByPerson.get(String(item.personId));
             if (row) {
               issued.push({ key: item.inviteId || item.personId, personName: row.name, code: item.code });
-              this.patchHrGovernance(row.personId, { hasActiveInvite: true });
+              patches.push({ personId: row.personId, patch: { hasActiveInvite: true } });
             }
           });
         }
         if (!issued.length) throw new Error('未生成，请重试');
+        this.patchHrGovernanceBatch(patches);
         this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedHrMemberIds: [] });
         this.refreshHrMemberSelection();
       } catch (error) {
@@ -368,11 +515,16 @@ module.exports = Behavior({
       if (!row || !row.personId || this.data.authActionLoadingKey) return;
       this.setData({ authActionLoadingKey: 'member-verify-revoke-' + hrId });
       try {
-        const result = await callFunction({ name: 'admin/auth/claims', data: {
+        const isClaimCode = Boolean(row.auth && row.auth.pendingClaimId && row.auth.hasActiveClaimCode);
+        const result = await callFunction({ name: 'admin/auth/claims', data: isClaimCode ? {
+          action: 'revoke_codes', claimIds: [row.auth.pendingClaimId]
+        } : {
           action: 'revoke_invites', personIds: [row.personId], organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
         } });
         if (result.status !== 'success') throw new Error(result.message || '未撤销，请重试');
-        this.patchHrGovernance(row.personId, { hasActiveInvite: false });
+        this.patchHrGovernance(row.personId, isClaimCode
+          ? { hasActiveClaimCode: false }
+          : { hasActiveInvite: false });
         showShortToast('认证码已撤销', 'success');
       } catch (error) {
         showShortToast(getErrorText(error, '未撤销，请重试'));
@@ -382,25 +534,46 @@ module.exports = Behavior({
     },
 
     async revokeSelectedHrVerificationCodes() {
-      const rows = this.getSelectedHrGovernanceRows()
-        .filter((item) => item.personId && item.auth && item.auth.hasActiveInvite && !item.auth.hasPendingClaim);
+      const rows = this.getSelectedHrGovernanceRows().filter((item) => item.canRevokeVerification);
       if (!rows.length || this.data.authActionLoadingKey) return showShortToast('所选成员暂无可撤销的认证码');
       this.setData({ authActionLoadingKey: 'member-verify-revoke-batch' });
       try {
-        const result = await runBatchedAuthAction({
-          name: 'admin/auth/claims', action: 'revoke_invites', idField: 'personIds',
-          ids: rows.map((item) => item.personId), batchSize: 100,
-          failureMessage: '部分认证码未撤销',
-          extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
-        });
-        const byPerson = new Map(rows.map((item) => [String(item.personId), item]));
-        result.completedIds.forEach((personId) => {
-          const row = byPerson.get(String(personId));
-          if (row) this.patchHrGovernance(row.personId, { hasActiveInvite: false });
-        });
+        const claimRows = rows.filter((item) => item.auth && item.auth.pendingClaimId && item.auth.hasActiveClaimCode);
+        const inviteRows = rows.filter((item) => item.personId && item.auth && item.auth.hasActiveInvite);
+        const results = [];
+        const patches = [];
+        if (claimRows.length) {
+          const result = await runBatchedAuthAction({
+            name: 'admin/auth/claims', action: 'revoke_codes', idField: 'claimIds',
+            ids: claimRows.map((item) => item.auth.pendingClaimId), batchSize: 50,
+            failureMessage: '部分认证码未撤销'
+          });
+          results.push(result);
+          const byClaim = new Map(claimRows.map((item) => [String(item.auth.pendingClaimId), item]));
+          result.completedIds.forEach((claimId) => {
+            const row = byClaim.get(String(claimId));
+            if (row) patches.push({ personId: row.personId, patch: { hasActiveClaimCode: false } });
+          });
+        }
+        if (inviteRows.length) {
+          const result = await runBatchedAuthAction({
+            name: 'admin/auth/claims', action: 'revoke_invites', idField: 'personIds',
+            ids: inviteRows.map((item) => item.personId), batchSize: 100,
+            failureMessage: '部分认证码未撤销',
+            extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
+          });
+          results.push(result);
+          const byPerson = new Map(inviteRows.map((item) => [String(item.personId), item]));
+          result.completedIds.forEach((personId) => {
+            const row = byPerson.get(String(personId));
+            if (row) patches.push({ personId: row.personId, patch: { hasActiveInvite: false } });
+          });
+        }
+        this.patchHrGovernanceBatch(patches);
+        const failureCount = results.reduce((sum, result) => sum + result.failures.length, 0);
         this.setData({ selectedHrMemberIds: [] });
         this.refreshHrMemberSelection();
-        showShortToast(result.failures.length ? '部分认证码未撤销' : '认证码已撤销', result.failures.length ? 'none' : 'success');
+        showShortToast(failureCount ? '部分认证码未撤销' : '认证码已撤销', failureCount ? 'none' : 'success');
       } catch (error) {
         showShortToast(getErrorText(error, '未撤销，请重试'));
       } finally {
@@ -429,7 +602,9 @@ module.exports = Behavior({
     },
 
     async changeSelectedHrRecoveryCodes(revoke) {
-      const rows = this.getSelectedHrGovernanceRows().filter((item) => item.accountId && item.auth && item.auth.status !== 'frozen');
+      const rows = this.getSelectedHrGovernanceRows().filter((item) => (
+        revoke ? item.canRevokeRecovery : item.canIssueRecovery
+      ));
       if (!rows.length || this.data.authActionLoadingKey) return showShortToast('所选成员暂无可用账号');
       this.setData({ authActionLoadingKey: revoke ? 'member-recovery-revoke' : 'member-recovery-batch' });
       try {
@@ -440,21 +615,23 @@ module.exports = Behavior({
           extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
         });
         const byAccount = new Map(rows.map((item) => [String(item.accountId), item]));
+        const patches = [];
         if (revoke) {
           result.completedIds.forEach((id) => {
             const row = byAccount.get(String(id));
-            if (row) this.patchHrGovernance(row.personId, { hasRecoveryCode: false });
+            if (row) patches.push({ personId: row.personId, patch: { hasRecoveryCode: false } });
           });
           showShortToast(result.failures.length ? '部分恢复码未撤销' : '恢复码已撤销', result.failures.length ? 'none' : 'success');
         } else {
           const issued = flattenIssued(result).map((item) => {
             const row = byAccount.get(String(item.accountId));
-            if (row) this.patchHrGovernance(row.personId, { hasRecoveryCode: true });
+            if (row) patches.push({ personId: row.personId, patch: { hasRecoveryCode: true } });
             return { key: item.accountId, personName: item.name || row && row.name || '成员', code: item.code };
           });
           if (!issued.length) throw new Error('未生成，请重试');
           this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true });
         }
+        this.patchHrGovernanceBatch(patches);
         this.setData({ selectedHrMemberIds: [] });
         this.refreshHrMemberSelection();
       } catch (error) {
@@ -476,8 +653,21 @@ module.exports = Behavior({
       const hrId = String(e.currentTarget.dataset.hrId || '');
       const row = (this._hrProfileRawRows || []).find((item) => String(item.id || '') === hrId);
       if (!row || !row.accountId || this.data.authActionLoadingKey) return;
-      this.setData({ selectedHrMemberIds: [hrId] });
-      await this.changeSelectedHrRecoveryCodes(true);
+      this.setData({ authActionLoadingKey: 'member-recovery-revoke-' + hrId });
+      try {
+        const result = await callFunction({ name: 'admin/auth/recoveries', data: {
+          action: 'revoke_codes',
+          accountIds: [row.accountId],
+          organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
+        } });
+        if (result.status !== 'success') throw new Error(result.message || '未撤销，请重试');
+        this.patchHrGovernance(row.personId, { hasRecoveryCode: false });
+        showShortToast('恢复码已撤销', 'success');
+      } catch (error) {
+        showShortToast(getErrorText(error, '未撤销，请重试'));
+      } finally {
+        this.setData({ authActionLoadingKey: '' });
+      }
     },
 
     switchAuthPersonnelTab(e) {
@@ -624,9 +814,24 @@ module.exports = Behavior({
     },
 
     async loadAuthPolicy() {
-      const result = await callFunction({ name: 'admin/auth/policy', data: { action: 'get' } });
-      if (result.status !== 'success') throw new Error(result.message || '请稍后重试');
-      this.setData({ authPolicy: mapPolicy(result.policy) });
+      if (this.data.authPolicyLoading) return;
+      this.setData({ authPolicyLoading: true, authPolicyLoadFailed: false });
+      try {
+        const result = await callFunction({ name: 'admin/auth/policy', data: { action: 'get' } });
+        if (result.status !== 'success') throw new Error(result.message || '请稍后重试');
+        this.setData({ authPolicy: mapPolicy(result.policy), authPolicyLoadFailed: false });
+      } catch (error) {
+        this.setData({ authPolicyLoadFailed: true });
+        throw error;
+      } finally {
+        this.setData({ authPolicyLoading: false });
+      }
+    },
+
+    retryAuthPolicy() {
+      this.loadAuthPolicy().catch(() => {
+        showShortToast('认证设置暂时无法加载');
+      });
     },
 
     toggleAuthClaimSelection(e) {
@@ -803,6 +1008,73 @@ module.exports = Behavior({
       this.setData({ showAuthRecoveryDialog: false, pendingAuthRecovery: null });
     },
 
+    requestAuthAccountFreeze(e) {
+      const personId = String(e.currentTarget.dataset.id || '');
+      const frozen = e.currentTarget.dataset.frozen === true
+        || e.currentTarget.dataset.frozen === 'true';
+      if (!personId || this.data.authActionLoadingKey) return;
+      if (frozen) {
+        this.toggleAuthAccountFrozen(e);
+        return;
+      }
+      const row = this.getHrGovernanceRow(e.currentTarget.dataset.hrId);
+      this.setData({
+        authMemberConfirmVisible: true,
+        authMemberConfirmAction: 'freeze',
+        authMemberConfirmTitle: '冻结账号',
+        authMemberConfirmMessage: '冻结后，该成员将无法继续使用工作台。',
+        authMemberConfirmPersonId: personId,
+        authMemberConfirmHrId: String(e.currentTarget.dataset.hrId || ''),
+        authMemberConfirmName: String(row && row.name || '该成员'),
+        authMemberConfirmFrozen: false
+      });
+    },
+
+    requestHrWechatUnbind(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || this.data.detailHrId || '');
+      const row = this.getHrGovernanceRow(hrId);
+      if (!row || !row.canUnbindWechat || this.data.authActionLoadingKey) return;
+      this.setData({
+        authMemberConfirmVisible: true,
+        authMemberConfirmAction: 'unbind',
+        authMemberConfirmTitle: '解绑微信',
+        authMemberConfirmMessage: '解绑后，原微信和已登录设备将退出，该成员需重新恢复账号。',
+        authMemberConfirmPersonId: String(row.personId || ''),
+        authMemberConfirmHrId: hrId,
+        authMemberConfirmName: String(row.name || '该成员'),
+        authMemberConfirmFrozen: false
+      });
+    },
+
+    closeAuthMemberConfirm() {
+      if (this.data.authActionLoadingKey) return;
+      this.setData({
+        authMemberConfirmVisible: false,
+        authMemberConfirmAction: '',
+        authMemberConfirmTitle: '',
+        authMemberConfirmMessage: '',
+        authMemberConfirmPersonId: '',
+        authMemberConfirmHrId: '',
+        authMemberConfirmName: '',
+        authMemberConfirmFrozen: false
+      });
+    },
+
+    confirmAuthMemberAction() {
+      const action = this.data.authMemberConfirmAction;
+      const personId = this.data.authMemberConfirmPersonId;
+      const hrId = this.data.authMemberConfirmHrId;
+      if (!action || this.data.authActionLoadingKey) return;
+      this.setData({ authMemberConfirmVisible: false });
+      if (action === 'freeze') {
+        this.toggleAuthAccountFrozen({
+          currentTarget: { dataset: { id: personId, hrId, frozen: false } }
+        });
+      } else if (action === 'unbind') {
+        this.unbindHrWechat({ currentTarget: { dataset: { hrId } } });
+      }
+    },
+
     async approveAuthRecovery() {
       const pending = this.data.pendingAuthRecovery;
       if (!pending || this.data.authActionLoadingKey) return;
@@ -814,7 +1086,12 @@ module.exports = Behavior({
         if (result.status !== 'success') throw new Error(result.message || '未完成，请重试');
         this._authRecoveryRequestsRaw = (this._authRecoveryRequestsRaw || [])
           .filter((item) => item.id !== pending.id);
-        this.patchHrGovernance(pending.personId, { pendingRecoveryId: '', status: 'verified' });
+        this.patchHrGovernance(pending.personId, {
+          pendingRecoveryId: '',
+          status: 'verified',
+          hasActiveBinding: true,
+          activeSessionCount: 0
+        }, { wxBindStatus: 'bound' });
         this.setData({ showAuthRecoveryDialog: false, pendingAuthRecovery: null });
         this.applyAuthPersonnelFilter(this.data.authSearch);
         showShortToast('已完成恢复', 'success');
@@ -851,7 +1128,9 @@ module.exports = Behavior({
             .filter((accountId) => accountId !== (currentRow && currentRow.accountId));
         }
         if (Object.keys(updates).length) this.setData(updates);
-        this.patchHrGovernance(personId, { status: nextStatus });
+        this.patchHrGovernance(personId, nextStatus === 'frozen'
+          ? { status: nextStatus, activeSessionCount: 0 }
+          : { status: nextStatus });
         showShortToast(frozen ? '已解除冻结' : '账号已冻结', 'success');
       } catch (error) {
         showShortToast(getErrorText(error, '未更新，请重试'));

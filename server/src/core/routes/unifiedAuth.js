@@ -450,6 +450,17 @@ router.post('/admin/auth/claims', async (req, res) => {
         message: '请将认证码分别发给本人'
       });
     }
+    if (action === 'revoke_codes') {
+      const claimIds = Array.isArray(req.body && req.body.claimIds)
+        ? req.body.claimIds.map(safeString).filter(Boolean).slice(0, 50)
+        : [];
+      const revokedClaimIds = await identityModel.revokeVerificationCodes(
+        claimIds,
+        actor,
+        metadata(req)
+      );
+      return res.json({ status: 'success', revokedClaimIds });
+    }
     throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);
   } catch (error) {
     return sendError(req, res, error);

@@ -488,7 +488,7 @@ Authenticated WHUSU Smart Workspace pages use one shared workspace shell:
 
 ## Personnel Governance And Device Cards
 
-- Treat authentication governance as part of each personnel record. Put verification, account and recovery status/actions on the existing HR member card and use the existing filtered member selection for batch actions. Only “认证设置” may remain a separate HR tab. Never create a second authentication people directory or expose internal operation logs.
+- Treat authentication governance as part of the HR member directory. Keep the outer member card concise with one merged account-state label; place individual verification, recovery, freeze and global-unbind actions in the member detail dialog. Keep batch selection and credential actions visibly aligned with the existing filters, without a separate framed module, and use native disabled states when no visible member is applicable. Only “认证设置” may remain as a subordinate HR tab. Never create a second authentication people directory or expose internal operation logs.
 - People rows show authentication status, account status, recovery status, and active device count without changing card density. Freeze, unfreeze, credential issue, and revoke actions update only the target row and preserve search, selection, and scroll state.
 - Device cards must give the device name, platform/model, organization and identity metadata a readable wrapping column; actions live in a separate fixed action area and must not compress the copy.
 - A device is recognized only from a client-persisted installation identifier hashed by the server. If persistence is unavailable, show an unrecognized-device state; never infer device sameness from OpenID, name, student ID, IP, or hardware fingerprint.

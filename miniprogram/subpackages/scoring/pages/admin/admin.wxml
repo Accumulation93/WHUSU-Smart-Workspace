@@ -1,5 +1,5 @@
 <wxs module="gradeBandWxs" src="./gradeBand.wxs"></wxs>
-<page-meta page-style="{{dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || showHrPersonDetail || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog ? 'overflow: hidden;' : ''}}"></page-meta>
+<page-meta page-style="{{dragActive || showTemplateCsvDialog || hrProfileExportVisible || hrTemplateSwitchVisible || showHrPersonDetail || showCsvMappingDialog || showHrImportPreview || showValidationErrors || auditTemplateStepEditorVisible || auditStarterConditionEditorVisible || auditSubmissionDetailVisible || auditMultiPickerVisible || auditPersonnelPickerVisible || auditIdentityPickerVisible || showDesignationPicker || orgFormVisible || scorerTargetPopupVisible || recordDetailPopupVisible || contextSwitchGuardVisible || identityActionConfirmVisible || adminDeleteConfirmVisible || showAuthCodeDialog || showAuthRecoveryDialog || authMemberConfirmVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{subAppLabel || '考核评分'}}" tone="admin"></workspace-hero>
 
@@ -1093,23 +1093,19 @@
           <view class="field-label">搜索</view>
           <input class="field-input search-input" bindinput="onHrProfileKeywordInput" value="{{_hrInfoKeywordInput}}" placeholder="输入姓名或学号搜索..." />
         </view>
-        <view class="button-row compact-row">
-          <button class="secondary-btn ui-motion-button" bindtap="resetHrProfileFilters" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置筛选</button>
-        </view>
-        <view class="hr-governance-toolbar" wx:if="{{canVerifyIdentity || canRecoverAccounts}}">
-          <view class="hr-governance-toolbar-copy">
-            <view class="list-title">批量认证与恢复</view>
-            <view class="field-hint" wx:if="{{!hrGovernanceUnavailable}}">勾选当前筛选结果中的成员后统一处理</view>
-            <view class="field-hint hr-governance-warning" wx:else>账号状态暂时未加载，成员资料仍可正常查看</view>
+        <view class="hr-member-tools">
+          <view class="hr-member-tools-summary" wx:if="{{canVerifyIdentity || canRecoverAccounts}}">已选 {{hrMemberSelectionCount}} 人</view>
+          <view class="hr-member-tools-actions">
+            <button class="secondary-btn compact-action ui-motion-button" bindtap="resetHrProfileFilters" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置筛选</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanSelectAll}}" bindtap="selectAllFilteredHrMembers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">全选当前结果</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanInvertSelection}}" bindtap="invertFilteredHrMembers" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">反选当前结果</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" disabled="{{authActionLoadingKey || !hrCanClearSelection}}" bindtap="clearHrMemberSelection" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">清空选择</button>
+            <button class="primary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanIssueVerification}}" loading="{{authActionLoadingKey === 'member-verify-batch'}}" bindtap="issueSelectedHrVerificationCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成认证码</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanRevokeVerification}}" loading="{{authActionLoadingKey === 'member-verify-revoke-batch'}}" bindtap="revokeSelectedHrVerificationCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销认证码</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanIssueRecovery}}" loading="{{authActionLoadingKey === 'member-recovery-batch'}}" bindtap="issueSelectedHrRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成恢复码</button>
+            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canRecoverAccounts}}" disabled="{{hrGovernanceUnavailable || authActionLoadingKey || !hrCanRevokeRecovery}}" loading="{{authActionLoadingKey === 'member-recovery-revoke'}}" bindtap="revokeSelectedHrRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销恢复码</button>
           </view>
-          <view class="hr-governance-toolbar-actions">
-            <text class="link ui-motion-chip" bindtap="selectAllFilteredHrMembers" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全选当前结果</text>
-            <text class="link ui-motion-chip" wx:if="{{selectedHrMemberIds.length}}" bindtap="clearHrMemberSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</text>
-            <button class="primary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && selectedHrMemberIds.length}}" loading="{{authActionLoadingKey === 'member-verify-batch'}}" bindtap="issueSelectedHrVerificationCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成认证码</button>
-            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && selectedHrMemberIds.length}}" loading="{{authActionLoadingKey === 'member-verify-revoke-batch'}}" bindtap="revokeSelectedHrVerificationCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销认证码</button>
-            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canRecoverAccounts && selectedHrMemberIds.length}}" loading="{{authActionLoadingKey === 'member-recovery-batch'}}" bindtap="issueSelectedHrRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成恢复码</button>
-            <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canRecoverAccounts && selectedHrMemberIds.length}}" loading="{{authActionLoadingKey === 'member-recovery-revoke'}}" bindtap="revokeSelectedHrRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销恢复码</button>
-          </view>
+          <view class="field-hint hr-governance-warning" wx:if="{{hrGovernanceUnavailable}}">账号信息暂时未加载，成员资料仍可正常查看</view>
         </view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y lower-threshold="80" bindscrolltolower="loadMoreScoreResults">
           <view class="card-loading-overlay" wx:if="{{loadingMap.hr}}">
@@ -1117,7 +1113,7 @@
           </view>
           <block wx:else>
           <view class="hr-member-card ui-motion-card" wx:for="{{hrProfileRows}}" wx:key="id" data-hr-id="{{item.id}}" bindtap="openHrPersonDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-            <view class="hr-member-select {{item.selected ? 'is-selected' : ''}} ui-motion-chip" wx:if="{{(canVerifyIdentity || canRecoverAccounts) && item.canSelectForAuth}}" data-hr-id="{{item.id}}" catchtap="toggleHrMemberSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><text>{{item.selected ? '✓' : ''}}</text></view>
+            <view class="hr-member-select {{item.selected ? 'is-selected' : ''}} {{item.canSelectForAuth ? '' : 'is-disabled'}} ui-motion-chip" wx:if="{{canVerifyIdentity || canRecoverAccounts}}" data-hr-id="{{item.id}}" catchtap="toggleHrMemberSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><text>{{item.selected ? '✓' : ''}}</text></view>
             <view class="hr-member-main">
               <view class="hr-member-top">
                 <view class="hr-member-person">
@@ -1125,37 +1121,56 @@
                   <view class="hr-member-id">{{item.studentId}}</view>
                 </view>
                 <view class="hr-member-chips">
-                  <view class="status-chip current-chip" wx:if="{{item.wxBindStatus === 'bound'}}">已绑定</view>
-                  <view class="status-chip activation-chip" wx:elif="{{item.wxBindStatus === 'pending_activation'}}">待激活</view>
-                  <view class="status-chip unbound-chip" wx:else>未绑定</view>
+                  <view class="status-chip {{item.accountStateClass}}">{{item.accountStateText}}</view>
                   <view class="status-chip {{item.auditStatus === 'pending' ? 'pending-chip' : item.auditStatus === 'approved' ? 'current-chip' : item.auditStatus === 'rejected' ? 'rejected-chip' : 'none-chip'}}" wx:if="{{item.auditStatusText}}">{{item.auditStatusText}}</view>
                 </view>
               </view>
               <view class="hr-member-brief" wx:if="{{item.assignmentCount > 0}}">{{item.assignmentCount}} 个岗位</view>
-              <view class="hr-member-auth-summary" wx:if="{{item.auth}}">
-                <view class="hr-member-auth-item"><text class="hr-member-auth-label">账号</text><text>{{item.authStatusText}}</text></view>
-                <view class="hr-member-auth-item" wx:if="{{canVerifyIdentity}}"><text class="hr-member-auth-label">认证</text><text>{{item.verificationText}}</text></view>
-                <view class="hr-member-auth-item" wx:if="{{canRecoverAccounts}}"><text class="hr-member-auth-label">恢复</text><text>{{item.recoveryText}}</text></view>
-                <view class="hr-member-auth-item" wx:if="{{canRecoverAccounts && item.accountId}}"><text class="hr-member-auth-label">设备</text><text>{{item.auth.activeSessionCount}} 台</text></view>
-              </view>
             </view>
             <view class="hr-member-actions" catchtap="noop">
               <text class="link ui-motion-chip" wx:if="{{canBrowseHrInfo}}" data-hr-id="{{item.id}}" catchtap="openHrPersonDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">查看/编辑</text>
               <text class="link danger ui-motion-chip" wx:if="{{canManageHrPeople}}" data-id="{{item.id}}" catchtap="deleteHr" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
-              <text class="link danger ui-motion-chip" wx:if="{{canManageHrPeople && item.wxBindStatus === 'bound'}}" data-hr-id="{{item.id}}" data-name="{{item.name}}" catchtap="unbindHrWechat" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">解绑微信</text>
               <text wx:if="{{canReviewHrProfile && item.hasPending}}" class="link ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="approveHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
               <text wx:if="{{canReviewHrProfile && item.hasPending}}" class="link danger ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="rejectHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
-              <text class="link ui-motion-chip" wx:if="{{canVerifyIdentity && item.auth && (item.auth.hasPendingClaim || !item.auth.hasBindingHistory)}}" data-hr-id="{{item.id}}" catchtap="issueHrMemberVerificationCode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{item.auth.hasActiveClaimCode || item.auth.hasActiveInvite ? '生成新认证码' : '生成认证码'}}</text>
-              <text class="link danger ui-motion-chip" wx:if="{{canVerifyIdentity && item.auth && item.auth.hasActiveInvite && !item.auth.hasPendingClaim}}" data-hr-id="{{item.id}}" catchtap="revokeHrMemberVerificationCode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">撤销认证码</text>
-              <text class="link ui-motion-chip" wx:if="{{canRecoverAccounts && item.accountId && item.auth.status !== 'frozen'}}" data-hr-id="{{item.id}}" catchtap="issueHrMemberRecoveryCode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{item.auth.hasRecoveryCode ? '生成新恢复码' : '生成恢复码'}}</text>
-              <text class="link danger ui-motion-chip" wx:if="{{canRecoverAccounts && item.accountId && item.auth.hasRecoveryCode && item.auth.status !== 'frozen'}}" data-hr-id="{{item.id}}" catchtap="revokeHrMemberRecoveryCode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">撤销恢复码</text>
-              <text class="link ui-motion-chip" wx:if="{{canRecoverAccounts && item.auth && item.auth.pendingRecoveryId}}" data-id="{{item.auth.pendingRecoveryId}}" catchtap="openAuthRecoveryDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">处理账号恢复</text>
-              <text class="link {{item.auth.status === 'frozen' ? '' : 'danger'}} ui-motion-chip" wx:if="{{canRecoverAccounts && item.personId && item.accountId}}" data-id="{{item.personId}}" data-frozen="{{item.auth.status === 'frozen'}}" catchtap="toggleAuthAccountFrozen" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{item.auth.status === 'frozen' ? '解除冻结' : '冻结账号'}}</text>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!loadingMap.hr && !hrProfileRows.length}}">暂无成员资料</view>
           </block>
         </scroll-view><view class="scroll-hint"><view class="scroll-hint-dot"></view></view>
+      </view>
+      <view class="list-card auth-policy-panel" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'policy'}}">
+        <view class="list-card-header auth-policy-panel-head">
+          <view>
+            <view class="list-title">认证设置</view>
+            <view class="field-hint">设置首次认证和账号恢复方式。</view>
+          </view>
+        </view>
+        <view class="auth-personnel-loading" wx:if="{{authPolicyLoading}}">
+          <view class="card-loading-spinner"></view>
+          <text>正在加载认证设置…</text>
+        </view>
+        <view class="auth-policy-load-error" wx:elif="{{authPolicyLoadFailed || !authPolicy}}">
+          <view class="empty-inline">认证设置暂时无法加载</view>
+          <button class="secondary-btn compact-action ui-motion-button" bindtap="retryAuthPolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">重新加载</button>
+        </view>
+        <view class="auth-policy-workspace" wx:else>
+          <view class="auth-policy-card">
+            <view class="auth-policy-head"><view><view class="list-title">首次认证</view><view class="auth-group-note">允许未绑定成员使用个人认证码</view></view><switch color="#3b82f6" checked="{{authPolicy.initialClaimEnabled}}" data-field="initialClaimEnabled" bindchange="onAuthPolicySwitch" /></view>
+            <view class="auth-policy-time-grid">
+              <view class="field"><view class="field-label">开放日期</view><picker mode="date" value="{{authPolicy.claimStartsDate}}" data-field="claimStartsDate" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimStartsDate || '立即开放'}}</view></picker></view>
+              <view class="field"><view class="field-label">开放时间</view><picker mode="time" value="{{authPolicy.claimStartsTime}}" data-field="claimStartsTime" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimStartsTime || '00:00'}}</view></picker></view>
+              <view class="field"><view class="field-label">截止日期</view><picker mode="date" value="{{authPolicy.claimEndsDate}}" data-field="claimEndsDate" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimEndsDate || '不设截止'}}</view></picker></view>
+              <view class="field"><view class="field-label">截止时间</view><picker mode="time" value="{{authPolicy.claimEndsTime}}" data-field="claimEndsTime" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimEndsTime || '23:59'}}</view></picker></view>
+            </view>
+            <view class="auth-policy-clear-row"><text class="link ui-motion-chip" data-prefix="claimStarts" bindtap="clearAuthPolicyDate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除开放时间</text><text class="link ui-motion-chip" data-prefix="claimEnds" bindtap="clearAuthPolicyDate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除截止时间</text></view>
+          </view>
+          <view class="auth-policy-card">
+            <view class="auth-policy-head"><view><view class="list-title">恢复码</view><view class="auth-group-note">使用一次后自动失效</view></view><switch color="#3b82f6" checked="{{authPolicy.allowRecoveryCode}}" data-field="allowRecoveryCode" bindchange="onAuthPolicySwitch" /></view>
+            <view class="auth-policy-head"><view><view class="list-title">登录口令</view><view class="auth-group-note">允许成员设置口令并用于登录</view></view><switch color="#3b82f6" checked="{{authPolicy.allowPassphrase}}" data-field="allowPassphrase" bindchange="onAuthPolicySwitch" /></view>
+            <view class="field" wx:if="{{authPolicy.allowPassphrase}}"><view class="field-label">口令最短长度</view><input class="field-input" type="number" value="{{authPolicy.passphraseMinLength}}" data-field="passphraseMinLength" bindinput="onAuthPolicyValue" /></view>
+          </view>
+          <button class="primary-btn auth-policy-save ui-motion-button" loading="{{authActionLoadingKey === 'policy-save'}}" bindtap="saveAuthPolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存设置</button>
+        </view>
       </view>
     </view>
 
@@ -1276,6 +1291,53 @@
             <view class="field">
               <view class="field-label">学号</view>
               <input class="field-input" disabled="{{!canManageHrPeople}}" data-field="_studentId" bindinput="onDetailBasicFieldInput" value="{{detailHrValues._studentId}}" placeholder="学号" />
+            </view>
+            <view class="hr-detail-summary" wx:if="{{detailHrGovernance}}">
+              <view class="status-chip {{detailHrGovernance.accountStateClass}}">{{detailHrGovernance.accountStateText}}</view>
+              <view class="status-chip {{detailHrAuditStatus === 'pending' ? 'pending-chip' : detailHrAuditStatus === 'approved' ? 'current-chip' : detailHrAuditStatus === 'rejected' ? 'rejected-chip' : 'none-chip'}}" wx:if="{{detailHrAuditStatusText}}">{{detailHrAuditStatusText}}</view>
+              <view class="hr-detail-assignment-count" wx:if="{{detailHrGovernance.assignmentCount > 0}}">{{detailHrGovernance.assignmentCount}} 个岗位</view>
+            </view>
+          </view>
+          <view class="detail-section hr-account-detail-section" wx:if="{{detailHrGovernance && detailHrGovernance.governanceAvailable && (canVerifyIdentity || canRecoverAccounts || canManageHrPeople)}}">
+            <view class="detail-section-title">账号与认证</view>
+            <view class="hr-account-facts">
+              <view class="hr-account-fact">
+                <text class="hr-account-fact-label">当前状态</text>
+                <text class="hr-account-fact-value">{{detailHrGovernance.accountStateText}}</text>
+              </view>
+              <view class="hr-account-fact">
+                <text class="hr-account-fact-label">微信绑定</text>
+                <text class="hr-account-fact-value">{{detailHrGovernance.wechatBindingText}}</text>
+              </view>
+              <view class="hr-account-fact" wx:if="{{canVerifyIdentity && detailHrGovernance.showVerificationStatus}}">
+                <text class="hr-account-fact-label">认证码</text>
+                <text class="hr-account-fact-value">{{detailHrGovernance.verificationText}}</text>
+              </view>
+              <view class="hr-account-fact" wx:if="{{canRecoverAccounts && detailHrGovernance.accountId}}">
+                <text class="hr-account-fact-label">恢复方式</text>
+                <text class="hr-account-fact-value">{{detailHrGovernance.recoveryMethodText}}</text>
+              </view>
+              <view class="hr-account-fact" wx:if="{{canRecoverAccounts && detailHrGovernance.accountId}}">
+                <text class="hr-account-fact-label">恢复码</text>
+                <text class="hr-account-fact-value">{{detailHrGovernance.recoveryText}}</text>
+              </view>
+              <view class="hr-account-fact" wx:if="{{canRecoverAccounts && detailHrGovernance.accountId}}">
+                <text class="hr-account-fact-label">已登录设备</text>
+                <text class="hr-account-fact-value">{{detailHrGovernance.auth.activeSessionCount}} 台</text>
+              </view>
+              <view class="hr-account-fact hr-account-fact-wide" wx:if="{{canRecoverAccounts && detailHrGovernance.auth.pendingRecoveryId}}">
+                <text class="hr-account-fact-label">账号恢复</text>
+                <text class="hr-account-fact-value">待处理</text>
+              </view>
+            </view>
+            <view class="hr-account-actions">
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canIssueVerification}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-verify-' + detailHrGovernance.id}}" catchtap="issueHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.hasActiveClaimCode || detailHrGovernance.auth.hasActiveInvite ? '生成新认证码' : '生成认证码'}}</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canRevokeVerification}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-verify-revoke-' + detailHrGovernance.id}}" catchtap="revokeHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销认证码</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canRecoverAccounts && detailHrGovernance.canIssueRecovery}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-recovery-' + detailHrGovernance.id}}" catchtap="issueHrMemberRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.hasRecoveryCode ? '生成新恢复码' : '生成恢复码'}}</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canRecoverAccounts && detailHrGovernance.canRevokeRecovery}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-recovery-revoke-' + detailHrGovernance.id}}" catchtap="revokeHrMemberRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销恢复码</button>
+              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canRecoverAccounts && detailHrGovernance.auth.pendingRecoveryId}}" data-id="{{detailHrGovernance.auth.pendingRecoveryId}}" catchtap="openAuthRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">处理账号恢复</button>
+              <button class="{{detailHrGovernance.auth.status === 'frozen' ? 'secondary-btn' : 'danger-btn'}} compact-action ui-motion-button" wx:if="{{canRecoverAccounts && detailHrGovernance.personId && detailHrGovernance.accountId}}" data-id="{{detailHrGovernance.personId}}" data-hr-id="{{detailHrGovernance.id}}" data-frozen="{{detailHrGovernance.auth.status === 'frozen'}}" loading="{{authActionLoadingKey === 'freeze-' + detailHrGovernance.personId}}" catchtap="requestAuthAccountFreeze" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.status === 'frozen' ? '解除冻结' : '冻结账号'}}</button>
+              <button class="danger-btn compact-action ui-motion-button" wx:if="{{canManageHrPeople && detailHrGovernance.canUnbindWechat}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'unbind-' + detailHrGovernance.id}}" catchtap="requestHrWechatUnbind" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">解绑微信</button>
             </view>
           </view>
           <view class="identity-overview-section ui-dialog-stack" id="hr-assignment-section" wx:if="{{canBrowseHrInfo}}">
@@ -1711,180 +1773,6 @@
       </view>
     </view>
 
-    <view class="section auth-personnel-section auth-policy-section" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'policy'}}">
-      <view class="section-title">认证设置</view>
-      <view class="auth-personnel-intro">
-        <view class="auth-personnel-intro-main">认证与恢复方式</view>
-        <view class="auth-personnel-intro-sub">设置成员首次认证、恢复码和登录口令的使用方式。</view>
-      </view>
-
-      <view class="auth-personnel-nav tabs-card" wx:if="{{false}}">
-        <view class="feature-tab {{activeAuthPersonnelTab === item.key ? 'feature-tab-active' : ''}} ui-motion-chip"
-          wx:for="{{authPersonnelTabs}}" wx:key="key" data-key="{{item.key}}" bindtap="switchAuthPersonnelTab"
-          hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</view>
-      </view>
-
-      <view class="auth-personnel-tools" wx:if="{{false}}">
-        <view class="auth-search-wrap">
-          <ui-icon name="search" tone="muted" size="28" ariaLabel="搜索" />
-          <input class="field-input auth-personnel-search" value="{{authSearch}}" bindinput="onAuthSearchInput" placeholder="搜索姓名、学号或组织" />
-          <text class="auth-search-clear ui-motion-chip" wx:if="{{authSearch}}" bindtap="clearAuthSearch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</text>
-        </view>
-        <picker wx:if="{{authScopeOptions.length > 1}}" range="{{authScopeOptions}}" range-key="name" bindchange="onAuthScopeChange">
-          <view class="picker-value auth-scope-picker">
-            <text class="auth-scope-label">人员范围</text>
-            <text class="auth-scope-name">{{authScopeOrganizationName || '全部组织'}}</text>
-            <text>›</text>
-          </view>
-        </picker>
-      </view>
-
-      <view class="auth-personnel-loading" wx:if="{{authPersonnelLoading}}">
-        <view class="card-loading-spinner"></view>
-        <text>正在加载完整人员列表…</text>
-      </view>
-
-      <block wx:elif="{{activeAuthPersonnelTab === 'onboarding'}}">
-        <view class="auth-summary-grid">
-          <view class="auth-summary-card">
-            <view class="auth-summary-value">{{authPendingClaimTotal}}</view>
-            <view class="auth-summary-label">待处理申请</view>
-          </view>
-          <view class="auth-summary-card">
-            <view class="auth-summary-value">{{authEligiblePeopleTotal}}</view>
-            <view class="auth-summary-label">未认证人员</view>
-          </view>
-        </view>
-
-        <view class="auth-personnel-group">
-          <view class="auth-group-head">
-            <view>
-              <view class="list-title">待处理申请</view>
-              <view class="auth-group-note">已主动提交认证信息的人员</view>
-            </view>
-            <view class="auth-selection-actions" wx:if="{{authPendingClaims.length}}">
-              <text class="link ui-motion-chip" bindtap="selectAllVisibleAuthClaims" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全选当前结果</text>
-              <text class="link ui-motion-chip" wx:if="{{selectedAuthClaimIds.length}}" bindtap="clearAuthSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</text>
-              <button class="primary-btn compact-action ui-motion-button" wx:if="{{selectedAuthClaimIds.length}}" loading="{{authActionLoadingKey === 'claim-batch'}}" bindtap="issueSelectedAuthClaimCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成 {{selectedAuthClaimIds.length}} 个认证码</button>
-            </view>
-          </view>
-          <view class="auth-directory-list">
-            <view class="auth-person-row" wx:for="{{authPendingClaims}}" wx:key="id">
-              <view class="auth-select-box {{item.selected ? 'is-selected' : ''}} ui-motion-chip" data-id="{{item.id}}" bindtap="toggleAuthClaimSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><text>{{item.selected ? '✓' : ''}}</text></view>
-              <view class="auth-person-copy">
-                <view class="auth-person-name">{{item.name}}</view>
-                <view class="auth-person-meta">{{item.studentId}} · {{item.requestedOrganizationName}}</view>
-                <view class="auth-person-meta">提交于 {{item.createdText}}</view>
-              </view>
-              <view class="auth-row-state {{item.hasActiveCode ? 'is-ready' : ''}}">{{item.hasActiveCode ? '认证码有效' : '待生成'}}</view>
-              <button class="secondary-btn compact-action ui-motion-button" data-id="{{item.id}}" data-name="{{item.name}}" loading="{{authActionLoadingKey === 'claim-' + item.id}}" bindtap="issueAuthClaimCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.hasActiveCode ? '生成新码' : '生成认证码'}}</button>
-            </view>
-            <view class="empty-inline" wx:if="{{!authPendingClaims.length}}">暂无待处理申请</view>
-          </view>
-        </view>
-
-        <view class="auth-personnel-group">
-          <view class="auth-group-head">
-            <view>
-              <view class="list-title">未认证人员</view>
-              <view class="auth-group-note">可直接生成首次使用的个人认证码</view>
-            </view>
-            <view class="auth-selection-actions" wx:if="{{authEligiblePeople.length}}">
-              <text class="link ui-motion-chip" bindtap="selectAllVisibleAuthEligible" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全选当前结果</text>
-              <text class="link ui-motion-chip" wx:if="{{selectedAuthEligiblePersonIds.length}}" bindtap="clearAuthSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</text>
-              <button class="primary-btn compact-action ui-motion-button" wx:if="{{selectedAuthEligiblePersonIds.length}}" loading="{{authActionLoadingKey === 'invite-batch'}}" bindtap="issueSelectedInitialCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成 {{selectedAuthEligiblePersonIds.length}} 个认证码</button>
-              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{selectedAuthEligiblePersonIds.length}}" loading="{{authActionLoadingKey === 'invite-revoke'}}" bindtap="revokeSelectedInitialCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销旧码</button>
-            </view>
-          </view>
-          <view class="auth-directory-list">
-            <view class="auth-person-row" wx:for="{{authEligiblePeople}}" wx:key="personId">
-              <view class="auth-select-box {{item.selected ? 'is-selected' : ''}} ui-motion-chip" data-id="{{item.personId}}" bindtap="toggleAuthEligibleSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><text>{{item.selected ? '✓' : ''}}</text></view>
-              <view class="auth-person-copy">
-                <view class="auth-person-name">{{item.name}}</view>
-                <view class="auth-person-meta">{{item.studentId}} · {{item.organizationName}}</view>
-                <view class="auth-person-meta" wx:if="{{item.departmentName || item.identityName || item.workGroupName}}">{{item.departmentName}} {{item.identityName}} {{item.workGroupName}}</view>
-              </view>
-              <view class="auth-row-state {{item.hasActiveInvite ? 'is-ready' : ''}}">{{item.hasActiveInvite ? '认证码有效' : '未生成'}}</view>
-            </view>
-            <view class="empty-inline" wx:if="{{!authEligiblePeople.length}}">没有符合条件的未认证人员</view>
-          </view>
-        </view>
-      </block>
-
-      <block wx:elif="{{activeAuthPersonnelTab === 'accounts'}}">
-        <view class="auth-summary-grid">
-          <view class="auth-summary-card">
-            <view class="auth-summary-value">{{authRecoveryRequestTotal}}</view>
-            <view class="auth-summary-label">待处理恢复</view>
-          </view>
-          <view class="auth-summary-card">
-            <view class="auth-summary-value">{{authAccountTotal}}</view>
-            <view class="auth-summary-label">账号总数</view>
-          </view>
-        </view>
-
-        <view class="auth-personnel-group" wx:if="{{authRecoveryRequests.length}}">
-          <view class="auth-group-head">
-            <view><view class="list-title">待处理恢复</view><view class="auth-group-note">核实本人后再完成微信更换</view></view>
-          </view>
-          <view class="auth-directory-list">
-            <view class="auth-person-row" wx:for="{{authRecoveryRequests}}" wx:key="id">
-              <view class="auth-person-copy">
-                <view class="auth-person-name">{{item.name}}</view>
-                <view class="auth-person-meta">{{item.studentId}} · {{item.requestedOrganizationName}}</view>
-                <view class="auth-person-meta">提交于 {{item.createdText}}</view>
-              </view>
-              <button class="primary-btn compact-action ui-motion-button" data-id="{{item.id}}" bindtap="openAuthRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">处理恢复</button>
-            </view>
-          </view>
-        </view>
-
-        <view class="auth-personnel-group">
-          <view class="auth-group-head">
-            <view><view class="list-title">人员账号</view><view class="auth-group-note">已加载全部 {{authAccountTotal}} 个账号{{authSearch ? '，当前显示 ' + authAccounts.length + ' 个' : ''}}</view></view>
-            <view class="auth-selection-actions" wx:if="{{authAccounts.length}}">
-              <text class="link ui-motion-chip" bindtap="selectAllVisibleAuthAccounts" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全选当前结果</text>
-              <text class="link ui-motion-chip" wx:if="{{selectedAuthAccountIds.length}}" bindtap="clearAuthSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除</text>
-              <button class="primary-btn compact-action ui-motion-button" wx:if="{{selectedAuthAccountIds.length}}" loading="{{authActionLoadingKey === 'recovery-code'}}" bindtap="issueSelectedRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成 {{selectedAuthAccountIds.length}} 个恢复码</button>
-              <button class="secondary-btn compact-action ui-motion-button" wx:if="{{selectedAuthAccountIds.length}}" loading="{{authActionLoadingKey === 'recovery-code-revoke'}}" bindtap="revokeSelectedRecoveryCodes" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销旧码</button>
-            </view>
-          </view>
-          <view class="auth-directory-list">
-            <view class="auth-person-row" wx:for="{{authAccounts}}" wx:key="accountId">
-              <view class="auth-select-box {{item.selected ? 'is-selected' : ''}} {{item.accountStatus === 'frozen' ? 'is-disabled' : ''}} ui-motion-chip" wx:if="{{item.accountStatus !== 'frozen'}}" data-id="{{item.accountId}}" bindtap="toggleAuthAccountSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><text>{{item.selected ? '✓' : ''}}</text></view>
-              <view class="auth-person-copy">
-                <view class="auth-person-name">{{item.name}}</view>
-                <view class="auth-person-meta">{{item.studentId}}{{item.isSuperAdmin ? ' · 超级管理员' : ''}}</view>
-                <view class="auth-person-meta">{{item.hasRecoveryCode ? '已有恢复码' : '未设置恢复码'}}</view>
-                <view class="auth-person-meta" wx:if="{{item.activeSessionCount !== undefined}}">已登录设备 {{item.activeSessionCount}}</view>
-              </view>
-              <view class="auth-row-state {{item.accountStatus === 'verified' ? 'is-ready' : item.accountStatus === 'frozen' ? 'is-frozen' : ''}}">{{item.statusLabel}}</view>
-              <button class="{{item.accountStatus === 'frozen' ? 'primary-btn' : 'secondary-btn'}} compact-action ui-motion-button" data-id="{{item.personId}}" data-frozen="{{item.accountStatus === 'frozen'}}" loading="{{authActionLoadingKey === 'freeze-' + item.personId}}" bindtap="toggleAuthAccountFrozen" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.accountStatus === 'frozen' ? '解除冻结' : '冻结账号'}}</button>
-            </view>
-            <view class="empty-inline" wx:if="{{!authAccounts.length}}">没有符合条件的账号</view>
-          </view>
-        </view>
-      </block>
-
-      <view class="auth-policy-workspace" wx:elif="{{activeAuthPersonnelTab === 'policy' && authPolicy}}">
-        <view class="auth-policy-card">
-          <view class="auth-policy-head"><view><view class="list-title">首次认证</view><view class="auth-group-note">控制未认证人员是否可以使用个人认证码</view></view><switch color="#3b82f6" checked="{{authPolicy.initialClaimEnabled}}" data-field="initialClaimEnabled" bindchange="onAuthPolicySwitch" /></view>
-          <view class="auth-policy-time-grid">
-            <view class="field"><view class="field-label">开放日期</view><picker mode="date" value="{{authPolicy.claimStartsDate}}" data-field="claimStartsDate" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimStartsDate || '立即开放'}}</view></picker></view>
-            <view class="field"><view class="field-label">开放时间</view><picker mode="time" value="{{authPolicy.claimStartsTime}}" data-field="claimStartsTime" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimStartsTime || '00:00'}}</view></picker></view>
-            <view class="field"><view class="field-label">截止日期</view><picker mode="date" value="{{authPolicy.claimEndsDate}}" data-field="claimEndsDate" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimEndsDate || '不设截止'}}</view></picker></view>
-            <view class="field"><view class="field-label">截止时间</view><picker mode="time" value="{{authPolicy.claimEndsTime}}" data-field="claimEndsTime" bindchange="onAuthPolicyValue"><view class="picker-value">{{authPolicy.claimEndsTime || '23:59'}}</view></picker></view>
-          </view>
-          <view class="auth-policy-clear-row"><text class="link ui-motion-chip" data-prefix="claimStarts" bindtap="clearAuthPolicyDate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除开放时间</text><text class="link ui-motion-chip" data-prefix="claimEnds" bindtap="clearAuthPolicyDate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">清除截止时间</text></view>
-        </view>
-        <view class="auth-policy-card">
-          <view class="auth-policy-head"><view><view class="list-title">恢复码</view><view class="auth-group-note">使用一次后自动失效</view></view><switch color="#3b82f6" checked="{{authPolicy.allowRecoveryCode}}" data-field="allowRecoveryCode" bindchange="onAuthPolicySwitch" /></view>
-          <view class="auth-policy-head"><view><view class="list-title">登录口令</view><view class="auth-group-note">允许本人设置口令并用于登录</view></view><switch color="#3b82f6" checked="{{authPolicy.allowPassphrase}}" data-field="allowPassphrase" bindchange="onAuthPolicySwitch" /></view>
-          <view class="field" wx:if="{{authPolicy.allowPassphrase}}"><view class="field-label">口令最短长度</view><input class="field-input" type="number" value="{{authPolicy.passphraseMinLength}}" data-field="passphraseMinLength" bindinput="onAuthPolicyValue" /></view>
-        </view>
-        <button class="primary-btn auth-policy-save ui-motion-button" loading="{{authActionLoadingKey === 'policy-save'}}" bindtap="saveAuthPolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存设置</button>
-      </view>
-    </view>
 
     <viewport-portal wx:if="{{showAuthCodeDialog}}">
       <view class="ui-overlay" wx:if="{{showAuthCodeDialog}}">
@@ -1908,6 +1796,26 @@
           <view class="modal-header ui-dialog-header"><view class="modal-title">确认账号恢复</view><text class="modal-close ui-motion-chip" catchtap="closeAuthRecoveryDialog" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">关闭</text></view>
           <view class="ui-dialog-body ui-dialog-content ui-dialog-compact-content"><view class="auth-recovery-person">{{pendingAuthRecovery.name}} · {{pendingAuthRecovery.studentId}}</view><view class="auth-dialog-subtitle">完成后，新微信可以登录，原微信和其他设备将退出。</view></view>
           <view class="ui-dialog-footer auth-dialog-actions"><button class="secondary-btn ui-motion-button" bindtap="closeAuthRecoveryDialog" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button><button class="primary-btn ui-motion-button" loading="{{authActionLoadingKey === 'recovery-' + pendingAuthRecovery.id}}" bindtap="approveAuthRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认恢复</button></view>
+        </view>
+      </view>
+    </viewport-portal>
+
+    <viewport-portal wx:if="{{authMemberConfirmVisible}}">
+      <view class="ui-overlay" wx:if="{{authMemberConfirmVisible}}">
+        <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+        <view class="modal-card auth-member-confirm-dialog ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
+          <view class="modal-header ui-dialog-header">
+            <view class="modal-title">{{authMemberConfirmTitle}}</view>
+            <text class="modal-close ui-motion-chip" catchtap="closeAuthMemberConfirm" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">关闭</text>
+          </view>
+          <view class="ui-dialog-body ui-dialog-content ui-dialog-compact-content">
+            <view class="auth-recovery-person">{{authMemberConfirmName}}</view>
+            <view class="auth-dialog-subtitle">{{authMemberConfirmMessage}}</view>
+          </view>
+          <view class="ui-dialog-footer auth-dialog-actions">
+            <button class="secondary-btn ui-motion-button" catchtap="closeAuthMemberConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+            <button class="danger-btn ui-motion-button" catchtap="confirmAuthMemberAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认{{authMemberConfirmAction === 'freeze' ? '冻结' : '解绑'}}</button>
+          </view>
         </view>
       </view>
     </viewport-portal>

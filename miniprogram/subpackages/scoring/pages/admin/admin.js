@@ -213,6 +213,7 @@ Page({
     showHrPersonDetail: false,
     detailHrId: '',
     detailHrProfile: null,
+    detailHrGovernance: null,
     detailHrTemplate: null,
     detailHrValues: {},
     detailWorkGroupOptions: [],
@@ -694,7 +695,6 @@ Page({
       }
 
       if (this._subApp === 'hr') {
-        const initialAuthTab = this.initializeAuthPersonnel();
         const needsHrDirectory = visibleTabs.indexOf('hrInfo') >= 0;
         const canBrowseHr = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
         const canGovernHr = adminPermissions.hasAny(adminProfile, ['auth.identity.verify', 'auth.accounts.recover']);
@@ -711,8 +711,7 @@ Page({
         }
         if (visibleTabs.indexOf('hrTemplates') >= 0 && canUseTemplates) await this.loadHrProfileTemplates();
         if (visibleTabs.indexOf('hrInfo') >= 0 && this.data.hrInfoMode === 'policy') {
-          const authTab = this.initializeAuthPersonnel() || initialAuthTab;
-          await this.loadAuthPersonnel(false, authTab);
+          await this.loadAuthPolicy().catch(() => {});
         }
         this.updateHrFormOptions();
         return;
@@ -764,8 +763,9 @@ Page({
     if (mode === this.data.hrInfoMode) return;
     this.setData({ hrInfoMode: mode });
     if (mode === 'policy') {
-      const authTab = this.initializeAuthPersonnel();
-      this.loadAuthPersonnel(true, authTab);
+      this.loadAuthPolicy().catch(() => {
+        utils.showShortToast('认证设置暂时无法加载');
+      });
     } else if (this.data.canBrowseHrInfo) {
       this.loadHrList();
       this.loadHrProfileAdminData();
@@ -797,13 +797,17 @@ Page({
       }
     }
     if (tab === 'hrInfo') {
-      if (this.data.canBrowseHrInfo && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
-        this.loadHrProfileAdminData();
-        this.loadHrList();
-        const authTab = this.initializeAuthPersonnel();
-        if (this.data.hrInfoMode === 'policy') this.loadAuthPersonnel(false, authTab);
-      } else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) {
-        this.loadHrGovernanceDirectory();
+      if (this.data.hrInfoMode === 'policy') {
+        this.loadAuthPolicy().catch(() => {
+          utils.showShortToast('认证设置暂时无法加载');
+        });
+      } else {
+        if (this.data.canBrowseHrInfo && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
+          this.loadHrProfileAdminData();
+          this.loadHrList();
+        } else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) {
+          this.loadHrGovernanceDirectory();
+        }
       }
       this.updateHrFormOptions();
     }

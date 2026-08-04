@@ -173,6 +173,8 @@ router.post('/listHrGovernance', async (req, res) => {
               EXISTS (SELECT 1 FROM account_wechat_bindings history_binding WHERE history_binding.account_id = a.id) AS has_binding_history,
               EXISTS (SELECT 1 FROM account_recovery_credentials c WHERE c.account_id = a.id
                 AND c.method = 'recovery_code' AND c.status = 'active') AS has_recovery_code,
+              EXISTS (SELECT 1 FROM account_recovery_credentials c WHERE c.account_id = a.id
+                AND c.method = 'passphrase' AND c.status = 'active') AS has_passphrase,
               (SELECT COUNT(*) FROM auth_sessions s WHERE s.account_id = a.id
                 AND s.status = 'active' AND s.expires_at > NOW()) AS active_session_count,
               (SELECT claim.id FROM identity_claim_requests claim WHERE claim.person_id = om.person_id
@@ -230,6 +232,7 @@ router.post('/listHrGovernance', async (req, res) => {
           hasActiveBinding: Boolean(item.has_active_binding),
           hasBindingHistory: Boolean(item.has_binding_history),
           hasRecoveryCode: Boolean(item.has_recovery_code),
+          hasPassphrase: Boolean(item.has_passphrase),
           activeSessionCount: Number(item.active_session_count || 0),
           pendingClaimId: safeString(item.pending_claim_id),
           hasPendingClaim: Boolean(item.has_pending_claim),

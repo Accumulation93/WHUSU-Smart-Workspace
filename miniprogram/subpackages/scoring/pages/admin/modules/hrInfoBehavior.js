@@ -20,9 +20,20 @@ function toHrProfileListRow(item) {
     organizationId: item.organizationId || '',
     accountId: item.accountId || '',
     auth: item.auth || null,
-    authStatusText: item.authStatusText || '',
+    governanceAvailable: Boolean(item.governanceAvailable),
+    accountState: item.accountState || 'unbound',
+    accountStateText: item.accountStateText || '未绑定',
+    accountStateClass: item.accountStateClass || 'unbound-chip',
     verificationText: item.verificationText || '',
     recoveryText: item.recoveryText || '',
+    wechatBindingText: item.wechatBindingText || '未绑定',
+    recoveryMethodText: item.recoveryMethodText || '未设置',
+    showVerificationStatus: Boolean(item.showVerificationStatus),
+    canIssueVerification: Boolean(item.canIssueVerification),
+    canRevokeVerification: Boolean(item.canRevokeVerification),
+    canIssueRecovery: Boolean(item.canIssueRecovery),
+    canRevokeRecovery: Boolean(item.canRevokeRecovery),
+    canUnbindWechat: Boolean(item.canUnbindWechat),
     canSelectForAuth: Boolean(item.canSelectForAuth)
   };
 }
@@ -126,10 +137,17 @@ module.exports = Behavior({
           hrProfileFilterOptions.workGroups = ['无', ...wgs];
         }
         const filteredRows = applyHrProfileFilters(rawRows, this.data.hrProfileFilters);
+        const actionState = this.buildHrMemberActionState(filteredRows);
+        const selected = new Set(actionState.selectedHrMemberIds);
+        const synchronizedRows = filteredRows.map((item) => Object.assign({}, item, {
+          selected: selected.has(String(item.id || ''))
+        }));
         // 完整资料仅留在逻辑层供筛选和导出，视图层只接收列表真正需要的摘要字段。
-        this._hrProfileRawRows = rawRows;
-        this._hrProfileFilteredRows = filteredRows;
-        this.setData({
+        this._hrProfileRawRows = rawRows.map((item) => Object.assign({}, item, {
+          selected: selected.has(String(item.id || ''))
+        }));
+        this._hrProfileFilteredRows = synchronizedRows;
+        this.setData(Object.assign({
           hrProfileTemplateForm: template ? {
             description: template.description || '',
             editMode: template.editMode || PROFILE_EDIT_MODE_OPTIONS[0].value,
@@ -140,9 +158,9 @@ module.exports = Behavior({
           } : emptyHrProfileTemplateForm(),
           hrProfileFields,
           hrProfileFilterOptions,
-          hrProfileRows: filteredRows.map(toHrProfileListRow),
+          hrProfileRows: synchronizedRows.map(toHrProfileListRow),
           hrGovernanceUnavailable: governanceUnavailable
-        });
+        }, actionState));
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error('[HR] Member directory load failed', error);
@@ -161,7 +179,7 @@ module.exports = Behavior({
       try {
         const governanceByHrId = await this.loadHrGovernanceRows();
         if (!orgSession.isRequestCurrent(this, request)) return;
-        const rows = Array.from(governanceByHrId.values()).map((item) => Object.assign({}, item, {
+        const rows = Array.from(governanceByHrId.values()).map((item) => this.applyHrGovernancePermissions(Object.assign({}, item, {
           id: item.hrId || item.id,
           departments: item.department ? [item.department] : [],
           identities: item.identity ? [item.identity] : [],
@@ -171,16 +189,24 @@ module.exports = Behavior({
           auditStatusText: '',
           hasPending: false,
           wxBindStatus: item.auth && item.auth.hasActiveBinding ? 'bound' : 'unbound'
-        }));
+        })));
         const options = buildHrProfileFilterOptions(rows);
         const filteredRows = applyHrProfileFilters(rows, this.data.hrProfileFilters);
-        this._hrProfileRawRows = rows;
-        this._hrProfileFilteredRows = filteredRows;
-        this.setData({
+        const actionState = this.buildHrMemberActionState(filteredRows);
+        const selected = new Set(actionState.selectedHrMemberIds);
+        const synchronizedRows = filteredRows.map((item) => Object.assign({}, item, {
+          selected: selected.has(String(item.id || ''))
+        }));
+        this._hrProfileRawRows = rows.map((item) => Object.assign({}, item, {
+          selected: selected.has(String(item.id || ''))
+        }));
+        this._hrProfileFilteredRows = synchronizedRows;
+        this.setData(Object.assign({
           hrProfileFields: [],
           hrProfileFilterOptions: options,
-          hrProfileRows: filteredRows.map(toHrProfileListRow)
-        });
+          hrProfileRows: synchronizedRows.map(toHrProfileListRow),
+          hrGovernanceUnavailable: false
+        }, actionState));
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || error && error.silent) return;
         wx.showToast({ title: '请稍后重试', icon: 'none' });
@@ -480,10 +506,17 @@ module.exports = Behavior({
 
     refreshHrProfileRows(nextFilters = this.data.hrProfileFilters, nextRawRows = this._hrProfileRawRows || []) {
       const filteredRows = applyHrProfileFilters(nextRawRows, nextFilters);
-      this._hrProfileFilteredRows = filteredRows;
-      this.setData({
-        hrProfileRows: filteredRows.map(toHrProfileListRow)
-      });
+      const actionState = this.buildHrMemberActionState(filteredRows);
+      const selected = new Set(actionState.selectedHrMemberIds);
+      this._hrProfileRawRows = nextRawRows.map((item) => Object.assign({}, item, {
+        selected: selected.has(String(item.id || ''))
+      }));
+      this._hrProfileFilteredRows = filteredRows.map((item) => Object.assign({}, item, {
+        selected: selected.has(String(item.id || ''))
+      }));
+      this.setData(Object.assign({}, actionState, {
+        hrProfileRows: this._hrProfileFilteredRows.map(toHrProfileListRow)
+      }));
     },
 
     onHrProfileFilterChange(e) {
@@ -742,7 +775,13 @@ module.exports = Behavior({
         await Promise.all(loadPromises);
       }
   
-      this.setData({ showHrPersonDetail: true, detailHrId: hrId, loadingDetailHr: true });
+      const governance = this.getHrGovernanceRow(hrId);
+      this.setData({
+        showHrPersonDetail: true,
+        detailHrId: hrId,
+        detailHrGovernance: governance,
+        loadingDetailHr: true
+      });
       try {
         const result = await this.callCloud('getHrPersonDetail', { hrId });
         if (result.status !== 'success') {
@@ -1101,6 +1140,7 @@ module.exports = Behavior({
     closeHrPersonDetail() {
       this.setData({
         showHrPersonDetail: false,
+        detailHrGovernance: null,
         detailWorkGroupOptions: [],
         detailDepartmentValue: 0,
         detailIdentityValue: 0,
@@ -1661,33 +1701,30 @@ module.exports = Behavior({
       });
     },
 
-    unbindHrWechat(e) {
+    async unbindHrWechat(e) {
       const hrId = String(e.currentTarget.dataset.hrId || '');
-      const name = String(e.currentTarget.dataset.name || '该成员');
       if (!hrId) return;
-
-      wx.showModal({
-        title: '从所有组织解绑',
-        content: '确认解绑「' + name + '」在所有组织中的微信绑定吗？解绑后需重新验证身份。',
-        confirmText: '确认解绑',
-        confirmColor: '#dc2626',
-        success: async (res) => {
-          if (!res.confirm) return;
-
-          try {
-            const result = await this.callCloud('unbindHrWechat', { hrId });
-            if (result.status !== 'success') {
-              wx.showToast({ title: result.message || '未解绑，请重试', icon: 'none' });
-              return;
-            }
-            wx.showToast({ title: '已全部解绑', icon: 'success' });
-            await this.loadHrProfileAdminData();
-            await this.loadHrList();
-          } catch (error) {
-            wx.showToast({ title: '未解绑，请重试', icon: 'none' });
-          }
+      const row = this.getHrGovernanceRow(hrId);
+      if (!row || this.data.authActionLoadingKey) return;
+      this.setData({ authActionLoadingKey: 'unbind-' + hrId });
+      try {
+        const result = await this.callCloud('unbindHrWechat', { hrId });
+        if (result.status !== 'success') {
+          showShortToast(result.message || '未解绑，请重试');
+          return;
         }
-      });
+        this.patchHrGovernance(row.personId, {
+          status: 'recovery_required',
+          hasActiveBinding: false,
+          activeSessionCount: 0,
+          pendingRecoveryId: ''
+        }, { wxBindStatus: 'unbound' });
+        showShortToast('已解绑', 'success');
+      } catch (error) {
+        showShortToast('未解绑，请重试');
+      } finally {
+        this.setData({ authActionLoadingKey: '' });
+      }
     },
 
     chooseTable() {

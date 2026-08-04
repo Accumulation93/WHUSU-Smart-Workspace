@@ -363,6 +363,42 @@ async function run() {
     );
     assert.strictEqual(issued.length, 2);
     assert.strictEqual(new Set(issued.map((item) => item.code)).size, 2);
+    const revoked = await identityModel.revokeVerificationCodes(
+      ['claim-batch-1'],
+      {
+        personId: 'hr-a1',
+        organizationId: 'org-a',
+        contextId: 'ctx-test-admin',
+        adminLevel: 'super_admin'
+      },
+      { requestId: 'request-code-revoke', ip: '127.0.0.1' }
+    );
+    assert.deepStrictEqual(revoked, ['claim-batch-1']);
+    const [[revokedState]] = await pool.query(
+      `SELECT COUNT(*) AS count
+         FROM identity_verification_tokens
+        WHERE claim_request_id = 'claim-batch-1' AND status = 'active'`
+    );
+    assert.strictEqual(Number(revokedState.count), 0);
+    await assert.rejects(
+      identityModel.revokeVerificationCodes(
+        ['claim-batch-2'],
+        {
+          personId: 'hr-a1',
+          organizationId: 'org-b',
+          contextId: 'ctx-wrong-org',
+          adminLevel: 'admin'
+        },
+        { requestId: 'request-code-revoke-forbidden', ip: '127.0.0.1' }
+      ),
+      /请联系所属组织管理员/
+    );
+    const [[protectedState]] = await pool.query(
+      `SELECT COUNT(*) AS count
+         FROM identity_verification_tokens
+        WHERE claim_request_id = 'claim-batch-2' AND status = 'active'`
+    );
+    assert.strictEqual(Number(protectedState.count), 1);
 
     await pool.query(`
       INSERT INTO identity_claim_requests
