@@ -9,7 +9,7 @@
   padding:0 0 16rpx;
 }
 .header-nav-btn {
-  font-size: var(--ui-type-meta); padding:10rpx 20rpx; border-radius:20rpx; font-weight:600;
+  font-size: var(--ui-type-meta); padding:10rpx 20rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight:600;
   background:rgba(255,255,255,0.8); color:#3b82f6; border:1rpx solid rgba(59,130,246,0.3);
   box-shadow:0 4rpx 12rpx rgba(59,130,246,0.08);
 }
@@ -30,7 +30,7 @@
 
 .booking-status {
   flex-shrink: 0;
-  font-size: var(--ui-type-caption); font-weight:700; padding:6rpx 16rpx; border-radius:16rpx; white-space:nowrap;
+  font-size: var(--ui-type-caption); font-weight:700; padding:6rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx); white-space:nowrap;
 }
 .booking-status.pending { background:#fef3c7; color:#92400e; }
 .booking-status.approved { background:#d1fae5; color:#065f46; }
@@ -40,7 +40,7 @@
 .cancel-btn {
   display:inline-block; margin-top:10rpx;
   font-size: var(--ui-type-caption); font-weight:600; color:#ef4444;
-  padding:8rpx 20rpx; border-radius:16rpx;
+  padding:8rpx 20rpx; border-radius: var(--ui-compact-radius, 18rpx);
   background:rgba(254,226,226,0.6); border:1rpx solid rgba(252,165,165,0.4);
 }
 
@@ -110,7 +110,7 @@ page {
   justify-content: center;
   min-height: 52rpx;
   padding: 8rpx 20rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-meta);
   font-weight: 800;
@@ -180,7 +180,7 @@ page {
 .booking-status {
   min-height: 38rpx;
   padding: 6rpx 16rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-caption);
   font-weight: 800;
   line-height: 1.35;
@@ -218,7 +218,7 @@ page {
   min-height: 42rpx;
   margin-top: 12rpx;
   padding: 6rpx 16rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #dc2626;
   font-size: var(--ui-type-meta);
   font-weight: 800;

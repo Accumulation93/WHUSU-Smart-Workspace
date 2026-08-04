@@ -50,7 +50,7 @@ page {
   margin-bottom: 14rpx;
   padding: 8rpx 18rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.30);
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: rgba(255, 255, 255, 0.96);
   font-size: var(--ui-type-label);
   font-weight: 700;
@@ -209,7 +209,7 @@ page {
 .identity-scope-label {
   flex-shrink: 0;
   border: 1rpx solid rgba(147, 197, 253, 0.68);
-  border-radius: 14rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-meta);
   font-weight: 700;
@@ -387,7 +387,7 @@ page {
 .identity-scope-label {
   margin-top: 2rpx;
   padding: 5rpx 10rpx;
-  border-radius: 12rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
 }
 
 .identity-current-label {
@@ -395,7 +395,7 @@ page {
   margin-top: 8rpx;
   padding: 5rpx 11rpx;
   border: 1rpx solid rgba(147, 197, 253, 0.62);
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-meta);
   font-weight: 700;
@@ -580,12 +580,12 @@ page {
 
   .selection-status {
     padding: 5px 9px;
-    border-radius: 10px;
+    border-radius: 12px;
   }
 
   .identity-scope-label {
     padding: 4px 8px;
-    border-radius: 9px;
+    border-radius: 12px;
   }
 }
 

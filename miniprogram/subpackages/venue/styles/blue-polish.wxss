@@ -164,7 +164,7 @@ textarea {
   justify-content: center;
   min-height: 34rpx;
   padding: 4rpx 10rpx;
-  border-radius: 10rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-meta);
   font-weight: 700;
   line-height: 1.25;
@@ -228,7 +228,7 @@ textarea {
 .danger-btn,
 .approve-btn,
 .reject-btn {
-  border-radius: 24rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-weight: 700;
 }
 

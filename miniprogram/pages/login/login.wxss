@@ -161,7 +161,7 @@ page {
   max-width: 100%;
   margin: 18rpx auto 0;
   padding: 8rpx 12rpx;
-  border-radius: 12rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-label);
   font-weight: 700;

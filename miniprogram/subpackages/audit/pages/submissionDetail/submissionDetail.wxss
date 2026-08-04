@@ -64,7 +64,7 @@
 /* ── View mode: status info block variations ── */
 .detail-status-chip {
   display: inline-flex; align-items: center; min-height: 48rpx;
-  padding: 8rpx 22rpx; border-radius: 999rpx; font-size: var(--ui-type-emphasis); font-weight: 700;
+  padding: 8rpx 22rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-emphasis); font-weight: 700;
   letter-spacing: 0.3rpx;
 }
 .detail-status-approved { color: #15803d; background: linear-gradient(135deg, rgba(220,252,231,0.96) 0%, rgba(167,243,208,0.88) 100%); border: 1rpx solid rgba(110,231,183,0.5); }
@@ -77,7 +77,7 @@
 /* ── Action buttons in step list ── */
 .step-action-link {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 12rpx 22rpx; border-radius: 999rpx; font-size: var(--ui-type-meta); font-weight: 600;
+  padding: 12rpx 22rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-meta); font-weight: 600;
   line-height: 1; letter-spacing: 0.2rpx;
   background: linear-gradient(135deg, rgba(219,234,254,0.88) 0%, rgba(191,219,254,0.76) 100%);
   color: #2563eb; border: 1rpx solid rgba(147,197,253,0.52);
@@ -136,7 +136,7 @@
 .tpl-step-preview-num { font-size: var(--ui-type-emphasis); font-weight: 700; color: #0f172a; letter-spacing: 0; margin-bottom: 4rpx; }
 .tpl-step-preview-desc { font-size: var(--ui-type-meta); color: #64748b; font-weight: 400; line-height: 1.45; }
 .tpl-step-preview-action {
-  display: inline-flex; margin-top: 4rpx; padding: 3rpx 12rpx; border-radius: 999rpx;
+  display: inline-flex; margin-top: 4rpx; padding: 3rpx 12rpx; border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-micro); font-weight: 600; background: rgba(219,234,254,0.6); color: #2563eb;
 }
 .tpl-step-preview-mode { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2rpx; }
@@ -153,7 +153,7 @@
 }
 .tpl-step-person-tag {
   display: inline-flex; align-items: center; gap: 4rpx;
-  padding: 3rpx 10rpx; border-radius: 999rpx; margin-right: 4rpx; margin-bottom: 3rpx;
+  padding: 3rpx 10rpx; border-radius: var(--ui-compact-radius, 18rpx); margin-right: 4rpx; margin-bottom: 3rpx;
   font-size: var(--ui-type-micro); font-weight: 500; color: #2563eb;
   background: rgba(219,234,254,0.65); border: 1rpx solid rgba(147,197,253,0.4);
 }
@@ -239,9 +239,9 @@
 }
 .approval-file-name text { min-width: 0; overflow-wrap: anywhere; }
 .approval-file-actions { display: flex; gap: 4rpx; flex-shrink: 0; margin-left: 8rpx; }
-.approval-file-btn-preview { font-size: var(--ui-type-caption); color: #64748b; padding: 4rpx 10rpx; border: 1rpx solid #94a3b8; border-radius: 20rpx; }
-.approval-file-btn-sign { font-size: var(--ui-type-caption); color: #3b82f6; padding: 4rpx 10rpx; border: 1rpx solid #3b82f6; border-radius: 20rpx; }
-.approval-file-btn-stamp { font-size: var(--ui-type-caption); color: #0369a1; padding: 4rpx 10rpx; border: 1rpx solid #0369a1; border-radius: 20rpx; }
+.approval-file-btn-preview { font-size: var(--ui-type-caption); color: #64748b; padding: 4rpx 10rpx; border: 1rpx solid #94a3b8; border-radius: var(--ui-compact-radius, 18rpx); }
+.approval-file-btn-sign { font-size: var(--ui-type-caption); color: #3b82f6; padding: 4rpx 10rpx; border: 1rpx solid #3b82f6; border-radius: var(--ui-compact-radius, 18rpx); }
+.approval-file-btn-stamp { font-size: var(--ui-type-caption); color: #0369a1; padding: 4rpx 10rpx; border: 1rpx solid #0369a1; border-radius: var(--ui-compact-radius, 18rpx); }
 .approval-sig-item {
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 6rpx; padding: 6rpx 10rpx; background: #f1f5f9; border-radius: 8rpx;
@@ -266,7 +266,7 @@
 .approval-designate-empty { font-size: var(--ui-type-caption); color: #94a3b8; }
 .approval-designate-tag {
   display: inline-flex; align-items: center; margin: 2rpx 6rpx 2rpx 0;
-  padding: 2rpx 10rpx; background: #dbeafe; border-radius: 20rpx;
+  padding: 2rpx 10rpx; background: #dbeafe; border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-caption); color: #2563eb;
 }
 .approval-designate-remove { margin-left: 4rpx; color: #ef4444; }
@@ -330,7 +330,7 @@
 .placement-hint { flex-shrink: 0; padding: 8rpx 16rpx; font-size: var(--ui-type-meta); line-height: 1.6; color: #64748b; }
 .placement-hint-page { color: #3b82f6; }
 .placement-page-selector { flex-shrink: 0; display: flex; align-items: center; justify-content: center; gap: 16rpx; padding: 8rpx 16rpx; }
-.placement-page-btn { font-size: var(--ui-type-meta); color: #2563eb; padding: 6rpx 16rpx; border: 1rpx solid rgba(147,197,253,0.64); border-radius: 999rpx; background: rgba(219,234,254,0.76); }
+.placement-page-btn { font-size: var(--ui-type-meta); color: #2563eb; padding: 6rpx 16rpx; border: 1rpx solid rgba(147,197,253,0.64); border-radius: var(--ui-compact-radius, 18rpx); background: rgba(219,234,254,0.76); }
 .placement-page-num { font-size: var(--ui-type-label); color: #475569; font-weight: 600; }
 .placement-popup {
   display: flex; flex-direction: column;
@@ -400,13 +400,13 @@
 .placement-rotate-actions { display: flex; gap: 10rpx; padding-top: 4rpx; }
 .placement-mini-btn {
   flex: 1; min-width: 0; height: 58rpx; line-height: 58rpx; margin: 0;
-  border-radius: 18rpx; font-size: var(--ui-type-meta); font-weight: 700;
+  border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-meta); font-weight: 700;
 }
 /* ★ 三按钮同一排，绝不换行 */
 .placement-actions { flex-shrink: 0; padding: 12rpx 16rpx; display: flex; flex-wrap: nowrap; gap: 10rpx; box-sizing: border-box; }
 .placement-actions button {
   flex: 1 1 0; min-width: 0; min-height: 72rpx; height: auto; line-height: 1.4; margin: 0; padding: 14rpx 10rpx;
-  border-radius: 20rpx; font-size: var(--ui-type-meta); font-weight: 700;
+  border-radius: var(--ui-control-radius, 28rpx); font-size: var(--ui-type-meta); font-weight: 700;
   white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere;
   box-sizing: border-box;
 }
@@ -531,7 +531,7 @@
 .approval-file-btn-stamp,
 .stamp-picker-select,
 .sig-source-use-btn {
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   background: rgba(219,234,254,0.76);
   border: 1rpx solid rgba(147,197,253,0.64);
   color: #2563eb;

@@ -36,7 +36,7 @@
 }
 .pending-action-link {
   display: flex; align-items: center; justify-content: center;
-  min-width: 80rpx; height: 48rpx; border-radius: 999rpx;
+  min-width: 80rpx; height: 48rpx; border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-meta); font-weight: 700; line-height: 48rpx;
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
@@ -62,7 +62,7 @@
 .pending-refresh-btn {
   display: inline-flex; align-items: center; gap: 6rpx;
   font-size: var(--ui-type-caption); font-weight: 600; color: #2563eb;
-  padding: 6rpx 18rpx; border-radius: 999rpx;
+  padding: 6rpx 18rpx; border-radius: var(--ui-compact-radius, 18rpx);
   background: rgba(219,234,254,0.65); border: 1rpx solid rgba(147,197,253,0.4);
   line-height: 1;
 }
@@ -102,7 +102,7 @@
 /* ── Status tag ── */
 .status-tag {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 4rpx 14rpx; border-radius: 999rpx; font-size: var(--ui-type-caption); font-weight: 700;
+  padding: 4rpx 14rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-caption); font-weight: 700;
 }
 .status-tag.pending { background: rgba(255,237,213,0.78); color: #c2410c; border: 1rpx solid rgba(253,186,116,0.58); }
 
@@ -160,7 +160,7 @@
   height: auto;
   padding: 14rpx 20rpx;
   line-height: 1.35;
-  border-radius: 20rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-control);
   font-weight: 700;
   border: none;

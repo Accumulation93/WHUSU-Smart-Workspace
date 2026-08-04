@@ -483,7 +483,7 @@ page .picker-value {
   min-height: var(--ui-control-height, 82rpx);
   height: auto;
   padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
-  border-radius: 24rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   border: 1rpx solid transparent;
   font-size: var(--ui-type-body);
   font-size: var(--ui-font-md, 25rpx);
@@ -504,7 +504,7 @@ page .picker-value {
   flex: 1 1 calc(50% - 7rpx);
   min-width: calc(50% - 7rpx);
   max-width: 100%;
-  border-radius: 20rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   line-height: var(--ui-line-control, 1.35);
 }
 
@@ -1324,7 +1324,7 @@ scroll-view.ui-dialog-scroll--x {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   border: 1rpx solid transparent;
   box-shadow:
     0 4rpx 10rpx rgba(15,23,42,0.03),
@@ -2081,7 +2081,7 @@ button:active,
     min-width: 0 !important;
     min-height: 36px !important;
     padding: 6px 14px !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     box-sizing: border-box;
   }
 
@@ -2266,7 +2266,8 @@ button:active,
   page .page-submit-btn,
   page .template-save-btn,
   page .purpose-save-btn,
-  page .sigpad-btn {
+  page .sigpad-btn,
+  page .message-dialog-btn {
     min-height: 40px !important;
     padding: 8px 14px !important;
     border-radius: 12px !important;
@@ -2284,12 +2285,14 @@ button:active,
   page .cancel-btn {
     min-height: 30px !important;
     padding: 5px 10px !important;
-    border-radius: 10px !important;
+    border-radius: 11px !important;
   }
 
   page .popup-close,
-  page .permission-close,
-  page .message-dialog-btn,
+  page .permission-close {
+    border-radius: 999rpx !important;
+  }
+
   page .app-grid-badge,
   page .hero-badge,
   page .status-chip,
@@ -2300,7 +2303,7 @@ button:active,
   page .green-chip,
   page .orange-chip,
   page .red-chip {
-    border-radius: 10px !important;
+    border-radius: 11px !important;
   }
 
   page .section-title,
@@ -2338,7 +2341,16 @@ button:active,
   page .role-pill {
     min-height: 36px !important;
     padding: 7px 10px !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  page .filter-chip,
+  page .chip,
+  page .select-chip,
+  page .grade-chip,
+  page .dept-tab,
+  page .role-pill {
+    border-radius: 11px !important;
   }
 }
 
@@ -2578,7 +2590,7 @@ page .role-pill {
     min-width: 0 !important;
     min-height: 50px !important;
     padding: 8px 10px !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     line-height: 20px !important;
     box-sizing: border-box;
   }
@@ -2675,9 +2687,39 @@ page .role-pill {
   }
 }
 
-/* 历史胶囊文本控件收口：仅接管圆角，不动内边距与高度。 */
+/* 控件圆角终审：位于全部页面级样式之后，页面固定数值不得覆盖。
+ * 完整文字按钮使用控制圆角令牌；标签、气泡与紧凑操作使用紧凑圆角令牌。
+ * 头像、加载圈、进度节点、纯图标圆钮等真正圆形元素除外。 */
+/* 手机 */
+page button,
+page .primary-btn,
+page .secondary-btn,
+page .danger-btn,
+page .approve-btn,
+page .reject-btn,
+page .dialog-btn,
+page .profile-submit-btn,
+page .page-submit-btn,
+page .template-save-btn,
+page .purpose-save-btn,
+page .sigpad-btn,
+page .message-dialog-btn,
+page .panel-add-btn,
+page .compact-action-btn,
+page .hr-template-editor-btn,
+page .hr-template-action,
+page .hr-template-add-btn,
+page .hr-profile-export-btn,
+page .kb-nav-btn,
+page .kb-quick-btn,
+page .kb-collapse-btn,
+page .kb-toggle-btn {
+  border-radius: var(--ui-control-radius, 28rpx) !important;
+}
+
 page .audit-file-type,
 page .flow-separator-text,
+page .flow-round-badge,
 page .hero-org-context-action,
 page .results-count-chip,
 page .merit-group-count,
@@ -2688,12 +2730,26 @@ page .target-identity,
 page .target-status,
 page .nav-row-badge,
 page .dialog-badge,
+page .message-switch-badge,
+page .notification-badge,
+page .notification-tag,
+page .portal-organization-meta,
+page .message-action,
+page .message-text-action,
+page .sheet-link,
 page .approval-file-btn-preview,
+page .approval-file-btn-sign,
+page .approval-file-btn-stamp,
+page .sig-source-use-btn,
+page .stamp-picker-select,
 page .detail-status-chip,
 page .tpl-step-person-tag,
 page .tpl-step-preview-action,
+page .approval-designate-tag,
 page .permission-hero-badge,
 page .identity-current-label,
+page .identity-scope-label,
+page .selection-status,
 page .audit-cond-chip,
 page .clause-pill-meta,
 page .hr-import-preview-chip,
@@ -2706,12 +2762,231 @@ page .preview-chip,
 page .stat-card-tip,
 page .rule-tag,
 page .score-tag,
+page .score-label-toggle,
 page .template-chip,
 page .year-chip,
 page .tl-tag,
+page .grade-band-bubble,
+page .profile-account-status,
+page .profile-session-count,
+page .audit-home-card-badge,
+page .audit-home-card-badge-pending,
+page .audit-home-card-badge-history,
+page .status-chip,
+page .invite-chip,
+page .hr-snapshot-type-tag,
+page .hr-snapshot-required-tag,
+page .hr-template-status,
+page .hour-chip,
+page .min-chip,
+page .duration-chip,
 page .add-range-btn,
+page .merit-edit-btn,
+page .mini-action-btn,
+page .placement-mini-btn,
 page .pending-refresh-btn {
   border-radius: var(--ui-compact-radius, 18rpx) !important;
+}
+
+/* Pad 竖屏 */
+@media (min-width: 520px) and (max-width: 899px),
+       (min-width: 520px) and (orientation: portrait) {
+  page button,
+  page .primary-btn,
+  page .secondary-btn,
+  page .danger-btn,
+  page .approve-btn,
+  page .reject-btn,
+  page .dialog-btn,
+  page .profile-submit-btn,
+  page .page-submit-btn,
+  page .template-save-btn,
+  page .purpose-save-btn,
+  page .sigpad-btn,
+  page .message-dialog-btn,
+  page .panel-add-btn,
+  page .compact-action-btn,
+  page .hr-template-editor-btn,
+  page .hr-template-action,
+  page .hr-template-add-btn,
+  page .hr-profile-export-btn,
+  page .kb-nav-btn,
+  page .kb-quick-btn,
+  page .kb-collapse-btn,
+  page .kb-toggle-btn {
+    border-radius: 14px !important;
+  }
+
+  page .audit-file-type,
+  page .flow-separator-text,
+  page .flow-round-badge,
+  page .hero-org-context-action,
+  page .results-count-chip,
+  page .merit-group-count,
+  page .result-group-count,
+  page .profile-field-type,
+  page .target-group-label,
+  page .target-identity,
+  page .target-status,
+  page .nav-row-badge,
+  page .dialog-badge,
+  page .message-switch-badge,
+  page .notification-badge,
+  page .notification-tag,
+  page .portal-organization-meta,
+  page .message-action,
+  page .message-text-action,
+  page .sheet-link,
+  page .approval-file-btn-preview,
+  page .approval-file-btn-sign,
+  page .approval-file-btn-stamp,
+  page .sig-source-use-btn,
+  page .stamp-picker-select,
+  page .detail-status-chip,
+  page .tpl-step-person-tag,
+  page .tpl-step-preview-action,
+  page .approval-designate-tag,
+  page .permission-hero-badge,
+  page .identity-current-label,
+  page .identity-scope-label,
+  page .selection-status,
+  page .audit-cond-chip,
+  page .clause-pill-meta,
+  page .hr-import-preview-chip,
+  page .info-chip,
+  page .merit-chip,
+  page .merit-member-sid-chip,
+  page .merit-summary-total-chip,
+  page .merit-tag,
+  page .preview-chip,
+  page .stat-card-tip,
+  page .rule-tag,
+  page .score-tag,
+  page .score-label-toggle,
+  page .template-chip,
+  page .year-chip,
+  page .tl-tag,
+  page .grade-band-bubble,
+  page .profile-account-status,
+  page .profile-session-count,
+  page .audit-home-card-badge,
+  page .audit-home-card-badge-pending,
+  page .audit-home-card-badge-history,
+  page .status-chip,
+  page .invite-chip,
+  page .hr-snapshot-type-tag,
+  page .hr-snapshot-required-tag,
+  page .hr-template-status,
+  page .hour-chip,
+  page .min-chip,
+  page .duration-chip,
+  page .add-range-btn,
+  page .merit-edit-btn,
+  page .mini-action-btn,
+  page .placement-mini-btn,
+  page .pending-refresh-btn {
+    border-radius: 12px !important;
+  }
+}
+
+/* Pad 横屏 */
+@media (min-width: 900px) and (orientation: landscape) {
+  page button,
+  page .primary-btn,
+  page .secondary-btn,
+  page .danger-btn,
+  page .approve-btn,
+  page .reject-btn,
+  page .dialog-btn,
+  page .profile-submit-btn,
+  page .page-submit-btn,
+  page .template-save-btn,
+  page .purpose-save-btn,
+  page .sigpad-btn,
+  page .message-dialog-btn,
+  page .panel-add-btn,
+  page .compact-action-btn,
+  page .hr-template-editor-btn,
+  page .hr-template-action,
+  page .hr-template-add-btn,
+  page .hr-profile-export-btn,
+  page .kb-nav-btn,
+  page .kb-quick-btn,
+  page .kb-collapse-btn,
+  page .kb-toggle-btn {
+    border-radius: 12px !important;
+  }
+
+  page .audit-file-type,
+  page .flow-separator-text,
+  page .flow-round-badge,
+  page .hero-org-context-action,
+  page .results-count-chip,
+  page .merit-group-count,
+  page .result-group-count,
+  page .profile-field-type,
+  page .target-group-label,
+  page .target-identity,
+  page .target-status,
+  page .nav-row-badge,
+  page .dialog-badge,
+  page .message-switch-badge,
+  page .notification-badge,
+  page .notification-tag,
+  page .portal-organization-meta,
+  page .message-action,
+  page .message-text-action,
+  page .sheet-link,
+  page .approval-file-btn-preview,
+  page .approval-file-btn-sign,
+  page .approval-file-btn-stamp,
+  page .sig-source-use-btn,
+  page .stamp-picker-select,
+  page .detail-status-chip,
+  page .tpl-step-person-tag,
+  page .tpl-step-preview-action,
+  page .approval-designate-tag,
+  page .permission-hero-badge,
+  page .identity-current-label,
+  page .identity-scope-label,
+  page .selection-status,
+  page .audit-cond-chip,
+  page .clause-pill-meta,
+  page .hr-import-preview-chip,
+  page .info-chip,
+  page .merit-chip,
+  page .merit-member-sid-chip,
+  page .merit-summary-total-chip,
+  page .merit-tag,
+  page .preview-chip,
+  page .stat-card-tip,
+  page .rule-tag,
+  page .score-tag,
+  page .score-label-toggle,
+  page .template-chip,
+  page .year-chip,
+  page .tl-tag,
+  page .grade-band-bubble,
+  page .profile-account-status,
+  page .profile-session-count,
+  page .audit-home-card-badge,
+  page .audit-home-card-badge-pending,
+  page .audit-home-card-badge-history,
+  page .status-chip,
+  page .invite-chip,
+  page .hr-snapshot-type-tag,
+  page .hr-snapshot-required-tag,
+  page .hr-template-status,
+  page .hour-chip,
+  page .min-chip,
+  page .duration-chip,
+  page .add-range-btn,
+  page .merit-edit-btn,
+  page .mini-action-btn,
+  page .placement-mini-btn,
+  page .pending-refresh-btn {
+    border-radius: 11px !important;
+  }
 }
 
 /*

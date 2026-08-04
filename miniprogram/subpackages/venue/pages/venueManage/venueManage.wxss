@@ -86,7 +86,7 @@ page {
   justify-content: center;
   margin-bottom: 14rpx;
   padding: 10rpx 24rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.14));
   border: 1rpx solid rgba(255, 255, 255, 0.28);
   color: #f8fbff;
@@ -228,7 +228,7 @@ page {
   width: 108rpx; min-width: 108rpx;
   height: 64rpx; min-height: 64rpx;
   line-height: 64rpx; padding: 0;
-  border-radius: 18rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-control); font-weight: 700;
 }
 
@@ -316,7 +316,7 @@ page {
   min-height: 76rpx;
   height: auto;
   padding: 14rpx 20rpx;
-  border-radius: 20rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   line-height: 1.35;
   font-size: var(--ui-type-control); font-weight: 700;
   white-space: normal;
@@ -369,7 +369,7 @@ page {
   min-width: 0; min-height: 56rpx;
   height: 56rpx; line-height: 56rpx;
   font-size: var(--ui-type-meta); padding: 0 22rpx;
-  border-radius: 16rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
 }
 
 .primary-btn.sm {
@@ -377,7 +377,7 @@ page {
   min-width: 0; min-height: 56rpx;
   height: 56rpx; line-height: 56rpx;
   font-size: var(--ui-type-meta); padding: 0 22rpx;
-  border-radius: 16rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
 }
 
 /* ═══ Compact add button (panel head right side) ═══ */
@@ -386,7 +386,7 @@ page {
   min-width: 108rpx; width: 108rpx;
   min-height: 64rpx; height: 64rpx;
   line-height: 64rpx; padding: 0;
-  border-radius: 18rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-control); font-weight: 700;
 }
 
@@ -396,7 +396,7 @@ page {
   min-width: 104rpx; width: 104rpx;
   min-height: 72rpx; height: 72rpx;
   line-height: 72rpx; padding: 0;
-  border-radius: 18rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-label); font-weight: 700;
   color: #ffffff;
   background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
@@ -489,7 +489,7 @@ page {
   display: inline-flex;
   align-items: center; justify-content: center;
   padding: 10rpx 20rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-control); font-weight: 600;
   line-height: 1;
   background: rgba(219, 234, 254, 0.65);
@@ -580,7 +580,7 @@ page {
   align-items: center; justify-content: center;
   min-height: 38rpx;
   padding: 8rpx 16rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-meta); font-weight: 700;
   line-height: 1.35;
   background: rgba(219, 234, 254, 0.76);
@@ -599,7 +599,7 @@ page {
 
 .chip.sm {
   width: 56rpx; height: 52rpx; padding: 0;
-  font-size: var(--ui-type-meta); border-radius: 16rpx;
+  font-size: var(--ui-type-meta); border-radius: var(--ui-compact-radius, 18rpx);
 }
 
 /* ═══ Booking status chips — HR pill style ═══ */
@@ -609,7 +609,7 @@ page {
   align-items: center; justify-content: center;
   min-height: 38rpx; min-width: 48rpx;
   padding: 4rpx 8rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-micro); font-weight: 700;
   line-height: 1.1;
   border: 1rpx solid transparent;
@@ -650,7 +650,7 @@ page {
   display: inline-flex;
   align-items: center; justify-content: center;
   padding: 8rpx 16rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-caption); font-weight: 700;
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.90) 100%);
   color: #2563eb;
@@ -763,7 +763,7 @@ page {
 /* ═══ Year chips ═══ */
 .year-chip {
   display: inline-flex; align-items: center; gap: 6rpx;
-  font-size: var(--ui-type-meta); padding: 10rpx 18rpx; border-radius: 999rpx; margin: 3rpx;
+  font-size: var(--ui-type-meta); padding: 10rpx 18rpx; border-radius: var(--ui-compact-radius, 18rpx); margin: 3rpx;
   background: linear-gradient(135deg, rgba(219, 234, 254, 0.96) 0%, rgba(191, 219, 254, 0.88) 100%);
   color: #2563eb; border: 1rpx solid rgba(147, 197, 253, 0.7);
 }
@@ -779,7 +779,7 @@ page {
 .add-range-btn {
   font-size: var(--ui-type-control); color: #fff;
   background: linear-gradient(135deg, #2563eb 0%, #6366f1 100%);
-  padding: 12rpx 24rpx; border-radius: 999rpx; font-weight: 600;
+  padding: 12rpx 24rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight: 600;
   white-space: nowrap;
   box-shadow: 0 6rpx 14rpx rgba(37, 99, 235, 0.20);
 }
@@ -861,7 +861,7 @@ page {
   min-height: 68rpx; height: 68rpx;
   line-height: 68rpx;
   padding: 0 16rpx; text-align: center;
-  border-radius: 18rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-label); font-weight: 700;
 }
 
@@ -1227,7 +1227,7 @@ page {
 
 .dept-tab {
   display: inline-flex; align-items: center; gap: 4rpx; flex-shrink: 0;
-  font-size: var(--ui-type-meta); padding: 10rpx 18rpx; border-radius: 20rpx; font-weight: 600;
+  font-size: var(--ui-type-meta); padding: 10rpx 18rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight: 600;
   background: rgba(241, 245, 249, 0.85); color: #475569;
   border: 1rpx solid rgba(203, 213, 225, 0.55);
   transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.24s ease, transform 0.2s ease;

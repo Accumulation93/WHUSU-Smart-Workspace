@@ -47,7 +47,7 @@
   line-height: 1.35;
   font-size: var(--ui-type-control);
   font-weight: 700;
-  border-radius: 22rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   letter-spacing: 0.3rpx;
 }
 

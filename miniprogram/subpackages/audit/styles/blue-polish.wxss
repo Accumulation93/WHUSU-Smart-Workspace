@@ -138,7 +138,7 @@ textarea {
   justify-content: center;
   min-height: 38rpx;
   padding: 6rpx 14rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-caption);
   font-weight: 700;
   line-height: 1.35;
@@ -174,7 +174,7 @@ textarea {
 .primary-btn,
 .secondary-btn,
 .danger-btn {
-  border-radius: 24rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-weight: 700;
 }
 
@@ -263,7 +263,7 @@ textarea {
 .orange-chip,
 .gray-chip,
 .red-chip {
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   border: 1rpx solid transparent;
   box-shadow:
     0 6rpx 14rpx rgba(15, 23, 42, 0.035),

@@ -23,7 +23,23 @@ const COMPACT_META_CLASSES = [
   'permission-count', 'permission-level', 'app-grid-badge', 'hero-badge', 'result-group-mode-chip',
   'action-btn', 'link', 'audit-link-btn', 'flow-action-btn', 'step-action-link',
   'pending-action-link', 'header-nav-btn', 'mark-all-read', 'placement-page-btn', 'cancel-btn',
-  'filter-chip', 'chip', 'select-chip', 'grade-chip', 'dept-tab', 'role-pill'
+  'filter-chip', 'chip', 'select-chip', 'grade-chip', 'dept-tab', 'role-pill',
+  'audit-file-type', 'flow-separator-text', 'flow-round-badge', 'hero-org-context-action',
+  'results-count-chip', 'merit-group-count', 'result-group-count', 'profile-field-type',
+  'target-group-label', 'target-identity', 'target-status', 'nav-row-badge', 'dialog-badge',
+  'message-switch-badge', 'notification-badge', 'notification-tag', 'portal-organization-meta',
+  'message-action', 'message-text-action', 'sheet-link', 'approval-file-btn-preview',
+  'approval-file-btn-sign', 'approval-file-btn-stamp', 'sig-source-use-btn', 'stamp-picker-select',
+  'detail-status-chip', 'tpl-step-person-tag', 'tpl-step-preview-action', 'approval-designate-tag',
+  'permission-hero-badge', 'identity-current-label', 'identity-scope-label', 'selection-status',
+  'audit-cond-chip', 'clause-pill-meta', 'hr-import-preview-chip', 'info-chip', 'merit-chip',
+  'merit-member-sid-chip', 'merit-summary-total-chip', 'merit-tag', 'preview-chip',
+  'stat-card-tip', 'rule-tag', 'score-tag', 'score-label-toggle', 'template-chip', 'year-chip',
+  'tl-tag', 'grade-band-bubble', 'profile-account-status', 'profile-session-count',
+  'audit-home-card-badge', 'audit-home-card-badge-pending', 'audit-home-card-badge-history',
+  'status-chip', 'invite-chip', 'hr-snapshot-type-tag', 'hr-snapshot-required-tag',
+  'hr-template-status', 'template-hero-badge', 'hour-chip', 'min-chip', 'duration-chip', 'add-range-btn',
+  'merit-edit-btn', 'mini-action-btn', 'placement-mini-btn', 'pending-refresh-btn'
 ];
 const COMPACT_META_SELECTOR = new RegExp(`\\.(?:${COMPACT_META_CLASSES.join('|')})\\b`, 'i');
 const GLOBAL_STYLE = fs.readFileSync(path.join(MINI_ROOT, 'app.wxss'), 'utf8');
@@ -49,6 +65,12 @@ function scanCompactVisualContract() {
     ['Pad 横屏按钮圆角令牌', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-control-radius:\s*12px/],
     ['Pad 横屏紧凑控件圆角令牌', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-compact-radius:\s*11px/],
     ['Pad 横屏页签圆角令牌', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-tab-radius:\s*12px/],
+    ['手机全尺寸按钮圆角终审', /page button,[\s\S]*?border-radius:\s*var\(--ui-control-radius,\s*28rpx\)\s*!important/],
+    ['Pad 竖屏全尺寸按钮圆角终审', /@media\s*\(min-width:\s*520px\)\s*and\s*\(max-width:\s*899px\),[\s\S]*?page button,[\s\S]*?border-radius:\s*14px\s*!important/],
+    ['Pad 横屏全尺寸按钮圆角终审', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?page button,[\s\S]*?border-radius:\s*12px\s*!important/],
+    ['手机紧凑控件圆角终审', /page \.status-chip,[\s\S]*?border-radius:\s*var\(--ui-compact-radius,\s*18rpx\)\s*!important/],
+    ['Pad 竖屏紧凑控件圆角终审', /page \.status-chip,[\s\S]*?border-radius:\s*12px\s*!important/],
+    ['Pad 横屏紧凑控件圆角终审', /page \.status-chip,[\s\S]*?border-radius:\s*11px\s*!important/],
     ['横屏页签高度', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-tab-min-height:\s*50px/],
     ['横屏页签均分', /page \.tabs,[\s\S]*?display:\s*flex\s*!important[\s\S]*?width:\s*100%\s*!important/],
     ['横屏页签点击高度', /page \.tabs\s*>\s*\.tab,[\s\S]*?min-height:\s*50px\s*!important/]
@@ -99,7 +121,7 @@ function scanCompactVisualContract() {
       if (/border-radius\s*:\s*999(?:r?px)\b/i.test(declarations) &&
         !/page\s+(?:text\.)?(?:status-tag|action-btn)/i.test(selector)) {
         const coveredByGlobal = COMPACT_META_CLASSES.some(name => selector.includes(`.${name}`)) &&
-          new RegExp(`page[^{}]*\\.${COMPACT_META_CLASSES.find(name => selector.includes(`.${name}`))}[^{}]*\\{[\\s\\S]*?border-radius:\\s*(?:18rpx|12px|11px)\\s*!important`, 'i').test(GLOBAL_STYLE);
+          new RegExp(`page[^{}]*\\.${COMPACT_META_CLASSES.find(name => selector.includes(`.${name}`))}[^{}]*\\{[\\s\\S]*?border-radius:\\s*(?:var\\(--ui-compact-radius,[^}]*?\\)|18rpx|12px|11px)\\s*!important`, 'i').test(GLOBAL_STYLE);
         if (!coveredByGlobal) {
           findings.push({
             file: relative(file),

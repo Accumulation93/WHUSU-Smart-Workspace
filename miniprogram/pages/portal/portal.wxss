@@ -91,7 +91,7 @@ button, input, textarea, picker, view, text, scroll-view {
   justify-content: center;
   margin-bottom: 18rpx;
   padding: 6rpx 12rpx;
-  border-radius: 10rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.14) 100%);
   border: 1rpx solid rgba(255, 255, 255, 0.28);
   color: #f8fbff;
@@ -306,7 +306,7 @@ button, input, textarea, picker, view, text, scroll-view {
   color: #c2410c;
   background: rgba(255, 237, 213, 0.78);
   padding: 4rpx 14rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   border: 1rpx solid rgba(253, 186, 116, 0.48);
   flex-shrink: 0;
 }
@@ -324,7 +324,7 @@ button, input, textarea, picker, view, text, scroll-view {
   line-height: 94rpx;
   margin-bottom: 20rpx;
   border: none;
-  border-radius: 24rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-value);
   font-weight: 700;
   letter-spacing: 0.5rpx;
@@ -348,7 +348,7 @@ button, input, textarea, picker, view, text, scroll-view {
   min-width: 220rpx;
   min-height: 84rpx;
   height: auto;
-  border-radius: 24rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   line-height: 1.35;
   font-size: var(--ui-type-control);
   font-weight: 700;
@@ -408,7 +408,7 @@ button, input, textarea, picker, view, text, scroll-view {
 
 /* ── 通知卡片 ── */
 .notification-badge {
-  flex-shrink: 0; min-width: 40rpx; height: 40rpx; padding: 0 10rpx; border-radius: 20rpx;
+  flex-shrink: 0; min-width: 40rpx; height: 40rpx; padding: 0 10rpx; border-radius: var(--ui-compact-radius, 18rpx);
   display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, rgba(254,242,242,0.94) 0%, rgba(254,226,226,0.84) 100%);
   color: #dc2626; font-size: var(--ui-type-meta); font-weight: 800;
@@ -459,7 +459,7 @@ button, input, textarea, picker, view, text, scroll-view {
   font-size: var(--ui-type-meta);
   font-weight: 700;
   padding: 8rpx 10rpx;
-  border-radius: 12rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
 }
 
 .message-loading-more {
@@ -580,7 +580,7 @@ button, input, textarea, picker, view, text, scroll-view {
   max-width: 100%;
   padding: 4rpx 9rpx;
   border: 1rpx solid rgba(186,210,232,0.72);
-  border-radius: 14rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #475569;
   font-size: var(--ui-type-micro);
   font-weight: 700;
@@ -676,7 +676,7 @@ button, input, textarea, picker, view, text, scroll-view {
   align-items: center;
   justify-content: center;
   padding: 10rpx 20rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   background: linear-gradient(135deg, rgba(219, 234, 254, 0.94) 0%, rgba(191, 219, 254, 0.86) 100%);
   color: #2563eb;
   font-size: var(--ui-type-meta);
@@ -711,7 +711,7 @@ button, input, textarea, picker, view, text, scroll-view {
   padding: 16rpx 24rpx !important;
   line-height: 1.35 !important;
   margin-bottom: 0 !important;
-  border-radius: 22rpx !important;
+  border-radius: var(--ui-control-radius, 28rpx) !important;
   font-size: var(--ui-type-body) !important;
 }
 
@@ -720,7 +720,7 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .message-switch-badge {
-  border-radius: 12rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
 }
 
 .message-switch-org-name {
@@ -904,7 +904,7 @@ button, input, textarea, picker, view, text, scroll-view {
   color: #c2410c;
   background: rgba(255, 237, 213, 0.84);
   padding: 2rpx 10rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   border: 1rpx solid rgba(253, 186, 116, 0.44);
 }
 
@@ -1018,7 +1018,7 @@ button, input, textarea, picker, view, text, scroll-view {
 
   .portal-organization-meta,
   .notification-tag {
-    border-radius: 9px;
+    border-radius: 12px;
     font-size: var(--ui-type-caption);
   }
 }
@@ -1152,7 +1152,7 @@ button, input, textarea, picker, view, text, scroll-view {
   gap: 4rpx;
   flex-shrink: 0;
   padding: 7rpx 10rpx 7rpx 14rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: rgba(255, 255, 255, 0.94);
   font-size: var(--ui-type-caption);
   font-weight: 700;

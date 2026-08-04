@@ -22,7 +22,7 @@
 .venue-meta { display:flex; flex-wrap:wrap; align-items:center; gap:10rpx; }
 .venue-tag {
   display:inline-flex; align-items:center; justify-content:center;
-  min-height:38rpx; padding:6rpx 14rpx; border-radius:999rpx;
+  min-height:38rpx; padding:6rpx 14rpx; border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-caption); font-weight:700; line-height:1.35;
   border:1rpx solid transparent;
 }
@@ -48,7 +48,7 @@
 /* Action buttons — 参考管理端部门卡片 .link 药丸按钮样式 */
 .action-btn {
   display:inline-flex; align-items:center; justify-content:center;
-  padding:10rpx 20rpx; border-radius:999rpx; font-size: var(--ui-type-control); font-weight:600;
+  padding:10rpx 20rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-control); font-weight:600;
   line-height:1; white-space:nowrap;
   background:rgba(219,234,254,0.65); color:#2563eb;
   border:1rpx solid rgba(147,197,253,0.45);
@@ -76,7 +76,7 @@
 
 /* Status tag — 状态色统一由 ../styles/blue-polish.wxss 的玻璃渐变体系接管 */
 .status-tag {
-  font-size: var(--ui-type-meta); padding:6rpx 16rpx; border-radius:999rpx; font-weight:600;
+  font-size: var(--ui-type-meta); padding:6rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight:600;
 }
 
 /* ═══ Empty state ═══ */
@@ -121,7 +121,7 @@
 /* ═══ Chips ═══ */
 .chip-row { display:flex; flex-wrap:wrap; gap:10rpx; margin-top:10rpx; }
 .chip {
-  font-size: var(--ui-type-control); padding:10rpx 22rpx; border-radius:999rpx; font-weight:500;
+  font-size: var(--ui-type-control); padding:10rpx 22rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight:500;
   background:linear-gradient(135deg, rgba(248,250,252,0.96) 0%, rgba(241,245,249,0.84) 100%);
   color:#475569;
   border:1rpx solid rgba(203,213,225,0.58);
@@ -202,7 +202,7 @@
 /* Handle time label */
 .tl-tag {
   font-size: var(--ui-type-caption); font-weight:700; white-space:nowrap;
-  padding:4rpx 12rpx; border-radius:999rpx;
+  padding:4rpx 12rpx; border-radius: var(--ui-compact-radius, 18rpx);
   pointer-events:none;
 }
 .tl-tag-start {
@@ -244,7 +244,7 @@
 /* Hour chip */
 .hour-chip {
   display:inline-block; font-size: var(--ui-type-control); font-weight:700;
-  padding:10rpx 18rpx; margin-right:8rpx; border-radius:14rpx;
+  padding:10rpx 18rpx; margin-right:8rpx; border-radius: var(--ui-compact-radius, 18rpx);
   color:#475569; background:rgba(241,245,249,0.85);
   border:1rpx solid rgba(203,213,225,0.55);
   transition:color 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.2s ease, transform 0.16s ease;
@@ -263,7 +263,7 @@
 }
 .min-chip {
   flex:1; text-align:center; font-size: var(--ui-type-control); font-weight:700;
-  padding:10rpx 0; border-radius:14rpx;
+  padding:10rpx 0; border-radius: var(--ui-compact-radius, 18rpx);
   color:#475569; background:rgba(241,245,249,0.85);
   border:1rpx solid rgba(203,213,225,0.55);
   transition:color 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.2s ease, transform 0.16s ease;
@@ -305,7 +305,7 @@
   display:flex; flex-wrap:wrap; gap:10rpx;
 }
 .duration-chip {
-  font-size: var(--ui-type-control); padding:10rpx 20rpx; border-radius:14rpx; font-weight:600;
+  font-size: var(--ui-type-control); padding:10rpx 20rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight:600;
   background:rgba(241,245,249,0.85); color:#475569;
   border:1rpx solid rgba(203,213,225,0.55);
   transition:color 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.2s ease, transform 0.16s ease;
@@ -574,7 +574,7 @@ page {
 .status-tag {
   min-height: 38rpx;
   padding: 6rpx 16rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-caption);
   font-weight: 800;
   line-height: 1.35;
@@ -618,7 +618,7 @@ page {
 .link {
   min-height: auto;
   padding: 10rpx 20rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-control);
   font-weight: 600;
@@ -679,7 +679,7 @@ page {
 
 
 .chip {
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-meta);
   font-weight: 800;
@@ -697,7 +697,7 @@ page {
   height: auto;
   padding: 14rpx 20rpx;
   line-height: 1.35;
-  border-radius: 20rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   color: #ffffff;
   font-size: var(--ui-type-control);
   font-weight: 700;
@@ -981,7 +981,7 @@ page {
 }
 .pending-action-link {
   display: flex; align-items: center; justify-content: center;
-  min-width: 80rpx; height: 48rpx; border-radius: 999rpx;
+  min-width: 80rpx; height: 48rpx; border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-meta); font-weight: 700; line-height: 48rpx;
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
@@ -1007,7 +1007,7 @@ page {
 .pending-refresh-btn {
   display: inline-flex; align-items: center; gap: 6rpx;
   font-size: var(--ui-type-caption); font-weight: 600; color: #2563eb;
-  padding: 6rpx 18rpx; border-radius: 999rpx;
+  padding: 6rpx 18rpx; border-radius: var(--ui-compact-radius, 18rpx);
   background: rgba(219,234,254,0.65); border: 1rpx solid rgba(147,197,253,0.4);
   line-height: 1;
 }
@@ -1027,7 +1027,7 @@ page {
   height: auto;
   padding: 14rpx 20rpx;
   line-height: 1.35;
-  border-radius: 20rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-control); font-weight: 700; border: none;
   box-shadow: 0 16rpx 32rpx rgba(37,99,235,0.18);
 }
@@ -1042,7 +1042,7 @@ page {
 /* ── Audit chip ── */
 .audit-chip {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 4rpx 14rpx; border-radius: 999rpx; font-size: var(--ui-type-caption); font-weight: 700;
+  padding: 4rpx 14rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-caption); font-weight: 700;
 }
 .audit-chip-progress {
   background: rgba(255,237,213,0.78); color: #c2410c;
