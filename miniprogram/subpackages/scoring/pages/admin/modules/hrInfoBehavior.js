@@ -14,7 +14,16 @@ function toHrProfileListRow(item) {
     auditStatus: item.auditStatus,
     auditStatusText: item.auditStatusText,
     assignmentCount: item.assignmentCount,
-    hasPending: item.hasPending
+    hasPending: item.hasPending,
+    selected: Boolean(item.selected),
+    personId: item.personId || '',
+    organizationId: item.organizationId || '',
+    accountId: item.accountId || '',
+    auth: item.auth || null,
+    authStatusText: item.authStatusText || '',
+    verificationText: item.verificationText || '',
+    recoveryText: item.recoveryText || '',
+    canSelectForAuth: Boolean(item.canSelectForAuth)
   };
 }
 
@@ -81,7 +90,13 @@ module.exports = Behavior({
       const request = orgSession.beginRequest(this, 'hrProfileAdmin');
       this.setLoading('profile', true);
       try {
-        const result = await this.callCloud('listHrProfileAdminData');
+        const loads = [this.callCloud('listHrProfileAdminData')];
+        if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) {
+          loads.push(this.loadHrGovernanceRows());
+        }
+        const loaded = await Promise.all(loads);
+        const result = loaded[0];
+        const governanceByHrId = loaded[1] || new Map();
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           wx.showToast({
@@ -92,7 +107,7 @@ module.exports = Behavior({
         }
   
         const template = result.template || null;
-        const rawRows = result.rows || [];
+        const rawRows = this.mergeHrGovernanceRows(result.rows || [], governanceByHrId);
         const hrProfileFields = template && Array.isArray(template.fields) ? template.fields : [];
         const hrProfileFilterOptions = buildHrProfileFilterOptions(rawRows);
         // Cascade work group options based on current department filter
@@ -128,6 +143,40 @@ module.exports = Behavior({
           title: '请稍后刷新人事模板',
           icon: 'none'
         });
+      } finally {
+        if (orgSession.isRequestCurrent(this, request)) this.setLoading('profile', false);
+      }
+    },
+
+    async loadHrGovernanceDirectory() {
+      const request = orgSession.beginRequest(this, 'hrGovernanceDirectory');
+      this.setLoading('profile', true);
+      try {
+        const governanceByHrId = await this.loadHrGovernanceRows();
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        const rows = Array.from(governanceByHrId.values()).map((item) => Object.assign({}, item, {
+          id: item.hrId || item.id,
+          departments: item.department ? [item.department] : [],
+          identities: item.identity ? [item.identity] : [],
+          workGroups: item.workGroup ? [item.workGroup] : [],
+          assignmentCount: item.department || item.identity || item.workGroup ? 1 : 0,
+          auditStatus: '',
+          auditStatusText: '',
+          hasPending: false,
+          wxBindStatus: item.auth && item.auth.hasActiveBinding ? 'bound' : 'unbound'
+        }));
+        const options = buildHrProfileFilterOptions(rows);
+        const filteredRows = applyHrProfileFilters(rows, this.data.hrProfileFilters);
+        this._hrProfileRawRows = rows;
+        this._hrProfileFilteredRows = filteredRows;
+        this.setData({
+          hrProfileFields: [],
+          hrProfileFilterOptions: options,
+          hrProfileRows: filteredRows.map(toHrProfileListRow)
+        });
+      } catch (error) {
+        if (!orgSession.isRequestCurrent(this, request) || error && error.silent) return;
+        wx.showToast({ title: '请稍后重试', icon: 'none' });
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('profile', false);
       }
@@ -455,9 +504,12 @@ module.exports = Behavior({
           patch.hrProfileFilters = nextFilters;
         } else {
           const dept = this.data.departmentList.find(d => d.name === value) || {};
-          const wgs = this.data.workGroupList
-            .filter(w => w.departmentId === dept.id)
-            .map(w => w.name);
+          const wgs = dept.id
+            ? this.data.workGroupList.filter(w => w.departmentId === dept.id).map(w => w.name)
+            : (this._hrProfileRawRows || [])
+              .filter((row) => (row.departments || [row.department]).includes(value))
+              .reduce((all, row) => all.concat(row.workGroups || (row.workGroup ? [row.workGroup] : [])), [])
+              .filter((name, index, all) => name && all.indexOf(name) === index);
           patch['hrProfileFilterOptions.workGroups'] = ['无', ...wgs];
           nextFilters.workGroup = '无';
           patch.hrProfileFilters = nextFilters;
@@ -666,7 +718,7 @@ module.exports = Behavior({
 
     async openHrPersonDetail(e) {
       const hrId = String(e.currentTarget.dataset.hrId || '');
-      if (!hrId) return;
+      if (!hrId || !this.data.canBrowseHrInfo) return;
   
       // Proactively ensure department/identity/workGroup lists are loaded
       const loadPromises = [];

@@ -18,6 +18,7 @@ const templateLibrary = require('../services/hrProfileTemplateLibrary');
 const { loadEffectivePermissions, hasAnyPermission } = require('../services/adminPermissions');
 const { resolveHrBindingStates } = require('../services/userBindingStatus');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
+const personIdentityOverviewModel = require('../models/personIdentityOverview');
 const pool = require('../../config/db');
 
 const TEMPLATE_KEY = 'default_hr_profile_template';
@@ -173,7 +174,7 @@ router.post('/getUserHrProfile', async (req, res) => {
       vals.forEach((v) => { if (activeFieldIds.has(v.field_id)) values[v.field_id] = v.field_value; });
       pvals.forEach((v) => { if (activeFieldIds.has(v.field_id)) pendingValues[v.field_id] = v.field_value; });
     }
-    const person = await unifiedIdentityModel.resolvePersonByLegacyHrId(hr.id);
+    const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hr.id);
     if (person && templateData && templateData.fields.length) {
       const globalRows = await personProfileValueModel.listForPerson(person.id);
       const globalValues = personProfileValueModel.mapRows(globalRows);
@@ -304,7 +305,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
     }
 
     if (editMode !== 'audit') {
-      const person = await unifiedIdentityModel.resolvePersonByLegacyHrId(hr.id);
+      const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hr.id);
       if (person && effectiveRecordId) {
         await personProfileValueModel.upsertEffectiveValues(
           person.id, await getCurrentOrgId(), effectiveRecordId, normalizedFields,
@@ -633,7 +634,7 @@ router.post('/reviewHrProfileChange', async (req, res) => {
       await profileRecordModel.update(record.id, {
         audit_status: 'approved', rejection_reason: '', reviewed_at: nowUtc, updated_at: nowUtc
       });
-      const person = await unifiedIdentityModel.resolvePersonByLegacyHrId(hrRecord.id);
+      const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrRecord.id);
       if (person) {
         const pendingByField = {};
         pendingVals.forEach((value) => { pendingByField[value.field_id] = value.field_value; });
@@ -714,7 +715,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
       pvals.forEach((v) => { if (activeFieldIds.has(v.field_id)) pendingValues[v.field_id] = v.field_value; });
     }
 
-    const person = await unifiedIdentityModel.resolvePersonByLegacyHrId(hrId);
+    const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId);
     if (person && templateData && templateData.fields.length) {
       const globalRows = await personProfileValueModel.listForPerson(person.id);
       const globalValues = personProfileValueModel.mapRows(globalRows);
@@ -842,7 +843,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
           templateSnapshotId: template.id,
           auditStatus: 'approved', rejectionReason: '', reviewedAt: now, updatedAt: now
         });
-        const person = await unifiedIdentityModel.resolvePersonByLegacyHrId(hrId);
+        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId);
         if (person) {
           await personProfileValueModel.upsertEffectiveValues(
             person.id, await getCurrentOrgId(), existing.id, normalizedFields, normalizedValues, now
@@ -857,7 +858,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
         for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
           await profileValueModel.create(generateId(), recordId, 0, fieldId, fieldValue);
         }
-        const person = await unifiedIdentityModel.resolvePersonByLegacyHrId(hrId);
+        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId);
         if (person) {
           await personProfileValueModel.upsertEffectiveValues(
             person.id, await getCurrentOrgId(), recordId, normalizedFields, normalizedValues, now

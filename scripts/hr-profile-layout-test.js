@@ -12,6 +12,7 @@ const authPersonnelBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpa
 const authManagementJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/org/pages/authManagement/authManagement.js'), 'utf8');
 const accountSecurityJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/org/pages/accountSecurity/accountSecurity.js'), 'utf8');
 const identityModel = fs.readFileSync(path.join(root, 'server/src/core/models/unifiedIdentity.js'), 'utf8');
+const hrProfileRoute = fs.readFileSync(path.join(root, 'server/src/core/routes/hrProfile.js'), 'utf8');
 const portalJs = fs.readFileSync(path.join(root, 'miniprogram/pages/portal/portal.js'), 'utf8');
 
 assert(
@@ -54,16 +55,25 @@ assert(createMemberForm, '应保留新增成员表单');
 assert(!/所属部门|工作分工（职能组）/.test(createMemberForm[0]), '新增成员表单只能填写人员基础信息');
 assert(/保存并完善资料/.test(createMemberForm[0]), '新增成员后应继续进入详情完善岗位和补充资料');
 
-assert(/activeTab === 'hrInfo' && hrInfoMode === 'auth'/.test(adminWxml) && /认证与账号/.test(adminWxml),
-  '管理员认证功能必须并入人事信息子应用');
-assert(/人员认证/.test(authPersonnelBehavior) && /账号与恢复/.test(authPersonnelBehavior) && /认证设置/.test(authPersonnelBehavior),
-  '账号与认证必须按人员认证、账号恢复和设置分组');
+assert(/activeTab === 'hrInfo' && hrInfoMode === 'profiles'/.test(adminWxml)
+    && /issueHrMemberVerificationCode/.test(adminWxml)
+    && /issueHrMemberRecoveryCode/.test(adminWxml)
+    && /issueSelectedHrVerificationCodes/.test(adminWxml)
+    && /issueSelectedHrRecoveryCodes/.test(adminWxml),
+  '人员认证和账号恢复必须并入成员资料卡片与现有批量工具栏');
+assert(/hrInfoMode === 'policy'/.test(adminWxml) && /认证设置/.test(adminWxml)
+    && !/hrInfoMode === 'auth'/.test(adminWxml),
+  '认证设置可以独立显示，但不得保留重复的认证人员目录模式');
+assert(/loadHrGovernanceRows/.test(authPersonnelBehavior)
+    && /selectedHrMemberIds/.test(authPersonnelBehavior)
+    && /patchHrGovernance/.test(authPersonnelBehavior),
+  '成员资料必须直接合并账号治理数据并支持局部状态更新');
 assert(!/操作记录|安全审计/.test(adminWxml), '管理员页面不得向用户展示内部操作记录');
 assert(!/label:\s*['"]身份认证['"]|label:\s*['"]账号安全['"]/.test(portalJs),
   '应用服务不得继续展示独立身份认证或账号安全入口');
 assert(/id="account-and-login"/.test(homeWxml) && /账号与登录/.test(homeWxml),
   '普通用户账号设置必须并入人事信息');
-assert(/tab=hrAccounts/.test(authManagementJs), '旧认证管理地址必须重定向到人事信息');
+assert(/tab=hrInfo/.test(authManagementJs), '旧认证管理地址必须重定向到成员资料');
 assert(/subApp=hr&section=account/.test(accountSecurityJs), '旧账号安全地址必须重定向到普通用户人事信息');
 assert(/const DIRECTORY_LIMIT = 2000/.test(authPersonnelBehavior)
     && /const MAX_AUTH_DIRECTORY_LIMIT = 2000/.test(identityModel),
@@ -76,5 +86,8 @@ const freezeMethod = authPersonnelBehavior.match(/async toggleAuthAccountFrozen\
 assert(freezeMethod, '应保留账号冻结操作');
 assert(!/loadAuthPersonnel|loadAuthAccounts|loadActiveTab/.test(freezeMethod[0]),
   '冻结账号只能局部更新当前人员，不得重新加载整个认证页面');
+assert(/personIdentityOverviewModel\.resolvePersonByLegacyHrId/.test(hrProfileRoute)
+    && !/unifiedIdentityModel\.resolvePersonByLegacyHrId/.test(hrProfileRoute),
+  '历史人事 ID 必须由人员身份概览模型解析，不得调用未导出的统一身份方法');
 
 console.log('hr profile layout tests passed');

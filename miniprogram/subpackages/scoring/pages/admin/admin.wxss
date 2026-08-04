@@ -2392,6 +2392,77 @@ scroll-view {
   box-sizing: border-box;
 }
 
+.hr-governance-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  margin: 18rpx 0;
+  padding: 18rpx 20rpx;
+  border: 1rpx solid rgba(191, 219, 254, 0.72);
+  border-radius: var(--ui-list-radius, 16rpx);
+  background: linear-gradient(145deg, rgba(239, 246, 255, 0.92), rgba(250, 252, 255, 0.88));
+}
+
+.hr-governance-toolbar-copy {
+  flex: 1 1 220rpx;
+  min-width: 0;
+}
+
+.hr-governance-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.hr-member-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  width: 42rpx;
+  height: 42rpx;
+  margin-bottom: 10rpx;
+  border: 1rpx solid rgba(148, 163, 184, 0.66);
+  border-radius: 9rpx;
+  color: #2563eb;
+  background: rgba(248, 250, 252, 0.92);
+  box-sizing: border-box;
+}
+
+.hr-member-select.is-selected {
+  border-color: rgba(59, 130, 246, 0.8);
+  background: rgba(219, 234, 254, 0.94);
+}
+
+.hr-member-auth-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8rpx 18rpx;
+  margin-top: 12rpx;
+  padding: 14rpx 16rpx;
+  border: 1rpx solid rgba(219, 231, 244, 0.82);
+  border-radius: var(--ui-list-radius, 14rpx);
+  background: rgba(248, 251, 255, 0.72);
+}
+
+.hr-member-auth-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8rpx;
+  min-width: 0;
+  color: #475569;
+  font-size: var(--ui-type-caption);
+  line-height: 1.42;
+}
+
+.hr-member-auth-label {
+  color: #64748b;
+  font-weight: 700;
+}
+
 .hr-member-arrow {
   font-size: var(--ui-type-page);
   color: #94a3b8;
@@ -5499,6 +5570,15 @@ scroll-view {
 }
 
 @media (max-width: 519px) {
+  .hr-governance-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hr-governance-toolbar-actions {
+    justify-content: flex-start;
+  }
+
   .auth-personnel-tools,
   .auth-policy-time-grid {
     grid-template-columns: 1fr;
@@ -5525,6 +5605,36 @@ scroll-view {
 }
 
 @media (min-width: 520px) {
+  .hr-governance-toolbar {
+    gap: 14px;
+    margin: 14px 0;
+    padding: 14px 16px;
+    border-radius: var(--ui-list-radius, 12px);
+  }
+
+  .hr-governance-toolbar-actions {
+    gap: 8px;
+  }
+
+  .hr-member-select {
+    width: 30px;
+    height: 30px;
+    margin-bottom: 8px;
+    border-radius: 7px;
+  }
+
+  .hr-member-auth-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px 14px;
+    margin-top: 10px;
+    padding: 11px 13px;
+    border-radius: var(--ui-list-radius, 10px);
+  }
+
+  .hr-member-auth-item {
+    gap: 6px;
+  }
+
   .auth-personnel-section {
     gap: var(--ui-card-gap, 16px);
   }
@@ -5584,6 +5694,16 @@ scroll-view {
 }
 
 @media (min-width: 900px) and (orientation: landscape) {
+  .hr-governance-toolbar {
+    margin: 12px 0;
+    padding: 12px 14px;
+  }
+
+  .hr-member-auth-summary {
+    margin-top: 8px;
+    padding: 9px 12px;
+  }
+
   .auth-personnel-section {
     gap: 12px;
   }

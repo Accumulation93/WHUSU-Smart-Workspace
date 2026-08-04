@@ -505,6 +505,7 @@ Page({
       hrInfo: () => {
         const loads = [];
         if (this.data.canBrowseHrInfo) loads.push(this.loadHrList(), this.loadHrProfileAdminData());
+        else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) loads.push(this.loadHrGovernanceDirectory());
         return Promise.all(loads);
       },
       hrTemplates: () => this.loadHrProfileTemplates(),
@@ -694,19 +695,23 @@ Page({
       if (this._subApp === 'hr') {
         const initialAuthTab = this.initializeAuthPersonnel();
         const needsHrDirectory = visibleTabs.indexOf('hrInfo') >= 0;
-        if (needsHrDirectory) {
+        const canBrowseHr = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
+        const canGovernHr = adminPermissions.hasAny(adminProfile, ['auth.identity.verify', 'auth.accounts.recover']);
+        if (needsHrDirectory && canBrowseHr) {
           await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
           await this.loadWorkGroupList();
         }
-        const canBrowseHr = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
         const canUseTemplates = adminPermissions.hasAny(adminProfile, ['hr.profile_templates.manage', 'hr.profile_templates.select']);
         if (visibleTabs.indexOf('hrInfo') >= 0 && canBrowseHr && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
           await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
         }
+        if (visibleTabs.indexOf('hrInfo') >= 0 && !canBrowseHr && canGovernHr) {
+          await this.loadHrGovernanceDirectory();
+        }
         if (visibleTabs.indexOf('hrTemplates') >= 0 && canUseTemplates) await this.loadHrProfileTemplates();
-        if (visibleTabs.indexOf('hrInfo') >= 0) {
+        if (visibleTabs.indexOf('hrInfo') >= 0 && this.data.hrInfoMode === 'policy') {
           const authTab = this.initializeAuthPersonnel() || initialAuthTab;
-          if (this.data.hrInfoMode === 'auth') await this.loadAuthPersonnel(false, authTab);
+          await this.loadAuthPersonnel(false, authTab);
         }
         this.updateHrFormOptions();
         return;
@@ -757,12 +762,14 @@ Page({
     const mode = String(e.currentTarget.dataset.mode || 'profiles');
     if (mode === this.data.hrInfoMode) return;
     this.setData({ hrInfoMode: mode });
-    if (mode === 'auth') {
+    if (mode === 'policy') {
       const authTab = this.initializeAuthPersonnel();
       this.loadAuthPersonnel(true, authTab);
     } else if (this.data.canBrowseHrInfo) {
       this.loadHrList();
       this.loadHrProfileAdminData();
+    } else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) {
+      this.loadHrGovernanceDirectory();
     }
   },
 
@@ -793,7 +800,9 @@ Page({
         this.loadHrProfileAdminData();
         this.loadHrList();
         const authTab = this.initializeAuthPersonnel();
-        if (this.data.hrInfoMode === 'auth') this.loadAuthPersonnel(false, authTab);
+        if (this.data.hrInfoMode === 'policy') this.loadAuthPersonnel(false, authTab);
+      } else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) {
+        this.loadHrGovernanceDirectory();
       }
       this.updateHrFormOptions();
     }

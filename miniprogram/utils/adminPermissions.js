@@ -8,7 +8,7 @@ const TAB_PERMISSION_MAP = {
   rules: ['scoring.rules'],
   results: ['scoring.results'],
   publications: ['scoring.publications'],
-  hrInfo: ['hr.people', 'hr.import', 'hr.profile_review'],
+  hrInfo: ['hr.people', 'hr.import', 'hr.profile_review', 'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'],
   hrAccounts: ['auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'],
   hrTemplates: ['hr.profile_templates.manage', 'hr.profile_templates.select'],
   departments: ['hr.departments'],

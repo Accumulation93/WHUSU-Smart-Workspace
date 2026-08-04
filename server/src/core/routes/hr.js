@@ -175,10 +175,21 @@ router.post('/listHrGovernance', async (req, res) => {
                 AND c.method = 'recovery_code' AND c.status = 'active') AS has_recovery_code,
               (SELECT COUNT(*) FROM auth_sessions s WHERE s.account_id = a.id
                 AND s.status = 'active' AND s.expires_at > NOW()) AS active_session_count,
+              (SELECT claim.id FROM identity_claim_requests claim WHERE claim.person_id = om.person_id
+                AND claim.requested_org_id = h.org_id AND claim.status = 'pending' AND claim.expires_at > NOW()
+                ORDER BY claim.created_at DESC LIMIT 1) AS pending_claim_id,
               EXISTS (SELECT 1 FROM identity_claim_requests claim WHERE claim.person_id = om.person_id
-                AND claim.requested_org_id = h.org_id AND claim.status = 'pending') AS has_pending_claim,
+                AND claim.requested_org_id = h.org_id AND claim.status = 'pending' AND claim.expires_at > NOW()) AS has_pending_claim,
+              EXISTS (SELECT 1 FROM identity_verification_tokens token
+                JOIN identity_claim_requests claim ON claim.id = token.claim_request_id
+                WHERE claim.person_id = om.person_id AND claim.requested_org_id = h.org_id
+                  AND claim.status = 'pending' AND claim.expires_at > NOW()
+                  AND token.status = 'active' AND token.expires_at > NOW()) AS has_active_claim_code,
               EXISTS (SELECT 1 FROM identity_verification_invites invite WHERE invite.person_id = om.person_id
-                AND invite.org_id = h.org_id AND invite.status = 'active' AND invite.expires_at > NOW()) AS has_active_invite
+                AND invite.org_id = h.org_id AND invite.status = 'active' AND invite.expires_at > NOW()) AS has_active_invite,
+              (SELECT recovery.id FROM account_recovery_requests recovery
+                WHERE recovery.person_id = om.person_id AND recovery.status = 'pending' AND recovery.expires_at > NOW()
+                ORDER BY recovery.created_at DESC LIMIT 1) AS pending_recovery_id
          FROM hr_info h
          JOIN organization_memberships om ON om.legacy_hr_id = h.id
            AND om.org_id = h.org_id AND om.status = 'active'
@@ -220,8 +231,11 @@ router.post('/listHrGovernance', async (req, res) => {
           hasBindingHistory: Boolean(item.has_binding_history),
           hasRecoveryCode: Boolean(item.has_recovery_code),
           activeSessionCount: Number(item.active_session_count || 0),
+          pendingClaimId: safeString(item.pending_claim_id),
           hasPendingClaim: Boolean(item.has_pending_claim),
+          hasActiveClaimCode: Boolean(item.has_active_claim_code),
           hasActiveInvite: Boolean(item.has_active_invite),
+          pendingRecoveryId: safeString(item.pending_recovery_id),
           verifiedAt: item.verified_at,
           recoveryRequiredAt: item.recovery_required_at
         }
