@@ -15,7 +15,11 @@ const REQUIRED_COLUMNS = [
   ['org_hr_profile_template_snapshots', 'updated_at'],
   ['org_hr_profile_template_snapshot_fields', 'is_active'],
   ['org_hr_profile_template_switches', 'snapshot_id'],
-  ['hr_profile_records', 'template_snapshot_id']
+  ['hr_profile_records', 'template_snapshot_id'],
+  ['hr_profile_record_values', 'updated_at'],
+  ['auth_sessions', 'device_key_hash'],
+  ['auth_sessions', 'device_platform'],
+  ['auth_sessions', 'device_model']
   ,['score_activities', 'participant_granularity']
   ,['score_records', 'scorer_person_id']
   ,['score_records', 'scorer_assignment_id']
@@ -77,6 +81,8 @@ const REQUIRED_TABLES = [
   ,'account_recovery_requests'
   ,'auth_policy'
   ,'auth_audit_events'
+  ,'person_profile_values'
+  ,'person_profile_value_history'
 ];
 
 const REQUIRED_INDEXES = [
@@ -97,6 +103,8 @@ const REQUIRED_INDEXES = [
   ,['account_wechat_bindings', 'uk_wechat_active_openid']
   ,['account_wechat_bindings', 'uk_wechat_active_account']
   ,['auth_sessions', 'idx_auth_session_account']
+  ,['auth_sessions', 'idx_auth_session_device']
+  ,['person_profile_values', 'uk_person_profile_value']
   ,['identity_claim_requests', 'idx_claim_org_status']
   ,['identity_verification_invites', 'idx_identity_invite_org_status']
   ,['auth_audit_events', 'idx_auth_audit_type']

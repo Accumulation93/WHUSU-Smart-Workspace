@@ -1,6 +1,7 @@
 const { callFunction, showShortToast, getErrorText } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
 const authContext = require('../../utils/authContext');
+const { getDeviceIdentity } = require('../../utils/deviceIdentity');
 
 function selectedOrganizationName(organizations, index) {
   const item = organizations[Number(index) || 0];
@@ -105,11 +106,15 @@ Page({
     }
     this.setData({ loading: true });
     try {
+      const device = getDeviceIdentity();
       const result = await callFunction({
         name: 'auth/password/session',
         data: {
           studentId: this.data.passwordStudentId,
           passphrase: this.data.password,
+          deviceId: device.id,
+          devicePlatform: device.platform,
+          deviceModel: device.model,
           preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
           preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
         }
@@ -173,6 +178,7 @@ Page({
     if (this._loginSubmitting || this.data.loading) return;
     this._loginSubmitting = true;
     this.setData({ loading: true, authNotice: '' });
+    const device = getDeviceIdentity();
     wx.login({
       success: async (loginResult) => {
         try {
@@ -180,6 +186,9 @@ Page({
             name: 'auth/wechat/session',
             data: {
               code: loginResult.code,
+              deviceId: device.id,
+              devicePlatform: device.platform,
+              deviceModel: device.model,
               preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
               preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
             }
@@ -311,6 +320,7 @@ Page({
     }
     this.setData({ loading: true });
     try {
+      const device = getDeviceIdentity();
       const organization = this.data.organizations[this.data.organizationIndex];
       try {
         const inviteResult = await callFunction({
@@ -319,7 +329,10 @@ Page({
             organizationId: organization && organization.id,
             name: this.data.name,
             studentId: this.data.studentId,
-            code: this.data.verificationCode
+            code: this.data.verificationCode,
+            deviceId: device.id,
+            devicePlatform: device.platform,
+            deviceModel: device.model
           }
         });
         if (inviteResult && inviteResult.status === 'login_success') {
@@ -334,7 +347,10 @@ Page({
         name: 'auth/claims/verify',
         data: {
           claimId: this.data.claimId,
-          verificationCode: this.data.verificationCode
+          verificationCode: this.data.verificationCode,
+          deviceId: device.id,
+          devicePlatform: device.platform,
+          deviceModel: device.model
         }
       });
       if (!result || result.status !== 'login_success') {
@@ -393,12 +409,16 @@ Page({
     }
     this.setData({ loading: true });
     try {
+      const device = getDeviceIdentity();
       const result = await callFunction({
         name: 'auth/recovery/complete',
         data: {
           recoveryRequestId: this.data.recoveryRequestId,
           method: this.data.recoveryMethod,
-          credential: this.data.recoveryCredential
+          credential: this.data.recoveryCredential,
+          deviceId: device.id,
+          devicePlatform: device.platform,
+          deviceModel: device.model
         }
       });
       if (!result || result.status !== 'login_success') {

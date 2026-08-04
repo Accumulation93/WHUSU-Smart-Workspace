@@ -462,6 +462,7 @@ CREATE TABLE IF NOT EXISTS hr_profile_record_values (
   field_id VARCHAR(64) NOT NULL,
   field_value TEXT,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_hprv_record (record_id),
   INDEX idx_hprv_field (field_id),
   INDEX idx_hprv_org (org_id),
@@ -1198,12 +1199,16 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   organization_id VARCHAR(64) DEFAULT NULL,
   role VARCHAR(16) DEFAULT NULL,
   token_version INT NOT NULL,
+  device_key_hash CHAR(64) DEFAULT NULL,
+  device_platform VARCHAR(24) DEFAULT NULL,
+  device_model VARCHAR(96) DEFAULT NULL,
   status VARCHAR(24) NOT NULL DEFAULT 'active',
   expires_at DATETIME NOT NULL,
   last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   revoked_at DATETIME DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_auth_session_account (account_id, status),
+  INDEX idx_auth_session_device (account_id, device_key_hash, status),
   INDEX idx_auth_session_expiry (expires_at),
   CONSTRAINT fk_auth_session_account FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1256,6 +1261,41 @@ CREATE TABLE IF NOT EXISTS identity_verification_tokens (
   CONSTRAINT fk_identity_token_claim FOREIGN KEY (claim_request_id)
     REFERENCES identity_claim_requests(id) ON DELETE CASCADE,
   CONSTRAINT fk_identity_token_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS person_profile_values (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  person_id VARCHAR(64) NOT NULL,
+  normalized_label VARCHAR(200) NOT NULL,
+  field_label VARCHAR(200) NOT NULL,
+  field_type VARCHAR(32) NOT NULL,
+  field_value TEXT,
+  value_updated_at DATETIME NOT NULL,
+  source_org_id VARCHAR(64) DEFAULT NULL,
+  source_record_id VARCHAR(64) DEFAULT NULL,
+  source_field_id VARCHAR(64) DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uk_person_profile_value (person_id, normalized_label, field_type),
+  INDEX idx_person_profile_person (person_id),
+  CONSTRAINT fk_person_profile_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS person_profile_value_history (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  person_id VARCHAR(64) NOT NULL,
+  normalized_label VARCHAR(200) NOT NULL,
+  field_label VARCHAR(200) NOT NULL,
+  field_type VARCHAR(32) NOT NULL,
+  field_value TEXT,
+  value_updated_at DATETIME NOT NULL,
+  source_org_id VARCHAR(64) DEFAULT NULL,
+  source_record_id VARCHAR(64) DEFAULT NULL,
+  source_field_id VARCHAR(64) DEFAULT NULL,
+  resolution VARCHAR(24) NOT NULL DEFAULT 'selected',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_person_profile_history_key (person_id, normalized_label, field_type, value_updated_at),
+  CONSTRAINT fk_person_profile_history_person FOREIGN KEY (person_id) REFERENCES persons(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS identity_verification_invites (

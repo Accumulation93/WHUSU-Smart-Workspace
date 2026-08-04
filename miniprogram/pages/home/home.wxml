@@ -440,7 +440,11 @@
             <view class="profile-session-head"><view><view class="profile-credential-title">登录设备</view><view class="profile-credential-note">可退出不再使用的设备</view></view><view class="profile-session-count">{{accountSecurity.sessions.length}} 台</view></view>
             <view class="profile-session-list">
               <view class="profile-session-row" wx:for="{{accountSecurity.sessions}}" wx:key="id">
-                <view class="profile-session-copy"><view class="profile-session-title">{{item.current ? '当前设备' : '已登录设备'}}</view><view class="profile-credential-note">{{item.roleLabel}} · 最近活动 {{item.lastSeenText}}</view></view>
+                <view class="profile-session-copy">
+                  <view class="profile-session-title">{{item.deviceTitle}}</view>
+                  <view class="profile-credential-note">{{item.deviceMeta}}</view>
+                  <view class="profile-credential-note">{{item.sessionMeta}} · 最近活动 {{item.lastSeenText}}</view>
+                </view>
                 <view class="profile-account-status" wx:if="{{item.current}}">当前</view>
                 <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-id="{{item.id}}" loading="{{accountSecurity.revokingSessionId === item.id}}" bindtap="revokeAccountSession" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">退出设备</button>
               </view>

@@ -3,7 +3,7 @@
 // All constants and factories used by admin.js and behaviors are here.
 
 const STORAGE_KEY = 'roleProfiles';
-const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'hrAccounts', 'hrTemplates', 'departments', 'workGroups', 'identities', 'admins', 'settings', 'publications', 'auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'];
+const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'admins', 'settings', 'publications', 'auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'];
 const TIMEZONE_OPTIONS = [
   { value: -12, label: 'UTC-12 (国际日期变更线西)' },
   { value: -11, label: 'UTC-11 (中途岛)' },

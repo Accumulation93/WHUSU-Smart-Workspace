@@ -36,11 +36,18 @@ async function listAdminOrganizationAccess(req) {
     const admin = context.actor && context.actor.profile;
     const effective = await loadEffectivePermissions(admin, context.organizationId);
     const permissions = effective.permissions || {};
+    const permissionKeys = Object.keys(permissions).filter((key) => permissions[key]);
     return {
       organizationId: context.organizationId,
       organizationName: context.organizationName,
       admin,
       isSuperAdmin: Boolean(effective.isSuper),
+      permissionKeys,
+      canReadPeople: Boolean(
+        permissions['hr.people'] || permissions['hr.profile_review']
+        || permissions['auth.identity.verify'] || permissions['auth.accounts.recover']
+        || permissions['auth.policy.manage']
+      ),
       canReadAssignments: Boolean(permissions['hr.people']),
       canEditAssignments: Boolean(permissions['hr.people']),
       canReadAdmins: Boolean(

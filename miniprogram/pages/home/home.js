@@ -64,7 +64,10 @@ function decorateAccountSessions(sessions) {
   return (sessions || []).map(function(item) {
     return Object.assign({}, item, {
       roleLabel: item.role === 'admin' ? '管理身份' : '普通岗位',
-      lastSeenText: formatAuditTime(String(item.lastSeenAt || ''))
+      lastSeenText: formatAuditTime(String(item.lastSeenAt || '')),
+      deviceTitle: item.currentDevice || item.current ? '当前设备' : (item.recognized ? '已登录设备' : '无法识别的设备'),
+      deviceMeta: [item.platform, item.model].filter(Boolean).join(' · ') || '微信小程序',
+      sessionMeta: [item.role === 'admin' ? '管理身份' : '普通岗位', item.organizationName || ''].filter(Boolean).join(' · ')
     });
   });
 }

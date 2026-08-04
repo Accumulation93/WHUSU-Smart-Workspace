@@ -17,7 +17,6 @@
           <block wx:elif="{{tabKey === 'rules'}}">评分人类别</block>
           <block wx:elif="{{tabKey === 'results'}}">结果查看</block>
           <block wx:elif="{{tabKey === 'hrInfo'}}">人事信息</block>
-          <block wx:elif="{{tabKey === 'hrAccounts'}}">账号与认证</block>
           <block wx:elif="{{tabKey === 'hrTemplates'}}">人事模板</block>
           <block wx:elif="{{tabKey === 'departments'}}">部门维护</block>
           <block wx:elif="{{tabKey === 'workGroups'}}">职能组</block>
@@ -859,14 +858,18 @@
 
     <view class="section" wx:if="{{activeTab === 'hrInfo' || activeTab === 'hrTemplates'}}">
       <view class="section-title">{{activeTab === 'hrTemplates' ? '人事模板' : '人事信息'}}</view>
-      <view class="toolbar-row" wx:if="{{activeTab === 'hrInfo'}}">
+      <view class="tabs-card hr-info-mode-tabs" wx:if="{{activeTab === 'hrInfo'}}">
+        <view class="feature-tab {{hrInfoMode === 'profiles' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="profiles" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">成员资料</view>
+        <view class="feature-tab {{hrInfoMode === 'auth' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="auth" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" wx:if="{{canVerifyIdentity || canRecoverAccounts || canManageAuthPolicy}}">认证与账号</view>
+      </view>
+      <view class="toolbar-row" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
         <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" bindtap="startCreateHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增成员</button>
         <button class="secondary-btn ui-motion-button" wx:if="{{canImportHr}}" loading="{{loadingMap.importCsv}}" bindtap="chooseTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导入表格</button>
         <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" loading="{{loadingMap.batchMaintain}}" bindtap="batchMaintainFromHrInfo" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">同步组织字典</button>
         <view class="csv-tip" wx:if="{{csvName}}">{{csvName}}</view>
       </view>
 
-      <view class="edit-box" wx:if="{{activeTab === 'hrInfo' && showAddEditForm && canManageHrPeople}}">
+      <view class="edit-box" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles' && showAddEditForm && canManageHrPeople}}">
         <view class="edit-box-header">
           <view>
             <view class="list-title">新增成员</view>
@@ -1053,7 +1056,7 @@
         </view>
       </view>
 
-      <view class="list-card" wx:if="{{activeTab === 'hrInfo'}}">
+      <view class="list-card" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
         <view class="list-card-header hr-member-list-header">
           <view class="list-title">成员资料</view>
           <button class="secondary-btn hr-profile-export-btn ui-motion-button" wx:if="{{canBrowseHrInfo}}" loading="{{loadingMap.exportHrProfiles}}" bindtap="exportHrProfiles" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出成员资料</button>
@@ -1680,11 +1683,11 @@
       </view>
     </view>
 
-    <view class="section auth-personnel-section" wx:if="{{activeTab === 'hrAccounts'}}">
-      <view class="section-title">账号与认证</view>
+    <view class="section auth-personnel-section" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'auth'}}">
+      <view class="section-title">认证与账号</view>
       <view class="auth-personnel-intro">
         <view class="auth-personnel-intro-main">统一管理人员认证和账号状态</view>
-        <view class="auth-personnel-intro-sub">人员资料仍在人事信息中维护，此处只处理登录与账号恢复。</view>
+        <view class="auth-personnel-intro-sub">与成员资料共用同一份人员目录，可单独处理或批量处理。</view>
       </view>
 
       <view class="auth-personnel-nav tabs-card" wx:if="{{authPersonnelTabs.length}}">
@@ -1825,6 +1828,7 @@
                 <view class="auth-person-name">{{item.name}}</view>
                 <view class="auth-person-meta">{{item.studentId}}{{item.isSuperAdmin ? ' · 超级管理员' : ''}}</view>
                 <view class="auth-person-meta">{{item.hasRecoveryCode ? '已有恢复码' : '未设置恢复码'}}</view>
+                <view class="auth-person-meta" wx:if="{{item.activeSessionCount !== undefined}}">已登录设备 {{item.activeSessionCount}}</view>
               </view>
               <view class="auth-row-state {{item.accountStatus === 'verified' ? 'is-ready' : item.accountStatus === 'frozen' ? 'is-frozen' : ''}}">{{item.statusLabel}}</view>
               <button class="{{item.accountStatus === 'frozen' ? 'primary-btn' : 'secondary-btn'}} compact-action ui-motion-button" data-id="{{item.personId}}" data-frozen="{{item.accountStatus === 'frozen'}}" loading="{{authActionLoadingKey === 'freeze-' + item.personId}}" bindtap="toggleAuthAccountFrozen" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{item.accountStatus === 'frozen' ? '解除冻结' : '冻结账号'}}</button>

@@ -198,6 +198,10 @@ async function buildAuthenticatedPayload(account, session) {
     status: 'login_success',
     token: signAccessToken(session, account),
     expiresIn: session.expiresInSeconds,
+    device: {
+      recognized: Boolean(session.deviceRecognized),
+      current: true
+    },
     account: {
       id: account.id,
       personId: account.person_id,

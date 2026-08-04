@@ -172,6 +172,7 @@ module.exports = Behavior({
         authScopeOrganizationName: currentScope.name || '',
         authPersonnelLoaded: {}
       });
+      return currentTab;
     },
 
     switchAuthPersonnelTab(e) {
@@ -230,8 +231,8 @@ module.exports = Behavior({
       });
     },
 
-    async loadAuthPersonnel(force) {
-      const tab = this.data.activeAuthPersonnelTab;
+    async loadAuthPersonnel(force, tabOverride) {
+      const tab = tabOverride || this.data.activeAuthPersonnelTab;
       if (!tab || this.data.authPersonnelLoading) return;
       if (!force && this.data.authPersonnelLoaded[tab]) {
         this.applyAuthPersonnelFilter(this.data.authSearch);
@@ -258,21 +259,22 @@ module.exports = Behavior({
 
     async loadAuthOnboarding() {
       const organizationId = this.data.authScopeOrganizationId;
+      const governanceResult = await callFunction({ name: 'listHrGovernance', data: { organizationId } });
       const results = await Promise.all([
         callFunction({ name: 'admin/auth/claims', data: {
           action: 'list', limit: DIRECTORY_LIMIT, organizationId
-        } }),
-        callFunction({ name: 'admin/auth/claims', data: {
-          action: 'eligible', limit: DIRECTORY_LIMIT, organizationId
         } })
       ]);
-      if (results[0].status !== 'success' || results[1].status !== 'success') {
-        throw new Error(results[0].message || results[1].message || '请稍后重试');
+      if (results[0].status !== 'success' || governanceResult.status !== 'success') {
+        throw new Error(results[0].message || '请稍后重试');
       }
       this._authPendingClaimsRaw = (results[0].list || []).map(decorateClaim);
-      this._authEligiblePeopleRaw = uniquePeople(results[1].list).map(function(item) {
-        return Object.assign({}, item, { selected: false });
-      });
+      this._authEligiblePeopleRaw = uniquePeople((governanceResult.rows || [])
+        .filter((item) => item.auth && !item.auth.hasBindingHistory)
+        .map((item) => Object.assign({}, item, {
+          hasActiveInvite: Boolean(item.auth.hasActiveInvite),
+          selected: false
+        })));
       this.setData({
         authPendingClaimTotal: this._authPendingClaimsRaw.length,
         authEligiblePeopleTotal: this._authEligiblePeopleRaw.length,
@@ -283,6 +285,7 @@ module.exports = Behavior({
 
     async loadAuthAccounts() {
       const organizationId = this.data.authScopeOrganizationId;
+      const governanceResult = await callFunction({ name: 'listHrGovernance', data: { organizationId } });
       const results = await Promise.all([
         callFunction({ name: 'admin/auth/recoveries', data: {
           action: 'list', limit: DIRECTORY_LIMIT, organizationId
@@ -291,11 +294,23 @@ module.exports = Behavior({
           action: 'list', limit: DIRECTORY_LIMIT, organizationId
         } })
       ]);
-      if (results[0].status !== 'success' || results[1].status !== 'success') {
+      if (results[0].status !== 'success' || results[1].status !== 'success' || governanceResult.status !== 'success') {
         throw new Error(results[0].message || results[1].message || '请稍后重试');
       }
       this._authRecoveryRequestsRaw = (results[0].list || []).map(decorateClaim);
-      this._authAccountsRaw = (results[1].list || []).map(decorateAccount);
+      const legacyByPerson = new Map((results[1].list || []).map((item) => [String(item.personId || ''), item]));
+      this._authAccountsRaw = (governanceResult.rows || []).filter((item) => item.accountId).map((item) => {
+        const legacy = legacyByPerson.get(String(item.personId || '')) || {};
+        const auth = item.auth || {};
+        return decorateAccount(Object.assign({}, legacy, item, {
+          accountId: item.accountId || legacy.accountId,
+          accountStatus: auth.status || legacy.accountStatus,
+          hasRecoveryCode: Boolean(auth.hasRecoveryCode),
+          activeSessionCount: Number(auth.activeSessionCount || legacy.activeSessionCount || 0),
+          hasPendingClaim: Boolean(auth.hasPendingClaim || legacy.hasPendingClaim),
+          hasActiveInvite: Boolean(auth.hasActiveInvite || legacy.hasActiveInvite)
+        }));
+      });
       this.setData({
         authRecoveryRequestTotal: this._authRecoveryRequestsRaw.length,
         authAccountTotal: this._authAccountsRaw.length,

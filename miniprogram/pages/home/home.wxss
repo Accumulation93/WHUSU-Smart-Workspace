@@ -2553,6 +2553,47 @@ scroll-view {
 .profile-session-row {
   padding: 16rpx 0;
   border-bottom: 1rpx solid rgba(226, 234, 243, 0.82);
+  align-items: flex-start;
+}
+
+.profile-session-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.profile-session-row .profile-account-action,
+.profile-session-row .profile-account-status {
+  flex: 0 0 auto;
+  align-self: center;
+  white-space: nowrap;
+}
+
+@media (min-width: 520px) {
+  .profile-session-row {
+    min-height: 84px;
+    padding: 14px 0;
+  }
+  .profile-session-copy {
+    padding-right: 18px;
+  }
+}
+
+@media (min-width: 900px) {
+  .profile-session-row {
+    min-height: 72px;
+    padding: 10px 0;
+  }
+  .profile-session-copy {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.8fr) minmax(180px, 1.2fr) minmax(220px, 1.5fr);
+    align-items: center;
+    column-gap: 16px;
+    padding-right: 20px;
+  }
+  .profile-session-copy .profile-credential-note {
+    margin-top: 0;
+  }
 }
 
 .profile-session-row:last-child {

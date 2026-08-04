@@ -486,6 +486,14 @@ Authenticated WHUSU Smart Workspace pages use one shared workspace shell:
 - Primary tabs must not look like compressed text strips: use the shared tab height and padding tokens on every implementation, including local tab components. A blue title accent bar is centered against the complete title line with `top: 50%` and `translateY(-50%)`; fixed top offsets are forbidden because wrapped or device-scaled titles will drift.
 - Inspect short and long states on phone, Pad portrait, and Pad landscape, including nested cards, empty states, dialogs, and grid remainders. Strict audit must keep `workspaceShellIssues`, `stackedButtonMetrics`, `forcedDialogViewport`, and `oversizedContentPadding` at zero.
 
+## Personnel Governance And Device Cards
+
+- Treat authentication governance as a personnel-information mode, not a separate gray utility page. Reuse the HR search row, people cards, `tabs-card`, `feature-tab`, status metadata, and `ui-dialog-*` surfaces for “成员资料 / 认证与账号 / 认证设置”. Do not expose internal operation logs.
+- People rows show authentication status, account status, recovery status, and active device count without changing card density. Freeze, unfreeze, credential issue, and revoke actions update only the target row and preserve search, selection, and scroll state.
+- Device cards must give the device name, platform/model, organization and identity metadata a readable wrapping column; actions live in a separate fixed action area and must not compress the copy.
+- A device is recognized only from a client-persisted installation identifier hashed by the server. If persistence is unavailable, show an unrecognized-device state; never infer device sameness from OpenID, name, student ID, IP, or hardware fingerprint.
+- Cross-organization profile values are shared only when the person, trimmed field label, and field type are exactly the same. Effective values may win by latest timestamp; pending values stay local until approved. Do not show source organization details to ordinary users.
+
 ## Composition Checklist
 
 Before finishing:

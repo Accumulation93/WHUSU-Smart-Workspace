@@ -1,6 +1,7 @@
 const API_BASE = 'https://accumulation93.com/api';
 const CLIENT_VERSION = '1.2.0-security';
 const orgSession = require('./orgSession');
+const { getDeviceIdentity } = require('./deviceIdentity');
 const IDEMPOTENT_WRITE_APIS = {
   submitScoreRecord: true,
   startAuditSubmission: true,
@@ -114,6 +115,7 @@ function getFreshWechatCode() {
 
 function requestWechatSession(code) {
   return new Promise(function(resolve, reject) {
+    const device = getDeviceIdentity();
     wx.request({
       url: API_BASE + '/auth/wechat/session',
       method: 'POST',
@@ -121,6 +123,9 @@ function requestWechatSession(code) {
       header: createRequestHeaders(createRequestId()),
       data: {
         code: code,
+        deviceId: device.id,
+        devicePlatform: device.platform,
+        deviceModel: device.model,
         preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
         preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
       },

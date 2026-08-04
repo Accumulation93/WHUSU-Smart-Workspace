@@ -146,6 +146,103 @@ router.post('/listHrInfo', async (req, res) => {
   }
 });
 
+// 人事信息页统一目录：资料、认证、账号与恢复共用同一份人员数据。
+router.post('/listHrGovernance', async (req, res) => {
+  try {
+    const accessList = await listAdminOrganizationAccess(req);
+    const readable = accessList.filter((item) => (
+      item.canReadAssignments || item.canReadPeople
+      || item.permissionKeys && item.permissionKeys.some((key) => [
+        'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'
+      ].indexOf(key) >= 0)
+    ));
+    if (!readable.length) return res.status(403).json({ status: 'permission_denied', message: '当前身份无权查看人事信息' });
+    const requestedOrgId = safeString(req.body && req.body.organizationId);
+    const allowedIds = Array.from(new Set(readable.map((item) => safeString(item.organizationId)).filter(Boolean)));
+    const organizationIds = requestedOrgId
+      ? (allowedIds.indexOf(requestedOrgId) >= 0 ? [requestedOrgId] : [])
+      : allowedIds;
+    if (!organizationIds.length) return res.status(403).json({ status: 'organization_forbidden', message: '当前身份无权查看该组织' });
+    const placeholders = organizationIds.map(() => '?').join(',');
+    const [rows] = await pool.query(
+      `SELECT h.id, h.org_id, h.name, h.student_id,
+              om.person_id, o.name AS organization_name,
+              d.name AS department_name, i.name AS identity_name, wg.name AS work_group_name,
+              a.id AS account_id, a.status AS account_status, a.verified_at, a.recovery_required_at,
+              EXISTS (SELECT 1 FROM account_wechat_bindings b WHERE b.account_id = a.id AND b.status = 'active') AS has_active_binding,
+              EXISTS (SELECT 1 FROM account_wechat_bindings history_binding WHERE history_binding.account_id = a.id) AS has_binding_history,
+              EXISTS (SELECT 1 FROM account_recovery_credentials c WHERE c.account_id = a.id
+                AND c.method = 'recovery_code' AND c.status = 'active') AS has_recovery_code,
+              (SELECT COUNT(*) FROM auth_sessions s WHERE s.account_id = a.id
+                AND s.status = 'active' AND s.expires_at > NOW()) AS active_session_count,
+              EXISTS (SELECT 1 FROM identity_claim_requests claim WHERE claim.person_id = om.person_id
+                AND claim.requested_org_id = h.org_id AND claim.status = 'pending') AS has_pending_claim,
+              EXISTS (SELECT 1 FROM identity_verification_invites invite WHERE invite.person_id = om.person_id
+                AND invite.org_id = h.org_id AND invite.status = 'active' AND invite.expires_at > NOW()) AS has_active_invite
+         FROM hr_info h
+         JOIN organization_memberships om ON om.legacy_hr_id = h.id
+           AND om.org_id = h.org_id AND om.status = 'active'
+         JOIN organizations o ON o.id = h.org_id AND o.status = 'active'
+         LEFT JOIN departments d ON d.id = h.department_id AND d.org_id = h.org_id
+         LEFT JOIN identities i ON i.id = h.identity_id AND i.org_id = h.org_id
+         LEFT JOIN work_groups wg ON wg.id = h.work_group_id AND wg.org_id = h.org_id
+         LEFT JOIN accounts a ON a.person_id = om.person_id
+        WHERE h.org_id IN (${placeholders})
+        ORDER BY h.org_id, h.name, h.id`,
+      organizationIds
+    );
+    const countByStatus = { verified: 0, pending_verification: 0, frozen: 0, recovery_required: 0 };
+    const list = rows.map((item) => {
+      const accountStatus = safeString(item.account_status);
+      const status = accountStatus === 'frozen'
+        ? 'frozen'
+        : accountStatus === 'recovery_required'
+          ? 'recovery_required'
+          : accountStatus === 'verified' && Boolean(item.has_active_binding)
+            ? 'verified'
+            : 'pending_verification';
+      countByStatus[status] = Number(countByStatus[status] || 0) + 1;
+      return {
+        id: safeString(item.id),
+        hrId: safeString(item.id),
+        personId: safeString(item.person_id),
+        organizationId: safeString(item.org_id),
+        organizationName: safeString(item.organization_name),
+        name: safeString(item.name),
+        studentId: safeString(item.student_id),
+        department: safeString(item.department_name),
+        identity: safeString(item.identity_name),
+        workGroup: safeString(item.work_group_name),
+        accountId: safeString(item.account_id),
+        auth: {
+          status,
+          hasActiveBinding: Boolean(item.has_active_binding),
+          hasBindingHistory: Boolean(item.has_binding_history),
+          hasRecoveryCode: Boolean(item.has_recovery_code),
+          activeSessionCount: Number(item.active_session_count || 0),
+          hasPendingClaim: Boolean(item.has_pending_claim),
+          hasActiveInvite: Boolean(item.has_active_invite),
+          verifiedAt: item.verified_at,
+          recoveryRequiredAt: item.recovery_required_at
+        }
+      };
+    });
+    return res.json({ status: 'success', rows: list, totals: {
+      total: list.length,
+      verified: countByStatus.verified,
+      pendingVerification: countByStatus.pending_verification,
+      frozen: countByStatus.frozen,
+      recoveryRequired: countByStatus.recovery_required
+    }, organizations: organizationIds });
+  } catch (error) {
+    const expected = error instanceof AdminOrganizationAccessError;
+    return res.status(expected ? (error.httpStatus || 403) : 500).json({
+      status: expected ? error.code : 'error',
+      message: expected ? error.message : '人事信息暂时无法加载，请稍后重试'
+    });
+  }
+});
+
 router.post('/listMembershipAssignments', async (req, res) => {
   try {
     const legacyHrId = safeString(req.body.hrId);

@@ -8,7 +8,10 @@ const router = express.Router();
 function metadata(req) {
   return {
     requestId: safeString(req.requestId),
-    ip: safeString(req.ip)
+    ip: safeString(req.ip),
+    deviceId: safeString(req.body && req.body.deviceId),
+    devicePlatform: safeString(req.body && req.body.devicePlatform),
+    deviceModel: safeString(req.body && req.body.deviceModel)
   };
 }
 
@@ -268,7 +271,14 @@ router.all('/auth/security', async (req, res) => {
         id: safeString(item.id),
         contextId: safeString(item.context_id),
         organizationId: safeString(item.organization_id),
+        organizationName: safeString(item.organization_name),
         role: safeString(item.role),
+        deviceLabel: item.device_model || item.device_platform || '登录设备',
+        platform: safeString(item.device_platform),
+        model: safeString(item.device_model),
+        recognized: Boolean(item.device_key_hash),
+        currentDevice: Boolean(item.device_key_hash && req.authSession.device_key_hash
+          && item.device_key_hash === req.authSession.device_key_hash),
         current: safeString(item.id) === safeString(req.authSession.id),
         createdAt: item.created_at,
         lastSeenAt: item.last_seen_at,

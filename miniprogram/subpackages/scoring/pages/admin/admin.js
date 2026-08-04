@@ -57,6 +57,7 @@ Page({
     canManageAuthPolicy: false,
     canReadAdmins: false,
     canWriteAdmins: false,
+    hrInfoMode: 'profiles',
     activeTab: utils.TAB_LIST[0],
     visibleTabs: utils.TAB_LIST,
     subAppLabel: '',
@@ -506,10 +507,6 @@ Page({
         if (this.data.canBrowseHrInfo) loads.push(this.loadHrList(), this.loadHrProfileAdminData());
         return Promise.all(loads);
       },
-      hrAccounts: () => {
-        this.initializeAuthPersonnel();
-        return this.loadAuthPersonnel(true);
-      },
       hrTemplates: () => this.loadHrProfileTemplates(),
       departments: () => this.loadDepartmentList(),
       workGroups: () => this.loadWorkGroupList(),
@@ -572,7 +569,7 @@ Page({
     const subApp = this._subApp || 'scoring';
     const SUB_APP_ADMIN_TABS = {
       scoring: ['activities', 'templates', 'rules', 'results', 'publications'],
-      hr: ['hrInfo', 'hrAccounts', 'hrTemplates', 'departments', 'workGroups', 'identities'],
+      hr: ['hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities'],
       system: ['admins', 'settings'],
       audit: ['auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification']
     };
@@ -695,8 +692,8 @@ Page({
       }
 
       if (this._subApp === 'hr') {
-        this.initializeAuthPersonnel();
-        const needsHrDirectory = visibleTabs.some((tab) => tab !== 'hrAccounts');
+        const initialAuthTab = this.initializeAuthPersonnel();
+        const needsHrDirectory = visibleTabs.indexOf('hrInfo') >= 0;
         if (needsHrDirectory) {
           await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
           await this.loadWorkGroupList();
@@ -707,8 +704,9 @@ Page({
           await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
         }
         if (visibleTabs.indexOf('hrTemplates') >= 0 && canUseTemplates) await this.loadHrProfileTemplates();
-        if (visibleTabs.indexOf('hrAccounts') >= 0 && this.data.activeTab === 'hrAccounts') {
-          await this.loadAuthPersonnel();
+        if (visibleTabs.indexOf('hrInfo') >= 0) {
+          const authTab = this.initializeAuthPersonnel() || initialAuthTab;
+          if (this.data.hrInfoMode === 'auth') await this.loadAuthPersonnel(false, authTab);
         }
         this.updateHrFormOptions();
         return;
@@ -755,6 +753,19 @@ Page({
     });
   },
 
+  switchHrInfoMode(e) {
+    const mode = String(e.currentTarget.dataset.mode || 'profiles');
+    if (mode === this.data.hrInfoMode) return;
+    this.setData({ hrInfoMode: mode });
+    if (mode === 'auth') {
+      const authTab = this.initializeAuthPersonnel();
+      this.loadAuthPersonnel(true, authTab);
+    } else if (this.data.canBrowseHrInfo) {
+      this.loadHrList();
+      this.loadHrProfileAdminData();
+    }
+  },
+
   switchTab(e) {
     const { tab } = e.currentTarget.dataset;
     if (TAB_LIST.indexOf(tab) === -1) {
@@ -781,15 +792,13 @@ Page({
       if (this.data.canBrowseHrInfo && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
         this.loadHrProfileAdminData();
         this.loadHrList();
+        const authTab = this.initializeAuthPersonnel();
+        if (this.data.hrInfoMode === 'auth') this.loadAuthPersonnel(false, authTab);
       }
       this.updateHrFormOptions();
     }
     if (tab === 'hrTemplates') {
       this.loadHrProfileTemplates();
-    }
-    if (tab === 'hrAccounts') {
-      this.initializeAuthPersonnel();
-      this.loadAuthPersonnel();
     }
     if (tab === 'departments') {
       this.loadDepartmentList();

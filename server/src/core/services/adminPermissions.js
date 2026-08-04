@@ -130,9 +130,10 @@ mapRoutes('scoring.publications', [
   '/savePubMeritRule', '/listPubMeritRules', '/deletePubMeritRule', '/getMeritListSummary', '/exportMeritListSummary'
 ]);
 
-mapAny(['/listHrInfo'], [
+mapAny(['/listHrInfo', '/listHrGovernance'], [
   'hr.people', 'hr.import', 'hr.profile_review', 'venue.resources',
-  'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification'
+  'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification',
+  'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'
 ]);
 mapRoutes('hr.people', [
   '/saveHrInfo',
