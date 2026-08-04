@@ -195,6 +195,7 @@ Page({
     hrProfileFilterOptions: emptyHrProfileFilterOptions(),
     hrProfileRows: [],
     hrProfileFields: [],
+    hrGovernanceUnavailable: false,
     hrProfileExportVisible: false,
     hrProfileExportColumns: [],
     hrProfileExportSelectedCount: 0,

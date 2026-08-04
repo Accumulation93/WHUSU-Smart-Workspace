@@ -90,21 +90,26 @@ module.exports = Behavior({
       const request = orgSession.beginRequest(this, 'hrProfileAdmin');
       this.setLoading('profile', true);
       try {
-        const loads = [this.callCloud('listHrProfileAdminData')];
-        if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) {
-          loads.push(this.loadHrGovernanceRows());
-        }
-        const loaded = await Promise.all(loads);
-        const result = loaded[0];
-        const governanceByHrId = loaded[1] || new Map();
+        // 账号治理信息是成员资料的增强数据，不能因其暂时不可用而清空整个人事目录。
+        // 两个请求仍并行发起，但分别结算，避免认证服务故障被误报为“模板加载失败”。
+        const governanceLoad = this.data.canVerifyIdentity || this.data.canRecoverAccounts
+          ? this.loadHrGovernanceRows().then((value) => ({ ok: true, value }), (error) => ({ ok: false, error }))
+          : Promise.resolve({ ok: true, value: new Map() });
+        const result = await this.callCloud('listHrProfileAdminData');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '请稍后刷新人事模板',
+            title: result.message || '人事信息暂时无法加载',
             icon: 'none'
           });
           return;
         }
+
+        const governanceResult = await governanceLoad;
+        if (!orgSession.isRequestCurrent(this, request)) return;
+        const governanceByHrId = governanceResult.ok ? governanceResult.value : new Map();
+        const governanceUnavailable = !governanceResult.ok
+          && !(governanceResult.error && governanceResult.error.silent);
   
         const template = result.template || null;
         const rawRows = this.mergeHrGovernanceRows(result.rows || [], governanceByHrId);
@@ -135,12 +140,14 @@ module.exports = Behavior({
           } : emptyHrProfileTemplateForm(),
           hrProfileFields,
           hrProfileFilterOptions,
-          hrProfileRows: filteredRows.map(toHrProfileListRow)
+          hrProfileRows: filteredRows.map(toHrProfileListRow),
+          hrGovernanceUnavailable: governanceUnavailable
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
+        console.error('[HR] Member directory load failed', error);
         wx.showToast({
-          title: '请稍后刷新人事模板',
+          title: '人事信息暂时无法加载',
           icon: 'none'
         });
       } finally {

@@ -2409,6 +2409,10 @@ scroll-view {
   min-width: 0;
 }
 
+.hr-governance-warning {
+  color: #9a5a13;
+}
+
 .hr-governance-toolbar-actions {
   display: flex;
   align-items: center;

@@ -193,7 +193,7 @@ router.post('/listHrGovernance', async (req, res) => {
          FROM hr_info h
          JOIN organization_memberships om ON om.legacy_hr_id = h.id
            AND om.org_id = h.org_id AND om.status = 'active'
-         JOIN organizations o ON o.id = h.org_id AND o.status = 'active'
+         JOIN organizations o ON o.id = h.org_id
          LEFT JOIN departments d ON d.id = h.department_id AND d.org_id = h.org_id
          LEFT JOIN identities i ON i.id = h.identity_id AND i.org_id = h.org_id
          LEFT JOIN work_groups wg ON wg.id = h.work_group_id AND wg.org_id = h.org_id
@@ -250,6 +250,13 @@ router.post('/listHrGovernance', async (req, res) => {
     }, organizations: organizationIds });
   } catch (error) {
     const expected = error instanceof AdminOrganizationAccessError;
+    if (!expected && req.logger) {
+      req.logger.error('HR governance directory failed', {
+        event: 'hr.governance.list_failed',
+        code: safeString(error && error.code),
+        error: safeString(error && error.message)
+      });
+    }
     return res.status(expected ? (error.httpStatus || 403) : 500).json({
       status: expected ? error.code : 'error',
       message: expected ? error.message : '人事信息暂时无法加载，请稍后重试'
