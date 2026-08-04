@@ -2620,8 +2620,8 @@ scroll-view {
 
 .hr-account-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12rpx;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10rpx;
   margin-top: 18rpx;
 }
 
@@ -5503,7 +5503,7 @@ scroll-view {
   min-height: var(--ui-button-compact-height, 58rpx);
   margin: 0;
   padding: 8rpx 18rpx;
-  border-radius: var(--ui-control-radius, 14rpx);
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-label);
   line-height: 1.35;
 }
@@ -5676,7 +5676,11 @@ scroll-view {
 
   .hr-account-facts,
   .hr-account-actions {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hr-account-actions {
+    gap: 8rpx;
   }
 
   .hr-account-fact-wide {
@@ -5742,6 +5746,7 @@ scroll-view {
   .hr-account-actions {
     gap: 10px;
     margin-top: 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .auth-personnel-section {
@@ -5812,6 +5817,11 @@ scroll-view {
     min-height: 26px;
     padding: 5px 11px;
     border-radius: 11px;
+  }
+
+  .hr-account-actions {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .auth-personnel-section {
