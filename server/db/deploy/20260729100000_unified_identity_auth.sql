@@ -251,12 +251,16 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   organization_id VARCHAR(64) DEFAULT NULL,
   role VARCHAR(16) DEFAULT NULL,
   token_version INT NOT NULL,
+  device_key_hash CHAR(64) DEFAULT NULL,
+  device_platform VARCHAR(24) DEFAULT NULL,
+  device_model VARCHAR(96) DEFAULT NULL,
   status VARCHAR(24) NOT NULL DEFAULT 'active',
   expires_at DATETIME NOT NULL,
   last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   revoked_at DATETIME DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_auth_session_account (account_id, status),
+  INDEX idx_auth_session_device (account_id, device_key_hash, status),
   INDEX idx_auth_session_expiry (expires_at),
   CONSTRAINT fk_auth_session_account FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
