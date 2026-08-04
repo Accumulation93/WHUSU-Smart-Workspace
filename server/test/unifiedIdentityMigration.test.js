@@ -150,6 +150,15 @@ async function run() {
       path.resolve(__dirname, '../db/deploy/20260729100000_unified_identity_auth.sql'),
       'utf8'
     ));
+    // 设备字段由后续独立迁移负责；在本测试夹具中补齐它们，验证统一身份模型
+    // 在旧库完成身份迁移后也能安全创建带设备信息的会话。
+    await database.query(`
+      ALTER TABLE auth_sessions
+        ADD COLUMN device_key_hash CHAR(64) DEFAULT NULL,
+        ADD COLUMN device_platform VARCHAR(24) DEFAULT NULL,
+        ADD COLUMN device_model VARCHAR(96) DEFAULT NULL,
+        ADD INDEX idx_auth_session_device (account_id, device_key_hash, status)
+    `);
 
     const [[counts]] = await database.query(`
       SELECT
