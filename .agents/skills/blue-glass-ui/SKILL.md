@@ -333,15 +333,15 @@ tabs or large separated pills.
 
 Native text/action buttons must be compact rounded rectangles, never capsules or circles.
 
-- Use `border-radius: 16rpx` to `24rpx` on phones and `10px` to `14px` on Pad. The rendered radius must remain visibly below half of the button height.
+- Use `border-radius: 24rpx` to `28rpx` on phones and `11px` to `14px` on Pad. The rendered radius must remain visibly below half of the button height.
 - Never use `999rpx`, `999px`, or `50%` on a native `<button>` or full-size text action such as `.primary-btn`, `.secondary-btn`, `.danger-btn`, `.approve-btn`, or `.dialog-btn`.
-- Reserve capsule/circle geometry for status tags, filter chips, compact inline links, avatars, and genuinely icon-only controls.
+- Reserve capsule/circle geometry only for avatars, loading spinners, timeline nodes, and genuinely icon-only controls; status tags, filter chips and compact links use the shared compact rounded-rectangle token.
 - Never combine wrapped button text with a fixed `line-height` equal to the button height. Use `height: auto`, a controlled `min-height`, `line-height: 1.3` to `1.4`, and balanced vertical padding.
 - A full-size text button must not declare an absolute `line-height` close to its `min-height`; inherited vertical padding will stack on top and create an abnormally tall control. `scripts/ui-audit.js --strict` must reject this pattern.
 - On narrow phones, show at most two text buttons per row. Long labels should use a two-column or full-width layout, never three cramped columns that force vertical word wrapping.
 - Pad controls must become denser rather than scaling up with the viewport: full text buttons use about `44px` minimum height, compact actions about `32px`, and tabs about `40px`, all with balanced vertical padding. Do not retain a 48px-plus desktop-style control merely because more space is available.
 - Management navigation keeps the same top segmented-control language on phone, Pad portrait, and Pad landscape. Do not turn the same tabs into a wide left sidebar on landscape; it changes the product language and wastes horizontal space between navigation text and content.
-- Status labels such as “使用中” use a visibly softened rounded rectangle (`7px` to `9px` radius on Pad) with `3px` to `4px` vertical padding. They must neither become inflated oval bubbles nor regress to square badges. Text buttons also keep a visible, sub-half-height radius instead of looking square.
+- Status labels such as “使用中” use a visibly softened rounded rectangle (`11px` to `12px` radius on Pad) with `3px` to `4px` vertical padding. They must neither become inflated oval bubbles nor regress to square badges. Text buttons also keep a visible, sub-half-height radius instead of looking square.
 
 Baseline:
 
@@ -353,7 +353,7 @@ Baseline:
   min-height: 76rpx;
   height: auto;
   padding: 14rpx 20rpx;
-  border-radius: 20rpx;
+  border-radius: 28rpx;
   line-height: 1.35;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -403,7 +403,7 @@ Do not make small inline actions full-size buttons. Use compact pill links:
   justify-content: center;
   min-height: 42rpx;
   padding: 6rpx 16rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #1d4ed8;
   font-size: 22rpx;
   font-weight: 800;

@@ -33,13 +33,22 @@ const GLOBAL_MEDIA_900 = /@media\s*\(min-width:\s*900px\)/.test(GLOBAL_STYLE);
 function scanCompactVisualContract() {
   const findings = [];
   const required = [
-    ['手机状态标签舒适密度', /page \.status-tag,[\s\S]*?min-height:\s*46rpx\s*!important[\s\S]*?border-radius:\s*14rpx\s*!important/],
-    ['手机文本操作舒适密度', /page text\.action-btn,[\s\S]*?min-height:\s*60rpx\s*!important[\s\S]*?border-radius:\s*14rpx\s*!important/],
+    ['手机状态标签舒适密度', /page \.status-tag,[\s\S]*?min-height:\s*46rpx\s*!important[\s\S]*?border-radius:\s*18rpx\s*!important/],
+    ['手机文本操作舒适密度', /page text\.action-btn,[\s\S]*?min-height:\s*60rpx\s*!important[\s\S]*?border-radius:\s*18rpx\s*!important/],
     ['手机说明文字舒适行高', /page \.booking-meta,[\s\S]*?line-height:\s*1\.55\s*!important/],
     ['手机基础间距令牌', /--ui-page-padding-top:\s*30rpx[\s\S]*?--ui-page-padding-x:\s*24rpx[\s\S]*?--ui-card-radius:\s*30rpx/],
     ['Pad 竖屏间距令牌', /@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-page-padding-x:\s*22px[\s\S]*?--ui-card-radius:\s*18px/],
     ['Pad 横屏间距令牌', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-page-padding-x:\s*16px[\s\S]*?--ui-card-radius:\s*18px/],
     ['Pad 竖屏独立密度', /@media\s*\(min-width:\s*520px\)\s*and\s*\(max-width:\s*899px\),[\s\S]*?page \.status-tag,[\s\S]*?min-height:\s*28px\s*!important/],
+    ['手机按钮圆角令牌', /--ui-control-radius:\s*28rpx/],
+    ['手机紧凑控件圆角令牌', /--ui-compact-radius:\s*18rpx/],
+    ['手机页签圆角令牌', /--ui-tab-radius:\s*24rpx/],
+    ['Pad 竖屏按钮圆角令牌', /@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-control-radius:\s*14px/],
+    ['Pad 竖屏紧凑控件圆角令牌', /@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-compact-radius:\s*12px/],
+    ['Pad 竖屏页签圆角令牌', /@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-tab-radius:\s*12px/],
+    ['Pad 横屏按钮圆角令牌', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-control-radius:\s*12px/],
+    ['Pad 横屏紧凑控件圆角令牌', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-compact-radius:\s*11px/],
+    ['Pad 横屏页签圆角令牌', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-tab-radius:\s*12px/],
     ['横屏页签高度', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-tab-min-height:\s*50px/],
     ['横屏页签均分', /page \.tabs,[\s\S]*?display:\s*flex\s*!important[\s\S]*?width:\s*100%\s*!important/],
     ['横屏页签点击高度', /page \.tabs\s*>\s*\.tab,[\s\S]*?min-height:\s*50px\s*!important/]
@@ -90,7 +99,7 @@ function scanCompactVisualContract() {
       if (/border-radius\s*:\s*999(?:r?px)\b/i.test(declarations) &&
         !/page\s+(?:text\.)?(?:status-tag|action-btn)/i.test(selector)) {
         const coveredByGlobal = COMPACT_META_CLASSES.some(name => selector.includes(`.${name}`)) &&
-          new RegExp(`page[^{}]*\\.${COMPACT_META_CLASSES.find(name => selector.includes(`.${name}`))}[^{}]*\\{[\\s\\S]*?border-radius:\\s*(?:14rpx|10px|9px)\\s*!important`, 'i').test(GLOBAL_STYLE);
+          new RegExp(`page[^{}]*\\.${COMPACT_META_CLASSES.find(name => selector.includes(`.${name}`))}[^{}]*\\{[\\s\\S]*?border-radius:\\s*(?:18rpx|12px|11px)\\s*!important`, 'i').test(GLOBAL_STYLE);
         if (!coveredByGlobal) {
           findings.push({
             file: relative(file),
@@ -774,7 +783,7 @@ function scanWxss(file) {
         file: relative(file),
         line: lineAt(source, ruleMatch.index),
         selector: selector.trim().replace(/\s+/g, ' '),
-        message: '原生文字按钮禁止使用胶囊/圆形半径，请改为 16–24rpx 紧凑圆角矩形'
+        message: '原生文字按钮禁止使用胶囊/圆形半径，请改为 24–28rpx（Pad 11–14px）柔和圆角矩形'
       });
     }
     if (FULL_SIZE_BUTTON_SELECTOR.test(selector)) {

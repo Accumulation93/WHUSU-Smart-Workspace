@@ -55,7 +55,8 @@ page,
   --ui-list-padding-y: 22rpx;
   --ui-list-padding-x: 20rpx;
   --ui-list-radius: 20rpx;
-  --ui-control-radius: 24rpx;
+  --ui-control-radius: 28rpx;
+  --ui-compact-radius: 18rpx;
   --ui-field-radius: 20rpx;
   --ui-section-title-inset: 20rpx;
   --ui-font-xs: var(--ui-type-caption);
@@ -79,8 +80,8 @@ page,
   --ui-tab-padding-x: 18rpx;
   --ui-tab-gap: 8rpx;
   --ui-tab-shell-padding: 8rpx;
-  --ui-tab-radius: 20rpx;
-  --ui-tab-shell-radius: 26rpx;
+  --ui-tab-radius: 24rpx;
+  --ui-tab-shell-radius: 30rpx;
   --ui-dialog-edge: 36rpx;
   --ui-dialog-width-inset: 32rpx;
   --ui-dialog-height-inset: 72rpx;
@@ -161,7 +162,7 @@ button {
   min-height: var(--ui-control-height, 82rpx);
   height: auto;
   padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
-  border-radius: var(--ui-control-radius, 24rpx);
+  border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-font-md, 25rpx);
   line-height: var(--ui-line-control, 1.35);
   white-space: normal;
@@ -238,7 +239,7 @@ textarea {
   min-height: 38rpx;
   margin-bottom: 16rpx;
   padding: 6rpx 18rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: rgba(255,255,255,0.96);
   font-size: var(--ui-type-caption);
   font-weight: 700;
@@ -575,7 +576,7 @@ button[disabled],
   justify-content: center;
   min-height: 44rpx;
   padding: 6rpx 16rpx;
-  border-radius: 999rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-meta);
   font-size: var(--ui-font-sm, 22rpx);
@@ -590,6 +591,13 @@ button[disabled],
     box-shadow 0.20s ease,
     opacity 0.18s ease,
     background 0.20s ease;
+}
+
+/* 图标型关闭控件保持圆形，不进入文本操作圆角体系。 */
+.pill-close,
+.popup-close,
+.modal-close {
+  border-radius: 999rpx;
 }
 
 .link.danger,
@@ -671,7 +679,7 @@ button[disabled],
   justify-content: center;
   min-height: var(--ui-tab-min-height, 66rpx);
   padding: var(--ui-tab-padding-y, 14rpx) var(--ui-tab-padding-x, 18rpx);
-  border-radius: var(--ui-tab-radius, 20rpx);
+  border-radius: var(--ui-tab-radius, 24rpx);
   font-size: var(--ui-tab-font-size, 24rpx) !important;
   line-height: var(--ui-leading-control, 1.35) !important;
   white-space: nowrap;
@@ -1514,8 +1522,8 @@ button:active,
     --ui-tab-padding-x: 10px;
     --ui-tab-gap: 4px;
     --ui-tab-shell-padding: 4px;
-    --ui-tab-radius: 10px;
-    --ui-tab-shell-radius: 13px;
+    --ui-tab-radius: 12px;
+    --ui-tab-shell-radius: 15px;
     --ui-dialog-edge: 24px;
     --ui-dialog-width-inset: 40px;
     --ui-dialog-height-inset: 48px;
@@ -1542,7 +1550,8 @@ button:active,
     --ui-list-padding-y: 12px;
     --ui-list-padding-x: 14px;
     --ui-list-radius: 12px;
-    --ui-control-radius: 12px;
+    --ui-control-radius: 14px;
+    --ui-compact-radius: 12px;
     --ui-field-radius: 10px;
     --ui-section-title-inset: 12px;
   }
@@ -1941,8 +1950,8 @@ button:active,
     --ui-dialog-meta-size: 13.5px;
     --ui-dialog-label-size: 14px;
     --ui-dialog-control-size: 14.5px;
-    --ui-tab-radius: 10px;
-    --ui-tab-shell-radius: 13px;
+    --ui-tab-radius: 12px;
+    --ui-tab-shell-radius: 15px;
     --ui-tab-min-height: 50px;
     --ui-tab-padding-y: 8px;
     --ui-tab-padding-x: 14px;
@@ -1964,7 +1973,8 @@ button:active,
     --ui-list-padding-y: 10px;
     --ui-list-padding-x: 12px;
     --ui-list-radius: 10px;
-    --ui-control-radius: 10px;
+    --ui-control-radius: 12px;
+    --ui-compact-radius: 11px;
     --ui-field-radius: 10px;
     --ui-section-title-inset: 10px;
     --ui-dialog-edge: 24px;
@@ -2375,7 +2385,7 @@ page .result-group-mode-chip {
   min-height: 46rpx !important;
   height: auto !important;
   padding: 6rpx 14rpx !important;
-  border-radius: 14rpx !important;
+  border-radius: 18rpx !important;
   line-height: 1.35 !important;
   box-sizing: border-box;
 }
@@ -2394,7 +2404,7 @@ page text.cancel-btn {
   min-height: 60rpx !important;
   height: auto !important;
   padding: 10rpx 18rpx !important;
-  border-radius: 14rpx !important;
+  border-radius: 18rpx !important;
   line-height: 1.35 !important;
   box-sizing: border-box;
 }
@@ -2444,7 +2454,7 @@ page .dept-tab,
 page .role-pill {
   min-height: 48rpx !important;
   padding: 7rpx 16rpx !important;
-  border-radius: 14rpx !important;
+  border-radius: 18rpx !important;
   line-height: 1.35 !important;
 }
 
@@ -2469,7 +2479,7 @@ page .role-pill {
   page .result-group-mode-chip {
     min-height: 28px !important;
     padding: 5px 11px !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     line-height: 18px !important;
   }
 
@@ -2485,7 +2495,7 @@ page .role-pill {
   page text.cancel-btn {
     min-height: 34px !important;
     padding: 7px 12px !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     line-height: 18px !important;
   }
 
@@ -2532,7 +2542,7 @@ page .role-pill {
   page .role-pill {
     min-height: 30px !important;
     padding: 6px 12px !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     line-height: 18px !important;
   }
 }
@@ -2597,7 +2607,7 @@ page .role-pill {
   page .result-group-mode-chip {
     min-height: 28px !important;
     padding: 4px 10px !important;
-    border-radius: 9px !important;
+    border-radius: 11px !important;
     line-height: 18px !important;
   }
 
@@ -2613,7 +2623,19 @@ page .role-pill {
   page text.cancel-btn {
     min-height: 32px !important;
     padding: 5px 11px !important;
-    border-radius: 9px !important;
+    border-radius: 11px !important;
+    line-height: 18px !important;
+  }
+
+  page .filter-chip,
+  page .chip,
+  page .select-chip,
+  page .grade-chip,
+  page .dept-tab,
+  page .role-pill {
+    min-height: 30px !important;
+    padding: 5px 11px !important;
+    border-radius: 11px !important;
     line-height: 18px !important;
   }
 
@@ -2651,6 +2673,45 @@ page .role-pill {
     margin-bottom: 10px !important;
     padding: 14px 16px !important;
   }
+}
+
+/* 历史胶囊文本控件收口：仅接管圆角，不动内边距与高度。 */
+page .audit-file-type,
+page .flow-separator-text,
+page .hero-org-context-action,
+page .results-count-chip,
+page .merit-group-count,
+page .result-group-count,
+page .profile-field-type,
+page .target-group-label,
+page .target-identity,
+page .target-status,
+page .nav-row-badge,
+page .dialog-badge,
+page .approval-file-btn-preview,
+page .detail-status-chip,
+page .tpl-step-person-tag,
+page .tpl-step-preview-action,
+page .permission-hero-badge,
+page .identity-current-label,
+page .audit-cond-chip,
+page .clause-pill-meta,
+page .hr-import-preview-chip,
+page .info-chip,
+page .merit-chip,
+page .merit-member-sid-chip,
+page .merit-summary-total-chip,
+page .merit-tag,
+page .preview-chip,
+page .stat-card-tip,
+page .rule-tag,
+page .score-tag,
+page .template-chip,
+page .year-chip,
+page .tl-tag,
+page .add-range-btn,
+page .pending-refresh-btn {
+  border-radius: var(--ui-compact-radius, 18rpx) !important;
 }
 
 /*
