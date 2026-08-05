@@ -17,6 +17,12 @@ Page({
     approvalAction: '',         // 'approve' | 'reject'
     approvalComment: '',
     approvalSubmitting: false,
+    canDesignateNext: false,
+    nextApproverPickerVisible: false,
+    nextApproverCandidates: [],
+    nextApproverKeyword: '',
+    nextApproverHrId: '',
+    nextApproverName: '',
 
     // ── Expandable flow ──
     expandedNodeKey: '',
@@ -175,11 +181,18 @@ Page({
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
+    const flows = item.flowSummary || [];
+    const canDesignateNext = flows.length === 1
+      && flows[0].allowDesignateNext
+      && Number(flows[0].stepIndex) < Number(flows[0].totalSteps);
     this.setData({
       approvalVisible: true,
       approvalTarget: item,
       approvalAction: 'approve',
-      approvalComment: ''
+      approvalComment: '',
+      canDesignateNext: Boolean(canDesignateNext),
+      nextApproverHrId: '',
+      nextApproverName: ''
     });
   },
 
@@ -203,6 +216,38 @@ Page({
     this.setData({ approvalComment: e.detail.value });
   },
 
+  async openNextApproverPicker() {
+    try {
+      const res = await callFunction({ name: 'listVenueApproverCandidates', data: {} });
+      if (res.status === 'success') {
+        this.setData({
+          nextApproverPickerVisible: true,
+          nextApproverCandidates: res.candidates || [],
+          nextApproverKeyword: ''
+        });
+      } else showShortToast(res.message || '请稍后重试');
+    } catch (e) { showShortToast(getErrorText(e, '请稍后重试')); }
+  },
+
+  closeNextApproverPicker() {
+    this.setData({ nextApproverPickerVisible: false });
+  },
+
+  onNextApproverKeywordInput(e) {
+    this.setData({ nextApproverKeyword: e.detail.value });
+  },
+
+  pickNextApprover(e) {
+    const id = e.currentTarget.dataset.id;
+    const name = e.currentTarget.dataset.name;
+    if (!id) return;
+    this.setData({
+      nextApproverHrId: id,
+      nextApproverName: name || '',
+      nextApproverPickerVisible: false
+    });
+  },
+
   async submitApproval() {
     let that = this;
     let target = this.data.approvalTarget;
@@ -218,7 +263,11 @@ Page({
     try {
       let res = await callFunction({
         name: endpoint,
-        data: { id: target.id, comment: comment }
+        data: {
+          id: target.id,
+          comment: comment,
+          nextApproverHrId: action === 'approve' ? this.data.nextApproverHrId : ''
+        }
       });
       if (res.status === 'success') {
         showShortToast(res.message || ('已' + actionLabel));

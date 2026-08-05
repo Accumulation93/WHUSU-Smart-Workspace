@@ -200,6 +200,12 @@ Page({
     approvalAction: '',
     approvalComment: '',
     approvalSubmitting: false,
+    approvalFlowOptions: [], allowUserSelectFlow: false, selectedFlowId: '', selectedFlowName: '',
+    selectedFlowAllowDesignateFirst: false,
+    firstApproverPickerVisible: false, approverCandidates: [], firstApproverKeyword: '',
+    firstApproverHrId: '', firstApproverName: '',
+    nextApproverPickerVisible: false, nextApproverCandidates: [], nextApproverKeyword: '',
+    nextApproverHrId: '', nextApproverName: '', canDesignateNext: false,
     heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '',
 
     // ── Custom time keyboard ──
@@ -432,8 +438,11 @@ Page({
       bookingTitle: '', bookingDesc: '', timelineBlocks: [], timelineSelection: null,
       startHandleX: 0, endHandleX: 0, _timelineWidth: 0,
       startHours: [], endHours: [], startMinIdx: -1, endMinIdx: -1,
-      _dayData: null
+      _dayData: null,
+      selectedFlowId: '', selectedFlowName: '', selectedFlowAllowDesignateFirst: false,
+      firstApproverHrId: '', firstApproverName: ''
     });
+    this.loadApprovalFlowOptions(this.data.scheduleVenueId);
     this._loadScheduleForDate(date, presetTime);
   },
 
@@ -448,11 +457,77 @@ Page({
       timeStartInput: '', timeEndInput: '', timelineBlocks: [], timelineSelection: null,
       startHandleX: 0, endHandleX: 0, _timelineWidth: 0,
       startHours: [], endHours: [], startMinIdx: -1, endMinIdx: -1,
-      _dayData: null
+      _dayData: null,
+      selectedFlowId: '', selectedFlowName: '', selectedFlowAllowDesignateFirst: false,
+      firstApproverHrId: '', firstApproverName: ''
     });
+    this.loadApprovalFlowOptions(id);
     this._loadScheduleForDate(today);
   },
   closeBooking() { if (this.data._kbVisible) { this.onKbClose(); return; } this.setData({ bookingVisible: false }); },
+
+  async loadApprovalFlowOptions(venueId) {
+    if (!venueId) return;
+    try {
+      const res = await callFunction({ name: 'getVenueApprovalFlowOptions', data: { venueId } });
+      if (res.status === 'success') {
+        this.setData({
+          approvalFlowOptions: res.flows || [],
+          allowUserSelectFlow: Boolean(res.allowUserSelect),
+          selectedFlowId: '',
+          selectedFlowName: '',
+          selectedFlowAllowDesignateFirst: false,
+          firstApproverHrId: '',
+          firstApproverName: ''
+        });
+      }
+    } catch (_) {}
+  },
+
+  onBookingFlowSelect(e) {
+    const index = Number(e.detail.value);
+    const option = (this.data.approvalFlowOptions || [])[index];
+    if (!option) return;
+    this.setData({
+      selectedFlowId: option.id,
+      selectedFlowName: option.name || '',
+      selectedFlowAllowDesignateFirst: Boolean(option.allowDesignateFirst),
+      firstApproverHrId: '',
+      firstApproverName: ''
+    });
+  },
+
+  async openFirstApproverPicker() {
+    try {
+      const res = await callFunction({ name: 'listVenueApproverCandidates', data: {} });
+      if (res.status === 'success') {
+        this.setData({
+          firstApproverPickerVisible: true,
+          approverCandidates: res.candidates || [],
+          firstApproverKeyword: ''
+        });
+      } else showShortToast(res.message || '请稍后重试');
+    } catch (e) { showShortToast(getErrorText(e, '请稍后重试')); }
+  },
+
+  closeFirstApproverPicker() {
+    this.setData({ firstApproverPickerVisible: false });
+  },
+
+  onFirstApproverKeywordInput(e) {
+    this.setData({ firstApproverKeyword: e.detail.value });
+  },
+
+  pickFirstApprover(e) {
+    const id = e.currentTarget.dataset.id;
+    const name = e.currentTarget.dataset.name;
+    if (!id) return;
+    this.setData({
+      firstApproverHrId: id,
+      firstApproverName: name || '',
+      firstApproverPickerVisible: false
+    });
+  },
 
   async _loadScheduleForDate(dateStr, presetTime) {
     let venueId = this.data.bookingVenueId;
@@ -1416,6 +1491,7 @@ Page({
         st = _a.bookingTimeStart, et = _a.bookingTimeEnd, title = _a.bookingTitle, desc = _a.bookingDesc, dd = _a._dayData;
     if(!vid||!sd||!st||!et){showShortToast('请填写完整信息');return;}
     if(!title){showShortToast('请填写借用事由');return;}
+    if (this.data.allowUserSelectFlow && !this.data.selectedFlowId) { showShortToast('请选择审批流程'); return; }
     let now = new Date(), today = fmtLocalDate(now);
     if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast('请选择当前时间之后'); return; }
     let ts = sd+'T'+st, te = sd+'T'+et;
@@ -1424,7 +1500,14 @@ Page({
     if(err) { showShortToast(err); return; }
     this.setData({loading:true});
     try {
-      let res = await callFunction({name:'createVenueBooking',data:{venueId:vid,title:title,description:desc,timeStart:ts,timeEnd:te}});
+      let res = await callFunction({
+        name: 'createVenueBooking',
+        data: {
+          venueId: vid, title: title, description: desc, timeStart: ts, timeEnd: te,
+          flowId: this.data.selectedFlowId || '',
+          firstApproverHrId: this.data.firstApproverHrId || ''
+        }
+      });
       if(res.status==='success'){
         showShortToast(res.message);
         this.setData({bookingVisible:false});
@@ -1639,7 +1722,15 @@ Page({
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
-    this.setData({ approvalVisible: true, approvalTarget: item, approvalAction: 'approve', approvalComment: '' });
+    const flows = item.flowSummary || [];
+    const canDesignateNext = flows.length === 1
+      && flows[0].allowDesignateNext
+      && Number(flows[0].stepIndex) < Number(flows[0].totalSteps);
+    this.setData({
+      approvalVisible: true, approvalTarget: item, approvalAction: 'approve', approvalComment: '',
+      canDesignateNext: Boolean(canDesignateNext),
+      nextApproverHrId: '', nextApproverName: ''
+    });
   },
 
   openReject(e) {
@@ -1657,6 +1748,38 @@ Page({
     this.setData({ approvalComment: e.detail.value });
   },
 
+  async openNextApproverPicker() {
+    try {
+      const res = await callFunction({ name: 'listVenueApproverCandidates', data: {} });
+      if (res.status === 'success') {
+        this.setData({
+          nextApproverPickerVisible: true,
+          nextApproverCandidates: res.candidates || [],
+          nextApproverKeyword: ''
+        });
+      } else showShortToast(res.message || '请稍后重试');
+    } catch (e) { showShortToast(getErrorText(e, '请稍后重试')); }
+  },
+
+  closeNextApproverPicker() {
+    this.setData({ nextApproverPickerVisible: false });
+  },
+
+  onNextApproverKeywordInput(e) {
+    this.setData({ nextApproverKeyword: e.detail.value });
+  },
+
+  pickNextApprover(e) {
+    const id = e.currentTarget.dataset.id;
+    const name = e.currentTarget.dataset.name;
+    if (!id) return;
+    this.setData({
+      nextApproverHrId: id,
+      nextApproverName: name || '',
+      nextApproverPickerVisible: false
+    });
+  },
+
   async submitApproval() {
     let that = this;
     let target = this.data.approvalTarget;
@@ -1669,7 +1792,9 @@ Page({
 
     this.setData({ approvalSubmitting: true });
     try {
-      let res = await callFunction({ name: endpoint, data: { id: target.id, comment: comment } });
+      let data = { id: target.id, comment: comment };
+      if (action === 'approve' && this.data.nextApproverHrId) data.nextApproverHrId = this.data.nextApproverHrId;
+      let res = await callFunction({ name: endpoint, data: data });
       if (res.status === 'success') {
         showShortToast(res.message || ('已' + actionLabel));
         that.closeApproval();

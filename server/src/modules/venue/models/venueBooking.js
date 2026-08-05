@@ -85,6 +85,7 @@ async function create(id, data, conn) {
     timeEnd,
     status,
     approvalFlowId,
+    approvalFlowState,
     approvalTotalSteps
   } = data;
   const db = conn || pool;
@@ -96,14 +97,32 @@ async function create(id, data, conn) {
       (id, venue_id, user_hr_id, creator_person_id, creator_assignment_id,
        creator_admin_grant_id, creator_context_snapshot, creator_type, creator_admin_id,
        creator_org_id, approval_org_id, title, description, time_start, time_end, status,
-       approval_flow_id, approval_current_step, approval_total_steps)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       approval_flow_id, approval_flow_state_json, approval_current_step, approval_total_steps)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, venueId, userHrId || null, creatorPersonId || null, creatorAssignmentId || null,
      creatorAdminGrantId || null, contextSnapshot, creatorType || 'user', creatorAdminId || null,
      creatorOrgId, approvalOrgId, title || '', description || '',
      timeStart, timeEnd, status || 'pending',
-     approvalFlowId || null, 0, approvalTotalSteps || 0]
+     approvalFlowId || null, approvalFlowState || null, 0, approvalTotalSteps || 0]
   );
+}
+
+async function updateApprovalFlowState(id, data, conn) {
+  const db = conn || pool;
+  const fields = [];
+  const values = [];
+  if (data.approvalFlowState !== undefined) {
+    fields.push('approval_flow_state_json = ?');
+    values.push(typeof data.approvalFlowState === 'string' ? data.approvalFlowState : JSON.stringify(data.approvalFlowState));
+  }
+  if (data.approvalFlowId !== undefined) { fields.push('approval_flow_id = ?'); values.push(data.approvalFlowId || null); }
+  if (data.currentStep !== undefined) { fields.push('approval_current_step = ?'); values.push(Number(data.currentStep) || 0); }
+  if (data.totalSteps !== undefined) { fields.push('approval_total_steps = ?'); values.push(Number(data.totalSteps) || 0); }
+  if (data.snapshotsJson !== undefined) { fields.push('approval_snapshots_json = ?'); values.push(data.snapshotsJson || null); }
+  if (data.rejectStep !== undefined) { fields.push('approval_reject_step = ?'); values.push(data.rejectStep === null ? null : Number(data.rejectStep)); }
+  if (!fields.length) return;
+  values.push(id);
+  await db.query(`UPDATE venue_bookings SET ${fields.join(', ')} WHERE id = ?`, values);
 }
 
 async function updateStatus(id, status, approverHrId, approvalComment, conn, actor) {
@@ -176,4 +195,7 @@ async function findConflict(venueId, timeStart, timeEnd, excludeId, conn, forUpd
   return rows[0] || null;
 }
 
-module.exports = { getByVenueId, getByUserId, getAll, getById, getByIdForUpdate, create, updateStatus, updateTimeEnd, updateTimeStart, findConflict };
+module.exports = {
+  getByVenueId, getByUserId, getAll, getById, getByIdForUpdate, create,
+  updateStatus, updateApprovalFlowState, updateTimeEnd, updateTimeStart, findConflict
+};

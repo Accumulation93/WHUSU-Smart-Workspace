@@ -181,6 +181,7 @@ mapRoutes('venue.approvals', [
   '/listVenueBookingRules', '/saveVenueBookingRule', '/deleteVenueBookingRule',
   '/getVenueApprovalFlow', '/saveVenueApprovalFlow', '/deleteVenueApprovalFlow', '/saveVenueApprovalStep',
   '/saveVenueApprovalWholeFlow', '/deleteVenueApprovalStep', '/saveVenueApprovalStepRule', '/deleteVenueApprovalStepRule',
+  '/listVenueApprovalFlows', '/saveVenueApprovalFlowMeta',
   '/approveVenueBooking', '/rejectVenueBooking', '/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'
 ]);
 mapRoutes('venue.approvals', [

@@ -150,6 +150,12 @@ Page({
     // Approval flow management
     approvalFlow: null,
     approvalFlowSteps: [],
+    approvalFlows: [],
+    selectedFlowId: '',
+    selectedFlowName: '',
+    allowUserSelectFlow: false,
+    allowDesignateFirstFlow: false,
+    allowDesignateNextFlow: false,
     flowEditorVisible: false,
     flowEditStepIdx: -1,       // -1 = adding new step at end
     flowEditStepName: '',
@@ -809,7 +815,15 @@ Page({
           }))
         }));
         endpoint = 'saveVenueApprovalWholeFlow';
-        data = { venueId: rulesVenueId, flowName: '场地审批流程', steps: stepsData };
+        data = {
+          venueId: rulesVenueId,
+          flowId: this.data.selectedFlowId || '',
+          flowName: this.data.selectedFlowName || '场地审批流程',
+          allowUserSelect: this.data.allowUserSelectFlow,
+          allowDesignateFirst: this.data.allowDesignateFirstFlow,
+          allowDesignateNext: this.data.allowDesignateNextFlow,
+          steps: stepsData
+        };
       } else {
         endpoint = 'saveVenueBookingRule';
         data = { id: ruleEditId, venueId: rulesVenueId, ruleType: ruleForm.ruleType || 'admin' };
@@ -1557,18 +1571,158 @@ Page({
     if (!venueId) return;
     const request = orgSession.beginRequest(this, 'manageApprovalFlow');
     try {
-      const res = await callFunction({ name: 'getVenueApprovalFlow', data: { venueId } });
+      const res = await callFunction({ name: 'listVenueApprovalFlows', data: { venueId } });
       if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
-        this.setData({
-          approvalFlow: res.flow,
-          approvalFlowSteps: res.steps || []
-        });
+        const flows = res.flows || [];
+        let selected = this.data.selectedFlowId
+          ? flows.find(function(flow) { return flow.id === this.data.selectedFlowId; }.bind(this))
+          : flows[0];
+        if (!selected && flows.length) selected = flows[0];
+        const patch = { approvalFlows: flows, approvalFlow: selected || null };
+        if (selected) {
+          patch.selectedFlowId = selected.id;
+          patch.selectedFlowName = selected.name || '';
+          patch.approvalFlowSteps = selected.steps || [];
+          patch.allowUserSelectFlow = Number(selected.allow_user_select) === 1;
+          patch.allowDesignateFirstFlow = Number(selected.allow_designate_first) === 1;
+          patch.allowDesignateNextFlow = Number(selected.allow_designate_next) === 1;
+        } else {
+          patch.selectedFlowId = '';
+          patch.selectedFlowName = '';
+          patch.approvalFlowSteps = [];
+          patch.allowUserSelectFlow = false;
+          patch.allowDesignateFirstFlow = false;
+          patch.allowDesignateNextFlow = false;
+        }
+        this.setData(patch);
         if (!this.data.allDepartments.length || !this.data.allWorkGroups.length) {
           this.loadFlowReferenceData();
         }
       }
     } catch (_) {}
+  },
+
+  selectApprovalFlow(e) {
+    const id = e.currentTarget.dataset.id;
+    const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
+    if (!flow) return;
+    this.setData({
+      selectedFlowId: flow.id,
+      selectedFlowName: flow.name || '',
+      approvalFlowSteps: flow.steps || [],
+      allowUserSelectFlow: Number(flow.allow_user_select) === 1,
+      allowDesignateFirstFlow: Number(flow.allow_designate_first) === 1,
+      allowDesignateNextFlow: Number(flow.allow_designate_next) === 1
+    });
+  },
+
+  async addApprovalFlow() {
+    const venueId = this.data.rulesVenueId;
+    if (!venueId) return;
+    try {
+      const res = await callFunction({
+        name: 'saveVenueApprovalFlowMeta',
+        data: { venueId, flowId: '', name: '新审批流程' }
+      });
+      if (res.status === 'success') {
+        showShortToast('已新增审批流程');
+        this.setData({ selectedFlowId: res.flowId });
+        await this.loadApprovalFlow();
+      } else showShortToast(res.message || '请重试');
+    } catch (e) { showShortToast(getErrorText(e, '请重试')); }
+  },
+
+  async toggleApprovalFlowFlag(e) {
+    const id = String(e.currentTarget.dataset.id || '');
+    const field = String(e.currentTarget.dataset.field || '');
+    const value = Boolean(e.detail.value);
+    const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
+    if (!flow || !field) return;
+    try {
+      const res = await callFunction({
+        name: 'saveVenueApprovalFlowMeta',
+        data: {
+          venueId: this.data.rulesVenueId,
+          flowId: id,
+          name: flow.name || '场地审批流程',
+          allowUserSelect: field === 'allow_user_select' ? value : Number(flow.allow_user_select) === 1,
+          allowDesignateFirst: field === 'allow_designate_first' ? value : Number(flow.allow_designate_first) === 1,
+          allowDesignateNext: field === 'allow_designate_next' ? value : Number(flow.allow_designate_next) === 1
+        }
+      });
+      if (res.status === 'success') {
+        const flows = (this.data.approvalFlows || []).map(function(item) {
+          if (item.id !== id) return item;
+          const next = Object.assign({}, item);
+          next[field] = value ? 1 : 0;
+          return next;
+        });
+        this.setData({ approvalFlows: flows });
+        if (id === this.data.selectedFlowId) {
+          this.setData({ ['allow' + field.replace(/^allow_/, '').replace(/_(\w)/g, function(_, c) { return c.toUpperCase(); })]: value });
+        }
+      } else showShortToast(res.message || '请重试');
+    } catch (err) { showShortToast(getErrorText(err, '请重试')); }
+  },
+
+  deleteApprovalFlow(e) {
+    const id = String(e.currentTarget.dataset.id || '');
+    const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
+    if (!flow) return;
+    wx.showModal({
+      title: '确认删除',
+      content: '删除后，该流程的步骤和规则将一并移除。',
+      success: async (r) => {
+        if (!r.confirm) return;
+        try {
+          const res = await callFunction({ name: 'deleteVenueApprovalFlow', data: { flowId: id, venueId: this.data.rulesVenueId } });
+          if (res.status === 'success') {
+            showShortToast('已删除');
+            this.setData({ selectedFlowId: '' });
+            await this.loadApprovalFlow();
+          } else showShortToast(res.message || '请重试');
+        } catch (err) { showShortToast(getErrorText(err, '请重试')); }
+      }
+    });
+  },
+
+  openApprovalFlowStepEditor(e) {
+    const id = String(e.currentTarget.dataset.id || '');
+    const flow = (this.data.approvalFlows || []).find(function(item) { return item.id === id; });
+    if (!flow) return;
+    const steps = (flow.steps || []).map(function(s) {
+      return {
+        name: s.name || '',
+        approvalMode: s.approval_mode || ((s.rules || []).length ? 'hr_rule' : 'admin_any'),
+        rules: (s.rules || []).map(function(r) {
+          return {
+            departmentScope: r.department_scope || 'all', specificDepartmentId: r.specific_department_id || '',
+            workGroupScope: r.work_group_scope || 'all', specificWorkGroupId: r.specific_work_group_id || '',
+            identityScope: r.identity_scope || 'all', specificIdentityId: r.specific_identity_id || ''
+          };
+        })
+      };
+    });
+    this.setData({
+      selectedFlowId: flow.id,
+      selectedFlowName: flow.name || '',
+      approvalFlowSteps: flow.steps || [],
+      allowUserSelectFlow: Number(flow.allow_user_select) === 1,
+      allowDesignateFirstFlow: Number(flow.allow_designate_first) === 1,
+      allowDesignateNextFlow: Number(flow.allow_designate_next) === 1,
+      ruleEditorVisible: true,
+      ruleEditId: '__flow__',
+      ruleEditorType: 'booking',
+      ruleForm: {
+        name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00',
+        ruleType: 'flow', approverIdentityId: '', approverHrId: '',
+        approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0,
+        _flowSteps: steps
+      },
+      weeklyChecked: [],
+      monthlyChecked: []
+    });
   },
 
   async loadFlowReferenceData() {

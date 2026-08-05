@@ -86,6 +86,12 @@
 
           <!-- Approval action area -->
           <view wx:if="{{approvalAction}}" class="approval-action-area">
+            <view class="field" wx:if="{{approvalAction === 'approve' && canDesignateNext}}">
+              <view class="field-label">指定下一步审批人（可选）</view>
+              <view class="pick-row" catchtap="openNextApproverPicker">
+                <text class="picker-display {{nextApproverHrId ? 'picker-has-value' : ''}}">{{nextApproverName || '选择审批人'}}</text>
+              </view>
+            </view>
             <view class="field field--approval-comment">
               <view class="field-label">审批意见（选填）</view>
               <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
@@ -101,6 +107,24 @@
       </view>
     </view>
   </view>
+  </viewport-portal>
+  <viewport-portal wx:if="{{nextApproverPickerVisible}}">
+    <view class="popup-mask ui-overlay" wx:if="{{nextApproverPickerVisible}}" bindtap="closeNextApproverPicker">
+      <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+      <view class="ui-dialog-shell ui-dialog-shell--complex popup-card person-picker-card" catchtap="noop">
+        <view class="modal-header ui-dialog-header"><view class="modal-title">选择下一步审批人</view><view class="modal-close ui-motion-chip" catchtap="closeNextApproverPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">✕</view></view>
+        <view class="ui-dialog-body ui-dialog-content">
+          <input class="field-input" value="{{nextApproverKeyword}}" bindinput="onNextApproverKeywordInput" placeholder="搜索姓名或学号" />
+          <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="person-picker-list ui-dialog-scroll--pane">
+            <view class="person-picker-item" wx:for="{{nextApproverCandidates}}" wx:key="id" wx:if="{{!nextApproverKeyword || item.name.indexOf(nextApproverKeyword) >= 0 || item.studentId.indexOf(nextApproverKeyword) >= 0}}" data-id="{{item.id}}" data-name="{{item.name}}" catchtap="pickNextApprover">
+              <text class="person-picker-name">{{item.name}}</text>
+              <text class="person-picker-id">{{item.studentId}}</text>
+            </view>
+            <view class="empty-inline" wx:if="{{!nextApproverCandidates.length}}">暂无可用成员</view>
+          </scroll-view>
+        </view>
+      </view>
+    </view>
   </viewport-portal>
 
   <view class="page-footer">

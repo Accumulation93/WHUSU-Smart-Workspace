@@ -17,6 +17,7 @@ const { createVenueApprovalNotifications } = require('../utils/venueNotification
 const notificationModel = require('../../audit/models/notification');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
+const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -420,6 +421,47 @@ router.post('/getVenueSchedule', async (req, res) => {
   }
 });
 
+// 用户端：返回场地审批流选项（可选择的流程与指定开关）
+router.post('/getVenueApprovalFlowOptions', async (req, res) => {
+  try {
+    const venueId = safeString(req.body.venueId);
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    const flows = await venueApprovalFlowModel.listByVenueId(venueId);
+    const options = flows.map(function(flow) {
+      return {
+        id: flow.id,
+        name: flow.name || '场地审批流程',
+        allowUserSelect: Number(flow.allow_user_select) === 1,
+        allowDesignateFirst: Number(flow.allow_designate_first) === 1,
+        allowDesignateNext: Number(flow.allow_designate_next) === 1
+      };
+    });
+    const allowUserSelect = options.some(function(option) { return option.allowUserSelect; });
+    res.json({ status: 'success', allowUserSelect, flows: options });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// 用户端：返回当前组织可用于指定审批人的成员候选
+router.post('/listVenueApproverCandidates', async (req, res) => {
+  try {
+    const orgId = await getCurrentOrgId();
+    const [rows] = await pool.query(
+      'SELECT id, name, student_id FROM hr_info WHERE org_id = ? AND id != ? ORDER BY name',
+      [orgId, safeString(req.body.excludeHrId || '')]
+    );
+    res.json({
+      status: 'success',
+      candidates: rows.map(function(row) {
+        return { id: row.id, name: row.name || '', studentId: row.student_id || '' };
+      })
+    });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
 // ═══════════════════════════════════════════════════
 // Create Booking
 // ═══════════════════════════════════════════════════
@@ -536,22 +578,59 @@ router.post('/createVenueBooking', async (req, res) => {
     let autoApprove = false;
     let approvalFlowId = null;
     let approvalTotalSteps = 0;
+    let approvalFlowState = null;
 
     if (hasDirect) {
       // Direct: no approval needed at all
       autoApprove = true;
     } else {
-      // Check for approval flow (user review)
-      const approvalFlow = await venueApprovalFlowModel.getByVenueId(venueId);
-      if (approvalFlow) {
-        const steps = await venueApprovalFlowStepModel.getByFlowId(approvalFlow.id);
-        if (steps.length) {
-          approvalFlowId = approvalFlow.id;
-          approvalTotalSteps = steps.length;
+      // 多审批流：允许用户选择时必选；否则全部流程并行
+      const approvalFlows = await venueApprovalFlowModel.listByVenueId(venueId);
+      if (approvalFlows.length) {
+        const allowUserSelect = approvalFlows.some(function(flow) { return Number(flow.allow_user_select) === 1; });
+        let selectedFlowId = null;
+        if (allowUserSelect) {
+          selectedFlowId = safeString(req.body.flowId);
+          const selectable = approvalFlows.find(function(flow) {
+            return String(flow.id) === selectedFlowId && Number(flow.allow_user_select) === 1;
+          });
+          if (!selectable) {
+            await conn.rollback();
+            return res.json({ status: 'invalid_params', message: '请选择审批流程' });
+          }
         }
-        // If flow has no steps, fall through to admin default
+        const stepsByFlow = {};
+        for (const flow of approvalFlows) {
+          stepsByFlow[flow.id] = await venueApprovalFlowStepModel.getByFlowId(flow.id);
+        }
+        const activeFlows = approvalFlows.filter(function(flow) {
+          return (stepsByFlow[flow.id] || []).length > 0;
+        });
+        if (activeFlows.length) {
+          const applicantHrInfo = await hrInfoModel.getById(hrId);
+          const singleSelected = selectedFlowId
+            ? approvalFlows.find(function(flow) { return String(flow.id) === selectedFlowId; })
+            : (activeFlows.length === 1 ? activeFlows[0] : null);
+          let firstDesignation = null;
+          if (singleSelected && Number(singleSelected.allow_designate_first) === 1) {
+            const firstStep = (stepsByFlow[singleSelected.id] || [])[0];
+            if (firstStep && safeString(firstStep.approval_mode) !== 'admin_any' && req.body.firstApproverHrId) {
+              await venueApprovalMultiFlow.validateDesignation(
+                orgId,
+                req.body.firstApproverHrId,
+                firstStep,
+                applicantHrInfo
+              );
+              firstDesignation = { hrId: safeString(req.body.firstApproverHrId) };
+            }
+          }
+          approvalFlowState = venueApprovalMultiFlow.buildInitialFlowState(activeFlows, selectedFlowId, firstDesignation);
+          approvalFlowId = selectedFlowId || activeFlows[0].id;
+          approvalTotalSteps = selectedFlowId
+            ? (stepsByFlow[selectedFlowId] || []).length
+            : Math.max.apply(null, activeFlows.map(function(flow) { return (stepsByFlow[flow.id] || []).length; }));
+        }
       }
-      // If no flow or empty flow → admin approval (autoApprove stays false)
     }
 
     const status = autoApprove ? 'approved' : 'pending';
@@ -571,7 +650,7 @@ router.post('/createVenueBooking', async (req, res) => {
       } : null,
       creatorOrgId: orgId, approvalOrgId: orgId,
       timeStart: dbTimeStart, timeEnd: dbTimeEnd, status,
-      approvalFlowId, approvalTotalSteps
+      approvalFlowId, approvalFlowState, approvalTotalSteps
     }, conn);
 
     const response = {
@@ -713,7 +792,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
        JOIN venues v ON v.id = b.venue_id
        WHERE b.status = 'pending'
          AND b.approval_org_id = ?
-         AND b.approval_flow_id IS NOT NULL
+         AND (b.approval_flow_id IS NOT NULL OR b.approval_flow_state_json IS NOT NULL)
          AND b.approval_total_steps > 0
        ORDER BY b.created_at DESC`,
       [orgId]
@@ -734,49 +813,11 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     // For each booking, check if the current step's rules match the approver
     const pending = [];
     for (const booking of bookings) {
-      const currentStep = booking.approval_current_step;
-      if (currentStep < 0 || currentStep >= booking.approval_total_steps) continue;
-
-      // Get flow steps
-      const [flowSteps] = await pool.query(
-        'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
-        [booking.approval_flow_id, orgId]
-      );
-
-      if (!flowSteps.length || currentStep >= flowSteps.length) continue;
-
-      const step = flowSteps[currentStep];
-      if (!step) continue;
-
-      // Get rules for this step
-      const [stepRules] = await pool.query(
-        'SELECT * FROM venue_approval_flow_step_rules WHERE step_id = ? AND org_id = ? ORDER BY sort_order',
-        [step.id, orgId]
-      );
-
-      const applicantHrInfo = applicantMap[booking.user_hr_id] || null;
-
-      step.rules = stepRules;
-      const authorization = evaluateVenueApprovalStep({
-        booking,
-        actor,
-        steps: flowSteps,
-        applicantHrInfo
-      });
-      if (!authorization.ok) continue;
-
-      // Build snapshot info
-      let snapshots = [];
-      try {
-        snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : [];
-      } catch (_) {}
-
-      // Build flowSteps array for timeline rendering
-      const flowStepNames = flowSteps.map(s => ({
-        sortOrder: s.sort_order,
-        name: s.name,
-        actionType: s.action_type
-      }));
+      const eligibility = await venueApprovalMultiFlow.evaluateActorEligibility(booking, actor, orgId);
+      if (!eligibility.ok) continue;
+      const summary = eligibility.summary;
+      const snapshots = venueApprovalMultiFlow.parseSnapshots(booking.approval_snapshots_json);
+      const firstActive = summary.flowSummary.find(function(item) { return item.active && !item.completed; });
 
       pending.push({
         id: booking.id,
@@ -793,9 +834,19 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         approvalFlowId: booking.approval_flow_id,
         approvalCurrentStep: booking.approval_current_step,
         approvalTotalSteps: booking.approval_total_steps,
-        currentStepName: step.name || ('第' + (currentStep + 1) + '步'),
-        currentStepIndex: currentStep,
-        flowSteps: flowStepNames,
+        currentStepName: (firstActive && firstActive.stepName) || '',
+        currentStepIndex: (firstActive && firstActive.stepIndex) || 0,
+        flowSteps: summary.flowSummary.map(function(item) {
+          return {
+            sortOrder: item.stepIndex + 1,
+            name: item.stepName,
+            actionType: '',
+            active: item.active
+          };
+        }),
+        activeFlowCount: summary.activeFlowIds.length,
+        flowSummary: summary.flowSummary,
+        candidateMissing: Boolean(eligibility.candidateMissing),
         snapshots: snapshots,
         createdAt: booking.created_at
       });

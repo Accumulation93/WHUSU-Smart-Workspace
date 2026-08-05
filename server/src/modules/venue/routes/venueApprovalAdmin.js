@@ -16,6 +16,7 @@ const { normalizeRule, normalizeFlowSteps } = require('../utils/approvalFlowVali
 const {
   authorizeCurrentVenueApproval
 } = require('../services/venueApprovalAuthorization');
+const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -43,6 +44,63 @@ router.post('/getVenueApprovalFlow', async (req, res) => {
 
     const steps = await stepModel.getByFlowId(flow.id);
     res.json({ status: 'success', flow, steps });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// listVenueApprovalFlows — 返回场地全部审批流（含步骤与规则）
+router.post('/listVenueApprovalFlows', async (req, res) => {
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    const venueId = safeString(req.body.venueId);
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    const flows = await flowModel.listByVenueId(venueId);
+    const result = [];
+    for (const flow of flows) {
+      const steps = await stepModel.getByFlowId(flow.id);
+      result.push(Object.assign({}, flow, { steps }));
+    }
+    res.json({ status: 'success', flows: result });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// saveVenueApprovalFlowMeta — 创建/更新审批流元信息（名称与三个开关）
+router.post('/saveVenueApprovalFlowMeta', async (req, res) => {
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    const venueId = safeString(req.body.venueId);
+    const flowId = safeString(req.body.flowId);
+    const name = safeString(req.body.name) || '场地审批流程';
+    const allowUserSelect = req.body.allowUserSelect === true || req.body.allowUserSelect === 'true' || req.body.allowUserSelect === 1;
+    const allowDesignateFirst = req.body.allowDesignateFirst === true || req.body.allowDesignateFirst === 'true' || req.body.allowDesignateFirst === 1;
+    const allowDesignateNext = req.body.allowDesignateNext === true || req.body.allowDesignateNext === 'true' || req.body.allowDesignateNext === 1;
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+
+    let flow = null;
+    if (flowId) {
+      flow = await flowModel.getById(flowId);
+      if (flow && flow.venue_id !== venueId) {
+        return res.json({ status: 'invalid_params', message: '请刷新审批流程后重试' });
+      }
+    }
+    if (flow) {
+      await flowModel.update(flow.id, { name, allowUserSelect, allowDesignateFirst, allowDesignateNext });
+    } else {
+      flow = { id: generateId() };
+      await flowModel.create(flow.id, {
+        venueId,
+        name,
+        allowUserSelect,
+        allowDesignateFirst,
+        allowDesignateNext
+      });
+    }
+    res.json({ status: 'success', flowId: flow.id, message: '审批流程已保存' });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -77,8 +135,11 @@ router.post('/deleteVenueApprovalFlow', async (req, res) => {
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
-    const flow = await flowModel.getByVenueId(venueId);
+    const flowId = safeString(req.body.flowId);
+    if (!venueId && !flowId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    const flow = flowId
+      ? await flowModel.getById(flowId)
+      : await flowModel.getByVenueId(venueId);
     if (!flow) return res.json({ status: 'not_found', message: '请刷新审批设置后重试' });
     await flowModel.remove(flow.id);
     res.json({ status: 'success', message: '审批流已删除' });
@@ -127,6 +188,10 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
 
     const venueId = safeString(req.body.venueId);
     const flowName = safeString(req.body.flowName) || '场地审批流程';
+    const flowIdParam = safeString(req.body.flowId);
+    const allowUserSelect = req.body.allowUserSelect === true || req.body.allowUserSelect === 'true' || req.body.allowUserSelect === 1;
+    const allowDesignateFirst = req.body.allowDesignateFirst === true || req.body.allowDesignateFirst === 'true' || req.body.allowDesignateFirst === 1;
+    const allowDesignateNext = req.body.allowDesignateNext === true || req.body.allowDesignateNext === 'true' || req.body.allowDesignateNext === 1;
     const stepsData = normalizeFlowSteps(req.body.steps);
 
     if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
@@ -142,13 +207,32 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
       }
     }
 
-    // Upsert flow
-    let flow = await flowModel.getByVenueId(venueId);
+    // Upsert flow（多流程：flowId 优先，无 flowId 时兼容旧的单流程场地）
+    let flow = null;
+    if (flowIdParam) {
+      flow = await flowModel.getById(flowIdParam);
+      if (flow && flow.venue_id !== venueId) {
+        await conn.rollback();
+        return res.json({ status: 'invalid_params', message: '请刷新审批流程后重试' });
+      }
+    }
+    if (!flow) flow = await flowModel.getByVenueId(venueId);
     if (flow) {
-      await flowModel.update(flow.id, { name: flowName }, conn);
+      await flowModel.update(flow.id, {
+        name: flowName,
+        allowUserSelect,
+        allowDesignateFirst,
+        allowDesignateNext
+      }, conn);
     } else {
       flow = { id: generateId() };
-      await flowModel.create(flow.id, { venueId, name: flowName }, conn);
+      await flowModel.create(flow.id, {
+        venueId,
+        name: flowName,
+        allowUserSelect,
+        allowDesignateFirst,
+        allowDesignateNext
+      }, conn);
     }
 
     // Remove old steps (CASCADE removes rules)
@@ -301,25 +385,38 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       await conn.rollback();
       return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
     }
-    if (!booking.approval_flow_id || booking.approval_total_steps <= 0) {
+    if ((!booking.approval_flow_id && !booking.approval_flow_state_json) || Number(booking.approval_total_steps) <= 0) {
       await conn.rollback();
       return res.json({ status: 'invalid_state', message: '请联系管理员补充审批设置' });
     }
 
-    // Check if approver can approve current step
-    const check = await authorizeCurrentVenueApproval(booking, actor);
-    if (!check.ok) {
+    const nextDesignation = req.body.nextApproverHrId
+      ? { hrId: safeString(req.body.nextApproverHrId) }
+      : null;
+    let prepared;
+    try {
+      prepared = await venueApprovalMultiFlow.prepareApproval(
+        booking,
+        actor,
+        comment,
+        nextDesignation,
+        orgId
+      );
+    } catch (e) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: check.reason });
+      return res.json({ status: 'invalid_params', message: safeString(e.message) || '请重新选择审批人' });
     }
-    const approverActorId = actor.id;
-
-    const currentStep = check.stepIndex;
-    const newStepIndex = currentStep + 1;
-    const isLastStep = newStepIndex >= booking.approval_total_steps;
+    if (!prepared.ok) {
+      await conn.rollback();
+      return res.json({ status: 'forbidden', message: prepared.reason });
+    }
+    const completed = Boolean(prepared.completed);
+    const snapshots = prepared.snapshots;
+    const state = prepared.state;
+    const totalSteps = prepared.totalSteps;
 
     // Check time conflict + adjust time_start based on approval time (only for final approval)
-    if (isLastStep) {
+    if (completed) {
       const approvedAt = new Date();
       const bookingTimeEnd = new Date(booking.time_end);
 
@@ -353,55 +450,25 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       }
     }
 
-    // Build approval snapshot for this step
-    let snapshots = [];
-    try {
-      snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : [];
-    } catch (_) {}
-    const approverName = actor.name || (actor.type === 'admin' ? '管理员' : '');
-
-    snapshots.push({
-      stepIndex: currentStep,
-      stepName: check.stepName,
-      approverHrId: approverActorId,
-      approverPersonId: actor.personId || '',
-      approverAssignmentId: actor.assignmentId || '',
-      approverAdminGrantId: actor.adminGrantId || '',
-      approverContextId: actor.contextId || '',
-      approverIdentityType: actor.type || '',
-      approverName,
-      comment: comment || '',
-      approvedAt: fmtDatetime(new Date())
-    });
-
-    // Update booking
-    const newStatus = isLastStep ? 'approved' : 'pending';
-    const approverContextSnapshot = JSON.stringify({
-      contextId: actor.contextId || '',
-      role: actor.type || '',
-      identityName: actor.name || '',
-      adminLevel: actor.adminLevel || ''
-    });
-    const sql = `UPDATE venue_bookings
-      SET approval_current_step = ?, approval_snapshots_json = ?, status = ?,
-          approver_hr_id = ?, approver_person_id = ?, approver_assignment_id = ?,
-          approver_admin_grant_id = ?, approver_context_snapshot = ?, approval_comment = ?
-      WHERE id = ?`;
-    const [updateResult] = await conn.query(sql, [
-      newStepIndex,
-      JSON.stringify(snapshots),
+    const newStatus = completed ? 'approved' : 'pending';
+    const legacy = venueApprovalMultiFlow.legacyColumnsFromState(state, totalSteps, newStatus);
+    await venueBookingModel.updateStatus(
+      id,
       newStatus,
-      approverActorId,
-      actor.personId || null,
-      actor.assignmentId || null,
-      actor.adminGrantId || null,
-      approverContextSnapshot,
-      isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
-      id
-    ]);
-    if (updateResult.affectedRows !== 1) throw new Error('审批状态已变化，请刷新');
+      actor.id,
+      completed ? (comment || booking.approval_comment) : booking.approval_comment,
+      conn,
+      actor
+    );
+    await venueBookingModel.updateApprovalFlowState(id, {
+      approvalFlowState: state,
+      approvalFlowId: legacy.approvalFlowId,
+      currentStep: legacy.currentStep,
+      totalSteps: legacy.totalSteps,
+      snapshotsJson: JSON.stringify(snapshots)
+    }, conn);
 
-    if (isLastStep) {
+    if (completed) {
       const venueName = booking.venue_name || '';
       await createVenueBookingStatusNotification(
         booking, 'booking_approved', '场地借用已通过',
@@ -415,18 +482,25 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     await notificationModel.deleteByTarget('booking', id);
 
     // 下一步骤待办由业务状态实时计算。
-    if (!isLastStep) {
-      await createVenueApprovalNotifications(id, newStepIndex);
+    if (!completed) {
+      await createVenueApprovalNotifications(id).catch(function(error) {
+        console.error('[venueApprovalAdmin] notification cleanup failed:', error.message);
+      });
     }
 
     res.json({
       status: 'success',
-      message: isLastStep ? '所有步骤审批完成，借用已通过' : ('步骤 ' + (currentStep + 1) + ' 审批完成，进入下一步'),
+      message: completed ? '所有步骤审批完成，借用已通过' : '审批完成，等待下一步审批',
       approvalProgress: {
-        currentStep: newStepIndex,
-        totalSteps: booking.approval_total_steps,
-        isApproved: isLastStep
-      }
+        currentStep: legacy.currentStep,
+        totalSteps: totalSteps,
+        isApproved: completed,
+        isRejected: false
+      },
+      completed: completed,
+      activeFlowIds: prepared.summary.activeFlowIds,
+      flowSummary: prepared.summary.flowSummary,
+      candidateMissing: Boolean(prepared.candidateMissing)
     });
   } catch (e) {
     await conn.rollback();
@@ -462,13 +536,15 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
       return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
     }
 
-    // Check permission
-    const check = await authorizeCurrentVenueApproval(booking, actor);
-    if (!check.ok) {
+    const eligibility = await venueApprovalMultiFlow.evaluateActorEligibility(booking, actor, orgId);
+    if (!eligibility.ok) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: check.reason });
+      return res.json({ status: 'forbidden', message: eligibility.reason });
     }
     const approverActorId = actor.id;
+    const totalSteps = Number(booking.approval_total_steps) || 0;
+    const rejectStepItem = eligibility.summary.flowSummary.find(function(item) { return item.active && !item.completed; });
+    const rejectStep = rejectStepItem ? Number(rejectStepItem.stepIndex) : Number(booking.approval_current_step) || 0;
 
     // Reject: set step to -1, update status atomically within transaction
     await venueBookingModel.updateStatus(
@@ -481,10 +557,15 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
     );
 
     // Update approval tracking (same transaction)
-    const setSql = `UPDATE venue_bookings
-      SET approval_current_step = -1, approval_reject_step = ?, approval_comment = ?
-      WHERE id = ?`;
-    await conn.query(setSql, [check.stepIndex, comment || '驳回', id]);
+    const legacy = venueApprovalMultiFlow.legacyColumnsFromState(eligibility.state, totalSteps, 'rejected');
+    await venueBookingModel.updateApprovalFlowState(id, {
+      approvalFlowState: eligibility.state,
+      approvalFlowId: legacy.approvalFlowId,
+      currentStep: -1,
+      totalSteps: totalSteps,
+      rejectStep: rejectStep,
+      snapshotsJson: JSON.stringify(venueApprovalMultiFlow.parseSnapshots(booking.approval_snapshots_json))
+    }, conn);
 
     const venueName = booking.venue_name || '';
     await createVenueBookingStatusNotification(

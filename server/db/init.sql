@@ -856,9 +856,12 @@ CREATE TABLE IF NOT EXISTS venue_approval_flows (
   name VARCHAR(200) NOT NULL DEFAULT '',
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   is_active TINYINT(1) NOT NULL DEFAULT 1,
+  allow_user_select TINYINT(1) NOT NULL DEFAULT 0,
+  allow_designate_first TINYINT(1) NOT NULL DEFAULT 0,
+  allow_designate_next TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE INDEX idx_vaf_venue (venue_id, org_id),
+  INDEX idx_vaf_venue (venue_id, org_id),
   INDEX idx_vaf_org (org_id),
   CONSTRAINT fk_vaf_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -911,6 +914,7 @@ CREATE TABLE IF NOT EXISTS venue_bookings (
   time_end DATETIME NOT NULL,
   status VARCHAR(16) NOT NULL DEFAULT 'pending',
   approval_flow_id VARCHAR(64) DEFAULT NULL,
+  approval_flow_state_json TEXT DEFAULT NULL,
   approval_current_step INT NOT NULL DEFAULT 0,
   approval_total_steps INT NOT NULL DEFAULT 0,
   approval_reject_step INT DEFAULT NULL,

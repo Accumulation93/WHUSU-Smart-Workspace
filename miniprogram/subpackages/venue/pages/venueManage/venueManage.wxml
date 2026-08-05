@@ -231,14 +231,32 @@
             <view class="rule-org-context-icon"><ui-icon name="shield" tone="primary" size="30" ariaLabel="审批流程" /></view>
             <view class="rule-org-context-copy">
               <view class="rule-org-context-title">{{currentOrganizationName || '当前组织'}} · 借用审批</view>
-              <view class="rule-org-context-desc" wx:if="{{approvalFlow}}">
-                已设置 {{approvalFlowSteps.length}} 个审批步骤
+              <view class="rule-org-context-desc" wx:if="{{approvalFlows.length}}">
+                已设置 {{approvalFlows.length}} 条审批流程，当前流程 {{approvalFlowSteps.length}} 个审批步骤
               </view>
               <view class="rule-org-context-desc rule-org-context-desc-warn" wx:else>
-                暂无审批步骤，可新增“用户审核”规则
+                暂无审批步骤，可新增“用户审核”流程
               </view>
             </view>
           </view>
+          <button class="secondary-btn rule-add-btn ui-motion-button" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ 新增审批流程</button>
+          <block wx:if="{{approvalFlows.length}}">
+            <view class="list-item list-item-stacked flow-meta-card {{selectedFlowId === item.id ? 'flow-meta-card-active' : ''}} ui-motion-card" wx:for="{{approvalFlows}}" wx:key="id" data-id="{{item.id}}" catchtap="selectApprovalFlow">
+              <view class="list-main">
+                <view class="list-name">{{item.name || '场地审批流程'}}<text class="status-chip {{selectedFlowId === item.id ? 'current-chip' : 'none-chip'}}" wx:if="{{selectedFlowId === item.id}}">编辑中</text></view>
+                <view class="list-desc">{{item.steps.length}} 个审批步骤</view>
+                <view class="flow-switch-row" catchtap="noop">
+                  <view class="flow-switch-item"><text class="flow-switch-label">用户可选流程</text><switch checked="{{item.allow_user_select === 1}}" data-id="{{item.id}}" data-field="allow_user_select" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">指定第一步</text><switch checked="{{item.allow_designate_first === 1}}" data-id="{{item.id}}" data-field="allow_designate_first" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">指定下一步</text><switch checked="{{item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate_next" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                </view>
+              </view>
+              <view class="inline-actions list-actions-below">
+                <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="openApprovalFlowStepEditor">编辑步骤</text>
+                <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deleteApprovalFlow">删除</text>
+              </view>
+            </view>
+          </block>
           <button class="primary-btn rule-add-btn ui-motion-button" data-type="booking" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增借用规则</button>
           <view wx:if="{{!bookingRules.length && !approvalFlow}}" class="empty-inline">暂无借用规则，由场地管理员处理</view>
           <block wx:if="{{bookingRules.length}}">
