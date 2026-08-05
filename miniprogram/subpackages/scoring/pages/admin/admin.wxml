@@ -1167,7 +1167,6 @@
           <view class="auth-policy-card">
             <view class="auth-policy-head"><view><view class="list-title">恢复码</view><view class="auth-group-note">使用一次后自动失效</view></view><switch color="#3b82f6" checked="{{authPolicy.allowRecoveryCode}}" data-field="allowRecoveryCode" bindchange="onAuthPolicySwitch" /></view>
             <view class="auth-policy-head"><view><view class="list-title">登录口令</view><view class="auth-group-note">允许成员设置口令并用于登录</view></view><switch color="#3b82f6" checked="{{authPolicy.allowPassphrase}}" data-field="allowPassphrase" bindchange="onAuthPolicySwitch" /></view>
-            <view class="field" wx:if="{{authPolicy.allowPassphrase}}"><view class="field-label">口令最短长度</view><input class="field-input" type="number" value="{{authPolicy.passphraseMinLength}}" data-field="passphraseMinLength" bindinput="onAuthPolicyValue" /></view>
           </view>
           <button class="primary-btn auth-policy-save ui-motion-button" loading="{{authActionLoadingKey === 'policy-save'}}" bindtap="saveAuthPolicy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存设置</button>
         </view>

@@ -166,7 +166,6 @@ function mapPolicy(policy) {
       ? source.allow_recovery_code : source.allowRecoveryCode),
     allowPassphrase: Boolean(source.allow_passphrase !== undefined
       ? source.allow_passphrase : source.allowPassphrase),
-    passphraseMinLength: Number(source.passphrase_min_length || source.passphraseMinLength || 0),
     claimStartsDate: starts.date,
     claimStartsTime: starts.time,
     claimEndsDate: ends.date,
@@ -1197,9 +1196,7 @@ module.exports = Behavior({
     onAuthPolicyValue(e) {
       const field = String(e.currentTarget.dataset.field || '');
       if (!field || !this.data.authPolicy) return;
-      const value = field === 'passphraseMinLength'
-        ? (Number(e.detail.value) || 0)
-        : String(e.detail.value || '');
+      const value = String(e.detail.value || '');
       this.setData({ authPolicy: Object.assign({}, this.data.authPolicy, { [field]: value }) });
     },
 

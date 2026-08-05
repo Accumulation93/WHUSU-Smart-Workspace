@@ -52,7 +52,6 @@ function emptyAccountSecurityState() {
     sessions: [],
     allowRecoveryCode: false,
     allowPassphrase: false,
-    passphraseMinLength: 0,
     passphrase: '',
     recoveryCode: '',
     savingCredential: false,
@@ -770,8 +769,7 @@ Page({
           account: result.account || null,
           sessions: decorateAccountSessions(result.sessions),
           allowRecoveryCode: Boolean(policy.allowRecoveryCode),
-          allowPassphrase: Boolean(policy.allowPassphrase),
-          passphraseMinLength: Number(policy.passphraseMinLength) || 0
+          allowPassphrase: Boolean(policy.allowPassphrase)
         })
       });
       if (this._focusAccountSecurity) {
@@ -830,10 +828,6 @@ Page({
     if (security.savingCredential) return;
     if (!security.passphrase) {
       showShortToast('请输入登录口令');
-      return;
-    }
-    if (security.passphraseMinLength > 0 && security.passphrase.length < security.passphraseMinLength) {
-      showShortToast('口令长度不足');
       return;
     }
     this.setData({ 'accountSecurity.savingCredential': true });

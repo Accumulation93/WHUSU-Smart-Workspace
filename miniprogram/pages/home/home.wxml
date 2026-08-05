@@ -431,8 +431,7 @@
 
             <view class="profile-credential-card" wx:if="{{accountSecurity.allowPassphrase}}">
               <view class="profile-credential-title">登录口令</view>
-              <view class="profile-credential-note" wx:if="{{accountSecurity.passphraseMinLength > 0}}">至少 {{accountSecurity.passphraseMinLength}} 位，可用于口令登录</view>
-              <view class="profile-credential-note" wx:else>设置后可用于口令登录</view>
+              <view class="profile-credential-note">设置后可用于口令登录</view>
               <view class="profile-passphrase-row"><input class="field-input profile-passphrase-input" password="{{true}}" value="{{accountSecurity.passphrase}}" bindinput="onAccountPassphraseInput" placeholder="输入新的登录口令" /><button class="primary-btn profile-account-action ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="saveAccountPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存口令</button></view>
             </view>
           </view>

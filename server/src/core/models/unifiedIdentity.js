@@ -1429,7 +1429,6 @@ async function getPolicy(connection) {
 }
 
 async function savePolicy(data, actor) {
-  const minimum = Math.min(Math.max(Number(data.passphraseMinLength) || 0, 0), 64);
   const claimStartsAt = normalizePolicyDate(data.claimStartsAt, '认证开始时间');
   const claimEndsAt = normalizePolicyDate(data.claimEndsAt, '认证截止时间');
   if (claimStartsAt && claimEndsAt && policyTimestamp(claimStartsAt) >= policyTimestamp(claimEndsAt)) {
@@ -1446,7 +1445,7 @@ async function savePolicy(data, actor) {
     await connection.query(
       `UPDATE auth_policy
           SET initial_claim_enabled = ?, claim_starts_at = ?, claim_ends_at = ?,
-              allow_recovery_code = ?, allow_passphrase = ?, passphrase_min_length = ?,
+              allow_recovery_code = ?, allow_passphrase = ?, passphrase_min_length = 0,
               updated_by_person_id = ?, updated_at = NOW()
         WHERE id = 'default'`,
       [
@@ -1455,7 +1454,6 @@ async function savePolicy(data, actor) {
         claimEndsAt,
         data.allowRecoveryCode ? 1 : 0,
         data.allowPassphrase ? 1 : 0,
-        minimum,
         actor.personId
       ]
     );
@@ -1497,9 +1495,6 @@ async function configureRecoveryCredential(accountId, method, value) {
   if (method === 'recovery_code') plaintext = randomCode(20);
   if (method === 'passphrase' && !plaintext) {
     throw new IdentityError('invalid_params', '请输入登录口令', 400);
-  }
-  if (method === 'passphrase' && plaintext.length < (Number(policy.passphrase_min_length) || 0)) {
-    throw new IdentityError('weak_passphrase', '恢复口令长度不足', 400);
   }
   if (method === 'passphrase' && /^(123456|password|qwerty|111111|abcdef)/i.test(plaintext)) {
     throw new IdentityError('weak_passphrase', '恢复口令过于简单', 400);
