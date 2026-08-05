@@ -1317,6 +1317,30 @@
                 <text class="hr-account-fact-value">待处理</text>
               </view>
             </view>
+            <view class="hr-account-fact hr-account-fact-wide hr-account-security-card" wx:if="{{detailHrSecurity}}">
+              <view class="hr-account-security-head">
+                <text class="hr-account-fact-label">登录口令</text>
+                <view class="status-chip {{detailHrSecurity.passphraseSet ? 'current-chip' : 'none-chip'}}">{{detailHrSecurity.passphraseSet ? '已设置' : '未设置'}}</view>
+              </view>
+              <view class="hr-account-security-actions" wx:if="{{!showDetailPassphraseForm}}">
+                <button class="secondary-btn compact-action ui-motion-button" catchtap="toggleDetailPassphraseForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">设置口令</button>
+                <button class="secondary-btn compact-action ui-motion-button" wx:if="{{detailHrSecurity.passphraseSet}}" catchtap="requestMemberPassphraseClear" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">清除口令</button>
+              </view>
+              <view class="hr-account-security-form" wx:if="{{showDetailPassphraseForm}}">
+                <input class="field-input" password="{{true}}" value="{{detailHrPassphraseInput}}" bindinput="onDetailPassphraseInput" placeholder="输入新口令" />
+                <button class="primary-btn compact-action ui-motion-button" loading="{{authActionLoadingKey === 'member-passphrase-save'}}" catchtap="saveDetailMemberPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存</button>
+                <button class="secondary-btn compact-action ui-motion-button" catchtap="toggleDetailPassphraseForm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">取消</button>
+              </view>
+            </view>
+            <view class="hr-account-devices" wx:if="{{detailHrSecurity && detailHrSecurity.sessions.length}}">
+              <view class="hr-account-device" wx:for="{{detailHrSecurity.sessions}}" wx:key="id">
+                <view class="hr-account-device-copy">
+                  <view class="hr-account-device-name">{{item.deviceLabel}}</view>
+                  <view class="hr-account-device-meta"><text wx:if="{{item.platform}}">{{item.platform}} · </text>{{item.organizationName || '未知组织'}} · {{item.lastSeenText}}</view>
+                </view>
+                <button class="secondary-btn compact-action ui-motion-button" data-session-id="{{item.id}}" catchtap="requestMemberDeviceRevoke" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">退出设备</button>
+              </view>
+            </view>
             <view class="hr-account-actions">
               <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canIssueVerification}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-verify-' + detailHrGovernance.id}}" catchtap="issueHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{detailHrGovernance.auth.hasActiveClaimCode || detailHrGovernance.auth.hasActiveInvite ? '生成新认证码' : '生成认证码'}}</button>
               <button class="secondary-btn compact-action ui-motion-button" wx:if="{{canVerifyIdentity && detailHrGovernance.canRevokeVerification}}" data-hr-id="{{detailHrGovernance.id}}" loading="{{authActionLoadingKey === 'member-verify-revoke-' + detailHrGovernance.id}}" catchtap="revokeHrMemberVerificationCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">撤销认证码</button>
@@ -1801,7 +1825,7 @@
           </view>
           <view class="ui-dialog-footer auth-dialog-actions">
             <button class="secondary-btn ui-motion-button" catchtap="closeAuthMemberConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-            <button class="danger-btn ui-motion-button" catchtap="confirmAuthMemberAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认{{authMemberConfirmAction === 'freeze' ? '冻结' : '解绑'}}</button>
+            <button class="danger-btn ui-motion-button" catchtap="confirmAuthMemberAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认{{authMemberConfirmActionLabel || '解绑'}}</button>
           </view>
         </view>
       </view>

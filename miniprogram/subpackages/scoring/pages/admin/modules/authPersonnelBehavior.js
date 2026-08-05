@@ -219,7 +219,12 @@ module.exports = Behavior({
     authMemberConfirmPersonId: '',
     authMemberConfirmHrId: '',
     authMemberConfirmName: '',
-    authMemberConfirmFrozen: false
+    authMemberConfirmFrozen: false,
+    authMemberConfirmSessionId: '',
+    authMemberConfirmActionLabel: '',
+    detailHrSecurity: null,
+    detailHrPassphraseInput: '',
+    showDetailPassphraseForm: false
   },
 
   methods: {
@@ -993,6 +998,152 @@ module.exports = Behavior({
       this.setData({ showAuthRecoveryDialog: false, pendingAuthRecovery: null });
     },
 
+    async loadDetailHrSecurity(personId) {
+      if (!personId || this.data.authActionLoadingKey) return;
+      try {
+        const result = await callFunction({ name: 'admin/auth/security', data: { personId } });
+        if (!result || result.status !== 'success') {
+          this.setData({ detailHrSecurity: null });
+          return;
+        }
+        const sessions = (result.sessions || []).map(function(item) {
+          return Object.assign({}, item, {
+            lastSeenText: item.lastSeenAt ? formatAuditTime(item.lastSeenAt) : '最近使用时间未知'
+          });
+        });
+        this.setData({
+          detailHrSecurity: {
+            account: result.account || null,
+            bindingStatus: result.bindingStatus || '',
+            passphraseSet: Boolean(result.passphraseSet),
+            sessions
+          }
+        });
+      } catch (error) {
+        this.setData({ detailHrSecurity: null });
+      }
+    },
+
+    toggleDetailPassphraseForm() {
+      this.setData({
+        showDetailPassphraseForm: !this.data.showDetailPassphraseForm,
+        detailHrPassphraseInput: ''
+      });
+    },
+
+    onDetailPassphraseInput(e) {
+      this.setData({ detailHrPassphraseInput: String(e.detail.value || '') });
+    },
+
+    async saveDetailMemberPassphrase() {
+      const security = this.data.detailHrSecurity;
+      const value = this.data.detailHrPassphraseInput;
+      const personId = String(this.data.detailHrGovernance && this.data.detailHrGovernance.personId || '');
+      if (!security || !personId || this.data.authActionLoadingKey) return;
+      if (!value) {
+        showShortToast('请输入新口令');
+        return;
+      }
+      this.setData({ authActionLoadingKey: 'member-passphrase-save' });
+      try {
+        const result = await callFunction({ name: 'admin/auth/security/passphrase', data: { personId, value } });
+        if (!result || result.status !== 'success') {
+          throw new Error((result && result.message) || '未保存，请重试');
+        }
+        this.setData({
+          showDetailPassphraseForm: false,
+          detailHrPassphraseInput: '',
+          'detailHrSecurity.passphraseSet': true
+        });
+        showShortToast('口令已更新', 'success');
+      } catch (error) {
+        showShortToast(getErrorText(error, '未保存，请重试'));
+      } finally {
+        this.setData({ authActionLoadingKey: '' });
+      }
+    },
+
+    requestMemberDeviceRevoke(e) {
+      const sessionId = String(e.currentTarget.dataset.sessionId || '');
+      const security = this.data.detailHrSecurity;
+      const row = this.getHrGovernanceRow(this.data.detailHrId);
+      if (!sessionId || !security || !row || this.data.authActionLoadingKey) return;
+      const session = (security.sessions || []).find(function(item) { return item.id === sessionId; });
+      this.setData({
+        authMemberConfirmVisible: true,
+        authMemberConfirmAction: 'device-revoke',
+        authMemberConfirmActionLabel: '退出',
+        authMemberConfirmTitle: '退出设备',
+        authMemberConfirmMessage: '将退出该成员的登录设备：' + String(session && session.deviceLabel || '该设备'),
+        authMemberConfirmPersonId: String(row.personId || ''),
+        authMemberConfirmHrId: String(this.data.detailHrId || ''),
+        authMemberConfirmName: String(row.name || '该成员'),
+        authMemberConfirmSessionId: sessionId,
+        authMemberConfirmFrozen: false
+      });
+    },
+
+    requestMemberPassphraseClear() {
+      const row = this.getHrGovernanceRow(this.data.detailHrId);
+      if (!row || !this.data.detailHrSecurity || this.data.authActionLoadingKey) return;
+      this.setData({
+        authMemberConfirmVisible: true,
+        authMemberConfirmAction: 'passphrase-clear',
+        authMemberConfirmActionLabel: '清除',
+        authMemberConfirmTitle: '清除登录口令',
+        authMemberConfirmMessage: '清除后，该成员需要重新设置口令才能使用口令登录。',
+        authMemberConfirmPersonId: String(row.personId || ''),
+        authMemberConfirmHrId: String(this.data.detailHrId || ''),
+        authMemberConfirmName: String(row.name || '该成员'),
+        authMemberConfirmSessionId: '',
+        authMemberConfirmFrozen: false
+      });
+    },
+
+    async revokeMemberDevice(sessionId) {
+      const row = this.getHrGovernanceRow(this.data.detailHrId);
+      const personId = String(row && row.personId || '');
+      if (!sessionId || !personId || this.data.authActionLoadingKey) return;
+      this.setData({ authActionLoadingKey: 'member-device-revoke' });
+      try {
+        const result = await callFunction({
+          name: 'admin/auth/security/sessions/revoke',
+          data: { personId, sessionId }
+        });
+        if (!result || result.status !== 'success') {
+          throw new Error((result && result.message) || '请重试');
+        }
+        this.setData({
+          'detailHrSecurity.sessions': (this.data.detailHrSecurity.sessions || []).filter(function(item) { return item.id !== sessionId; }),
+          'detailHrGovernance.auth.activeSessionCount': Math.max(Number(this.data.detailHrGovernance.auth.activeSessionCount || 0) - 1, 0)
+        });
+        showShortToast('该设备已退出', 'success');
+      } catch (error) {
+        showShortToast(getErrorText(error, '请重试'));
+      } finally {
+        this.setData({ authActionLoadingKey: '' });
+      }
+    },
+
+    async clearMemberPassphrase() {
+      const row = this.getHrGovernanceRow(this.data.detailHrId);
+      const personId = String(row && row.personId || '');
+      if (!personId || this.data.authActionLoadingKey) return;
+      this.setData({ authActionLoadingKey: 'member-passphrase-clear' });
+      try {
+        const result = await callFunction({ name: 'admin/auth/security/passphrase/revoke', data: { personId } });
+        if (!result || result.status !== 'success') {
+          throw new Error((result && result.message) || '请重试');
+        }
+        this.setData({ 'detailHrSecurity.passphraseSet': false });
+        showShortToast('登录口令已清除', 'success');
+      } catch (error) {
+        showShortToast(getErrorText(error, '请重试'));
+      } finally {
+        this.setData({ authActionLoadingKey: '' });
+      }
+    },
+
     requestAuthAccountFreeze(e) {
       const personId = String(e.currentTarget.dataset.id || '');
       const frozen = e.currentTarget.dataset.frozen === true
@@ -1006,6 +1157,7 @@ module.exports = Behavior({
       this.setData({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'freeze',
+        authMemberConfirmActionLabel: '冻结',
         authMemberConfirmTitle: '冻结账号',
         authMemberConfirmMessage: '冻结后，该成员将无法继续使用工作台。',
         authMemberConfirmPersonId: personId,
@@ -1022,6 +1174,7 @@ module.exports = Behavior({
       this.setData({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'unbind',
+        authMemberConfirmActionLabel: '解绑',
         authMemberConfirmTitle: '解绑微信',
         authMemberConfirmMessage: '解绑后，原微信和已登录设备将退出，该成员需重新恢复账号。',
         authMemberConfirmPersonId: String(row.personId || ''),
@@ -1036,12 +1189,14 @@ module.exports = Behavior({
       this.setData({
         authMemberConfirmVisible: false,
         authMemberConfirmAction: '',
+        authMemberConfirmActionLabel: '',
         authMemberConfirmTitle: '',
         authMemberConfirmMessage: '',
         authMemberConfirmPersonId: '',
         authMemberConfirmHrId: '',
         authMemberConfirmName: '',
-        authMemberConfirmFrozen: false
+        authMemberConfirmFrozen: false,
+        authMemberConfirmSessionId: ''
       });
     },
 
@@ -1057,6 +1212,10 @@ module.exports = Behavior({
         });
       } else if (action === 'unbind') {
         this.unbindHrWechat({ currentTarget: { dataset: { hrId } } });
+      } else if (action === 'device-revoke') {
+        this.revokeMemberDevice(this.data.authMemberConfirmSessionId);
+      } else if (action === 'passphrase-clear') {
+        this.clearMemberPassphrase();
       }
     },
 

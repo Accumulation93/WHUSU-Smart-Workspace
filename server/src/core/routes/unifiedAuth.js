@@ -48,6 +48,33 @@ async function requireAdminPermission(req, permissionKey) {
   return context;
 }
 
+function mapSecuritySession(item) {
+  return {
+    id: safeString(item.id),
+    contextId: safeString(item.context_id),
+    organizationId: safeString(item.organization_id),
+    organizationName: safeString(item.organization_name),
+    role: safeString(item.role),
+    deviceLabel: item.device_model || item.device_platform || '登录设备',
+    platform: safeString(item.device_platform),
+    model: safeString(item.device_model),
+    recognized: Boolean(item.device_key_hash),
+    currentDevice: false,
+    lastSeenAt: item.last_seen_at || null
+  };
+}
+
+async function resolveMemberAccount(req, personId) {
+  const account = await identityModel.getAccountByPersonInOrg(
+    safeString(personId),
+    req.authContext.organizationId
+  );
+  if (!account) {
+    throw new identityModel.IdentityError('member_account_not_found', '未找到该成员的账号', 404);
+  }
+  return account;
+}
+
 function claimPolicyOpen(policy) {
   if (!policy || !policy.initial_claim_enabled) return false;
   const now = Date.now();
@@ -330,6 +357,104 @@ router.post('/auth/security/sessions/revoke', async (req, res) => {
       status: revoked ? 'success' : 'not_found',
       message: revoked ? '该设备已退出' : '该设备已退出'
     });
+  } catch (error) {
+    return sendError(req, res, error);
+  }
+});
+
+router.post('/admin/auth/security', async (req, res) => {
+  try {
+    await requireAdminPermission(req, 'auth.accounts.recover');
+    const account = await resolveMemberAccount(req, req.body && req.body.personId);
+    const [sessions, passphraseSet] = await Promise.all([
+      identityModel.listSessions(account.account_id),
+      identityModel.getPassphraseStatus(account.account_id)
+    ]);
+    return res.json({
+      status: 'success',
+      account: { name: account.name, studentId: account.student_id },
+      bindingStatus: safeString(account.account_status),
+      passphraseSet,
+      sessions: sessions.map(mapSecuritySession)
+    });
+  } catch (error) {
+    return sendError(req, res, error);
+  }
+});
+
+router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
+  try {
+    await requireAdminPermission(req, 'auth.accounts.recover');
+    const account = await resolveMemberAccount(req, req.body && req.body.personId);
+    const sessionId = safeString(req.body && req.body.sessionId);
+    if (!sessionId) {
+      throw new identityModel.IdentityError('invalid_params', '请选择要退出的设备', 400);
+    }
+    const revoked = await identityModel.revokeSession(
+      account.account_id,
+      sessionId,
+      req.authSession.id
+    );
+    await identityModel.appendAuditEvent({
+      eventType: 'admin_session_revoked',
+      actorPersonId: req.authAccount.personId,
+      targetPersonId: account.person_id,
+      accountId: account.account_id,
+      organizationId: req.authContext.organizationId,
+      contextId: req.authContext.contextId,
+      requestId: req.requestId,
+      ip: req.ip,
+      detail: { sessionId }
+    });
+    return res.json({ status: revoked ? 'success' : 'not_found', message: '该设备已退出' });
+  } catch (error) {
+    return sendError(req, res, error);
+  }
+});
+
+router.post('/admin/auth/security/passphrase', async (req, res) => {
+  try {
+    await requireAdminPermission(req, 'auth.accounts.recover');
+    const account = await resolveMemberAccount(req, req.body && req.body.personId);
+    await identityModel.configureRecoveryCredential(
+      account.account_id,
+      'passphrase',
+      req.body && req.body.value
+    );
+    await identityModel.appendAuditEvent({
+      eventType: 'admin_passphrase_configured',
+      actorPersonId: req.authAccount.personId,
+      targetPersonId: account.person_id,
+      accountId: account.account_id,
+      organizationId: req.authContext.organizationId,
+      contextId: req.authContext.contextId,
+      requestId: req.requestId,
+      ip: req.ip,
+      detail: { method: 'passphrase' }
+    });
+    return res.json({ status: 'success' });
+  } catch (error) {
+    return sendError(req, res, error);
+  }
+});
+
+router.post('/admin/auth/security/passphrase/revoke', async (req, res) => {
+  try {
+    await requireAdminPermission(req, 'auth.accounts.recover');
+    const account = await resolveMemberAccount(req, req.body && req.body.personId);
+    await identityModel.revokeRecoveryCredential(account.account_id, 'passphrase');
+    await identityModel.appendAuditEvent({
+      eventType: 'admin_passphrase_revoked',
+      actorPersonId: req.authAccount.personId,
+      targetPersonId: account.person_id,
+      accountId: account.account_id,
+      organizationId: req.authContext.organizationId,
+      contextId: req.authContext.contextId,
+      requestId: req.requestId,
+      ip: req.ip,
+      detail: { method: 'passphrase' }
+    });
+    return res.json({ status: 'success' });
   } catch (error) {
     return sendError(req, res, error);
   }

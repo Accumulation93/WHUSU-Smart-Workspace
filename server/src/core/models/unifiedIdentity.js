@@ -1989,6 +1989,40 @@ async function revokeSession(accountId, sessionId, currentSessionId) {
   return result.affectedRows > 0;
 }
 
+async function getAccountByPersonInOrg(personId, orgId) {
+  const [rows] = await pool.query(
+    `SELECT a.id AS account_id, a.person_id, a.status AS account_status,
+            p.name, p.normalized_student_id AS student_id
+       FROM organization_memberships om
+       JOIN persons p ON p.id = om.person_id
+       JOIN accounts a ON a.person_id = om.person_id
+      WHERE om.person_id = ? AND om.org_id = ? AND om.status = 'active'
+        AND a.status IN ('verified', 'frozen', 'recovery_required')
+      LIMIT 1`,
+    [safeString(personId), safeString(orgId)]
+  );
+  return rows[0] || null;
+}
+
+async function getPassphraseStatus(accountId) {
+  const [rows] = await pool.query(
+    `SELECT 1 FROM account_recovery_credentials
+      WHERE account_id = ? AND method = 'passphrase' AND status = 'active'
+      LIMIT 1`,
+    [safeString(accountId)]
+  );
+  return rows.length > 0;
+}
+
+async function revokeRecoveryCredential(accountId, method) {
+  await pool.query(
+    `UPDATE account_recovery_credentials
+        SET status = 'revoked', revoked_at = NOW(), updated_at = NOW()
+      WHERE account_id = ? AND method = ? AND status = 'active'`,
+    [safeString(accountId), safeString(method)]
+  );
+}
+
 async function resetAccountByLegacyHr(connection, legacyHrId, organizationId, actor, reason) {
   const [rows] = await connection.query(
     `SELECT a.id AS account_id, a.person_id
@@ -2407,6 +2441,9 @@ module.exports = {
   approveRecovery,
   listSessions,
   revokeSession,
+  getAccountByPersonInOrg,
+  getPassphraseStatus,
+  revokeRecoveryCredential,
   resetAccountByLegacyHr,
   appendAuditEvent,
   listAuditEvents

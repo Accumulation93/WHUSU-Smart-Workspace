@@ -780,6 +780,11 @@ module.exports = Behavior({
         detailHrGovernance: governance,
         loadingDetailHr: true
       });
+      if (this.data.canRecoverAccounts && governance && governance.personId && governance.accountId) {
+        this.loadDetailHrSecurity(governance.personId);
+      } else {
+        this.setData({ detailHrSecurity: null });
+      }
       try {
         const result = await this.callCloud('getHrPersonDetail', { hrId });
         if (result.status !== 'success') {
@@ -1139,6 +1144,9 @@ module.exports = Behavior({
       this.setData({
         showHrPersonDetail: false,
         detailHrGovernance: null,
+        detailHrSecurity: null,
+        detailHrPassphraseInput: '',
+        showDetailPassphraseForm: false,
         detailWorkGroupOptions: [],
         detailDepartmentValue: 0,
         detailIdentityValue: 0,
