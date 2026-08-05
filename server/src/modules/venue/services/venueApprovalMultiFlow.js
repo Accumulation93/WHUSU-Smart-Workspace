@@ -276,8 +276,8 @@ function summarizeState(state, flowsMap) {
         flowId: flowId,
         flowName: (flow && flow.name) || '',
         allowUserSelect: Boolean(flow && Number(flow.allow_user_select) === 1),
-        allowDesignateFirst: Boolean(flow && Number(flow.allow_designate_first) === 1),
-        allowDesignateNext: Boolean(flow && Number(flow.allow_designate_next) === 1),
+        allowDesignateFirst: Boolean(flow && (Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1)),
+        allowDesignateNext: Boolean(flow && (Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1)),
         stepIndex: Number(st.stepIndex),
         stepName: step ? step.name : '',
         totalSteps: flow ? flow.steps.length : 0,
@@ -383,7 +383,8 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
       continue;
     }
     const nextStep = flow.steps[Number(st.stepIndex)];
-    if (singleFlow && flow.allow_designate_next && nextStep && safeString(nextStep.approval_mode) !== 'admin_any'
+    if (singleFlow && (Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1)
+      && nextStep && safeString(nextStep.approval_mode) !== 'admin_any'
       && nextDesignation && nextDesignation.hrId) {
       await validateDesignation(orgId, nextDesignation.hrId, nextStep, applicantHrInfo);
       st.designated[String(st.stepIndex)] = String(nextDesignation.hrId);

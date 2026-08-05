@@ -459,9 +459,9 @@ function scanVenueFlowVisibilityContract() {
   const source = fs.readFileSync(file, 'utf8');
   const findings = [];
   const checks = [
-    ['借用规则页缺少当前组织审批状态卡片', /rule-org-context/],
-    ['借用规则页未展示审批步骤', /已设置.*审批步骤/],
-    ['借用规则页未说明暂无审批步骤', /暂无审批步骤/]
+    ['借用规则页缺少审批流程列表', /approvalFlows/],
+    ['借用规则页未说明暂无审批流程', /暂无审批流程/],
+    ['借用规则页缺少指定审批人开关', /指定审批人/]
   ];
   for (const [message, pattern] of checks) {
     if (!pattern.test(source)) findings.push({ file: relative(file), message });
