@@ -1429,7 +1429,7 @@ async function getPolicy(connection) {
 }
 
 async function savePolicy(data, actor) {
-  const minimum = Math.min(Math.max(Number(data.passphraseMinLength) || 12, 12), 64);
+  const minimum = Math.min(Math.max(Number(data.passphraseMinLength) || 0, 0), 64);
   const claimStartsAt = normalizePolicyDate(data.claimStartsAt, '认证开始时间');
   const claimEndsAt = normalizePolicyDate(data.claimEndsAt, '认证截止时间');
   if (claimStartsAt && claimEndsAt && policyTimestamp(claimStartsAt) >= policyTimestamp(claimEndsAt)) {
@@ -1495,7 +1495,10 @@ async function configureRecoveryCredential(accountId, method, value) {
   }
   let plaintext = safeString(value);
   if (method === 'recovery_code') plaintext = randomCode(20);
-  if (method === 'passphrase' && plaintext.length < Number(policy.passphrase_min_length || 12)) {
+  if (method === 'passphrase' && !plaintext) {
+    throw new IdentityError('invalid_params', '请输入登录口令', 400);
+  }
+  if (method === 'passphrase' && plaintext.length < (Number(policy.passphrase_min_length) || 0)) {
     throw new IdentityError('weak_passphrase', '恢复口令长度不足', 400);
   }
   if (method === 'passphrase' && /^(123456|password|qwerty|111111|abcdef)/i.test(plaintext)) {

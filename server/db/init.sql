@@ -1363,7 +1363,7 @@ CREATE TABLE IF NOT EXISTS auth_policy (
   claim_ends_at DATETIME DEFAULT NULL,
   allow_recovery_code TINYINT(1) NOT NULL DEFAULT 0,
   allow_passphrase TINYINT(1) NOT NULL DEFAULT 0,
-  passphrase_min_length INT NOT NULL DEFAULT 12,
+  passphrase_min_length INT NOT NULL DEFAULT 0,
   updated_by_person_id VARCHAR(64) DEFAULT NULL,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

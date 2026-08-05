@@ -265,7 +265,7 @@ router.all('/auth/security', async (req, res) => {
       policy: {
         allowRecoveryCode: Boolean(policy && policy.allow_recovery_code),
         allowPassphrase: Boolean(policy && policy.allow_passphrase),
-        passphraseMinLength: Number(policy && policy.passphrase_min_length) || 12
+        passphraseMinLength: Number(policy && policy.passphrase_min_length) || 0
       },
       sessions: sessions.map((item) => ({
         id: safeString(item.id),
