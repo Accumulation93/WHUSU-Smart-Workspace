@@ -8,17 +8,17 @@ BEGIN
   SELECT COUNT(*) INTO index_exists
     FROM information_schema.statistics
    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'venue_approval_flows'
-     AND INDEX_NAME = 'idx_vaf_venue';
-  IF index_exists > 0 THEN
-    ALTER TABLE venue_approval_flows DROP INDEX idx_vaf_venue;
+     AND INDEX_NAME = 'idx_vaf_venue_org';
+  IF index_exists = 0 THEN
+    ALTER TABLE venue_approval_flows ADD INDEX idx_vaf_venue_org (venue_id, org_id);
   END IF;
 
   SELECT COUNT(*) INTO index_exists
     FROM information_schema.statistics
    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'venue_approval_flows'
-     AND INDEX_NAME = 'idx_vaf_venue_org';
-  IF index_exists = 0 THEN
-    ALTER TABLE venue_approval_flows ADD INDEX idx_vaf_venue_org (venue_id, org_id);
+     AND INDEX_NAME = 'idx_vaf_venue';
+  IF index_exists > 0 THEN
+    ALTER TABLE venue_approval_flows DROP INDEX idx_vaf_venue;
   END IF;
 
   SELECT COUNT(*) INTO column_exists
