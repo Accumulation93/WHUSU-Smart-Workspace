@@ -54,6 +54,12 @@ async function run() {
   result = await invoke({ path: '/api/bindUserInfo', openid: 'openid-new' });
   assert.strictEqual(result.nextCalled, true, '安全绑定入口应允许没有组织头');
 
+  result = await invoke({ path: '/api/auth/password/session', openid: '', orgId: 'stale-org' });
+  assert.strictEqual(result.nextCalled, true, '口令登录应绕过组织上下文，不能返回请先登录');
+
+  result = await invoke({ path: '/api/auth/claims/redeem', openid: '', orgId: '' });
+  assert.strictEqual(result.nextCalled, true, '初始化认证码认领应绕过组织上下文');
+
   scenario.userAllowed = true;
   queryCount = 0;
   result = await invoke({ orgId: 'org-44' });
