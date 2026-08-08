@@ -167,7 +167,7 @@ function testMigrationAndFrontendContract() {
   const portal = fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.js'), 'utf8');
   assert.match(portal, /getMessageOverview/);
   assert.match(portal, /markAllNotificationsRead/);
-  assert.match(portal, /limit: 5/);
+  assert.match(portal, /limit: 6/);
   assert.match(portal, /activateOrganization/);
   assert.match(portal, /if \(this\._messageOverviewLoading\)[\s\S]*this\._messageOverviewQueued = true/);
   assert.match(portal, /shouldReload && this\._isPageVisible && this\.data\.hasUser/);
@@ -184,6 +184,11 @@ function testMigrationAndFrontendContract() {
   assert.match(portalView, /\{\{messageSwitchTitle\}\}/);
   assert.match(portalView, /切换并查看/);
   assert.doesNotMatch(portalView, /length \* 102/);
+  const portalStyle = fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.wxss'), 'utf8');
+  assert.match(
+    portalStyle,
+    /\.message-preview-scroll[\s\S]*max-height: calc\(var\(--ui-message-preview-row, 154rpx\) \* 3 \+ var\(--ui-message-preview-gap, 8rpx\) \* 2\)/
+  );
 
   const messageCenter = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.js'), 'utf8');
   const messageCenterView = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.wxml'), 'utf8');
