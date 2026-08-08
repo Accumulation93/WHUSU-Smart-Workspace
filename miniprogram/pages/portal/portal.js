@@ -349,7 +349,7 @@ Page({
     const revision = this._messageRevision || 0;
     this.setData({ todoLoading: true, notificationLoading: true });
     try {
-      const res = await callFunction({ name: 'getMessageOverview', data: { limit: 5 } });
+      const res = await callFunction({ name: 'getMessageOverview', data: { limit: 6 } });
       if (!orgSession.isRequestCurrent(this, request) || revision !== (this._messageRevision || 0) || res.status !== 'success') return;
       const todos = res.todos || {};
       const notifications = res.notifications || {};

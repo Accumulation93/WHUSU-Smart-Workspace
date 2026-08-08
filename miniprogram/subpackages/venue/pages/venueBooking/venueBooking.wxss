@@ -795,7 +795,19 @@ page {
   font-size: var(--ui-type-control);
 }
 .booking-form-popup .form-body {
-  padding: var(--ui-dialog-section-padding);
+  padding: var(--ui-dialog-section-padding) var(--ui-dialog-section-padding) 36rpx;
+}
+
+@media (min-width: 520px) and (max-width: 899px) {
+  .booking-form-popup .form-body {
+    padding-bottom: 24px;
+  }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .booking-form-popup .form-body {
+    padding-bottom: 22px;
+  }
 }
 
 /* ═══ Custom time keyboard ═══ */

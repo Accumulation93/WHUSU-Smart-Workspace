@@ -19,7 +19,7 @@
         <view class="message-text-action ui-motion-chip" data-tab="todos" bindtap="openMessageCenter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">查看全部</view>
       </view>
     </view>
-    <scroll-view class="notification-list message-preview-scroll" style="height: {{todos.length ? todos.length * 154 : 52}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <scroll-view class="notification-list message-preview-scroll" scroll-y="{{true}}" enhanced="{{true}}" nested-scroll-enabled="{{true}}" show-scrollbar="{{false}}">
       <view class="notification-empty" wx:if="{{!todos.length && !todoLoading}}">
         <text class="notification-empty-text">暂无待处理事项</text>
       </view>
@@ -57,7 +57,7 @@
         <view class="message-text-action ui-motion-chip" data-tab="notifications" bindtap="openMessageCenter" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">查看全部</view>
       </view>
     </view>
-    <scroll-view class="notification-list message-preview-scroll" style="height: {{notifications.length ? notifications.length * 154 : 52}}rpx;" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <scroll-view class="notification-list message-preview-scroll" scroll-y="{{true}}" enhanced="{{true}}" nested-scroll-enabled="{{true}}" show-scrollbar="{{false}}">
       <view class="notification-empty" wx:if="{{!notifications.length && !notificationLoading}}">
         <text class="notification-empty-text">暂无通知</text>
       </view>

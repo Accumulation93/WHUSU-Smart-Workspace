@@ -443,6 +443,7 @@ callFunction({ name, data, success, fail })
 - **管理端成员登录设置（2026-08-05）**：新增 `POST /admin/auth/security`、`/sessions/revoke`、`/passphrase`、`/passphrase/revoke`，权限 `auth.accounts.recover`，账号按“自然人 + 当前组织”服务端解析；管理端人事详情“账号与认证”分区新增登录设备列表（逐台退出）与登录口令（设置/清除），复用确认层与紧凑按钮规范，操作仅局部更新。
 - **场地借用多审批流（2026-08-05）**：`venue_approval_flows` 支持每场地多流程（新增 `allow_user_select / allow_designate_first / allow_designate_next`），`venue_bookings` 新增 `approval_flow_state_json` 保存每条流程的当前步/已批步骤/指定人；统一引擎 `venueApprovalMultiFlow` 供提交、待办、通过、驳回共用。并行流程下操作者满足任一激活流程当前步即可见可批；通过后按“严格全步骤”重匹配（历史每步审批人当前仍满足该步条件），任一流程走完即通过、其余终止，绝不跨流程串步；下一步指定仅限单流程模式且指定人必须满足该步规则；所有流程都无下一步候选人时保持待审批并标记 `candidateMissing`，不自动驳回。迁移 `20260805090000_venue_multi_flow_approval.sql` 幂等落地。
 - **场地多流程管理界面（2026-08-05）**：管理端规则页去除“当前组织·借用审批”顶部状态卡与“编辑中/当前流程”概念；多条审批流程完全平等，每条流程卡片直接提供“编辑 / 删除”按钮；“指定第一步 / 指定下一步”合并为单一“指定审批人”开关，前后端按同一开关生效（`allow_designate_first` 与 `allow_designate_next` 同步写入、引擎按两者取或判断）。
+- **门户预览与审批待办修复（2026-08-08）**：门户待办/通知预览盒子高度最多 3 条并框内滚动，令牌 `--ui-message-preview-row/--ui-message-preview-gap` 控制，删除按条目数估算的行内高度；借用申请表单底部由容器提供对称留白。`listPendingVenueApprovals` 重构后残留的 `applicantHrInfo` 引用改为使用引擎返回值，修复“待办点击后空白”；UI 规范已固化到 ui-kit-manager skill 的 `references/ui-kit-standards.md` 并在 SKILL.md 引用。
 
 ## 8. 待办事项
 

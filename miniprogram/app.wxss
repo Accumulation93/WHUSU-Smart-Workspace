@@ -92,6 +92,8 @@ page,
   --ui-dialog-section-gap: 20rpx;
   --ui-dialog-footer-gap: 20rpx;
   --ui-dialog-radius: 30rpx;
+  --ui-message-preview-row: 154rpx;
+  --ui-message-preview-gap: 8rpx;
   color: #0f172a;
   color: var(--ui-text, #0f172a);
   line-height: 1.55;
@@ -1534,6 +1536,8 @@ button:active,
     --ui-dialog-section-gap: 14px;
     --ui-dialog-footer-gap: 14px;
     --ui-dialog-radius: 18px;
+    --ui-message-preview-row: 96px;
+    --ui-message-preview-gap: 6px;
     --ui-page-padding-top: 24px;
     --ui-page-padding-x: 22px;
     --ui-page-padding-bottom: 32px;
@@ -1987,6 +1991,8 @@ button:active,
     --ui-dialog-section-gap: 12px;
     --ui-dialog-footer-gap: 12px;
     --ui-dialog-radius: 16px;
+    --ui-message-preview-row: 88px;
+    --ui-message-preview-gap: 5px;
   }
 
   /* 横屏以完整可视宽度为基准，子页面自己的窄容器只保留给明确的阅读/登录场景。 */

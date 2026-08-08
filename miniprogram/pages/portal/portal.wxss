@@ -436,8 +436,8 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .message-preview-scroll {
-  height: 770rpx;
-  max-height: 770rpx;
+  height: auto;
+  max-height: calc(var(--ui-message-preview-row, 154rpx) * 3 + var(--ui-message-preview-gap, 8rpx) * 2);
   min-height: 52rpx;
 }
 

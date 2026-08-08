@@ -802,19 +802,12 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
       return res.json({ status: 'success', pending: [] });
     }
 
-    // Get the applicant HR info for all bookings
-    const applicantHrIds = [...new Set(bookings.map(b => b.user_hr_id).filter(Boolean))];
-    const applicantMap = {};
-    if (applicantHrIds.length) {
-      const hrList = await hrInfoModel.getByIds(applicantHrIds);
-      (hrList || []).forEach(h => { applicantMap[h.id] = h; });
-    }
-
     // For each booking, check if the current step's rules match the approver
     const pending = [];
     for (const booking of bookings) {
       const eligibility = await venueApprovalMultiFlow.evaluateActorEligibility(booking, actor, orgId);
       if (!eligibility.ok) continue;
+      const applicantHrInfo = eligibility.applicantHrInfo;
       const summary = eligibility.summary;
       const snapshots = venueApprovalMultiFlow.parseSnapshots(booking.approval_snapshots_json);
       const firstActive = summary.flowSummary.find(function(item) { return item.active && !item.completed; });
