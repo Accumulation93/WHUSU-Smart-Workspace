@@ -307,6 +307,46 @@ router.post('/getVenueSchedule', async (req, res) => {
       detailBookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
     );
 
+    // 与借用记录列表一致：为可见借用补充审批进度（流程步骤、快照）与审批人姓名
+    const flowStepsMap = {};
+    const approvalBookings = detailBookings.filter(b => b.approval_flow_id && b.approval_total_steps > 0);
+    if (approvalBookings.length) {
+      const stepKeys = [...new Set(
+        approvalBookings.map(b => b.approval_flow_id + '|' + safeString(b.approval_org_id))
+      )];
+      for (const key of stepKeys) {
+        const sep = key.indexOf('|');
+        const flowId = key.slice(0, sep);
+        const flowOrg = key.slice(sep + 1);
+        const [steps] = await pool.query(
+          'SELECT sort_order, name, action_type FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
+          [flowId, flowOrg]
+        );
+        flowStepsMap[key] = (steps || []).map(s => ({
+          sortOrder: s.sort_order,
+          name: s.name,
+          actionType: s.action_type
+        }));
+      }
+    }
+    const snapshotHrIds = new Set();
+    approvalBookings.forEach(b => {
+      try {
+        const snaps = b.approval_snapshots_json ? JSON.parse(b.approval_snapshots_json) : [];
+        snaps.forEach(s => { if (s.approverHrId) snapshotHrIds.add(s.approverHrId); });
+      } catch (_) {}
+    });
+    const approverNameMap = {};
+    if (snapshotHrIds.size) {
+      const snapIds = [...snapshotHrIds];
+      const snapPlaceholders = snapIds.map(() => '?').join(',');
+      const [approverRows] = await pool.query(
+        `SELECT id, name FROM hr_info WHERE id IN (${snapPlaceholders})`,
+        snapIds
+      );
+      (approverRows || []).forEach(r => { approverNameMap[r.id] = r.name || ''; });
+    }
+
     // Resolve user names + department / identity / workGroup
     const hrIds = [...new Set(detailBookings.map(b => b.user_hr_id).filter(Boolean))];
     const userMap = {};
@@ -413,6 +453,8 @@ router.post('/getVenueSchedule', async (req, res) => {
         return {
           id: b.id,
           visibility: 'details',
+          venueName: venue.name,
+          venueLocation: venue.location,
           title: b.title,
           description: b.description,
           orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
@@ -423,13 +465,33 @@ router.post('/getVenueSchedule', async (req, res) => {
           fullTimeEnd: te,
           type: 'booked',
           userId: b.user_hr_id,
+          userHrId: b.user_hr_id,
           creatorType: b.creator_type || 'user',
           creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
           creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
           userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
           userDept: (userMap[b.user_hr_id] && userMap[b.user_hr_id].department) || '',
           userIdentity: (userMap[b.user_hr_id] && userMap[b.user_hr_id].identity) || '',
-          userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || ''
+          userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || '',
+          approverHrId: b.approver_hr_id,
+          approvalComment: b.approval_comment,
+          createdAt: b.created_at,
+          approvalProgress: (b.approval_flow_id && b.approval_total_steps > 0) ? {
+            flowId: b.approval_flow_id,
+            currentStep: b.approval_current_step,
+            totalSteps: b.approval_total_steps,
+            isApproved: b.approval_current_step >= b.approval_total_steps,
+            isRejected: b.approval_current_step < 0,
+            rejectStep: b.approval_reject_step,
+            snapshots: (() => {
+              try {
+                const snaps = b.approval_snapshots_json ? JSON.parse(b.approval_snapshots_json) : [];
+                snaps.forEach(s => { s.approverName = s.approverName || approverNameMap[s.approverHrId] || ''; });
+                return snaps;
+              } catch (_) { return []; }
+            })(),
+            flowSteps: flowStepsMap[b.approval_flow_id + '|' + safeString(b.approval_org_id)] || []
+          } : null
         };
       });
 

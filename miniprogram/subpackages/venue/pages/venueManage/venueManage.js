@@ -1183,16 +1183,20 @@ Page({
           label: b.title || '已借用',
           type: 'booking',
           booking: {
-            id: b.id, title: b.title, description: b.description,
+            id: b.id, venueId: b.venueId, venueName: b.venueName || '', venueLocation: b.venueLocation || '',
+            title: b.title, description: b.description,
             visibility: b.visibility || 'details',
             userId: b.userId, userName: b.userName,
             userDept: b.userDept || '', userIdentity: b.userIdentity || '', userWorkGroup: b.userWorkGroup || '',
             orgName: b.orgName || '',
+            creatorType: b.creatorType, creatorName: b.creatorName, creatorLabel: b.creatorLabel,
+            approverHrId: b.approverHrId, approvalComment: b.approvalComment || '', createdAt: b.createdAt,
             timeStart: b.fullTimeStart || b.timeStart,
             timeEnd: b.fullTimeEnd || b.timeEnd,
             timeStartDisplay: b.timeStart,
             timeEndDisplay: b.timeEnd,
-            status: b.status
+            status: b.status,
+            approvalProgress: b.approvalProgress || null
           }
         });
       }
@@ -1221,7 +1225,20 @@ Page({
       this.openOccupiedPopup(block.booking);
       return;
     }
-    this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
+    // 与借用记录列表一致的详情组装：状态与审批进度时间轴
+    const detail = Object.assign({}, block.booking, { displayStatus: computeDisplayStatus(block.booking) });
+    if (detail.approvalProgress) {
+      if (detail.approvalProgress.isRejected) {
+        detail._approvalPercent = 0;
+        detail._approvalBarColor = 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);';
+      } else if (detail.approvalProgress.isApproved) {
+        detail._approvalPercent = 100;
+      } else {
+        detail._approvalPercent = Math.round(detail.approvalProgress.currentStep / detail.approvalProgress.totalSteps * 100);
+      }
+      detail._flowTimeline = buildFlowTimeline(detail.approvalProgress);
+    }
+    this.setData({ bookingDetailVisible: true, bookingDetail: detail, expandedNodeKey: '' });
   },
   openOccupiedPopup(booking) {
     const start = booking.timeStartDisplay || '';

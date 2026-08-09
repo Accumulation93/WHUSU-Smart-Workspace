@@ -399,7 +399,7 @@ Page({
         let b = dayData.bookedSlots[bi];
         let _c = calcBlock(b.timeStart,b.timeEnd), top3 = _c.top, height3 = _c.height;
         eventBlocks.push({top:top3+HEADER_H+TEXT_OFFSET,height:height3,status:b.status==='pending'?'pending':'booked',label:b.title||'已借用',type:'booking',
-          booking:{id:b.id,title:b.title,description:b.description,visibility:b.visibility||'details',userId:b.userId,userName:b.userName,userDept:b.userDept||'',userIdentity:b.userIdentity||'',userWorkGroup:b.userWorkGroup||'',orgName:b.orgName||'',timeStart:b.fullTimeStart||b.timeStart,timeEnd:b.fullTimeEnd||b.timeEnd,timeStartDisplay:b.timeStart,timeEndDisplay:b.timeEnd,status:b.status}});
+          booking:{id:b.id,venueId:b.venueId,venueName:b.venueName||'',venueLocation:b.venueLocation||'',title:b.title,description:b.description,visibility:b.visibility||'details',userId:b.userId,userName:b.userName,userDept:b.userDept||'',userIdentity:b.userIdentity||'',userWorkGroup:b.userWorkGroup||'',orgName:b.orgName||'',creatorType:b.creatorType,creatorName:b.creatorName,creatorLabel:b.creatorLabel,approverHrId:b.approverHrId,approvalComment:b.approvalComment||'',createdAt:b.createdAt,timeStart:b.fullTimeStart||b.timeStart,timeEnd:b.fullTimeEnd||b.timeEnd,timeStartDisplay:b.timeStart,timeEndDisplay:b.timeEnd,status:b.status,approvalProgress:b.approvalProgress||null}});
       }
     }
     return {date:dateStr,label:label,dateDisplay:dateDisplay,openBlocks:openBlocks,eventBlocks:eventBlocks,timeTargets:timeTargets};
@@ -407,7 +407,25 @@ Page({
 
   onTimetablePrevWeek() { let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2]; this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d-7))}); this.loadTimetable(); },
   onTimetableNextWeek() { let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2]; this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d+7))}); this.loadTimetable(); },
-  onTimetableBlockTap(e) { let b=e.currentTarget.dataset.block; if(!b||!b.booking)return; if(b.booking.visibility==='occupancy_only'){this.openOccupiedPopup(b.booking);return;} this.setData({bookingDetailVisible:true,bookingDetail:b.booking}); },
+  onTimetableBlockTap(e) {
+    let b=e.currentTarget.dataset.block;
+    if(!b||!b.booking)return;
+    if(b.booking.visibility==='occupancy_only'){this.openOccupiedPopup(b.booking);return;}
+    // 与借用记录列表一致的详情组装：状态与审批进度时间轴
+    let detail = Object.assign({}, b.booking, { displayStatus: computeDisplayStatus(b.booking) });
+    if (detail.approvalProgress) {
+      if (detail.approvalProgress.isRejected) {
+        detail._approvalPercent = 0;
+        detail._approvalBarColor = 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);';
+      } else if (detail.approvalProgress.isApproved) {
+        detail._approvalPercent = 100;
+      } else {
+        detail._approvalPercent = Math.round(detail.approvalProgress.currentStep / detail.approvalProgress.totalSteps * 100);
+      }
+      detail._flowTimeline = buildFlowTimeline(detail.approvalProgress);
+    }
+    this.setData({bookingDetailVisible:true,bookingDetail:detail,expandedNodeKey:''});
+  },
   openOccupiedPopup(booking) {
     const start = booking.timeStartDisplay || '';
     const end = booking.timeEndDisplay || '';
