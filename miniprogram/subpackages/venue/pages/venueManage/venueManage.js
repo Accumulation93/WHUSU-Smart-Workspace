@@ -1187,6 +1187,7 @@ Page({
             visibility: b.visibility || 'details',
             userId: b.userId, userName: b.userName,
             userDept: b.userDept || '', userIdentity: b.userIdentity || '', userWorkGroup: b.userWorkGroup || '',
+            orgName: b.orgName || '',
             timeStart: b.fullTimeStart || b.timeStart,
             timeEnd: b.fullTimeEnd || b.timeEnd,
             timeStartDisplay: b.timeStart,
