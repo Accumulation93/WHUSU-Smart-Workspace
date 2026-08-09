@@ -15,6 +15,7 @@ const mocks = {
       ['/saveScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: false }],
       ['/getCurrentScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: true }],
       ['/listPendingVenueApprovals', { anyOf: ['venue.approvals'], allowUserRole: true }],
+      ['/listVenueApprovalHistory', { anyOf: ['venue.approvals'], allowUserRole: true }],
       ['/approveVenueBookingStep', { anyOf: ['venue.approvals'], allowUserRole: true }],
       ['/saveVenueApprovalWholeFlow', { anyOf: ['venue.approvals'], allowUserRole: false }]
     ]),
@@ -79,6 +80,8 @@ async function invoke(path, role) {
   assert.strictEqual(sharedUserAllowed.nextCalled, true);
   const venueListUserAllowed = await invoke('/api/listPendingVenueApprovals', 'user');
   assert.strictEqual(venueListUserAllowed.nextCalled, true);
+  const venueHistoryUserAllowed = await invoke('/api/listVenueApprovalHistory', 'user');
+  assert.strictEqual(venueHistoryUserAllowed.nextCalled, true);
   const venueApprovalUserAllowed = await invoke('/api/approveVenueBookingStep', 'user');
   assert.strictEqual(venueApprovalUserAllowed.nextCalled, true);
   const venueFlowUserDenied = await invoke('/api/saveVenueApprovalWholeFlow', 'user');

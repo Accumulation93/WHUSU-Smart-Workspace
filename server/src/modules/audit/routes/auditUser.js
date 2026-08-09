@@ -64,6 +64,84 @@ async function resolveHrId(openid) {
   return rows[0] ? rows[0].hr_id : null;
 }
 
+function normalizeStepOverrides(rawOverrides) {
+  const raw = Array.isArray(rawOverrides) ? rawOverrides : [];
+  const legacyZeroBased = raw.some(function(item) {
+    return Number(item && item.stepIndex) === 0;
+  });
+  return raw.map(function(item) {
+    const override = Object.assign({}, item);
+    const rawIndex = Number(override.stepIndex);
+    override.stepIndex = legacyZeroBased && Number.isInteger(rawIndex) ? rawIndex + 1 : rawIndex;
+    override.personHrIds = Array.isArray(override.personHrIds)
+      ? [...new Set(override.personHrIds.map(function(id) { return safeString(id); }).filter(Boolean))]
+      : [];
+    return override;
+  });
+}
+
+async function narrowTemplateStepConditions(conditions, personHrIds, submitterInfo, orgId) {
+  const requestedIds = [...new Set((Array.isArray(personHrIds) ? personHrIds : [])
+    .map(function(id) { return safeString(id); }).filter(Boolean))];
+  if (!requestedIds.length) return conditions;
+
+  const validPersonIds = [];
+  for (let i = 0; i < requestedIds.length; i++) {
+    const [personRows] = await pool.query(
+      'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+      [requestedIds[i], orgId]
+    );
+    const person = personRows[0];
+    if (person && (!conditions.length || matchesAnyCondition(conditions, person, submitterInfo))) {
+      validPersonIds.push(requestedIds[i]);
+    }
+  }
+  if (validPersonIds.length !== requestedIds.length) {
+    throw new Error('所选审批人已不符合审批条件');
+  }
+  return validPersonIds.map(function(id) {
+    return {
+      conditionType: 'person',
+      personHrIds: id,
+      departmentScope: null,
+      specificDepartmentId: null,
+      workGroupScope: null,
+      specificWorkGroupId: null,
+      identityScope: null,
+      specificIdentityId: null
+    };
+  });
+}
+
+function buildTemplateConditionMap(allConditions) {
+  const map = {};
+  (Array.isArray(allConditions) ? allConditions : []).forEach(function(condition) {
+    const stepId = condition.template_step_id;
+    if (!map[stepId]) map[stepId] = [];
+    map[stepId].push({
+      conditionType: condition.condition_type,
+      personHrIds: condition.person_hr_ids,
+      departmentScope: condition.department_scope,
+      specificDepartmentId: condition.specific_department_id,
+      workGroupScope: condition.work_group_scope,
+      specificWorkGroupId: condition.specific_work_group_id,
+      identityScope: condition.identity_scope,
+      specificIdentityId: condition.specific_identity_id
+    });
+  });
+  return map;
+}
+
+function parseConditionsJson(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
 function buildAuditOperatorContext(req) {
   const context = req.authContext || {};
   return {
@@ -1778,8 +1856,39 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const newResubmitMode = safeString(req.body.resubmitMode) || submission.resubmit_mode;
     const newSteps = Array.isArray(req.body.steps) ? req.body.steps : null;
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : null;
+    const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
 
     if (!title) return res.json({ status: 'invalid_params', message: '请输入标题' });
+
+    const requestedOverrides = stepOverrides.filter(function(item) {
+      return item.personHrIds.length > 0;
+    });
+    if (newType !== 'template' && requestedOverrides.length) {
+      return res.json({ status: 'invalid_params', message: '自定义流程不支持模板指定' });
+    }
+    if (requestedOverrides.some(function(item) { return item.stepIndex !== 1; }) || requestedOverrides.length > 1) {
+      return res.json({ status: 'invalid_params', message: '只能指定第一步审批人' });
+    }
+
+    let templateStepsForEdit = [];
+    let templateConditionsForEdit = {};
+    let submitterForEdit = null;
+    if (newType === 'template') {
+      if (!newTemplateId) return res.json({ status: 'invalid_params', message: '请重新选择审核模板' });
+      templateStepsForEdit = await flowTemplateStepModel.getByTemplateId(newTemplateId);
+      if (!templateStepsForEdit.length) return res.json({ status: 'invalid_params', message: '模板暂无审批步骤' });
+      templateConditionsForEdit = buildTemplateConditionMap(
+        await flowTemplateStepConditionModel.getByTemplateId(newTemplateId)
+      );
+      if (requestedOverrides.length && Number(templateStepsForEdit[0].allow_approver_designation) !== 1) {
+        return res.json({ status: 'invalid_params', message: '第一步按审批条件确定审批人' });
+      }
+      const [submitterRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [submission.submitted_by, orgId]
+      );
+      submitterForEdit = submitterRows[0] || null;
+    }
 
     await conn.beginTransaction();
 
@@ -1806,31 +1915,23 @@ router.post('/updateAuditSubmission', async (req, res) => {
     let stepsToCreate = [];
     if (newType === 'template' && newTemplateId) {
       // Load template steps
-      const templateSteps = await flowTemplateStepModel.getByTemplateId(newTemplateId);
-      const allConditions = await flowTemplateStepConditionModel.getByTemplateId(newTemplateId);
-      const stepConditionMap = {};
-      for (const c of allConditions) {
-        const sid = c.template_step_id;
-        if (!stepConditionMap[sid]) stepConditionMap[sid] = [];
-        stepConditionMap[sid].push({
-          conditionType: c.condition_type,
-          personHrIds: c.person_hr_ids,
-          departmentScope: c.department_scope,
-          specificDepartmentId: c.specific_department_id,
-          workGroupScope: c.work_group_scope,
-          specificWorkGroupId: c.specific_work_group_id,
-          identityScope: c.identity_scope,
-          specificIdentityId: c.specific_identity_id
-        });
-      }
-      stepsToCreate = templateSteps.map((ts, idx) => ({
+      stepsToCreate = templateStepsForEdit.map((ts, idx) => ({
         templateStepId: ts.id,
         sortOrder: idx + 1,
         actionType: ts.action_type || 'sign',
         allowApproverDesignation: Number(ts.allow_approver_designation) === 1,
         name: ts.name || '',
-        conditions: stepConditionMap[ts.id] || []
+        conditions: templateConditionsForEdit[ts.id] || []
       }));
+      const firstOverride = requestedOverrides[0];
+      if (firstOverride) {
+        stepsToCreate[0].conditions = await narrowTemplateStepConditions(
+          stepsToCreate[0].conditions,
+          firstOverride.personHrIds,
+          submitterForEdit,
+          orgId
+        );
+      }
     } else if (newSteps && newSteps.length) {
       // Ad-hoc: use user-provided steps
       stepsToCreate = newSteps.map((s, idx) => {
@@ -1958,6 +2059,38 @@ router.post('/resubmitAudit', async (req, res) => {
       return res.json({ status: 'invalid_state', message: '请在待修改时重新提交' });
     }
 
+    const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
+    const requestedOverrides = stepOverrides.filter(function(item) {
+      return item.personHrIds.length > 0;
+    });
+    if (submission.type !== 'template' && requestedOverrides.length) {
+      return res.json({ status: 'invalid_params', message: '自定义流程不支持模板指定' });
+    }
+    if (requestedOverrides.some(function(item) { return item.stepIndex !== 1; }) || requestedOverrides.length > 1) {
+      return res.json({ status: 'invalid_params', message: '只能指定第一步审批人' });
+    }
+
+    let resubmitTemplateConditions = {};
+    let resubmitTemplateSteps = [];
+    let resubmitTemplateStepIds = new Set();
+    let resubmitSubmitter = null;
+    if (submission.type === 'template' && submission.template_id) {
+      resubmitTemplateSteps = await flowTemplateStepModel.getByTemplateId(submission.template_id);
+      resubmitTemplateStepIds = new Set(resubmitTemplateSteps.map(function(step) { return String(step.id); }));
+      resubmitTemplateConditions = buildTemplateConditionMap(
+        await flowTemplateStepConditionModel.getByTemplateId(submission.template_id)
+      );
+      if (requestedOverrides.length && (!resubmitTemplateSteps.length ||
+        Number(resubmitTemplateSteps[0].allow_approver_designation) !== 1)) {
+        return res.json({ status: 'invalid_params', message: '第一步按审批条件确定审批人' });
+      }
+      const [submitterRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [submission.submitted_by, orgId]
+      );
+      resubmitSubmitter = submitterRows[0] || null;
+    }
+
     // Optional updates during resubmission
     const newTitle = safeString(req.body.title);
     const newDescription = safeString(req.body.description);
@@ -1987,6 +2120,24 @@ router.post('/resubmitAudit', async (req, res) => {
     if (isPending) {
       // Pending: steps already exist but status wasn't updated to in_progress
       // Simply activate the submission — no new steps needed
+      if (requestedOverrides.length && submission.type === 'template') {
+        const firstStep = allSteps.find(function(step) {
+          return Number(step.sort_order) === 1 && Number(step.allow_approver_designation) === 1;
+        });
+        if (firstStep) {
+          const firstConditions = resubmitTemplateConditions[firstStep.template_step_id] || [];
+          const narrowed = await narrowTemplateStepConditions(
+            firstConditions,
+            requestedOverrides[0].personHrIds,
+            resubmitSubmitter,
+            orgId
+          );
+          await conn.query(
+            'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
+            [JSON.stringify(narrowed), firstStep.id, orgId]
+          );
+        }
+      }
       await submissionModel.update(submissionId, {
         status: 'in_progress',
         currentStepIndex: 1
@@ -2044,6 +2195,20 @@ router.post('/resubmitAudit', async (req, res) => {
       for (let rsi = 0; rsi < remainingSteps.length; rsi++) {
         let rs = remainingSteps[rsi];
         let stepId = generateId();
+        let conditions = parseConditionsJson(rs.step_conditions_json);
+        if (rs.template_step_id && resubmitTemplateStepIds.has(String(rs.template_step_id))) {
+          conditions = (resubmitTemplateConditions[rs.template_step_id] || []).map(function(item) {
+            return Object.assign({}, item);
+          });
+        }
+        if (requestedOverrides.length && Number(rs.sort_order) === 1) {
+          conditions = await narrowTemplateStepConditions(
+            conditions,
+            requestedOverrides[0].personHrIds,
+            resubmitSubmitter,
+            orgId
+          );
+        }
         await submissionStepModel.create(stepId, {
           submissionId,
           templateStepId: safeString(rs.template_step_id),
@@ -2055,7 +2220,7 @@ router.post('/resubmitAudit', async (req, res) => {
           allowApproverDesignation: Number(rs.allow_approver_designation) === 1,
           stepName: rs.step_name || rs.name || '',
           round: newRound,
-          stepConditionsJson: rs.step_conditions_json
+          stepConditionsJson: conditions.length ? JSON.stringify(conditions) : null
         }, conn);
       }
     } else {
@@ -2063,6 +2228,17 @@ router.post('/resubmitAudit', async (req, res) => {
       const templateSteps = canonicalSteps;
       for (const ts of templateSteps) {
         const stepId = generateId();
+        let conditions = ts.template_step_id && resubmitTemplateStepIds.has(String(ts.template_step_id))
+          ? (resubmitTemplateConditions[ts.template_step_id] || []).map(function(item) { return Object.assign({}, item); })
+          : parseConditionsJson(ts.step_conditions_json);
+        if (requestedOverrides.length && Number(ts.sort_order) === 1) {
+          conditions = await narrowTemplateStepConditions(
+            conditions,
+            requestedOverrides[0].personHrIds,
+            resubmitSubmitter,
+            orgId
+          );
+        }
         await submissionStepModel.create(stepId, {
           submissionId,
           templateStepId: safeString(ts.template_step_id),
@@ -2074,7 +2250,7 @@ router.post('/resubmitAudit', async (req, res) => {
           allowApproverDesignation: Number(ts.allow_approver_designation) === 1,
           stepName: ts.step_name || ts.name || '',
           round: newRound,
-          stepConditionsJson: ts.step_conditions_json
+          stepConditionsJson: conditions.length ? JSON.stringify(conditions) : null
         }, conn);
       }
     }
@@ -2611,13 +2787,39 @@ router.post('/listEligibleApprovers', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
     const submissionId = safeString(req.body.submissionId);
+    const editSubmissionId = safeString(req.body.editSubmissionId);
     const templateId = safeString(req.body.templateId);
     const stepIndex = parseInt(req.body.stepIndex) || 0;
 
     let conditions = [];
     let submitterInfo = null;
 
-    if (submissionId) {
+    if (editSubmissionId) {
+      const editSubmission = await submissionModel.getById(editSubmissionId);
+      if (!editSubmission || editSubmission.submitted_by !== hrId) {
+        return res.json({ status: 'forbidden', message: '只有提交人可以指定第一步审批人' });
+      }
+      if (!['draft', 'pending', 'rejected', 'withdrawn'].includes(editSubmission.status)) {
+        return res.json({ status: 'invalid_state', message: '请在待修改时指定审批人' });
+      }
+      if (stepIndex !== 1 || !editSubmission.template_id ||
+        (templateId && templateId !== String(editSubmission.template_id))) {
+        return res.json({ status: 'invalid_params', message: '只能指定模板第一步审批人' });
+      }
+      const editTemplateSteps = await flowTemplateStepModel.getByTemplateId(editSubmission.template_id);
+      const editTargetStep = editTemplateSteps.find(function(step) { return Number(step.sort_order) === 1; });
+      if (!editTargetStep) return res.json({ status: 'not_found', message: '请刷新审批详情' });
+      if (Number(editTargetStep.allow_approver_designation) !== 1) {
+        return res.json({ status: 'forbidden', message: '第一步按审批条件确定审批人' });
+      }
+      const editConditions = await submissionStepModel.getTemplateStepConditions(editTargetStep.id);
+      conditions = Array.isArray(editConditions) ? editConditions : [];
+      const [subRows] = await pool.query(
+        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
+        [editSubmission.submitted_by, orgId]
+      );
+      submitterInfo = subRows[0] || null;
+    } else if (submissionId) {
       // View mode: resolve next step's conditions from the submission
       const submission = await submissionModel.getById(submissionId);
       if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });

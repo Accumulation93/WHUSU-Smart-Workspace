@@ -477,6 +477,36 @@
           </view>
         </view>
 
+        <!-- 模板步骤：仅在模板允许时提供第一步审批人重指定。 -->
+        <view class="card" wx:if="{{editType === 'template' && editTemplateId && templatePreviewSteps.length}}">
+          <view class="section-title">模板审批步骤（共{{templatePreviewSteps.length}}步）</view>
+          <view class="section-desc section-desc-sm">审批人按流程设置确定</view>
+          <view class="tpl-first-approver" wx:if="{{templateStepOverrides.length && templateStepOverrides[0].stepIndex === 1}}">
+            <view class="tpl-first-approver-head">
+              <view class="tpl-first-approver-title">第一步审批人</view>
+              <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides[0].personHrIds.length ? '修改指定' : '指定'}}</text>
+            </view>
+            <view class="tpl-first-approver-desc">未指定时按模板审批条件确定第一步审批人，指定后由所选人员审批。</view>
+            <view wx:if="{{templateStepOverrides[0].personHrNames.length}}" class="tpl-step-override-persons">
+              <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
+                <text>{{pname}}</text>
+                <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-hr-id="{{templateStepOverrides[0].personHrIds[pidx]}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
+              </view>
+            </view>
+          </view>
+          <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
+            <view class="tpl-step-preview-main">
+              <view class="tpl-step-preview-num">{{item.name || ('第' + (item.sortOrder || (index + 1)) + '步')}}</view>
+              <view class="tpl-step-preview-desc">{{item.approverDesc || '由未指定审批人审批'}}</view>
+              <view class="tpl-step-preview-action">{{item.actionLabel || '审批'}}</view>
+            </view>
+            <view class="tpl-step-preview-mode">
+              <text wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">已指定审批人</text>
+              <text wx:else class="tpl-step-fixed-mode">按审批条件</text>
+            </view>
+          </view>
+        </view>
+
         <!-- Ad-hoc steps editor -->
         <view class="card" wx:if="{{editType === 'ad_hoc'}}">
           <view class="section-title">审批步骤 ({{editSteps.length}}步)</view>

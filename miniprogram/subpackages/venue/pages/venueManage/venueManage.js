@@ -118,7 +118,7 @@ function parseCsvArray(str) {
 Page({
   data: {
     // ── Main tab ──
-    activeTab: 'venue',  // 'venue' | 'bookings' | 'purposes'
+    activeTab: 'venue',  // 'venue' | 'bookings' | 'pending' | 'purposes'
     hasPermission: true,
     canApproveVenue: false,
     currentOrganizationName: '',
@@ -127,6 +127,7 @@ Page({
     visibleTabs: [
       { key: 'venue', label: '场地管理' },
       { key: 'bookings', label: '借用管理' },
+      { key: 'pending', label: '待我审批' },
       { key: 'purposes', label: '事由管理' }
     ],
 
@@ -268,9 +269,6 @@ Page({
     timeToDisplay: '',
     statusLabels: { pending: '待审核', approved: '已通过', rejected: '已驳回', cancelled: '已取消', inUse: '使用中', completed: '已完成' },
 
-    // Pending approvals badge
-    pendingApprovalCount: 0,
-
     // Approval popup (step-aware approve/reject)
     approvalPopupVisible: false,
     approvalPopupId: '',
@@ -314,7 +312,7 @@ Page({
         rulesVisible: false, ruleEditorVisible: false, bookingDetailVisible: false,
         venues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [],
         approvalFlow: null, approvalFlowSteps: [], timetableColumns: [],
-        pendingApprovalCount: 0, loading: false, bookingsLoading: false
+        loading: false, bookingsLoading: false
       });
     }
     let profile = adminPermissions.getAdminProfile();
@@ -326,6 +324,7 @@ Page({
     const allTabs = [
       { key: 'venue', label: '场地管理' },
       { key: 'bookings', label: '借用管理' },
+      { key: 'pending', label: '待我审批' },
       { key: 'purposes', label: '事由管理' }
     ];
     const allowedKeys = adminPermissions.filterTabs(allTabs.map(function(item) { return item.key; }), profile, adminPermissions.VENUE_TAB_PERMISSION_MAP);
@@ -349,20 +348,9 @@ Page({
       this.loadReferenceData();
     }
     if (allowedKeys.indexOf('purposes') >= 0) this.loadPurposes();
-    if (adminPermissions.hasAny(profile, ['venue.approvals'])) this.loadPendingCount();
     if (activeTab === 'bookings') {
       this.loadBookingsData();
     }
-  },
-
-  async loadPendingCount() {
-    const request = orgSession.beginRequest(this, 'managePendingCount');
-    try {
-      const res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
-      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
-        this.setData({ pendingApprovalCount: (res.pending || []).length });
-      }
-    } catch (_) {}
   },
 
   _initBookingsTimeRange() {
@@ -404,6 +392,10 @@ Page({
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
     if (!(this.data.visibleTabs || []).some(function(item) { return item.key === tab; })) return;
+    if (tab === 'pending') {
+      this.goPendingApprovals();
+      return;
+    }
     this.setData({ activeTab: tab });
     if (tab === 'bookings') {
       this.loadBookingsData();

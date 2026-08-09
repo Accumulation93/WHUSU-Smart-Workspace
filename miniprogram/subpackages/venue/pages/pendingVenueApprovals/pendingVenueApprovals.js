@@ -2,12 +2,14 @@ const { callFunction, getErrorText, showShortToast } = require('../../../../util
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
   data: {
     pending: [],
     loading: false,
     lastUpdateTime: '',
+    pendingHeaderText: '当前身份的待审批事项',
     lastPendingCount: 0,
     lastPendingSignature: '',
 
@@ -38,6 +40,7 @@ Page({
       orgSession.invalidateRequests(this);
       this.setData({
         pending: [], lastPendingCount: 0, lastPendingSignature: '', lastUpdateTime: '',
+        pendingHeaderText: '当前身份的待审批事项',
         approvalVisible: false, approvalTarget: null, expandedNodeKey: '', loading: false
       });
     }
@@ -155,7 +158,8 @@ Page({
           pending: pending,
           lastPendingCount: pending.length,
           lastPendingSignature: this._buildPendingSignature(pending),
-          lastUpdateTime: this._formatTime()
+          lastUpdateTime: this._formatTime(),
+          pendingHeaderText: pending.length ? ('更新于 ' + this._formatTime()) : '当前身份的待审批事项'
         });
       } else if (res.status === 'forbidden') {
         showShortToast(res.message || '请使用普通岗位身份');
@@ -194,6 +198,10 @@ Page({
       nextApproverHrId: '',
       nextApproverName: ''
     });
+  },
+
+  goApprovalHistory() {
+    navigateToTrustedRoute('/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory');
   },
 
   openReject(e) {

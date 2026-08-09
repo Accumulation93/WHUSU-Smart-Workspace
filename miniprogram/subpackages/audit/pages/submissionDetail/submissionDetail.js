@@ -209,29 +209,26 @@ Page({
   async loadReferenceData() {
     try {
       const safeCall = promise => promise.catch(() => ({ status: 'error' }));
-      const [deptRes, identRes, hrRes, wgRes] = await Promise.all([
+      const [deptRes, identRes, wgRes] = await Promise.all([
         safeCall(callFunction({ name: 'listDepartments', data: {} })),
         safeCall(callFunction({ name: 'listIdentities', data: {} })),
-        safeCall(callFunction({ name: 'listHrInfo', data: {} })),
         safeCall(callFunction({ name: 'listWorkGroups', data: {} }))
       ]);
 
       const departments = (deptRes.status === 'success' ? deptRes.departments : []) || [];
       const identities = (identRes.status === 'success' ? identRes.identities : []) || [];
-      const hrPersons = (hrRes.status === 'success' ? hrRes.list : []) || [];
       const workGroups = (wgRes.status === 'success' ? wgRes.workGroups : []) || [];
 
-      const deptNames = [...new Set(departments.map(d => d.name).concat(hrPersons.map(p => p.department)).filter(Boolean))]
+      const deptNames = [...new Set(departments.map(d => d.name).filter(Boolean))]
         .sort((a, b) => a.localeCompare(b, 'zh-CN'));
-      const identNames = [...new Set(identities.map(i => i.name).concat(hrPersons.map(p => p.identity)).filter(Boolean))];
-      const wgNames = [...new Set(workGroups.map(w => w.name).concat(hrPersons.map(p => p.workGroup)).filter(Boolean))]
+      const identNames = [...new Set(identities.map(i => i.name).filter(Boolean))];
+      const wgNames = [...new Set(workGroups.map(w => w.name).filter(Boolean))]
         .sort((a, b) => a.localeCompare(b, 'zh-CN'));
 
       this.setData({
         allDepartments: departments,
         allIdentities: identities,
         allWorkGroups: workGroups,
-        allHrPersons: hrPersons,
         identityPickerDeptOptions: ['全部部门', ...deptNames],
         identityPickerWgOptions: ['全部职能组', ...wgNames],
         identityPickerIdentOptions: ['全部身份', ...identNames],
@@ -307,19 +304,23 @@ Page({
   },
 
   // Load template steps preview for step-level person override
-  async loadTemplatePreview(templateId) {
+  async loadTemplatePreview(templateId, existingOverrides) {
     try {
       let res = await callFunction({ name: 'previewTemplateSteps', data: { templateId: templateId } });
       if (res.status === 'success') {
         let steps = res.steps || [];
         // The submitter may only designate the first step when that step allows it.
+        const previousOverrides = Array.isArray(existingOverrides) ? existingOverrides : [];
         let overrides = steps.filter(function(s) {
           return Number(s.stepIndex) === 1 && s.allowApproverDesignation === true;
         }).map(function(s) {
+          const previous = previousOverrides.find(function(o) {
+            return Number(o.stepIndex) === Number(s.stepIndex);
+          });
           return {
             stepIndex: s.stepIndex,
-            personHrIds: [],
-            personHrNames: []
+            personHrIds: previous && Array.isArray(previous.personHrIds) ? previous.personHrIds.slice() : [],
+            personHrNames: previous && Array.isArray(previous.personHrNames) ? previous.personHrNames.slice() : []
           };
         });
         this.setData({
@@ -339,7 +340,8 @@ Page({
     let targetStep = (this.data.templatePreviewSteps || []).find(function(s) {
       return Number(s.stepIndex) === stepIndex;
     });
-    if (stepIndex !== 1 || !targetStep || targetStep.allowApproverDesignation !== true) {
+    const templateId = this.data.editMode ? this.data.editTemplateId : this.data.selectedTemplateId;
+    if (stepIndex !== 1 || !templateId || !targetStep || targetStep.allowApproverDesignation !== true) {
       showShortToast('该步骤按审批条件确定审批人');
       return;
     }
@@ -361,7 +363,14 @@ Page({
     // Load eligible approvers from server (stepIndex is 1-based in UI)
     let eligibleList = [];
     try {
-      let res = await callFunction({ name: 'listEligibleApprovers', data: { templateId: this.data.selectedTemplateId, stepIndex: stepIndex } });
+      let res = await callFunction({
+        name: 'listEligibleApprovers',
+        data: {
+          templateId: templateId,
+          stepIndex: stepIndex,
+          editSubmissionId: this.data.editMode ? this.data.submissionId : ''
+        }
+      });
       if (res.status === 'success') {
         eligibleList = this._normalizeApproverList(res.approvers || []);
       }
@@ -2542,6 +2551,39 @@ Page({
     return status === 'draft' || status === 'pending' || status === 'rejected' || status === 'withdrawn';
   },
 
+  _getExistingTemplateStepOverrides(steps) {
+    const source = Array.isArray(steps) ? steps : [];
+    const latestRound = source.reduce(function(maxRound, step) {
+      return Math.max(maxRound, Number(step.round) || 1);
+    }, 1);
+    const firstStep = source.find(function(step) {
+      return (Number(step.round) || 1) === latestRound &&
+        Number(step.sortOrder) === 1 && step.allowApproverDesignation === true;
+    });
+    if (!firstStep) return [];
+
+    let conditions = [];
+    try {
+      conditions = firstStep.stepConditionsJson ? JSON.parse(firstStep.stepConditionsJson) : [];
+    } catch (_) {
+      conditions = [];
+    }
+    if (!Array.isArray(conditions) || !conditions.length || !conditions.every(function(condition) {
+      return condition && condition.conditionType === 'person';
+    })) {
+      return [{ stepIndex: 1, personHrIds: [], personHrNames: [] }];
+    }
+
+    const personHrIds = [];
+    conditions.forEach(function(condition) {
+      String(condition.personHrIds || '').split(',').map(function(id) { return id.trim(); })
+        .filter(Boolean).forEach(function(id) {
+          if (personHrIds.indexOf(id) < 0) personHrIds.push(id);
+        });
+    });
+    return [{ stepIndex: 1, personHrIds: personHrIds, personHrNames: [] }];
+  },
+
   enterEditMode() {
     let submission = this.data.submission;
     let files = this.data.files || [];
@@ -2557,6 +2599,9 @@ Page({
       this.loadReferenceData();
     }
 
+    const existingTemplateOverrides = submission.type === 'template'
+      ? this._getExistingTemplateStepOverrides(steps)
+      : [];
     this.setData({
       editMode: true,
       editTitle: submission.title || '',
@@ -2564,6 +2609,8 @@ Page({
       editType: submission.type || 'template',
       editResubmitMode: submission.resubmitMode || 'fresh',
       editTemplateId: submission.templateId || '',
+      templatePreviewSteps: [],
+      templateStepOverrides: existingTemplateOverrides,
       editSteps: submission.type === 'ad_hoc' ? steps.map(function(s) {
         return {
           name: s.stepName || s.name || '',
@@ -2587,6 +2634,9 @@ Page({
       editFiles: files,
       editNewFiles: []
     });
+    if (submission.type === 'template' && submission.templateId) {
+      this.loadTemplatePreview(submission.templateId, existingTemplateOverrides);
+    }
   },
 
   cancelEdit() {
@@ -2602,7 +2652,11 @@ Page({
   },
 
   onEditTypeChange(e) {
-    this.setData({ editType: e.currentTarget.dataset.type });
+    const editType = e.currentTarget.dataset.type;
+    this.setData({ editType: editType });
+    if (editType === 'template' && this.data.editTemplateId) {
+      this.loadTemplatePreview(this.data.editTemplateId, this.data.templateStepOverrides);
+    }
   },
 
   onEditResubmitModeChange(e) {
@@ -2952,6 +3006,13 @@ Page({
 
       // All files to send (existing + new)
       let allFiles = serverNewFiles.length > 0 ? serverNewFiles : null;
+      const stepOverrides = this.data.editType === 'template'
+        ? (this.data.templateStepOverrides || []).filter(function(item) {
+          return Array.isArray(item.personHrIds) && item.personHrIds.length;
+        }).map(function(item) {
+          return { stepIndex: item.stepIndex, personHrIds: item.personHrIds };
+        })
+        : [];
 
       let res = await callFunction({
         name: 'updateAuditSubmission',
@@ -2962,6 +3023,7 @@ Page({
           type: this.data.editType,
           templateId: this.data.editTemplateId || '',
           resubmitMode: this.data.editResubmitMode,
+          stepOverrides: stepOverrides,
           steps: stepsData,
           files: allFiles
         }
@@ -2985,9 +3047,16 @@ Page({
   async resubmit() {
     this.setData({ loading: true });
     try {
+      const stepOverrides = this.data.submission && this.data.submission.type === 'template'
+        ? (this.data.templateStepOverrides || []).filter(function(item) {
+          return Array.isArray(item.personHrIds) && item.personHrIds.length;
+        }).map(function(item) {
+          return { stepIndex: item.stepIndex, personHrIds: item.personHrIds };
+        })
+        : [];
       const res = await callFunction({
         name: 'resubmitAudit',
-        data: { submissionId: this.data.submissionId }
+        data: { submissionId: this.data.submissionId, stepOverrides: stepOverrides }
       });
       if (res.status === 'success') {
         showShortToast(res.message || '已重提交');

@@ -58,7 +58,18 @@
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 0 14rpx 0;
 }
+.pending-header-actions { display: flex; align-items: center; gap: 10rpx; flex-shrink: 0; }
 .pending-update-time { font-size: var(--ui-type-caption); color: #94a3b8; }
+.pending-history-entry {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 42rpx; padding: 6rpx 16rpx;
+  border-radius: var(--ui-compact-radius, 18rpx);
+  color: #2563eb; font-size: var(--ui-type-caption); font-weight: 700;
+  line-height: var(--ui-leading-control);
+  background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(219,234,254,0.72));
+  border: 1rpx solid rgba(147,197,253,0.58);
+  box-shadow: 0 6rpx 14rpx rgba(37,99,235,0.06), inset 0 1rpx 0 rgba(255,255,255,0.72);
+}
 .pending-refresh-btn {
   display: inline-flex; align-items: center; gap: 6rpx;
   font-size: var(--ui-type-caption); font-weight: 600; color: #2563eb;

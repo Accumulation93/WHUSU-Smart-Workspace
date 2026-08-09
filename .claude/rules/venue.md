@@ -19,7 +19,8 @@ venue/
     ├── venueManage/            # 管理端核心（1802 行）
     ├── venueBookings/          # 重定向桩（6 行）
     ├── myVenueBookings/        # 简化版用户预约列表（73 行）
-    └── pendingVenueApprovals/  # 独立审批页（297 行）
+    ├── pendingVenueApprovals/  # 独立审批页（297 行）
+    └── venueApprovalHistory/   # 当前身份审批历史
 ```
 
 ---
@@ -89,6 +90,12 @@ slotsToIntervals(slots)           // slot 对象 → {start, end}
 | `approved` | `inUse` | now ∈ [time_start, time_end] |
 | `approved` | `completed` | now > time_end |
 | `approved` | `approved` | now < time_start |
+
+### 管理端审批页签与历史
+
+- 管理端顶部页签独立提供“待我审批”，不再把待办入口嵌在“借用管理”筛选区内；待办页继续使用审批专用候选人和审批动作接口。
+- 待我审批页提供“审批历史”入口。历史接口必须同时按当前审批组织、当前身份上下文和当前审批人匹配审批快照，只返回当前操作者实际处理过的借用记录，不得退化为当前组织全部借用记录。
+- 历史记录保留借用当前状态、本人处理时间、处理结果、步骤名称和审批意见；组织或身份切换后必须作废旧请求并重新加载。
 
 ---
 

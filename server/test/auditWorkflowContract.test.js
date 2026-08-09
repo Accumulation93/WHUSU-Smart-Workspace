@@ -43,6 +43,12 @@ assert(startRoute.includes("Number(o.stepIndex) !== 1")
 assert(routeSource.includes("Number(nextStep.allow_approver_designation) !== 1")
   && routeSource.includes("message: '下一步按审批条件确定审批人'"),
   '后续审批人指定必须由目标步骤的服务端开关约束');
+assert(!submissionBehaviorSource.includes("name: 'listHrInfo'"),
+  '审批详情不能调用管理员专用的人事目录接口');
+assert(submissionBehaviorSource.includes('editSubmissionId')
+  && submissionBehaviorSource.includes('stepOverrides: stepOverrides')
+  && routeSource.includes('resubmitTemplateConditions'),
+  '模板修改和重新提交必须保留审批人重新指定链路');
 
 // A first-step override must narrow only step 1; later steps keep their own rules.
 const overrides = [{ stepIndex: 1, personHrIds: ['hr-first'] }];
@@ -76,7 +82,8 @@ assert(adminWxmlSource.includes('允许指定本步骤审批人')
 assert(submissionWxmlSource.includes('item.stepIndex === 1 && item.allowApproverDesignation')
   && submissionWxmlSource.includes('nextStepInfo && nextStepInfo.allowApproverDesignation'),
   '发起页和审批页只能在目标步骤允许时展示指定入口');
-assert(submissionBehaviorSource.includes('stepIndex !== 1 || !targetStep || targetStep.allowApproverDesignation !== true'),
+assert(submissionBehaviorSource.includes('stepIndex !== 1')
+  && submissionBehaviorSource.includes('targetStep.allowApproverDesignation !== true'),
   '发起页事件处理必须再次限制为可指定的第一步');
 assert(templateStepModelSource.includes('allow_approver_designation')
   && submissionStepModelSource.includes('allow_approver_designation')

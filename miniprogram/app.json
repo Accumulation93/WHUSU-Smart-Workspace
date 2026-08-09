@@ -35,7 +35,8 @@
         "pages/venueBookings/venueBookings",
         "pages/venueBooking/venueBooking",
         "pages/myVenueBookings/myVenueBookings",
-        "pages/pendingVenueApprovals/pendingVenueApprovals"
+        "pages/pendingVenueApprovals/pendingVenueApprovals",
+        "pages/venueApprovalHistory/venueApprovalHistory"
       ]
     },
     {

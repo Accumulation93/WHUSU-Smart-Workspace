@@ -54,6 +54,10 @@ function isPageSupported(page, activated) {
     return role === 'user'
       || (role === 'admin' && adminPermissions.hasAny(profile, ['venue.approvals']));
   }
+  if (route === '/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory') {
+    return role === 'user'
+      || (role === 'admin' && adminPermissions.hasAny(profile, ['venue.approvals']));
+  }
   if (route === '/subpackages/org/pages/adminPermissions/adminPermissions') {
     return role === 'admin' && adminPermissions.canAccessPermissionSystem(profile);
   }

@@ -1,0 +1,43 @@
+<view class="page page-narrow subapp-venue-page">
+  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用 · 审批历史"></workspace-hero>
+
+  <view class="section">
+    <view class="card">
+      <view class="panel-head">
+        <view class="panel-title-group">
+          <view class="section-title">审批历史</view>
+          <view class="panel-note">仅显示当前组织、当前身份由你处理过的借用记录</view>
+        </view>
+        <text class="history-refresh ui-motion-chip" bindtap="loadData" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⟳ 刷新</text>
+      </view>
+      <view class="history-context">{{currentContextText}}<text wx:if="{{lastUpdateTime}}"> · 更新于 {{lastUpdateTime}}</text></view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="history-scroll ui-dialog-scroll--pane" scroll-y>
+        <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
+        <block wx:if="{{!loading}}">
+          <view class="history-item" wx:for="{{history}}" wx:key="id">
+            <view class="history-item-head">
+              <view class="history-item-title">{{item.title || '借用申请'}}</view>
+              <text class="history-status {{item._statusClass}}">{{item._statusLabel}}</text>
+            </view>
+            <view class="history-item-meta">{{item.venueName}}<text wx:if="{{item.venueLocation}}"> · {{item.venueLocation}}</text></view>
+            <view class="history-item-meta">借用人：{{item.applicantName}}</view>
+            <view class="history-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
+            <view class="history-action {{item._actionClass}}">我于 {{item.myApprovalAt}} 处理：{{item.myActionLabel}}<text wx:if="{{item.myApprovalStepName}}"> · {{item.myApprovalStepName}}</text></view>
+            <view class="history-comment" wx:if="{{item.myApprovalComment}}">审批意见：{{item.myApprovalComment}}</view>
+          </view>
+          <view class="audit-empty-state" wx:if="{{!history.length}}">
+            <view class="audit-empty-icon">✓</view>
+            <view class="audit-empty-text">暂无审批记录</view>
+            <view class="audit-empty-tip">你处理过的场地借用记录会显示在这里</view>
+          </view>
+        </block>
+        <view class="scroll-tail-space"></view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <view class="page-footer">
+    <view class="footer-name">WHUSU智慧工作台</view>
+    <view class="footer-org">武汉大学学生会</view>
+  </view>
+</view>

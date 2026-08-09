@@ -44,6 +44,71 @@ function fmtDatetime(d) {
   return fmtLocalDate(d) + ' ' + fmtLocalTime(d);
 }
 
+function getVenueDisplayStatus(booking) {
+  const status = safeString(booking && booking.status);
+  if (status === 'pending' || status === 'rejected' || status === 'cancelled') return status;
+  if (status === 'approved') {
+    const now = new Date();
+    const timeStart = new Date(booking.time_start);
+    const timeEnd = new Date(booking.time_end);
+    if (now < timeStart) return 'approved';
+    if (now >= timeEnd) return 'completed';
+    return 'inUse';
+  }
+  return status;
+}
+
+function parseContextSnapshot(raw) {
+  if (!raw) return {};
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function matchesApprovalContext(snapshot, actor) {
+  if (!snapshot || safeString(snapshot.approverHrId) !== safeString(actor && actor.id)) return false;
+  if (safeString(snapshot.approverIdentityType) !== safeString(actor && actor.type)) return false;
+  const actorContextId = safeString(actor && actor.contextId);
+  return actorContextId
+    ? safeString(snapshot.approverContextId) === actorContextId
+    : !safeString(snapshot.approverContextId);
+}
+
+function findMyVenueApproval(booking, actor) {
+  const snapshots = venueApprovalMultiFlow.parseSnapshots(booking && booking.approval_snapshots_json);
+  const matched = snapshots
+    .filter(snapshot => matchesApprovalContext(snapshot, actor))
+    .sort((left, right) => String(right.approvedAt || '').localeCompare(String(left.approvedAt || '')))[0];
+  if (matched) {
+    return {
+      action: 'approved',
+      actionLabel: '已通过',
+      approvedAt: safeString(matched.approvedAt),
+      comment: safeString(matched.comment),
+      stepName: safeString(matched.stepName),
+      stepIndex: Number(matched.stepIndex) || 0
+    };
+  }
+
+  if (safeString(booking && booking.approver_hr_id) !== safeString(actor && actor.id)) return null;
+  const approverContext = parseContextSnapshot(booking && booking.approver_context_snapshot);
+  const actorContextId = safeString(actor && actor.contextId);
+  if (actorContextId && safeString(approverContext.contextId) !== actorContextId) return null;
+  if (safeString(approverContext.role) && safeString(approverContext.role) !== safeString(actor && actor.type)) return null;
+  const action = safeString(booking && booking.status) === 'rejected' ? 'rejected' : 'approved';
+  return {
+    action,
+    actionLabel: action === 'rejected' ? '已驳回' : '已通过',
+    approvedAt: booking && booking.updated_at ? fmtDatetime(new Date(booking.updated_at)) : '',
+    comment: safeString(booking && booking.approval_comment),
+    stepName: '',
+    stepIndex: Number(booking && booking.approval_reject_step) || 0
+  };
+}
+
 /** Parse a date string "YYYY-MM-DD" as local midnight */
 function parseLocalDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -984,6 +1049,64 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     }
 
     res.json({ status: 'success', pending });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// 审批历史（当前操作者、当前组织与当前身份上下文）
+// ═══════════════════════════════════════════════════
+
+router.post('/listVenueApprovalHistory', async (req, res) => {
+  try {
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok) {
+      return res.json({ status: actorResult.status, message: actorResult.message });
+    }
+    const actor = actorResult.actor;
+    const orgId = await getCurrentOrgId();
+    const [bookings] = await pool.query(
+      `SELECT b.*, v.name AS venue_name, v.location AS venue_location,
+              h.name AS applicant_name, h.department_id AS applicant_department_id
+         FROM venue_bookings b
+         JOIN venues v ON v.id = b.venue_id
+         LEFT JOIN hr_info h ON h.id = b.user_hr_id AND h.org_id = b.creator_org_id
+        WHERE b.approval_org_id = ?
+          AND (b.approval_snapshots_json IS NOT NULL OR b.approver_hr_id IS NOT NULL)
+        ORDER BY b.updated_at DESC`,
+      [orgId]
+    );
+
+    const history = [];
+    for (const booking of bookings) {
+      const approval = findMyVenueApproval(booking, actor);
+      if (!approval) continue;
+      history.push({
+        id: booking.id,
+        venueId: booking.venue_id,
+        venueName: booking.venue_name,
+        venueLocation: booking.venue_location,
+        title: booking.title,
+        description: booking.description,
+        applicantName: booking.applicant_name || '信息已失效',
+        applicantDepartmentId: booking.applicant_department_id || '',
+        timeStart: fmtDatetime(new Date(booking.time_start)),
+        timeEnd: fmtDatetime(new Date(booking.time_end)),
+        status: booking.status,
+        displayStatus: getVenueDisplayStatus(booking),
+        myAction: approval.action,
+        myActionLabel: approval.actionLabel,
+        myApprovalAt: approval.approvedAt,
+        myApprovalComment: approval.comment,
+        myApprovalStepName: approval.stepName,
+        myApprovalStepIndex: approval.stepIndex,
+        createdAt: booking.created_at
+      });
+    }
+
+    history.sort((left, right) => String(right.myApprovalAt || '').localeCompare(String(left.myApprovalAt || '')));
+    res.json({ status: 'success', history });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

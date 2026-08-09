@@ -25,6 +25,7 @@ const TAB_PERMISSION_MAP = {
 const VENUE_TAB_PERMISSION_MAP = {
   venue: ['venue.resources'],
   bookings: ['venue.bookings', 'venue.approvals'],
+  pending: ['venue.approvals'],
   purposes: ['venue.purposes']
 };
 
