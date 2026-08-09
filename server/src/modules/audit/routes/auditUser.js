@@ -877,9 +877,13 @@ router.post('/getSubmissionDetail', async (req, res) => {
     signatures.forEach((s) => allHrIds.add(s.signer_hr_id));
     events.forEach((e) => { if (e.operator_hr_id) allHrIds.add(e.operator_hr_id); });
     const hrMap = {};
+    const hrStudentIdMap = {};
     if (allHrIds.size) {
       const hrRows = await hrInfoModel.getByIds([...allHrIds]);
-      for (const hr of hrRows) hrMap[hr.id] = safeString(hr.name);
+      for (const hr of hrRows) {
+        hrMap[hr.id] = safeString(hr.name);
+        hrStudentIdMap[hr.id] = safeString(hr.student_id);
+      }
     }
 
     // Load template name if applicable
@@ -1100,7 +1104,6 @@ router.post('/getSubmissionDetail', async (req, res) => {
         stepId: safeString(sig.step_id),
         fileId: safeString(sig.file_id),
         signatureType: safeString(sig.signature_type),
-        imageData: sig.image_data || '',
         positionX: parseFloat(sig.position_x) || 0,
         positionY: parseFloat(sig.position_y) || 0,
         size: parseFloat(sig.signature_size) || 1,
@@ -1108,6 +1111,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         page: sig.page || 1,
         signerHrId: safeString(sig.signer_hr_id),
         signerName: hrMap[sig.signer_hr_id] || '未知',
+        signerStudentId: hrStudentIdMap[sig.signer_hr_id] || '',
         round: sig.round,
         signedAt: sig.signed_at
       }))

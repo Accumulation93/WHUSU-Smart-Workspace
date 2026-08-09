@@ -430,8 +430,7 @@
         <view class="section-title">签署记录 ({{signatures.length}}条)</view>
         <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
           <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? '签名' : '印章'}} · 第{{item.round}}轮</view>
-          <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-sig-preview" />
-          <view class="list-desc">{{item.signedAt}}</view>
+          <view class="list-desc"><text wx:if="{{item.signerStudentId}}">{{item.signerStudentId}} · </text>{{item.signedAt}}</view>
         </view>
       </view>
 
