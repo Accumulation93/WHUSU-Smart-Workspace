@@ -130,7 +130,7 @@ function getConfiguredSigningIdentity() {
   const certificateChainPem = readPemSetting('PDF_SIGNING_CERTIFICATE_CHAIN_PEM', 'PDF_SIGNING_CERTIFICATE_CHAIN_PATH');
   if (!privateKeyPem && !certificatePem && !certificateChainPem) return null;
   if (!privateKeyPem || !certificatePem) {
-    throw new Error('PDF签名证书配置不完整');
+    throw new Error('当前签名服务暂不可用，请稍后重试');
   }
 
   try {
@@ -151,7 +151,7 @@ function getConfiguredSigningIdentity() {
       trustStatus: chain.length ? 'chain_configured' : 'certificate_configured'
     };
   } catch (error) {
-    throw new Error('PDF签名证书配置无效：' + (error.message || '无法读取证书'));
+    throw new Error('当前签名服务暂不可用，请稍后重试');
   }
 }
 
@@ -165,7 +165,7 @@ function getConfiguredParentSigningIdentity() {
   const chainPem = readPemSetting('PDF_SIGNING_PARENT_CHAIN_PEM', 'PDF_SIGNING_PARENT_CHAIN_PATH');
   if (!privateKeyPem && !certificatePem && !chainPem) return null;
   if (!privateKeyPem || !certificatePem) {
-    throw new Error('PDF签名父证书配置不完整');
+    throw new Error('当前签名服务暂不可用，请稍后重试');
   }
   try {
     const privateKey = crypto.createPrivateKey(privateKeyPem);
@@ -181,7 +181,7 @@ function getConfiguredParentSigningIdentity() {
       chainPem
     };
   } catch (error) {
-    throw new Error('PDF签名父证书配置无效：' + (error.message || '无法读取证书'));
+    throw new Error('当前签名服务暂不可用，请稍后重试');
   }
 }
 
