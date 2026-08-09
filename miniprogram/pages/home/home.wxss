@@ -1107,7 +1107,7 @@ scroll-view {
 }
 .filter-chip {
   display: inline-block;
-  padding: 8rpx 20rpx; margin-right: 10rpx;
+  padding: 6rpx 18rpx; margin-right: 10rpx;
   font-size: var(--ui-type-caption); font-weight: 500; color: #64748b;
   background: linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(248,251,255,0.80) 100%);
   border: 1rpx solid rgba(226,237,247,0.96);
@@ -1351,7 +1351,7 @@ scroll-view {
 /* Reused from admin panel for designation popup */
 .select-chip {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 8rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-caption); font-weight: 700;
+  padding: 6rpx 14rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-caption); font-weight: 700;
   background: linear-gradient(135deg, rgba(239,246,255,0.98) 0%, rgba(219,234,254,0.90) 100%);
   color: #2563eb; border: 1rpx solid rgba(147,197,253,0.8);
 }

@@ -576,8 +576,8 @@ button[disabled],
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44rpx;
-  padding: 6rpx 16rpx;
+  min-height: 36rpx;
+  padding: 4rpx 14rpx;
   border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-meta);
@@ -1739,6 +1739,20 @@ button:active,
     box-sizing: border-box;
   }
 
+  /* 紧凑选择与筛选控件比文字略高即可，不再沿用页签高度 */
+  .filter-chip,
+  .chip,
+  .select-chip,
+  .grade-chip,
+  .dept-tab,
+  .hour-chip,
+  .min-chip,
+  .duration-chip,
+  .role-pill {
+    min-height: var(--ui-compact-height, 32px);
+    padding: 5px 9px;
+  }
+
   .button-row,
   .dialog-actions,
   .audit-btn-bar,
@@ -2348,6 +2362,16 @@ button:active,
     min-height: 36px !important;
     padding: 7px 10px !important;
     border-radius: 12px !important;
+  }
+
+  page .filter-chip,
+  page .chip,
+  page .select-chip,
+  page .grade-chip,
+  page .dept-tab,
+  page .role-pill {
+    min-height: 30px !important;
+    padding: 5px 9px !important;
   }
 
   page .filter-chip,
