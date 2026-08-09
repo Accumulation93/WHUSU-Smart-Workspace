@@ -3,9 +3,9 @@ const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
-const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const { resolveVenueViewerScope, canViewBookingDetails } = require('../services/venueViewerScope');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
@@ -297,13 +297,12 @@ router.post('/getVenueSchedule', async (req, res) => {
       timeTo: weekEnd
     });
     const activeBookings = allBookings;
-    const orgId = await getCurrentOrgId();
-    const currentHrId = await resolveHrId(req.openid);
-    const currentAdmin = await adminInfoModel.getByOpenidGlobal(req.openid);
-    const canViewBooking = (booking) => booking.creator_org_id === orgId || booking.approval_org_id === orgId
-      || (!!currentHrId && booking.user_hr_id === currentHrId)
-      || (!!currentAdmin && booking.creator_admin_id === currentAdmin.id);
-    const detailBookings = activeBookings.filter(canViewBooking);
+    const viewerScope = await resolveVenueViewerScope(
+      req.openid,
+      req.authContext && req.authContext.personId
+    );
+    const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope);
+    const detailBookings = activeBookings.filter(canViewDetails);
 
     // Resolve user names + department / identity / workGroup
     const hrIds = [...new Set(detailBookings.map(b => b.user_hr_id).filter(Boolean))];
@@ -316,28 +315,47 @@ router.post('/getVenueSchedule', async (req, res) => {
     }
     if (hrIds.length) {
       try {
-        const hrList = await hrInfoModel.getByIds(hrIds);
-        const deptIds = [...new Set(hrList.map(h => h.department_id).filter(Boolean))];
-        const identIds = [...new Set(hrList.map(h => h.identity_id).filter(Boolean))];
-        const wgIds = [...new Set(hrList.map(h => h.work_group_id).filter(Boolean))];
-
-        // Fetch names in parallel
-        const [deptRows, identRows, wgRows] = await Promise.all([
-          deptIds.length ? pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [deptIds, orgId]) : Promise.resolve([[]]),
-          identIds.length ? pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [identIds, orgId]) : Promise.resolve([[]]),
-          wgIds.length ? pool.query('SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?', [wgIds, orgId]) : Promise.resolve([[]])
-        ]);
-
-        const deptMap = {}; (deptRows[0] || []).forEach(r => { deptMap[r.id] = r.name; });
-        const identMap = {}; (identRows[0] || []).forEach(r => { identMap[r.id] = r.name; });
-        const wgMap = {}; (wgRows[0] || []).forEach(r => { wgMap[r.id] = r.name; });
-
+        // 跨组织借用记录的人事信息按各 hr 自身所属组织解析
+        const placeholders = hrIds.map(() => '?').join(',');
+        const [hrList] = await pool.query(
+          `SELECT * FROM hr_info WHERE id IN (${placeholders})`,
+          hrIds
+        );
+        const deptIdsByOrg = {};
+        const identIdsByOrg = {};
+        const wgIdsByOrg = {};
         (hrList || []).forEach(h => {
+          const org = safeString(h.org_id);
+          if (!deptIdsByOrg[org]) deptIdsByOrg[org] = new Set();
+          if (!identIdsByOrg[org]) identIdsByOrg[org] = new Set();
+          if (!wgIdsByOrg[org]) wgIdsByOrg[org] = new Set();
+          if (h.department_id) deptIdsByOrg[org].add(h.department_id);
+          if (h.identity_id) identIdsByOrg[org].add(h.identity_id);
+          if (h.work_group_id) wgIdsByOrg[org].add(h.work_group_id);
+        });
+        const deptMap = {};
+        const identMap = {};
+        const wgMap = {};
+        for (const org of Object.keys(deptIdsByOrg)) {
+          const deptIds = [...deptIdsByOrg[org]];
+          const identIds = [...identIdsByOrg[org]];
+          const wgIds = [...wgIdsByOrg[org]];
+          const [deptRows, identRows, wgRows] = await Promise.all([
+            deptIds.length ? pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [deptIds, org]) : Promise.resolve([[]]),
+            identIds.length ? pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [identIds, org]) : Promise.resolve([[]]),
+            wgIds.length ? pool.query('SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?', [wgIds, org]) : Promise.resolve([[]])
+          ]);
+          (deptRows[0] || []).forEach(r => { deptMap[org + '|' + r.id] = r.name; });
+          (identRows[0] || []).forEach(r => { identMap[org + '|' + r.id] = r.name; });
+          (wgRows[0] || []).forEach(r => { wgMap[org + '|' + r.id] = r.name; });
+        }
+        (hrList || []).forEach(h => {
+          const org = safeString(h.org_id);
           userMap[h.id] = {
             name: h.name || '信息已失效',
-            department: deptMap[h.department_id] || '',
-            identity: identMap[h.identity_id] || '',
-            workGroup: wgMap[h.work_group_id] || ''
+            department: deptMap[org + '|' + h.department_id] || '',
+            identity: identMap[org + '|' + h.identity_id] || '',
+            workGroup: wgMap[org + '|' + h.work_group_id] || ''
           };
         });
       } catch (_) {}
@@ -371,7 +389,7 @@ router.post('/getVenueSchedule', async (req, res) => {
         if (ts < dayStart) displayStart = '00:00';
         // If booking ends after this day, show 24:00
         if (te > dayEnd) displayEnd = '24:00';
-        if (!canViewBooking(b)) {
+        if (!canViewDetails(b)) {
           return {
             id: b.id,
             visibility: 'occupancy_only',
@@ -730,7 +748,12 @@ router.post('/listMyVenueBookings', async (req, res) => {
     }
     if (approverHrIdSet.size) {
       try {
-        const approverHrList = await hrInfoModel.getByIds([...approverHrIdSet]);
+        const snapshotHrIds = [...approverHrIdSet];
+        const approverPlaceholders = snapshotHrIds.map(() => '?').join(',');
+        const [approverHrList] = await pool.query(
+          `SELECT id, name FROM hr_info WHERE id IN (${approverPlaceholders})`,
+          snapshotHrIds
+        );
         const nameMap = {};
         (approverHrList || []).forEach(h => { nameMap[h.id] = h.name || ''; });
         for (const item of list) {
@@ -856,7 +879,12 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     }
     if (pendingSnapshotHrIds.size) {
       try {
-        const approverHrList = await hrInfoModel.getByIds([...pendingSnapshotHrIds]);
+        const snapshotHrIds = [...pendingSnapshotHrIds];
+        const approverPlaceholders = snapshotHrIds.map(() => '?').join(',');
+        const [approverHrList] = await pool.query(
+          `SELECT id, name FROM hr_info WHERE id IN (${approverPlaceholders})`,
+          snapshotHrIds
+        );
         const nameMap = {};
         (approverHrList || []).forEach(h => { nameMap[h.id] = h.name || ''; });
         for (const item of pending) {
@@ -900,6 +928,10 @@ router.post('/cancelVenueBooking', async (req, res) => {
     const booking = await venueBookingModel.getById(id);
     if (!booking) return res.json({ status: 'not_found', message: '请刷新借用记录' });
     if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '请打开自己的借用记录' });
+    const currentOrgId = await getCurrentOrgId();
+    if (safeString(booking.creator_org_id) !== currentOrgId && safeString(booking.approval_org_id) !== currentOrgId) {
+      return res.json({ status: 'forbidden', message: '请在原组织处理该借用' });
+    }
     if (booking.status === 'cancelled') return res.json({ status: 'invalid_state', message: '该借用已被取消' });
     if (booking.status === 'rejected') return res.json({ status: 'invalid_state', message: '已驳回的借用无需取消' });
     // 已通过的借用，如果已经开始（now >= timeStart），不能取消
@@ -931,6 +963,10 @@ router.post('/endVenueBooking', async (req, res) => {
     const booking = await venueBookingModel.getById(id);
     if (!booking) return res.json({ status: 'not_found', message: '请刷新借用记录' });
     if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '请打开自己的借用记录' });
+    const currentOrgId = await getCurrentOrgId();
+    if (safeString(booking.creator_org_id) !== currentOrgId && safeString(booking.approval_org_id) !== currentOrgId) {
+      return res.json({ status: 'forbidden', message: '请在原组织处理该借用' });
+    }
     if (booking.status !== 'approved') return res.json({ status: 'invalid_state', message: '请在使用中结束借用' });
 
     const now = new Date();

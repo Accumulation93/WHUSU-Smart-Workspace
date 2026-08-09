@@ -6,6 +6,7 @@ const pool = require('../../../config/db');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const { resolveVenueViewerScope, canViewBookingDetails } = require('../services/venueViewerScope');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
@@ -493,69 +494,78 @@ router.post('/listAllVenueBookings', async (req, res) => {
     if (timeTo) filters.timeTo = timeTo;
     const bookings = await venueBookingModel.getAll(filters);
     const orgId = await getCurrentOrgId();
-    const canViewBooking = (booking) => booking.creator_org_id === orgId || booking.approval_org_id === orgId;
-    const detailBookings = bookings.filter(canViewBooking);
+    const viewerScope = await resolveVenueViewerScope(
+      req.openid,
+      req.authContext && req.authContext.personId
+    );
+    const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope);
+    // 跨组织记录不在管理端借用列表出现，只在日程图中显示占用
+    const detailBookings = bookings.filter(canViewDetails);
     // Build user info map
     const hrIds = [...new Set(detailBookings.map(b => b.user_hr_id).filter(Boolean))];
     const userMap = {};
     const adminIds = [...new Set(detailBookings.filter(b => b.creator_type === 'admin').map(b => b.creator_admin_id).filter(Boolean))];
     const adminMap = {};
     if (adminIds.length) {
-      const adminRows = await adminInfoModel.listByIdsInOrg(adminIds, orgId);
+      const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
       adminRows.forEach(item => { adminMap[item.id] = item.name || '管理员'; });
     }
     if (hrIds.length) {
       try {
-        const hrList = await hrInfoModel.getByIds(hrIds);
-        const deptIds = [...new Set(hrList.map(h => h.department_id).filter(Boolean))];
-        const identIds = [...new Set(hrList.map(h => h.identity_id).filter(Boolean))];
-        const wgIds = [...new Set(hrList.map(h => h.work_group_id).filter(Boolean))];
-        const [deptRows, identRows, wgRows] = await Promise.all([
-          deptIds.length ? pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [deptIds, orgId]) : Promise.resolve([[]]),
-          identIds.length ? pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [identIds, orgId]) : Promise.resolve([[]]),
-          wgIds.length ? pool.query('SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?', [wgIds, orgId]) : Promise.resolve([[]])
-        ]);
-        const deptMap = {}; (deptRows[0] || []).forEach(r => { deptMap[r.id] = r.name; });
-        const identMap = {}; (identRows[0] || []).forEach(r => { identMap[r.id] = r.name; });
-        const wgMap = {}; (wgRows[0] || []).forEach(r => { wgMap[r.id] = r.name; });
+        // 跨组织借用记录的人事信息按各 hr 自身所属组织解析
+        const placeholders = hrIds.map(() => '?').join(',');
+        const [hrList] = await pool.query(
+          `SELECT * FROM hr_info WHERE id IN (${placeholders})`,
+          hrIds
+        );
+        const deptIdsByOrg = {};
+        const identIdsByOrg = {};
+        const wgIdsByOrg = {};
         (hrList || []).forEach(h => {
+          const org = safeString(h.org_id);
+          if (!deptIdsByOrg[org]) deptIdsByOrg[org] = new Set();
+          if (!identIdsByOrg[org]) identIdsByOrg[org] = new Set();
+          if (!wgIdsByOrg[org]) wgIdsByOrg[org] = new Set();
+          if (h.department_id) deptIdsByOrg[org].add(h.department_id);
+          if (h.identity_id) identIdsByOrg[org].add(h.identity_id);
+          if (h.work_group_id) wgIdsByOrg[org].add(h.work_group_id);
+        });
+        const deptMap = {};
+        const identMap = {};
+        const wgMap = {};
+        for (const org of Object.keys(deptIdsByOrg)) {
+          const deptIds = [...deptIdsByOrg[org]];
+          const identIds = [...identIdsByOrg[org]];
+          const wgIds = [...wgIdsByOrg[org]];
+          const [deptRows, identRows, wgRows] = await Promise.all([
+            deptIds.length ? pool.query('SELECT id, name FROM departments WHERE id IN (?) AND org_id = ?', [deptIds, org]) : Promise.resolve([[]]),
+            identIds.length ? pool.query('SELECT id, name FROM identities WHERE id IN (?) AND org_id = ?', [identIds, org]) : Promise.resolve([[]]),
+            wgIds.length ? pool.query('SELECT id, name FROM work_groups WHERE id IN (?) AND org_id = ?', [wgIds, org]) : Promise.resolve([[]])
+          ]);
+          (deptRows[0] || []).forEach(r => { deptMap[org + '|' + r.id] = r.name; });
+          (identRows[0] || []).forEach(r => { identMap[org + '|' + r.id] = r.name; });
+          (wgRows[0] || []).forEach(r => { wgMap[org + '|' + r.id] = r.name; });
+        }
+        (hrList || []).forEach(h => {
+          const org = safeString(h.org_id);
           userMap[h.id] = {
             name: h.name || '信息已失效',
-            department: deptMap[h.department_id] || '',
-            identity: identMap[h.identity_id] || '',
-            workGroup: wgMap[h.work_group_id] || ''
+            department: deptMap[org + '|' + h.department_id] || '',
+            identity: identMap[org + '|' + h.identity_id] || '',
+            workGroup: wgMap[org + '|' + h.work_group_id] || ''
           };
         });
       } catch (_) {}
     }
-    const list = bookings.map(b => {
-      if (!canViewBooking(b)) {
-        return {
-          id: b.id,
-          venueId: b.venue_id,
-          venueName: b.venue_name,
-          venueLocation: b.venue_location,
-          visibility: 'occupancy_only',
-          creatorType: 'anonymous',
-          creatorName: '其他组织借用',
-          creatorLabel: '跨组织占用',
-          userName: '其他组织借用',
-          title: '已占用',
-          description: '',
-          timeStart: fmtDatetime(new Date(b.time_start)),
-          timeEnd: fmtDatetime(new Date(b.time_end)),
-          status: b.status,
-          createdAt: b.created_at,
-          approvalProgress: null,
-          userCanApprove: false
-        };
-      }
+    const list = detailBookings.map(b => {
       return {
       id: b.id,
       venueId: b.venue_id,
       venueName: b.venue_name,
       venueLocation: b.venue_location,
       visibility: 'details',
+      creatorOrgId: b.creator_org_id,
+      approvalOrgId: b.approval_org_id,
       userHrId: b.user_hr_id,
       creatorType: b.creator_type || 'user',
       creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
@@ -598,7 +608,12 @@ router.post('/listAllVenueBookings', async (req, res) => {
     }
     if (allSnapshotHrIds.size) {
       try {
-        const approverHrList = await hrInfoModel.getByIds([...allSnapshotHrIds]);
+        const snapshotHrIds = [...allSnapshotHrIds];
+        const approverPlaceholders = snapshotHrIds.map(() => '?').join(',');
+        const [approverHrList] = await pool.query(
+          `SELECT id, name FROM hr_info WHERE id IN (${approverPlaceholders})`,
+          snapshotHrIds
+        );
         const approverNameMap = {};
         (approverHrList || []).forEach(h => { approverNameMap[h.id] = h.name || ''; });
         for (const item of list) {
@@ -613,21 +628,26 @@ router.post('/listAllVenueBookings', async (req, res) => {
 
     // ── Load flow step definitions for ALL flow-based bookings ──
     const allFlowBookings = list.filter(lb => lb.approvalProgress && lb.approvalProgress.flowId);
-    const flowStepsMap = {}; // flowId → [{sort_order, name, action_type, rules}]
+    const flowStepsMap = {}; // flowId|approvalOrgId → [{sort_order, name, action_type, rules}]
     if (allFlowBookings.length) {
       try {
-        const flowIds = [...new Set(allFlowBookings.map(b => b.approvalProgress.flowId))];
-        for (const flowId of flowIds) {
+        const flowStepKeys = [...new Set(
+          allFlowBookings.map(b => b.approvalProgress.flowId + '|' + safeString(b.approvalOrgId))
+        )];
+        for (const key of flowStepKeys) {
+          const sep = key.indexOf('|');
+          const flowId = key.slice(0, sep);
+          const flowOrg = key.slice(sep + 1);
           const [steps] = await pool.query(
             'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
-            [flowId, orgId]
+            [flowId, flowOrg]
           );
           // Load rules for all steps in this flow (needed for userCanApprove later)
           const stepIds = steps.map(s => s.id);
           if (stepIds.length) {
             const [allRules] = await pool.query(
               'SELECT * FROM venue_approval_flow_step_rules WHERE step_id IN (?) AND org_id = ? ORDER BY sort_order',
-              [stepIds, orgId]
+              [stepIds, flowOrg]
             );
             const ruleMap = {};
             for (const r of allRules) {
@@ -636,11 +656,11 @@ router.post('/listAllVenueBookings', async (req, res) => {
             }
             for (const step of steps) { step.rules = ruleMap[step.id] || []; }
           }
-          flowStepsMap[flowId] = steps;
+          flowStepsMap[key] = steps;
         }
         // Attach display-only flowSteps to each booking's approvalProgress
         for (const lb of allFlowBookings) {
-          const steps = flowStepsMap[lb.approvalProgress.flowId] || [];
+          const steps = flowStepsMap[lb.approvalProgress.flowId + '|' + safeString(lb.approvalOrgId)] || [];
           lb.approvalProgress.flowSteps = steps.map(s => ({
             sortOrder: s.sort_order,
             name: s.name,
@@ -661,7 +681,12 @@ router.post('/listAllVenueBookings', async (req, res) => {
     for (const listBooking of allFlowBookings) {
       if (listBooking.status !== 'pending') continue;
       const booking = bookingMap.get(listBooking.id);
-      const steps = flowStepsMap[listBooking.approvalProgress.flowId] || [];
+      // 跨组织可见记录只读：仅当当前组织为审批组织时才计算审批资格
+      if (!booking || safeString(booking.approval_org_id) !== orgId) {
+        listBooking.userCanApprove = false;
+        continue;
+      }
+      const steps = flowStepsMap[listBooking.approvalProgress.flowId + '|' + safeString(listBooking.approvalOrgId)] || [];
       const authorization = evaluateVenueApprovalStep({
         booking,
         actor: adminActor,
@@ -676,7 +701,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
       if (lb.status === 'pending' && lb.userCanApprove === undefined
         && lb.visibility === 'details'
         && !(lb.approvalProgress && lb.approvalProgress.flowId)) {
-        lb.userCanApprove = true;
+        lb.userCanApprove = safeString(lb.approvalOrgId) === orgId;
       }
     }
 

@@ -166,6 +166,7 @@ Page({
     scheduleVisible: false, scheduleVenueId: '', scheduleVenueName: '', scheduleWeekStart: '',
     timetableColumns: [], timetableHours: HOURS,
     bookingDetailVisible: false, bookingDetail: null,
+    occupiedPopupVisible: false, occupiedPopupTime: '',
     bookingVisible: false, bookingVenueId: '', bookingVenueName: '',
     bookingStartDate: '', bookingStartDateDisplay: '',
     bookingEndDate: '', bookingEndDateDisplay: '',
@@ -398,7 +399,7 @@ Page({
         let b = dayData.bookedSlots[bi];
         let _c = calcBlock(b.timeStart,b.timeEnd), top3 = _c.top, height3 = _c.height;
         eventBlocks.push({top:top3+HEADER_H+TEXT_OFFSET,height:height3,status:b.status==='pending'?'pending':'booked',label:b.title||'已借用',type:'booking',
-          booking:{id:b.id,title:b.title,description:b.description,visibility:b.visibility||'details',userId:b.userId,userName:b.userName,userDept:b.userDept||'',userIdentity:b.userIdentity||'',userWorkGroup:b.userWorkGroup||'',timeStart:b.fullTimeStart||b.timeStart,timeEnd:b.fullTimeEnd||b.timeEnd,status:b.status}});
+          booking:{id:b.id,title:b.title,description:b.description,visibility:b.visibility||'details',userId:b.userId,userName:b.userName,userDept:b.userDept||'',userIdentity:b.userIdentity||'',userWorkGroup:b.userWorkGroup||'',timeStart:b.fullTimeStart||b.timeStart,timeEnd:b.fullTimeEnd||b.timeEnd,timeStartDisplay:b.timeStart,timeEndDisplay:b.timeEnd,status:b.status}});
       }
     }
     return {date:dateStr,label:label,dateDisplay:dateDisplay,openBlocks:openBlocks,eventBlocks:eventBlocks,timeTargets:timeTargets};
@@ -406,7 +407,14 @@ Page({
 
   onTimetablePrevWeek() { let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2]; this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d-7))}); this.loadTimetable(); },
   onTimetableNextWeek() { let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2]; this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d+7))}); this.loadTimetable(); },
-  onTimetableBlockTap(e) { let b=e.currentTarget.dataset.block; if(!b||!b.booking)return; if(b.booking.visibility==='occupancy_only'){showShortToast('该时段已被其他组织占用');return;} this.setData({bookingDetailVisible:true,bookingDetail:b.booking}); },
+  onTimetableBlockTap(e) { let b=e.currentTarget.dataset.block; if(!b||!b.booking)return; if(b.booking.visibility==='occupancy_only'){this.openOccupiedPopup(b.booking);return;} this.setData({bookingDetailVisible:true,bookingDetail:b.booking}); },
+  openOccupiedPopup(booking) {
+    const start = booking.timeStartDisplay || '';
+    const end = booking.timeEndDisplay || '';
+    const timeText = (start || end) ? ((start ? start + ' 至 ' : '') + (end || '')) : '';
+    this.setData({ occupiedPopupVisible: true, occupiedPopupTime: timeText });
+  },
+  closeOccupiedPopup() { this.setData({ occupiedPopupVisible: false, occupiedPopupTime: '' }); },
   closeBookingDetail() { this.setData({bookingDetailVisible:false, expandedNodeKey:''}); },
 
   viewMyBookingDetail(e) {

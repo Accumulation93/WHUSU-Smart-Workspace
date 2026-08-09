@@ -259,6 +259,7 @@ Page({
     // ── Bookings tab (borrow management) ──
     bookings: [],
     bookingsLoading: false,
+    occupiedPopupVisible: false, occupiedPopupTime: '',
     filterStatus: '',
     filterVenueId: '',
     timeFrom: '',
@@ -309,7 +310,7 @@ Page({
         activeTab,
         venueSearch: '', bookingSearch: '', bookingStatusFilter: 'all',
         bookingsPage: 1, selectedBooking: null, scheduleVisible: false,
-        adminBookingVisible: false, purposeEditId: '', purposeEditText: '',
+        adminBookingVisible: false, occupiedPopupVisible: false, occupiedPopupTime: '', purposeEditId: '', purposeEditText: '',
         rulesVisible: false, ruleEditorVisible: false, bookingDetailVisible: false,
         venues: [], bookings: [], purposes: [], openRules: [], activityRules: [], bookingRules: [],
         approvalFlow: null, approvalFlowSteps: [], timetableColumns: [],
@@ -1188,6 +1189,8 @@ Page({
             userDept: b.userDept || '', userIdentity: b.userIdentity || '', userWorkGroup: b.userWorkGroup || '',
             timeStart: b.fullTimeStart || b.timeStart,
             timeEnd: b.fullTimeEnd || b.timeEnd,
+            timeStartDisplay: b.timeStart,
+            timeEndDisplay: b.timeEnd,
             status: b.status
           }
         });
@@ -1214,11 +1217,18 @@ Page({
     const block = e.currentTarget.dataset.block;
     if (!block || !block.booking) return;
     if (block.booking.visibility === 'occupancy_only') {
-      showShortToast('该时段已被其他组织占用');
+      this.openOccupiedPopup(block.booking);
       return;
     }
     this.setData({ bookingDetailVisible: true, bookingDetail: block.booking });
   },
+  openOccupiedPopup(booking) {
+    const start = booking.timeStartDisplay || '';
+    const end = booking.timeEndDisplay || '';
+    const timeText = (start || end) ? ((start ? start + ' 至 ' : '') + (end || '')) : '';
+    this.setData({ occupiedPopupVisible: true, occupiedPopupTime: timeText });
+  },
+  closeOccupiedPopup() { this.setData({ occupiedPopupVisible: false, occupiedPopupTime: '' }); },
 
   onTimeTargetTap(e) {
     // Same pattern as date: data-date + data-time from DOM, no coordinate math
