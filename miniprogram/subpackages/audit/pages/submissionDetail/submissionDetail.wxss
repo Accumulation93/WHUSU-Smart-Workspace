@@ -43,9 +43,7 @@
   color: #64748b;
   line-height: 1.6;
 }
-.tpl-first-approver-actions {
-  margin-top: 10rpx;
-}
+.tpl-step-designated { color: #2563eb; }
 
 /* Radio dot for template selection */
 .radio-dot {
@@ -171,16 +169,6 @@
 }
 .tpl-step-preview-mode { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2rpx; }
 .tpl-step-fixed-mode { color: #6b7b91; font-size: var(--ui-type-caption); line-height: 1.4; text-align: right; }
-.tpl-step-toggle {
-  display: inline-flex; align-items: center; padding: 6rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx);
-  font-size: var(--ui-type-caption); font-weight: 600; line-height: 1; letter-spacing: 0.3rpx;
-  background: rgba(241,245,249,0.8); color: #64748b; border: 1rpx solid rgba(203,213,225,0.6);
-  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.24s ease, transform 0.2s ease;
-}
-.tpl-step-toggle-active {
-  background: linear-gradient(135deg, rgba(219,234,254,0.88) 0%, rgba(191,219,254,0.76) 100%);
-  color: #2563eb; border-color: rgba(147,197,253,0.55);
-}
 .tpl-step-person-tag {
   display: inline-flex; align-items: center; gap: 4rpx;
   padding: 3rpx 10rpx; border-radius: var(--ui-compact-radius, 18rpx); margin-right: 4rpx; margin-bottom: 3rpx;

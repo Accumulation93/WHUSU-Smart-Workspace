@@ -49,7 +49,7 @@ Page({
 
     // Template step preview (for overrides)
     templatePreviewSteps: [],
-    templateStepOverrides: [],    // [{ stepIndex, mode: 'auto'|'specific', personHrIds: [], personHrNames: [] }]
+    templateStepOverrides: [],    // [{ stepIndex, personHrIds: [], personHrNames: [] }] — 有人员即指定，无人员即不单独指定
     templateOverrideStepIndex: -1, // which step index is being edited in person picker
 
     // Approver picker — person mode (multi-select)
@@ -281,7 +281,6 @@ Page({
         }).map(function(s) {
           return {
             stepIndex: s.stepIndex,
-            mode: 'auto',
             personHrIds: [],
             personHrNames: []
           };
@@ -295,21 +294,6 @@ Page({
       console.error('[audit] loadTemplatePreview failed:', e);
       showShortToast('暂时无法预览，仍可提交');
     }
-  },
-
-  // Toggle step override mode between 'auto' (anyone with role) and 'specific' (chosen persons)
-  onTemplateStepModeToggle(e) {
-    let stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
-    let overrides = [...this.data.templateStepOverrides];
-    let entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
-    if (entry) {
-      entry.mode = entry.mode === 'auto' ? 'specific' : 'auto';
-      if (entry.mode === 'auto') {
-        entry.personHrIds = [];
-        entry.personHrNames = [];
-      }
-    }
-    this.setData({ templateStepOverrides: overrides });
   },
 
   // Open person picker for a specific template step override
@@ -382,7 +366,7 @@ Page({
     let overrides = [...this.data.templateStepOverrides];
     let entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
     if (!entry) {
-      entry = { stepIndex: stepIndex, mode: 'specific', personHrIds: [], personHrNames: [] };
+      entry = { stepIndex: stepIndex, personHrIds: [], personHrNames: [] };
       overrides.push(entry);
     }
     entry.personHrIds = selected.map(function(p) { return p.id; });
@@ -405,9 +389,6 @@ Page({
       if (idx >= 0) {
         entry.personHrIds.splice(idx, 1);
         entry.personHrNames.splice(idx, 1);
-      }
-      if (!entry.personHrIds.length) {
-        entry.mode = 'auto';
       }
     }
     this.setData({ templateStepOverrides: overrides });
@@ -908,7 +889,7 @@ Page({
         if (!selectedTemplateId) { showShortToast('请选择审核流程'); this.setData({ loading: false }); return; }
         // Collect step overrides from template step preview
         let stepOverrides = (this.data.templateStepOverrides || [])
-          .filter(function(o) { return o.mode === 'specific' && o.personHrIds && o.personHrIds.length; })
+          .filter(function(o) { return o.personHrIds && o.personHrIds.length; })
           .map(function(o) { return { stepIndex: o.stepIndex, personHrIds: o.personHrIds }; });
         res = await callFunction({
           name: 'startAuditSubmission',
