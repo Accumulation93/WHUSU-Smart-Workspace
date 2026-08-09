@@ -98,4 +98,20 @@ function canViewBookingDetails(booking, scope) {
   return false;
 }
 
-module.exports = { resolveVenueViewerScope, canViewBookingDetails };
+/**
+ * 批量解析组织名称，供借用记录详情展示；organizations 为全局组织表。
+ */
+async function resolveVenueOrgNames(orgIds) {
+  const ids = [...new Set((orgIds || []).map(id => safeString(id)).filter(Boolean))];
+  if (!ids.length) return {};
+  const placeholders = ids.map(() => '?').join(',');
+  const [rows] = await pool.query(
+    `SELECT id, name FROM organizations WHERE id IN (${placeholders})`,
+    ids
+  );
+  const map = {};
+  (rows || []).forEach(r => { map[r.id] = r.name || ''; });
+  return map;
+}
+
+module.exports = { resolveVenueViewerScope, canViewBookingDetails, resolveVenueOrgNames };

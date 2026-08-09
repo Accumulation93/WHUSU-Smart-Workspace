@@ -6,7 +6,7 @@ const pool = require('../../../config/db');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
-const { resolveVenueViewerScope, canViewBookingDetails } = require('../services/venueViewerScope');
+const { resolveVenueViewerScope, canViewBookingDetails, resolveVenueOrgNames } = require('../services/venueViewerScope');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
@@ -501,6 +501,9 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope);
     // 跨组织记录不在管理端借用列表出现，只在日程图中显示占用
     const detailBookings = bookings.filter(canViewDetails);
+    const orgNameMap = await resolveVenueOrgNames(
+      detailBookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
+    );
     // Build user info map
     const hrIds = [...new Set(detailBookings.map(b => b.user_hr_id).filter(Boolean))];
     const userMap = {};
@@ -566,6 +569,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
       visibility: 'details',
       creatorOrgId: b.creator_org_id,
       approvalOrgId: b.approval_org_id,
+      orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       userHrId: b.user_hr_id,
       creatorType: b.creator_type || 'user',
       creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),

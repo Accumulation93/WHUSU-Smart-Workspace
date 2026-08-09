@@ -5,7 +5,7 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
 const hrInfoModel = require('../../../core/models/hrInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
-const { resolveVenueViewerScope, canViewBookingDetails } = require('../services/venueViewerScope');
+const { resolveVenueViewerScope, canViewBookingDetails, resolveVenueOrgNames } = require('../services/venueViewerScope');
 const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
@@ -303,6 +303,9 @@ router.post('/getVenueSchedule', async (req, res) => {
     );
     const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope);
     const detailBookings = activeBookings.filter(canViewDetails);
+    const orgNameMap = await resolveVenueOrgNames(
+      detailBookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
+    );
 
     // Resolve user names + department / identity / workGroup
     const hrIds = [...new Set(detailBookings.map(b => b.user_hr_id).filter(Boolean))];
@@ -412,6 +415,7 @@ router.post('/getVenueSchedule', async (req, res) => {
           visibility: 'details',
           title: b.title,
           description: b.description,
+          orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
           status: b.status,
           timeStart: displayStart,
           timeEnd: displayEnd,
@@ -712,11 +716,15 @@ router.post('/listMyVenueBookings', async (req, res) => {
     const hrId = await resolveHrId(req.openid);
     if (!hrId) return res.json({ status: 'forbidden', message: '请使用普通岗位身份' });
     const bookings = await venueBookingModel.getByUserId(hrId);
+    const orgNameMap = await resolveVenueOrgNames(
+      bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
+    );
     const list = bookings.map(b => ({
       id: b.id,
       venueId: b.venue_id,
       venueName: b.venue_name,
       venueLocation: b.venue_location,
+      orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       title: b.title,
       description: b.description,
       timeStart: fmtDatetime(new Date(b.time_start)),
@@ -824,6 +832,9 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     if (!bookings.length) {
       return res.json({ status: 'success', pending: [] });
     }
+    const orgNameMap = await resolveVenueOrgNames(
+      bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
+    );
 
     // For each booking, check if the current step's rules match the approver
     const pending = [];
@@ -840,6 +851,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         venueId: booking.venue_id,
         venueName: booking.venue_name,
         venueLocation: booking.venue_location,
+        orgName: orgNameMap[safeString(booking.creator_org_id)] || orgNameMap[safeString(booking.approval_org_id)] || '',
         title: booking.title,
         description: booking.description,
         userName: (applicantHrInfo && applicantHrInfo.name) || '信息已失效',

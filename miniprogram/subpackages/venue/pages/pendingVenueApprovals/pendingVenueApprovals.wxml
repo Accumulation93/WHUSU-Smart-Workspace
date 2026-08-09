@@ -78,6 +78,7 @@
           </view>
 
           <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalTarget.venueName}}<text wx:if="{{approvalTarget.venueLocation}}"> · {{approvalTarget.venueLocation}}</text></text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.orgName}}"><text class="detail-key">组织</text><text class="detail-val">{{approvalTarget.orgName}}</text></view>
           <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalTarget.userName}}</text></view>
           <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalTarget.timeStart}} — {{approvalTarget.timeEnd}}</text></view>
           <view class="detail-row" wx:if="{{approvalTarget.description}}"><text class="detail-key">说明</text><text class="detail-val">{{approvalTarget.description}}</text></view>

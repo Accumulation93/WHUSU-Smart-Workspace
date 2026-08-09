@@ -513,6 +513,7 @@
       <view class="detail-body ui-dialog-stack">
         <view class="detail-title">{{bookingDetail.title || '借用'}}</view>
         <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.orgName}}"><text class="detail-key">组织</text><text class="detail-val">{{bookingDetail.orgName}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-key">借用人</text><text class="detail-val">{{bookingDetail.userName}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.userDept}}"><text class="detail-key">部门</text><text class="detail-val">{{bookingDetail.userDept}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.userIdentity}}"><text class="detail-key">身份</text><text class="detail-val">{{bookingDetail.userIdentity}}</text></view>
@@ -704,6 +705,7 @@
           <view wx:if="{{approvalPopupTarget}}">
             <view class="detail-title">{{approvalPopupTarget.title || '借用申请'}}</view>
             <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalPopupTarget.venueName}}</text></view>
+            <view class="detail-row" wx:if="{{approvalPopupTarget.orgName}}"><text class="detail-key">组织</text><text class="detail-val">{{approvalPopupTarget.orgName}}</text></view>
             <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalPopupTarget.userName}}<text wx:if="{{approvalPopupTarget.userDept}}"> · {{approvalPopupTarget.userDept}}</text></text></view>
             <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalPopupTarget.timeStart}} — {{approvalPopupTarget.timeEnd}}</text></view>
             <!-- Flow progress bar -->
