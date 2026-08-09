@@ -48,7 +48,7 @@
 /* Action buttons — 参考管理端部门卡片 .link 药丸按钮样式 */
 .action-btn {
   display:inline-flex; align-items:center; justify-content:center;
-  padding:10rpx 20rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-control); font-weight:600;
+  padding:6rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-control); font-weight:600;
   line-height:1; white-space:nowrap;
   background:rgba(219,234,254,0.65); color:#2563eb;
   border:1rpx solid rgba(147,197,253,0.45);
@@ -121,7 +121,7 @@
 /* ═══ Chips ═══ */
 .chip-row { display:flex; flex-wrap:wrap; gap:10rpx; margin-top:10rpx; }
 .chip {
-  font-size: var(--ui-type-control); padding:10rpx 22rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight:500;
+  font-size: var(--ui-type-control); padding:6rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight:500;
   background:linear-gradient(135deg, rgba(248,250,252,0.96) 0%, rgba(241,245,249,0.84) 100%);
   color:#475569;
   border:1rpx solid rgba(203,213,225,0.58);
@@ -244,7 +244,7 @@
 /* Hour chip */
 .hour-chip {
   display:inline-block; font-size: var(--ui-type-control); font-weight:700;
-  padding:10rpx 18rpx; margin-right:8rpx; border-radius: var(--ui-compact-radius, 18rpx);
+  padding:6rpx 14rpx; margin-right:8rpx; border-radius: var(--ui-compact-radius, 18rpx);
   color:#475569; background:rgba(241,245,249,0.85);
   border:1rpx solid rgba(203,213,225,0.55);
   transition:color 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.2s ease, transform 0.16s ease;
@@ -263,7 +263,7 @@
 }
 .min-chip {
   flex:1; text-align:center; font-size: var(--ui-type-control); font-weight:700;
-  padding:10rpx 0; border-radius: var(--ui-compact-radius, 18rpx);
+  padding:6rpx 0; border-radius: var(--ui-compact-radius, 18rpx);
   color:#475569; background:rgba(241,245,249,0.85);
   border:1rpx solid rgba(203,213,225,0.55);
   transition:color 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.2s ease, transform 0.16s ease;
@@ -305,7 +305,7 @@
   display:flex; flex-wrap:wrap; gap:10rpx;
 }
 .duration-chip {
-  font-size: var(--ui-type-control); padding:10rpx 20rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight:600;
+  font-size: var(--ui-type-control); padding:6rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx); font-weight:600;
   background:rgba(241,245,249,0.85); color:#475569;
   border:1rpx solid rgba(203,213,225,0.55);
   transition:color 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.2s ease, transform 0.16s ease;
@@ -616,13 +616,13 @@ page {
 
 .action-btn,
 .link {
-  min-height: auto;
-  padding: 10rpx 20rpx;
+  min-height: 36rpx;
+  padding: 6rpx 16rpx;
   border-radius: var(--ui-compact-radius, 18rpx);
   color: #2563eb;
   font-size: var(--ui-type-control);
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.25;
   background: rgba(219,234,254,0.65);
   border: 1rpx solid rgba(147,197,253,0.45);
   transition: transform 0.12s ease, opacity 0.12s ease;
