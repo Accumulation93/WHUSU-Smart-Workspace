@@ -111,6 +111,7 @@
           <text class="organization-picker-option-name">{{item.name}}</text>
           <ui-icon wx:if="{{pendingOrganizationIndex === index}}" name="check" tone="primary" size="26" ariaLabel="已选择" />
         </view>
+        <view class="scroll-tail-space"></view>
       </scroll-view>
       <view class="organization-picker-actions ui-dialog-footer">
         <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeOrganizationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>

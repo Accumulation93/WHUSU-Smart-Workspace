@@ -2896,6 +2896,7 @@
           </view>
         </view>
         <view class="empty-inline" wx:if="{{!auditMultiPickerFilteredList.length}}">没有匹配的选项</view>
+        <view class="scroll-tail-space"></view>
       </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
@@ -2929,6 +2930,7 @@
           </view>
         </view>
         <view class="empty-inline" wx:if="{{!auditPersonnelFilteredList.length}}">没有匹配的人员</view>
+        <view class="scroll-tail-space"></view>
       </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer"><button class="secondary-btn ui-motion-button" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button><button class="primary-btn ui-motion-button" catchtap="confirmAuditPersonnelPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定选择</button></view>
@@ -2954,6 +2956,7 @@
           </view>
         </view>
         <view class="empty-inline" wx:if="{{!identityList.length}}">暂无身份</view>
+        <view class="scroll-tail-space"></view>
       </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
@@ -2975,6 +2978,7 @@
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
           <view class="list-item desig-current-item" wx:for="{{designationPickerSelectedList}}" wx:key="id"><view class="list-main"><view class="list-name">{{item.name}}</view><view class="list-desc">{{item.department}} · {{item.studentId}}</view></view><view class="inline-actions list-actions-below"><text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view></view>
           <view class="empty-inline" wx:if="{{!designationPickerSelectedList.length}}">尚未指定任何人</view>
+          <view class="scroll-tail-space"></view>
         </scroll-view>
         <view class="list-title audit-file-section-title">可选成员</view>
         <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{desigFilterDeptOptions}}" bindchange="onDesigFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{desigFilterDept}}</view></picker></view><view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{desigFilterIdentOptions}}" bindchange="onDesigFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{desigFilterIdent}}</view></picker></view><view class="rule-filter-field rule-filter-field--grow"><view class="field-label">搜索</view><input class="field-input" placeholder="姓名/学号" value="{{desigSearchKeyword}}" bindinput="onDesigSearchInput"/></view></view>
@@ -2986,6 +2990,7 @@
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!designationPickerFilteredList.length}}">没有匹配的成员</view>
+          <view class="scroll-tail-space"></view>
         </scroll-view>
         </scroll-view>
         <view class="button-row ui-dialog-footer"><button class="secondary-btn ui-motion-button" catchtap="closeDesignationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button><button class="primary-btn ui-motion-button" loading="{{loadingMap.saveDesignations}}" catchtap="saveDesignations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存名单（已选{{designationPickerSelectedIds.length}}人）</button></view>

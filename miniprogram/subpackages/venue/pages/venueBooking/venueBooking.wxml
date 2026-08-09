@@ -366,6 +366,7 @@ module.exports = { hour: hour, min: min };
               <text class="person-picker-id">{{item.studentId}}</text>
             </view>
             <view class="empty-inline" wx:if="{{!approverCandidates.length}}">暂无可用成员</view>
+            <view class="scroll-tail-space"></view>
           </scroll-view>
         </view>
       </view>
@@ -459,6 +460,7 @@ module.exports = { hour: hour, min: min };
               <text class="person-picker-id">{{item.studentId}}</text>
             </view>
             <view class="empty-inline" wx:if="{{!nextApproverCandidates.length}}">暂无可用成员</view>
+            <view class="scroll-tail-space"></view>
           </scroll-view>
         </view>
       </view>

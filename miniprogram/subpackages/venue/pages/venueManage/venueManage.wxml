@@ -681,6 +681,7 @@
           </view>
         </view>
         <view class="empty-inline" wx:if="{{!condMultiPickerFilteredList.length}}">没有匹配的选项</view>
+        <view class="scroll-tail-space"></view>
       </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">

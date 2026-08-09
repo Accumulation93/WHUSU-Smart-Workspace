@@ -1062,6 +1062,12 @@ button[disabled],
   overscroll-behavior: contain;
 }
 
+/* 选择列表尾部留白：放在滚动内容末尾，保证最后一张卡片能完整翻出并可再翻一小段 */
+.scroll-tail-space {
+  height: 28rpx;
+  flex: 0 0 auto;
+}
+
 /* 内部关闭遮罩只负责点击，不重复绘制一层会造成错位的阴影。 */
 .ui-overlay .dialog-mask,
 .ui-overlay .message-switch-mask,

@@ -522,6 +522,7 @@
           </view>
         </view>
         <view class="empty-inline" wx:if="{{!userDesigSelectedList.length}}">暂无人选</view>
+        <view class="scroll-tail-space"></view>
       </scroll-view>
       <view class="list-title candidate-list-title">可选成员</view>
       <view class="rule-filter-row">
@@ -553,6 +554,7 @@
             <view class="list-desc">{{item.studentId}} · {{item.department}}</view>
           </view>
         </view>
+        <view class="scroll-tail-space"></view>
       </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
