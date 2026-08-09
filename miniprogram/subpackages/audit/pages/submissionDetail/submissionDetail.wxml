@@ -77,7 +77,7 @@
           <view class="tpl-step-preview-action">{{item.actionLabel || '审批'}}</view>
         </view>
         <view class="tpl-step-preview-mode">
-          <text wx:if="{{item.stepIndex === 1 && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">已指定审批人</text>
+          <text wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">已指定审批人</text>
           <text wx:else class="tpl-step-fixed-mode">按审批条件</text>
         </view>
       </view>
