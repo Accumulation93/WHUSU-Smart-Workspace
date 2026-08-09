@@ -78,6 +78,13 @@
             <view class="file-attach-name {{item.hashVerified === true ? 'verify-status-valid' : (item.hashVerified === false ? 'verify-status-invalid' : 'verify-status-unknown')}}">
               {{item.hashVerified === true ? '文件内容一致' : (item.hashVerified === false ? '文件已变更' : '暂无法确认文件内容')}}
             </view>
+            <view wx:if="{{item.pdfSignature && item.pdfSignature.present}}" class="file-attach-name {{item.pdfSignature.valid ? 'verify-status-valid' : 'verify-status-invalid'}}">
+              PDF数字签名：{{item.pdfSignature.valid ? '有效' : '无效'}}
+            </view>
+            <view wx:if="{{item.pdfSignature && item.pdfSignature.signatures.length}}" class="list-desc" wx:for="{{item.pdfSignature.signatures}}" wx:for-item="ps" wx:key="index">
+              由 {{ps.signerName}}{{ps.signerStudentId ? '（' + ps.signerStudentId + '）' : ''}} 签署 · {{ps.ok ? '有效' : '无效'}}
+            </view>
+            <view wx:if="{{item.pdfSignature && !item.pdfSignature.present}}" class="file-attach-name verify-status-unknown">PDF数字签名：未签名</view>
           </view>
         </view>
       </view>

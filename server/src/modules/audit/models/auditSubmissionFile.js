@@ -52,4 +52,26 @@ async function updateMetadata(id, data, conn) {
   );
 }
 
-module.exports = { getBySubmissionId, getById, create, remove, removeBySubmissionId, updateMetadata };
+/**
+ * 保存每份文件的 PDF 数字签名密钥对与最近证书（私钥仅服务端持有）。
+ */
+async function saveSigningKey(id, data, conn) {
+  const orgId = await getCurrentOrgId();
+  const db = conn || pool;
+  await db.query(
+    `UPDATE audit_submission_files
+     SET signing_key_private = ?, signing_key_public = ?, signing_cert = ?,
+         signing_algorithm = ?, signing_created_at = COALESCE(signing_created_at, NOW())
+     WHERE id = ? AND org_id = ?`,
+    [
+      data.privateKey || null,
+      data.publicKey || null,
+      data.cert || null,
+      data.algorithm || 'RSA-SHA256',
+      id,
+      orgId
+    ]
+  );
+}
+
+module.exports = { getBySubmissionId, getById, create, remove, removeBySubmissionId, updateMetadata, saveSigningKey };

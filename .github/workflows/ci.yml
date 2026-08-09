@@ -116,6 +116,7 @@ jobs:
           node server/test/unifiedIdentityMigration.test.js
           node server/test/venueFlowRestoreMigration.test.js
           node server/test/freshSchemaVenue.test.js
+          node server/test/pdfSignature.test.js
           bash -n server/scripts/deployProduction.sh
           bash -n server/scripts/deployEntrypoint.sh
           bash -n server/scripts/setupCollabSession.sh

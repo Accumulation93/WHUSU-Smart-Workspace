@@ -25,6 +25,8 @@ const stampAssignmentModel = require('../models/identityStampAssignment');
 const { hashFile, computeSignatureHash } = require('../utils/hashChain');
 const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
+const { signPdfBuffer, generateSigningKeyPair, createSignerCertificate } = require('../utils/pdfSignature');
+const forge = require('node-forge');
 const { createNotification } = require('../utils/notificationHelper');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
@@ -1356,11 +1358,70 @@ router.post('/approveStep', async (req, res) => {
         });
       }
       const overlayResult = await overlaySignaturesOnFile(file, fileSignatures);
-      const documentHash = overlayResult
-        ? overlayResult.fileHash
-        : (file.file_path && fs.existsSync(file.file_path) ? hashFile(fs.readFileSync(file.file_path)) : file.file_hash);
+      let finalBuffer = file.file_path && fs.existsSync(file.file_path)
+        ? fs.readFileSync(file.file_path)
+        : null;
+      let finalMimeType = overlayResult ? overlayResult.mimeType : file.mime_type;
 
-      if (overlayResult) {
+      // 最终步骤：PDF 文件追加符合 PDF 规范的 PKCS#7 数字签名（私钥仅在服务端），
+      // 签名覆盖整份最终文档，Acrobat 等软件可识别“由 姓名（学号）签署”。
+      if (finalBuffer && finalMimeType === 'application/pdf' && !nextStep) {
+        const [signerRows] = await pool.query(
+          'SELECT name, student_id FROM hr_info WHERE id = ? AND org_id = ?',
+          [hrId, orgId]
+        );
+        const signerName = signerRows[0] ? safeString(signerRows[0].name) : '未知';
+        const studentId = signerRows[0] ? safeString(signerRows[0].student_id) : '';
+        const [orgRows] = await pool.query('SELECT name FROM organizations WHERE id = ?', [orgId]);
+        const orgName = orgRows[0] ? safeString(orgRows[0].name) : '';
+
+        let keyPair = null;
+        if (file.signing_key_private) {
+          keyPair = {
+            privateKey: forge.pki.privateKeyFromPem(file.signing_key_private),
+            publicKey: file.signing_key_public ? forge.pki.publicKeyFromPem(file.signing_key_public) : null,
+            privateKeyPem: file.signing_key_private,
+            publicKeyPem: file.signing_key_public || ''
+          };
+        } else {
+          keyPair = generateSigningKeyPair();
+          await submissionFileModel.saveSigningKey(fileId, {
+            privateKey: keyPair.privateKeyPem,
+            publicKey: keyPair.publicKeyPem,
+            cert: null,
+            algorithm: 'RSA-SHA256'
+          }, conn);
+        }
+
+        const certPem = createSignerCertificate(
+          keyPair.privateKey,
+          keyPair.publicKey,
+          signerName,
+          studentId,
+          orgName
+        );
+        await submissionFileModel.saveSigningKey(fileId, {
+          privateKey: keyPair.privateKeyPem,
+          publicKey: keyPair.publicKeyPem,
+          cert: certPem,
+          algorithm: 'RSA-SHA256'
+        }, conn);
+
+        const signedBuffer = await signPdfBuffer(finalBuffer, keyPair.privateKeyPem, certPem);
+        fs.writeFileSync(file.file_path, signedBuffer);
+        finalBuffer = signedBuffer;
+        finalMimeType = 'application/pdf';
+      }
+
+      const documentHash = finalBuffer ? hashFile(finalBuffer) : (file.file_hash || '');
+      if (finalBuffer) {
+        await submissionFileModel.updateMetadata(fileId, {
+          filePath: file.file_path,
+          mimeType: finalMimeType,
+          fileSize: finalBuffer.length,
+          fileHash: documentHash
+        }, conn);
+      } else if (overlayResult) {
         await submissionFileModel.updateMetadata(fileId, overlayResult, conn);
       }
 

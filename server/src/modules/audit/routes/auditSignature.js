@@ -11,6 +11,7 @@ const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const verificationPermModel = require('../models/verificationPermission');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const { verifySignatureChain } = require('../utils/hashChain');
+const { verifyPdfSignature } = require('../utils/pdfSignature');
 
 /**
  * Resolve the current user's HR ID from openid.
@@ -207,6 +208,35 @@ router.post('/verifySignatureChain', async (req, res) => {
     }
 
     const result = verifySignatureChain(signatures, currentFileHashes);
+
+    // PDF 文件追加密码学验签：提取嵌入的 PKCS#7 数字签名并校验
+    for (const f of files) {
+      const fileResult = (result.files || []).find((item) => item.fileId === f.id);
+      if (!fileResult) continue;
+      const isPdf = String(f.mime_type || '').toLowerCase() === 'application/pdf';
+      if (isPdf && f.file_path && fs.existsSync(f.file_path)) {
+        try {
+          fileResult.pdfSignature = verifyPdfSignature(fs.readFileSync(f.file_path));
+        } catch (e) {
+          fileResult.pdfSignature = {
+            present: true,
+            valid: false,
+            signatures: [],
+            message: safeString(e.message)
+          };
+        }
+        if (fileResult.pdfSignature.present && !fileResult.pdfSignature.valid) {
+          result.valid = false;
+        }
+      } else {
+        fileResult.pdfSignature = {
+          present: false,
+          valid: null,
+          signatures: [],
+          message: isPdf ? '文件缺失，无法验签' : '非 PDF 文件'
+        };
+      }
+    }
 
     res.json({
       status: 'success',
