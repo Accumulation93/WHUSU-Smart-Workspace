@@ -55,14 +55,15 @@ audit/
 
 ---
 
-## 3. signaturePad 组件 — Canvas 坐标对齐
+## 3. signaturePad 组件 — 视口绝对坐标契约
 
-五层 DPR 防御：
-1. 双源测量（fields + boundingClientRect）
-2. rpx 自动检测和转换
-3. touchStart 时重验证
-4. 每次绘制前 `ctx.setTransform(dpr, 0, 0, dpr, 0, 0)`
-5. 边框隔离在 wrapper 上
+签名板固定使用普通视图实时笔迹，原生 Canvas 只负责隐藏导出：
+
+1. 可视白板为普通 `view`，实时线段也为普通 `view`；可视原生 Canvas 属于硬性违规。
+2. 白板 rect、`Touch.clientX/clientY` 和线段端点统一为视口 CSS px 绝对坐标。线段数据保存 `screenX1/Y1/screenX2/Y2`，禁止 scrollTop、DPR、rpx 或固定偏移。
+3. 普通视图渲染时才从绝对端点减一次白板 `rect.left/top`；白板与笔迹层必须裁切。
+4. 隐藏 Canvas 不绑定触摸，只在确认时将绝对端点投影到白板局部坐标并导出 1:1 PNG。
+5. 严格 UI 审计必须检查上述结构；改动后必须用真实鼠标/触控事件验证，禁止直接调用组件方法生成验收线。
 
 ---
 
@@ -92,7 +93,7 @@ await callFunction({ name: 'markAllSubmissionsRead' });
 ## 7. 模块特定禁止事项
 
 - ❌ 修改 submissionDetail 不测试创建和审批两条完整路径
-- ❌ 改动 signaturePad 不测试 iOS 和 Android 双端
+- ❌ 改动 signaturePad 不测试开发者工具模拟器和实际触控设备
 - ❌ 审批流程中跳过 EventBus `approval:done` 事件
 - ❌ 签名定位弹窗取消后不恢复 `_placementSnapshot`
 - ❌ 审批后忘记 `markSubmissionRead`

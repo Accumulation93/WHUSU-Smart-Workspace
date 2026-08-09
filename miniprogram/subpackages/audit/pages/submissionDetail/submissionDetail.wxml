@@ -611,8 +611,9 @@
           </view>
           <view class="field field-mb-8"><input class="field-input" placeholder="搜索姓名/学号" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
-            <view wx:if="{{!editPersonPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
-            <view class="audit-person-item ui-motion-card" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+            <view wx:if="{{editPersonPickerLoading}}" class="empty-inline">正在加载人员列表</view>
+            <view wx:elif="{{!editPersonPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
+            <view wx:if="{{!editPersonPickerLoading}}" class="audit-person-item ui-motion-card" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
               <view class="audit-person-info">
                 <view class="audit-person-name"><view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>{{item.name}}</view>
@@ -720,11 +721,11 @@
             <block wx:for="{{placementItems}}" wx:key="dispIdx" wx:for-item="item">
               <block wx:if="{{!placementFileMime || placementFileMime.indexOf('pdf') < 0 || item.page === placementCurrentPage}}">
                 <image src="{{item.previewSrc}}"
-                       mode="aspectFit"
+                       mode="widthFix"
                        data-sig-idx="{{item.dispIdx}}"
                        catchtap="onPlacementItemTap"
                        class="placement-sign-overlay {{placementActiveIdx === item.dispIdx ? 'placement-sign-overlay-active' : ''}} ui-motion-card"
-                       style="left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;width:{{18 * (item.size || 1)}}%;height:{{112 * (item.size || 1)}}rpx;transform:translate(-50%, -50%) rotate({{item.rotation || 0}}deg);"  hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"/>
+                       style="left:{{item.positionX * 100}}%;top:{{item.positionY * 100}}%;width:{{18 * (item.size || 1)}}%;transform:translate(-50%, -50%) rotate({{item.rotation || 0}}deg);"  hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"/>
               </block>
             </block>
             <!-- Crosshair showing current position -->
@@ -886,21 +887,19 @@
   </viewport-portal>
 
   <!-- Signature Pad Popup (with save-to-library controls) -->
-  <!-- ★ catchtouchmove="noop" 阻止触摸滑动穿透到底层页面，防止签名时页面翻动 -->
-  <viewport-portal wx:if="{{signaturePadVisible}}">
-  <view class="popup-mask ui-overlay ui-dialog-touch-lock" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad" catchtouchmove="noop">
+  <!-- Canvas 自己 catch 触摸；祖先不得拦截，否则会破坏连续笔迹。 -->
+  <view class="popup-mask ui-overlay ui-dialog-touch-lock signature-pad-overlay" wx:if="{{signaturePadVisible}}" bindtap="closeSignaturePad">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
-    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex ui-dialog-touch-lock" catchtap="noop" catchtouchmove="noop">
+    <view class="popup-card signature-popup-card ui-dialog-touch-lock" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">手写签名</view>
         <text class="popup-close ui-motion-chip" catchtap="closeSignaturePad" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
       <view class="ui-dialog-body ui-dialog-content ui-dialog-content--workspace signature-pad-dialog-body">
-        <signature-pad bindconfirm="onSignatureConfirm" />
+        <signature-pad id="signaturePad" bindconfirm="onSignatureConfirm" />
       </view>
     </view>
   </view>
-  </viewport-portal>
 
     <!-- ═══ Person picker popup (multi-select) ═══ -->
   <viewport-portal wx:if="{{personPickerVisible}}">
@@ -955,8 +954,9 @@
 
         <!-- Candidate list -->
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
-          <view wx:if="{{!personPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
-          <view class="audit-person-item ui-motion-card" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view wx:if="{{personPickerLoading}}" class="empty-inline">正在加载人员列表</view>
+          <view wx:elif="{{!personPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
+          <view wx:if="{{!personPickerLoading}}" class="audit-person-item ui-motion-card" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
             <view class="audit-person-info">
               <view class="audit-person-name">

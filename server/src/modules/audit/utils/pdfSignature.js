@@ -108,6 +108,83 @@ function rsaSignSha256(privateKeyObject, dataBuffer) {
   return crypto.sign('sha256', dataBuffer, privateKeyObject);
 }
 
+function readPemSetting(valueName, pathName) {
+  const inlineValue = process.env[valueName];
+  if (inlineValue) return inlineValue.replace(/\\n/g, '\n');
+  const filePath = process.env[pathName];
+  if (!filePath) return '';
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+function splitCertificateChain(pem) {
+  return String(pem || '').match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) || [];
+}
+
+/**
+ * 读取 CA 签发的组织级 PDF 文档签名身份。
+ * 未配置时返回 null，由调用方使用临时自签名证书兼容旧数据。
+ */
+function getConfiguredSigningIdentity() {
+  const privateKeyPem = readPemSetting('PDF_SIGNING_PRIVATE_KEY_PEM', 'PDF_SIGNING_PRIVATE_KEY_PATH');
+  const certificatePem = readPemSetting('PDF_SIGNING_CERTIFICATE_PEM', 'PDF_SIGNING_CERTIFICATE_PATH');
+  const certificateChainPem = readPemSetting('PDF_SIGNING_CERTIFICATE_CHAIN_PEM', 'PDF_SIGNING_CERTIFICATE_CHAIN_PATH');
+  if (!privateKeyPem && !certificatePem && !certificateChainPem) return null;
+  if (!privateKeyPem || !certificatePem) {
+    throw new Error('PDF签名证书配置不完整');
+  }
+
+  try {
+    const privateKey = crypto.createPrivateKey(privateKeyPem);
+    const certificate = new crypto.X509Certificate(certificatePem);
+    const privatePublicKey = crypto.createPublicKey(privateKey).export({ type: 'spki', format: 'der' });
+    const certificatePublicKey = certificate.publicKey.export({ type: 'spki', format: 'der' });
+    if (!privatePublicKey.equals(certificatePublicKey)) {
+      throw new Error('PDF签名私钥与证书公钥不匹配');
+    }
+    const chain = splitCertificateChain(certificateChainPem)
+      .filter((item) => item.trim() && item.trim() !== certificatePem.trim());
+    return {
+      privateKeyPem,
+      publicKeyPem: crypto.createPublicKey(privateKey).export({ type: 'spki', format: 'pem' }).toString(),
+      certificatePem,
+      certificateChainPem: chain.join('\n'),
+      trustStatus: chain.length ? 'chain_configured' : 'certificate_configured'
+    };
+  } catch (error) {
+    throw new Error('PDF签名证书配置无效：' + (error.message || '无法读取证书'));
+  }
+}
+
+/**
+ * 读取内部 CA/父证书身份。该模式只适用于组织已经把父证书根加入阅读器信任库的场景。
+ * 公共 CA 通常不会把文档签名叶证书的签发私钥交给业务系统。
+ */
+function getConfiguredParentSigningIdentity() {
+  const privateKeyPem = readPemSetting('PDF_SIGNING_PARENT_PRIVATE_KEY_PEM', 'PDF_SIGNING_PARENT_PRIVATE_KEY_PATH');
+  const certificatePem = readPemSetting('PDF_SIGNING_PARENT_CERTIFICATE_PEM', 'PDF_SIGNING_PARENT_CERTIFICATE_PATH');
+  const chainPem = readPemSetting('PDF_SIGNING_PARENT_CHAIN_PEM', 'PDF_SIGNING_PARENT_CHAIN_PATH');
+  if (!privateKeyPem && !certificatePem && !chainPem) return null;
+  if (!privateKeyPem || !certificatePem) {
+    throw new Error('PDF签名父证书配置不完整');
+  }
+  try {
+    const privateKey = crypto.createPrivateKey(privateKeyPem);
+    const certificate = new crypto.X509Certificate(certificatePem);
+    const privatePublicKey = crypto.createPublicKey(privateKey).export({ type: 'spki', format: 'der' });
+    const certificatePublicKey = certificate.publicKey.export({ type: 'spki', format: 'der' });
+    if (!privatePublicKey.equals(certificatePublicKey)) {
+      throw new Error('PDF签名父证书私钥与证书公钥不匹配');
+    }
+    return {
+      privateKeyPem,
+      certificatePem,
+      chainPem
+    };
+  } catch (error) {
+    throw new Error('PDF签名父证书配置无效：' + (error.message || '无法读取证书'));
+  }
+}
+
 // ── 密钥对与证书 ─────────────────────────────────────────────
 function generateSigningKeyPair() {
   const keys = forge.pki.rsa.generateKeyPair(2048);
@@ -123,7 +200,7 @@ function generateSigningKeyPair() {
  * 生成自签名 X.509 v3 证书（Node crypto 签名），CN 为“姓名（学号）”，
  * 供 Acrobat 等 PDF 软件显示“由 姓名（学号）签署”。
  */
-function createSignerCertificate(privateKey, publicKey, signerName, studentId, orgName) {
+function createSignerCertificate(privateKey, publicKey, signerName, studentId, orgName, issuerOptions) {
   const serialHex = '01' + crypto.randomBytes(15).toString('hex');
   const serialBytes = Buffer.from(serialHex, 'hex').toString('binary');
   const dnAttrs = [
@@ -131,19 +208,25 @@ function createSignerCertificate(privateKey, publicKey, signerName, studentId, o
   ];
   if (orgName) dnAttrs.push({ name: 'organizationName', value: orgName });
   const rdn = aRdn(dnAttrs);
+  let issuerRdn = rdn;
+  let issuerPrivateKeyObject = rsaPrivateKeyObject(forge.pki.privateKeyToPem(privateKey));
+  if (issuerOptions && issuerOptions.certificatePem && issuerOptions.privateKeyPem) {
+    const issuerCertNode = parseAsn1(pemDecode(issuerOptions.certificatePem));
+    issuerRdn = issuerCertNode.value[0].value[5];
+    issuerPrivateKeyObject = rsaPrivateKeyObject(issuerOptions.privateKeyPem);
+  }
   const now = new Date();
   const tbs = aSequence([
     aContext(0, [aInteger(2)]), // X.509 v3
     aIntegerBytes(serialBytes),
     aSequence([aOid(OIDS.sha256WithRSAEncryption), aNull()]),
-    rdn, // issuer
+    issuerRdn,
     aSequence([aUtcTime(new Date(now.getTime() - 5 * 60 * 1000)), aUtcTime(new Date(now.getTime() + 3650 * 24 * 60 * 60 * 1000))]),
     rdn, // subject
     forge.pki.publicKeyToAsn1(publicKey)
   ]);
   const tbsDer = derOf(tbs);
-  const privateKeyObject = rsaPrivateKeyObject(forge.pki.privateKeyToPem(privateKey));
-  const signature = rsaSignSha256(privateKeyObject, tbsDer);
+  const signature = rsaSignSha256(issuerPrivateKeyObject, tbsDer);
   const certDer = derOf(aSequence([
     tbs,
     aSequence([aOid(OIDS.sha256WithRSAEncryption), aNull()]),
@@ -171,21 +254,24 @@ function runOpenSsl(args, timeoutMs) {
   });
 }
 
-async function buildOpenSslCms(privateKeyPem, certPem, contentBytes) {
+async function buildOpenSslCms(privateKeyPem, certPem, certificateChainPem, contentBytes) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whusu-pdfsig-'));
   const contentPath = path.join(tmpDir, 'content.bin');
   const certPath = path.join(tmpDir, 'cert.pem');
+  const chainPath = path.join(tmpDir, 'chain.pem');
   const keyPath = path.join(tmpDir, 'key.pem');
   const outPath = path.join(tmpDir, 'signature.der');
   try {
     fs.writeFileSync(contentPath, contentBytes);
     fs.writeFileSync(certPath, certPem);
+    if (certificateChainPem) fs.writeFileSync(chainPath, certificateChainPem);
     fs.writeFileSync(keyPath, privateKeyPem, { mode: 0o600 });
     await runOpenSsl([
       'cms', '-sign', '-binary',
       '-in', contentPath,
       '-signer', certPath,
       '-inkey', keyPath,
+      ...(certificateChainPem ? ['-certfile', chainPath] : []),
       '-outform', 'DER',
       '-out', outPath,
       '-md', 'sha256'
@@ -194,6 +280,7 @@ async function buildOpenSslCms(privateKeyPem, certPem, contentBytes) {
   } finally {
     try { fs.unlinkSync(contentPath); } catch (_) {}
     try { fs.unlinkSync(certPath); } catch (_) {}
+    try { fs.unlinkSync(chainPath); } catch (_) {}
     try { fs.unlinkSync(keyPath); } catch (_) {}
     try { fs.unlinkSync(outPath); } catch (_) {}
     try { fs.rmdirSync(tmpDir); } catch (_) {}
@@ -201,14 +288,15 @@ async function buildOpenSslCms(privateKeyPem, certPem, contentBytes) {
 }
 
 class OpenSslPdfSigner extends Signer {
-  constructor(privateKeyPem, certPem) {
+  constructor(privateKeyPem, certPem, certificateChainPem) {
     super();
     this.privateKeyPem = privateKeyPem;
     this.certPem = certPem;
+    this.certificateChainPem = certificateChainPem || '';
   }
 
   async sign(pdfBuffer) {
-    return buildOpenSslCms(this.privateKeyPem, this.certPem, pdfBuffer);
+    return buildOpenSslCms(this.privateKeyPem, this.certPem, this.certificateChainPem, pdfBuffer);
   }
 }
 
@@ -216,19 +304,21 @@ class OpenSslPdfSigner extends Signer {
  * 备用构建器（Node crypto 手写 CMS），仅在 openssl 不可用时启用。
  */
 class ForgePdfSigner extends Signer {
-  constructor(privateKeyPem, certPem, signerIdentity) {
+  constructor(privateKeyPem, certPem, certificateChainPem, signerIdentity) {
     super();
     this.privateKeyObject = rsaPrivateKeyObject(privateKeyPem);
     this.certDer = pemDecode(certPem);
+    this.certificateChain = splitCertificateChain(certificateChainPem)
+      .map(pemDecode);
     this.signerIdentity = signerIdentity || { name: '', studentId: '', orgName: '' };
   }
 
   async sign(pdfBuffer) {
-    return buildFallbackCms(this.certDer, this.privateKeyObject, pdfBuffer, this.signerIdentity);
+    return buildFallbackCms(this.certDer, this.certificateChain, this.privateKeyObject, pdfBuffer, this.signerIdentity);
   }
 }
 
-function buildFallbackCms(certDer, privateKeyObject, contentBytes, signerIdentity) {
+function buildFallbackCms(certDer, certificateChain, privateKeyObject, contentBytes, signerIdentity) {
   const certNode = parseAsn1(certDer);
   const tbs = certNode.value[0];
   const serialBytes = tbs.value[1].value;
@@ -254,7 +344,7 @@ function buildFallbackCms(certDer, privateKeyObject, contentBytes, signerIdentit
     aInteger(1),
     aSet([aSequence([aOid(OIDS.sha256), aNull()])]),
     aSequence([aOid(OIDS.data)]),
-    aContext(0, [certNode]),
+    aContext(0, [certNode, ...(certificateChain || []).map(parseAsn1)]),
     aSet([signerInfo])
   ]);
   return derOf(aSequence([aOid(OIDS.signedData), aContext(0, [signedData])]));
@@ -276,6 +366,7 @@ function fallbackSignerRdnAttrs(signerIdentity) {
 async function signPdfBuffer(pdfBuffer, privateKeyPem, certPem, options) {
   const pdfDoc = await PDFDocument.load(pdfBuffer, { updateMetadata: false });
   const opts = options || {};
+  const certificateChainPem = opts.certificateChainPem || '';
   const widgetRect = computeWidgetRect(pdfDoc, opts.signaturePosition);
   pdflibAddPlaceholder({
     pdfDoc,
@@ -289,12 +380,12 @@ async function signPdfBuffer(pdfBuffer, privateKeyPem, certPem, options) {
   });
   const pdfWithPlaceholder = Buffer.from(await pdfDoc.save());
   try {
-    return await new SignPdf().sign(pdfWithPlaceholder, new OpenSslPdfSigner(privateKeyPem, certPem));
+    return await new SignPdf().sign(pdfWithPlaceholder, new OpenSslPdfSigner(privateKeyPem, certPem, certificateChainPem));
   } catch (e) {
     // openssl 不可用时回退到自建 CMS（Node crypto 签名）
     return new SignPdf().sign(
       pdfWithPlaceholder,
-      new ForgePdfSigner(privateKeyPem, certPem, opts.signer || { name: '', studentId: '', orgName: '' })
+      new ForgePdfSigner(privateKeyPem, certPem, certificateChainPem, opts.signer || { name: '', studentId: '', orgName: '' })
     );
   }
 }
@@ -308,8 +399,10 @@ function computeWidgetRect(pdfDoc, position) {
   const { width, height } = page.getSize();
   const rectWidth = Math.min(190, Math.max(110, width * 0.22));
   const rectHeight = 46;
-  const cx = (parseFloat(position.x) || 0.5) * width;
-  const cy = height - ((parseFloat(position.y) || 0.5) * height);
+  const normalizedX = Number.isFinite(Number(position.x)) ? Math.max(0, Math.min(1, Number(position.x))) : 0.5;
+  const normalizedY = Number.isFinite(Number(position.y)) ? Math.max(0, Math.min(1, Number(position.y))) : 0.5;
+  const cx = normalizedX * width;
+  const cy = height - (normalizedY * height);
   const x1 = Math.max(0, Math.min(width - rectWidth, cx - rectWidth / 2));
   const y1 = Math.max(0, Math.min(height - rectHeight, cy - rectHeight / 2));
   return [x1, y1, x1 + rectWidth, y1 + rectHeight];
@@ -337,6 +430,19 @@ function extractSubjectCn(certNode) {
     }
   } catch (_) { /* fallthrough */ }
   return { signerName: '', studentId: '' };
+}
+
+function getCertificateTrustStatus(certNode, certsNode) {
+  try {
+    const tbs = certNode.value[0];
+    const issuer = tbs.value[3];
+    const subject = tbs.value[5];
+    if (issuer && subject && derOf(issuer).equals(derOf(subject))) return 'self_signed';
+    if (certsNode && certsNode.value && certsNode.value.length > 1) return 'chain_present';
+    return 'issuer_not_embedded';
+  } catch (_) {
+    return 'unknown';
+  }
 }
 
 function verifyCmsDer(cmsDer, contentBytes) {
@@ -399,7 +505,22 @@ function verifyCmsDer(cmsDer, contentBytes) {
       signedBytesForSig = derOf(aSet(attrs));
     }
 
-    const certNode = certsNode && certsNode.value && certsNode.value[0];
+    let certNode = null;
+    if (certsNode && certsNode.value && certsNode.value.length) {
+      const signerSid = siBody[1];
+      const signerSerial = signerSid && signerSid.value && signerSid.value[1]
+        ? signerSid.value[1].value
+        : null;
+      certNode = certsNode.value.find((candidate) => {
+        try {
+          return signerSerial && candidate.value && candidate.value[0] &&
+            candidate.value[0].value[1] &&
+            Buffer.from(candidate.value[0].value[1].value, 'binary').equals(Buffer.from(signerSerial, 'binary'));
+        } catch (_) {
+          return false;
+        }
+      }) || certsNode.value[0];
+    }
     let signerName = '';
     let studentId = '';
     if (certNode) {
@@ -418,11 +539,18 @@ function verifyCmsDer(cmsDer, contentBytes) {
       if (!cryptoOk) {
         return { ok: false, signerName, studentId, error: '签名者证书校验失败' };
       }
+      const trustStatus = getCertificateTrustStatus(certNode, certsNode);
+      return {
+        ok: true,
+        signerName,
+        studentId,
+        algorithm: 'RSA-SHA256',
+        trustStatus,
+        error: ''
+      };
     } else {
       return { ok: false, signerName, studentId, error: '缺少签名者证书' };
     }
-
-    return { ok: true, signerName, studentId, algorithm: 'RSA-SHA256', error: '' };
   } catch (e) {
     return { ok: false, signerName: '', studentId: '', error: safeError(e) };
   }
@@ -446,12 +574,14 @@ function verifyPdfSignature(pdfBuffer) {
       signerName: result.signerName || '',
       studentId: result.studentId || '',
       algorithm: result.algorithm || 'RSA-SHA256',
+      trustStatus: result.trustStatus || 'unknown',
       error: result.error || ''
     });
   }
   return {
     present: signatures.length > 0,
     valid: signatures.length > 0 && signatures.every((s) => s.ok),
+    trusted: signatures.length > 0 && signatures.every((s) => s.trustStatus === 'chain_present'),
     signatures
   };
 }
@@ -465,5 +595,7 @@ module.exports = {
   createSignerCertificate,
   signPdfBuffer,
   verifyPdfSignature,
-  pemDecode
+  pemDecode,
+  getConfiguredSigningIdentity,
+  getConfiguredParentSigningIdentity
 };

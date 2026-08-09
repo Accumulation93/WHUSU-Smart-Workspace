@@ -8,6 +8,24 @@ async function getAll() {
   return rows;
 }
 
+async function getAllWithDirectory() {
+  const orgId = await getCurrentOrgId();
+  const [rows] = await pool.query(
+    `SELECT h.id, h.name, h.student_id AS studentId,
+            h.department_id AS departmentId, d.name AS department,
+            h.identity_id AS identityId, i.name AS identity,
+            h.work_group_id AS workGroupId, wg.name AS workGroup
+       FROM hr_info h
+       LEFT JOIN departments d ON h.department_id = d.id AND d.org_id = ?
+       LEFT JOIN identities i ON h.identity_id = i.id AND i.org_id = ?
+       LEFT JOIN work_groups wg ON h.work_group_id = wg.id AND wg.org_id = ?
+      WHERE h.org_id = ?
+      ORDER BY h.name`,
+    [orgId, orgId, orgId, orgId]
+  );
+  return rows;
+}
+
 async function getById(id) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query('SELECT * FROM hr_info WHERE id = ? AND org_id = ?', [id, orgId]);
@@ -133,6 +151,7 @@ async function getByIdInOrg(id, orgId) {
 
 module.exports = {
   getAll,
+  getAllWithDirectory,
   getById,
   getByIdInOrg,
   getByIds,

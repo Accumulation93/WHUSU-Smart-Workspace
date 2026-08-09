@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const { PDFDocument } = require('pdf-lib');
+const forge = require('node-forge');
 const {
   generateSigningKeyPair,
   createSignerCertificate,
@@ -13,6 +14,27 @@ async function buildBlankPdf() {
   const doc = await PDFDocument.create();
   doc.addPage([595, 842]);
   return Buffer.from(await doc.save());
+}
+
+function buildTestParentCertificate() {
+  const keys = forge.pki.rsa.generateKeyPair(2048);
+  const cert = forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = '01';
+  cert.validity.notBefore = new Date(Date.now() - 60000);
+  cert.validity.notAfter = new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000);
+  const attrs = [{ name: 'commonName', value: 'WHUSU Test Parent CA' }];
+  cert.setSubject(attrs);
+  cert.setIssuer(attrs);
+  cert.setExtensions([
+    { name: 'basicConstraints', cA: true },
+    { name: 'keyUsage', keyCertSign: true, cRLSign: true }
+  ]);
+  cert.sign(keys.privateKey, forge.md.sha256.create());
+  return {
+    privateKeyPem: forge.pki.privateKeyToPem(keys.privateKey),
+    certificatePem: forge.pki.certificateToPem(cert)
+  };
 }
 
 (async () => {
@@ -43,8 +65,30 @@ async function buildBlankPdf() {
   assert.strictEqual(verify.valid, true, '数字签名应有效');
   assert.strictEqual(verify.signatures.length, 1, '应解析出 1 个签名');
   assert.strictEqual(verify.signatures[0].ok, true, '签名校验应通过');
+  assert.strictEqual(verify.signatures[0].trustStatus, 'self_signed', '测试证书应明确标记为自签名未受信');
+  assert.strictEqual(verify.trusted, false, '自签名证书不应被报告为受信');
   assert.strictEqual(verify.signatures[0].signerName, '张三', '签名人姓名应为真实姓名');
   assert.strictEqual(verify.signatures[0].studentId, '20210001', '签名人学号应正确');
+
+  const parent = buildTestParentCertificate();
+  const childPair = generateSigningKeyPair();
+  const childCert = createSignerCertificate(
+    childPair.privateKey,
+    childPair.publicKey,
+    '李四',
+    '20210002',
+    '武汉大学第四十四届学生会',
+    parent
+  );
+  const parentSigned = await signPdfBuffer(pdf, childPair.privateKeyPem, childCert, {
+    signer: { name: '李四', studentId: '20210002', orgName: '武汉大学第四十四届学生会' },
+    certificateChainPem: parent.certificatePem,
+    signaturePosition: { x: 0, y: 1, page: 1 }
+  });
+  const parentVerify = verifyPdfSignature(parentSigned);
+  assert.strictEqual(parentVerify.valid, true, '父证书签发的数字签名应有效');
+  assert.strictEqual(parentVerify.trusted, true, '签名容器应携带父证书链');
+  assert.strictEqual(parentVerify.signatures[0].trustStatus, 'chain_present', '应识别出已嵌入证书链');
 
   // 篡改签名覆盖区内的内容 → 验签必须失败
   const tampered = Buffer.from(signed);

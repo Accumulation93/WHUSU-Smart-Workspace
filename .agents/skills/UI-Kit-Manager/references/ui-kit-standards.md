@@ -1,0 +1,41 @@
+# UI Kit 硬规范
+
+项目 UI 事实来源为 `docs/ui-kit.md`、`docs/ui-components.md` 和
+`docs/ui-page-templates.md`。本文件记录一旦破坏就会造成真实业务错位的硬契约。
+
+## 签名坐标契约（不可破坏）
+
+手写签名固定使用“视口绝对坐标 + 普通视图实时笔迹”模型：
+
+```text
+白板 rect.left/top/right/bottom（视口 CSS px）
+Touch.clientX/clientY（同一视口 CSS px）
+  → 裁切后保存为 screenX/screenY 绝对端点
+  → 普通 view 线段实时显示（与白板同一视图层）
+  → 确认时 screenX/Y - 白板 rect.left/top
+  → 不可见 Canvas 仅负责导出 PNG
+  → 文件预览 positionX/positionY（归一化中心点）
+  → 图片/PDF 合成与 PDF 签名域
+```
+
+硬性要求：
+
+1. 可视签名区域必须是普通 `view`，实时笔迹必须由该视图内的普通 `view` 线段渲染。严禁使用可视原生 Canvas 显示实时笔迹；微信原生 Canvas 在 Portal、fixed、transform 和页面滚动组合下可能脱离视图层。
+2. 初始化只对可视白板执行一次 `.fields({ size: true, rect: true })`，取得视口 CSS px 的 `left/top/right/bottom/width/height`。白板绝对边界是触点和笔迹的唯一屏幕范围，不使用固定偏移值、DPR、rpx 猜测或 scrollTop 补偿。
+3. 每个触点只读取 `Touch.clientX/clientY`，裁切到白板绝对边界后保存为 `screenX/screenY`。每条实时线段的两个端点都必须保持绝对坐标；渲染到白板子视图时，仅在生成样式的最后一步减一次 `rect.left/top`。
+4. 页面滚动、弹窗定位和设备尺寸不得参与笔迹换算。白板 rect 与 Touch 都是同一物理视口中的 CSS px，因此无论弹窗位于 Portal、fixed、absolute 或滚动页面，只要白板完成布局后重新测量，绝对坐标关系保持一致。
+5. 原生 Canvas 只能作为不可见导出器，不得绑定触摸、不得承担实时显示。确认签名时，将已保存的绝对端点分别减去白板 `rect.left/top`，绘制到与白板 `width/height` 相同的 1:1 buffer；导出尺寸不得乘 DPR。
+6. 初始签名图片在白板中用普通 `image` 显示，导出时再绘制到隐藏 Canvas。清除操作必须同时清除普通视图线段和初始图片状态。
+7. 白板、实时笔迹层和线段都必须 `overflow:hidden` 或受白板裁切；任何笔迹都不能进入按钮、弹窗外壳或背景。
+8. 文件定位继续只保存实际预览图中的归一化中心点 `positionX/positionY ∈ [0,1]`。预览签名保持原始宽高比；图片、PDF 和 PDF Widget 每个目标坐标系只转换一次。
+9. 改动后必须用真实鼠标或触控事件从明确起点拖到明确终点，检查指针轨迹与普通视图笔迹逐点重合。禁止直接调用组件方法、隐藏 Canvas 或绘图 API生成测试线冒充现场验收。
+
+禁止事项：
+
+- 禁止恢复可视原生 Canvas 实时笔迹；
+- 禁止直接使用 `Touch.x/y`、`pageX/pageY`；
+- 禁止把 scrollTop、状态栏高度、标题栏高度、弹窗 top 或设备经验偏移写进笔迹坐标；
+- 禁止 DPR buffer、`ctx.scale(DPR)`、`setTransform(DPR)` 和 rpx 自动识别；
+- 禁止把局部坐标作为实时笔迹的事实数据；局部坐标只能在普通视图样式或最终导出时由绝对坐标投影得到；
+- 禁止用固定高度代替签名图片真实宽高比；
+- 禁止只验证导出 Canvas，而不验证真实触点和屏幕实时笔迹。

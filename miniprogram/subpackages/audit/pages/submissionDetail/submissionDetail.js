@@ -67,6 +67,7 @@ Page({
     personPickerStepActionType: 'sign',
     personPickerMode: '',  // '' | 'designateNext'
     personPickerEligibleList: [],  // API-loaded eligible approvers for current step
+    personPickerLoading: false,
 
     // Edit mode (for editable submissions)
     editMode: false,
@@ -93,6 +94,7 @@ Page({
     editPersonPickerSelectedIds: [],
     editPersonPickerSelectedList: [],
     editPersonPickerStepActionType: 'pass',
+    editPersonPickerLoading: false,
     editUploading: false,
 
     // Approval mode
@@ -206,11 +208,12 @@ Page({
 
   async loadReferenceData() {
     try {
+      const safeCall = promise => promise.catch(() => ({ status: 'error' }));
       const [deptRes, identRes, hrRes, wgRes] = await Promise.all([
-        callFunction({ name: 'listDepartments', data: {} }),
-        callFunction({ name: 'listIdentities', data: {} }),
-        callFunction({ name: 'listHrInfo', data: {} }),
-        callFunction({ name: 'listWorkGroups', data: {} })
+        safeCall(callFunction({ name: 'listDepartments', data: {} })),
+        safeCall(callFunction({ name: 'listIdentities', data: {} })),
+        safeCall(callFunction({ name: 'listHrInfo', data: {} })),
+        safeCall(callFunction({ name: 'listWorkGroups', data: {} }))
       ]);
 
       const departments = (deptRes.status === 'success' ? deptRes.departments : []) || [];
@@ -218,10 +221,11 @@ Page({
       const hrPersons = (hrRes.status === 'success' ? hrRes.list : []) || [];
       const workGroups = (wgRes.status === 'success' ? wgRes.workGroups : []) || [];
 
-      const deptNames = departments.map(d => d.name).sort((a, b) => a.localeCompare(b, 'zh-CN'));
-      const identNames = identities.map(i => i.name);
-      // Use HR persons' actual work groups for filter consistency
-      const wgNames = [...new Set(hrPersons.map(p => p.workGroup).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+      const deptNames = [...new Set(departments.map(d => d.name).concat(hrPersons.map(p => p.department)).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'zh-CN'));
+      const identNames = [...new Set(identities.map(i => i.name).concat(hrPersons.map(p => p.identity)).filter(Boolean))];
+      const wgNames = [...new Set(workGroups.map(w => w.name).concat(hrPersons.map(p => p.workGroup)).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'zh-CN'));
 
       this.setData({
         allDepartments: departments,
@@ -238,6 +242,39 @@ Page({
     } catch (e) {
       // Non-fatal; picker will just show fewer options
     }
+  },
+
+  _normalizeApproverList(list) {
+    const deptMap = {};
+    const identMap = {};
+    const wgMap = {};
+    (this.data.allDepartments || []).forEach(d => { deptMap[d.id] = d.name; });
+    (this.data.allIdentities || []).forEach(i => { identMap[i.id] = i.name; });
+    (this.data.allWorkGroups || []).forEach(w => { wgMap[w.id] = w.name; });
+    return (Array.isArray(list) ? list : []).map(p => ({
+      ...p,
+      id: String(p.id || ''),
+      department: deptMap[p.departmentId] || p.department || '',
+      identity: identMap[p.identityId] || p.identity || '',
+      workGroup: wgMap[p.workGroupId] || p.workGroup || '',
+      studentId: p.studentId || ''
+    })).filter(p => p.id);
+  },
+
+  _updatePersonPickerOptions(list) {
+    const persons = Array.isArray(list) ? list : [];
+    const departments = (this.data.allDepartments || []).map(d => d.name)
+      .concat(persons.map(p => p.department));
+    const identities = (this.data.allIdentities || []).map(i => i.name)
+      .concat(persons.map(p => p.identity));
+    const workGroups = (this.data.allWorkGroups || []).map(w => w.name)
+      .concat(persons.map(p => p.workGroup));
+    const unique = values => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    this.setData({
+      personPickerDeptOpts: ['全部', ...unique(departments)],
+      personPickerIdentOpts: ['全部', ...unique(identities)],
+      personPickerWgOpts: ['全部', ...unique(workGroups)]
+    });
   },
 
   // ═══════════════════════════════════════════════
@@ -306,33 +343,32 @@ Page({
       showShortToast('该步骤按审批条件确定审批人');
       return;
     }
+
+    this.setData({
+      personPickerVisible: true,
+      personPickerLoading: true,
+      personPickerMode: '',
+      templateOverrideStepIndex: stepIndex,
+      personPickerDept: '全部',
+      personPickerIdent: '全部',
+      personPickerWg: '全部',
+      personPickerKeyword: '',
+      personPickerSelectedIds: [],
+      personPickerSelectedList: [],
+      personPickerStepActionType: 'pass'
+    });
+
     // Load eligible approvers from server (stepIndex is 1-based in UI)
     let eligibleList = [];
     try {
       let res = await callFunction({ name: 'listEligibleApprovers', data: { templateId: this.data.selectedTemplateId, stepIndex: stepIndex } });
       if (res.status === 'success') {
-        eligibleList = res.approvers || [];
-        // Attach department/identity/workGroup names for filter compatibility
-        let deptMap = {};
-        let identMap = {};
-        let wgMap = {};
-        (this.data.allDepartments || []).forEach(function(d) { deptMap[d.id] = d.name; });
-        (this.data.allIdentities || []).forEach(function(i) { identMap[i.id] = i.name; });
-        (this.data.allWorkGroups || []).forEach(function(w) { wgMap[w.id] = w.name; });
-        eligibleList = eligibleList.map(function(p) {
-          return {
-            ...p,
-            department: deptMap[p.departmentId] || p.department || '',
-            identity: identMap[p.identityId] || p.identity || '',
-            workGroup: wgMap[p.workGroupId] || p.workGroup || '',
-            studentId: p.studentId || ''
-          };
-        });
+        eligibleList = this._normalizeApproverList(res.approvers || []);
       }
     } catch (err) {
       console.error('[audit] listEligibleApprovers (template) failed:', err);
     }
-    this.setData({ personPickerEligibleList: eligibleList });
+    this._updatePersonPickerOptions(eligibleList);
 
     // Pre-populate selected persons from existing override
     let entry = (this.data.templateStepOverrides || []).find(function(o) { return o.stepIndex === stepIndex; });
@@ -345,7 +381,10 @@ Page({
       });
     }
     this.setData({
+      personPickerEligibleList: eligibleList,
+      personPickerLoading: false,
       personPickerVisible: true,
+      personPickerMode: '',
       templateOverrideStepIndex: stepIndex,
       personPickerDept: '全部',
       personPickerIdent: '全部',
@@ -374,6 +413,8 @@ Page({
     this.setData({
       templateStepOverrides: overrides,
       personPickerVisible: false,
+      personPickerLoading: false,
+      personPickerMode: '',
       templateOverrideStepIndex: -1
     });
   },
@@ -472,10 +513,13 @@ Page({
 
   // ── Person picker popup (multi-select) ──
 
-  openPersonPicker() {
-    // Reset filters (options already loaded in loadReferenceData)
+  async openPersonPicker() {
+    // 先打开弹窗，再异步加载当前组织内可指定的完整人员目录。
     this.setData({
       personPickerVisible: true,
+      personPickerLoading: true,
+      personPickerMode: '',
+      templateOverrideStepIndex: -1,
       personPickerDept: '全部',
       personPickerIdent: '全部',
       personPickerWg: '全部',
@@ -484,11 +528,28 @@ Page({
       personPickerSelectedList: [],
       personPickerStepActionType: 'pass'
     });
+
+    let eligibleList = [];
+    try {
+      const res = await callFunction({ name: 'listEligibleApprovers', data: { all: true } });
+      if (res.status === 'success') eligibleList = this._normalizeApproverList(res.approvers || []);
+    } catch (error) {
+      console.error('[audit] listEligibleApprovers (ad hoc) failed:', error);
+      eligibleList = this._normalizeApproverList(this.data.allHrPersons || []);
+    }
+    if (!eligibleList.length && (this.data.allHrPersons || []).length) {
+      eligibleList = this._normalizeApproverList(this.data.allHrPersons);
+    }
+    this._updatePersonPickerOptions(eligibleList);
+    this.setData({
+      personPickerEligibleList: eligibleList,
+      personPickerLoading: false
+    });
     this.applyPersonPickerFilters();
   },
 
   closePersonPicker() {
-    this.setData({ personPickerVisible: false });
+    this.setData({ personPickerVisible: false, personPickerLoading: false, personPickerMode: '', templateOverrideStepIndex: -1 });
   },
 
   onPersonPickerDeptChange(e) {
@@ -535,7 +596,7 @@ Page({
       isSelected: selectedIds.includes(p.id)
     }));
 
-    const selectedList = candidates.filter(p => p.isSelected);
+    const selectedList = this.data.personPickerEligibleList.filter(p => selectedIds.includes(p.id));
 
     this.setData({
       personPickerCandidates: candidates,
@@ -1556,10 +1617,14 @@ Page({
   // User wants to draw a new signature — open signature pad from picker
   onOpenNewSignaturePad() {
     let fileId = this.data.sigSourceFileId;
+    this._showSignaturePad(fileId, true);
+  },
+
+  _showSignaturePad(fileId, closeSourcePicker) {
     this.setData({
       currentSignatureFileId: fileId,
       signaturePadVisible: true,
-      sigSourcePickerVisible: false  // Close picker to avoid double-popup
+      sigSourcePickerVisible: closeSourcePicker ? false : this.data.sigSourcePickerVisible
     });
   },
 
@@ -1755,10 +1820,7 @@ Page({
   // Legacy: open signature pad directly (used in old approval dialog)
   openSignaturePad(e) {
     const fileId = e.currentTarget.dataset.fileId;
-    this.setData({
-      signaturePadVisible: true,
-      currentSignatureFileId: fileId
-    });
+    this._showSignaturePad(fileId, false);
   },
 
   closeSignaturePad() {
@@ -1857,33 +1919,30 @@ Page({
       showShortToast('下一步按审批条件确定审批人');
       return;
     }
+    this.setData({
+      personPickerVisible: true,
+      personPickerLoading: true,
+      personPickerMode: 'designateNext',
+      personPickerDept: '全部',
+      personPickerIdent: '全部',
+      personPickerWg: '全部',
+      personPickerKeyword: '',
+      personPickerSelectedIds: [],
+      personPickerSelectedList: [],
+      personPickerStepActionType: 'pass'
+    });
+
     // Load eligible approvers from server
     let eligibleList = [];
     try {
       let res = await callFunction({ name: 'listEligibleApprovers', data: { submissionId: this.data.submissionId } });
       if (res.status === 'success') {
-        eligibleList = res.approvers || [];
-        // Attach department/identity/workGroup names for filter compatibility
-        let deptMap = {};
-        let identMap = {};
-        let wgMap = {};
-        (this.data.allDepartments || []).forEach(function(d) { deptMap[d.id] = d.name; });
-        (this.data.allIdentities || []).forEach(function(i) { identMap[i.id] = i.name; });
-        (this.data.allWorkGroups || []).forEach(function(w) { wgMap[w.id] = w.name; });
-        eligibleList = eligibleList.map(function(p) {
-          return {
-            ...p,
-            department: deptMap[p.departmentId] || p.department || '',
-            identity: identMap[p.identityId] || p.identity || '',
-            workGroup: wgMap[p.workGroupId] || p.workGroup || '',
-            studentId: p.studentId || ''
-          };
-        });
+        eligibleList = this._normalizeApproverList(res.approvers || []);
       }
     } catch (err) {
       console.error('[audit] listEligibleApprovers (submission) failed:', err);
     }
-    this.setData({ personPickerEligibleList: eligibleList });
+    this._updatePersonPickerOptions(eligibleList);
 
     // Pre-populate with current designation
     let preIds = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
@@ -1891,6 +1950,8 @@ Page({
       return preIds.indexOf(p.id) >= 0;
     });
     this.setData({
+      personPickerEligibleList: eligibleList,
+      personPickerLoading: false,
       personPickerVisible: true,
       personPickerDept: '全部',
       personPickerIdent: '全部',
@@ -2217,10 +2278,10 @@ Page({
   // isAbsolute=false means element-relative coords (e.detail.x/y from bindtap).
   _getTapClientPoint(e) {
     let touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
-    if (touch) {
+    if (touch && Number.isFinite(Number(touch.clientX)) && Number.isFinite(Number(touch.clientY))) {
       return {
-        x: touch.clientX != null ? touch.clientX : touch.x,
-        y: touch.clientY != null ? touch.clientY : touch.y,
+        x: Number(touch.clientX),
+        y: Number(touch.clientY),
         isAbsolute: true   // clientX/Y are viewport-relative CSS pixels
       };
     }
@@ -2234,14 +2295,16 @@ Page({
   // Apply placement position to active signature
   _applyPlacementPosition(px, py) {
     let that = this;
+    let normalizedX = Math.max(0, Math.min(1, Number(px) || 0));
+    let normalizedY = Math.max(0, Math.min(1, Number(py) || 0));
     let idx = that.data.placementActiveIdx;
     let sigs = [...that.data.pendingSignatures];
     let items = [...that.data.placementItems];
     let page = that.data.placementCurrentPage;
 
     if (idx >= 0 && idx < sigs.length) {
-      sigs[idx].positionX = px;
-      sigs[idx].positionY = py;
+      sigs[idx].positionX = normalizedX;
+      sigs[idx].positionY = normalizedY;
       sigs[idx].page = page;
       sigs[idx].posText = this._computeSigPosText(sigs[idx]);
     }
@@ -2249,17 +2312,17 @@ Page({
     // Update placementItems for visual preview
     for (let i = 0; i < items.length; i++) {
       if (items[i].dispIdx === idx) {
-        items[i].positionX = px;
-        items[i].positionY = py;
+        items[i].positionX = normalizedX;
+        items[i].positionY = normalizedY;
         items[i].page = page;
         break;
       }
     }
 
     that.setData({
-      placementPreviewX: px,
-      placementPreviewY: py,
-      placementPosText: (px * 100).toFixed(1) + '%, ' + (py * 100).toFixed(1) + '%',
+      placementPreviewX: normalizedX,
+      placementPreviewY: normalizedY,
+      placementPosText: (normalizedX * 100).toFixed(1) + '%, ' + (normalizedY * 100).toFixed(1) + '%',
       pendingSignatures: sigs,
       placementItems: items
     });
@@ -2313,14 +2376,16 @@ Page({
   // Save the adjusted position and page
   confirmPlacement() {
     let idx = this.data.placementActiveIdx;
-    let px = this.data.placementPreviewX;
-    let py = this.data.placementPreviewY;
+    let rawPx = Number(this.data.placementPreviewX);
+    let rawPy = Number(this.data.placementPreviewY);
     let page = this.data.placementCurrentPage;
-    if (idx < 0 || px < 0 || py < 0) {
+    if (idx < 0 || !Number.isFinite(rawPx) || !Number.isFinite(rawPy) || rawPx < 0 || rawPy < 0) {
       this._placementSnapshot = null;
       this.setData({ placementVisible: false, placementAutoOpened: false });
       return;
     }
+    let px = Math.max(0, Math.min(1, rawPx));
+    let py = Math.max(0, Math.min(1, rawPy));
     let sigs = [...this.data.pendingSignatures];
     if (idx < sigs.length) {
       sigs[idx].positionX = px;
@@ -2651,9 +2716,10 @@ Page({
 
   // ── Edit: Person picker ──
 
-  openEditPersonPicker() {
+  async openEditPersonPicker() {
     this.setData({
       editPersonPickerVisible: true,
+      editPersonPickerLoading: true,
       editPersonPickerDept: '全部',
       editPersonPickerIdent: '全部',
       editPersonPickerWg: '全部',
@@ -2662,10 +2728,20 @@ Page({
       editPersonPickerSelectedList: [],
       editPersonPickerStepActionType: 'pass'
     });
+    let persons = [];
+    try {
+      const res = await callFunction({ name: 'listEligibleApprovers', data: { all: true } });
+      if (res.status === 'success') persons = this._normalizeApproverList(res.approvers || []);
+    } catch (error) {
+      console.error('[audit] listEligibleApprovers (edit) failed:', error);
+    }
+    if (!persons.length) persons = this._normalizeApproverList(this.data.allHrPersons || []);
+    this._updatePersonPickerOptions(persons);
+    this.setData({ allHrPersons: persons, editPersonPickerLoading: false });
     this.applyEditPersonPickerFilters();
   },
 
-  closeEditPersonPicker() { this.setData({ editPersonPickerVisible: false }); },
+  closeEditPersonPicker() { this.setData({ editPersonPickerVisible: false, editPersonPickerLoading: false }); },
 
   onEditPersonPickerDeptChange(e) {
     let opts = this.data.personPickerDeptOpts;
@@ -2706,7 +2782,9 @@ Page({
 
     let selectedIds = this.data.editPersonPickerSelectedIds;
     let candidates = list.map(function(p) { return { ...p, isSelected: selectedIds.indexOf(p.id) >= 0 }; });
-    let selectedList = candidates.filter(function(p) { return p.isSelected; });
+    let selectedList = this.data.allHrPersons.filter(function(p) {
+      return selectedIds.indexOf(String(p.id)) >= 0;
+    });
 
     this.setData({ editPersonPickerCandidates: candidates, editPersonPickerSelectedList: selectedList });
   },

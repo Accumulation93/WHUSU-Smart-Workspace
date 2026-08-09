@@ -25,7 +25,13 @@ const stampAssignmentModel = require('../models/identityStampAssignment');
 const { hashFile, computeSignatureHash } = require('../utils/hashChain');
 const { attachUploadedFiles } = require('../utils/fileSecurity');
 const { overlaySignaturesOnFile } = require('../utils/signatureOverlay');
-const { signPdfBuffer, generateSigningKeyPair, createSignerCertificate } = require('../utils/pdfSignature');
+const {
+  signPdfBuffer,
+  generateSigningKeyPair,
+  createSignerCertificate,
+  getConfiguredSigningIdentity,
+  getConfiguredParentSigningIdentity
+} = require('../utils/pdfSignature');
 const forge = require('node-forge');
 const { createNotification } = require('../utils/notificationHelper');
 const requestDeduplication = require('../../../utils/requestDeduplication');
@@ -1375,8 +1381,21 @@ router.post('/approveStep', async (req, res) => {
         const [orgRows] = await pool.query('SELECT name FROM organizations WHERE id = ?', [orgId]);
         const orgName = orgRows[0] ? safeString(orgRows[0].name) : '';
 
+        const configuredIdentity = getConfiguredSigningIdentity();
+        const parentIdentity = configuredIdentity ? null : getConfiguredParentSigningIdentity();
         let keyPair = null;
-        if (file.signing_key_private) {
+        let certificateChainPem = '';
+        let trustStatus = parentIdentity ? 'parent_configured' : 'self_signed';
+        if (configuredIdentity) {
+          keyPair = {
+            privateKey: forge.pki.privateKeyFromPem(configuredIdentity.privateKeyPem),
+            publicKey: forge.pki.publicKeyFromPem(configuredIdentity.publicKeyPem),
+            privateKeyPem: configuredIdentity.privateKeyPem,
+            publicKeyPem: configuredIdentity.publicKeyPem
+          };
+          certificateChainPem = configuredIdentity.certificateChainPem;
+          trustStatus = configuredIdentity.trustStatus;
+        } else if (file.signing_key_private) {
           keyPair = {
             privateKey: forge.pki.privateKeyFromPem(file.signing_key_private),
             publicKey: file.signing_key_public ? forge.pki.publicKeyFromPem(file.signing_key_public) : null,
@@ -1393,17 +1412,29 @@ router.post('/approveStep', async (req, res) => {
           }, conn);
         }
 
-        const certPem = createSignerCertificate(
-          keyPair.privateKey,
-          keyPair.publicKey,
-          signerName,
-          studentId,
-          orgName
-        );
+        if (parentIdentity) {
+          certificateChainPem = [parentIdentity.certificatePem, parentIdentity.chainPem]
+            .filter(Boolean).join('\n');
+        }
+        const certPem = configuredIdentity
+          ? configuredIdentity.certificatePem
+          : createSignerCertificate(
+            keyPair.privateKey,
+            keyPair.publicKey,
+            signerName,
+            studentId,
+            orgName,
+            parentIdentity
+              ? { privateKeyPem: parentIdentity.privateKeyPem, certificatePem: parentIdentity.certificatePem }
+              : null
+          );
         await submissionFileModel.saveSigningKey(fileId, {
-          privateKey: keyPair.privateKeyPem,
+          // CA 组织证书的私钥只从服务端密钥配置读取，不复制到业务数据库。
+          privateKey: configuredIdentity ? null : keyPair.privateKeyPem,
           publicKey: keyPair.publicKeyPem,
           cert: certPem,
+          certificateChain: certificateChainPem,
+          trustStatus: trustStatus,
           algorithm: 'RSA-SHA256'
         }, conn);
 
@@ -1414,7 +1445,8 @@ router.post('/approveStep', async (req, res) => {
             x: lastSigPosition.positionX,
             y: lastSigPosition.positionY,
             page: lastSigPosition.page
-          }
+          },
+          certificateChainPem: certificateChainPem
         });
         fs.writeFileSync(file.file_path, signedBuffer);
         finalBuffer = signedBuffer;
@@ -2673,8 +2705,15 @@ router.post('/listEligibleApprovers', async (req, res) => {
           return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
         }
       }
-    } else {
+    } else if (!(req.body && req.body.all === true)) {
       return res.json({ status: 'invalid_params', message: '缺少必要信息' });
+    }
+
+    // 自定义流程的“指定人员添加”需要完整目录；目录仍严格限制在当前组织，
+    // 不复用管理员专用的 listHrInfo 接口。
+    if (req.body && req.body.all === true && !submissionId && !templateId) {
+      const allHr = await hrInfoModel.getAllWithDirectory();
+      return res.json({ status: 'success', approvers: allHr });
     }
 
     // If no conditions or all conditions are "all" scope, return all HR

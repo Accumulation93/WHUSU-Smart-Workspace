@@ -357,6 +357,41 @@
 .placement-popup .popup-header { flex-shrink: 0; }
 /* Ensure "关闭" stays on one line */
 .placement-popup .popup-close { white-space: nowrap; flex-shrink: 0; }
+
+/*
+ * 签名实时笔迹是普通视图层，弹窗只负责视觉居中；坐标全部由白板 rect 与
+ * Touch.clientX/Y 的视口绝对坐标决定，不读取弹窗或页面滚动偏移。
+ */
+.signature-pad-overlay {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 34rpx 24rpx calc(34rpx + env(safe-area-inset-bottom)) !important;
+}
+
+.signature-popup-card {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: calc(100vw - 48rpx) !important;
+  max-width: 760rpx !important;
+  max-height: calc(100vh - 68rpx - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+.signature-popup-card:active,
+.signature-popup-card:focus,
+.signature-popup-card:focus-within {
+  transform: none !important;
+}
+
+.signature-pad-dialog-body {
+  min-height: 0;
+  overflow: hidden;
+}
 /* ★ 鲁棒约束：flex 自动分配空间，min-height:0 允许真正收缩，overflow:hidden 裁剪溢出内容。
      预览区永远在 header/hint 下方、pos-info/transform/actions 上方，绝不会挤出或遮挡底部按钮。 */
 .placement-canvas {
@@ -382,7 +417,8 @@
 .placement-sign-overlay {
   position: absolute;
   width: 18%;
-  height: 112rpx;
+  height: auto;
+  display: block;
   transform: translate(-50%, -50%);
   border-radius: 8rpx;
   opacity: 0.96;

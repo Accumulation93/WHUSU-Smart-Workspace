@@ -1,17 +1,23 @@
 <view class="sigpad-wrap">
-  <!-- ★ 白板边框放在 wrapper 上，canvas 本身无边框 —
-       确保触摸坐标系原点 = 绘制区域原点，消除 border 偏移 -->
   <view class="sigpad-canvas-border">
-    <canvas
-      type="2d"
-      id="sigCanvas"
-      class="sigpad-canvas"
-      disable-scroll="{{true}}"
-      bindtouchstart="onTouchStart"
-      bindtouchmove="onTouchMove"
-      bindtouchend="onTouchEnd"
-    ></canvas>
+    <view
+      id="sigSurface"
+      class="sigpad-surface"
+      catchtouchstart="onTouchStart"
+      catchtouchmove="onTouchMove"
+      catchtouchend="onTouchEnd"
+      catchtouchcancel="onTouchEnd"
+    >
+      <image wx:if="{{initialImageVisible}}" class="sigpad-initial-image" src="{{initialImage}}" mode="scaleToFill" />
+      <view class="sigpad-ink-layer">
+        <view class="sigpad-ink-segment" wx:for="{{segments}}" wx:key="id" style="{{item.style}}"></view>
+      </view>
+    </view>
   </view>
+
+  <!-- 原生 Canvas 只负责最终导出，不参与屏幕显示和触摸。 -->
+  <canvas type="2d" id="sigExportCanvas" class="sigpad-export-canvas"></canvas>
+
   <view class="sigpad-actions">
     <button class="secondary-btn sigpad-btn sigpad-btn-secondary ui-motion-button" bindtap="onClear" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</button>
     <button class="primary-btn sigpad-btn sigpad-btn-primary ui-motion-button" bindtap="onConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认签名</button>

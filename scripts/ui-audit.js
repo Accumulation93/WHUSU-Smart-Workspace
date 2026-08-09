@@ -534,8 +534,9 @@ function scanLayoutContracts(file) {
           const dialog = item.dialog;
           const modifiers = ['ui-dialog-shell--compact', 'ui-dialog-shell--complex', 'ui-dialog-shell--wide']
             .filter(name => dialog.classes.has(name));
-          if (modifiers.length !== 1) dialog.issues.push('弹窗必须且只能声明一个尺寸修饰符');
-          const requiresStructure = dialog.classes.has('ui-dialog-shell--complex') || dialog.classes.has('ui-dialog-shell--wide');
+          const isSignatureCanvasDialog = dialog.classes.has('signature-popup-card');
+          if (!isSignatureCanvasDialog && modifiers.length !== 1) dialog.issues.push('弹窗必须且只能声明一个尺寸修饰符');
+          const requiresStructure = isSignatureCanvasDialog || dialog.classes.has('ui-dialog-shell--complex') || dialog.classes.has('ui-dialog-shell--wide');
           if (requiresStructure && !dialog.hasHeader) dialog.issues.push('复杂弹窗缺少 ui-dialog-header');
           if (requiresStructure && !dialog.hasBody) dialog.issues.push('复杂弹窗缺少 ui-dialog-body');
           if (dialog.hasBody && !dialog.hasContentSurface) dialog.issues.push('弹窗正文缺少 ui-dialog-content 内容表面');
@@ -589,9 +590,13 @@ function scanLayoutContracts(file) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗遮罩缺少 ui-overlay', className: [...classes].join(' ') });
     }
     const isLoginSheet = relative(file) === 'miniprogram/pages/login/login.wxml' && classes.has('ui-sheet-overlay');
+    const isSignatureCanvasOverlay = classes.has('signature-pad-overlay');
     if ((classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) &&
-      !isLoginSheet && !stack.some(item => item.tag === 'root-portal' || item.tag === 'viewport-portal')) {
+      !isLoginSheet && !isSignatureCanvasOverlay && !stack.some(item => item.tag === 'root-portal' || item.tag === 'viewport-portal')) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗必须由按需创建的 root-portal 提升到页面根层，不能跟随页面滚动', className: [...classes].join(' ') });
+    }
+    if (isSignatureCanvasOverlay && stack.some(item => item.tag === 'root-portal' || item.tag === 'viewport-portal')) {
+      dialogIssues.push({ file: relative(file), line, message: '签名 Canvas 弹窗禁止进入 Portal，必须直接位于页面根节点固定遮罩中', className: [...classes].join(' ') });
     }
 
     let overlay = null;
@@ -617,7 +622,7 @@ function scanLayoutContracts(file) {
           currentOverlay.issues.push(`第 ${line} 行的全屏阻断层必须使用 view + catchtouchmove=\"noop\"`);
         }
       }
-      if (classes.has('ui-dialog-shell')) {
+      if (classes.has('ui-dialog-shell') || classes.has('signature-popup-card')) {
         currentOverlay.hasShell = true;
         currentOverlay.shellIndex = token.index;
         if (stack[stack.length - 1]?.overlay !== currentOverlay) {
@@ -627,7 +632,7 @@ function scanLayoutContracts(file) {
     }
 
     let dialog = null;
-    if (classes.has('ui-dialog-shell') || [...classes].some(name => LEGACY_DIALOG_SHELLS.has(name))) {
+    if (classes.has('ui-dialog-shell') || classes.has('signature-popup-card') || [...classes].some(name => LEGACY_DIALOG_SHELLS.has(name))) {
       dialog = {
         line,
         classes,
@@ -636,7 +641,7 @@ function scanLayoutContracts(file) {
         hasFooter: false,
         hasContentSurface: false,
         hasCompactContent: false,
-        issues: classes.has('ui-dialog-shell') ? [] : ['弹窗壳缺少 ui-dialog-shell']
+        issues: classes.has('ui-dialog-shell') || classes.has('signature-popup-card') ? [] : ['弹窗壳缺少 ui-dialog-shell']
       };
     } else if (dialogAncestor) {
       const current = dialogAncestor.dialog;
@@ -1146,6 +1151,40 @@ const remoteAssets = walk(MINI_ROOT, '.wxml').flatMap(file => {
   }));
 });
 
+const signaturePadSourcePath = path.join(MINI_ROOT, 'subpackages', 'audit', 'components', 'signaturePad', 'signaturePad.js');
+const signaturePadSource = fs.readFileSync(signaturePadSourcePath, 'utf8');
+const signaturePadWxmlPath = path.join(MINI_ROOT, 'subpackages', 'audit', 'components', 'signaturePad', 'signaturePad.wxml');
+const signaturePadWxml = fs.readFileSync(signaturePadWxmlPath, 'utf8');
+const signaturePadStylePath = path.join(MINI_ROOT, 'subpackages', 'audit', 'components', 'signaturePad', 'signaturePad.wxss');
+const signaturePadStyle = fs.readFileSync(signaturePadStylePath, 'utf8');
+const signaturePageBase = path.join(MINI_ROOT, 'subpackages', 'audit', 'pages', 'submissionDetail', 'submissionDetail');
+const signaturePageSource = fs.readFileSync(`${signaturePageBase}.js`, 'utf8');
+const signatureCoordinateIssues = [];
+if (!/select\('#sigSurface'\)\.fields\(\{\s*size:\s*true,\s*rect:\s*true\s*\}\)/.test(signaturePadSource)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '签名板必须读取普通视图白板的视口绝对 rect' });
+}
+if (!/screenX:\s*clamp\(screenX,\s*rect\.left,\s*rect\.right\)/.test(signaturePadSource) ||
+  !/screenY:\s*clamp\(screenY,\s*rect\.top,\s*rect\.bottom\)/.test(signaturePadSource) ||
+  !/screenX1:\s*from\.screenX/.test(signaturePadSource) || !/screenY2:\s*to\.screenY/.test(signaturePadSource)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '签名触点和线段事实数据必须保存为视口绝对 screenX/screenY' });
+}
+if (/Number\(t\.(?:x|y|pageX|pageY)\)/.test(signaturePadSource)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadSourcePath), message: '签名板禁止直接使用 Touch.x/y 或 pageX/pageY' });
+}
+if (!/id="sigSurface"/.test(signaturePadWxml) || !/<view[\s\S]*class="sigpad-ink-segment"/.test(signaturePadWxml)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadWxmlPath), message: '可视白板和实时笔迹必须使用普通 view' });
+}
+if (!/<canvas[^>]*id="sigExportCanvas"[^>]*class="sigpad-export-canvas"[^>]*><\/canvas>/.test(signaturePadWxml) ||
+  /<canvas[^>]*(?:touchstart|touchmove)/.test(signaturePadWxml)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadWxmlPath), message: '原生 Canvas 只能作为不可交互的隐藏导出器' });
+}
+if (!/\.sigpad-export-canvas\s*\{[^}]*width:\s*1px;[^}]*height:\s*1px;[^}]*opacity:\s*0;/s.test(signaturePadStyle)) {
+  signatureCoordinateIssues.push({ file: relative(signaturePadStylePath), message: '导出 Canvas 必须保持 1px、透明且不可交互' });
+}
+if (/pageScrollTo\s*\(/.test(signaturePageSource)) {
+  signatureCoordinateIssues.push({ file: relative(`${signaturePageBase}.js`), message: '签名坐标禁止通过强制页面滚动归零实现' });
+}
+
 const report = {
   generatedAt: new Date().toISOString(),
   summary: {
@@ -1203,6 +1242,7 @@ const report = {
     missingResponsiveDataSystem: missingResponsiveDataSystem ? 1 : 0,
     compactVisualContractIssues: compactVisualContractIssues.length,
     duplicateGlobalUiContracts: duplicateGlobalUiContracts.length,
+    signatureCoordinateIssues: signatureCoordinateIssues.length,
     important: styles.reduce((sum, item) => sum + item.important, 0),
     missingTabletPortrait: styles.filter(item => !item.media520).length,
     missingTabletLandscape: styles.filter(item => !item.media900).length
@@ -1249,6 +1289,7 @@ const report = {
   typographyRoleDrift,
   compactVisualContractIssues,
   duplicateGlobalUiContracts,
+  signatureCoordinateIssues,
   styles
 };
 
@@ -1279,6 +1320,7 @@ if (process.argv.includes('--strict')) {
     report.summary.staticInlineStyles ||
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.redundantDialogSingleSection || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.flattenedDialogSurfaces || report.summary.duplicateDialogWrapperSurfaces || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem || report.summary.missingDialogInteriorSystem || report.summary.missingDialogPortalTokenSystem ||
-    report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts;
+    report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts ||
+    report.summary.signatureCoordinateIssues;
   process.exitCode = failed ? 1 : 0;
 }

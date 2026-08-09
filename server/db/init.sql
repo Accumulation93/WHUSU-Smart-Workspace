@@ -701,6 +701,8 @@ CREATE TABLE IF NOT EXISTS audit_submission_files (
   signing_key_private TEXT NULL COMMENT 'PDF电子签名私钥（仅服务端）',
   signing_key_public TEXT NULL COMMENT 'PDF电子签名公钥',
   signing_cert TEXT NULL COMMENT 'PDF电子签名最近证书（PEM）',
+  signing_cert_chain TEXT NULL COMMENT 'PDF电子签名中间证书链（PEM）',
+  signing_trust_status VARCHAR(32) NOT NULL DEFAULT 'self_signed' COMMENT 'self_signed | certificate_configured | chain_configured',
   signing_algorithm VARCHAR(32) NOT NULL DEFAULT 'RSA-SHA256',
   signing_created_at DATETIME NULL,
   sort_order INT NOT NULL DEFAULT 1,

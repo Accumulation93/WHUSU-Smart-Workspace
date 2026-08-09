@@ -61,12 +61,15 @@ async function saveSigningKey(id, data, conn) {
   await db.query(
     `UPDATE audit_submission_files
      SET signing_key_private = ?, signing_key_public = ?, signing_cert = ?,
+         signing_cert_chain = ?, signing_trust_status = ?,
          signing_algorithm = ?, signing_created_at = COALESCE(signing_created_at, NOW())
      WHERE id = ? AND org_id = ?`,
     [
       data.privateKey || null,
       data.publicKey || null,
       data.cert || null,
+      data.certificateChain || null,
+      data.trustStatus || 'self_signed',
       data.algorithm || 'RSA-SHA256',
       id,
       orgId

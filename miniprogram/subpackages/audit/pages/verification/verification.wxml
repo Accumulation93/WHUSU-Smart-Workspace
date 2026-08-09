@@ -82,7 +82,9 @@
               PDF数字签名：{{item.pdfSignature.valid ? '有效' : '无效'}}
             </view>
             <view wx:if="{{item.pdfSignature && item.pdfSignature.signatures.length}}" class="list-desc" wx:for="{{item.pdfSignature.signatures}}" wx:for-item="ps" wx:key="index">
-              由 {{ps.signerName}}{{ps.signerStudentId ? '（' + ps.signerStudentId + '）' : ''}} 签署 · {{ps.ok ? '有效' : '无效'}}
+              <text>由 {{ps.signerName}}</text><text wx:if="{{ps.signerStudentId}}">（{{ps.signerStudentId}}）</text><text> 签署 · {{ps.ok ? '有效' : '无效'}}</text>
+              <text wx:if="{{ps.ok && ps.trustStatus === 'self_signed'}}" class="verify-status-unknown"> · 自签名证书，阅读器可能提示不可信</text>
+              <text wx:if="{{ps.ok && ps.trustStatus === 'chain_present'}}" class="verify-status-valid"> · 已携带证书链</text>
             </view>
             <view wx:if="{{item.pdfSignature && !item.pdfSignature.present}}" class="file-attach-name verify-status-unknown">PDF数字签名：未签名</view>
           </view>

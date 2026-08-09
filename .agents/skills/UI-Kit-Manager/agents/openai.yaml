@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Kit Manager"
+  short_description: "Project foundation docs and agent maintenance index"
+  default_prompt: "Use $ui-kit-manager to plan this project foundation or take over this existing repo with a read-only scan first."

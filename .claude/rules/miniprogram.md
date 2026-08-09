@@ -81,7 +81,7 @@ module.exports = { hour: hour };
 
 ### 3.3 `position: fixed` 在 scroll-view 中的行为
 
-`position: fixed` 元素若放在 `scroll-view` 内部，iOS 上可能不跟随视口。**所有弹窗必须使用 `root-portal` 提升到页面根层，不能留在页面或组件的滚动、transform、flex 布局链中。**
+`position: fixed` 元素若放在 `scroll-view` 内部，iOS 上可能不跟随视口。普通弹窗必须使用 `root-portal` 提升到页面根层，不能留在页面或组件的滚动、transform、flex 布局链中。签名板实时笔迹禁止使用可视原生 Canvas，详见 §3.13。
 
 ```xml
 <scroll-view>...</scroll-view>
@@ -145,9 +145,11 @@ self._lastUpdateTime = now;
 
 键盘面板、Ghost card 使用 `wx:if`。
 
-### 3.13 Canvas DPR 坐标漂移
+### 3.13 签名板视口绝对坐标
 
-不同设备的 DPR 差异导致触摸坐标偏移。签名板五层防御详见 `.claude/rules/audit.md` §3。
+可视白板与实时笔迹必须使用普通 `view`。白板 rect、触点 `clientX/clientY` 和线段端点统一
+保存为视口 CSS px 绝对坐标；禁止 scrollTop、DPR、rpx 和固定偏移。原生 Canvas 只能作为
+不可见导出器，确认时再把绝对端点投影到白板局部坐标；具体要求详见 `.claude/rules/audit.md` §3。
 
 ### 3.14 编译器 runtime helper 缺失
 
