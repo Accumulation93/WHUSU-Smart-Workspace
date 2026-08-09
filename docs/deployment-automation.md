@@ -34,6 +34,14 @@
 - `/home/ubuntu/backups/whusu-smart-workspace`：每小时数据库与审核附件备份，分别保留 `.sql.gz` 和 `.uploads.tar.gz`。
 - `whusu-smart-workspace-collab`：持久 tmux 会话，包含 shell、API、Worker、部署和健康窗口。
 
+## Nginx 上传体积
+
+- Nginx `http` 块必须设置 `client_max_body_size 15m`，与服务端
+  `MAX_UPLOAD_JSON_BODY_BYTES`（15MB）保持一致。
+- 审核附件、表格解析等接口通过 JSON base64 上传，单文件上限 10MB（base64 后约
+  13.3MB）；若 Nginx 上限低于此值，请求会在到达 Express 前被 413 拒绝，前端只能
+  兜底提示“未上传，请重试”。重装或重建 Nginx 后必须核对此项。
+
 ## 数据库迁移
 
 新迁移放入 `server/db/deploy/`，文件名必须是：
