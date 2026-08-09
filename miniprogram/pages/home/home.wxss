@@ -1391,9 +1391,9 @@ scroll-view {
 .popup-title { color: #0f172a; font-size: var(--ui-type-section); font-weight: 700; }
 .popup-close { color: #2563eb; font-size: var(--ui-type-control); font-weight: 700; }
 .popup-scroll { max-height: 58vh; }
-.desig-inner-scroll { margin-bottom: 8rpx; border-radius: 20rpx; background: rgba(248,250,252,0.6); border: 1rpx solid rgba(226,232,240,0.7); padding: 8rpx; }
-.desig-current-scroll { height: 280rpx; }
-.desig-candidate-scroll { height: 480rpx; }
+.desig-inner-scroll { margin-bottom: 8rpx; border-radius: 20rpx; background: rgba(248,250,252,0.6); border: 1rpx solid rgba(226,232,240,0.7); padding: 8rpx; box-sizing: border-box; }
+.desig-current-scroll { height: 300rpx; padding-bottom: 24rpx; }
+.desig-candidate-scroll { height: 520rpx; padding-bottom: 24rpx; }
 .desig-current-item { background: rgba(255,255,255,0.85); }
 .rule-filter-row { display: flex; gap: 16rpx; margin-bottom: 6rpx; }
 .rule-filter-field { flex: 1; min-width: 0; }

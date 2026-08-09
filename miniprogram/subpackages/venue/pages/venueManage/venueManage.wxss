@@ -668,6 +668,12 @@ page {
   border-color: rgba(134, 239, 172, 0.8);
 }
 
+/* 条件多选列表：保证最后一项能完整翻出 */
+.ui-dialog-selection-options {
+  box-sizing: border-box;
+  padding-bottom: 24rpx;
+}
+
 /* ═══ Layout rows ═══ */
 .time-filter-row,
 .input-row,

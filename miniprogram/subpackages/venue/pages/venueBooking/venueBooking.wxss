@@ -1434,6 +1434,8 @@ page {
 .person-picker-list {
   max-height: 56vh;
   margin-top: 12rpx;
+  box-sizing: border-box;
+  padding-bottom: 24rpx;
 }
 
 .person-picker-item {
