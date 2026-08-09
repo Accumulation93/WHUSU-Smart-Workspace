@@ -1407,7 +1407,15 @@ router.post('/approveStep', async (req, res) => {
           algorithm: 'RSA-SHA256'
         }, conn);
 
-        const signedBuffer = await signPdfBuffer(finalBuffer, keyPair.privateKeyPem, certPem);
+        const lastSigPosition = fileSignatures[fileSignatures.length - 1] || {};
+        const signedBuffer = await signPdfBuffer(finalBuffer, keyPair.privateKeyPem, certPem, {
+          signer: { name: signerName, studentId: studentId, orgName: orgName },
+          signaturePosition: {
+            x: lastSigPosition.positionX,
+            y: lastSigPosition.positionY,
+            page: lastSigPosition.page
+          }
+        });
         fs.writeFileSync(file.file_path, signedBuffer);
         finalBuffer = signedBuffer;
         finalMimeType = 'application/pdf';

@@ -29,9 +29,14 @@ async function buildBlankPdf() {
   assert(nodeCert.subject.includes('张三'), '证书 DN 应包含真实姓名（严格 X.509 解析）');
   assert(nodeCert.subject.includes('20210001'), '证书 DN 应包含学号（严格 X.509 解析）');
 
-  const signed = await signPdfBuffer(pdf, pair.privateKeyPem, certPem);
+  const signed = await signPdfBuffer(pdf, pair.privateKeyPem, certPem, {
+    signer: { name: '张三', studentId: '20210001', orgName: '武汉大学第四十四届学生会' },
+    signaturePosition: { x: 0.5, y: 0.5, page: 1 }
+  });
   assert(signed.includes('/Type /Sig'), '签名后 PDF 应包含签名对象');
   assert(signed.includes('/ByteRange ['), '签名后 PDF 应包含 ByteRange');
+  assert(signed.includes('/Name (WHUSU Smart Workspace)'), '签名元数据不应包含乱码');
+  assert(!/\/Name \([^)]*[\x80-\xff]/.test(signed.toString('binary')), '签名元数据不应出现非 ASCII 乱码');
 
   const verify = verifyPdfSignature(signed);
   assert.strictEqual(verify.present, true, '应识别出 PDF 数字签名');
