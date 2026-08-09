@@ -319,13 +319,13 @@ router.post('/getVenueSchedule', async (req, res) => {
         const flowId = key.slice(0, sep);
         const flowOrg = key.slice(sep + 1);
         const [steps] = await pool.query(
-          'SELECT sort_order, name, action_type FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
+          'SELECT sort_order, name FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
           [flowId, flowOrg]
         );
         flowStepsMap[key] = (steps || []).map(s => ({
           sortOrder: s.sort_order,
           name: s.name,
-          actionType: s.action_type
+          actionType: ''
         }));
       }
     }
