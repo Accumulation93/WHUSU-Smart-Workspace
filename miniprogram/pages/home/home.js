@@ -3,21 +3,6 @@ const orgSession = require('../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
-const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
-const USER_TABS = [
-  { key: 'scoring', label: '考核评分' },
-  { key: 'results', label: '结果公示' },
-  { key: 'meritList', label: '评优名单' },
-  { key: 'profile', label: '人事信息' }
-];
-
-function shouldShowWorkGroup(user) {
-  if (!user || !user.workGroup) {
-    return false;
-  }
-
-  return LEADER_IDENTITIES.indexOf(user.identity) === -1;
-}
 
 function getDisplayIdentity(user, activeRole) {
   if (!user) {
@@ -303,7 +288,6 @@ Page({
     activeRole: '',
     hasUser: false,
     isAdminRole: false,
-    showWorkGroup: false,
     heroName: '欢迎使用',
     heroIdentity: '未登录',
     heroSubtitle: '请微信登录',
@@ -468,7 +452,6 @@ Page({
           this.setData({
             user: result.user,
             hasUser: true,
-            showWorkGroup: shouldShowWorkGroup(result.user),
             heroName: result.user.name || '欢迎使用',
             heroIdentity: getDisplayIdentity(result.user, 'user'),
             heroSubtitle: this._subAppLabel || ''
@@ -503,7 +486,6 @@ Page({
       user: currentUser,
       hasUser: !!currentUser,
       isAdminRole,
-      showWorkGroup: shouldShowWorkGroup(currentUser),
       heroName: currentUser ? currentUser.name : '欢迎使用',
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
       heroSubtitle: currentUser ? subAppLabel : '请微信登录',
@@ -637,7 +619,6 @@ Page({
 
     this.setData({
       user: currentUser,
-      showWorkGroup: shouldShowWorkGroup(currentUser),
       heroName: currentUser ? currentUser.name : this.data.heroName,
       heroIdentity: getDisplayIdentity(currentUser, 'user'),
       targetList: targets,

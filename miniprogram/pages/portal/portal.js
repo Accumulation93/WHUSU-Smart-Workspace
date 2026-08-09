@@ -9,7 +9,6 @@ const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
-const LEADER_IDENTITIES = ['部门主要负责人', '部门负责人'];
 const CATEGORY_LABELS = {
   audit: '审核',
   venue: '场地',
@@ -46,11 +45,6 @@ function getDisplayIdentity(user, activeRole) {
   return user.identity || '未设置身份';
 }
 
-function shouldShowWorkGroup(user) {
-  if (!user || !user.workGroup) return false;
-  return LEADER_IDENTITIES.indexOf(user.identity) === -1;
-}
-
 Page({
   data: {
     portalCards: [],
@@ -59,7 +53,6 @@ Page({
     heroInitial: '',
     userDepartment: '',
     userWorkGroup: '',
-    showWorkGroup: false,
     hasUser: false,
     isAdminRole: false,
     activeRole: '',
@@ -228,7 +221,6 @@ Page({
       heroInitial: user && user.name ? user.name.charAt(0) : 'R',
       userDepartment: user ? (user.department || '') : '',
       userWorkGroup: user ? (user.workGroup || '') : '',
-      showWorkGroup: shouldShowWorkGroup(user),
       portalCards: portalCards
     });
     this._applyAppFilter(portalCards);
