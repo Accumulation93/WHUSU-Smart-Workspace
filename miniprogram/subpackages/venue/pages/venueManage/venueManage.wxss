@@ -1005,7 +1005,22 @@ page {
 .rule-editor-popup { width: 92vw; max-width: 760rpx; }
 .rule-editor-header-copy { flex: 1; min-width: 0; }
 .rule-editor-header-note { margin-top: 5rpx; color: #64748b; font-size: var(--ui-type-meta); line-height: 1.5; }
-.rule-editor-scroll { max-height: calc(100vh - 220rpx); }
+.rule-editor-scroll { height: auto; min-height: 0; }
+.ui-overlay .ui-dialog-shell.rule-editor-popup {
+  height: auto !important;
+  min-height: 0;
+  max-height: calc(100vh - var(--ui-dialog-height-inset, 72rpx) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+}
+.ui-overlay .ui-dialog-shell.rule-editor-popup > scroll-view.rule-editor-scroll.ui-dialog-body {
+  flex: 1 1 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+.ui-overlay .ui-dialog-shell.rule-editor-popup > .rule-save-bar.ui-dialog-footer {
+  flex: 0 0 auto !important;
+  min-height: 0;
+}
 .rule-editor-stack { padding: 0; }
 .rule-editor-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12rpx; margin-bottom: 12rpx; }
 .rule-editor-section-note { flex: 1; min-width: 0; color: #64748b; font-size: var(--ui-type-meta); line-height: 1.45; text-align: right; overflow-wrap: anywhere; }

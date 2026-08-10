@@ -92,7 +92,7 @@ module.exports = { hour: hour };
 
 弹窗使用 `.ui-overlay`、`.ui-overlay-blocker`、`.ui-dialog-shell` 三层契约：遮罩和阻断层固定覆盖 `100vw × 100vh`，窗口固定在 `50vw / 50vh` 并平移居中。阻断层和窗口必须是同级元素，阻断层在前、窗口在后。**`catchtouchmove="noop"` 只能放在独立阻断层，不能放在普通遮罩、窗口外壳、正文或滚动区祖先上。**
 
-`ui-dialog-shell--complex` 只表示标题、正文、操作栏的结构，不代表满屏高度。普通表单外壳必须随内容和条件区的展开、收起自然增减，正文超过可用高度后才由直接子级 `scroll-view.ui-dialog-body` 滚动；只有表格、时间表等真正需要稳定工作区的窗口才可显式使用 `ui-dialog-shell--viewport` 或 `--wide`。纵向滚动区统一启用 `enhanced`、`scroll-y` 与 `nested-scroll-enabled`；内层列表使用 `ui-dialog-scroll--pane`，手势落在内层时优先滚动内层。签名板、拖拽手柄等专用触摸区才允许使用 `ui-dialog-touch-lock`。
+`ui-dialog-shell--complex` 只表示标题、正文、操作栏的结构，不代表满屏高度。普通表单外壳必须随内容和条件区的展开、收起自然增减，标题、正文和底部操作栏通过 flex 按实际内容动态分配高度；正文超过可用高度后才由直接子级 `scroll-view.ui-dialog-body` 滚动。只能设置视口安全上限，禁止给普通表单正文或窗口写固定内容高度、固定 `max-height` 或固定翻页尺度。只有表格、时间表等真正需要稳定工作区的窗口才可显式使用 `ui-dialog-shell--viewport` 或 `--wide`。纵向滚动区统一启用 `enhanced`、`scroll-y` 与 `nested-scroll-enabled`；内层列表使用 `ui-dialog-scroll--pane`，手势落在内层时优先滚动内层。签名板、拖拽手柄等专用触摸区才允许使用 `ui-dialog-touch-lock`。
 
 ### 3.5 setData 批处理 — 必须一次调用
 
