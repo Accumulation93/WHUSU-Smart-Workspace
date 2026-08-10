@@ -18,7 +18,7 @@ const notificationModel = require('../../audit/models/notification');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
 const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
-const { findMyVenueApproval } = require('../services/venueApprovalHistory');
+const { findMyVenueApproval, matchesApprovalContext } = require('../services/venueApprovalHistory');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -1056,6 +1056,102 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
 
     history.sort((left, right) => String(right.myApprovalAt || '').localeCompare(String(left.myApprovalAt || '')));
     res.json({ status: 'success', history });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
+  try {
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok) {
+      return res.json({ status: actorResult.status, message: actorResult.message });
+    }
+    const actor = actorResult.actor;
+    const orgId = await getCurrentOrgId();
+    const bookingId = safeString(req.body.id);
+    if (!bookingId) return res.json({ status: 'invalid_params', message: '请重新打开审批记录' });
+
+    const [rows] = await pool.query(
+      `SELECT b.*, v.name AS venue_name, v.location AS venue_location,
+              h.name AS applicant_name, h.department_id AS applicant_department_id
+         FROM venue_bookings b
+         LEFT JOIN venues v ON v.id = b.venue_id
+         LEFT JOIN hr_info h ON h.id = b.user_hr_id AND h.org_id = b.creator_org_id
+        WHERE b.id = ? AND b.approval_org_id = ?
+        LIMIT 1`,
+      [bookingId, orgId]
+    );
+    const booking = rows[0];
+    if (!booking) return res.json({ status: 'not_found', message: '审批记录不存在或已不属于当前组织' });
+
+    const approval = findMyVenueApproval(booking, actor, fmtDatetime);
+    if (!approval) return res.json({ status: 'forbidden', message: '没有查看该审批记录的权限' });
+
+    const snapshots = venueApprovalMultiFlow.parseSnapshots(booking.approval_snapshots_json);
+    const snapshotHrIds = [...new Set(snapshots.map(item => safeString(item.approverHrId)).filter(Boolean))];
+    const approverNameMap = {};
+    if (snapshotHrIds.length) {
+      const [approverRows] = await pool.query(
+        'SELECT id, name FROM hr_info WHERE id IN (?) AND org_id = ?',
+        [snapshotHrIds, orgId]
+      );
+      approverRows.forEach(row => { approverNameMap[row.id] = safeString(row.name); });
+    }
+
+    let flowSteps = [];
+    if (booking.approval_flow_id) {
+      const stepRows = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
+      flowSteps = stepRows.map((step, index) => ({
+        stepIndex: index,
+        stepName: safeString(step.name) || ('第' + (index + 1) + '步')
+      }));
+    }
+
+    const approvalEvents = snapshots.map((snapshot, index) => {
+      const stepIndex = Number(snapshot.stepIndex);
+      const flowStep = flowSteps[stepIndex];
+      return {
+        id: String(booking.id) + '-approval-' + index,
+        stepIndex: Number.isFinite(stepIndex) ? stepIndex : 0,
+        stepName: safeString(snapshot.stepName) || (flowStep && flowStep.stepName) || '审批步骤',
+        approverName: safeString(snapshot.approverName) || approverNameMap[safeString(snapshot.approverHrId)] || (snapshot.approverIdentityType === 'admin' ? '管理员' : '审批人'),
+        approvedAt: safeString(snapshot.approvedAt),
+        comment: safeString(snapshot.comment),
+        isMine: Boolean(matchesApprovalContext(snapshot, actor))
+      };
+    });
+
+    res.json({
+      status: 'success',
+      detail: {
+        id: booking.id,
+        venueName: safeString(booking.venue_name) || '场地已删除',
+        venueLocation: safeString(booking.venue_location),
+        title: safeString(booking.title),
+        description: safeString(booking.description),
+        applicantName: safeString(booking.applicant_name) || '信息已失效',
+        applicantDepartmentId: safeString(booking.applicant_department_id),
+        timeStart: fmtDatetime(new Date(booking.time_start)),
+        timeEnd: fmtDatetime(new Date(booking.time_end)),
+        status: safeString(booking.status),
+        displayStatus: getVenueDisplayStatus(booking),
+        approvalComment: safeString(booking.approval_comment),
+        myAction: approval.action,
+        myActionLabel: approval.actionLabel,
+        myApprovalAt: approval.approvedAt,
+        approvalProgress: booking.approval_flow_id && Number(booking.approval_total_steps) > 0 ? {
+          currentStep: Number(booking.approval_current_step) || 0,
+          totalSteps: Number(booking.approval_total_steps) || 0,
+          isApproved: Number(booking.approval_current_step) >= Number(booking.approval_total_steps),
+          isRejected: Number(booking.approval_current_step) < 0,
+          rejectStep: booking.approval_reject_step,
+          flowSteps: flowSteps,
+          events: approvalEvents
+        } : null,
+        approvalEvents: approvalEvents
+      }
+    });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

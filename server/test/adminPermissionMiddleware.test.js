@@ -16,6 +16,7 @@ const mocks = {
       ['/getCurrentScoreActivity', { anyOf: ['scoring.activities'], allowUserRole: true }],
       ['/listPendingVenueApprovals', { anyOf: ['venue.approvals'], allowUserRole: true }],
       ['/listVenueApprovalHistory', { anyOf: ['venue.approvals'], allowUserRole: true }],
+      ['/getVenueApprovalHistoryDetail', { anyOf: ['venue.approvals'], allowUserRole: true }],
       ['/approveVenueBookingStep', { anyOf: ['venue.approvals'], allowUserRole: true }],
       ['/saveVenueApprovalWholeFlow', { anyOf: ['venue.approvals'], allowUserRole: false }]
     ]),

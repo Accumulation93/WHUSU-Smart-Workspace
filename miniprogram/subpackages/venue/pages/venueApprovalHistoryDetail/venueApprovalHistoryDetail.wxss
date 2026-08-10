@@ -1,0 +1,56 @@
+@import '../../../../pages/home/home.wxss';
+@import '../../styles/blue-polish.wxss';
+
+.detail-shell { padding-bottom: 28rpx; }
+.detail-title { margin-top: 18rpx; color: #0f172a; font-size: var(--ui-type-title); font-weight: 800; line-height: 1.45; overflow-wrap: anywhere; }
+.detail-status-row { display: flex; align-items: center; gap: 12rpx; margin-top: 10rpx; }
+.detail-my-action { color: #2563eb; font-size: var(--ui-type-caption); font-weight: 700; }
+.history-status { display: inline-flex; align-items: center; padding: 4rpx 12rpx; border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-caption); font-weight: 700; line-height: 1.4; }
+.history-status.pending { color: #c2410c; background: rgba(255,237,213,0.78); border: 1rpx solid rgba(253,186,116,0.58); }
+.history-status.approved,
+.history-status.inUse,
+.history-status.completed { color: #15803d; background: rgba(209,250,229,0.78); border: 1rpx solid rgba(110,231,183,0.58); }
+.history-status.rejected,
+.history-status.cancelled { color: #b45309; background: rgba(255,237,213,0.78); border: 1rpx solid rgba(253,186,116,0.58); }
+.detail-info-card,
+.progress-card,
+.event-list { margin-top: 18rpx; padding: 18rpx; border-radius: 18rpx; background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(249,251,255,0.82)); border: 1rpx solid rgba(226,237,247,0.96); box-shadow: 0 10rpx 22rpx rgba(15,23,42,0.04), inset 0 1rpx 0 rgba(255,255,255,0.78); }
+.detail-row { display: flex; align-items: flex-start; gap: 18rpx; padding: 9rpx 0; border-bottom: 1rpx solid rgba(226,237,247,0.72); }
+.detail-row:last-child { border-bottom: 0; }
+.detail-key { flex: 0 0 132rpx; color: #64748b; font-size: var(--ui-type-caption); line-height: 1.6; }
+.detail-value { flex: 1; min-width: 0; color: #1e293b; font-size: var(--ui-type-caption); line-height: 1.6; overflow-wrap: anywhere; }
+.subsection-title { color: #0f172a; font-size: var(--ui-type-emphasis); font-weight: 800; line-height: 1.5; }
+.progress-head { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
+.progress-text { color: #2563eb; font-size: var(--ui-type-caption); font-weight: 700; }
+.progress-track { height: 12rpx; margin-top: 14rpx; overflow: hidden; border-radius: 8rpx; background: rgba(219,234,254,0.74); }
+.progress-fill { height: 100%; border-radius: 8rpx; background: linear-gradient(90deg, #2563eb 0%, #60a5fa 100%); }
+.progress-note { margin-top: 10rpx; color: #64748b; font-size: var(--ui-type-caption); line-height: 1.55; }
+.event-list { padding-bottom: 8rpx; }
+.approval-event { display: flex; gap: 14rpx; margin-top: 16rpx; padding: 14rpx; border-radius: 14rpx; background: rgba(248,250,252,0.74); border: 1rpx solid rgba(226,237,247,0.76); }
+.approval-event.mine { background: rgba(239,246,255,0.82); border-color: rgba(147,197,253,0.64); }
+.approval-event-dot { flex: 0 0 14rpx; width: 14rpx; height: 14rpx; margin-top: 6rpx; border-radius: 50%; background: #94a3b8; }
+.approval-event.mine .approval-event-dot { background: #2563eb; }
+.approval-event-body { flex: 1; min-width: 0; }
+.approval-event-head { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
+.approval-event-step { color: #1e293b; font-size: var(--ui-type-caption); font-weight: 800; }
+.approval-event-label { color: #2563eb; font-size: var(--ui-type-micro); font-weight: 700; }
+.approval-event-meta,
+.approval-event-comment { margin-top: 5rpx; color: #64748b; font-size: var(--ui-type-micro); line-height: 1.55; overflow-wrap: anywhere; }
+.approval-event-comment { color: #475569; }
+.detail-loading,
+.detail-error,
+.detail-empty-events { padding: 42rpx 20rpx; color: #64748b; text-align: center; font-size: var(--ui-type-caption); line-height: 1.6; }
+.detail-loading { display: flex; align-items: center; justify-content: center; gap: 12rpx; }
+.detail-error-title { color: #0f172a; font-size: var(--ui-type-emphasis); font-weight: 800; }
+.detail-error-text { margin-top: 8rpx; }
+.detail-retry { display: inline-flex; margin-top: 16rpx; padding: 6rpx 16rpx; border-radius: var(--ui-compact-radius, 18rpx); color: #2563eb; background: rgba(219,234,254,0.72); border: 1rpx solid rgba(147,197,253,0.58); font-size: var(--ui-type-caption); font-weight: 700; }
+
+@media (min-width: 520px) {
+  .detail-info-card, .progress-card, .event-list { padding: 18px; }
+  .detail-row { padding: 8px 0; }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .detail-shell { max-width: 720px; margin-left: auto; margin-right: auto; }
+  .detail-info-card, .progress-card, .event-list { margin-top: 14px; padding: 14px 16px; border-radius: 14px; }
+}

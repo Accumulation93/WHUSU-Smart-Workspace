@@ -18,6 +18,7 @@ const TRUSTED_ROUTES = new Set([
   '/subpackages/venue/pages/myVenueBookings/myVenueBookings',
   '/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals',
   '/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory',
+  '/subpackages/venue/pages/venueApprovalHistoryDetail/venueApprovalHistoryDetail',
   '/subpackages/org/pages/switch/switch',
   '/subpackages/org/pages/adminPermissions/adminPermissions',
   '/subpackages/org/pages/identitySwitch/identitySwitch',

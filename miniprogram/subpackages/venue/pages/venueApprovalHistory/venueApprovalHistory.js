@@ -1,5 +1,6 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 const STATUS_LABELS = {
   pending: '待审核',
@@ -14,7 +15,6 @@ Page({
   data: {
     history: [],
     loading: false,
-    lastUpdateTime: '',
     currentContextText: '当前组织 · 当前身份'
   },
 
@@ -29,7 +29,6 @@ Page({
       orgSession.invalidateRequests(this);
       this.setData({
         history: [],
-        lastUpdateTime: '',
         loading: false,
         currentContextText: organizationName + ' · ' + identityName
       });
@@ -54,14 +53,10 @@ Page({
           const displayStatus = item.displayStatus || item.status || '';
           return Object.assign({}, item, {
             _statusLabel: STATUS_LABELS[displayStatus] || displayStatus,
-            _statusClass: displayStatus,
-            _actionClass: item.myAction === 'rejected' ? 'rejected' : 'approved'
+            _statusClass: displayStatus
           });
         });
-        this.setData({
-          history: history,
-          lastUpdateTime: this._formatTime()
-        });
+        this.setData({ history: history });
       } else {
         showShortToast(res.message || '请稍后刷新');
       }
@@ -72,9 +67,9 @@ Page({
     }
   },
 
-  _formatTime() {
-    const now = new Date();
-    const pad = function(value) { return String(value).padStart(2, '0'); };
-    return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  viewDetail(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    navigateToTrustedRoute('/subpackages/venue/pages/venueApprovalHistoryDetail/venueApprovalHistoryDetail?id=' + id);
   }
 });

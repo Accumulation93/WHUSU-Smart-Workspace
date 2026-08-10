@@ -49,6 +49,9 @@ assert(submissionBehaviorSource.includes('editSubmissionId')
   && submissionBehaviorSource.includes('stepOverrides: stepOverrides')
   && routeSource.includes('resubmitTemplateConditions'),
   '模板修改和重新提交必须保留审批人重新指定链路');
+assert(routeSource.includes('hasHistoricalApprovalEvent')
+  && routeSource.includes('auditEventModel.getBySubmissionId(submissionId)'),
+  '审批历史打开详情必须允许实际处理过审批事件的操作者查看');
 
 // A first-step override must narrow only step 1; later steps keep their own rules.
 const overrides = [{ stepIndex: 1, personHrIds: ['hr-first'] }];

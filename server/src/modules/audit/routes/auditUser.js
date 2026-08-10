@@ -863,10 +863,22 @@ router.post('/getSubmissionDetail', async (req, res) => {
     if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
 
     const steps = await submissionStepModel.getBySubmissionId(submissionId);
+    // 审批历史入口的访问依据是实际审批事件，而不是当前待处理步骤。
+    // 身份条件审批可能没有把当前人写进 approver_hr_id，且记录打开时当前步骤已经推进，
+    // 只检查 pending step 会把本人已经处理过的记录错误拦截为“没有查看权限”。
+    const events = await auditEventModel.getBySubmissionId(submissionId);
+    const hasHistoricalApprovalEvent = events.some(function(event) {
+      const eventPersonId = safeString(event.operator_person_id);
+      if (detailActor && detailActor.personId && eventPersonId) {
+        return eventPersonId === safeString(detailActor.personId);
+      }
+      return safeString(event.operator_hr_id) === safeString(hrId);
+    });
 
     // Check access: submitter, approver in any step, or admin
     const isSubmitter = submission.submitted_by === hrId;
-    let isApprover = steps.some((s) => s.approver_hr_id && inCsv(s.approver_hr_id, hrId));
+    let isApprover = hasHistoricalApprovalEvent
+      || steps.some((s) => s.approver_hr_id && inCsv(s.approver_hr_id, hrId));
 
     // Check identity-based matching — always run so submitter-as-approver is detected
     // Also runs for admins so they get properly identified as approvers when their identity matches
@@ -954,8 +966,6 @@ router.post('/getSubmissionDetail', async (req, res) => {
 
     const files = await submissionFileModel.getBySubmissionId(submissionId);
     const signatures = await submissionSignatureModel.getBySubmissionId(submissionId);
-    const events = await auditEventModel.getBySubmissionId(submissionId);
-
     // Load HR names
     const allHrIds = new Set();
     allHrIds.add(submission.submitted_by);

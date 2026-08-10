@@ -46,6 +46,7 @@ const {
   assert.deepStrictEqual(ROUTE_RULES.get('/deleteVenueBookingRule').anyOf, ['venue.approvals']);
   assert.strictEqual(ROUTE_RULES.get('/listPendingVenueApprovals').allowUserRole, true);
   assert.strictEqual(ROUTE_RULES.get('/listVenueApprovalHistory').allowUserRole, true);
+  assert.strictEqual(ROUTE_RULES.get('/getVenueApprovalHistoryDetail').allowUserRole, true);
   assert.strictEqual(ROUTE_RULES.get('/approveVenueBookingStep').allowUserRole, true);
   assert.strictEqual(ROUTE_RULES.get('/rejectVenueBookingStep').allowUserRole, true);
   assert.strictEqual(ROUTE_RULES.get('/saveVenueApprovalWholeFlow').allowUserRole, false);

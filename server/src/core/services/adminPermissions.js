@@ -185,7 +185,8 @@ mapRoutes('venue.approvals', [
   '/approveVenueBooking', '/rejectVenueBooking', '/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'
 ]);
 mapRoutes('venue.approvals', [
-  '/approveVenueBookingStep', '/rejectVenueBookingStep', '/listPendingVenueApprovals', '/listVenueApprovalHistory'
+  '/approveVenueBookingStep', '/rejectVenueBookingStep', '/listPendingVenueApprovals',
+  '/listVenueApprovalHistory', '/getVenueApprovalHistoryDetail'
 ], { allowUserRole: true });
 mapAny(['/listVenueBookingPurposes'], [
   'venue.resources', 'venue.bookings', 'venue.purposes'
