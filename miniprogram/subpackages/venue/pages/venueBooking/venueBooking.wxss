@@ -798,6 +798,16 @@ page {
   padding: var(--ui-dialog-section-padding) var(--ui-dialog-section-padding) 36rpx;
 }
 
+.booking-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.booking-section-head .section-title { margin-bottom: 0; }
+
 @media (min-width: 520px) and (max-width: 899px) {
   .booking-form-popup .form-body {
     padding-bottom: 24px;

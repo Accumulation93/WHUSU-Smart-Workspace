@@ -1,7 +1,9 @@
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
+const { computeDisplayStatus, prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64;
@@ -21,21 +23,6 @@ function findOpenGap(rs,re,mo){let c=rs; for(const iv of mo){if(iv.start>c)retur
 function findBlockedOverlap(rs,re,mb){for(const iv of mb){if(iv.start<re&&iv.end>rs)return iv;}return null;}
 function minToTime(min) { if (min < 0) return '00:00'; if (min >= TOTAL_MIN) return '24:00'; let h = Math.floor(min / 60), m = min % 60; return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
 function snapMin(min) { return Math.round(min / SNAP) * SNAP; }
-
-function computeDisplayStatus(item) {
-  if (item.status === 'pending') return 'pending';
-  if (item.status === 'rejected') return 'rejected';
-  if (item.status === 'cancelled') return 'cancelled';
-  if (item.status === 'approved') {
-    let now = new Date();
-    let timeStart = new Date(item.timeStart.replace(' ', 'T'));
-    let timeEnd = new Date(item.timeEnd.replace(' ', 'T'));
-    if (now < timeStart) return 'approved';
-    if (now >= timeEnd) return 'completed';
-    return 'inUse';
-  }
-  return item.status;
-}
 
 function buildBlockedIntervals(dayData) {
   let blocked = [];
@@ -411,19 +398,7 @@ Page({
     let b=e.currentTarget.dataset.block;
     if(!b||!b.booking)return;
     if(b.booking.visibility==='occupancy_only'){this.openOccupiedPopup(b.booking);return;}
-    // 与借用记录列表一致的详情组装：状态与审批进度时间轴
-    let detail = Object.assign({}, b.booking, { displayStatus: computeDisplayStatus(b.booking) });
-    if (detail.approvalProgress) {
-      if (detail.approvalProgress.isRejected) {
-        detail._approvalPercent = 0;
-        detail._approvalBarColor = 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);';
-      } else if (detail.approvalProgress.isApproved) {
-        detail._approvalPercent = 100;
-      } else {
-        detail._approvalPercent = Math.round(detail.approvalProgress.currentStep / detail.approvalProgress.totalSteps * 100);
-      }
-      detail._flowTimeline = buildFlowTimeline(detail.approvalProgress);
-    }
+    const detail = prepareVenueBookingDetail(b.booking);
     this.setData({bookingDetailVisible:true,bookingDetail:detail,expandedNodeKey:''});
   },
   openOccupiedPopup(booking) {
@@ -439,7 +414,11 @@ Page({
     let id = e.currentTarget.dataset.id;
     let item = this.data.myBookings.find(function(b){return b.id===id;});
     if (!item) return;
-    this.setData({ bookingDetailVisible: true, bookingDetail: item, expandedNodeKey: '' });
+    this.setData({ bookingDetailVisible: true, bookingDetail: prepareVenueBookingDetail(item), expandedNodeKey: '' });
+  },
+
+  goApprovalHistory() {
+    navigateToTrustedRoute('/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory');
   },
 
   onTimeTargetTap(e) {
@@ -1569,21 +1548,7 @@ Page({
       let res = await callFunction({name:'listMyVenueBookings',data:{}});
       if (!orgSession.isRequestCurrent(this, request)) return;
       if(res.status==='success') {
-        let bookings = (res.bookings||[]).map(function(b){
-          let item = Object.assign({}, b, { displayStatus: computeDisplayStatus(b) });
-          if (item.approvalProgress) {
-            if (item.approvalProgress.isRejected) {
-              item._approvalPercent = 0;
-              item._approvalBarColor = 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);';
-            } else if (item.approvalProgress.isApproved) {
-              item._approvalPercent = 100;
-            } else {
-              item._approvalPercent = Math.round(item.approvalProgress.currentStep / item.approvalProgress.totalSteps * 100);
-            }
-            item._flowTimeline = buildFlowTimeline(item.approvalProgress);
-          }
-          return item;
-        });
+        let bookings = (res.bookings||[]).map(function(b){ return prepareVenueBookingDetail(b); });
         this.setData({myBookings: bookings});
       }
     } catch(e) { showShortToast(getErrorText(e,'请稍后刷新')); }

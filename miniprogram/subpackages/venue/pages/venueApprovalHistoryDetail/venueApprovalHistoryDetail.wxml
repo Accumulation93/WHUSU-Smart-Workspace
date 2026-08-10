@@ -3,7 +3,7 @@
 
   <view class="section">
     <view class="card detail-shell">
-      <view class="section-title">审批详情</view>
+      <view class="section-title">借用详情</view>
       <view class="detail-loading" wx:if="{{loading}}"><view class="card-loading-spinner"></view><text>正在加载详情</text></view>
       <view class="detail-error" wx:elif="{{errorText}}">
         <view class="detail-error-title">详情暂不可用</view>
@@ -11,40 +11,7 @@
         <text class="detail-retry ui-motion-chip" bindtap="loadDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重新加载</text>
       </view>
       <block wx:elif="{{detail}}">
-        <view class="detail-title">{{detail.title || '借用申请'}}</view>
-        <view class="detail-status-row">
-          <text class="history-status {{detail._statusClass}}">{{detail._statusLabel}}</text>
-          <text class="detail-my-action">{{detail._myHandledText}}</text>
-        </view>
-
-        <view class="detail-info-card">
-          <view class="detail-row"><text class="detail-key">场地</text><text class="detail-value">{{detail.venueName}}</text></view>
-          <view class="detail-row" wx:if="{{detail.venueLocation}}"><text class="detail-key">位置</text><text class="detail-value">{{detail.venueLocation}}</text></view>
-          <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-value">{{detail.applicantName}}</text></view>
-          <view class="detail-row" wx:if="{{detail.applicantDepartmentId}}"><text class="detail-key">部门</text><text class="detail-value">{{detail.applicantDepartmentId}}</text></view>
-          <view class="detail-row"><text class="detail-key">借用时间</text><text class="detail-value">{{detail.timeStart}} 至 {{detail.timeEnd}}</text></view>
-          <view class="detail-row" wx:if="{{detail.description}}"><text class="detail-key">借用说明</text><text class="detail-value">{{detail.description}}</text></view>
-          <view class="detail-row" wx:if="{{detail.approvalComment}}"><text class="detail-key">当前意见</text><text class="detail-value">{{detail.approvalComment}}</text></view>
-        </view>
-
-        <view class="progress-card">
-          <view class="progress-head"><view class="subsection-title">审批进展</view><text class="progress-text">{{detail._progressText}}</text></view>
-          <view class="progress-track"><view class="progress-fill" style="width:{{detail._progressPercent}}%;"></view></view>
-          <view class="progress-note">{{detail._myEventText}}，完整处理步骤如下</view>
-        </view>
-
-        <view class="event-list" wx:if="{{detail.approvalEvents.length}}">
-          <view class="subsection-title">处理记录</view>
-          <view class="approval-event {{item._mineClass}}" wx:for="{{detail.approvalEvents}}" wx:key="id">
-            <view class="approval-event-dot"></view>
-            <view class="approval-event-body">
-              <view class="approval-event-head"><text class="approval-event-step">{{item.stepName}}</text><text class="approval-event-label">{{item._mineLabel}}</text></view>
-              <view class="approval-event-meta">{{item.approverName}} · {{item.approvedAt}}</view>
-              <view class="approval-event-comment" wx:if="{{item.comment}}">审批意见：{{item.comment}}</view>
-            </view>
-          </view>
-        </view>
-        <view class="detail-empty-events" wx:else>暂无可展示的步骤处理记录</view>
+        <venue-booking-detail booking="{{detail}}"></venue-booking-detail>
       </block>
     </view>
   </view>

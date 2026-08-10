@@ -21,7 +21,7 @@
             <view class="history-item-meta">{{item.venueName}}<text wx:if="{{item.venueLocation}}"> · {{item.venueLocation}}</text></view>
             <view class="history-item-meta">借用人：{{item.applicantName}}</view>
             <view class="history-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
-            <view class="history-item-entry">查看审批详情与后续进展 <text class="history-item-arrow">›</text></view>
+            <view class="history-item-entry">查看借用详情与完整进展 <text class="history-item-arrow">›</text></view>
           </view>
           <view class="audit-empty-state" wx:if="{{!history.length}}">
             <view class="audit-empty-icon">✓</view>

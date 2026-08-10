@@ -78,5 +78,9 @@ Page({
 
   goVenueBooking() {
     navigateToTrustedRoute('/subpackages/venue/pages/venueBooking/venueBooking');
+  },
+
+  goApprovalHistory() {
+    navigateToTrustedRoute('/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory');
   }
 });

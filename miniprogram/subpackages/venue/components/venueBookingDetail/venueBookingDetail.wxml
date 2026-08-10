@@ -1,0 +1,40 @@
+<view class="venue-booking-detail">
+  <view class="detail-title">{{booking.title || '借用'}}</view>
+  <view class="detail-row" wx:if="{{booking.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{booking.venueName}}</text></view>
+  <view class="detail-row" wx:if="{{booking.orgName}}"><text class="detail-key">组织</text><text class="detail-val">{{booking.orgName}}</text></view>
+  <view class="detail-row" wx:if="{{booking.userName}}"><text class="detail-key">借用人</text><text class="detail-val">{{booking.userName}}</text></view>
+  <view class="detail-row" wx:if="{{booking.userDept}}"><text class="detail-key">部门</text><text class="detail-val">{{booking.userDept}}</text></view>
+  <view class="detail-row" wx:if="{{booking.userIdentity}}"><text class="detail-key">身份</text><text class="detail-val">{{booking.userIdentity}}</text></view>
+  <view class="detail-row" wx:if="{{booking.userWorkGroup}}"><text class="detail-key">职能组</text><text class="detail-val">{{booking.userWorkGroup}}</text></view>
+  <view class="detail-row" wx:if="{{booking.timeStart}}"><text class="detail-key">时间</text><text class="detail-val">{{booking.timeStart}} 至 {{booking.timeEnd}}</text></view>
+  <view class="detail-row" wx:if="{{booking.description}}"><text class="detail-key">说明</text><text class="detail-val">{{booking.description}}</text></view>
+  <view class="detail-row" wx:if="{{booking.approvalComment}}"><text class="detail-key">审批意见</text><text class="detail-val">{{booking.approvalComment}}</text></view>
+  <view class="detail-row"><text class="detail-key">状态</text><text class="status-tag {{booking.displayStatus || booking.status}}">{{booking._statusLabel}}</text></view>
+
+  <view wx:if="{{booking.approvalProgress}}" class="audit-flow-summary audit-flow-summary--spaced">
+    <view class="audit-flow-progress-bar"><view class="audit-flow-progress-fill" style="width:{{booking._approvalPercent}}%;{{booking._approvalBarColor || ''}}"></view></view>
+    <text class="audit-flow-progress-text">{{booking._approvalProgressText}}</text>
+  </view>
+
+  <view wx:if="{{booking._flowTimeline && booking._flowTimeline.length}}" class="audit-flow audit-flow--spaced">
+    <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{booking._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+      <view class="flow-left-col">
+        <view class="{{node.dotClass}}">{{node.icon}}</view>
+        <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
+      </view>
+      <view class="flow-right-col">
+        <view class="flow-info">
+          <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
+          <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
+          <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
+          <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+        </view>
+        <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
+          <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">审批人：</text>{{node.approverName}}</view>
+          <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">审批时间：</text>{{node.approvedAt}}</view>
+          <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">审批意见：</text>{{node.comment}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

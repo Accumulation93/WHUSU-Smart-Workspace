@@ -804,6 +804,10 @@ router.post('/listMyVenueBookings', async (req, res) => {
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       title: b.title,
       description: b.description,
+      userName: b.user_name || '信息已失效',
+      userDept: b.user_department || '',
+      userIdentity: b.user_identity || '',
+      userWorkGroup: b.user_work_group || '',
       timeStart: fmtDatetime(new Date(b.time_start)),
       timeEnd: fmtDatetime(new Date(b.time_end)),
       status: b.status,
@@ -1074,10 +1078,15 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT b.*, v.name AS venue_name, v.location AS venue_location,
-              h.name AS applicant_name, h.department_id AS applicant_department_id
+              h.name AS applicant_name, h.department_id AS applicant_department_id,
+              d.name AS applicant_department_name, i.name AS applicant_identity_name,
+              wg.name AS applicant_work_group_name
          FROM venue_bookings b
          LEFT JOIN venues v ON v.id = b.venue_id
          LEFT JOIN hr_info h ON h.id = b.user_hr_id AND h.org_id = b.creator_org_id
+         LEFT JOIN departments d ON d.id = h.department_id AND d.org_id = h.org_id
+         LEFT JOIN identities i ON i.id = h.identity_id AND i.org_id = h.org_id
+         LEFT JOIN work_groups wg ON wg.id = h.work_group_id AND wg.org_id = h.org_id
         WHERE b.id = ? AND b.approval_org_id = ?
         LIMIT 1`,
       [bookingId, orgId]
@@ -1122,14 +1131,35 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       };
     });
 
+    const orgNameMap = await resolveVenueOrgNames([
+      safeString(booking.creator_org_id),
+      safeString(booking.approval_org_id)
+    ]);
+    const totalSteps = Number(booking.approval_total_steps) || 0;
+    const storedCurrentStep = Number(booking.approval_current_step);
+    const snapshotCompletedSteps = snapshots.reduce((max, snapshot) => {
+      const stepIndex = Number(snapshot && snapshot.stepIndex);
+      return Number.isFinite(stepIndex) && stepIndex >= 0 ? Math.max(max, stepIndex + 1) : max;
+    }, 0);
+    const isRejected = storedCurrentStep < 0;
+    const currentStep = isRejected
+      ? -1
+      : Math.min(totalSteps, Math.max(0, Number.isFinite(storedCurrentStep) ? storedCurrentStep : 0, snapshotCompletedSteps));
+    const isApproved = !isRejected && currentStep >= totalSteps;
+
     res.json({
       status: 'success',
       detail: {
         id: booking.id,
         venueName: safeString(booking.venue_name) || '场地已删除',
         venueLocation: safeString(booking.venue_location),
+        orgName: orgNameMap[safeString(booking.creator_org_id)] || orgNameMap[safeString(booking.approval_org_id)] || '',
         title: safeString(booking.title),
         description: safeString(booking.description),
+        userName: safeString(booking.applicant_name) || '信息已失效',
+        userDept: safeString(booking.applicant_department_name),
+        userIdentity: safeString(booking.applicant_identity_name),
+        userWorkGroup: safeString(booking.applicant_work_group_name),
         applicantName: safeString(booking.applicant_name) || '信息已失效',
         applicantDepartmentId: safeString(booking.applicant_department_id),
         timeStart: fmtDatetime(new Date(booking.time_start)),
@@ -1141,12 +1171,14 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
         myActionLabel: approval.actionLabel,
         myApprovalAt: approval.approvedAt,
         approvalProgress: booking.approval_flow_id && Number(booking.approval_total_steps) > 0 ? {
-          currentStep: Number(booking.approval_current_step) || 0,
-          totalSteps: Number(booking.approval_total_steps) || 0,
-          isApproved: Number(booking.approval_current_step) >= Number(booking.approval_total_steps),
-          isRejected: Number(booking.approval_current_step) < 0,
+          flowId: booking.approval_flow_id,
+          currentStep: currentStep,
+          totalSteps: totalSteps,
+          isApproved: isApproved,
+          isRejected: isRejected,
           rejectStep: booking.approval_reject_step,
           flowSteps: flowSteps,
+          snapshots: snapshots,
           events: approvalEvents
         } : null,
         approvalEvents: approvalEvents

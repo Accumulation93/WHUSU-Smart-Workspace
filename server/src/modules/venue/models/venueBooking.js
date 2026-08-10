@@ -28,7 +28,17 @@ async function getByVenueId(venueId, filters) {
 
 async function getByUserId(userHrId) {
   const [rows] = await pool.query(
-    'SELECT vb.*, v.name AS venue_name, v.location AS venue_location FROM venue_bookings vb JOIN venues v ON vb.venue_id = v.id WHERE vb.user_hr_id = ? ORDER BY vb.time_start DESC',
+    `SELECT vb.*, v.name AS venue_name, v.location AS venue_location,
+            h.name AS user_name, d.name AS user_department,
+            i.name AS user_identity, wg.name AS user_work_group
+       FROM venue_bookings vb
+       JOIN venues v ON vb.venue_id = v.id
+       LEFT JOIN hr_info h ON h.id = vb.user_hr_id AND h.org_id = vb.creator_org_id
+       LEFT JOIN departments d ON d.id = h.department_id AND d.org_id = h.org_id
+       LEFT JOIN identities i ON i.id = h.identity_id AND i.org_id = h.org_id
+       LEFT JOIN work_groups wg ON wg.id = h.work_group_id AND wg.org_id = h.org_id
+      WHERE vb.user_hr_id = ?
+      ORDER BY vb.time_start DESC`,
     [userHrId]
   );
   return rows;
