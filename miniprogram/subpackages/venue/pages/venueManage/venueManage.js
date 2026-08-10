@@ -187,6 +187,7 @@ Page({
     ruleEditorVisible: false,
     ruleEditId: '',
     ruleEditorType: '',
+    ruleEditorScrollStyle: '',
     ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin' },
 
     // Reference data
@@ -416,7 +417,7 @@ Page({
       this.setData({
         allIdentities: (identRes.status === 'success' ? identRes.identities : []) || [],
         allHrPersons: (hrRes.status === 'success' ? hrRes.list : []) || []
-      });
+      }, () => this._refreshRuleEditorRuleLabels());
     } catch (_) {}
   },
 
@@ -561,6 +562,76 @@ Page({
   },
 
   // ── Rule Editor ──
+  _resolveNames(idArray, sourceList) {
+    if (!idArray || !idArray.length) return '';
+    return idArray.map(id => {
+      const item = (sourceList || []).find(it => String(it.id) === String(id));
+      return item ? item.name : '';
+    }).filter(Boolean).join('、');
+  },
+
+  _formatRuleScopeLabel(scope, ids, sourceList, label, sameLabel) {
+    if (scope === 'specific') {
+      const names = this._resolveNames(parseCsvArray(ids), sourceList);
+      return label + '：' + (names || '名称加载中');
+    }
+    if (scope === 'same') return label + '：' + sameLabel;
+    return label + '：不限';
+  },
+
+  _decorateRuleDisplay(rule) {
+    const next = { ...(rule || {}) };
+    next._departmentLabel = this._formatRuleScopeLabel(
+      next.departmentScope, next.specificDepartmentId, this.data.allDepartments, '部门', '申请人同部门'
+    );
+    next._workGroupLabel = this._formatRuleScopeLabel(
+      next.workGroupScope, next.specificWorkGroupId, this.data.allWorkGroups, '职能组', '申请人同职能组'
+    );
+    next._identityLabel = this._formatRuleScopeLabel(
+      next.identityScope, next.specificIdentityId, this.data.allIdentities, '身份', '申请人同身份'
+    );
+    return next;
+  },
+
+  _decorateFlowSteps(steps) {
+    return (steps || []).map(step => ({
+      ...step,
+      rules: (step.rules || []).map(rule => this._decorateRuleDisplay(rule))
+    }));
+  },
+
+  _decorateEditingCondition(condition) {
+    const next = { ...(condition || {}) };
+    const display = this._decorateRuleDisplay({
+      departmentScope: next.deptScope || 'all',
+      specificDepartmentId: (next.deptIds || []).join(','),
+      workGroupScope: next.wgScope || 'all',
+      specificWorkGroupId: (next.wgIds || []).join(','),
+      identityScope: next.identScope || 'all',
+      specificIdentityId: (next.identIds || []).join(',')
+    });
+    next._deptNames = this._resolveNames(next.deptIds || [], this.data.allDepartments);
+    next._wgNames = this._resolveNames(next.wgIds || [], this.data.allWorkGroups);
+    next._identNames = this._resolveNames(next.identIds || [], this.data.allIdentities);
+    next._departmentLabel = display._departmentLabel;
+    next._workGroupLabel = display._workGroupLabel;
+    next._identityLabel = display._identityLabel;
+    return next;
+  },
+
+  _refreshRuleEditorRuleLabels() {
+    if (!this.data.ruleEditorVisible) return;
+    const ruleForm = this.data.ruleForm || {};
+    const update = {
+      'ruleForm._flowSteps': this._decorateFlowSteps(ruleForm._flowSteps || []),
+      'ruleForm._editingStepRules': (ruleForm._editingStepRules || []).map(rule => this._decorateRuleDisplay(rule))
+    };
+    if (ruleForm._editingCondition) {
+      update['ruleForm._editingCondition'] = this._decorateEditingCondition(ruleForm._editingCondition);
+    }
+    this.setData(update, () => this._scheduleRuleEditorViewportSync());
+  },
+
   openRuleEditor(e) {
     const type = e.currentTarget.dataset.type; // 'open' | 'activity' | 'booking'
     const ruleId = e.currentTarget.dataset.id || '';
@@ -594,7 +665,7 @@ Page({
                 identityScope: r.identity_scope || 'all', specificIdentityId: r.specific_identity_id || ''
               }))
             }));
-            form._flowSteps = steps;
+            form._flowSteps = this._decorateFlowSteps(steps);
           } else {
             form._flowSteps = [];
           }
@@ -603,18 +674,78 @@ Page({
         }
       }
     }
+    form._editingStepIdx = null;
+    form._editingConditionIdx = null;
+    form._editingStepName = '';
+    form._editingStepRules = [];
+    form._editingCondition = null;
     this.setData({
       ruleEditorVisible: true, ruleEditId: ruleId, ruleEditorType: type, ruleForm: form,
+      ruleEditorScrollStyle: 'height:0px !important;',
       weeklyChecked: buildWeeklyChecked(form.cycleValues),
       monthlyChecked: buildMonthlyChecked(form.cycleValues)
-    });
+    }, () => this._scheduleRuleEditorViewportSync());
+    if (type === 'booking' && (!this.data.allDepartments.length || !this.data.allWorkGroups.length)) {
+      this.loadFlowReferenceData();
+    }
   },
 
   closeRuleEditor() {
+    this._clearRuleEditorViewportTimer();
     this.setData({
       ruleEditorVisible: false,
-      'ruleForm._editingStepIdx': undefined,
-      'ruleForm._editingConditionIdx': undefined
+      ruleEditorScrollStyle: '',
+      'ruleForm._editingStepIdx': null,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    });
+  },
+
+  _clearRuleEditorViewportTimer() {
+    if (this._ruleEditorViewportTimer) {
+      clearTimeout(this._ruleEditorViewportTimer);
+      this._ruleEditorViewportTimer = null;
+    }
+  },
+
+  _scheduleRuleEditorViewportSync() {
+    if (!this.data.ruleEditorVisible) return;
+    this._clearRuleEditorViewportTimer();
+    this._ruleEditorViewportTimer = setTimeout(() => {
+      this._ruleEditorViewportTimer = null;
+      wx.nextTick(() => this._syncRuleEditorViewport());
+    }, 20);
+  },
+
+  _syncRuleEditorViewport() {
+    if (!this.data.ruleEditorVisible) return;
+    const query = wx.createSelectorQuery();
+    query.select('.rule-editor-popup').boundingClientRect();
+    query.select('.rule-editor-popup-header').boundingClientRect();
+    query.select('.rule-editor-scroll').boundingClientRect();
+    query.select('.rule-editor-stack').boundingClientRect();
+    query.select('.rule-editor-popup-footer').boundingClientRect();
+    query.select('.rule-editor-viewport-limit').boundingClientRect();
+    query.exec((rects) => {
+      const shell = rects[0];
+      const header = rects[1];
+      const body = rects[2];
+      const content = rects[3];
+      const footer = rects[4];
+      const viewportLimit = rects[5];
+      if (!shell || !header || !body || !content || !footer || !viewportLimit) return;
+
+      const bodyStart = Math.max(0, body.top - shell.top);
+      const footerHeight = Math.max(0, footer.height);
+      const footerTail = Math.max(0, shell.bottom - footer.bottom);
+      const maxShellHeight = Math.max(0, viewportLimit.height || shell.height);
+      const maxBodyHeight = Math.max(1, Math.floor(maxShellHeight - bodyStart - footerHeight - footerTail));
+      const contentHeight = Math.max(1, Math.ceil(content.height));
+      const bodyHeight = Math.min(contentHeight, maxBodyHeight);
+      const style = 'height:' + bodyHeight + 'px !important;';
+      if (this.data.ruleEditorScrollStyle !== style) {
+        this.setData({ ruleEditorScrollStyle: style });
+      }
     });
   },
 
@@ -625,7 +756,7 @@ Page({
 
   onRuleFormField(e) {
     const f = e.currentTarget.dataset.field;
-    this.setData({ ['ruleForm.' + f]: e.detail.value });
+    this.setData({ ['ruleForm.' + f]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
   },
 
   onCycleTypeChange(e) {
@@ -637,7 +768,7 @@ Page({
       'ruleForm.cycleValues': ct === 'range' ? { startDate: '', endDate: '' } : [],
       weeklyChecked: [false, false, false, false, false, false, false],
       monthlyChecked: Array(31).fill(false)
-    });
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   onBookingRuleTypeChange(e) {
@@ -647,14 +778,15 @@ Page({
     const update = {
       'ruleForm.ruleType': rt,
       'ruleForm._ruleTypeIndex': idx,
-      'ruleForm._editingStepIdx': undefined,
-      'ruleForm._editingConditionIdx': undefined
+      'ruleForm._editingStepIdx': null,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
     };
     // When switching to flow type, load existing flow steps if not already loaded
     if (rt === 'flow' && (!this.data.ruleForm._flowSteps || !this.data.ruleForm._flowSteps.length)) {
       const existingSteps = this.data.approvalFlowSteps || [];
       if (existingSteps.length) {
-        update['ruleForm._flowSteps'] = existingSteps.map(s => ({
+        update['ruleForm._flowSteps'] = this._decorateFlowSteps(existingSteps.map(s => ({
           name: s.name || '',
           approvalMode: s.approval_mode || ((s.rules || []).length ? 'hr_rule' : 'admin_any'),
           rules: (s.rules || []).map(r => ({
@@ -665,12 +797,15 @@ Page({
             identityScope: r.identity_scope || 'all',
             specificIdentityId: r.specific_identity_id || ''
           }))
-        }));
+        })));
       } else {
         update['ruleForm._flowSteps'] = [];
       }
     }
-    this.setData(update);
+    this.setData(update, () => this._scheduleRuleEditorViewportSync());
+    if (rt === 'flow' && (!this.data.allDepartments.length || !this.data.allWorkGroups.length)) {
+      this.loadFlowReferenceData();
+    }
   },
 
   onBookingIdentityChange(e) {
@@ -1736,11 +1871,20 @@ Page({
         name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00',
         ruleType: 'flow', approverIdentityId: '', approverHrId: '',
         approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0,
-        _flowSteps: steps
+        _flowSteps: this._decorateFlowSteps(steps),
+        _editingStepIdx: null,
+        _editingConditionIdx: null,
+        _editingStepName: '',
+        _editingStepRules: [],
+        _editingCondition: null
       },
+      ruleEditorScrollStyle: 'height:0px !important;',
       weeklyChecked: [],
       monthlyChecked: []
-    });
+    }, () => this._scheduleRuleEditorViewportSync());
+    if (!this.data.allDepartments.length || !this.data.allWorkGroups.length) {
+      this.loadFlowReferenceData();
+    }
   },
 
   async loadFlowReferenceData() {
@@ -1754,7 +1898,7 @@ Page({
       this.setData({
         allDepartments: (deptRes.status === 'success' ? deptRes.departments : []) || [],
         allWorkGroups: (wgRes.status === 'success' ? wgRes.workGroups : []) || []
-      });
+      }, () => this._refreshRuleEditorRuleLabels());
     } catch (_) {}
   },
 
@@ -1766,8 +1910,9 @@ Page({
       'ruleForm._editingStepIdx': -1,
       'ruleForm._editingStepName': '',
       'ruleForm._editingStepRules': [],
-      'ruleForm._editingConditionIdx': undefined
-    });
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   editRuleFlowStep(e) {
@@ -1778,9 +1923,10 @@ Page({
     this.setData({
       'ruleForm._editingStepIdx': idx,
       'ruleForm._editingStepName': step.name || '',
-      'ruleForm._editingStepRules': (step.rules || []).map(r => ({ ...r })),
-      'ruleForm._editingConditionIdx': undefined
-    });
+      'ruleForm._editingStepRules': (step.rules || []).map(r => this._decorateRuleDisplay(r)),
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   removeRuleFlowStep(e) {
@@ -1814,7 +1960,7 @@ Page({
     const stepData = {
       name,
       approvalMode: (this.data.ruleForm._editingStepRules || []).length ? 'hr_rule' : 'admin_any',
-      rules: (this.data.ruleForm._editingStepRules || []).map(r => ({
+      rules: (this.data.ruleForm._editingStepRules || []).map(r => this._decorateRuleDisplay({
         departmentScope: r.departmentScope || 'all',
         specificDepartmentId: r.specificDepartmentId || '',
         workGroupScope: r.workGroupScope || 'all',
@@ -1831,34 +1977,41 @@ Page({
     }
     this.setData({
       'ruleForm._flowSteps': steps,
-      'ruleForm._editingStepIdx': undefined,
-      'ruleForm._editingConditionIdx': undefined
-    });
+      'ruleForm._editingStepIdx': null,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingStepName': '',
+      'ruleForm._editingStepRules': [],
+      'ruleForm._editingCondition': null
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   cancelRuleFlowStepEdit() {
     this.setData({
-      'ruleForm._editingStepIdx': undefined,
-      'ruleForm._editingConditionIdx': undefined
-    });
+      'ruleForm._editingStepIdx': null,
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingStepName': '',
+      'ruleForm._editingStepRules': [],
+      'ruleForm._editingCondition': null
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   onRuleFlowSubField(e) {
     const f = e.currentTarget.dataset.field;
-    this.setData({ ['ruleForm.' + f]: e.detail.value });
+    this.setData({ ['ruleForm.' + f]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
   },
 
   // ── Rule/Condition CRUD within a step ──
 
   openAddRuleFlowCondition() {
+    const condition = this._decorateEditingCondition({
+      deptScope: 'all', deptIds: [],
+      wgScope: 'all', wgIds: [],
+      identScope: 'all', identIds: []
+    });
     this.setData({
       'ruleForm._editingConditionIdx': -1,
-      'ruleForm._editingCondition': {
-        deptScope: 'all', deptIds: [],
-        wgScope: 'all', wgIds: [],
-        identScope: 'all', identIds: []
-      }
-    });
+      'ruleForm._editingCondition': condition
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   editRuleFlowCondition(e) {
@@ -1869,25 +2022,18 @@ Page({
     const deptIds = parseCsvArray(rule.specificDepartmentId);
     const wgIds = parseCsvArray(rule.specificWorkGroupId);
     const identIds = parseCsvArray(rule.specificIdentityId);
+    const condition = this._decorateEditingCondition({
+      deptScope: rule.departmentScope || 'all',
+      deptIds,
+      wgScope: rule.workGroupScope || 'all',
+      wgIds,
+      identScope: rule.identityScope || 'all',
+      identIds
+    });
     this.setData({
       'ruleForm._editingConditionIdx': idx,
-      'ruleForm._editingCondition': {
-        deptScope: rule.departmentScope || 'all',
-        deptIds, _deptNames: this._resolveNames(deptIds, this.data.allDepartments),
-        wgScope: rule.workGroupScope || 'all',
-        wgIds, _wgNames: this._resolveNames(wgIds, this.data.allWorkGroups),
-        identScope: rule.identityScope || 'all',
-        identIds, _identNames: this._resolveNames(identIds, this.data.allIdentities)
-      }
-    });
-  },
-
-  _resolveNames(idArray, sourceList) {
-    if (!idArray || !idArray.length || !sourceList || !sourceList.length) return '';
-    return idArray.map(id => {
-      const item = sourceList.find(it => it.id === id);
-      return item ? item.name : id;
-    }).join('、');
+      'ruleForm._editingCondition': condition
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   removeRuleFlowCondition(e) {
@@ -1909,20 +2055,25 @@ Page({
       identityScope: cond.identScope || 'all',
       specificIdentityId: (cond.identScope === 'specific' && cond.identIds) ? cond.identIds.join(',') : ''
     };
+    const displayRule = this._decorateRuleDisplay(ruleData);
     const idx = this.data.ruleForm._editingConditionIdx;
     if (idx >= 0 && idx < rules.length) {
-      rules[idx] = { ...rules[idx], ...ruleData };
+      rules[idx] = { ...rules[idx], ...displayRule };
     } else {
-      rules.push(ruleData);
+      rules.push(displayRule);
     }
     this.setData({
       'ruleForm._editingStepRules': rules,
-      'ruleForm._editingConditionIdx': undefined
-    });
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   cancelRuleFlowCondEdit() {
-    this.setData({ 'ruleForm._editingConditionIdx': undefined });
+    this.setData({
+      'ruleForm._editingConditionIdx': null,
+      'ruleForm._editingCondition': null
+    }, () => this._scheduleRuleEditorViewportSync());
   },
 
   // ── Condition picker handlers ──
@@ -1930,17 +2081,32 @@ Page({
   onCondDeptScope(e) {
     const scopes = ['all', 'same', 'specific'];
     const v = scopes[parseInt(e.detail.value)] || 'all';
-    this.setData({ 'ruleForm._editingCondition.deptScope': v, 'ruleForm._editingCondition.deptIds': [] });
+    const condition = this._decorateEditingCondition({
+      ...(this.data.ruleForm._editingCondition || {}),
+      deptScope: v,
+      deptIds: []
+    });
+    this.setData({ 'ruleForm._editingCondition': condition }, () => this._scheduleRuleEditorViewportSync());
   },
   onCondWgScope(e) {
     const scopes = ['all', 'same', 'specific'];
     const v = scopes[parseInt(e.detail.value)] || 'all';
-    this.setData({ 'ruleForm._editingCondition.wgScope': v, 'ruleForm._editingCondition.wgIds': [] });
+    const condition = this._decorateEditingCondition({
+      ...(this.data.ruleForm._editingCondition || {}),
+      wgScope: v,
+      wgIds: []
+    });
+    this.setData({ 'ruleForm._editingCondition': condition }, () => this._scheduleRuleEditorViewportSync());
   },
   onCondIdentScope(e) {
     const scopes = ['all', 'same', 'specific'];
     const v = scopes[parseInt(e.detail.value)] || 'all';
-    this.setData({ 'ruleForm._editingCondition.identScope': v, 'ruleForm._editingCondition.identIds': [] });
+    const condition = this._decorateEditingCondition({
+      ...(this.data.ruleForm._editingCondition || {}),
+      identScope: v,
+      identIds: []
+    });
+    this.setData({ 'ruleForm._editingCondition': condition }, () => this._scheduleRuleEditorViewportSync());
   },
 
   // ── Condition Multi-Picker (replicates audit multi-picker pattern) ──
@@ -2111,18 +2277,15 @@ Page({
     const target = this.data.condMultiPickerTarget;
     const selected = this.data.condMultiPickerSelectedIds || {};
     const ids = Object.keys(selected);
-    const items = this.data.condMultiPickerItems || [];
-    const names = ids.map(id => {
-      const item = items.find(it => String(it.id) === id);
-      return item ? item.name : id;
-    }).join('、');
-
+    const currentCondition = this.data.ruleForm._editingCondition || {};
     if (target === 'dept') {
       this.setData({
-        'ruleForm._editingCondition.deptIds': ids,
-        'ruleForm._editingCondition._deptNames': names || '',
+        'ruleForm._editingCondition': this._decorateEditingCondition({
+          ...currentCondition,
+          deptIds: ids
+        }),
         condMultiPickerVisible: false
-      });
+      }, () => this._scheduleRuleEditorViewportSync());
     } else if (target === 'wg') {
       // Per-department validation when department tabs are active
       if (this.data.condMultiPickerDeptTabs.length) {
@@ -2136,27 +2299,38 @@ Page({
         }
       }
       this.setData({
-        'ruleForm._editingCondition.wgIds': ids,
-        'ruleForm._editingCondition._wgNames': names || '',
+        'ruleForm._editingCondition': this._decorateEditingCondition({
+          ...currentCondition,
+          wgIds: ids
+        }),
         condMultiPickerVisible: false
-      });
+      }, () => this._scheduleRuleEditorViewportSync());
     } else {
       this.setData({
-        'ruleForm._editingCondition.identIds': ids,
-        'ruleForm._editingCondition._identNames': names || '',
+        'ruleForm._editingCondition': this._decorateEditingCondition({
+          ...currentCondition,
+          identIds: ids
+        }),
         condMultiPickerVisible: false
-      });
+      }, () => this._scheduleRuleEditorViewportSync());
     }
   },
 
   onCondFieldClear(e) {
     const field = e.currentTarget.dataset.field;
+    const currentCondition = this.data.ruleForm._editingCondition || {};
     if (field === 'dept') {
-      this.setData({ 'ruleForm._editingCondition.deptIds': [], 'ruleForm._editingCondition._deptNames': '' });
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, deptIds: [] })
+      }, () => this._scheduleRuleEditorViewportSync());
     } else if (field === 'wg') {
-      this.setData({ 'ruleForm._editingCondition.wgIds': [], 'ruleForm._editingCondition._wgNames': '' });
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, wgIds: [] })
+      }, () => this._scheduleRuleEditorViewportSync());
     } else {
-      this.setData({ 'ruleForm._editingCondition.identIds': [], 'ruleForm._editingCondition._identNames': '' });
+      this.setData({
+        'ruleForm._editingCondition': this._decorateEditingCondition({ ...currentCondition, identIds: [] })
+      }, () => this._scheduleRuleEditorViewportSync());
     }
   },
 

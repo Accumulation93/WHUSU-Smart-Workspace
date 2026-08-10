@@ -260,14 +260,15 @@
   <view class="popup-mask ui-overlay" wx:if="{{ruleEditorVisible}}" bindtap="closeRuleEditor">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card rule-editor-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header">
+      <view class="rule-editor-viewport-limit" aria-hidden="true"></view>
+      <view class="popup-header rule-editor-popup-header ui-dialog-header">
         <view class="rule-editor-header-copy">
           <view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view>
           <view wx:if="{{ruleEditorType === 'booking'}}" class="rule-editor-header-note">按步骤设置谁来审批</view>
         </view>
         <text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" style="{{ruleEditorScrollStyle}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y>
         <view class="form-body rule-editor-stack ui-dialog-stack">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
@@ -352,9 +353,9 @@
                     <block wx:else>
                       <view class="flow-rule-tag" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
                         <view class="flow-rule-pill-row">
-                          <text class="flow-rule-pill">{{rule.departmentScope === 'specific' ? '指定部门' : (rule.departmentScope === 'same' ? '同部门' : '任意部门')}}</text>
-                          <text class="flow-rule-pill">{{rule.workGroupScope === 'specific' ? '指定职能组' : (rule.workGroupScope === 'same' ? '同职能组' : '任意职能组')}}</text>
-                          <text class="flow-rule-pill">{{rule.identityScope === 'specific' ? '指定身份' : (rule.identityScope === 'same' ? '同身份' : '任意身份')}}</text>
+                          <text class="flow-rule-pill flow-rule-pill--department">{{rule._departmentLabel}}</text>
+                          <text class="flow-rule-pill flow-rule-pill--work-group">{{rule._workGroupLabel}}</text>
+                          <text class="flow-rule-pill flow-rule-pill--identity">{{rule._identityLabel}}</text>
                         </view>
                       </view>
                     </block>
@@ -365,7 +366,7 @@
               <button class="secondary-btn sm flow-add-step-btn ui-motion-button" catchtap="openAddRuleFlowStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ 添加审批步骤</button>
 
               <!-- Inline step+rule editor (within the rule editor!) -->
-              <block wx:if="{{ruleForm._editingStepIdx !== undefined && ruleForm._editingConditionIdx === undefined}}">
+              <block wx:if="{{ruleForm._editingStepIdx !== null && ruleForm._editingConditionIdx === null}}">
                 <view class="rule-edit-box ui-dialog-section">
                   <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingStepIdx >= 0 ? '编辑步骤' : '新增步骤'}}</view><text class="rule-editor-section-note">步骤名称和审批条件</text></view>
                   <view class="field">
@@ -378,9 +379,9 @@
                       <view class="flow-rule-card" wx:for="{{ruleForm._editingStepRules}}" wx:key="index" wx:for-index="ri">
                         <view class="flow-rule-summary">
                           <view class="flow-rule-pill-row">
-                            <text class="flow-rule-pill">{{item.departmentScope === 'specific' ? '指定部门' : (item.departmentScope === 'same' ? '同部门' : '任意部门')}}</text>
-                            <text class="flow-rule-pill">{{item.workGroupScope === 'specific' ? '指定职能组' : (item.workGroupScope === 'same' ? '同职能组' : '任意职能组')}}</text>
-                            <text class="flow-rule-pill">{{item.identityScope === 'specific' ? '指定身份' : (item.identityScope === 'same' ? '同身份' : '任意身份')}}</text>
+                            <text class="flow-rule-pill flow-rule-pill--department">{{item._departmentLabel}}</text>
+                            <text class="flow-rule-pill flow-rule-pill--work-group">{{item._workGroupLabel}}</text>
+                            <text class="flow-rule-pill flow-rule-pill--identity">{{item._identityLabel}}</text>
                           </view>
                         </view>
                         <view class="inline-actions">
@@ -400,9 +401,18 @@
               </block>
 
               <!-- Inline rule condition editor (within step editor) -->
-              <block wx:if="{{ruleForm._editingConditionIdx !== undefined}}">
+              <block wx:if="{{ruleForm._editingConditionIdx !== null}}">
                 <view class="rule-edit-box rule-edit-box--condition ui-dialog-section">
                   <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingConditionIdx >= 0 ? '编辑规则' : '新增规则'}}</view><text class="rule-editor-section-note">{{ruleForm._editingStepName || '当前审批步骤'}}</text></view>
+
+                  <view class="flow-rule-detail">
+                    <view class="flow-rule-detail-title">当前审批对象</view>
+                    <view class="flow-rule-pill-row">
+                      <text class="flow-rule-pill flow-rule-pill--department">{{ruleForm._editingCondition._departmentLabel}}</text>
+                      <text class="flow-rule-pill flow-rule-pill--work-group">{{ruleForm._editingCondition._workGroupLabel}}</text>
+                      <text class="flow-rule-pill flow-rule-pill--identity">{{ruleForm._editingCondition._identityLabel}}</text>
+                    </view>
+                  </view>
 
                   <view class="rule-condition-grid">
                   <!-- Dept scope -->
@@ -443,7 +453,7 @@
           </block>
         </view>
       </scroll-view>
-      <view class="rule-save-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="saveRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存规则</button></view>
+      <view class="rule-save-bar rule-editor-popup-footer ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="saveRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存规则</button></view>
     </view>
   </view>
   </viewport-portal>
