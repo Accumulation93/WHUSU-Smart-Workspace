@@ -178,6 +178,26 @@ module.exports = { hour: hour, min: min };
   </view>
   </viewport-portal>
 
+  <!-- Activity detail popup -->
+  <viewport-portal wx:if="{{activityDetailVisible}}">
+  <view class="popup-mask ui-overlay" wx:if="{{activityDetailVisible}}" bindtap="closeActivityDetail">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">活动占用详情</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+      <view class="ui-dialog-stack">
+        <view class="detail-title">{{activityDetail.name || '活动'}}</view>
+        <view class="detail-row" wx:if="{{activityDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{activityDetail.venueName}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.occurrenceTime}}"><text class="detail-key">本次占用</text><text class="detail-val">{{activityDetail.occurrenceTime}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.cycleLabel}}"><text class="detail-key">活动规则</text><text class="detail-val">{{activityDetail.cycleLabel}}</text></view>
+        <view class="detail-row"><text class="detail-val">{{activityDetail.note}}</text></view>
+      </view>
+      </scroll-view>
+      <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button></view>
+    </view>
+  </view>
+  </viewport-portal>
+
   <!-- Booking detail popup -->
   <viewport-portal wx:if="{{bookingDetailVisible}}">
   <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">

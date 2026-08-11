@@ -115,6 +115,34 @@ function parseCsvArray(str) {
   return String(str).split(',').map(s => s.trim()).filter(Boolean);
 }
 
+function emptyActivityDateRange() {
+  return { startDate: '', startTime: '09:00', endDate: '', endTime: '18:00' };
+}
+
+function emptyActivityRepeat() {
+  return { startDate: '', startTime: '09:00', endDate: '', endTime: '18:00', intervalUnit: 'day', intervalValue: 1, repeatCount: 1 };
+}
+
+function activityCycleTypeIndex(cycleType) {
+  const types = ['daily', 'weekly', 'monthly', 'yearly', 'range', 'datetime_range', 'repeat'];
+  const index = types.indexOf(cycleType);
+  return index >= 0 ? index : 1;
+}
+
+function formatActivityCycleLabel(type, values) {
+  let parsed = values;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch (_) { parsed = {}; }
+  }
+  parsed = parsed || {};
+  if (type === 'datetime_range') return (parsed.startDate || '--') + ' ' + (parsed.startTime || '--:--') + ' 至 ' + (parsed.endDate || '--') + ' ' + (parsed.endTime || '--:--');
+  if (type === 'repeat') {
+    const unit = parsed.intervalUnit === 'week' ? '周' : '天';
+    return '首次 ' + (parsed.startDate || '--') + ' ' + (parsed.startTime || '--:--') + ' 至 ' + (parsed.endDate || '--') + ' ' + (parsed.endTime || '--:--') + '，每' + (Number(parsed.intervalValue) || 1) + unit + '，共' + (Number(parsed.repeatCount) || 0) + '次';
+  }
+  return '';
+}
+
 function emptyBookingWindow() {
   return {
     open: { mode: 'none', days: 7, hours: 0, minutes: 0 },
@@ -185,6 +213,8 @@ Page({
     rulesTab: 'open', // 'open' | 'activity' | 'booking' | 'flow'
     openRules: [],
     activityRules: [],
+    activityDetailVisible: false,
+    activityDetail: null,
     bookingRules: [],
 
     // Approval flow management
@@ -231,7 +261,7 @@ Page({
     ruleEditId: '',
     ruleEditorType: '',
     ruleEditorScrollStyle: '',
-    ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: emptyBookingWindow() },
+    ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: emptyBookingWindow() },
 
     // Reference data
     allIdentities: [],
@@ -247,6 +277,8 @@ Page({
     yearlyRangeStartDay: 1,
     yearlyRangeEndMonth: 1,
     yearlyRangeEndDay: 1,
+    openCycleTypeOptions: ['每天', '每周', '每月', '每年', '日期范围'],
+    activityCycleTypeOptions: ['每天', '每周', '每月', '每年', '日期范围', '指定时间段', '按次数重复'],
 
     // Pre-computed checked arrays for WXML (indexOf not supported in templates)
     weeklyChecked: [false, false, false, false, false, false, false],
@@ -536,6 +568,8 @@ Page({
       rulesTab: 'open',
       openRules: [],
       activityRules: [],
+      activityDetailVisible: false,
+      activityDetail: null,
       bookingRules: [],
       bookingWindow: null,
       bookingWindowForm: emptyBookingWindow(),
@@ -581,7 +615,12 @@ Page({
       if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
         const rules = (res.rules || []).map(r => ({
-          ...r, _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values)
+          ...r,
+          _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values),
+          _detailCycleLabel: formatActivityCycleLabel(r.cycle_type, r.cycle_values),
+          _activitySummary: r.cycle_type === 'datetime_range' || r.cycle_type === 'repeat'
+            ? formatActivityCycleLabel(r.cycle_type, r.cycle_values)
+            : this.getCycleLabel(r.cycle_type, r.cycle_values) + ' · ' + (r.time_start || '09:00').substring(0, 5) + ' - ' + (r.time_end || '18:00').substring(0, 5)
         }));
         this.setData({ activityRules: rules });
       }
@@ -682,7 +721,7 @@ Page({
   openRuleEditor(e) {
     const type = e.currentTarget.dataset.type; // 'open' | 'activity' | 'booking'
     const ruleId = e.currentTarget.dataset.id || '';
-    let form = { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: bookingWindowFromRow(this.data.bookingWindow), approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
+    let form = { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: type === 'activity' ? 1 : 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: bookingWindowFromRow(this.data.bookingWindow), approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
     if (ruleId) {
       if (type === 'open') {
         const r = this.data.openRules.find(r => r.id === ruleId);
@@ -694,7 +733,7 @@ Page({
         const r = this.data.activityRules.find(r => r.id === ruleId);
         if (r) {
           const cv = typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []);
-          form = { ...form, name: r.activity_name || '', cycleType: r.cycle_type, cycleValues: cv, timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
+          form = { ...form, name: r.activity_name || '', cycleType: r.cycle_type, _cycleTypeIndex: activityCycleTypeIndex(r.cycle_type), cycleValues: cv, timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
         }
       } else if (type === 'booking') {
         const r = this.data.bookingRules.find(r => r.id === ruleId);
@@ -829,12 +868,18 @@ Page({
   },
 
   onCycleTypeChange(e) {
-    const types = ['daily', 'weekly', 'monthly', 'yearly', 'range'];
+    const isActivity = this.data.ruleEditorType === 'activity';
+    const types = isActivity ? ['daily', 'weekly', 'monthly', 'yearly', 'range', 'datetime_range', 'repeat'] : ['daily', 'weekly', 'monthly', 'yearly', 'range'];
     const idx = parseInt(e.detail.value);
     const ct = types[idx] || 'weekly';
+    let cycleValues = [];
+    if (ct === 'range') cycleValues = { startDate: '', endDate: '' };
+    if (ct === 'datetime_range') cycleValues = emptyActivityDateRange();
+    if (ct === 'repeat') cycleValues = emptyActivityRepeat();
     this.setData({
       'ruleForm.cycleType': ct,
-      'ruleForm.cycleValues': ct === 'range' ? { startDate: '', endDate: '' } : [],
+      'ruleForm._cycleTypeIndex': idx,
+      'ruleForm.cycleValues': cycleValues,
       weeklyChecked: [false, false, false, false, false, false, false],
       monthlyChecked: Array(31).fill(false)
     }, () => this._scheduleRuleEditorViewportSync());
@@ -1093,6 +1138,7 @@ Page({
       if (v && v.startDate && v.endDate) return v.startDate + ' 至 ' + v.endDate;
       return '日期范围未设置';
     }
+    if (type === 'datetime_range' || type === 'repeat') return formatActivityCycleLabel(type, v);
     const arr = Array.isArray(v) ? v : [];
     const weekNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     if (type === 'weekly') return arr.map(i => weekNames[Number(i)] || i).join('、') || '未设置';
@@ -1103,6 +1149,21 @@ Page({
     }).join('、');
     return JSON.stringify(arr);
   },
+
+  viewActivityRuleDetail(e) {
+    const id = e.currentTarget.dataset.id;
+    const rule = (this.data.activityRules || []).find(item => item.id === id);
+    if (!rule) return;
+    this.setData({ activityDetailVisible: true, activityDetail: {
+      name: rule.activity_name || '活动',
+      venueName: this.data.rulesVenueName,
+      cycleLabel: rule._detailCycleLabel || rule._cycleLabel || '',
+      legacyTime: (rule.time_start || '09:00').substring(0, 5) + ' 至 ' + (rule.time_end || '18:00').substring(0, 5),
+      note: rule.cycle_type === 'datetime_range' || rule.cycle_type === 'repeat' ? '该活动将在上述时间内占用场地，借用不可与其重叠。' : '该活动规则匹配到的时间段会占用场地，借用不可与其重叠。'
+    }});
+  },
+
+  closeActivityDetail() { this.setData({ activityDetailVisible: false, activityDetail: null }); },
 
   getRuleTypeLabel(rt) {
     const map = { direct: '直接通过', admin: '管理员审核', identity: '指定身份审核', person: '指定人员审核' };
@@ -1304,7 +1365,7 @@ Page({
     this.setData({ scheduleVisible: true, scheduleVenueId: id, scheduleVenueName: v ? v.name : '', timetableColumns: [] });
     await this.loadVenueTimetable();
   },
-  closeVenueSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false, expandedNodeKey: '' }); },
+  closeVenueSchedule() { this.setData({ scheduleVisible: false, bookingDetailVisible: false, activityDetailVisible: false, activityDetail: null, expandedNodeKey: '' }); },
 
   onTimetableScroll(e) {
     _timetableScrollTop = e.detail.scrollTop || 0;
@@ -1375,7 +1436,21 @@ Page({
     if (dayData && dayData.activitySlots) {
       for (const a of dayData.activitySlots) {
         const { top, height } = calcBlock(a.timeStart, a.timeEnd);
-        eventBlocks.push({ top: top + HEADER_H + TEXT_OFFSET, height, status: 'activity', label: a.ruleName || '活动', type: 'activity' });
+        eventBlocks.push({
+          top: top + HEADER_H + TEXT_OFFSET,
+          height,
+          status: 'activity',
+          label: a.ruleName || '活动',
+          type: 'activity',
+          activity: a.activity || {
+            id: a.ruleId,
+            name: a.ruleName || '活动',
+            occurrenceStart: a.fullTimeStart || (dateStr + ' ' + a.timeStart),
+            occurrenceEnd: a.fullTimeEnd || (dateStr + ' ' + a.timeEnd),
+            cycleType: '',
+            cycleValues: {}
+          }
+        });
       }
     }
 
@@ -1425,6 +1500,10 @@ Page({
 
   onTimetableBlockTap(e) {
     const block = e.currentTarget.dataset.block;
+    if (block && block.activity) {
+      this.viewActivityScheduleDetail(block.activity);
+      return;
+    }
     if (!block || !block.booking) return;
     if (block.booking.visibility === 'occupancy_only') {
       this.openOccupiedPopup(block.booking);
@@ -1444,6 +1523,30 @@ Page({
       detail._flowTimeline = buildFlowTimeline(detail.approvalProgress);
     }
     this.setData({ bookingDetailVisible: true, bookingDetail: detail, expandedNodeKey: '' });
+  },
+
+  onActivityCycleDateChange(e) {
+    const field = e.currentTarget.dataset.field;
+    if (!field) return;
+    this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+  },
+
+  onActivityCycleTimeChange(e) {
+    const field = e.currentTarget.dataset.field;
+    if (!field) return;
+    this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+  },
+
+  onActivityRepeatUnitChange(e) {
+    const units = ['day', 'week'];
+    this.setData({ 'ruleForm.cycleValues.intervalUnit': units[Number(e.detail.value)] || 'day' }, () => this._scheduleRuleEditorViewportSync());
+  },
+
+  onActivityRepeatField(e) {
+    const field = e.currentTarget.dataset.field;
+    const value = Math.max(1, Number(e.detail.value) || 1);
+    if (!field) return;
+    this.setData({ ['ruleForm.cycleValues.' + field]: value }, () => this._scheduleRuleEditorViewportSync());
   },
   openOccupiedPopup(booking) {
     const start = booking.timeStartDisplay || '';
@@ -1501,6 +1604,17 @@ Page({
   },
 
   closeBookingDetail() { this.setData({ bookingDetailVisible: false, expandedNodeKey: '' }); },
+
+  viewActivityScheduleDetail(activity) {
+    if (!activity) return;
+    this.setData({ activityDetailVisible: true, activityDetail: {
+      name: activity.name || '活动',
+      venueName: this.data.scheduleVenueName,
+      cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
+      occurrenceTime: (activity.occurrenceStart || '') + ' 至 ' + (activity.occurrenceEnd || ''),
+      note: '该时间段为活动占用，借用不可与其重叠。'
+    }});
+  },
 
   viewBookingDetail(e) {
     let id = e.currentTarget.dataset.id;

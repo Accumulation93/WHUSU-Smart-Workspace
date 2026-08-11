@@ -16,6 +16,19 @@ const MINUTE_OPTS = [0,10,20,30,40,50];
 
 function timeToMin(t) { if (!t) return 0; const p = String(t).split(':'); return (parseInt(p[0])||0)*60 + (parseInt(p[1])||0); }
 function fmtLocalDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function formatActivityCycleLabel(type, values) {
+  let parsed = values;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch (_) { parsed = {}; }
+  }
+  parsed = parsed || {};
+  if (type === 'datetime_range') return (parsed.startDate || '--') + ' ' + (parsed.startTime || '--:--') + ' 至 ' + (parsed.endDate || '--') + ' ' + (parsed.endTime || '--:--');
+  if (type === 'repeat') {
+    const unit = parsed.intervalUnit === 'week' ? '周' : '天';
+    return '首次 ' + (parsed.startDate || '--') + ' ' + (parsed.startTime || '--:--') + ' 至 ' + (parsed.endDate || '--') + ' ' + (parsed.endTime || '--:--') + '，每' + (Number(parsed.intervalValue) || 1) + unit + '，共' + (Number(parsed.repeatCount) || 0) + '次';
+  }
+  return '';
+}
 function calcBlock(ts, te) { const s=timeToMin(ts),e=timeToMin(te); return { top:Math.round((s-BASE_MIN)/60*HOUR_HEIGHT), height:Math.max(Math.round((e-s)/60*HOUR_HEIGHT),20) }; }
 function slotsToIntervals(slots) { return (slots||[]).map(s=>({start:timeToMin(s.timeStart),end:timeToMin(s.timeEnd)})); }
 function mergeIntervals(intervals) { if(!intervals.length)return[]; const s=[...intervals].sort((a,b)=>a.start-b.start),m=[s[0]]; for(let i=1;i<s.length;i++){const l=m[m.length-1]; if(s[i].start<=l.end)l.end=Math.max(l.end,s[i].end); else m.push(s[i]);} return m; }
@@ -197,6 +210,7 @@ Page({
     scheduleVisible: false, scheduleVenueId: '', scheduleVenueName: '', scheduleWeekStart: '',
     timetableColumns: [], timetableHours: HOURS,
     bookingDetailVisible: false, bookingDetail: null,
+    activityDetailVisible: false, activityDetail: null,
     occupiedPopupVisible: false, occupiedPopupTime: '',
     bookingVisible: false, bookingVenueId: '', bookingVenueName: '',
     bookingStartDate: '', bookingStartDateDisplay: '',
@@ -273,6 +287,7 @@ Page({
         venues: [], timetableColumns: [], purposes: [], myBookings: [], pending: [],
         pendingApprovalCount: 0, lastPendingCount: 0, lastPendingSignature: '',
         scheduleVisible: false, bookingDetailVisible: false, bookingDetail: null,
+        activityDetailVisible: false, activityDetail: null,
         bookingVisible: false, approvalVisible: false, approvalTarget: null,
         expandedNodeKey: '', loading: false
       });
@@ -380,7 +395,7 @@ Page({
     this.setData({ scheduleVisible:true, scheduleVenueId:id, scheduleVenueName:v?v.name:'', timetableColumns:[] });
     await this.loadTimetable();
   },
-  closeSchedule() { this.setData({ scheduleVisible:false, bookingDetailVisible:false, expandedNodeKey:'' }); },
+  closeSchedule() { this.setData({ scheduleVisible:false, bookingDetailVisible:false, activityDetailVisible:false, activityDetail:null, expandedNodeKey:'' }); },
 
   async loadTimetable() {
     const request = orgSession.beginRequest(this, 'venueTimetable');
@@ -433,7 +448,9 @@ Page({
       for(let ai=0;ai<dayData.activitySlots.length;ai++) {
         let a = dayData.activitySlots[ai];
         let _b = calcBlock(a.timeStart,a.timeEnd), top2 = _b.top, height2 = _b.height;
-        eventBlocks.push({top:top2+HEADER_H+TEXT_OFFSET,height:height2,status:'activity',label:a.ruleName||'活动',type:'activity'});
+        eventBlocks.push({top:top2+HEADER_H+TEXT_OFFSET,height:height2,status:'activity',label:a.ruleName||'活动',type:'activity',activity:a.activity||{
+          id:a.ruleId,name:a.ruleName||'活动',occurrenceStart:a.fullTimeStart||(dateStr+' '+a.timeStart),occurrenceEnd:a.fullTimeEnd||(dateStr+' '+a.timeEnd),cycleType:'',cycleValues:{}
+        }});
       }
     }
     if(dayData&&dayData.bookedSlots) {
@@ -451,6 +468,10 @@ Page({
   onTimetableNextWeek() { let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2]; this.setData({scheduleWeekStart:fmtLocalDate(new Date(y,m-1,d+7))}); this.loadTimetable(); },
   onTimetableBlockTap(e) {
     let b=e.currentTarget.dataset.block;
+    if (b && b.activity) {
+      this.viewActivityScheduleDetail(b.activity);
+      return;
+    }
     if(!b||!b.booking)return;
     if(b.booking.visibility==='occupancy_only'){this.openOccupiedPopup(b.booking);return;}
     const detail = prepareVenueBookingDetail(b.booking);
@@ -464,6 +485,18 @@ Page({
   },
   closeOccupiedPopup() { this.setData({ occupiedPopupVisible: false, occupiedPopupTime: '' }); },
   closeBookingDetail() { this.setData({bookingDetailVisible:false, expandedNodeKey:''}); },
+
+  viewActivityScheduleDetail(activity) {
+    if (!activity) return;
+    this.setData({ activityDetailVisible: true, activityDetail: {
+      name: activity.name || '活动',
+      venueName: this.data.scheduleVenueName,
+      cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
+      occurrenceTime: (activity.occurrenceStart || '') + ' 至 ' + (activity.occurrenceEnd || ''),
+      note: '该时间段为活动占用，借用不可与其重叠。'
+    }});
+  },
+  closeActivityDetail() { this.setData({ activityDetailVisible: false, activityDetail: null }); },
 
   viewMyBookingDetail(e) {
     let id = e.currentTarget.dataset.id;

@@ -24,6 +24,7 @@ const {
 } = require('../services/venueApprovalAuthorization');
 const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
 const { normalizeBookingWindow, fromRow } = require('../services/venueBookingWindow');
+const { getActivitySlots: buildActivitySlots, ruleValidationError } = require('../services/venueActivitySchedule');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -271,6 +272,8 @@ router.post('/saveVenueActivityRule', async (req, res) => {
       timeStart: safeString(req.body.timeStart) || '09:00',
       timeEnd: safeString(req.body.timeEnd) || '18:00'
     };
+    const validationError = ruleValidationError(data);
+    if (validationError) return res.json({ status: 'invalid_params', message: validationError });
     const existing = await venueActivityRuleModel.getById(id);
     if (existing) {
       await venueActivityRuleModel.update(id, data);
@@ -436,7 +439,8 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     const matchingOpen = openRules.filter((rule) => rule.is_active && venueRuleMatchesDate(rule, dateText));
     const covered = matchingOpen.some((rule) => minutesOf(rule.time_start) <= rangeStart && minutesOf(rule.time_end) >= rangeEnd);
     if (!covered) return res.json({ status: 'conflict', message: '所选时段不在场地开放时间内' });
-    const activityConflict = activityRules.some((rule) => rule.is_active && venueRuleMatchesDate(rule, dateText) && minutesOf(rule.time_start) < rangeEnd && minutesOf(rule.time_end) > rangeStart);
+    const activitySlots = buildActivitySlots(dateText, activityRules);
+    const activityConflict = activitySlots.some((slot) => minutesOf(slot.timeStart) < rangeEnd && minutesOf(slot.timeEnd) > rangeStart);
     if (activityConflict) return res.json({ status: 'conflict', message: '所选时段已有活动占用' });
 
     await conn.beginTransaction();

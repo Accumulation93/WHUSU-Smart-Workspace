@@ -192,7 +192,7 @@
             <view class="list-item list-item-stacked" wx:for="{{openRules}}" wx:key="id">
               <view class="list-main">
                 <view class="list-name">{{item.name || '开放时间'}}</view>
-                <view class="list-desc">{{item._cycleLabel}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
+                <view class="list-desc">{{item._activitySummary || item._cycleLabel}}</view>
                 <view class="inline-actions list-actions-below">
                   <text class="link ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
                   <text class="link danger ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
@@ -205,7 +205,7 @@
           <button class="primary-btn rule-add-btn ui-motion-button" data-type="activity" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增活动</button>
           <view wx:if="{{!activityRules.length}}" class="empty-inline">暂无活动规则。</view>
           <block wx:if="{{activityRules.length}}">
-            <view class="list-item list-item-stacked" wx:for="{{activityRules}}" wx:key="id">
+            <view class="list-item list-item-stacked ui-motion-card" wx:for="{{activityRules}}" wx:key="id" data-id="{{item.id}}" bindtap="viewActivityRuleDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="list-main">
                 <view class="list-name">{{item.activity_name || '活动'}}</view>
                 <view class="list-desc">{{item._cycleLabel}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
@@ -313,8 +313,8 @@
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
             <view class="field"><view class="field-label">重复方式</view>
-              <picker range="{{['每天','每周','每月','每年','日期范围']}}" value="{{ruleForm.cycleType === 'daily' ? 0 : (ruleForm.cycleType === 'weekly' ? 1 : (ruleForm.cycleType === 'monthly' ? 2 : (ruleForm.cycleType === 'yearly' ? 3 : 4)))}}" bindchange="onCycleTypeChange">
-                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : (ruleForm.cycleType === 'yearly' ? '每年' : '日期范围')))}}</view></picker></view>
+              <picker range="{{ruleEditorType === 'activity' ? activityCycleTypeOptions : openCycleTypeOptions}}" value="{{ruleForm._cycleTypeIndex}}" bindchange="onCycleTypeChange">
+                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : (ruleForm.cycleType === 'yearly' ? '每年' : (ruleForm.cycleType === 'range' ? '日期范围' : (ruleForm.cycleType === 'datetime_range' ? '指定时间段' : '按次数重复')))))}}</view></picker></view>
 
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" class="chip-section">
               <view class="field-label">选择星期</view>
@@ -364,8 +364,41 @@
               </view>
             </view>
 
-            <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
-            <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
+            <block wx:if="{{ruleEditorType === 'activity' && (ruleForm.cycleType === 'datetime_range' || ruleForm.cycleType === 'repeat')}}">
+              <view class="field activity-datetime-field">
+                <view class="field-label">首次开始</view>
+                <view class="range-row">
+                  <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" data-field="startDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.startDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.startDate || '开始日期'}}</view></picker>
+                  <picker mode="time" value="{{ruleForm.cycleValues.startTime}}" data-field="startTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.startTime || '开始时间'}}</view></picker>
+                </view>
+              </view>
+              <view class="field activity-datetime-field">
+                <view class="field-label">首次结束</view>
+                <view class="range-row">
+                  <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" data-field="endDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.endDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.endDate || '结束日期'}}</view></picker>
+                  <picker mode="time" value="{{ruleForm.cycleValues.endTime}}" data-field="endTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.endTime || '结束时间'}}</view></picker>
+                </view>
+              </view>
+            </block>
+
+            <block wx:if="{{ruleEditorType === 'activity' && ruleForm.cycleType === 'repeat'}}">
+              <view class="field"><view class="field-label">重复间隔</view>
+                <view class="range-row">
+                  <picker range="{{['每天','每周']}}" value="{{ruleForm.cycleValues.intervalUnit === 'week' ? 1 : 0}}" bindchange="onActivityRepeatUnitChange"><view class="picker-sm">{{ruleForm.cycleValues.intervalUnit === 'week' ? '每周' : '每天'}}</view></picker>
+                  <input class="field-input activity-number-input" type="number" value="{{ruleForm.cycleValues.intervalValue}}" data-field="intervalValue" bindinput="onActivityRepeatField" />
+                  <text class="range-label">一次</text>
+                </view>
+              </view>
+              <view class="field"><view class="field-label">重复次数</view>
+                <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="至少1次" />
+                <view class="field-hint">包含首次活动，共执行几次。</view>
+              </view>
+            </block>
+
+            <block wx:if="{{ruleForm.cycleType !== 'datetime_range' && ruleForm.cycleType !== 'repeat'}}">
+              <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
+              <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
+            </block>
           </block>
           <block wx:if="{{ruleEditorType === 'booking'}}">
             <view class="field"><view class="field-label">审批类型</view>
@@ -553,6 +586,27 @@
       <view class="button-row ui-dialog-footer">
         <button class="primary-btn ui-motion-button" catchtap="closeOccupiedPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button>
       </view>
+    </view>
+  </view>
+  </viewport-portal>
+
+  <!-- Activity detail popup -->
+  <viewport-portal wx:if="{{activityDetailVisible}}">
+  <view class="popup-mask ui-overlay" wx:if="{{activityDetailVisible}}" bindtap="closeActivityDetail">
+    <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
+    <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
+      <view class="popup-header ui-dialog-header"><view class="popup-title">活动占用详情</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
+      <view class="ui-dialog-stack">
+        <view class="detail-title">{{activityDetail.name || '活动'}}</view>
+        <view class="detail-row" wx:if="{{activityDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{activityDetail.venueName}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.occurrenceTime}}"><text class="detail-key">本次占用</text><text class="detail-val">{{activityDetail.occurrenceTime}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.cycleLabel}}"><text class="detail-key">活动规则</text><text class="detail-val">{{activityDetail.cycleLabel}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.legacyTime}}"><text class="detail-key">每日时段</text><text class="detail-val">{{activityDetail.legacyTime}}</text></view>
+        <view class="detail-row"><text class="detail-val">{{activityDetail.note}}</text></view>
+      </view>
+      </scroll-view>
+      <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button></view>
     </view>
   </view>
   </viewport-portal>

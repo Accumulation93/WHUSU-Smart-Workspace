@@ -21,6 +21,7 @@ const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy')
 const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
 const { fromRow, validateBookingWindow } = require('../services/venueBookingWindow');
 const { findMyVenueApproval, matchesApprovalContext } = require('../services/venueApprovalHistory');
+const { getActivitySlots: buildActivitySlots } = require('../services/venueActivitySchedule');
 
 async function resolveHrId(openid) {
   if (!openid) return null;
@@ -156,24 +157,6 @@ function getOpenSlots(dateStr, openRules) {
       slots.push({
         ruleId: rule.id,
         ruleName: rule.name || '开放时间',
-        timeStart: rule.time_start && rule.time_start.length >= 5 ? rule.time_start.substring(0, 5) : '09:00',
-        timeEnd: rule.time_end && rule.time_end.length >= 5 ? rule.time_end.substring(0, 5) : '18:00'
-      });
-    }
-  }
-  return slots;
-}
-
-function getActivitySlots(dateStr, activityRules) {
-  const slots = [];
-  for (const rule of activityRules) {
-    if (!rule.is_active) continue;
-    let cv = [];
-    try { cv = typeof rule.cycle_values === 'string' ? JSON.parse(rule.cycle_values) : (rule.cycle_values || []); } catch (_) {}
-    if (dateMatchesCycle(dateStr, rule.cycle_type, cv)) {
-      slots.push({
-        ruleId: rule.id,
-        ruleName: rule.activity_name || '活动',
         timeStart: rule.time_start && rule.time_start.length >= 5 ? rule.time_start.substring(0, 5) : '09:00',
         timeEnd: rule.time_end && rule.time_end.length >= 5 ? rule.time_end.substring(0, 5) : '18:00'
       });
@@ -429,7 +412,7 @@ router.post('/getVenueSchedule', async (req, res) => {
     while (cur <= end) {
       const dateStr = fmtLocalDate(cur);
       const openSlots = getOpenSlots(dateStr, openRules);
-      const activitySlots = getActivitySlots(dateStr, activityRules);
+      const activitySlots = buildActivitySlots(dateStr, activityRules);
 
       // Filter bookings that overlap with this date
       const dayStart = dateStr + ' 00:00';
@@ -639,7 +622,7 @@ router.post('/createVenueBooking', async (req, res) => {
       }
 
       // Check activity conflicts — any overlap with activity slots is rejected
-      const actSlots = getActivitySlots(seg.date, activityRules);
+      const actSlots = buildActivitySlots(seg.date, activityRules);
       if (actSlots.length) {
         const mergedActivity = mergeIntervals(slotsToIntervals(actSlots));
         const actConflict = findBlockedOverlap(segStart, segEnd, mergedActivity);
