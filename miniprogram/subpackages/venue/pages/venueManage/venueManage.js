@@ -116,7 +116,7 @@ function parseCsvArray(str) {
 }
 
 function emptyActivityCycleValues() {
-  return { values: [], periodStartDate: '', periodStartTime: '00:00', periodEndDate: '', periodEndTime: '23:59', repeatCount: 0 };
+  return { values: [], periodMode: 'none', periodStartDate: '', periodStartTime: '00:00', periodEndDate: '', periodEndTime: '23:59', repeatCount: 0 };
 }
 
 function normalizeActivityCycleValues(cycleType, values) {
@@ -125,14 +125,19 @@ function normalizeActivityCycleValues(cycleType, values) {
     try { parsed = JSON.parse(parsed); } catch (_) { parsed = []; }
   }
   if (cycleType === 'datetime_range') {
-    return { values: [], periodStartDate: parsed.startDate || '', periodStartTime: parsed.startTime || '00:00', periodEndDate: parsed.endDate || '', periodEndTime: parsed.endTime || '23:59', repeatCount: 1 };
+    return { ...emptyActivityCycleValues(), periodMode: 'range', periodStartDate: parsed.startDate || '', periodStartTime: parsed.startTime || '00:00', periodEndDate: parsed.endDate || '', periodEndTime: parsed.endTime || '23:59' };
   }
   if (cycleType === 'repeat') {
-    return { values: [], periodStartDate: parsed.startDate || '', periodStartTime: parsed.startTime || '00:00', periodEndDate: '', periodEndTime: '23:59', repeatCount: Number(parsed.repeatCount) || 0 };
+    return { ...emptyActivityCycleValues(), periodMode: 'count', periodStartDate: parsed.startDate || '', periodStartTime: parsed.startTime || '00:00', repeatCount: Number(parsed.repeatCount) || 0 };
   }
   if (Array.isArray(parsed)) return { ...emptyActivityCycleValues(), values: parsed };
-  if (parsed && Array.isArray(parsed.values)) return { ...emptyActivityCycleValues(), ...parsed, values: parsed.values };
-  if (parsed && (parsed.startDate || parsed.endDate)) return { ...emptyActivityCycleValues(), periodStartDate: parsed.startDate || '', periodEndDate: parsed.endDate || '' };
+  if (parsed && Array.isArray(parsed.values)) {
+    const inferredMode = ['none', 'range', 'count'].includes(parsed.periodMode)
+      ? parsed.periodMode
+      : (parsed.repeatCount > 0 && !parsed.periodEndDate ? 'count' : (parsed.periodStartDate || parsed.periodEndDate ? 'range' : 'none'));
+    return { ...emptyActivityCycleValues(), ...parsed, periodMode: inferredMode, values: parsed.values };
+  }
+  if (parsed && (parsed.startDate || parsed.endDate)) return { ...emptyActivityCycleValues(), periodMode: 'range', periodStartDate: parsed.startDate || '', periodEndDate: parsed.endDate || '' };
   return emptyActivityCycleValues();
 }
 
@@ -155,10 +160,12 @@ function formatActivityCycleLabel(type, values) {
     periodEndDate: parsed.endDate || '',
     periodEndTime: parsed.endTime || '23:59'
   });
+  const mode = meta.periodMode || (Number(meta.repeatCount) > 0 && !meta.periodEndDate ? 'count' : (meta.periodStartDate || meta.periodEndDate ? 'range' : 'none'));
+  if (mode === 'none') return '周期内不限生效范围';
   const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : '不限开始';
+  if (mode === 'count') return '周期从 ' + start + ' 起重复' + (Number(meta.repeatCount) || 0) + '次';
   const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : '不限结束';
-  const count = Number(meta.repeatCount) > 0 ? '，共重复' + Number(meta.repeatCount) + '次' : '';
-  return '周期生效：' + start + ' 至 ' + end + count;
+  return '周期生效：' + start + ' 至 ' + end;
 }
 
 function emptyBookingWindow() {
@@ -1562,6 +1569,13 @@ Page({
     const field = e.currentTarget.dataset.field;
     if (!field) return;
     this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+  },
+
+  onActivityPeriodModeTap(e) {
+    const mode = e.currentTarget.dataset.mode;
+    if (!['none', 'range', 'count'].includes(mode)) return;
+    const currentMode = this.data.ruleForm.cycleValues.periodMode;
+    this.setData({ 'ruleForm.cycleValues.periodMode': currentMode === mode ? 'none' : mode }, () => this._scheduleRuleEditorViewportSync());
   },
 
   onActivityRepeatField(e) {

@@ -8,6 +8,7 @@ const periodicRange = {
   cycle_type: 'daily',
   cycle_values: {
     values: [],
+    periodMode: 'range',
     periodStartDate: '2026-08-12', periodStartTime: '10:00',
     periodEndDate: '2026-08-13', periodEndTime: '12:00',
     repeatCount: 0
@@ -24,6 +25,7 @@ const repeated = {
   cycle_type: 'weekly',
   cycle_values: {
     values: [1],
+    periodMode: 'count',
     periodStartDate: '2026-08-10', periodStartTime: '00:00',
     periodEndDate: '', periodEndTime: '23:59',
     repeatCount: 3
@@ -80,6 +82,20 @@ assert.strictEqual(ruleValidationError({
   cycleValues: { values: [1], periodStartDate: '', repeatCount: 2 },
   timeStart: '09:00',
   timeEnd: '10:00'
-}), '设置重复次数时必须填写周期开始日期');
+}), '按重复次数时必须填写周期开始日期');
+
+assert.strictEqual(getActivitySlots('2026-08-24', [{ ...repeated, cycle_values: { ...repeated.cycle_values, periodMode: 'range', periodEndDate: '2026-08-30' } }]).length, 1);
+assert.strictEqual(ruleValidationError({
+  cycleType: 'daily',
+  cycleValues: { values: [], periodMode: 'range', periodStartDate: '2026-08-12', periodEndDate: '' },
+  timeStart: '09:00',
+  timeEnd: '10:00'
+}), '按生效时间范围时必须填写开始和结束日期');
+assert.strictEqual(ruleValidationError({
+  cycleType: 'daily',
+  cycleValues: { values: [], periodMode: 'count', periodStartDate: '2026-08-12', repeatCount: 0 },
+  timeStart: '09:00',
+  timeEnd: '10:00'
+}), '按重复次数时请输入至少1次');
 
 console.log('场地活动周期、时间范围与重复次数测试通过');

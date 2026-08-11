@@ -365,24 +365,44 @@
             </view>
 
             <block wx:if="{{ruleEditorType === 'activity'}}">
-              <view class="field activity-datetime-field">
-                <view class="field-label">周期生效开始</view>
-                <view class="range-row">
-                  <picker mode="date" value="{{ruleForm.cycleValues.periodStartDate}}" data-field="periodStartDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodStartDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodStartDate || '开始日期'}}</view></picker>
-                  <picker mode="time" value="{{ruleForm.cycleValues.periodStartTime}}" data-field="periodStartTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodStartTime || '开始时间'}}</view></picker>
+              <view class="field activity-period-mode-field">
+                <view class="field-label">周期限制方式（可选，二选一）</view>
+                <view class="activity-period-mode-list">
+                  <view class="activity-period-mode-option {{ruleForm.cycleValues.periodMode === 'range' ? 'active' : ''}} ui-motion-chip" data-mode="range" catchtap="onActivityPeriodModeTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+                    <view class="activity-period-check">{{ruleForm.cycleValues.periodMode === 'range' ? '✓' : ''}}</view>
+                    <view class="activity-period-mode-copy"><text class="activity-period-mode-title">按生效时间范围</text><text class="activity-period-mode-note">设置周期开始与结束时间</text></view>
+                  </view>
+                  <view class="activity-period-mode-option {{ruleForm.cycleValues.periodMode === 'count' ? 'active' : ''}} ui-motion-chip" data-mode="count" catchtap="onActivityPeriodModeTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+                    <view class="activity-period-check">{{ruleForm.cycleValues.periodMode === 'count' ? '✓' : ''}}</view>
+                    <view class="activity-period-mode-copy"><text class="activity-period-mode-title">按重复次数</text><text class="activity-period-mode-note">从指定开始时间起重复若干次</text></view>
+                  </view>
                 </view>
+                <view class="field-hint">不勾选表示按所选周期持续生效；两种限制方式只能选一种。</view>
               </view>
-              <view class="field activity-datetime-field">
-                <view class="field-label">周期生效结束（可不填）</view>
-                <view class="range-row">
-                  <picker mode="date" value="{{ruleForm.cycleValues.periodEndDate}}" data-field="periodEndDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodEndDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodEndDate || '结束日期'}}</view></picker>
-                  <picker mode="time" value="{{ruleForm.cycleValues.periodEndTime}}" data-field="periodEndTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodEndTime || '结束时间'}}</view></picker>
+              <block wx:if="{{ruleForm.cycleValues.periodMode === 'range' || ruleForm.cycleValues.periodMode === 'count'}}">
+                <view class="field activity-datetime-field">
+                  <view class="field-label">周期生效开始</view>
+                  <view class="range-row">
+                    <picker mode="date" value="{{ruleForm.cycleValues.periodStartDate}}" data-field="periodStartDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodStartDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodStartDate || '开始日期'}}</view></picker>
+                    <picker mode="time" value="{{ruleForm.cycleValues.periodStartTime}}" data-field="periodStartTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodStartTime || '开始时间'}}</view></picker>
+                  </view>
                 </view>
-              </view>
-              <view class="field"><view class="field-label">周期重复次数（可不填）</view>
-                <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="0表示不限制次数" />
-                <view class="field-hint">周期从开始日期起计算；填写结束日期或重复次数即可限制周期。</view>
-              </view>
+              </block>
+              <block wx:if="{{ruleForm.cycleValues.periodMode === 'range'}}">
+                <view class="field activity-datetime-field">
+                  <view class="field-label">周期生效结束</view>
+                  <view class="range-row">
+                    <picker mode="date" value="{{ruleForm.cycleValues.periodEndDate}}" data-field="periodEndDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodEndDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodEndDate || '结束日期'}}</view></picker>
+                    <picker mode="time" value="{{ruleForm.cycleValues.periodEndTime}}" data-field="periodEndTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodEndTime || '结束时间'}}</view></picker>
+                  </view>
+                </view>
+              </block>
+              <block wx:if="{{ruleForm.cycleValues.periodMode === 'count'}}">
+                <view class="field"><view class="field-label">周期重复次数</view>
+                  <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount || ''}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="请输入重复次数" />
+                  <view class="field-hint">从周期生效开始日期起，按所选周期重复。</view>
+                </view>
+              </block>
             </block>
 
             <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">

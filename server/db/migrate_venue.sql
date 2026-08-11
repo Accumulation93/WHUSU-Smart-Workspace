@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS venue_activity_rules (
   venue_id VARCHAR(64) NOT NULL,
   activity_name VARCHAR(200) DEFAULT NULL,
   cycle_type VARCHAR(16) NOT NULL DEFAULT 'weekly' COMMENT 'daily | weekly | monthly | yearly；周期起止日期时间和重复次数保存在cycle_values',
-  cycle_values JSON DEFAULT NULL COMMENT '旧版数组兼容；新版为{values,periodStartDate,periodStartTime,periodEndDate,periodEndTime,repeatCount}',
+  cycle_values JSON DEFAULT NULL COMMENT '旧版数组兼容；新版为{values,periodMode:none|range|count,periodStartDate,periodStartTime,periodEndDate,periodEndTime,repeatCount}',
   time_start TIME NOT NULL DEFAULT '09:00:00',
   time_end TIME NOT NULL DEFAULT '18:00:00',
   is_active TINYINT(1) NOT NULL DEFAULT 1,

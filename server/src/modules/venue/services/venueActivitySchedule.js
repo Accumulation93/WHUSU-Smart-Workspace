@@ -9,14 +9,20 @@ function parseCycleValues(value) {
 function cycleMeta(value) {
   const parsed = parseCycleValues(value);
   if (Array.isArray(parsed)) return { values: parsed, periodStartDate: '', periodStartTime: '', periodEndDate: '', periodEndTime: '', repeatCount: 0 };
-  if (parsed && Array.isArray(parsed.values)) return {
+  if (parsed && Array.isArray(parsed.values)) {
+    const periodMode = ['none', 'range', 'count'].includes(parsed.periodMode)
+      ? parsed.periodMode
+      : (Number(parsed.repeatCount) > 0 && !parsed.periodEndDate ? 'count' : (parsed.periodStartDate || parsed.periodEndDate ? 'range' : 'none'));
+    return {
     values: parsed.values,
-    periodStartDate: parsed.periodStartDate || parsed.startDate || '',
-    periodStartTime: parsed.periodStartTime || parsed.startTime || '',
-    periodEndDate: parsed.periodEndDate || parsed.endDate || '',
-    periodEndTime: parsed.periodEndTime || parsed.endTime || '',
-    repeatCount: Number(parsed.repeatCount) || 0
-  };
+    periodMode,
+    periodStartDate: periodMode === 'none' ? '' : (parsed.periodStartDate || parsed.startDate || ''),
+    periodStartTime: periodMode === 'none' ? '' : (parsed.periodStartTime || parsed.startTime || ''),
+    periodEndDate: periodMode === 'range' ? (parsed.periodEndDate || parsed.endDate || '') : '',
+    periodEndTime: periodMode === 'range' ? (parsed.periodEndTime || parsed.endTime || '') : '',
+    repeatCount: periodMode === 'count' ? Number(parsed.repeatCount) || 0 : 0
+    };
+  }
   return { values: [], periodStartDate: parsed.startDate || '', periodStartTime: '', periodEndDate: parsed.endDate || '', periodEndTime: '', repeatCount: 0 };
 }
 
@@ -103,12 +109,15 @@ function ruleValidationError(rule) {
   const timeRange = legacyTimeRange(rule);
   if (!timeRange) return '活动每次占用的开始时间必须早于结束时间';
   const meta = cycleMeta(rule.cycleValues !== undefined ? rule.cycleValues : rule.cycle_values);
+  if (meta.periodMode === 'none') return null;
+  if (meta.periodMode === 'range' && (!meta.periodStartDate || !meta.periodEndDate)) return '按生效时间范围时必须填写开始和结束日期';
+  if (meta.periodMode === 'count' && !meta.periodStartDate) return '按重复次数时必须填写周期开始日期';
   if (meta.periodStartDate && !parseLocalDateTime(meta.periodStartDate, meta.periodStartTime || '00:00')) return '请填写有效的周期开始日期时间';
   if (meta.periodEndDate && !parseLocalDateTime(meta.periodEndDate, meta.periodEndTime || '23:59')) return '请填写有效的周期结束日期时间';
   if (meta.periodStartDate && meta.periodEndDate && meta.periodStartDate > meta.periodEndDate) return '周期结束日期必须晚于或等于开始日期';
   if (meta.periodStartDate && meta.periodEndDate && meta.periodStartDate === meta.periodEndDate && (meta.periodStartTime || '00:00') >= (meta.periodEndTime || '23:59')) return '周期结束时间必须晚于周期开始时间';
   if (!Number.isInteger(meta.repeatCount) || meta.repeatCount < 0 || meta.repeatCount > 1000) return '重复次数必须是0至1000次';
-  if (meta.repeatCount > 0 && !meta.periodStartDate) return '设置重复次数时必须填写周期开始日期';
+  if (meta.periodMode === 'count' && meta.repeatCount < 1) return '按重复次数时请输入至少1次';
   if (cycleType === 'range' && (!meta.periodStartDate || !meta.periodEndDate)) return '旧版日期范围规则缺少起止日期';
   return null;
 }
