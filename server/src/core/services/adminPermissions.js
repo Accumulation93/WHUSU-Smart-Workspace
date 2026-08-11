@@ -178,7 +178,7 @@ mapAny(['/getVenueSchedule'], ['venue.resources', 'venue.bookings'], { allowUser
 mapAny(['/listAllVenueBookings'], ['venue.bookings', 'venue.approvals']);
 mapRoutes('venue.bookings', ['/createAdminVenueBooking']);
 mapRoutes('venue.approvals', [
-  '/listVenueBookingRules', '/saveVenueBookingRule', '/deleteVenueBookingRule',
+  '/listVenueBookingRules', '/saveVenueBookingWindow', '/saveVenueBookingRule', '/deleteVenueBookingRule',
   '/getVenueApprovalFlow', '/saveVenueApprovalFlow', '/deleteVenueApprovalFlow', '/saveVenueApprovalStep',
   '/saveVenueApprovalWholeFlow', '/deleteVenueApprovalStep', '/saveVenueApprovalStepRule', '/deleteVenueApprovalStepRule',
   '/listVenueApprovalFlows', '/saveVenueApprovalFlowMeta',

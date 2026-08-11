@@ -182,6 +182,7 @@
         <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}} ui-motion-chip" data-tab="open" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">开放时间</view>
         <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}} ui-motion-chip" data-tab="activity" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">活动时间</view>
         <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用规则</view>
+        <view class="rules-tab {{rulesTab === 'bookingWindow' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="bookingWindow" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用时间</view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">
@@ -217,17 +218,6 @@
           </block>
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
-          <view class="booking-window-summary ui-dialog-section">
-            <view class="booking-window-summary-head">
-              <view>
-                <view class="section-title-sm">借用时间窗口</view>
-                <view class="booking-window-summary-desc">限制用户可以提前多久提交，以及距离借用开始还剩多久时停止提交。</view>
-              </view>
-              <text class="booking-window-summary-status">场地级策略</text>
-            </view>
-            <view class="booking-window-summary-value">{{bookingWindowDisplay}}</view>
-            <button class="secondary-btn booking-window-summary-action ui-motion-button" catchtap="openBookingWindowEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑时间限制</button>
-          </view>
           <button class="secondary-btn rule-add-btn ui-motion-button" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ 新增审批流程</button>
           <view wx:if="{{!approvalFlows.length}}" class="empty-inline">暂无审批流程，可新增“用户审核”流程</view>
           <block wx:if="{{approvalFlows.length}}">
@@ -260,6 +250,45 @@
               </view>
             </view>
           </block>
+        </block>
+        <block wx:if="{{rulesTab === 'bookingWindow'}}">
+          <view class="list-item list-item-stacked booking-setting-option">
+            <view class="list-main">
+              <view class="list-name">提前开放借用</view>
+              <view class="list-desc">不设置表示不限制最早可以提前多久提交。</view>
+              <picker range="{{['不设置','按提前天数','按提前时长']}}" value="{{bookingWindowForm.open.mode === 'days' ? 1 : (bookingWindowForm.open.mode === 'duration' ? 2 : 0)}}" data-side="open" bindchange="onBookingWindowSettingMode">
+                <view class="picker-display">{{bookingWindowForm.open.mode === 'days' ? '按提前天数' : (bookingWindowForm.open.mode === 'duration' ? '按提前时长' : '不设置')}}</view>
+              </picker>
+              <view wx:if="{{bookingWindowForm.open.mode === 'days'}}" class="booking-window-value-row">
+                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.open.days}}" data-side="open" bindinput="onBookingWindowSettingDays" placeholder="0" />
+                <text class="booking-window-unit">日</text>
+              </view>
+              <view wx:if="{{bookingWindowForm.open.mode === 'duration'}}" class="booking-window-value-row">
+                <picker range="{{advanceHourOptions}}" value="{{bookingWindowForm.open.hours}}" data-side="open" bindchange="onBookingWindowSettingHours"><view class="picker-sm">{{bookingWindowForm.open.hours}}小时</view></picker>
+                <picker range="{{advanceMinuteOptions}}" value="{{bookingWindowForm.open.minutes}}" data-side="open" bindchange="onBookingWindowSettingMinutes"><view class="picker-sm">{{bookingWindowForm.open.minutes}}分</view></picker>
+              </view>
+            </view>
+          </view>
+          <view class="list-item list-item-stacked booking-setting-option">
+            <view class="list-main">
+              <view class="list-name">提前截止借用</view>
+              <view class="list-desc">不设置表示只要借用开始时间晚于当前时间即可提交。</view>
+              <picker range="{{['不设置','按提前天数','按提前时长']}}" value="{{bookingWindowForm.deadline.mode === 'days' ? 1 : (bookingWindowForm.deadline.mode === 'duration' ? 2 : 0)}}" data-side="deadline" bindchange="onBookingWindowSettingMode">
+                <view class="picker-display">{{bookingWindowForm.deadline.mode === 'days' ? '按提前天数' : (bookingWindowForm.deadline.mode === 'duration' ? '按提前时长' : '不设置')}}</view>
+              </picker>
+              <view wx:if="{{bookingWindowForm.deadline.mode === 'days'}}" class="booking-window-value-row">
+                <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.deadline.days}}" data-side="deadline" bindinput="onBookingWindowSettingDays" placeholder="0" />
+                <text class="booking-window-unit">日</text>
+              </view>
+              <view wx:if="{{bookingWindowForm.deadline.mode === 'duration'}}" class="booking-window-value-row">
+                <picker range="{{advanceHourOptions}}" value="{{bookingWindowForm.deadline.hours}}" data-side="deadline" bindchange="onBookingWindowSettingHours"><view class="picker-sm">{{bookingWindowForm.deadline.hours}}小时</view></picker>
+                <picker range="{{advanceMinuteOptions}}" value="{{bookingWindowForm.deadline.minutes}}" data-side="deadline" bindchange="onBookingWindowSettingMinutes"><view class="picker-sm">{{bookingWindowForm.deadline.minutes}}分</view></picker>
+              </view>
+            </view>
+          </view>
+          <view class="button-row booking-setting-footer">
+            <button class="primary-btn ui-motion-button" catchtap="saveBookingWindowSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存借用时间</button>
+          </view>
         </block>
       </scroll-view>
     </view>
@@ -342,50 +371,6 @@
             <view class="field"><view class="field-label">审批类型</view>
               <picker range="{{['管理员审核','用户审核','直接通过']}}" value="{{ruleForm.ruleType === 'direct' ? 2 : (ruleForm.ruleType === 'flow' ? 1 : 0)}}" bindchange="onBookingRuleTypeChange">
                 <view class="picker-display">{{ruleForm.ruleType === 'direct' ? '直接通过' : (ruleForm.ruleType === 'flow' ? '用户分步审核' : '管理员审核')}}</view></picker></view>
-
-            <view class="booking-window-panel ui-dialog-section">
-              <view class="booking-window-heading">
-                <view>
-                  <view class="section-title-sm">借用时间窗口</view>
-                  <view class="booking-window-intro">按借用开始时间计算，可分别设置开放和截止规则。</view>
-                </view>
-                <view class="booking-window-badge">可选</view>
-              </view>
-              <view class="booking-window-card">
-                <view class="booking-window-card-head">
-                  <view class="booking-window-card-title">提前开放借用</view>
-                  <view class="booking-window-card-desc">未设置：可提前无穷大天提交</view>
-                </view>
-                <picker range="{{['不设置','按提前天数','按提前时长']}}" value="{{ruleForm.bookingWindow.open.mode === 'days' ? 1 : (ruleForm.bookingWindow.open.mode === 'duration' ? 2 : 0)}}" data-side="open" bindchange="onBookingWindowMode">
-                  <view class="picker-display">{{ruleForm.bookingWindow.open.mode === 'days' ? '按提前天数' : (ruleForm.bookingWindow.open.mode === 'duration' ? '按提前时长' : '不设置')}}</view>
-                </picker>
-                <view wx:if="{{ruleForm.bookingWindow.open.mode === 'days'}}" class="booking-window-value-row">
-                  <input class="field-input booking-window-number" type="number" value="{{ruleForm.bookingWindow.open.days}}" data-side="open" bindinput="onBookingWindowDays" placeholder="0" />
-                  <text class="booking-window-unit">日</text>
-                </view>
-                <view wx:if="{{ruleForm.bookingWindow.open.mode === 'duration'}}" class="booking-window-value-row">
-                  <picker range="{{advanceHourOptions}}" value="{{ruleForm.bookingWindow.open.hours}}" data-side="open" bindchange="onBookingWindowHours"><view class="picker-sm">{{ruleForm.bookingWindow.open.hours}}小时</view></picker>
-                  <picker range="{{advanceMinuteOptions}}" value="{{ruleForm.bookingWindow.open.minutes}}" data-side="open" bindchange="onBookingWindowMinutes"><view class="picker-sm">{{ruleForm.bookingWindow.open.minutes}}分</view></picker>
-                </view>
-              </view>
-              <view class="booking-window-card">
-                <view class="booking-window-card-head">
-                  <view class="booking-window-card-title">提前截止借用</view>
-                  <view class="booking-window-card-desc">未设置：借用开始时间晚于当前即可提交</view>
-                </view>
-                <picker range="{{['不设置','按提前天数','按提前时长']}}" value="{{ruleForm.bookingWindow.deadline.mode === 'days' ? 1 : (ruleForm.bookingWindow.deadline.mode === 'duration' ? 2 : 0)}}" data-side="deadline" bindchange="onBookingWindowMode">
-                  <view class="picker-display">{{ruleForm.bookingWindow.deadline.mode === 'days' ? '按提前天数' : (ruleForm.bookingWindow.deadline.mode === 'duration' ? '按提前时长' : '不设置')}}</view>
-                </picker>
-                <view wx:if="{{ruleForm.bookingWindow.deadline.mode === 'days'}}" class="booking-window-value-row">
-                  <input class="field-input booking-window-number" type="number" value="{{ruleForm.bookingWindow.deadline.days}}" data-side="deadline" bindinput="onBookingWindowDays" placeholder="0" />
-                  <text class="booking-window-unit">日</text>
-                </view>
-                <view wx:if="{{ruleForm.bookingWindow.deadline.mode === 'duration'}}" class="booking-window-value-row">
-                  <picker range="{{advanceHourOptions}}" value="{{ruleForm.bookingWindow.deadline.hours}}" data-side="deadline" bindchange="onBookingWindowHours"><view class="picker-sm">{{ruleForm.bookingWindow.deadline.hours}}小时</view></picker>
-                  <picker range="{{advanceMinuteOptions}}" value="{{ruleForm.bookingWindow.deadline.minutes}}" data-side="deadline" bindchange="onBookingWindowMinutes"><view class="picker-sm">{{ruleForm.bookingWindow.deadline.minutes}}分</view></picker>
-                </view>
-              </view>
-            </view>
 
             <!-- Flow editor — only shown when 用户审核 is selected -->
             <block wx:if="{{ruleForm.ruleType === 'flow'}}">

@@ -316,6 +316,24 @@ router.post('/listVenueBookingRules', async (req, res) => {
   }
 });
 
+// saveVenueBookingWindow — 场地级借用时间窗口独立保存，不依附审批规则编辑器
+router.post('/saveVenueBookingWindow', async (req, res) => {
+  try {
+    const admin = await ensureAdmin(req.openid);
+    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    const venueId = safeString(req.body.venueId);
+    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    const currentPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
+    const bookingWindow = normalizeBookingWindow(Object.assign({}, req.body.bookingWindow, {
+      id: currentPolicy ? currentPolicy.id : generateId()
+    }));
+    await venueBookingPolicyModel.upsert(venueId, bookingWindow);
+    res.json({ status: 'success', message: '借用时间已保存' });
+  } catch (e) {
+    res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
 // saveVenueBookingRule
 router.post('/saveVenueBookingRule', async (req, res) => {
   try {
