@@ -217,6 +217,17 @@
           </block>
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
+          <view class="booking-window-summary ui-dialog-section">
+            <view class="booking-window-summary-head">
+              <view>
+                <view class="section-title-sm">借用时间窗口</view>
+                <view class="booking-window-summary-desc">限制用户可以提前多久提交，以及距离借用开始还剩多久时停止提交。</view>
+              </view>
+              <text class="booking-window-summary-status">场地级策略</text>
+            </view>
+            <view class="booking-window-summary-value">{{bookingWindowDisplay}}</view>
+            <button class="secondary-btn booking-window-summary-action ui-motion-button" catchtap="openBookingWindowEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑时间限制</button>
+          </view>
           <button class="secondary-btn rule-add-btn ui-motion-button" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ 新增审批流程</button>
           <view wx:if="{{!approvalFlows.length}}" class="empty-inline">暂无审批流程，可新增“用户审核”流程</view>
           <block wx:if="{{approvalFlows.length}}">

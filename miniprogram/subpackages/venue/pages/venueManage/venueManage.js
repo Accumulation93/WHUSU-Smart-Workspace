@@ -154,6 +154,19 @@ function bookingWindowMinutes(item) {
   return Math.max(0, Number(item.hours) || 0) * 60 + Math.max(0, Number(item.minutes) || 0);
 }
 
+function formatBookingWindowSummary(row) {
+  const window = bookingWindowFromRow(row);
+  const format = function(item, unsetText) {
+    const minutes = bookingWindowMinutes(item);
+    if (minutes === null) return unsetText;
+    if (item.mode === 'days') return (Number(item.days) || 0) + '天';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return (hours ? hours + '小时' : '') + (mins ? mins + '分钟' : (hours ? '' : '0分钟'));
+  };
+  return '开放：' + format(window.open, '不限制提前时间') + ' · 截止：' + format(window.deadline, '借用开始前均可');
+}
+
 Page({
   data: {
     // ── Main tab ──
@@ -222,6 +235,7 @@ Page({
     condMultiPickerDeptTabs: [],
     condMultiPickerActiveDeptTab: '',
     bookingWindow: null,
+    bookingWindowDisplay: '开放：不限制提前时间 · 截止：借用开始前均可',
     advanceHourOptions: Array.from({ length: 721 }, (_, index) => String(index) + '小时'),
     advanceMinuteOptions: Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0') + '分'),
 
@@ -536,6 +550,8 @@ Page({
       openRules: [],
       activityRules: [],
       bookingRules: [],
+      bookingWindow: null,
+      bookingWindowDisplay: '开放：不限制提前时间 · 截止：借用开始前均可',
       approvalFlow: null,
       approvalFlowSteps: []
     });
@@ -594,6 +610,7 @@ Page({
       if (res.status === 'success') {
         this.setData({
           bookingWindow: res.bookingWindow || null,
+          bookingWindowDisplay: formatBookingWindowSummary(res.bookingWindow),
           bookingRules: buildBookingRuleDisplayList(
             res.rules,
             this.data.approvalFlow,
@@ -1846,6 +1863,20 @@ Page({
         await this.loadApprovalFlow();
       } else showShortToast(res.message || '请重试');
     } catch (e) { showShortToast(getErrorText(e, '请重试')); }
+  },
+
+  openBookingWindowEditor() {
+    const bookingRule = (this.data.bookingRules || [])[0];
+    if (bookingRule) {
+      this.openRuleEditor({ currentTarget: { dataset: { type: 'booking', id: bookingRule.id } } });
+      return;
+    }
+    const flow = (this.data.approvalFlows || [])[0];
+    if (flow) {
+      this.openApprovalFlowStepEditor({ currentTarget: { dataset: { id: flow.id } } });
+      return;
+    }
+    this.openRuleEditor({ currentTarget: { dataset: { type: 'booking', id: '' } } });
   },
 
   async toggleApprovalFlowFlag(e) {
