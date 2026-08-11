@@ -857,6 +857,22 @@ CREATE TABLE IF NOT EXISTS venue_booking_rules (
   CONSTRAINT fk_vbr_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS venue_booking_policies (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  venue_id VARCHAR(64) NOT NULL,
+  org_id VARCHAR(64) NOT NULL,
+  open_advance_mode VARCHAR(16) DEFAULT NULL,
+  open_advance_days INT UNSIGNED DEFAULT NULL,
+  open_advance_minutes INT UNSIGNED DEFAULT NULL,
+  deadline_advance_mode VARCHAR(16) DEFAULT NULL,
+  deadline_advance_days INT UNSIGNED DEFAULT NULL,
+  deadline_advance_minutes INT UNSIGNED DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_vbp_venue_org (venue_id, org_id),
+  INDEX idx_vbp_org (org_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS venue_approval_flows (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   venue_id VARCHAR(64) NOT NULL,

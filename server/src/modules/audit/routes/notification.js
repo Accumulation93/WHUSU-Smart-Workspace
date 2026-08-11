@@ -474,6 +474,28 @@ router.post('/markAllNotificationsRead', async (req, res) => {
   }
 });
 
+router.post('/deleteAllNotifications', async (req, res) => {
+  try {
+    const scope = await resolveScope(req, req.body || {}, false);
+    if (!scope.ok) return respondScopeError(res, scope);
+    const results = await settleWithConcurrency(
+      scope.contexts,
+      (context) => notificationModel.deleteAll(context.actor)
+    );
+    const failures = collectFailures(results);
+    const deletedCount = results
+      .filter((item) => item.ok)
+      .reduce((sum, item) => sum + Number(item.value.deletedCount || 0), 0);
+    res.json(Object.assign(
+      { status: 'success', deletedCount, unreadCount: 0 },
+      scopeMetadata(scope, failures)
+    ));
+  } catch (error) {
+    console.error('[notification:deleteAll] failed:', error);
+    res.json({ status: 'error', message: '未清除，请重试' });
+  }
+});
+
 router.post('/deleteNotification', async (req, res) => {
   try {
     const id = safeString(req.body.id);

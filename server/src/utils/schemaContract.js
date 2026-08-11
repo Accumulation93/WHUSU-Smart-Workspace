@@ -81,6 +81,7 @@ const REQUIRED_TABLES = [
   ,'account_recovery_requests'
   ,'auth_policy'
   ,'auth_audit_events'
+  ,'venue_booking_policies'
   ,'person_profile_values'
   ,'person_profile_value_history'
 ];
@@ -108,6 +109,7 @@ const REQUIRED_INDEXES = [
   ,['identity_claim_requests', 'idx_claim_org_status']
   ,['identity_verification_invites', 'idx_identity_invite_org_status']
   ,['auth_audit_events', 'idx_auth_audit_type']
+  ,['venue_booking_policies', 'uk_vbp_venue_org']
 ];
 
 async function verifySchemaContract(pool) {

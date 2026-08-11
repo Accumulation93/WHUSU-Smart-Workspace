@@ -332,6 +332,50 @@
               <picker range="{{['管理员审核','用户审核','直接通过']}}" value="{{ruleForm.ruleType === 'direct' ? 2 : (ruleForm.ruleType === 'flow' ? 1 : 0)}}" bindchange="onBookingRuleTypeChange">
                 <view class="picker-display">{{ruleForm.ruleType === 'direct' ? '直接通过' : (ruleForm.ruleType === 'flow' ? '用户分步审核' : '管理员审核')}}</view></picker></view>
 
+            <view class="booking-window-panel ui-dialog-section">
+              <view class="booking-window-heading">
+                <view>
+                  <view class="section-title-sm">借用时间窗口</view>
+                  <view class="booking-window-intro">按借用开始时间计算，可分别设置开放和截止规则。</view>
+                </view>
+                <view class="booking-window-badge">可选</view>
+              </view>
+              <view class="booking-window-card">
+                <view class="booking-window-card-head">
+                  <view class="booking-window-card-title">提前开放借用</view>
+                  <view class="booking-window-card-desc">未设置：可提前无穷大天提交</view>
+                </view>
+                <picker range="{{['不设置','按提前天数','按提前时长']}}" value="{{ruleForm.bookingWindow.open.mode === 'days' ? 1 : (ruleForm.bookingWindow.open.mode === 'duration' ? 2 : 0)}}" data-side="open" bindchange="onBookingWindowMode">
+                  <view class="picker-display">{{ruleForm.bookingWindow.open.mode === 'days' ? '按提前天数' : (ruleForm.bookingWindow.open.mode === 'duration' ? '按提前时长' : '不设置')}}</view>
+                </picker>
+                <view wx:if="{{ruleForm.bookingWindow.open.mode === 'days'}}" class="booking-window-value-row">
+                  <input class="field-input booking-window-number" type="number" value="{{ruleForm.bookingWindow.open.days}}" data-side="open" bindinput="onBookingWindowDays" placeholder="0" />
+                  <text class="booking-window-unit">日</text>
+                </view>
+                <view wx:if="{{ruleForm.bookingWindow.open.mode === 'duration'}}" class="booking-window-value-row">
+                  <picker range="{{advanceHourOptions}}" value="{{ruleForm.bookingWindow.open.hours}}" data-side="open" bindchange="onBookingWindowHours"><view class="picker-sm">{{ruleForm.bookingWindow.open.hours}}小时</view></picker>
+                  <picker range="{{advanceMinuteOptions}}" value="{{ruleForm.bookingWindow.open.minutes}}" data-side="open" bindchange="onBookingWindowMinutes"><view class="picker-sm">{{ruleForm.bookingWindow.open.minutes}}分</view></picker>
+                </view>
+              </view>
+              <view class="booking-window-card">
+                <view class="booking-window-card-head">
+                  <view class="booking-window-card-title">提前截止借用</view>
+                  <view class="booking-window-card-desc">未设置：借用开始时间晚于当前即可提交</view>
+                </view>
+                <picker range="{{['不设置','按提前天数','按提前时长']}}" value="{{ruleForm.bookingWindow.deadline.mode === 'days' ? 1 : (ruleForm.bookingWindow.deadline.mode === 'duration' ? 2 : 0)}}" data-side="deadline" bindchange="onBookingWindowMode">
+                  <view class="picker-display">{{ruleForm.bookingWindow.deadline.mode === 'days' ? '按提前天数' : (ruleForm.bookingWindow.deadline.mode === 'duration' ? '按提前时长' : '不设置')}}</view>
+                </picker>
+                <view wx:if="{{ruleForm.bookingWindow.deadline.mode === 'days'}}" class="booking-window-value-row">
+                  <input class="field-input booking-window-number" type="number" value="{{ruleForm.bookingWindow.deadline.days}}" data-side="deadline" bindinput="onBookingWindowDays" placeholder="0" />
+                  <text class="booking-window-unit">日</text>
+                </view>
+                <view wx:if="{{ruleForm.bookingWindow.deadline.mode === 'duration'}}" class="booking-window-value-row">
+                  <picker range="{{advanceHourOptions}}" value="{{ruleForm.bookingWindow.deadline.hours}}" data-side="deadline" bindchange="onBookingWindowHours"><view class="picker-sm">{{ruleForm.bookingWindow.deadline.hours}}小时</view></picker>
+                  <picker range="{{advanceMinuteOptions}}" value="{{ruleForm.bookingWindow.deadline.minutes}}" data-side="deadline" bindchange="onBookingWindowMinutes"><view class="picker-sm">{{ruleForm.bookingWindow.deadline.minutes}}分</view></picker>
+                </view>
+              </view>
+            </view>
+
             <!-- Flow editor — only shown when 用户审核 is selected -->
             <block wx:if="{{ruleForm.ruleType === 'flow'}}">
 
@@ -349,13 +393,14 @@
                     </view>
                   </view>
                   <view class="flow-step-rules-summary">
-                    <text wx:if="{{item.approvalMode === 'admin_any' || !item.rules || !item.rules.length}}" class="field-hint">任一管理员审批</text>
+                    <text wx:if="{{item.approvalMode === 'admin_any' || !item.rules || !item.rules.length}}" class="flow-step-admin-note">任一管理员审批</text>
                     <block wx:else>
-                      <view class="flow-rule-tag" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
-                        <view class="flow-rule-pill-row">
-                          <text class="flow-rule-pill flow-rule-pill--department">{{rule._departmentLabel}}</text>
-                          <text class="flow-rule-pill flow-rule-pill--work-group">{{rule._workGroupLabel}}</text>
-                          <text class="flow-rule-pill flow-rule-pill--identity">{{rule._identityLabel}}</text>
+                      <view class="flow-condition-preview" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
+                        <view class="flow-condition-preview-label">满足任一条件</view>
+                        <view class="flow-condition-preview-values">
+                          <text>{{rule._departmentLabel}}</text>
+                          <text>{{rule._workGroupLabel}}</text>
+                          <text>{{rule._identityLabel}}</text>
                         </view>
                       </view>
                     </block>
@@ -378,10 +423,11 @@
                     <view wx:if="{{ruleForm._editingStepRules && ruleForm._editingStepRules.length}}">
                       <view class="flow-rule-card" wx:for="{{ruleForm._editingStepRules}}" wx:key="index" wx:for-index="ri">
                         <view class="flow-rule-summary">
-                          <view class="flow-rule-pill-row">
-                            <text class="flow-rule-pill flow-rule-pill--department">{{item._departmentLabel}}</text>
-                            <text class="flow-rule-pill flow-rule-pill--work-group">{{item._workGroupLabel}}</text>
-                            <text class="flow-rule-pill flow-rule-pill--identity">{{item._identityLabel}}</text>
+                          <view class="flow-rule-card-label">审批对象条件</view>
+                          <view class="flow-rule-card-lines">
+                            <text>{{item._departmentLabel}}</text>
+                            <text>{{item._workGroupLabel}}</text>
+                            <text>{{item._identityLabel}}</text>
                           </view>
                         </view>
                         <view class="inline-actions">
@@ -407,40 +453,38 @@
 
                   <view class="flow-rule-detail">
                     <view class="flow-rule-detail-title">当前审批对象</view>
-                    <view class="flow-rule-pill-row">
-                      <text class="flow-rule-pill flow-rule-pill--department">{{ruleForm._editingCondition._departmentLabel}}</text>
-                      <text class="flow-rule-pill flow-rule-pill--work-group">{{ruleForm._editingCondition._workGroupLabel}}</text>
-                      <text class="flow-rule-pill flow-rule-pill--identity">{{ruleForm._editingCondition._identityLabel}}</text>
+                    <view class="flow-rule-card-lines">
+                      <text>{{ruleForm._editingCondition._departmentLabel}}</text>
+                      <text>{{ruleForm._editingCondition._workGroupLabel}}</text>
+                      <text>{{ruleForm._editingCondition._identityLabel}}</text>
                     </view>
                   </view>
 
-                  <view class="rule-condition-grid">
-                  <!-- Dept scope -->
-                  <view class="field rule-condition-field"><view class="field-label">部门</view>
-                    <picker range="{{['全部','同部门','指定部门']}}" value="{{ruleForm._editingCondition.deptScope === 'specific' ? 2 : (ruleForm._editingCondition.deptScope === 'same' ? 1 : 0)}}" bindchange="onCondDeptScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.deptScope === 'specific' ? '选择部门' : (ruleForm._editingCondition.deptScope === 'same' ? '与申请人同部门' : '全部')}}</view></picker></view>
-                  <view class="field rule-condition-field rule-condition-field--full" wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}">
-                    <view class="picker-value ui-motion-chip" data-target="dept" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._deptNames || '点击选择部门'}}</view>
-                    <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._deptNames}}" catchtap="onCondFieldClear" data-field="dept" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
-                  </view>
-
-                  <!-- WG scope -->
-                  <view class="field rule-condition-field"><view class="field-label">职能组</view>
-                    <picker range="{{['全部','同职能组','指定职能组']}}" value="{{ruleForm._editingCondition.wgScope === 'specific' ? 2 : (ruleForm._editingCondition.wgScope === 'same' ? 1 : 0)}}" bindchange="onCondWgScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.wgScope === 'specific' ? '选择职能组' : (ruleForm._editingCondition.wgScope === 'same' ? '与申请人同组' : '全部')}}</view></picker></view>
-                  <view class="field rule-condition-field rule-condition-field--full" wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}">
-                    <view class="picker-value ui-motion-chip" data-target="wg" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._wgNames || '点击选择职能组'}}</view>
-                    <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._wgNames}}" catchtap="onCondFieldClear" data-field="wg" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
-                  </view>
-
-                  <!-- Identity scope -->
-                  <view class="field rule-condition-field"><view class="field-label">身份</view>
-                    <picker range="{{['全部','同身份','指定身份']}}" value="{{ruleForm._editingCondition.identScope === 'specific' ? 2 : (ruleForm._editingCondition.identScope === 'same' ? 1 : 0)}}" bindchange="onCondIdentScope">
-                      <view class="picker-display">{{ruleForm._editingCondition.identScope === 'specific' ? '选择身份' : (ruleForm._editingCondition.identScope === 'same' ? '与申请人同身份' : '全部')}}</view></picker></view>
-                  <view class="field rule-condition-field rule-condition-field--full" wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}">
-                    <view class="picker-value ui-motion-chip" data-target="ident" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._identNames || '点击选择身份'}}</view>
-                    <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._identNames}}" catchtap="onCondFieldClear" data-field="ident" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
-                  </view>
+                  <view class="rule-condition-list">
+                    <view class="condition-option-row">
+                      <view class="condition-option-copy"><view class="condition-option-title">部门</view><view class="condition-option-hint">限定审批人的部门范围</view></view>
+                      <picker range="{{['全部','同部门','指定部门']}}" value="{{ruleForm._editingCondition.deptScope === 'specific' ? 2 : (ruleForm._editingCondition.deptScope === 'same' ? 1 : 0)}}" bindchange="onCondDeptScope"><view class="condition-option-picker">{{ruleForm._editingCondition.deptScope === 'specific' ? '指定部门' : (ruleForm._editingCondition.deptScope === 'same' ? '申请人同部门' : '不限')}}</view></picker>
+                    </view>
+                    <view class="condition-selected-row" wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}">
+                      <view class="picker-value ui-motion-chip" data-target="dept" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._deptNames || '点击选择部门'}}</view>
+                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._deptNames}}" catchtap="onCondFieldClear" data-field="dept" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                    </view>
+                    <view class="condition-option-row">
+                      <view class="condition-option-copy"><view class="condition-option-title">职能组</view><view class="condition-option-hint">限定审批人的职能分组</view></view>
+                      <picker range="{{['全部','同职能组','指定职能组']}}" value="{{ruleForm._editingCondition.wgScope === 'specific' ? 2 : (ruleForm._editingCondition.wgScope === 'same' ? 1 : 0)}}" bindchange="onCondWgScope"><view class="condition-option-picker">{{ruleForm._editingCondition.wgScope === 'specific' ? '指定职能组' : (ruleForm._editingCondition.wgScope === 'same' ? '申请人同职能组' : '不限')}}</view></picker>
+                    </view>
+                    <view class="condition-selected-row" wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}">
+                      <view class="picker-value ui-motion-chip" data-target="wg" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._wgNames || '点击选择职能组'}}</view>
+                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._wgNames}}" catchtap="onCondFieldClear" data-field="wg" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                    </view>
+                    <view class="condition-option-row">
+                      <view class="condition-option-copy"><view class="condition-option-title">身份</view><view class="condition-option-hint">限定审批人的身份范围</view></view>
+                      <picker range="{{['全部','同身份','指定身份']}}" value="{{ruleForm._editingCondition.identScope === 'specific' ? 2 : (ruleForm._editingCondition.identScope === 'same' ? 1 : 0)}}" bindchange="onCondIdentScope"><view class="condition-option-picker">{{ruleForm._editingCondition.identScope === 'specific' ? '指定身份' : (ruleForm._editingCondition.identScope === 'same' ? '申请人同身份' : '不限')}}</view></picker>
+                    </view>
+                    <view class="condition-selected-row" wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}">
+                      <view class="picker-value ui-motion-chip" data-target="ident" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._identNames || '点击选择身份'}}</view>
+                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._identNames}}" catchtap="onCondFieldClear" data-field="ident" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                    </view>
                   </view>
 
                   <view class="button-row">

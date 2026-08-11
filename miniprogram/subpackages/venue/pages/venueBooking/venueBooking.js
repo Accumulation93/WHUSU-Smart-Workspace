@@ -24,6 +24,18 @@ function findBlockedOverlap(rs,re,mb){for(const iv of mb){if(iv.start<re&&iv.end
 function minToTime(min) { if (min < 0) return '00:00'; if (min >= TOTAL_MIN) return '24:00'; let h = Math.floor(min / 60), m = min % 60; return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
 function snapMin(min) { return Math.round(min / SNAP) * SNAP; }
 
+function formatBookingWindow(window) {
+  if (!window) return '可借时间按场地规则开放';
+  const format = function(mode, days, minutes) {
+    if (!mode || minutes === null || minutes === undefined) return '不限制';
+    if (mode === 'days') return (Number(days) || 0) + '日';
+    const total = Number(minutes) || 0;
+    return Math.floor(total / 60) + '小时' + String(total % 60).padStart(2, '0') + '分';
+  };
+  return '开放：' + format(window.openAdvanceMode, window.openAdvanceDays, window.openAdvanceMinutes)
+    + '前 · 截止：' + format(window.deadlineAdvanceMode, window.deadlineAdvanceDays, window.deadlineAdvanceMinutes) + '前';
+}
+
 function buildBlockedIntervals(dayData) {
   let blocked = [];
   if (dayData) {
@@ -298,7 +310,13 @@ Page({
     try {
       let res = await callFunction({ name: 'listVenuesForBooking', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (res.status === 'success') this.setData({ venues: res.venues || [] });
+      if (res.status === 'success') {
+        this.setData({
+          venues: (res.venues || []).map(function(item) {
+            return Object.assign({}, item, { bookingWindowLabel: formatBookingWindow(item.bookingWindow) });
+          })
+        });
+      }
       else showShortToast(res.message || '请稍后刷新');
     } catch (e) { showShortToast(getErrorText(e, '请稍后刷新')); }
     finally { if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false }); }

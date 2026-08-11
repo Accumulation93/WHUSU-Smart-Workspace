@@ -10,6 +10,7 @@ const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
 const venueBookingRuleModel = require('../models/venueBookingRule');
+const venueBookingPolicyModel = require('../models/venueBookingPolicy');
 const venueBookingModel = require('../models/venueBooking');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
 const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
@@ -18,6 +19,7 @@ const notificationModel = require('../../audit/models/notification');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
 const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
+const { fromRow, validateBookingWindow } = require('../services/venueBookingWindow');
 const { findMyVenueApproval, matchesApprovalContext } = require('../services/venueApprovalHistory');
 
 async function resolveHrId(openid) {
@@ -263,13 +265,14 @@ router.post('/listVenuesForBooking', async (req, res) => {
     const venueList = [];
     for (const v of venues) {
       const rules = await venueBookingRuleModel.getByVenueId(v.id);
+      const bookingWindow = fromRow(await venueBookingPolicyModel.getByVenueId(v.id));
       let approvalType = 'unknown';
       if (!rules.length) approvalType = 'admin';
       else if (rules.some(r => r.rule_type === 'direct')) approvalType = 'direct';
       else approvalType = 'approval';
       venueList.push({
         id: v.id, name: v.name, location: v.location,
-        description: v.description, imageUrl: v.image_url, approvalType
+        description: v.description, imageUrl: v.image_url, approvalType, bookingWindow
       });
     }
     res.json({ status: 'success', venues: venueList });
@@ -605,6 +608,10 @@ router.post('/createVenueBooking', async (req, res) => {
     // Check venue
     const venue = await venueModel.getById(venueId);
     if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '请选择其他场地' });
+
+    const bookingPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
+    const windowError = validateBookingWindow(bookingPolicy, startDate, new Date());
+    if (windowError) return res.json({ status: 'invalid_state', message: windowError.message });
 
     const dbTimeStart = fmtDatetime(startDate);
     const dbTimeEnd = fmtDatetime(endDate);

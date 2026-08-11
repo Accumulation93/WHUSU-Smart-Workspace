@@ -8,6 +8,8 @@ const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const flowModel = require('../models/venueApprovalFlow');
 const stepModel = require('../models/venueApprovalFlowStep');
 const ruleModel = require('../models/venueApprovalFlowStepRule');
+const venueBookingPolicyModel = require('../models/venueBookingPolicy');
+const { normalizeBookingWindow } = require('../services/venueBookingWindow');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingRuleModel = require('../models/venueBookingRule');
 const { createVenueApprovalNotifications, createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
@@ -264,6 +266,14 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
           specificIdentityId: rd.specificIdentityId || null
         }, conn);
       }
+    }
+
+    if (req.body.bookingWindow !== undefined) {
+      const currentPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
+      const bookingWindow = normalizeBookingWindow(Object.assign({}, req.body.bookingWindow, {
+        id: currentPolicy ? currentPolicy.id : generateId()
+      }));
+      await venueBookingPolicyModel.upsert(venueId, bookingWindow, conn);
     }
 
     await conn.commit();

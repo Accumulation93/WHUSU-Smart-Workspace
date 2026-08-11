@@ -11,6 +11,7 @@ const venueModel = require('../models/venue');
 const venueOpenRuleModel = require('../models/venueOpenRule');
 const venueActivityRuleModel = require('../models/venueActivityRule');
 const venueBookingRuleModel = require('../models/venueBookingRule');
+const venueBookingPolicyModel = require('../models/venueBookingPolicy');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingPurposeModel = require('../models/venueBookingPurpose');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
@@ -22,6 +23,7 @@ const {
   authorizeCurrentVenueApproval
 } = require('../services/venueApprovalAuthorization');
 const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
+const { normalizeBookingWindow, fromRow } = require('../services/venueBookingWindow');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -307,7 +309,8 @@ router.post('/listVenueBookingRules', async (req, res) => {
     const venueId = safeString(req.body.venueId);
     if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
     const rules = await venueBookingRuleModel.getByVenueId(venueId);
-    res.json({ status: 'success', rules });
+    const bookingWindow = fromRow(await venueBookingPolicyModel.getByVenueId(venueId));
+    res.json({ status: 'success', rules, bookingWindow });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -355,6 +358,13 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       await venueBookingRuleModel.update(id, data);
     } else {
       await venueBookingRuleModel.create(id, data);
+    }
+    if (req.body.bookingWindow !== undefined) {
+      const currentPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
+      const bookingWindow = normalizeBookingWindow(Object.assign({}, req.body.bookingWindow, {
+        id: currentPolicy ? currentPolicy.id : generateId()
+      }));
+      await venueBookingPolicyModel.upsert(venueId, bookingWindow);
     }
     res.json({ status: 'success', id, message: existing ? '规则已更新' : '规则已创建' });
   } catch (e) {

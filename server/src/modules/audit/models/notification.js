@@ -142,6 +142,16 @@ async function markAllRead(actor) {
   return { changedCount: result.affectedRows, unreadCount: 0 };
 }
 
+async function deleteAll(actor) {
+  const orgId = await getCurrentOrgId();
+  const [result] = await pool.query(
+    `DELETE FROM notifications
+      WHERE org_id = ? AND recipient_type = ? AND recipient_id = ? AND type <> ?`,
+    [orgId, actor.type, actor.id, 'pending_approval']
+  );
+  return { deletedCount: result.affectedRows, unreadCount: 0 };
+}
+
 async function cleanupOld(days) {
   const keepDays = Math.max(parseInt(days, 10) || RETENTION_DAYS, 1);
   const [result] = await pool.query(
@@ -206,6 +216,7 @@ module.exports = {
   deleteById,
   cleanupOld,
   markAllRead,
+  deleteAll,
   markReadByTarget,
   hasPendingApprovalNotification,
   deleteByTarget,

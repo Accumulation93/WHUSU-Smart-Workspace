@@ -115,6 +115,45 @@ function parseCsvArray(str) {
   return String(str).split(',').map(s => s.trim()).filter(Boolean);
 }
 
+function emptyBookingWindow() {
+  return {
+    open: { mode: 'none', days: 7, hours: 0, minutes: 0 },
+    deadline: { mode: 'none', days: 0, hours: 0, minutes: 0 }
+  };
+}
+
+function bookingWindowFromRow(row) {
+  const window = emptyBookingWindow();
+  if (!row) return window;
+  const openMinutes = row.openAdvanceMinutes === null || row.openAdvanceMinutes === undefined
+    ? null : Number(row.openAdvanceMinutes);
+  const deadlineMinutes = row.deadlineAdvanceMinutes === null || row.deadlineAdvanceMinutes === undefined
+    ? null : Number(row.deadlineAdvanceMinutes);
+  if (row.openAdvanceMode) {
+    window.open.mode = row.openAdvanceMode;
+    if (row.openAdvanceMode === 'days') window.open.days = Number(row.openAdvanceDays) || 0;
+    else if (openMinutes !== null) {
+      window.open.hours = Math.floor(openMinutes / 60);
+      window.open.minutes = openMinutes % 60;
+    }
+  }
+  if (row.deadlineAdvanceMode) {
+    window.deadline.mode = row.deadlineAdvanceMode;
+    if (row.deadlineAdvanceMode === 'days') window.deadline.days = Number(row.deadlineAdvanceDays) || 0;
+    else if (deadlineMinutes !== null) {
+      window.deadline.hours = Math.floor(deadlineMinutes / 60);
+      window.deadline.minutes = deadlineMinutes % 60;
+    }
+  }
+  return window;
+}
+
+function bookingWindowMinutes(item) {
+  if (!item || item.mode === 'none') return null;
+  if (item.mode === 'days') return Math.max(0, Number(item.days) || 0) * 24 * 60;
+  return Math.max(0, Number(item.hours) || 0) * 60 + Math.max(0, Number(item.minutes) || 0);
+}
+
 Page({
   data: {
     // ── Main tab ──
@@ -182,13 +221,16 @@ Page({
     condMultiPickerFilteredList: [],
     condMultiPickerDeptTabs: [],
     condMultiPickerActiveDeptTab: '',
+    bookingWindow: null,
+    advanceHourOptions: Array.from({ length: 721 }, (_, index) => String(index) + '小时'),
+    advanceMinuteOptions: Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0') + '分'),
 
     // Rule editor
     ruleEditorVisible: false,
     ruleEditId: '',
     ruleEditorType: '',
     ruleEditorScrollStyle: '',
-    ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin' },
+    ruleForm: { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: emptyBookingWindow() },
 
     // Reference data
     allIdentities: [],
@@ -551,6 +593,7 @@ Page({
       if (!orgSession.isRequestCurrent(this, request) || this.data.rulesVenueId !== venueId) return;
       if (res.status === 'success') {
         this.setData({
+          bookingWindow: res.bookingWindow || null,
           bookingRules: buildBookingRuleDisplayList(
             res.rules,
             this.data.approvalFlow,
@@ -635,7 +678,7 @@ Page({
   openRuleEditor(e) {
     const type = e.currentTarget.dataset.type; // 'open' | 'activity' | 'booking'
     const ruleId = e.currentTarget.dataset.id || '';
-    let form = { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
+    let form = { name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: bookingWindowFromRow(this.data.bookingWindow), approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
     if (ruleId) {
       if (type === 'open') {
         const r = this.data.openRules.find(r => r.id === ruleId);
@@ -757,6 +800,28 @@ Page({
   onRuleFormField(e) {
     const f = e.currentTarget.dataset.field;
     this.setData({ ['ruleForm.' + f]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+  },
+
+  onBookingWindowMode(e) {
+    const side = e.currentTarget.dataset.side;
+    const modes = ['none', 'days', 'duration'];
+    const mode = modes[Number(e.detail.value)] || 'none';
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.mode']: mode }, () => this._scheduleRuleEditorViewportSync());
+  },
+
+  onBookingWindowDays(e) {
+    const side = e.currentTarget.dataset.side;
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.days']: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
+  },
+
+  onBookingWindowHours(e) {
+    const side = e.currentTarget.dataset.side;
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.hours']: Number(e.detail.value) || 0 }, () => this._scheduleRuleEditorViewportSync());
+  },
+
+  onBookingWindowMinutes(e) {
+    const side = e.currentTarget.dataset.side;
+    this.setData({ ['ruleForm.bookingWindow.' + side + '.minutes']: Number(e.detail.value) || 0 }, () => this._scheduleRuleEditorViewportSync());
   },
 
   onCycleTypeChange(e) {
@@ -919,6 +984,14 @@ Page({
   async saveRule() {
     const { ruleEditId, ruleEditorType, ruleForm, rulesVenueId } = this.data;
     let endpoint, data;
+    if (ruleEditorType === 'booking') {
+      const openMinutes = bookingWindowMinutes(ruleForm.bookingWindow && ruleForm.bookingWindow.open);
+      const deadlineMinutes = bookingWindowMinutes(ruleForm.bookingWindow && ruleForm.bookingWindow.deadline);
+      if (openMinutes !== null && deadlineMinutes !== null && openMinutes < deadlineMinutes) {
+        showShortToast('开放时间必须早于或等于截止时间');
+        return;
+      }
+    }
     if (ruleEditorType === 'open') {
       endpoint = 'saveVenueOpenRule';
       data = { id: ruleEditId, venueId: rulesVenueId, name: ruleForm.name, cycleType: ruleForm.cycleType, cycleValues: ruleForm.cycleValues, timeStart: ruleForm.timeStart, timeEnd: ruleForm.timeEnd };
@@ -950,11 +1023,12 @@ Page({
           allowUserSelect: this.data.allowUserSelectFlow,
           allowDesignateFirst: this.data.allowDesignateFirstFlow,
           allowDesignateNext: this.data.allowDesignateNextFlow,
-          steps: stepsData
+          steps: stepsData,
+          bookingWindow: ruleForm.bookingWindow
         };
       } else {
         endpoint = 'saveVenueBookingRule';
-        data = { id: ruleEditId, venueId: rulesVenueId, ruleType: ruleForm.ruleType || 'admin' };
+        data = { id: ruleEditId, venueId: rulesVenueId, ruleType: ruleForm.ruleType || 'admin', bookingWindow: ruleForm.bookingWindow };
       }
     }
     try {
@@ -1868,7 +1942,7 @@ Page({
       ruleEditId: '__flow__',
       ruleEditorType: 'booking',
       ruleForm: {
-        name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00',
+        name: '', cycleType: 'weekly', cycleValues: [], timeStart: '09:00', timeEnd: '18:00', bookingWindow: bookingWindowFromRow(this.data.bookingWindow),
         ruleType: 'flow', approverIdentityId: '', approverHrId: '',
         approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0,
         _flowSteps: this._decorateFlowSteps(steps),

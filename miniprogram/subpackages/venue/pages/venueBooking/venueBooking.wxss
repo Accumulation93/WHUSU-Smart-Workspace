@@ -20,6 +20,7 @@
 .venue-loc { color:#64748b; font-size: var(--ui-type-label); }
 
 .venue-meta { display:flex; flex-wrap:wrap; align-items:center; gap:10rpx; }
+.venue-window-hint { color:#64748b; font-size:var(--ui-type-caption); line-height:1.4; overflow-wrap:anywhere; }
 .venue-tag {
   display:inline-flex; align-items:center; justify-content:center;
   min-height:38rpx; padding:6rpx 14rpx; border-radius: var(--ui-compact-radius, 18rpx);

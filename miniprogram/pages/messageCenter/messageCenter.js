@@ -488,6 +488,34 @@ Page({
     }
   },
 
+  deleteAllNotifications() {
+    if (!this.data.notificationTotal) return;
+    wx.showModal({
+      title: '清除全部通知',
+      content: '将清除当前可见组织范围内的全部通知，待我审批事项不受影响。',
+      confirmText: '全部清除',
+      confirmColor: '#dc2626',
+      success: async (result) => {
+        if (!result.confirm) return;
+        const previous = this.data.notifications;
+        this._messageRevision = (this._messageRevision || 0) + 1;
+        this.setData({ notifications: [], notificationTotal: 0, unreadCount: 0 });
+        try {
+          const response = await callFunction({
+            name: 'deleteAllNotifications',
+            data: this.selectedOrganizationData()
+          });
+          if (response.status !== 'success') throw new Error(response.message || '未清除，请重试');
+          if (response.partial) this.setData({ partial: true });
+        } catch (_) {
+          this.setData({ notifications: previous });
+          this.loadOverview(true);
+          showShortToast('未清除，请重试');
+        }
+      }
+    });
+  },
+
   async retryPendingNotificationReads() {
     const orgId = wx.getStorageSync('activeOrgId') || '';
     const role = wx.getStorageSync('activeRole') || '';
