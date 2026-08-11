@@ -97,15 +97,15 @@ function calcBlock(timeStart, timeEnd) {
 /** Build checked arrays from cycleValues (WXML can't call indexOf) */
 function buildWeeklyChecked(cycleValues) {
   const arr = [false, false, false, false, false, false, false];
-  if (!Array.isArray(cycleValues)) return arr;
-  cycleValues.forEach(v => { const n = Number(v); if (n >= 1 && n <= 7) arr[n - 1] = true; });
+  const values = Array.isArray(cycleValues) ? cycleValues : ((cycleValues && cycleValues.values) || []);
+  values.forEach(v => { const n = Number(v); if (n >= 1 && n <= 7) arr[n - 1] = true; });
   return arr;
 }
 
 function buildMonthlyChecked(cycleValues) {
   const arr = Array(31).fill(false);
-  if (!Array.isArray(cycleValues)) return arr;
-  cycleValues.forEach(v => { const n = Number(v); if (n >= 1 && n <= 31) arr[n - 1] = true; });
+  const values = Array.isArray(cycleValues) ? cycleValues : ((cycleValues && cycleValues.values) || []);
+  values.forEach(v => { const n = Number(v); if (n >= 1 && n <= 31) arr[n - 1] = true; });
   return arr;
 }
 
@@ -115,18 +115,31 @@ function parseCsvArray(str) {
   return String(str).split(',').map(s => s.trim()).filter(Boolean);
 }
 
-function emptyActivityDateRange() {
-  return { startDate: '', startTime: '09:00', endDate: '', endTime: '18:00' };
+function emptyActivityCycleValues() {
+  return { values: [], periodStartDate: '', periodStartTime: '00:00', periodEndDate: '', periodEndTime: '23:59', repeatCount: 0 };
 }
 
-function emptyActivityRepeat() {
-  return { startDate: '', startTime: '09:00', endDate: '', endTime: '18:00', intervalUnit: 'day', intervalValue: 1, repeatCount: 1 };
+function normalizeActivityCycleValues(cycleType, values) {
+  let parsed = values;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch (_) { parsed = []; }
+  }
+  if (cycleType === 'datetime_range') {
+    return { values: [], periodStartDate: parsed.startDate || '', periodStartTime: parsed.startTime || '00:00', periodEndDate: parsed.endDate || '', periodEndTime: parsed.endTime || '23:59', repeatCount: 1 };
+  }
+  if (cycleType === 'repeat') {
+    return { values: [], periodStartDate: parsed.startDate || '', periodStartTime: parsed.startTime || '00:00', periodEndDate: '', periodEndTime: '23:59', repeatCount: Number(parsed.repeatCount) || 0 };
+  }
+  if (Array.isArray(parsed)) return { ...emptyActivityCycleValues(), values: parsed };
+  if (parsed && Array.isArray(parsed.values)) return { ...emptyActivityCycleValues(), ...parsed, values: parsed.values };
+  if (parsed && (parsed.startDate || parsed.endDate)) return { ...emptyActivityCycleValues(), periodStartDate: parsed.startDate || '', periodEndDate: parsed.endDate || '' };
+  return emptyActivityCycleValues();
 }
 
 function activityCycleTypeIndex(cycleType) {
-  const types = ['daily', 'weekly', 'monthly', 'yearly', 'range', 'datetime_range', 'repeat'];
+  const types = ['daily', 'weekly', 'monthly', 'yearly'];
   const index = types.indexOf(cycleType);
-  return index >= 0 ? index : 1;
+  return index >= 0 ? index : 0;
 }
 
 function formatActivityCycleLabel(type, values) {
@@ -135,12 +148,17 @@ function formatActivityCycleLabel(type, values) {
     try { parsed = JSON.parse(parsed); } catch (_) { parsed = {}; }
   }
   parsed = parsed || {};
-  if (type === 'datetime_range') return (parsed.startDate || '--') + ' ' + (parsed.startTime || '--:--') + ' 至 ' + (parsed.endDate || '--') + ' ' + (parsed.endTime || '--:--');
-  if (type === 'repeat') {
-    const unit = parsed.intervalUnit === 'week' ? '周' : '天';
-    return '首次 ' + (parsed.startDate || '--') + ' ' + (parsed.startTime || '--:--') + ' 至 ' + (parsed.endDate || '--') + ' ' + (parsed.endTime || '--:--') + '，每' + (Number(parsed.intervalValue) || 1) + unit + '，共' + (Number(parsed.repeatCount) || 0) + '次';
-  }
-  return '';
+  const meta = Array.isArray(parsed) ? emptyActivityCycleValues() : (parsed.periodStartDate || parsed.periodEndDate ? parsed : {
+    ...parsed,
+    periodStartDate: parsed.startDate || '',
+    periodStartTime: parsed.startTime || '00:00',
+    periodEndDate: parsed.endDate || '',
+    periodEndTime: parsed.endTime || '23:59'
+  });
+  const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : '不限开始';
+  const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : '不限结束';
+  const count = Number(meta.repeatCount) > 0 ? '，共重复' + Number(meta.repeatCount) + '次' : '';
+  return '周期生效：' + start + ' 至 ' + end + count;
 }
 
 function emptyBookingWindow() {
@@ -278,7 +296,7 @@ Page({
     yearlyRangeEndMonth: 1,
     yearlyRangeEndDay: 1,
     openCycleTypeOptions: ['每天', '每周', '每月', '每年', '日期范围'],
-    activityCycleTypeOptions: ['每天', '每周', '每月', '每年', '日期范围', '指定时间段', '按次数重复'],
+    activityCycleTypeOptions: ['每天', '每周', '每月', '每年'],
 
     // Pre-computed checked arrays for WXML (indexOf not supported in templates)
     weeklyChecked: [false, false, false, false, false, false, false],
@@ -618,9 +636,7 @@ Page({
           ...r,
           _cycleLabel: this.getCycleLabel(r.cycle_type, r.cycle_values),
           _detailCycleLabel: formatActivityCycleLabel(r.cycle_type, r.cycle_values),
-          _activitySummary: r.cycle_type === 'datetime_range' || r.cycle_type === 'repeat'
-            ? formatActivityCycleLabel(r.cycle_type, r.cycle_values)
-            : this.getCycleLabel(r.cycle_type, r.cycle_values) + ' · ' + (r.time_start || '09:00').substring(0, 5) + ' - ' + (r.time_end || '18:00').substring(0, 5)
+          _activitySummary: this.getCycleLabel(r.cycle_type, r.cycle_values) + ' · ' + (r.time_start || '09:00').substring(0, 5) + ' - ' + (r.time_end || '18:00').substring(0, 5) + ' · ' + formatActivityCycleLabel(r.cycle_type, r.cycle_values)
         }));
         this.setData({ activityRules: rules });
       }
@@ -722,6 +738,7 @@ Page({
     const type = e.currentTarget.dataset.type; // 'open' | 'activity' | 'booking'
     const ruleId = e.currentTarget.dataset.id || '';
     let form = { name: '', cycleType: 'weekly', cycleValues: [], _cycleTypeIndex: type === 'activity' ? 1 : 1, timeStart: '09:00', timeEnd: '18:00', ruleType: 'admin', bookingWindow: bookingWindowFromRow(this.data.bookingWindow), approverIdentityId: '', approverHrId: '', approverIdentityName: '', approverHrName: '', approverIdentityIndex: 0, approverHrIndex: 0 };
+    if (type === 'activity') form.cycleValues = emptyActivityCycleValues();
     if (ruleId) {
       if (type === 'open') {
         const r = this.data.openRules.find(r => r.id === ruleId);
@@ -733,7 +750,8 @@ Page({
         const r = this.data.activityRules.find(r => r.id === ruleId);
         if (r) {
           const cv = typeof r.cycle_values === 'string' ? JSON.parse(r.cycle_values) : (r.cycle_values || []);
-          form = { ...form, name: r.activity_name || '', cycleType: r.cycle_type, _cycleTypeIndex: activityCycleTypeIndex(r.cycle_type), cycleValues: cv, timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
+          const activityType = ['daily', 'weekly', 'monthly', 'yearly'].includes(r.cycle_type) ? r.cycle_type : 'daily';
+          form = { ...form, name: r.activity_name || '', cycleType: activityType, _cycleTypeIndex: activityCycleTypeIndex(activityType), cycleValues: normalizeActivityCycleValues(r.cycle_type, cv), timeStart: (r.time_start || '09:00').substring(0, 5), timeEnd: (r.time_end || '18:00').substring(0, 5) };
         }
       } else if (type === 'booking') {
         const r = this.data.bookingRules.find(r => r.id === ruleId);
@@ -869,13 +887,12 @@ Page({
 
   onCycleTypeChange(e) {
     const isActivity = this.data.ruleEditorType === 'activity';
-    const types = isActivity ? ['daily', 'weekly', 'monthly', 'yearly', 'range', 'datetime_range', 'repeat'] : ['daily', 'weekly', 'monthly', 'yearly', 'range'];
+    const types = isActivity ? ['daily', 'weekly', 'monthly', 'yearly'] : ['daily', 'weekly', 'monthly', 'yearly', 'range'];
     const idx = parseInt(e.detail.value);
     const ct = types[idx] || 'weekly';
     let cycleValues = [];
-    if (ct === 'range') cycleValues = { startDate: '', endDate: '' };
-    if (ct === 'datetime_range') cycleValues = emptyActivityDateRange();
-    if (ct === 'repeat') cycleValues = emptyActivityRepeat();
+    if (isActivity) cycleValues = emptyActivityCycleValues();
+    else if (ct === 'range') cycleValues = { startDate: '', endDate: '' };
     this.setData({
       'ruleForm.cycleType': ct,
       'ruleForm._cycleTypeIndex': idx,
@@ -954,9 +971,13 @@ Page({
     // Rebuild cycleValues from checked array
     const vals = [];
     checked.forEach((c, i) => { if (c) vals.push(i + 1); });
+    const currentValues = this.data.ruleForm.cycleValues;
+    const nextValues = this.data.ruleEditorType === 'activity'
+      ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals }
+      : vals;
     this.setData({
       weeklyChecked: checked,
-      'ruleForm.cycleValues': vals
+      'ruleForm.cycleValues': nextValues
     });
   },
 
@@ -967,9 +988,13 @@ Page({
     checked[idx] = !checked[idx];
     const vals = [];
     checked.forEach((c, i) => { if (c) vals.push(i + 1); });
+    const currentValues = this.data.ruleForm.cycleValues;
+    const nextValues = this.data.ruleEditorType === 'activity'
+      ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals }
+      : vals;
     this.setData({
       monthlyChecked: checked,
-      'ruleForm.cycleValues': vals
+      'ruleForm.cycleValues': nextValues
     });
   },
 
@@ -997,22 +1022,24 @@ Page({
     if (sm > em || (sm === em && sd > ed)) {
       showShortToast('请将结束日期设在开始日期之后'); return;
     }
-    let vals = [...(this.data.ruleForm.cycleValues || [])];
+    const currentValues = this.data.ruleForm.cycleValues;
+    let vals = [...(Array.isArray(currentValues) ? currentValues : ((currentValues && currentValues.values) || []))];
     // Check for duplicate
     const dup = vals.some(v => v && Number(v.m) === sm && Number(v.dStart) === sd && Number(v.dEnd) === ed);
     if (!dup) {
       vals.push({ m: sm, dStart: sd, dEnd: ed });
       vals.sort((a, b) => (Number(a.m) - Number(b.m)) || (Number(a.dStart) - Number(b.dStart)));
-      this.setData({ 'ruleForm.cycleValues': vals });
+      this.setData({ 'ruleForm.cycleValues': this.data.ruleEditorType === 'activity' ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals } : vals });
     }
   },
 
   // Remove a yearly range by index
   onRemoveYearlyRange(e) {
     const idx = parseInt(e.currentTarget.dataset.idx);
-    let vals = [...(this.data.ruleForm.cycleValues || [])];
+    const currentValues = this.data.ruleForm.cycleValues;
+    let vals = [...(Array.isArray(currentValues) ? currentValues : ((currentValues && currentValues.values) || []))];
     vals.splice(idx, 1);
-    this.setData({ 'ruleForm.cycleValues': vals });
+    this.setData({ 'ruleForm.cycleValues': this.data.ruleEditorType === 'activity' ? { ...normalizeActivityCycleValues(this.data.ruleForm.cycleType, currentValues), values: vals } : vals });
   },
 
   // ── Range cycle type date handlers ──
@@ -1132,14 +1159,14 @@ Page({
 
   // ── Cycle helpers ──
   getCycleLabel(type, values) {
+    if (type === 'datetime_range' || type === 'repeat') return '每天';
     if (type === 'daily') return '每天';
     const v = typeof values === 'string' ? (() => { try { return JSON.parse(values); } catch (_) { return {}; } })() : (values || {});
     if (type === 'range') {
       if (v && v.startDate && v.endDate) return v.startDate + ' 至 ' + v.endDate;
       return '日期范围未设置';
     }
-    if (type === 'datetime_range' || type === 'repeat') return formatActivityCycleLabel(type, v);
-    const arr = Array.isArray(v) ? v : [];
+    const arr = Array.isArray(v) ? v : ((v && Array.isArray(v.values)) ? v.values : []);
     const weekNames = ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     if (type === 'weekly') return arr.map(i => weekNames[Number(i)] || i).join('、') || '未设置';
     if (type === 'monthly') return '每月' + arr.map(i => Number(i)).join('、') + '日';
@@ -1537,14 +1564,9 @@ Page({
     this.setData({ ['ruleForm.cycleValues.' + field]: e.detail.value }, () => this._scheduleRuleEditorViewportSync());
   },
 
-  onActivityRepeatUnitChange(e) {
-    const units = ['day', 'week'];
-    this.setData({ 'ruleForm.cycleValues.intervalUnit': units[Number(e.detail.value)] || 'day' }, () => this._scheduleRuleEditorViewportSync());
-  },
-
   onActivityRepeatField(e) {
     const field = e.currentTarget.dataset.field;
-    const value = Math.max(1, Number(e.detail.value) || 1);
+    const value = Math.max(0, Number(e.detail.value) || 0);
     if (!field) return;
     this.setData({ ['ruleForm.cycleValues.' + field]: value }, () => this._scheduleRuleEditorViewportSync());
   },

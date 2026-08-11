@@ -314,7 +314,7 @@
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
             <view class="field"><view class="field-label">重复方式</view>
               <picker range="{{ruleEditorType === 'activity' ? activityCycleTypeOptions : openCycleTypeOptions}}" value="{{ruleForm._cycleTypeIndex}}" bindchange="onCycleTypeChange">
-                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : (ruleForm.cycleType === 'yearly' ? '每年' : (ruleForm.cycleType === 'range' ? '日期范围' : (ruleForm.cycleType === 'datetime_range' ? '指定时间段' : '按次数重复')))))}}</view></picker></view>
+                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : (ruleForm.cycleType === 'yearly' ? '每年' : '日期范围')))}}</view></picker></view>
 
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" class="chip-section">
               <view class="field-label">选择星期</view>
@@ -341,8 +341,8 @@
                 <picker range="{{yearlyDays}}" value="{{yearlyRangeEndDay - 1}}" bindchange="onYearlyRangeEndDayChange"><view class="picker-sm">{{yearlyRangeEndDay}}日</view></picker>
                 <text class="add-range-btn ui-motion-chip" catchtap="onAddYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加</text>
               </view>
-              <view wx:if="{{ruleForm.cycleValues.length}}" class="chip-row">
-                <view wx:for="{{ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip"><text>{{cv.m}}月{{cv.dStart}}日 - {{cv.dEnd}}日</text><text class="year-chip-remove ui-motion-chip" data-idx="{{index}}" catchtap="onRemoveYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">x</text></view>
+              <view wx:if="{{ruleEditorType === 'activity' ? ruleForm.cycleValues.values.length : ruleForm.cycleValues.length}}" class="chip-row">
+                <view wx:for="{{ruleEditorType === 'activity' ? ruleForm.cycleValues.values : ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip"><text>{{cv.m}}月{{cv.dStart}}日 - {{cv.dEnd}}日</text><text class="year-chip-remove ui-motion-chip" data-idx="{{index}}" catchtap="onRemoveYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">x</text></view>
               </view>
               <view wx:else class="field-hint">暂未添加日期范围</view>
             </view>
@@ -364,40 +364,30 @@
               </view>
             </view>
 
-            <block wx:if="{{ruleEditorType === 'activity' && (ruleForm.cycleType === 'datetime_range' || ruleForm.cycleType === 'repeat')}}">
+            <block wx:if="{{ruleEditorType === 'activity'}}">
               <view class="field activity-datetime-field">
-                <view class="field-label">首次开始</view>
+                <view class="field-label">周期生效开始</view>
                 <view class="range-row">
-                  <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" data-field="startDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.startDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.startDate || '开始日期'}}</view></picker>
-                  <picker mode="time" value="{{ruleForm.cycleValues.startTime}}" data-field="startTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.startTime || '开始时间'}}</view></picker>
+                  <picker mode="date" value="{{ruleForm.cycleValues.periodStartDate}}" data-field="periodStartDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodStartDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodStartDate || '开始日期'}}</view></picker>
+                  <picker mode="time" value="{{ruleForm.cycleValues.periodStartTime}}" data-field="periodStartTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodStartTime || '开始时间'}}</view></picker>
                 </view>
               </view>
               <view class="field activity-datetime-field">
-                <view class="field-label">首次结束</view>
+                <view class="field-label">周期生效结束（可不填）</view>
                 <view class="range-row">
-                  <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" data-field="endDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.endDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.endDate || '结束日期'}}</view></picker>
-                  <picker mode="time" value="{{ruleForm.cycleValues.endTime}}" data-field="endTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.endTime || '结束时间'}}</view></picker>
+                  <picker mode="date" value="{{ruleForm.cycleValues.periodEndDate}}" data-field="periodEndDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodEndDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodEndDate || '结束日期'}}</view></picker>
+                  <picker mode="time" value="{{ruleForm.cycleValues.periodEndTime}}" data-field="periodEndTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodEndTime || '结束时间'}}</view></picker>
                 </view>
+              </view>
+              <view class="field"><view class="field-label">周期重复次数（可不填）</view>
+                <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="0表示不限制次数" />
+                <view class="field-hint">周期从开始日期起计算；填写结束日期或重复次数即可限制周期。</view>
               </view>
             </block>
 
-            <block wx:if="{{ruleEditorType === 'activity' && ruleForm.cycleType === 'repeat'}}">
-              <view class="field"><view class="field-label">重复间隔</view>
-                <view class="range-row">
-                  <picker range="{{['每天','每周']}}" value="{{ruleForm.cycleValues.intervalUnit === 'week' ? 1 : 0}}" bindchange="onActivityRepeatUnitChange"><view class="picker-sm">{{ruleForm.cycleValues.intervalUnit === 'week' ? '每周' : '每天'}}</view></picker>
-                  <input class="field-input activity-number-input" type="number" value="{{ruleForm.cycleValues.intervalValue}}" data-field="intervalValue" bindinput="onActivityRepeatField" />
-                  <text class="range-label">一次</text>
-                </view>
-              </view>
-              <view class="field"><view class="field-label">重复次数</view>
-                <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="至少1次" />
-                <view class="field-hint">包含首次活动，共执行几次。</view>
-              </view>
-            </block>
-
-            <block wx:if="{{ruleForm.cycleType !== 'datetime_range' && ruleForm.cycleType !== 'repeat'}}">
-              <view class="field"><view class="field-label">开始时间</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
-              <view class="field"><view class="field-label">结束时间</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
+            <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? '每次开始时间' : '开始时间'}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? '每次结束时间' : '结束时间'}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
             </block>
           </block>
           <block wx:if="{{ruleEditorType === 'booking'}}">

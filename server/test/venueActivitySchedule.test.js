@@ -1,15 +1,19 @@
 const assert = require('assert');
 const { getActivitySlots, ruleValidationError } = require('../src/modules/venue/services/venueActivitySchedule');
 
-const exactRange = {
-  id: 'activity-range',
+const periodicRange = {
+  id: 'activity-period',
   venue_id: 'venue-1',
   activity_name: '迎新活动',
-  cycle_type: 'datetime_range',
+  cycle_type: 'daily',
   cycle_values: {
-    startDate: '2026-08-12', startTime: '23:30',
-    endDate: '2026-08-13', endTime: '01:30'
+    values: [],
+    periodStartDate: '2026-08-12', periodStartTime: '10:00',
+    periodEndDate: '2026-08-13', periodEndTime: '12:00',
+    repeatCount: 0
   },
+  time_start: '09:00:00',
+  time_end: '18:00:00',
   is_active: 1
 };
 
@@ -17,12 +21,15 @@ const repeated = {
   id: 'activity-repeat',
   venue_id: 'venue-1',
   activity_name: '每周例会',
-  cycle_type: 'repeat',
+  cycle_type: 'weekly',
   cycle_values: {
-    startDate: '2026-08-10', startTime: '09:00',
-    endDate: '2026-08-10', endTime: '10:00',
-    intervalUnit: 'week', intervalValue: 1, repeatCount: 3
+    values: [1],
+    periodStartDate: '2026-08-10', periodStartTime: '00:00',
+    periodEndDate: '', periodEndTime: '23:59',
+    repeatCount: 3
   },
+  time_start: '09:00:00',
+  time_end: '10:00:00',
   is_active: 1
 };
 
@@ -37,26 +44,42 @@ const legacy = {
   is_active: 1
 };
 
-const crossDay = getActivitySlots('2026-08-13', [exactRange]);
-assert.strictEqual(crossDay.length, 1);
-assert.strictEqual(crossDay[0].timeStart, '00:00');
-assert.strictEqual(crossDay[0].timeEnd, '01:30');
-assert.strictEqual(crossDay[0].fullTimeStart, '2026-08-12 23:30');
+const firstPeriodDay = getActivitySlots('2026-08-12', [periodicRange]);
+assert.strictEqual(firstPeriodDay.length, 1);
+assert.strictEqual(firstPeriodDay[0].timeStart, '10:00');
+assert.strictEqual(firstPeriodDay[0].timeEnd, '18:00');
 
-const repeatDay = getActivitySlots('2026-08-17', [repeated]);
+const lastPeriodDay = getActivitySlots('2026-08-13', [periodicRange]);
+assert.strictEqual(lastPeriodDay.length, 1);
+assert.strictEqual(lastPeriodDay[0].timeStart, '09:00');
+assert.strictEqual(lastPeriodDay[0].timeEnd, '12:00');
+
+const repeatDay = getActivitySlots('2026-08-24', [repeated]);
 assert.strictEqual(repeatDay.length, 1);
-assert.strictEqual(repeatDay[0].timeStart, '09:00');
-assert.strictEqual(repeatDay[0].occurrenceIndex, 2);
+const afterRepeatLimit = getActivitySlots('2026-08-31', [repeated]);
+assert.strictEqual(afterRepeatLimit.length, 0);
 
 const legacyDay = getActivitySlots('2026-08-12', [legacy]);
 assert.strictEqual(legacyDay.length, 1);
 assert.strictEqual(legacyDay[0].timeEnd, '15:30');
 
-assert.strictEqual(ruleValidationError({ cycleType: 'datetime_range', cycleValues: exactRange.cycle_values }), null);
 assert.strictEqual(ruleValidationError({
-  cycleType: 'repeat',
-  cycleValues: { ...repeated.cycle_values, repeatCount: 0 }
-}), '重复次数必须是1至1000次');
-assert.strictEqual(ruleValidationError({ cycleType: 'datetime_range', cycleValues: { startDate: '2026-08-12', startTime: '10:00', endDate: '2026-08-12', endTime: '09:00' } }), '活动结束时间必须晚于开始时间');
+  cycleType: 'weekly',
+  cycleValues: repeated.cycle_values,
+  timeStart: '09:00',
+  timeEnd: '10:00'
+}), null);
+assert.strictEqual(ruleValidationError({
+  cycleType: 'daily',
+  cycleValues: { values: [], periodStartDate: '2026-08-12', repeatCount: 0 },
+  timeStart: '18:00',
+  timeEnd: '09:00'
+}), '活动每次占用的开始时间必须早于结束时间');
+assert.strictEqual(ruleValidationError({
+  cycleType: 'weekly',
+  cycleValues: { values: [1], periodStartDate: '', repeatCount: 2 },
+  timeStart: '09:00',
+  timeEnd: '10:00'
+}), '设置重复次数时必须填写周期开始日期');
 
-console.log('场地活动占用时间与重复规则测试通过');
+console.log('场地活动周期、时间范围与重复次数测试通过');

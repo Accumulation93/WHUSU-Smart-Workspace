@@ -22,12 +22,22 @@ function formatActivityCycleLabel(type, values) {
     try { parsed = JSON.parse(parsed); } catch (_) { parsed = {}; }
   }
   parsed = parsed || {};
-  if (type === 'datetime_range') return (parsed.startDate || '--') + ' ' + (parsed.startTime || '--:--') + ' 至 ' + (parsed.endDate || '--') + ' ' + (parsed.endTime || '--:--');
+  const meta = parsed.periodStartDate || parsed.periodEndDate ? parsed : {
+    ...parsed,
+    periodStartDate: parsed.startDate || '',
+    periodStartTime: parsed.startTime || '00:00',
+    periodEndDate: parsed.endDate || '',
+    periodEndTime: parsed.endTime || '23:59'
+  };
+  if (type === 'datetime_range') return (meta.periodStartDate || '--') + ' ' + (meta.periodStartTime || '--:--') + ' 至 ' + (meta.periodEndDate || '--') + ' ' + (meta.periodEndTime || '--:--');
   if (type === 'repeat') {
-    const unit = parsed.intervalUnit === 'week' ? '周' : '天';
-    return '首次 ' + (parsed.startDate || '--') + ' ' + (parsed.startTime || '--:--') + ' 至 ' + (parsed.endDate || '--') + ' ' + (parsed.endTime || '--:--') + '，每' + (Number(parsed.intervalValue) || 1) + unit + '，共' + (Number(parsed.repeatCount) || 0) + '次';
+    const unit = meta.intervalUnit === 'week' ? '周' : '天';
+    return '兼容旧数据：' + (meta.periodStartDate || '--') + ' ' + (meta.periodStartTime || '--:--') + ' 至 ' + (meta.periodEndDate || '--') + ' ' + (meta.periodEndTime || '--:--') + '，共' + (Number(meta.repeatCount) || 0) + '次';
   }
-  return '';
+  const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : '不限开始';
+  const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : '不限结束';
+  const count = Number(meta.repeatCount) > 0 ? '，共重复' + Number(meta.repeatCount) + '次' : '';
+  return '周期生效：' + start + ' 至 ' + end + count;
 }
 function calcBlock(ts, te) { const s=timeToMin(ts),e=timeToMin(te); return { top:Math.round((s-BASE_MIN)/60*HOUR_HEIGHT), height:Math.max(Math.round((e-s)/60*HOUR_HEIGHT),20) }; }
 function slotsToIntervals(slots) { return (slots||[]).map(s=>({start:timeToMin(s.timeStart),end:timeToMin(s.timeEnd)})); }
