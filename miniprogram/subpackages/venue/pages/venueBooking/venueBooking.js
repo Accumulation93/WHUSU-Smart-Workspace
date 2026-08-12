@@ -48,15 +48,25 @@ function minToTime(min) { if (min < 0) return '00:00'; if (min >= TOTAL_MIN) ret
 function snapMin(min) { return Math.round(min / SNAP) * SNAP; }
 
 function formatBookingWindow(window) {
-  if (!window) return '可借时间按场地规则开放';
-  const format = function(mode, days, minutes) {
-    if (!mode || minutes === null || minutes === undefined) return '不限制';
-    if (mode === 'days') return (Number(days) || 0) + '日';
+  if (!window) return { openText: '按场地规则开放', deadlineText: '按场地规则截止' };
+  const formatOpen = function(mode, days, minutes) {
+    if (!mode) return '不限提前时间';
+    if (mode === 'days') return '提前' + (Number(days) || 0) + '天开放';
+    if (minutes === null || minutes === undefined) return '不限提前时间';
     const total = Number(minutes) || 0;
-    return Math.floor(total / 60) + '小时' + String(total % 60).padStart(2, '0') + '分';
+    return '提前' + Math.floor(total / 60) + '小时' + String(total % 60).padStart(2, '0') + '分开放';
   };
-  return '开放：' + format(window.openAdvanceMode, window.openAdvanceDays, window.openAdvanceMinutes)
-    + '前 · 截止：' + format(window.deadlineAdvanceMode, window.deadlineAdvanceDays, window.deadlineAdvanceMinutes) + '前';
+  const formatDeadline = function(mode, days, minutes) {
+    if (!mode) return '借用开始前均可提交';
+    if (mode === 'days') return '至少提前' + (Number(days) || 0) + '天提交';
+    if (minutes === null || minutes === undefined) return '借用开始前均可提交';
+    const total = Number(minutes) || 0;
+    return '至少提前' + Math.floor(total / 60) + '小时' + String(total % 60).padStart(2, '0') + '分提交';
+  };
+  return {
+    openText: formatOpen(window.openAdvanceMode, window.openAdvanceDays, window.openAdvanceMinutes),
+    deadlineText: formatDeadline(window.deadlineAdvanceMode, window.deadlineAdvanceDays, window.deadlineAdvanceMinutes)
+  };
 }
 
 function bookingWindowAdvanceMinutes(window, side) {

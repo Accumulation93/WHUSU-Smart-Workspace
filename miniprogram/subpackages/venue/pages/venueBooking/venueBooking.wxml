@@ -40,7 +40,10 @@ module.exports = { hour: hour, min: min };
             <view class="venue-loc" wx:if="{{item.location}}">{{item.location}}</view>
             <view class="venue-meta">
               <text class="venue-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
-              <text class="venue-window-hint">{{item.bookingWindowLabel}}</text>
+              <view class="venue-window-bubbles">
+                <view class="venue-window-bubble venue-window-bubble--open"><text class="venue-window-bubble-label">开放提交</text><text class="venue-window-bubble-value">{{item.bookingWindowLabel.openText}}</text></view>
+                <view class="venue-window-bubble venue-window-bubble--deadline"><text class="venue-window-bubble-label">提交截止</text><text class="venue-window-bubble-value">{{item.bookingWindowLabel.deadlineText}}</text></view>
+              </view>
             </view>
           </view>
           <view class="venue-actions">
