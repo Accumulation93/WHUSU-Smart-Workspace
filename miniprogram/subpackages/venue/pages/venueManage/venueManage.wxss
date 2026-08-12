@@ -1100,9 +1100,10 @@ page {
 
 .flow-step-admin-note {
   display: block;
-  color: #2563eb;
-  font-size: var(--ui-type-meta);
+  color: #475569;
+  font-size: var(--ui-type-control);
   font-weight: 700;
+  line-height: 1.45;
 }
 
 .flow-condition-preview {
@@ -1115,8 +1116,13 @@ page {
 
 .flow-condition-preview:last-child { margin-bottom: 0; }
 .flow-condition-preview-label { color: #64748b; font-size: var(--ui-type-caption); font-weight: 700; }
-.flow-condition-preview-values { display: flex; flex-direction: column; gap: 3rpx; margin-top: 4rpx; }
-.flow-condition-preview-values text { color: #334155; font-size: var(--ui-type-meta); line-height: 1.45; overflow-wrap: anywhere; }
+.flow-condition-preview-values { display: flex; flex-direction: column; gap: 6rpx; margin-top: 8rpx; }
+.flow-condition-preview-field,
+.flow-rule-card-line { display: flex; align-items: flex-start; gap: 10rpx; min-width: 0; }
+.flow-condition-preview-key,
+.flow-rule-card-key { flex: 0 0 72rpx; color: #64748b; font-size: var(--ui-type-caption); font-weight: 700; line-height: 1.55; }
+.flow-condition-preview-value,
+.flow-rule-card-value { flex: 1; min-width: 0; color: #1e293b; font-size: var(--ui-type-control); line-height: 1.55; overflow-wrap: anywhere; }
 
 .flow-rule-card {
   align-items: flex-start;
@@ -1125,8 +1131,9 @@ page {
 }
 
 .flow-rule-card-label { color: #64748b; font-size: var(--ui-type-caption); font-weight: 700; }
-.flow-rule-card-lines { display: flex; flex-direction: column; gap: 3rpx; margin-top: 4rpx; }
-.flow-rule-card-lines text { color: #334155; font-size: var(--ui-type-meta); line-height: 1.45; overflow-wrap: anywhere; }
+.flow-rule-card-lines { display: flex; flex-direction: column; gap: 6rpx; margin-top: 8rpx; }
+.flow-rule-card-line { padding: 5rpx 8rpx; border-radius: 10rpx; background: rgba(239, 246, 255, 0.58); }
+.flow-rule-card-key { flex-basis: 72rpx; }
 
 .rule-condition-list { display: flex; flex-direction: column; gap: 10rpx; }
 .condition-option-row {

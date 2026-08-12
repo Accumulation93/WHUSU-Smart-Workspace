@@ -308,7 +308,7 @@
         </view>
         <text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
       </view>
-      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" style="{{ruleEditorScrollStyle}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y>
+      <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-with-animation="{{true}}" scroll-into-view="{{ruleEditorScrollIntoView}}" style="{{ruleEditorScrollStyle}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y>
         <view class="form-body rule-editor-stack ui-dialog-stack">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
             <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
@@ -437,10 +437,10 @@
                       <view class="flow-condition-preview" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
                         <view class="flow-condition-preview-label">满足任一条件</view>
                         <view class="flow-condition-preview-values">
-                          <text>{{rule._departmentLabel}}</text>
-                          <text>{{rule._workGroupLabel}}</text>
-                          <text>{{rule._identityLabel}}</text>
-                        </view>
+                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">部门</text><text class="flow-condition-preview-value">{{rule._departmentValue}}</text></view>
+                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">职能组</text><text class="flow-condition-preview-value">{{rule._workGroupValue}}</text></view>
+                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">身份</text><text class="flow-condition-preview-value">{{rule._identityValue}}</text></view>
+                          </view>
                       </view>
                     </block>
                   </view>
@@ -451,7 +451,7 @@
 
               <!-- Inline step+rule editor (within the rule editor!) -->
               <block wx:if="{{ruleForm._editingStepIdx !== null && ruleForm._editingConditionIdx === null}}">
-                <view class="rule-edit-box ui-dialog-section">
+                <view id="rule-flow-step-editor" class="rule-edit-box rule-edit-box--step ui-dialog-section">
                   <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingStepIdx >= 0 ? '编辑步骤' : '新增步骤'}}</view><text class="rule-editor-section-note">步骤名称和审批条件</text></view>
                   <view class="field">
                     <view class="field-label">步骤名称</view>
@@ -464,9 +464,9 @@
                         <view class="flow-rule-summary">
                           <view class="flow-rule-card-label">审批对象条件</view>
                           <view class="flow-rule-card-lines">
-                            <text>{{item._departmentLabel}}</text>
-                            <text>{{item._workGroupLabel}}</text>
-                            <text>{{item._identityLabel}}</text>
+                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">部门</text><text class="flow-rule-card-value">{{item._departmentValue}}</text></view>
+                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">职能组</text><text class="flow-rule-card-value">{{item._workGroupValue}}</text></view>
+                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">身份</text><text class="flow-rule-card-value">{{item._identityValue}}</text></view>
                           </view>
                         </view>
                         <view class="inline-actions">
@@ -487,15 +487,15 @@
 
               <!-- Inline rule condition editor (within step editor) -->
               <block wx:if="{{ruleForm._editingConditionIdx !== null}}">
-                <view class="rule-edit-box rule-edit-box--condition ui-dialog-section">
+                <view id="rule-flow-condition-editor" class="rule-edit-box rule-edit-box--condition ui-dialog-section">
                   <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingConditionIdx >= 0 ? '编辑规则' : '新增规则'}}</view><text class="rule-editor-section-note">{{ruleForm._editingStepName || '当前审批步骤'}}</text></view>
 
                   <view class="flow-rule-detail">
                     <view class="flow-rule-detail-title">当前审批对象</view>
                     <view class="flow-rule-card-lines">
-                      <text>{{ruleForm._editingCondition._departmentLabel}}</text>
-                      <text>{{ruleForm._editingCondition._workGroupLabel}}</text>
-                      <text>{{ruleForm._editingCondition._identityLabel}}</text>
+                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">部门</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._departmentValue}}</text></view>
+                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">职能组</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._workGroupValue}}</text></view>
+                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">身份</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._identityValue}}</text></view>
                     </view>
                   </view>
 
