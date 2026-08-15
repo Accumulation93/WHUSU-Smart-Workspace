@@ -12,19 +12,19 @@ paths: "miniprogram/subpackages/scoring/**"
 
 ```
 scoring/pages/
-├── admin/                    # 管理面板 + 12 个 Behavior
+├── admin/                    # 综合管理面板与 Behavior 组合
 │   ├── admin.js              # Page({}) 主文件
 │   ├── modules/
 │   │   ├── sharedApi.js      # 基础 Behavior：callCloud()（必须第一个注册）
-│   │   ├── adminUtils.js     # 纯工具函数 + 常量 + 空表单工厂（1267 行）
+│   │   ├── adminUtils.js     # 纯工具函数、常量与空表单工厂
 │   │   ├── activityBehavior.js / templateBehavior.js / ruleBehavior.js
 │   │   ├── resultBehavior.js / hrInfoBehavior.js
 │   │   ├── departmentBehavior.js / identityBehavior.js / workGroupBehavior.js
 │   │   ├── adminManagementBehavior.js / settingsBehavior.js
 │   │   ├── publicationBehavior.js / auditBehavior.js
 │   ├── gradeBand.wxs         # WXS：等第颜色映射
-│   └── admin.wxss            # 3331 行完整样式
-├── score/                    # 用户评分表单（879 行）
+│   └── admin.wxss            # 综合管理页样式
+├── score/                    # 用户评分表单
 └── scorerTasks/              # 评分人任务完成度列表
 ```
 
@@ -84,7 +84,7 @@ async loadActivityList() {
 
 **触发：** `bindlongpress` → 30fps 节流 touchmove → touchend
 **插入调整：** `toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex`
-**详细指南：** `.claude/skills/wechat-miniprogram-drag-sort/SKILL.md`
+**详细指南：** `.agents/skills/wechat-miniprogram-drag-sort/SKILL.md`
 
 ---
 

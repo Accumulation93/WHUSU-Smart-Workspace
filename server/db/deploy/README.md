@@ -2,6 +2,8 @@
 
 本目录只存放由生产自动部署系统执行的新迁移，历史 `server/db/migrate_*.sql` 不会被自动重跑。
 
+`server/db/migrate.sh`、`server/db/migrate.bat` 等旧入口仅为历史兼容工具，不是生产迁移入口；生产只读取本目录并通过部署账本执行。
+
 规则：
 
 - 文件名使用 `YYYYMMDDHHMMSS_description.sql`，按文件名顺序执行。

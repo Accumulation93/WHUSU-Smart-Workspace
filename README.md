@@ -1,126 +1,74 @@
 # WHUSU Smart Workspace
 
-前端 UI 规范、共享组件清单和页面模板分别见：
-`docs/ui-kit.md`、`docs/ui-components.md`、`docs/ui-page-templates.md`。
-这些文档与 `miniprogram/app.wxss` 的设备令牌保持同步；手机、Pad 竖屏和 Pad 横屏保留独立的字号、间距与控件密度。
+WHUSU智慧工作台是一个原生微信小程序与 Node.js/Express/MySQL 服务端组成的组织工作台，当前包含评分、人事、审核审批、场地借用、消息中心和组织/身份管理。
 
-武汉大学部门成员互评考核系统 — 微信小程序 + Node.js Express + MySQL
+## 事实来源
 
-## 技术栈
+- UI 规范：[docs/ui-kit.md](docs/ui-kit.md)、[docs/ui-components.md](docs/ui-components.md)、[docs/ui-page-templates.md](docs/ui-page-templates.md)
+- 小程序编译边界：[docs/miniprogram-compiler-compatibility.md](docs/miniprogram-compiler-compatibility.md)
+- 分包与语言边界：[docs/module-boundaries-and-language-migration.md](docs/module-boundaries-and-language-migration.md)
+- 生产协作：[docs/deployment-automation.md](docs/deployment-automation.md)
+- 当前数据库结构：[server/db/init.sql](server/db/init.sql)；历史迁移：[server/db/deploy/](server/db/deploy/)
 
-| 层级 | 技术 |
-|------|------|
-| 前端 | 微信小程序 (原生框架) |
-| 后端 | Node.js Express (HTTPS) |
-| 数据库 | MySQL 8.0 (InnoDB, utf8mb4) |
-| 认证 | JWT + 微信 code2session |
+## 当前目录边界
 
-## 项目结构
-
+```text
+server/                         Express 服务端、迁移和测试
+miniprogram/                    原生微信小程序
+  app.json                      顶层主包注册与 6 个业务分包注册
+  subpackages/main/pages/       登录、门户；注册在 app.json.pages，仍属于主包
+  subpackages/workspace/        综合工作台入口
+  subpackages/message/          消息中心
+  subpackages/scoring/          评分与综合管理页
+  subpackages/audit/            审核、审批、签名与验签
+  subpackages/venue/            场地借用与审批
+  subpackages/org/              组织、身份和权限入口
+  subpackages/main/styles/      主包共享 WXSS；业务分包可引用，不得互相引用
+  components/                   跨分包共享组件
+  locales/                      用户可见语言资源
 ```
-WHUSUSmartWorkspaceServer/
-├── server/              # Express 后端 (15 路由, 20 Model)
-│   ├── db/init.sql      # 完整建表语句 + 种子数据
-│   ├── db/setup-local.bat  # 一键初始化本地数据库
-│   └── src/
-├── miniprogram/         # 微信小程序前端 (6 页面)
-├── miniprogramCloud/    # 原云函数前端备份
-└── cloudfunctions/      # 云函数 (已迁移至 Express)
-```
+
+包归属以 `miniprogram/app.json` 的注册位置为准，不以物理目录名称判断。业务分包只能引用自身分包或主包资源，禁止跨业务分包相对引用；共享 WXSS 源统一放在 `miniprogram/subpackages/main/styles/**`。`miniprogram/subpackages/workspace/pages/home/home.wxss` 只是兼容桥接文件，不是共享样式源。
 
 ## 快速开始
 
-### 1. 数据库初始化
-```bash
+### 初始化数据库
+
+```powershell
 cd server/db
-# Windows: 双击 setup-local.bat
-# 脚本会引导你完成: 连接测试 → 建库建表 → 种子数据 → 创建管理员
+# Windows 执行 setup-local.bat
 ```
 
-### 2. 配置环境变量
-编辑 `server/.env`:
-```env
-PORT=3000
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=whusu_smart_workspace
-WECHAT_APPID=your_appid
-WECHAT_SECRET=your_secret
-JWT_SECRET=your_jwt_secret
-```
+### 启动服务端
 
-### 3. 启动后端
-```bash
+```powershell
 cd server
 npm install
 npm start
-# HTTPS 服务运行在 https://localhost:3000
+# 本地 HTTP 默认监听 http://127.0.0.1:3000；生产 HTTPS 由 Nginx 终止
 ```
 
-### 4. 启动前端
-- 打开微信开发者工具
-- 导入 `miniprogram/` 目录
-- 设置 → 项目设置 → 勾选"不校验合法域名、web-view（业务域名）"
+### 打开小程序
 
-## 功能概述
+用微信开发者工具导入 `miniprogram/`，开发环境按需开启“不校验合法域名、web-view（业务域名）”。原生构建固定关闭隐式 runtime、SWC、enhance 和热重载路径，具体见编译兼容性规范。
 
-### 用户端
-- 微信一键登录 / 学号姓名绑定
-- 查看待评分人列表 + 完成状态
-- 按评分问题模板逐题打分
-- 查看个人资料 + 申请修改
+## 交付前检查
 
-### 管理端
-- **组织管理**: 部门、身份类别、工作分工 CRUD
-- **人事管理**: 成员增删改查 + CSV 批量导入
-- **评分活动**: 创建活动 + 设置当前活动
-- **评分问题**: 问题模板编辑 + **拖拽排序** + 复制
-- **评分规则**: 按 部门+身份 → 目标身份 配置评分规则
-- **评分结果**: 多维查看（评分人完成度 / 被评分人得分 / 汇总导出）
-- **组织切换**: 多组织数据隔离 + 归档恢复
-- **管理员**: 邀请码生成 + 管理员管理
-- **审核**: 人事扩展资料审核（通过/驳回）
+```powershell
+node scripts/miniprogram-compat-audit.js
+node scripts/ui-audit.js --strict
+node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization
+node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization
+node scripts/user-visible-copy-audit.js --strict-guidance
+git diff --check
+```
 
-## API 路由
+小程序改动还必须清缓存、冷启动微信开发者工具并编译主包和已注册分包入口；静态命令不能替代现场编译。完成后由 GitHub Actions 执行质量门禁和部署，纯文档/前端改动不伪造数据库迁移。
 
-所有业务 API 均为 POST，路径 `/api/{functionName}`，JWT Bearer 认证。
+## API 与数据
 
-| 路由文件 | 功能 |
-|----------|------|
-| `auth.js` | userLogin, adminLogin, bindUserInfo, bindAdminInfo, unbindRole |
-| `hr.js` | listHrInfo, saveHrInfo, deleteHrInfo, importHrCsv, batchMaintainFromHrInfo |
-| `departments.js` | listDepartments, saveDepartment, deleteDepartment |
-| `identities.js` | listIdentities, saveIdentity, deleteIdentity |
-| `workGroups.js` | listWorkGroups, saveWorkGroup, deleteWorkGroup |
-| `org.js` | listOrganizations, saveOrganization, deleteOrganization, switchOrganization |
-| `activities.js` | 评分活动 CRUD + setCurrentActivity |
-| `templates.js` | listScoreTemplates, saveScoreTemplate, deleteScoreTemplate, duplicateScoreTemplate |
-| `rules.js` | 评分规则 CRUD + generateRateTargetRules |
-| `scoring.js` | getScoreFormData, submitScore, getScoreResults |
-| `results.js` | getScoreResults (多维度), exportScoreResults |
-| `hrProfile.js` | 人事扩展资料模板 + 记录 CRUD + 审核 |
-| `admin.js` | 管理员 CRUD, 邀请码生成, 导出 |
-| `user.js` | getUserHrProfile, 用户端资料更新 |
-| `system.js` | getSystemConfig, updateSystemConfig |
+业务接口统一通过 `/api/{functionName}` 提供，默认使用 POST、JWT Bearer 和组织上下文。服务端真实路由位于 `server/src/core/routes/` 与 `server/src/modules/*/routes/`，SQL 以 Model 层和 `server/db/init.sql`、已执行迁移为准；不要以历史 NoSQL 导出或旧 API 清单推断当前结构。
 
-## 数据库表
+## 版本与发布
 
-30 个基础表 + 16 个 `_history` 归档表。所有主键为 VARCHAR(64)，使用 64 位 base-62 随机 ID。
-
-核心表: `organizations`, `system_config`, `departments`, `identities`, `work_groups`, `hr_info`, `user_info`, `admin_info`, `score_activities`, `score_question_templates`, `score_questions`, `rate_target_rules`, `rate_rule_clauses`, `clause_template_configs`, `score_records`, `score_answers`, `hr_profile_templates`, `hr_profile_template_fields`, `hr_profile_records`, `hr_profile_record_values`
-
-完整建表语句见 `server/db/init.sql`。
-
-## 详细文档
-
-项目完整上下文、Bug 修复记录、认证流程、数据库详情见 [MEMORY.md](MEMORY.md)。
-
-## 部署
-
-生产环境需要:
-1. 修改 `miniprogram/utils/api.js` 中的 `API_BASE` 为生产域名
-2. 使用有效的 SSL 证书（如 Let's Encrypt 或微信云托管）
-3. 在微信公众平台配置合法域名
-4. 修改 `server/.env` 中的数据库连接和 JWT_SECRET
+`main` 是唯一生产发布基线。完成修改后按项目入口规则执行检查、中文 commit、推送、等待 CI，并核对远端运行 SHA、PM2 进程和健康接口。不得提交密钥、`.env` 或强制推送。

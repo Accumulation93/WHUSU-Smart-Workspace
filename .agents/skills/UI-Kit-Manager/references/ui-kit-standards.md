@@ -8,7 +8,7 @@
 手写签名固定使用“视口绝对坐标 + 普通视图实时笔迹”模型：
 
 ```text
-白板 rect.left/top/right/bottom（视口 CSS px）
+白板 rect.left/top/right/bottom（视口 CSS px，逻辑像素）
 Touch.clientX/clientY（同一视口 CSS px）
   → 裁切后保存为 screenX/screenY 绝对端点
   → 普通 view 线段实时显示（与白板同一视图层）
@@ -21,9 +21,9 @@ Touch.clientX/clientY（同一视口 CSS px）
 硬性要求：
 
 1. 可视签名区域必须是普通 `view`，实时笔迹必须由该视图内的普通 `view` 线段渲染。严禁使用可视原生 Canvas 显示实时笔迹；微信原生 Canvas 在 Portal、fixed、transform 和页面滚动组合下可能脱离视图层。
-2. 初始化只对可视白板执行一次 `.fields({ size: true, rect: true })`，取得视口 CSS px 的 `left/top/right/bottom/width/height`。白板绝对边界是触点和笔迹的唯一屏幕范围，不使用固定偏移值、DPR、rpx 猜测或 scrollTop 补偿。
-3. 每个触点只读取 `Touch.clientX/clientY`，裁切到白板绝对边界后保存为 `screenX/screenY`。每条实时线段的两个端点都必须保持绝对坐标；渲染到白板子视图时，仅在生成样式的最后一步减一次 `rect.left/top`。
-4. 页面滚动、弹窗定位和设备尺寸不得参与笔迹换算。白板 rect 与 Touch 都是同一物理视口中的 CSS px，因此无论弹窗位于 Portal、fixed、absolute 或滚动页面，只要白板完成布局后重新测量，绝对坐标关系保持一致。
+2. 每次白板完成布局、尺寸变化或弹窗重新显示后，对可视白板重新执行 `.fields({ size: true, rect: true })`，取得当前视口 CSS px 的 `left/top/right/bottom/width/height`。同一测量周期内，白板绝对边界是触点和笔迹的唯一屏幕范围；不使用固定偏移值、DPR、rpx 猜测或 scrollTop 补偿。
+3. 每个触点只读取 `Touch.clientX/clientY`，裁切到当前白板绝对边界后保存为 `screenX/screenY`。每条实时线段的两个端点都必须保持绝对坐标；渲染到白板子视图时，仅根据当前 rect 在生成样式的最后一步减一次 `rect.left/top`，不得持久化局部坐标样式。
+4. 页面滚动、弹窗定位和设备尺寸不得参与笔迹换算。白板 rect 与 Touch 都使用同一视口 CSS px（逻辑像素）单位，因此无论弹窗位于 Portal、fixed、absolute 或滚动页面，只要白板完成布局后重新测量，绝对坐标关系保持一致。
 5. 原生 Canvas 只能作为不可见导出器，不得绑定触摸、不得承担实时显示。确认签名时，将已保存的绝对端点分别减去白板 `rect.left/top`，绘制到与白板 `width/height` 相同的 1:1 buffer；导出尺寸不得乘 DPR。
 6. 初始签名图片在白板中用普通 `image` 显示，导出时再绘制到隐藏 Canvas。清除操作必须同时清除普通视图线段和初始图片状态。
 7. 白板、实时笔迹层和线段都必须 `overflow:hidden` 或受白板裁切；任何笔迹都不能进入按钮、弹窗外壳或背景。
@@ -55,7 +55,7 @@ Touch.clientX/clientY（同一视口 CSS px）
 
 - 主包启动壳物理放在 `miniprogram/subpackages/main/pages/**`，登录页和门户页注册在 `app.json.pages` 顶层；`subpackages/main` 不得写入 `app.json.subPackages`。包归属以注册位置为准，不以目录名为准。
 - 所有业务页面统一注册在 `subpackages/<模块名>/pages/**` 的 `app.json.subPackages` 中。跨模块工作台组合页也必须位于独立业务分包，不得直接回到顶层主包。
-- 分包只能引用自身分包或主包资源，禁止直接引用其他业务分包的 JS、JSON、WXML、WXSS 或组件；跨模块共享样式统一放在 `subpackages/main/styles/**`，并由兼容性审计检查相对路径和包边界。
+- 分包只能引用自身分包或主包资源，禁止直接引用其他业务分包的 JS、JSON、WXML、WXSS 或组件；跨模块共享样式统一放在 `miniprogram/subpackages/main/styles/**`，并由兼容性审计检查相对路径和包边界。
 - 迁移页面时必须同步更新 `app.json`、所有可信路由、上下文守卫、服务端通知/待办目标 URL、测试读取路径和 WXSS 导入路径；旧主包业务地址不得继续出现在生产调用链中。
 - 提示、指引、校验、空状态、通知、确认层和导出标题等用户可见常量只能存在于对应 `locales`。变量值不迁入 locale，业务代码通过格式化函数传入；CSV 列别名、状态码、路由和内部日志保持代码语义。
 - 迁移/生成 locale 时必须合并当前文件与 Git 基线中的既有资源，不能以单次扫描结果覆盖旧键；迁移完成后必须运行资源审计和受影响模块回归测试。
@@ -63,7 +63,7 @@ Touch.clientX/clientY（同一视口 CSS px）
 
 ## 场地借用规则编辑器可操作性契约
 
-- 规则编辑弹窗固定为“标题 / 可滚动正文 / 底部操作栏”三段，正文必须使用直接子级 `scroll-view.ui-dialog-body`，底部保存按钮必须使用 `ui-dialog-footer`。标题、正文和底部操作栏通过 flex 按实际内容动态分配高度；只允许视口安全上限，禁止固定内容高度、固定 `max-height` 或固定翻页尺度。
+- 规则编辑弹窗固定为“标题 / 可滚动正文 / 底部操作栏”三段，正文必须使用直接子级 `scroll-view.ui-dialog-body`，底部保存按钮必须使用 `ui-dialog-footer`。标题、正文和底部操作栏通过 flex 按实际内容动态分配高度；只允许基于视口安全区计算的动态上限，禁止固定内容高度、固定像素偏移或固定翻页尺度，允许 `max-height: calc(100vh - 安全区)` 作为溢出保护。
 - 步骤条件参考审核子应用模板步骤展开样式：每条条件使用紧凑卡片和左侧强调线，部门、职能组、身份在卡片内按语义行展示并可自然换行，禁止大块空白。
 - 条件为“指定”时，步骤卡片、步骤编辑器和条件编辑器必须显示实际部门、职能组、身份名称，禁止只显示“指定部门/指定职能组/指定身份”。展示名称必须由统一字典预计算，字典异步返回后刷新；名称过长允许在标签内换行。
 - 条件编辑器打开时，步骤编辑器必须隐藏；部门、职能组、身份使用统一纵向条件选项卡，选择结果紧随对应条件显示。

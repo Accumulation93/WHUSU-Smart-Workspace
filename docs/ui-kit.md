@@ -15,7 +15,7 @@
 
 - 主包启动壳统一物理放在 `miniprogram/subpackages/main/pages/**`，登录页和门户页注册在 `app.json.pages` 顶层；`subpackages/main` 不得写入 `app.json.subPackages`。包归属以 `app.json` 注册位置为准，不以目录名为准。
 - 消息中心、工作台和其他业务页面统一放在 `subpackages/<模块名>/pages/**` 并注册到 `app.json.subPackages`，不得把业务页注册到顶层主包。
-- 分包只能引用自身分包或主包资源，禁止跨业务分包引用；跨模块共享 WXSS、组件和基础资源统一放在主包共享目录 `subpackages/main/styles/**` 或 `components/**`。
+- 分包只能引用自身分包或主包资源，禁止跨业务分包引用；跨模块共享 WXSS 统一放在 `miniprogram/subpackages/main/styles/**`，共享组件和基础逻辑统一放在 `miniprogram/components/**`、`miniprogram/utils/**`、`miniprogram/locales/**`。
 - 分包迁移必须同步更新 `app.json`、门户卡片、可信导航、上下文守卫、服务端通知/待办目标和 WXSS 导入路径；旧主包业务路由不得残留在生产调用链。
 - 提示、指引、校验反馈、空状态、Toast、Modal、确认层、通知标题/描述和导出标题等用户可见常量只能来自 locale。业务代码通过语义键和格式化参数引用；CSV 列别名、状态码、路由和内部日志不属于文案。
 - locale 生成必须合并现有文件与 Git 基线资源，禁止覆盖同文件已有键；迁移后必须重跑语言审计和受影响功能测试。
@@ -36,7 +36,7 @@
 
 ## 运行时令牌
 
-令牌全部定义在 `page { ... }` 中，并在媒体查询中覆盖。页面级 WXSS 不应重新猜测这些基础值。
+默认令牌定义在 `page { ... }` 中，并在媒体查询中覆盖；由于 `viewport-portal` 的 RootPortal 不保证继承页面变量，弹窗关键令牌必须在 `.ui-overlay` / `.ui-sheet-overlay` 上直接同步声明。页面级 WXSS 不应重新猜测这些基础值。
 
 ### 字体
 
@@ -108,7 +108,7 @@
 
 ### 场地借用规则编辑器
 
-- 规则编辑弹窗采用审批子应用同款三段式结构：标题固定，正文由直接子级 `scroll-view.ui-dialog-body` 独立滚动，底部保存栏固定在 `ui-dialog-footer`，禁止把保存按钮放进正文滚动区域。窗口高度由标题、正文实际内容和底部操作栏动态分配，只设置视口安全上限，不得固定正文高度、窗口 `max-height` 或翻页尺度。
+- 规则编辑弹窗采用审批子应用同款三段式结构：标题固定，正文由直接子级 `scroll-view.ui-dialog-body` 独立滚动，底部保存栏固定在 `ui-dialog-footer`，禁止把保存按钮放进正文滚动区域。窗口高度由标题、正文实际内容和底部操作栏动态分配，只设置基于视口安全区计算的动态上限；禁止固定正文高度、固定翻页尺度或固定像素偏移，允许 `max-height: calc(100vh - 安全区)` 作为溢出保护。
 - 步骤和审批条件参考审核子应用模板步骤展开卡片：步骤卡使用统一编号、标题和操作区；每条条件使用紧凑强调卡，部门、职能组、身份按语义行展示并自然换行，不得制造大块留白；编辑条件时只显示条件编辑器，不得与步骤编辑器叠加。
 - 条件为“指定”时，步骤卡片、步骤编辑器和条件编辑器都必须显示实际的部门、职能组、身份名称，禁止只写“指定部门/指定职能组/指定身份”。名称从统一字典预计算，字典异步完成后刷新，长名称在标签内自然换行。
 - 步骤/条件子编辑器必须用明确的 `null` 表示关闭；取消不写回并立即关闭，保存先将副本应用到上级步骤/规则列表，再关闭子编辑器。
@@ -127,8 +127,8 @@
 
 签名板、白板、文件预览定位和最终图片/PDF 合成必须共享同一套坐标定义，任何页面级视觉改动都不得破坏：
 
-- 可视白板和实时笔迹全部使用普通 `view`，严禁使用可视原生 Canvas。白板、触点和笔迹事实数据统一为物理视口 CSS px 绝对坐标。
-- 白板通过 `.fields({ size:true, rect:true })` 获取绝对边界；触点只读取 `clientX/clientY`，裁切后保存为 `screenX/screenY`。禁止 scrollTop、状态栏、标题栏、弹窗 top、DPR、rpx 或经验偏移。
+- 可视白板和实时笔迹全部使用普通 `view`，严禁使用可视原生 Canvas。白板、触点和笔迹事实数据统一为视口 CSS px（逻辑像素）绝对坐标。
+- 白板通过 `.fields({ size:true, rect:true })` 获取绝对边界；每次完成布局、尺寸变化或弹窗重新显示后重新测量；触点只读取 `clientX/clientY`，裁切后保存为 `screenX/screenY`。禁止 scrollTop、状态栏、标题栏、弹窗 top、DPR、rpx 或经验偏移。
 - 实时线段保存绝对端点，渲染普通视图时才减一次白板 `rect.left/top`；白板和笔迹层必须裁切溢出。
 - 原生 Canvas 只能是透明、不可交互的导出器。确认时将绝对端点投影到白板局部坐标，导出 buffer 与白板宽高保持 1:1，禁止 DPR 放大。
 - 书写位置只保存为相对于实际文件预览图的归一化中心点 `positionX/positionY`（0–1）。点击必须读取预览图自己的 viewport 矩形，不能使用弹窗或 scroll-view 矩形代替。
@@ -158,7 +158,7 @@
 - 新增组件前先查组件清单和页面模板。
 - 新增可复用模式时，先补令牌或共享组件，再写页面局部样式。
 - 改变字体、间距、圆角或断点时，同步更新本文件和 `miniprogram/app.wxss` 注释。
-- UI 变更至少运行 `node scripts/ui-audit.js --strict`、`node scripts/miniprogram-compat-audit.js` 和 `git diff --check`，并在手机、Pad 竖屏、Pad 横屏各看一次。
+- UI 变更至少运行 `node scripts/ui-audit.js --strict`、`node scripts/miniprogram-compat-audit.js` 和 `git diff --check`，并在手机、Pad 竖屏、Pad 横屏各看一次。用户明确要求人工审计时，必须逐段阅读和定向代码核对，不能用脚本扫描结果代替自然语言判断。
 
 ## 弹窗内部层级（2026-08）
 

@@ -58,13 +58,13 @@ Host whusu-smart-workspace-prod
 
 - PM2 `whusu-smart-workspace-api`：两个 cluster 实例。
 - PM2 `whusu-smart-workspace-notification-worker`：一个 fork 实例。
-- PM2 `whusu-smart-workspace-backup`：独立备份进程，普通发布不得重启。
+- PM2 `whusu-smart-workspace-backup`：独立备份进程；部署脚本在服务端 release 切换时会删除并按新 release 重建，单独处理 Worker 故障时不得连带重启它。
 - tmux `whusu-smart-workspace-collab`：`shell`、`api-log`、`worker-log`、`deploy-log`、`health` 五个窗口。
 
 ## 健康端点
 
 - 服务器本地：从 `server.env` 获取端口后访问 `http://127.0.0.1:<port>/api/health`。
 - 公网：`https://accumulation93.com/api/health`。
-- 健康端点在维护模式下仍可用于发布验证；其他评分 `/api` 返回统一维护响应。
+- 健康端点在维护模式下仍可用于发布验证；其他评分 `/api` 返回统一维护响应。`remote-collab.ps1 status` 只展示同步仓库短 SHA 和 PM2 概况，完整 release/cwd/部署 SHA 必须按发布清单额外核对。
 
 配置变化时优先核对 `scripts/remote-collab.ps1`、`server/scripts/deployProduction.sh`、`server/ecosystem.config.js` 和 `.github/workflows/ci.yml`，再更新本参考文件。

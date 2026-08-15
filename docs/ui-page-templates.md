@@ -2,6 +2,8 @@
 
 ## 共享工作台模板
 
+专项契约索引：分包边界与 locale 见 [module-boundaries-and-language-migration.md](module-boundaries-and-language-migration.md)，签名坐标、场地规则编辑器和审批历史详情见 [ui-kit.md](ui-kit.md)，弹窗滚动见 `.agents/skills/wechat-popup-scroll-contract/SKILL.md`。本页只描述页面结构，不复制这些硬契约。
+
 适用于门户、消息中心和所有登录后的子应用页面。
 
 1. 原生导航栏：页面名称 + `WHUSU智慧工作台`。

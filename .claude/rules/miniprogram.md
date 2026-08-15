@@ -20,7 +20,7 @@ paths: "miniprogram/**"
 
 **包归属以 `app.json` 注册位置为准，不以目录名为准。** `subpackages/main` 与其他分包目录并列只是物理组织方式；注册在顶层 `pages` 的登录页和门户页仍属于主包。
 
-**分包路径引用规则：** 分包只能引用自身分包或主包资源，禁止直接引用其他业务分包的 JS、JSON、WXML、WXSS 或组件。跨模块共享样式统一放在 `subpackages/main/styles/**`，业务分包通过相对路径从主包导入；兼容性审计必须同时检查路径存在性和分包边界。
+**分包路径引用规则：** 分包只能引用自身分包或主包资源，禁止直接引用其他业务分包的 JS、JSON、WXML、WXSS 或组件。跨模块共享样式统一放在 `miniprogram/subpackages/main/styles/**`，业务分包通过相对路径从主包导入；兼容性审计必须同时检查路径存在性和分包边界。
 
 **关键约束：** 主包 ≤2MB，单分包 ≤2MB，全部分包 ≤20MB。用 `lazyCodeLoading: "requiredComponents"`。
 
@@ -39,11 +39,11 @@ require('./utils/tableFile.js');  // ⚠️ 绝对不能删除！
 | 文件 | 关键选择器 | 影响范围 |
 |------|-----------|----------|
 | `app.wxss` | popup 框架、全局 reset | 所有页面 |
-| `subpackages/main/styles/home.wxss` | `.field-input` (`display: flex`) | 业务分包通过主包共享样式导入 |
+| `subpackages/main/styles/home.wxss` | `.field-input` (`display: block`) | 业务分包通过主包共享样式导入；选择器可按交互需要使用 flex |
 | `subpackages/audit/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip` | audit 所有页面 |
 | `subpackages/venue/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip` | venue 所有页面 |
 
-**规则：绝不修改 `app.wxss`、`subpackages/main/styles/home.wxss`、`blue-polish.wxss`。** 用更具体的选择器覆盖。
+**规则：绝不修改 `app.wxss`、`subpackages/main/styles/home.wxss`、`blue-polish.wxss`。** 用更具体的选择器覆盖；如确需全局统一，必须先审计全部调用方并同步 UI 事实来源。
 
 ---
 
@@ -96,7 +96,7 @@ module.exports = { hour: hour };
 
 弹窗使用 `.ui-overlay`、`.ui-overlay-blocker`、`.ui-dialog-shell` 三层契约：遮罩和阻断层固定覆盖 `100vw × 100vh`，窗口固定在 `50vw / 50vh` 并平移居中。阻断层和窗口必须是同级元素，阻断层在前、窗口在后。**`catchtouchmove="noop"` 只能放在独立阻断层，不能放在普通遮罩、窗口外壳、正文或滚动区祖先上。**
 
-`ui-dialog-shell--complex` 只表示标题、正文、操作栏的结构，不代表满屏高度。普通表单外壳必须随内容和条件区的展开、收起自然增减，标题、正文和底部操作栏通过 flex 按实际内容动态分配高度；正文超过可用高度后才由直接子级 `scroll-view.ui-dialog-body` 滚动。只能设置视口安全上限，禁止给普通表单正文或窗口写固定内容高度、固定 `max-height` 或固定翻页尺度。只有表格、时间表等真正需要稳定工作区的窗口才可显式使用 `ui-dialog-shell--viewport` 或 `--wide`。纵向滚动区统一启用 `enhanced`、`scroll-y` 与 `nested-scroll-enabled`；内层列表使用 `ui-dialog-scroll--pane`，手势落在内层时优先滚动内层。签名板、拖拽手柄等专用触摸区才允许使用 `ui-dialog-touch-lock`。
+`ui-dialog-shell--complex` 只表示标题、正文、操作栏的结构，不代表满屏高度。普通表单外壳必须随内容和条件区的展开、收起自然增减，标题、正文和底部操作栏通过 flex 按实际内容动态分配高度；正文超过可用高度后才由直接子级 `scroll-view.ui-dialog-body` 滚动。只能设置基于视口安全区计算的动态上限，禁止固定内容高度、固定翻页尺度或用固定像素偏移定位；允许 `max-height: calc(100vh - 安全区)` 作为溢出保护。只有表格、时间表等真正需要稳定工作区的窗口才可显式使用 `ui-dialog-shell--viewport` 或 `--wide`。纵向滚动区统一启用 `enhanced`、`scroll-y` 与 `nested-scroll-enabled`；内层列表使用 `ui-dialog-scroll--pane`，手势落在内层时优先滚动内层。签名板、拖拽手柄等专用触摸区才允许使用 `ui-dialog-touch-lock`。
 
 ### 3.5 setData 批处理 — 必须一次调用
 
@@ -152,8 +152,8 @@ self._lastUpdateTime = now;
 ### 3.13 签名板视口绝对坐标
 
 可视白板与实时笔迹必须使用普通 `view`。白板 rect、触点 `clientX/clientY` 和线段端点统一
-保存为视口 CSS px 绝对坐标；禁止 scrollTop、DPR、rpx 和固定偏移。原生 Canvas 只能作为
-不可见导出器，确认时再把绝对端点投影到白板局部坐标；具体要求详见 `.claude/rules/audit.md` §3。
+保存为视口 CSS px（逻辑像素）绝对坐标；禁止 scrollTop、DPR、rpx 和固定偏移。原生 Canvas 只能作为
+不可见导出器，确认时再把绝对端点投影到白板局部坐标。白板每次完成布局、尺寸变化或弹窗重新显示后都要重新测量 rect；线段事实数据不得保存旧 rect 推导的局部坐标。具体要求详见 `.claude/rules/audit.md` §3。
 
 ### 3.14 编译器 runtime helper 缺失
 

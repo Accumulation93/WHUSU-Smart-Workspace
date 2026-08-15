@@ -97,7 +97,8 @@ startDrag(e) {
   const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
   if (!touch || Number.isNaN(index)) return;
 
-  var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+  const touchY = touch.clientY;
+  if (touchY == null) return;
   // Always use clientY — it's viewport-relative like position:fixed
   this._dragStartY = touchY;
   this._dragState = { currentIndex: index };
@@ -109,14 +110,14 @@ startDrag(e) {
     dragGhostVisible: false
   });
 
-  var self = this;
+  const self = this;
   // Measure card rects for ghost positioning + insert detection
   wx.createSelectorQuery()
     .selectAll('.sortable-card')
     .boundingClientRect(function(rects) {
       if (rects && rects.length) {
         self._cardRects = rects;
-        var cardRect = rects[index];
+        const cardRect = rects[index];
         if (cardRect) {
           self._dragCardOriginalTop = cardRect.top;
           self._dragCardLeft = cardRect.left;
@@ -149,35 +150,36 @@ This is the core function. Two parts: scroll accumulation (every frame) and UI u
 ```javascript
 onDragMove(e) {
   if (!this._dragState || this.data.draggingIndex < 0) return;
-  var touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+  const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
   if (!touch) return;
 
-  var touchY = touch.clientY != null ? touch.clientY : touch.pageY;
+  const touchY = touch.clientY;
+  if (touchY == null) return;
   this._dragLastY = touchY;
-  var self = this;
-  var now = Date.now();
+  const self = this;
+  const now = Date.now();
 
   // === Part 1: Auto-scroll accumulation (runs every frame) ===
   // Important: this runs even when UI update is throttled.
   // Scroll delta accumulates in _dragEffectiveScrollTop so no momentum is lost.
-  var sr = this._dragScrollRect;
+  const sr = this._dragScrollRect;
   if (sr) {
-    var viewHeight = sr.bottom - sr.top;
+    const viewHeight = sr.bottom - sr.top;
     // Edge zone: top/bottom 22% of view height, capped at 70px
-    var edgeSize = Math.min(70, viewHeight * 0.22);
-    var middleTop = sr.top + edgeSize;
-    var middleBottom = sr.bottom - edgeSize;
-    var scrollDelta = 0;
+    const edgeSize = Math.min(70, viewHeight * 0.22);
+    const middleTop = sr.top + edgeSize;
+    const middleBottom = sr.bottom - edgeSize;
+    let scrollDelta = 0;
 
     if (touchY < middleTop) {
       // Finger in upper edge zone or above → scroll up
-      var distIntoEdge = middleTop - touchY;
-      var factor = Math.min(distIntoEdge / edgeSize, 3);
+      const distIntoEdge = middleTop - touchY;
+      const factor = Math.min(distIntoEdge / edgeSize, 3);
       scrollDelta = -Math.round(5 * factor);
     } else if (touchY > middleBottom) {
       // Finger in lower edge zone or below → scroll down
-      var distIntoEdge = touchY - middleBottom;
-      var factor = Math.min(distIntoEdge / edgeSize, 3);
+      const distIntoEdge = touchY - middleBottom;
+      const factor = Math.min(distIntoEdge / edgeSize, 3);
       scrollDelta = Math.round(5 * factor);
     }
     // touchY between middleTop and middleBottom → scrollDelta = 0 (dead zone)
@@ -199,12 +201,12 @@ onDragMove(e) {
       if (!rects || !rects.length || !self._dragState) return;
       self._cardRects = rects;
 
-      var y = self._dragLastY;
+      const y = self._dragLastY;
       if (y == null) return;
 
       // Find insert index: above card center → insert before it
-      var newInsertIndex = rects.length;
-      for (var i = 0; i < rects.length; i++) {
+      let newInsertIndex = rects.length;
+      for (let i = 0; i < rects.length; i++) {
         if (y < rects[i].top + rects[i].height / 2) {
           newInsertIndex = i;
           break;
@@ -212,8 +214,8 @@ onDragMove(e) {
       }
 
       // Ghost card: pin to finger at initial touch offset
-      var sr = self._dragScrollRect;
-      var ghostTop;
+      const sr = self._dragScrollRect;
+      let ghostTop;
       if (self._fingerOffsetInCard != null) {
         ghostTop = y - self._fingerOffsetInCard;
       } else if (self._dragCardOriginalTop != null && self._dragStartY != null) {
@@ -222,13 +224,13 @@ onDragMove(e) {
       }
       // Clamp ghost to scroll view bounds
       if (sr) {
-        var draggedRect = rects[self._dragState.currentIndex];
-        var ghostHeight = draggedRect ? draggedRect.height : 80;
+        const draggedRect = rects[self._dragState.currentIndex];
+        const ghostHeight = draggedRect ? draggedRect.height : 80;
         ghostTop = Math.max(sr.top, Math.min(sr.bottom - ghostHeight, ghostTop));
       }
 
       // Single batched setData — all three visual updates in one call
-      var update = {};
+      const update = {};
       if (newInsertIndex !== self.data.dragInsertIndex)
         update.dragInsertIndex = newInsertIndex;
       if (ghostTop !== self.data.dragGhostTop)
@@ -244,16 +246,16 @@ onDragMove(e) {
 
 ```javascript
 endDrag() {
-  var state = this._dragState;
+  const state = this._dragState;
   if (!state) return;
-  var fromIndex = state.currentIndex;
-  var insertIndex = this.data.dragInsertIndex;
+  const fromIndex = state.currentIndex;
+  const insertIndex = this.data.dragInsertIndex;
 
   // Adjust: if inserting after the dragged item, account for its removal
-  var toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
+  const toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
 
   if (toIndex !== fromIndex && toIndex >= 0 && toIndex < this.data.items.length) {
-    var items = moveItem(this.data.items, fromIndex, toIndex);
+    const items = moveItem(this.data.items, fromIndex, toIndex);
     this.setData({ items: items });
   }
 
@@ -355,7 +357,7 @@ Throttling to ~33ms (30fps) eliminates this. Scroll delta still accumulates ever
 
 ### Why `clientY` not `pageY`
 
-`pageY` includes scroll offsets inside scroll-view. `clientY` is viewport-relative, matching `position: fixed` ghost card positioning. Always prefer `clientY` with fallback.
+`pageY` includes scroll offsets inside scroll-view. `clientY` is viewport-relative, matching `position: fixed` ghost card positioning. Use `clientY` only; if it is unavailable, abort that event instead of falling back to `pageY`.
 
 ### Finger offset in card
 

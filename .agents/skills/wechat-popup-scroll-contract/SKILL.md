@@ -45,7 +45,7 @@ Keep the blocker and shell as siblings, with the blocker first. Put `catchtouchm
 
 - Render every overlay through `root-portal`, outside page `scroll-view` and transformed layout containers.
 - Keep `.ui-overlay` and `.ui-overlay-blocker` fixed at `top/right/bottom/left: 0` with `100vw × 100vh`.
-- Keep the shell fixed at `top: 50vh; left: 50vw; transform: translate(-50%, -50%)`.
+- Follow the single geometry owner in `miniprogram/app.wxss`: keep the shell fixed at `top: 50vh; left: 50vw; transform: translate(-50%, -50%)`; do not replace it with a page-local flex-centering or relative shell. `--wide` and bottom sheets are explicit variants.
 - Assign blocker `z-index: 0` and shell `z-index: 1`; background controls must remain below the overlay.
 - Preserve the same transform for shell `:active`, `:focus`, and `:focus-within` states so tapping does not make it jump.
 - Never anchor a dialog to page scroll position, a content column, or a local absolute-positioned parent.
@@ -54,7 +54,7 @@ Keep the blocker and shell as siblings, with the blocker first. Put `catchtouchm
 
 - Overlay and shell never scroll; both clip overflow.
 - `ui-dialog-shell--complex` describes a header/body/footer structure, not a full-height window. It must stay content-driven so short and collapsed forms do not leave blank space.
-- Give the body an explicit maximum available height and let its `scroll-view` take over only after the content overflows. Expanding or collapsing conditional fields must therefore grow or shrink the centred shell naturally.
+- Give the body a viewport-safe dynamic maximum and let its `scroll-view` take over only after the content overflows. Expanding or collapsing conditional fields must therefore grow or shrink the centred shell naturally; fixed content heights and fixed pixel offsets are forbidden, while `max-height: calc(100vh - safe-area)` is allowed as overflow protection.
 - Only data workspaces that genuinely require a stable full-screen working area may add `ui-dialog-shell--viewport`; wide timetables continue to use `ui-dialog-shell--wide`. Never add a viewport height merely because a dialog is a long form.
 - Header and footer are non-scrolling flex items. The direct body is the only outer scrolling region.
 - Every vertical dialog `scroll-view` enables `enhanced`, `scroll-y`, and `nested-scroll-enabled`.
@@ -73,7 +73,7 @@ In phone portrait, Pad portrait, and Pad landscape:
 5. Close and reopen after changing page scroll position; dialog geometry must be identical.
 6. Check compact, complex, wide, nested-list, and signature/canvas variants.
 
-Run at minimum:
+Run at minimum when the user has not explicitly requested a script-free manual audit:
 
 ```powershell
 node scripts/ui-audit.js --strict
@@ -82,3 +82,5 @@ git diff --check
 ```
 
 Do not treat audit output as visual proof. Compile the project and complete the DevTools gesture checks before delivery.
+
+If the user explicitly asks for a natural-language/manual audit or says not to use scripts, read the affected documents and code line by line and perform only targeted runtime checks. Do not claim that a scanner replaces that review; run the commands later only if the user permits regression gates.

@@ -30,7 +30,7 @@ description: Connect and collaborate with the WHUSU Smart Workspace production s
 - 推送 `main` 后让 GitHub Actions 先执行 `audit-and-test`，只有全绿才允许 `deploy-production` 连接生产。
 - 让远端入口验证完整 SHA 与 `origin/main` 一致；过期提交必须跳过。
 - 服务端目录未变化时只同步仓库，不要求 PM2 重启。
-- 服务端变化时让部署系统创建独立 release、安装锁定依赖、执行检查并原子切换 `whusu-smart-workspace-current`。
+- 服务端变化时让部署系统创建独立 release、安装锁定依赖、执行检查并原子切换 `whusu-smart-workspace-current`；部署脚本会按其实际实现重建 API、通知 Worker 和备份进程，单独故障处理时不得扩大重启范围。
 - 部署失败时先确认自动回退结果，不要立即手工覆盖软链接或删除维护标志。
 
 ## 数据库迁移
@@ -44,7 +44,7 @@ description: Connect and collaborate with the WHUSU Smart Workspace production s
 
 每次生产部署后同时确认：
 
-1. 本地 HEAD、`origin/main`、远端同步仓库、`whusu-smart-workspace-current` 和部署状态 SHA 一致。
+1. 本地 HEAD、`origin/main`、远端同步仓库、`whusu-smart-workspace-current` 和部署状态完整 SHA 一致；`remote-collab.ps1 status` 的短 SHA 只能作为快速观察，不能代替完整 SHA 核对。
 2. GitHub Actions 的 `audit-and-test` 与 `deploy-production` 均为 `success`。
 3. `whusu-smart-workspace-api` 两个集群进程和 `whusu-smart-workspace-notification-worker` 均为 `online`，实际 cwd 指向当前 release。
 4. 本地与公网 `/api/health` 均成功，维护标志不存在。

@@ -2,7 +2,7 @@
 
 ## 日常链路
 
-1. 本地在功能分支完成修改和测试，经合并后推送到唯一生产发布分支 `main`。
+1. 本地在当前任务授权的工作分支完成修改和测试；标准 Codex 交付在门禁通过后可将已验证提交推送到唯一生产发布分支 `main`，需要评审时先合并功能分支。
 2. GitHub Actions 执行全部质量门禁。
 3. 只有 `audit-and-test` 成功后，`deploy-production` 才通过固定 SSH 主机指纹连接生产服务器。
 4. 远端部署目标必须等于 `origin/main` 的完整 SHA；过期任务自动跳过。
@@ -18,7 +18,7 @@
 4. 只有涉及数据库结构或数据时才新增带时间戳的幂等迁移；纯前端、文档和样式改动不创建空迁移。
 5. 现场验证必须单独记录；电脑控制能力不可用时，必须明确报告未完成现场验证，不能用静态测试替代。
 
-小程序代码推送不会发布微信正式版本。若 `server/` 没有变化，远端只同步仓库，不重启 PM2。服务端 release 切换时，API、通知 Worker 与备份进程一起加载同一 SHA。
+小程序代码推送不会发布微信正式版本。若 `server/` 没有变化，远端只同步仓库，不重启 PM2。服务端 release 切换时，API、通知 Worker 与备份进程按部署脚本重建/加载当前 release；有迁移时备份进程会先停止，迁移完成后恢复。不要把“无服务端变更不重启 PM2”和“有服务端变更备份进程重建”混为同一规则。
 
 ## 本地协作命令
 
@@ -40,8 +40,8 @@
 - `/home/ubuntu/whusu-smart-workspace-current`：PM2 使用的原子软链接。
 - `/home/ubuntu/whusu-smart-workspace-shared/server.env`：共享生产环境配置，权限为 `600`。
 - `/home/ubuntu/whusu-smart-workspace-shared/uploads/audit`：审核附件永久目录；release 内只保留指向共享 `uploads` 的软链接。
-- `/home/ubuntu/whusu-smart-workspace-deploy`：部署状态、日志、锁和数据库快照。
-- `/home/ubuntu/backups/whusu-smart-workspace`：每小时数据库与审核附件备份，分别保留 `.sql.gz` 和 `.uploads.tar.gz`。
+- `/home/ubuntu/whusu-smart-workspace-deploy`：部署状态、日志、锁和迁移前数据库快照；这是故障回退用快照，不是日常备份目录。
+- `/home/ubuntu/backups/whusu-smart-workspace`：备份 Worker 的每小时数据库与审核附件备份，分别保留 `.sql.gz` 和 `.uploads.tar.gz`；两类备份用途和恢复入口不同，不得混用。
 - `whusu-smart-workspace-collab`：持久 tmux 会话，包含 shell、API、Worker、部署和健康窗口。
 
 ## Nginx 上传体积

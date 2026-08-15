@@ -6,8 +6,8 @@
 
 当前 `miniprogram/app.json` 注册了主包和 6 个分包：
 
-- 主包：仅登录、门户启动壳。
-- `subpackages/workspace`：综合用户工作台入口，承载评分、人事、审核视图区块；它是独立的工作台分包，不再占用主包。
+- 主包：仅登录、门户启动壳；物理路径为 `miniprogram/subpackages/main/pages/**`，但页面注册在顶层 `app.json.pages`。
+- `subpackages/workspace`：综合用户工作台入口，承载评分、人事、审核视图区块；它是独立的工作台分包，不占用主包。
 - `subpackages/message`：消息中心、跨组织待办与通知。
 - `subpackages/scoring`：评分、评分任务，以及同时承载考核、人事、系统设置、审核管理的综合 `admin` 页。
 - `subpackages/audit`：普通用户审核、审批、签名与验签页面。
@@ -17,7 +17,7 @@
 现状仍不是“一项功能一个分包”，但主包/业务包边界已统一。主要揉合点只剩工作台组合页和管理端综合页：
 
 1. `subpackages/workspace/pages/home` 通过 `subApp=scoring|hr|audit` 同时承载考核评分、人事资料、账号安全和审核入口；它作为工作台组合壳独立成包，后续可继续拆成 scoring/hr/audit 独立页。
-2. `subpackages/scoring/pages/admin` 通过 `subApp=scoring|hr|system|audit` 同时加载 16 个管理页签，其中人事、系统和审核不属于考核分包。
+2. `subpackages/scoring/pages/admin` 通过 `subApp=scoring|hr|system|audit` 同时加载综合管理页签，其中人事、系统和审核仍由该页承载，未拆出独立 `hr` 或 `system` 分包。
 
 迁移前没有独立语言系统，面向用户的中文散落在 JS、WXML、页面 JSON 和服务端响应中。2026-08-15 的基线审计发现：主包 235 条、考核分包 1238 条、审核分包 326 条、场地分包 502 条、组织分包 41 条、共享组件/工具 14 条、服务端 981 条可见文案。数字用于迁移跟踪，不代表业务数据、注释或开发日志必须翻译。
 
@@ -27,8 +27,8 @@
 
 ### 2.1 主包只保留启动壳
 
-- `pages/login`：认证入口。
-- `pages/portal`：应用门户。
+- `subpackages/main/pages/login`：认证入口。
+- `subpackages/main/pages/portal`：应用门户。
 - 共享运行时：认证、组织上下文、可信导航、公共组件与公共语言资源。
 
 门户是登录后的首个应用壳，保留主包是有意设计，不视为功能揉合。
@@ -37,21 +37,19 @@
 
 - `subpackages/message`：消息中心、跨组织待办与通知。
 - `subpackages/scoring`：用户评分首页、评分表、评分任务、考核活动/模板/规则/结果/公示管理。
-- `subpackages/hr`：用户人事资料、补充资料、账号与登录、人事人员/模板/部门/职能组/身份管理。
 - `subpackages/audit`：用户审核首页、申请、待批、审批历史、签名、验签，以及审核模板/印章/申请/验签权限管理。
 - `subpackages/venue`：场地借用、审批历史、日程和场地管理，保持现有边界。
 - `subpackages/org`：组织与身份切换、权限管理和组织级身份上下文。
-- `subpackages/system`：管理员账号与基础设置。
+- 人事、系统和审核管理页当前仍由 `subpackages/scoring/pages/admin` 承载；`subpackages/hr`、`subpackages/system` 只是未来拆分目标，当前不可作为生产路由或文件路径使用。
 
-共享代码只允许放在 `miniprogram/utils`、`miniprogram/components` 和 `miniprogram/locales`；功能专用组件、工具和语言资源必须留在所属分包。
+公共逻辑和公共语言资源放在 `miniprogram/utils`、`miniprogram/components`、`miniprogram/locales`；公共 WXSS 放在 `miniprogram/subpackages/main/styles/**`。`miniprogram/subpackages/workspace/pages/home/home.wxss` 只是兼容桥接文件，不是共享样式源。功能专用组件、工具和语言资源必须留在所属分包。业务分包只能引用自身分包或主包资源，禁止跨业务分包引用 JS、JSON、WXML、WXSS 或组件。
 
 ## 3. 功能迁移顺序
 
 1. 先建立语言资源层和硬编码审计。
-2. ✅ 将 `pages/home` 下沉为 `subpackages/workspace/pages/home`，将 `pages/messageCenter` 下沉为 `subpackages/message/pages/messageCenter`；删除主包业务注册并同步所有生产路由。
-3. 把 `subpackages/workspace/pages/home` 的考核、人事、审核三个视图区块继续拆成独立页面；若保留组合壳，只能作为分包内工作台入口。
-4. 把综合 `scoring/pages/admin` 按页签所有权拆为 scoring、hr、audit、system 四个管理页；共享的数据选择器先提取为公共组件，禁止复制实现。
-5. 更新各分包边界和门户卡片地址，逐步删除综合管理兼容入口。
+2. ✅ 将业务工作台与消息中心从旧主包路径迁移到 `subpackages/workspace`、`subpackages/message`，同步生产路由、通知目标和测试；主包仅保留登录/门户。
+3. 后续如拆分 `workspace` 或综合 `scoring/pages/admin`，必须先建立实际页面和分包，再同步 `app.json`、门户、可信导航、通知目标、权限守卫、语言资源和测试；未完成前不得把规划路径当成当前目录。
+4. 只有迁移完成并通过冷启动、权限和完整操作链验证后，才能删除综合管理兼容入口。
 
 每一步必须保持 API 名称、请求参数、响应结构、权限判断、组织隔离、缓存键、页面入口和用户可见行为不变。不得在目录迁移中顺带修改业务规则。
 
@@ -84,13 +82,17 @@ server/src/locales/zh-CN/generated/<原业务路径>.js
 - WXML 中不存在中文文本节点和中文可见属性；注释除外。
 - 页面 JSON 中不存在中文标题或提示。
 - 服务端用户响应、通知、导出标题和公开错误提示全部来自语言资源；内部日志、异常代码和数据库值保持原语义。
-- 语言审计、全部 JS 语法检查、小程序兼容审计、严格 UI 审计、现有单元/集成测试和微信开发者工具主包/全部分包冷启动均通过。
+- 语言审计、全部 JS 语法检查、小程序兼容审计、严格 UI 审计、现有单元/集成测试和微信开发者工具主包/全部已注册分包入口冷启动均通过；CI 自动门禁与本地微信现场验证分别记录，不能互相替代。
 
 CI 必须同时执行：
 
 ```bash
 node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization
 node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization
+node scripts/user-visible-copy-audit.js --strict-guidance
+node scripts/miniprogram-compat-audit.js
+node scripts/ui-audit.js --strict
+git diff --check
 ```
 
 ## 5. 回归策略

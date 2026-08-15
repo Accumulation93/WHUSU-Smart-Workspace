@@ -100,7 +100,7 @@ not a huge marketing banner.
   overflow: hidden;
   margin-bottom: 22rpx;
   padding: 38rpx 34rpx 34rpx;
-  border-radius: 34rpx;
+  border-radius: var(--ui-hero-radius, 38rpx);
   background:
     linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.96) 42%, rgba(37, 99, 235, 0.92) 100%);
   border: 1rpx solid rgba(255, 255, 255, 0.18);
@@ -112,7 +112,7 @@ not a huge marketing banner.
 
 .hero-title {
   color: #ffffff;
-  font-size: 44rpx;
+  font-size: var(--ui-type-page);
   font-weight: 800;
   line-height: 1.22;
 }
@@ -120,7 +120,7 @@ not a huge marketing banner.
 .hero-subtitle {
   margin-top: 12rpx;
   color: rgba(241, 245, 249, 0.90);
-  font-size: 25rpx;
+  font-size: var(--ui-type-body);
   font-weight: 600;
   line-height: 1.58;
 }
@@ -145,7 +145,7 @@ Cards should feel like glass surfaces, but content must remain readable:
   position: relative;
   margin-bottom: 24rpx;
   padding: 28rpx 26rpx;
-  border-radius: 30rpx;
+  border-radius: var(--ui-card-radius, 30rpx);
   background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(248,251,255,0.72) 100%);
   border: 1rpx solid rgba(255,255,255,0.66);
   box-shadow:
@@ -264,7 +264,7 @@ primary action, such as "新增".
   margin: 0;
   padding-left: 20rpx;
   color: #0f172a;
-  font-size: 30rpx;
+  font-size: var(--ui-type-section);
   font-weight: 800;
   line-height: 1.4;
 }
@@ -284,7 +284,7 @@ primary action, such as "新增".
 .panel-note {
   margin-top: 6rpx;
   color: #64748b;
-  font-size: 23rpx;
+  font-size: var(--ui-type-meta);
   line-height: 1.55;
 }
 ```
@@ -300,7 +300,7 @@ tabs or large separated pills.
   gap: 10rpx;
   margin: 0 0 20rpx;
   padding: 8rpx;
-  border-radius: 26rpx;
+  border-radius: var(--ui-tab-shell-radius, 30rpx);
   background: linear-gradient(135deg, rgba(255,255,255,0.72), rgba(248,251,255,0.56));
   border: 1rpx solid rgba(255,255,255,0.62);
   box-shadow:
@@ -354,7 +354,7 @@ Baseline:
   min-height: 76rpx;
   height: auto;
   padding: 14rpx 20rpx;
-  border-radius: 28rpx;
+  border-radius: var(--ui-control-radius, 28rpx);
   line-height: 1.35;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -406,7 +406,7 @@ Do not make small inline actions full-size buttons. Use compact pill links:
   padding: 6rpx 16rpx;
   border-radius: var(--ui-compact-radius, 18rpx);
   color: #1d4ed8;
-  font-size: 22rpx;
+  font-size: var(--ui-type-meta);
   font-weight: 800;
   background: rgba(219,234,254,0.76);
   border: 1rpx solid rgba(147,197,253,0.64);
@@ -426,7 +426,7 @@ Inputs should be readable, not oversized:
   padding: 18rpx 20rpx;
   border-radius: 20rpx;
   color: #10233d;
-  font-size: 25rpx;
+  font-size: var(--ui-type-body);
   line-height: 1.55;
   background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(246,249,255,0.88));
   border: 1rpx solid rgba(219,229,241,0.96);
@@ -442,7 +442,7 @@ Filter blocks can be inner glass panels, but keep them compact:
 .filter-section {
   margin-bottom: 16rpx;
   padding: 16rpx;
-  border-radius: 24rpx;
+  border-radius: var(--ui-field-radius, 20rpx);
   background: linear-gradient(135deg, rgba(255,255,255,0.78), rgba(248,251,255,0.62));
   border: 1rpx solid rgba(226,237,247,0.82);
   box-shadow: inset 0 1rpx 0 rgba(255,255,255,0.76);
@@ -460,7 +460,7 @@ Wrapper controls must follow the content instead of reserving an arbitrary viewp
 - `viewport-portal` renders dialogs under a native `RootPortal` host. Declare dialog tokens directly on `ui-overlay` and `ui-sheet-overlay` as well as `page`; never assume page custom properties will inherit across that boundary. Every critical dialog dimension must also have a safe fallback.
 - Give forms and lists a useful working width: phone dialogs use the available width with safe screen insets, Pad portrait uses up to `760px`, Pad landscape up to `1024px`, and specialized wide workspaces up to `1120px`. Do not let a missing token collapse a dialog to its contents.
 
-- A centered dialog has exactly one geometry owner: the overlay uses flexbox with `align-items: center` and `justify-content: center`; the dialog shell stays `position: relative`, participates in that flex layout, and uses `margin-left/right: auto`.
+- A centered dialog has exactly one geometry owner: the shared `miniprogram/app.wxss` contract fixes `.ui-overlay` to the viewport and anchors `.ui-dialog-shell` at `50vw / 50vh` with `translate(-50%, -50%)`. Do not replace this with a page-local flex-centering or relative shell. `--wide` and bottom sheets are the only explicit geometry variants.
 - Never put `position: absolute`, `left/right`, `top: 50%`, or `translateY(-50%)` on a centered dialog shell. Combining fixed side anchors with a Pad `max-width` cap makes the capped shell remain attached to one side instead of remaining centered.
 - Bottom sheets are the only normal exception. They may anchor to the bottom, but their Pad rule must explicitly center the bounded width with `left: 50%` and `translateX(-50%)`; do not mix symmetric phone insets with a capped Pad width.
 - Centered content dialogs use `height: auto` with a viewport `max-height`. Their vertical `scroll-view` also uses `height: auto` and a controlled `max-height`, so short content does not leave a large blank tail and long content still scrolls.

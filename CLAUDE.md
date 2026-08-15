@@ -1,16 +1,16 @@
 # CLAUDE.md — WHUSU Smart Workspace
 
 > AI 编程全局指南。子模块专属规范见 `.claude/rules/` 目录。
-> 最后更新：2026-07-11
+> 最后更新：2026-08-15
 
 ---
 
 ## 1. 项目概述
 
-**WHUSU智慧工作台** — 武汉大学某部门成员互评考核微信小程序。
+**WHUSU智慧工作台** — 武汉大学组织工作台微信小程序。当前包含评分、人事、审核审批、场地借用、消息中心和组织/身份管理。
 
 - **前端**：微信小程序原生框架（WXML / WXSS / JS），无第三方框架
-- **后端**：Node.js Express (HTTPS :3000)，MySQL 8.0 (InnoDB, utf8mb4, `mysql2/promise`)
+- **后端**：Node.js Express（本机回环 HTTP，由 Nginx 终止 HTTPS），MySQL 8.0 (InnoDB, utf8mb4, `mysql2/promise`)
 - **认证**：JWT Bearer Token（7天过期）+ 微信 code2session
 - **部署**：Ubuntu 22.04 + PM2 ×2 + Nginx 反向代理
 - **App ID**：`wxa0946295a962ee2e`，生产域名：`accumulation93.com`
@@ -57,8 +57,8 @@
 
 ### 3.1 分支策略
 
-- `main` — 稳定分支。**禁止直接在 `main` 上提交。**
-- `feature/<功能名>` — 功能开发分支。
+- `main` — 唯一生产发布基线；经用户授权的 Codex 标准交付流程可以在完成门禁后提交并推送当前已验证提交。
+- `codex/<功能名>` 或 `feature/<功能名>` — 需要隔离评审时使用的功能分支；合并前后都必须以 `main` 的 CI 结果和远端 SHA 为准。
 
 ### 3.2 Commit 格式 (Conventional Commits)
 
@@ -83,7 +83,7 @@ Scope 用具体模块名：`venue`, `audit`, `scoring`, `portal`, `auth`, `notif
 ## 4. 设计系统 — 蓝奢玻璃风格
 
 > UI Kit 事实来源：`docs/ui-kit.md`、`docs/ui-components.md`、`docs/ui-page-templates.md`。
-> `.claude/skills/blue-glass-ui/SKILL.md` 负责 Blue Glass 实施约束；设备差异和最终尺寸以 UI Kit 文档及 `miniprogram/app.wxss` 为准。
+> `.agents/skills/blue-glass-ui/SKILL.md` 负责 Blue Glass 实施约束；设备差异和最终尺寸以 UI Kit 文档及 `miniprogram/app.wxss` 为准。
 
 ### 4.1 色板
 
@@ -214,7 +214,7 @@ page {
 - ❌ 多次 `setData` 调用不合并
 - ❌ `popup-mask` 内放 `position: fixed; bottom: 0` 元素
 - ❌ WXML 中直接调用 `.split()` / `.replace()` / `.map()`
-- ❌ 在 `main` 分支直接提交
+- ❌ 未完成门禁、未核对远端 SHA 就直接向 `main` 提交
 - ❌ Toast 超过 7 个中文字符
 - ❌ 修改后不 commit + push
 - ❌ 平板端不设 max-width 约束 → 按钮/卡片过度放大

@@ -1,6 +1,6 @@
 # UI 组件清单
 
-当前项目使用原生微信小程序组件和项目自有 WXSS，不依赖第三方 UI provider。
+当前项目使用原生微信小程序组件和项目自有 WXSS，不依赖第三方 UI provider。公共组件路径均以仓库根目录 `miniprogram/` 为前缀；公共 WXSS 源位于 `miniprogram/subpackages/main/styles/**`，不得从业务分包互相引用。
 
 ## 共享组件
 
@@ -9,7 +9,7 @@
 | `workspace-hero` | `miniprogram/components/workspace-hero/` | 品牌、姓名、身份、组织与切换入口 | 手机换行更自然，Pad 收紧内边距，横屏压缩高度 |
 | `viewport-portal` | `miniprogram/components/viewport-portal/` | 将共享弹窗内容提升到视口层 | 三种设备都固定遮罩和弹窗位置；弹窗令牌由 portal 内的遮罩直接持有，不依赖页面变量继承 |
 | `ui-icon` | `miniprogram/components/ui-icon/` | 统一 SVG 图标加载和色调 | 图标尺寸随语义和设备令牌调整，不用 emoji |
-| `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 审核签名输入 | 保留画布专用触摸锁和横向空间 |
+| `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 审核签名输入 | 普通 View 实时笔迹；隐藏 Canvas 仅按 1:1 尺寸导出；保留专用触摸锁 |
 
 ## 全局样式原语
 
@@ -52,6 +52,8 @@ Pad 横屏主按钮与页签 `12px`、紧凑控件 `11px`。页面级 WXSS 不�
 加载圈、进度节点、纯图标圆钮等真正圆形元素不受此限制。
 
 ## 组件边界
+
+签名板、白板和文件定位的坐标硬契约见 [docs/ui-kit.md](ui-kit.md) 的“签名板与文件定位坐标硬契约”；组件不得把可视原生 Canvas 重新作为实时笔迹层。`subpackages/workspace/pages/home/home.wxss` 是指向主包共享样式的兼容桥接文件，不是共享样式源。
 
 - 共享组件只负责结构、视觉和交互契约，不读取具体业务接口。
 - 页面负责把业务数据映射成组件需要的展示字段。

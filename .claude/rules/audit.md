@@ -13,9 +13,9 @@ paths: "miniprogram/subpackages/audit/**"
 ```
 audit/
 ├── styles/blue-polish.wxss
-├── components/signaturePad/   # Canvas 手写签名板
+├── components/signaturePad/   # 普通 View 实时笔迹 + 隐藏 Canvas 1:1 导出器
 └── pages/
-    ├── submissionDetail/       # 🔥 核心页面（2955 行）
+    ├── submissionDetail/       # 核心详情、审批与重提交页面
     ├── pendingApprovals/       # 待审批列表（30s 轮询）
     ├── mySubmissions/          # 我的提交（筛选 + 未读标记）
     ├── myApprovalHistory/      # 审批历史
@@ -67,9 +67,9 @@ audit/
 签名板固定使用普通视图实时笔迹，原生 Canvas 只负责隐藏导出：
 
 1. 可视白板为普通 `view`，实时线段也为普通 `view`；可视原生 Canvas 属于硬性违规。
-2. 白板 rect、`Touch.clientX/clientY` 和线段端点统一为视口 CSS px 绝对坐标。线段数据保存 `screenX1/Y1/screenX2/Y2`，禁止 scrollTop、DPR、rpx 或固定偏移。
-3. 普通视图渲染时才从绝对端点减一次白板 `rect.left/top`；白板与笔迹层必须裁切。
-4. 隐藏 Canvas 不绑定触摸，只在确认时将绝对端点投影到白板局部坐标并导出 1:1 PNG。
+2. 白板 rect、`Touch.clientX/clientY` 和线段端点统一为视口 CSS px（逻辑像素）绝对坐标。线段事实数据保存 `screenX1/Y1/screenX2/Y2`，禁止 scrollTop、DPR、rpx 或固定偏移。
+3. 白板完成布局、尺寸变化或弹窗重新显示后重新测量 rect；普通视图渲染时才根据当前 rect 从绝对端点减一次 `left/top`，不得把旧 rect 推导的局部坐标写入事实数据。白板与笔迹层必须裁切。
+4. 隐藏 Canvas 不绑定触摸，只在确认时将绝对端点投影到白板局部坐标并导出 1:1 PNG；导出 buffer 按白板实际可视宽高统一取整，禁止 DPR 放大。
 5. 严格 UI 审计必须检查上述结构；改动后必须用真实鼠标/触控事件验证，禁止直接调用组件方法生成验收线。
 
 ---
