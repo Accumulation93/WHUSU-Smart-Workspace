@@ -322,7 +322,7 @@ Page({
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
     showShortToast(localeCopy.copy_0f2366ca9b);
-    wx.navigateBack({ fail: function () { wx.reLaunch({ url: '/pages/portal/portal' }); } });
+    wx.navigateBack({ fail: function () { wx.reLaunch({ url: '/subpackages/main/pages/portal/portal' }); } });
   },
 
   onHide: function () {

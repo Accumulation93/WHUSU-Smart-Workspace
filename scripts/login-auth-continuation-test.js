@@ -37,7 +37,7 @@ global.Page = function(definition) {
 };
 
 const api = require('../miniprogram/utils/api');
-require('../miniprogram/pages/login/login');
+require('../miniprogram/subpackages/main/pages/login/login');
 
 function createPage() {
   const page = Object.assign({}, pageDefinition);
@@ -103,7 +103,7 @@ async function run() {
   assert.strictEqual(storage.activeRole, 'user');
   assert.strictEqual(storage.activeOrgId, 'org-44');
   assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
-  assert(redirects.includes('/pages/portal/portal'));
+  assert(redirects.includes('/subpackages/main/pages/portal/portal'));
   assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
   assert.strictEqual(page._portalNavigating, false, '门户导航完成后必须释放导航锁');
 

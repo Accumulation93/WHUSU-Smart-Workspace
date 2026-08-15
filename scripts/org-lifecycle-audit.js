@@ -10,7 +10,7 @@ const pages = (appConfig.pages || []).concat(...(appConfig.subPackages || []).ma
   (pkg.pages || []).map((page) => pkg.root + '/' + page)
 )));
 const lifecycleExempt = new Set([
-  'pages/login/login',
+  'subpackages/main/pages/login/login',
   'subpackages/org/pages/switch/switch',
   'subpackages/venue/pages/venueBookings/venueBookings'
 ]);

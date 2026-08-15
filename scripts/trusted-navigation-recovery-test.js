@@ -5,7 +5,7 @@ const redirects = [];
 let navigateMode = 'timeout';
 
 global.getCurrentPages = function() {
-  return [{ route: 'pages/login/login' }, { route: 'pages/portal/portal' }];
+  return [{ route: 'subpackages/main/pages/login/login' }, { route: 'subpackages/main/pages/portal/portal' }];
 };
 
 global.wx = {
@@ -28,15 +28,15 @@ global.wx = {
 const { navigateToTrustedRoute } = require('../miniprogram/utils/trustedNavigation');
 
 let successCount = 0;
-navigateToTrustedRoute('/pages/portal/portal', {
+navigateToTrustedRoute('/subpackages/main/pages/portal/portal', {
   success() { successCount += 1; }
 });
-assert.deepStrictEqual(redirects, ['/pages/portal/portal'], '目标页绘制切换超时时必须原位重建目标页面');
+assert.deepStrictEqual(redirects, ['/subpackages/main/pages/portal/portal'], '目标页绘制切换超时时必须原位重建目标页面');
 assert.strictEqual(successCount, 1, '页面重建完成后必须按导航成功处理');
 assert.strictEqual(toasts.length, 0, '页面重建成功时不得误报页面打开失败');
 
 navigateMode = 'failure';
-navigateToTrustedRoute('/pages/portal/portal');
+navigateToTrustedRoute('/subpackages/main/pages/portal/portal');
 assert.strictEqual(toasts[toasts.length - 1].title, '页面未打开，请重试');
 
 navigateMode = 'success';

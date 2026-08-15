@@ -187,7 +187,7 @@ function testMigrationAndFrontendContract() {
 
   const mainCopy = require('../../miniprogram/locales/zh-CN/main');
   const portal = hydrateLocale(
-    fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.js'), 'utf8'),
+    fs.readFileSync(path.join(root, '../miniprogram/subpackages/main/pages/portal/portal.js'), 'utf8'),
     mainCopy.portal,
     'copy',
     true
@@ -207,7 +207,7 @@ function testMigrationAndFrontendContract() {
   const adminPermissions = fs.readFileSync(path.join(root, '../miniprogram/utils/adminPermissions.js'), 'utf8');
   assert.match(adminPermissions, /card\.key === 'messages'[\s\S]*return true/);
   const portalView = hydrateLocale(
-    fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.wxml'), 'utf8'),
+    fs.readFileSync(path.join(root, '../miniprogram/subpackages/main/pages/portal/portal.wxml'), 'utf8'),
     mainCopy.portal.view,
     'copy',
     false
@@ -216,7 +216,7 @@ function testMigrationAndFrontendContract() {
   assert.match(portalView, /\{\{messageSwitchTitle\}\}/);
   assert.match(portalView, /切换并查看/);
   assert.doesNotMatch(portalView, /length \* 102/);
-  const portalStyle = fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.wxss'), 'utf8');
+  const portalStyle = fs.readFileSync(path.join(root, '../miniprogram/subpackages/main/pages/portal/portal.wxss'), 'utf8');
   assert.match(
     portalStyle,
     /\.message-preview-scroll[\s\S]*max-height: calc\(var\(--ui-message-preview-row, 154rpx\) \* 3 \+ var\(--ui-message-preview-gap, 8rpx\) \* 2\)/

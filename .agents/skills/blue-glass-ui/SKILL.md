@@ -19,8 +19,8 @@ palette, and do not make the UI look like a generic white SaaS dashboard.
 
 Primary references:
 - `miniprogram/subpackages/scoring/pages/admin/admin.wxss`
-- `miniprogram/pages/portal/portal.wxss`
-- `miniprogram/pages/home/home.wxss`
+- `miniprogram/subpackages/main/pages/portal/portal.wxss`
+- `miniprogram/subpackages/workspace/pages/home/home.wxss`
 
 ## Core Direction
 

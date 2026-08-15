@@ -98,7 +98,7 @@ pageStack = [
   { route: 'subpackages/org/pages/identitySwitch/identitySwitch' }
 ];
 assert.strictEqual(guard.finishSwitch(activated('user')), 'portal');
-assert.deepStrictEqual(navigationCalls.pop(), { type: 'portal', url: '/pages/portal/portal' });
+assert.deepStrictEqual(navigationCalls.pop(), { type: 'portal', url: '/subpackages/main/pages/portal/portal' });
 
 pageStack = [
   { route: 'subpackages/scoring/pages/admin/admin', _subApp: 'hr' },

@@ -70,7 +70,7 @@ function notifyOrgContextRequired(result) {
       orgPromptVisible = false;
       require('./trustedNavigation').navigateToTrustedRoute(
         '/subpackages/org/pages/identitySwitch/identitySwitch',
-        { fail: function() { wx.reLaunch({ url: '/pages/portal/portal' }); } }
+        { fail: function() { wx.reLaunch({ url: '/subpackages/main/pages/portal/portal' }); } }
       );
     }
   });
@@ -186,7 +186,7 @@ function redirectToLogin(error) {
   }
   wx.setStorageSync('authLoginNotice', message);
   wx.showToast({ title: message, icon: 'none', duration: 1800 });
-  wx.reLaunch({ url: '/pages/login/login?reason=expired' });
+  wx.reLaunch({ url: '/subpackages/main/pages/login/login?reason=expired' });
 }
 
 function markAuthenticationReady() {

@@ -130,7 +130,8 @@ For documentation-only work, verify file existence, link/read order consistency,
 
 ## 硬规范：小程序主包与业务分包统一
 
-- `miniprogram/pages` 只允许保留启动壳页面：登录页和门户页。消息中心、评分、人事、审核、场地、组织和系统设置等业务页面必须注册在 `miniprogram/subpackages/<模块名>/pages/**`，不得再把业务页直接放回主包 `pages`。
+- 主包启动壳统一物理放在 `miniprogram/subpackages/main/pages/**`，但必须注册在 `app.json.pages` 顶层；`subpackages/main` 不得写入 `app.json.subPackages`。包归属以 `app.json` 注册位置为准，不以目录名为准。
+- 消息中心、评分、人事、审核、场地、组织和系统设置等业务页面必须注册在 `miniprogram/subpackages/<模块名>/pages/**` 的 `app.json.subPackages` 中，不得再把业务页注册到顶层 `pages`。
 - 每个业务分包只能有一个明确的模块归属；跨模块的公共能力只能放在 `miniprogram/utils`、`miniprogram/components` 和 `miniprogram/locales`。综合工作台壳若确实需要组合多个入口，也必须作为独立 `workspace` 分包页面，并通过可信路由进入，不能伪装成主包业务页。
 - 路由迁移必须同时更新 `app.json`、门户卡片、可信导航、上下文守卫、服务端通知/待办目标地址、兼容测试和 WXSS 相对导入；禁止留下旧主包业务地址的隐式引用。
 - 分包页面使用与当前位置匹配的相对 `require` 和 WXSS `@import` 路径，迁移后必须执行全量 `node --check`、小程序兼容性审计和微信开发者工具冷编译，确认主包与所有分包入口都能注册。

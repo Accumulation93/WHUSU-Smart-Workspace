@@ -111,7 +111,7 @@ Page({
     orgSession.invalidateRequests(this);
     showShortToast(localeCopy.copy_7f63d5ff75);
     wx.navigateBack({
-      fail: () => wx.reLaunch({ url: '/pages/portal/portal' })
+      fail: () => wx.reLaunch({ url: '/subpackages/main/pages/portal/portal' })
     });
   },
 

@@ -1,8 +1,8 @@
-const { callFunction, showShortToast, getErrorText } = require('../../utils/api');
-const orgSession = require('../../utils/orgSession');
-const authContext = require('../../utils/authContext');
-const { getDeviceIdentity } = require('../../utils/deviceIdentity');
-const { login: copy } = require('../../locales/zh-CN/main');
+const { callFunction, showShortToast, getErrorText } = require('../../../../utils/api');
+const orgSession = require('../../../../utils/orgSession');
+const authContext = require('../../../../utils/authContext');
+const { getDeviceIdentity } = require('../../../../utils/deviceIdentity');
+const { login: copy } = require('../../../../locales/zh-CN/main');
 
 function selectedOrganizationName(organizations, index) {
   const item = organizations[Number(index) || 0];
@@ -65,7 +65,7 @@ Page({
     }, () => {
       const navigate = () => {
         wx.redirectTo({
-          url: '/pages/portal/portal',
+          url: '/subpackages/main/pages/portal/portal',
           success: () => {
             this._portalNavigating = false;
           },

@@ -15,8 +15,10 @@ paths: "miniprogram/**"
 ### 新增页面
 
 1. 创建 4 个文件
-2. 在 `app.json` 注册：主包→`pages` 数组，分包→`subPackages[].pages` 数组
-3. 分包 root 路径规范：`"root": "subpackages/<模块名>"`
+2. 在 `app.json` 注册：主包→顶层 `pages` 数组，分包→`subPackages[].pages` 数组
+3. 目录约定：主包启动壳放在 `subpackages/main/pages/**`，业务分包 root 使用 `subpackages/<模块名>`；`subpackages/main` 不得写入 `subPackages`
+
+**包归属以 `app.json` 注册位置为准，不以目录名为准。** `subpackages/main` 与其他分包目录并列只是物理组织方式；注册在顶层 `pages` 的登录页和门户页仍属于主包。
 
 **关键约束：** 主包 ≤2MB，单分包 ≤2MB，全部分包 ≤20MB。用 `lazyCodeLoading: "requiredComponents"`。
 
@@ -35,7 +37,7 @@ require('./utils/tableFile.js');  // ⚠️ 绝对不能删除！
 | 文件 | 关键选择器 | 影响范围 |
 |------|-----------|----------|
 | `app.wxss` | popup 框架、全局 reset | 所有页面 |
-| `pages/home/home.wxss` | `.field-input` (`display: flex`) | import 它的页面 |
+| `subpackages/workspace/pages/home/home.wxss` | `.field-input` (`display: flex`) | import 它的页面 |
 | `subpackages/audit/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip` | audit 所有页面 |
 | `subpackages/venue/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip` | venue 所有页面 |
 
@@ -267,6 +269,7 @@ Page({
 
 ## 10. 主包与分包统一
 
-- `miniprogram/pages` 只保留登录和门户启动壳；消息中心、工作台组合页及所有业务页面必须位于 `subpackages/<模块名>/pages/**` 并在 `app.json.subPackages` 注册。
+- 主包启动壳统一放在 `miniprogram/subpackages/main/pages/**`，但必须注册在 `app.json.pages` 顶层；`subpackages/main` 不得注册为 `app.json.subPackages`，否则会从主包变成分包。
+- 消息中心、工作台组合页及所有业务页面必须位于 `subpackages/<模块名>/pages/**` 并在 `app.json.subPackages` 注册；不能因为目录位于 `subpackages` 就误判为分包。
 - 页面迁移必须同步更新可信导航、上下文守卫、服务端通知/待办目标 URL、测试路径和 WXSS 导入；迁移后不得留下旧主包业务路由。
 - 提示、指引、校验反馈、空状态、Toast、Modal、确认层、通知标题/描述和导出标题等中文常量必须放进 locale；完成前运行 `node scripts/user-visible-copy-audit.js --strict-guidance`。

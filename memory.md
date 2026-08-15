@@ -151,7 +151,7 @@ callFunction({ name, data, success, fail })
 // 响应包装: success({ result: res.data })
 ```
 
-### 登录流程 (miniprogram/pages/login/login.js)
+### 登录流程 (miniprogram/subpackages/main/pages/login/login.js)
 1. 用户选择角色 → 点击登录
 2. `wx.login()` 获取 code
 3. POST /api/userLogin 或 /api/adminLogin 携带 `{ code }`

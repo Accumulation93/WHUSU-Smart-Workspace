@@ -1,12 +1,12 @@
-const { callFunction, formatAuditTime } = require('../../utils/api');
-const eventBus = require('../../utils/eventBus');
-const orgSession = require('../../utils/orgSession');
-const adminPermissions = require('../../utils/adminPermissions');
-const authContext = require('../../utils/authContext');
-const { shouldClearAuthenticationOnPortalExit } = require('../../utils/portalExit');
-const { activateOrganization } = require('../../utils/organizationActivation');
-const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
-const { portal: copy } = require('../../locales/zh-CN/main');
+const { callFunction, formatAuditTime } = require('../../../../utils/api');
+const eventBus = require('../../../../utils/eventBus');
+const orgSession = require('../../../../utils/orgSession');
+const adminPermissions = require('../../../../utils/adminPermissions');
+const authContext = require('../../../../utils/authContext');
+const { shouldClearAuthenticationOnPortalExit } = require('../../../../utils/portalExit');
+const { activateOrganization } = require('../../../../utils/organizationActivation');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { portal: copy } = require('../../../../locales/zh-CN/main');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
@@ -96,7 +96,7 @@ Page({
     const activeSession = orgSession.getSnapshot();
     if (!activeSession.token || !activeSession.role) {
       authContext.clearUnifiedAuthentication();
-      wx.reLaunch({ url: '/pages/login/login' });
+      wx.reLaunch({ url: '/subpackages/main/pages/login/login' });
       return;
     }
     const contextNotice = wx.getStorageSync('authSelectionNotice') || '';
@@ -182,7 +182,7 @@ Page({
       this._boundOnOrgChanged = null;
     }
     if (returningToLogin) authContext.clearUnifiedAuthentication();
-    if (returningToLogin) wx.reLaunch({ url: '/pages/login/login' });
+    if (returningToLogin) wx.reLaunch({ url: '/subpackages/main/pages/login/login' });
   },
 
   refreshCurrentUser() {
@@ -747,11 +747,11 @@ Page({
     authContext.clearUnifiedAuthentication();
     const pages = getCurrentPages();
     const previousPage = pages.length > 1 ? pages[pages.length - 2] : null;
-    if (previousPage && previousPage.route === 'pages/login/login') {
+    if (previousPage && previousPage.route === 'subpackages/main/pages/login/login') {
       wx.navigateBack();
       return;
     }
-    wx.reLaunch({ url: '/pages/login/login' });
+    wx.reLaunch({ url: '/subpackages/main/pages/login/login' });
   },
 
 });

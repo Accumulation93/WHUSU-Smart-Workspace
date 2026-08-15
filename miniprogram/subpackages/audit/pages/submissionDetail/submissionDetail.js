@@ -185,7 +185,7 @@ Page({
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
     showShortToast(localeCopy.copy_d86124b728);
-    wx.navigateBack({ fail: () => wx.reLaunch({ url: '/pages/portal/portal' }) });
+    wx.navigateBack({ fail: () => wx.reLaunch({ url: '/subpackages/main/pages/portal/portal' }) });
   },
 
   onHide() {

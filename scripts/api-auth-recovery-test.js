@@ -106,7 +106,7 @@ async function run() {
     api.callFunction({ name: 'getCurrentScoreActivity', data: {} }),
     (error) => error && error.silent === true
   );
-  assert.strictEqual(relaunches[0], '/pages/login/login?reason=expired');
+  assert.strictEqual(relaunches[0], '/subpackages/main/pages/login/login?reason=expired');
   assert.strictEqual(storage.authLoginNotice, '登录已过期，请重新登录');
   assert.strictEqual(storage.token, undefined, '无法恢复时必须清理失效登录');
   assert(toasts.some((item) => item.title === '登录已过期，请重新登录'));

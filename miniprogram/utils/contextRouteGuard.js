@@ -1,6 +1,6 @@
 const adminPermissions = require('./adminPermissions');
 
-const PORTAL_ROUTE = '/pages/portal/portal';
+const PORTAL_ROUTE = '/subpackages/main/pages/portal/portal';
 
 const USER_ONLY_ROUTES = {
   '/subpackages/workspace/pages/home/home': true,

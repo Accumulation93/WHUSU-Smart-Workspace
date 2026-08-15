@@ -53,7 +53,8 @@ Touch.clientX/clientY（同一视口 CSS px）
 
 ## 小程序分包与语言资源契约
 
-- 主包 `miniprogram/pages` 只保留登录和门户启动壳；所有业务页面统一注册在 `subpackages/<模块名>/pages/**`。跨模块工作台组合页也必须位于独立业务分包，不得直接回到主包。
+- 主包启动壳物理放在 `miniprogram/subpackages/main/pages/**`，登录页和门户页注册在 `app.json.pages` 顶层；`subpackages/main` 不得写入 `app.json.subPackages`。包归属以注册位置为准，不以目录名为准。
+- 所有业务页面统一注册在 `subpackages/<模块名>/pages/**` 的 `app.json.subPackages` 中。跨模块工作台组合页也必须位于独立业务分包，不得直接回到顶层主包。
 - 迁移页面时必须同步更新 `app.json`、所有可信路由、上下文守卫、服务端通知/待办目标 URL、测试读取路径和 WXSS 导入路径；旧主包业务地址不得继续出现在生产调用链中。
 - 提示、指引、校验、空状态、通知、确认层和导出标题等用户可见常量只能存在于对应 `locales`。变量值不迁入 locale，业务代码通过格式化函数传入；CSV 列别名、状态码、路由和内部日志保持代码语义。
 - 迁移/生成 locale 时必须合并当前文件与 Git 基线中的既有资源，不能以单次扫描结果覆盖旧键；迁移完成后必须运行资源审计和受影响模块回归测试。

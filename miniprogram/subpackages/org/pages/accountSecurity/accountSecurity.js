@@ -8,7 +8,7 @@ Page({
     wx.redirectTo({
       url: '/subpackages/workspace/pages/home/home?subApp=hr&section=account',
       fail: function() {
-        wx.reLaunch({ url: '/pages/portal/portal' });
+        wx.reLaunch({ url: '/subpackages/main/pages/portal/portal' });
       }
     });
   },

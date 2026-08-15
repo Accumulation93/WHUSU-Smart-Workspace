@@ -876,7 +876,7 @@ Page({
 
   goPortal() {
     wx.redirectTo({
-      url: '/pages/portal/portal'
+      url: '/subpackages/main/pages/portal/portal'
     });
   },
 

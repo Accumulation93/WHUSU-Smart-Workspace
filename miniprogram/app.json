@@ -1,7 +1,7 @@
 {
   "pages": [
-    "pages/login/login",
-    "pages/portal/portal"
+    "subpackages/main/pages/login/login",
+    "subpackages/main/pages/portal/portal"
   ],
   "subPackages": [
     {

@@ -1053,13 +1053,13 @@ Page({
 
   goLogin() {
     wx.redirectTo({
-      url: '/pages/login/login'
+      url: '/subpackages/main/pages/login/login'
     });
   },
 
   goPortal() {
     wx.redirectTo({
-      url: '/pages/portal/portal'
+      url: '/subpackages/main/pages/portal/portal'
     });
   },
 

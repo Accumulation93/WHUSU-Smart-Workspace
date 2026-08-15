@@ -99,7 +99,7 @@ function mapNotification(row, context) {
     score_activity: '/subpackages/workspace/pages/home/home?subApp=scoring',
     result_publication: '/subpackages/workspace/pages/home/home?subApp=scoring',
     hr_profile: '/subpackages/workspace/pages/home/home?subApp=hr',
-    account: '/pages/portal/portal',
+    account: '/subpackages/main/pages/portal/portal',
     account_security: '/subpackages/org/pages/accountSecurity/accountSecurity'
   };
   return Object.assign({

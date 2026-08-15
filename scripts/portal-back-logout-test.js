@@ -6,8 +6,8 @@ const {
   shouldClearAuthenticationOnPortalExit
 } = require('../miniprogram/utils/portalExit');
 
-const loginPage = { route: 'pages/login/login' };
-const portalPage = { route: 'pages/portal/portal' };
+const loginPage = { route: 'subpackages/main/pages/login/login' };
+const portalPage = { route: 'subpackages/main/pages/portal/portal' };
 const businessPage = { route: 'subpackages/workspace/pages/home/home' };
 
 assert.strictEqual(
@@ -38,11 +38,11 @@ assert.strictEqual(
 assert.strictEqual(getPortalExitTargetRoute([], portalPage), '', '空页面栈不应产生退出目标');
 
 const portalSource = fs.readFileSync(
-  path.resolve(__dirname, '..', 'miniprogram', 'pages', 'portal', 'portal.js'),
+  path.resolve(__dirname, '..', 'miniprogram', 'subpackages', 'main', 'pages', 'portal', 'portal.js'),
   'utf8'
 );
 const loginSource = fs.readFileSync(
-  path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.js'),
+  path.resolve(__dirname, '..', 'miniprogram', 'subpackages', 'main', 'pages', 'login', 'login.js'),
   'utf8'
 );
 assert.match(
@@ -57,18 +57,18 @@ assert.match(
 );
 assert.match(
   loginSource,
-  /wx\.redirectTo\(\{[\s\S]*?url: '\/pages\/portal\/portal'/,
+  /wx\.redirectTo\(\{[\s\S]*?url: '\/subpackages\/main\/pages\/portal\/portal'/,
   '登录成功必须替换旧登录渲染层，避免旧页面覆盖门户'
 );
 assert.match(loginSource, /leavingPortal:\s*true/, '跳转门户前必须先隐藏旧登录渲染层');
 assert.match(
-  fs.readFileSync(path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.wxss'), 'utf8'),
+  fs.readFileSync(path.resolve(__dirname, '..', 'miniprogram', 'subpackages', 'main', 'pages', 'login', 'login.wxss'), 'utf8'),
   /\.page::before,\s*\.page::after\s*\{[^}]*position:\s*absolute/,
   '登录页装饰层必须随页面销毁，不能固定在视口上遮住门户'
 );
 assert.match(
   fs.readFileSync(
-    path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.wxml'),
+    path.resolve(__dirname, '..', 'miniprogram', 'subpackages', 'main', 'pages', 'login', 'login.wxml'),
     'utf8'
   ),
   /ui-sheet-overlay"\s+wx:if="\{\{stage !== 'login'\}\}"/,
@@ -76,7 +76,7 @@ assert.match(
 );
 assert.doesNotMatch(
   fs.readFileSync(
-    path.resolve(__dirname, '..', 'miniprogram', 'pages', 'login', 'login.wxml'),
+    path.resolve(__dirname, '..', 'miniprogram', 'subpackages', 'main', 'pages', 'login', 'login.wxml'),
     'utf8'
   ),
   /root-portal|viewport-portal/,
@@ -84,12 +84,12 @@ assert.doesNotMatch(
 );
 assert.match(
   portalSource,
-  /previousPage\.route === 'pages\/login\/login'[\s\S]*wx\.navigateBack\(\)/,
+  /previousPage\.route === 'subpackages\/main\/pages\/login\/login'[\s\S]*wx\.navigateBack\(\)/,
   '门户显式退出时应返回现有登录页，避免叠加重复登录页'
 );
 assert.match(
   portalSource,
-  /wx\.reLaunch\(\{ url: '\/pages\/login\/login' \}\)/,
+  /wx\.reLaunch\(\{ url: '\/subpackages\/main\/pages\/login\/login' \}\)/,
   '门户没有历史登录页时应重建干净的登录页'
 );
 

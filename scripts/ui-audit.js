@@ -422,7 +422,7 @@ function scanWorkspaceShellContracts() {
     for (const page of subpackage.pages || []) routes.push(`${subpackage.root}/${page}`);
   }
   const heroExceptions = new Set([
-    'pages/login/login',
+    'subpackages/main/pages/login/login',
     'subpackages/org/pages/switch/switch',
     'subpackages/venue/pages/venueBookings/venueBookings'
   ]);
@@ -453,7 +453,7 @@ function scanWorkspaceShellContracts() {
     }
   }
 
-  const portalStyleFile = path.join(MINI_ROOT, 'pages', 'portal', 'portal.wxss');
+  const portalStyleFile = path.join(MINI_ROOT, 'subpackages', 'main', 'pages', 'portal', 'portal.wxss');
   const portalStyle = fs.readFileSync(portalStyleFile, 'utf8');
   const padStart = portalStyle.indexOf('@media (min-width: 520px)');
   const landscapeStart = portalStyle.indexOf('@media (min-width: 900px)');
@@ -607,7 +607,7 @@ function scanLayoutContracts(file) {
       !classes.has('ui-overlay') && !classes.has('ui-sheet-overlay')) {
       dialogIssues.push({ file: relative(file), line, message: '弹窗遮罩缺少 ui-overlay', className: [...classes].join(' ') });
     }
-    const isLoginSheet = relative(file) === 'miniprogram/pages/login/login.wxml' && classes.has('ui-sheet-overlay');
+    const isLoginSheet = relative(file) === 'miniprogram/subpackages/main/pages/login/login.wxml' && classes.has('ui-sheet-overlay');
     const isSignatureCanvasOverlay = classes.has('signature-pad-overlay');
     if ((classes.has('ui-overlay') || classes.has('ui-sheet-overlay')) &&
       !isLoginSheet && !isSignatureCanvasOverlay && !stack.some(item => item.tag === 'root-portal' || item.tag === 'viewport-portal')) {
@@ -1142,7 +1142,7 @@ const missingTabSizeSystem = !(
   /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
 );
 const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'workspace', 'pages', 'home', 'home.wxss'), 'utf8');
-const portalStyle = fs.readFileSync(path.join(MINI_ROOT, 'pages', 'portal', 'portal.wxss'), 'utf8');
+const portalStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'main', 'pages', 'portal', 'portal.wxss'), 'utf8');
 const adminPermissionsStyle = fs.readFileSync(
   path.join(MINI_ROOT, 'subpackages', 'org', 'pages', 'adminPermissions', 'adminPermissions.wxss'),
   'utf8'

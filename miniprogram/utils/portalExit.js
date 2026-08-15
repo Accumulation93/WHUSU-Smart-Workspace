@@ -1,4 +1,4 @@
-const LOGIN_ROUTE = 'pages/login/login';
+const LOGIN_ROUTE = 'subpackages/main/pages/login/login';
 
 function pageRoute(page) {
   return page && typeof page.route === 'string' ? page.route : '';

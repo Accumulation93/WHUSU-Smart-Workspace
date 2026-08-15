@@ -68,7 +68,7 @@ global.Page = function(definition) { pageDefinition = definition; };
 
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
-  if (request === '../../utils/api') {
+  if (request === '../../../../utils/api') {
     return {
       callFunction,
       showShortToast(title, icon) { toasts.push({ title, icon: icon || 'none' }); },
@@ -77,7 +77,7 @@ Module._load = function(request, parent, isMain) {
   }
   return originalLoad.call(this, request, parent, isMain);
 };
-require('../miniprogram/pages/login/login');
+require('../miniprogram/subpackages/main/pages/login/login');
 Module._load = originalLoad;
 
 function createPage(overrides) {
@@ -110,7 +110,7 @@ async function run() {
   await page.verifyClaim();
   assert.strictEqual(storage.token, 'access-token');
   assert.strictEqual(storage.activeContextId, 'assignment:one:org-44');
-  assert(redirects.includes('/pages/portal/portal'));
+  assert(redirects.includes('/subpackages/main/pages/portal/portal'));
   assert.strictEqual(page.data.stage, 'login', '进入门户前必须卸载登录页认证弹层');
 
   scenario = 'recovery';

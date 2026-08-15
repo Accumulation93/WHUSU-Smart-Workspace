@@ -31,7 +31,7 @@ const authManagementJs = fs.readFileSync(path.join(root, 'miniprogram/subpackage
 const accountSecurityJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/org/pages/accountSecurity/accountSecurity.js'), 'utf8');
 const identityModel = fs.readFileSync(path.join(root, 'server/src/core/models/unifiedIdentity.js'), 'utf8');
 const hrProfileRoute = fs.readFileSync(path.join(root, 'server/src/core/routes/hrProfile.js'), 'utf8');
-const portalJs = fs.readFileSync(path.join(root, 'miniprogram/pages/portal/portal.js'), 'utf8');
+const portalJs = fs.readFileSync(path.join(root, 'miniprogram/subpackages/main/pages/portal/portal.js'), 'utf8');
 
 assert(
   /\.field-grid\s*\{[\s\S]*?display:\s*grid;[\s\S]*?repeat\(2,\s*minmax\(0,\s*1fr\)\)/.test(homeWxss),
