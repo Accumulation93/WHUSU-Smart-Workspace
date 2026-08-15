@@ -1,10 +1,10 @@
 <view class="page subapp-venue-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用 · 场地管理" tone="admin"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_02719d6557}}" tone="admin"></workspace-hero>
 
   <!-- Main Tabs -->
   <view class="empty-card" wx:if="{{!hasPermission}}">
-    <view class="empty-title">暂无场地管理权限</view>
-    <view class="empty-desc">请切换到有场地管理权限的身份</view>
+    <view class="empty-title">{{localeCopy.copy_bd8dff5ca7}}</view>
+    <view class="empty-desc">{{localeCopy.copy_0de5656de5}}</view>
   </view>
   <view class="tabs" wx:if="{{hasPermission}}">
     <view class="tab {{activeTab === item.key ? 'tab-active' : ''}} ui-motion-chip" wx:for="{{visibleTabs}}" wx:key="key" data-tab="{{item.key}}" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</view>
@@ -16,14 +16,14 @@
     <view class="list-card">
       <view class="panel-head">
         <view class="panel-title-group">
-          <view class="section-title">场地列表</view>
-          <view class="panel-note">维护场地资料、开放安排与审批方式</view>
+          <view class="section-title">{{localeCopy.copy_efffdc0050}}</view>
+          <view class="panel-note">{{localeCopy.copy_257b230e01}}</view>
         </view>
-        <button class="primary-btn panel-add-btn ui-motion-button" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增</button>
+        <button class="primary-btn panel-add-btn ui-motion-button" bindtap="startAdd" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_4fd7b5de41}}</button>
       </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-        <view class="empty-inline" wx:if="{{!loading && !venues.length}}">暂无场地</view>
+        <view class="empty-inline" wx:if="{{!loading && !venues.length}}">{{localeCopy.copy_5e9f82c1cf}}</view>
         <block wx:if="{{venues.length}}">
           <view class="list-item list-item-stacked" wx:for="{{venues}}" wx:key="id">
             <view class="list-main">
@@ -31,10 +31,10 @@
               <view class="list-desc" wx:if="{{item.location}}">{{item.location}}</view>
               <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
               <view class="inline-actions list-actions-below">
-                <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">规则</text>
-                <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">日程</text>
-                <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteVenue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+                <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f10a13b6e1}}</text>
+                <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</text>
+                <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteVenue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
               </view>
             </view>
           </view>
@@ -50,20 +50,20 @@
     <view class="popup-card venue-edit-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view>
-          <view class="popup-title">{{editId ? '编辑场地' : '新增场地'}}</view>
+          <view class="popup-title">{{editId ? localeCopy.copy_1ba7eec34e : localeCopy.copy_a78ce83cab}}</view>
         </view>
-        <text class="popup-close ui-motion-chip" catchtap="cancelEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="cancelEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll venue-edit-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="form-body ui-dialog-stack">
-          <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="场地名称"/></view>
-          <view class="field"><view class="field-label">地点</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="场地所在位置"/></view>
-          <view class="field"><view class="field-label">描述</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="场地描述"/></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{editName}}" data-field="editName" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8ed5dab532}}"/></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_b9966da09b}}</view><input class="field-input" value="{{editLocation}}" data-field="editLocation" bindinput="onFieldInput" placeholder="{{localeCopy.copy_2cae5f609b}}"/></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_25e1199dc3}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8516d4b714}}"/></view>
         </view>
       </scroll-view>
       <view class="venue-edit-actions">
-        <button class="secondary-btn ui-motion-button" catchtap="cancelEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="saveVenue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存场地</button>
+        <button class="secondary-btn ui-motion-button" catchtap="cancelEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="saveVenue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c701dd2fcc}}</button>
       </view>
     </view>
   </view>
@@ -74,49 +74,49 @@
     <view class="booking-panel">
       <view class="panel-head">
         <view class="panel-title-group">
-          <view class="section-title">借用管理</view>
-          <view class="panel-note">筛选借用记录并处理当前组织的审批事项</view>
+          <view class="section-title">{{localeCopy.copy_6f2d641ad8}}</view>
+          <view class="panel-note">{{localeCopy.copy_644b2a280c}}</view>
         </view>
       </view>
       <view class="card-loading-overlay" wx:if="{{bookingsLoading}}"><view class="card-loading-spinner"></view></view>
 
       <!-- Time filter row -->
       <view class="filter-section">
-        <view class="filter-label">时间范围</view>
+        <view class="filter-label">{{localeCopy.copy_c18d8cf657}}</view>
         <view class="time-filter-row">
           <picker mode="date" value="{{timeFrom}}" bindchange="onTimeFromChange">
-            <view class="time-pick">{{timeFromDisplay || '开始日期'}}</view>
+            <view class="time-pick">{{timeFromDisplay || localeCopy.copy_31b34bfc08}}</view>
           </picker>
-          <text class="time-to">至</text>
+          <text class="time-to">{{localeCopy.copy_e8d9493a44}}</text>
           <picker mode="date" value="{{timeTo}}" bindchange="onTimeToChange">
-            <view class="time-pick">{{timeToDisplay || '结束日期'}}</view>
+            <view class="time-pick">{{timeToDisplay || localeCopy.copy_9bec99c980}}</view>
           </picker>
-          <text class="filter-clear ui-motion-chip" wx:if="{{timeFrom || timeTo}}" bindtap="onClearTime" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+          <text class="filter-clear ui-motion-chip" wx:if="{{timeFrom || timeTo}}" bindtap="onClearTime" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</text>
         </view>
       </view>
 
       <!-- Status filter -->
       <view class="filter-section">
-        <view class="filter-label">状态</view>
+        <view class="filter-label">{{localeCopy.copy_8aee737e64}}</view>
         <scroll-view scroll-x class="filter-scroll">
           <view class="filter-row">
-            <text class="filter-chip {{filterStatus === '' ? 'active' : ''}} ui-motion-chip" data-status="" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部</text>
-            <text class="filter-chip {{filterStatus === 'pending' ? 'active' : ''}} ui-motion-chip" data-status="pending" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">待审核</text>
-            <text class="filter-chip {{filterStatus === 'approved' ? 'active' : ''}} ui-motion-chip" data-status="approved" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">已通过</text>
-            <text class="filter-chip {{filterStatus === 'inUse' ? 'active' : ''}} ui-motion-chip" data-status="inUse" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">使用中</text>
-            <text class="filter-chip {{filterStatus === 'completed' ? 'active' : ''}} ui-motion-chip" data-status="completed" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">已完成</text>
-            <text class="filter-chip {{filterStatus === 'rejected' ? 'active' : ''}} ui-motion-chip" data-status="rejected" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">已驳回</text>
-            <text class="filter-chip {{filterStatus === 'cancelled' ? 'active' : ''}} ui-motion-chip" data-status="cancelled" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">已取消</text>
+            <text class="filter-chip {{filterStatus === '' ? 'active' : ''}} ui-motion-chip" data-status="" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_835048fcaf}}</text>
+            <text class="filter-chip {{filterStatus === 'pending' ? 'active' : ''}} ui-motion-chip" data-status="pending" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_310d71700e}}</text>
+            <text class="filter-chip {{filterStatus === 'approved' ? 'active' : ''}} ui-motion-chip" data-status="approved" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_858ac5210a}}</text>
+            <text class="filter-chip {{filterStatus === 'inUse' ? 'active' : ''}} ui-motion-chip" data-status="inUse" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e168d7f67e}}</text>
+            <text class="filter-chip {{filterStatus === 'completed' ? 'active' : ''}} ui-motion-chip" data-status="completed" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_dc59906817}}</text>
+            <text class="filter-chip {{filterStatus === 'rejected' ? 'active' : ''}} ui-motion-chip" data-status="rejected" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b7adca39ec}}</text>
+            <text class="filter-chip {{filterStatus === 'cancelled' ? 'active' : ''}} ui-motion-chip" data-status="cancelled" bindtap="onFilterStatus" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6ba7eb982c}}</text>
           </view>
         </scroll-view>
       </view>
 
       <!-- Venue filter -->
       <view class="filter-section">
-        <view class="filter-label">场地</view>
+        <view class="filter-label">{{localeCopy.copy_bbbebc1abf}}</view>
         <scroll-view scroll-x class="filter-scroll">
           <view class="filter-row">
-            <text class="filter-chip {{filterVenueId === '' ? 'active' : ''}} ui-motion-chip" data-id="" bindtap="onFilterVenue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部</text>
+            <text class="filter-chip {{filterVenueId === '' ? 'active' : ''}} ui-motion-chip" data-id="" bindtap="onFilterVenue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_835048fcaf}}</text>
             <text class="filter-chip {{filterVenueId === item.id ? 'active' : ''}} ui-motion-chip" wx:for="{{venues}}" wx:key="id" data-id="{{item.id}}" bindtap="onFilterVenue" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.name}}</text>
           </view>
         </scroll-view>
@@ -124,20 +124,20 @@
 
       <!-- Booking list -->
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-        <view class="empty-inline" wx:if="{{!bookings.length}}">暂无借用记录</view>
+        <view class="empty-inline" wx:if="{{!bookings.length}}">{{localeCopy.copy_28981b382e}}</view>
         <view class="booking-item ui-motion-card" wx:for="{{bookings}}" wx:key="id" bindtap="viewBookingDetail" data-id="{{item.id}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="booking-item-head">
-            <view class="booking-item-title">{{item.title || '借用申请'}}</view>
+            <view class="booking-item-title">{{item.title || localeCopy.copy_9639901862}}</view>
             <text class="booking-status {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>
           </view>
           <view class="booking-item-meta">{{item.venueName}}<text wx:if="{{item.venueLocation}}"> · {{item.venueLocation}}</text></view>
-          <view class="booking-item-meta">{{item.creatorName || item.userName}} · {{item.creatorLabel || '用户申请'}}<text wx:if="{{item.userDept}}"> · {{item.userDept}}</text></view>
-          <view class="booking-item-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
+          <view class="booking-item-meta">{{item.creatorName || item.userName}} · {{item.creatorLabel || localeCopy.copy_8b191a40d9}}<text wx:if="{{item.userDept}}"> · {{item.userDept}}</text></view>
+          <view class="booking-item-meta">{{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
-          <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
+          <view class="booking-item-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>
           <view class="booking-actions" wx:if="{{canApproveVenue && item.status === 'pending' && item.userCanApprove}}">
-            <button class="primary-btn approve-btn ui-motion-button" data-id="{{item.id}}" catchtap="openApprovePopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</button>
-            <button class="danger-btn reject-btn ui-motion-button" data-id="{{item.id}}" catchtap="openRejectPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</button>
+            <button class="primary-btn approve-btn ui-motion-button" data-id="{{item.id}}" catchtap="openApprovePopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1bb7eb3e1a}}</button>
+            <button class="danger-btn reject-btn ui-motion-button" data-id="{{item.id}}" catchtap="openRejectPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</button>
           </view>
         </view>
       </scroll-view>
@@ -149,22 +149,22 @@
     <view class="edit-box">
       <view class="panel-head">
         <view class="panel-title-group">
-          <view class="section-title">借用事由管理</view>
-          <view class="panel-note">{{purposeEditId ? '正在编辑常用事由' : '维护用户可选的常用借用事由'}}</view>
+          <view class="section-title">{{localeCopy.copy_d37b64cc9d}}</view>
+          <view class="panel-note">{{purposeEditId ? localeCopy.copy_c7be2409d1 : localeCopy.copy_d4d4bfdeda}}</view>
         </view>
       </view>
       <view class="field">
-        <view class="field-label">事由内容</view>
-        <view class="input-row purpose-input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? '更新' : '添加'}}</button></view>
+        <view class="field-label">{{localeCopy.copy_a97eb08acb}}</view>
+        <view class="input-row purpose-input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/><button class="primary-btn purpose-save-btn ui-motion-button" bindtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
       </view>
-      <view wx:if="{{!purposes.length}}" class="empty-inline">暂无常用事由</view>
+      <view wx:if="{{!purposes.length}}" class="empty-inline">{{localeCopy.copy_b55eac70b1}}</view>
       <block wx:if="{{purposes.length}}">
         <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id">
           <view class="list-main">
             <view class="list-name">{{item.text}}</view>
             <view class="inline-actions list-actions-below">
-              <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-              <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+              <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+              <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
             </view>
           </view>
         </view>
@@ -177,75 +177,75 @@
   <view class="popup-mask ui-overlay" wx:if="{{rulesVisible}}" bindtap="closeRules">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">规则管理 · {{rulesVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_ea512602ff}} · {{rulesVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <view class="rules-tabs">
-        <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}} ui-motion-chip" data-tab="open" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">开放时间</view>
-        <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}} ui-motion-chip" data-tab="activity" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">活动时间</view>
-        <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用规则</view>
-        <view class="rules-tab {{rulesTab === 'bookingWindow' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="bookingWindow" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用时间</view>
+        <view class="rules-tab {{rulesTab === 'open' ? 'active' : ''}} ui-motion-chip" data-tab="open" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_caa70e7c13}}</view>
+        <view class="rules-tab {{rulesTab === 'activity' ? 'active' : ''}} ui-motion-chip" data-tab="activity" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_6980750e90}}</view>
+        <view class="rules-tab {{rulesTab === 'booking' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="booking" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_523e44b520}}</view>
+        <view class="rules-tab {{rulesTab === 'bookingWindow' ? 'active' : ''}} ui-motion-chip" wx:if="{{canApproveVenue}}" data-tab="bookingWindow" catchtap="switchRulesTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_91fd6d9600}}</view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <block wx:if="{{rulesTab === 'open'}}">
-          <button class="primary-btn rule-add-btn ui-motion-button" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增开放时间</button>
-          <view wx:if="{{!openRules.length}}" class="empty-inline">暂无开放时间规则。</view>
+          <button class="primary-btn rule-add-btn ui-motion-button" data-type="open" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_61960b0ff3}}</button>
+          <view wx:if="{{!openRules.length}}" class="empty-inline">{{localeCopy.copy_5e2a277742}}</view>
           <block wx:if="{{openRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{openRules}}" wx:key="id">
               <view class="list-main">
-                <view class="list-name">{{item.name || '开放时间'}}</view>
+                <view class="list-name">{{item.name || localeCopy.copy_6e6ee2b747}}</view>
                 <view class="list-desc">{{item._activitySummary || item._cycleLabel}}</view>
                 <view class="inline-actions list-actions-below">
-                  <text class="link ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                  <text class="link danger ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+                  <text class="link ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                  <text class="link danger ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>
           </block>
         </block>
         <block wx:if="{{rulesTab === 'activity'}}">
-          <button class="primary-btn rule-add-btn ui-motion-button" data-type="activity" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增活动</button>
-          <view wx:if="{{!activityRules.length}}" class="empty-inline">暂无活动规则。</view>
+          <button class="primary-btn rule-add-btn ui-motion-button" data-type="activity" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c38d25de0f}}</button>
+          <view wx:if="{{!activityRules.length}}" class="empty-inline">{{localeCopy.copy_06426d6c41}}</view>
           <block wx:if="{{activityRules.length}}">
             <view class="list-item list-item-stacked ui-motion-card" wx:for="{{activityRules}}" wx:key="id" data-id="{{item.id}}" bindtap="viewActivityRuleDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="list-main">
-                <view class="list-name">{{item.activity_name || '活动'}}</view>
+                <view class="list-name">{{item.activity_name || localeCopy.copy_acd4c5c171}}</view>
                 <view class="list-desc">{{item._cycleLabel}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
                 <view class="inline-actions list-actions-below">
-                  <text class="link ui-motion-chip" data-type="activity" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                  <text class="link danger ui-motion-chip" data-type="activity" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+                  <text class="link ui-motion-chip" data-type="activity" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                  <text class="link danger ui-motion-chip" data-type="activity" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>
           </block>
         </block>
         <block wx:if="{{rulesTab === 'booking'}}">
-          <button class="secondary-btn rule-add-btn ui-motion-button" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ 新增审批流程</button>
-          <view wx:if="{{!approvalFlows.length}}" class="empty-inline">暂无审批流程，可新增“用户审核”流程</view>
+          <button class="secondary-btn rule-add-btn ui-motion-button" catchtap="addApprovalFlow" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">+ {{localeCopy.copy_1aba371667}}</button>
+          <view wx:if="{{!approvalFlows.length}}" class="empty-inline">{{localeCopy.copy_76c76a4d37}}</view>
           <block wx:if="{{approvalFlows.length}}">
             <view class="list-item list-item-stacked flow-meta-card ui-motion-card" wx:for="{{approvalFlows}}" wx:key="id">
               <view class="list-main">
-                <view class="list-name">{{item.name || '场地审批流程'}}</view>
-                <view class="list-desc">{{item.steps.length}} 个审批步骤</view>
+                <view class="list-name">{{item.name || localeCopy.copy_890d7f4874}}</view>
+                <view class="list-desc">{{item.steps.length}} {{localeCopy.copy_310413445b}}</view>
                 <view class="flow-switch-row" catchtap="noop">
-                  <view class="flow-switch-item"><text class="flow-switch-label">用户可选流程</text><switch checked="{{item.allow_user_select === 1}}" data-id="{{item.id}}" data-field="allow_user_select" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
-                  <view class="flow-switch-item"><text class="flow-switch-label">指定审批人</text><switch checked="{{item.allow_designate_first === 1 || item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_6f806672e2}}</text><switch checked="{{item.allow_user_select === 1}}" data-id="{{item.id}}" data-field="allow_user_select" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
+                  <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_c70f4ff52a}}</text><switch checked="{{item.allow_designate_first === 1 || item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
                 </view>
               </view>
               <view class="inline-actions list-actions-below">
-                <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="openApprovalFlowStepEditor">编辑</text>
-                <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deleteApprovalFlow">删除</text>
+                <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="openApprovalFlowStepEditor">{{localeCopy.copy_e040ae3016}}</text>
+                <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deleteApprovalFlow">{{localeCopy.copy_acc985cabc}}</text>
               </view>
             </view>
           </block>
-          <button class="primary-btn rule-add-btn ui-motion-button" data-type="booking" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">新增借用规则</button>
-          <view wx:if="{{!bookingRules.length && !approvalFlow}}" class="empty-inline">暂无借用规则，由场地管理员处理</view>
+          <button class="primary-btn rule-add-btn ui-motion-button" data-type="booking" catchtap="openRuleEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c013e80e7c}}</button>
+          <view wx:if="{{!bookingRules.length && !approvalFlow}}" class="empty-inline">{{localeCopy.copy_62a9684fcb}}</view>
           <block wx:if="{{bookingRules.length}}">
             <view class="list-item list-item-stacked" wx:for="{{bookingRules}}" wx:key="id">
               <view class="list-main">
                 <view class="list-name">{{item._ruleTypeLabel}}</view>
-                <view wx:if="{{item.rule_type === 'flow' && item._flowSteps}}" class="list-desc">{{item._flowSteps}}步审批</view>
+                <view wx:if="{{item.rule_type === 'flow' && item._flowSteps}}" class="list-desc">{{item._flowSteps}}{{localeCopy.copy_f600823615}}</view>
                 <view class="inline-actions list-actions-below">
-                  <text class="link ui-motion-chip" data-type="booking" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                  <text class="link danger ui-motion-chip" data-type="booking" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+                  <text class="link ui-motion-chip" data-type="booking" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                  <text class="link danger ui-motion-chip" data-type="booking" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>
@@ -254,40 +254,40 @@
         <block wx:if="{{rulesTab === 'bookingWindow'}}">
           <view class="list-item list-item-stacked booking-setting-option">
             <view class="list-main">
-              <view class="list-name">提前开放借用</view>
-              <view class="list-desc">不设置表示不限制最早可以提前多久提交。</view>
-              <picker range="{{['不设置','按提前天数','按提前时长']}}" value="{{bookingWindowForm.open.mode === 'days' ? 1 : (bookingWindowForm.open.mode === 'duration' ? 2 : 0)}}" data-side="open" bindchange="onBookingWindowSettingMode">
-                <view class="picker-display">{{bookingWindowForm.open.mode === 'days' ? '按提前天数' : (bookingWindowForm.open.mode === 'duration' ? '按提前时长' : '不设置')}}</view>
+              <view class="list-name">{{localeCopy.copy_4c3db5642e}}</view>
+              <view class="list-desc">{{localeCopy.copy_797923e7ce}}</view>
+              <picker range="{{[localeCopy.copy_fe59d1afcd,localeCopy.copy_0bc4f8819b,localeCopy.copy_eaa89ea408]}}" value="{{bookingWindowForm.open.mode === 'days' ? 1 : (bookingWindowForm.open.mode === 'duration' ? 2 : 0)}}" data-side="open" bindchange="onBookingWindowSettingMode">
+                <view class="picker-display">{{bookingWindowForm.open.mode === 'days' ? localeCopy.copy_0bc4f8819b : (bookingWindowForm.open.mode === 'duration' ? localeCopy.copy_eaa89ea408 : localeCopy.copy_fe59d1afcd)}}</view>
               </picker>
               <view wx:if="{{bookingWindowForm.open.mode === 'days'}}" class="booking-window-value-row">
                 <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.open.days}}" data-side="open" bindinput="onBookingWindowSettingDays" placeholder="0" />
-                <text class="booking-window-unit">日</text>
+                <text class="booking-window-unit">{{localeCopy.copy_a957bd837e}}</text>
               </view>
               <view wx:if="{{bookingWindowForm.open.mode === 'duration'}}" class="booking-window-value-row">
-                <picker range="{{advanceHourOptions}}" value="{{bookingWindowForm.open.hours}}" data-side="open" bindchange="onBookingWindowSettingHours"><view class="picker-sm">{{bookingWindowForm.open.hours}}小时</view></picker>
-                <picker range="{{advanceMinuteOptions}}" value="{{bookingWindowForm.open.minutes}}" data-side="open" bindchange="onBookingWindowSettingMinutes"><view class="picker-sm">{{bookingWindowForm.open.minutes}}分</view></picker>
+                <picker range="{{advanceHourOptions}}" value="{{bookingWindowForm.open.hours}}" data-side="open" bindchange="onBookingWindowSettingHours"><view class="picker-sm">{{bookingWindowForm.open.hours}}{{localeCopy.copy_5f360abfe1}}</view></picker>
+                <picker range="{{advanceMinuteOptions}}" value="{{bookingWindowForm.open.minutes}}" data-side="open" bindchange="onBookingWindowSettingMinutes"><view class="picker-sm">{{bookingWindowForm.open.minutes}}{{localeCopy.copy_717083eab1}}</view></picker>
               </view>
             </view>
           </view>
           <view class="list-item list-item-stacked booking-setting-option">
             <view class="list-main">
-              <view class="list-name">提前截止借用</view>
-              <view class="list-desc">不设置表示只要借用开始时间晚于当前时间即可提交。</view>
-              <picker range="{{['不设置','按提前天数','按提前时长']}}" value="{{bookingWindowForm.deadline.mode === 'days' ? 1 : (bookingWindowForm.deadline.mode === 'duration' ? 2 : 0)}}" data-side="deadline" bindchange="onBookingWindowSettingMode">
-                <view class="picker-display">{{bookingWindowForm.deadline.mode === 'days' ? '按提前天数' : (bookingWindowForm.deadline.mode === 'duration' ? '按提前时长' : '不设置')}}</view>
+              <view class="list-name">{{localeCopy.copy_7e6312cdad}}</view>
+              <view class="list-desc">{{localeCopy.copy_bdfe30a344}}</view>
+              <picker range="{{[localeCopy.copy_fe59d1afcd,localeCopy.copy_0bc4f8819b,localeCopy.copy_eaa89ea408]}}" value="{{bookingWindowForm.deadline.mode === 'days' ? 1 : (bookingWindowForm.deadline.mode === 'duration' ? 2 : 0)}}" data-side="deadline" bindchange="onBookingWindowSettingMode">
+                <view class="picker-display">{{bookingWindowForm.deadline.mode === 'days' ? localeCopy.copy_0bc4f8819b : (bookingWindowForm.deadline.mode === 'duration' ? localeCopy.copy_eaa89ea408 : localeCopy.copy_fe59d1afcd)}}</view>
               </picker>
               <view wx:if="{{bookingWindowForm.deadline.mode === 'days'}}" class="booking-window-value-row">
                 <input class="field-input booking-window-number" type="number" value="{{bookingWindowForm.deadline.days}}" data-side="deadline" bindinput="onBookingWindowSettingDays" placeholder="0" />
-                <text class="booking-window-unit">日</text>
+                <text class="booking-window-unit">{{localeCopy.copy_a957bd837e}}</text>
               </view>
               <view wx:if="{{bookingWindowForm.deadline.mode === 'duration'}}" class="booking-window-value-row">
-                <picker range="{{advanceHourOptions}}" value="{{bookingWindowForm.deadline.hours}}" data-side="deadline" bindchange="onBookingWindowSettingHours"><view class="picker-sm">{{bookingWindowForm.deadline.hours}}小时</view></picker>
-                <picker range="{{advanceMinuteOptions}}" value="{{bookingWindowForm.deadline.minutes}}" data-side="deadline" bindchange="onBookingWindowSettingMinutes"><view class="picker-sm">{{bookingWindowForm.deadline.minutes}}分</view></picker>
+                <picker range="{{advanceHourOptions}}" value="{{bookingWindowForm.deadline.hours}}" data-side="deadline" bindchange="onBookingWindowSettingHours"><view class="picker-sm">{{bookingWindowForm.deadline.hours}}{{localeCopy.copy_5f360abfe1}}</view></picker>
+                <picker range="{{advanceMinuteOptions}}" value="{{bookingWindowForm.deadline.minutes}}" data-side="deadline" bindchange="onBookingWindowSettingMinutes"><view class="picker-sm">{{bookingWindowForm.deadline.minutes}}{{localeCopy.copy_717083eab1}}</view></picker>
               </view>
             </view>
           </view>
           <view class="button-row booking-setting-footer">
-            <button class="primary-btn ui-motion-button" catchtap="saveBookingWindowSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存借用时间</button>
+            <button class="primary-btn ui-motion-button" catchtap="saveBookingWindowSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ac9827b75d}}</button>
           </view>
         </block>
       </scroll-view>
@@ -303,117 +303,117 @@
       <view class="rule-editor-viewport-limit" aria-hidden="true"></view>
       <view class="popup-header rule-editor-popup-header ui-dialog-header">
         <view class="rule-editor-header-copy">
-          <view class="popup-title">{{ruleEditId ? '编辑' : '新增'}}{{ruleEditorType === 'open' ? '开放时间' : (ruleEditorType === 'activity' ? '活动' : '借用规则')}}</view>
-          <view wx:if="{{ruleEditorType === 'booking'}}" class="rule-editor-header-note">按步骤设置谁来审批</view>
+          <view class="popup-title">{{ruleEditId ? localeCopy.copy_20f94d2c18 : localeCopy.copy_766176221d}}{{ruleEditorType === 'open' ? localeCopy.copy_6e6ee2b747 : (ruleEditorType === 'activity' ? localeCopy.copy_acd4c5c171 : localeCopy.copy_a9a18dd6e8)}}</view>
+          <view wx:if="{{ruleEditorType === 'booking'}}" class="rule-editor-header-note">{{localeCopy.copy_9c9358d025}}</view>
         </view>
-        <text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closeRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-with-animation="{{true}}" scroll-into-view="{{ruleEditorScrollIntoView}}" style="{{ruleEditorScrollStyle}}" class="popup-scroll rule-editor-scroll ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y>
         <view class="form-body rule-editor-stack ui-dialog-stack">
           <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
-            <view class="field"><view class="field-label">名称</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? '如：工作日开放' : '如：例会'}}"/></view>
-            <view class="field"><view class="field-label">重复方式</view>
+            <view class="field"><view class="field-label">{{localeCopy.copy_70ae057f15}}</view><input class="field-input" value="{{ruleForm.name}}" data-field="name" bindinput="onRuleFormField" placeholder="{{ruleEditorType === 'open' ? localeCopy.copy_50b84a6406 : localeCopy.copy_57ce9ac750}}"/></view>
+            <view class="field"><view class="field-label">{{localeCopy.copy_5c507fbab7}}</view>
               <picker range="{{ruleEditorType === 'activity' ? activityCycleTypeOptions : openCycleTypeOptions}}" value="{{ruleForm._cycleTypeIndex}}" bindchange="onCycleTypeChange">
-                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? '每天' : (ruleForm.cycleType === 'weekly' ? '每周' : (ruleForm.cycleType === 'monthly' ? '每月' : (ruleForm.cycleType === 'yearly' ? '每年' : '日期范围')))}}</view></picker></view>
+                <view class="picker-display">{{ruleForm.cycleType === 'daily' ? localeCopy.copy_13293d504a : (ruleForm.cycleType === 'weekly' ? localeCopy.copy_1a6678cddf : (ruleForm.cycleType === 'monthly' ? localeCopy.copy_06a9527bac : (ruleForm.cycleType === 'yearly' ? localeCopy.copy_9084e6bc76 : localeCopy.copy_652116de6d)))}}</view></picker></view>
 
             <view wx:if="{{ruleForm.cycleType === 'weekly'}}" class="chip-section">
-              <view class="field-label">选择星期</view>
+              <view class="field-label">{{localeCopy.copy_8aeb2085ee}}</view>
               <view class="chip-row">
-                <text wx:for="{{['周一','周二','周三','周四','周五','周六','周日']}}" wx:key="*this"
+                <text wx:for="{{[localeCopy.copy_92af9d9017,localeCopy.copy_e3233a4b58,localeCopy.copy_2f48862253,localeCopy.copy_017e3df1a1,localeCopy.copy_41a9548e60,localeCopy.copy_f2c74088c9,localeCopy.copy_a814b25100]}}" wx:key="*this"
                       class="chip {{weeklyChecked[index] ? 'active' : ''}} ui-motion-chip" data-idx="{{index}}" catchtap="onToggleWeekDay" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item}}</text>
               </view>
             </view>
             <view wx:if="{{ruleForm.cycleType === 'monthly'}}" class="chip-section">
-              <view class="field-label">选择日期</view>
+              <view class="field-label">{{localeCopy.copy_8134da5aa0}}</view>
               <view class="chip-row small">
                 <text wx:for="{{31}}" wx:key="*this"
                       class="chip sm {{monthlyChecked[index] ? 'active' : ''}} ui-motion-chip" data-idx="{{index}}" catchtap="onToggleMonthDay" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{index + 1}}</text>
               </view>
             </view>
             <view wx:if="{{ruleForm.cycleType === 'yearly'}}" class="chip-section">
-              <view class="field-label">添加日期范围</view>
-              <view class="range-row"><text class="range-label">从</text>
-                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeStartMonth - 1}}" bindchange="onYearlyRangeStartMonthChange"><view class="picker-sm">{{yearlyRangeStartMonth}}月</view></picker>
-                <picker range="{{yearlyDays}}" value="{{yearlyRangeStartDay - 1}}" bindchange="onYearlyRangeStartDayChange"><view class="picker-sm">{{yearlyRangeStartDay}}日</view></picker>
+              <view class="field-label">{{localeCopy.copy_28ed0d6bf2}}</view>
+              <view class="range-row"><text class="range-label">{{localeCopy.copy_1ede7526e5}}</text>
+                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeStartMonth - 1}}" bindchange="onYearlyRangeStartMonthChange"><view class="picker-sm">{{yearlyRangeStartMonth}}{{localeCopy.copy_c1392f7fda}}</view></picker>
+                <picker range="{{yearlyDays}}" value="{{yearlyRangeStartDay - 1}}" bindchange="onYearlyRangeStartDayChange"><view class="picker-sm">{{yearlyRangeStartDay}}{{localeCopy.copy_a957bd837e}}</view></picker>
               </view>
-              <view class="range-row"><text class="range-label">到</text>
-                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeEndMonth - 1}}" bindchange="onYearlyRangeEndMonthChange"><view class="picker-sm">{{yearlyRangeEndMonth}}月</view></picker>
-                <picker range="{{yearlyDays}}" value="{{yearlyRangeEndDay - 1}}" bindchange="onYearlyRangeEndDayChange"><view class="picker-sm">{{yearlyRangeEndDay}}日</view></picker>
-                <text class="add-range-btn ui-motion-chip" catchtap="onAddYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加</text>
+              <view class="range-row"><text class="range-label">{{localeCopy.copy_d862a02c58}}</text>
+                <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeEndMonth - 1}}" bindchange="onYearlyRangeEndMonthChange"><view class="picker-sm">{{yearlyRangeEndMonth}}{{localeCopy.copy_c1392f7fda}}</view></picker>
+                <picker range="{{yearlyDays}}" value="{{yearlyRangeEndDay - 1}}" bindchange="onYearlyRangeEndDayChange"><view class="picker-sm">{{yearlyRangeEndDay}}{{localeCopy.copy_a957bd837e}}</view></picker>
+                <text class="add-range-btn ui-motion-chip" catchtap="onAddYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}}</text>
               </view>
               <view wx:if="{{ruleEditorType === 'activity' ? ruleForm.cycleValues.values.length : ruleForm.cycleValues.length}}" class="chip-row">
-                <view wx:for="{{ruleEditorType === 'activity' ? ruleForm.cycleValues.values : ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip"><text>{{cv.m}}月{{cv.dStart}}日 - {{cv.dEnd}}日</text><text class="year-chip-remove ui-motion-chip" data-idx="{{index}}" catchtap="onRemoveYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">x</text></view>
+                <view wx:for="{{ruleEditorType === 'activity' ? ruleForm.cycleValues.values : ruleForm.cycleValues}}" wx:key="*this" wx:for-item="cv" class="year-chip"><text>{{cv.m}}{{localeCopy.copy_c1392f7fda}}{{cv.dStart}}{{localeCopy.copy_a957bd837e}} - {{cv.dEnd}}{{localeCopy.copy_a957bd837e}}</text><text class="year-chip-remove ui-motion-chip" data-idx="{{index}}" catchtap="onRemoveYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">x</text></view>
               </view>
-              <view wx:else class="field-hint">暂未添加日期范围</view>
+              <view wx:else class="field-hint">{{localeCopy.copy_a7c33c8fee}}</view>
             </view>
 
             <!-- Range type: date range picker -->
             <view wx:if="{{ruleForm.cycleType === 'range'}}" class="field">
-              <view class="field-label">日期范围</view>
+              <view class="field-label">{{localeCopy.copy_4d7c82caea}}</view>
               <view class="range-row">
-                <text class="range-label">从</text>
+                <text class="range-label">{{localeCopy.copy_1ede7526e5}}</text>
                 <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" bindchange="onRangeStartDateChange">
-                  <view class="picker-display {{ruleForm.cycleValues.startDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.startDate || '开始日期'}}</view>
+                  <view class="picker-display {{ruleForm.cycleValues.startDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.startDate || localeCopy.copy_31b34bfc08}}</view>
                 </picker>
               </view>
               <view class="range-row">
-                <text class="range-label">到</text>
+                <text class="range-label">{{localeCopy.copy_d862a02c58}}</text>
                 <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" bindchange="onRangeEndDateChange">
-                  <view class="picker-display {{ruleForm.cycleValues.endDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.endDate || '结束日期'}}</view>
+                  <view class="picker-display {{ruleForm.cycleValues.endDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.endDate || localeCopy.copy_9bec99c980}}</view>
                 </picker>
               </view>
             </view>
 
             <block wx:if="{{ruleEditorType === 'activity'}}">
               <view class="field activity-period-mode-field">
-                <view class="field-label">周期限制方式（可选，二选一）</view>
+                <view class="field-label">{{localeCopy.copy_c40bf9d8f0}}</view>
                 <view class="activity-period-mode-list">
                   <view class="activity-period-mode-option {{ruleForm.cycleValues.periodMode === 'range' ? 'active' : ''}} ui-motion-chip" data-mode="range" catchtap="onActivityPeriodModeTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                     <view class="activity-period-check">{{ruleForm.cycleValues.periodMode === 'range' ? '✓' : ''}}</view>
-                    <view class="activity-period-mode-copy"><text class="activity-period-mode-title">按生效时间范围</text><text class="activity-period-mode-note">设置周期开始与结束时间</text></view>
+                    <view class="activity-period-mode-copy"><text class="activity-period-mode-title">{{localeCopy.copy_ebc28de1cf}}</text><text class="activity-period-mode-note">{{localeCopy.copy_4584f01925}}</text></view>
                   </view>
                   <view class="activity-period-mode-option {{ruleForm.cycleValues.periodMode === 'count' ? 'active' : ''}} ui-motion-chip" data-mode="count" catchtap="onActivityPeriodModeTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                     <view class="activity-period-check">{{ruleForm.cycleValues.periodMode === 'count' ? '✓' : ''}}</view>
-                    <view class="activity-period-mode-copy"><text class="activity-period-mode-title">按重复次数</text><text class="activity-period-mode-note">从指定开始时间起重复若干次</text></view>
+                    <view class="activity-period-mode-copy"><text class="activity-period-mode-title">{{localeCopy.copy_6cf453f19a}}</text><text class="activity-period-mode-note">{{localeCopy.copy_630a85182f}}</text></view>
                   </view>
                 </view>
-                <view class="field-hint">不勾选表示按所选周期持续生效；两种限制方式只能选一种。</view>
+                <view class="field-hint">{{localeCopy.copy_0619714b64}}</view>
               </view>
               <block wx:if="{{ruleForm.cycleValues.periodMode === 'range' || ruleForm.cycleValues.periodMode === 'count'}}">
                 <view class="field activity-datetime-field">
-                  <view class="field-label">周期生效开始</view>
+                  <view class="field-label">{{localeCopy.copy_2c3fe5c873}}</view>
                   <view class="range-row">
-                    <picker mode="date" value="{{ruleForm.cycleValues.periodStartDate}}" data-field="periodStartDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodStartDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodStartDate || '开始日期'}}</view></picker>
-                    <picker mode="time" value="{{ruleForm.cycleValues.periodStartTime}}" data-field="periodStartTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodStartTime || '开始时间'}}</view></picker>
+                    <picker mode="date" value="{{ruleForm.cycleValues.periodStartDate}}" data-field="periodStartDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodStartDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodStartDate || localeCopy.copy_31b34bfc08}}</view></picker>
+                    <picker mode="time" value="{{ruleForm.cycleValues.periodStartTime}}" data-field="periodStartTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodStartTime || localeCopy.copy_2b4cce7bb9}}</view></picker>
                   </view>
                 </view>
               </block>
               <block wx:if="{{ruleForm.cycleValues.periodMode === 'range'}}">
                 <view class="field activity-datetime-field">
-                  <view class="field-label">周期生效结束</view>
+                  <view class="field-label">{{localeCopy.copy_cd44fc09e3}}</view>
                   <view class="range-row">
-                    <picker mode="date" value="{{ruleForm.cycleValues.periodEndDate}}" data-field="periodEndDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodEndDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodEndDate || '结束日期'}}</view></picker>
-                    <picker mode="time" value="{{ruleForm.cycleValues.periodEndTime}}" data-field="periodEndTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodEndTime || '结束时间'}}</view></picker>
+                    <picker mode="date" value="{{ruleForm.cycleValues.periodEndDate}}" data-field="periodEndDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodEndDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodEndDate || localeCopy.copy_9bec99c980}}</view></picker>
+                    <picker mode="time" value="{{ruleForm.cycleValues.periodEndTime}}" data-field="periodEndTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodEndTime || localeCopy.copy_4aaadf87a1}}</view></picker>
                   </view>
                 </view>
               </block>
               <block wx:if="{{ruleForm.cycleValues.periodMode === 'count'}}">
-                <view class="field"><view class="field-label">周期重复次数</view>
-                  <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount || ''}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="请输入重复次数" />
-                  <view class="field-hint">从周期生效开始日期起，按所选周期重复。</view>
+                <view class="field"><view class="field-label">{{localeCopy.copy_eb5f7de0a2}}</view>
+                  <input class="field-input" type="number" value="{{ruleForm.cycleValues.repeatCount || ''}}" data-field="repeatCount" bindinput="onActivityRepeatField" placeholder="{{localeCopy.copy_bc3fac7db2}}" />
+                  <view class="field-hint">{{localeCopy.copy_915ca9ad86}}</view>
                 </view>
               </block>
             </block>
 
             <block wx:if="{{ruleEditorType === 'open' || ruleEditorType === 'activity'}}">
-              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? '每次开始时间' : '开始时间'}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
-              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? '每次结束时间' : '结束时间'}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_ab2fdb5e0e : localeCopy.copy_2b4cce7bb9}}</view><input class="field-input" value="{{ruleForm.timeStart}}" data-field="timeStart" bindinput="onRuleFormField" placeholder="09:00"/></view>
+              <view class="field"><view class="field-label">{{ruleEditorType === 'activity' ? localeCopy.copy_0b739125af : localeCopy.copy_4aaadf87a1}}</view><input class="field-input" value="{{ruleForm.timeEnd}}" data-field="timeEnd" bindinput="onRuleFormField" placeholder="18:00"/></view>
             </block>
           </block>
           <block wx:if="{{ruleEditorType === 'booking'}}">
-            <view class="field"><view class="field-label">审批类型</view>
-              <picker range="{{['管理员审核','用户审核','直接通过']}}" value="{{ruleForm.ruleType === 'direct' ? 2 : (ruleForm.ruleType === 'flow' ? 1 : 0)}}" bindchange="onBookingRuleTypeChange">
-                <view class="picker-display">{{ruleForm.ruleType === 'direct' ? '直接通过' : (ruleForm.ruleType === 'flow' ? '用户分步审核' : '管理员审核')}}</view></picker></view>
+            <view class="field"><view class="field-label">{{localeCopy.copy_c5ec30e07d}}</view>
+              <picker range="{{[localeCopy.copy_af20193574,localeCopy.copy_23f77c8074,localeCopy.copy_4f15bb9939]}}" value="{{ruleForm.ruleType === 'direct' ? 2 : (ruleForm.ruleType === 'flow' ? 1 : 0)}}" bindchange="onBookingRuleTypeChange">
+                <view class="picker-display">{{ruleForm.ruleType === 'direct' ? localeCopy.copy_4f15bb9939 : (ruleForm.ruleType === 'flow' ? localeCopy.copy_02202fc2dc : localeCopy.copy_af20193574)}}</view></picker></view>
 
             <!-- Flow editor — only shown when 用户审核 is selected -->
             <block wx:if="{{ruleForm.ruleType === 'flow'}}">
@@ -422,24 +422,24 @@
               <view wx:if="{{ruleForm._flowSteps && ruleForm._flowSteps.length}}" class="flow-step-list">
                 <view class="flow-step-card flow-step-card--editor" wx:for="{{ruleForm._flowSteps}}" wx:key="index" wx:for-index="si">
                   <view class="flow-step-head">
-                    <view class="flow-step-badge">第{{si + 1}}步</view>
-                    <view class="flow-step-name">{{item.name || '未命名'}}</view>
+                    <view class="flow-step-badge">{{localeCopy.copy_ef8b7ffa9b}}{{si + 1}}{{localeCopy.copy_9e545997b0}}</view>
+                    <view class="flow-step-name">{{item.name || localeCopy.copy_ef53c6fd58}}</view>
                     <view class="flow-step-actions">
-                      <text class="link sm ui-motion-chip" wx:if="{{si > 0}}" data-idx="{{si}}" catchtap="moveRuleFlowStepUp" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">上移</text>
-                      <text class="link sm ui-motion-chip" wx:if="{{si < ruleForm._flowSteps.length - 1}}" data-idx="{{si}}" catchtap="moveRuleFlowStepDown" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">下移</text>
-                      <text class="link ui-motion-chip" data-idx="{{si}}" catchtap="editRuleFlowStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                      <text class="link danger ui-motion-chip" data-idx="{{si}}" catchtap="removeRuleFlowStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+                      <text class="link sm ui-motion-chip" wx:if="{{si > 0}}" data-idx="{{si}}" catchtap="moveRuleFlowStepUp" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_79b93c0b36}}</text>
+                      <text class="link sm ui-motion-chip" wx:if="{{si < ruleForm._flowSteps.length - 1}}" data-idx="{{si}}" catchtap="moveRuleFlowStepDown" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7df1ffb06a}}</text>
+                      <text class="link ui-motion-chip" data-idx="{{si}}" catchtap="editRuleFlowStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                      <text class="link danger ui-motion-chip" data-idx="{{si}}" catchtap="removeRuleFlowStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                     </view>
                   </view>
                   <view class="flow-step-rules-summary">
-                    <text wx:if="{{item.approvalMode === 'admin_any' || !item.rules || !item.rules.length}}" class="flow-step-admin-note">任一管理员审批</text>
+                    <text wx:if="{{item.approvalMode === 'admin_any' || !item.rules || !item.rules.length}}" class="flow-step-admin-note">{{localeCopy.copy_b856d92ba6}}</text>
                     <block wx:else>
                       <view class="flow-condition-preview" wx:for="{{item.rules}}" wx:key="index" wx:for-item="rule">
-                        <view class="flow-condition-preview-label">满足任一条件</view>
+                        <view class="flow-condition-preview-label">{{localeCopy.copy_96aab98a23}}</view>
                         <view class="flow-condition-preview-values">
-                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">部门</text><text class="flow-condition-preview-value">{{rule._departmentValue}}</text></view>
-                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">职能组</text><text class="flow-condition-preview-value">{{rule._workGroupValue}}</text></view>
-                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">身份</text><text class="flow-condition-preview-value">{{rule._identityValue}}</text></view>
+                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">{{localeCopy.copy_02419589be}}</text><text class="flow-condition-preview-value">{{rule._departmentValue}}</text></view>
+                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">{{localeCopy.copy_303b7a8611}}</text><text class="flow-condition-preview-value">{{rule._workGroupValue}}</text></view>
+                          <view class="flow-condition-preview-field"><text class="flow-condition-preview-key">{{localeCopy.copy_c1965e0690}}</text><text class="flow-condition-preview-value">{{rule._identityValue}}</text></view>
                           </view>
                       </view>
                     </block>
@@ -447,40 +447,40 @@
                 </view>
               </view>
 
-              <button class="secondary-btn sm flow-add-step-btn ui-motion-button" catchtap="openAddRuleFlowStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ 添加审批步骤</button>
+              <button class="secondary-btn sm flow-add-step-btn ui-motion-button" catchtap="openAddRuleFlowStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ {{localeCopy.copy_7963fb24a5}}</button>
 
               <!-- Inline step+rule editor (within the rule editor!) -->
               <block wx:if="{{ruleForm._editingStepIdx !== null && ruleForm._editingConditionIdx === null}}">
                 <view id="rule-flow-step-editor" class="rule-edit-box rule-edit-box--step ui-dialog-section">
-                  <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingStepIdx >= 0 ? '编辑步骤' : '新增步骤'}}</view><text class="rule-editor-section-note">步骤名称和审批条件</text></view>
+                  <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingStepIdx >= 0 ? localeCopy.copy_16fc906860 : localeCopy.copy_904f6072c4}}</view><text class="rule-editor-section-note">{{localeCopy.copy_391bf52121}}</text></view>
                   <view class="field">
-                    <view class="field-label">步骤名称</view>
-                    <input class="field-input" value="{{ruleForm._editingStepName}}" data-field="_editingStepName" bindinput="onRuleFlowSubField" placeholder="如：部门负责人审批"/>
+                    <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
+                    <input class="field-input" value="{{ruleForm._editingStepName}}" data-field="_editingStepName" bindinput="onRuleFlowSubField" placeholder="{{localeCopy.copy_ac4d7a45e0}}"/>
                   </view>
                   <view class="field">
-                    <view class="field-label">审批规则</view>
+                    <view class="field-label">{{localeCopy.copy_97d10704ef}}</view>
                     <view wx:if="{{ruleForm._editingStepRules && ruleForm._editingStepRules.length}}">
                       <view class="flow-rule-card" wx:for="{{ruleForm._editingStepRules}}" wx:key="index" wx:for-index="ri">
                         <view class="flow-rule-summary">
-                          <view class="flow-rule-card-label">审批对象条件</view>
+                          <view class="flow-rule-card-label">{{localeCopy.copy_7de8083e58}}</view>
                           <view class="flow-rule-card-lines">
-                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">部门</text><text class="flow-rule-card-value">{{item._departmentValue}}</text></view>
-                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">职能组</text><text class="flow-rule-card-value">{{item._workGroupValue}}</text></view>
-                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">身份</text><text class="flow-rule-card-value">{{item._identityValue}}</text></view>
+                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_02419589be}}</text><text class="flow-rule-card-value">{{item._departmentValue}}</text></view>
+                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_303b7a8611}}</text><text class="flow-rule-card-value">{{item._workGroupValue}}</text></view>
+                            <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_c1965e0690}}</text><text class="flow-rule-card-value">{{item._identityValue}}</text></view>
                           </view>
                         </view>
                         <view class="inline-actions">
-                           <text class="link ui-motion-chip" data-idx="{{ri}}" catchtap="editRuleFlowCondition" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                           <text class="link danger ui-motion-chip" data-idx="{{ri}}" catchtap="removeRuleFlowCondition" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+                           <text class="link ui-motion-chip" data-idx="{{ri}}" catchtap="editRuleFlowCondition" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                           <text class="link danger ui-motion-chip" data-idx="{{ri}}" catchtap="removeRuleFlowCondition" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                         </view>
                       </view>
                     </view>
-                    <view wx:else class="field-hint">暂未添加规则</view>
-                    <button class="secondary-btn sm flow-add-rule-btn ui-motion-button" catchtap="openAddRuleFlowCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ 添加规则</button>
+                    <view wx:else class="field-hint">{{localeCopy.copy_7ae01e1929}}</view>
+                    <button class="secondary-btn sm flow-add-rule-btn ui-motion-button" catchtap="openAddRuleFlowCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">+ {{localeCopy.copy_e36c6c6875}}</button>
                   </view>
                   <view class="button-row">
-                    <button class="secondary-btn ui-motion-button" catchtap="cancelRuleFlowStepEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-                    <button class="primary-btn ui-motion-button" catchtap="saveRuleFlowStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存步骤</button>
+                    <button class="secondary-btn ui-motion-button" catchtap="cancelRuleFlowStepEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+                    <button class="primary-btn ui-motion-button" catchtap="saveRuleFlowStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2fda3d6579}}</button>
                   </view>
                 </view>
               </block>
@@ -488,47 +488,47 @@
               <!-- Inline rule condition editor (within step editor) -->
               <block wx:if="{{ruleForm._editingConditionIdx !== null}}">
                 <view id="rule-flow-condition-editor" class="rule-edit-box rule-edit-box--condition ui-dialog-section">
-                  <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingConditionIdx >= 0 ? '编辑规则' : '新增规则'}}</view><text class="rule-editor-section-note">{{ruleForm._editingStepName || '当前审批步骤'}}</text></view>
+                  <view class="rule-editor-section-head"><view class="section-title-sm">{{ruleForm._editingConditionIdx >= 0 ? localeCopy.copy_49c0b6fb34 : localeCopy.copy_64af7c9964}}</view><text class="rule-editor-section-note">{{ruleForm._editingStepName || localeCopy.copy_c3aaf70869}}</text></view>
 
                   <view class="flow-rule-detail">
-                    <view class="flow-rule-detail-title">当前审批对象</view>
+                    <view class="flow-rule-detail-title">{{localeCopy.copy_faae685bfa}}</view>
                     <view class="flow-rule-card-lines">
-                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">部门</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._departmentValue}}</text></view>
-                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">职能组</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._workGroupValue}}</text></view>
-                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">身份</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._identityValue}}</text></view>
+                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_02419589be}}</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._departmentValue}}</text></view>
+                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_303b7a8611}}</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._workGroupValue}}</text></view>
+                      <view class="flow-rule-card-line"><text class="flow-rule-card-key">{{localeCopy.copy_c1965e0690}}</text><text class="flow-rule-card-value">{{ruleForm._editingCondition._identityValue}}</text></view>
                     </view>
                   </view>
 
                   <view class="rule-condition-list">
                     <view class="condition-option-row">
-                      <view class="condition-option-copy"><view class="condition-option-title">部门</view><view class="condition-option-hint">限定审批人的部门范围</view></view>
-                      <picker range="{{['全部','同部门','指定部门']}}" value="{{ruleForm._editingCondition.deptScope === 'specific' ? 2 : (ruleForm._editingCondition.deptScope === 'same' ? 1 : 0)}}" bindchange="onCondDeptScope"><view class="condition-option-picker">{{ruleForm._editingCondition.deptScope === 'specific' ? '指定部门' : (ruleForm._editingCondition.deptScope === 'same' ? '申请人同部门' : '不限')}}</view></picker>
+                      <view class="condition-option-copy"><view class="condition-option-title">{{localeCopy.copy_02419589be}}</view><view class="condition-option-hint">{{localeCopy.copy_1557dfea5c}}</view></view>
+                      <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_37ad645951,localeCopy.copy_b3604f443f]}}" value="{{ruleForm._editingCondition.deptScope === 'specific' ? 2 : (ruleForm._editingCondition.deptScope === 'same' ? 1 : 0)}}" bindchange="onCondDeptScope"><view class="condition-option-picker">{{ruleForm._editingCondition.deptScope === 'specific' ? localeCopy.copy_b3604f443f : (ruleForm._editingCondition.deptScope === 'same' ? localeCopy.copy_bb2dcb8a98 : localeCopy.copy_62676bc383)}}</view></picker>
                     </view>
                     <view class="condition-selected-row" wx:if="{{ruleForm._editingCondition.deptScope === 'specific'}}">
-                      <view class="picker-value ui-motion-chip" data-target="dept" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._deptNames || '点击选择部门'}}</view>
-                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._deptNames}}" catchtap="onCondFieldClear" data-field="dept" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                      <view class="picker-value ui-motion-chip" data-target="dept" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._deptNames || localeCopy.copy_42c145fb7a}}</view>
+                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._deptNames}}" catchtap="onCondFieldClear" data-field="dept" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</text>
                     </view>
                     <view class="condition-option-row">
-                      <view class="condition-option-copy"><view class="condition-option-title">职能组</view><view class="condition-option-hint">限定审批人的职能分组</view></view>
-                      <picker range="{{['全部','同职能组','指定职能组']}}" value="{{ruleForm._editingCondition.wgScope === 'specific' ? 2 : (ruleForm._editingCondition.wgScope === 'same' ? 1 : 0)}}" bindchange="onCondWgScope"><view class="condition-option-picker">{{ruleForm._editingCondition.wgScope === 'specific' ? '指定职能组' : (ruleForm._editingCondition.wgScope === 'same' ? '申请人同职能组' : '不限')}}</view></picker>
+                      <view class="condition-option-copy"><view class="condition-option-title">{{localeCopy.copy_303b7a8611}}</view><view class="condition-option-hint">{{localeCopy.copy_89a1221d70}}</view></view>
+                      <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_2c67faf1c7,localeCopy.copy_258347beac]}}" value="{{ruleForm._editingCondition.wgScope === 'specific' ? 2 : (ruleForm._editingCondition.wgScope === 'same' ? 1 : 0)}}" bindchange="onCondWgScope"><view class="condition-option-picker">{{ruleForm._editingCondition.wgScope === 'specific' ? localeCopy.copy_258347beac : (ruleForm._editingCondition.wgScope === 'same' ? localeCopy.copy_9384e056f9 : localeCopy.copy_62676bc383)}}</view></picker>
                     </view>
                     <view class="condition-selected-row" wx:if="{{ruleForm._editingCondition.wgScope === 'specific'}}">
-                      <view class="picker-value ui-motion-chip" data-target="wg" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._wgNames || '点击选择职能组'}}</view>
-                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._wgNames}}" catchtap="onCondFieldClear" data-field="wg" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                      <view class="picker-value ui-motion-chip" data-target="wg" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._wgNames || localeCopy.copy_e5b5701d94}}</view>
+                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._wgNames}}" catchtap="onCondFieldClear" data-field="wg" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</text>
                     </view>
                     <view class="condition-option-row">
-                      <view class="condition-option-copy"><view class="condition-option-title">身份</view><view class="condition-option-hint">限定审批人的身份范围</view></view>
-                      <picker range="{{['全部','同身份','指定身份']}}" value="{{ruleForm._editingCondition.identScope === 'specific' ? 2 : (ruleForm._editingCondition.identScope === 'same' ? 1 : 0)}}" bindchange="onCondIdentScope"><view class="condition-option-picker">{{ruleForm._editingCondition.identScope === 'specific' ? '指定身份' : (ruleForm._editingCondition.identScope === 'same' ? '申请人同身份' : '不限')}}</view></picker>
+                      <view class="condition-option-copy"><view class="condition-option-title">{{localeCopy.copy_c1965e0690}}</view><view class="condition-option-hint">{{localeCopy.copy_af50edfca3}}</view></view>
+                      <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_c84650778a,localeCopy.copy_640342a015]}}" value="{{ruleForm._editingCondition.identScope === 'specific' ? 2 : (ruleForm._editingCondition.identScope === 'same' ? 1 : 0)}}" bindchange="onCondIdentScope"><view class="condition-option-picker">{{ruleForm._editingCondition.identScope === 'specific' ? localeCopy.copy_640342a015 : (ruleForm._editingCondition.identScope === 'same' ? localeCopy.copy_1deb0dba7e : localeCopy.copy_62676bc383)}}</view></picker>
                     </view>
                     <view class="condition-selected-row" wx:if="{{ruleForm._editingCondition.identScope === 'specific'}}">
-                      <view class="picker-value ui-motion-chip" data-target="ident" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._identNames || '点击选择身份'}}</view>
-                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._identNames}}" catchtap="onCondFieldClear" data-field="ident" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</text>
+                      <view class="picker-value ui-motion-chip" data-target="ident" catchtap="openCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{ruleForm._editingCondition._identNames || localeCopy.copy_0cedad90e4}}</view>
+                      <text class="link danger-clear-link ui-motion-chip" wx:if="{{ruleForm._editingCondition._identNames}}" catchtap="onCondFieldClear" data-field="ident" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</text>
                     </view>
                   </view>
 
                   <view class="button-row">
-                    <button class="secondary-btn ui-motion-button" catchtap="cancelRuleFlowCondEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-                    <button class="primary-btn ui-motion-button" catchtap="saveRuleFlowCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存规则</button>
+                    <button class="secondary-btn ui-motion-button" catchtap="cancelRuleFlowCondEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+                    <button class="primary-btn ui-motion-button" catchtap="saveRuleFlowCondition" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f7597cecf5}}</button>
                   </view>
                 </view>
               </block>
@@ -536,7 +536,7 @@
           </block>
         </view>
       </scroll-view>
-      <view class="rule-save-bar rule-editor-popup-footer ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="saveRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存规则</button></view>
+      <view class="rule-save-bar rule-editor-popup-footer ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="saveRule" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f7597cecf5}}</button></view>
     </view>
   </view>
   </viewport-portal>
@@ -546,16 +546,16 @@
   <view class="popup-mask ui-overlay" wx:if="{{scheduleVisible}}" bindtap="closeVenueSchedule">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}}</view><text class="popup-close ui-motion-chip" catchtap="closeVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <view class="schedule-nav">
         <text class="nav-arrow ui-motion-card" catchtap="onTimetablePrevWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'‹'}}</text>
-        <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
+        <text class="nav-label">{{scheduleWeekStart}} {{localeCopy.copy_59799547cb}}</text>
         <text class="nav-arrow ui-motion-card" catchtap="onTimetableNextWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'›'}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-dialog-content ui-dialog-content--workspace ui-dialog-scroll--both ui-data-grid--specialized" bindscroll="onTimetableScroll">
         <view class="timetable-body">
           <view class="tt-time-col">
-            <view class="tt-time-header">时间</view>
+            <view class="tt-time-header">{{localeCopy.copy_4202a27ca6}}</view>
             <view class="tt-time-label" wx:for="{{timetableHours}}" wx:key="*this">{{item}}</view>
           </view>
           <view class="tt-col-scroll">
@@ -573,11 +573,11 @@
         </view>
       </scroll-view>
       <view class="tt-legend">
-        <view class="tt-leg-item"><view class="tt-dot open"></view>空闲</view>
-        <view class="tt-leg-item"><view class="tt-dot booked"></view>已借用</view>
-        <view class="tt-leg-item"><view class="tt-dot pending"></view>待审核</view>
-        <view class="tt-leg-item"><view class="tt-dot activity"></view>活动</view>
-        <view class="tt-leg-item"><view class="tt-dot closed"></view>未开放</view>
+        <view class="tt-leg-item"><view class="tt-dot open"></view>{{localeCopy.copy_eb3a2a30a8}}</view>
+        <view class="tt-leg-item"><view class="tt-dot booked"></view>{{localeCopy.copy_1c5bbf664c}}</view>
+        <view class="tt-leg-item"><view class="tt-dot pending"></view>{{localeCopy.copy_310d71700e}}</view>
+        <view class="tt-leg-item"><view class="tt-dot activity"></view>{{localeCopy.copy_49eedaa56d}}</view>
+        <view class="tt-leg-item"><view class="tt-dot closed"></view>{{localeCopy.copy_6a72419c84}}</view>
       </view>
     </view>
   </view>
@@ -588,13 +588,13 @@
   <view class="popup-mask ui-overlay" wx:if="{{occupiedPopupVisible}}" bindtap="closeOccupiedPopup">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">已占用</view><text class="popup-close ui-motion-chip" catchtap="closeOccupiedPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_a1f843d887}}</view><text class="popup-close ui-motion-chip" catchtap="closeOccupiedPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <view class="ui-dialog-compact-content">
-        <view class="detail-row" wx:if="{{occupiedPopupTime}}"><text class="detail-key">占用时段</text><text class="detail-val">{{occupiedPopupTime}}</text></view>
-        <view class="detail-row"><text class="detail-val">该时段已被其他组织占用，请选择其他时段</text></view>
+        <view class="detail-row" wx:if="{{occupiedPopupTime}}"><text class="detail-key">{{localeCopy.copy_789e05b4e1}}</text><text class="detail-val">{{occupiedPopupTime}}</text></view>
+        <view class="detail-row"><text class="detail-val">{{localeCopy.copy_c46b04a9c5}}</text></view>
       </view>
       <view class="button-row ui-dialog-footer">
-        <button class="primary-btn ui-motion-button" catchtap="closeOccupiedPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button>
+        <button class="primary-btn ui-motion-button" catchtap="closeOccupiedPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e75039f02b}}</button>
       </view>
     </view>
   </view>
@@ -605,18 +605,18 @@
   <view class="popup-mask ui-overlay" wx:if="{{activityDetailVisible}}" bindtap="closeActivityDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">活动占用详情</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_c4df6642e3}}</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
       <view class="ui-dialog-stack">
-        <view class="detail-title">{{activityDetail.name || '活动'}}</view>
-        <view class="detail-row" wx:if="{{activityDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{activityDetail.venueName}}</text></view>
-        <view class="detail-row" wx:if="{{activityDetail.occurrenceTime}}"><text class="detail-key">本次占用</text><text class="detail-val">{{activityDetail.occurrenceTime}}</text></view>
-        <view class="detail-row" wx:if="{{activityDetail.cycleLabel}}"><text class="detail-key">活动规则</text><text class="detail-val">{{activityDetail.cycleLabel}}</text></view>
-        <view class="detail-row" wx:if="{{activityDetail.legacyTime}}"><text class="detail-key">每日时段</text><text class="detail-val">{{activityDetail.legacyTime}}</text></view>
+        <view class="detail-title">{{activityDetail.name || localeCopy.copy_acd4c5c171}}</view>
+        <view class="detail-row" wx:if="{{activityDetail.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{activityDetail.venueName}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.occurrenceTime}}"><text class="detail-key">{{localeCopy.copy_7c25b53857}}</text><text class="detail-val">{{activityDetail.occurrenceTime}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.cycleLabel}}"><text class="detail-key">{{localeCopy.copy_fbf78f3644}}</text><text class="detail-val">{{activityDetail.cycleLabel}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.legacyTime}}"><text class="detail-key">{{localeCopy.copy_d2a13af3e2}}</text><text class="detail-val">{{activityDetail.legacyTime}}</text></view>
         <view class="detail-row"><text class="detail-val">{{activityDetail.note}}</text></view>
       </view>
       </scroll-view>
-      <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button></view>
+      <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e75039f02b}}</button></view>
     </view>
   </view>
   </viewport-portal>
@@ -626,25 +626,25 @@
   <view class="popup-mask ui-overlay" wx:if="{{bookingDetailVisible}}" bindtap="closeBookingDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">借用详情</view><text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_40d594ac66}}</view><text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
       <view class="detail-body ui-dialog-stack">
-        <view class="detail-title">{{bookingDetail.title || '借用'}}</view>
-        <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
-        <view class="detail-row" wx:if="{{bookingDetail.orgName}}"><text class="detail-key">组织</text><text class="detail-val">{{bookingDetail.orgName}}</text></view>
-        <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-key">借用人</text><text class="detail-val">{{bookingDetail.userName}}</text></view>
-        <view class="detail-row" wx:if="{{bookingDetail.userDept}}"><text class="detail-key">部门</text><text class="detail-val">{{bookingDetail.userDept}}</text></view>
-        <view class="detail-row" wx:if="{{bookingDetail.userIdentity}}"><text class="detail-key">身份</text><text class="detail-val">{{bookingDetail.userIdentity}}</text></view>
-        <view class="detail-row" wx:if="{{bookingDetail.timeStart}}"><text class="detail-key">时间</text><text class="detail-val">{{bookingDetail.timeStart}} 至 {{bookingDetail.timeEnd}}</text></view>
-        <view class="detail-row" wx:if="{{bookingDetail.description}}"><text class="detail-key">说明</text><text class="detail-val">{{bookingDetail.description}}</text></view>
-        <view class="detail-row" wx:if="{{bookingDetail.approvalComment}}"><text class="detail-key">审批意见</text><text class="detail-val">{{bookingDetail.approvalComment}}</text></view>
-        <view class="detail-row"><text class="detail-key">状态</text><text class="status-tag {{bookingDetail.displayStatus || bookingDetail.status}}">{{statusLabels[bookingDetail.displayStatus || bookingDetail.status] || (bookingDetail.status === 'approved' ? '已通过' : (bookingDetail.status === 'pending' ? '待审核' : bookingDetail.status))}}</text></view>
+        <view class="detail-title">{{bookingDetail.title || localeCopy.copy_56feddb4d3}}</view>
+        <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{bookingDetail.orgName}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><text class="detail-val">{{bookingDetail.userName}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userDept}}"><text class="detail-key">{{localeCopy.copy_02419589be}}</text><text class="detail-val">{{bookingDetail.userDept}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.userIdentity}}"><text class="detail-key">{{localeCopy.copy_c1965e0690}}</text><text class="detail-val">{{bookingDetail.userIdentity}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.timeStart}}"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{bookingDetail.timeStart}} {{localeCopy.copy_e8d9493a44}} {{bookingDetail.timeEnd}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.description}}"><text class="detail-key">{{localeCopy.copy_c5d9511809}}</text><text class="detail-val">{{bookingDetail.description}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail.approvalComment}}"><text class="detail-key">{{localeCopy.copy_41c20cc066}}</text><text class="detail-val">{{bookingDetail.approvalComment}}</text></view>
+        <view class="detail-row"><text class="detail-key">{{localeCopy.copy_8aee737e64}}</text><text class="status-tag {{bookingDetail.displayStatus || bookingDetail.status}}">{{statusLabels[bookingDetail.displayStatus || bookingDetail.status] || (bookingDetail.status === 'approved' ? localeCopy.copy_ce171a2581 : (bookingDetail.status === 'pending' ? localeCopy.copy_8f73640107 : bookingDetail.status))}}</text></view>
         <!-- Flow progress bar -->
         <view wx:if="{{bookingDetail.approvalProgress}}" class="audit-flow-summary audit-flow-summary--spaced">
           <view class="audit-flow-progress-bar">
             <view class="audit-flow-progress-fill" style="width:{{bookingDetail._approvalPercent}}%;{{bookingDetail._approvalBarColor || ''}}"></view>
           </view>
-          <text class="audit-flow-progress-text">{{bookingDetail.approvalProgress.isRejected ? '已驳回' : (bookingDetail.approvalProgress.isApproved ? '已完成' : (bookingDetail.approvalProgress.currentStep + '/' + bookingDetail.approvalProgress.totalSteps))}}</text>
+          <text class="audit-flow-progress-text">{{bookingDetail.approvalProgress.isRejected ? localeCopy.copy_5d5af942c5 : (bookingDetail.approvalProgress.isApproved ? localeCopy.copy_2220286f1c : (bookingDetail.approvalProgress.currentStep + '/' + bookingDetail.approvalProgress.totalSteps))}}</text>
         </view>
         <view wx:if="{{bookingDetail._flowTimeline && bookingDetail._flowTimeline.length}}" class="audit-flow audit-flow--spaced">
           <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{bookingDetail._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -657,12 +657,12 @@
                 <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                 <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
                 <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
-                <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
               </view>
               <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
-                <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">审批人：</text>{{node.approverName}}</view>
-                <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">审批时间：</text>{{node.approvedAt}}</view>
-                <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">审批意见：</text>{{node.comment}}</view>
+                <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_dcadcebf08}}</text>{{node.approvedAt}}</view>
+                <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
               </view>
             </view>
           </view>
@@ -678,20 +678,20 @@
   <view class="popup-mask ui-overlay" wx:if="{{adminBookingVisible}}" bindtap="closeAdminBooking">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}} · 使用场地</view><text class="popup-close ui-motion-chip" catchtap="closeAdminBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{scheduleVenueName}} · {{localeCopy.copy_05c1604f42}}</view><text class="popup-close ui-motion-chip" catchtap="closeAdminBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="form-body ui-dialog-stack">
-          <view class="field"><view class="field-label">借用事由 <text class="required">*</text></view>
-            <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="选择或输入借用事由"/>
+          <view class="field"><view class="field-label">{{localeCopy.copy_bbb0cc00c9}} <text class="required">*</text></view>
+            <input class="field-input" value="{{adminBookingTitle}}" data-field="adminBookingTitle" bindinput="onAdminFieldInput" placeholder="{{localeCopy.copy_cb696a9796}}"/>
             <view class="chip-row" wx:if="{{purposes.length}}">
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{adminBookingTitle === item.text ? 'active' : ''}} ui-motion-chip" data-text="{{item.text}}" catchtap="onAdminSelectPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.text}}</text>
             </view>
           </view>
-          <view class="field"><view class="field-label">借用日期</view>
-            <view class="picker-display picker-display-locked">{{adminBookingStartDateDisplay || '请选择日期'}} · 仅当天</view></view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_39fcaa02ad}}</view>
+            <view class="picker-display picker-display-locked">{{adminBookingStartDateDisplay || localeCopy.copy_9d1ff80fae}} · {{localeCopy.copy_8a0b0acde8}}</view></view>
           <view class="field" wx:if="{{adminTimelineBlocks.length}}">
-            <view class="field-label">时间轴</view>
-            <view class="timeline-hint">拖动滑块或输入时间</view>
+            <view class="field-label">{{localeCopy.copy_ec235d40d8}}</view>
+            <view class="timeline-hint">{{localeCopy.copy_33109cf15b}}</view>
             <view class="timeline-drag-container admin-timeline-drag">
               <view class="timeline-bar">
                 <view wx:for="{{adminTimelineBlocks}}" wx:key="left" class="timeline-block tl-{{item.status}}" style="left:{{item.left}}%;width:{{item.width}}%;"></view>
@@ -704,27 +704,27 @@
               <view class="timeline-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
             </view>
           </view>
-          <view class="field"><view class="field-label">开始时间</view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_deb776d2af}}</view>
             <view wx:if="{{adminStartHours.length}}" class="time-picker-row">
-              <picker range="{{adminStartHours}}" range-key="label" value="{{adminStartHourIdx}}" bindchange="onAdminStartHourChange"><view class="time-val">{{adminStartHours[adminStartHourIdx] ? adminStartHours[adminStartHourIdx].label : '时'}}</view></picker>
+              <picker range="{{adminStartHours}}" range-key="label" value="{{adminStartHourIdx}}" bindchange="onAdminStartHourChange"><view class="time-val">{{adminStartHours[adminStartHourIdx] ? adminStartHours[adminStartHourIdx].label : localeCopy.copy_d63e494e70}}</view></picker>
               <text class="time-sep">:</text>
-              <picker range="{{ALL_MINUTES}}" range-key="label" value="{{adminStartMinIdx}}" bindchange="onAdminStartMinChange"><view class="time-val">{{ALL_MINUTES[adminStartMinIdx] ? ALL_MINUTES[adminStartMinIdx].label : '分'}}</view></picker>
+              <picker range="{{ALL_MINUTES}}" range-key="label" value="{{adminStartMinIdx}}" bindchange="onAdminStartMinChange"><view class="time-val">{{ALL_MINUTES[adminStartMinIdx] ? ALL_MINUTES[adminStartMinIdx].label : localeCopy.copy_4f57bde8f7}}</view></picker>
               <text wx:if="{{adminBookingTimeStart}}" class="time-result">{{adminBookingTimeStart}}</text>
             </view>
-            <view wx:else class="field-hint">{{adminBookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
+            <view wx:else class="field-hint">{{adminBookingStartDate ? localeCopy.copy_824768a506 : localeCopy.copy_6ce770a0a6}}</view>
           </view>
-          <view class="field"><view class="field-label">结束时间</view>
+          <view class="field"><view class="field-label">{{localeCopy.copy_2bd6adcbb9}}</view>
             <view wx:if="{{adminEndHours.length}}" class="time-picker-row">
-              <picker range="{{adminEndHours}}" range-key="label" value="{{adminEndHourIdx}}" bindchange="onAdminEndHourChange"><view class="time-val">{{adminEndHours[adminEndHourIdx] ? adminEndHours[adminEndHourIdx].label : '时'}}</view></picker>
+              <picker range="{{adminEndHours}}" range-key="label" value="{{adminEndHourIdx}}" bindchange="onAdminEndHourChange"><view class="time-val">{{adminEndHours[adminEndHourIdx] ? adminEndHours[adminEndHourIdx].label : localeCopy.copy_d63e494e70}}</view></picker>
               <text class="time-sep">:</text>
-              <picker range="{{ALL_MINUTES}}" range-key="label" value="{{adminEndMinIdx}}" bindchange="onAdminEndMinChange"><view class="time-val">{{ALL_MINUTES[adminEndMinIdx] ? ALL_MINUTES[adminEndMinIdx].label : '分'}}</view></picker>
+              <picker range="{{ALL_MINUTES}}" range-key="label" value="{{adminEndMinIdx}}" bindchange="onAdminEndMinChange"><view class="time-val">{{ALL_MINUTES[adminEndMinIdx] ? ALL_MINUTES[adminEndMinIdx].label : localeCopy.copy_4f57bde8f7}}</view></picker>
               <text wx:if="{{adminBookingTimeEnd}}" class="time-result">{{adminBookingTimeEnd}}</text>
             </view>
-            <view wx:else class="field-hint">{{adminBookingEndDate ? '请先选择开始时间' : '请先选择结束日期'}}</view>
+            <view wx:else class="field-hint">{{adminBookingEndDate ? localeCopy.copy_560bd817fb : localeCopy.copy_9dfd1d5a78}}</view>
           </view>
-          <view class="field"><view class="field-label">详细说明（选填）</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="补充使用说明"/></view>
-          <view class="field-hint">提交后立即生效</view>
-          <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认借用</button>
+          <view class="field"><view class="field-label">{{localeCopy.copy_90f94d6263}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="{{localeCopy.copy_188a745e76}}"/></view>
+          <view class="field-hint">{{localeCopy.copy_b439065096}}</view>
+          <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_df031d471b}}</button>
         </view>
       </scroll-view>
     </view>
@@ -736,20 +736,20 @@
   <view class="popup-mask ui-overlay" wx:if="{{purposeVisible}}" bindtap="closePurposeManager">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">借用事由管理</view><text class="popup-close ui-motion-chip" catchtap="closePurposeManager" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_d37b64cc9d}}</view><text class="popup-close ui-motion-chip" catchtap="closePurposeManager" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="form-body ui-dialog-stack">
-          <view class="field"><view class="field-label">{{purposeEditId ? '编辑事由' : '新增事由'}}</view>
-            <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="如：部门例会"/><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? '更新' : '添加'}}</button></view>
+          <view class="field"><view class="field-label">{{purposeEditId ? localeCopy.copy_259bd6c893 : localeCopy.copy_c312b03c06}}</view>
+            <view class="input-row"><input class="field-input" value="{{purposeEditText}}" data-field="purposeEditText" bindinput="onPurposeFieldInput" placeholder="{{localeCopy.copy_d4475123b9}}"/><button class="primary-btn sm ui-motion-button" catchtap="savePurpose" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{purposeEditId ? localeCopy.copy_27e5395986 : localeCopy.copy_4f9ebda03b}}</button></view>
           </view>
-          <view wx:if="{{!purposes.length}}" class="empty-inline">暂无常用事由</view>
+          <view wx:if="{{!purposes.length}}" class="empty-inline">{{localeCopy.copy_b55eac70b1}}</view>
           <block wx:if="{{purposes.length}}">
             <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id">
               <view class="list-main">
                 <view class="list-name">{{item.text}}</view>
                 <view class="inline-actions list-actions-below">
-                  <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">编辑</text>
-                  <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">删除</text>
+                  <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
+                  <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
               </view>
             </view>
@@ -765,11 +765,11 @@
   <view class="popup-mask ui-overlay" wx:if="{{condMultiPickerVisible}}" bindtap="closeCondMultiPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
       <view class="rule-filter-row rule-filter-row--dialog">
-        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">搜索</view><input class="field-input" placeholder="输入关键词" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
+        <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->
       <view class="dept-tab-scroll" wx:if="{{condMultiPickerDeptTabs.length}}">
@@ -778,33 +778,33 @@
             <view class="dept-tab {{condMultiPickerActiveDeptTab === item.deptId ? 'dept-tab-active' : ''}} ui-motion-chip"
                   wx:for="{{condMultiPickerDeptTabs}}" wx:key="deptId"
                   data-dept="{{item.deptId}}" catchtap="onCondMultiPickerDeptTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-              {{item.deptName}}<text class="dept-tab-count">（已选{{item.selectedCount}}）</text>
+              {{item.deptName}}<text class="dept-tab-count">{{localeCopy.copy_c38fbdddf0}}{{item.selectedCount}}）</text>
             </view>
           </view>
         </scroll-view>
       </view>
       <!-- Select-all / Deselect-all -->
       <view class="button-row compact-row compact-row--dialog">
-        <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全选</button>
-        <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerDeselectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消全选</button>
+        <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerSelectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_00c8a8f256}}</button>
+        <button class="secondary-btn ui-motion-button" catchtap="onCondMultiPickerDeselectAll" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_961862242a}}</button>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="inner-scroll large-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
         <view class="list-item ui-motion-card" wx:for="{{condMultiPickerFilteredList}}" wx:key="id" data-id="{{item.id}}" catchtap="onCondMultiPickerToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">
-              <view class="select-chip select-chip-inline {{condMultiPickerSelectedIds[item.id] ? 'select-chip-active' : ''}}">{{condMultiPickerSelectedIds[item.id] ? '已选' : '选择'}}</view>
+              <view class="select-chip select-chip-inline {{condMultiPickerSelectedIds[item.id] ? 'select-chip-active' : ''}}">{{condMultiPickerSelectedIds[item.id] ? localeCopy.copy_78564bdb46 : localeCopy.copy_c47f370afa}}</view>
               {{item.name}}
             </view>
             <view class="list-desc" wx:if="{{item.extra}}">{{item.extra}}</view>
           </view>
         </view>
-        <view class="empty-inline" wx:if="{{!condMultiPickerFilteredList.length}}">没有匹配的选项</view>
+        <view class="empty-inline" wx:if="{{!condMultiPickerFilteredList.length}}">{{localeCopy.copy_cbbf92860a}}</view>
         <view class="scroll-tail-space"></view>
       </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
-        <button class="secondary-btn ui-motion-button" catchtap="closeCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="primary-btn ui-motion-button" catchtap="confirmCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定选择（已选{{condMultiPickerSelectedCount}}项）</button>
+        <button class="secondary-btn ui-motion-button" catchtap="closeCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+        <button class="primary-btn ui-motion-button" catchtap="confirmCondMultiPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_35d04fd49e}}{{condMultiPickerSelectedCount}}{{localeCopy.copy_9882d5696d}}</button>
       </view>
     </view>
   </view>
@@ -816,23 +816,23 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">{{approvalPopupAction === 'approve' ? '通过借用申请' : '驳回借用申请'}}</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeApprovalPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{approvalPopupAction === 'approve' ? localeCopy.copy_a63100b45d : localeCopy.copy_689e8f08db}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closeApprovalPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="detail-body ui-dialog-stack">
           <view wx:if="{{approvalPopupTarget}}">
-            <view class="detail-title">{{approvalPopupTarget.title || '借用申请'}}</view>
-            <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalPopupTarget.venueName}}</text></view>
-            <view class="detail-row" wx:if="{{approvalPopupTarget.orgName}}"><text class="detail-key">组织</text><text class="detail-val">{{approvalPopupTarget.orgName}}</text></view>
-            <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalPopupTarget.userName}}<text wx:if="{{approvalPopupTarget.userDept}}"> · {{approvalPopupTarget.userDept}}</text></text></view>
-            <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalPopupTarget.timeStart}} — {{approvalPopupTarget.timeEnd}}</text></view>
+            <view class="detail-title">{{approvalPopupTarget.title || localeCopy.copy_9639901862}}</view>
+            <view class="detail-row"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{approvalPopupTarget.venueName}}</text></view>
+            <view class="detail-row" wx:if="{{approvalPopupTarget.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{approvalPopupTarget.orgName}}</text></view>
+            <view class="detail-row"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><text class="detail-val">{{approvalPopupTarget.userName}}<text wx:if="{{approvalPopupTarget.userDept}}"> · {{approvalPopupTarget.userDept}}</text></text></view>
+            <view class="detail-row"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{approvalPopupTarget.timeStart}} — {{approvalPopupTarget.timeEnd}}</text></view>
             <!-- Flow progress bar -->
             <view wx:if="{{approvalPopupTarget.approvalProgress}}" class="audit-flow-summary audit-flow-summary--spaced">
               <view class="audit-flow-progress-bar">
                 <view class="audit-flow-progress-fill" style="width:{{approvalPopupTarget._approvalPercent}}%;{{approvalPopupTarget._approvalBarColor || ''}}"></view>
               </view>
-              <text class="audit-flow-progress-text">{{approvalPopupTarget.approvalProgress.isRejected ? '已驳回' : (approvalPopupTarget.approvalProgress.isApproved ? '已完成' : (approvalPopupTarget.approvalProgress.currentStep + '/' + approvalPopupTarget.approvalProgress.totalSteps))}}</text>
+              <text class="audit-flow-progress-text">{{approvalPopupTarget.approvalProgress.isRejected ? localeCopy.copy_5d5af942c5 : (approvalPopupTarget.approvalProgress.isApproved ? localeCopy.copy_2220286f1c : (approvalPopupTarget.approvalProgress.currentStep + '/' + approvalPopupTarget.approvalProgress.totalSteps))}}</text>
             </view>
             <view wx:if="{{approvalPopupTarget._flowTimeline && approvalPopupTarget._flowTimeline.length}}" class="audit-flow audit-flow--spaced">
               <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{approvalPopupTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
@@ -845,27 +845,27 @@
                     <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                     <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
                     <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
-                    <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                    <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
                   </view>
                   <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
-                    <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">审批人：</text>{{node.approverName}}</view>
-                    <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">审批时间：</text>{{node.approvedAt}}</view>
-                    <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">审批意见：</text>{{node.comment}}</view>
+                    <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                    <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_dcadcebf08}}</text>{{node.approvedAt}}</view>
+                    <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
                   </view>
                 </view>
               </view>
             </view>
           </view>
           <view class="field field--approval-comment">
-            <view class="field-label">审批意见（选填）</view>
-            <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalPopupComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalPopupAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
+            <view class="field-label">{{localeCopy.copy_bddb855314}}</view>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalPopupComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalPopupAction === 'approve' ? localeCopy.copy_bef4bbef62 : localeCopy.copy_a93266a8d4}}"/>
           </view>
         </view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
-        <button class="secondary-btn ui-motion-button" catchtap="closeApprovalPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="secondary-btn ui-motion-button" catchtap="closeApprovalPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
         <button class="{{approvalPopupAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{loading}}" catchtap="submitApprovalAction" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          {{approvalPopupAction === 'approve' ? '确认通过' : '确认驳回'}}
+          {{approvalPopupAction === 'approve' ? localeCopy.copy_49ef170f0b : localeCopy.copy_cd42af3f87}}
         </button>
       </view>
     </view>
@@ -877,16 +877,16 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card context-switch-guard-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="ui-dialog-compact-content">
-        <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
-        <view class="context-switch-guard-title">请先保存修改</view>
-        <view class="context-switch-guard-desc">保存或取消编辑后，即可切换组织与身份。</view>
+        <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="{{localeCopy.copy_40859eeee7}}" /></view>
+        <view class="context-switch-guard-title">{{localeCopy.copy_f81bcf5295}}</view>
+        <view class="context-switch-guard-desc">{{localeCopy.copy_2406186d54}}</view>
       </view>
       <view class="context-switch-guard-actions ui-dialog-footer">
-        <button class="primary-btn ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">继续编辑</button>
+        <button class="primary-btn ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c1961a2760}}</button>
       </view>
     </view>
   </view>
   </viewport-portal>
 
-  <view class="page-footer"><view class="footer-name">WHUSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
+  <view class="page-footer"><view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view><view class="footer-org">{{localeCopy.copy_638da8ae60}}</view></view>
 </view>

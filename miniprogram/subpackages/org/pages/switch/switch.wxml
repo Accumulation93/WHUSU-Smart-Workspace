@@ -1,3 +1,3 @@
 <view class="redirect-page">
-  <view class="redirect-card">正在打开组织与身份…</view>
+  <view class="redirect-card">{{localeCopy.copy_a434110c44}}</view>
 </view>

@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
@@ -5,11 +6,15 @@ const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
+  onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+  },
   data: {
+    localeCopy,
     pending: [],
     loading: false,
     lastUpdateTime: '',
-    pendingHeaderText: '当前身份的待审批事项',
+    pendingHeaderText: localeCopy.copy_1fc8f9baba,
     lastPendingCount: 0,
     lastPendingSignature: '',
 
@@ -40,7 +45,7 @@ Page({
       orgSession.invalidateRequests(this);
       this.setData({
         pending: [], lastPendingCount: 0, lastPendingSignature: '', lastUpdateTime: '',
-        pendingHeaderText: '当前身份的待审批事项',
+        pendingHeaderText: localeCopy.copy_1fc8f9baba,
         approvalVisible: false, approvalTarget: null, expandedNodeKey: '', loading: false
       });
     }
@@ -159,15 +164,15 @@ Page({
           lastPendingCount: pending.length,
           lastPendingSignature: this._buildPendingSignature(pending),
           lastUpdateTime: this._formatTime(),
-          pendingHeaderText: pending.length ? ('更新于 ' + this._formatTime()) : '当前身份的待审批事项'
+          pendingHeaderText: pending.length ? (localeCopy.copy_1264209cb6 + this._formatTime()) : localeCopy.copy_1fc8f9baba
         });
       } else if (res.status === 'forbidden') {
-        showShortToast(res.message || '请使用普通岗位身份');
+        showShortToast(res.message || localeCopy.copy_bba7f8b8ba);
       } else {
-        showShortToast(res.message || '请稍后刷新');
+        showShortToast(res.message || localeCopy.copy_e52119b17e);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '请稍后刷新'));
+      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -233,8 +238,8 @@ Page({
           nextApproverCandidates: res.candidates || [],
           nextApproverKeyword: ''
         });
-      } else showShortToast(res.message || '请稍后重试');
-    } catch (e) { showShortToast(getErrorText(e, '请稍后重试')); }
+      } else showShortToast(res.message || localeCopy.copy_e58fa637eb);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_e58fa637eb)); }
   },
 
   closeNextApproverPicker() {
@@ -265,7 +270,7 @@ Page({
     if (!target || !action) return;
 
     let endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
-    let actionLabel = action === 'approve' ? '通过' : '驳回';
+    let actionLabel = action === 'approve' ? localeCopy.copy_8e2f75159e : localeCopy.copy_b4432643e3;
 
     this.setData({ approvalSubmitting: true });
     try {
@@ -278,7 +283,7 @@ Page({
         }
       });
       if (res.status === 'success') {
-        showShortToast(res.message || ('已' + actionLabel));
+        showShortToast(res.message || (localeCopy.copy_f658e7b4d0 + actionLabel));
         that.closeApproval();
 
         // Optimistic UI: update local state immediately, sync in background
@@ -331,10 +336,10 @@ Page({
         // Background sync to ensure consistency
         setTimeout(function() { that.loadData(); }, 2000);
       } else {
-        showShortToast(res.message || '未完成，请重试');
+        showShortToast(res.message || localeCopy.copy_0531ed9e78);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未完成，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_0531ed9e78));
     } finally {
       this.setData({ approvalSubmitting: false });
     }

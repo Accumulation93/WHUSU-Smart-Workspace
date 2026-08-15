@@ -1,3 +1,5 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/hrInfoBehavior');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: hrInfo tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -22,7 +24,7 @@ function toHrProfileListRow(item) {
     auth: item.auth || null,
     governanceAvailable: Boolean(item.governanceAvailable),
     accountState: item.accountState || 'unbound',
-    accountStateText: item.accountStateText || '未绑定',
+    accountStateText: item.accountStateText || localeCopy.copy_ba9b0425fd,
     accountStateClass: item.accountStateClass || 'unbound-chip',
     verificationText: item.verificationText || '',
     recoveryText: item.recoveryText || '',
@@ -50,7 +52,7 @@ module.exports = Behavior({
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
-          title: '请稍后刷新人事成员',
+          title: localeCopy.copy_838181f305,
           icon: 'none'
         });
       } finally {
@@ -64,9 +66,9 @@ module.exports = Behavior({
         const result = await this.callCloud('batchMaintainFromHrInfo');
         
         if (result.status !== 'success') {
-          console.error('批量维护失败:', result.message);
+          console.error(localeCopy.copy_c76384305a, result.message);
           wx.showToast({
-            title: result.message || '未完成，请重试',
+            title: result.message || localeCopy.copy_0531ed9e78,
             icon: 'none'
           });
           return;
@@ -81,13 +83,13 @@ module.exports = Behavior({
         const changedCount = ['departmentsCreated', 'identitiesCreated', 'workGroupsCreated']
           .reduce((sum, key) => sum + Number(stats[key] || 0), 0);
         wx.showToast({
-          title: changedCount ? `已补齐${changedCount}项` : '组织字典已完整',
+          title: changedCount ? localeFormat(localeCopy.copy_5fbd09dc2e, [changedCount]) : localeCopy.copy_b702b25b77,
           icon: 'success'
         });
       } catch (error) {
-        console.error('批量维护失败:', error);
+        console.error(localeCopy.copy_c76384305a, error);
         wx.showToast({
-          title: '未完成，请重试',
+          title: localeCopy.copy_0531ed9e78,
           icon: 'none'
         });
       } finally {
@@ -108,7 +110,7 @@ module.exports = Behavior({
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '人事信息暂时无法加载',
+            title: result.message || localeCopy.copy_530e6c15c0,
             icon: 'none'
           });
           return;
@@ -125,14 +127,14 @@ module.exports = Behavior({
         const hrProfileFields = template && Array.isArray(template.fields) ? template.fields : [];
         const hrProfileFilterOptions = buildHrProfileFilterOptions(rawRows);
         // Cascade work group options based on current department filter
-        if (this.data.hrProfileFilters.department === '全部部门') {
-          hrProfileFilterOptions.workGroups = ['无'];
+        if (this.data.hrProfileFilters.department === localeCopy.copy_68f7277730) {
+          hrProfileFilterOptions.workGroups = [localeCopy.copy_54e953f1bb];
         } else {
           const dept = this.data.departmentList.find(d => d.name === this.data.hrProfileFilters.department) || {};
           const wgs = this.data.workGroupList
             .filter(w => w.departmentId === dept.id)
             .map(w => w.name);
-          hrProfileFilterOptions.workGroups = ['无', ...wgs];
+          hrProfileFilterOptions.workGroups = [localeCopy.copy_54e953f1bb, ...wgs];
         }
         const filteredRows = applyHrProfileFilters(rawRows, this.data.hrProfileFilters);
         const actionState = this.buildHrMemberActionState(filteredRows);
@@ -163,7 +165,7 @@ module.exports = Behavior({
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         console.error('[HR] Member directory load failed', error);
         wx.showToast({
-          title: '人事信息暂时无法加载',
+          title: localeCopy.copy_530e6c15c0,
           icon: 'none'
         });
       } finally {
@@ -207,7 +209,7 @@ module.exports = Behavior({
         }, actionState));
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || error && error.silent) return;
-        wx.showToast({ title: '请稍后重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_e58fa637eb, icon: 'none' });
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setLoading('profile', false);
       }
@@ -219,7 +221,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('listHrProfileTemplates');
         if (result.status !== 'success') {
-          showShortToast('请稍后刷新');
+          showShortToast(localeCopy.copy_e52119b17e);
           return;
         }
         const active = result.activeSnapshot || null;
@@ -228,16 +230,16 @@ module.exports = Behavior({
             const typeOption = PROFILE_FIELD_TYPE_OPTIONS.find((item) => item.value === field.type);
             let ruleText = '';
             if (field.type === 'text' && (field.minLength != null || field.maxLength != null)) {
-              ruleText = `长度 ${field.minLength == null ? '不限' : field.minLength}–${field.maxLength == null ? '不限' : field.maxLength}`;
+              ruleText = localeFormat(localeCopy.copy_d631c78751, [field.minLength == null ? localeCopy.copy_62676bc383 : field.minLength, field.maxLength == null ? localeCopy.copy_62676bc383 : field.maxLength]);
             } else if (field.type === 'number') {
               if (field.numberRule === 'length_range') {
-                ruleText = `位数 ${field.minDigits == null ? '不限' : field.minDigits}–${field.maxDigits == null ? '不限' : field.maxDigits}`;
+                ruleText = localeFormat(localeCopy.copy_bfcf17946a, [field.minDigits == null ? localeCopy.copy_62676bc383 : field.minDigits, field.maxDigits == null ? localeCopy.copy_62676bc383 : field.maxDigits]);
               } else if (field.minValue != null || field.maxValue != null) {
-                ruleText = `范围 ${field.minValue == null ? '不限' : field.minValue}–${field.maxValue == null ? '不限' : field.maxValue}`;
+                ruleText = localeFormat(localeCopy.copy_9e71d66edf, [field.minValue == null ? localeCopy.copy_62676bc383 : field.minValue, field.maxValue == null ? localeCopy.copy_62676bc383 : field.maxValue]);
               }
-              if (field.allowDecimal === false) ruleText = `${ruleText ? `${ruleText} · ` : ''}填写整数`;
+              if (field.allowDecimal === false) ruleText = localeFormat(localeCopy.copy_d593ce302d, [ruleText ? `${ruleText} · ` : '']);
             } else if (field.type === 'sequence') {
-              ruleText = (field.options || []).length ? `选项：${field.options.join(' / ')}` : '暂无选项';
+              ruleText = (field.options || []).length ? localeFormat(localeCopy.copy_d789c23297, [field.options.join(' / ')]) : localeCopy.copy_266af79ece;
             }
             return Object.assign({}, field, {
               typeLabel: typeOption ? typeOption.label : field.type,
@@ -252,7 +254,7 @@ module.exports = Behavior({
           canSelectHrProfileTemplate: result.canSelect === true
         });
       } catch (_) {
-        showShortToast('请稍后刷新');
+        showShortToast(localeCopy.copy_e52119b17e);
       } finally {
         this.setLoading('hrProfileTemplates', false);
       }
@@ -293,11 +295,11 @@ module.exports = Behavior({
       this.setLoading('duplicateHrProfileTemplate', true);
       try {
         const result = await this.callCloud('duplicateHrProfileTemplateDefinition', { id });
-        if (result.status !== 'success') return showShortToast('未复制，请重试');
+        if (result.status !== 'success') return showShortToast(localeCopy.copy_b433d31323);
         await this.loadHrProfileTemplates();
-        showShortToast('已复制', 'success');
+        showShortToast(localeCopy.copy_cc6172e63c, 'success');
       } catch (_) {
-        showShortToast('未复制，请重试');
+        showShortToast(localeCopy.copy_b433d31323);
       } finally {
         this.setLoading('duplicateHrProfileTemplate', false);
       }
@@ -308,19 +310,19 @@ module.exports = Behavior({
       const template = (this.data.hrProfileTemplateList || []).find((item) => item.id === id);
       if (!template) return;
       wx.showModal({
-        title: '删除人事模板',
-        content: '确认删除此模板？',
-        confirmText: '彻底删除',
+        title: localeCopy.copy_f81d32f71f,
+        content: localeCopy.copy_6fae2b39f0,
+        confirmText: localeCopy.copy_7310bccaf5,
         confirmColor: '#ef4444',
         success: async (modalResult) => {
           if (!modalResult.confirm) return;
           try {
             const result = await this.callCloud('deleteHrProfileTemplateDefinition', { id });
-            if (result.status !== 'success') return showShortToast('未删除，请重试');
+            if (result.status !== 'success') return showShortToast(localeCopy.copy_076bb5d383);
             await this.loadHrProfileTemplates();
-            showShortToast('已删除', 'success');
+            showShortToast(localeCopy.copy_5398fec054, 'success');
           } catch (_) {
-            showShortToast('未删除，请重试');
+            showShortToast(localeCopy.copy_076bb5d383);
           }
         }
       });
@@ -332,10 +334,10 @@ module.exports = Behavior({
       this.setLoading('hrTemplateSwitch', true);
       try {
         const result = await this.callCloud('getHrProfileTemplateSwitchContext', { targetTemplateId });
-        if (result.status !== 'success') return showShortToast('请稍后刷新');
+        if (result.status !== 'success') return showShortToast(localeCopy.copy_e52119b17e);
         const targetFields = (result.targetTemplate && result.targetTemplate.fields) || [];
         const sources = (result.sourceFields || []).map((source) => {
-          const targetOptions = [{ id: '', label: '请选择新资料项' }]
+          const targetOptions = [{ id: '', label: localeCopy.copy_e6b5e03497 }]
             .concat(targetFields.filter((target) => (source.compatibleTargetIds || []).indexOf(target.id) >= 0));
           return Object.assign({}, source, {
             action: 'hide',
@@ -344,7 +346,7 @@ module.exports = Behavior({
             targetIndex: 0,
             targetOptions,
             suggestionText: source.suggestedTargetId
-              ? `建议移入：${(targetFields.find((field) => field.id === source.suggestedTargetId) || {}).label || ''}`
+              ? localeFormat(localeCopy.copy_209c97537d, [(targetFields.find((field) => field.id === source.suggestedTargetId) || {}).label || ''])
               : ''
           });
         });
@@ -356,7 +358,7 @@ module.exports = Behavior({
           hrTemplateSwitchSummary: null
         });
       } catch (_) {
-        showShortToast('请稍后刷新');
+        showShortToast(localeCopy.copy_e52119b17e);
       } finally {
         this.setLoading('hrTemplateSwitch', false);
       }
@@ -413,7 +415,7 @@ module.exports = Behavior({
       if (!target) return;
       const actions = this.buildHrTemplateSwitchActions();
       if (actions.some((action) => action.action === 'map' && !action.targetTemplateFieldId)) {
-        return showShortToast('请选择目标');
+        return showShortToast(localeCopy.copy_deff18cd29);
       }
       this.setLoading('previewHrTemplateSwitch', true);
       try {
@@ -423,24 +425,24 @@ module.exports = Behavior({
         });
         if (result.status === 'mapping_blocked') {
           const invalidCount = (result.blockers || []).reduce((sum, item) => sum + Number(item.invalidCount || 0), 0);
-          wx.showModal({ title: '请先调整资料', content: `有 ${invalidCount} 项资料不符合新模板要求，请修改后重试。`, showCancel: false });
+          wx.showModal({ title: localeCopy.copy_028fbc8a93, content: localeFormat(localeCopy.copy_3cfda2ecef, [invalidCount]), showCancel: false });
           return;
         }
-        if (result.status !== 'success') return showShortToast('请稍后重试');
+        if (result.status !== 'success') return showShortToast(localeCopy.copy_e58fa637eb);
         this.setData({ hrTemplateSwitchToken: result.switchToken, hrTemplateSwitchSummary: result.summary });
         const summary = result.summary || {};
         const hasDelete = summary.hasDelete === true;
         wx.showModal({
-          title: hasDelete ? '确认永久删除' : '确认应用模板',
-          content: `转移${summary.mapValueCount || 0}项，隐藏${summary.hideValueCount || 0}项，永久删除${summary.deleteValueCount || 0}项。${hasDelete ? '删除后无法恢复。' : ''}`,
-          confirmText: hasDelete ? '删除并应用' : '确认应用',
+          title: hasDelete ? localeCopy.copy_97366c6f6d : localeCopy.copy_f6076cddc4,
+          content: localeFormat(localeCopy.copy_ea656e2ae7, [summary.mapValueCount || 0, summary.hideValueCount || 0, summary.deleteValueCount || 0, hasDelete ? localeCopy.copy_0efc367eca : '']),
+          confirmText: hasDelete ? localeCopy.copy_27ee30d786 : localeCopy.copy_a79c2f21ae,
           confirmColor: hasDelete ? '#ef4444' : '#2563eb',
           success: (modalResult) => {
             if (modalResult.confirm) this.applyHrProfileTemplateSwitch(hasDelete);
           }
         });
       } catch (_) {
-        showShortToast('请稍后重试');
+        showShortToast(localeCopy.copy_e58fa637eb);
       } finally {
         this.setLoading('previewHrTemplateSwitch', false);
       }
@@ -458,14 +460,14 @@ module.exports = Behavior({
           confirmDelete: confirmDelete === true
         });
         if (result.status !== 'success') {
-          showShortToast(result.status === 'stale_switch' ? '请重新确认' : '未应用，请重试');
+          showShortToast(result.status === 'stale_switch' ? localeCopy.copy_7582cffe69 : localeCopy.copy_c45d6ea9d1);
           return;
         }
         this.closeHrProfileTemplateSwitch();
         await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
-        showShortToast('已应用', 'success');
+        showShortToast(localeCopy.copy_75349a79ee, 'success');
       } catch (_) {
-        showShortToast('未应用，请重试');
+        showShortToast(localeCopy.copy_c45d6ea9d1);
       } finally {
         this.setLoading('applyHrTemplateSwitch', false);
       }
@@ -492,11 +494,11 @@ module.exports = Behavior({
           description: active.description || '',
           editMode: active.editMode || 'direct'
         });
-        if (result.status !== 'success') return showShortToast('未保存，请重试');
+        if (result.status !== 'success') return showShortToast(localeCopy.copy_215e3c57da);
         await Promise.all([this.loadHrProfileTemplates(), this.loadHrProfileAdminData()]);
-        showShortToast('已保存', 'success');
+        showShortToast(localeCopy.copy_0aacec2714, 'success');
       } catch (_) {
-        showShortToast('未保存，请重试');
+        showShortToast(localeCopy.copy_215e3c57da);
       } finally {
         this.setLoading('saveActiveHrProfileSettings', false);
       }
@@ -536,9 +538,9 @@ module.exports = Behavior({
   
       // Cascade work group options when department filter changes
       if (field === 'departments') {
-        if (value === '全部部门') {
-          patch['hrProfileFilterOptions.workGroups'] = ['无'];
-          nextFilters.workGroup = '无';
+        if (value === localeCopy.copy_68f7277730) {
+          patch['hrProfileFilterOptions.workGroups'] = [localeCopy.copy_54e953f1bb];
+          nextFilters.workGroup = localeCopy.copy_54e953f1bb;
           patch.hrProfileFilters = nextFilters;
         } else {
           const dept = this.data.departmentList.find(d => d.name === value) || {};
@@ -548,8 +550,8 @@ module.exports = Behavior({
               .filter((row) => (row.departments || [row.department]).includes(value))
               .reduce((all, row) => all.concat(row.workGroups || (row.workGroup ? [row.workGroup] : [])), [])
               .filter((name, index, all) => name && all.indexOf(name) === index);
-          patch['hrProfileFilterOptions.workGroups'] = ['无', ...wgs];
-          nextFilters.workGroup = '无';
+          patch['hrProfileFilterOptions.workGroups'] = [localeCopy.copy_54e953f1bb, ...wgs];
+          nextFilters.workGroup = localeCopy.copy_54e953f1bb;
           patch.hrProfileFilters = nextFilters;
         }
       }
@@ -583,7 +585,7 @@ module.exports = Behavior({
       const nextFilters = emptyHrProfileFilters();
       this.setData({
         hrProfileFilters: nextFilters,
-        'hrProfileFilterOptions.workGroups': ['无'],
+        'hrProfileFilterOptions.workGroups': [localeCopy.copy_54e953f1bb],
         _hrInfoKeywordInput: ''
       });
       this.refreshHrProfileRows(nextFilters);
@@ -592,19 +594,19 @@ module.exports = Behavior({
     exportHrProfiles() {
       const rows = this._hrProfileFilteredRows || this.data.hrProfileRows || [];
       if (!rows.length) {
-        showShortToast('暂无可导出资料');
+        showShortToast(localeCopy.copy_e59729af18);
         return;
       }
 
       const fields = this.data.hrProfileFields || [];
       const columns = [
-        { key: 'name', label: '姓名', groupLabel: '基本信息', source: 'name', checked: true },
-        { key: 'studentId', label: '学号', groupLabel: '基本信息', source: 'studentId', checked: true },
-        { key: 'department', label: '所属部门（全部岗位）', groupLabel: '岗位身份', source: 'department', checked: true },
-        { key: 'identity', label: '身份（全部岗位）', groupLabel: '岗位身份', source: 'identity', checked: true },
-        { key: 'workGroup', label: '工作分工（职能组，全部岗位）', groupLabel: '岗位身份', source: 'workGroup', checked: true },
-        { key: 'wxBindStatus', label: '微信绑定状态', groupLabel: '基本信息', source: 'wxBindStatus', checked: true },
-        { key: 'auditStatus', label: '补充资料状态', groupLabel: '基本信息', source: 'auditStatus', checked: true }
+        { key: 'name', label: localeCopy.copy_3c946202ff, groupLabel: localeCopy.copy_142861823e, source: 'name', checked: true },
+        { key: 'studentId', label: localeCopy.copy_cbb853db1b, groupLabel: localeCopy.copy_142861823e, source: 'studentId', checked: true },
+        { key: 'department', label: localeCopy.copy_cb8ac66b1a, groupLabel: localeCopy.copy_79a04f117c, source: 'department', checked: true },
+        { key: 'identity', label: localeCopy.copy_e69d9e7df1, groupLabel: localeCopy.copy_79a04f117c, source: 'identity', checked: true },
+        { key: 'workGroup', label: localeCopy.copy_6cc69fb176, groupLabel: localeCopy.copy_79a04f117c, source: 'workGroup', checked: true },
+        { key: 'wxBindStatus', label: localeCopy.copy_f93247534b, groupLabel: localeCopy.copy_142861823e, source: 'wxBindStatus', checked: true },
+        { key: 'auditStatus', label: localeCopy.copy_e3070392e0, groupLabel: localeCopy.copy_142861823e, source: 'auditStatus', checked: true }
       ];
       const pendingFieldMap = {};
       for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
@@ -621,7 +623,7 @@ module.exports = Behavior({
         columns.push({
           key: 'profile_' + fieldIndex,
           label: field.label,
-          groupLabel: '补充资料',
+          groupLabel: localeCopy.copy_9ec66981b8,
           source: 'profile',
           fieldId: field.id,
           checked: true
@@ -629,8 +631,8 @@ module.exports = Behavior({
         if (pendingFieldMap[field.id]) {
           columns.push({
             key: 'pending_' + fieldIndex,
-            label: field.label + '（待审核）',
-            groupLabel: '待审核资料',
+            label: field.label + localeCopy.copy_5951b5b0a2,
+            groupLabel: localeCopy.copy_ddb6dca5b6,
             source: 'pending',
             fieldId: field.id,
             checked: true
@@ -698,7 +700,7 @@ module.exports = Behavior({
     confirmHrProfileExport() {
       const columns = (this.data.hrProfileExportColumns || []).filter((column) => column.checked);
       if (!columns.length) {
-        showShortToast('请选择导出内容');
+        showShortToast(localeCopy.copy_37795f5bde);
         return;
       }
       const headers = columns.map((column) => ({ key: column.key, label: column.label }));
@@ -714,11 +716,11 @@ module.exports = Behavior({
             exportRow[column.key] = pendingValues[column.fieldId] || '';
           } else if (column.source === 'wxBindStatus') {
             const bindStatusTextMap = {
-              bound: '已绑定',
-              pending_activation: '待激活',
-              unbound: '未绑定'
+              bound: localeCopy.copy_171e9799a7,
+              pending_activation: localeCopy.copy_1ceaebed03,
+              unbound: localeCopy.copy_ba9b0425fd
             };
-            exportRow[column.key] = bindStatusTextMap[item.wxBindStatus] || '未绑定';
+            exportRow[column.key] = bindStatusTextMap[item.wxBindStatus] || localeCopy.copy_ba9b0425fd;
           } else if (column.source === 'auditStatus') {
             exportRow[column.key] = item.auditStatusText || '';
           } else {
@@ -731,24 +733,24 @@ module.exports = Behavior({
     },
 
     async exportHrProfileFile(headers, rows, format) {
-      const orgName = this.data.currentOrganizationName || '当前组织';
-      const fileName = orgName + '-成员资料';
+      const orgName = this.data.currentOrganizationName || localeCopy.copy_2b8b8bf904;
+      const fileName = orgName + localeCopy.copy_e39c036ae6;
       this.setLoading('exportHrProfiles', true);
       try {
         const result = await this.callCloud('buildTableFile', {
           format,
           headers,
           rows,
-          sheetName: '成员资料'
+          sheetName: localeCopy.copy_64dc3d4fff
         });
         if (!result || result.status !== 'success' || !result.fileBase64) {
-          showShortToast((result && result.message) || '未导出，请重试');
+          showShortToast((result && result.message) || localeCopy.copy_2b61466286);
           return;
         }
         this.setData({ hrProfileExportVisible: false });
         await saveAndShareFile(result.fileBase64, fileName, result.extension || format);
       } catch (error) {
-        showShortToast('未导出，请重试');
+        showShortToast(localeCopy.copy_2b61466286);
       } finally {
         this.setLoading('exportHrProfiles', false);
       }
@@ -788,7 +790,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('getHrPersonDetail', { hrId });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '请稍后刷新', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_e52119b17e, icon: 'none' });
           this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
           return;
         }
@@ -829,14 +831,14 @@ module.exports = Behavior({
           detailHrValues: vals,
           detailHrPendingValues: result.pendingValues || {},
           detailHrAuditStatus: result.auditStatus || 'none',
-          detailHrAuditStatusText: result.auditStatusText || '未提交',
+          detailHrAuditStatusText: result.auditStatusText || localeCopy.copy_67f2697101,
           detailHrRejectionReason: result.rejectionReason || '',
           detailHrHasPending: !!result.hasPending,
           loadingDetailHr: false
         });
         await this.loadPersonIdentities(hrId);
       } catch (err) {
-        wx.showToast({ title: '请稍后刷新详情', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_94b36657df, icon: 'none' });
         this.setData({ showHrPersonDetail: false, loadingDetailHr: false });
       }
     },
@@ -847,7 +849,7 @@ module.exports = Behavior({
           hrId: hrId || this.data.detailHrId
         });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '请稍后刷新身份', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_c24b3e04d9, icon: 'none' });
           return;
         }
         this.setData({
@@ -857,7 +859,7 @@ module.exports = Behavior({
           canAddGlobalSuperAdmin: result.canAddGlobalSuperAdmin === true
         });
       } catch (error) {
-        wx.showToast({ title: '请稍后刷新身份', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_c24b3e04d9, icon: 'none' });
       }
     },
 
@@ -904,7 +906,7 @@ module.exports = Behavior({
       const dictionaries = organization.dictionaries || {};
       const departments = dictionaries.departments || [];
       const identities = dictionaries.identities || [];
-      const workGroups = [{ id: '', name: '不设置' }].concat(
+      const workGroups = [{ id: '', name: localeCopy.copy_fe59d1afcd }].concat(
         (dictionaries.workGroups || [])
           .filter((row) => String(row.departmentId) === String(item.departmentId))
       );
@@ -961,7 +963,7 @@ module.exports = Behavior({
       const organization = (this.data.personIdentityOrganizations || []).find((item) => (
         String(item.organizationId) === String(this.data.membershipAssignmentForm.organizationId)
       ));
-      const workGroups = [{ id: '', name: '不设置' }].concat(
+      const workGroups = [{ id: '', name: localeCopy.copy_fe59d1afcd }].concat(
         (((organization && organization.dictionaries) || {}).workGroups || [])
           .filter((row) => String(row.departmentId) === String(department.id))
       );
@@ -999,7 +1001,7 @@ module.exports = Behavior({
     async saveMembershipAssignment() {
       const form = this.data.membershipAssignmentForm || {};
       if (!form.departmentId || !form.identityId) {
-        wx.showToast({ title: '请选择部门和身份', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_2550a901e4, icon: 'none' });
         return;
       }
       this.setLoading('saveMembershipAssignment', true);
@@ -1010,15 +1012,15 @@ module.exports = Behavior({
           organizationId: form.organizationId
         });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
           return;
         }
         this.cancelMembershipAssignmentEdit();
         await this.loadPersonIdentities();
         this.loadHrProfileAdminData();
-        wx.showToast({ title: '岗位已保存', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_735e0a8bcf, icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '未保存，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
       } finally {
         this.setLoading('saveMembershipAssignment', false);
       }
@@ -1030,8 +1032,8 @@ module.exports = Behavior({
       if (!id) return;
       this.setData({
         identityActionConfirmVisible: true,
-        identityActionConfirmTitle: '删除岗位',
-        identityActionConfirmText: '删除后，该岗位将不再用于后续业务。历史记录不受影响。',
+        identityActionConfirmTitle: localeCopy.copy_bc04d9e2e3,
+        identityActionConfirmText: localeCopy.copy_3e8d61586a,
         identityActionConfirmAction: { type: 'deleteAssignment', id, organizationId }
       });
     },
@@ -1052,8 +1054,8 @@ module.exports = Behavior({
       if (!organization || !this.data.canAddGlobalSuperAdmin || !this.data.identityManagementOrganizationId) return;
       this.setData({
         identityActionConfirmVisible: true,
-        identityActionConfirmTitle: '添加超级管理员',
-        identityActionConfirmText: '添加后，此人可管理全部组织。',
+        identityActionConfirmTitle: localeCopy.copy_8ca66f00b4,
+        identityActionConfirmText: localeCopy.copy_6dbeb580ce,
         identityActionConfirmAction: {
           type: 'addSuperAdmin',
           organizationId: this.data.identityManagementOrganizationId,
@@ -1069,8 +1071,8 @@ module.exports = Behavior({
       if (!id) return;
       this.setData({
         identityActionConfirmVisible: true,
-        identityActionConfirmTitle: level === 'super_admin' ? '移除超级管理员' : '移除管理员',
-        identityActionConfirmText: '移除后，此人将无法再使用这项管理身份。',
+        identityActionConfirmTitle: level === 'super_admin' ? localeCopy.copy_564cc6648b : localeCopy.copy_8da6e35182,
+        identityActionConfirmText: localeCopy.copy_860f24df0a,
         identityActionConfirmAction: { type: 'deleteAdmin', id, organizationId }
       });
     },
@@ -1087,13 +1089,13 @@ module.exports = Behavior({
           adminLevel: data.adminLevel
         });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
           return;
         }
         await this.loadPersonIdentities();
-        wx.showToast({ title: '管理员已添加', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_0a6ad98837, icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '未保存，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
       } finally {
         this.setLoading('savePersonAdminIdentity', false);
       }
@@ -1129,14 +1131,14 @@ module.exports = Behavior({
               organizationId: action.organizationId
             });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未删除，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_076bb5d383, icon: 'none' });
           return;
         }
         await this.loadPersonIdentities();
         this.loadHrProfileAdminData();
-        wx.showToast({ title: '已删除', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '未删除，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' });
       }
     },
 
@@ -1205,7 +1207,7 @@ module.exports = Behavior({
       const studentId = (vals._studentId || '').trim();
 
       if (!name || !studentId) {
-        wx.showToast({ title: '请填写姓名和学号', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_e6f89839f1, icon: 'none' });
         return;
       }
   
@@ -1234,15 +1236,15 @@ module.exports = Behavior({
           hrId, name, studentId, profileValues
         });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
           return;
         }
-        wx.showToast({ title: '已保存', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' });
         this.setData({ showHrPersonDetail: false });
         this.loadHrProfileAdminData();
         this.loadHrList();
       } catch (err) {
-        wx.showToast({ title: '未保存，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
       } finally {
         this.setData({ savingDetailHr: false });
       }
@@ -1255,14 +1257,14 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'approve' });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未完成，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
           return;
         }
-        wx.showToast({ title: '已通过', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_ce171a2581, icon: 'success' });
         this.closeHrPersonDetail();
         this.loadHrProfileAdminData();
       } catch (err) {
-        wx.showToast({ title: '未完成，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' });
       }
     },
 
@@ -1273,14 +1275,14 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'reject' });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未完成，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
           return;
         }
-        wx.showToast({ title: '已驳回', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_5d5af942c5, icon: 'success' });
         this.closeHrPersonDetail();
         this.loadHrProfileAdminData();
       } catch (err) {
-        wx.showToast({ title: '未完成，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' });
       }
     },
 
@@ -1421,7 +1423,7 @@ module.exports = Behavior({
   
         const headers = tableData.headers;
         if (!headers.length) {
-          wx.showToast({ title: '表格文件为空或格式不正确', icon: 'none' });
+          wx.showToast({ title: localeCopy.copy_b673ee708c, icon: 'none' });
           _this.setLoading('importTemplateFieldsCsv', false);
           return;
         }
@@ -1435,18 +1437,18 @@ module.exports = Behavior({
   
         const existingFields = _this.data.hrProfileTemplateForm.fields || [];
         const headerPreview = headers.length > 5
-          ? headers.slice(0, 5).join('、') + ' 等' + headers.length + '项资料'
+          ? headers.slice(0, 5).join('、') + localeCopy.copy_5daecbb537 + headers.length + localeCopy.copy_5babf47a71
           : headers.join('、');
   
         wx.showModal({
-          title: '导入资料项',
-          content: '表格中有 ' + headers.length + ' 项资料：' + headerPreview + '。请选择替换现有内容，或追加到末尾。',
-          confirmText: '替换',
-          cancelText: '追加',
+          title: localeCopy.copy_d0fc81b30f,
+          content: localeCopy.copy_a7e6a633a4 + headers.length + localeCopy.copy_fbdaa51ccc + headerPreview + localeCopy.copy_f37be3c249,
+          confirmText: localeCopy.copy_50a212e945,
+          cancelText: localeCopy.copy_01c502a089,
           success: function (modalRes) {
             const fields = modalRes.confirm ? newFields : existingFields.concat(newFields);
             _this.setData({ 'hrProfileTemplateForm.fields': fields });
-            wx.showToast({ title: '已导入 ' + headers.length + ' 项', icon: 'success' });
+            wx.showToast({ title: localeCopy.copy_4c8603086a + headers.length + localeCopy.copy_a68c09e48e, icon: 'success' });
           }
         });
         _this.setLoading('importTemplateFieldsCsv', false);
@@ -1491,13 +1493,13 @@ module.exports = Behavior({
       }));
   
       if (!templateName) {
-        wx.showToast({ title: '请填写模板名称', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_d03e81ea80, icon: 'none' });
         return;
       }
 
       if (!fields.length || fields.some((item) => !item.label)) {
         wx.showToast({
-          title: '请填写资料项名称',
+          title: localeCopy.copy_b559e020b7,
           icon: 'none'
         });
         return;
@@ -1505,7 +1507,7 @@ module.exports = Behavior({
   
       this.setLoading('saveProfileTemplate', true);
       wx.showLoading({
-        title: '更新中...',
+        title: localeCopy.copy_74e7385966,
         mask: true
       });
       try {
@@ -1518,15 +1520,15 @@ module.exports = Behavior({
         });
   
         if (result.status !== 'success') {
-          showShortToast('未更新，请重试');
+          showShortToast(localeCopy.copy_89be75a701);
           return;
         }
   
         this.setData({ showHrTemplateEditor: false, hrProfileTemplateForm: emptyHrProfileTemplateForm() });
         await this.loadHrProfileTemplates();
-        showShortToast('已更新', 'success');
+        showShortToast(localeCopy.copy_a751bbfc34, 'success');
       } catch (error) {
-        showShortToast('未更新，请重试');
+        showShortToast(localeCopy.copy_89be75a701);
       } finally {
         wx.hideLoading();
         this.setLoading('saveProfileTemplate', false);
@@ -1540,8 +1542,8 @@ module.exports = Behavior({
       }
   
       wx.showModal({
-        title: '通过审核',
-        content: '确认通过此次修改？',
+        title: localeCopy.copy_6c43597611,
+        content: localeCopy.copy_a10c814f32,
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -1554,19 +1556,19 @@ module.exports = Behavior({
             });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '未通过，请重试',
+                title: result.message || localeCopy.copy_ad2391977b,
                 icon: 'none'
               });
               return;
             }
             await this.loadHrProfileAdminData();
             wx.showToast({
-              title: '已通过审核',
+              title: localeCopy.copy_688794e754,
               icon: 'success'
             });
           } catch (error) {
             wx.showToast({
-              title: '未通过，请重试',
+              title: localeCopy.copy_ad2391977b,
               icon: 'none'
             });
           }
@@ -1581,8 +1583,8 @@ module.exports = Behavior({
       }
   
       wx.showModal({
-        title: '驳回修改',
-        content: '确认驳回此次修改？',
+        title: localeCopy.copy_af444f2b01,
+        content: localeCopy.copy_0f62b98983,
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -1595,19 +1597,19 @@ module.exports = Behavior({
             });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '未驳回，请重试',
+                title: result.message || localeCopy.copy_6dbd8065fb,
                 icon: 'none'
               });
               return;
             }
             await this.loadHrProfileAdminData();
             wx.showToast({
-              title: '已驳回修改',
+              title: localeCopy.copy_4f261c7609,
               icon: 'success'
             });
           } catch (error) {
             wx.showToast({
-              title: '未驳回，请重试',
+              title: localeCopy.copy_6dbd8065fb,
               icon: 'none'
             });
           }
@@ -1642,7 +1644,7 @@ module.exports = Behavior({
     
       if (!name || !studentId) {
         wx.showToast({
-          title: '请填写姓名学号',
+          title: localeCopy.copy_4f9250c03f,
           icon: 'none'
         });
         return;
@@ -1657,7 +1659,7 @@ module.exports = Behavior({
     
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未保存，请重试',
+            title: result.message || localeCopy.copy_215e3c57da,
             icon: 'none'
           });
           return;
@@ -1672,7 +1674,7 @@ module.exports = Behavior({
         await this.openHrPersonDetail({ currentTarget: { dataset: { hrId: result.id } } });
       } catch (error) {
         wx.showToast({
-          title: '未保存，请重试',
+          title: localeCopy.copy_215e3c57da,
           icon: 'none'
         });
       } finally {
@@ -1683,8 +1685,8 @@ module.exports = Behavior({
     deleteHr(e) {
       const { id } = e.currentTarget.dataset;
       wx.showModal({
-        title: '删除人事成员',
-        content: '删除后将清理绑定信息，是否继续？',
+        title: localeCopy.copy_99f5426801,
+        content: localeCopy.copy_393f20aba2,
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -1694,12 +1696,12 @@ module.exports = Behavior({
             await this.loadHrList();
             await this.loadHrProfileAdminData(); // refresh unified list
             wx.showToast({
-              title: '已删除',
+              title: localeCopy.copy_5398fec054,
               icon: 'success'
             });
           } catch (error) {
             wx.showToast({
-              title: '未删除，请重试',
+              title: localeCopy.copy_076bb5d383,
               icon: 'none'
             });
           }
@@ -1716,7 +1718,7 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('unbindHrWechat', { hrId });
         if (result.status !== 'success') {
-          showShortToast(result.message || '未解绑，请重试');
+          showShortToast(result.message || localeCopy.copy_32dc191e8f);
           return;
         }
         this.patchHrGovernance(row.personId, {
@@ -1725,9 +1727,9 @@ module.exports = Behavior({
           activeSessionCount: 0,
           pendingRecoveryId: ''
         }, { wxBindStatus: 'unbound' });
-        showShortToast('已解绑', 'success');
+        showShortToast(localeCopy.copy_52128a24e4, 'success');
       } catch (error) {
-        showShortToast('未解绑，请重试');
+        showShortToast(localeCopy.copy_32dc191e8f);
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1765,7 +1767,7 @@ module.exports = Behavior({
         self._csvImportActive = false;
       }).catch(function (err) {
         console.error('Table file parse error:', err);
-        wx.showToast({ title: '请检查表格格式', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_cc78fc735e, icon: 'none' });
         self._csvImportActive = false;
       });
     },
@@ -1803,20 +1805,20 @@ module.exports = Behavior({
       let self = this;
       let errors = self.data.validationErrors || [];
       if (!errors.length) {
-        wx.showToast({ title: '暂无问题记录', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_62e4cca082, icon: 'none' });
         return;
       }
       wx.showActionSheet({
-        itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
+        itemList: [localeCopy.copy_7ffcbc33aa, localeCopy.copy_5503123f4c],
         success: function (res) {
           let format = res.tapIndex === 0 ? 'csv' : 'excel';
           let headers = [
-            { key: 'name', label: '姓名' },
-            { key: 'studentId', label: '学号' },
-            { key: 'fieldName', label: '资料项' },
-            { key: 'fieldType', label: '内容类型' },
-            { key: 'errorValue', label: '原内容' },
-            { key: 'errorReason', label: '问题说明' }
+            { key: 'name', label: localeCopy.copy_3c946202ff },
+            { key: 'studentId', label: localeCopy.copy_cbb853db1b },
+            { key: 'fieldName', label: localeCopy.copy_553705a0cd },
+            { key: 'fieldType', label: localeCopy.copy_0304ae11cd },
+            { key: 'errorValue', label: localeCopy.copy_5196fb52ef },
+            { key: 'errorReason', label: localeCopy.copy_4217b924a4 }
           ];
           let rows = errors.map(function (e) {
             return {
@@ -1829,17 +1831,17 @@ module.exports = Behavior({
             };
           });
           if (format === 'excel') {
-            self.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: '导入问题清单' }).then(function (result) {
+            self.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: localeCopy.copy_bb51235352 }).then(function (result) {
               if (result && result.status === 'success' && result.fileBase64) {
-                saveAndShareFile(result.fileBase64, '导入问题明细', 'xlsx');
+                saveAndShareFile(result.fileBase64, localeCopy.copy_2ba036eb5f, 'xlsx');
               } else {
-                wx.showToast({ title: '未导出，请重试', icon: 'none' });
+                wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' });
               }
             }).catch(function () {
-              wx.showToast({ title: '未导出，请重试', icon: 'none' });
+              wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' });
             });
           } else {
-            saveAndShareFile(buildCsv(headers, rows), '导入问题明细', 'csv');
+            saveAndShareFile(buildCsv(headers, rows), localeCopy.copy_2ba036eb5f, 'csv');
           }
         }
       });
@@ -1928,23 +1930,23 @@ module.exports = Behavior({
         let item = mappings[i] || {};
         normalizedMappings.push({
           columnKey: 'preview-column-' + item.columnIndex,
-          header: item.header || '未命名列',
-          targetLabel: item.targetLabel || '未命名资料项',
-          targetTypeLabel: item.targetType === 'extension' ? '补充资料' : '基本资料'
+          header: item.header || localeCopy.copy_927e8200f7,
+          targetLabel: item.targetLabel || localeCopy.copy_6195ef12a0,
+          targetTypeLabel: item.targetType === 'extension' ? localeCopy.copy_9ec66981b8 : localeCopy.copy_6d61e35304
         });
       }
       let normalizedIgnored = [];
       for (let j = 0; j < ignoredColumns.length; j++) {
         normalizedIgnored.push({
           columnKey: 'ignored-column-' + ignoredColumns[j].columnIndex,
-          header: ignoredColumns[j].header || '未命名列'
+          header: ignoredColumns[j].header || localeCopy.copy_927e8200f7
         });
       }
       let invalidRows = Number(data.invalidRows || 0);
       let skipInvalid = !!this.data.csvImportSkipInvalid;
       return {
-        fileName: this.data.csvImportFileName || '待导入表格',
-        sheetName: this.data.csvImportSheetName || '当前工作表',
+        fileName: this.data.csvImportFileName || localeCopy.copy_6278f75572,
+        sheetName: this.data.csvImportSheetName || localeCopy.copy_a62f5b5e20,
         totalRows: Number(data.totalRows || 0),
         validRows: Number(data.validRows || 0),
         invalidRows: invalidRows,
@@ -1965,7 +1967,7 @@ module.exports = Behavior({
     async confirmCsvMapping() {
       let payload = this.buildHrTableImportPayload();
       let requiredFields = ['name', 'studentId', 'department', 'identity'];
-      let fieldLabels = { name: '姓名', studentId: '学号', department: '所属部门', identity: '身份' };
+      let fieldLabels = { name: localeCopy.copy_3c946202ff, studentId: localeCopy.copy_cbb853db1b, department: localeCopy.copy_62f8e70200, identity: localeCopy.copy_474f638a6f };
       let missingLabels = [];
       for (let i = 0; i < requiredFields.length; i++) {
         if (payload.basicMapping[requiredFields[i]] === undefined) {
@@ -1974,10 +1976,10 @@ module.exports = Behavior({
       }
       if (missingLabels.length) {
         wx.showModal({
-          title: '请选择资料所在列',
-          content: '请选择以下资料所在列：' + missingLabels.join('、') + '。工作分工可留空。',
+          title: localeCopy.copy_defcb9a40c,
+          content: localeCopy.copy_d661ec9421 + missingLabels.join('、') + localeCopy.copy_ab34b1e15d,
           showCancel: false,
-          confirmText: '关闭'
+          confirmText: localeCopy.copy_b722908172
         });
         return;
       }
@@ -1987,7 +1989,7 @@ module.exports = Behavior({
       try {
         let result = await this.callCloud('previewHrTableImport', payload);
         if (!result || result.status !== 'success') {
-          wx.showToast({ title: (result && result.message) || '请稍后重试', icon: 'none' });
+          wx.showToast({ title: (result && result.message) || localeCopy.copy_e58fa637eb, icon: 'none' });
           return;
         }
         this.setData({
@@ -1996,7 +1998,7 @@ module.exports = Behavior({
           hrImportPreview: this.buildHrImportPreviewView(result.preview)
         });
       } catch (error) {
-        wx.showToast({ title: '请稍后重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_e58fa637eb, icon: 'none' });
       } finally {
         this._csvImportActive = false;
         this.setData({ csvImportLoading: false });
@@ -2015,12 +2017,12 @@ module.exports = Behavior({
     async confirmHrTableImport() {
       let preview = this.data.hrImportPreview || {};
       if (!preview.canImport) {
-        wx.showToast({ title: '请修改问题记录', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_2e92a9de4f, icon: 'none' });
         return;
       }
       this._csvImportActive = true;
       this.setData({ csvImportLoading: true });
-      wx.showLoading({ title: '正在导入...', mask: true });
+      wx.showLoading({ title: localeCopy.copy_f39423b4c5, mask: true });
       try {
         let result = await this.callCloud('importHrTable', this.buildHrTableImportPayload());
         if (result && result.status === 'validation_errors') {
@@ -2031,12 +2033,12 @@ module.exports = Behavior({
             showValidationErrors: true,
             validationErrors: validationErrors,
             validationErrorCards: this.buildValidationErrorCards(validationErrors),
-            validationErrorSummary: '请修改 ' + validationErrors.length + ' 项内容'
+            validationErrorSummary: localeCopy.copy_aee6f6c499 + validationErrors.length + localeCopy.copy_23bb2dcf13
           });
           return;
         }
         if (!result || result.status !== 'success') {
-          wx.showToast({ title: (result && result.message) || '未导入，请重试', icon: 'none' });
+          wx.showToast({ title: (result && result.message) || localeCopy.copy_0c9080582a, icon: 'none' });
           return;
         }
 
@@ -2044,7 +2046,7 @@ module.exports = Behavior({
         this.setData({
           showHrImportPreview: false,
           showCsvMappingDialog: false,
-          csvName: this.data.csvImportFileName || '已导入表格'
+          csvName: this.data.csvImportFileName || localeCopy.copy_03e326cb9b
         });
         await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
         await this.loadWorkGroupList();
@@ -2056,14 +2058,14 @@ module.exports = Behavior({
             showValidationErrors: true,
             validationErrors: skippedErrors,
             validationErrorCards: this.buildValidationErrorCards(skippedErrors),
-            validationErrorSummary: '已导入 ' + Number(result.count || 0) + ' 条，另有 ' + skippedErrors.length + ' 项未导入'
+            validationErrorSummary: localeCopy.copy_4c8603086a + Number(result.count || 0) + localeCopy.copy_067b107bd7 + skippedErrors.length + localeCopy.copy_c6e80c1d75
           });
-          wx.showToast({ title: '导入完成', icon: 'success' });
+          wx.showToast({ title: localeCopy.copy_8c05f916f4, icon: 'success' });
         } else {
-          wx.showToast({ title: '已导入 ' + Number(result.count || 0) + ' 条', icon: 'success' });
+          wx.showToast({ title: localeCopy.copy_4c8603086a + Number(result.count || 0) + localeCopy.copy_9aec79b593, icon: 'success' });
         }
       } catch (error) {
-        wx.showToast({ title: '未导入，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_0c9080582a, icon: 'none' });
       } finally {
         wx.hideLoading();
         this._csvImportActive = false;

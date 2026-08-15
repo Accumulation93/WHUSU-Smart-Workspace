@@ -89,9 +89,21 @@ for (const target of TARGETS) {
   }
 }
 
+function hydrateLocaleCopy(source, file) {
+  const match = source.match(/const\s+localeCopy\s*=\s*require\(\s*(['"])([^'"]+)\1\s*\)/);
+  if (!match) return source;
+  const localeFile = require.resolve(path.resolve(path.dirname(file), match[2]));
+  delete require.cache[localeFile];
+  const localeCopy = require(localeFile);
+  return source.replace(/\blocaleCopy\.([A-Za-z0-9_]+)\b/g, (raw, key) => {
+    if (!Object.prototype.hasOwnProperty.call(localeCopy, key)) return raw;
+    return `'${String(localeCopy[key]).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+  });
+}
+
 function requireSourceContract(relativeFile, checks) {
   const file = path.join(ROOT, relativeFile);
-  const source = fs.readFileSync(file, 'utf8');
+  const source = hydrateLocaleCopy(fs.readFileSync(file, 'utf8'), file);
   for (const check of checks) {
     if (check.test(source)) continue;
     addFinding(check.severity || 'high', check.rule, relativeFile, source, 0);

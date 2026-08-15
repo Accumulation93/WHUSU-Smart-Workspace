@@ -49,6 +49,18 @@ const GLOBAL_STYLE = fs.readFileSync(path.join(MINI_ROOT, 'app.wxss'), 'utf8');
 const GLOBAL_MEDIA_520 = /@media\s*\(min-width:\s*520px\)/.test(GLOBAL_STYLE);
 const GLOBAL_MEDIA_900 = /@media\s*\(min-width:\s*900px\)/.test(GLOBAL_STYLE);
 
+function hydrateGeneratedLocaleCopy(source, scriptFile) {
+  const script = fs.readFileSync(scriptFile, 'utf8');
+  const match = script.match(/const\s+localeCopy\s*=\s*require\(\s*(['"])([^'"]+)\1\s*\)/);
+  if (!match) return source;
+  const localeFile = require.resolve(path.resolve(path.dirname(scriptFile), match[2]));
+  delete require.cache[localeFile];
+  const localeCopy = require(localeFile);
+  return source.replace(/\{\{\s*localeCopy\.([A-Za-z0-9_]+)\s*\}\}/g, (raw, key) => (
+    Object.prototype.hasOwnProperty.call(localeCopy, key) ? String(localeCopy[key]) : raw
+  ));
+}
+
 function scanCompactVisualContract() {
   const findings = [];
   const required = [
@@ -369,7 +381,7 @@ function scanAdminOrgContextContracts() {
     const checks = [
       ['统一顶部身份卡', /<workspace-hero\b/],
       ['管理端视觉样式', /\btone="admin"/],
-      ['工作台品牌名称', /\bapp-name="WHUSU智慧工作台"/]
+      ['工作台品牌名称', /\bapp-name=(?:"WHUSU智慧工作台"|"\{\{[^}]+\}\}")/]
     ];
     for (const [label, pattern] of checks) {
       if (!pattern.test(markup)) findings.push({ page: page.name, message: `缺少${label}` });
@@ -419,8 +431,13 @@ function scanWorkspaceShellContracts() {
   for (const route of routes) {
     const jsonFile = path.join(MINI_ROOT, `${route}.json`);
     const wxmlFile = path.join(MINI_ROOT, `${route}.wxml`);
+    const scriptFile = path.join(MINI_ROOT, `${route}.js`);
     const pageConfig = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
-    if (!/^.+ - WHUSU智慧工作台$/.test(pageConfig.navigationBarTitleText || '')) {
+    const script = fs.readFileSync(scriptFile, 'utf8');
+    const hasStaticTitle = /^.+ - WHUSU智慧工作台$/.test(pageConfig.navigationBarTitleText || '');
+    const hasLocaleRuntimeTitle = !pageConfig.navigationBarTitleText &&
+      /wx\.setNavigationBarTitle\s*\(\s*\{[\s\S]{0,320}?\btitle\s*:/.test(script);
+    if (!hasStaticTitle && !hasLocaleRuntimeTitle) {
       findings.push({
         file: relative(jsonFile),
         message: '页面标题必须使用“子应用名称 - WHUSU智慧工作台”'
@@ -428,7 +445,7 @@ function scanWorkspaceShellContracts() {
     }
     if (heroExceptions.has(route)) continue;
     const markup = fs.readFileSync(wxmlFile, 'utf8');
-    if (!/<workspace-hero\b[^>]*\bapp-name="WHUSU智慧工作台"/.test(markup)) {
+    if (!/<workspace-hero\b[^>]*\bapp-name=(?:"WHUSU智慧工作台"|"\{\{[^}]+\}\}")/.test(markup)) {
       findings.push({
         file: relative(wxmlFile),
         message: '业务页面缺少统一顶部身份卡'
@@ -456,7 +473,8 @@ function scanWorkspaceShellContracts() {
 
 function scanVenueFlowVisibilityContract() {
   const file = path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.wxml');
-  const source = fs.readFileSync(file, 'utf8');
+  const scriptFile = path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.js');
+  const source = hydrateGeneratedLocaleCopy(fs.readFileSync(file, 'utf8'), scriptFile);
   const findings = [];
   const checks = [
     ['借用规则页缺少审批流程列表', /approvalFlows/],

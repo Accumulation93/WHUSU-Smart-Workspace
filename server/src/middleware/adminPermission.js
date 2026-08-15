@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/middleware/adminPermission');
 const adminInfoModel = require('../core/models/adminInfo');
 const { getCurrentOrgId } = require('../utils/orgContext');
 const { ROUTE_RULES, loadEffectivePermissions, hasAnyPermission } = require('../core/services/adminPermissions');
@@ -12,14 +13,14 @@ async function adminPermissionMiddleware(req, res, next) {
     if (selectedRole === 'user' && rule.allowUserRole) return next();
     return res.status(403).json({
       status: 'admin_role_required',
-      message: '请切换到管理员身份后重试'
+      message: localeCopy.copy_278fb8d3d0
     });
   }
 
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
     if (!admin) {
-      return res.status(403).json({ status: 'forbidden', message: '请重新选择管理员身份' });
+      return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_b0eb464235 });
     }
     const orgId = await getCurrentOrgId();
     const effective = await loadEffectivePermissions(admin, orgId);
@@ -27,7 +28,7 @@ async function adminPermissionMiddleware(req, res, next) {
       return res.status(403).json({
         status: 'permission_denied',
         permissionKey: rule.anyOf[0] || '',
-        message: '请使用有相应权限的管理员身份'
+        message: localeCopy.copy_9a6b810f66
       });
     }
     req.admin = admin;
@@ -35,7 +36,7 @@ async function adminPermissionMiddleware(req, res, next) {
     return next();
   } catch (error) {
     req.logger.error('Admin permission check failed', { error: error.message, path: routePath });
-    return res.status(500).json({ status: 'error', message: '请稍后重试' });
+    return res.status(500).json({ status: 'error', message: localeCopy.copy_e58fa637eb });
   }
 }
 

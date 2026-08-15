@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/utils/notificationHelper');
 const { safeString } = require('../../../utils/helpers');
 const crypto = require('crypto');
 const notificationOutboxModel = require('../models/notificationOutbox');
@@ -23,7 +24,7 @@ const notificationOutboxModel = require('../models/notificationOutbox');
  */
 async function createNotification(opts, conn) {
   const recipientId = safeString(opts.recipientId || opts.hrId);
-  if (!recipientId) throw new Error('通知缺少收件人');
+  if (!recipientId) throw new Error(localeCopy.copy_5991beb931);
   const contentFingerprint = crypto.createHash('sha256')
     .update([opts.title, opts.description].map(safeString).join('\n'))
     .digest('hex').slice(0, 16);

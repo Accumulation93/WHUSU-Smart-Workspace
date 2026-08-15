@@ -3,9 +3,27 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const homeWxml = fs.readFileSync(path.join(root, 'miniprogram/pages/home/home.wxml'), 'utf8');
+
+function hydrateLocale(source, locale, variableName) {
+  return Object.entries(locale).reduce((result, entry) => {
+    const pattern = new RegExp(`\\b${variableName}\\.${entry[0]}\\b`, 'g');
+    return result.replace(pattern, String(entry[1]));
+  }, source);
+}
+
+const homeCopy = require('../miniprogram/locales/zh-CN/home').text;
+const adminCopy = require('../miniprogram/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
+const homeWxml = hydrateLocale(
+  fs.readFileSync(path.join(root, 'miniprogram/pages/home/home.wxml'), 'utf8'),
+  homeCopy,
+  'copy'
+);
 const homeWxss = fs.readFileSync(path.join(root, 'miniprogram/pages/home/home.wxss'), 'utf8');
-const adminWxml = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8');
+const adminWxml = hydrateLocale(
+  fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8'),
+  adminCopy,
+  'localeCopy'
+);
 const adminWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxss'), 'utf8');
 const hrInfoBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/hrInfoBehavior.js'), 'utf8');
 const authPersonnelBehavior = fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/modules/authPersonnelBehavior.js'), 'utf8');

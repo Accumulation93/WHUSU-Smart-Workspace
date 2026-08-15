@@ -15,10 +15,31 @@ const submissionStepModelPath = path.resolve(__dirname, '../src/modules/audit/mo
 const migrationPath = path.resolve(__dirname, '../db/deploy/20260802123000_audit_approver_designation.sql');
 const appWxssPath = path.resolve(__dirname, '../../miniprogram/app.wxss');
 
-const routeSource = fs.readFileSync(routePath, 'utf8');
-const adminRouteSource = fs.readFileSync(adminRoutePath, 'utf8');
+function hydrateLocale(source, locale, variableName, asLiteral) {
+  return Object.entries(locale).reduce((result, entry) => {
+    const pattern = new RegExp(`\\b${variableName}\\.${entry[0]}\\b`, 'g');
+    return result.replace(pattern, asLiteral ? JSON.stringify(entry[1]) : String(entry[1]));
+  }, source);
+}
+
+const routeSource = hydrateLocale(
+  fs.readFileSync(routePath, 'utf8'),
+  require('../src/locales/zh-CN/generated/modules/audit/routes/auditUser'),
+  'localeCopy',
+  true
+);
+const adminRouteSource = hydrateLocale(
+  fs.readFileSync(adminRoutePath, 'utf8'),
+  require('../src/locales/zh-CN/generated/modules/audit/routes/auditAdmin'),
+  'localeCopy',
+  true
+);
 const behaviorSource = fs.readFileSync(behaviorPath, 'utf8');
-const adminWxmlSource = fs.readFileSync(adminWxmlPath, 'utf8');
+const adminWxmlSource = hydrateLocale(
+  fs.readFileSync(adminWxmlPath, 'utf8'),
+  require('../../miniprogram/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin'),
+  'localeCopy'
+);
 const submissionWxmlSource = fs.readFileSync(submissionWxmlPath, 'utf8');
 const submissionBehaviorSource = fs.readFileSync(submissionBehaviorPath, 'utf8');
 const templateStepModelSource = fs.readFileSync(templateStepModelPath, 'utf8');
@@ -41,7 +62,7 @@ assert(startRoute.includes("Number(o.stepIndex) !== 1")
   && startRoute.includes('Number(templateSteps[0].allow_approver_designation) !== 1'),
   '提交人只能在第一步明确允许时指定审批人');
 assert(routeSource.includes("Number(nextStep.allow_approver_designation) !== 1")
-  && routeSource.includes("message: '下一步按审批条件确定审批人'"),
+  && /message:\s*['"]下一步按审批条件确定审批人['"]/.test(routeSource),
   '后续审批人指定必须由目标步骤的服务端开关约束');
 assert(!submissionBehaviorSource.includes("name: 'listHrInfo'"),
   '审批详情不能调用管理员专用的人事目录接口');
@@ -74,7 +95,7 @@ assert(behaviorSource.includes("_auditConditionTarget: 'step'"),
 assert(behaviorSource.includes('auditMultiPickerSelectedCount: Object.keys(selectedIds).length'),
   '选择器打开时必须同步已选数量');
 assert(adminRouteSource.includes("const orgId = await getCurrentOrgId();")
-  && adminRouteSource.includes("message: '请先选择组织'"),
+  && /message:\s*['"]请先选择组织['"]/.test(adminRouteSource),
   '保存审批流程前必须校验当前组织');
 assert(adminWxmlSource.includes('auditTemplateStepEditorVisible')
   && adminWxmlSource.includes('catchtouchmove="noop"'),

@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
 const { callFunction } = require('../../../../utils/api');
 const { chooseTableFile, buildCsv, buildExcelXml, saveAndShareFile } = require('../../../../utils/tableFile');
 const eventBus = require('../../../../utils/eventBus');
@@ -40,6 +41,7 @@ Page({
     authPersonnelBehavior,
   ],
   data: {
+    localeCopy,
     user: null,
     hasPermission: false,
     isSuperAdmin: false,
@@ -72,11 +74,11 @@ Page({
     profileEditModeOptions: utils.PROFILE_EDIT_MODE_OPTIONS,
     profileFieldTypeOptions: utils.PROFILE_FIELD_TYPE_OPTIONS,
     numberRuleOptions: utils.NUMBER_RULE_OPTIONS,
-    adminLevelOptions: ['普通管理员'],
+    adminLevelOptions: [localeCopy.copy_fd31650797],
     adminLevelValues: ['admin'],
     participantGranularityOptions: [
-      { value: 'person', label: '按人评分' },
-      { value: 'assignment', label: '按岗位分别评分' }
+      { value: 'person', label: localeCopy.copy_e4a84c9a86 },
+      { value: 'assignment', label: localeCopy.copy_9fc4793280 }
     ],
     adminCandidateKeyword: '',
     adminCandidateList: [],
@@ -124,27 +126,27 @@ Page({
     visibleRuleAllSelected: false,
     ruleFilters: emptyRuleFilters(),
     ruleFilterOptions: {
-      departments: ['全部'],
-      identities: ['全部']
+      departments: [localeCopy.copy_31d4595959],
+      identities: [localeCopy.copy_31d4595959]
     },
     resultFilters: emptyResultFilters(),
     resultFilterOptions: {
-      departments: ['全部'],
-      identities: ['全部'],
-      workGroups: ['全部']
+      departments: [localeCopy.copy_31d4595959],
+      identities: [localeCopy.copy_31d4595959],
+      workGroups: [localeCopy.copy_31d4595959]
     },
     resultViewOptions: [
-      { value: 'overview', label: '明细查看' },
-      { value: 'completion', label: '完成率看板' }
+      { value: 'overview', label: localeCopy.copy_a6f7e5f124 },
+      { value: 'completion', label: localeCopy.copy_9d954432df }
     ],
-    resultViewLabel: '明细查看',
+    resultViewLabel: localeCopy.copy_a6f7e5f124,
     resultSortOptions: [
-      { value: 'score_desc', label: '按分数从高到低' },
-      { value: 'name_asc', label: '按姓名首字母' },
-      { value: 'department_asc', label: '按所属部门' },
-      { value: 'workGroup_asc', label: '按工作分工' }
+      { value: 'score_desc', label: localeCopy.copy_60c630a885 },
+      { value: 'name_asc', label: localeCopy.copy_99f2be3030 },
+      { value: 'department_asc', label: localeCopy.copy_d379421477 },
+      { value: 'workGroup_asc', label: localeCopy.copy_8438adbb77 }
     ],
-    resultSortLabel: '按分数从高到低',
+    resultSortLabel: localeCopy.copy_60c630a885,
     resultPagination: {
       overview: { page: 0, pageSize: 0, hasMore: true, total: 0 },
       calculation: { page: 0, pageSize: 0, hasMore: true, total: 0 },
@@ -206,7 +208,7 @@ Page({
     hrTemplateSwitchVisible: false,
     hrTemplateSwitchTarget: null,
     hrTemplateSwitchSources: [],
-    hrTemplateSwitchActionOptions: ['隐藏保留', '移入新资料项', '删除已有资料'],
+    hrTemplateSwitchActionOptions: [localeCopy.copy_44b682f101, localeCopy.copy_ca0f4c277a, localeCopy.copy_de101441cb],
     hrTemplateSwitchToken: '',
     hrTemplateSwitchSummary: null,
     _hrInfoKeywordInput: '',
@@ -238,7 +240,7 @@ Page({
     assignmentDepartmentOptions: [],
     assignmentIdentityOptions: [],
     detailScrollTarget: '',
-    assignmentKindOptions: ['校学生会岗位', '学院学生会对接岗位', '其他岗位'],
+    assignmentKindOptions: [localeCopy.copy_1acba00634, localeCopy.copy_8b397940d8, localeCopy.copy_71a5b74266],
     assignmentKindValues: ['staff', 'liaison', 'other'],
     identityActionConfirmVisible: false,
     identityActionConfirmTitle: '',
@@ -311,18 +313,18 @@ Page({
     publicationForm: { id: '', activityId: '', activityName: '', isPublished: false },
 
     // View rule category form (mirrors ruleForm pattern)
-    pubViewRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '查看本人评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] },
+    pubViewRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] },
     pubViewRuleList: [], pubViewRuleListView: [],
-    pubViewRuleFilters: { department: '全部', identity: '全部' },
-    pubViewRuleFilterOptions: { departments: ['全部'], identities: ['全部'] },
+    pubViewRuleFilters: { department: localeCopy.copy_31d4595959, identity: localeCopy.copy_31d4595959 },
+    pubViewRuleFilterOptions: { departments: [localeCopy.copy_31d4595959], identities: [localeCopy.copy_31d4595959] },
     pubViewRuleSelectedIds: {},
     pubViewRuleAllSelected: false,
 
     // Merit rule category form (mirrors ruleForm pattern + quota fields)
-    pubMeritRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: '全部成员', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] },
+    pubMeritRuleForm: { id: '', publicationId: '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: localeCopy.copy_9a2854d17d, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] },
     pubMeritRuleList: [], pubMeritRuleListView: [],
-    pubMeritRuleFilters: { department: '全部', identity: '全部' },
-    pubMeritRuleFilterOptions: { departments: ['全部'], identities: ['全部'] },
+    pubMeritRuleFilters: { department: localeCopy.copy_31d4595959, identity: localeCopy.copy_31d4595959 },
+    pubMeritRuleFilterOptions: { departments: [localeCopy.copy_31d4595959], identities: [localeCopy.copy_31d4595959] },
     pubMeritRuleSelectedIds: {},
     pubMeritRuleAllSelected: false,
 
@@ -335,28 +337,28 @@ Page({
     designationPickerFilteredList: [],
     designationPickerSelectedIds: [],
     designationPickerSelectedList: [],
-    desigFilterDept: '全部', desigFilterIdent: '全部',
-    desigFilterDeptOptions: ['全部'], desigFilterIdentOptions: ['全部'],
+    desigFilterDept: localeCopy.copy_31d4595959, desigFilterIdent: localeCopy.copy_31d4595959,
+    desigFilterDeptOptions: [localeCopy.copy_31d4595959], desigFilterIdentOptions: [localeCopy.copy_31d4595959],
     desigSearchKeyword: '',
     viewScopeOptions: utils.VIEW_SCOPE_OPTIONS,
     viewScopeLabelMap: utils.VIEW_SCOPE_LABEL_MAP,
     displayModeOptions: [
-      { value: 'score', label: '分数模式' },
-      { value: 'grade', label: '等第模式' }
+      { value: 'score', label: localeCopy.copy_9f601dac32 },
+      { value: 'grade', label: localeCopy.copy_24fb296f09 }
     ],
     // Grade band expand/collapse (Feature 4)
     expandedGradeBandIndex: -1,
-    gradeBandColorMap: { '优秀': '#f59e0b', '良好': '#10b981', '合格': '#3b82f6', '不合格': '#ef4444' },
+    gradeBandColorMap: { [localeCopy.copy_56cbab8f45]: '#f59e0b', [localeCopy.copy_4f5ffea945]: '#10b981', [localeCopy.copy_6de197a041]: '#3b82f6', [localeCopy.copy_c5b6490a3f]: '#ef4444' },
 
     // Merit list summary (Feature 5)
     meritSummaryGroups: [],
     meritSummaryFilteredGroups: [],
-    meritSummaryFilterDept: '全部',
-    meritSummaryFilterIdent: '全部',
-    meritSummaryFilterWg: '全部',
-    meritSummaryDeptOptions: ['全部'],
-    meritSummaryIdentOptions: ['全部'],
-    meritSummaryWgOptions: ['全部'],
+    meritSummaryFilterDept: localeCopy.copy_31d4595959,
+    meritSummaryFilterIdent: localeCopy.copy_31d4595959,
+    meritSummaryFilterWg: localeCopy.copy_31d4595959,
+    meritSummaryDeptOptions: [localeCopy.copy_31d4595959],
+    meritSummaryIdentOptions: [localeCopy.copy_31d4595959],
+    meritSummaryWgOptions: [localeCopy.copy_31d4595959],
     meritSummaryLoading: false,
     meritSummaryLoaded: false,
     meritSummaryLoadFailed: false,
@@ -397,8 +399,8 @@ Page({
         pubMeritRuleList: [],
         pubMeritRuleListView: [],
         designationList: [],
-        pubViewRuleFilters: { department: '全部', identity: '全部' },
-        pubMeritRuleFilters: { department: '全部', identity: '全部' },
+        pubViewRuleFilters: { department: localeCopy.copy_31d4595959, identity: localeCopy.copy_31d4595959 },
+        pubMeritRuleFilters: { department: localeCopy.copy_31d4595959, identity: localeCopy.copy_31d4595959 },
         desigSearchKeyword: '',
         meritSummaryGroups: [],
         meritSummaryFilteredGroups: [],
@@ -561,10 +563,10 @@ Page({
       : '';
     if (!value) return;
     wx.showModal({
-      title: '完整示例值',
+      title: localeCopy.copy_651186ec82,
       content: value,
       showCancel: false,
-      confirmText: '关闭'
+      confirmText: localeCopy.copy_b722908172
     });
   },
 
@@ -580,10 +582,10 @@ Page({
     this._visibleTabs = adminPermissions.filterTabs(SUB_APP_ADMIN_TABS[subApp] || SUB_APP_ADMIN_TABS.scoring, profile);
     const requestedTab = this._requestedTab;
     const requestedVisible = requestedTab && this._visibleTabs.indexOf(requestedTab) >= 0;
-    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', system: '基本设置', audit: '审核' };
+    const SUB_APP_LABELS = { scoring: localeCopy.copy_33a502217d, hr: localeCopy.copy_eb65126cfe, system: localeCopy.copy_5b4cf5d1bf, audit: localeCopy.copy_4f6ab0ccf7 };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
     wx.setNavigationBarTitle({
-      title: (this._subAppLabel || '考核评分') + ' - WHUSU智慧工作台'
+      title: (this._subAppLabel || localeCopy.copy_33a502217d) + localeCopy.copy_61386762d9
     });
     this.setData({
       visibleTabs: this._visibleTabs,
@@ -660,18 +662,18 @@ Page({
       canManageAuthPolicy: adminPermissions.hasAny(adminProfile, ['auth.policy.manage']),
       currentOrganizationName: activeOrgName || this.data.currentOrganizationName,
       resultViewOptions: [
-        { value: 'overview', label: '明细查看' },
-        { value: 'completion', label: '完成率看板' }
+        { value: 'overview', label: localeCopy.copy_a6f7e5f124 },
+        { value: 'completion', label: localeCopy.copy_9d954432df }
       ],
-      resultViewLabel: '明细查看',
+      resultViewLabel: localeCopy.copy_a6f7e5f124,
       resultSortOptions: [
-        { value: 'score_desc', label: '按分数从高到低' },
-        { value: 'name_asc', label: '按姓名首字母' },
-        { value: 'department_asc', label: '按所属部门' },
-        { value: 'workGroup_asc', label: '按工作分工' }
+        { value: 'score_desc', label: localeCopy.copy_60c630a885 },
+        { value: 'name_asc', label: localeCopy.copy_99f2be3030 },
+        { value: 'department_asc', label: localeCopy.copy_d379421477 },
+        { value: 'workGroup_asc', label: localeCopy.copy_8438adbb77 }
       ],
-      resultSortLabel: '按分数从高到低',
-      adminLevelOptions: isSuperAdmin ? ['普通管理员', '超级管理员'] : ['普通管理员'],
+      resultSortLabel: localeCopy.copy_60c630a885,
+      adminLevelOptions: isSuperAdmin ? [localeCopy.copy_fd31650797, localeCopy.copy_ccd219e5f1] : [localeCopy.copy_fd31650797],
       adminLevelValues: isSuperAdmin ? ['admin', 'super_admin'] : ['admin']
     });
 
@@ -764,7 +766,7 @@ Page({
     this.setData({ hrInfoMode: mode });
     if (mode === 'policy') {
       this.loadAuthPolicy().catch(() => {
-        utils.showShortToast('认证设置暂时无法加载');
+        utils.showShortToast(localeCopy.copy_439c4fcf37);
       });
     } else if (this.data.canBrowseHrInfo) {
       this.loadHrList();
@@ -799,7 +801,7 @@ Page({
     if (tab === 'hrInfo') {
       if (this.data.hrInfoMode === 'policy') {
         this.loadAuthPolicy().catch(() => {
-          utils.showShortToast('认证设置暂时无法加载');
+          utils.showShortToast(localeCopy.copy_439c4fcf37);
         });
       } else {
         if (this.data.canBrowseHrInfo && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
@@ -923,14 +925,14 @@ Page({
   updateDetailWorkGroupOptions(deptId) {
     const id = deptId || this.data.detailHrValues._departmentId || (this.data.detailHrProfile || {}).departmentId || '';
     if (!id) {
-      this.setData({ detailWorkGroupOptions: ['无'], detailWorkGroupValue: 0 });
+      this.setData({ detailWorkGroupOptions: [localeCopy.copy_54e953f1bb], detailWorkGroupValue: 0 });
       return;
     }
     const idStr = String(id);
     const wgs = this.data.workGroupList
       .filter(w => String(w.departmentId) === idStr)
       .map(w => w.name);
-    const options = ['无', ...wgs];
+    const options = [localeCopy.copy_54e953f1bb, ...wgs];
     const wgName = this.data.detailHrValues._workGroupName || '';
     const wgIdx = options.indexOf(wgName);
     this.setData({

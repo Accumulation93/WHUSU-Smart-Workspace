@@ -1,21 +1,26 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueApprovalHistory/venueApprovalHistory');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 const STATUS_LABELS = {
-  pending: '待审核',
-  approved: '已通过',
-  inUse: '使用中',
-  completed: '已完成',
-  rejected: '已驳回',
-  cancelled: '已取消'
+  pending: localeCopy.copy_8f73640107,
+  approved: localeCopy.copy_ce171a2581,
+  inUse: localeCopy.copy_ad310c8780,
+  completed: localeCopy.copy_2220286f1c,
+  rejected: localeCopy.copy_5d5af942c5,
+  cancelled: localeCopy.copy_fd4601c1f9
 };
 
 Page({
+  onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+  },
   data: {
+    localeCopy,
     history: [],
     loading: false,
-    currentContextText: '当前组织 · 当前身份'
+    currentContextText: localeCopy.copy_7c80a228a6
   },
 
   onShow() {
@@ -23,8 +28,8 @@ Page({
     const role = wx.getStorageSync('activeRole') === 'admin' ? 'admin' : 'user';
     const profiles = wx.getStorageSync('roleProfiles') || {};
     const profile = profiles[role] || {};
-    const organizationName = wx.getStorageSync('activeOrgName') || '当前组织';
-    const identityName = profile.identityName || profile.identity || '当前身份';
+    const organizationName = wx.getStorageSync('activeOrgName') || localeCopy.copy_2b8b8bf904;
+    const identityName = profile.identityName || profile.identity || localeCopy.copy_5825b0b531;
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);
       this.setData({
@@ -58,10 +63,10 @@ Page({
         });
         this.setData({ history: history });
       } else {
-        showShortToast(res.message || '请稍后刷新');
+        showShortToast(res.message || localeCopy.copy_e52119b17e);
       }
     } catch (error) {
-      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, '请稍后刷新'));
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }

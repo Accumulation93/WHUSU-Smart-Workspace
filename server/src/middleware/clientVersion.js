@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/middleware/clientVersion');
 function parseVersion(value) {
   const match = String(value || '').trim().match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
   return match ? match.slice(1).map(Number) : null;
@@ -23,7 +24,7 @@ function clientVersionMiddleware(req, res, next) {
   if (comparison == null || comparison < 0) {
     return res.status(426).json({
       status: 'client_upgrade_required',
-      message: '请重新打开小程序完成更新',
+      message: localeCopy.copy_5951e7703b,
       minimumVersion
     });
   }

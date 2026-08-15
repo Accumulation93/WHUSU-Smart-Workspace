@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/utils/fileSecurity');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -203,14 +204,14 @@ async function getAuthorizedAuditFile(fileId, openid) {
     [fileId, orgId]
   );
   const file = rows[0];
-  if (!file) return { status: 'not_found', message: '请重新选择文件' };
+  if (!file) return { status: 'not_found', message: localeCopy.copy_03d69a9d28 };
 
   const admin = await adminInfoModel.getByOpenid(openid);
   if (admin) return { status: 'success', file };
 
   const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [openid, orgId]);
   const hrId = userRows[0] ? userRows[0].hr_id : '';
-  if (!hrId) return { status: 'forbidden', message: '请先绑定人事信息' };
+  if (!hrId) return { status: 'forbidden', message: localeCopy.copy_162d055e98 };
   if (file.submitted_by === hrId) return { status: 'success', file };
 
   const [stepRows] = await pool.query(
@@ -236,7 +237,7 @@ async function getAuthorizedAuditFile(fileId, openid) {
   if (eventRows.length) return { status: 'success', file };
 
   if (await verificationPermModel.checkPermission(hrId)) return { status: 'success', file };
-  return { status: 'forbidden', message: '没有文件访问权限' };
+  return { status: 'forbidden', message: localeCopy.copy_f1cdbd7be3 };
 }
 
 module.exports = {

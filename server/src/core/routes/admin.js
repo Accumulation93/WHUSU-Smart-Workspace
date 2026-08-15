@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/admin');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
@@ -53,11 +54,11 @@ function creatableLevels(operator, canWrite) {
   if (!canWrite) return [];
   if (isSuperAdmin(operator)) {
     return [
-      { value: 'admin', label: '普通管理员' },
-      { value: 'super_admin', label: '超级管理员' }
+      { value: 'admin', label: localeCopy.copy_fd31650797 },
+      { value: 'super_admin', label: localeCopy.copy_ccd219e5f1 }
     ];
   }
-  return [{ value: 'admin', label: '普通管理员' }];
+  return [{ value: 'admin', label: localeCopy.copy_fd31650797 }];
 }
 
 async function createAdminRecord(connection, operator, orgId, body) {
@@ -67,15 +68,15 @@ async function createAdminRecord(connection, operator, orgId, body) {
   const name = selectedPerson ? safeString(selectedPerson.name) : safeString(body.name);
   const studentId = selectedPerson ? safeString(selectedPerson.student_id) : safeString(body.studentId);
   const adminLevel = safeString(body.adminLevel || 'admin');
-  if (!name || !studentId) return { error: { status: 'invalid_params', message: '请填写姓名和学号' } };
-  if (!ADMIN_LEVELS.includes(adminLevel)) return { error: { status: 'invalid_params', message: '请选择管理员类别' } };
+  if (!name || !studentId) return { error: { status: 'invalid_params', message: localeCopy.copy_e6f89839f1 } };
+  if (!ADMIN_LEVELS.includes(adminLevel)) return { error: { status: 'invalid_params', message: localeCopy.copy_4c77111c70 } };
   if (!canCreateLevel(operator, adminLevel)) {
-    return { error: { status: 'forbidden', message: '请选择可管理的管理员类别' } };
+    return { error: { status: 'forbidden', message: localeCopy.copy_8e8da364b3 } };
   }
 
   const targetOrgId = adminLevel === 'super_admin' ? '' : orgId;
   if (await adminInfoModel.studentExists(studentId, targetOrgId, '', connection)) {
-    return { error: { status: 'duplicate', message: '该学号已存在' } };
+    return { error: { status: 'duplicate', message: localeCopy.copy_b744719f4d } };
   }
 
   const id = generateId();
@@ -97,7 +98,7 @@ router.post('/listAdmins', async (req, res) => {
   try {
     const operator = await ensureAdmin(req);
     if (!operator || !hasAccountRead(req, operator)) {
-      return res.status(403).json({ status: 'permission_denied', message: '请使用可查看管理员的身份' });
+      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
     }
     const orgId = await getCurrentOrgId();
     const canWrite = hasAccountWrite(req, operator);
@@ -133,7 +134,7 @@ router.post('/listAdmins', async (req, res) => {
     });
   } catch (error) {
     req.logger.error('List admins failed', { error: error.message });
-    res.status(500).json({ status: 'error', message: '请稍后刷新管理员' });
+    res.status(500).json({ status: 'error', message: localeCopy.copy_6026566679 });
   }
 });
 
@@ -152,12 +153,12 @@ router.post('/saveAdmin', async (req, res) => {
     if (id) {
       if (!name || !studentId) {
         await connection.rollback();
-        return res.json({ status: 'invalid_params', message: '请填写姓名和学号' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_e6f89839f1 });
       }
       const target = await adminInfoModel.getByIdGlobal(id, connection, true);
       if (!target) {
         await connection.rollback();
-        return res.json({ status: 'not_found', message: '请刷新管理员列表' });
+        return res.json({ status: 'not_found', message: localeCopy.copy_1d64e33c49 });
       }
       const targetOrgId = target.admin_level === 'super_admin' ? requestedOrgId : safeString(target.org_id);
       const access = await requireAdminOrganizationPermission(
@@ -169,20 +170,20 @@ router.post('/saveAdmin', async (req, res) => {
       const operator = access.admin;
       if (!canManageTarget(operator, target, targetOrgId)) {
         await connection.rollback();
-        return res.json({ status: 'forbidden', message: '请选择可管理的管理员' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_1cf137dd0d });
       }
       if (requestedLevel !== target.admin_level) {
         await connection.rollback();
-        return res.json({ status: 'forbidden', message: '如需更改管理员类别，请删除后重新添加' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_da9247f4bc });
       }
       if (await adminInfoModel.studentExists(studentId, target.org_id, id, connection)) {
         await connection.rollback();
-        return res.json({ status: 'duplicate', message: '该学号已存在' });
+        return res.json({ status: 'duplicate', message: localeCopy.copy_b744719f4d });
       }
       await adminInfoModel.updateProfile(connection, target, { name, studentId });
       await unifiedIdentityModel.syncLegacyAdminGrant(connection, target.id);
       await connection.commit();
-      return res.json({ status: 'success', message: '管理员已更新' });
+      return res.json({ status: 'success', message: localeCopy.copy_feaecc6da6 });
     }
 
     const access = await requireAdminOrganizationPermission(
@@ -200,7 +201,7 @@ router.post('/saveAdmin', async (req, res) => {
     return res.json({
       status: 'success',
       id: created.id,
-      message: '管理员身份已添加，本人完成身份认证后即可使用'
+      message: localeCopy.copy_8ca10bee8b
     });
   } catch (error) {
     if (connection) {
@@ -211,7 +212,7 @@ router.post('/saveAdmin', async (req, res) => {
     if (!isExpected) req.logger.error('Save admin failed', { error: error.message });
     res.status(isExpected ? (error.httpStatus || 400) : 500).json({
       status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : '未保存，请重试'
+      message: isExpected ? error.message : localeCopy.copy_215e3c57da
     });
   } finally {
     if (connection) connection.release();
@@ -222,14 +223,14 @@ router.post('/deleteAdmin', async (req, res) => {
   let connection;
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择管理员' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_97111cbe62 });
     const currentOrgId = await getCurrentOrgId();
     connection = await pool.getConnection();
     await connection.beginTransaction();
     const target = await adminInfoModel.getByIdGlobal(id, connection, true);
     if (!target) {
       await connection.rollback();
-      return res.json({ status: 'not_found', message: '请刷新管理员列表' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_1d64e33c49 });
     }
     const orgId = target.admin_level === 'super_admin'
       ? (safeString(req.body.organizationId) || currentOrgId)
@@ -243,20 +244,20 @@ router.post('/deleteAdmin', async (req, res) => {
     const operator = access.admin;
     if (!canManageTarget(operator, target, orgId)) {
       await connection.rollback();
-      return res.json({ status: 'forbidden', message: '请选择可管理的管理员' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_1cf137dd0d });
     }
     if (target.admin_level === 'super_admin') {
       const superAdmins = await adminInfoModel.lockSuperAdmins(connection);
       const activeSuperAdminCount = superAdmins.filter((item) => item.bind_status === 'active').length;
       if (!canDeleteTarget(operator, target, orgId, activeSuperAdminCount)) {
         await connection.rollback();
-        return res.json({ status: 'forbidden', message: '请先添加另一名超级管理员' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_c535df75ca });
       }
     }
     await unifiedIdentityModel.revokeLegacyAdminGrant(connection, target.id);
     await adminInfoModel.removeExact(connection, target);
     await connection.commit();
-    res.json({ status: 'success', message: '管理员已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_ab0b962d3e });
   } catch (error) {
     if (connection) {
       try { await connection.rollback(); } catch (_) {}
@@ -266,7 +267,7 @@ router.post('/deleteAdmin', async (req, res) => {
     if (!isExpected) req.logger.error('Delete admin failed', { error: error.message });
     res.status(isExpected ? (error.httpStatus || 400) : 500).json({
       status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : '未删除，请重试'
+      message: isExpected ? error.message : localeCopy.copy_076bb5d383
     });
   } finally {
     if (connection) connection.release();
@@ -276,35 +277,35 @@ router.post('/deleteAdmin', async (req, res) => {
 router.post('/createAdminInvite', async (req, res) => {
   return res.status(410).json({
     status: 'legacy_auth_disabled',
-    message: '请在账号认证中添加管理员身份'
+    message: localeCopy.copy_bfdbc88a74
   });
 });
 
 router.post('/generateAdminInviteCode', async (req, res) => {
   return res.status(410).json({
     status: 'legacy_auth_disabled',
-    message: '请使用微信登录和身份认证'
+    message: localeCopy.copy_bfa41dd7b3
   });
 });
 
 router.post('/bootstrapRootAdmin', async (req, res) => {
-  res.status(404).json({ status: 'not_found', message: '此功能已停用' });
+  res.status(404).json({ status: 'not_found', message: localeCopy.copy_0429e2ed3a });
 });
 
 router.post('/bootstrapSuperAdmin', async (req, res) => {
-  res.status(404).json({ status: 'not_found', message: '请在管理员管理中创建超级管理员' });
+  res.status(404).json({ status: 'not_found', message: localeCopy.copy_3391cecb3d });
 });
 
 router.post('/adminUnbindUser', async (req, res) => {
   try {
     const operator = await ensureAdmin(req);
     if (!operator || !hasAccountWrite(req, operator)) {
-      return res.status(403).json({ status: 'permission_denied', message: '请使用可管理管理员的身份' });
+      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_a8944fafcc });
     }
     const userId = safeString(req.body.userId);
-    if (!userId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
+    if (!userId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
     const targetUser = await userInfoModel.getById(userId);
-    if (!targetUser) return res.json({ status: 'not_found', message: '请刷新成员列表' });
+    if (!targetUser) return res.json({ status: 'not_found', message: localeCopy.copy_dfd5f185c9 });
     if (req.authSession && targetUser.hr_id) {
       const orgId = await getCurrentOrgId();
       const unifiedResult = await pool.withTransaction((connection) => (
@@ -322,7 +323,7 @@ router.post('/adminUnbindUser', async (req, res) => {
       if (unifiedResult) {
         return res.json({
           status: 'success',
-          message: '账号已等待恢复，原微信和其他设备已退出',
+          message: localeCopy.copy_4c4f7957b4,
           recoveryRequired: true
         });
       }
@@ -331,11 +332,11 @@ router.post('/adminUnbindUser', async (req, res) => {
     if (targetAdmin) {
       const orgId = await getCurrentOrgId();
       if (!canManageTarget(operator, targetAdmin, orgId)) {
-        return res.json({ status: 'forbidden', message: '请先添加另一名超级管理员' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_c535df75ca });
       }
     }
     await userInfoModel.remove(userId);
-    res.json({ status: 'success', message: '已解除微信绑定' });
+    res.json({ status: 'success', message: localeCopy.copy_cc29051f62 });
   } catch (error) {
     res.json({ status: 'error', message: safeString(error.message) });
   }
@@ -345,7 +346,7 @@ router.post('/exportAdmins', async (req, res) => {
   try {
     const operator = await ensureAdmin(req);
     if (!operator || !hasAccountRead(req, operator)) {
-      return res.status(403).json({ status: 'permission_denied', message: '请使用可查看管理员的身份' });
+      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_c3b3ead170 });
     }
     const data = await adminInfoModel.getAll(operator);
     const csvRows = ['姓名,学号,管理员级别,绑定状态'];

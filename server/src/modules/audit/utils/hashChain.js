@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/utils/hashChain');
 /**
  * Audit Hash Chain Utility
  *
@@ -93,7 +94,7 @@ function computeLegacySignatureHash({ id, stepId, signerHrId, positionX, positio
  */
 function verifySignatureChain(signatures, currentFileHashes = {}) {
   if (!signatures || !signatures.length) {
-    return { valid: true, totalSignatures: 0, rounds: {}, files: [], message: '暂无签名记录' };
+    return { valid: true, totalSignatures: 0, rounds: {}, files: [], message: localeCopy.copy_98b6dd82d7 };
   }
 
   // Group by file_id, then by round

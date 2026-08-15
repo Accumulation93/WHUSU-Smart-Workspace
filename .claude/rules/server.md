@@ -166,3 +166,13 @@ HMAC-SHA256 上传 token（30min TTL），magic-byte 文件类型检测，多层
 - ❌ 修改现有 API 响应字段 → 破坏前端契约
 - ❌ 在路由中直接写 SQL → 放 Model 层
 - ❌ 忘记参数化查询
+
+---
+
+## 11. 公开文案语言资源硬约束
+
+- API 响应、公开错误、通知、待办、导出标题中的用户可见文案只允许定义在 `server/src/locales/zh-CN/**`。
+- 业务代码只引用语言资源；动态句子使用 `server/src/locales/runtime.js` 格式化，变量值不得拼回资源文件。
+- 状态码、权限键、路由、SQL、数据库值和内部日志不是语言资源，必须保持原业务语义和原所在层级。
+- 新增公开文案使用可读语义键；`generated/**` 只承载历史等值迁移资源。
+- 完成服务端修改必须运行 `node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization`。

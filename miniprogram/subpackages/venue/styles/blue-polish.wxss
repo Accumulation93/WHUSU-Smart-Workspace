@@ -1,5 +1,5 @@
 /* Shared Blue Luxury Glass polish for venue subpackage */
-page {
+.subapp-venue-page {
   min-height: 100%;
   background:
     radial-gradient(circle at 12% 10%, rgba(96, 165, 250, 0.16) 0%, transparent 26%),
@@ -121,8 +121,8 @@ page {
   box-sizing: border-box;
 }
 
-input.field-input,
-textarea.field-textarea {
+.field-input,
+.field-textarea {
   display: block;
 }
 
@@ -140,8 +140,7 @@ textarea.field-textarea {
   box-sizing: border-box;
 }
 
-.field-textarea,
-textarea {
+.field-textarea {
   min-height: 156rpx;
   white-space: pre-wrap;
 }

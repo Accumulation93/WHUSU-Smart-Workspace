@@ -1,3 +1,5 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/models/hrTableImport');
+const { format: localeFormat } = require('../../locales/runtime');
 const pool = require('../../config/db');
 const { safeString, generateId } = require('../../utils/helpers');
 const unifiedIdentityModel = require('./unifiedIdentity');
@@ -293,7 +295,7 @@ function buildMappingSummary(headers, basicMapping, extensionMapping, templateFi
       columnIndex: mapping.columnIndex,
       header: headers[mapping.columnIndex],
       target: mapping.fieldId,
-      targetLabel: field ? field.label : '补充资料',
+      targetLabel: field ? field.label : localeCopy.copy_9ec66981b8,
       targetType: 'extension'
     });
   });
@@ -371,7 +373,7 @@ async function prepareHrTableImport(payload, orgId) {
       }
       const error = field ? validateFieldValue(field, value) : '该资料项已删除，请重新选择';
       if (error) {
-        rowErrors.push(buildError(field ? field.label : '补充资料', value, error, field ? field.type : 'text'));
+        rowErrors.push(buildError(field ? field.label : localeCopy.copy_9ec66981b8, value, error, field ? field.type : 'text'));
         return;
       }
       extensionValues[mapping.fieldId] = field && field.type === 'date' ? tryParseDate(value) : value;
@@ -507,7 +509,7 @@ async function importPreparedRows(prepared, orgId) {
   if (prepared.validationErrors.length && !prepared.skipInvalid) {
     return {
       status: 'validation_errors',
-      message: `请修改 ${prepared.validationErrors.length} 条内容不正确的记录`,
+      message: localeFormat(localeCopy.copy_ade8b37a07, [prepared.validationErrors.length]),
       errors: prepared.validationErrors,
       count: 0,
       preview: prepared.preview

@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/services/currentActor');
 const { safeString } = require('../../utils/helpers');
 const userInfoModel = require('../models/userInfo');
 const adminInfoModel = require('../models/adminInfo');
@@ -17,7 +18,7 @@ async function resolveCurrentActor(req) {
         ? await adminInfoModel.getByIdGlobal(context.legacyAdminId)
         : null;
       if (!admin) {
-        return { ok: false, status: 'forbidden', message: '当前管理员身份已失效' };
+        return { ok: false, status: 'forbidden', message: localeCopy.copy_8dd829b03b };
       }
       return {
         ok: true,
@@ -35,9 +36,9 @@ async function resolveCurrentActor(req) {
       };
     }
     const hrId = safeString(context.legacyHrId);
-    if (!hrId) return { ok: false, status: 'forbidden', message: '当前岗位身份已失效' };
+    if (!hrId) return { ok: false, status: 'forbidden', message: localeCopy.copy_0fbde52b4b };
     const hr = await hrInfoModel.getById(hrId);
-    if (!hr) return { ok: false, status: 'forbidden', message: '请重新选择普通岗位' };
+    if (!hr) return { ok: false, status: 'forbidden', message: localeCopy.copy_12799b0f7a };
     const profile = Object.assign({}, hr, {
       department_id: safeString(context.departmentId),
       identity_id: safeString(context.identityId),
@@ -64,19 +65,19 @@ async function resolveCurrentActor(req) {
     return {
       ok: false,
       status: 'invalid_role',
-      message: '请重新选择身份'
+      message: localeCopy.copy_10d3269bb4
     };
   }
 
   const openid = safeString(req.openid);
   if (!openid) {
-    return { ok: false, status: 'auth_failed', message: '请先登录' };
+    return { ok: false, status: 'auth_failed', message: localeCopy.copy_c22a252e97 };
   }
 
   if (activeRole === 'admin') {
     const admin = await adminInfoModel.getByOpenid(openid);
     if (!admin) {
-      return { ok: false, status: 'forbidden', message: '当前管理员身份已失效' };
+      return { ok: false, status: 'forbidden', message: localeCopy.copy_8dd829b03b };
     }
     return {
       ok: true,
@@ -94,11 +95,11 @@ async function resolveCurrentActor(req) {
   const user = await userInfoModel.getByOpenid(openid);
   const hrId = safeString(user && user.hr_id);
   if (!user || !hrId) {
-    return { ok: false, status: 'forbidden', message: '当前普通用户身份已失效' };
+    return { ok: false, status: 'forbidden', message: localeCopy.copy_c99b2ee9e2 };
   }
   const hr = await hrInfoModel.getById(hrId);
   if (!hr) {
-    return { ok: false, status: 'forbidden', message: '请重新选择普通岗位' };
+    return { ok: false, status: 'forbidden', message: localeCopy.copy_12799b0f7a };
   }
   return {
     ok: true,

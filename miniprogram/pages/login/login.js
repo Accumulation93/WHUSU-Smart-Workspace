@@ -2,6 +2,7 @@ const { callFunction, showShortToast, getErrorText } = require('../../utils/api'
 const orgSession = require('../../utils/orgSession');
 const authContext = require('../../utils/authContext');
 const { getDeviceIdentity } = require('../../utils/deviceIdentity');
+const { login: copy } = require('../../locales/zh-CN/main');
 
 function selectedOrganizationName(organizations, index) {
   const item = organizations[Number(index) || 0];
@@ -10,6 +11,7 @@ function selectedOrganizationName(organizations, index) {
 
 Page({
   data: {
+    copy: copy.view,
     loading: false,
     sheetClass: 'sheet',
     stage: 'login',
@@ -23,7 +25,7 @@ Page({
     verificationCode: '',
     recoveryMethod: 'recovery_code',
     recoveryMethodIndex: 0,
-    recoveryMethodLabel: '账号恢复码',
+    recoveryMethodLabel: copy.messages.recoveryCode,
     recoveryMethods: [],
     recoveryMethodValues: [],
     recoveryCredential: '',
@@ -36,6 +38,7 @@ Page({
   },
 
   onLoad() {
+    wx.setNavigationBarTitle({ title: copy.navigationTitle });
     this._loginSubmitting = false;
     this._portalNavigating = false;
     const authNotice = String(wx.getStorageSync('authLoginNotice') || '');
@@ -69,7 +72,7 @@ Page({
           fail: () => {
             this._portalNavigating = false;
             this.setData({ leavingPortal: false });
-            showShortToast('页面未打开，请重试');
+            showShortToast(copy.messages.pageOpenFailed);
           }
         });
       };
@@ -101,7 +104,7 @@ Page({
   async onPasswordLogin() {
     if (this.data.loading) return;
     if (!this.data.passwordStudentId || !this.data.password) {
-      showShortToast('请输入学号和口令');
+      showShortToast(copy.messages.passwordRequired);
       return;
     }
     this.setData({ loading: true });
@@ -119,11 +122,11 @@ Page({
           preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
         }
       });
-      if (!result || result.status !== 'login_success') throw new Error('登录信息不正确');
+      if (!result || result.status !== 'login_success') throw new Error(copy.messages.loginInvalid);
       authContext.applyAuthenticatedResult(result);
       this.openPortal();
     } catch (error) {
-      showShortToast(getErrorText(error, '登录信息不正确'));
+      showShortToast(getErrorText(error, copy.messages.loginInvalid));
     } finally {
       this.setData({ loading: false });
     }
@@ -155,7 +158,7 @@ Page({
     this.setData({
       recoveryMethod: selected,
       recoveryMethodIndex: Number(e.detail.value || 0),
-      recoveryMethodLabel: selected === 'passphrase' ? '恢复口令' : '账号恢复码',
+      recoveryMethodLabel: selected === 'passphrase' ? copy.messages.recoveryPassphrase : copy.messages.recoveryCode,
       recoveryCredential: ''
     });
   },
@@ -195,7 +198,7 @@ Page({
           });
           this.handleWechatSession(result);
         } catch (error) {
-          const message = getErrorText(error, '请重新微信登录');
+          const message = getErrorText(error, copy.messages.relogin);
           if (message) showShortToast(message);
         } finally {
           this._loginSubmitting = false;
@@ -205,14 +208,14 @@ Page({
       fail: () => {
         this._loginSubmitting = false;
         this.setData({ loading: false });
-        showShortToast('请重新微信登录');
+        showShortToast(copy.messages.relogin);
       }
     });
   },
 
   handleWechatSession(result) {
     if (!result || !result.status) {
-      showShortToast('请重新微信登录');
+      showShortToast(copy.messages.relogin);
       return;
     }
     if (result.status === 'login_success') {
@@ -220,23 +223,23 @@ Page({
         authContext.applyAuthenticatedResult(result);
         this.openPortal();
       } catch (_) {
-        showShortToast('请重新微信登录');
+        showShortToast(copy.messages.relogin);
       }
       return;
     }
     if (result.status !== 'need_claim' || !result.bootstrapToken) {
-      showShortToast(result.message || '暂时无法登录');
+      showShortToast(result.message || copy.messages.loginUnavailable);
       return;
     }
     const organizations = Array.isArray(result.organizations) ? result.organizations : [];
     const recoveryMethods = [];
     const recoveryMethodValues = [];
     if (result.recoveryMethods && result.recoveryMethods.recoveryCode) {
-      recoveryMethods.push('账号恢复码');
+      recoveryMethods.push(copy.messages.recoveryCode);
       recoveryMethodValues.push('recovery_code');
     }
     if (result.recoveryMethods && result.recoveryMethods.passphrase) {
-      recoveryMethods.push('恢复口令');
+      recoveryMethods.push(copy.messages.recoveryPassphrase);
       recoveryMethodValues.push('passphrase');
     }
     orgSession.commitContext({
@@ -282,7 +285,7 @@ Page({
     if (this.data.loading) return;
     const organization = this.data.organizations[this.data.organizationIndex];
     if (!organization || !this.data.name || !this.data.studentId) {
-      showShortToast('请填写组织、姓名和学号');
+      showShortToast(copy.messages.profileRequired);
       return;
     }
     this.setData({ loading: true });
@@ -296,7 +299,7 @@ Page({
         }
       });
       if (!result || result.status !== 'accepted' || !result.claimId) {
-        showShortToast((result && result.message) || '未提交，请重试');
+        showShortToast((result && result.message) || copy.messages.submitFailed);
         return;
       }
       this.setData({
@@ -305,7 +308,7 @@ Page({
         verificationCode: ''
       });
     } catch (error) {
-      const message = getErrorText(error, '未提交，请重试');
+      const message = getErrorText(error, copy.messages.submitFailed);
       if (message) showShortToast(message);
     } finally {
       this.setData({ loading: false });
@@ -315,7 +318,7 @@ Page({
   async verifyClaim() {
     if (this.data.loading) return;
     if (!this.data.claimId || !this.data.verificationCode) {
-      showShortToast('请输入个人认证码');
+      showShortToast(copy.messages.verificationRequired);
       return;
     }
     this.setData({ loading: true });
@@ -354,13 +357,13 @@ Page({
         }
       });
       if (!result || result.status !== 'login_success') {
-        showShortToast((result && result.message) || '请检查认证码');
+        showShortToast((result && result.message) || copy.messages.verificationInvalid);
         return;
       }
       authContext.applyAuthenticatedResult(result);
       this.openPortal();
     } catch (error) {
-      const message = getErrorText(error, '请检查认证码');
+      const message = getErrorText(error, copy.messages.verificationInvalid);
       if (message) showShortToast(message);
     } finally {
       this.setData({ loading: false });
@@ -371,7 +374,7 @@ Page({
     if (this.data.loading) return;
     const organization = this.data.organizations[this.data.organizationIndex];
     if (!organization || !this.data.name || !this.data.studentId) {
-      showShortToast('请填写组织、姓名和学号');
+      showShortToast(copy.messages.profileRequired);
       return;
     }
     this.setData({ loading: true });
@@ -385,7 +388,7 @@ Page({
         }
       });
       if (!result || result.status !== 'accepted' || !result.recoveryRequestId) {
-        showShortToast((result && result.message) || '未提交，请重试');
+        showShortToast((result && result.message) || copy.messages.submitFailed);
         return;
       }
       this.setData({
@@ -394,7 +397,7 @@ Page({
         recoveryCredential: ''
       });
     } catch (error) {
-      const message = getErrorText(error, '未提交，请重试');
+      const message = getErrorText(error, copy.messages.submitFailed);
       if (message) showShortToast(message);
     } finally {
       this.setData({ loading: false });
@@ -404,7 +407,7 @@ Page({
   async completeRecovery() {
     if (this.data.loading) return;
     if (!this.data.recoveryCredential) {
-      showShortToast('请输入恢复码或恢复口令');
+      showShortToast(copy.messages.recoveryRequired);
       return;
     }
     this.setData({ loading: true });
@@ -422,7 +425,7 @@ Page({
         }
       });
       if (!result || result.status !== 'login_success') {
-        showShortToast((result && result.message) || '请检查恢复信息');
+        showShortToast((result && result.message) || copy.messages.recoveryInvalid);
         return;
       }
       authContext.applyAuthenticatedResult(result);
@@ -436,7 +439,7 @@ Page({
         this.openPortal();
       }
     } catch (error) {
-      const message = getErrorText(error, '请检查恢复信息');
+      const message = getErrorText(error, copy.messages.recoveryInvalid);
       if (message) showShortToast(message);
     } finally {
       this.setData({ loading: false });

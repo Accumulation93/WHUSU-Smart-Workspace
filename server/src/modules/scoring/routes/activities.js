@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/activities');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -22,7 +23,7 @@ router.post('/listScoreActivities', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     function fmtDate(v) {
       if (!v) return '';
@@ -67,7 +68,7 @@ router.post('/saveScoreActivity', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -78,18 +79,18 @@ router.post('/saveScoreActivity', async (req, res) => {
     const requestedPaused = req.body.isPaused === true || req.body.isPaused === 1 ? 1 : 0;
     const participantGranularity = safeString(req.body.participantGranularity || 'person');
 
-    if (!name) return res.json({ status: 'invalid_params', message: '请填写评分活动名称' });
+    if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_e394895492 });
     if (!['person', 'assignment'].includes(participantGranularity)) {
-      return res.json({ status: 'invalid_params', message: '请重新选择评分对象' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_61d3d82d79 });
     }
     if (startDate && endDate && startDate > endDate) {
-      return res.json({ status: 'invalid_params', message: '请将结束时间设在开始时间之后' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
     }
 
     if (id) {
       const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
       const current = await activityModel.getById(id);
-      if (!current) return res.json({ status: 'not_found', message: '请刷新评分活动后重试' });
+      if (!current) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
       if (current && current.participant_granularity !== participantGranularity) {
         const orgId = await getCurrentOrgId();
         const [recordRows] = await pool.query(
@@ -97,7 +98,7 @@ router.post('/saveScoreActivity', async (req, res) => {
           [id, orgId]
         );
         if (recordRows.length) {
-          return res.json({ status: 'conflict', message: '该活动已有评分记录，如需调整评分对象，请新建活动' });
+          return res.json({ status: 'conflict', message: localeCopy.copy_48f70c55c9 });
         }
       }
       await activityModel.update(id, {
@@ -111,7 +112,7 @@ router.post('/saveScoreActivity', async (req, res) => {
       const orgId = await getCurrentOrgId();
       const [existing] = await pool.query('SELECT * FROM score_activities WHERE name = ? AND org_id = ? LIMIT 1', [name, orgId]);
       if (existing.length) {
-        return res.json({ status: 'duplicate', message: '请使用其他评分活动名称' });
+        return res.json({ status: 'duplicate', message: localeCopy.copy_8aeb0338bf });
       } else {
         const newId = generateId();
         await activityModel.create(newId, {
@@ -134,10 +135,10 @@ router.post('/deleteScoreActivity', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择评分活动' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_4314b97854 });
 
     const orgId = await getCurrentOrgId();
 
@@ -176,13 +177,13 @@ router.post('/setCurrentScoreActivity', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择评分活动' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_4314b97854 });
 
     const target = await activityModel.getById(id);
-    if (!target) return res.json({ status: 'not_found', message: '请刷新评分活动后重试' });
+    if (!target) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
 
     await activityModel.clearAllCurrent();
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -241,13 +242,13 @@ router.post('/toggleActivityPause', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择评分活动' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_4314b97854 });
 
     const activity = await activityModel.getById(id);
-    if (!activity) return res.json({ status: 'not_found', message: '请刷新评分活动后重试' });
+    if (!activity) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
 
     const newPaused = activity.is_paused ? 0 : 1;
     await activityModel.togglePause(id, newPaused);

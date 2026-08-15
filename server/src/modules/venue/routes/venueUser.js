@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/routes/venueUser');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -243,7 +244,7 @@ function splitByDate(startDate, endDate) {
 
 router.post('/listVenuesForBooking', async (req, res) => {
   try {
-    if (!req.openid) return res.json({ status: 'forbidden', message: '请微信登录' });
+    if (!req.openid) return res.json({ status: 'forbidden', message: localeCopy.copy_20ca49e5e7 });
     const venues = await venueModel.getAll();
     const venueList = [];
     for (const v of venues) {
@@ -270,23 +271,23 @@ router.post('/listVenuesForBooking', async (req, res) => {
 
 router.post('/getVenueSchedule', async (req, res) => {
   try {
-    if (!req.openid) return res.json({ status: 'forbidden', message: '请微信登录' });
+    if (!req.openid) return res.json({ status: 'forbidden', message: localeCopy.copy_20ca49e5e7 });
     const venueId = safeString(req.body.venueId);
     const dateFrom = safeString(req.body.dateFrom);
     const dateTo = safeString(req.body.dateTo);
-    if (!venueId || !dateFrom) return res.json({ status: 'invalid_params', message: '请选择场地和日期' });
+    if (!venueId || !dateFrom) return res.json({ status: 'invalid_params', message: localeCopy.copy_334da572b2 });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateFrom) || (dateTo && !/^\d{4}-\d{2}-\d{2}$/.test(dateTo))) {
-      return res.json({ status: 'invalid_params', message: '请重新选择日期' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_ab5ebc56e8 });
     }
 
     const venue = await venueModel.getById(venueId);
-    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '请选择其他场地' });
+    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
 
     const openRules = await venueOpenRuleModel.getByVenueId(venueId);
     const activityRules = await venueActivityRuleModel.getByVenueId(venueId);
     const endDate = dateTo || dateFrom;
     if (daysBetweenInclusive(dateFrom, endDate) < 1 || daysBetweenInclusive(dateFrom, endDate) > 31) {
-      return res.json({ status: 'invalid_params', message: '请选择31天以内的日期范围' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_d333186648 });
     }
 
     // Fetch ALL bookings that overlap with the week range
@@ -437,7 +438,7 @@ router.post('/getVenueSchedule', async (req, res) => {
           return {
             id: b.id,
             visibility: 'occupancy_only',
-            title: '已占用',
+            title: localeCopy.copy_181feafbe5,
             description: '',
             status: 'occupied',
             timeStart: displayStart,
@@ -510,7 +511,7 @@ router.post('/getVenueSchedule', async (req, res) => {
 router.post('/getVenueApprovalFlowOptions', async (req, res) => {
   try {
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const flows = await venueApprovalFlowModel.listByVenueId(venueId);
     const options = flows.map(function(flow) {
       return {
@@ -555,7 +556,7 @@ router.post('/createVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请使用普通岗位身份' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
 
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
@@ -564,33 +565,33 @@ router.post('/createVenueBooking', async (req, res) => {
     const timeEndStr = safeString(req.body.timeEnd);
 
     if (!venueId || !timeStartStr || !timeEndStr) {
-      return res.json({ status: 'invalid_params', message: '请填写完整信息' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_9dc5c7d79f });
     }
     if (!title) {
-      return res.json({ status: 'invalid_params', message: '请填写借用事由' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_7db68605c6 });
     }
 
     if (title.length > 100 || description.length > 1000) {
-      return res.json({ status: 'invalid_params', message: '请缩短借用事由或说明' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_ea94858596 });
     }
 
     const startDate = parseDatetime(timeStartStr);
     const endDate = parseDatetime(timeEndStr);
     if (!startDate || !endDate) {
-      return res.json({ status: 'invalid_params', message: '请重新选择时间' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_7873aabe9e });
     }
     if (startDate >= endDate) {
-      return res.json({ status: 'invalid_params', message: '请将结束时间设在开始时间之后' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
     }
 
     // Reject cross-day bookings
     if (fmtLocalDate(startDate) !== fmtLocalDate(endDate)) {
-      return res.json({ status: 'invalid_params', message: '请选择同一天的开始和结束时间' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_f450f21538 });
     }
 
     // Check venue
     const venue = await venueModel.getById(venueId);
-    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '请选择其他场地' });
+    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
 
     const bookingPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
     const windowError = validateBookingWindow(bookingPolicy, startDate, new Date());
@@ -646,7 +647,7 @@ router.post('/createVenueBooking', async (req, res) => {
     if (!dedupClaim.claimed) {
       await conn.commit();
       return res.json(dedupClaim.response || {
-        status: 'success', id: dedupClaim.resourceId, message: '借用申请已提交', idempotent: true
+        status: 'success', id: dedupClaim.resourceId, message: localeCopy.copy_02339c7f77, idempotent: true
       });
     }
 
@@ -654,7 +655,7 @@ router.post('/createVenueBooking', async (req, res) => {
     const conflict = await venueBookingModel.findConflict(venueId, dbTimeStart, dbTimeEnd, null, conn, true);
     if (conflict) {
       await conn.rollback();
-      return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
+      return res.json({ status: 'conflict', message: localeCopy.copy_dcd1184a46 });
     }
 
     // Determine approval priority:
@@ -685,7 +686,7 @@ router.post('/createVenueBooking', async (req, res) => {
           });
           if (!selectable) {
             await conn.rollback();
-            return res.json({ status: 'invalid_params', message: '请选择审批流程' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_29ea17e75c });
           }
         }
         const stepsByFlow = {};
@@ -766,7 +767,7 @@ router.post('/createVenueBooking', async (req, res) => {
   } catch (e) {
     await conn.rollback();
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请重新提交借用' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_6fb89690d9 });
     }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
@@ -781,7 +782,7 @@ router.post('/createVenueBooking', async (req, res) => {
 router.post('/listMyVenueBookings', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请使用普通岗位身份' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     const bookings = await venueBookingModel.getByUserId(hrId);
     const orgNameMap = await resolveVenueOrgNames(
       bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
@@ -1064,7 +1065,7 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
     const actor = actorResult.actor;
     const orgId = await getCurrentOrgId();
     const bookingId = safeString(req.body.id);
-    if (!bookingId) return res.json({ status: 'invalid_params', message: '请重新打开审批记录' });
+    if (!bookingId) return res.json({ status: 'invalid_params', message: localeCopy.copy_754113ad21 });
 
     const [rows] = await pool.query(
       `SELECT b.*, v.name AS venue_name, v.location AS venue_location,
@@ -1082,10 +1083,10 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       [bookingId, orgId]
     );
     const booking = rows[0];
-    if (!booking) return res.json({ status: 'not_found', message: '审批记录不存在或已不属于当前组织' });
+    if (!booking) return res.json({ status: 'not_found', message: localeCopy.copy_80886b8642 });
 
     const approval = findMyVenueApproval(booking, actor, fmtDatetime);
-    if (!approval) return res.json({ status: 'forbidden', message: '没有查看该审批记录的权限' });
+    if (!approval) return res.json({ status: 'forbidden', message: localeCopy.copy_c4a87d8e1c });
 
     const snapshots = venueApprovalMultiFlow.parseSnapshots(booking.approval_snapshots_json);
     const snapshotHrIds = [...new Set(snapshots.map(item => safeString(item.approverHrId)).filter(Boolean))];
@@ -1188,27 +1189,27 @@ router.post('/cancelVenueBooking', async (req, res) => {
     const actor = actorResult.actor;
     const hrId = actor.id;
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_62d2cac4df });
     const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '请刷新借用记录' });
-    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '请打开自己的借用记录' });
+    if (!booking) return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
+    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_31c8162e6d });
     const currentOrgId = await getCurrentOrgId();
     if (safeString(booking.creator_org_id) !== currentOrgId && safeString(booking.approval_org_id) !== currentOrgId) {
-      return res.json({ status: 'forbidden', message: '请在原组织处理该借用' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_d76adefd6d });
     }
-    if (booking.status === 'cancelled') return res.json({ status: 'invalid_state', message: '该借用已被取消' });
-    if (booking.status === 'rejected') return res.json({ status: 'invalid_state', message: '已驳回的借用无需取消' });
+    if (booking.status === 'cancelled') return res.json({ status: 'invalid_state', message: localeCopy.copy_f65527e76d });
+    if (booking.status === 'rejected') return res.json({ status: 'invalid_state', message: localeCopy.copy_c16837c5f9 });
     // 已通过的借用，如果已经开始（now >= timeStart），不能取消
     if (booking.status === 'approved') {
       const now = new Date();
       const timeStart = new Date(booking.time_start);
       if (now >= timeStart) {
-        return res.json({ status: 'invalid_state', message: '借用已开始，请结束使用' });
+        return res.json({ status: 'invalid_state', message: localeCopy.copy_22b06082e1 });
       }
     }
     await venueBookingModel.updateStatus(id, 'cancelled', hrId, '申请人取消', null, actor);
     await notificationModel.deleteByTarget('booking', id);
-    res.json({ status: 'success', message: '借用已取消' });
+    res.json({ status: 'success', message: localeCopy.copy_e92ecaf2f5 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -1221,33 +1222,33 @@ router.post('/cancelVenueBooking', async (req, res) => {
 router.post('/endVenueBooking', async (req, res) => {
   try {
     const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请使用普通岗位身份' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_62d2cac4df });
     const booking = await venueBookingModel.getById(id);
-    if (!booking) return res.json({ status: 'not_found', message: '请刷新借用记录' });
-    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: '请打开自己的借用记录' });
+    if (!booking) return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
+    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_31c8162e6d });
     const currentOrgId = await getCurrentOrgId();
     if (safeString(booking.creator_org_id) !== currentOrgId && safeString(booking.approval_org_id) !== currentOrgId) {
-      return res.json({ status: 'forbidden', message: '请在原组织处理该借用' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_d76adefd6d });
     }
-    if (booking.status !== 'approved') return res.json({ status: 'invalid_state', message: '请在使用中结束借用' });
+    if (booking.status !== 'approved') return res.json({ status: 'invalid_state', message: localeCopy.copy_38b3e3a11c });
 
     const now = new Date();
     const timeStart = new Date(booking.time_start);
     const timeEnd = new Date(booking.time_end);
 
     if (now < timeStart) {
-      return res.json({ status: 'invalid_state', message: '借用尚未开始，请取消借用' });
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_9aa2375ba5 });
     }
     if (now >= timeEnd) {
-      return res.json({ status: 'invalid_state', message: '借用已经结束' });
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_2012c1a0a5 });
     }
 
     // Set time_end to now (early end)
     const dbTimeEnd = fmtDatetime(now);
     await venueBookingModel.updateTimeEnd(id, dbTimeEnd);
-    res.json({ status: 'success', message: '使用已结束' });
+    res.json({ status: 'success', message: localeCopy.copy_26f5cb7f15 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

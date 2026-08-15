@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/routes/venueAdmin');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -130,7 +131,7 @@ function minutesOf(value) {
 router.post('/listVenues', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venues = await venueModel.getAll();
     res.json({ status: 'success', venues });
   } catch (e) {
@@ -142,10 +143,10 @@ router.post('/listVenues', async (req, res) => {
 router.post('/saveVenue', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const name = safeString(req.body.name);
-    if (!name) return res.json({ status: 'invalid_params', message: '请输入场地名称' });
+    if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_4514e50856 });
     const data = {
       name,
       location: safeString(req.body.location),
@@ -168,11 +169,11 @@ router.post('/saveVenue', async (req, res) => {
 router.post('/deleteVenue', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     await venueModel.remove(id);
-    res.json({ status: 'success', message: '场地已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_bbcf12ed5f });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -186,9 +187,9 @@ router.post('/deleteVenue', async (req, res) => {
 router.post('/listVenueOpenRules', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const rules = await venueOpenRuleModel.getByVenueId(venueId);
     res.json({ status: 'success', rules: rules.map(r => ({ ...r, time_start: (r.time_start||'').substring(0,5), time_end: (r.time_end||'').substring(0,5) })) });
   } catch (e) {
@@ -200,10 +201,10 @@ router.post('/listVenueOpenRules', async (req, res) => {
 router.post('/saveVenueOpenRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const data = {
       venueId,
       name: safeString(req.body.name),
@@ -228,11 +229,11 @@ router.post('/saveVenueOpenRule', async (req, res) => {
 router.post('/deleteVenueOpenRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择开放时间' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_918e0dfb9f });
     await venueOpenRuleModel.remove(id);
-    res.json({ status: 'success', message: '规则已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_67f5f44b1e });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -246,9 +247,9 @@ router.post('/deleteVenueOpenRule', async (req, res) => {
 router.post('/listVenueActivityRules', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const rules = await venueActivityRuleModel.getByVenueId(venueId);
     res.json({ status: 'success', rules: rules.map(r => ({ ...r, time_start: (r.time_start||'').substring(0,5), time_end: (r.time_end||'').substring(0,5) })) });
   } catch (e) {
@@ -260,10 +261,10 @@ router.post('/listVenueActivityRules', async (req, res) => {
 router.post('/saveVenueActivityRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const data = {
       venueId,
       activityName: safeString(req.body.activityName),
@@ -290,11 +291,11 @@ router.post('/saveVenueActivityRule', async (req, res) => {
 router.post('/deleteVenueActivityRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择活动时间' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_7d5771fc37 });
     await venueActivityRuleModel.remove(id);
-    res.json({ status: 'success', message: '规则已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_67f5f44b1e });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -308,9 +309,9 @@ router.post('/deleteVenueActivityRule', async (req, res) => {
 router.post('/listVenueBookingRules', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const rules = await venueBookingRuleModel.getByVenueId(venueId);
     const bookingWindow = fromRow(await venueBookingPolicyModel.getByVenueId(venueId));
     res.json({ status: 'success', rules, bookingWindow });
@@ -323,15 +324,15 @@ router.post('/listVenueBookingRules', async (req, res) => {
 router.post('/saveVenueBookingWindow', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const currentPolicy = await venueBookingPolicyModel.getByVenueId(venueId);
     const bookingWindow = normalizeBookingWindow(Object.assign({}, req.body.bookingWindow, {
       id: currentPolicy ? currentPolicy.id : generateId()
     }));
     await venueBookingPolicyModel.upsert(venueId, bookingWindow);
-    res.json({ status: 'success', message: '借用时间已保存' });
+    res.json({ status: 'success', message: localeCopy.copy_26f68cb229 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -341,10 +342,10 @@ router.post('/saveVenueBookingWindow', async (req, res) => {
 router.post('/saveVenueBookingRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const venueId = safeString(req.body.venueId);
-    if (!venueId) return res.json({ status: 'invalid_params', message: '请重新选择场地' });
+    if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
     const ruleType = safeString(req.body.ruleType) || 'admin';
 
     // Mutual exclusion + auto-cleanup
@@ -362,7 +363,7 @@ router.post('/saveVenueBookingRule', async (req, res) => {
       }
     } else if (otherRules.some(r => r.rule_type === 'direct')) {
       // Adding a new non-direct rule alongside an existing direct rule — blocked
-      return res.json({ status: 'invalid_params', message: '选择“直接通过”时，请清除其他规则' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_5a1d00f140 });
     }
 
     const data = {
@@ -397,11 +398,11 @@ router.post('/saveVenueBookingRule', async (req, res) => {
 router.post('/deleteVenueBookingRule', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择借用规则' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_0a29a31b8e });
     await venueBookingRuleModel.remove(id);
-    res.json({ status: 'success', message: '规则已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_67f5f44b1e });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -416,18 +417,18 @@ router.post('/createAdminVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
     const start = parseAdminBookingDatetime(req.body.timeStart);
     const end = parseAdminBookingDatetime(req.body.timeEnd);
-    if (!venueId || !title || !start || !end) return res.json({ status: 'invalid_params', message: '请填写完整借用信息' });
-    if (fmtLocalDate(start) !== fmtLocalDate(end)) return res.json({ status: 'invalid_params', message: '请选择同一天的开始和结束时间' });
-    if (end <= start) return res.json({ status: 'invalid_params', message: '请将结束时间设在开始时间之后' });
-    if (start < new Date()) return res.json({ status: 'invalid_params', message: '请选择当前时间之后' });
+    if (!venueId || !title || !start || !end) return res.json({ status: 'invalid_params', message: localeCopy.copy_90c32deaa9 });
+    if (fmtLocalDate(start) !== fmtLocalDate(end)) return res.json({ status: 'invalid_params', message: localeCopy.copy_f450f21538 });
+    if (end <= start) return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
+    if (start < new Date()) return res.json({ status: 'invalid_params', message: localeCopy.copy_10df33d76e });
     const venue = await venueModel.getById(venueId);
-    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: '请选择其他场地' });
+    if (!venue || !venue.is_active) return res.json({ status: 'not_found', message: localeCopy.copy_04ab0b03d0 });
 
     const dateText = fmtLocalDate(start);
     const rangeStart = start.getHours() * 60 + start.getMinutes();
@@ -438,10 +439,10 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     ]);
     const matchingOpen = openRules.filter((rule) => rule.is_active && venueRuleMatchesDate(rule, dateText));
     const covered = matchingOpen.some((rule) => minutesOf(rule.time_start) <= rangeStart && minutesOf(rule.time_end) >= rangeEnd);
-    if (!covered) return res.json({ status: 'conflict', message: '所选时段不在场地开放时间内' });
+    if (!covered) return res.json({ status: 'conflict', message: localeCopy.copy_ac59b4dfc5 });
     const activitySlots = buildActivitySlots(dateText, activityRules);
     const activityConflict = activitySlots.some((slot) => minutesOf(slot.timeStart) < rangeEnd && minutesOf(slot.timeEnd) > rangeStart);
-    if (activityConflict) return res.json({ status: 'conflict', message: '所选时段已有活动占用' });
+    if (activityConflict) return res.json({ status: 'conflict', message: localeCopy.copy_f64d815664 });
 
     await conn.beginTransaction();
     const id = generateId();
@@ -456,7 +457,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     if (!dedupClaim.claimed) {
       await conn.commit();
       return res.json(dedupClaim.response || {
-        status: 'success', id: dedupClaim.resourceId, bookingStatus: 'approved', message: '场地使用已创建', idempotent: true
+        status: 'success', id: dedupClaim.resourceId, bookingStatus: 'approved', message: localeCopy.copy_eb813c46d9, idempotent: true
       });
     }
     const dbStart = fmtDatetime(start);
@@ -464,7 +465,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
     const conflict = await venueBookingModel.findConflict(venueId, dbStart, dbEnd, null, conn, true);
     if (conflict) {
       await conn.rollback();
-      return res.json({ status: 'conflict', message: '所选时段已被借用' });
+      return res.json({ status: 'conflict', message: localeCopy.copy_4695db56e2 });
     }
     await venueBookingModel.create(id, {
       venueId,
@@ -487,7 +488,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
       timeEnd: dbEnd,
       status: 'approved'
     }, conn);
-    const response = { status: 'success', id, bookingStatus: 'approved', message: '场地使用已创建' };
+    const response = { status: 'success', id, bookingStatus: 'approved', message: localeCopy.copy_eb813c46d9 };
     await requestDeduplication.complete(conn, {
       ...dedupClaim,
       resourceId: id,
@@ -500,10 +501,10 @@ router.post('/createAdminVenueBooking', async (req, res) => {
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请重新提交借用' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_6fb89690d9 });
     }
     console.error('[venue:createAdminVenueBooking]', req.requestId || '-', e);
-    res.json({ status: 'error', message: '未创建，请重试' });
+    res.json({ status: 'error', message: localeCopy.copy_b3614bb93e });
   } finally {
     conn.release();
   }
@@ -513,7 +514,7 @@ router.post('/createAdminVenueBooking', async (req, res) => {
 router.post('/listAllVenueBookings', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const filters = {
       venueId: safeString(req.body.venueId),
       status: safeString(req.body.status),
@@ -751,18 +752,18 @@ router.post('/approveVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_62d2cac4df });
     const comment = safeString(req.body.comment);
     const orgId = await getCurrentOrgId();
     await conn.beginTransaction();
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '请刷新借用记录' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
     }
     if (booking.status !== 'pending') {
       await conn.rollback();
-      return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
+      return res.json({ status: 'success', message: localeCopy.copy_3b95420d79, bookingStatus: booking.status, idempotent: true });
     }
 
     const review = await canReviewVenueBooking(req, booking);
@@ -789,7 +790,7 @@ router.post('/approveVenueBooking', async (req, res) => {
             '您申请的「' + (booking.title || '场地借用') + '」因借用时间已结束，已自动取消。', conn
           );
           await conn.commit();
-          return res.json({ status: 'expired', message: '审批时借用已结束，已自动取消' });
+          return res.json({ status: 'expired', message: localeCopy.copy_aa20a1e7b8 });
         }
 
         // Approval within booking window - adjust start time to approval moment
@@ -800,7 +801,7 @@ router.post('/approveVenueBooking', async (req, res) => {
         const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
         if (conflict) {
           await conn.rollback();
-          return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
+          return res.json({ status: 'conflict', message: localeCopy.copy_dcd1184a46 });
         }
       }
 
@@ -850,7 +851,7 @@ router.post('/approveVenueBooking', async (req, res) => {
          isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
          id]
       );
-      if (updateResult.affectedRows !== 1) throw new Error('审批状态已变化，请刷新');
+      if (updateResult.affectedRows !== 1) throw new Error(localeCopy.copy_cba470e634);
 
       if (isLastStep) {
         const venueName = booking.venue_name || '';
@@ -891,7 +892,7 @@ router.post('/approveVenueBooking', async (req, res) => {
         '您申请的「' + (booking.title || '场地借用') + '」因借用时间已结束，已自动取消。', conn
       );
       await conn.commit();
-      return res.json({ status: 'expired', message: '审批时借用已结束，已自动取消' });
+      return res.json({ status: 'expired', message: localeCopy.copy_aa20a1e7b8 });
     }
 
     // Approval within booking window - adjust start time
@@ -902,7 +903,7 @@ router.post('/approveVenueBooking', async (req, res) => {
     const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
     if (conflict) {
       await conn.rollback();
-      return res.json({ status: 'conflict', message: '该时段已被其他借用占用' });
+      return res.json({ status: 'conflict', message: localeCopy.copy_dcd1184a46 });
     }
     await venueBookingModel.updateStatus(id, 'approved', approverId, comment, conn, review.actor);
     const venueName = booking.venue_name || '';
@@ -914,7 +915,7 @@ router.post('/approveVenueBooking', async (req, res) => {
 
     // Clear old pending_approval notifications + notify submitter
     await notificationModel.deleteByTarget('booking', id);
-    res.json({ status: 'success', message: '借用已通过' });
+    res.json({ status: 'success', message: localeCopy.copy_a453f693a6 });
   } catch (e) {
     await conn.rollback();
     res.json({ status: 'error', message: safeString(e.message) });
@@ -927,18 +928,18 @@ router.post('/rejectVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新打开借用记录' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_62d2cac4df });
     const comment = safeString(req.body.comment);
     const orgId = await getCurrentOrgId();
     await conn.beginTransaction();
     const booking = await venueBookingModel.getByIdForUpdate(id, conn);
     if (!booking || booking.approval_org_id !== orgId) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '请刷新借用记录' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
     }
     if (booking.status !== 'pending') {
       await conn.rollback();
-      return res.json({ status: 'success', message: '该借用已处理', bookingStatus: booking.status, idempotent: true });
+      return res.json({ status: 'success', message: localeCopy.copy_3b95420d79, bookingStatus: booking.status, idempotent: true });
     }
 
     const review = await canReviewVenueBooking(req, booking);
@@ -981,7 +982,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
 
     // Clear old pending_approval notifications + notify submitter
     await notificationModel.deleteByTarget('booking', id);
-    res.json({ status: 'success', message: '借用已驳回' });
+    res.json({ status: 'success', message: localeCopy.copy_c7b826b0c0 });
   } catch (e) {
     try { await conn.rollback(); } catch (_) {}
     res.json({ status: 'error', message: safeString(e.message) });
@@ -994,7 +995,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
 router.post(['/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'], (req, res) => {
   res.status(410).json({
     status: 'client_upgrade_required',
-    message: '请重新打开小程序',
+    message: localeCopy.copy_b71a0c7ed7,
     requestId: req.requestId
   });
 });
@@ -1006,12 +1007,12 @@ router.post(['/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'], (req, res
 // listVenueBookingPurposes (public — any authenticated user can read purposes)
 router.post('/listVenueBookingPurposes', async (req, res) => {
   try {
-    if (!req.openid) return res.json({ status: 'forbidden', message: '请微信登录' });
+    if (!req.openid) return res.json({ status: 'forbidden', message: localeCopy.copy_20ca49e5e7 });
     const purposes = await venueBookingPurposeModel.getAll();
     res.json({ status: 'success', purposes });
   } catch (e) {
     console.error('[venue:listVenueBookingPurposes]', req.requestId || '-', e);
-    res.json({ status: 'error', message: '请稍后刷新' });
+    res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
 
@@ -1019,10 +1020,10 @@ router.post('/listVenueBookingPurposes', async (req, res) => {
 router.post('/saveVenueBookingPurpose', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id) || generateId();
     const text = safeString(req.body.text).trim();
-    if (!text) return res.json({ status: 'invalid_params', message: '请输入事由内容' });
+    if (!text) return res.json({ status: 'invalid_params', message: localeCopy.copy_fdb45fb38f });
     const data = { text, sortOrder: parseInt(req.body.sortOrder) || 1 };
     const existing = await venueBookingPurposeModel.getById(id);
     if (existing) {
@@ -1032,9 +1033,9 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
     }
     res.json({ status: 'success', id, message: existing ? '事由已更新' : '事由已创建' });
   } catch (e) {
-    if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', message: '请使用其他事由内容' });
+    if (e && e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate', message: localeCopy.copy_09f81fd1db });
     console.error('[venue:saveVenueBookingPurpose]', req.requestId || '-', e);
-    res.json({ status: 'error', message: '未保存，请重试' });
+    res.json({ status: 'error', message: localeCopy.copy_215e3c57da });
   }
 });
 
@@ -1042,11 +1043,11 @@ router.post('/saveVenueBookingPurpose', async (req, res) => {
 router.post('/deleteVenueBookingPurpose', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择事由' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_5869ec3d99 });
     await venueBookingPurposeModel.remove(id);
-    res.json({ status: 'success', message: '事由已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_f95e1a0218 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/buildTableFile');
 const express = require('express');
 const router = express.Router();
 const { LIMITS, buildWorkbookBuffer } = require('../../utils/excelFile');
@@ -10,7 +11,7 @@ const { LIMITS, buildWorkbookBuffer } = require('../../utils/excelFile');
 router.post('/buildTableFile', async (req, res) => {
   try {
     if (!req.openid || !req.admin) {
-      return res.status(403).json({ status: 'forbidden', message: '请使用管理员身份' });
+      return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     }
 
     const headers = req.body.headers || [];
@@ -20,10 +21,10 @@ router.post('/buildTableFile', async (req, res) => {
     const format = requestedFormat === 'excel' ? 'xlsx' : requestedFormat;
 
     if (!headers.length) {
-      return res.json({ status: 'invalid_params', message: '缺少表头定义' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_d864121fe4 });
     }
     if (format !== 'xlsx' && format !== 'csv') {
-      return res.json({ status: 'invalid_params', message: '仅支持 Excel 或 CSV 格式' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_96b9b6d201 });
     }
 
     const headerLabels = headers.map(h =>
@@ -56,7 +57,7 @@ router.post('/buildTableFile', async (req, res) => {
     });
   } catch (e) {
     if (req.logger) req.logger.warn('Table file build rejected', { code: e.code || 'build_failed', error: e.message });
-    res.json({ status: 'error', message: e.code === 'invalid_workbook' ? e.message : '表格未生成，请重试' });
+    res.json({ status: 'error', message: e.code === 'invalid_workbook' ? e.message : localeCopy.copy_8e15f97927 });
   }
 });
 

@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/myVenueBookings/myVenueBookings');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
@@ -5,10 +6,14 @@ const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
+  onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+  },
   data: {
+    localeCopy,
     bookings: [],
     loading: false,
-    statusLabels: { pending: '待审核', approved: '已通过', rejected: '已驳回', cancelled: '已取消' }
+    statusLabels: { pending: localeCopy.copy_8f73640107, approved: localeCopy.copy_ce171a2581, rejected: localeCopy.copy_5d5af942c5, cancelled: localeCopy.copy_fd4601c1f9 }
   },
 
   onShow() {
@@ -45,7 +50,7 @@ Page({
       const res = await callFunction({ name: 'listMyVenueBookings', data: {} });
       if (orgSession.isRequestCurrent(this, request) && res.status === 'success') this.setData({ bookings: res.bookings || [] });
     } catch (e) {
-      showShortToast(getErrorText(e, '请稍后刷新'));
+      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -55,13 +60,13 @@ Page({
     const id = e.currentTarget.dataset.id;
     const that = this;
     wx.showModal({
-      title: '确认取消', content: '确定取消此次借用吗？',
+      title: localeCopy.copy_10bd4c9a19, content: localeCopy.copy_589d645596,
       success: async (r) => {
         if (!r.confirm) return;
         try {
           const res = await callFunction({ name: 'cancelVenueBooking', data: { id } });
           if (res.status === 'success') {
-            showShortToast(res.message || '已取消');
+            showShortToast(res.message || localeCopy.copy_fd4601c1f9);
             let bookings = that.data.bookings.map(function(b) {
               return b.id === id ? Object.assign({}, b, { status: 'cancelled' }) : b;
             });
@@ -71,7 +76,7 @@ Page({
             eventBus.emit('approval:done');
           }
           else showShortToast(res.message);
-        } catch (e) { showShortToast(getErrorText(e, '未取消，请重试')); }
+        } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_301f0250ef)); }
       }
     });
   },

@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/org');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
@@ -40,14 +41,14 @@ router.post('/listOrganizations', async (req, res) => {
     // Require admin authentication
     const openid = req.openid;
     if (!openid) {
-      return res.json({ status: 'forbidden', message: '请微信登录' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_20ca49e5e7 });
     }
     const [adminRows] = await pool.query(
       "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active'",
       [openid]
     );
     if (!adminRows.length) {
-      return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     }
 
     const rows = await organizationModel.getAll();
@@ -66,7 +67,7 @@ router.post('/saveOrganization', async (req, res) => {
 
     // 仅全局超级管理员可操作
     if (!openid) {
-      return res.json({ status: 'forbidden', message: '请微信登录' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_20ca49e5e7 });
     }
     const [adminRows] = await pool.query(
       "SELECT * FROM admin_info WHERE openid = ? AND bind_status = 'active'",
@@ -74,25 +75,25 @@ router.post('/saveOrganization', async (req, res) => {
     );
     const operator = adminRows[0] || null;
     if (!operator || operator.admin_level !== 'super_admin' || operator.org_id !== '') {
-      return res.json({ status: 'forbidden', message: '请使用超级管理员身份' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_6809d8bae7 });
     }
 
     if (!name) {
-      return res.json({ status: 'invalid_params', message: '请填写组织名称' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_a032183564 });
     }
 
     const [dups] = await pool.query('SELECT id FROM organizations WHERE name = ?', [name]);
     if (dups.some((r) => String(r.id) !== id)) {
-      return res.json({ status: 'duplicate', message: '请使用其他组织名称' });
+      return res.json({ status: 'duplicate', message: localeCopy.copy_674b57afda });
     }
 
     if (id) {
       await organizationModel.update(id, name);
-      res.json({ status: 'success', organization: { id, name }, message: '组织已更新' });
+      res.json({ status: 'success', organization: { id, name }, message: localeCopy.copy_b32b720d56 });
     } else {
       const newId = generateId();
       await organizationModel.create(newId, name);
-      res.json({ status: 'success', organization: { id: newId, name }, message: '组织已创建' });
+      res.json({ status: 'success', organization: { id: newId, name }, message: localeCopy.copy_1974dee798 });
     }
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -106,7 +107,7 @@ router.post('/deleteOrganization', async (req, res) => {
   try {
     const openid = req.openid;
     const id = safeString(req.body.organizationId || req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择组织' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_cc9e4b8129 });
 
     // 仅全局超级管理员可操作
     const [adminRows] = await pool.query(
@@ -114,12 +115,12 @@ router.post('/deleteOrganization', async (req, res) => {
       [openid]
     );
     if (!adminRows.length) {
-      return res.json({ status: 'forbidden', message: '请使用超级管理员身份' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_6809d8bae7 });
     }
 
     // 禁止删除空组织标识
     if (id === '') {
-      return res.json({ status: 'invalid_params', message: '请重新选择组织' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_cc9e4b8129 });
     }
 
     const { withTransaction } = require('../../config/db');
@@ -150,19 +151,19 @@ router.post('/deleteOrganization', async (req, res) => {
     });
 
     if (result.status === 'not_found') {
-      return res.json({ status: 'not_found', message: '请刷新组织列表' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_2c1bc34f7e });
     }
     if (result.status === 'current') {
-      return res.json({ status: 'forbidden', message: '请先切换到其他组织' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_9bb30f5ebb });
     }
     if (result.status === 'not_empty') {
       return res.json({
         status: 'organization_not_empty',
-        message: '请先归档或清理该组织的业务资料',
+        message: localeCopy.copy_a05b82962e,
         dependencyCount: result.dependencies.length
       });
     }
-    res.json({ status: 'success', message: '组织已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_770ca6e54d });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -194,12 +195,12 @@ router.post('/switchOrganization', async (req, res) => {
     const targetOrgName = safeString(req.body.organizationName);
 
     if (!targetOrgId || !targetOrgName) {
-      return res.json({ status: 'invalid_params', message: '请选择组织并填写名称' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_58a0afcb2d });
     }
 
     // Safety: prevent switching to empty org
     if (targetOrgId === '') {
-      return res.json({ status: 'invalid_params', message: '请重新选择组织' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_cc9e4b8129 });
     }
 
     // 仅全局超级管理员可切换系统默认组织
@@ -208,7 +209,7 @@ router.post('/switchOrganization', async (req, res) => {
       [openid]
     );
     if (!adminRows.length) {
-      return res.json({ status: 'forbidden', message: '请使用超级管理员身份' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_6809d8bae7 });
     }
 
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');

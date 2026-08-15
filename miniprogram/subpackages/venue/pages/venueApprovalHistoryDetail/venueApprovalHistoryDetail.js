@@ -1,9 +1,11 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueApprovalHistoryDetail/venueApprovalHistoryDetail');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 
 Page({
   data: {
+    localeCopy,
     bookingId: '',
     detail: null,
     loading: false,
@@ -11,6 +13,7 @@ Page({
   },
 
   onLoad(options) {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     this.setData({ bookingId: String((options && options.id) || '') });
   },
 
@@ -33,7 +36,7 @@ Page({
       });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status !== 'success' || !res.detail) {
-        const message = res.message || '详情暂不可用';
+        const message = res.message || localeCopy.copy_6425d55335;
         this.setData({ detail: null, errorText: message });
         showShortToast(message);
         return;
@@ -43,7 +46,7 @@ Page({
       this.setData({ detail: detail });
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        const message = getErrorText(error, '详情暂不可用');
+        const message = getErrorText(error, localeCopy.copy_6425d55335);
         this.setData({ detail: null, errorText: message });
         showShortToast(message);
       }
@@ -54,8 +57,8 @@ Page({
 
   _prepareDetail(raw) {
     const detail = prepareVenueBookingDetail(raw);
-    detail._myActionLabel = detail.myActionLabel || (detail.myAction === 'rejected' ? '已驳回' : '已通过');
-    detail._myHandledText = detail.myAction === 'rejected' ? '你曾驳回此借用' : '你曾审批此借用';
+    detail._myActionLabel = detail.myActionLabel || (detail.myAction === 'rejected' ? localeCopy.copy_5d5af942c5 : localeCopy.copy_ce171a2581);
+    detail._myHandledText = detail.myAction === 'rejected' ? localeCopy.copy_0d62e31a58 : localeCopy.copy_8ef0c52229;
     return detail;
   }
 });

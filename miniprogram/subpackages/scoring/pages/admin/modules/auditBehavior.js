@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/auditBehavior');
 /**
  * Audit Workflow Behavior — Admin-side audit management
  *
@@ -67,11 +68,11 @@ module.exports = Behavior({
     auditMultiPickerItems: [],           // [{id, name, extra}]
     auditMultiPickerSelectedIds: {},     // {id: true}
     auditMultiPickerSearchKeyword: '',
-    auditMultiPickerFilterDept: '全部',
-    auditMultiPickerFilterIdent: '全部',
+    auditMultiPickerFilterDept: localeCopy.copy_31d4595959,
+    auditMultiPickerFilterIdent: localeCopy.copy_31d4595959,
     auditMultiPickerFilteredList: [],
-    auditMultiPickerDeptOptions: ['全部'],
-    auditMultiPickerIdentOptions: ['全部'],
+    auditMultiPickerDeptOptions: [localeCopy.copy_31d4595959],
+    auditMultiPickerIdentOptions: [localeCopy.copy_31d4595959],
     // Department tabs for work group picker (when specific depts are selected)
     auditMultiPickerDeptTabs: [],
     auditMultiPickerActiveDeptTab: '',
@@ -108,10 +109,10 @@ module.exports = Behavior({
     auditPersonnelPickerLabel: '',
     auditPersonnelPickerSelectedId: '',
     auditPersonnelSearchKeyword: '',
-    auditPersonnelFilterDept: '全部',
-    auditPersonnelFilterIdent: '全部',
-    auditPersonnelDeptOptions: ['全部'],
-    auditPersonnelIdentOptions: ['全部'],
+    auditPersonnelFilterDept: localeCopy.copy_31d4595959,
+    auditPersonnelFilterIdent: localeCopy.copy_31d4595959,
+    auditPersonnelDeptOptions: [localeCopy.copy_31d4595959],
+    auditPersonnelIdentOptions: [localeCopy.copy_31d4595959],
     auditPersonnelFilteredList: [],
 
     // ── Identity Picker (single / multi) ──
@@ -170,13 +171,13 @@ module.exports = Behavior({
     /** Build department options for personnel picker */
     _auditBuildDeptOptions() {
       const depts = this.data.departmentList || [];
-      return ['全部'].concat(depts.map(function (d) { return d.name; }));
+      return [localeCopy.copy_31d4595959].concat(depts.map(function (d) { return d.name; }));
     },
 
     /** Build identity options for personnel picker */
     _auditBuildIdentOptions() {
       const idents = this.data.identityList || [];
-      return ['全部'].concat(idents.map(function (i) { return i.name; }));
+      return [localeCopy.copy_31d4595959].concat(idents.map(function (i) { return i.name; }));
     },
 
     // ═══════════════════════════════════════════════════════
@@ -352,11 +353,11 @@ module.exports = Behavior({
       const step = this.data.auditTemplateStepForm;
       const stepName = (step.name || '').trim();
       if (!stepName) {
-        showShortToast('请输入步骤名称');
+        showShortToast(localeCopy.copy_1376e7cf03);
         return;
       }
       if (!step.conditions || !step.conditions.length) {
-        showShortToast('请至少添加一个审批条件');
+        showShortToast(localeCopy.copy_b07e47ba3f);
         return;
       }
 
@@ -439,7 +440,7 @@ module.exports = Behavior({
     onConditionScopeChange(e) {
       let field = e.currentTarget.dataset.field;
       let scopes = ['all', 'specific', 'own'];
-      let scopeLabels = ['全部', '指定', '自己所在'];
+      let scopeLabels = [localeCopy.copy_31d4595959, localeCopy.copy_2aad29e5cf, localeCopy.copy_4b405169cb];
       let idx = parseInt(e.detail.value);
       this.setData({ ['auditStepConditionForm.' + field]: scopes[idx] || 'all' });
     },
@@ -452,7 +453,7 @@ module.exports = Behavior({
 
       if (cond.conditionType === 'person') {
         if (!cond.personHrIds) {
-          showShortToast('请选择人员');
+          showShortToast(localeCopy.copy_e5d78a79f7);
           return;
         }
         newCond.personHrIds = cond.personHrIds;
@@ -509,34 +510,34 @@ module.exports = Behavior({
 
     // ── Build a human-readable summary for a single condition ──
     _auditConditionSummary(c) {
-      if (!c) return '未设置条件';
+      if (!c) return localeCopy.copy_2dcf2e1cdf;
       if (c.conditionType === 'person') {
         if (c.personHrIds) {
           let names = c.personHrIds.split(',').map(function (hid) {
             return this._auditHrName(hid.trim());
           }.bind(this)).filter(function (n) { return n; });
-          return names.length ? names.join('、') : '未选择人员';
+          return names.length ? names.join('、') : localeCopy.copy_572c4dbb58;
         }
-        return '未设置人员';
+        return localeCopy.copy_b9283ec054;
       }
       // identity_scope — only show what's restricted, skip 'all'
       let parts = [];
       if (c.departmentScope === 'own') {
-        parts.push('同部门');
+        parts.push(localeCopy.copy_37ad645951);
       } else if (c.departmentScope === 'specific' && c.specificDepartmentId) {
-        parts.push(this._auditDeptName(c.specificDepartmentId) || '指定部门');
+        parts.push(this._auditDeptName(c.specificDepartmentId) || localeCopy.copy_b3604f443f);
       }
       if (c.workGroupScope === 'own') {
-        parts.push('同职能组');
+        parts.push(localeCopy.copy_2c67faf1c7);
       } else if (c.workGroupScope === 'specific' && c.specificWorkGroupId) {
-        parts.push(this._auditWgName(c.specificWorkGroupId) || '指定职能组');
+        parts.push(this._auditWgName(c.specificWorkGroupId) || localeCopy.copy_258347beac);
       }
       if (c.identityScope === 'own') {
-        parts.push('同身份');
+        parts.push(localeCopy.copy_c84650778a);
       } else if (c.identityScope === 'specific' && c.specificIdentityId) {
-        parts.push(this._auditIdentityName(c.specificIdentityId) || '指定身份');
+        parts.push(this._auditIdentityName(c.specificIdentityId) || localeCopy.copy_640342a015);
       }
-      if (!parts.length) return '不限（所有人）';
+      if (!parts.length) return localeCopy.copy_532dbd7fc1;
       return parts.join(' · ');
     },
 
@@ -587,7 +588,7 @@ module.exports = Behavior({
     // ── Open unified multi-picker for step condition fields ──
     openStepConditionPicker(e) {
       let target = e.currentTarget.dataset.target;
-      let title = e.currentTarget.dataset.title || '选择';
+      let title = e.currentTarget.dataset.title || localeCopy.copy_c47f370afa;
       let list = [];
       let deptOpts = this._auditBuildDeptOptions();
       let identOpts = this._auditBuildIdentOptions();
@@ -618,12 +619,12 @@ module.exports = Behavior({
           let deptMap = {};
           list.forEach(function(wg) {
             if (wg.deptId && selectedDeptIds.indexOf(wg.deptId) >= 0) {
-              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || '信息已失效', workGroups: [], selectedCount: 0 };
+              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || localeCopy.copy_de00c3e48a, workGroups: [], selectedCount: 0 };
               deptMap[wg.deptId].workGroups.push(wg);
             }
           });
           deptTabs = selectedDeptIds.map(function(did) {
-            return deptMap[did] || { deptId: did, deptName: '信息已失效', workGroups: [], selectedCount: 0 };
+            return deptMap[did] || { deptId: did, deptName: localeCopy.copy_de00c3e48a, workGroups: [], selectedCount: 0 };
           });
           if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
         }
@@ -654,8 +655,8 @@ module.exports = Behavior({
         auditMultiPickerItems: list,
         auditMultiPickerSelectedIds: selectedIds,
         auditMultiPickerSearchKeyword: '',
-        auditMultiPickerFilterDept: '全部',
-        auditMultiPickerFilterIdent: '全部',
+        auditMultiPickerFilterDept: localeCopy.copy_31d4595959,
+        auditMultiPickerFilterIdent: localeCopy.copy_31d4595959,
         auditMultiPickerDeptOptions: deptOpts,
         auditMultiPickerIdentOptions: identOpts,
         auditMultiPickerFilteredList: [],
@@ -685,7 +686,7 @@ module.exports = Behavior({
     onAuditMultiPickerFilterDept(e) {
       let idx = e.detail.value;
       let options = this.data.auditMultiPickerDeptOptions;
-      this.setData({ auditMultiPickerFilterDept: options[idx] || '全部' }, () => {
+      this.setData({ auditMultiPickerFilterDept: options[idx] || localeCopy.copy_31d4595959 }, () => {
         this._applyAuditMultiPickerFilters();
       });
     },
@@ -693,7 +694,7 @@ module.exports = Behavior({
     onAuditMultiPickerFilterIdent(e) {
       let idx = e.detail.value;
       let options = this.data.auditMultiPickerIdentOptions;
-      this.setData({ auditMultiPickerFilterIdent: options[idx] || '全部' }, () => {
+      this.setData({ auditMultiPickerFilterIdent: options[idx] || localeCopy.copy_31d4595959 }, () => {
         this._applyAuditMultiPickerFilters();
       });
     },
@@ -708,13 +709,13 @@ module.exports = Behavior({
       // Department/identity filters only apply to personnel picker
       if (target === 'personHrIds') {
         let hrList = this.data.hrList || [];
-        if (filterDept !== '全部') {
+        if (filterDept !== localeCopy.copy_31d4595959) {
           let deptId = this._auditDeptIdByName(filterDept);
           let filteredIds = {};
           hrList.filter(function(h) { return String(h.departmentId || '') === String(deptId || ''); }).forEach(function(h) { filteredIds[h.id] = true; });
           items = items.filter(function(item) { return filteredIds[item.id]; });
         }
-        if (filterIdent !== '全部') {
+        if (filterIdent !== localeCopy.copy_31d4595959) {
           let identId = this._auditIdentIdByName(filterIdent);
           let filteredIds2 = {};
           hrList.filter(function(h) { return String(h.identityId || '') === String(identId || ''); }).forEach(function(h) { filteredIds2[h.id] = true; });
@@ -842,7 +843,7 @@ module.exports = Behavior({
       let formPrefix = condTarget === 'starter' ? 'auditStarterConditionForm' : 'auditStepConditionForm';
 
       if (!ids.length) {
-        showShortToast('请至少选择一项');
+        showShortToast(localeCopy.copy_4c3b518dca);
         return;
       }
 
@@ -854,7 +855,7 @@ module.exports = Behavior({
           if (!tab.workGroups.length) continue; // skip empty depts
           let hasSelection = tab.workGroups.some(function(wg) { return selectedIds[String(wg.id)]; });
           if (!hasSelection) {
-            showShortToast((tab.deptName || tab.deptId) + ' 至少需要选择一个职能组');
+            showShortToast((tab.deptName || tab.deptId) + localeCopy.copy_bbef5f061c);
             return;
           }
         }
@@ -883,10 +884,10 @@ module.exports = Behavior({
 
     // ── Scope label helpers ──
     _scopeLabel(scope) {
-      if (scope === 'all') return '全部';
-      if (scope === 'own') return '自己所在';
-      if (scope === 'specific') return '指定';
-      return '全部';
+      if (scope === 'all') return localeCopy.copy_31d4595959;
+      if (scope === 'own') return localeCopy.copy_4b405169cb;
+      if (scope === 'specific') return localeCopy.copy_2aad29e5cf;
+      return localeCopy.copy_31d4595959;
     },
 
     // ═══════════════════════════════════════════════
@@ -951,7 +952,7 @@ module.exports = Behavior({
       let newCond = { conditionType: cond.conditionType };
 
       if (cond.conditionType === 'person') {
-        if (!cond.personHrIds) { showShortToast('请选择人员'); return; }
+        if (!cond.personHrIds) { showShortToast(localeCopy.copy_e5d78a79f7); return; }
         newCond.personHrIds = cond.personHrIds;
         let ids = cond.personHrIds.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
         newCond.personHrNames = ids.map(function(hid) { return this._auditHrName(hid); }.bind(this)).join('、');
@@ -1002,7 +1003,7 @@ module.exports = Behavior({
     // Open the unified multi-picker for a starter condition field
     openStarterConditionPicker(e) {
       let target = e.currentTarget.dataset.target;
-      let title = e.currentTarget.dataset.title || '选择';
+      let title = e.currentTarget.dataset.title || localeCopy.copy_c47f370afa;
       let list = [];
       let deptOpts = this._auditBuildDeptOptions();
       let identOpts = this._auditBuildIdentOptions();
@@ -1032,12 +1033,12 @@ module.exports = Behavior({
           let deptMap = {};
           list.forEach(function(wg) {
             if (wg.deptId && selectedDeptIds.indexOf(wg.deptId) >= 0) {
-              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || '信息已失效', workGroups: [], selectedCount: 0 };
+              if (!deptMap[wg.deptId]) deptMap[wg.deptId] = { deptId: wg.deptId, deptName: wg.extra || localeCopy.copy_de00c3e48a, workGroups: [], selectedCount: 0 };
               deptMap[wg.deptId].workGroups.push(wg);
             }
           });
           deptTabs = selectedDeptIds.map(function(did) {
-            return deptMap[did] || { deptId: did, deptName: '信息已失效', workGroups: [], selectedCount: 0 };
+            return deptMap[did] || { deptId: did, deptName: localeCopy.copy_de00c3e48a, workGroups: [], selectedCount: 0 };
           });
           if (deptTabs.length) activeDeptTab = deptTabs[0].deptId;
         }
@@ -1067,8 +1068,8 @@ module.exports = Behavior({
         auditMultiPickerItems: list,
         auditMultiPickerSelectedIds: selectedIds,
         auditMultiPickerSearchKeyword: '',
-        auditMultiPickerFilterDept: '全部',
-        auditMultiPickerFilterIdent: '全部',
+        auditMultiPickerFilterDept: localeCopy.copy_31d4595959,
+        auditMultiPickerFilterIdent: localeCopy.copy_31d4595959,
         auditMultiPickerDeptOptions: deptOpts,
         auditMultiPickerIdentOptions: identOpts,
         auditMultiPickerFilteredList: [],
@@ -1091,18 +1092,18 @@ module.exports = Behavior({
     // Build a human-readable summary for starter conditions
     _auditStarterSummary() {
       let conds = this.data.auditTemplateForm.starterConditions;
-      if (!conds || !conds.length) return '任何人';
-      return conds.map(function(c) { return this._auditConditionSummary(c); }.bind(this)).join(' 或 ');
+      if (!conds || !conds.length) return localeCopy.copy_44ce43b050;
+      return conds.map(function(c) { return this._auditConditionSummary(c); }.bind(this)).join(localeCopy.copy_17bcc41217);
     },
 
     async saveAuditFlowTemplate() {
       const form = this.data.auditTemplateForm;
-      if (!form.name) { showShortToast('请输入模板名称'); return; }
-      if (!form.steps.length) { showShortToast('请至少添加一个步骤'); return; }
+      if (!form.name) { showShortToast(localeCopy.copy_cf05c2ba56); return; }
+      if (!form.steps.length) { showShortToast(localeCopy.copy_6dc1d42f93); return; }
       // Validate each step has at least one condition
       for (let i = 0; i < form.steps.length; i++) {
         if (!form.steps[i].conditions || !form.steps[i].conditions.length) {
-          showShortToast('第' + (i + 1) + '步至少需要一个审批条件');
+          showShortToast(localeCopy.copy_93c50c01c0 + (i + 1) + localeCopy.copy_287253008b);
           return;
         }
       }
@@ -1158,14 +1159,14 @@ module.exports = Behavior({
           steps: stepsToSend
         });
         if (res.status === 'success') {
-          showShortToast(form.id ? '模板已更新' : '模板已创建');
+          showShortToast(form.id ? localeCopy.copy_c0182529aa : localeCopy.copy_e06667ae8f);
           this.startCreateAuditTemplate();
           this.loadAuditFlowTemplates();
         } else {
-          showShortToast(res.message || '未保存，请重试');
+          showShortToast(res.message || localeCopy.copy_215e3c57da);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '未保存，请重试'));
+        showShortToast(getErrorText(e, localeCopy.copy_215e3c57da));
       } finally {
         this.setLoading('saveAuditTemplate', false);
       }
@@ -1175,20 +1176,20 @@ module.exports = Behavior({
       const id = e.currentTarget.dataset.id;
       const that = this;
       wx.showModal({
-        title: '确认删除',
-        content: '删除后不可恢复，确定删除此审核流程吗？',
+        title: localeCopy.copy_7f31eec657,
+        content: localeCopy.copy_e32406217a,
         success: async function (modalRes) {
           if (!modalRes.confirm) return;
           try {
             const res = await that.callCloud('deleteAuditFlowTemplate', { id: id });
             if (res.status === 'success') {
-              showShortToast('模板已删除');
+              showShortToast(localeCopy.copy_efc8493bdc);
               that.loadAuditFlowTemplates();
             } else {
-              showShortToast(res.message || '未删除，请重试');
+              showShortToast(res.message || localeCopy.copy_076bb5d383);
             }
           } catch (e) {
-            showShortToast(getErrorText(e, '未删除，请重试'));
+            showShortToast(getErrorText(e, localeCopy.copy_076bb5d383));
           }
         }
       });
@@ -1266,8 +1267,8 @@ module.exports = Behavior({
 
     async saveStamp() {
       const form = this.data.stampForm;
-      if (!form.name) { showShortToast('请输入印章名称'); return; }
-      if (!form.imageData) { showShortToast('请选择印章图片'); return; }
+      if (!form.name) { showShortToast(localeCopy.copy_76f2662073); return; }
+      if (!form.imageData) { showShortToast(localeCopy.copy_9cf20101c9); return; }
 
       this.setLoading('saveStamp', true);
       try {
@@ -1277,14 +1278,14 @@ module.exports = Behavior({
           imageData: form.imageData
         });
         if (res.status === 'success') {
-          showShortToast(form.id ? '印章已更新' : '印章已创建');
+          showShortToast(form.id ? localeCopy.copy_161855b67c : localeCopy.copy_8e51c9c0df);
           this.startCreateStamp();
           this.loadStamps();
         } else {
-          showShortToast(res.message || '未保存，请重试');
+          showShortToast(res.message || localeCopy.copy_215e3c57da);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '未保存，请重试'));
+        showShortToast(getErrorText(e, localeCopy.copy_215e3c57da));
       } finally {
         this.setLoading('saveStamp', false);
       }
@@ -1294,20 +1295,20 @@ module.exports = Behavior({
       const id = e.currentTarget.dataset.id;
       const that = this;
       wx.showModal({
-        title: '确认删除',
-        content: '删除后不可恢复，已分配的印章权限也会失效。确定删除吗？',
+        title: localeCopy.copy_7f31eec657,
+        content: localeCopy.copy_22a8323f15,
         success: async function (modalRes) {
           if (!modalRes.confirm) return;
           try {
             const res = await that.callCloud('deleteStamp', { id: id });
             if (res.status === 'success') {
-              showShortToast('印章已删除');
+              showShortToast(localeCopy.copy_a5d4679cf0);
               that.loadStamps();
             } else {
-              showShortToast(res.message || '未删除，请重试');
+              showShortToast(res.message || localeCopy.copy_076bb5d383);
             }
           } catch (e) {
-            showShortToast(getErrorText(e, '未删除，请重试'));
+            showShortToast(getErrorText(e, localeCopy.copy_076bb5d383));
           }
         }
       });
@@ -1346,14 +1347,14 @@ module.exports = Behavior({
           stampIds: this.data.stampAssignSelectedIds
         });
         if (res.status === 'success') {
-          showShortToast('印章分配已更新');
+          showShortToast(localeCopy.copy_cb20eb18bc);
           this.closeStampAssign();
           this.loadStamps();
         } else {
-          showShortToast(res.message || '未保存，请重试');
+          showShortToast(res.message || localeCopy.copy_215e3c57da);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '未保存，请重试'));
+        showShortToast(getErrorText(e, localeCopy.copy_215e3c57da));
       }
     },
 
@@ -1440,7 +1441,7 @@ module.exports = Behavior({
           if (initialSubmit) {
             flowTimeline.push({
               _key: 'lifecycle_submit',
-              type: 'lifecycle', event: 'submit', label: '提交审核',
+              type: 'lifecycle', event: 'submit', label: localeCopy.copy_c94eb77b73,
               time: formatAuditTime(initialSubmit.createdAt), iconName: 'file'
             });
           }
@@ -1464,16 +1465,16 @@ module.exports = Behavior({
               if (resubmitEvt) {
                 flowTimeline.push({
                   _key: 'lifecycle_resubmit_r' + round,
-                  type: 'lifecycle', event: 'resubmit', label: '重新提交',
-                  subLabel: '第' + round + '轮',
+                  type: 'lifecycle', event: 'resubmit', label: localeCopy.copy_aed5de2d69,
+                  subLabel: localeCopy.copy_93c50c01c0 + round + localeCopy.copy_14144be09d,
                   time: formatAuditTime(resubmitEvt.createdAt),
                   iconName: 'edit'
                 });
               } else {
                 flowTimeline.push({
                   _key: 'lifecycle_resubmit_r' + round,
-                  type: 'lifecycle', event: 'resubmit', label: '重新提交',
-                  subLabel: '第' + round + '轮', iconName: 'edit'
+                  type: 'lifecycle', event: 'resubmit', label: localeCopy.copy_aed5de2d69,
+                  subLabel: localeCopy.copy_93c50c01c0 + round + localeCopy.copy_14144be09d, iconName: 'edit'
                 });
               }
             }
@@ -1488,56 +1489,56 @@ module.exports = Behavior({
               let approverDesc = s.approverDesc || '';
               if (!approverDesc) {
                 if (s.approverType === 'specific_person' || s.approverName) {
-                  approverDesc = '由 ' + (s.approverName || '未指定') + ' 审批';
+                  approverDesc = localeCopy.copy_d3028048b3 + (s.approverName || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
                 } else {
-                  const identName = s.approverIdentityName || '未指定身份';
+                  const identName = s.approverIdentityName || localeCopy.copy_c76fae0e08;
                   const scopeType = s.scopeType || 'all';
                   if (scopeType === 'all' || !scopeType) {
-                    approverDesc = '由 全体 ' + identName + ' 审批';
+                    approverDesc = localeCopy.copy_9b774f950c + identName + localeCopy.copy_7abed5378f;
                   } else if (scopeType === 'same_department') {
-                    approverDesc = '由 同部门 ' + identName + ' 审批';
+                    approverDesc = localeCopy.copy_fc98ff863c + identName + localeCopy.copy_7abed5378f;
                   } else if (scopeType === 'same_work_group') {
-                    approverDesc = '由 同职能组 ' + identName + ' 审批';
+                    approverDesc = localeCopy.copy_d0348010eb + identName + localeCopy.copy_7abed5378f;
                   } else if (scopeType === 'specific_department') {
-                    const deptName = s.scopeDepartmentName || '指定部门';
-                    approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
+                    const deptName = s.scopeDepartmentName || localeCopy.copy_b3604f443f;
+                    approverDesc = localeCopy.copy_d3028048b3 + deptName + ' ' + identName + localeCopy.copy_7abed5378f;
                   } else if (scopeType === 'specific_work_group') {
                     const deptName = s.scopeDepartmentName || '';
                     const wgName = s.scopeWorkGroupName || '';
-                    const location = [deptName, wgName].filter(Boolean).join('·') || '指定职能组';
-                    approverDesc = '由 ' + location + ' ' + identName + ' 审批';
+                    const location = [deptName, wgName].filter(Boolean).join('·') || localeCopy.copy_258347beac;
+                    approverDesc = localeCopy.copy_d3028048b3 + location + ' ' + identName + localeCopy.copy_7abed5378f;
                   } else {
-                    approverDesc = '由 ' + identName + ' 审批';
+                    approverDesc = localeCopy.copy_d3028048b3 + identName + localeCopy.copy_7abed5378f;
                   }
                 }
               }
 
-              const actionMap = { pass: '通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
-              const actionLabel = actionMap[s.actionType] || s.actionType || '通过';
+              const actionMap = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, both: localeCopy.copy_a63d02480e };
+              const actionLabel = actionMap[s.actionType] || s.actionType || localeCopy.copy_8e2f75159e;
 
               if (s.status === 'rejected') {
                 flowNodeClass = 'flow-node-rejected'; flowDotClass = 'flow-dot-rejected';
-                flowIcon = 'cross'; flowStatusLabel = '✗ 已驳回'; flowTagClass = 'flow-tag-rejected';
+                flowIcon = 'cross'; flowStatusLabel = localeCopy.copy_70d7f7f742; flowTagClass = 'flow-tag-rejected';
               } else if (submissionStatus === 'approved') {
                 flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
-                flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+                flowIcon = 'check'; flowStatusLabel = localeCopy.copy_2d8cba342c; flowTagClass = 'flow-tag-done';
               } else if (submissionStatus === 'pending' || submissionStatus === 'draft') {
                 flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
-                flowIcon = 'number'; flowStatusLabel = '○ 未开始'; flowTagClass = 'flow-tag-pending';
+                flowIcon = 'number'; flowStatusLabel = localeCopy.copy_03c3f77e01; flowTagClass = 'flow-tag-pending';
               } else if (s.status === 'approved') {
                 flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
-                flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+                flowIcon = 'check'; flowStatusLabel = localeCopy.copy_2d8cba342c; flowTagClass = 'flow-tag-done';
               } else if (s.sort_order === currentStepIndex && s.status === 'pending') {
                 flowNodeClass = 'flow-node-active'; flowDotClass = 'flow-dot-active';
-                flowIcon = 'number'; flowStatusLabel = '● 待处理'; flowTagClass = 'flow-tag-active';
+                flowIcon = 'number'; flowStatusLabel = localeCopy.copy_532a477356; flowTagClass = 'flow-tag-active';
                 hasProcessedSteps = true;
               } else if (s.sort_order < currentStepIndex) {
                 flowNodeClass = 'flow-node-done'; flowDotClass = 'flow-dot-done';
-                flowIcon = 'check'; flowStatusLabel = '✓ 已通过'; flowTagClass = 'flow-tag-done';
+                flowIcon = 'check'; flowStatusLabel = localeCopy.copy_2d8cba342c; flowTagClass = 'flow-tag-done';
                 hasProcessedSteps = true;
               } else {
                 flowNodeClass = 'flow-node-pending'; flowDotClass = 'flow-dot-pending';
-                flowIcon = 'number'; flowStatusLabel = '○ 未到达'; flowTagClass = 'flow-tag-pending';
+                flowIcon = 'number'; flowStatusLabel = localeCopy.copy_9baefe7c49; flowTagClass = 'flow-tag-pending';
                 hasFutureSteps = true;
               }
 
@@ -1562,7 +1563,7 @@ module.exports = Behavior({
               if (remainingCount > 0) {
                 let insertIdx = -1;
                 for (let fi = 0; fi < flowTimeline.length; fi++) {
-                  if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === '○ 未到达') {
+                  if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === localeCopy.copy_9baefe7c49) {
                     insertIdx = fi;
                     break;
                   }
@@ -1571,7 +1572,7 @@ module.exports = Behavior({
                   flowTimeline.splice(insertIdx, 0, {
                     _key: 'separator_r' + round + '_remaining',
                     type: 'separator',
-                    label: '剩余 ' + remainingCount + ' 步待处理'
+                    label: localeCopy.copy_361de3f050 + remainingCount + localeCopy.copy_239cbf0257
                   });
                 }
               }
@@ -1584,14 +1585,14 @@ module.exports = Behavior({
             if (lateEvt.eventType === 'withdraw') {
               flowTimeline.push({
                 _key: 'lifecycle_withdraw_' + lateEvt.id,
-                type: 'lifecycle', event: 'withdraw', label: '撤回审核',
+                type: 'lifecycle', event: 'withdraw', label: localeCopy.copy_0f438fa581,
                 time: formatAuditTime(lateEvt.createdAt), iconName: 'chevron-right'
               });
             } else if (lateEvt.eventType === 'resubmit') {
               flowTimeline.push({
                 _key: 'lifecycle_resubmit_late_' + lateEvt.id,
-                type: 'lifecycle', event: 'resubmit', label: '重新提交',
-                subLabel: '第' + (lateEvt.round || 1) + '轮',
+                type: 'lifecycle', event: 'resubmit', label: localeCopy.copy_aed5de2d69,
+                subLabel: localeCopy.copy_93c50c01c0 + (lateEvt.round || 1) + localeCopy.copy_14144be09d,
                 time: formatAuditTime(lateEvt.createdAt), iconName: 'edit'
               });
             }
@@ -1602,10 +1603,10 @@ module.exports = Behavior({
             auditSubmissionDetailVisible: true
           });
         } else {
-          showShortToast(res.message || '请稍后刷新');
+          showShortToast(res.message || localeCopy.copy_e52119b17e);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '请稍后刷新'));
+        showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
       } finally {
         this.setLoading('auditProgress', false);
       }
@@ -1652,21 +1653,21 @@ module.exports = Behavior({
 
     async grantVerificationPermission() {
       const hrId = this.data.verificationGrantHrId;
-      if (!hrId) { showShortToast('请选择人员'); return; }
+      if (!hrId) { showShortToast(localeCopy.copy_e5d78a79f7); return; }
       try {
         const res = await this.callCloud('saveVerificationPermission', {
           granteeHrId: hrId,
           action: 'grant'
         });
         if (res.status === 'success') {
-          showShortToast('验签权限已授予');
+          showShortToast(localeCopy.copy_31f5d1514b);
           this.setData({ verificationGrantHrId: '', verificationGrantHrName: '' });
           this.loadVerificationPermissions();
         } else {
-          showShortToast(res.message || '未授权，请重试');
+          showShortToast(res.message || localeCopy.copy_5a0e81ddd2);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '未授权，请重试'));
+        showShortToast(getErrorText(e, localeCopy.copy_5a0e81ddd2));
       }
     },
 
@@ -1674,8 +1675,8 @@ module.exports = Behavior({
       const hrId = e.currentTarget.dataset.hrId;
       const that = this;
       wx.showModal({
-        title: '确认撤销',
-        content: '确定撤销该人员的验签权限吗？',
+        title: localeCopy.copy_d6c748ac95,
+        content: localeCopy.copy_c73a8aa49d,
         success: async function (modalRes) {
           if (!modalRes.confirm) return;
           try {
@@ -1684,13 +1685,13 @@ module.exports = Behavior({
               action: 'revoke'
             });
             if (res.status === 'success') {
-              showShortToast('验签权限已撤销');
+              showShortToast(localeCopy.copy_c2eabcfd63);
               that.loadVerificationPermissions();
             } else {
-              showShortToast(res.message || '未撤销，请重试');
+              showShortToast(res.message || localeCopy.copy_8351ecc192);
             }
           } catch (e) {
-            showShortToast(getErrorText(e, '未撤销，请重试'));
+            showShortToast(getErrorText(e, localeCopy.copy_8351ecc192));
           }
         }
       });
@@ -1724,7 +1725,7 @@ module.exports = Behavior({
               });
             },
             fail: function() {
-              showShortToast('请重新选择文件');
+              showShortToast(localeCopy.copy_03d69a9d28);
             }
           });
         }
@@ -1742,11 +1743,11 @@ module.exports = Behavior({
 
       if (mode === 'number') {
         let number = this.data.verificationInputNumber;
-        if (!number) { showShortToast('请输入提交编号'); return; }
+        if (!number) { showShortToast(localeCopy.copy_93eb240494); return; }
         params.submissionNumber = number;
       } else if (mode === 'file') {
         let fileB64 = this.data.verificationFileBase64;
-        if (!fileB64) { showShortToast('请选择要验签的文件'); return; }
+        if (!fileB64) { showShortToast(localeCopy.copy_cbf65b3559); return; }
         params.fileBase64 = fileB64;
       }
 
@@ -1756,10 +1757,10 @@ module.exports = Behavior({
         if (res.status === 'success') {
           this.setData({ verificationResult: res });
         } else {
-          showShortToast(res.message || '未完成验签，请重试');
+          showShortToast(res.message || localeCopy.copy_b791913c7a);
         }
       } catch (e) {
-        showShortToast(getErrorText(e, '未完成验签，请重试'));
+        showShortToast(getErrorText(e, localeCopy.copy_b791913c7a));
       } finally {
         this.setLoading('verifyChain', false);
       }
@@ -1771,7 +1772,7 @@ module.exports = Behavior({
 
     openAuditPersonnelPicker(e) {
       const target = e.currentTarget.dataset.target;
-      const label = e.currentTarget.dataset.label || '选择人员';
+      const label = e.currentTarget.dataset.label || localeCopy.copy_f262abee38;
 
       // Pre-populate selectedId from the current target field
       let selectedId = '';
@@ -1785,8 +1786,8 @@ module.exports = Behavior({
         auditPersonnelPickerLabel: label,
         auditPersonnelPickerSelectedId: String(selectedId || ''),
         auditPersonnelSearchKeyword: '',
-        auditPersonnelFilterDept: '全部',
-        auditPersonnelFilterIdent: '全部',
+        auditPersonnelFilterDept: localeCopy.copy_31d4595959,
+        auditPersonnelFilterIdent: localeCopy.copy_31d4595959,
         auditPersonnelDeptOptions: this._auditBuildDeptOptions(),
         auditPersonnelIdentOptions: this._auditBuildIdentOptions()
       });
@@ -1805,14 +1806,14 @@ module.exports = Behavior({
     onAuditPersonnelFilterDept(e) {
       let idx = e.detail.value;
       let options = this.data.auditPersonnelDeptOptions;
-      this.setData({ auditPersonnelFilterDept: options[idx] || '全部' });
+      this.setData({ auditPersonnelFilterDept: options[idx] || localeCopy.copy_31d4595959 });
       this._applyAuditPersonnelFilters();
     },
 
     onAuditPersonnelFilterIdent(e) {
       let idx = e.detail.value;
       let options = this.data.auditPersonnelIdentOptions;
-      this.setData({ auditPersonnelFilterIdent: options[idx] || '全部' });
+      this.setData({ auditPersonnelFilterIdent: options[idx] || localeCopy.copy_31d4595959 });
       this._applyAuditPersonnelFilters();
     },
 
@@ -1823,10 +1824,10 @@ module.exports = Behavior({
       let filterIdent = this.data.auditPersonnelFilterIdent;
 
       let filtered = hrList;
-      if (filterDept !== '全部') {
+      if (filterDept !== localeCopy.copy_31d4595959) {
         filtered = filtered.filter(function (item) { return item.department === filterDept; });
       }
-      if (filterIdent !== '全部') {
+      if (filterIdent !== localeCopy.copy_31d4595959) {
         filtered = filtered.filter(function (item) { return item.identity === filterIdent; });
       }
       if (keyword) {
@@ -1850,7 +1851,7 @@ module.exports = Behavior({
     confirmAuditPersonnelPicker() {
       let selectedId = this.data.auditPersonnelPickerSelectedId;
       if (!selectedId) {
-        showShortToast('请先选择一名人员');
+        showShortToast(localeCopy.copy_e0922834ac);
         return;
       }
 
@@ -1914,7 +1915,7 @@ module.exports = Behavior({
 
     openAuditIdentityPicker(e) {
       let target = e.currentTarget.dataset.target;
-      let label = e.currentTarget.dataset.label || '选择身份';
+      let label = e.currentTarget.dataset.label || localeCopy.copy_43c26e4c16;
       let multi = e.currentTarget.dataset.multi === 'true';
 
       // Pre-populate selected IDs from the current target field
@@ -1981,7 +1982,7 @@ module.exports = Behavior({
       let ids = Object.keys(selectedIds);
 
       if (!ids.length) {
-        showShortToast('请至少选择一个身份');
+        showShortToast(localeCopy.copy_ada965777d);
         return;
       }
 

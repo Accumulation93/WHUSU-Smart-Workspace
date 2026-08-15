@@ -3,6 +3,27 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
+
+function flattenLocale(locale, prefix, output) {
+  const result = output || {};
+  for (const [key, value] of Object.entries(locale || {})) {
+    const nextKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      flattenLocale(value, nextKey, result);
+    } else if (typeof value === 'string') {
+      result[nextKey] = value;
+    }
+  }
+  return result;
+}
+
+function hydrateLocale(source, locale, variableName, asLiteral) {
+  return Object.entries(flattenLocale(locale)).reduce((result, entry) => {
+    const escapedKey = entry[0].replace(/\./g, '\\.');
+    const pattern = new RegExp(`\\b${variableName}\\.${escapedKey}\\b`, 'g');
+    return result.replace(pattern, asLiteral ? JSON.stringify(entry[1]) : entry[1]);
+  }, source);
+}
 const dbPath = require.resolve('../src/config/db');
 const orgPath = require.resolve('../src/utils/orgContext');
 const notificationPath = require.resolve('../src/modules/audit/models/notification');
@@ -164,7 +185,13 @@ function testMigrationAndFrontendContract() {
   assert.match(migration, /approval_mode/);
   assert.match(migration, /SIGNAL SQLSTATE '45000'/);
 
-  const portal = fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.js'), 'utf8');
+  const mainCopy = require('../../miniprogram/locales/zh-CN/main');
+  const portal = hydrateLocale(
+    fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.js'), 'utf8'),
+    mainCopy.portal,
+    'copy',
+    true
+  );
   assert.match(portal, /getMessageOverview/);
   assert.match(portal, /markAllNotificationsRead/);
   assert.match(portal, /limit: 6/);
@@ -172,14 +199,19 @@ function testMigrationAndFrontendContract() {
   assert.match(portal, /if \(this\._messageOverviewLoading\)[\s\S]*this\._messageOverviewQueued = true/);
   assert.match(portal, /shouldReload && this\._isPageVisible && this\.data\.hasUser/);
   assert.strictEqual(
-    (portal.match(/key:\s*'messages',\s*label:\s*'消息中心',\s*iconName:\s*'bell',\s*url:\s*'\/pages\/messageCenter\/messageCenter'/g) || []).length,
+    (portal.match(/key:\s*['"]messages['"],\s*label:\s*['"]消息中心['"],\s*iconName:\s*['"]bell['"],\s*url:\s*['"]\/pages\/messageCenter\/messageCenter['"]/g) || []).length,
     2,
     '普通用户端和管理端应用服务都必须包含消息中心'
   );
   assert.doesNotMatch(portal, /loadNotificationUnreadCount/);
   const adminPermissions = fs.readFileSync(path.join(root, '../miniprogram/utils/adminPermissions.js'), 'utf8');
   assert.match(adminPermissions, /card\.key === 'messages'[\s\S]*return true/);
-  const portalView = fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.wxml'), 'utf8');
+  const portalView = hydrateLocale(
+    fs.readFileSync(path.join(root, '../miniprogram/pages/portal/portal.wxml'), 'utf8'),
+    mainCopy.portal.view,
+    'copy',
+    false
+  );
   assert.match(portalView, /portal-organization-meta/);
   assert.match(portalView, /\{\{messageSwitchTitle\}\}/);
   assert.match(portalView, /切换并查看/);
@@ -191,7 +223,12 @@ function testMigrationAndFrontendContract() {
   );
 
   const messageCenter = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.js'), 'utf8');
-  const messageCenterView = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.wxml'), 'utf8');
+  const messageCenterView = hydrateLocale(
+    fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.wxml'), 'utf8'),
+    mainCopy.messageCenter.view,
+    'copy',
+    false
+  );
   const messageCenterStyle = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.wxss'), 'utf8');
   assert.match(messageCenter, /messageScope/);
   assert.match(messageCenter, /organizationId/);

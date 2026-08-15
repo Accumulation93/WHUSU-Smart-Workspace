@@ -9,6 +9,7 @@ let pageDefinition = null;
 
 global.getApp = function() { return null; };
 global.wx = {
+  setNavigationBarTitle() {},
   getStorageSync(key) { return storage[key]; },
   setStorageSync(key, value) { storage[key] = value; },
   removeStorageSync(key) { delete storage[key]; },

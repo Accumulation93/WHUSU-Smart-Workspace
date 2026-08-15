@@ -1,107 +1,107 @@
 <view class="page {{leavingPortal ? 'page-leaving' : ''}}">
   <view class="login-layout">
     <view class="hero login-hero">
-      <view class="hero-badge">WHUSU智慧工作台</view>
-      <view class="hero-title">微信登录</view>
-      <view class="hero-subtitle">登录后选择组织与身份</view>
+      <view class="hero-badge">{{copy.appName}}</view>
+      <view class="hero-title">{{copy.wechatLogin}}</view>
+      <view class="hero-subtitle">{{copy.loginSubtitle}}</view>
     </view>
 
     <view class="login-main">
       <view class="login-notice" wx:if="{{authNotice}}">
-        <ui-icon name="shield" tone="primary" size="26" ariaLabel="登录提示" />
+        <ui-icon name="shield" tone="primary" size="26" ariaLabel="{{copy.loginHint}}" />
         <text>{{authNotice}}</text>
       </view>
       <view class="card login-card">
-        <view class="section-title">登录</view>
-        <view class="card-desc">请使用本人微信登录</view>
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">微信登录</button>
-        <view class="login-secondary-link ui-motion-chip" bindtap="openPasswordLogin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">口令登录</view>
+        <view class="section-title">{{copy.loginTitle}}</view>
+        <view class="card-desc">{{copy.useOwnWechat}}</view>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.wechatLogin}}</button>
+        <view class="login-secondary-link ui-motion-chip" bindtap="openPasswordLogin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.passwordLogin}}</view>
       </view>
     </view>
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{copy.appName}}</view>
+    <view class="footer-org">{{copy.organizationName}}</view>
   </view>
 
   <view class="{{sheetClass}} ui-sheet-overlay" wx:if="{{stage !== 'login'}}">
     <view class="sheet-mask ui-overlay-blocker" bindtap="closeSheet" catchtouchmove="noop"></view>
     <view class="sheet-panel ui-dialog-shell ui-dialog-shell--compact">
       <view class="sheet-header">
-        <view class="sheet-title">{{stage === 'password' ? '口令登录' : (stage === 'verify' ? '输入个人认证码' : (stage === 'recoveryVerify' ? '验证恢复信息' : (stage === 'recoveryRotated' ? '保存新的恢复码' : (stage === 'recoveryPending' ? '等待管理员审核' : (stage === 'recovery' ? '更换微信' : '身份认证')))))}}</view>
-        <view class="sheet-close ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭 ×</view>
+        <view class="sheet-title">{{stage === 'password' ? copy.passwordLogin : (stage === 'verify' ? copy.titleVerify : (stage === 'recoveryVerify' ? copy.titleRecoveryVerify : (stage === 'recoveryRotated' ? copy.titleRecoveryRotated : (stage === 'recoveryPending' ? copy.titleRecoveryPending : (stage === 'recovery' ? copy.titleRecovery : copy.titleClaim)))))}}</view>
+        <view class="sheet-close ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.closeWithIcon}}</view>
       </view>
 
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="sheet-body ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
         <view wx:if="{{stage === 'claim' || stage === 'recovery'}}">
-        <view class="sheet-note">{{stage === 'recovery' ? '提交后可使用恢复码或恢复口令，也可以等待管理员审核。' : '填写姓名和学号后，再输入管理员提供的个人认证码。'}}</view>
+        <view class="sheet-note">{{stage === 'recovery' ? copy.recoveryStartNote : copy.claimStartNote}}</view>
 
         <view class="field">
-          <view class="field-label">所属组织</view>
+          <view class="field-label">{{copy.organization}}</view>
           <picker range="{{organizations}}" range-key="name" value="{{organizationIndex}}" bindchange="onOrganizationChange">
-            <view class="field-picker">{{organizationName || '请选择组织'}}<text class="field-picker-arrow">›</text></view>
+            <view class="field-picker">{{organizationName || copy.chooseOrganization}}<text class="field-picker-arrow">›</text></view>
           </picker>
         </view>
 
         <view class="field">
-          <view class="field-label">姓名</view>
-          <input class="field-input" placeholder="请输入姓名" bindinput="onName" value="{{name}}" />
+          <view class="field-label">{{copy.name}}</view>
+          <input class="field-input" placeholder="{{copy.namePlaceholder}}" bindinput="onName" value="{{name}}" />
         </view>
 
         <view class="field">
-          <view class="field-label">学号</view>
-          <input class="field-input" placeholder="请输入学号" bindinput="onStudentId" value="{{studentId}}" />
+          <view class="field-label">{{copy.studentId}}</view>
+          <input class="field-input" placeholder="{{copy.studentIdPlaceholder}}" bindinput="onStudentId" value="{{studentId}}" />
         </view>
 
-        <button wx:if="{{stage === 'claim'}}" class="primary-btn ui-motion-button" loading="{{loading}}" disabled="{{!claimAvailable}}" bindtap="submitClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{claimAvailable ? '继续' : '暂未开放认证'}}</button>
-        <button wx:else class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="startRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">提交恢复请求</button>
+        <button wx:if="{{stage === 'claim'}}" class="primary-btn ui-motion-button" loading="{{loading}}" disabled="{{!claimAvailable}}" bindtap="submitClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{claimAvailable ? copy.continueAction : copy.claimUnavailable}}</button>
+        <button wx:else class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="startRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.submitRecovery}}</button>
 
-        <view class="sheet-link ui-motion-chip" wx:if="{{stage === 'claim'}}" bindtap="switchToRecovery" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">更换微信</view>
-        <view class="sheet-link ui-motion-chip" wx:else bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">返回身份认证</view>
+        <view class="sheet-link ui-motion-chip" wx:if="{{stage === 'claim'}}" bindtap="switchToRecovery" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.changeWechat}}</view>
+        <view class="sheet-link ui-motion-chip" wx:else bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.backToClaim}}</view>
       </view>
 
         <view wx:elif="{{stage === 'password'}}">
-          <view class="sheet-note">使用已设置的口令登录</view>
-          <view class="field"><view class="field-label">学号</view><input class="field-input" placeholder="请输入学号" bindinput="onPasswordStudentId" value="{{passwordStudentId}}" /></view>
-          <view class="field"><view class="field-label">口令</view><input class="field-input" password="{{true}}" placeholder="请输入口令" bindinput="onPasswordInput" value="{{password}}" /></view>
-          <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onPasswordLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">登录</button>
-          <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">返回微信登录</view>
+          <view class="sheet-note">{{copy.passwordNote}}</view>
+          <view class="field"><view class="field-label">{{copy.studentId}}</view><input class="field-input" placeholder="{{copy.studentIdPlaceholder}}" bindinput="onPasswordStudentId" value="{{passwordStudentId}}" /></view>
+          <view class="field"><view class="field-label">{{copy.passphrase}}</view><input class="field-input" password="{{true}}" placeholder="{{copy.passphrasePlaceholder}}" bindinput="onPasswordInput" value="{{password}}" /></view>
+          <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="onPasswordLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.loginAction}}</button>
+          <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.backToWechat}}</view>
         </view>
         <view wx:elif="{{stage === 'verify'}}">
-        <view class="sheet-note">请向所属组织的管理员获取个人认证码。认证码有效期为 24 小时，使用后失效。</view>
+        <view class="sheet-note">{{copy.verificationNote}}</view>
         <view class="field">
-          <view class="field-label">个人认证码</view>
-          <input class="field-input verification-input" maxlength="12" placeholder="请输入 12 位认证码" bindinput="onVerificationCode" value="{{verificationCode}}" />
+          <view class="field-label">{{copy.verificationCode}}</view>
+          <input class="field-input verification-input" maxlength="12" placeholder="{{copy.verificationPlaceholder}}" bindinput="onVerificationCode" value="{{verificationCode}}" />
         </view>
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="verifyClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">完成身份认证</button>
-        <view class="sheet-link ui-motion-chip" bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">返回修改信息</view>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="verifyClaim" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.finishClaim}}</button>
+        <view class="sheet-link ui-motion-chip" bindtap="switchToClaim" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.backToProfile}}</view>
       </view>
 
         <view wx:elif="{{stage === 'recoveryVerify'}}">
-        <view class="sheet-note">如果没有可用的恢复方式，请等待其他管理员审核。审核通过后，用当前微信重新登录。</view>
+        <view class="sheet-note">{{copy.recoveryNote}}</view>
         <view class="field">
-          <view class="field-label">恢复方式</view>
+          <view class="field-label">{{copy.recoveryMethod}}</view>
           <picker range="{{recoveryMethods}}" value="{{recoveryMethodIndex}}" bindchange="onRecoveryMethodChange">
             <view class="field-picker">{{recoveryMethodLabel}}<text class="field-picker-arrow">›</text></view>
           </picker>
         </view>
         <view class="field">
           <view class="field-label">{{recoveryMethodLabel}}</view>
-          <input class="field-input" password="{{recoveryMethod === 'passphrase'}}" placeholder="请输入恢复码或恢复口令" bindinput="onRecoveryCredential" value="{{recoveryCredential}}" />
+          <input class="field-input" password="{{recoveryMethod === 'passphrase'}}" placeholder="{{copy.recoveryPlaceholder}}" bindinput="onRecoveryCredential" value="{{recoveryCredential}}" />
         </view>
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="completeRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认更换微信</button>
-        <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">等待管理员审核</view>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="completeRecovery" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.confirmWechatChange}}</button>
+        <view class="sheet-link ui-motion-chip" bindtap="closeSheet" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.waitForReview}}</view>
       </view>
         <view wx:elif="{{stage === 'recoveryRotated'}}">
-        <view class="sheet-note">请保存新的恢复码。关闭后不再显示。</view>
+        <view class="sheet-note">{{copy.rotatedRecoveryNote}}</view>
         <view class="recovery-code-box">{{rotatedRecoveryCode}}</view>
-        <button class="secondary-btn ui-motion-button" bindtap="copyRotatedRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">复制恢复码</button>
-        <button class="primary-btn ui-motion-button" bindtap="finishRecoveredLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">完成</button>
+        <button class="secondary-btn ui-motion-button" bindtap="copyRotatedRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.copyRecoveryCode}}</button>
+        <button class="primary-btn ui-motion-button" bindtap="finishRecoveredLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.finish}}</button>
       </view>
         <view wx:else>
-          <view class="sheet-note">恢复申请已提交。请等待其他管理员审核，审核通过后用当前微信重新登录。</view>
-          <button class="secondary-btn ui-motion-button" bindtap="closeSheet" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</button>
+          <view class="sheet-note">{{copy.recoveryPendingNote}}</view>
+          <button class="secondary-btn ui-motion-button" bindtap="closeSheet" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.close}}</button>
         </view>
       </scroll-view>
     </view>

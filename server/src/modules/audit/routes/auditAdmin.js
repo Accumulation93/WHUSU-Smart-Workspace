@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditAdmin');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -31,7 +32,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const templates = await flowTemplateModel.getAll();
     // Load steps for each template
@@ -105,12 +106,12 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const orgId = await getCurrentOrgId();
-    if (!orgId) return res.json({ status: 'invalid_params', message: '请先选择组织' });
+    if (!orgId) return res.json({ status: 'invalid_params', message: localeCopy.copy_e0aaf03f8a });
     const description = safeString(req.body.description);
     const starterType = safeString(req.body.starterType) || 'conditions';
     const starterIdentityId = safeString(req.body.starterIdentityId);
@@ -120,10 +121,10 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
 
     if (!name) {
-      return res.json({ status: 'invalid_params', message: '请输入模板名称' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_cf05c2ba56 });
     }
     if (!steps.length) {
-      return res.json({ status: 'invalid_params', message: '请至少添加一个审核步骤' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_4ac0ae43dd });
     }
 
     // Validate each step has at least one valid condition with proper IDs
@@ -131,23 +132,23 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       const vstep = steps[vi];
       const vconditions = Array.isArray(vstep.conditions) ? vstep.conditions : [];
       if (!vconditions.length && !(vstep.approverType || vstep.approverIdentityId || vstep.approverHrId)) {
-        return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步至少需要一个审批条件' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + '步至少需要一个审批条件' });
       }
       for (let vj = 0; vj < vconditions.length; vj++) {
         const vc = vconditions[vj];
         if (vc.conditionType === 'person') {
           if (!vc.personHrIds || !vc.personHrIds.trim()) {
-            return res.json({ status: 'invalid_params', message: '请选择第' + (vi + 1) + '步的指定人员' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_eb6b0a83d2 + (vi + 1) + '步的指定人员' });
           }
         } else {
           if (vc.departmentScope === 'specific' && (!vc.specificDepartmentId || !vc.specificDepartmentId.trim())) {
-            return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步条件' + (vj + 1) + '：指定了部门范围但未选择具体部门' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + '步条件' + (vj + 1) + '：指定了部门范围但未选择具体部门' });
           }
           if (vc.workGroupScope === 'specific' && (!vc.specificWorkGroupId || !vc.specificWorkGroupId.trim())) {
-            return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步条件' + (vj + 1) + '：指定了职能组范围但未选择具体职能组' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + '步条件' + (vj + 1) + '：指定了职能组范围但未选择具体职能组' });
           }
           if (vc.identityScope === 'specific' && (!vc.specificIdentityId || !vc.specificIdentityId.trim())) {
-            return res.json({ status: 'invalid_params', message: '第' + (vi + 1) + '步条件' + (vj + 1) + '：指定了身份但未选择具体身份' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + '步条件' + (vj + 1) + '：指定了身份但未选择具体身份' });
           }
         }
       }
@@ -273,10 +274,10 @@ router.post('/deleteAuditFlowTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择审核类型' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_319cc04882 });
 
     // Check if any submissions reference this template
     const orgId = await getCurrentOrgId();
@@ -285,11 +286,11 @@ router.post('/deleteAuditFlowTemplate', async (req, res) => {
       [id, orgId]
     );
     if (submissions[0] && submissions[0].cnt > 0) {
-      return res.json({ status: 'in_use', message: '该审核类型已有申请记录，可停用后保留' });
+      return res.json({ status: 'in_use', message: localeCopy.copy_f6152889c8 });
     }
 
     await flowTemplateModel.remove(id);
-    res.json({ status: 'success', message: '模板已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_efc8493bdc });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -304,7 +305,7 @@ router.post('/listStamps', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const stamps = await stampModel.getAll();
     const assignments = await stampAssignmentModel.getAllGrouped();
@@ -339,26 +340,26 @@ router.post('/saveStamp', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const imageData = safeString(req.body.imageData);
 
     if (!name) {
-      return res.json({ status: 'invalid_params', message: '请输入印章名称' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_76f2662073 });
     }
     if (!imageData) {
-      return res.json({ status: 'invalid_params', message: '请上传印章图片' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_9c1d248076 });
     }
 
     if (id) {
       await stampModel.update(id, { name, imageData });
-      res.json({ status: 'success', message: '印章已更新' });
+      res.json({ status: 'success', message: localeCopy.copy_161855b67c });
     } else {
       const newId = generateId();
       await stampModel.create(newId, { name, imageData, createdBy: admin.id });
-      res.json({ status: 'success', id: newId, message: '印章已创建' });
+      res.json({ status: 'success', id: newId, message: localeCopy.copy_8e51c9c0df });
     }
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -370,13 +371,13 @@ router.post('/deleteStamp', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择印章' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_fc971e88db });
 
     await stampModel.remove(id);
-    res.json({ status: 'success', message: '印章已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_a5d4679cf0 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -387,17 +388,17 @@ router.post('/saveStampAssignments', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const identityId = safeString(req.body.identityId);
     const stampIds = Array.isArray(req.body.stampIds) ? req.body.stampIds.map((s) => safeString(s)).filter(Boolean) : [];
 
     if (!identityId) {
-      return res.json({ status: 'invalid_params', message: '请选择身份' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_d1856227b6 });
     }
 
     await stampAssignmentModel.replaceForIdentity(identityId, stampIds);
-    res.json({ status: 'success', message: '印章分配已更新' });
+    res.json({ status: 'success', message: localeCopy.copy_cb20eb18bc });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -410,7 +411,7 @@ router.post('/listIdentityStamps', async (req, res) => {
     const admin = await ensureAdmin(openid);
     const identityId = safeString(req.body.identityId);
     if (!identityId) {
-      return res.json({ status: 'invalid_params', message: '请重新选择身份' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
     }
 
     const assignments = await stampAssignmentModel.getByIdentityId(identityId);
@@ -435,7 +436,7 @@ router.post('/listVerificationPermissions', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const perms = await verificationPermModel.getAll();
     // Load HR names
@@ -467,27 +468,27 @@ router.post('/saveVerificationPermission', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const granteeHrId = safeString(req.body.granteeHrId);
     const action = safeString(req.body.action) || 'grant'; // 'grant' or 'revoke'
 
     if (!granteeHrId) {
-      return res.json({ status: 'invalid_params', message: '请选择授权人员' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_7d1a305d97 });
     }
 
     if (action === 'revoke') {
       await verificationPermModel.removeByGrantee(granteeHrId);
-      res.json({ status: 'success', message: '验签权限已撤销' });
+      res.json({ status: 'success', message: localeCopy.copy_c2eabcfd63 });
     } else {
       // Check if already exists
       const existing = await verificationPermModel.getByGrantee(granteeHrId);
       if (existing) {
-        return res.json({ status: 'duplicate', message: '该人员已有验签权限' });
+        return res.json({ status: 'duplicate', message: localeCopy.copy_dcc2e39631 });
       }
       const newId = generateId();
       await verificationPermModel.create(newId, { granteeHrId, grantedBy: admin.id });
-      res.json({ status: 'success', message: '验签权限已授予' });
+      res.json({ status: 'success', message: localeCopy.copy_31f5d1514b });
     }
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -503,7 +504,7 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const filters = {
       status: safeString(req.body.status) || null,
@@ -610,18 +611,18 @@ router.post('/getAuditProgress', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) {
-      return res.json({ status: 'invalid_params', message: '请重新打开申请' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
     }
 
     const submission = await submissionModel.getById(submissionId);
     if (!submission) {
-      return res.json({ status: 'not_found', message: '请刷新申请记录' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     }
 
     const steps = await submissionStepModel.getBySubmissionId(submissionId);
@@ -795,7 +796,7 @@ router.post('/verifyAuditFile', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const fileHash = safeString(req.body.fileHash);
     const fileBase64 = safeString(req.body.fileBase64);
@@ -808,7 +809,7 @@ router.post('/verifyAuditFile', async (req, res) => {
     }
 
     if (!targetHash) {
-      return res.json({ status: 'invalid_params', message: '请重新选择文件' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
     }
 
     const orgId = await getCurrentOrgId();

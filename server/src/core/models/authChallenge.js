@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/models/authChallenge');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../../config/db');
@@ -31,10 +32,10 @@ async function lock(conn, token, expectedType, openid) {
   try {
     decoded = jwt.verify(safeString(token), JWT_SECRET, { audience: 'whusu-smart-workspace-auth-challenge' });
   } catch (_) {
-    return { status: 'challenge_expired', message: '绑定验证已过期，请重新登录' };
+    return { status: 'challenge_expired', message: localeCopy.copy_f5b5d618a6 };
   }
   if (decoded.challengeType !== expectedType || !decoded.challengeId) {
-    return { status: 'invalid_params', message: '请重新微信登录' };
+    return { status: 'invalid_params', message: localeCopy.copy_b10d64a68c };
   }
   const [rows] = await conn.query(
     `SELECT * FROM auth_challenges
@@ -44,13 +45,13 @@ async function lock(conn, token, expectedType, openid) {
   );
   const row = rows[0];
   if (!row || row.openid_hash !== hashOpenid(openid) || row.consumed_at) {
-    return { status: 'challenge_expired', message: '绑定验证已过期，请重新登录' };
+    return { status: 'challenge_expired', message: localeCopy.copy_f5b5d618a6 };
   }
   let payload;
   try {
     payload = JSON.parse(row.payload_json || '{}');
   } catch (_) {
-    return { status: 'invalid_params', message: '请重新微信登录' };
+    return { status: 'invalid_params', message: localeCopy.copy_b10d64a68c };
   }
   return { status: 'success', id: row.id, payload };
 }

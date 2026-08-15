@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/utils/trustedNavigation');
 const TRUSTED_ROUTES = new Set([
   '/pages/login/login',
   '/pages/portal/portal',
@@ -67,12 +68,12 @@ function navigateToTrustedRoute(rawUrl, handlers) {
   const url = String(rawUrl || '').trim();
   const callbacks = handlers || {};
   if (!isTrustedRoute(url)) {
-    wx.showToast({ title: '请从应用服务重新进入', icon: 'none' });
+    wx.showToast({ title: localeCopy.copy_9aad91c741, icon: 'none' });
     return false;
   }
   const finishFailure = function(error) {
     if (typeof callbacks.fail === 'function') callbacks.fail(error);
-    else wx.showToast({ title: '页面未打开，请重试', icon: 'none' });
+    else wx.showToast({ title: localeCopy.copy_4becb061c6, icon: 'none' });
   };
   wx.navigateTo({
     url: url,

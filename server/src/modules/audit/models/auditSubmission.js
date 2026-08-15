@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/models/auditSubmission');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
@@ -70,7 +71,7 @@ async function getByNumber(submissionNumber) {
 }
 
 async function generateSubmissionNumber(conn) {
-  if (!conn) throw new Error('暂时无法生成提交编号');
+  if (!conn) throw new Error(localeCopy.copy_dbba7c2670);
   const orgId = await getCurrentOrgId();
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -89,7 +90,7 @@ async function generateSubmissionNumber(conn) {
      WHERE org_id = ? AND business_date = ? FOR UPDATE`,
     [orgId, businessDate]
   );
-  if (!rows.length) throw new Error('未提交，请重试');
+  if (!rows.length) throw new Error(localeCopy.copy_8831c65b75);
   const seq = Number(rows[0].next_value);
   await conn.query(
     `UPDATE audit_number_sequences SET next_value = next_value + 1

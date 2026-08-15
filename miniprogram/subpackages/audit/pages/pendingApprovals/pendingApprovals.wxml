@@ -1,12 +1,12 @@
 <view class="page page-narrow subapp-audit-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="审核 · 待我审批"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_5aaf844f1e}}"></workspace-hero>
 
   <view class="section">
     <view class="card">
-      <view class="section-title">待审批列表</view>
+      <view class="section-title">{{localeCopy.copy_109f042664}}</view>
       <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">
-        <text class="pending-update-time">更新于 {{lastUpdateTime}}</text>
-        <text class="pending-refresh-btn ui-motion-chip" bindtap="loadData" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⟳ 刷新</text>
+        <text class="pending-update-time">{{localeCopy.copy_47cd44e2ed}} {{lastUpdateTime}}</text>
+        <text class="pending-refresh-btn ui-motion-chip" bindtap="loadData" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⟳ {{localeCopy.copy_545113905f}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
@@ -15,16 +15,16 @@
           <view class="pending-item-main">
             <view class="pending-item-name">{{item.title || item.submissionNumber}}</view>
             <view class="pending-item-meta">
-              <view class="audit-chip audit-chip-progress">待我处理</view>
-              <view class="pending-item-step">第{{item.sortOrder}}步 · {{item.actionType === 'pass' ? '通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}} · 第{{item.round}}轮</view>
+              <view class="audit-chip audit-chip-progress">{{localeCopy.copy_36be0dfa1c}}</view>
+              <view class="pending-item-step">{{localeCopy.copy_ef8b7ffa9b}}{{item.sortOrder}}{{localeCopy.copy_9e545997b0}} · {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
             </view>
-            <view class="pending-item-info">提交人：{{item.submitterName}} · {{item.submissionNumber}}</view>
+            <view class="pending-item-info">{{localeCopy.copy_322d34ce9c}}{{item.submitterName}} · {{item.submissionNumber}}</view>
           </view>
           <view class="pending-list-arrow">›</view>
         </view>
         <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
-          <view class="audit-empty-icon"><ui-icon name="check" tone="primary" size="54" ariaLabel="暂无待审批事项" /></view>
-          <view class="audit-empty-text">暂无待审批事项</view>
+          <view class="audit-empty-icon"><ui-icon name="check" tone="primary" size="54" ariaLabel="{{localeCopy.copy_a14c4e583b}}" /></view>
+          <view class="audit-empty-text">{{localeCopy.copy_a14c4e583b}}</view>
         </view>
         </block>
       </scroll-view>
@@ -32,7 +32,7 @@
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view>
+    <view class="footer-org">{{localeCopy.copy_638da8ae60}}</view>
   </view>
 </view>

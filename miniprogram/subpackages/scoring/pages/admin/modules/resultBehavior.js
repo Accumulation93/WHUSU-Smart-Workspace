@@ -1,3 +1,5 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/resultBehavior');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: result tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -25,7 +27,7 @@ module.exports = Behavior({
           overviewRows: [], calculationRows: [], detailRows: [], recordRows: [], scorerCompletionRows: [],
           completionBoards: { departments: [], identities: [], workGroups: [] }
         },
-        resultFilterOptions: { departments: ['全部'], identities: ['全部'], workGroups: ['全部'] },
+        resultFilterOptions: { departments: [localeCopy.copy_31d4595959], identities: [localeCopy.copy_31d4595959], workGroups: [localeCopy.copy_31d4595959] },
         resultPagination: {
           overview: { page: 0, pageSize: 0, hasMore: true, total: 0 },
           calculation: { page: 0, pageSize: 0, hasMore: true, total: 0 },
@@ -109,7 +111,7 @@ module.exports = Behavior({
           if (result.status !== 'success') {
             this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
-              wx.showToast({ title: result.message || '请稍后刷新评分结果', icon: 'none' });
+              wx.showToast({ title: result.message || localeCopy.copy_c59ab1ce4a, icon: 'none' });
             }
             this.setLoading('results', false);
             return;
@@ -149,7 +151,7 @@ module.exports = Behavior({
           if (result.status !== 'success') {
             this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
-              wx.showToast({ title: result.message || '请稍后刷新评分结果', icon: 'none' });
+              wx.showToast({ title: result.message || localeCopy.copy_c59ab1ce4a, icon: 'none' });
             }
             return;
           }
@@ -188,7 +190,7 @@ module.exports = Behavior({
           if (result.status !== 'success') {
             this.clearScoreResultsState();
             if (result.status !== 'activity_not_found') {
-              wx.showToast({ title: result.message || '请稍后刷新评分结果', icon: 'none' });
+              wx.showToast({ title: result.message || localeCopy.copy_c59ab1ce4a, icon: 'none' });
             }
             return;
           }
@@ -279,9 +281,9 @@ module.exports = Behavior({
       } catch (error) {
         if (!requestIsCurrent()) return;
         this.clearScoreResultsState();
-        console.error('加载评分结果失败：', error);
+        console.error(localeCopy.copy_bd06e9a531, error);
         wx.showToast({
-          title: getErrorText(error, '请稍后刷新评分结果'),
+          title: getErrorText(error, localeCopy.copy_c59ab1ce4a),
           icon: 'none'
         });
       } finally {
@@ -338,7 +340,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '请稍后刷新评分记录',
+            title: result.message || localeCopy.copy_6af651c0a8,
             icon: 'none'
           });
           return;
@@ -350,7 +352,7 @@ module.exports = Behavior({
             ...item,
             recordId: '',
             status: 'pending',
-            statusText: '未完成',
+            statusText: localeCopy.copy_8d112a0e5f,
             submittedAt: '',
             excludedByRequireAll: false
           } : item;
@@ -361,8 +363,8 @@ module.exports = Behavior({
             ...normalizedItem,
             status: recordStatus,
             canViewDetail: (recordStatus === 'completed' || recordStatus === 'inactive') && !!normalizedItem.recordId,
-            departmentText: normalizedItem.scorerDepartment || '未设置部门',
-            identityText: normalizedItem.scorerIdentity || '未设置身份',
+            departmentText: normalizedItem.scorerDepartment || localeCopy.copy_0fe86822a1,
+            identityText: normalizedItem.scorerIdentity || localeCopy.copy_ad183b164d,
             workGroupText: normalizedItem.scorerWorkGroup || normalizedItem.workGroup || '',
             statusClass: recordStatus === 'completed'
               ? 'status-completed'
@@ -381,7 +383,7 @@ module.exports = Behavior({
           return;
         }
         wx.showToast({
-          title: '请稍后刷新评分记录',
+          title: localeCopy.copy_6af651c0a8,
           icon: 'none'
         });
       } finally {
@@ -428,7 +430,7 @@ module.exports = Behavior({
           || this.data.currentActivityId !== activityId) return;
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '请稍后刷新评分详情',
+            title: result.message || localeCopy.copy_0dce54533e,
             icon: 'none'
           });
           this.setData({ recordDetailPopupVisible: false });
@@ -456,7 +458,7 @@ module.exports = Behavior({
         if (this.recordDetailLoadToken !== requestToken || !orgSession.isCurrent(organizationSnapshot)) return;
         this.setData({ recordDetailPopupVisible: false });
         wx.showToast({
-          title: '请稍后刷新评分详情',
+          title: localeCopy.copy_0dce54533e,
           icon: 'none'
         });
       } finally {
@@ -563,8 +565,8 @@ module.exports = Behavior({
         dept = this.data.resultFilters.department;
       }
       let workGroupList = this.data.workGroupList || [];
-      if (!dept || dept === '全部') {
-        return ['请先选择所属部门'];
+      if (!dept || dept === localeCopy.copy_31d4595959) {
+        return [localeCopy.copy_5327cd39d0];
       }
       let deptId = '';
       let deptList = this.data.departmentList || [];
@@ -579,18 +581,18 @@ module.exports = Behavior({
           return item.departmentId === deptId || item.departmentName === dept;
         })
         .map(function (item) { return item.name; });
-      return ['全部'].concat(filtered);
+      return [localeCopy.copy_31d4595959].concat(filtered);
     },
 
     applyScoreResultFilters() {
       const filters = this.data.resultFilters || emptyResultFilters();
       const isAllValue = (value) => !value
-        || value === '全部'
-        || value === '全部部门'
-        || value === '全部身份'
-        || value === '全部工作分工'
-        || value === '全部工作分工（职能组）'
-        || value === '全部状态';
+        || value === localeCopy.copy_31d4595959
+        || value === localeCopy.copy_68f7277730
+        || value === localeCopy.copy_55780718f9
+        || value === localeCopy.copy_f54076411e
+        || value === localeCopy.copy_40fc2b38e6
+        || value === localeCopy.copy_03a3d115c7;
       const matches = (row) => {
         if (!isAllValue(filters.department) && row.department !== filters.department) {
           return false;
@@ -709,7 +711,7 @@ module.exports = Behavior({
           || this.data.currentActivityId !== activityId) return;
   
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '请稍后刷新', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_e52119b17e, icon: 'none' });
           this.setData({ departmentScorerLoading: false });
           return;
         }
@@ -723,11 +725,11 @@ module.exports = Behavior({
             expectedCount,
             submittedCount,
             pendingCount,
-            detailText: [item.identity, item.workGroup].filter(Boolean).join(' / ') || '未设置',
+            detailText: [item.identity, item.workGroup].filter(Boolean).join(' / ') || localeCopy.copy_2b4df49497,
             completionText: `${submittedCount}/${expectedCount}`,
             progressPercentText: `${expectedCount ? Math.round((submittedCount / expectedCount) * 100) : 100}%`,
             progressFillStyle: buildProgressFillStyle(expectedCount ? (submittedCount / expectedCount) * 100 : 100),
-            statusText: pendingCount > 0 ? '未完成' : '已完成',
+            statusText: pendingCount > 0 ? localeCopy.copy_8d112a0e5f : localeCopy.copy_2220286f1c,
             statusClass: pendingCount > 0 ? 'status-pending' : 'status-completed'
           };
         });
@@ -738,7 +740,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request)) return;
-        wx.showToast({ title: '请稍后刷新评分人', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_5b26233f5a, icon: 'none' });
         this.setData({ departmentScorerLoading: false });
       }
     },
@@ -764,7 +766,7 @@ module.exports = Behavior({
   
       this.setData({
         scorerTargetPopupVisible: true,
-        scorerTargetPopupTitle: `${scorerName} 的被评分人完成情况`,
+        scorerTargetPopupTitle: localeFormat(localeCopy.copy_abb0a3f46c, [scorerName]),
         scorerTargetPopupLoading: true,
         scorerTargetPopupRows: []
       });
@@ -781,14 +783,14 @@ module.exports = Behavior({
           || this.data.currentActivityId !== activityId) return;
   
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '请稍后刷新', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_e52119b17e, icon: 'none' });
           this.setData({ scorerTargetPopupLoading: false });
           return;
         }
   
         const rows = (result.scorerTargetRows || []).map((item) => ({
           ...item,
-          detailText: [item.targetDepartment, item.targetIdentity, item.targetWorkGroup].filter(Boolean).join(' / ') || '未设置'
+          detailText: [item.targetDepartment, item.targetIdentity, item.targetWorkGroup].filter(Boolean).join(' / ') || localeCopy.copy_2b4df49497
         }));
   
         this.setData({
@@ -797,7 +799,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request)) return;
-        wx.showToast({ title: '请稍后刷新被评分人', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_f6a9d3621a, icon: 'none' });
         this.setData({ scorerTargetPopupLoading: false });
       }
     },
@@ -829,9 +831,9 @@ module.exports = Behavior({
         sortMode: (this.data.resultSortOptions || []).map((item) => item.label)
       };
       const rawOptions = optionsMap[field] || [];
-      const pickedLabel = rawOptions[Number(value)] || '全部';
+      const pickedLabel = rawOptions[Number(value)] || localeCopy.copy_31d4595959;
   
-      if (field === 'workGroup' && pickedLabel === '请先选择所属部门') {
+      if (field === 'workGroup' && pickedLabel === localeCopy.copy_5327cd39d0) {
         return;
       }
   
@@ -839,13 +841,13 @@ module.exports = Behavior({
       if (field === 'viewMode') {
         nextValue = (this.data.resultViewOptions[Number(value)] || {}).value || 'overview';
         this.setData({
-          resultViewLabel: (this.data.resultViewOptions[Number(value)] || {}).label || '明细查看'
+          resultViewLabel: (this.data.resultViewOptions[Number(value)] || {}).label || localeCopy.copy_a6f7e5f124
         });
       }
       if (field === 'sortMode') {
         nextValue = (this.data.resultSortOptions[Number(value)] || {}).value || 'score_desc';
         this.setData({
-          resultSortLabel: (this.data.resultSortOptions[Number(value)] || {}).label || '按分数从高到低'
+          resultSortLabel: (this.data.resultSortOptions[Number(value)] || {}).label || localeCopy.copy_60c630a885
         });
       }
   
@@ -855,7 +857,7 @@ module.exports = Behavior({
       };
   
       if (field === 'department') {
-        nextFilters.workGroup = '全部';
+        nextFilters.workGroup = localeCopy.copy_31d4595959;
       }
   
       this.setData({
@@ -869,13 +871,13 @@ module.exports = Behavior({
     exportScoreResultsUnified(e) {
       const report = e.currentTarget.dataset.report;
       if (!this.data.currentActivityId) {
-        wx.showToast({ title: '请先设置当前评分活动', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_4e36c10a9e, icon: 'none' });
         return;
       }
   
       const _this = this;
       wx.showActionSheet({
-        itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
+        itemList: [localeCopy.copy_7ffcbc33aa, localeCopy.copy_5503123f4c],
         success: function (res) {
           const format = res.tapIndex === 0 ? 'csv' : 'excel';
           _this._doExportScoreResults(report, format);
@@ -899,13 +901,13 @@ module.exports = Behavior({
         });
   
         if (result.status !== 'success' || !result.fileContent || !result.fileName) {
-          wx.showToast({ title: result.message || '未导出，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_2b61466286, icon: 'none' });
           return;
         }
   
         saveAndShareFile(result.fileContent, result.fileName, result.extension || 'csv');
       } catch (error) {
-        wx.showToast({ title: '未导出，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' });
       } finally {
         this.setLoading('export_' + report, false);
       }
@@ -919,10 +921,10 @@ module.exports = Behavior({
   
       const confirm = await new Promise((resolve) => {
         wx.showModal({
-          title: '撤销评分记录',
-          content: '撤销后该条评分记录会被删除，成员将恢复为待评分状态，是否继续？',
-          confirmText: '确认撤销',
-          cancelText: '取消',
+          title: localeCopy.copy_a000713b84,
+          content: localeCopy.copy_7647264e2a,
+          confirmText: localeCopy.copy_d6c748ac95,
+          cancelText: localeCopy.copy_4b213fd88a,
           success: (res) => resolve(!!res.confirm),
           fail: () => resolve(false)
         });
@@ -939,13 +941,13 @@ module.exports = Behavior({
         });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未撤销，请重试',
+            title: result.message || localeCopy.copy_8351ecc192,
             icon: 'none'
           });
           return;
         }
         wx.showToast({
-          title: '评分记录已撤销',
+          title: localeCopy.copy_d08849e510,
           icon: 'success'
         });
         const selectedTarget = this.data.selectedResultTarget;
@@ -962,7 +964,7 @@ module.exports = Behavior({
               ...item,
               recordId: '',
               status: 'pending',
-              statusText: '未完成',
+              statusText: localeCopy.copy_8d112a0e5f,
               submittedAt: '',
               excludedByRequireAll: false,
               canViewDetail: false,
@@ -984,7 +986,7 @@ module.exports = Behavior({
         }
       } catch (error) {
         wx.showToast({
-          title: '未撤销，请重试',
+          title: localeCopy.copy_8351ecc192,
           icon: 'none'
         });
       } finally {

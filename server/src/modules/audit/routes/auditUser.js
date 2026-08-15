@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditUser');
 const express = require('express');
 const router = express.Router();
 const fs = require('fs');
@@ -97,7 +98,7 @@ async function narrowTemplateStepConditions(conditions, personHrIds, submitterIn
     }
   }
   if (validPersonIds.length !== requestedIds.length) {
-    throw new Error('所选审批人已不符合审批条件');
+    throw new Error(localeCopy.copy_db47f6c08b);
   }
   return validPersonIds.map(function(id) {
     return {
@@ -171,7 +172,7 @@ router.post('/listMySubmissions', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const filters = {
       submittedBy: hrId,
@@ -316,22 +317,22 @@ router.post('/startAuditSubmission', async (req, res) => {
     });
 
     if (!templateId) {
-      return res.json({ status: 'invalid_params', message: '请选择审核流程' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_0172f60994 });
     }
     if (!title) {
-      return res.json({ status: 'invalid_params', message: '请输入提交标题' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_625e93775b });
     }
     if (!uploadedFiles.length) {
-      return res.json({ status: 'invalid_params', message: '请上传至少一份文件' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_e472aa139d });
     }
 
     // Load template
     const template = await flowTemplateModel.getById(templateId);
     if (!template) {
-      return res.json({ status: 'not_found', message: '请刷新审核类型后重试' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_bb180253a4 });
     }
     if (!template.is_active) {
-      return res.json({ status: 'invalid_params', message: '请选择其他审核流程' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_479f3dbce7 });
     }
 
     // Check starter eligibility
@@ -358,7 +359,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     if (starterConditions.length) {
       if (!submitterFull) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
       }
       // Multi-condition check: user must match at least one condition
       let starterMatch = false;
@@ -374,41 +375,41 @@ router.post('/startAuditSubmission', async (req, res) => {
       }
       if (!starterMatch) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
       }
     } else if (template.starter_type === 'identity' && template.starter_identity_id && submitterFull) {
       // Legacy identity check
       const identIds = template.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       if (!identIds.includes(submitterFull.identity_id)) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
       }
     } else if (template.starter_type === 'specific_person' && template.starter_hr_id && submitterFull) {
       // Legacy specific person check
       const personIds = template.starter_hr_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       if (!personIds.includes(hrId)) {
         conn.release();
-        return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
       }
     }
     // starter_type === 'self' means anyone can start — no check needed
 
     const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
     if (!templateSteps.length) {
-      return res.json({ status: 'invalid_params', message: '请联系管理员补充审批步骤' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_f428da1450 });
     }
 
     const requestedOverrides = stepOverrides.filter(function(o) {
       return Array.isArray(o.personHrIds) && o.personHrIds.length > 0;
     });
     if (requestedOverrides.some(function(o) { return Number(o.stepIndex) !== 1; })) {
-      return res.json({ status: 'invalid_params', message: '后续步骤由上一环节选择审批人' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_2f878cb2da });
     }
     if (requestedOverrides.length > 1) {
-      return res.json({ status: 'invalid_params', message: '请重新选择第一步审批人' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_addeccf69a });
     }
     if (requestedOverrides.length && Number(templateSteps[0].allow_approver_designation) !== 1) {
-      return res.json({ status: 'invalid_params', message: '第一步按审批条件确定审批人' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_670f4a48f1 });
     }
 
     await conn.beginTransaction();
@@ -425,7 +426,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     if (!dedupClaim.claimed) {
       await conn.commit();
       return res.json(dedupClaim.response || {
-        status: 'success', id: dedupClaim.resourceId, message: '审核已提交', idempotent: true
+        status: 'success', id: dedupClaim.resourceId, message: localeCopy.copy_16580ff4c7, idempotent: true
       });
     }
     const submissionNumber = await submissionModel.generateSubmissionNumber(conn);
@@ -499,7 +500,7 @@ router.post('/startAuditSubmission', async (req, res) => {
           }
         }
         if (validPersonIds.length !== stepOverride.personHrIds.length) {
-          throw new Error('所选第一步审批人已不符合审批条件');
+          throw new Error(localeCopy.copy_3fff5a4097);
         }
         // Replace original conditions with person-only conditions (narrow scope)
         if (validPersonIds.length > 0) {
@@ -574,7 +575,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       status: 'success',
       id: submissionId,
       submissionNumber,
-      message: '审核申请已提交'
+      message: localeCopy.copy_5a31c906d7
     };
     await requestDeduplication.complete(conn, {
       ...dedupClaim,
@@ -591,7 +592,7 @@ router.post('/startAuditSubmission', async (req, res) => {
       return res.json({ status: 'invalid_params', message: e.message });
     }
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请重新提交申请' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_9713c4ccf5 });
     }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
@@ -605,7 +606,7 @@ router.post('/startAdHocAudit', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const orgId = await getCurrentOrgId();
 
@@ -615,9 +616,9 @@ router.post('/startAdHocAudit', async (req, res) => {
     const steps = Array.isArray(req.body.steps) ? req.body.steps : [];
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
 
-    if (!title) return res.json({ status: 'invalid_params', message: '请输入提交标题' });
-    if (!steps.length) return res.json({ status: 'invalid_params', message: '请至少添加一个审批步骤' });
-    if (!uploadedFiles.length) return res.json({ status: 'invalid_params', message: '请上传至少一份文件' });
+    if (!title) return res.json({ status: 'invalid_params', message: localeCopy.copy_625e93775b });
+    if (!steps.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_72870ab41e });
+    if (!uploadedFiles.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_e472aa139d });
 
     await conn.beginTransaction();
 
@@ -632,7 +633,7 @@ router.post('/startAdHocAudit', async (req, res) => {
     if (!dedupClaim.claimed) {
       await conn.commit();
       return res.json(dedupClaim.response || {
-        status: 'success', id: dedupClaim.resourceId, message: '临时审批已发起', idempotent: true
+        status: 'success', id: dedupClaim.resourceId, message: localeCopy.copy_828cc5bcd7, idempotent: true
       });
     }
     const submissionNumber = await submissionModel.generateSubmissionNumber(conn);
@@ -726,7 +727,7 @@ router.post('/startAdHocAudit', async (req, res) => {
       comment: null
     }, conn);
 
-    const response = { status: 'success', id: submissionId, submissionNumber, message: '临时审批已发起' };
+    const response = { status: 'success', id: submissionId, submissionNumber, message: localeCopy.copy_828cc5bcd7 };
     await requestDeduplication.complete(conn, {
       ...dedupClaim,
       resourceId: submissionId,
@@ -742,7 +743,7 @@ router.post('/startAdHocAudit', async (req, res) => {
       return res.json({ status: 'invalid_params', message: e.message });
     }
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请重新提交申请' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_9713c4ccf5 });
     }
     res.json({ status: 'error', message: safeString(e.message) });
   } finally {
@@ -854,13 +855,13 @@ router.post('/getSubmissionDetail', async (req, res) => {
     const hrId = detailActor ? detailActor.id : null;
     const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null;
     const orgId = await getCurrentOrgId();
-    if (!hrId && !admin) return res.json({ status: 'forbidden', message: '请先登录' });
+    if (!hrId && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
     const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
+    if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
 
     const steps = await submissionStepModel.getBySubmissionId(submissionId);
     // 审批历史入口的访问依据是实际审批事件，而不是当前待处理步骤。
@@ -961,7 +962,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
     }
 
     if (!isSubmitter && !isApprover && !admin) {
-      return res.json({ status: 'forbidden', message: '没有查看权限' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_534ae184dc });
     }
 
     const files = await submissionFileModel.getBySubmissionId(submissionId);
@@ -1317,20 +1318,20 @@ async function checkStepAuthorization(step, submission, hrId, approverOverride) 
 // approveStep — Approve current step with optional signature/stamp
 async function validateStepForAction(step, submission, submissionId, conn) {
   if (step.submission_id !== submissionId) {
-    return { ok: false, status: 'invalid_params', message: '请刷新后重试' };
+    return { ok: false, status: 'invalid_params', message: localeCopy.copy_f4c0b882f5 };
   }
   if (submission.status !== 'in_progress') {
-    return { ok: false, status: 'invalid_state', message: '请刷新页面查看最新进度' };
+    return { ok: false, status: 'invalid_state', message: localeCopy.copy_64b86dfa6b };
   }
   if (step.status !== 'pending') {
-    return { ok: false, status: 'invalid_state', message: '该审批已处理，请刷新页面' };
+    return { ok: false, status: 'invalid_state', message: localeCopy.copy_0114ea3d7b };
   }
   if (step.sort_order !== submission.current_step_index) {
-    return { ok: false, status: 'invalid_state', message: '请处理当前审批步骤' };
+    return { ok: false, status: 'invalid_state', message: localeCopy.copy_cb3bc3dcb5 };
   }
   const maxRound = await submissionStepModel.getMaxRound(submission.id, step.sort_order, conn);
   if ((step.round || 1) !== maxRound) {
-    return { ok: false, status: 'invalid_state', message: '请刷新页面查看最新进度' };
+    return { ok: false, status: 'invalid_state', message: localeCopy.copy_64b86dfa6b };
   }
   return { ok: true };
 }
@@ -1354,28 +1355,28 @@ router.post('/approveStep', async (req, res) => {
     const signatures = Array.isArray(req.body.signatures) ? req.body.signatures : [];
 
     if (!submissionId || !stepId) {
-      return res.json({ status: 'invalid_params', message: '请重新打开审批详情' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_a21fccedd7 });
     }
 
     await conn.beginTransaction();
     const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
     if (!submission) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '请刷新申请记录' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     }
     if (submission.status !== 'in_progress') {
       await conn.rollback();
-      return res.json({ status: 'success', message: '该审核已处理', submissionStatus: submission.status, idempotent: true });
+      return res.json({ status: 'success', message: localeCopy.copy_a530b3e599, submissionStatus: submission.status, idempotent: true });
     }
 
     const step = await submissionStepModel.getByIdForUpdate(stepId, conn);
     if (!step) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '请刷新审批详情' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_7913354ccb });
     }
     if (step.status !== 'pending') {
       await conn.rollback();
-      return res.json({ status: 'success', message: '该步骤已处理', stepStatus: step.status, idempotent: true });
+      return res.json({ status: 'success', message: localeCopy.copy_786e39e479, stepStatus: step.status, idempotent: true });
     }
 
     // Check authorization — shared helper
@@ -1388,7 +1389,7 @@ router.post('/approveStep', async (req, res) => {
     const authorized = await checkStepAuthorization(step, submission, hrId, actor.profile);
     if (!authorized) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
     }
 
     const now = new Date();
@@ -1442,7 +1443,7 @@ router.post('/approveStep', async (req, res) => {
     for (const [fileId, fileSignatures] of signaturesByFile) {
       const file = await submissionFileModel.getById(fileId);
       if (!file || file.submission_id !== submissionId) {
-        throw new Error('请重新选择签名');
+        throw new Error(localeCopy.copy_6ae85136ce);
       }
 
       if (file.file_path && fs.existsSync(file.file_path)) {
@@ -1644,7 +1645,7 @@ router.post('/approveStep', async (req, res) => {
         }
 
         if (validPersonIds.length !== designatedNextPersonIds.length) {
-          throw new Error('所选下一步审批人已不符合审批条件');
+          throw new Error(localeCopy.copy_93c41f359c);
         }
 
         if (validPersonIds.length > 0) {
@@ -1695,8 +1696,8 @@ router.post('/approveStep', async (req, res) => {
       await createNotification({
         hrId: submission.submitted_by,
         type: 'submission_approved',
-        title: '审核已通过',
-        description: '您提交的「' + (submission.title || submission.submission_number) + '」已通过全部审核',
+        title: localeCopy.copy_32f1119845,
+        description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + '」已通过全部审核',
         category: 'audit',
         targetType: 'submission',
         targetId: submissionId,
@@ -1707,8 +1708,8 @@ router.post('/approveStep', async (req, res) => {
       await createNotification({
         hrId: submission.submitted_by,
         type: 'submission_progress',
-        title: '审核进度更新',
-        description: '您提交的「' + (submission.title || submission.submission_number) + '」已通过第' + step.sort_order + '步，进入第' + nextStep.sort_order + '步',
+        title: localeCopy.copy_a5bbfb41e9,
+        description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + '」已通过第' + step.sort_order + '步，进入第' + nextStep.sort_order + '步',
         category: 'audit',
         targetType: 'submission',
         targetId: submissionId,
@@ -1716,7 +1717,7 @@ router.post('/approveStep', async (req, res) => {
       }, conn);
     }
     await conn.commit();
-    res.json({ status: 'success', message: '审批通过' + (nextStep ? '，已流转至下一步' : '，审核完成') });
+    res.json({ status: 'success', message: localeCopy.copy_126a0e1f4c + (nextStep ? '，已流转至下一步' : '，审核完成') });
   } catch (e) {
     await conn.rollback();
     for (const backup of signedFileBackups.reverse()) {
@@ -1750,27 +1751,27 @@ router.post('/rejectStep', async (req, res) => {
     const rejectionReason = safeString(req.body.rejectionReason);
 
     if (!submissionId || !stepId) {
-      return res.json({ status: 'invalid_params', message: '请重新打开审批详情' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_a21fccedd7 });
     }
     if (!rejectionReason) {
-      return res.json({ status: 'invalid_params', message: '请填写驳回理由' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_3764af0483 });
     }
 
     await conn.beginTransaction();
     const submission = await submissionModel.getByIdForUpdate(submissionId, conn);
     if (!submission) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '请刷新申请记录' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     }
 
     const step = await submissionStepModel.getByIdForUpdate(stepId, conn);
     if (!step) {
       await conn.rollback();
-      return res.json({ status: 'not_found', message: '请刷新审批详情' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_7913354ccb });
     }
     if (step.status !== 'pending') {
       await conn.rollback();
-      return res.json({ status: 'success', message: '该步骤已处理', stepStatus: step.status, idempotent: true });
+      return res.json({ status: 'success', message: localeCopy.copy_786e39e479, stepStatus: step.status, idempotent: true });
     }
 
     // Check authorization — shared helper
@@ -1783,7 +1784,7 @@ router.post('/rejectStep', async (req, res) => {
     const authorized = await checkStepAuthorization(step, submission, hrId, actor.profile);
     if (!authorized) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: '您不是该步骤的审批人' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
     }
 
     const nowISO = nowLocal();
@@ -1818,15 +1819,15 @@ router.post('/rejectStep', async (req, res) => {
     await createNotification({
       hrId: submission.submitted_by,
       type: 'submission_rejected',
-      title: '审核被驳回',
-      description: '您提交的「' + (submission.title || submission.submission_number) + '」在第' + step.sort_order + '步被驳回' + (rejectionReason ? '：' + rejectionReason : ''),
+      title: localeCopy.copy_d402fe10f9,
+      description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + '」在第' + step.sort_order + '步被驳回' + (rejectionReason ? '：' + rejectionReason : ''),
       category: 'audit',
       targetType: 'submission',
       targetId: submissionId,
       targetUrl: '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId
     }, conn);
     await conn.commit();
-    res.json({ status: 'success', message: '已驳回，提交人将收到通知' });
+    res.json({ status: 'success', message: localeCopy.copy_cd48632f3f });
   } catch (e) {
     await conn.rollback();
     res.json({ status: 'error', message: safeString(e.message) });
@@ -1841,22 +1842,22 @@ router.post('/updateAuditSubmission', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
     const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
+    if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     if (submission.submitted_by !== hrId) {
-      return res.json({ status: 'forbidden', message: '只有提交人可以修改' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_3c5d3583a9 });
     }
 
     const editableStatuses = ['draft', 'pending', 'rejected', 'withdrawn'];
     if (!editableStatuses.includes(submission.status)) {
-      return res.json({ status: 'invalid_state', message: '请在待修改时编辑申请' });
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_62614a6df0 });
     }
 
     const title = safeString(req.body.title);
@@ -1868,30 +1869,30 @@ router.post('/updateAuditSubmission', async (req, res) => {
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : null;
     const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
 
-    if (!title) return res.json({ status: 'invalid_params', message: '请输入标题' });
+    if (!title) return res.json({ status: 'invalid_params', message: localeCopy.copy_b99e01d38c });
 
     const requestedOverrides = stepOverrides.filter(function(item) {
       return item.personHrIds.length > 0;
     });
     if (newType !== 'template' && requestedOverrides.length) {
-      return res.json({ status: 'invalid_params', message: '自定义流程不支持模板指定' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_5835a49f03 });
     }
     if (requestedOverrides.some(function(item) { return item.stepIndex !== 1; }) || requestedOverrides.length > 1) {
-      return res.json({ status: 'invalid_params', message: '只能指定第一步审批人' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_935d2dc973 });
     }
 
     let templateStepsForEdit = [];
     let templateConditionsForEdit = {};
     let submitterForEdit = null;
     if (newType === 'template') {
-      if (!newTemplateId) return res.json({ status: 'invalid_params', message: '请重新选择审核模板' });
+      if (!newTemplateId) return res.json({ status: 'invalid_params', message: localeCopy.copy_85cf825c00 });
       templateStepsForEdit = await flowTemplateStepModel.getByTemplateId(newTemplateId);
-      if (!templateStepsForEdit.length) return res.json({ status: 'invalid_params', message: '模板暂无审批步骤' });
+      if (!templateStepsForEdit.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_f9f6b991ba });
       templateConditionsForEdit = buildTemplateConditionMap(
         await flowTemplateStepConditionModel.getByTemplateId(newTemplateId)
       );
       if (requestedOverrides.length && Number(templateStepsForEdit[0].allow_approver_designation) !== 1) {
-        return res.json({ status: 'invalid_params', message: '第一步按审批条件确定审批人' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_670f4a48f1 });
       }
       const [submitterRows] = await pool.query(
         'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
@@ -2038,7 +2039,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
     }, conn);
 
     await conn.commit();
-    res.json({ status: 'success', message: '审核已更新' });
+    res.json({ status: 'success', message: localeCopy.copy_8e809d8090 });
   } catch (e) {
     await conn.rollback();
     res.json({ status: 'error', message: safeString(e.message) });
@@ -2053,20 +2054,20 @@ router.post('/resubmitAudit', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
     const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
+    if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     if (submission.submitted_by !== hrId) {
-      return res.json({ status: 'forbidden', message: '只有提交人可以重提交' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_568eb6a072 });
     }
     if (submission.status !== 'rejected' && submission.status !== 'withdrawn' && submission.status !== 'pending') {
-      return res.json({ status: 'invalid_state', message: '请在待修改时重新提交' });
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_debdfa4054 });
     }
 
     const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
@@ -2074,10 +2075,10 @@ router.post('/resubmitAudit', async (req, res) => {
       return item.personHrIds.length > 0;
     });
     if (submission.type !== 'template' && requestedOverrides.length) {
-      return res.json({ status: 'invalid_params', message: '自定义流程不支持模板指定' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_5835a49f03 });
     }
     if (requestedOverrides.some(function(item) { return item.stepIndex !== 1; }) || requestedOverrides.length > 1) {
-      return res.json({ status: 'invalid_params', message: '只能指定第一步审批人' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_935d2dc973 });
     }
 
     let resubmitTemplateConditions = {};
@@ -2092,7 +2093,7 @@ router.post('/resubmitAudit', async (req, res) => {
       );
       if (requestedOverrides.length && (!resubmitTemplateSteps.length ||
         Number(resubmitTemplateSteps[0].allow_approver_designation) !== 1)) {
-        return res.json({ status: 'invalid_params', message: '第一步按审批条件确定审批人' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_670f4a48f1 });
       }
       const [submitterRows] = await pool.query(
         'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
@@ -2168,7 +2169,7 @@ router.post('/resubmitAudit', async (req, res) => {
       await conn.commit();
       return res.json({
         status: 'success',
-        message: '审核已提交，审批流程已启动'
+        message: localeCopy.copy_7946f0a5a8
       });
     }
 
@@ -2308,29 +2309,29 @@ router.post('/withdrawSubmission', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const orgId = await getCurrentOrgId();
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
     const submission = await submissionModel.getById(submissionId);
-    if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
+    if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     if (submission.submitted_by !== hrId) {
-      return res.json({ status: 'forbidden', message: '只有提交人可以撤回' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_d494e57d86 });
     }
     if (submission.status === 'approved') {
-      return res.json({ status: 'invalid_state', message: '已完成的申请无需撤回' });
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_842db5ba24 });
     }
     if (submission.status === 'withdrawn') {
-      return res.json({ status: 'invalid_state', message: '该审核已经撤回' });
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_1a9ab24765 });
     }
     if (submission.status === 'draft') {
-      return res.json({ status: 'invalid_state', message: '草稿无需撤回' });
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_f2b0cea827 });
     }
     if (submission.status === 'pending') {
-      return res.json({ status: 'invalid_state', message: '待提交审核无需撤回' });
+      return res.json({ status: 'invalid_state', message: localeCopy.copy_8e458850a9 });
     }
 
     await submissionModel.update(submissionId, { status: 'withdrawn' });
@@ -2353,7 +2354,7 @@ router.post('/withdrawSubmission', async (req, res) => {
       comment: null
     });
 
-    res.json({ status: 'success', message: '审核已撤回' });
+    res.json({ status: 'success', message: localeCopy.copy_372eb38048 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -2363,7 +2364,7 @@ router.post('/withdrawSubmission', async (req, res) => {
 router.post('/listAvailableFlowTemplates', async (req, res) => {
   try {
     const openid = req.openid;
-    if (!openid) return res.json({ status: 'forbidden', message: '请先登录' });
+    if (!openid) return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
 
     // Resolve submitter info for starter-condition matching
     const hrId = await resolveHrId(openid);
@@ -2454,13 +2455,13 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
 router.post('/previewTemplateSteps', async (req, res) => {
   try {
     const openid = req.openid;
-    if (!openid) return res.json({ status: 'forbidden', message: '请先登录' });
+    if (!openid) return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
 
     const templateId = safeString(req.body.templateId);
-    if (!templateId) return res.json({ status: 'invalid_params', message: '请重新选择审核类型' });
+    if (!templateId) return res.json({ status: 'invalid_params', message: localeCopy.copy_319cc04882 });
 
     const template = await flowTemplateModel.getById(templateId);
-    if (!template) return res.json({ status: 'not_found', message: '请刷新审核类型后重试' });
+    if (!template) return res.json({ status: 'not_found', message: localeCopy.copy_bb180253a4 });
 
     const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
     const allConditions = await flowTemplateStepConditionModel.getByTemplateId(templateId);
@@ -2557,7 +2558,7 @@ router.post('/listMyStamps', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const orgId = await getCurrentOrgId();
     const [hrRows] = await pool.query(
@@ -2648,14 +2649,14 @@ router.post('/markSubmissionRead', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const submissionId = safeString(req.body.submissionId);
-    if (!submissionId) return res.json({ status: 'invalid_params', message: '请重新打开申请' });
+    if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
 
     // Get current submission state
     const sub = await submissionModel.getById(submissionId);
-    if (!sub) return res.json({ status: 'not_found', message: '请刷新申请记录' });
+    if (!sub) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     const orgId = await getCurrentOrgId();
 
     await pool.query(
@@ -2676,7 +2677,7 @@ router.post('/markAllSubmissionsRead', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     // Only mark "my submissions" as read — approval history no longer uses read/unread
     const mySubs = await submissionModel.getAll({ submittedBy: hrId, limit: 500 });
@@ -2704,7 +2705,7 @@ router.post('/listMyApprovalHistory', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const limit = Math.min(100, Math.max(1, parseInt(req.body.limit, 10) || 50));
     const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
@@ -2807,20 +2808,20 @@ router.post('/listEligibleApprovers', async (req, res) => {
     if (editSubmissionId) {
       const editSubmission = await submissionModel.getById(editSubmissionId);
       if (!editSubmission || editSubmission.submitted_by !== hrId) {
-        return res.json({ status: 'forbidden', message: '只有提交人可以指定第一步审批人' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_1eb23101ee });
       }
       if (!['draft', 'pending', 'rejected', 'withdrawn'].includes(editSubmission.status)) {
-        return res.json({ status: 'invalid_state', message: '请在待修改时指定审批人' });
+        return res.json({ status: 'invalid_state', message: localeCopy.copy_0e544f1c08 });
       }
       if (stepIndex !== 1 || !editSubmission.template_id ||
         (templateId && templateId !== String(editSubmission.template_id))) {
-        return res.json({ status: 'invalid_params', message: '只能指定模板第一步审批人' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_490b4fe026 });
       }
       const editTemplateSteps = await flowTemplateStepModel.getByTemplateId(editSubmission.template_id);
       const editTargetStep = editTemplateSteps.find(function(step) { return Number(step.sort_order) === 1; });
-      if (!editTargetStep) return res.json({ status: 'not_found', message: '请刷新审批详情' });
+      if (!editTargetStep) return res.json({ status: 'not_found', message: localeCopy.copy_7913354ccb });
       if (Number(editTargetStep.allow_approver_designation) !== 1) {
-        return res.json({ status: 'forbidden', message: '第一步按审批条件确定审批人' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_670f4a48f1 });
       }
       const editConditions = await submissionStepModel.getTemplateStepConditions(editTargetStep.id);
       conditions = Array.isArray(editConditions) ? editConditions : [];
@@ -2832,7 +2833,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
     } else if (submissionId) {
       // View mode: resolve next step's conditions from the submission
       const submission = await submissionModel.getById(submissionId);
-      if (!submission) return res.json({ status: 'not_found', message: '请刷新申请记录' });
+      if (!submission) return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
 
       const allSteps = await submissionStepModel.getBySubmissionId(submissionId);
       const currentIdx = submission.current_step_index || 0;
@@ -2844,13 +2845,13 @@ router.post('/listEligibleApprovers', async (req, res) => {
       const nextStep = currentRoundSteps.find(function(s) { return s.sort_order === currentIdx + 1; });
 
       if (!currentStep || !(await checkStepAuthorization(currentStep, submission, hrId, actorResult.actor.profile))) {
-        return res.json({ status: 'forbidden', message: '您不是当前步骤的审批人' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_4d7982666d });
       }
       if (!nextStep) {
-        return res.json({ status: 'success', approvers: [], message: '已是最后一步，无需指定下一步审批人' });
+        return res.json({ status: 'success', approvers: [], message: localeCopy.copy_798fa078a7 });
       }
       if (Number(nextStep.allow_approver_designation) !== 1) {
-        return res.json({ status: 'forbidden', message: '下一步按审批条件确定审批人' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_97d569974c });
       }
 
       // Parse next step's conditions
@@ -2874,19 +2875,19 @@ router.post('/listEligibleApprovers', async (req, res) => {
     } else if (templateId && stepIndex > 0) {
       // Create mode: resolve template step conditions
       if (stepIndex !== 1) {
-        return res.json({ status: 'forbidden', message: '后续步骤由上一环节选择审批人' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_2f878cb2da });
       }
       const template = await flowTemplateModel.getById(templateId);
       if (!template || !template.is_active) {
-        return res.json({ status: 'not_found', message: '请刷新审核类型后重试' });
+        return res.json({ status: 'not_found', message: localeCopy.copy_bb180253a4 });
       }
       const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
       const targetStep = templateSteps.find(function(s) { return Number(s.sort_order) === stepIndex; });
       if (!targetStep) {
-        return res.json({ status: 'not_found', message: '请刷新审批详情' });
+        return res.json({ status: 'not_found', message: localeCopy.copy_7913354ccb });
       }
       if (Number(targetStep.allow_approver_designation) !== 1) {
-        return res.json({ status: 'forbidden', message: '第一步按审批条件确定审批人' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_670f4a48f1 });
       }
 
       const tplConds = await submissionStepModel.getTemplateStepConditions(targetStep.id);
@@ -2903,22 +2904,22 @@ router.post('/listEligibleApprovers', async (req, res) => {
         try { starterConditions = JSON.parse(template.starter_conditions_json); } catch (_) { starterConditions = []; }
       }
       if (starterConditions.length && (!submitterInfo || !matchesAnyCondition(starterConditions, submitterInfo, submitterInfo))) {
-        return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
       }
       if (!starterConditions.length && template.starter_type === 'identity' && template.starter_identity_id) {
         const identityIds = String(template.starter_identity_id).split(',').map(function(id) { return id.trim(); }).filter(Boolean);
         if (!submitterInfo || !identityIds.includes(String(submitterInfo.identity_id))) {
-          return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+          return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
         }
       }
       if (!starterConditions.length && template.starter_type === 'specific_person' && template.starter_hr_id) {
         const personIds = String(template.starter_hr_id).split(',').map(function(id) { return id.trim(); }).filter(Boolean);
         if (!personIds.includes(String(hrId))) {
-          return res.json({ status: 'forbidden', message: '请使用可发起该申请的身份' });
+          return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
         }
       }
     } else if (!(req.body && req.body.all === true)) {
-      return res.json({ status: 'invalid_params', message: '缺少必要信息' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_d537fa2510 });
     }
 
     // 自定义流程的“指定人员添加”需要完整目录；目录仍严格限制在当前组织，

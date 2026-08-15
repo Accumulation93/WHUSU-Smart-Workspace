@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/utils/adminPermissions');
 const { callFunction } = require('./api');
 
 const STORAGE_KEY = 'roleProfiles';
@@ -75,7 +76,7 @@ function savePermissionState(result) {
 async function refreshMyPermissions() {
   const result = await callFunction({ name: 'getMyAdminPermissions', data: {} });
   if (result.status !== 'success') {
-    const error = new Error(result.message || '请稍后刷新');
+    const error = new Error(result.message || localeCopy.copy_e52119b17e);
     error.status = result.status;
     throw error;
   }

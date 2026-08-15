@@ -1,3 +1,4 @@
+const localeCopy = require('./locales/zh-CN/generated/index');
 require('dotenv').config();
 const helmet = require('helmet');
 const express = require('express');
@@ -50,7 +51,7 @@ app.use((req, res, next) => {
   const timer = setTimeout(() => {
     req.timedOut = true;
     controller.abort(new Error('request_timeout'));
-    if (!res.headersSent) res.status(503).json({ status: 'request_timeout', message: '请稍后重试' });
+    if (!res.headersSent) res.status(503).json({ status: 'request_timeout', message: localeCopy.copy_e58fa637eb });
   }, REQUEST_TIMEOUT_MS);
   const clear = () => clearTimeout(timer);
   res.once('finish', clear);
@@ -111,7 +112,7 @@ app.use((req, res, next) => {
   const bodyLimit = LARGE_JSON_ROUTES.has(req.path) ? MAX_UPLOAD_JSON_BODY_BYTES : MAX_JSON_BODY_BYTES;
   const contentLength = Number(req.get('content-length') || 0);
   if (Number.isFinite(contentLength) && contentLength > bodyLimit) {
-    return res.status(413).json({ status: 'payload_too_large', message: '请减少本次提交内容' });
+    return res.status(413).json({ status: 'payload_too_large', message: localeCopy.copy_ac4ff526e9 });
   }
   return express.json({ limit: bodyLimit, strict: true })(req, res, next);
 });
@@ -124,7 +125,7 @@ app.use((req, res, next) => {
     const current = stack.pop();
     nodes += 1;
     if (current.depth > 24 || nodes > 100000) {
-      return res.status(413).json({ status: 'payload_too_complex', message: '请减少本次提交内容' });
+      return res.status(413).json({ status: 'payload_too_complex', message: localeCopy.copy_ac4ff526e9 });
     }
     if (!current.value || typeof current.value !== 'object') continue;
     for (const value of Object.values(current.value)) {
@@ -162,7 +163,7 @@ app.get('/api/admin/health', async (req, res) => {
     });
   } catch (e) {
     req.logger.error('Protected health check failed', { error: e.message });
-    res.status(503).json({ status: 'degraded', message: '服务暂不可用，请稍后重试' });
+    res.status(503).json({ status: 'degraded', message: localeCopy.copy_73f0b7a29a });
   }
 });
 
@@ -220,7 +221,7 @@ app.use('/api', require('./modules/venue/routes/venueApprovalAdmin'));
 
 // ---------- 404 handler (fail fast for unknown routes) ----------
 app.use('/api', (req, res) => {
-  res.status(404).json({ status: 'not_found', message: '请重新打开页面后再试' });
+  res.status(404).json({ status: 'not_found', message: localeCopy.copy_e6669be1f4 });
 });
 
 // ---------- error handler ----------
@@ -235,7 +236,7 @@ app.use((err, req, res, next) => {
     requestId: req.requestId,
     openid: (req.openid || '').slice(0, 12) || undefined
   });
-  res.status(500).json({ status: 'error', message: '服务暂不可用，请稍后重试' });
+  res.status(500).json({ status: 'error', message: localeCopy.copy_73f0b7a29a });
 });
 
 let server = null;

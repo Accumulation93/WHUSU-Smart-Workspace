@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/services/venueBookingWindow');
 const MAX_ADVANCE_DAYS = 36500;
 const MAX_ADVANCE_MINUTES = MAX_ADVANCE_DAYS * 24 * 60;
 
@@ -39,7 +40,7 @@ function normalizeBookingWindow(input) {
   const open = normalizeAdvance('开放时间', source.open);
   const deadline = normalizeAdvance('截止时间', source.deadline);
   if (open.minutes !== null && deadline.minutes !== null && open.minutes < deadline.minutes) {
-    throw new Error('开放时间必须早于或等于截止时间');
+    throw new Error(localeCopy.copy_b1545efd70);
   }
   return {
     id: source.id || null,
@@ -75,13 +76,13 @@ function validateBookingWindow(row, bookingStart, now) {
   const deadlineMinutes = row.deadline_advance_minutes === null || row.deadline_advance_minutes === undefined
     ? null : Number(row.deadline_advance_minutes);
   if (openMinutes !== null && current.getTime() < bookingStart.getTime() - openMinutes * 60000) {
-    return { code: 'booking_not_open', message: '该场地尚未开放借用，请按规则提前提交' };
+    return { code: 'booking_not_open', message: localeCopy.copy_65c74b39f6 };
   }
   const deadline = deadlineMinutes === null
     ? bookingStart.getTime()
     : bookingStart.getTime() - deadlineMinutes * 60000;
   if (current.getTime() >= deadline) {
-    return { code: 'booking_closed', message: '该场地已超过借用截止时间，请选择更晚的借用开始时间' };
+    return { code: 'booking_closed', message: localeCopy.copy_3d1e3718dc };
   }
   return null;
 }

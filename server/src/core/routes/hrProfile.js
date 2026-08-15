@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/hrProfile');
 const express = require('express');
 const router = express.Router();
 const { createNotification } = require('../../modules/audit/utils/notificationHelper');
@@ -142,8 +143,8 @@ router.post('/getUserHrProfile', async (req, res) => {
   try {
     const openid = req.openid;
     const { user, hr } = await getUserWithOrg(openid);
-    if (!user) return res.json({ status: 'user_not_found', message: '请重新微信登录' });
-    if (!hr) return res.json({ status: 'user_not_found', message: '请重新选择身份' });
+    if (!user) return res.json({ status: 'user_not_found', message: localeCopy.copy_b10d64a68c });
+    if (!hr) return res.json({ status: 'user_not_found', message: localeCopy.copy_10d3269bb4 });
 
     const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
     const templateData = template ? {
@@ -221,14 +222,14 @@ router.post('/submitUserHrProfile', async (req, res) => {
     const openid = req.openid;
     const values = req.body.values && typeof req.body.values === 'object' ? req.body.values : {};
     const { user, hr } = await getUserWithOrg(openid);
-    if (!user) return res.json({ status: 'user_not_found', message: '请重新微信登录' });
-    if (!hr) return res.json({ status: 'user_not_found', message: '请重新选择身份' });
+    if (!user) return res.json({ status: 'user_not_found', message: localeCopy.copy_b10d64a68c });
+    if (!hr) return res.json({ status: 'user_not_found', message: localeCopy.copy_10d3269bb4 });
 
     const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
-    if (!template) return res.json({ status: 'missing_template', message: '请联系管理员设置人事模板' });
+    if (!template) return res.json({ status: 'missing_template', message: localeCopy.copy_8e41ad7690 });
 
     const editMode = template.edit_mode || 'direct';
-    if (editMode === 'readonly') return res.json({ status: 'readonly', message: '当前资料不可修改' });
+    if (editMode === 'readonly') return res.json({ status: 'readonly', message: localeCopy.copy_a3d05cdf3f });
 
     const fields = template.id ? await profileFieldModel.getByTemplateId(template.id) : [];
     const normalizedFields = fields.map((f) => ({
@@ -328,7 +329,7 @@ router.post('/submitUserHrProfile', async (req, res) => {
 router.post('/listHrProfileTemplates', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage', 'hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '请使用可管理人事模板的身份' });
+    if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     const [list, activeSnapshot] = await Promise.all([
       templateLibrary.listTemplates(), templateLibrary.getActiveSnapshot(context.orgId)
     ]);
@@ -345,7 +346,7 @@ router.post('/listHrProfileTemplates', async (req, res) => {
 router.post('/saveHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
-    if (!context) return res.json({ status: 'forbidden', message: '请使用可管理人事模板的身份' });
+    if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     return res.json(await templateLibrary.saveDefinition(req.body || {}, context.admin));
   } catch (e) {
     return res.json({ status: 'error', message: safeString(e.message) });
@@ -355,7 +356,7 @@ router.post('/saveHrProfileTemplateDefinition', async (req, res) => {
 router.post('/duplicateHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
-    if (!context) return res.json({ status: 'forbidden', message: '请使用可管理人事模板的身份' });
+    if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     return res.json(await templateLibrary.duplicateDefinition(safeString(req.body.id), context.admin));
   } catch (e) {
     return res.json({ status: 'error', message: safeString(e.message) });
@@ -365,7 +366,7 @@ router.post('/duplicateHrProfileTemplateDefinition', async (req, res) => {
 router.post('/deleteHrProfileTemplateDefinition', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.manage']);
-    if (!context) return res.json({ status: 'forbidden', message: '请使用可管理人事模板的身份' });
+    if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_6e88bbec97 });
     return res.json(await templateLibrary.deleteDefinition(safeString(req.body.id)));
   } catch (e) {
     return res.json({ status: 'error', message: safeString(e.message) });
@@ -375,9 +376,9 @@ router.post('/deleteHrProfileTemplateDefinition', async (req, res) => {
 router.post('/getHrProfileTemplateSwitchContext', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '请使用可设置人事模板的身份' });
+    if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_04b27bdf7e });
     const result = await templateLibrary.getSwitchContext(context.orgId, safeString(req.body.targetTemplateId));
-    return res.json(result ? { status: 'success', ...result } : { status: 'not_found', message: '请刷新人事模板' });
+    return res.json(result ? { status: 'success', ...result } : { status: 'not_found', message: localeCopy.copy_53d06945ab });
   } catch (e) {
     return res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -386,7 +387,7 @@ router.post('/getHrProfileTemplateSwitchContext', async (req, res) => {
 router.post('/previewHrProfileTemplateSwitch', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '请使用可设置人事模板的身份' });
+    if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_04b27bdf7e });
     return res.json(await templateLibrary.preflightSwitch(
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions
     ));
@@ -398,7 +399,7 @@ router.post('/previewHrProfileTemplateSwitch', async (req, res) => {
 router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '请使用可设置人事模板的身份' });
+    if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_04b27bdf7e });
     return res.json(await templateLibrary.applySwitch(
       context.orgId, safeString(req.body.targetTemplateId), req.body.fieldActions,
       safeString(req.body.switchToken), req.body.confirmDelete === true, context.admin
@@ -411,7 +412,7 @@ router.post('/applyHrProfileTemplateSwitch', async (req, res) => {
 router.post('/saveOrgHrProfileTemplateSettings', async (req, res) => {
   try {
     const context = await ensureTemplatePermission(req, ['hr.profile_templates.select']);
-    if (!context) return res.json({ status: 'forbidden', message: '请使用可设置人事模板的身份' });
+    if (!context) return res.json({ status: 'forbidden', message: localeCopy.copy_04b27bdf7e });
     return res.json(await templateLibrary.saveOrgSettings(
       context.orgId, safeString(req.body.description), safeString(req.body.editMode || 'direct'), context.admin
     ));
@@ -425,9 +426,9 @@ router.post('/saveHrProfileTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
-    return res.json({ status: 'client_upgrade_required', message: '请重新打开小程序' });
+    return res.json({ status: 'client_upgrade_required', message: localeCopy.copy_b71a0c7ed7 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -438,7 +439,7 @@ router.post('/listHrProfileAdminData', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const orgId = await getCurrentOrgId();
     const [template, hrRows, records] = await Promise.all([
@@ -599,21 +600,21 @@ router.post('/reviewHrProfileChange', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const studentId = safeString(req.body.studentId);
     const action = safeString(req.body.action);
     const reason = safeString(req.body.reason);
 
     if (!studentId || ['approve', 'reject'].indexOf(action) === -1) {
-      return res.json({ status: 'invalid_params', message: '审核信息有误，请重新操作' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_2941385e2b });
     }
 
     const hrRecord = await hrInfoModel.getByStudentId(studentId);
-    if (!hrRecord) return res.json({ status: 'not_found', message: '未找到对应的人事信息记录' });
+    if (!hrRecord) return res.json({ status: 'not_found', message: localeCopy.copy_8709282967 });
 
     const record = await profileRecordModel.getByHrId(hrRecord.id);
-    if (!record) return res.json({ status: 'not_found', message: '未找到对应的人事信息记录' });
+    if (!record) return res.json({ status: 'not_found', message: localeCopy.copy_8709282967 });
 
     const activeTemplate = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
     const activeFields = activeTemplate ? await profileFieldModel.getByTemplateId(activeTemplate.id) : [];
@@ -621,7 +622,7 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     const pendingVals = record.id
       ? (await profileValueModel.getByRecordIdAndPending(record.id, 1)).filter((value) => activeFieldIds.has(value.field_id))
       : [];
-    if (!pendingVals.length) return res.json({ status: 'invalid_operation', message: '当前没有待审核的修改' });
+    if (!pendingVals.length) return res.json({ status: 'invalid_operation', message: localeCopy.copy_0095182bd4 });
 
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
     if (action === 'approve') {
@@ -677,13 +678,13 @@ router.post('/getHrPersonDetail', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const hrId = safeString(req.body.hrId);
-    if (!hrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
+    if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
 
     const hr = await hrInfoModel.getById(hrId);
-    if (!hr) return res.json({ status: 'not_found', message: '未找到对应的人事信息' });
+    if (!hr) return res.json({ status: 'not_found', message: localeCopy.copy_9ccefa96da });
 
     const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
     const templateData = template ? {
@@ -765,7 +766,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const hrId = safeString(req.body.hrId);
     const name = safeString(req.body.name);
@@ -773,12 +774,12 @@ router.post('/saveHrPersonFull', async (req, res) => {
     const profileValues = req.body.profileValues && typeof req.body.profileValues === 'object' ? req.body.profileValues : {};
 
     if (!name || !studentId) {
-      return res.json({ status: 'invalid_params', message: '基础信息不完整' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_2ffe8c71d9 });
     }
-    if (!hrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
+    if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
 
     const hr = await hrInfoModel.getById(hrId);
-    if (!hr) return res.json({ status: 'not_found', message: '未找到对应的人事信息' });
+    if (!hr) return res.json({ status: 'not_found', message: localeCopy.copy_9ccefa96da });
     const canManagePeople = Boolean(req.adminPermissions && (
       (req.adminPermissions.permissions && req.adminPermissions.permissions['hr.people'])
       || req.adminPermissions['hr.people']
@@ -787,7 +788,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
       const basicInfoChanged = name !== safeString(hr.name)
         || studentId !== safeString(hr.student_id);
       if (basicInfoChanged) {
-        return res.json({ status: 'permission_denied', message: '请使用可管理成员的管理员身份' });
+        return res.json({ status: 'permission_denied', message: localeCopy.copy_b0fe1df7fb });
       }
     }
 
@@ -801,7 +802,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
 
     if (Object.keys(profileValues).length > 0) {
       const template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
-      if (!template) return res.json({ status: 'missing_template', message: '请联系管理员设置人事模板' });
+      if (!template) return res.json({ status: 'missing_template', message: localeCopy.copy_8e41ad7690 });
 
       const fields = template.id ? await profileFieldModel.getByTemplateId(template.id) : [];
       const normalizedFields = fields.map((f) => ({
@@ -867,7 +868,7 @@ router.post('/saveHrPersonFull', async (req, res) => {
       }
     }
 
-    res.json({ status: 'success', message: '人事信息已保存' });
+    res.json({ status: 'success', message: localeCopy.copy_3c00278e45 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

@@ -1,9 +1,11 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/scorerTasks/scorerTasks');
+const { format: localeFormat } = require('../../../../locales/runtime');
 const { callFunction, showShortToast, getErrorText } = require('../../../../utils/api');
 const { saveAndShareFile } = require('../../../../utils/tableFile');
 const orgSession = require('../../../../utils/orgSession');
 
 function buildOptions(values = []) {
-  return ['全部', ...values.filter(Boolean)];
+  return [localeCopy.copy_31d4595959, ...values.filter(Boolean)];
 }
 
 function formatActivityName(name) {
@@ -66,19 +68,20 @@ function normalizeScorerRows(rows = []) {
 
 Page({
   data: {
+    localeCopy,
     activityId: '',
     activityName: '',
     loading: false,
     keyword: '',
     filterOptions: {
-      departments: ['全部'],
-      identities: ['全部'],
-      workGroups: ['全部']
+      departments: [localeCopy.copy_31d4595959],
+      identities: [localeCopy.copy_31d4595959],
+      workGroups: [localeCopy.copy_31d4595959]
     },
     filters: {
-      department: '全部',
-      identity: '全部',
-      workGroup: '全部'
+      department: localeCopy.copy_31d4595959,
+      identity: localeCopy.copy_31d4595959,
+      workGroup: localeCopy.copy_31d4595959
     },
     stats: {
       totalPendingScorers: 0
@@ -92,6 +95,7 @@ Page({
   },
 
   onLoad(options) {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     const activityId = decodeURIComponent(options.activityId || '');
     const activityName = formatActivityName(decodeURIComponent(options.activityName || ''));
     this.setData({
@@ -105,7 +109,7 @@ Page({
     const organizationState = orgSession.consume(this);
     if (!this.data.activityId || !organizationState.changed) return;
     orgSession.invalidateRequests(this);
-    showShortToast('请重新选择活动');
+    showShortToast(localeCopy.copy_7f63d5ff75);
     wx.navigateBack({
       fail: () => wx.reLaunch({ url: '/pages/portal/portal' })
     });
@@ -127,7 +131,7 @@ Page({
   async loadData() {
     if (!this.data.activityId) {
       wx.showToast({
-        title: '缺少评分活动',
+        title: localeCopy.copy_c0d3210812,
         icon: 'none'
       });
       return;
@@ -166,7 +170,7 @@ Page({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '请稍后刷新',
+            title: result.message || localeCopy.copy_e52119b17e,
             icon: 'none'
           });
           return;
@@ -203,7 +207,7 @@ Page({
       }
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, '请稍后刷新'));
+        showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
       }
     } finally {
       if (orgSession.isRequestCurrent(this, request)) {
@@ -220,7 +224,7 @@ Page({
       identity: this.data.filterOptions.identities,
       workGroup: this.data.filterOptions.workGroups
     };
-    const picked = (optionMap[field] || [])[valueIndex] || '全部';
+    const picked = (optionMap[field] || [])[valueIndex] || localeCopy.copy_31d4595959;
     this.setData({
       filters: {
         ...this.data.filters,
@@ -251,7 +255,7 @@ Page({
 
     this.setData({
       pendingPopupVisible: true,
-      pendingPopupTitle: `${row.scorerName} 的未完成名单`,
+      pendingPopupTitle: localeFormat(localeCopy.copy_c523dc2ef9, [row.scorerName]),
       pendingPopupLoading: true,
       pendingPopupList: []
     });
@@ -272,12 +276,12 @@ Page({
           pendingPopupLoading: false
         });
       } else {
-        wx.showToast({ title: result.message || '请稍后刷新', icon: 'none' });
+        wx.showToast({ title: result.message || localeCopy.copy_e52119b17e, icon: 'none' });
         this.setData({ pendingPopupLoading: false });
       }
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, '请稍后刷新'));
+        showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
         this.setData({ pendingPopupLoading: false });
       }
     }
@@ -299,7 +303,7 @@ Page({
     const reportType = e.currentTarget.dataset.report;
     const _this = this;
     wx.showActionSheet({
-      itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
+      itemList: [localeCopy.copy_7ffcbc33aa, localeCopy.copy_5503123f4c],
       success: function (res) {
         const format = res.tapIndex === 0 ? 'csv' : 'excel';
         _this._doExportCurrentView(reportType, format);
@@ -327,16 +331,16 @@ Page({
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (result.status !== 'success' || !result.fileContent) {
         wx.showToast({
-          title: result.message || '未导出，请重试',
+          title: result.message || localeCopy.copy_2b61466286,
           icon: 'none'
         });
         return;
       }
 
-      saveAndShareFile(result.fileContent, result.fileName || '未完成评分导出', result.extension || 'csv');
+      saveAndShareFile(result.fileContent, result.fileName || localeCopy.copy_47d48f32f4, result.extension || 'csv');
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, '未导出，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_2b61466286));
       }
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setExportLoading(reportType, false);

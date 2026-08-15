@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditSignature');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
@@ -35,7 +36,7 @@ router.post('/listMySignatures', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const signatures = await signatureTemplateModel.getByHrId(hrId);
     const result = signatures.map((s) => ({
@@ -57,7 +58,7 @@ router.post('/saveSignature', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
@@ -65,7 +66,7 @@ router.post('/saveSignature', async (req, res) => {
     const isDefault = req.body.isDefault === true;
 
     if (!imageData) {
-      return res.json({ status: 'invalid_params', message: '请提供签名图片' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_a35b383a47 });
     }
 
     if (isDefault) {
@@ -75,14 +76,14 @@ router.post('/saveSignature', async (req, res) => {
     if (id) {
       const existing = await signatureTemplateModel.getById(id);
       if (!existing || existing.hr_id !== hrId) {
-        return res.json({ status: 'forbidden', message: '请选择自己的签名' });
+        return res.json({ status: 'forbidden', message: localeCopy.copy_e6677fcefe });
       }
       await signatureTemplateModel.update(id, { name, imageData, isDefault }, hrId);
-      res.json({ status: 'success', message: '签名已更新' });
+      res.json({ status: 'success', message: localeCopy.copy_1c620d13e8 });
     } else {
       const newId = generateId();
       await signatureTemplateModel.create(newId, { hrId, name: name || '我的签名', imageData, isDefault });
-      res.json({ status: 'success', id: newId, message: '签名已保存' });
+      res.json({ status: 'success', id: newId, message: localeCopy.copy_082505816e });
     }
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -94,17 +95,17 @@ router.post('/deleteSignature', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择签名' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_6ae85136ce });
 
     const existing = await signatureTemplateModel.getById(id);
     if (!existing || existing.hr_id !== hrId) {
-      return res.json({ status: 'forbidden', message: '请选择自己的签名' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_e6677fcefe });
     }
     await signatureTemplateModel.remove(id, hrId);
-    res.json({ status: 'success', message: '签名已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_1c47adeb46 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -115,14 +116,14 @@ router.post('/setDefaultSignature', async (req, res) => {
   try {
     const openid = req.openid;
     const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: '请先绑定人事信息' });
+    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择签名' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_6ae85136ce });
 
     const existing = await signatureTemplateModel.getById(id);
     if (!existing || existing.hr_id !== hrId) {
-      return res.json({ status: 'forbidden', message: '请选择自己的签名' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_e6677fcefe });
     }
     await signatureTemplateModel.clearDefaults(hrId);
     await signatureTemplateModel.update(id, {
@@ -130,7 +131,7 @@ router.post('/setDefaultSignature', async (req, res) => {
       imageData: existing.image_data,
       isDefault: true
     }, hrId);
-    res.json({ status: 'success', message: '已设为默认签名' });
+    res.json({ status: 'success', message: localeCopy.copy_ce2b164f35 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -160,7 +161,7 @@ router.post('/verifySignatureChain', async (req, res) => {
     }
 
     if (!hasPermission) {
-      return res.json({ status: 'forbidden', message: '没有验签权限' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_4ca1fc6fb1 });
     }
 
     // Resolve file hash from base64 if provided
@@ -190,7 +191,7 @@ router.post('/verifySignatureChain', async (req, res) => {
     }
 
     if (!submission) {
-      return res.json({ status: 'not_found', message: '请刷新申请记录' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     }
 
     // Get signatures and files

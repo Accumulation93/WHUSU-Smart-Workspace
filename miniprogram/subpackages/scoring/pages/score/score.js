@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/score/score');
 const { callFunction, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 
@@ -88,24 +89,24 @@ function validateQuestion(question) {
   question = question || {};
   let rawScore = String(question.score == null ? '' : question.score).trim();
   if (!rawScore) {
-    return { ok: false, errorText: '请填写分值' };
+    return { ok: false, errorText: localeCopy.copy_f35088610d };
   }
 
   let score = Number(rawScore);
   if (Number.isNaN(score)) {
-    return { ok: false, errorText: '请输入有效数字' };
+    return { ok: false, errorText: localeCopy.copy_3e1280ac6e };
   }
 
   if (score < Number(question.startValue)) {
-    return { ok: false, errorText: '低于起评分' };
+    return { ok: false, errorText: localeCopy.copy_2c050ec0b6 };
   }
 
   if (score < Number(question.minValue) || score > Number(question.maxValue)) {
-    return { ok: false, errorText: '超出评分范围' };
+    return { ok: false, errorText: localeCopy.copy_0e293b9410 };
   }
 
   if (!isStepAligned(score, Number(question.startValue), Number(question.stepValue))) {
-    return { ok: false, errorText: '不符合步进值' };
+    return { ok: false, errorText: localeCopy.copy_39c11e023a };
   }
 
   return { ok: true, errorText: '' };
@@ -205,13 +206,14 @@ function computeSummaries(questionList) {
 
 Page({
   data: {
+    localeCopy,
     loading: true,
     loadFailed: false,
     scorer: null,
     target: null,
     showStickyTarget: false,
     currentActivity: null,
-    currentActivityText: '暂无评分活动',
+    currentActivityText: localeCopy.copy_400aa44fd7,
     questionList: [],
     currentQuestionIndex: 0,
     currentQuestion: null,
@@ -302,6 +304,7 @@ Page({
   },
 
   onLoad: function (options) {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     this._pageActive = true;
     this._pageTimers = [];
     orgSession.consume(this);
@@ -318,7 +321,7 @@ Page({
     this._pageActive = true;
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
-    showShortToast('请重新选择任务');
+    showShortToast(localeCopy.copy_0f2366ca9b);
     wx.navigateBack({ fail: function () { wx.reLaunch({ url: '/pages/portal/portal' }); } });
   },
 
@@ -385,7 +388,7 @@ Page({
   loadScoreForm: function () {
     let self = this;
     if (!self.targetId) {
-      wx.showToast({ title: '缺少评分信息', icon: 'none' });
+      wx.showToast({ title: localeCopy.copy_bcbd468dfa, icon: 'none' });
       self.redirectHome();
       return;
     }
@@ -398,7 +401,7 @@ Page({
       success: function (res) {
         let result = res.result || {};
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '请重新打开评分页', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_5a607382b0, icon: 'none' });
           self.setData({ loading: false, loadFailed: true });
           self._schedule(function () { self.redirectHome(); }, 1200);
           return;
@@ -413,7 +416,7 @@ Page({
         self.templateConfigSignature = result.rule ? result.rule.templateConfigSignature : '';
 
         let hasExistingRecord = !!result.existingRecord;
-        let existingRecordText = hasExistingRecord ? '已载入上次评分，可修改后提交' : '';
+        let existingRecordText = hasExistingRecord ? localeCopy.copy_b2c15dd48a : '';
 
         let summaries = computeSummaries(rawQuestionList);
         let questionList = summaries.questionList;
@@ -434,7 +437,7 @@ Page({
           scorer: result.scorer,
           target: result.target,
           currentActivity: result.currentActivity || null,
-          currentActivityText: result.currentActivity ? result.currentActivity.name : '暂无评分活动',
+          currentActivityText: result.currentActivity ? result.currentActivity.name : localeCopy.copy_400aa44fd7,
           questionList: questionList,
           currentQuestionIndex: initialIndex,
           hasExistingRecord: hasExistingRecord,
@@ -454,7 +457,7 @@ Page({
         }, 350);
       },
       fail: function () {
-        wx.showToast({ title: '请重新打开评分页', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_5a607382b0, icon: 'none' });
         self.setData({ loading: false, loadFailed: true });
       }
     });
@@ -778,7 +781,7 @@ Page({
       if (!validation.ok) {
         hasError = true;
         if (firstInvalidIndex === -1) firstInvalidIndex = i;
-        if (!firstMessage) firstMessage = '第 ' + (i + 1) + ' 题' + validation.errorText;
+        if (!firstMessage) firstMessage = localeCopy.copy_6e979f0fec + (i + 1) + localeCopy.copy_6e2b5d44dd + validation.errorText;
         continue;
       }
 
@@ -788,7 +791,7 @@ Page({
     this.setData({ questionList: nextQuestions });
 
     if (hasError) {
-      return { ok: false, message: firstMessage || '请先修正不符合要求的题目', firstInvalidIndex: firstInvalidIndex };
+      return { ok: false, message: firstMessage || localeCopy.copy_62b75ea5c2, firstInvalidIndex: firstInvalidIndex };
     }
     return { ok: true, answers: answers };
   },
@@ -822,11 +825,11 @@ Page({
       success: function (res) {
         let result = res.result || {};
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未提交，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_8831c65b75, icon: 'none' });
           self.setData({ submitting: false });
           return;
         }
-        wx.showToast({ title: '已提交', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_69df1816f0, icon: 'success' });
         self._schedule(function () {
           wx.navigateBack({ fail: function () { self.redirectHome(); } });
         }, 1200);
@@ -839,17 +842,17 @@ Page({
             success: function (checkRes) {
               let checkResult = checkRes.result || {};
               if (checkResult.status === 'success' && checkResult.existingRecord) {
-                wx.showToast({ title: '已提交', icon: 'success' });
+                wx.showToast({ title: localeCopy.copy_69df1816f0, icon: 'success' });
                 self._schedule(function () {
                   wx.navigateBack({ fail: function () { self.redirectHome(); } });
                 }, 1200);
               } else {
-                wx.showToast({ title: '未提交，请重试', icon: 'none' });
+                wx.showToast({ title: localeCopy.copy_8831c65b75, icon: 'none' });
               }
               self.setData({ submitting: false });
             },
             fail: function () {
-              wx.showToast({ title: '未提交，请重试', icon: 'none' });
+              wx.showToast({ title: localeCopy.copy_8831c65b75, icon: 'none' });
               self.setData({ submitting: false });
             }
           });

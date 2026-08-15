@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminManagementBehavior');
 // Behavior: adminManagement tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -53,7 +54,7 @@ module.exports = Behavior({
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
-          title: '请稍后刷新管理员',
+          title: localeCopy.copy_6026566679,
           icon: 'none'
         });
       } finally {
@@ -110,7 +111,7 @@ module.exports = Behavior({
       });
   
       wx.showToast({
-        title: '已填入管理员信息',
+        title: localeCopy.copy_87c8c6a02a,
         icon: 'none'
       });
     },
@@ -170,7 +171,7 @@ module.exports = Behavior({
       const form = this.data.adminForm;
       if (!form.name || !form.studentId) {
         wx.showToast({
-          title: '请填写管理员姓名和学号',
+          title: localeCopy.copy_98d4171816,
           icon: 'none'
         });
         return;
@@ -181,7 +182,7 @@ module.exports = Behavior({
         const result = await this.callCloud('saveAdmin', form);
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未保存，请重试',
+            title: result.message || localeCopy.copy_215e3c57da,
             icon: 'none'
           });
           return;
@@ -190,12 +191,12 @@ module.exports = Behavior({
         this.resetAdminForm();
         await this.loadAdminList();
         wx.showToast({
-          title: '管理员已保存',
+          title: localeCopy.copy_99539c496e,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未保存，请重试',
+          title: localeCopy.copy_215e3c57da,
           icon: 'none'
         });
       } finally {
@@ -213,7 +214,7 @@ module.exports = Behavior({
         const result = await this.callCloud('exportAdmins');
         if (result.status !== 'success' || !result.csvContent) {
           wx.showToast({
-            title: result.message || '未导出，请重试',
+            title: result.message || localeCopy.copy_2b61466286,
             icon: 'none'
           });
           return;
@@ -223,7 +224,7 @@ module.exports = Behavior({
         writeAndOpen({ filePath, data: result.csvContent, encoding: 'utf8', fileType: 'csv' });
       } catch (error) {
         wx.showToast({
-          title: '未导出，请重试',
+          title: localeCopy.copy_2b61466286,
           icon: 'none'
         });
       } finally {
@@ -261,13 +262,13 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('deleteAdmin', { id });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未删除，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_076bb5d383, icon: 'none' });
           return;
         }
         await this.loadAdminList();
-        wx.showToast({ title: '管理员已删除', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_ab0b962d3e, icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '未删除，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' });
       }
     },
   

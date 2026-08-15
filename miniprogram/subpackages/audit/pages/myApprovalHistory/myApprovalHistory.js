@@ -1,10 +1,15 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory');
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
+  onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+  },
   data: {
+    localeCopy,
     items: [],
     loading: false
   },
@@ -35,10 +40,10 @@ Page({
         }));
         this.setData({ items });
       } else {
-        showShortToast(res.message || '请稍后刷新');
+        showShortToast(res.message || localeCopy.copy_e52119b17e);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '请稍后刷新'));
+      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }

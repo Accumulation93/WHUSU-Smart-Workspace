@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/services/userBindingUnbind');
 const { safeString } = require('../../utils/helpers');
 
 async function unbindUserAcrossOrganizations(options) {
@@ -6,7 +7,7 @@ async function unbindUserAcrossOrganizations(options) {
   const connection = options && options.connection;
   const bindingModel = (options && options.bindingModel) || require('../models/userInfo');
   if (!hrId || !orgId || !connection) {
-    throw new Error('请重新打开成员资料');
+    throw new Error(localeCopy.copy_6ec89162bb);
   }
 
   const currentBindings = await bindingModel.lockByHrIdInOrg(hrId, orgId, connection);

@@ -1,3 +1,5 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/publicationBehavior');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: publication tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -8,12 +10,12 @@ function emptyMeritSummaryState() {
   return {
     meritSummaryGroups: [],
     meritSummaryFilteredGroups: [],
-    meritSummaryDeptOptions: ['全部'],
-    meritSummaryIdentOptions: ['全部'],
-    meritSummaryWgOptions: ['全部'],
-    meritSummaryFilterDept: '全部',
-    meritSummaryFilterIdent: '全部',
-    meritSummaryFilterWg: '全部',
+    meritSummaryDeptOptions: [localeCopy.copy_31d4595959],
+    meritSummaryIdentOptions: [localeCopy.copy_31d4595959],
+    meritSummaryWgOptions: [localeCopy.copy_31d4595959],
+    meritSummaryFilterDept: localeCopy.copy_31d4595959,
+    meritSummaryFilterIdent: localeCopy.copy_31d4595959,
+    meritSummaryFilterWg: localeCopy.copy_31d4595959,
     meritSummaryLoading: false,
     meritSummaryLoaded: false,
     meritSummaryLoadFailed: false,
@@ -90,10 +92,10 @@ module.exports = Behavior({
           this.setData({
             meritSummaryGroups: groups,
             meritSummaryFilteredGroups: groups,
-            meritSummaryDeptOptions: ['全部', ...Array.from(deptSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
-            meritSummaryIdentOptions: ['全部', ...Array.from(identSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
-            meritSummaryWgOptions: ['全部', ...Array.from(wgSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
-            meritSummaryFilterDept: '全部', meritSummaryFilterIdent: '全部', meritSummaryFilterWg: '全部',
+            meritSummaryDeptOptions: [localeCopy.copy_31d4595959, ...Array.from(deptSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
+            meritSummaryIdentOptions: [localeCopy.copy_31d4595959, ...Array.from(identSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
+            meritSummaryWgOptions: [localeCopy.copy_31d4595959, ...Array.from(wgSet).sort((a, b) => a.localeCompare(b, 'zh-CN'))],
+            meritSummaryFilterDept: localeCopy.copy_31d4595959, meritSummaryFilterIdent: localeCopy.copy_31d4595959, meritSummaryFilterWg: localeCopy.copy_31d4595959,
             meritSummaryLoaded: true,
             meritSummaryLoadFailed: false
           });
@@ -115,13 +117,13 @@ module.exports = Behavior({
       const deptFilter = this.data.meritSummaryFilterDept;
       const identFilter = this.data.meritSummaryFilterIdent;
       const wgFilter = this.data.meritSummaryFilterWg;
-      if (deptFilter !== '全部' || identFilter !== '全部' || wgFilter !== '全部') {
+      if (deptFilter !== localeCopy.copy_31d4595959 || identFilter !== localeCopy.copy_31d4595959 || wgFilter !== localeCopy.copy_31d4595959) {
         groups = groups.map(g => ({
           ...g,
           members: g.members.filter(m =>
-            (deptFilter === '全部' || m.department === deptFilter) &&
-            (identFilter === '全部' || m.identity === identFilter) &&
-            (wgFilter === '全部' || m.workGroup === wgFilter)
+            (deptFilter === localeCopy.copy_31d4595959 || m.department === deptFilter) &&
+            (identFilter === localeCopy.copy_31d4595959 || m.identity === identFilter) &&
+            (wgFilter === localeCopy.copy_31d4595959 || m.workGroup === wgFilter)
           )
         })).filter(g => g.members.length > 0);
       }
@@ -131,7 +133,7 @@ module.exports = Behavior({
     onMeritSummaryFilterChange(e) {
       const field = e.currentTarget.dataset.field;
       const options = this.data[field === 'department' ? 'meritSummaryDeptOptions' : (field === 'identity' ? 'meritSummaryIdentOptions' : 'meritSummaryWgOptions')];
-      const value = options[Number(e.detail.value)] || '全部';
+      const value = options[Number(e.detail.value)] || localeCopy.copy_31d4595959;
       if (field === 'department') this.setData({ meritSummaryFilterDept: value });
       else if (field === 'identity') this.setData({ meritSummaryFilterIdent: value });
       else this.setData({ meritSummaryFilterWg: value });
@@ -145,22 +147,22 @@ module.exports = Behavior({
 
     async exportMeritListSummary() {
       const activityId = this.data.publicationForm.activityId;
-      if (!activityId) { wx.showToast({ title: '请先选择评分活动', icon: 'none' }); return; }
+      if (!activityId) { wx.showToast({ title: localeCopy.copy_c5ed87fa11, icon: 'none' }); return; }
       this.setLoading('exportMeritSummary', true);
       try {
         const result = await this.callCloud('exportMeritListSummary', {
           activityId,
-          filterDepartment: this.data.meritSummaryFilterDept === '全部' ? '' : this.data.meritSummaryFilterDept,
-          filterIdentity: this.data.meritSummaryFilterIdent === '全部' ? '' : this.data.meritSummaryFilterIdent,
-          filterWorkGroup: this.data.meritSummaryFilterWg === '全部' ? '' : this.data.meritSummaryFilterWg
+          filterDepartment: this.data.meritSummaryFilterDept === localeCopy.copy_31d4595959 ? '' : this.data.meritSummaryFilterDept,
+          filterIdentity: this.data.meritSummaryFilterIdent === localeCopy.copy_31d4595959 ? '' : this.data.meritSummaryFilterIdent,
+          filterWorkGroup: this.data.meritSummaryFilterWg === localeCopy.copy_31d4595959 ? '' : this.data.meritSummaryFilterWg
         });
         if (result.status === 'success' && result.fileContent) {
-          saveAndShareFile(result.fileContent, result.fileName || '评优名单汇总', result.extension || 'xlsx');
-          wx.showToast({ title: `已导出 ${result.rowCount || 0} 条记录`, icon: 'success' });
+          saveAndShareFile(result.fileContent, result.fileName || localeCopy.copy_08f97574f4, result.extension || 'xlsx');
+          wx.showToast({ title: localeFormat(localeCopy.copy_6b2200af27, [result.rowCount || 0]), icon: 'success' });
         } else {
-          wx.showToast({ title: result.message || '未导出，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_2b61466286, icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: '未导出，请重试', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' }); }
       this.setLoading('exportMeritSummary', false);
     },
   
@@ -204,17 +206,17 @@ module.exports = Behavior({
       const form = this.data.publicationForm;
       // 区分 bindtap 事件对象（用户点击按钮）和布尔 true（代码静默调用）
       const isSilent = silent === true;
-      if (!form.activityId) { if (!isSilent) wx.showToast({ title: '请选择评分活动', icon: 'none' }); return; }
+      if (!form.activityId) { if (!isSilent) wx.showToast({ title: localeCopy.copy_21368b3e76, icon: 'none' }); return; }
       // 静默模式下，如果 publication 已存在则跳过（避免覆盖 isPublished 等已有字段）
       if (isSilent && form.id) return;
       this.setLoading('savePublication', true);
       try {
         const result = await this.callCloud('saveResultPublication', { activityId: form.activityId, isPublished: form.isPublished });
         if (result.status === 'success') {
-          if (!isSilent) wx.showToast({ title: result.message || '已保存', icon: 'success' });
+          if (!isSilent) wx.showToast({ title: result.message || localeCopy.copy_0aacec2714, icon: 'success' });
           this.setData({ 'publicationForm.id': result.publication.id, 'publicationForm.isPublished': !!result.publication.isPublished });
-        } else { if (!isSilent) wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' }); }
-      } catch (e) { if (!isSilent) wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
+        } else { if (!isSilent) wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
+      } catch (e) { if (!isSilent) wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
       this.setLoading('savePublication', false);
     },
   
@@ -224,7 +226,7 @@ module.exports = Behavior({
       const depts = new Set(); const idents = new Set();
       (list || []).forEach(r => { if (r.granteeDepartment) depts.add(r.granteeDepartment); if (r.granteeIdentity) idents.add(r.granteeIdentity); });
       this.setData({
-        pubViewRuleFilterOptions: { departments: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] },
+        pubViewRuleFilterOptions: { departments: [localeCopy.copy_31d4595959, ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: [localeCopy.copy_31d4595959, ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] },
         pubViewRuleListView: list || []
       });
     },
@@ -233,7 +235,7 @@ module.exports = Behavior({
       const depts = new Set(); const idents = new Set();
       (list || []).forEach(r => { if (r.granteeDepartment) depts.add(r.granteeDepartment); if (r.granteeIdentity) idents.add(r.granteeIdentity); });
       this.setData({
-        pubMeritRuleFilterOptions: { departments: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] },
+        pubMeritRuleFilterOptions: { departments: [localeCopy.copy_31d4595959, ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: [localeCopy.copy_31d4595959, ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] },
         pubMeritRuleListView: list || []
       });
     },
@@ -241,52 +243,52 @@ module.exports = Behavior({
     onPubViewRuleFilterChange(e) {
       const field = e.currentTarget.dataset.field;
       const optionKey = field === 'identity' ? 'identities' : 'departments';
-      const options = (this.data.pubViewRuleFilterOptions || {})[optionKey] || ['全部'];
-      const value = options[Number(e.detail.value)] || '全部';
+      const options = (this.data.pubViewRuleFilterOptions || {})[optionKey] || [localeCopy.copy_31d4595959];
+      const value = options[Number(e.detail.value)] || localeCopy.copy_31d4595959;
       const next = { ...this.data.pubViewRuleFilters, [field]: value };
       this.setData({ pubViewRuleFilters: next });
       let list = this.data.pubViewRuleList || [];
-      if (next.department && next.department !== '全部') list = list.filter(r => r.granteeDepartment === next.department);
-      if (next.identity && next.identity !== '全部') list = list.filter(r => r.granteeIdentity === next.identity);
+      if (next.department && next.department !== localeCopy.copy_31d4595959) list = list.filter(r => r.granteeDepartment === next.department);
+      if (next.identity && next.identity !== localeCopy.copy_31d4595959) list = list.filter(r => r.granteeIdentity === next.identity);
       this.setData({ pubViewRuleListView: list, pubViewRuleSelectedIds: {}, pubViewRuleAllSelected: false });
     },
 
     onPubMeritRuleFilterChange(e) {
       const field = e.currentTarget.dataset.field;
       const optionKey = field === 'identity' ? 'identities' : 'departments';
-      const options = (this.data.pubMeritRuleFilterOptions || {})[optionKey] || ['全部'];
-      const value = options[Number(e.detail.value)] || '全部';
+      const options = (this.data.pubMeritRuleFilterOptions || {})[optionKey] || [localeCopy.copy_31d4595959];
+      const value = options[Number(e.detail.value)] || localeCopy.copy_31d4595959;
       const next = { ...this.data.pubMeritRuleFilters, [field]: value };
       this.setData({ pubMeritRuleFilters: next });
       let list = this.data.pubMeritRuleList || [];
-      if (next.department && next.department !== '全部') list = list.filter(r => r.granteeDepartment === next.department);
-      if (next.identity && next.identity !== '全部') list = list.filter(r => r.granteeIdentity === next.identity);
+      if (next.department && next.department !== localeCopy.copy_31d4595959) list = list.filter(r => r.granteeDepartment === next.department);
+      if (next.identity && next.identity !== localeCopy.copy_31d4595959) list = list.filter(r => r.granteeIdentity === next.identity);
       this.setData({ pubMeritRuleListView: list, pubMeritRuleSelectedIds: {}, pubMeritRuleAllSelected: false });
     },
   
     // ─── View Rule Category CRUD ───,
 
     startNewPubViewRule() {
-      this.setData({ pubViewRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '查看本人评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] } });
+      this.setData({ pubViewRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: [] } });
     },
 
     editPubViewRule(e) {
       const id = e.currentTarget.dataset.id;
       const rule = this.data.pubViewRuleList.find(r => r.id === id);
       if (!rule) return;
-      this.setData({ pubViewRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: '查看本人评分结果', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: (rule.clauses || []).map(c => ({ scopeType: c.scopeType, scopeLabel: c.scopeLabel || '', targetIdentityId: c.targetIdentityId || '', targetIdentity: c.targetIdentity || '', displayMode: c.displayMode || 'score', gradeBands: (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) })) } });
+      this.setData({ pubViewRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'own_results', clauseScopeLabel: localeCopy.copy_9a4a6e8793, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseDisplayMode: 'score', clauseGradeBands: [], clauses: (rule.clauses || []).map(c => ({ scopeType: c.scopeType, scopeLabel: c.scopeLabel || '', targetIdentityId: c.targetIdentityId || '', targetIdentity: c.targetIdentity || '', displayMode: c.displayMode || 'score', gradeBands: (c.gradeBands || []).map(gb => ({ minScore: gb.minScore, maxScore: gb.maxScore, gradeName: gb.gradeName })) })) } });
     },
 
     async savePubViewRule() {
       const f = this.data.pubViewRuleForm;
-      if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: '请选择授权部门和身份', icon: 'none' }); return; }
-      if (!f.publicationId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
+      if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.copy_6168a520f1, icon: 'none' }); return; }
+      if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       this.setLoading('savePubViewRule', true);
       try {
         const result = await this.callCloud('savePubViewRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] })) });
-        if (result.status === 'success') { wx.showToast({ title: '已保存', icon: 'success' }); this.startNewPubViewRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
+        if (result.status === 'success') { wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' }); this.startNewPubViewRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
+        else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
       this.setLoading('savePubViewRule', false);
     },
 
@@ -294,12 +296,12 @@ module.exports = Behavior({
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
-      wx.showModal({ title: '确认删除', content: '删除后将同时删除该类别的查看范围。确认删除？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '未删除，请重试', icon: 'none' }); } } catch (e) { wx.showToast({ title: '未删除，请重试', icon: 'none' }); } } });
+      wx.showModal({ title: localeCopy.copy_7f31eec657, content: localeCopy.copy_1c746ef3fb, success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubViewRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || localeCopy.copy_076bb5d383, icon: 'none' }); } } catch (e) { wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' }); } } });
     },
   
     // ─── View Rule Clause Editor ───,
 
-    openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': '查看本人评分结果', 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '', 'pubViewRuleForm.clauseDisplayMode': 'score', 'pubViewRuleForm.clauseGradeBands': [] }); },
+    openPubViewClauseEditor() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': true, 'pubViewRuleForm.clauseEditingIndex': -1, 'pubViewRuleForm.clauseScopeType': 'own_results', 'pubViewRuleForm.clauseScopeLabel': localeCopy.copy_9a4a6e8793, 'pubViewRuleForm.clauseTargetIdentityId': '', 'pubViewRuleForm.clauseTargetIdentity': '', 'pubViewRuleForm.clauseDisplayMode': 'score', 'pubViewRuleForm.clauseGradeBands': [] }); },
 
     cancelPubViewClauseEdit() { this.setData({ 'pubViewRuleForm.isClauseEditorVisible': false, 'pubViewRuleForm.clauseEditingIndex': -1 }); },
 
@@ -341,11 +343,11 @@ module.exports = Behavior({
 
     generateClauseDefaultGradeBands() {
       this.setData({ 'pubViewRuleForm.clauseGradeBands': [
-        { minScore: 0, maxScore: 59.99, gradeName: '不合格' },
-        { minScore: 60, maxScore: 69.99, gradeName: '合格' },
-        { minScore: 70, maxScore: 79.99, gradeName: '中等' },
-        { minScore: 80, maxScore: 89.99, gradeName: '良好' },
-        { minScore: 90, maxScore: 100, gradeName: '优秀' }
+        { minScore: 0, maxScore: 59.99, gradeName: localeCopy.copy_c5b6490a3f },
+        { minScore: 60, maxScore: 69.99, gradeName: localeCopy.copy_6de197a041 },
+        { minScore: 70, maxScore: 79.99, gradeName: localeCopy.copy_644ca4567e },
+        { minScore: 80, maxScore: 89.99, gradeName: localeCopy.copy_4f5ffea945 },
+        { minScore: 90, maxScore: 100, gradeName: localeCopy.copy_56cbab8f45 }
       ] });
     },
 
@@ -377,34 +379,34 @@ module.exports = Behavior({
 
     async batchDeletePubViewRules() {
       const ids = Object.keys(this.data.pubViewRuleSelectedIds).filter(id => this.data.pubViewRuleSelectedIds[id]);
-      if (!ids.length) { wx.showToast({ title: '请先选择要删除的类别', icon: 'none' }); return; }
+      if (!ids.length) { wx.showToast({ title: localeCopy.copy_fe25ffc934, icon: 'none' }); return; }
       const that = this;
-      wx.showModal({ title: '批量删除', content: `删除选中的 ${ids.length} 个类别？`, success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubViewRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: `已删除 ${ids.length} 个`, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
+      wx.showModal({ title: localeCopy.copy_1338b7f36a, content: localeFormat(localeCopy.copy_80406a7947, [ids.length]), success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubViewRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: localeFormat(localeCopy.copy_813300cf46, [ids.length]), icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
     },
   
     // ─── Merit Rule Category CRUD ───,
 
     startNewPubMeritRule() {
-      this.setData({ pubMeritRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: '全部成员', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] } });
+      this.setData({ pubMeritRuleForm: { id: '', publicationId: this.data.publicationForm.id || '', granteeDepartmentId: '', granteeDepartment: '', granteeIdentityId: '', granteeIdentity: '', isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: localeCopy.copy_9a2854d17d, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: [] } });
     },
 
     editPubMeritRule(e) {
       const id = e.currentTarget.dataset.id;
       const rule = this.data.pubMeritRuleList.find(r => r.id === id);
       if (!rule) return;
-      this.setData({ pubMeritRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: '全部成员', clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: (rule.clauses || []).map(c => ({ ...c })) } });
+      this.setData({ pubMeritRuleForm: { id: rule.id, publicationId: rule.publicationId, granteeDepartmentId: rule.granteeDepartmentId, granteeDepartment: rule.granteeDepartment, granteeIdentityId: rule.granteeIdentityId, granteeIdentity: rule.granteeIdentity, isClauseEditorVisible: false, clauseEditingIndex: -1, clauseScopeType: 'all_people', clauseScopeLabel: localeCopy.copy_9a2854d17d, clauseTargetIdentityId: '', clauseTargetIdentity: '', clauseQuotaLimit: 0, clauseRequireExactQuota: false, clauses: (rule.clauses || []).map(c => ({ ...c })) } });
     },
 
     async savePubMeritRule() {
       const f = this.data.pubMeritRuleForm;
-      if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: '请选择授权部门和身份', icon: 'none' }); return; }
-      if (!f.publicationId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
+      if (!f.granteeDepartmentId || !f.granteeIdentityId) { wx.showToast({ title: localeCopy.copy_6168a520f1, icon: 'none' }); return; }
+      if (!f.publicationId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       this.setLoading('savePubMeritRule', true);
       try {
         const result = await this.callCloud('savePubMeritRule', { id: f.id, publicationId: f.publicationId, granteeDepartmentId: f.granteeDepartmentId, granteeIdentityId: f.granteeIdentityId, clauses: f.clauses.map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit, requireExactQuota: c.requireExactQuota })) });
-        if (result.status === 'success') { wx.showToast({ title: '已保存', icon: 'success' }); this.startNewPubMeritRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
+        if (result.status === 'success') { wx.showToast({ title: localeCopy.copy_0aacec2714, icon: 'success' }); this.startNewPubMeritRule(); this.loadPublicationData(this.data.publicationForm.activityId); }
+        else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
       this.setLoading('savePubMeritRule', false);
     },
 
@@ -412,12 +414,12 @@ module.exports = Behavior({
       const ruleId = e.currentTarget.dataset.id;
       if (!ruleId) return;
       const that = this;
-      wx.showModal({ title: '确认删除', content: '删除后将清空相关评优名单。确认删除？', success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: '已删除', icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || '未删除，请重试', icon: 'none' }); } } catch (e) { wx.showToast({ title: '未删除，请重试', icon: 'none' }); } } });
+      wx.showModal({ title: localeCopy.copy_7f31eec657, content: localeCopy.copy_323c50bf75, success: async (res) => { if (!res.confirm) return; try { const r = await that.callCloud('deletePubMeritRule', { ruleId }); if (r.status === 'success') { wx.showToast({ title: localeCopy.copy_5398fec054, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } else { wx.showToast({ title: r.message || localeCopy.copy_076bb5d383, icon: 'none' }); } } catch (e) { wx.showToast({ title: localeCopy.copy_076bb5d383, icon: 'none' }); } } });
     },
   
     // ─── Merit Rule Clause Editor ───,
 
-    openPubMeritClauseEditor() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': -1, 'pubMeritRuleForm.clauseScopeType': 'all_people', 'pubMeritRuleForm.clauseScopeLabel': '全部成员', 'pubMeritRuleForm.clauseTargetIdentityId': '', 'pubMeritRuleForm.clauseTargetIdentity': '', 'pubMeritRuleForm.clauseQuotaLimit': 0, 'pubMeritRuleForm.clauseRequireExactQuota': false }); },
+    openPubMeritClauseEditor() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': true, 'pubMeritRuleForm.clauseEditingIndex': -1, 'pubMeritRuleForm.clauseScopeType': 'all_people', 'pubMeritRuleForm.clauseScopeLabel': localeCopy.copy_9a2854d17d, 'pubMeritRuleForm.clauseTargetIdentityId': '', 'pubMeritRuleForm.clauseTargetIdentity': '', 'pubMeritRuleForm.clauseQuotaLimit': 0, 'pubMeritRuleForm.clauseRequireExactQuota': false }); },
 
     cancelPubMeritClauseEdit() { this.setData({ 'pubMeritRuleForm.isClauseEditorVisible': false, 'pubMeritRuleForm.clauseEditingIndex': -1 }); },
 
@@ -431,7 +433,7 @@ module.exports = Behavior({
 
     addPubMeritClause() {
       const f = this.data.pubMeritRuleForm;
-      if (!f.clauseTargetIdentityId) { wx.showToast({ title: '请选择目标身份', icon: 'none' }); return; }
+      if (!f.clauseTargetIdentityId) { wx.showToast({ title: localeCopy.copy_5ece2c09c8, icon: 'none' }); return; }
       const clause = { scopeType: f.clauseScopeType, scopeLabel: f.clauseScopeLabel, targetIdentityId: f.clauseTargetIdentityId, targetIdentity: f.clauseTargetIdentity, quotaLimit: f.clauseQuotaLimit, requireExactQuota: f.clauseRequireExactQuota };
       const clauses = [...f.clauses];
       if (f.clauseEditingIndex >= 0) { clauses[f.clauseEditingIndex] = clause; } else { clauses.push(clause); }
@@ -453,52 +455,52 @@ module.exports = Behavior({
 
     async batchDeletePubMeritRules() {
       const ids = Object.keys(this.data.pubMeritRuleSelectedIds).filter(id => this.data.pubMeritRuleSelectedIds[id]);
-      if (!ids.length) { wx.showToast({ title: '请先选择要删除的类别', icon: 'none' }); return; }
+      if (!ids.length) { wx.showToast({ title: localeCopy.copy_fe25ffc934, icon: 'none' }); return; }
       const that = this;
-      wx.showModal({ title: '批量删除', content: `删除选中的 ${ids.length} 个类别？`, success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubMeritRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: `已删除 ${ids.length} 个`, icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
+      wx.showModal({ title: localeCopy.copy_1338b7f36a, content: localeFormat(localeCopy.copy_80406a7947, [ids.length]), success: async (res) => { if (!res.confirm) return; for (const id of ids) { try { await that.callCloud('deletePubMeritRule', { ruleId: id }); } catch (e) {} } wx.showToast({ title: localeFormat(localeCopy.copy_813300cf46, [ids.length]), icon: 'success' }); that.loadPublicationData(that.data.publicationForm.activityId); } });
     },
   
     // ─── Generate default categories ───,
 
     async generatePubViewRules() {
       const pubId = this.data.publicationForm.id;
-      if (!pubId) { wx.showToast({ title: '请先选择活动', icon: 'none' }); return; }
+      if (!pubId) { wx.showToast({ title: localeCopy.copy_477934f658, icon: 'none' }); return; }
       this.setLoading('generatePubViewRules', true);
       try {
         const result = await this.callCloud('generatePubViewRules', { publicationId: pubId });
         if (result.status === 'success') {
           const parts = [];
-          if (result.createdCount > 0) parts.push(`已生成 ${result.createdCount} 个`);
-          if (result.skippedCount > 0) parts.push(`跳过 ${result.skippedCount} 个已存在`);
-          if (result.backfilledCount > 0) parts.push(`补填 ${result.backfilledCount} 个条款`);
-          const msg = parts.length > 0 ? parts.join('，') : '已全部就绪';
+          if (result.createdCount > 0) parts.push(localeFormat(localeCopy.copy_d50cdab568, [result.createdCount]));
+          if (result.skippedCount > 0) parts.push(localeFormat(localeCopy.copy_01ed9fb4f4, [result.skippedCount]));
+          if (result.backfilledCount > 0) parts.push(localeFormat(localeCopy.copy_1f152441c7, [result.backfilledCount]));
+          const msg = parts.length > 0 ? parts.join('，') : localeCopy.copy_2b3035d391;
           wx.showToast({ title: msg, icon: 'success' });
           this.loadPublicationData(this.data.publicationForm.activityId);
         } else {
-          wx.showToast({ title: result.message || '未生成，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_9662ceba48, icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: '未生成，请重试', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_9662ceba48, icon: 'none' }); }
       this.setLoading('generatePubViewRules', false);
     },
 
     async generatePubMeritRules() {
       const pubId = this.data.publicationForm.id;
-      if (!pubId) { wx.showToast({ title: '请先选择活动', icon: 'none' }); return; }
+      if (!pubId) { wx.showToast({ title: localeCopy.copy_477934f658, icon: 'none' }); return; }
       this.setLoading('generatePubMeritRules', true);
       try {
         const result = await this.callCloud('generatePubMeritRules', { publicationId: pubId });
         if (result.status === 'success') {
           const parts = [];
-          if (result.createdCount > 0) parts.push(`已生成 ${result.createdCount} 个`);
-          if (result.skippedCount > 0) parts.push(`跳过 ${result.skippedCount} 个已存在`);
-          if (result.backfilledCount > 0) parts.push(`补填 ${result.backfilledCount} 个条款`);
-          const msg = parts.length > 0 ? parts.join('，') : '已全部就绪';
+          if (result.createdCount > 0) parts.push(localeFormat(localeCopy.copy_d50cdab568, [result.createdCount]));
+          if (result.skippedCount > 0) parts.push(localeFormat(localeCopy.copy_01ed9fb4f4, [result.skippedCount]));
+          if (result.backfilledCount > 0) parts.push(localeFormat(localeCopy.copy_1f152441c7, [result.backfilledCount]));
+          const msg = parts.length > 0 ? parts.join('，') : localeCopy.copy_2b3035d391;
           wx.showToast({ title: msg, icon: 'success' });
           this.loadPublicationData(this.data.publicationForm.activityId);
         } else {
-          wx.showToast({ title: result.message || '未生成，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_9662ceba48, icon: 'none' });
         }
-      } catch (e) { wx.showToast({ title: '未生成，请重试', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_9662ceba48, icon: 'none' }); }
       this.setLoading('generatePubMeritRules', false);
     },
   
@@ -507,10 +509,10 @@ module.exports = Behavior({
     async openDesignationPicker(e) {
       const ds = e.currentTarget.dataset;
       const clauseId = ds.clauseId; const pubId = ds.pubId;
-      if (!clauseId || !pubId) { wx.showToast({ title: '请重新打开评优名单', icon: 'none' }); return; }
+      if (!clauseId || !pubId) { wx.showToast({ title: localeCopy.copy_157f5cd8f8, icon: 'none' }); return; }
   
       // Show popup immediately with loading state
-      this.setData({ showDesignationPicker: true, designationPickerClauseId: clauseId, designationPickerPubId: pubId, designationPickerHrList: [], designationPickerFilteredList: [], designationPickerSelectedIds: [], designationPickerSelectedList: [], desigSearchKeyword: '', desigFilterDept: '全部', desigFilterIdent: '全部', desigFilterDeptOptions: ['全部'], desigFilterIdentOptions: ['全部'] });
+      this.setData({ showDesignationPicker: true, designationPickerClauseId: clauseId, designationPickerPubId: pubId, designationPickerHrList: [], designationPickerFilteredList: [], designationPickerSelectedIds: [], designationPickerSelectedList: [], desigSearchKeyword: '', desigFilterDept: localeCopy.copy_31d4595959, desigFilterIdent: localeCopy.copy_31d4595959, desigFilterDeptOptions: [localeCopy.copy_31d4595959], desigFilterIdentOptions: [localeCopy.copy_31d4595959] });
   
       try {
         // Reload publication data to get latest clause info and designations
@@ -522,7 +524,7 @@ module.exports = Behavior({
           }
         }
         const clause = allClauses.find(c => c.id === clauseId);
-        if (!clause) { wx.showToast({ title: '未找到该条款', icon: 'none' }); this.setData({ showDesignationPicker: false }); return; }
+        if (!clause) { wx.showToast({ title: localeCopy.copy_02e1583d4a, icon: 'none' }); this.setData({ showDesignationPicker: false }); return; }
   
         const granteeDeptId = clause.granteeDepartmentId || '';
         const scopeType = clause.scopeType || 'all_people';
@@ -530,7 +532,7 @@ module.exports = Behavior({
   
         const currentIds = (this.data.designationList || []).filter(d => d.clauseId === clauseId).map(d => d.targetHrId);
         const hrResult = await this.callCloud('listHrInfo');
-        if (hrResult.status !== 'success') { wx.showToast({ title: '请稍后刷新人事信息', icon: 'none' }); return; }
+        if (hrResult.status !== 'success') { wx.showToast({ title: localeCopy.copy_23e27d9fb0, icon: 'none' }); return; }
   
         const currentIdSet = new Set(currentIds);
         let granteeWgId = '';
@@ -551,12 +553,12 @@ module.exports = Behavior({
         this.setData({
           designationPickerHrList: filtered, designationPickerFilteredList: filtered,
           designationPickerSelectedIds: currentIds, designationPickerSelectedList: selectedList,
-          desigFilterDept: '全部', desigFilterIdent: '全部',
-          desigFilterDeptOptions: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
-          desigFilterIdentOptions: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
+          desigFilterDept: localeCopy.copy_31d4595959, desigFilterIdent: localeCopy.copy_31d4595959,
+          desigFilterDeptOptions: [localeCopy.copy_31d4595959, ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
+          desigFilterIdentOptions: [localeCopy.copy_31d4595959, ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
           desigSearchKeyword: ''
         });
-      } catch (e) { console.error('openDesignationPicker error:', e); wx.showToast({ title: '请稍后刷新', icon: 'none' }); }
+      } catch (e) { console.error('openDesignationPicker error:', e); wx.showToast({ title: localeCopy.copy_e52119b17e, icon: 'none' }); }
     },
 
     closeDesignationPicker() { this.setData({ showDesignationPicker: false }); },
@@ -576,8 +578,8 @@ module.exports = Behavior({
 
     applyDesigFilters(list) {
       let result = list || this.data.designationPickerHrList;
-      if (this.data.desigFilterDept !== '全部') result = result.filter(hr => hr.department === this.data.desigFilterDept);
-      if (this.data.desigFilterIdent !== '全部') result = result.filter(hr => hr.identity === this.data.desigFilterIdent);
+      if (this.data.desigFilterDept !== localeCopy.copy_31d4595959) result = result.filter(hr => hr.department === this.data.desigFilterDept);
+      if (this.data.desigFilterIdent !== localeCopy.copy_31d4595959) result = result.filter(hr => hr.identity === this.data.desigFilterIdent);
       if (this.data.desigSearchKeyword) { const kw = this.data.desigSearchKeyword.toLowerCase(); result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw)); }
       return result;
     },
@@ -585,7 +587,7 @@ module.exports = Behavior({
     onDesigFilterChange(e) {
       const field = e.currentTarget.dataset.field;
       const options = field === 'identity' ? this.data.desigFilterIdentOptions : this.data.desigFilterDeptOptions;
-      const value = options[Number(e.detail.value)] || '全部';
+      const value = options[Number(e.detail.value)] || localeCopy.copy_31d4595959;
       const patch = { designationPickerFilteredList: this.applyDesigFilters() };
       if (field === 'department') patch.desigFilterDept = value; else patch.desigFilterIdent = value;
       this.setData(patch);
@@ -600,9 +602,9 @@ module.exports = Behavior({
       this.setLoading('saveDesignations', true);
       try {
         const result = await this.callCloud('saveMeritListDesignations', { clauseId, publicationId: pubId, designationHrIds: hrIds });
-        if (result.status === 'success') { wx.showToast({ title: result.message || '已保存', icon: 'success' }); this.closeDesignationPicker(); this.loadPublicationData(this.data.publicationForm.activityId); }
-        else { wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' }); }
-      } catch (e) { wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
+        if (result.status === 'success') { wx.showToast({ title: result.message || localeCopy.copy_0aacec2714, icon: 'success' }); this.closeDesignationPicker(); this.loadPublicationData(this.data.publicationForm.activityId); }
+        else { wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' }); }
       this.setLoading('saveDesignations', false);
     },
     // ─── Batch category creation (replaces old batch form) ───,
@@ -613,7 +615,7 @@ module.exports = Behavior({
       for (const dept of this.data.departmentList) { for (const ident of this.data.identityList) { const key = dept.id + '::' + ident.id; if (seen.has(key)) continue; seen.add(key); list.push({ key, departmentId: dept.id, department: dept.name, identityId: ident.id, identity: ident.name }); } };
       const depts = new Set(); const idents = new Set();
       list.forEach(item => { depts.add(item.department); idents.add(item.identity); });
-      this.setData({ pubBatchList: list, pubBatchFilteredList: list, pubBatchFilterOptions: { departments: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] } });
+      this.setData({ pubBatchList: list, pubBatchFilteredList: list, pubBatchFilterOptions: { departments: [localeCopy.copy_31d4595959, ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))], identities: [localeCopy.copy_31d4595959, ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))] } });
     },
 
     onPubBatchFilterChange(e) { /* kept for compatibility */ },
@@ -629,12 +631,12 @@ module.exports = Behavior({
     // Batch save: apply current view clauses to selected view rule categories,
 
     async batchSavePubViewRules() {
-      if (this.data.pubBatchRunning) { wx.showToast({ title: '批量操作进行中，请稍候', icon: 'none' }); return; }
+      if (this.data.pubBatchRunning) { wx.showToast({ title: localeCopy.copy_f7dbdfa4c2, icon: 'none' }); return; }
       const pubId = this.data.publicationForm.id;
-      if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
+      if (!pubId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       const templateClauses = (this.data.pubViewRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, displayMode: c.displayMode || 'score', gradeBands: c.displayMode === 'grade' ? (c.gradeBands || []) : [] }));
       const selected = (this.data.pubViewRuleList || []).filter(item => this.data.pubViewRuleSelectedIds[item.id]);
-      if (!selected.length) { wx.showToast({ title: '请选择类别', icon: 'none' }); return; }
+      if (!selected.length) { wx.showToast({ title: localeCopy.copy_78e3986a7f, icon: 'none' }); return; }
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubViewRules', true);
       let count = 0;
@@ -643,9 +645,9 @@ module.exports = Behavior({
           const res = await this.callCloud('savePubViewRule', { id: item.id, publicationId: pubId, granteeDepartmentId: item.granteeDepartmentId, granteeIdentityId: item.granteeIdentityId, clauses: templateClauses });
           if (res.status === 'success') count++;
         }
-        wx.showToast({ title: `已批量授权 ${count} 个类别`, icon: 'success' });
+        wx.showToast({ title: localeFormat(localeCopy.copy_9d5c7b0e2b, [count]), icon: 'success' });
         this.loadPublicationData(this.data.publicationForm.activityId);
-      } catch (e) { wx.showToast({ title: '未完成，请重试', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' }); }
       finally {
         this.setLoading('batchSavePubViewRules', false);
         this.setData({ pubBatchRunning: false });
@@ -655,12 +657,12 @@ module.exports = Behavior({
     // Batch save: apply current merit clauses to selected merit rule categories,
 
     async batchSavePubMeritRules() {
-      if (this.data.pubBatchRunning) { wx.showToast({ title: '批量操作进行中，请稍候', icon: 'none' }); return; }
+      if (this.data.pubBatchRunning) { wx.showToast({ title: localeCopy.copy_f7dbdfa4c2, icon: 'none' }); return; }
       const pubId = this.data.publicationForm.id;
-      if (!pubId) { wx.showToast({ title: '请先保存公示设置', icon: 'none' }); return; }
+      if (!pubId) { wx.showToast({ title: localeCopy.copy_0dff72de43, icon: 'none' }); return; }
       const templateClauses = (this.data.pubMeritRuleForm.clauses || []).map(c => ({ scopeType: c.scopeType, targetIdentityId: c.targetIdentityId, quotaLimit: c.quotaLimit || 0, requireExactQuota: c.requireExactQuota || false }));
       const selected = (this.data.pubMeritRuleList || []).filter(item => this.data.pubMeritRuleSelectedIds[item.id]);
-      if (!selected.length) { wx.showToast({ title: '请选择类别', icon: 'none' }); return; }
+      if (!selected.length) { wx.showToast({ title: localeCopy.copy_78e3986a7f, icon: 'none' }); return; }
       this.setData({ pubBatchRunning: true });
       this.setLoading('batchSavePubMeritRules', true);
       let ok = 0, err = 0;
@@ -669,10 +671,10 @@ module.exports = Behavior({
           const res = await this.callCloud('savePubMeritRule', { id: item.id, publicationId: pubId, granteeDepartmentId: item.granteeDepartmentId, granteeIdentityId: item.granteeIdentityId, clauses: templateClauses });
           if (res.status === 'success') ok++; else err++;
         }
-        let msg = `已完成 ${ok} 个`; if (err > 0) msg += `，${err} 个未完成`;
+        let msg = localeFormat(localeCopy.copy_61c8906682, [ok]); if (err > 0) msg += localeFormat(localeCopy.copy_1b631a5d63, [err]);
         wx.showToast({ title: msg, icon: ok > 0 ? 'success' : 'none' });
         this.loadPublicationData(this.data.publicationForm.activityId);
-      } catch (e) { wx.showToast({ title: '未完成，请重试', icon: 'none' }); }
+      } catch (e) { wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' }); }
       finally {
         this.setLoading('batchSavePubMeritRules', false);
         this.setData({ pubBatchRunning: false });

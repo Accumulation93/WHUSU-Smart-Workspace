@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/services/unifiedAuth');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../../middleware/auth');
@@ -260,7 +261,7 @@ async function startWechatSession(data, metadata) {
       passphrase: Boolean(policy && policy.allow_passphrase)
     },
     organizations,
-    message: '请完成身份认证'
+    message: localeCopy.copy_961dde1e9f
   };
 }
 

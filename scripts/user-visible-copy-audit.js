@@ -179,16 +179,28 @@ const inventoryPrefixArg = process.argv.find((arg) => arg.startsWith('--inventor
 const inventoryPrefix = inventoryPrefixArg ? inventoryPrefixArg.slice('--inventory-prefix='.length) : '';
 const inventoryMinLengthArg = process.argv.find((arg) => arg.startsWith('--inventory-min-length='));
 const inventoryMinLength = inventoryMinLengthArg ? Number(inventoryMinLengthArg.slice('--inventory-min-length='.length)) : 0;
+const localizationPrefixArg = process.argv.find((arg) => arg.startsWith('--localization-prefix='));
+const localizationPrefix = localizationPrefixArg ? localizationPrefixArg.slice('--localization-prefix='.length) : '';
+const localizationFindings = [];
 const files = walk(MINI_ROOT, ['.wxml', '.js']).concat(
   walk(SERVER_ROOT, ['.js']).filter((file) => !file.includes(`${path.sep}config${path.sep}`)
     && relative(file) !== 'server/src/utils/schemaContract.js')
 );
 for (const file of files) {
   const fileName = relative(file);
+  if (fileName.includes('/locales/')) continue;
   const result = file.endsWith('.wxml') ? visibleWxmlFragments(file) : visibleJsFragments(file);
   for (const fragment of result.fragments) {
     if (!fragment.text || isExempt(fileName, fragment.text)) continue;
     inventory.push({ file: fileName, line: lineAt(result.source, fragment.offset), text: fragment.text });
+    if (localizationPrefix && fileName.startsWith(localizationPrefix) && /[\u4e00-\u9fff]/.test(fragment.text)) {
+      localizationFindings.push({
+        rule: 'hardcoded-visible-copy',
+        file: fileName,
+        line: lineAt(result.source, fragment.offset),
+        text: fragment.text
+      });
+    }
     for (const rule of RULES) {
       if (!rule.pattern.test(fragment.text)) continue;
       findings.push({ rule: rule.id, file: fileName, line: lineAt(result.source, fragment.offset), text: fragment.text });
@@ -207,4 +219,9 @@ if (process.argv.includes('--inventory')) {
   for (const item of selected) console.log(`${item.file}:${item.line}\t${item.text}`);
   console.log(`文案清单：${selected.length} 条`);
 }
+if (localizationPrefix) {
+  console.log(`语言资源审计：${localizationPrefix}，硬编码文案 ${localizationFindings.length} 条`);
+  if (localizationFindings.length) console.table(localizationFindings);
+}
 if (process.argv.includes('--strict') && findings.length) process.exitCode = 1;
+if (process.argv.includes('--strict-localization') && localizationFindings.length) process.exitCode = 1;

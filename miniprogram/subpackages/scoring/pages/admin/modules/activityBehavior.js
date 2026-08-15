@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/activityBehavior');
 // Behavior: activity tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -26,7 +27,7 @@ module.exports = Behavior({
         this.setData({ activityList: [], currentActivityId: '', currentActivityName: '' });
         if (typeof this.clearScoreResultsState === 'function') this.clearScoreResultsState();
         wx.showToast({
-          title: '请稍后刷新评分活动',
+          title: localeCopy.copy_8b63ce8619,
           icon: 'none'
         });
       } finally {
@@ -106,7 +107,7 @@ module.exports = Behavior({
       const form = this.data.activityForm;
       if (!form.name) {
         wx.showToast({
-          title: '请填写评分活动名称',
+          title: localeCopy.copy_e394895492,
           icon: 'none'
         });
         return;
@@ -117,7 +118,7 @@ module.exports = Behavior({
         const result = await this.callCloud('saveScoreActivity', form);
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未保存，请重试',
+            title: result.message || localeCopy.copy_215e3c57da,
             icon: 'none'
           });
           return;
@@ -126,12 +127,12 @@ module.exports = Behavior({
         this.resetActivityForm();
         await this.loadActivityList();
         wx.showToast({
-          title: '评分活动已保存',
+          title: localeCopy.copy_111cdb08d2,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未保存，请重试',
+          title: localeCopy.copy_215e3c57da,
           icon: 'none'
         });
       } finally {
@@ -146,8 +147,8 @@ module.exports = Behavior({
       }
   
       wx.showModal({
-        title: '设为当前评分活动',
-        content: '后续评分将进入该活动。',
+        title: localeCopy.copy_55a98e5fa5,
+        content: localeCopy.copy_02d6607d13,
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -157,7 +158,7 @@ module.exports = Behavior({
             const result = await this.callCloud('setCurrentScoreActivity', { id });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '未设置，请重试',
+                title: result.message || localeCopy.copy_78ad9dc82c,
                 icon: 'none'
               });
               return;
@@ -170,7 +171,7 @@ module.exports = Behavior({
             }
           } catch (error) {
             wx.showToast({
-              title: '未设置，请重试',
+              title: localeCopy.copy_78ad9dc82c,
               icon: 'none'
             });
           }
@@ -185,21 +186,21 @@ module.exports = Behavior({
       try {
         const result = await this.callCloud('toggleActivityPause', { id });
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未完成，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
           return;
         }
         await this.loadActivityList();
-        wx.showToast({ title: result.message || '已完成', icon: 'success' });
+        wx.showToast({ title: result.message || localeCopy.copy_2220286f1c, icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '未完成，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' });
       }
     },
 
     deleteActivity(e) {
       const { id } = e.currentTarget.dataset;
       wx.showModal({
-        title: '删除评分活动',
-        content: '删除后会一并清理该活动下的评分人类别、被评分人规则和评分记录，是否继续？',
+        title: localeCopy.copy_8dbc945bf2,
+        content: localeCopy.copy_1d38f8a471,
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -209,7 +210,7 @@ module.exports = Behavior({
             const result = await this.callCloud('deleteScoreActivity', { id });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '未删除，请重试',
+                title: result.message || localeCopy.copy_076bb5d383,
                 icon: 'none'
               });
               return;
@@ -221,12 +222,12 @@ module.exports = Behavior({
               await this.loadScoreResults();
             }
             wx.showToast({
-              title: '评分活动已删除',
+              title: localeCopy.copy_2e234dd2db,
               icon: 'success'
             });
           } catch (error) {
             wx.showToast({
-              title: '未删除，请重试',
+              title: localeCopy.copy_076bb5d383,
               icon: 'none'
             });
           }

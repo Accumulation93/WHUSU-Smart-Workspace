@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/templates');
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, generateId } = require('../../../utils/helpers');
@@ -42,7 +43,7 @@ router.post('/listScoreTemplates', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const [templates, questions] = await Promise.all([
       templateModel.getAll(),
@@ -86,14 +87,14 @@ router.post('/saveScoreTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const name = safeString(req.body.name);
     const description = safeString(req.body.description);
     const questions = Array.isArray(req.body.questions) ? req.body.questions : [];
 
-    if (!name) return res.json({ status: 'invalid_params', message: '请填写评分问题名称' });
+    if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_9a51765619 });
 
     const normalizedQs = questions.map(normalizeQuestion).filter((item) => item.question);
     const validQs = normalizedQs.filter((item) =>
@@ -103,7 +104,7 @@ router.post('/saveScoreTemplate', async (req, res) => {
       item.startValue >= item.minValue && item.startValue <= item.maxValue
     );
 
-    if (!validQs.length) return res.json({ status: 'invalid_params', message: '请填写评分问题' });
+    if (!validQs.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_d976fb44d6 });
 
     let targetTemplateId = id;
     let removedRecordCount = 0;
@@ -128,7 +129,7 @@ router.post('/saveScoreTemplate', async (req, res) => {
     } else {
       const [existing] = await pool.query('SELECT * FROM score_question_templates WHERE name = ? LIMIT 1', [name]);
       if (existing.length) {
-        return res.json({ status: 'duplicate', message: '请使用其他评分问题名称' });
+        return res.json({ status: 'duplicate', message: localeCopy.copy_5f4fd990fc });
       } else {
         const newId = generateId();
         await templateModel.create(newId, { name, description, createdBy: admin.id });
@@ -168,10 +169,10 @@ router.post('/deleteScoreTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择评分问题' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_53b7c35c3f });
 
     // Block deletion if template is referenced by any rule clause in current org
     const orgId = await getCurrentOrgId();
@@ -182,7 +183,7 @@ router.post('/deleteScoreTemplate', async (req, res) => {
     if (currentRefs[0].cnt > 0) {
       return res.json({
         status: 'forbidden',
-        message: '请先移除使用该评分问题的评分人类别'
+        message: localeCopy.copy_1680976116
       });
     }
 
@@ -199,13 +200,13 @@ router.post('/duplicateScoreTemplate', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择评分问题' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_53b7c35c3f });
 
     const template = await templateModel.getById(id);
-    if (!template) return res.json({ status: 'not_found', message: '请刷新评分问题后重试' });
+    if (!template) return res.json({ status: 'not_found', message: localeCopy.copy_785b6d700c });
 
     const questions = await questionModel.getByTemplateId(id);
 

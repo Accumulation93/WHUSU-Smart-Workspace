@@ -1,8 +1,13 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/verification/verification');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 
 Page({
+  onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+  },
   data: {
+    localeCopy,
     verifyMode: 'number',       // 'number' | 'file'
     submissionNumber: '',
     fileName: '',
@@ -47,7 +52,7 @@ Page({
             });
           },
           fail: function() {
-            showShortToast('请重新选择文件');
+            showShortToast(localeCopy.copy_03d69a9d28);
           }
         });
       }
@@ -61,11 +66,11 @@ Page({
 
     if (mode === 'number') {
       let number = this.data.submissionNumber.trim();
-      if (!number) { showShortToast('请输入提交编号'); return; }
+      if (!number) { showShortToast(localeCopy.copy_93eb240494); return; }
       params.submissionNumber = number;
     } else if (mode === 'file') {
       let fileB64 = this.data.fileBase64;
-      if (!fileB64) { showShortToast('请选择要验签的文件'); return; }
+      if (!fileB64) { showShortToast(localeCopy.copy_cbf65b3559); return; }
       params.fileBase64 = fileB64;
     }
 
@@ -76,12 +81,12 @@ Page({
       if (res.status === 'success') {
         this.setData({ result: res });
       } else if (res.status === 'forbidden') {
-        showShortToast('请切换到可验签的身份');
+        showShortToast(localeCopy.copy_d1cbed9945);
       } else {
-        showShortToast(res.message || '未完成验签，请重试');
+        showShortToast(res.message || localeCopy.copy_b791913c7a);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未完成验签，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_b791913c7a));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }

@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/auditFile');
 const express = require('express');
 const router = express.Router();
 const path = require('path');
@@ -211,11 +212,11 @@ router.post('/uploadAuditFile', function(req, res, next) {
       fileName = safeString(req.body.fileName);
       mimeType = safeString(req.body.mimeType);
       if (String(req.body.fileBase64).length > Math.ceil(MAX_FILE_SIZE * 4 / 3) + 1024) {
-        return res.json({ status: 'invalid_params', message: '文件过大，最大支持 10MB' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_9288d54fa0 });
       }
       buffer = Buffer.from(String(req.body.fileBase64), 'base64');
     } else {
-      return res.json({ status: 'invalid_params', message: '请选择要上传的文件' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_37b735afaf });
     }
 
     mimeType = assertAllowedFile(buffer, mimeType);
@@ -239,14 +240,14 @@ router.post('/uploadAuditFile', function(req, res, next) {
 router.post('/getAuditFile', async (req, res) => {
   try {
     const fileId = safeString(req.body.fileId);
-    if (!fileId) return res.json({ status: 'invalid_params', message: '请重新选择文件' });
+    if (!fileId) return res.json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
 
     const auth = await getAuthorizedAuditFile(fileId, req.openid);
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 
     if (!fs.existsSync(file.file_path)) {
-      return res.json({ status: 'not_found', message: '文件已过期，请重新上传' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_044ddd451a });
     }
 
     const buffer = fs.readFileSync(file.file_path);
@@ -268,7 +269,7 @@ router.post('/getAuditFile', async (req, res) => {
 router.get('/downloadAuditFile', async (req, res) => {
   try {
     const fileId = safeString(req.query.fileId);
-    if (!fileId) return res.status(400).json({ status: 'invalid_params', message: '请重新选择文件' });
+    if (!fileId) return res.status(400).json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
 
     const auth = await getAuthorizedAuditFile(fileId, req.openid);
     if (auth.status !== 'success') {
@@ -278,7 +279,7 @@ router.get('/downloadAuditFile', async (req, res) => {
     const file = auth.file;
 
     if (!fs.existsSync(file.file_path)) {
-      return res.status(404).json({ status: 'not_found', message: '文件已过期，请重新上传' });
+      return res.status(404).json({ status: 'not_found', message: localeCopy.copy_044ddd451a });
     }
 
     const mime = file.mime_type || 'application/octet-stream';
@@ -306,14 +307,14 @@ router.post('/getAuditFilePreview', async (req, res) => {
   try {
     const fileId = safeString(req.body.fileId);
     const page = parseInt(req.body.page) || 1;
-    if (!fileId) return res.json({ status: 'invalid_params', message: '请重新选择文件' });
+    if (!fileId) return res.json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
 
     const auth = await getAuthorizedAuditFile(fileId, req.openid);
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 
     if (!fs.existsSync(file.file_path)) {
-      return res.json({ status: 'not_found', message: '文件已过期，请重新上传' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_044ddd451a });
     }
 
     const mimeType = file.mime_type;
@@ -354,7 +355,7 @@ router.post('/getAuditFilePreview', async (req, res) => {
           page: page,
           data: null,
           fallback: true,
-          message: '请下载文件后查看',
+          message: localeCopy.copy_3f63b19ec7,
           requestId: req.requestId || ''
         });
       }
@@ -379,22 +380,22 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
   try {
     const fileId = safeString(req.body.fileId);
     const signatures = Array.isArray(req.body.signatures) ? req.body.signatures : [];
-    if (!fileId) return res.json({ status: 'invalid_params', message: '请重新选择文件' });
-    if (signatures.length > 20) return res.json({ status: 'invalid_params', message: '单次最多处理20个签名' });
+    if (!fileId) return res.json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
+    if (signatures.length > 20) return res.json({ status: 'invalid_params', message: localeCopy.copy_3b3ae2f786 });
     let totalSignatureBytes = 0;
     for (const signature of signatures) {
       const imageData = safeString(signature && signature.imageData);
       if (!/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(imageData)) {
-        return res.json({ status: 'invalid_params', message: '请重新选择签名图片' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_b152533537 });
       }
       const estimatedBytes = Math.ceil(imageData.length * 3 / 4);
       if (estimatedBytes > 2 * 1024 * 1024) {
-        return res.json({ status: 'invalid_params', message: '单个签名图片过大' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_0137b35177 });
       }
       totalSignatureBytes += estimatedBytes;
     }
     if (totalSignatureBytes > 10 * 1024 * 1024) {
-      return res.json({ status: 'invalid_params', message: '签名图片总量过大' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_f66ff9f7b5 });
     }
 
     const auth = await getAuthorizedAuditFile(fileId, req.openid);
@@ -402,7 +403,7 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
     const file = auth.file;
 
     if (!fs.existsSync(file.file_path)) {
-      return res.json({ status: 'not_found', message: '文件已被清理' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_208830216b });
     }
 
     const mimeType = file.mime_type;
@@ -414,7 +415,7 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
       const imgWidth = metadata.width || 800;
       const imgHeight = metadata.height || 600;
       if (imgWidth * imgHeight > 40 * 1000 * 1000) {
-        return res.json({ status: 'invalid_params', message: '图片像素尺寸过大' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_709e45d760 });
       }
       const composites = [];
 
@@ -462,7 +463,7 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
       const pages = pdfDoc.getPages();
       const totalPages = pages.length;
       if (totalPages > 100) {
-        return res.json({ status: 'invalid_params', message: 'PDF页数超过100页限制' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_a3b626d8c1 });
       }
 
       for (const sig of signatures) {

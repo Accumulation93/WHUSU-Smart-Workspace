@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/middleware/auth');
 const jwt = require('jsonwebtoken');
 const { logger } = require('../utils/logger');
 const unifiedIdentityModel = require('../core/models/unifiedIdentity');
@@ -53,7 +54,7 @@ async function authMiddleware(req, res, next) {
   if (!token) {
     req.openid = '';
     logger.warn('Missing auth token', { requestId: req.requestId, path: req.path });
-    return res.status(401).json({ status: 'auth_failed', message: '请微信登录' });
+    return res.status(401).json({ status: 'auth_failed', message: localeCopy.copy_20ca49e5e7 });
   }
 
   try {
@@ -74,7 +75,7 @@ async function authMiddleware(req, res, next) {
           path: req.path,
           sessionId: decoded.sid || ''
         });
-        return res.status(401).json({ status: 'auth_failed', message: '请重新微信登录' });
+        return res.status(401).json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
       }
       req.openid = loaded.openid;
       req.authSession = loaded.session;
@@ -93,13 +94,13 @@ async function authMiddleware(req, res, next) {
       req.openid = decoded.openid || '';
       if (!req.openid) {
         logger.warn('Empty openid in token', { requestId: req.requestId, path: req.path });
-        return res.status(401).json({ status: 'auth_failed', message: '请重新微信登录' });
+        return res.status(401).json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
       }
     }
   } catch (e) {
     req.openid = '';
     logger.warn('Invalid or expired JWT', { requestId: req.requestId, path: req.path, error: e.message });
-    return res.status(401).json({ status: 'auth_failed', message: '请重新微信登录' });
+    return res.status(401).json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
   }
   next();
 }

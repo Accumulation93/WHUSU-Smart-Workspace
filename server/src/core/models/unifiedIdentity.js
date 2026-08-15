@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/models/unifiedIdentity');
 const pool = require('../../config/db');
 const { generateId, safeString } = require('../../utils/helpers');
 const {
@@ -1728,8 +1729,8 @@ async function transferWechatBinding(connection, data) {
       recipientId: recipientRows[0].legacy_hr_id,
       eventKey: 'account-security:wechat-recovered:' + (data.recoveryRequestId || data.bootstrap.id),
       type: 'account_security',
-      title: '账号安全状态已更新',
-      description: '微信绑定已更新，其他设备已退出登录。若非本人操作，请立即联系管理员。',
+      title: localeCopy.copy_3e75d7ee9b,
+      description: localeCopy.copy_58e01ef218,
       category: 'system',
       targetType: 'account_security',
       targetId: data.accountId,

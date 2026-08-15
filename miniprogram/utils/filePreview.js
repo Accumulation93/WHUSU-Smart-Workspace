@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/utils/filePreview');
 /**
  * Unified file opener — downloads any audit file via direct binary stream
  * and opens it with the native viewer. No base64, no writeFile, no quota issues.
@@ -28,7 +29,7 @@ function getRequestHeaders() {
 }
 
 function showLoading() {
-  try { wx.showLoading({ title: '加载中...', mask: true }); } catch (_) {}
+  try { wx.showLoading({ title: localeCopy.copy_fc99c4cc7b, mask: true }); } catch (_) {}
 }
 
 function hideLoading() {
@@ -83,8 +84,8 @@ function openLocalFile(filePath, fileName) {
       fail: function(err) {
         console.error('[filePreview] openDocument failed:', err);
         wx.showModal({
-          title: '无法打开文件',
-          content: '请使用其他应用打开此文件。\n\n文件：' + (fileName || '未命名文件'),
+          title: localeCopy.copy_53de6ca47b,
+          content: localeCopy.copy_3bc4a9b5be + (fileName || localeCopy.copy_0c28c344e7),
           showCancel: false
         });
       }
@@ -111,14 +112,14 @@ function fallbackDownload(fileId, fileName, callback) {
       }
       hideLoading();
       if (res.statusCode !== 200 || !res.data || res.data.status !== 'success') {
-        toast((res.data && res.data.message) || '请重新打开文件');
+        toast((res.data && res.data.message) || localeCopy.copy_535998c496);
         if (callback) callback(new Error('api failed'));
         return;
       }
 
       const result = res.data;
       if (typeof result.data !== 'string' || result.data.length > MAX_BASE64_LENGTH) {
-        toast('请选择有效文件');
+        toast(localeCopy.copy_4a80a9d00d);
         if (callback) callback(new Error('invalid file payload'));
         return;
       }
@@ -153,10 +154,10 @@ function fallbackDownload(fileId, fileName, callback) {
           } catch (syncErr) {
             console.error('[filePreview] sync writeFile also failed:', syncErr);
             wx.showModal({
-              title: '文件信息',
-              content: '文件名：' + (result.fileName || '未命名文件') +
-                '\n大小：' + ((result.fileSize / 1024).toFixed(1)) + ' KB' +
-                '\n\n请清理小程序缓存后重试',
+              title: localeCopy.copy_fee4566726,
+              content: localeCopy.copy_883987ec9c + (result.fileName || localeCopy.copy_0c28c344e7) +
+                localeCopy.copy_b6d7510119 + ((result.fileSize / 1024).toFixed(1)) + ' KB' +
+                localeCopy.copy_123db04018,
               showCancel: false
             });
             if (callback) callback(syncErr);
@@ -170,7 +171,7 @@ function fallbackDownload(fileId, fileName, callback) {
         if (callback) callback({ status: 'request_cancelled', silent: true });
         return;
       }
-      toast('请检查网络后重试');
+      toast(localeCopy.copy_8efe5e6dfd);
       if (callback) callback(new Error('network'));
     }
   });
@@ -185,7 +186,7 @@ function fallbackDownload(fileId, fileName, callback) {
  */
 function openAuditFile(options) {
   if (!options || !options.fileId) {
-      toast('请重新选择文件');
+      toast(localeCopy.copy_03d69a9d28);
     return;
   }
 
@@ -207,11 +208,11 @@ function openAuditFile(options) {
       if (res.statusCode === 200) {
         openLocalFile(res.tempFilePath, fileName);
       } else if (res.statusCode === 401) {
-        toast('请重新微信登录');
+        toast(localeCopy.copy_b10d64a68c);
       } else if (res.statusCode === 403) {
-        toast('请使用可查看该文件的身份');
+        toast(localeCopy.copy_2f0c925c1b);
       } else if (res.statusCode === 404) {
-        toast('文件已失效');
+        toast(localeCopy.copy_9f1e38ec09);
       } else {
         // Non-200 status — try fallback
         console.warn('[filePreview] downloadFile returned ' + res.statusCode + ', trying fallback');
@@ -243,7 +244,7 @@ function openAuditFile(options) {
  */
 function writeAndOpen(options) {
   if (!options || !options.filePath || options.data == null) {
-    toast('缺少文件路径或数据');
+    toast(localeCopy.copy_b8ede9c6ec);
     return;
   }
 
@@ -268,7 +269,7 @@ function writeAndOpen(options) {
         fileType: fileType,
         showMenu: true,
         fail: function() {
-          wx.showToast({ title: '已导出到本地文件', icon: 'none' });
+          wx.showToast({ title: localeCopy.copy_72fe3d5062, icon: 'none' });
         }
       });
     },
@@ -282,12 +283,12 @@ function writeAndOpen(options) {
           fileType: fileType,
           showMenu: true,
           fail: function() {
-            wx.showToast({ title: '已导出到本地文件', icon: 'none' });
+            wx.showToast({ title: localeCopy.copy_72fe3d5062, icon: 'none' });
           }
         });
       } catch (syncErr) {
         console.error('[filePreview] writeAndOpen sync also failed:', syncErr);
-        wx.showToast({ title: '请清理小程序缓存后重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_8807a41511, icon: 'none' });
       }
     }
   });

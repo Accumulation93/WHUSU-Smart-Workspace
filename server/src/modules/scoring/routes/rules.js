@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/rules');
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, generateId, buildNameMap, makeOrgRuleKey } = require('../../../utils/helpers');
@@ -78,7 +79,7 @@ router.post('/listRateRules', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     const lookups = await fetchOrgLookups();
@@ -146,7 +147,7 @@ router.post('/saveRateRule', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
     const activityId = safeString(req.body.activityId);
@@ -157,7 +158,7 @@ router.post('/saveRateRule', async (req, res) => {
     const mode = safeString(req.body.mode) === 'replace' ? 'replace' : 'strict';
 
     if (!activityId || !scorerDepartmentId || !scorerIdentityId) {
-      return res.json({ status: 'invalid_params', message: '请填写完整评分人类别' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_aee0e7df2d });
     }
 
     const [activity, scorerDepartment, scorerIdentity] = await Promise.all([
@@ -165,20 +166,20 @@ router.post('/saveRateRule', async (req, res) => {
       departmentModel.getById(scorerDepartmentId),
       identityModel.getById(scorerIdentityId)
     ]);
-    if (!activity) return res.json({ status: 'invalid_params', message: '请刷新评分活动后重试' });
-    if (!scorerDepartment || !scorerIdentity) return res.json({ status: 'invalid_params', message: '请重新选择评分人部门和身份' });
+    if (!activity) return res.json({ status: 'invalid_params', message: localeCopy.copy_4f0d449737 });
+    if (!scorerDepartment || !scorerIdentity) return res.json({ status: 'invalid_params', message: localeCopy.copy_c66dd9a783 });
 
     const normalizedClauses = [];
     for (const clause of clauses) {
       const scopeType = safeString(clause.scopeType);
-      if (!VALID_SCOPES.includes(scopeType)) return res.json({ status: 'invalid_params', message: '请重新选择评分范围' });
+      if (!VALID_SCOPES.includes(scopeType)) return res.json({ status: 'invalid_params', message: localeCopy.copy_1ddbd16012 });
 
       const targetIdentityId = IDENTITY_REQUIRED_SCOPES.includes(scopeType) ? safeString(clause.targetIdentityId) : '';
       if (targetIdentityId) {
         const targetIdentity = await identityModel.getById(targetIdentityId);
-        if (!targetIdentity) return res.json({ status: 'invalid_params', message: '请重新选择被评分人身份' });
+        if (!targetIdentity) return res.json({ status: 'invalid_params', message: localeCopy.copy_ecdaddc1eb });
       } else if (IDENTITY_REQUIRED_SCOPES.includes(scopeType)) {
-        return res.json({ status: 'invalid_params', message: '请选择被评分人身份' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_ed94482d7f });
       }
 
       const templateConfigs = [];
@@ -188,11 +189,11 @@ router.post('/saveRateRule', async (req, res) => {
         const templateId = safeString(item.templateId);
         if (!templateId) continue;
         const tpl = await templateModel.getById(templateId);
-        if (!tpl) return res.json({ status: 'invalid_params', message: '请刷新评分问题后重试' });
+        if (!tpl) return res.json({ status: 'invalid_params', message: localeCopy.copy_785b6d700c });
         const weight = Number(item.weight);
         const sortOrder = Number(item.sortOrder);
         if (!Number.isFinite(weight) || weight <= 0 || !Number.isInteger(sortOrder) || sortOrder <= 0) {
-          return res.json({ status: 'invalid_params', message: '请在权重和顺序中填写正整数' });
+          return res.json({ status: 'invalid_params', message: localeCopy.copy_cd5cb36ed6 });
         }
         const calculationMethod = safeString(item.calculationMethod) || 'weighted_average';
         const trimHighCount = Number(item.trimHighCount || 0);
@@ -218,7 +219,7 @@ router.post('/saveRateRule', async (req, res) => {
         if (mode === 'replace') {
           dedupedClauses[existingIndex] = clause;
         } else {
-          return res.json({ status: 'duplicate_clause', message: '请调整重复的评分范围和身份' });
+          return res.json({ status: 'duplicate_clause', message: localeCopy.copy_7fab232951 });
         }
       } else {
         seenKeys.set(clauseKey, dedupedClauses.length);
@@ -263,7 +264,7 @@ router.post('/saveRateRule', async (req, res) => {
             }
             await conn.query('DELETE FROM rate_rule_clauses WHERE rule_id = ? AND org_id = ?', [ruleId, orgId]);
           } else {
-            throw Object.assign(new Error('duplicate_category'), { status: 'duplicate_category', message: '请调整重复的评分人类别' });
+            throw Object.assign(new Error('duplicate_category'), { status: 'duplicate_category', message: localeCopy.copy_b92191d8ca });
           }
         } else {
           ruleId = generateId();
@@ -341,12 +342,12 @@ router.post('/generateRateTargetRules', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
     const activity = await activityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'invalid_params', message: '请刷新评分活动后重试' });
+    if (!activity) return res.json({ status: 'invalid_params', message: localeCopy.copy_4f0d449737 });
 
     const [hrRows, existingRules, departments, identities] = await Promise.all([
       hrInfoModel.getAll(), rateRuleModel.getByActivity(activityId), departmentModel.getAll(), identityModel.getAll()

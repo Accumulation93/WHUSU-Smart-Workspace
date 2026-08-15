@@ -1,10 +1,11 @@
+const localeCopy = require('../../locales/zh-CN/generated/components/workspace-hero/workspace-hero');
 const eventBus = require('../../utils/eventBus');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 
 function getIdentityName(profile, role) {
   if (!profile) return '';
   if (role === 'admin') {
-    return profile.adminLevel === 'super_admin' ? '超级管理员' : '管理员';
+    return profile.adminLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_c01a9aef59;
   }
   return profile.identity || '';
 }
@@ -28,7 +29,7 @@ Component({
   properties: {
     appName: {
       type: String,
-      value: 'WHUSU智慧工作台'
+      value: localeCopy.copy_0cb5ae8471
     },
     pageName: {
       type: String,
@@ -41,6 +42,7 @@ Component({
   },
 
   data: {
+    localeCopy,
     personName: '',
     identityName: '',
     identityDetail: '',
@@ -80,9 +82,9 @@ Component({
       if (profile.workGroup) detailParts.push(profile.workGroup);
       this.setData({
         personName: profile.name,
-        identityName: profile.identityName || '身份信息加载中',
+        identityName: profile.identityName || localeCopy.copy_0c1ba11af0,
         identityDetail: detailParts.join(' · '),
-        organizationName: profile.organizationName || '组织信息加载中',
+        organizationName: profile.organizationName || localeCopy.copy_6d7a32c169,
         signedIn: Boolean(profile.name)
       });
     },

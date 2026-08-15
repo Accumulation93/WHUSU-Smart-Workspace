@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "场地借用审批详情 - WHUSU智慧工作台",
+  "navigationBarTitleText": "",
   "usingComponents": {
     "workspace-hero": "/components/workspace-hero/workspace-hero",
     "venue-booking-detail": "/subpackages/venue/components/venueBookingDetail/venueBookingDetail"

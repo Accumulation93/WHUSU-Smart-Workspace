@@ -19,7 +19,7 @@
   <canvas type="2d" id="sigExportCanvas" class="sigpad-export-canvas"></canvas>
 
   <view class="sigpad-actions">
-    <button class="secondary-btn sigpad-btn sigpad-btn-secondary ui-motion-button" bindtap="onClear" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除</button>
-    <button class="primary-btn sigpad-btn sigpad-btn-primary ui-motion-button" bindtap="onConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认签名</button>
+    <button class="secondary-btn sigpad-btn sigpad-btn-secondary ui-motion-button" bindtap="onClear" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</button>
+    <button class="primary-btn sigpad-btn sigpad-btn-primary ui-motion-button" bindtap="onConfirm" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_36b96c0240}}</button>
   </view>
 </view>

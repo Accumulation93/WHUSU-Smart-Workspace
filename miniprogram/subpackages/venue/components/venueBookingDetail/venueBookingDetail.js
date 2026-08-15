@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/components/venueBookingDetail/venueBookingDetail');
 Component({
   properties: {
     booking: {
@@ -7,6 +8,7 @@ Component({
   },
 
   data: {
+    localeCopy,
     expandedNodeKey: ''
   },
 

@@ -1,76 +1,76 @@
 <view class="page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="考核评分 · 评分任务"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_0c1a3a9fd9}} · {{localeCopy.copy_3a550fe14c}}"></workspace-hero>
 
   <view class="section">
     <view class="stats-grid scorer-stats-grid">
       <view class="stat-card stat-card-accent">
-        <view class="stat-label">未完成评分人</view>
+        <view class="stat-label">{{localeCopy.copy_010476007d}}</view>
         <view class="stat-value">{{stats.totalPendingScorers || 0}}</view>
       </view>
     </view>
 
     <view class="edit-box">
-      <view class="list-title">筛选</view>
+      <view class="list-title">{{localeCopy.copy_74d527730a}}</view>
       <view class="field">
-        <view class="field-label">搜索评分人</view>
+        <view class="field-label">{{localeCopy.copy_d6b32891ae}}</view>
         <input
           class="field-input"
           value="{{keyword}}"
           bindinput="onKeywordInput"
           bindconfirm="onKeywordConfirm"
           confirm-type="search"
-          placeholder="按姓名或学号搜索"
+          placeholder="{{localeCopy.copy_9ce810a320}}"
         />
       </view>
       <view class="field field-row">
         <view class="field field-half">
-          <view class="field-label">所属部门</view>
+          <view class="field-label">{{localeCopy.copy_7ee1272d5b}}</view>
           <picker range="{{filterOptions.departments}}" bindchange="onFilterChange" data-field="department">
             <view class="picker-value">{{filters.department}}</view>
           </picker>
         </view>
         <view class="field field-half">
-          <view class="field-label">身份</view>
+          <view class="field-label">{{localeCopy.copy_c1965e0690}}</view>
           <picker range="{{filterOptions.identities}}" bindchange="onFilterChange" data-field="identity">
             <view class="picker-value">{{filters.identity}}</view>
           </picker>
         </view>
       </view>
       <view class="field">
-        <view class="field-label">职能组</view>
+        <view class="field-label">{{localeCopy.copy_303b7a8611}}</view>
         <picker range="{{filterOptions.workGroups}}" bindchange="onFilterChange" data-field="workGroup">
           <view class="picker-value">{{filters.workGroup}}</view>
         </picker>
       </view>
       <view class="button-row compact-row">
-        <button class="secondary-btn ui-motion-button" loading="{{loading}}" bindtap="loadData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">刷新列表</button>
+        <button class="secondary-btn ui-motion-button" loading="{{loading}}" bindtap="loadData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8029e5c326}}</button>
       </view>
     </view>
 
     <view class="edit-box">
-      <view class="list-title">导出当前名单</view>
+      <view class="list-title">{{localeCopy.copy_b0bf25e2b8}}</view>
       <view class="button-row">
-        <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出概览</button>
-        <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">导出明细</button>
+        <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3f8bff9fcf}}</button>
+        <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e47f95e658}}</button>
       </view>
     </view>
 
     <view class="list-card">
-      <view class="list-title">未完成评分人列表</view>
+      <view class="list-title">{{localeCopy.copy_5a47791b4b}}</view>
       <scroll-view class="inner-scroll large-scroll" scroll-y>
         <view class="task-table ui-data-grid--complex">
           <view class="task-table-head ui-data-row ui-data-row--header">
-            <view class="task-col task-col-name ui-data-cell ui-data-cell--primary">评分人</view>
-            <view class="task-col task-col-progress ui-data-cell">已评/应评</view>
-            <view class="task-col task-col-action ui-data-cell ui-data-cell--action">操作</view>
+            <view class="task-col task-col-name ui-data-cell ui-data-cell--primary">{{localeCopy.copy_b9b9929aee}}</view>
+            <view class="task-col task-col-progress ui-data-cell">{{localeCopy.copy_12b44cbb96}}</view>
+            <view class="task-col task-col-action ui-data-cell ui-data-cell--action">{{localeCopy.copy_6dcfc3571c}}</view>
           </view>
           <view class="task-table-row ui-motion-chip ui-data-row" wx:for="{{scorerRows}}" wx:key="scorerKey" data-index="{{index}}" bindtap="openPendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="task-col task-col-name ui-data-cell ui-data-cell--primary">
-              <text class="ui-data-cell-label">评分人</text>
+              <text class="ui-data-cell-label">{{localeCopy.copy_b9b9929aee}}</text>
               <view class="ui-data-cell-content"><view class="task-name">{{item.scorerName}}</view><view class="task-meta">{{item.department}}</view></view>
             </view>
             <view class="task-col task-col-progress ui-data-cell">
-              <text class="ui-data-cell-label">完成进度</text>
+              <text class="ui-data-cell-label">{{localeCopy.copy_44b244e636}}</text>
               <view class="progress-cell ui-data-cell-content">
                 <view class="progress-top">
                   <text class="progress-count">{{item.progressText}}</text>
@@ -82,19 +82,19 @@
               </view>
             </view>
             <view class="task-col task-col-action ui-data-cell ui-data-cell--action">
-              <text class="ui-data-cell-label">操作</text>
-              <text class="link no-wrap-link">查看</text>
+              <text class="ui-data-cell-label">{{localeCopy.copy_6dcfc3571c}}</text>
+              <text class="link no-wrap-link">{{localeCopy.copy_1d6224cd18}}</text>
             </view>
           </view>
         </view>
-        <view class="empty-inline" wx:if="{{!scorerRows.length}}">没有匹配的评分人</view>
+        <view class="empty-inline" wx:if="{{!scorerRows.length}}">{{localeCopy.copy_b7c3654faa}}</view>
       </scroll-view>
     </view>
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view>
+    <view class="footer-org">{{localeCopy.copy_638da8ae60}}</view>
   </view>
 
   <viewport-portal wx:if="{{pendingPopupVisible}}">
@@ -103,29 +103,29 @@
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{pendingPopupTitle}}</view>
-        <text class="popup-close ui-motion-chip" catchtap="closePendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closePendingPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="popup-loading-overlay" wx:if="{{pendingPopupLoading}}">
           <view class="popup-loading-spinner"></view>
-          <text class="popup-loading-text">正在加载...</text>
+          <text class="popup-loading-text">{{localeCopy.copy_8dfeae7ced}}</text>
         </view>
         <view class="popup-table ui-data-grid--complex" wx:else>
           <view class="popup-table-head ui-data-row ui-data-row--header">
-            <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">被评分人</view>
-            <view class="popup-col popup-col-dept ui-data-cell">部门与身份</view>
+            <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">{{localeCopy.copy_12cd162fda}}</view>
+            <view class="popup-col popup-col-dept ui-data-cell">{{localeCopy.copy_937ade982a}}</view>
           </view>
           <view class="popup-table-row ui-data-row" wx:for="{{pendingPopupList}}" wx:key="targetId">
             <view class="popup-col popup-col-name ui-data-cell ui-data-cell--primary">
-              <text class="ui-data-cell-label">被评分人</text>
+              <text class="ui-data-cell-label">{{localeCopy.copy_12cd162fda}}</text>
               <view class="ui-data-cell-content"><view class="task-name">{{item.targetName}}</view><view class="task-meta">{{item.targetStudentId}}</view></view>
             </view>
             <view class="popup-col popup-col-dept ui-data-cell">
-              <text class="ui-data-cell-label">部门与身份</text>
+              <text class="ui-data-cell-label">{{localeCopy.copy_937ade982a}}</text>
               <view class="ui-data-cell-content"><view class="task-meta">{{item.targetDepartment}}</view><view class="task-meta">{{item.targetIdentity}} / {{item.targetWorkGroup}}</view></view>
             </view>
           </view>
-          <view class="empty-inline" wx:if="{{!pendingPopupList.length}}">评分已全部完成</view>
+          <view class="empty-inline" wx:if="{{!pendingPopupList.length}}">{{localeCopy.copy_d0de4ea38f}}</view>
         </view>
       </scroll-view>
     </view>

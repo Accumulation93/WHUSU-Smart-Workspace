@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/flowTimeline');
 /**
  * Shared utility: builds a full flow timeline array for rendering in WXML.
  * Pre-computes all state classes, icons, labels, expandable detail fields
@@ -24,19 +25,19 @@ function buildFlowTimeline(prog) {
   let timeline = [];
   for (let si = 0; si < totalSteps; si++) {
     let state, icon, label;
-    let stepName = (flowSteps[si] && flowSteps[si].name) || ('第' + (si + 1) + '步');
+    let stepName = (flowSteps[si] && flowSteps[si].name) || (localeCopy.copy_93c50c01c0 + (si + 1) + localeCopy.copy_493a127a99);
     let snap = snapMap[si] || null;
 
     if (prog.isRejected) {
-      if (si < rejectStep)           { state = 'done';     icon = '✓';     label = '✓ 已通过'; }
-      else if (si === rejectStep)    { state = 'rejected'; icon = '✗';     label = '✗ 已驳回'; }
-      else                           { state = 'pending';  icon = String(si + 1); label = '○ 未到达'; }
+      if (si < rejectStep)           { state = 'done';     icon = '✓';     label = localeCopy.copy_2d8cba342c; }
+      else if (si === rejectStep)    { state = 'rejected'; icon = '✗';     label = localeCopy.copy_70d7f7f742; }
+      else                           { state = 'pending';  icon = String(si + 1); label = localeCopy.copy_9baefe7c49; }
     } else if (prog.isApproved) {
-      state = 'done'; icon = '✓'; label = '✓ 已通过';
+      state = 'done'; icon = '✓'; label = localeCopy.copy_2d8cba342c;
     } else {
-      if (si < currentStep)          { state = 'done';     icon = '✓';     label = '✓ 已通过'; }
-      else if (si === currentStep)   { state = 'active';   icon = String(si + 1); label = '● 待处理'; }
-      else                           { state = 'pending';  icon = String(si + 1); label = '○ 未到达'; }
+      if (si < currentStep)          { state = 'done';     icon = '✓';     label = localeCopy.copy_2d8cba342c; }
+      else if (si === currentStep)   { state = 'active';   icon = String(si + 1); label = localeCopy.copy_532a477356; }
+      else                           { state = 'pending';  icon = String(si + 1); label = localeCopy.copy_9baefe7c49; }
     }
 
     // Description line for collapsed view
@@ -44,9 +45,9 @@ function buildFlowTimeline(prog) {
     if (state === 'done' && snap && snap.approvedAt) {
       meta = snap.approvedAt;
     } else if (state === 'active') {
-      meta = '等待审批';
+      meta = localeCopy.copy_1d12af72f6;
     } else if (state === 'rejected') {
-      meta = '已驳回';
+      meta = localeCopy.copy_5d5af942c5;
     }
 
     let comment = (snap && snap.comment) || '';

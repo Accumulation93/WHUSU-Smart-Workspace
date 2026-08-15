@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/parseTableFile');
 const express = require('express');
 const router = express.Router();
 const { safeString } = require('../../utils/helpers');
@@ -12,16 +13,16 @@ const { decodeWorkbookBase64, parseWorkbookTables } = require('../../utils/excel
 router.post('/parseTableFile', async (req, res) => {
   try {
     if (!req.openid || !req.admin) {
-      return res.status(403).json({ status: 'forbidden', message: '请使用管理员身份' });
+      return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     }
 
     const { fileBase64, fileName } = req.body;
     if (!fileBase64) {
-      return res.json({ status: 'invalid_params', message: '缺少文件内容' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_d01e5d7df7 });
     }
 
     if (/\.xls$/i.test(safeString(fileName))) {
-      return res.json({ status: 'invalid_params', message: '旧版 XLS 格式不受支持，请另存为 XLSX 后重试' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_d783b642c9 });
     }
     const buffer = decodeWorkbookBase64(fileBase64);
     const workbookTables = await parseWorkbookTables(buffer);

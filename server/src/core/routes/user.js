@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/user');
 const express = require('express');
 const router = express.Router();
 const { safeString } = require('../../utils/helpers');
@@ -13,7 +14,7 @@ async function ensureAdmin(openid) {
 router.post('/listUserBindings', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const data = await userInfoModel.getAll();
     res.json({ status: 'success', data });

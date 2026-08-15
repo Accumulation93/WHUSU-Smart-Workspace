@@ -1,14 +1,19 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/mySubmissions/mySubmissions');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
 Page({
+  onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+  },
   data: {
+    localeCopy,
     submissions: [],
     statusFilter: '',
     loading: false,
-    statusOptions: ['全部', '草稿', '待提交', '审核中', '已驳回', '已完成', '已撤回'],
+    statusOptions: [localeCopy.copy_31d4595959, localeCopy.copy_f6afc42806, localeCopy.copy_57b008f8c7, localeCopy.copy_0dc99cac16, localeCopy.copy_5d5af942c5, localeCopy.copy_2220286f1c, localeCopy.copy_282e15e226],
     statusValues: ['', 'draft', 'pending', 'in_progress', 'rejected', 'approved', 'withdrawn']
   },
 
@@ -33,7 +38,7 @@ Page({
         this.setData({ submissions: res.submissions || [] });
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '请稍后刷新'));
+      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -55,17 +60,17 @@ Page({
   },
 
   async markAllRead() {
-    wx.showLoading({ title: '处理中...' });
+    wx.showLoading({ title: localeCopy.copy_00a471585c });
     try {
       const res = await callFunction({ name: 'markAllSubmissionsRead', data: {} });
       if (res.status === 'success') {
-        showShortToast('已全部设为已读', 'success');
+        showShortToast(localeCopy.copy_6a9352d30a, 'success');
         this.loadData();
       } else {
-        showShortToast(res.message || '未完成，请重试');
+        showShortToast(res.message || localeCopy.copy_0531ed9e78);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未完成，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_0531ed9e78));
     } finally {
       wx.hideLoading();
     }

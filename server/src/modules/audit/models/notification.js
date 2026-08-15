@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/models/notification');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
@@ -14,7 +15,7 @@ async function create(id, data, conn) {
   const orgId = data.orgId || await getCurrentOrgId();
   const recipient = normalizeRecipient(data);
   if (!orgId || !recipient.recipientType || !recipient.recipientId) {
-    throw new Error('通知缺少组织或收件人');
+    throw new Error(localeCopy.copy_30212ef2fb);
   }
   const [result] = await db.query(
     `INSERT INTO notifications

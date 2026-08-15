@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/submissionDetail/submissionDetail');
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 const { openAuditFile } = require('../../../../utils/filePreview');
 const orgSession = require('../../../../utils/orgSession');
@@ -7,6 +8,7 @@ const AUDIT_MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 Page({
   data: {
+    localeCopy,
     submissionId: '',
     action: '', // 'create' or 'view'
     submission: null,
@@ -16,7 +18,7 @@ Page({
     signatures: [],
     loading: false,
     flowProgressPercent: 0,
-    flowProgressText: '未开始',
+    flowProgressText: localeCopy.copy_cbacf49da2,
 
     // Create mode
     createMode: 'template', // 'template' or 'ad_hoc'
@@ -38,14 +40,14 @@ Page({
 
     // Approver picker — identity mode
     identityPickerScopeIndex: 0,
-    identityPickerScopeOptions: ['全体成员', '同部门成员', '同职能组成员', '指定部门成员', '指定职能组成员'],
+    identityPickerScopeOptions: [localeCopy.copy_76d431a4dc, localeCopy.copy_4cecd19152, localeCopy.copy_b3cdc001ce, localeCopy.copy_17f5307ade, localeCopy.copy_5c499d7608],
     identityPickerScopeValues: ['all', 'same_department', 'same_work_group', 'specific_department', 'specific_work_group'],
     identityPickerDeptIndex: 0,
-    identityPickerDeptOptions: ['全部部门'],
+    identityPickerDeptOptions: [localeCopy.copy_68f7277730],
     identityPickerWgIndex: 0,
-    identityPickerWgOptions: ['全部职能组'],
+    identityPickerWgOptions: [localeCopy.copy_e986e973a2],
     identityPickerIdentIndex: 0,
-    identityPickerIdentOptions: ['全部身份'],
+    identityPickerIdentOptions: [localeCopy.copy_55780718f9],
 
     // Template step preview (for overrides)
     templatePreviewSteps: [],
@@ -54,12 +56,12 @@ Page({
 
     // Approver picker — person mode (multi-select)
     personPickerVisible: false,
-    personPickerDept: '全部',
-    personPickerIdent: '全部',
-    personPickerWg: '全部',
-    personPickerDeptOpts: ['全部'],
-    personPickerIdentOpts: ['全部'],
-    personPickerWgOpts: ['全部'],
+    personPickerDept: localeCopy.copy_31d4595959,
+    personPickerIdent: localeCopy.copy_31d4595959,
+    personPickerWg: localeCopy.copy_31d4595959,
+    personPickerDeptOpts: [localeCopy.copy_31d4595959],
+    personPickerIdentOpts: [localeCopy.copy_31d4595959],
+    personPickerWgOpts: [localeCopy.copy_31d4595959],
     personPickerKeyword: '',
     personPickerCandidates: [],
     personPickerSelectedIds: [],
@@ -86,9 +88,9 @@ Page({
     editIdentityPickerWgIndex: 0,
     editIdentityPickerIdentIndex: 0,
     editPersonPickerVisible: false,
-    editPersonPickerDept: '全部',
-    editPersonPickerIdent: '全部',
-    editPersonPickerWg: '全部',
+    editPersonPickerDept: localeCopy.copy_31d4595959,
+    editPersonPickerIdent: localeCopy.copy_31d4595959,
+    editPersonPickerWg: localeCopy.copy_31d4595959,
     editPersonPickerKeyword: '',
     editPersonPickerCandidates: [],
     editPersonPickerSelectedIds: [],
@@ -164,6 +166,7 @@ Page({
   noop() {},
 
   onLoad(options) {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     this._pageActive = true;
     orgSession.consume(this);
     if (options.action === 'create') {
@@ -181,7 +184,7 @@ Page({
     this._pageActive = true;
     if (!orgSession.consume(this).changed) return;
     orgSession.invalidateRequests(this);
-    showShortToast('请重新进入审核');
+    showShortToast(localeCopy.copy_d86124b728);
     wx.navigateBack({ fail: () => wx.reLaunch({ url: '/pages/portal/portal' }) });
   },
 
@@ -229,12 +232,12 @@ Page({
         allDepartments: departments,
         allIdentities: identities,
         allWorkGroups: workGroups,
-        identityPickerDeptOptions: ['全部部门', ...deptNames],
-        identityPickerWgOptions: ['全部职能组', ...wgNames],
-        identityPickerIdentOptions: ['全部身份', ...identNames],
-        personPickerDeptOpts: ['全部', ...deptNames],
-        personPickerIdentOpts: ['全部', ...identNames],
-        personPickerWgOpts: ['全部', ...wgNames]
+        identityPickerDeptOptions: [localeCopy.copy_68f7277730, ...deptNames],
+        identityPickerWgOptions: [localeCopy.copy_e986e973a2, ...wgNames],
+        identityPickerIdentOptions: [localeCopy.copy_55780718f9, ...identNames],
+        personPickerDeptOpts: [localeCopy.copy_31d4595959, ...deptNames],
+        personPickerIdentOpts: [localeCopy.copy_31d4595959, ...identNames],
+        personPickerWgOpts: [localeCopy.copy_31d4595959, ...wgNames]
       });
     } catch (e) {
       // Non-fatal; picker will just show fewer options
@@ -268,9 +271,9 @@ Page({
       .concat(persons.map(p => p.workGroup));
     const unique = values => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
     this.setData({
-      personPickerDeptOpts: ['全部', ...unique(departments)],
-      personPickerIdentOpts: ['全部', ...unique(identities)],
-      personPickerWgOpts: ['全部', ...unique(workGroups)]
+      personPickerDeptOpts: [localeCopy.copy_31d4595959, ...unique(departments)],
+      personPickerIdentOpts: [localeCopy.copy_31d4595959, ...unique(identities)],
+      personPickerWgOpts: [localeCopy.copy_31d4595959, ...unique(workGroups)]
     });
   },
 
@@ -285,7 +288,7 @@ Page({
         this.setData({ flowTemplates: res.templates || [] });
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '请稍后刷新模板'));
+      showShortToast(getErrorText(e, localeCopy.copy_fbc220bedd));
     }
   },
 
@@ -330,7 +333,7 @@ Page({
       }
     } catch (e) {
       console.error('[audit] loadTemplatePreview failed:', e);
-      showShortToast('暂时无法预览，仍可提交');
+      showShortToast(localeCopy.copy_3a89b81529);
     }
   },
 
@@ -342,7 +345,7 @@ Page({
     });
     const templateId = this.data.editMode ? this.data.editTemplateId : this.data.selectedTemplateId;
     if (stepIndex !== 1 || !templateId || !targetStep || targetStep.allowApproverDesignation !== true) {
-      showShortToast('该步骤按审批条件确定审批人');
+      showShortToast(localeCopy.copy_2758c01952);
       return;
     }
 
@@ -351,9 +354,9 @@ Page({
       personPickerLoading: true,
       personPickerMode: '',
       templateOverrideStepIndex: stepIndex,
-      personPickerDept: '全部',
-      personPickerIdent: '全部',
-      personPickerWg: '全部',
+      personPickerDept: localeCopy.copy_31d4595959,
+      personPickerIdent: localeCopy.copy_31d4595959,
+      personPickerWg: localeCopy.copy_31d4595959,
       personPickerKeyword: '',
       personPickerSelectedIds: [],
       personPickerSelectedList: [],
@@ -395,9 +398,9 @@ Page({
       personPickerVisible: true,
       personPickerMode: '',
       templateOverrideStepIndex: stepIndex,
-      personPickerDept: '全部',
-      personPickerIdent: '全部',
-      personPickerWg: '全部',
+      personPickerDept: localeCopy.copy_31d4595959,
+      personPickerIdent: localeCopy.copy_31d4595959,
+      personPickerWg: localeCopy.copy_31d4595959,
       personPickerKeyword: '',
       personPickerSelectedIds: preSelectedIds,
       personPickerSelectedList: preSelectedList,
@@ -529,9 +532,9 @@ Page({
       personPickerLoading: true,
       personPickerMode: '',
       templateOverrideStepIndex: -1,
-      personPickerDept: '全部',
-      personPickerIdent: '全部',
-      personPickerWg: '全部',
+      personPickerDept: localeCopy.copy_31d4595959,
+      personPickerIdent: localeCopy.copy_31d4595959,
+      personPickerWg: localeCopy.copy_31d4595959,
       personPickerKeyword: '',
       personPickerSelectedIds: [],
       personPickerSelectedList: [],
@@ -563,19 +566,19 @@ Page({
 
   onPersonPickerDeptChange(e) {
     const opts = this.data.personPickerDeptOpts;
-    this.setData({ personPickerDept: opts[parseInt(e.detail.value)] || '全部' });
+    this.setData({ personPickerDept: opts[parseInt(e.detail.value)] || localeCopy.copy_31d4595959 });
     this.applyPersonPickerFilters();
   },
 
   onPersonPickerIdentChange(e) {
     const opts = this.data.personPickerIdentOpts;
-    this.setData({ personPickerIdent: opts[parseInt(e.detail.value)] || '全部' });
+    this.setData({ personPickerIdent: opts[parseInt(e.detail.value)] || localeCopy.copy_31d4595959 });
     this.applyPersonPickerFilters();
   },
 
   onPersonPickerWgChange(e) {
     const opts = this.data.personPickerWgOpts;
-    this.setData({ personPickerWg: opts[parseInt(e.detail.value)] || '全部' });
+    this.setData({ personPickerWg: opts[parseInt(e.detail.value)] || localeCopy.copy_31d4595959 });
     this.applyPersonPickerFilters();
   },
 
@@ -591,9 +594,9 @@ Page({
     const wg = this.data.personPickerWg;
     const kw = (this.data.personPickerKeyword || '').trim().toLowerCase();
 
-    if (dept !== '全部') list = list.filter(p => p.department === dept);
-    if (ident !== '全部') list = list.filter(p => p.identity === ident);
-    if (wg !== '全部') list = list.filter(p => p.workGroup === wg);
+    if (dept !== localeCopy.copy_31d4595959) list = list.filter(p => p.department === dept);
+    if (ident !== localeCopy.copy_31d4595959) list = list.filter(p => p.identity === ident);
+    if (wg !== localeCopy.copy_31d4595959) list = list.filter(p => p.workGroup === wg);
     if (kw) list = list.filter(p =>
       (p.name || '').toLowerCase().includes(kw) ||
       (p.studentId || '').toLowerCase().includes(kw)
@@ -646,7 +649,7 @@ Page({
 
     const selected = this.data.personPickerSelectedList;
     if (!selected.length) {
-      showShortToast('请选择审批人');
+      showShortToast(localeCopy.copy_b66608a15f);
       return;
     }
 
@@ -654,7 +657,7 @@ Page({
     const actionType = this.data.personPickerStepActionType;
     for (const p of selected) {
       steps.push({
-        name: (this.data.adHocStepForm.name || '').trim() || (p.name + '审批'),
+        name: (this.data.adHocStepForm.name || '').trim() || (p.name + localeCopy.copy_c9695bb971),
         approverType: 'specific_person',
         approverHrId: p.id,
         approverHrName: p.name,
@@ -683,14 +686,14 @@ Page({
     const identOpts = this.data.identityPickerIdentOptions;
 
     if (identIdx <= 0) {
-      showShortToast('请选择身份');
+      showShortToast(localeCopy.copy_d1856227b6);
       return;
     }
 
     const identName = identOpts[identIdx];
     const identity = identities.find(i => i.name === identName);
     if (!identity) {
-      showShortToast('请重新选择身份');
+      showShortToast(localeCopy.copy_10d3269bb4);
       return;
     }
 
@@ -708,12 +711,12 @@ Page({
       const deptIdx = this.data.identityPickerDeptIndex;
       const deptOpts = this.data.identityPickerDeptOptions;
       if (deptIdx <= 0) {
-        showShortToast('请选择部门');
+        showShortToast(localeCopy.copy_eada426deb);
         return;
       }
       const deptName = deptOpts[deptIdx];
       const dept = departments.find(d => d.name === deptName);
-      if (!dept) { showShortToast('请重新选择部门'); return; }
+      if (!dept) { showShortToast(localeCopy.copy_9f09d6a2b3); return; }
       scopeDepartmentId = dept.id;
       scopeDepartmentName = dept.name;
     }
@@ -722,12 +725,12 @@ Page({
       const wgIdx = this.data.identityPickerWgIndex;
       const wgOpts = this.data.identityPickerWgOptions;
       if (wgIdx <= 0) {
-        showShortToast('请选择职能组');
+        showShortToast(localeCopy.copy_ec3b03ecc7);
         return;
       }
       const wgName = wgOpts[wgIdx];
       const wg = workGroups.find(w => w.name === wgName);
-      if (!wg) { showShortToast('请重新选择职能组'); return; }
+      if (!wg) { showShortToast(localeCopy.copy_c4f6a0088b); return; }
       scopeWorkGroupId = wg.id;
       scopeWorkGroupName = wg.name;
     }
@@ -783,23 +786,23 @@ Page({
       const hr = this.data.allHrPersons.find(p => p.id === step.approverHrId);
       return hr ? hr.name : step.approverHrId;
     }
-    return '未指定';
+    return localeCopy.copy_86bbf0d28e;
   },
 
   getActionLabel(actionType) {
-    if (actionType === 'pass') return '通过';
-    if (actionType === 'sign') return '签字';
-    if (actionType === 'estamp') return '盖章';
-    if (actionType === 'both') return '签字+盖章';
-    return actionType || '通过';
+    if (actionType === 'pass') return localeCopy.copy_8e2f75159e;
+    if (actionType === 'sign') return localeCopy.copy_49cbf30d6b;
+    if (actionType === 'estamp') return localeCopy.copy_7e6630535d;
+    if (actionType === 'both') return localeCopy.copy_a63d02480e;
+    return actionType || localeCopy.copy_8e2f75159e;
   },
 
   getScopeLabel(scopeType, scopeDepartmentName, scopeWorkGroupName) {
-    if (scopeType === 'same_department') return '同部门';
-    if (scopeType === 'same_work_group') return '同职能组';
+    if (scopeType === 'same_department') return localeCopy.copy_37ad645951;
+    if (scopeType === 'same_work_group') return localeCopy.copy_2c67faf1c7;
     if (scopeType === 'specific_department' && scopeDepartmentName) return scopeDepartmentName;
     if (scopeType === 'specific_work_group' && scopeWorkGroupName) return (scopeDepartmentName || '') + ' · ' + scopeWorkGroupName;
-    return '全体';
+    return localeCopy.copy_9b3c1f7a01;
   },
 
   inferAuditFileMime(fileName, base64) {
@@ -820,13 +823,13 @@ Page({
   validateAuditUploadFile(fileName, fileSize, base64) {
     let mimeType = this.inferAuditFileMime(fileName, base64);
     if (!mimeType || AUDIT_ALLOWED_MIMES.indexOf(mimeType) < 0) {
-      return { ok: false, message: '请上传 PNG、JPG、WEBP 图片或 PDF 文件' };
+      return { ok: false, message: localeCopy.copy_75bca7ebb3 };
     }
     if ((fileSize || 0) > AUDIT_MAX_FILE_SIZE) {
-      return { ok: false, message: '文件过大，最大支持 10MB' };
+      return { ok: false, message: localeCopy.copy_9288d54fa0 };
     }
     if (String(base64 || '').length > Math.ceil(AUDIT_MAX_FILE_SIZE * 4 / 3) + 1024) {
-      return { ok: false, message: '文件过大，最大支持 10MB' };
+      return { ok: false, message: localeCopy.copy_9288d54fa0 };
     }
     return { ok: true, mimeType: mimeType };
   },
@@ -883,7 +886,7 @@ Page({
         const fileId = 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         const validation = this.validateAuditUploadFile(tf.name, tf.size || 0, base64);
         if (!validation.ok) {
-          throw new Error((tf.name || '文件') + ': ' + validation.message);
+          throw new Error((tf.name || localeCopy.copy_afad9f1b56) + ': ' + validation.message);
         }
         uploaded.push({
           fileId: fileId,
@@ -896,15 +899,15 @@ Page({
         });
       } catch (e) {
         errorCount++;
-        if (!firstError) firstError = getErrorText(e, '请重新选择文件');
-        console.error('文件读取失败:', tf.name, e);
+        if (!firstError) firstError = getErrorText(e, localeCopy.copy_03d69a9d28);
+        console.error(localeCopy.copy_e4882ec81b, tf.name, e);
       }
     }
 
     if (uploaded.length > this.data.uploadedFiles.length) {
       this.setData({ uploadedFiles: uploaded });
     } else if (errorCount > 0) {
-      showShortToast(firstError || '请重新选择文件');
+      showShortToast(firstError || localeCopy.copy_03d69a9d28);
     }
     this.setData({ uploading: false });
   },
@@ -919,8 +922,8 @@ Page({
   async submitAudit() {
     const { createMode, selectedTemplateId, createTitle, uploadedFiles, adHocSteps, resubmitMode } = this.data;
 
-    if (!createTitle) { showShortToast('请输入标题'); return; }
-    if (!uploadedFiles.length) { showShortToast('请上传文件'); return; }
+    if (!createTitle) { showShortToast(localeCopy.copy_b99e01d38c); return; }
+    if (!uploadedFiles.length) { showShortToast(localeCopy.copy_88218650ba); return; }
 
     this.setData({ loading: true });
     const serverFiles = [];
@@ -944,19 +947,19 @@ Page({
             fileToken: uploadRes.fileToken
           });
         } else {
-          throw new Error(uploadRes.message || '未上传，请重试');
+          throw new Error(uploadRes.message || localeCopy.copy_060a64d6e7);
         }
       }
     } catch (e) {
       this.setData({ loading: false });
-      showShortToast(getErrorText(e, '未上传，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_060a64d6e7));
       return;
     }
 
     try {
       let res;
       if (createMode === 'template') {
-        if (!selectedTemplateId) { showShortToast('请选择审核流程'); this.setData({ loading: false }); return; }
+        if (!selectedTemplateId) { showShortToast(localeCopy.copy_0172f60994); this.setData({ loading: false }); return; }
         // Collect step overrides from template step preview
         let stepOverrides = (this.data.templateStepOverrides || [])
           .filter(function(o) { return o.personHrIds && o.personHrIds.length; })
@@ -966,7 +969,7 @@ Page({
           data: { templateId: selectedTemplateId, title: createTitle, description: this.data.createDesc, files: serverFiles, stepOverrides: stepOverrides }
         });
       } else {
-        if (!adHocSteps.length) { showShortToast('请添加审批步骤'); this.setData({ loading: false }); return; }
+        if (!adHocSteps.length) { showShortToast(localeCopy.copy_9167c33257); this.setData({ loading: false }); return; }
         // Strip display-only fields before sending
         const cleanSteps = adHocSteps.map(s => ({
           name: s.name || '',
@@ -985,13 +988,13 @@ Page({
       }
 
       if (res.status === 'success') {
-        showShortToast('已提交');
+        showShortToast(localeCopy.copy_69df1816f0);
         wx.redirectTo({ url: `/subpackages/audit/pages/submissionDetail/submissionDetail?id=${res.id}` });
       } else {
-        showShortToast(res.message || '未提交，请重试');
+        showShortToast(res.message || localeCopy.copy_8831c65b75);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未提交，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_8831c65b75));
     } finally {
       this.setData({ loading: false });
     }
@@ -1063,7 +1066,7 @@ Page({
             _key: 'lifecycle_submit',
             type: 'lifecycle',
             event: 'submit',
-            label: '提交审核',
+            label: localeCopy.copy_c94eb77b73,
             time: formatAuditTime(initialSubmit.createdAt),
             iconName: 'file',
             operatorName: initialSubmit.operatorName || '',
@@ -1098,17 +1101,17 @@ Page({
                 continue;
               }
               let interIconMap = { withdraw: 'chevron-right', resubmit: 'edit', submit: 'file', edit: 'edit', approve: 'check', reject: 'x' };
-              let interLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
+              let interLabelMap = { withdraw: localeCopy.copy_0f438fa581, resubmit: localeCopy.copy_aed5de2d69, submit: localeCopy.copy_c94eb77b73, edit: localeCopy.copy_cacc39a0fd, approve: localeCopy.copy_126a0e1f4c, reject: localeCopy.copy_e4c3cdbf04 };
               let interStepLabel = '';
               if ((interEvt.eventType === 'approve' || interEvt.eventType === 'reject') && interEvt.stepIndex) {
-                interStepLabel = '第' + interEvt.stepIndex + '步';
+                interStepLabel = localeCopy.copy_93c50c01c0 + interEvt.stepIndex + localeCopy.copy_493a127a99;
               }
               flowTimeline.push({
                 _key: 'lifecycle_inter_' + interEvt.id,
                 type: 'lifecycle',
                 event: interEvt.eventType,
                 label: interLabelMap[interEvt.eventType] || interEvt.eventType,
-                subLabel: (interEvt.round > 1 ? '第' + interEvt.round + '轮 ' : '') + interStepLabel,
+                subLabel: (interEvt.round > 1 ? localeCopy.copy_93c50c01c0 + interEvt.round + localeCopy.copy_4707e47a7a : '') + interStepLabel,
                 time: formatAuditTime(interEvt.createdAt),
                 iconName: interIconMap[interEvt.eventType] || 'clock',
                 comment: interEvt.comment || '',
@@ -1122,8 +1125,8 @@ Page({
                 _key: 'lifecycle_resubmit_r' + round,
                 type: 'lifecycle',
                 event: 'resubmit',
-                label: '重新提交',
-                subLabel: '第' + round + '轮',
+                label: localeCopy.copy_aed5de2d69,
+                subLabel: localeCopy.copy_93c50c01c0 + round + localeCopy.copy_14144be09d,
                 time: formatAuditTime(resubmitEvt.createdAt),
                 iconName: 'edit',
                 operatorName: resubmitEvt.operatorName || '',
@@ -1136,8 +1139,8 @@ Page({
                 _key: 'lifecycle_resubmit_r' + round,
                 type: 'lifecycle',
                 event: 'resubmit',
-                label: '重新提交',
-                subLabel: '第' + round + '轮',
+                label: localeCopy.copy_aed5de2d69,
+                subLabel: localeCopy.copy_93c50c01c0 + round + localeCopy.copy_14144be09d,
                 iconName: 'edit',
                 operatorName: '',
                 comment: ''
@@ -1169,49 +1172,49 @@ Page({
 
             // If the server approverDesc is empty or looks incomplete (no actual names),
             // try to build a better description from individual fields or conditions display
-            if (!approverDesc || approverDesc.indexOf('未指定') >= 0) {
+            if (!approverDesc || approverDesc.indexOf(localeCopy.copy_86bbf0d28e) >= 0) {
               // Try conditions display first (multi-condition, more detailed)
               if (conditionsDisplay.length) {
-                approverDesc = conditionsDisplay.join(' 或 ');
+                approverDesc = conditionsDisplay.join(localeCopy.copy_17bcc41217);
               }
               // If still empty, fall back to individual fields
-              if (!approverDesc || approverDesc.indexOf('未指定') >= 0) {
-                if (step.approverType === 'specific_person' || (step.approverName && step.approverName !== '未指定')) {
-                  approverDesc = '由 ' + (step.approverName || '未指定') + ' 审批';
+              if (!approverDesc || approverDesc.indexOf(localeCopy.copy_86bbf0d28e) >= 0) {
+                if (step.approverType === 'specific_person' || (step.approverName && step.approverName !== localeCopy.copy_86bbf0d28e)) {
+                  approverDesc = localeCopy.copy_d3028048b3 + (step.approverName || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
                 } else {
-                  let identName = step.approverIdentityName || '未指定身份';
+                  let identName = step.approverIdentityName || localeCopy.copy_c76fae0e08;
                   let scopeType = step.scopeType || 'all';
                   if (scopeType === 'all' || !scopeType) {
-                    approverDesc = '由 全体 ' + identName + ' 审批';
+                    approverDesc = localeCopy.copy_9b774f950c + identName + localeCopy.copy_7abed5378f;
                   } else if (scopeType === 'same_department') {
-                    approverDesc = '由 同部门 ' + identName + ' 审批';
+                    approverDesc = localeCopy.copy_fc98ff863c + identName + localeCopy.copy_7abed5378f;
                   } else if (scopeType === 'same_work_group') {
-                    approverDesc = '由 同职能组 ' + identName + ' 审批';
+                    approverDesc = localeCopy.copy_d0348010eb + identName + localeCopy.copy_7abed5378f;
                   } else if (scopeType === 'specific_department') {
-                    let deptName = step.scopeDepartmentName || '指定部门';
-                    approverDesc = '由 ' + deptName + ' ' + identName + ' 审批';
+                    let deptName = step.scopeDepartmentName || localeCopy.copy_b3604f443f;
+                    approverDesc = localeCopy.copy_d3028048b3 + deptName + ' ' + identName + localeCopy.copy_7abed5378f;
                   } else if (scopeType === 'specific_work_group') {
                     let deptName2 = step.scopeDepartmentName || '';
                     let wgName = step.scopeWorkGroupName || '';
-                    let location = [deptName2, wgName].filter(Boolean).join('·') || '指定职能组';
-                    approverDesc = '由 ' + location + ' ' + identName + ' 审批';
+                    let location = [deptName2, wgName].filter(Boolean).join('·') || localeCopy.copy_258347beac;
+                    approverDesc = localeCopy.copy_d3028048b3 + location + ' ' + identName + localeCopy.copy_7abed5378f;
                   } else {
-                    approverDesc = '由 ' + identName + ' 审批';
+                    approverDesc = localeCopy.copy_d3028048b3 + identName + localeCopy.copy_7abed5378f;
                   }
                 }
               }
             }
 
-            let actionMap = { pass: '通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
-            let actionLabel = actionMap[step.actionType] || step.actionType || '通过';
-            let completedStepLabelMap = { pass: '✓ 步骤已通过', sign: '✓ 已签字', estamp: '✓ 已盖章', both: '✓ 已签字盖章' };
-            let completedStepLabel = completedStepLabelMap[step.actionType] || '✓ 步骤已处理';
+            let actionMap = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, both: localeCopy.copy_a63d02480e };
+            let actionLabel = actionMap[step.actionType] || step.actionType || localeCopy.copy_8e2f75159e;
+            let completedStepLabelMap = { pass: localeCopy.copy_8984f2dd04, sign: localeCopy.copy_3ef3c50164, estamp: localeCopy.copy_0657662c42, both: localeCopy.copy_db18a7c8cf };
+            let completedStepLabel = completedStepLabelMap[step.actionType] || localeCopy.copy_8e66e528a2;
 
             if (step.status === 'rejected') {
               flowNodeClass = 'flow-node-rejected';
               flowDotClass = 'flow-dot-rejected';
               flowIcon = 'cross';
-              flowStatusLabel = '✗ 已驳回';
+              flowStatusLabel = localeCopy.copy_70d7f7f742;
               flowTagClass = 'flow-tag-rejected';
             } else if (submissionStatus === 'approved') {
               flowNodeClass = 'flow-node-done';
@@ -1223,7 +1226,7 @@ Page({
               flowNodeClass = 'flow-node-pending';
               flowDotClass = 'flow-dot-pending';
               flowIcon = 'number';
-              flowStatusLabel = '○ 未开始';
+              flowStatusLabel = localeCopy.copy_03c3f77e01;
               flowTagClass = 'flow-tag-pending';
             } else if (step.status === 'approved') {
               flowNodeClass = 'flow-node-done';
@@ -1235,7 +1238,7 @@ Page({
               flowNodeClass = 'flow-node-active';
               flowDotClass = 'flow-dot-active';
               flowIcon = 'number';
-              flowStatusLabel = '● 待处理';
+              flowStatusLabel = localeCopy.copy_532a477356;
               flowTagClass = 'flow-tag-active';
             } else if (step.sortOrder < currentStepIndex) {
               flowNodeClass = 'flow-node-done';
@@ -1247,7 +1250,7 @@ Page({
               flowNodeClass = 'flow-node-pending';
               flowDotClass = 'flow-dot-pending';
               flowIcon = 'number';
-              flowStatusLabel = '○ 未到达';
+              flowStatusLabel = localeCopy.copy_9baefe7c49;
               flowTagClass = 'flow-tag-pending';
               hasFutureSteps = true;
             }
@@ -1308,7 +1311,7 @@ Page({
             if (remainingCount > 0) {
               let insertIdx = -1;
               for (let fi = 0; fi < flowTimeline.length; fi++) {
-                if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === '○ 未到达') {
+                if (flowTimeline[fi].type === 'step' && flowTimeline[fi].flowStatusLabel === localeCopy.copy_9baefe7c49) {
                   insertIdx = fi;
                   break;
                 }
@@ -1317,7 +1320,7 @@ Page({
                 flowTimeline.splice(insertIdx, 0, {
                   _key: 'separator_r' + round + '_remaining',
                   type: 'separator',
-                  label: '剩余 ' + remainingCount + ' 步待处理'
+                  label: localeCopy.copy_361de3f050 + remainingCount + localeCopy.copy_239cbf0257
                 });
               }
             }
@@ -1326,7 +1329,7 @@ Page({
 
         // 5. Remaining lifecycle events after last round — show ALL event types
         let lateIconMap = { withdraw: 'chevron-right', resubmit: 'edit', submit: 'file', edit: 'edit', approve: 'check', reject: 'x' };
-        let lateLabelMap = { withdraw: '撤回审核', resubmit: '重新提交', submit: '提交审核', edit: '编辑审核', approve: '审批通过', reject: '审批驳回' };
+        let lateLabelMap = { withdraw: localeCopy.copy_0f438fa581, resubmit: localeCopy.copy_aed5de2d69, submit: localeCopy.copy_c94eb77b73, edit: localeCopy.copy_cacc39a0fd, approve: localeCopy.copy_126a0e1f4c, reject: localeCopy.copy_e4c3cdbf04 };
         for (let ei4 = nextEventIdx; ei4 < lifecycleEvents.length; ei4++) {
           let lateEvt = lifecycleEvents[ei4];
           if (lateEvt.eventType === 'approve' || lateEvt.eventType === 'reject') {
@@ -1337,7 +1340,7 @@ Page({
             type: 'lifecycle',
             event: lateEvt.eventType,
             label: lateLabelMap[lateEvt.eventType] || lateEvt.eventType,
-            subLabel: lateEvt.round > 1 ? '第' + lateEvt.round + '轮' : '',
+            subLabel: lateEvt.round > 1 ? localeCopy.copy_93c50c01c0 + lateEvt.round + localeCopy.copy_14144be09d : '',
             time: formatAuditTime(lateEvt.createdAt),
             iconName: lateIconMap[lateEvt.eventType] || 'clock',
             operatorName: lateEvt.operatorName || '',
@@ -1357,8 +1360,8 @@ Page({
             _key: 'lifecycle_final_approved',
             type: 'lifecycle',
             event: 'approved',
-            label: '审批通过',
-            subLabel: '全部流程已完成',
+            label: localeCopy.copy_126a0e1f4c,
+            subLabel: localeCopy.copy_1188f4f2ad,
             time: lastApproveEvt ? formatAuditTime(lastApproveEvt.createdAt) : '',
             iconName: 'check',
             operatorName: lastApproveEvt ? (lastApproveEvt.operatorName || '') : '',
@@ -1388,21 +1391,21 @@ Page({
 
         if (submissionStatus === 'approved') {
           flowProgressPercent = 100;
-          flowProgressText = '全部完成（共' + stepsPerRound + '步）';
+          flowProgressText = localeCopy.copy_73ad4b84ff + stepsPerRound + localeCopy.copy_d2dbf88099;
         } else if (submissionStatus === 'rejected') {
           const rejectedStep = rawSteps.find(s => s.status === 'rejected');
           flowProgressPercent = Math.round((currentRoundApproved / stepsPerRound) * 100);
-          flowProgressText = rejectedStep ? '第' + rejectedStep.sortOrder + '/' + stepsPerRound + '步被驳回' : '已驳回';
+          flowProgressText = rejectedStep ? localeCopy.copy_93c50c01c0 + rejectedStep.sortOrder + '/' + stepsPerRound + localeCopy.copy_39bf6116f7 : localeCopy.copy_5d5af942c5;
         } else if (submissionStatus === 'pending') {
           flowProgressPercent = 0;
-          flowProgressText = '待提交（共' + stepsPerRound + '步）';
+          flowProgressText = localeCopy.copy_c387a19415 + stepsPerRound + localeCopy.copy_d2dbf88099;
         } else if (submissionStatus === 'withdrawn') {
           flowProgressPercent = Math.round((currentRoundApproved / stepsPerRound) * 100);
-          flowProgressText = '已撤回（共' + stepsPerRound + '步）';
+          flowProgressText = localeCopy.copy_4aa1a817a1 + stepsPerRound + localeCopy.copy_d2dbf88099;
         } else {
           // in_progress
           flowProgressPercent = Math.round((currentRoundApproved / stepsPerRound) * 100);
-          flowProgressText = '第' + currentStepIndex + '/' + stepsPerRound + '步待处理';
+          flowProgressText = localeCopy.copy_93c50c01c0 + currentStepIndex + '/' + stepsPerRound + localeCopy.copy_500e30ed6d;
         }
 
         // Detect active step for inline approval UI
@@ -1428,7 +1431,7 @@ Page({
         // (handles edge cases where the flowTimeline filtering skips the active step)
         let computedActiveStepId = activeApprovalStep ? activeApprovalStep.id : '';
         if (!activeApprovalStep && rawSteps.length > 0 && submissionStatus === 'in_progress') {
-          let actionMap2 = { pass: '通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
+          let actionMap2 = { pass: localeCopy.copy_8e2f75159e, sign: localeCopy.copy_49cbf30d6b, estamp: localeCopy.copy_7e6630535d, both: localeCopy.copy_a63d02480e };
           // Find max round first
           let maxRound2 = 0;
           for (let si3 = 0; si3 < rawSteps.length; si3++) {
@@ -1443,8 +1446,8 @@ Page({
               activeApprovalStep = {
                 id: rawStep.id,
                 sortOrder: rawStep.sortOrder,
-                actionLabel: actionMap2[rawStep.actionType] || rawStep.actionType || '通过',
-                approverDesc: rawStep.approverDesc || '由未指定审批人审批',
+                actionLabel: actionMap2[rawStep.actionType] || rawStep.actionType || localeCopy.copy_8e2f75159e,
+                approverDesc: rawStep.approverDesc || localeCopy.copy_ae42f47cf6,
                 round: rawStep.round || 1,
                 conditionsDisplay: rawStep.stepConditionsDisplay || []
               };
@@ -1464,7 +1467,7 @@ Page({
           if (nextRawStep) {
             nextStepInfo = {
               sortOrder: nextRawStep.sortOrder,
-              approverDesc: nextRawStep.approverDesc || '按审批条件确定审批人',
+              approverDesc: nextRawStep.approverDesc || localeCopy.copy_a5674f1e5b,
               allowApproverDesignation: nextRawStep.allowApproverDesignation === true
             };
           }
@@ -1506,10 +1509,10 @@ Page({
           console.warn('[audit] markSubmissionRead network error:', e);
         }
       } else {
-        showShortToast(res.message || '请稍后刷新');
+        showShortToast(res.message || localeCopy.copy_e52119b17e);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '请稍后刷新'));
+      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
       this.setData({ loading: false });
     }
@@ -1655,13 +1658,13 @@ Page({
 
     // If user wants to save this signature to library
     if (this.data.sigSaveNew) {
-      let saveName = this.data.sigSaveName || ('签名 ' + new Date().toLocaleDateString());
+      let saveName = this.data.sigSaveName || (localeCopy.copy_66a2af4df9 + new Date().toLocaleDateString());
       callFunction({
         name: 'saveSignature',
         data: { id: '', name: saveName, imageData: imageData }
       }).then(function(saveRes) {
         if (saveRes.status === 'success') {
-          showShortToast('签名已保存');
+          showShortToast(localeCopy.copy_082505816e);
         }
       }).catch(function() {
         // Non-critical; signature still used for this approval
@@ -1706,7 +1709,7 @@ Page({
   _computeSigPosText: function (sig) {
     if (!sig || sig.positionX == null || sig.positionY == null) return '';
     let text = (sig.positionX * 100).toFixed(1) + '%, ' + (sig.positionY * 100).toFixed(1) + '%';
-    if (sig.page && sig.page > 1) text += ', 第' + sig.page + '页';
+    if (sig.page && sig.page > 1) text += localeCopy.copy_6acb97d4c6 + sig.page + localeCopy.copy_f67213967c;
     return text;
   },
 
@@ -1719,7 +1722,7 @@ Page({
     let fileId = sig.fileId;
     let files = this.data.files || [];
     let file = files.find(function(f) { return f.id === fileId; });
-    let fileName = file ? file.fileName : '未命名文件';
+    let fileName = file ? file.fileName : localeCopy.copy_0c28c344e7;
     let fileMime = file ? file.mimeType : '';
 
     // Collect all sigs/stamps on the same file
@@ -1847,7 +1850,7 @@ Page({
     const { approvalAction, approvalStepId, approvalComment, rejectionReason, pendingSignatures, submissionId } = this.data;
 
     if (approvalAction === 'reject' && !rejectionReason) {
-      showShortToast('请填写驳回理由');
+      showShortToast(localeCopy.copy_3764af0483);
       return;
     }
 
@@ -1867,7 +1870,7 @@ Page({
       }
 
       if (res.status === 'success') {
-        showShortToast(res.message || '已完成');
+        showShortToast(res.message || localeCopy.copy_2220286f1c);
         this.closeApproval();
 
         // Optimistic UI: update local state immediately, sync in background
@@ -1878,7 +1881,7 @@ Page({
             stepNode.flowNodeClass = 'flow-node-done';
             stepNode.flowDotClass = 'flow-dot-done';
             stepNode.flowIcon = 'check';
-            stepNode.flowStatusLabel = stepNode.actionType === 'pass' ? '✓ 步骤已通过' : '✓ 已签字盖章';
+            stepNode.flowStatusLabel = stepNode.actionType === 'pass' ? localeCopy.copy_8984f2dd04 : localeCopy.copy_db18a7c8cf;
             stepNode.flowTagClass = 'flow-tag-done';
           }
           let stepCount = this.data.rawStepCount || (this.data.flowProgressPercent ? Math.round(100 / (100 - this.data.flowProgressPercent)) : 1);
@@ -1912,10 +1915,10 @@ Page({
           }, 800);
         }
       } else {
-        showShortToast(res.message || '未完成，请重试');
+        showShortToast(res.message || localeCopy.copy_0531ed9e78);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未完成，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_0531ed9e78));
     } finally {
       this.setData({ loading: false });
     }
@@ -1925,16 +1928,16 @@ Page({
 
   async openDesignateNextPersonPicker() {
     if (!this.data.nextStepInfo || this.data.nextStepInfo.allowApproverDesignation !== true) {
-      showShortToast('下一步按审批条件确定审批人');
+      showShortToast(localeCopy.copy_97d569974c);
       return;
     }
     this.setData({
       personPickerVisible: true,
       personPickerLoading: true,
       personPickerMode: 'designateNext',
-      personPickerDept: '全部',
-      personPickerIdent: '全部',
-      personPickerWg: '全部',
+      personPickerDept: localeCopy.copy_31d4595959,
+      personPickerIdent: localeCopy.copy_31d4595959,
+      personPickerWg: localeCopy.copy_31d4595959,
       personPickerKeyword: '',
       personPickerSelectedIds: [],
       personPickerSelectedList: [],
@@ -1962,9 +1965,9 @@ Page({
       personPickerEligibleList: eligibleList,
       personPickerLoading: false,
       personPickerVisible: true,
-      personPickerDept: '全部',
-      personPickerIdent: '全部',
-      personPickerWg: '全部',
+      personPickerDept: localeCopy.copy_31d4595959,
+      personPickerIdent: localeCopy.copy_31d4595959,
+      personPickerWg: localeCopy.copy_31d4595959,
       personPickerKeyword: '',
       personPickerSelectedIds: preIds,
       personPickerSelectedList: preList,
@@ -2228,7 +2231,7 @@ Page({
     let sigs = [...(this.data.pendingSignatures || [])];
     let base = sigs[baseIdx];
     if (!base) {
-      showShortToast('请选择签名或印章');
+      showShortToast(localeCopy.copy_32a2bb57fd);
       return;
     }
 
@@ -2421,11 +2424,11 @@ Page({
     let warning = '';
     if (actionType === 'both') {
       if (!hasSignature && !hasStamp) {
-        warning = '请添加签名或印章';
+        warning = localeCopy.copy_448b029911;
       } else if (!hasSignature) {
-        warning = '尚未添加签名';
+        warning = localeCopy.copy_a6f8fa4809;
       } else if (!hasStamp) {
-        warning = '尚未添加印章';
+        warning = localeCopy.copy_472d3dfdab;
       }
     }
     if (warning !== this.data.approvalWarning) {
@@ -2466,11 +2469,11 @@ Page({
     }
 
     if (!stepId) {
-      showShortToast('未找到待审批步骤');
+      showShortToast(localeCopy.copy_29f31e5552);
       return;
     }
     if (action === 'reject' && !reason) {
-      showShortToast('请填写驳回理由');
+      showShortToast(localeCopy.copy_3764af0483);
       return;
     }
 
@@ -2478,7 +2481,7 @@ Page({
     if (action === 'approve') {
       this.updateApprovalWarning();
       let warn = this.data.approvalWarning;
-      if (warn && warn.indexOf('不强制') < 0) {
+      if (warn && warn.indexOf(localeCopy.copy_6321f35418) < 0) {
         // Only block if neither signature nor stamp was added to a "both" step
         let actionType = this.data.activeApprovalStep ? this.data.activeApprovalStep.actionType : '';
         if (actionType === 'both') {
@@ -2486,7 +2489,7 @@ Page({
           let hasSignature = sigs.some(function(s) { return s.signatureType === 'signature'; });
           let hasStamp = sigs.some(function(s) { return s.signatureType === 'stamp'; });
           if (!hasSignature && !hasStamp) {
-            showShortToast('请添加签名或印章');
+            showShortToast(localeCopy.copy_448b029911);
             return;
           }
         }
@@ -2528,15 +2531,15 @@ Page({
       }
 
       if (res.status === 'success') {
-        showShortToast(res.message || '已完成');
+        showShortToast(res.message || localeCopy.copy_2220286f1c);
         this.setData({ approvalComment: '', rejectionReason: '', designatedNextPersons: [], nextStepInfo: null });
         require('../../../../utils/eventBus').emit('approval:done');
         this.loadDetail();
       } else {
-        showShortToast(res.message || '未完成，请重试');
+        showShortToast(res.message || localeCopy.copy_0531ed9e78);
       }
     } catch (err) {
-      showShortToast(getErrorText(err, '未完成，请重试'));
+      showShortToast(getErrorText(err, localeCopy.copy_0531ed9e78));
     } finally {
       this.setData({ loading: false });
     }
@@ -2590,7 +2593,7 @@ Page({
     let steps = this.data.steps || [];
 
     if (!this.isEditableStatus(submission.status)) {
-      showShortToast('请在待修改状态下编辑');
+      showShortToast(localeCopy.copy_92c9f0b2b4);
       return;
     }
 
@@ -2716,10 +2719,10 @@ Page({
     let scopeIdx = this.data.editIdentityPickerScopeIndex;
     let scopeValues = this.data.identityPickerScopeValues;
 
-    if (identIdx <= 0) { showShortToast('请选择身份'); return; }
+    if (identIdx <= 0) { showShortToast(localeCopy.copy_d1856227b6); return; }
     let identName = identOpts[identIdx];
     let identity = identities.find(function(i) { return i.name === identName; });
-    if (!identity) { showShortToast('请重新选择身份'); return; }
+    if (!identity) { showShortToast(localeCopy.copy_10d3269bb4); return; }
 
     let scopeType = scopeValues[scopeIdx] || 'all';
     let scopeDepartmentId = '', scopeDepartmentName = '', scopeWorkGroupId = '', scopeWorkGroupName = '';
@@ -2727,20 +2730,20 @@ Page({
     if (scopeType === 'specific_department' || scopeType === 'specific_work_group') {
       let deptIdx = this.data.editIdentityPickerDeptIndex;
       let deptOpts = this.data.identityPickerDeptOptions;
-      if (deptIdx <= 0) { showShortToast('请选择部门'); return; }
+      if (deptIdx <= 0) { showShortToast(localeCopy.copy_eada426deb); return; }
       let deptName = deptOpts[deptIdx];
       let dept = departments.find(function(d) { return d.name === deptName; });
-      if (!dept) { showShortToast('请重新选择部门'); return; }
+      if (!dept) { showShortToast(localeCopy.copy_9f09d6a2b3); return; }
       scopeDepartmentId = dept.id;
       scopeDepartmentName = dept.name;
     }
     if (scopeType === 'specific_work_group') {
       let wgIdx = this.data.editIdentityPickerWgIndex;
       let wgOpts = this.data.identityPickerWgOptions;
-      if (wgIdx <= 0) { showShortToast('请选择职能组'); return; }
+      if (wgIdx <= 0) { showShortToast(localeCopy.copy_ec3b03ecc7); return; }
       let wgName = wgOpts[wgIdx];
       let wg = workGroups.find(function(w) { return w.name === wgName; });
-      if (!wg) { showShortToast('请重新选择职能组'); return; }
+      if (!wg) { showShortToast(localeCopy.copy_c4f6a0088b); return; }
       scopeWorkGroupId = wg.id;
       scopeWorkGroupName = wg.name;
     }
@@ -2774,9 +2777,9 @@ Page({
     this.setData({
       editPersonPickerVisible: true,
       editPersonPickerLoading: true,
-      editPersonPickerDept: '全部',
-      editPersonPickerIdent: '全部',
-      editPersonPickerWg: '全部',
+      editPersonPickerDept: localeCopy.copy_31d4595959,
+      editPersonPickerIdent: localeCopy.copy_31d4595959,
+      editPersonPickerWg: localeCopy.copy_31d4595959,
       editPersonPickerKeyword: '',
       editPersonPickerSelectedIds: [],
       editPersonPickerSelectedList: [],
@@ -2799,19 +2802,19 @@ Page({
 
   onEditPersonPickerDeptChange(e) {
     let opts = this.data.personPickerDeptOpts;
-    this.setData({ editPersonPickerDept: opts[parseInt(e.detail.value)] || '全部' });
+    this.setData({ editPersonPickerDept: opts[parseInt(e.detail.value)] || localeCopy.copy_31d4595959 });
     this.applyEditPersonPickerFilters();
   },
 
   onEditPersonPickerIdentChange(e) {
     let opts = this.data.personPickerIdentOpts;
-    this.setData({ editPersonPickerIdent: opts[parseInt(e.detail.value)] || '全部' });
+    this.setData({ editPersonPickerIdent: opts[parseInt(e.detail.value)] || localeCopy.copy_31d4595959 });
     this.applyEditPersonPickerFilters();
   },
 
   onEditPersonPickerWgChange(e) {
     let opts = this.data.personPickerWgOpts;
-    this.setData({ editPersonPickerWg: opts[parseInt(e.detail.value)] || '全部' });
+    this.setData({ editPersonPickerWg: opts[parseInt(e.detail.value)] || localeCopy.copy_31d4595959 });
     this.applyEditPersonPickerFilters();
   },
 
@@ -2827,9 +2830,9 @@ Page({
     let wg = this.data.editPersonPickerWg;
     let kw = (this.data.editPersonPickerKeyword || '').trim().toLowerCase();
 
-    if (dept !== '全部') list = list.filter(function(p) { return p.department === dept; });
-    if (ident !== '全部') list = list.filter(function(p) { return p.identity === ident; });
-    if (wg !== '全部') list = list.filter(function(p) { return p.workGroup === wg; });
+    if (dept !== localeCopy.copy_31d4595959) list = list.filter(function(p) { return p.department === dept; });
+    if (ident !== localeCopy.copy_31d4595959) list = list.filter(function(p) { return p.identity === ident; });
+    if (wg !== localeCopy.copy_31d4595959) list = list.filter(function(p) { return p.workGroup === wg; });
     if (kw) list = list.filter(function(p) {
       return (p.name || '').toLowerCase().includes(kw) || (p.studentId || '').toLowerCase().includes(kw);
     });
@@ -2858,13 +2861,13 @@ Page({
 
   confirmEditPersonPicker() {
     let selected = this.data.editPersonPickerSelectedList;
-    if (!selected.length) { showShortToast('请选择审批人'); return; }
+    if (!selected.length) { showShortToast(localeCopy.copy_b66608a15f); return; }
     let steps = [...this.data.editSteps];
     let actionType = this.data.editPersonPickerStepActionType;
     for (let i = 0; i < selected.length; i++) {
       let p = selected[i];
       steps.push({
-        name: (this.data.editStepForm.name || '').trim() || (p.name + '审批'),
+        name: (this.data.editStepForm.name || '').trim() || (p.name + localeCopy.copy_c9695bb971),
         approverType: 'specific_person',
         approverHrId: p.id,
         approverHrName: p.name,
@@ -2927,7 +2930,7 @@ Page({
         let fileId = 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
         let validation = this.validateAuditUploadFile(tf.name, tf.size || 0, base64);
         if (!validation.ok) {
-          throw new Error((tf.name || '文件') + ': ' + validation.message);
+          throw new Error((tf.name || localeCopy.copy_afad9f1b56) + ': ' + validation.message);
         }
         newFiles.push({
           fileId: fileId, fileName: tf.name || 'unknown',
@@ -2935,8 +2938,8 @@ Page({
           fileSize: tf.size || 0, fileHash: '', tmpPath: tf.path, base64: base64
         });
       } catch (e) {
-        if (!firstError) firstError = getErrorText(e, '请重新选择文件');
-        console.error('文件读取失败:', tf.name, e);
+        if (!firstError) firstError = getErrorText(e, localeCopy.copy_03d69a9d28);
+        console.error(localeCopy.copy_e4882ec81b, tf.name, e);
       }
     }
     if (firstError && newFiles.length === this.data.editNewFiles.length) {
@@ -2961,7 +2964,7 @@ Page({
 
   async saveEdit() {
     let _editTitle = this.data.editTitle;
-    if (!_editTitle) { showShortToast('请输入标题'); return; }
+    if (!_editTitle) { showShortToast(localeCopy.copy_b99e01d38c); return; }
 
     this.setData({ loading: true });
 
@@ -2983,7 +2986,7 @@ Page({
             fileToken: uploadRes.fileToken
           });
         } else {
-          throw new Error(uploadRes.message || '未上传，请重试');
+          throw new Error(uploadRes.message || localeCopy.copy_060a64d6e7);
         }
       }
 
@@ -3030,14 +3033,14 @@ Page({
       });
 
       if (res.status === 'success') {
-        showShortToast('修改已保存');
+        showShortToast(localeCopy.copy_3315a98bd6);
         this.setData({ editMode: false });
         this.loadDetail();
       } else {
-        showShortToast(res.message || '未保存，请重试');
+        showShortToast(res.message || localeCopy.copy_215e3c57da);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未保存，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_215e3c57da));
     } finally {
       this.setData({ loading: false });
     }
@@ -3059,13 +3062,13 @@ Page({
         data: { submissionId: this.data.submissionId, stepOverrides: stepOverrides }
       });
       if (res.status === 'success') {
-        showShortToast(res.message || '已重提交');
+        showShortToast(res.message || localeCopy.copy_e3f95790ae);
         this.loadDetail();
       } else {
-        showShortToast(res.message || '未重新提交，请重试');
+        showShortToast(res.message || localeCopy.copy_e6f444764d);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未重新提交，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_e6f444764d));
     } finally {
       this.setData({ loading: false });
     }
@@ -3083,8 +3086,8 @@ Page({
   async withdraw() {
     const that = this;
     wx.showModal({
-      title: '确认撤回',
-      content: '确定撤回此审核申请吗？',
+      title: localeCopy.copy_9a766011a1,
+      content: localeCopy.copy_68e750360c,
       success: async (modalRes) => {
         if (!modalRes.confirm) return;
         try {
@@ -3093,13 +3096,13 @@ Page({
             data: { submissionId: that.data.submissionId }
           });
           if (res.status === 'success') {
-            showShortToast('已撤回');
+            showShortToast(localeCopy.copy_282e15e226);
             wx.navigateBack();
           } else {
-            showShortToast(res.message || '未撤回，请重试');
+            showShortToast(res.message || localeCopy.copy_14ebfed982);
           }
         } catch (e) {
-          showShortToast(getErrorText(e, '未撤回，请重试'));
+          showShortToast(getErrorText(e, localeCopy.copy_14ebfed982));
         }
       }
     });

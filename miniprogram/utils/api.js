@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/utils/api');
 const API_BASE = 'https://accumulation93.com/api';
 const CLIENT_VERSION = '1.2.0-security';
 const orgSession = require('./orgSession');
@@ -41,7 +42,7 @@ function createRequestHeaders(requestId) {
 function cancelledError(requestId) {
   return {
     errMsg: 'request:fail request_cancelled',
-    message: '请稍后重试',
+    message: localeCopy.copy_e58fa637eb,
     status: 'request_cancelled',
     requestId: requestId,
     silent: true
@@ -61,10 +62,10 @@ function notifyOrgContextRequired(result) {
   if (!result || result.status !== 'org_context_required' || orgPromptVisible) return;
   orgPromptVisible = true;
   wx.showModal({
-    title: '请选择组织',
-    content: result.message || '请重新选择组织和身份。',
+    title: localeCopy.copy_c6070950c1,
+    content: result.message || localeCopy.copy_db7d9fed8e,
     showCancel: false,
-    confirmText: '去选择',
+    confirmText: localeCopy.copy_d869b80f50,
     complete: function() {
       orgPromptVisible = false;
       require('./trustedNavigation').navigateToTrustedRoute(
@@ -104,10 +105,10 @@ function getFreshWechatCode() {
       success: function(result) {
         const code = String((result && result.code) || '');
         if (code) resolve(code);
-        else reject({ status: 'auth_failed', message: '登录已过期，请重新登录' });
+        else reject({ status: 'auth_failed', message: localeCopy.copy_c337bd9350 });
       },
       fail: function() {
-        reject({ status: 'auth_failed', message: '登录已过期，请重新登录' });
+        reject({ status: 'auth_failed', message: localeCopy.copy_c337bd9350 });
       }
     });
   });
@@ -136,13 +137,13 @@ function requestWechatSession(code) {
           return;
         }
         const error = createResponseError(res);
-        if (!error.message) error.message = result.message || '登录已过期，请重新登录';
+        if (!error.message) error.message = result.message || localeCopy.copy_c337bd9350;
         reject(error);
       },
       fail: function(error) {
         reject({
           status: 'auth_failed',
-          message: '登录已过期，请重新登录',
+          message: localeCopy.copy_c337bd9350,
           errMsg: (error && error.errMsg) || 'request:fail'
         });
       }
@@ -169,9 +170,9 @@ function refreshAuthentication() {
 
 function authenticationMessage(error) {
   const status = String((error && error.status) || '');
-  if (status === 'account_frozen') return '账号已冻结，请联系管理员';
-  if (status === 'need_claim' || status === 'binding_missing') return '请重新登录';
-  return '登录已过期，请重新登录';
+  if (status === 'account_frozen') return localeCopy.copy_d6a178f6ce;
+  if (status === 'need_claim' || status === 'binding_missing') return localeCopy.copy_e7c4c49eab;
+  return localeCopy.copy_c337bd9350;
 }
 
 function redirectToLogin(error) {

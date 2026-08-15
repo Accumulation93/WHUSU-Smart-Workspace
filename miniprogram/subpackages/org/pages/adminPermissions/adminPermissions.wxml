@@ -1,38 +1,38 @@
 <view class="permission-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="管理员权限" tone="admin"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_267c7ab9d4}}" tone="admin"></workspace-hero>
 
   <view class="permission-card">
     <view class="permission-section-head">
       <view>
-        <view class="permission-section-title">管理员列表</view>
+        <view class="permission-section-title">{{localeCopy.copy_2948683a6d}}</view>
       </view>
-      <view class="permission-count">{{filteredAdmins.length}} 人</view>
+      <view class="permission-count">{{filteredAdmins.length}} {{localeCopy.copy_2370e6144f}}</view>
     </view>
     <view class="permission-search">
-      <ui-icon name="search" tone="muted" size="32" ariaLabel="搜索" />
-      <input class="permission-search-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="搜索姓名、学号或管理员类型" />
-      <view class="permission-search-clear ui-motion-chip" wx:if="{{keyword}}" bindtap="clearKeyword" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="28" ariaLabel="清除" /></view>
+      <ui-icon name="search" tone="muted" size="32" ariaLabel="{{localeCopy.copy_cea1da7603}}" />
+      <input class="permission-search-input" value="{{keyword}}" bindinput="onKeywordInput" placeholder="{{localeCopy.copy_f679e67c6f}}" />
+      <view class="permission-search-clear ui-motion-chip" wx:if="{{keyword}}" bindtap="clearKeyword" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="28" ariaLabel="{{localeCopy.copy_2a0e50c5f6}}" /></view>
     </view>
 
-    <view class="permission-loading" wx:if="{{loading}}">正在加载管理员…</view>
-    <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">当前组织暂无可管理的管理员</view>
+    <view class="permission-loading" wx:if="{{loading}}">{{localeCopy.copy_d576d9e120}}</view>
+    <view class="permission-empty" wx:elif="{{!filteredAdmins.length}}">{{localeCopy.copy_6214a926a3}}</view>
     <view class="permission-admin-list" wx:else>
       <view class="permission-admin-row ui-motion-card" wx:for="{{filteredAdmins}}" wx:key="id" data-id="{{item.id}}" bindtap="openAdmin" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
-        <view class="permission-role-mark" aria-label="管理员">
-          <ui-icon name="shield" tone="primary" size="34" ariaLabel="管理员" />
+        <view class="permission-role-mark" aria-label="{{localeCopy.copy_72d3c6f7c2}}">
+          <ui-icon name="shield" tone="primary" size="34" ariaLabel="{{localeCopy.copy_72d3c6f7c2}}" />
         </view>
         <view class="permission-admin-main">
           <view class="permission-admin-title-row">
-            <view class="permission-admin-name">{{item.name || '未命名管理员'}}</view>
+            <view class="permission-admin-name">{{item.name || localeCopy.copy_06e8d3a970}}</view>
             <view class="permission-level permission-level-{{item.adminLevel}}">{{item.adminLevelLabel}}</view>
           </view>
-          <view class="permission-admin-meta">学号 {{item.studentId || '未填写'}} · {{item.bindStatusLabel}}</view>
+          <view class="permission-admin-meta">{{localeCopy.copy_80fba348b7}} {{item.studentId || localeCopy.copy_4dbdbf9dcd}} · {{item.bindStatusLabel}}</view>
           <view class="permission-admin-progress">
             <view class="permission-progress-track"><view class="permission-progress-fill" style="width: {{item.applicableCount ? item.grantedCount * 100 / item.applicableCount : 0}}%;"></view></view>
-            <view class="permission-progress-text">已启用 {{item.grantedCount}} / {{item.applicableCount}}</view>
+            <view class="permission-progress-text">{{localeCopy.copy_9c0ceb5c90}} {{item.grantedCount}} / {{item.applicableCount}}</view>
           </view>
         </view>
-        <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="设置权限" />
+        <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="{{localeCopy.copy_43ecd1ec09}}" />
       </view>
     </view>
   </view>
@@ -44,9 +44,9 @@
       <view class="permission-dialog-header ui-dialog-header">
         <view>
           <view class="permission-dialog-eyebrow">{{selectedAdmin.adminLevelLabel}}</view>
-          <view class="permission-dialog-title">{{selectedAdmin.name}}的权限</view>
+          <view class="permission-dialog-title">{{selectedAdmin.name}}{{localeCopy.copy_0278c19d5a}}</view>
         </view>
-        <view class="permission-close ui-motion-chip" bindtap="closeEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="30" ariaLabel="关闭" /></view>
+        <view class="permission-close ui-motion-chip" bindtap="closeEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}"><ui-icon name="x" tone="muted" size="30" ariaLabel="{{localeCopy.copy_09614cef6c}}" /></view>
       </view>
       <scroll-view class="permission-dialog-body ui-dialog-body ui-dialog-content ui-dialog-content--stack ui-dialog-scroll--fill" scroll-y enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}">
         <view class="permission-group" wx:for="{{permissionGroups}}" wx:key="key" wx:for-item="group" wx:for-index="groupIndex">
@@ -56,7 +56,7 @@
               <view class="permission-group-desc">{{group.description}}</view>
             </view>
             <view class="permission-group-switch">
-              <text>全部</text>
+              <text>{{localeCopy.copy_835048fcaf}}</text>
               <switch checked="{{group.allGranted}}" disabled="{{!group.editableCount}}" color="#2563eb" data-group-index="{{groupIndex}}" bindchange="onGroupChange" />
             </view>
           </view>
@@ -70,8 +70,8 @@
         </view>
       </scroll-view>
       <view class="permission-dialog-footer ui-dialog-footer">
-        <button class="secondary-btn permission-secondary ui-motion-button" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="primary-btn permission-primary ui-motion-button" loading="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存</button>
+        <button class="secondary-btn permission-secondary ui-motion-button" bindtap="closeEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+        <button class="primary-btn permission-primary ui-motion-button" loading="{{saving}}" bindtap="savePermissions" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_71db23a36b}}</button>
       </view>
     </view>
   </view>
@@ -82,12 +82,12 @@
     <view class="permission-mask ui-overlay-blocker" bindtap="closeContextSwitchGuard" catchtouchmove="noop"></view>
     <view class="permission-dialog context-switch-guard-card hit-area ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="ui-dialog-compact-content">
-        <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="未保存内容" /></view>
-        <view class="context-switch-guard-title">有未保存内容</view>
-        <view class="context-switch-guard-desc">保存或取消修改后再切换组织。</view>
+        <view class="context-switch-guard-icon"><ui-icon name="edit" tone="primary" size="34" ariaLabel="{{localeCopy.copy_40859eeee7}}" /></view>
+        <view class="context-switch-guard-title">{{localeCopy.copy_f7eeef9596}}</view>
+        <view class="context-switch-guard-desc">{{localeCopy.copy_56640dd4ae}}</view>
       </view>
       <view class="context-switch-guard-actions ui-dialog-footer">
-        <button class="primary-btn permission-primary ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">继续编辑</button>
+        <button class="primary-btn permission-primary ui-motion-button" bindtap="closeContextSwitchGuard" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c1961a2760}}</button>
       </view>
     </view>
   </view>

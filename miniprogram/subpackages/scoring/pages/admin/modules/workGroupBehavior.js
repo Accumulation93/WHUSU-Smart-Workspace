@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/workGroupBehavior');
 // Behavior: workGroup tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -13,7 +14,7 @@ module.exports = Behavior({
         const result = await this.callCloud('listWorkGroups');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || '请稍后刷新职能组');
+          throw new Error(result.message || localeCopy.copy_5778bc8da0);
         }
         const workGroups = (result.workGroups || []).map((item) => {
           const department = this.data.departmentList.find(d => (
@@ -30,7 +31,7 @@ module.exports = Behavior({
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
-        console.error('加载工作分工列表失败:', error);
+        console.error(localeCopy.copy_7093ebdf5f, error);
         // 不再显示错误提示，因为空数据库是正常情况
         this.setData({
           workGroupList: []
@@ -100,7 +101,7 @@ module.exports = Behavior({
       const form = this.data.workGroupForm;
       if (!form.name) {
         wx.showToast({
-          title: '请填写职能组名称',
+          title: localeCopy.copy_ce1f5597c6,
           icon: 'none'
         });
         return;
@@ -118,7 +119,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未保存，请重试',
+            title: result.message || localeCopy.copy_215e3c57da,
             icon: 'none'
           });
           return;
@@ -128,12 +129,12 @@ module.exports = Behavior({
         await this.loadWorkGroupList();
         this.updateWorkGroupOptions();
         wx.showToast({
-          title: '职能组已保存',
+          title: localeCopy.copy_4fdb08add2,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未保存，请重试',
+          title: localeCopy.copy_215e3c57da,
           icon: 'none'
         });
       } finally {
@@ -149,10 +150,10 @@ module.exports = Behavior({
   
       const confirm = await new Promise((resolve) => {
         wx.showModal({
-          title: '删除职能组',
-          content: '确认删除这个职能组吗？',
-          confirmText: '确认删除',
-          cancelText: '取消',
+          title: localeCopy.copy_2bc5d4cf83,
+          content: localeCopy.copy_e9870f418c,
+          confirmText: localeCopy.copy_7f31eec657,
+          cancelText: localeCopy.copy_4b213fd88a,
           success: (res) => resolve(!!res.confirm),
           fail: () => resolve(false)
         });
@@ -166,7 +167,7 @@ module.exports = Behavior({
         const result = await this.callCloud('deleteWorkGroup', { id });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未删除，请重试',
+            title: result.message || localeCopy.copy_076bb5d383,
             icon: 'none'
           });
           return;
@@ -175,12 +176,12 @@ module.exports = Behavior({
         await this.loadWorkGroupList();
         this.updateWorkGroupOptions();
         wx.showToast({
-          title: '职能组已删除',
+          title: localeCopy.copy_1d828c61a6,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未删除，请重试',
+          title: localeCopy.copy_076bb5d383,
           icon: 'none'
         });
       }
@@ -201,18 +202,18 @@ module.exports = Behavior({
     updateWorkGroupOptions() {
       const { departmentId, department } = this.data.hrForm;
       if (!departmentId && !department) {
-        this.setData({ workGroupOptions: ['无'] });
+        this.setData({ workGroupOptions: [localeCopy.copy_54e953f1bb] });
         return;
       }
   
       const departmentObj = this.data.departmentList.find(d => d.id === departmentId || d.name === department);
       if (!departmentObj) {
-        this.setData({ workGroupOptions: ['无'] });
+        this.setData({ workGroupOptions: [localeCopy.copy_54e953f1bb] });
         return;
       }
   
       const deptIdStr = String(departmentObj.id);
-      const workGroupOptions = ['无', ...this.data.workGroupList
+      const workGroupOptions = [localeCopy.copy_54e953f1bb, ...this.data.workGroupList
         .filter(wg => String(wg.departmentId) === deptIdStr)
         .map(wg => wg.name)];
   

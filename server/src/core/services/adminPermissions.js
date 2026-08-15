@@ -1,84 +1,85 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/services/adminPermissions');
 const PERMISSION_GROUPS = [
   {
     key: 'authentication',
-    label: '身份认证',
+    label: localeCopy.copy_3d91f89e36,
     description: '',
     permissions: [
-      { key: 'auth.identity.verify', label: '身份认证', description: '审核身份认证并生成个人认证码' },
-      { key: 'auth.accounts.recover', label: '账号恢复', description: '审核他人的微信账号恢复申请' },
+      { key: 'auth.identity.verify', label: localeCopy.copy_3d91f89e36, description: localeCopy.copy_0b8c4db3d7 },
+      { key: 'auth.accounts.recover', label: localeCopy.copy_d2d3397a14, description: localeCopy.copy_e5dc008226 },
       // 保留权限键和服务端审计能力以兼容既有授权，但不再把内部安全日志展示为管理界面功能。
-      { key: 'auth.accounts.audit', label: '安全审计', description: '', hidden: true },
-      { key: 'auth.policy.manage', label: '认证设置', description: '管理身份认证和账号恢复方式', targetLevels: ['admin'], defaultLevels: [] }
+      { key: 'auth.accounts.audit', label: localeCopy.copy_aa74d1acc1, description: '', hidden: true },
+      { key: 'auth.policy.manage', label: localeCopy.copy_aef40f4a64, description: localeCopy.copy_514de1fe35, targetLevels: ['admin'], defaultLevels: [] }
     ]
   },
   {
     key: 'permissions',
-    label: '权限管理',
+    label: localeCopy.copy_860c048463,
     description: '',
     permissions: [
-      { key: 'permissions.manage_regular_admins', label: '设置普通管理员权限', description: '管理本组织普通管理员', targetLevels: ['admin'], defaultLevels: [] }
+      { key: 'permissions.manage_regular_admins', label: localeCopy.copy_0b7fec3735, description: localeCopy.copy_95ec2d2724, targetLevels: ['admin'], defaultLevels: [] }
     ]
   },
   {
     key: 'scoring',
-    label: '考核评分',
+    label: localeCopy.copy_33a502217d,
     description: '',
     permissions: [
-      { key: 'scoring.activities', label: '活动管理', description: '管理评分活动' },
-      { key: 'scoring.templates', label: '评分问题', description: '管理评分问题' },
-      { key: 'scoring.rules', label: '评分范围', description: '管理评分人和被评分人范围' },
-      { key: 'scoring.results', label: '结果查看', description: '查看评分结果、明细与完成率' },
-      { key: 'scoring.results_export', label: '结果导出', description: '导出结果和完成情况' },
-      { key: 'scoring.results_revoke', label: '撤销评分', description: '撤销已提交的评分' },
-      { key: 'scoring.publications', label: '结果公示与评优', description: '管理结果公示和评优' }
+      { key: 'scoring.activities', label: localeCopy.copy_f82fa46dc7, description: localeCopy.copy_2ba844c95a },
+      { key: 'scoring.templates', label: localeCopy.copy_fac1711a09, description: localeCopy.copy_30996e4de7 },
+      { key: 'scoring.rules', label: localeCopy.copy_c4f0888fa9, description: localeCopy.copy_a31e1d19cf },
+      { key: 'scoring.results', label: localeCopy.copy_96421f734b, description: localeCopy.copy_1ceabc2771 },
+      { key: 'scoring.results_export', label: localeCopy.copy_e637e8ebce, description: localeCopy.copy_409eac7a4a },
+      { key: 'scoring.results_revoke', label: localeCopy.copy_2cbadf7345, description: localeCopy.copy_2105966964 },
+      { key: 'scoring.publications', label: localeCopy.copy_5fef2a914e, description: localeCopy.copy_cd2429bc0e }
     ]
   },
   {
     key: 'hr',
-    label: '人事信息',
+    label: localeCopy.copy_eb65126cfe,
     description: '',
     permissions: [
-      { key: 'hr.people', label: '人员信息', description: '管理人员和绑定信息' },
-      { key: 'hr.import', label: '人员导入', description: '检查并导入人事表格' },
-      { key: 'hr.profile_review', label: '补充资料审核', description: '审核人员补充资料' },
-      { key: 'hr.profile_templates.manage', label: '人事模板', description: '管理各组织可用的人事模板' },
-      { key: 'hr.profile_templates.select', label: '组织人事资料', description: '选择本组织资料模板和填写方式' },
-      { key: 'hr.departments', label: '部门管理', description: '新增、修改和删除部门' },
-      { key: 'hr.identities', label: '身份管理', description: '新增、修改和删除身份' },
-      { key: 'hr.work_groups', label: '职能组管理', description: '新增、修改和删除职能组' }
+      { key: 'hr.people', label: localeCopy.copy_865032d8a0, description: localeCopy.copy_142b3cb095 },
+      { key: 'hr.import', label: localeCopy.copy_c809ebc5da, description: localeCopy.copy_9b9cb39d96 },
+      { key: 'hr.profile_review', label: localeCopy.copy_46b341ec43, description: localeCopy.copy_9cae55038b },
+      { key: 'hr.profile_templates.manage', label: localeCopy.copy_7cab7f5321, description: localeCopy.copy_f486291a2d },
+      { key: 'hr.profile_templates.select', label: localeCopy.copy_21c318349a, description: localeCopy.copy_3985c940f4 },
+      { key: 'hr.departments', label: localeCopy.copy_5b87380932, description: localeCopy.copy_c738544c87 },
+      { key: 'hr.identities', label: localeCopy.copy_9fb8fb55bc, description: localeCopy.copy_7b26b33399 },
+      { key: 'hr.work_groups', label: localeCopy.copy_25654e7a6e, description: localeCopy.copy_01693f8904 }
     ]
   },
   {
     key: 'audit',
-    label: '审核',
+    label: localeCopy.copy_4f6ab0ccf7,
     description: '',
     permissions: [
-      { key: 'audit.templates', label: '审核流程', description: '管理审核类型、审批步骤和审批范围' },
-      { key: 'audit.stamps', label: '印章管理', description: '管理印章和可使用身份' },
-      { key: 'audit.submissions', label: '审核记录', description: '查看审核记录和进度' },
-      { key: 'audit.verification', label: '文件验签', description: '管理验签人员并进行文件验签' }
+      { key: 'audit.templates', label: localeCopy.copy_ad546eb2dc, description: localeCopy.copy_783f2b3012 },
+      { key: 'audit.stamps', label: localeCopy.copy_1ceb23e763, description: localeCopy.copy_fc760da0ff },
+      { key: 'audit.submissions', label: localeCopy.copy_83c3471991, description: localeCopy.copy_547867cecd },
+      { key: 'audit.verification', label: localeCopy.copy_9e2295b6fc, description: localeCopy.copy_c25a6ae418 }
     ]
   },
   {
     key: 'venue',
-    label: '场地管理',
+    label: localeCopy.copy_ceffdfcdd7,
     description: '',
     permissions: [
-      { key: 'venue.resources', label: '场地与排期', description: '管理场地和排期' },
-      { key: 'venue.bookings', label: '借用管理', description: '管理场地借用' },
-      { key: 'venue.approvals', label: '借用审批', description: '审批借用并管理审批步骤' },
-      { key: 'venue.purposes', label: '事由管理', description: '管理常用借用事由' }
+      { key: 'venue.resources', label: localeCopy.copy_eed42b6ab7, description: localeCopy.copy_33a1ff1645 },
+      { key: 'venue.bookings', label: localeCopy.copy_20ba89a1cc, description: localeCopy.copy_2af5a1edc2 },
+      { key: 'venue.approvals', label: localeCopy.copy_f46b4e54f4, description: localeCopy.copy_56333a8d42 },
+      { key: 'venue.purposes', label: localeCopy.copy_8dcf3fcf0b, description: localeCopy.copy_69c1bbec34 }
     ]
   },
   {
     key: 'system',
-    label: '基本设置',
+    label: localeCopy.copy_5b4cf5d1bf,
     description: '',
     permissions: [
-      { key: 'system.admin_accounts.read', label: '查看管理员', description: '查看和导出本组织管理员' },
-      { key: 'system.admin_accounts.write', label: '管理管理员', description: '新增、修改和移除普通管理员' },
-      { key: 'system.settings', label: '基础设置', description: '查看和修改基础设置' },
-      { key: 'system.organizations', label: '组织管理', description: '管理组织和登录默认组织', targetLevels: [], defaultLevels: [] }
+      { key: 'system.admin_accounts.read', label: localeCopy.copy_ebb6d5ebfb, description: localeCopy.copy_8c15f54beb },
+      { key: 'system.admin_accounts.write', label: localeCopy.copy_fa3f577b48, description: localeCopy.copy_95e5f8ae4b },
+      { key: 'system.settings', label: localeCopy.copy_6fd8e21d26, description: localeCopy.copy_b93169a87f },
+      { key: 'system.organizations', label: localeCopy.copy_2eb6aec1c5, description: localeCopy.copy_163e9bde7d, targetLevels: [], defaultLevels: [] }
     ]
   }
 ];

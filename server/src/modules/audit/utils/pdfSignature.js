@@ -1,5 +1,6 @@
 'use strict';
 
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/utils/pdfSignature');
 const crypto = require('crypto');
 const forge = require('node-forge');
 const { PDFDocument } = require('pdf-lib');
@@ -130,7 +131,7 @@ function getConfiguredSigningIdentity() {
   const certificateChainPem = readPemSetting('PDF_SIGNING_CERTIFICATE_CHAIN_PEM', 'PDF_SIGNING_CERTIFICATE_CHAIN_PATH');
   if (!privateKeyPem && !certificatePem && !certificateChainPem) return null;
   if (!privateKeyPem || !certificatePem) {
-    throw new Error('当前签名服务暂不可用，请稍后重试');
+    throw new Error(localeCopy.copy_6350b591cd);
   }
 
   try {
@@ -139,7 +140,7 @@ function getConfiguredSigningIdentity() {
     const privatePublicKey = crypto.createPublicKey(privateKey).export({ type: 'spki', format: 'der' });
     const certificatePublicKey = certificate.publicKey.export({ type: 'spki', format: 'der' });
     if (!privatePublicKey.equals(certificatePublicKey)) {
-      throw new Error('PDF签名私钥与证书公钥不匹配');
+      throw new Error(localeCopy.copy_6fa0204352);
     }
     const chain = splitCertificateChain(certificateChainPem)
       .filter((item) => item.trim() && item.trim() !== certificatePem.trim());
@@ -151,7 +152,7 @@ function getConfiguredSigningIdentity() {
       trustStatus: chain.length ? 'chain_configured' : 'certificate_configured'
     };
   } catch (error) {
-    throw new Error('当前签名服务暂不可用，请稍后重试');
+    throw new Error(localeCopy.copy_6350b591cd);
   }
 }
 
@@ -165,7 +166,7 @@ function getConfiguredParentSigningIdentity() {
   const chainPem = readPemSetting('PDF_SIGNING_PARENT_CHAIN_PEM', 'PDF_SIGNING_PARENT_CHAIN_PATH');
   if (!privateKeyPem && !certificatePem && !chainPem) return null;
   if (!privateKeyPem || !certificatePem) {
-    throw new Error('当前签名服务暂不可用，请稍后重试');
+    throw new Error(localeCopy.copy_6350b591cd);
   }
   try {
     const privateKey = crypto.createPrivateKey(privateKeyPem);
@@ -173,7 +174,7 @@ function getConfiguredParentSigningIdentity() {
     const privatePublicKey = crypto.createPublicKey(privateKey).export({ type: 'spki', format: 'der' });
     const certificatePublicKey = certificate.publicKey.export({ type: 'spki', format: 'der' });
     if (!privatePublicKey.equals(certificatePublicKey)) {
-      throw new Error('PDF签名父证书私钥与证书公钥不匹配');
+      throw new Error(localeCopy.copy_515d8dc936);
     }
     return {
       privateKeyPem,
@@ -181,7 +182,7 @@ function getConfiguredParentSigningIdentity() {
       chainPem
     };
   } catch (error) {
-    throw new Error('当前签名服务暂不可用，请稍后重试');
+    throw new Error(localeCopy.copy_6350b591cd);
   }
 }
 

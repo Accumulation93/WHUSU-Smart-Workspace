@@ -1,68 +1,68 @@
 <page-meta page-style="{{adHocStepEditorVisible || editStepEditorVisible || editPersonPickerVisible || stampPickerVisible || placementVisible || approvalVisible || sigSourcePickerVisible || signaturePadVisible || personPickerVisible ? 'overflow: hidden;' : ''}}"></page-meta>
 <view class="page subapp-audit-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{action === 'create' ? '审核 · 发起申请' : '审核 · 审核详情'}}"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{action === 'create' ? localeCopy.copy_67587e6612 : localeCopy.copy_2d40e10806}}"></workspace-hero>
 
   <!-- ═══════════ Create Mode ═══════════ -->
   <view class="section" wx:if="{{action === 'create'}}">
     <view class="card">
-      <view class="section-title">申请方式</view>
+      <view class="section-title">{{localeCopy.copy_3fb5aace39}}</view>
       <view class="button-row">
-        <button class="{{createMode === 'template' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-mode="template" bindtap="onCreateModeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">使用模板</button>
-        <button class="{{createMode === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-mode="ad_hoc" bindtap="onCreateModeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">自定义流程</button>
+        <button class="{{createMode === 'template' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-mode="template" bindtap="onCreateModeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_15b653039c}}</button>
+        <button class="{{createMode === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-mode="ad_hoc" bindtap="onCreateModeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f49717b207}}</button>
       </view>
     </view>
 
     <!-- Template mode -->
     <view class="card" wx:if="{{createMode === 'template'}}">
-      <view class="section-title">选择审核模板</view>
+      <view class="section-title">{{localeCopy.copy_091dc4f11f}}</view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll small-scroll" scroll-y>
         <view class="template-select-item {{selectedTemplateId === item.id ? 'template-select-item-selected' : ''}} ui-motion-card" wx:for="{{flowTemplates}}" wx:key="id" data-id="{{item.id}}" catchtap="onTemplateSelect" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="radio-dot {{selectedTemplateId === item.id ? 'radio-dot-checked' : ''}}"></view>
           <view class="list-main">
-            <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}步 · {{item.resubmitMode === 'fresh' ? '重新逐层' : '回到驳回人'}})</text></view>
+            <view class="list-name">{{item.name}} <text class="list-desc">({{item.stepCount}}{{localeCopy.copy_9e545997b0}} · {{item.resubmitMode === 'fresh' ? localeCopy.copy_bd83f7065b : localeCopy.copy_2313ec3016}})</text></view>
             <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
           </view>
         </view>
         <view class="audit-empty-state" wx:if="{{!flowTemplates.length}}">
-          <view class="audit-empty-icon"><ui-icon name="file" tone="muted" size="54" ariaLabel="暂无模板" /></view>
-          <view class="audit-empty-text">暂无可用模板</view>
+          <view class="audit-empty-icon"><ui-icon name="file" tone="muted" size="54" ariaLabel="{{localeCopy.copy_aee302ae49}}" /></view>
+          <view class="audit-empty-text">{{localeCopy.copy_ca5c78dc29}}</view>
         </view>
       </scroll-view>
     </view>
 
     <!-- Ad-hoc mode -->
     <view class="card" wx:if="{{createMode === 'ad_hoc'}}">
-      <view class="section-title">审批步骤 ({{adHocSteps.length}}步)</view>
+      <view class="section-title">{{localeCopy.copy_265568fe85}} ({{adHocSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
       <view class="ad-hoc-step-item" wx:for="{{adHocSteps}}" wx:key="index">
         <view class="ad-hoc-step-main">
-          <view class="ad-hoc-step-title">{{item.name || ('第' + (index + 1) + '步')}}：{{item.approverType === 'specific_person' ? (item.approverHrName || '未指定人员') : (item.approverIdentityName || '未指定身份') + '（' + (item.scopeType === 'same_department' ? '同部门' : (item.scopeType === 'same_work_group' ? '同职能组' : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || '指定部门') : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : '全体')))) + '）'}} — {{item.actionType === 'pass' ? '通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
-          <view class="ad-hoc-step-desc">{{item.approverType === 'identity' ? '按身份审批' : '指定人员审批'}}</view>
+          <view class="ad-hoc-step-title">{{item.name || (localeCopy.copy_93c50c01c0 + (index + 1) + localeCopy.copy_493a127a99)}}：{{item.approverType === 'specific_person' ? (item.approverHrName || localeCopy.copy_5fff626dd6) : (item.approverIdentityName || localeCopy.copy_c76fae0e08) + '（' + (item.scopeType === 'same_department' ? localeCopy.copy_37ad645951 : (item.scopeType === 'same_work_group' ? localeCopy.copy_2c67faf1c7 : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || localeCopy.copy_b3604f443f) : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : localeCopy.copy_9b3c1f7a01)))) + '）'}} — {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
+          <view class="ad-hoc-step-desc">{{item.approverType === 'identity' ? localeCopy.copy_fc2ce54999 : localeCopy.copy_e31ec452dd}}</view>
         </view>
-        <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeAdHocStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view>
+        <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeAdHocStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
       </view>
       <view class="audit-empty-state" wx:if="{{!adHocSteps.length}}">
-        <view class="audit-empty-text">暂无审批步骤</view>
+        <view class="audit-empty-text">{{localeCopy.copy_84e125402d}}</view>
       </view>
-      <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="openAdHocStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">按身份添加</button><button class="secondary-btn ui-motion-button" bindtap="openPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">指定人员添加</button></view>
+      <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="openAdHocStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_751c159dd2}}</button><button class="secondary-btn ui-motion-button" bindtap="openPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0b61c482f3}}</button></view>
       <view class="field field-mt-16">
-        <view class="field-label">驳回后重新提交</view>
-        <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onResubmitModeChange">
-          <view class="picker-value">{{resubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
+        <view class="field-label">{{localeCopy.copy_8d3aac9d85}}</view>
+        <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" bindchange="onResubmitModeChange">
+          <view class="picker-value">{{resubmitMode === 'fresh' ? localeCopy.copy_3cd3d7a8c2 : localeCopy.copy_7897981e63}}</view>
         </picker>
       </view>
     </view>
 
     <!-- Template step preview (person override) -->
     <view class="card" wx:if="{{createMode === 'template' && selectedTemplateId && templatePreviewSteps.length}}">
-      <view class="section-title">审批步骤预览（共{{templatePreviewSteps.length}}步）</view>
-      <view class="section-desc section-desc-sm">审批人按流程设置确定</view>
+      <view class="section-title">{{localeCopy.copy_9c898a71af}}{{templatePreviewSteps.length}}{{localeCopy.copy_16d27aa59e}}</view>
+      <view class="section-desc section-desc-sm">{{localeCopy.copy_34f5bab454}}</view>
       <!-- 模板允许时：第一步审批人可指定（显眼入口，与下方步骤行共用同一状态） -->
       <view class="tpl-first-approver" wx:if="{{templateStepOverrides.length && templateStepOverrides[0].stepIndex === 1}}">
         <view class="tpl-first-approver-head">
-          <view class="tpl-first-approver-title">第一步审批人</view>
-          <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides[0].personHrIds.length ? '修改指定' : '指定'}}</text>
+          <view class="tpl-first-approver-title">{{localeCopy.copy_55de802a51}}</view>
+          <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides[0].personHrIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
         </view>
-        <view class="tpl-first-approver-desc">未指定时按模板审批条件确定第一步审批人，指定后由所选人员审批。</view>
+        <view class="tpl-first-approver-desc">{{localeCopy.copy_8ff5c9662e}}</view>
         <view wx:if="{{templateStepOverrides[0].personHrNames.length}}" class="tpl-step-override-persons">
           <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
             <text>{{pname}}</text>
@@ -72,40 +72,40 @@
       </view>
       <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
         <view class="tpl-step-preview-main">
-          <view class="tpl-step-preview-num">{{item.name || ('第' + (item.sortOrder || (index + 1)) + '步')}}</view>
-          <view class="tpl-step-preview-desc">{{item.approverDesc || '由未指定审批人审批'}}</view>
-          <view class="tpl-step-preview-action">{{item.actionLabel || '审批'}}</view>
+          <view class="tpl-step-preview-num">{{item.name || (localeCopy.copy_93c50c01c0 + (item.sortOrder || (index + 1)) + localeCopy.copy_493a127a99)}}</view>
+          <view class="tpl-step-preview-desc">{{item.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
+          <view class="tpl-step-preview-action">{{item.actionLabel || localeCopy.copy_c9695bb971}}</view>
         </view>
         <view class="tpl-step-preview-mode">
-          <text wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">已指定审批人</text>
-          <text wx:else class="tpl-step-fixed-mode">按审批条件</text>
+          <text wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">{{localeCopy.copy_db70b8527a}}</text>
+          <text wx:else class="tpl-step-fixed-mode">{{localeCopy.copy_46a814a2c4}}</text>
         </view>
       </view>
     </view>
 
     <!-- Common: Title + Files -->
     <view class="card">
-      <view class="section-title">基本信息</view>
+      <view class="section-title">{{localeCopy.copy_66240d9d99}}</view>
       <view class="field">
-        <view class="field-label">标题</view>
-        <input class="field-input" value="{{createTitle}}" bindinput="onTitleInput" placeholder="请输入审核标题" />
+        <view class="field-label">{{localeCopy.copy_30f93d24ca}}</view>
+        <input class="field-input" value="{{createTitle}}" bindinput="onTitleInput" placeholder="{{localeCopy.copy_3ebd5d2cf0}}" />
       </view>
       <view class="field">
-        <view class="field-label">描述</view>
-        <textarea class="field-textarea" auto-height maxlength="-1" value="{{createDesc}}" bindinput="onDescInput" placeholder="填写说明（选填）" ></textarea>
+        <view class="field-label">{{localeCopy.copy_25e1199dc3}}</view>
+        <textarea class="field-textarea" auto-height maxlength="-1" value="{{createDesc}}" bindinput="onDescInput" placeholder="{{localeCopy.copy_3234735724}}" ></textarea>
       </view>
-      <view class="section-title field-mt-16">附件 ({{uploadedFiles.length}}份)</view>
+      <view class="section-title field-mt-16">{{localeCopy.copy_d036aa723a}} ({{uploadedFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
       <view class="file-attach-item" wx:for="{{uploadedFiles}}" wx:key="fileId">
-        <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="附件" /></view>
+        <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
         <view class="file-attach-name">{{item.fileName}}</view>
-        <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeUploadedFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view>
+        <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeUploadedFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
       </view>
       <view class="button-row compact-row">
-        <button class="secondary-btn ui-motion-button" bindtap="chooseImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">选择图片</button>
-        <button class="secondary-btn ui-motion-button" bindtap="chooseFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">选择文件</button>
+        <button class="secondary-btn ui-motion-button" bindtap="chooseImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_53ce695b90}}</button>
+        <button class="secondary-btn ui-motion-button" bindtap="chooseFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_98aea69c53}}</button>
       </view>
       <view class="audit-btn-bar">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="submitAudit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">提交申请</button>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="submitAudit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c07097f6db}}</button>
       </view>
     </view>
 
@@ -114,46 +114,46 @@
     <view class="popup-mask ui-overlay" wx:if="{{adHocStepEditorVisible}}" bindtap="closeAdHocStepEditor">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-        <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+        <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_7963fb24a5}} — {{localeCopy.copy_6cd86bd7ed}}</view><text class="popup-close ui-motion-chip" catchtap="closeAdHocStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
           <view class="detail-popup-form ui-dialog-stack">
             <view class="field">
-              <view class="field-label">步骤名称</view>
-              <input class="field-input" value="{{adHocStepForm.name}}" data-field="name" bindinput="onAdHocStepField" placeholder="如：部门负责人审批"/>
+              <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
+              <input class="field-input" value="{{adHocStepForm.name}}" data-field="name" bindinput="onAdHocStepField" placeholder="{{localeCopy.copy_ac4d7a45e0}}"/>
             </view>
             <view class="field">
-              <view class="field-label">审批动作</view>
-              <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onAdHocActionTypeChange">
-                <view class="picker-value">{{adHocStepForm.actionType === 'pass' ? '通过' : (adHocStepForm.actionType === 'sign' ? '签字' : (adHocStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+              <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
+              <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onAdHocActionTypeChange">
+                <view class="picker-value">{{adHocStepForm.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (adHocStepForm.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (adHocStepForm.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
               </picker>
             </view>
             <view class="field">
-              <view class="field-label">审批范围</view>
+              <view class="field-label">{{localeCopy.copy_8f5c5f658c}}</view>
               <picker range="{{identityPickerScopeOptions}}" bindchange="onIdentityScopeChange">
-                <view class="picker-value">{{identityPickerScopeOptions[identityPickerScopeIndex] || '全体成员'}}</view>
+                <view class="picker-value">{{identityPickerScopeOptions[identityPickerScopeIndex] || localeCopy.copy_76d431a4dc}}</view>
               </picker>
             </view>
             <view class="field" wx:if="{{identityPickerScopeValues[identityPickerScopeIndex] === 'specific_department' || identityPickerScopeValues[identityPickerScopeIndex] === 'specific_work_group'}}">
-              <view class="field-label">指定部门</view>
+              <view class="field-label">{{localeCopy.copy_f1643742d1}}</view>
               <picker range="{{identityPickerDeptOptions}}" bindchange="onIdentityDeptChange">
-                <view class="picker-value">{{identityPickerDeptOptions[identityPickerDeptIndex] || '请选择部门'}}</view>
+                <view class="picker-value">{{identityPickerDeptOptions[identityPickerDeptIndex] || localeCopy.copy_eada426deb}}</view>
               </picker>
             </view>
             <view class="field" wx:if="{{identityPickerScopeValues[identityPickerScopeIndex] === 'specific_work_group'}}">
-              <view class="field-label">指定职能组</view>
+              <view class="field-label">{{localeCopy.copy_237707b205}}</view>
               <picker range="{{identityPickerWgOptions}}" bindchange="onIdentityWgChange">
-                <view class="picker-value">{{identityPickerWgOptions[identityPickerWgIndex] || '请选择职能组'}}</view>
+                <view class="picker-value">{{identityPickerWgOptions[identityPickerWgIndex] || localeCopy.copy_ec3b03ecc7}}</view>
               </picker>
             </view>
             <view class="field">
-              <view class="field-label">审批人身份</view>
+              <view class="field-label">{{localeCopy.copy_4711f10351}}</view>
               <picker range="{{identityPickerIdentOptions}}" bindchange="onIdentityIdentChange">
-                <view class="picker-value">{{identityPickerIdentOptions[identityPickerIdentIndex] || '请选择身份'}}</view>
+                <view class="picker-value">{{identityPickerIdentOptions[identityPickerIdentIndex] || localeCopy.copy_d1856227b6}}</view>
               </picker>
             </view>
           </view>
         </scroll-view>
-        <view class="audit-btn-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="confirmAdHocStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button></view>
+        <view class="audit-btn-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="confirmAdHocStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a58e97a9f8}}</button></view>
       </view>
     </view>
     </viewport-portal>
@@ -169,19 +169,19 @@
       <view class="card">
         <view class="info-grid">
           <view class="info-block">
-            <view class="info-label">状态</view>
+            <view class="info-label">{{localeCopy.copy_8aee737e64}}</view>
             <view class="info-value">
               <view class="detail-status-chip {{submission.status === 'approved' ? 'detail-status-approved' : (submission.status === 'rejected' ? 'detail-status-rejected' : (submission.status === 'in_progress' ? 'detail-status-progress' : (submission.status === 'draft' ? 'detail-status-draft' : (submission.status === 'pending' ? 'detail-status-pending' : (submission.status === 'withdrawn' ? 'detail-status-withdrawn' : 'detail-status-draft')))))}}">
-                {{submission.status === 'draft' ? '草稿' : (submission.status === 'pending' ? '待提交' : (submission.status === 'in_progress' ? '审核中' : (submission.status === 'rejected' ? '已驳回' : (submission.status === 'approved' ? '已完成' : '已撤回'))))}}
+                {{submission.status === 'draft' ? localeCopy.copy_f6afc42806 : (submission.status === 'pending' ? localeCopy.copy_57b008f8c7 : (submission.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (submission.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (submission.status === 'approved' ? localeCopy.copy_2220286f1c : localeCopy.copy_282e15e226))))}}
               </view>
             </view>
           </view>
           <view class="info-block">
-            <view class="info-label">类型</view>
-            <view class="info-value">{{submission.type === 'template' ? '使用模板' : '自定义流程'}}</view>
+            <view class="info-label">{{localeCopy.copy_ab4e14a283}}</view>
+            <view class="info-value">{{submission.type === 'template' ? localeCopy.copy_600e8c5df8 : localeCopy.copy_0fd9f5f9e8}}</view>
           </view>
           <view class="info-block info-block-full" wx:if="{{submission.templateName}}">
-            <view class="info-label">模板</view>
+            <view class="info-label">{{localeCopy.copy_e1b8f22129}}</view>
             <view class="info-value">{{submission.templateName}}</view>
           </view>
         </view>
@@ -192,51 +192,51 @@
               name="{{submission.status === 'approved' ? 'check' : (submission.status === 'rejected' ? 'x' : (submission.status === 'draft' ? 'edit' : 'clock'))}}"
               tone="{{submission.status === 'approved' ? 'primary' : (submission.status === 'rejected' ? 'danger' : 'muted')}}"
               size="22"
-              ariaLabel="审核状态"
+              ariaLabel="{{localeCopy.copy_9ecea0b582}}"
             />
           </view>
           <view class="status-hint-copy">
-            <block wx:if="{{submission.status === 'draft'}}">尚未提交</block>
-            <block wx:elif="{{submission.status === 'pending'}}">等待重新提交</block>
-            <block wx:elif="{{submission.status === 'in_progress'}}">等待第{{submission.currentStepIndex || 1}}步审批</block>
-            <block wx:elif="{{submission.status === 'rejected'}}">第{{submission.previousRejectStepIndex || '?'}}步已驳回，可修改后重新提交</block>
-            <block wx:elif="{{submission.status === 'approved'}}">审批已完成</block>
-            <block wx:elif="{{submission.status === 'withdrawn'}}">已撤回，可重新提交</block>
+            <block wx:if="{{submission.status === 'draft'}}">{{localeCopy.copy_f90d5fcc1f}}</block>
+            <block wx:elif="{{submission.status === 'pending'}}">{{localeCopy.copy_19e33b3f68}}</block>
+            <block wx:elif="{{submission.status === 'in_progress'}}">{{localeCopy.copy_3714fd6353}}{{submission.currentStepIndex || 1}}{{localeCopy.copy_f600823615}}</block>
+            <block wx:elif="{{submission.status === 'rejected'}}">{{localeCopy.copy_ef8b7ffa9b}}{{submission.previousRejectStepIndex || '?'}}{{localeCopy.copy_f69a5ce118}}</block>
+            <block wx:elif="{{submission.status === 'approved'}}">{{localeCopy.copy_5477363bc5}}</block>
+            <block wx:elif="{{submission.status === 'withdrawn'}}">{{localeCopy.copy_1860c2d121}}</block>
           </view>
         </view>
       </view>
 
       <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
       <view class="card approval-card" wx:if="{{!editMode && submission.status === 'in_progress' && activeApprovalStepId && userIsApprover}}">
-        <view class="section-title approval-card-title">审批操作</view>
+        <view class="section-title approval-card-title">{{localeCopy.copy_7bc6908a17}}</view>
         <view class="approval-step-info">
-          {{activeApprovalStep.stepName || ('第' + activeApprovalStep.sortOrder + '步')}} · {{activeApprovalStep.actionLabel}}
-          <text wx:if="{{activeApprovalStep.round > 1}}" class="approval-round-note">（第{{activeApprovalStep.round}}轮）</text>
+          {{activeApprovalStep.stepName || (localeCopy.copy_93c50c01c0 + activeApprovalStep.sortOrder + localeCopy.copy_493a127a99)}} · {{activeApprovalStep.actionLabel}}
+          <text wx:if="{{activeApprovalStep.round > 1}}" class="approval-round-note">{{localeCopy.copy_bdabcbc8ff}}{{activeApprovalStep.round}}{{localeCopy.copy_d03f1546e9}}</text>
         </view>
         <view class="approval-step-desc">{{activeApprovalStep.approverDesc}}</view>
 
         <!-- Signature / Stamp section (hidden for pass-only steps) -->
         <view wx:if="{{activeApprovalStep.actionType !== 'pass'}}" class="approval-sig-section">
           <view class="approval-sig-header">
-            {{activeApprovalStep.actionType === 'both' ? '签名与盖章' : (activeApprovalStep.actionType === 'sign' ? '签名' : '盖章')}}
+            {{activeApprovalStep.actionType === 'both' ? localeCopy.copy_7f3502c81e : (activeApprovalStep.actionType === 'sign' ? localeCopy.copy_0c02992813 : localeCopy.copy_7e6630535d)}}
           </view>
 
           <!-- File list -->
           <view wx:for="{{files}}" wx:key="id" wx:for-item="f" class="approval-file-item">
             <view class="approval-file-row">
-              <view class="approval-file-name"><ui-icon name="file" tone="muted" size="20" ariaLabel="附件" /><text>{{f.fileName}}</text></view>
+              <view class="approval-file-name"><ui-icon name="file" tone="muted" size="20" ariaLabel="{{localeCopy.copy_d036aa723a}}" /><text>{{f.fileName}}</text></view>
               <view class="approval-file-actions">
                 <text class="approval-file-btn-preview ui-motion-chip"
                       data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
-                      bindtap="previewFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">预览</text>
+                      bindtap="previewFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_332bc9211a}}</text>
                 <text wx:if="{{activeApprovalStep.actionType === 'sign' || activeApprovalStep.actionType === 'both'}}"
                       class="approval-file-btn-sign ui-motion-chip"
                       data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
-                      bindtap="addSignatureForFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">签名</text>
+                      bindtap="addSignatureForFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_76dac19a0a}}</text>
                 <text wx:if="{{activeApprovalStep.actionType === 'estamp' || activeApprovalStep.actionType === 'both'}}"
                       class="approval-file-btn-stamp ui-motion-chip"
                       data-file-id="{{f.id}}" data-file-name="{{f.fileName}}"
-                      bindtap="addStampForFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">盖章</text>
+                      bindtap="addStampForFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_31d6da5144}}</text>
               </view>
             </view>
 
@@ -245,12 +245,12 @@
                   class="approval-sig-item">
               <view class="approval-sig-info">
                 <image wx:if="{{sig.imageData}}" src="{{sig.imageData}}" mode="aspectFit" class="approval-sig-thumb" />
-                <text class="approval-sig-name">{{sig.signatureType === 'stamp' ? (sig.stampName || '印章') : '签名'}}</text>
-                <text class="approval-sig-pos">{{sig.posText || '请调整位置'}}</text>
+                <text class="approval-sig-name">{{sig.signatureType === 'stamp' ? (sig.stampName || localeCopy.copy_ed981b1744) : localeCopy.copy_0c02992813}}</text>
+                <text class="approval-sig-pos">{{sig.posText || localeCopy.copy_ee81f5d088}}</text>
               </view>
               <view class="approval-sig-actions">
-                <text class="approval-sig-action-adjust ui-motion-chip" data-sig-idx="{{index}}" bindtap="openPlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">调整位置</text>
-                <text class="approval-sig-action-remove ui-motion-chip" data-sig-idx="{{index}}" bindtap="removePendingSign" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
+                <text class="approval-sig-action-adjust ui-motion-chip" data-sig-idx="{{index}}" bindtap="openPlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0887668fa5}}</text>
+                <text class="approval-sig-action-remove ui-motion-chip" data-sig-idx="{{index}}" bindtap="removePendingSign" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
               </view>
             </view>
           </view>
@@ -263,41 +263,41 @@
         </view>
 
         <!-- Approval comment -->
-        <view class="approval-field-label">审批意见（可选）</view>
-          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="填写审批意见（选填）"></textarea>
+        <view class="approval-field-label">{{localeCopy.copy_12555b2518}}</view>
+          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{localeCopy.copy_79e3568eee}}"></textarea>
 
         <!-- Rejection reason -->
-        <view class="approval-field-label">驳回理由</view>
-          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="填写驳回理由"></textarea>
+        <view class="approval-field-label">{{localeCopy.copy_47a12cc974}}</view>
+          <textarea class="approval-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_cc26adb7da}}"></textarea>
 
         <!-- Designate next-step approvers (optional) -->
         <view class="approval-designate-row" wx:if="{{nextStepInfo && nextStepInfo.allowApproverDesignation}}">
           <view class="approval-designate-header">
-            <view class="approval-designate-label">指定下一步审批人（可选）</view>
-            <text class="audit-link-btn approval-designate-link ui-motion-chip" bindtap="openDesignateNextPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{designatedNextPersons.length ? '修改' : '选择'}}</text>
+            <view class="approval-designate-label">{{localeCopy.copy_3fc6899daa}}</view>
+            <text class="audit-link-btn approval-designate-link ui-motion-chip" bindtap="openDesignateNextPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{designatedNextPersons.length ? localeCopy.copy_00e277a673 : localeCopy.copy_c47f370afa}}</text>
           </view>
-          <view wx:if="{{!designatedNextPersons.length}}" class="approval-designate-empty">不指定时由下一步审批人处理</view>
+          <view wx:if="{{!designatedNextPersons.length}}" class="approval-designate-empty">{{localeCopy.copy_0b9e83ebb1}}</view>
           <view wx:for="{{designatedNextPersons}}" wx:key="id" class="approval-designate-tag">
             {{item.name}}
             <text data-hr-id="{{item.id}}" bindtap="removeDesignatedNextPerson" class="approval-designate-remove ui-motion-chip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
           </view>
-          <view wx:if="{{nextStepInfo}}" class="approval-next-step-info">下一步：第{{nextStepInfo.sortOrder}}步 · {{nextStepInfo.approverDesc}}</view>
+          <view wx:if="{{nextStepInfo}}" class="approval-next-step-info">{{localeCopy.copy_d5b151752b}}{{nextStepInfo.sortOrder}}{{localeCopy.copy_9e545997b0}} · {{nextStepInfo.approverDesc}}</view>
         </view>
 
         <!-- Action buttons -->
         <view class="button-row">
-          <button class="primary-btn approval-btn-approve ui-motion-button" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="approve" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ 通过</button>
-          <button class="secondary-btn danger-btn approval-btn-reject ui-motion-button" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="reject" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ 驳回</button>
+          <button class="primary-btn approval-btn-approve ui-motion-button" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="approve" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ {{localeCopy.copy_1bb7eb3e1a}}</button>
+          <button class="secondary-btn danger-btn approval-btn-reject ui-motion-button" loading="{{loading}}" bindtap="confirmApprovalDirect" data-action="reject" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ {{localeCopy.copy_0c90eb0204}}</button>
         </view>
       </view>
 
       <!-- Flow Visualization -->
       <view class="card">
-        <view class="section-title">审批流程</view>
+        <view class="section-title">{{localeCopy.copy_3bc010171a}}</view>
 
         <!-- Flow progress summary -->
         <view class="audit-flow-summary">
-          <text class="flow-summary-text">进度</text>
+          <text class="flow-summary-text">{{localeCopy.copy_94988c2510}}</text>
           <view class="audit-flow-progress-bar">
             <view class="audit-flow-progress-fill" style="width:{{flowProgressPercent}}%;"></view>
           </view>
@@ -325,19 +325,19 @@
                 <view class="flow-lifecycle-label">{{node.label}}<text class="flow-lifecycle-round" wx:if="{{node.subLabel}}"> {{node.subLabel}}</text></view>
                 <view class="flow-lifecycle-time" wx:if="{{node.time}}">{{node.time}}</view>
                 <!-- Expand indicator -->
-                <view class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                <view class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
                 <!-- Expanded detail -->
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <view class="flow-detail-text">
-                    <text class="flow-detail-label">操作人：</text>{{node.operatorName || '自动操作'}}
+                    <text class="flow-detail-label">{{localeCopy.copy_253aca0bd3}}</text>{{node.operatorName || localeCopy.copy_b121b80801}}
                   </view>
                   <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text">
-                    <text class="flow-detail-label">{{node.event === 'approve' ? '审批意见：' : (node.event === 'reject' ? '驳回理由：' : '备注：')}}</text>{{node.comment}}
+                    <text class="flow-detail-label">{{node.event === 'approve' ? localeCopy.copy_4161e513f6 : (node.event === 'reject' ? localeCopy.copy_5564430f9c : localeCopy.copy_b141bec1f6)}}</text>{{node.comment}}
                   </view>
-                  <view wx:if="{{node.time}}" class="flow-detail-meta">时间：{{node.time}}</view>
+                  <view wx:if="{{node.time}}" class="flow-detail-meta">{{localeCopy.copy_ca1c2400cc}}{{node.time}}</view>
                 </view>
                 <!-- Collapsed: show comment inline for approve/reject -->
-                <view wx:if="{{expandedNodeKey !== node._key && node.comment && (node.event === 'approve' || node.event === 'reject')}}" class="flow-collapsed-comment">{{node.event === 'approve' ? '审批意见：' : '驳回意见：'}}{{node.comment}}</view>
+                <view wx:if="{{expandedNodeKey !== node._key && node.comment && (node.event === 'approve' || node.event === 'reject')}}" class="flow-collapsed-comment">{{node.event === 'approve' ? localeCopy.copy_4161e513f6 : localeCopy.copy_e1af2c13f5}}{{node.comment}}</view>
               </view>
             </view>
 
@@ -353,46 +353,46 @@
               </view>
               <view class="flow-info">
                 <!-- Collapsed: key info only -->
-                <view class="flow-step-label">{{node.stepName || ('第' + (node.sortOrder || '?') + '步')}} · {{node.actionLabel || '审批'}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">第{{node.round}}轮</text></view>
-                <view class="flow-step-approver">{{node.approverDesc || '由未指定审批人审批'}}</view>
+                <view class="flow-step-label">{{node.stepName || (localeCopy.copy_93c50c01c0 + (node.sortOrder || '?') + localeCopy.copy_493a127a99)}} · {{node.actionLabel || localeCopy.copy_c9695bb971}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">{{localeCopy.copy_ef8b7ffa9b}}{{node.round}}{{localeCopy.copy_29f6c07d3f}}</text></view>
+                <view class="flow-step-approver">{{node.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
                 <view class="flow-step-status-tag {{node.flowTagClass}}">{{node.flowStatusLabel}}</view>
                 <!-- Always show approver name + time if processed -->
                 <view class="flow-step-meta" wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}">
-                  {{node.operatorName || node.approverName || '未记录'}} · {{node.processedAt || ''}}
+                  {{node.operatorName || node.approverName || localeCopy.copy_7043c094bd}} · {{node.processedAt || ''}}
                 </view>
                 <!-- Expand indicator -->
-                <view class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                <view class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
 
                 <!-- Expanded detail section -->
                 <view wx:if="{{expandedNodeKey === node._key}}" class="flow-expand-detail">
                   <!-- Processed info -->
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-text">
-                    <text class="flow-detail-label">处理人：</text>{{node.operatorName || node.approverName || '未记录'}}
+                    <text class="flow-detail-label">{{localeCopy.copy_1fac292fcb}}</text>{{node.operatorName || node.approverName || localeCopy.copy_7043c094bd}}
                   </view>
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
-                    处理时间：{{node.processedAt || ''}}
+                    {{localeCopy.copy_aa5c293ca5}}{{node.processedAt || ''}}
                   </view>
                   <!-- Approval comment -->
                   <view wx:if="{{node.comment && node.flowIcon === 'check'}}" class="flow-detail-comment">
-                    <text class="flow-detail-label">审批意见：</text>{{node.comment}}
+                    <text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}
                   </view>
                   <!-- Rejection reason -->
                   <view wx:if="{{node.rejectionReason}}" class="flow-detail-reject">
-                    <text class="flow-detail-label">驳回理由：</text>{{node.rejectionReason}}
+                    <text class="flow-detail-label">{{localeCopy.copy_edbf7136ff}}</text>{{node.rejectionReason}}
                   </view>
                   <!-- Conditions detail (multi-condition OR logic) -->
                   <view wx:if="{{node.conditionsDisplay && node.conditionsDisplay.length}}" class="flow-detail-conditions">
-                    <view class="flow-detail-conditions-label">审批条件：</view>
+                    <view class="flow-detail-conditions-label">{{localeCopy.copy_fbdf6b37eb}}</view>
                     <view wx:for="{{node.conditionsDisplay}}" wx:for-item="condLine" wx:key="*this" class="flow-detail-cond-line">{{condLine}}</view>
                   </view>
                   <!-- Round info -->
-                  <view wx:if="{{node.round > 1}}" class="flow-detail-round">第{{node.round}}轮审批</view>
+                  <view wx:if="{{node.round > 1}}" class="flow-detail-round">{{localeCopy.copy_ef8b7ffa9b}}{{node.round}}{{localeCopy.copy_eeb3a23b87}}</view>
                 </view>
 
                 <!-- Approval action buttons (only for active step + authorized user) -->
                 <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active' && userIsApprover}}">
-                  <text class="flow-action-btn ui-motion-chip" data-step-id="{{node.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ 通过</text>
-                  <text class="flow-action-btn flow-action-danger ui-motion-chip" data-step-id="{{node.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ 驳回</text>
+                  <text class="flow-action-btn ui-motion-chip" data-step-id="{{node.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ {{localeCopy.copy_1bb7eb3e1a}}</text>
+                  <text class="flow-action-btn flow-action-danger ui-motion-chip" data-step-id="{{node.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ {{localeCopy.copy_0c90eb0204}}</text>
                 </view>
               </view>
             </view>
@@ -401,92 +401,92 @@
         </view>
         <!-- Diagnostic: step count from server -->
         <view wx:if="{{rawStepCount === 0 && submission.status !== 'draft' && submission.status !== 'pending'}}" class="flow-diagnostic">
-          <text class="flow-diagnostic-text">暂无审批步骤</text>
+          <text class="flow-diagnostic-text">{{localeCopy.copy_84e125402d}}</text>
         </view>
 
         <!-- Empty state for draft/pending with no events -->
         <view wx:if="{{!flowTimeline.length && (submission.status === 'draft' || submission.status === 'pending')}}" class="flow-empty-draft">
-          <text class="flow-empty-draft-text">{{submission.status === 'draft' ? '尚未提交' : '等待重新提交'}}</text>
+          <text class="flow-empty-draft-text">{{submission.status === 'draft' ? localeCopy.copy_c363ddef77 : localeCopy.copy_14ba55edf3}}</text>
         </view>
 
         <!-- Empty state when no timeline -->
         <view wx:if="{{!flowTimeline.length}}" class="audit-empty-state">
-          <view class="audit-empty-icon"><ui-icon name="list" tone="muted" size="54" ariaLabel="暂无审批流程" /></view>
-          <view class="audit-empty-text">暂无审批记录</view>
+          <view class="audit-empty-icon"><ui-icon name="list" tone="muted" size="54" ariaLabel="{{localeCopy.copy_b2c4876b3d}}" /></view>
+          <view class="audit-empty-text">{{localeCopy.copy_86accadcca}}</view>
         </view>
       </view>
 
       <!-- Files -->
       <view class="card" wx:if="{{files.length}}">
-        <view class="section-title">附件 ({{files.length}}份)</view>
+        <view class="section-title">{{localeCopy.copy_d036aa723a}} ({{files.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
         <view class="file-attach-item ui-motion-card" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" data-file-name="{{item.fileName}}" bindtap="previewFile" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="附件" /></view>
+          <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
           <view class="file-attach-name">{{item.fileName}}</view>
         </view>
       </view>
 
       <!-- Signatures -->
       <view class="card" wx:if="{{signatures.length}}">
-        <view class="section-title">签署记录 ({{signatures.length}}条)</view>
+        <view class="section-title">{{localeCopy.copy_6a200ce590}} ({{signatures.length}}{{localeCopy.copy_7ccfef7ef3}}</view>
         <view class="audit-sig-card" wx:for="{{signatures}}" wx:key="id">
-          <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? '签名' : '印章'}} · 第{{item.round}}轮</view>
+          <view class="list-name">{{item.signerName}} · {{item.signatureType === 'signature' ? localeCopy.copy_0c02992813 : localeCopy.copy_ed981b1744}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
           <view class="list-desc"><text wx:if="{{item.signerStudentId}}">{{item.signerStudentId}} · </text>{{item.signedAt}}</view>
         </view>
       </view>
 
       <!-- Description display (view mode) -->
       <view class="card" wx:if="{{submission.description}}">
-        <view class="section-title">描述</view>
+        <view class="section-title">{{localeCopy.copy_25e1199dc3}}</view>
         <view class="view-desc-text">{{submission.description}}</view>
       </view>
 
       <!-- Actions — submitter-only buttons -->
       <view class="card" wx:if="{{userIsSubmitter}}">
-        <view class="section-title" wx:if="{{activeApprovalStepId}}">申请操作</view>
+        <view class="section-title" wx:if="{{activeApprovalStepId}}">{{localeCopy.copy_e4a2b8faee}}</view>
         <view class="audit-btn-bar">
-          <button class="secondary-btn ui-motion-button" wx:if="{{submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">修改申请</button>
-          <button class="primary-btn ui-motion-button" wx:if="{{submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="resubmit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重新提交</button>
-          <button class="secondary-btn danger-btn ui-motion-button" wx:if="{{submission.status === 'in_progress' || submission.status === 'rejected'}}" bindtap="withdraw" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">撤回申请</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2415963f64}}</button>
+          <button class="primary-btn ui-motion-button" wx:if="{{submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="resubmit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0a01cb3a51}}</button>
+          <button class="secondary-btn danger-btn ui-motion-button" wx:if="{{submission.status === 'in_progress' || submission.status === 'rejected'}}" bindtap="withdraw" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_60dd7897d1}}</button>
         </view>
       </view>
 
       <!-- ═══════════ Edit Mode ═══════════ -->
       <view wx:if="{{editMode}}">
         <view class="card">
-          <view class="section-title">修改申请</view>
+          <view class="section-title">{{localeCopy.copy_2415963f64}}</view>
         </view>
 
         <view class="card">
-          <view class="section-title">审批类型</view>
+          <view class="section-title">{{localeCopy.copy_c5ec30e07d}}</view>
           <view class="button-row">
-            <button class="{{editType === 'template' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-type="template" bindtap="onEditTypeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">使用模板</button>
-            <button class="{{editType === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-type="ad_hoc" bindtap="onEditTypeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">自定义流程</button>
+            <button class="{{editType === 'template' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-type="template" bindtap="onEditTypeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_15b653039c}}</button>
+            <button class="{{editType === 'ad_hoc' ? 'primary-btn' : 'secondary-btn'}} ui-motion-button" data-type="ad_hoc" bindtap="onEditTypeChange" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f49717b207}}</button>
           </view>
         </view>
 
         <!-- Basic info -->
         <view class="card">
-          <view class="section-title">基本信息</view>
+          <view class="section-title">{{localeCopy.copy_66240d9d99}}</view>
           <view class="field">
-            <view class="field-label">标题</view>
-            <input class="field-input" value="{{editTitle}}" bindinput="onEditTitleInput" placeholder="请输入审核标题" />
+            <view class="field-label">{{localeCopy.copy_30f93d24ca}}</view>
+            <input class="field-input" value="{{editTitle}}" bindinput="onEditTitleInput" placeholder="{{localeCopy.copy_3ebd5d2cf0}}" />
           </view>
           <view class="field">
-            <view class="field-label">描述</view>
-            <textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" bindinput="onEditDescInput" placeholder="填写说明（选填）" ></textarea>
+            <view class="field-label">{{localeCopy.copy_25e1199dc3}}</view>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" bindinput="onEditDescInput" placeholder="{{localeCopy.copy_3234735724}}" ></textarea>
           </view>
         </view>
 
         <!-- 模板步骤：仅在模板允许时提供第一步审批人重指定。 -->
         <view class="card" wx:if="{{editType === 'template' && editTemplateId && templatePreviewSteps.length}}">
-          <view class="section-title">模板审批步骤（共{{templatePreviewSteps.length}}步）</view>
-          <view class="section-desc section-desc-sm">审批人按流程设置确定</view>
+          <view class="section-title">{{localeCopy.copy_5d2dc79b89}}{{templatePreviewSteps.length}}{{localeCopy.copy_16d27aa59e}}</view>
+          <view class="section-desc section-desc-sm">{{localeCopy.copy_34f5bab454}}</view>
           <view class="tpl-first-approver" wx:if="{{templateStepOverrides.length && templateStepOverrides[0].stepIndex === 1}}">
             <view class="tpl-first-approver-head">
-              <view class="tpl-first-approver-title">第一步审批人</view>
-              <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides[0].personHrIds.length ? '修改指定' : '指定'}}</text>
+              <view class="tpl-first-approver-title">{{localeCopy.copy_55de802a51}}</view>
+              <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides[0].personHrIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
             </view>
-            <view class="tpl-first-approver-desc">未指定时按模板审批条件确定第一步审批人，指定后由所选人员审批。</view>
+            <view class="tpl-first-approver-desc">{{localeCopy.copy_8ff5c9662e}}</view>
             <view wx:if="{{templateStepOverrides[0].personHrNames.length}}" class="tpl-step-override-persons">
               <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
                 <text>{{pname}}</text>
@@ -496,68 +496,68 @@
           </view>
           <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
             <view class="tpl-step-preview-main">
-              <view class="tpl-step-preview-num">{{item.name || ('第' + (item.sortOrder || (index + 1)) + '步')}}</view>
-              <view class="tpl-step-preview-desc">{{item.approverDesc || '由未指定审批人审批'}}</view>
-              <view class="tpl-step-preview-action">{{item.actionLabel || '审批'}}</view>
+              <view class="tpl-step-preview-num">{{item.name || (localeCopy.copy_93c50c01c0 + (item.sortOrder || (index + 1)) + localeCopy.copy_493a127a99)}}</view>
+              <view class="tpl-step-preview-desc">{{item.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
+              <view class="tpl-step-preview-action">{{item.actionLabel || localeCopy.copy_c9695bb971}}</view>
             </view>
             <view class="tpl-step-preview-mode">
-              <text wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">已指定审批人</text>
-              <text wx:else class="tpl-step-fixed-mode">按审批条件</text>
+              <text wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">{{localeCopy.copy_db70b8527a}}</text>
+              <text wx:else class="tpl-step-fixed-mode">{{localeCopy.copy_46a814a2c4}}</text>
             </view>
           </view>
         </view>
 
         <!-- Ad-hoc steps editor -->
         <view class="card" wx:if="{{editType === 'ad_hoc'}}">
-          <view class="section-title">审批步骤 ({{editSteps.length}}步)</view>
+          <view class="section-title">{{localeCopy.copy_265568fe85}} ({{editSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
           <view class="ad-hoc-step-item" wx:for="{{editSteps}}" wx:key="index">
             <view class="ad-hoc-step-main">
-              <view class="ad-hoc-step-title">第{{index + 1}}步 · {{item.actionType === 'pass' ? '通过' : (item.actionType === 'sign' ? '签字' : (item.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
-              <view class="ad-hoc-step-desc">{{item.approverDesc || '未选择审批人'}}</view>
+              <view class="ad-hoc-step-title">{{localeCopy.copy_ef8b7ffa9b}}{{index + 1}}{{localeCopy.copy_9e545997b0}} · {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
+              <view class="ad-hoc-step-desc">{{item.approverDesc || localeCopy.copy_9f142da1e5}}</view>
               <!-- Show individual condition lines for OR logic -->
               <view wx:for="{{item.stepConditionsDisplay}}" wx:for-item="cond" wx:key="*this" wx:if="{{item.stepConditionsDisplay.length > 1}}" class="edit-cond-line">{{cond}}</view>
             </view>
-            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view>
+            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
           </view>
           <view class="audit-empty-state" wx:if="{{!editSteps.length}}">
-            <view class="audit-empty-text">暂无审批步骤</view>
+            <view class="audit-empty-text">{{localeCopy.copy_84e125402d}}</view>
           </view>
           <view class="button-row compact-row">
-            <button class="secondary-btn ui-motion-button" bindtap="openEditStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">按身份添加</button>
-            <button class="secondary-btn ui-motion-button" bindtap="openEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">指定人员添加</button>
+            <button class="secondary-btn ui-motion-button" bindtap="openEditStepEditor" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_751c159dd2}}</button>
+            <button class="secondary-btn ui-motion-button" bindtap="openEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0b61c482f3}}</button>
           </view>
           <view class="field field-mt-16">
-            <view class="field-label">驳回后重新提交</view>
-            <picker range="{{['重新逐层审批','直接到驳回人']}}" bindchange="onEditResubmitModeChange">
-              <view class="picker-value">{{editResubmitMode === 'fresh' ? '重新逐层审批' : '直接到驳回人'}}</view>
+            <view class="field-label">{{localeCopy.copy_8d3aac9d85}}</view>
+            <picker range="{{[localeCopy.copy_3cd3d7a8c2,localeCopy.copy_7897981e63]}}" bindchange="onEditResubmitModeChange">
+              <view class="picker-value">{{editResubmitMode === 'fresh' ? localeCopy.copy_3cd3d7a8c2 : localeCopy.copy_7897981e63}}</view>
             </picker>
           </view>
         </view>
 
         <!-- Files -->
         <view class="card">
-          <view class="section-title">当前附件 ({{editFiles.length}}份)</view>
+          <view class="section-title">{{localeCopy.copy_b33e8e9a52}} ({{editFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
           <view class="file-attach-item" wx:for="{{editFiles}}" wx:key="id">
-            <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="附件" /></view>
+            <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
             <view class="file-attach-name">{{item.fileName}}</view>
-            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view>
+            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
           </view>
-          <view class="section-title field-mt-16" wx:if="{{editNewFiles.length}}">新增附件 ({{editNewFiles.length}}份)</view>
+          <view class="section-title field-mt-16" wx:if="{{editNewFiles.length}}">{{localeCopy.copy_165509f937}} ({{editNewFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
           <view class="file-attach-item" wx:for="{{editNewFiles}}" wx:key="fileId">
-            <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="附件" /></view>
+            <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
             <view class="file-attach-name">{{item.fileName}}</view>
-            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditNewFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view>
+            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditNewFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
           </view>
           <view class="button-row compact-row">
-            <button class="secondary-btn ui-motion-button" bindtap="editChooseImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">选择图片</button>
-            <button class="secondary-btn ui-motion-button" bindtap="editChooseFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">选择文件</button>
+            <button class="secondary-btn ui-motion-button" bindtap="editChooseImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_53ce695b90}}</button>
+            <button class="secondary-btn ui-motion-button" bindtap="editChooseFile" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_98aea69c53}}</button>
           </view>
         </view>
 
         <view class="card">
           <view class="audit-btn-bar">
-            <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="saveEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存修改</button>
-            <button class="secondary-btn ui-motion-button" bindtap="cancelEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+            <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="saveEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7214028117}}</button>
+            <button class="secondary-btn ui-motion-button" bindtap="cancelEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
           </view>
         </view>
       </view>
@@ -567,46 +567,46 @@
       <view class="popup-mask ui-overlay" wx:if="{{editStepEditorVisible}}" bindtap="closeEditStepEditor">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-          <view class="popup-header ui-dialog-header"><view class="popup-title">添加审批步骤 — 按身份</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+          <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_7963fb24a5}} — {{localeCopy.copy_6cd86bd7ed}}</view><text class="popup-close ui-motion-chip" catchtap="closeEditStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
             <view class="detail-popup-form ui-dialog-stack">
               <view class="field">
-                <view class="field-label">步骤名称</view>
-                <input class="field-input" value="{{editStepForm.name}}" data-field="name" bindinput="onEditStepFieldInput" placeholder="如：部门负责人审批"/>
+                <view class="field-label">{{localeCopy.copy_c5dd070c37}}</view>
+                <input class="field-input" value="{{editStepForm.name}}" data-field="name" bindinput="onEditStepFieldInput" placeholder="{{localeCopy.copy_ac4d7a45e0}}"/>
               </view>
               <view class="field">
-                <view class="field-label">审批动作</view>
-                <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onEditActionTypeChange">
-                  <view class="picker-value">{{editStepForm.actionType === 'pass' ? '通过' : (editStepForm.actionType === 'sign' ? '签字' : (editStepForm.actionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+                <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
+                <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onEditActionTypeChange">
+                  <view class="picker-value">{{editStepForm.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (editStepForm.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (editStepForm.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
                 </picker>
               </view>
               <view class="field">
-                <view class="field-label">审批范围</view>
+                <view class="field-label">{{localeCopy.copy_8f5c5f658c}}</view>
                 <picker range="{{identityPickerScopeOptions}}" bindchange="onEditIdentityScopeChange">
-                  <view class="picker-value">{{identityPickerScopeOptions[editIdentityPickerScopeIndex] || '全体成员'}}</view>
+                  <view class="picker-value">{{identityPickerScopeOptions[editIdentityPickerScopeIndex] || localeCopy.copy_76d431a4dc}}</view>
                 </picker>
               </view>
               <view class="field" wx:if="{{identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_department' || identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_work_group'}}">
-                <view class="field-label">指定部门</view>
+                <view class="field-label">{{localeCopy.copy_f1643742d1}}</view>
                 <picker range="{{identityPickerDeptOptions}}" bindchange="onEditIdentityDeptChange">
-                  <view class="picker-value">{{identityPickerDeptOptions[editIdentityPickerDeptIndex] || '请选择部门'}}</view>
+                  <view class="picker-value">{{identityPickerDeptOptions[editIdentityPickerDeptIndex] || localeCopy.copy_eada426deb}}</view>
                 </picker>
               </view>
               <view class="field" wx:if="{{identityPickerScopeValues[editIdentityPickerScopeIndex] === 'specific_work_group'}}">
-                <view class="field-label">指定职能组</view>
+                <view class="field-label">{{localeCopy.copy_237707b205}}</view>
                 <picker range="{{identityPickerWgOptions}}" bindchange="onEditIdentityWgChange">
-                  <view class="picker-value">{{identityPickerWgOptions[editIdentityPickerWgIndex] || '请选择职能组'}}</view>
+                  <view class="picker-value">{{identityPickerWgOptions[editIdentityPickerWgIndex] || localeCopy.copy_ec3b03ecc7}}</view>
                 </picker>
               </view>
               <view class="field">
-                <view class="field-label">审批人身份</view>
+                <view class="field-label">{{localeCopy.copy_4711f10351}}</view>
                 <picker range="{{identityPickerIdentOptions}}" bindchange="onEditIdentityIdentChange">
-                  <view class="picker-value">{{identityPickerIdentOptions[editIdentityPickerIdentIndex] || '请选择身份'}}</view>
+                  <view class="picker-value">{{identityPickerIdentOptions[editIdentityPickerIdentIndex] || localeCopy.copy_d1856227b6}}</view>
                 </picker>
               </view>
             </view>
           </scroll-view>
-          <view class="audit-btn-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="confirmEditIdentityStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button></view>
+          <view class="audit-btn-bar ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="confirmEditIdentityStep" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a58e97a9f8}}</button></view>
         </view>
       </view>
       </viewport-portal>
@@ -616,9 +616,9 @@
       <view class="popup-mask ui-overlay" wx:if="{{editPersonPickerVisible}}" bindtap="closeEditPersonPicker">
         <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
         <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-          <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+          <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_759682a69b}}</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
-          <view class="list-title">已选人员（{{editPersonPickerSelectedIds.length}}人）</view>
+          <view class="list-title">{{localeCopy.copy_b45ad4069d}}{{editPersonPickerSelectedIds.length}}{{localeCopy.copy_72dd9e6203}}</view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
             <view class="audit-person-item" wx:for="{{editPersonPickerSelectedList}}" wx:key="id">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
@@ -627,41 +627,41 @@
                 <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
               </view>
               <view class="inline-actions list-actions-below">
-                <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
+                <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
               </view>
             </view>
-            <view class="empty-inline" wx:if="{{!editPersonPickerSelectedList.length}}">暂无已选人员</view>
+            <view class="empty-inline" wx:if="{{!editPersonPickerSelectedList.length}}">{{localeCopy.copy_45ef5ac49b}}</view>
             <view class="scroll-tail-space"></view>
           </scroll-view>
-          <view class="list-title field-mt-8">可选人员</view>
+          <view class="list-title field-mt-8">{{localeCopy.copy_8b1a42b718}}</view>
           <view class="rule-filter-row">
-            <view class="rule-filter-field"><view class="field-label">部门</view><picker range="{{personPickerDeptOpts}}" bindchange="onEditPersonPickerDeptChange"><view class="picker-value compact-picker-value">{{editPersonPickerDept}}</view></picker></view>
-            <view class="rule-filter-field"><view class="field-label">身份</view><picker range="{{personPickerIdentOpts}}" bindchange="onEditPersonPickerIdentChange"><view class="picker-value compact-picker-value">{{editPersonPickerIdent}}</view></picker></view>
-            <view class="rule-filter-field"><view class="field-label">职能组</view><picker range="{{personPickerWgOpts}}" bindchange="onEditPersonPickerWgChange"><view class="picker-value compact-picker-value">{{editPersonPickerWg}}</view></picker></view>
+            <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{personPickerDeptOpts}}" bindchange="onEditPersonPickerDeptChange"><view class="picker-value compact-picker-value">{{editPersonPickerDept}}</view></picker></view>
+            <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{personPickerIdentOpts}}" bindchange="onEditPersonPickerIdentChange"><view class="picker-value compact-picker-value">{{editPersonPickerIdent}}</view></picker></view>
+            <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_303b7a8611}}</view><picker range="{{personPickerWgOpts}}" bindchange="onEditPersonPickerWgChange"><view class="picker-value compact-picker-value">{{editPersonPickerWg}}</view></picker></view>
           </view>
-          <view class="field field-mb-8"><input class="field-input" placeholder="搜索姓名/学号" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
+          <view class="field field-mb-8"><input class="field-input" placeholder="{{localeCopy.copy_42dba54426}}" value="{{editPersonPickerKeyword}}" bindinput="onEditPersonPickerSearch"/></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
-            <view wx:if="{{editPersonPickerLoading}}" class="empty-inline">正在加载人员列表</view>
-            <view wx:elif="{{!editPersonPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
+            <view wx:if="{{editPersonPickerLoading}}" class="empty-inline">{{localeCopy.copy_213b890c07}}</view>
+            <view wx:elif="{{!editPersonPickerCandidates.length}}" class="empty-inline">{{localeCopy.copy_3f9ec35c15}}</view>
             <view wx:if="{{!editPersonPickerLoading}}" class="audit-person-item ui-motion-card" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
               <view class="audit-person-info">
-                <view class="audit-person-name"><view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>{{item.name}}</view>
+                <view class="audit-person-name"><view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? localeCopy.copy_78564bdb46 : localeCopy.copy_c47f370afa}}</view>{{item.name}}</view>
                 <view class="audit-person-detail">{{item.studentId}} · {{item.department}} · {{item.identity}}<text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
               </view>
             </view>
             <view class="scroll-tail-space"></view>
           </scroll-view>
           <view class="field field-mt-8">
-            <view class="field-label">审批动作</view>
-            <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onEditPersonPickerActionTypeChange">
-              <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? '通过' : (editPersonPickerStepActionType === 'sign' ? '签字' : (editPersonPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+            <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
+            <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onEditPersonPickerActionTypeChange">
+              <view class="picker-value">{{editPersonPickerStepActionType === 'pass' ? localeCopy.copy_8e2f75159e : (editPersonPickerStepActionType === 'sign' ? localeCopy.copy_49cbf30d6b : (editPersonPickerStepActionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
             </picker>
           </view>
           </scroll-view>
           <view class="button-row ui-dialog-footer">
-            <button class="secondary-btn ui-motion-button" catchtap="closeEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-            <button class="primary-btn ui-motion-button" catchtap="confirmEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加 {{editPersonPickerSelectedIds.length}} 人</button>
+            <button class="secondary-btn ui-motion-button" catchtap="closeEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+            <button class="primary-btn ui-motion-button" catchtap="confirmEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}} {{editPersonPickerSelectedIds.length}} {{localeCopy.copy_2370e6144f}}</button>
           </view>
         </view>
       </view>
@@ -675,12 +675,12 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">选择印章</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeStampPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{localeCopy.copy_dd46cd92a6}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closeStampPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form ui-dialog-stack">
-          <view wx:if="{{!availableStamps.length}}" class="stamp-empty">暂无可用的印章</view>
+          <view wx:if="{{!availableStamps.length}}" class="stamp-empty">{{localeCopy.copy_da41cca7fe}}</view>
           <view wx:for="{{availableStamps}}" wx:key="id"
                 class="stamp-picker-item ui-motion-card"
                 data-stamp-id="{{item.id}}" data-stamp-name="{{item.name}}" data-stamp-image="{{item.imageData}}"
@@ -688,7 +688,7 @@
             <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="aspectFit" class="stamp-picker-thumb" />
             <view wx:else class="stamp-picker-placeholder"><view class="stamp-placeholder-mark"></view></view>
             <text class="stamp-picker-name">{{item.name}}</text>
-            <text class="stamp-picker-select">选择</text>
+            <text class="stamp-picker-select">{{localeCopy.copy_896f105132}}</text>
           </view>
         </view>
       </scroll-view>
@@ -702,15 +702,15 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card placement-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">调整签名位置 · {{placementFileName}}</view>
-        <text class="popup-close ui-motion-chip" catchtap="closePlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{localeCopy.copy_17a7472824}} · {{placementFileName}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closePlacement" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
 
       <!-- Hint -->
       <view class="placement-hint">
-        点击文件放置{{placementType === 'stamp' ? '印章' : '签名'}}，再次点击可调整
+        {{localeCopy.copy_7f23b372a9}}{{placementType === 'stamp' ? localeCopy.copy_ed981b1744 : localeCopy.copy_0c02992813}}{{localeCopy.copy_8980340210}}
         <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}" class="placement-hint-page">
-          · 当前：第{{placementCurrentPage}}页
+          · {{localeCopy.copy_95cf78856c}}{{placementCurrentPage}}{{localeCopy.copy_999a2408c6}}
         </text>
       </view>
 
@@ -720,11 +720,11 @@
         <text class="placement-page-btn ui-motion-chip"
               data-dir="prev" catchtap="onPlacementPageChange"
               wx:if="{{placementCurrentPage > 1}}"
-              hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">◀ 上一页</text>
-        <text class="placement-page-num">第 {{placementCurrentPage}} / {{placementTotalPages}} 页</text>
+              hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">◀ {{localeCopy.copy_6befa183d0}}</text>
+        <text class="placement-page-num">{{localeCopy.copy_ef8b7ffa9b}} {{placementCurrentPage}} / {{placementTotalPages}} {{localeCopy.copy_999a2408c6}}</text>
         <text class="placement-page-btn ui-motion-chip"
               data-dir="next" catchtap="onPlacementPageChange"
-              wx:if="{{placementCurrentPage < placementTotalPages}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">下一页 ▶</text>
+              wx:if="{{placementCurrentPage < placementTotalPages}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0f143c0d61}} ▶</text>
       </view>
 
       <!-- Placement canvas — scrollable to show full file -->
@@ -739,8 +739,8 @@
         <!-- Loading indicator -->
         <view wx:if="{{placementLoading}}"
               class="placement-loading">
-          <ui-icon name="clock" tone="muted" size="24" ariaLabel="加载中" />
-          <text>加载文件预览中…</text>
+          <ui-icon name="clock" tone="muted" size="24" ariaLabel="{{localeCopy.copy_a31db08a14}}" />
+          <text>{{localeCopy.copy_d012f0d85e}}</text>
         </view>
         <!-- File preview (image or rendered PDF page) -->
         <block wx:elif="{{placementFileImage}}">
@@ -765,40 +765,40 @@
         </block>
         <!-- Fallback: no preview available -->
         <view wx:else class="placement-fallback">
-          <view class="placement-fallback-icon"><ui-icon name="file" tone="muted" size="48" ariaLabel="文件预览" /></view>
+          <view class="placement-fallback-icon"><ui-icon name="file" tone="muted" size="48" ariaLabel="{{localeCopy.copy_9b8709737d}}" /></view>
           <view>{{placementFileName}}</view>
           <view class="placement-fallback-sub">
-            {{placementFileMime === 'application/pdf' ? 'PDF文件 · 点击区域放置签名 · 第' + placementCurrentPage + '页' : '点击区域放置' + (placementType === 'stamp' ? '印章' : '签名')}}
+            {{placementFileMime === 'application/pdf' ? localeCopy.copy_5833eb9b10 + placementCurrentPage + localeCopy.copy_f67213967c : localeCopy.copy_d14d285351 + (placementType === 'stamp' ? localeCopy.copy_ed981b1744 : localeCopy.copy_0c02992813)}}
           </view>
         </view>
       </scroll-view>
 
       <!-- Position info -->
       <view wx:if="{{placementPreviewX >= 0 && placementPosText}}" class="placement-pos-info">
-        位置：{{placementPosText}}
-        <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}"> · 第{{placementCurrentPage}}页</text>
+        {{localeCopy.copy_5d46d06a0e}}{{placementPosText}}
+        <text wx:if="{{placementCurrentPage > 0 && placementTotalPages > 1}}"> · {{localeCopy.copy_ef8b7ffa9b}}{{placementCurrentPage}}{{localeCopy.copy_999a2408c6}}</text>
       </view>
 
       <view class="placement-transform-panel" wx:if="{{placementActiveIdx >= 0}}">
         <view class="placement-transform-row">
-          <text class="placement-transform-label">大小 {{placementSize}}%</text>
+          <text class="placement-transform-label">{{localeCopy.copy_76c0925fc7}} {{placementSize}}%</text>
           <slider class="placement-slider" min="50" max="220" step="5" value="{{placementSize}}" activeColor="#2563eb" backgroundColor="#dbeafe" block-size="18" bindchanging="onPlacementSizeChange" bindchange="onPlacementSizeChange" />
         </view>
         <view class="placement-transform-row">
-          <text class="placement-transform-label">旋转 {{placementRotation}}°</text>
+          <text class="placement-transform-label">{{localeCopy.copy_a19ba476ce}} {{placementRotation}}°</text>
           <slider class="placement-slider" min="-180" max="180" step="5" value="{{placementRotation}}" activeColor="#2563eb" backgroundColor="#dbeafe" block-size="18" bindchanging="onPlacementRotationChange" bindchange="onPlacementRotationChange" />
         </view>
         <view class="placement-rotate-actions">
-          <button class="secondary-btn placement-mini-btn ui-motion-button" data-delta="-15" catchtap="nudgePlacementRotation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">左转</button>
-          <button class="secondary-btn placement-mini-btn ui-motion-button" catchtap="resetPlacementTransform" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重置</button>
-          <button class="secondary-btn placement-mini-btn ui-motion-button" data-delta="15" catchtap="nudgePlacementRotation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">右转</button>
+          <button class="secondary-btn placement-mini-btn ui-motion-button" data-delta="-15" catchtap="nudgePlacementRotation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9ab49ffac1}}</button>
+          <button class="secondary-btn placement-mini-btn ui-motion-button" catchtap="resetPlacementTransform" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a7f220a4a7}}</button>
+          <button class="secondary-btn placement-mini-btn ui-motion-button" data-delta="15" catchtap="nudgePlacementRotation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_38ca054171}}</button>
         </view>
       </view>
 
       <view class="placement-actions ui-dialog-footer">
-        <button class="secondary-btn placement-btn-cancel ui-motion-button" catchtap="closePlacement" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="secondary-btn placement-btn-copy ui-motion-button" catchtap="addPlacementCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">再放一处</button>
-        <button class="primary-btn placement-btn-save ui-motion-button" catchtap="confirmPlacement" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存位置</button>
+        <button class="secondary-btn placement-btn-cancel ui-motion-button" catchtap="closePlacement" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+        <button class="secondary-btn placement-btn-copy ui-motion-button" catchtap="addPlacementCopy" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_784c704c64}}</button>
+        <button class="primary-btn placement-btn-save ui-motion-button" catchtap="confirmPlacement" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8f10667855}}</button>
       </view>
     </view>
   </view>
@@ -810,42 +810,42 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">{{approvalAction === 'approve' ? '审批通过' : '驳回'}}</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{approvalAction === 'approve' ? localeCopy.copy_126a0e1f4c : localeCopy.copy_b4432643e3}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form ui-dialog-stack">
           <!-- Signature section (only for approve) -->
           <view wx:if="{{approvalAction === 'approve'}}">
-            <view class="list-title">签名/盖章</view>
+            <view class="list-title">{{localeCopy.copy_23590ac13f}}</view>
             <view class="sign-file-card" wx:for="{{pendingSignatures}}" wx:key="index">
               <view class="sign-file-main">
-                <view class="sign-file-name">签名{{index + 1}}</view>
+                <view class="sign-file-name">{{localeCopy.copy_76dac19a0a}}{{index + 1}}</view>
                 <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="sign-file-preview" />
               </view>
-              <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" catchtap="removePendingSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text></view>
+              <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" catchtap="removePendingSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
             </view>
             <view class="button-row compact-row">
-              <button class="secondary-btn ui-motion-button" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" catchtap="openSignaturePad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">签在 {{item.fileName}}</button>
+              <button class="secondary-btn ui-motion-button" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" catchtap="openSignaturePad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e012d6739e}} {{item.fileName}}</button>
             </view>
             <view class="field approval-dialog-field-mt">
-              <view class="field-label">审批意见</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="可选：填写审批意见" />
+              <view class="field-label">{{localeCopy.copy_41c20cc066}}</view>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{localeCopy.copy_7aeee7513d}}" />
             </view>
           </view>
 
           <!-- Reject reason -->
           <view wx:if="{{approvalAction === 'reject'}}">
             <view class="field">
-              <view class="field-label">驳回理由</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="请填写驳回理由（必填）" />
+              <view class="field-label">{{localeCopy.copy_47a12cc974}}</view>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_a2d2583699}}" />
             </view>
           </view>
 
         </view>
       </scroll-view>
       <view class="audit-btn-bar ui-dialog-footer">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="confirmApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{approvalAction === 'approve' ? '确认通过' : '确认驳回'}}</button>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="confirmApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{approvalAction === 'approve' ? localeCopy.copy_49ef170f0b : localeCopy.copy_cd42af3f87}}</button>
       </view>
     </view>
   </view>
@@ -857,8 +857,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">选择签名方式</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeSigSourcePicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{localeCopy.copy_2649ec5bae}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closeSigSourcePicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="detail-popup-form ui-dialog-stack">
@@ -866,49 +866,49 @@
 
           <!-- Saved Signatures -->
           <view wx:if="{{mySignatures.length}}" class="sig-source-section">
-            <view class="sig-source-section-title">我的签名</view>
+            <view class="sig-source-section-title">{{localeCopy.copy_290f4e2426}}</view>
             <view wx:for="{{mySignatures}}" wx:key="id"
                   class="sig-source-item ui-motion-card"
                   data-sig-id="{{item.id}}" data-sig-image="{{item.imageData}}"
                   catchtap="onSelectSavedSignature" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="aspectFit"
                      class="sig-source-thumb" />
-              <view wx:else class="sig-source-thumb-placeholder"><ui-icon name="signature" tone="muted" size="38" ariaLabel="签名" /></view>
+              <view wx:else class="sig-source-thumb-placeholder"><ui-icon name="signature" tone="muted" size="38" ariaLabel="{{localeCopy.copy_76dac19a0a}}" /></view>
               <view class="sig-source-item-info">
                 <view class="sig-source-item-name">{{item.name}}</view>
-                <view wx:if="{{item.isDefault}}" class="sig-source-default-badge">默认签名</view>
+                <view wx:if="{{item.isDefault}}" class="sig-source-default-badge">{{localeCopy.copy_4d6d7783a5}}</view>
               </view>
-              <text class="sig-source-use-btn">使用</text>
+              <text class="sig-source-use-btn">{{localeCopy.copy_8b55fdc995}}</text>
             </view>
           </view>
 
           <!-- No saved signatures -->
           <view wx:if="{{!mySignatures.length}}" class="sig-source-empty">
-            暂无已保存的签名
+            {{localeCopy.copy_0f88ef1634}}
           </view>
 
           <!-- Divider -->
           <view class="sig-source-divider">
             <view class="sig-source-divider-line"></view>
-            <text class="sig-source-divider-text">或</text>
+            <text class="sig-source-divider-text">{{localeCopy.copy_d7c8fd23a8}}</text>
             <view class="sig-source-divider-line"></view>
           </view>
 
           <!-- Draw new signature -->
           <view class="sig-source-draw-section">
-            <view class="sig-source-draw-title">手写新签名</view>
+            <view class="sig-source-draw-title">{{localeCopy.copy_01c2184200}}</view>
             <!-- Save option -->
             <view class="sig-source-save-row ui-motion-card" catchtap="onSigSaveToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
               <view style="width:36rpx;height:36rpx;border-radius:6rpx;border:2rpx solid {{sigSaveNew ? '#3b82f6' : '#cbd5e1'}};background:{{sigSaveNew ? '#3b82f6' : '#fff'}};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                 <text wx:if="{{sigSaveNew}}" class="sig-source-check-icon">✓</text>
               </view>
-              <text class="sig-source-save-label">保存到我的签名</text>
+              <text class="sig-source-save-label">{{localeCopy.copy_777df8daa0}}</text>
             </view>
             <view wx:if="{{sigSaveNew}}" class="sig-source-save-input-wrap">
               <input class="sig-source-save-input"
-                     placeholder="签名名称（可选）" value="{{sigSaveName}}" bindinput="onSigSaveNameInput" />
+                     placeholder="{{localeCopy.copy_1d953e38dc}}" value="{{sigSaveName}}" bindinput="onSigSaveNameInput" />
             </view>
-            <button class="primary-btn sig-source-draw-btn ui-motion-button" catchtap="onOpenNewSignaturePad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">手写签名</button>
+            <button class="primary-btn sig-source-draw-btn ui-motion-button" catchtap="onOpenNewSignaturePad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a9df85e7e6}}</button>
           </view>
         </view>
       </scroll-view>
@@ -922,8 +922,8 @@
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card signature-popup-card ui-dialog-touch-lock" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">手写签名</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeSignaturePad" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{localeCopy.copy_a9df85e7e6}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closeSignaturePad" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <view class="ui-dialog-body ui-dialog-content ui-dialog-content--workspace signature-pad-dialog-body">
         <signature-pad id="signaturePad" bindconfirm="onSignatureConfirm" />
@@ -936,11 +936,11 @@
   <view class="popup-mask ui-overlay" wx:if="{{personPickerVisible}}" bindtap="closePersonPicker">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-        <view class="popup-header ui-dialog-header"><view class="popup-title">指定审批人员</view><text class="popup-close ui-motion-chip" catchtap="closePersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+        <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_759682a69b}}</view><text class="popup-close ui-motion-chip" catchtap="closePersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
 
         <!-- Selected persons -->
-        <view class="list-title">已选人员（{{personPickerSelectedIds.length}}人）</view>
+        <view class="list-title">{{localeCopy.copy_b45ad4069d}}{{personPickerSelectedIds.length}}{{localeCopy.copy_72dd9e6203}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
           <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="id">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
@@ -949,48 +949,48 @@
               <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
             </view>
             <view class="inline-actions list-actions-below">
-              <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
+              <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
             </view>
           </view>
-          <view class="empty-inline" wx:if="{{!personPickerSelectedList.length}}">暂无已选人员</view>
+          <view class="empty-inline" wx:if="{{!personPickerSelectedList.length}}">{{localeCopy.copy_45ef5ac49b}}</view>
           <view class="scroll-tail-space"></view>
         </scroll-view>
 
         <!-- Filters -->
-        <view class="list-title field-mt-8">可选人员</view>
+        <view class="list-title field-mt-8">{{localeCopy.copy_8b1a42b718}}</view>
         <view class="rule-filter-row">
           <view class="rule-filter-field">
-            <view class="field-label">部门</view>
+            <view class="field-label">{{localeCopy.copy_02419589be}}</view>
             <picker range="{{personPickerDeptOpts}}" bindchange="onPersonPickerDeptChange">
               <view class="picker-value compact-picker-value">{{personPickerDept}}</view>
             </picker>
           </view>
           <view class="rule-filter-field">
-            <view class="field-label">身份</view>
+            <view class="field-label">{{localeCopy.copy_c1965e0690}}</view>
             <picker range="{{personPickerIdentOpts}}" bindchange="onPersonPickerIdentChange">
               <view class="picker-value compact-picker-value">{{personPickerIdent}}</view>
             </picker>
           </view>
           <view class="rule-filter-field">
-            <view class="field-label">职能组</view>
+            <view class="field-label">{{localeCopy.copy_303b7a8611}}</view>
             <picker range="{{personPickerWgOpts}}" bindchange="onPersonPickerWgChange">
               <view class="picker-value compact-picker-value">{{personPickerWg}}</view>
             </picker>
           </view>
         </view>
         <view class="field field-mb-8">
-          <input class="field-input" placeholder="搜索姓名/学号" value="{{personPickerKeyword}}" bindinput="onPersonPickerSearch"/>
+          <input class="field-input" placeholder="{{localeCopy.copy_42dba54426}}" value="{{personPickerKeyword}}" bindinput="onPersonPickerSearch"/>
         </view>
 
         <!-- Candidate list -->
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
-          <view wx:if="{{personPickerLoading}}" class="empty-inline">正在加载人员列表</view>
-          <view wx:elif="{{!personPickerCandidates.length}}" class="empty-inline">没有匹配的人员</view>
+          <view wx:if="{{personPickerLoading}}" class="empty-inline">{{localeCopy.copy_213b890c07}}</view>
+          <view wx:elif="{{!personPickerCandidates.length}}" class="empty-inline">{{localeCopy.copy_3f9ec35c15}}</view>
           <view wx:if="{{!personPickerLoading}}" class="audit-person-item ui-motion-card" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
             <view class="audit-person-info">
               <view class="audit-person-name">
-                <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>
+                <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? localeCopy.copy_78564bdb46 : localeCopy.copy_c47f370afa}}</view>
                 {{item.name}}
               </view>
               <view class="audit-person-detail">{{item.studentId}} · {{item.department}} · {{item.identity}}<text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
@@ -1001,23 +1001,23 @@
 
         <!-- Action type (only for ad-hoc mode; template/designate-next modes inherit step definition) -->
         <view class="field field-mt-8" wx:if="{{templateOverrideStepIndex < 0 && personPickerMode !== 'designateNext'}}">
-          <view class="field-label">审批动作</view>
-          <picker range="{{['通过','签字','盖章','签字+盖章']}}" bindchange="onPersonPickerActionTypeChange">
-            <view class="picker-value">{{personPickerStepActionType === 'pass' ? '通过' : (personPickerStepActionType === 'sign' ? '签字' : (personPickerStepActionType === 'estamp' ? '盖章' : '签字+盖章'))}}</view>
+          <view class="field-label">{{localeCopy.copy_dc449bac28}}</view>
+          <picker range="{{[localeCopy.copy_8e2f75159e,localeCopy.copy_49cbf30d6b,localeCopy.copy_7e6630535d,localeCopy.copy_a63d02480e]}}" bindchange="onPersonPickerActionTypeChange">
+            <view class="picker-value">{{personPickerStepActionType === 'pass' ? localeCopy.copy_8e2f75159e : (personPickerStepActionType === 'sign' ? localeCopy.copy_49cbf30d6b : (personPickerStepActionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
           </picker>
         </view>
         </scroll-view>
 
         <view class="button-row ui-dialog-footer">
-          <button class="secondary-btn ui-motion-button" catchtap="closePersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-          <button class="primary-btn ui-motion-button" catchtap="confirmPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">添加 {{personPickerSelectedIds.length}} 人</button>
+          <button class="secondary-btn ui-motion-button" catchtap="closePersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
+          <button class="primary-btn ui-motion-button" catchtap="confirmPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}} {{personPickerSelectedIds.length}} {{localeCopy.copy_2370e6144f}}</button>
         </view>
       </view>
     </view>
   </viewport-portal>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view>
+    <view class="footer-org">{{localeCopy.copy_638da8ae60}}</view>
   </view>
 </view>

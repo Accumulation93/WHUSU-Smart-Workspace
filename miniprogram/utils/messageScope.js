@@ -1,5 +1,6 @@
+const localeCopy = require('../locales/zh-CN/generated/utils/messageScope');
 let selectedOrganizationId = '';
-let selectedOrganizationName = '全部组织';
+let selectedOrganizationName = localeCopy.copy_d337157f74;
 
 function getScope() {
   return {
@@ -11,13 +12,13 @@ function getScope() {
 function setScope(organization) {
   const next = organization || {};
   selectedOrganizationId = String(next.id || '');
-  selectedOrganizationName = String(next.name || '全部组织');
+  selectedOrganizationName = String(next.name || localeCopy.copy_d337157f74);
   return getScope();
 }
 
 function resetScope() {
   selectedOrganizationId = '';
-  selectedOrganizationName = '全部组织';
+  selectedOrganizationName = localeCopy.copy_d337157f74;
   return getScope();
 }
 

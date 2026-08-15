@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/org/pages/adminPermissions/adminPermissions');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
@@ -18,6 +19,7 @@ function cloneGroups(groups) {
 
 Page({
   data: {
+    localeCopy,
     loading: true,
     saving: false,
     organizationName: '',
@@ -32,6 +34,7 @@ Page({
   },
 
   onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     this._active = true;
     this.setData({ organizationName: wx.getStorageSync('activeOrgName') || '' });
   },
@@ -65,8 +68,8 @@ Page({
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (!adminPermissions.canAccessPermissionSystem(profile)) {
         wx.showModal({
-          title: '无法访问',
-          content: '请切换到管理员身份。',
+          title: localeCopy.copy_58460e829b,
+          content: localeCopy.copy_e3a7655873,
           showCancel: false,
           success: function() { wx.navigateBack(); }
         });
@@ -74,16 +77,16 @@ Page({
       }
       const result = await callFunction({ name: 'listPermissionManagedAdmins', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
+      if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e52119b17e);
       const admins = (result.list || []).slice();
       this.setData({
         admins: admins,
         filteredAdmins: admins,
-        operatorLevelLabel: result.operatorLevel === 'super_admin' ? '超级管理员' : '授权管理员'
+        operatorLevelLabel: result.operatorLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_1557b96093
       });
     } catch (error) {
       if (orgSession.isRequestCurrent(this, request)) {
-        showShortToast(getErrorText(error, '请稍后刷新'));
+        showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
       }
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
@@ -112,14 +115,14 @@ Page({
     try {
       const result = await callFunction({ name: 'getAdminPermissionDetail', data: { adminId: adminId } });
       if (!orgSession.isRequestCurrent(this, request)) return;
-      if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
+      if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e52119b17e);
       this.setData({
         selectedAdmin: result.admin,
         permissionGroups: cloneGroups(result.groups),
         editorVisible: true
       });
     } catch (error) {
-      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, '请稍后刷新'));
+      if (orgSession.isRequestCurrent(this, request)) showShortToast(getErrorText(error, localeCopy.copy_e52119b17e));
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -173,12 +176,12 @@ Page({
         name: 'saveAdminPermissions',
         data: { adminId: this.data.selectedAdmin.id, permissions: permissionMap }
       });
-      if (result.status !== 'success') throw new Error(result.message || '未保存，请重试');
-      showShortToast('权限已生效', 'success');
+      if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_215e3c57da);
+      showShortToast(localeCopy.copy_e47065f3f1, 'success');
       this.setData({ permissionGroups: cloneGroups(result.groups), editorVisible: false, selectedAdmin: null });
       await this.loadPage();
     } catch (error) {
-      showShortToast(getErrorText(error, '未保存，请重试'));
+      showShortToast(getErrorText(error, localeCopy.copy_215e3c57da));
     } finally {
       if (this._active) this.setData({ saving: false });
     }

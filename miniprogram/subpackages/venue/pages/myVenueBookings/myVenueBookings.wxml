@@ -1,29 +1,29 @@
 <view class="page page-narrow subapp-venue-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用 · 我的借用"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_b40ec83bc1}}"></workspace-hero>
 
   <!-- Quick nav -->
   <view class="header-nav">
-    <text class="header-nav-btn ui-motion-chip" bindtap="goVenueBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">浏览场地</text>
+    <text class="header-nav-btn ui-motion-chip" bindtap="goVenueBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ba7787dd8d}}</text>
   </view>
 
   <view class="card">
     <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-    <view class="section-title">借用记录 ({{bookings.length}})</view>
+    <view class="section-title">{{localeCopy.copy_decce2c059}} ({{bookings.length}})</view>
     <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
-      <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-text">暂无借用记录</view></view>
+      <view class="audit-empty-state" wx:if="{{!bookings.length}}"><view class="audit-empty-text">{{localeCopy.copy_28981b382e}}</view></view>
       <view class="booking-item" wx:for="{{bookings}}" wx:key="id">
         <view class="booking-header">
-          <view class="booking-title">{{item.title || '借用申请'}}</view>
+          <view class="booking-title">{{item.title || localeCopy.copy_9639901862}}</view>
           <text class="booking-status {{item.status}}">{{statusLabels[item.status] || item.status}}</text>
         </view>
         <view class="booking-meta">{{item.venueName}} · {{item.venueLocation || '-'}}</view>
-        <view class="booking-meta">{{item.timeStart}} 至 {{item.timeEnd}}</view>
+        <view class="booking-meta">{{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
         <view class="booking-meta" wx:if="{{item.description}}">{{item.description}}</view>
-        <view class="booking-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
-        <text wx:if="{{item.status === 'pending' || item.status === 'approved'}}" class="cancel-btn ui-motion-chip" data-id="{{item.id}}" bindtap="cancelBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消借用</text>
+        <view class="booking-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>
+        <text wx:if="{{item.status === 'pending' || item.status === 'approved'}}" class="cancel-btn ui-motion-chip" data-id="{{item.id}}" bindtap="cancelBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_059dd7bc2c}}</text>
       </view>
     </scroll-view>
   </view>
 
-  <view class="page-footer"><view class="footer-name">WHUSU智慧工作台</view><view class="footer-org">武汉大学学生会</view></view>
+  <view class="page-footer"><view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view><view class="footer-org">{{localeCopy.copy_638da8ae60}}</view></view>
 </view>

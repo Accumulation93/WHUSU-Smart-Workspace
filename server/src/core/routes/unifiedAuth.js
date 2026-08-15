@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/unifiedAuth');
 const express = require('express');
 const { safeString } = require('../../utils/helpers');
 const identityModel = require('../models/unifiedIdentity');
@@ -26,7 +27,7 @@ function sendError(req, res, error) {
     error: error.message,
     path: req.path
   });
-  return res.status(500).json({ status: 'error', message: '认证服务暂不可用，请稍后重试' });
+  return res.status(500).json({ status: 'error', message: localeCopy.copy_047d735538 });
 }
 
 function requireUnifiedSession(req) {
@@ -99,7 +100,7 @@ router.post('/auth/claims', async (req, res) => {
     if (!claimPolicyOpen(policy)) {
       return res.status(403).json({
         status: 'claim_paused',
-        message: '身份认证暂未开放，请联系管理员'
+        message: localeCopy.copy_2af0dcac0d
       });
     }
     const result = await identityModel.createClaim(bootstrapId, {
@@ -112,7 +113,7 @@ router.post('/auth/claims', async (req, res) => {
     return res.json({
       status: 'accepted',
       claimId: result.claimId,
-      message: '请向所属组织管理员获取个人认证码'
+      message: localeCopy.copy_93421f1a7c
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -406,7 +407,7 @@ router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
       ip: req.ip,
       detail: { sessionId }
     });
-    return res.json({ status: revoked ? 'success' : 'not_found', message: '该设备已退出' });
+    return res.json({ status: revoked ? 'success' : 'not_found', message: localeCopy.copy_c69999ba88 });
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -471,7 +472,7 @@ router.post('/auth/recovery/start', async (req, res) => {
     return res.json({
       status: 'accepted',
       recoveryRequestId: result.recoveryRequestId,
-      message: '请使用恢复码或恢复口令，或等待管理员审核'
+      message: localeCopy.copy_d8ee19964e
     });
   } catch (error) {
     return sendError(req, res, error);
@@ -536,7 +537,7 @@ router.post('/admin/auth/claims', async (req, res) => {
         ? safeString(req.body && req.body.organizationId)
         : actor.organizationId;
       const results = await identityModel.issueInitialInvites(req.body && req.body.personIds, orgId, actor, metadata(req));
-      return res.json({ status: 'success', issued: results, message: '认证码已生成，请及时交给对应人员' });
+      return res.json({ status: 'success', issued: results, message: localeCopy.copy_bf3336af0d });
     }
     if (action === 'revoke_invites') {
       const orgId = actor.adminLevel === 'super_admin'
@@ -555,7 +556,7 @@ router.post('/admin/auth/claims', async (req, res) => {
         status: 'success',
         verificationCode: result.code,
         expiresInHours: result.expiresInHours,
-        message: '请将认证码单独发给本人'
+        message: localeCopy.copy_c4ce58e425
       });
     }
     if (action === 'issue_codes') {
@@ -571,7 +572,7 @@ router.post('/admin/auth/claims', async (req, res) => {
       return res.json({
         status: 'success',
         issued,
-        message: '请将认证码分别发给本人'
+        message: localeCopy.copy_78aaa917be
       });
     }
     if (action === 'revoke_codes') {
@@ -631,7 +632,7 @@ router.post('/admin/auth/recoveries', async (req, res) => {
         ? safeString(req.body && req.body.organizationId)
         : actor.organizationId;
       const results = await identityModel.issueAdminRecoveryCodes(req.body && req.body.accountIds, orgId, actor, metadata(req));
-      return res.json({ status: 'success', issued: results, message: '恢复码已生成，请及时交给对应人员' });
+      return res.json({ status: 'success', issued: results, message: localeCopy.copy_2e445c9710 });
     }
     if (action === 'revoke_codes') {
       const orgId = actor.adminLevel === 'super_admin'
@@ -646,7 +647,7 @@ router.post('/admin/auth/recoveries', async (req, res) => {
         actor,
         metadata(req)
       );
-      return res.json({ status: 'success', message: '已更换微信，原微信和其他设备已退出' });
+      return res.json({ status: 'success', message: localeCopy.copy_cbea0ead4a });
     }
     throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);
   } catch (error) {

@@ -50,6 +50,8 @@ jobs:
           node scripts/admin-route-permission-audit.js --strict
           node scripts/ui-audit.js --strict
           node scripts/user-visible-copy-audit.js --strict
+          node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization
+          node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization
           git diff --check
       - name: Unit and integration tests
         run: |

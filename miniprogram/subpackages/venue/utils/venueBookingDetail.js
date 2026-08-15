@@ -1,12 +1,13 @@
+const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail');
 const { buildFlowTimeline } = require('./flowTimeline');
 
 const STATUS_LABELS = {
-  pending: '待审核',
-  approved: '已通过',
-  inUse: '使用中',
-  completed: '已完成',
-  rejected: '已驳回',
-  cancelled: '已取消'
+  pending: localeCopy.copy_8f73640107,
+  approved: localeCopy.copy_ce171a2581,
+  inUse: localeCopy.copy_ad310c8780,
+  completed: localeCopy.copy_2220286f1c,
+  rejected: localeCopy.copy_5d5af942c5,
+  cancelled: localeCopy.copy_fd4601c1f9
 };
 
 function computeDisplayStatus(item) {
@@ -35,7 +36,7 @@ function getSnapshotCompletedSteps(progress) {
 function prepareVenueBookingDetail(item) {
   const detail = Object.assign({}, item || {});
   detail.displayStatus = detail.displayStatus || computeDisplayStatus(detail);
-  detail._statusLabel = STATUS_LABELS[detail.displayStatus] || detail.displayStatus || '状态未知';
+  detail._statusLabel = STATUS_LABELS[detail.displayStatus] || detail.displayStatus || localeCopy.copy_4cfdf3f638;
 
   const rawProgress = detail.approvalProgress;
   if (!rawProgress || !Number(rawProgress.totalSteps)) {
@@ -66,8 +67,8 @@ function prepareVenueBookingDetail(item) {
   detail._approvalPercent = rejected ? 0 : (approved ? 100 : Math.round(currentStep / totalSteps * 100));
   detail._approvalBarColor = rejected ? 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);' : '';
   detail._approvalProgressText = rejected
-    ? '审批已驳回'
-    : (approved ? '审批流程已完成' : '已完成 ' + currentStep + '/' + totalSteps + ' 步');
+    ? localeCopy.copy_fb1a45d8be
+    : (approved ? localeCopy.copy_7602388726 : localeCopy.copy_29ec8299c4 + currentStep + '/' + totalSteps + localeCopy.copy_3cd1b8dd73);
   detail._flowTimeline = buildFlowTimeline(progress);
   return detail;
 }

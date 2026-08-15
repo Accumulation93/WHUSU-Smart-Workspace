@@ -55,7 +55,7 @@
   "window": {
     "navigationStyle": "default",
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "WHUSU智慧工作台",
+    "navigationBarTitleText": "",
     "navigationBarBackgroundColor": "#ffffff"
   },
   "usingComponents": {

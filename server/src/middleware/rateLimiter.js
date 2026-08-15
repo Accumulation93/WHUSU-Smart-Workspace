@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/middleware/rateLimiter');
 function normalizeRoutePath(pathname) {
   return String(pathname || '/')
     .split('?')[0]
@@ -46,7 +47,7 @@ function createRateLimiter(options) {
     res.setHeader('X-RateLimit-Remaining', String(Math.max(0, maxRequests - bucket.count)));
     if (bucket.count > maxRequests) {
       res.setHeader('Retry-After', String(Math.ceil((bucket.resetAt - now) / 1000)));
-      return res.status(429).json({ status: 'rate_limited', message: '请求过于频繁，请稍后重试' });
+      return res.status(429).json({ status: 'rate_limited', message: localeCopy.copy_4482813d2a });
     }
     next();
   };

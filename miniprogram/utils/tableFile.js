@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/utils/tableFile');
 /**
  * Table file utility — unified CSV / Excel import & export helpers.
  * Works identically in both legacy cloud and current server implementations.
@@ -63,7 +64,7 @@ function parseCsvContent(text) {
     }
     current += ch;
   }
-  if (inQuotes) throw new Error('CSV 中存在未闭合的引号');
+  if (inQuotes) throw new Error(localeCopy.copy_5a491fdc30);
   if (current || row.length) {
     row.push(current.trim());
     if (row.some(function (cell) { return !!cell; })) allRows.push(row);
@@ -282,8 +283,8 @@ function saveAndShareFile(content, fileName, extension) {
       const message = error && (error.errMsg || error.message);
       if (!/cancel/i.test(String(message || ''))) {
         wx.showModal({
-          title: '无法打开文件',
-          content: '当前微信环境暂不支持打开或保存该文件，请更新微信后重试。',
+          title: localeCopy.copy_53de6ca47b,
+          content: localeCopy.copy_ebb6d1c181,
           showCancel: false
         });
       }
@@ -391,7 +392,7 @@ function chooseTableFile(callCloudFn) {
               try {
                 let parsed = parseCsvContent(readRes.data);
                 if (!parsed.headers.length) {
-                  wx.showToast({ title: '请选择有内容的表格', icon: 'none' });
+                  wx.showToast({ title: localeCopy.copy_3bf91c39df, icon: 'none' });
                   resolve(null);
                   return;
                 }
@@ -403,12 +404,12 @@ function chooseTableFile(callCloudFn) {
                   fileName: fileName
                 });
               } catch (err) {
-                wx.showToast({ title: '请检查表格格式', icon: 'none' });
+                wx.showToast({ title: localeCopy.copy_cc78fc735e, icon: 'none' });
                 resolve(null);
               }
             },
             fail: function (err) {
-              wx.showToast({ title: '请重新选择文件', icon: 'none' });
+              wx.showToast({ title: localeCopy.copy_03d69a9d28, icon: 'none' });
               resolve(null);
             }
           });
@@ -427,7 +428,7 @@ function chooseTableFile(callCloudFn) {
           success: function (readRes) {
             let buffer = readRes.data;
             if (!buffer || !buffer.byteLength) {
-              wx.showToast({ title: '请选择有内容的文件', icon: 'none' });
+              wx.showToast({ title: localeCopy.copy_9a61f0e990, icon: 'none' });
               resolve(null);
               return;
             }
@@ -447,7 +448,7 @@ function chooseTableFile(callCloudFn) {
                   try {
                     let parsed = parseCsvContent(textRes.data);
                     if (!parsed.headers.length) {
-                      wx.showToast({ title: '无法识别该文件格式', icon: 'none' });
+                      wx.showToast({ title: localeCopy.copy_b8ebebd538, icon: 'none' });
                       resolve(null);
                       return;
                     }
@@ -459,26 +460,26 @@ function chooseTableFile(callCloudFn) {
                       fileName: fileName
                     });
                   } catch (err) {
-                    wx.showToast({ title: '无法识别该文件格式', icon: 'none' });
+                    wx.showToast({ title: localeCopy.copy_b8ebebd538, icon: 'none' });
                     resolve(null);
                   }
                 },
                 fail: function () {
-                  wx.showToast({ title: '请重新选择文件', icon: 'none' });
+                  wx.showToast({ title: localeCopy.copy_03d69a9d28, icon: 'none' });
                   resolve(null);
                 }
               });
             }
           },
           fail: function (err) {
-            wx.showToast({ title: '请重新选择文件', icon: 'none' });
+            wx.showToast({ title: localeCopy.copy_03d69a9d28, icon: 'none' });
             resolve(null);
           }
         });
       },
       fail: function (err) {
         if (err && err.errMsg && err.errMsg.indexOf('cancel') === -1) {
-          wx.showToast({ title: '请重新选择文件', icon: 'none' });
+          wx.showToast({ title: localeCopy.copy_03d69a9d28, icon: 'none' });
         }
         resolve(null);
       }
@@ -497,7 +498,7 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
     success: function (readRes) {
       let base64 = readRes.data;
       if (!base64) {
-        wx.showToast({ title: '请选择有内容的文件', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_9a61f0e990, icon: 'none' });
         resolve(null);
         return;
       }
@@ -507,11 +508,11 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
         base64 = arrayBufferToBase64(base64);
       }
 
-      wx.showLoading({ title: '解析中...', mask: true });
+      wx.showLoading({ title: localeCopy.copy_2e61b82784, mask: true });
       callCloudFn('parseTableFile', { fileBase64: base64, fileName: fileName }).then(function (result) {
         wx.hideLoading();
         if (!result || result.status !== 'success' || !result.sheets || !result.sheets.length) {
-          wx.showToast({ title: (result && result.message) || '请检查表格格式', icon: 'none' });
+          wx.showToast({ title: (result && result.message) || localeCopy.copy_cc78fc735e, icon: 'none' });
           resolve(null);
           return;
         }
@@ -520,7 +521,7 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
         // Filter out empty sheets
         let validSheets = sheets.filter(function (s) { return s.headers && s.headers.length; });
         if (!validSheets.length) {
-          wx.showToast({ title: '文件中没有有效数据', icon: 'none' });
+          wx.showToast({ title: localeCopy.copy_3244171e5e, icon: 'none' });
           resolve(null);
           return;
         }
@@ -544,12 +545,12 @@ function readAsExcel(filePath, fileName, callCloudFn, resolve) {
         }
       }).catch(function (err) {
         wx.hideLoading();
-        wx.showToast({ title: '请检查表格格式', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_cc78fc735e, icon: 'none' });
         resolve(null);
       });
     },
     fail: function (err) {
-      wx.showToast({ title: '请重新选择文件', icon: 'none' });
+      wx.showToast({ title: localeCopy.copy_03d69a9d28, icon: 'none' });
       resolve(null);
     }
   });

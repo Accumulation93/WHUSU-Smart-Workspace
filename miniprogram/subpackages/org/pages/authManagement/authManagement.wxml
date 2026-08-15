@@ -1,6 +1,6 @@
 <view class="page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="人事信息" tone="admin"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_166a418985}}" tone="admin"></workspace-hero>
   <view class="card">
-    <view class="section-title">正在打开账号与认证</view>
+    <view class="section-title">{{localeCopy.copy_b5e5c2ce52}}</view>
   </view>
 </view>

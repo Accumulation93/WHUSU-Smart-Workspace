@@ -1,8 +1,13 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/signatureManager/signatureManager');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 
 Page({
+  onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+  },
   data: {
+    localeCopy,
     signatures: [],
     loading: false,
     creating: false,
@@ -27,7 +32,7 @@ Page({
         this.setData({ signatures: res.signatures || [] });
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '请稍后刷新'));
+      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -62,19 +67,19 @@ Page({
         name: 'saveSignature',
         data: {
           id: editingSig ? editingSig.id : '',
-          name: editingSig ? editingSig.name : ('签名 ' + new Date().toLocaleDateString()),
+          name: editingSig ? editingSig.name : (localeCopy.copy_66a2af4df9 + new Date().toLocaleDateString()),
           imageData: imageData
         }
       });
       if (res.status === 'success') {
-        showShortToast(editingSig ? '签名已更新' : '签名已保存');
+        showShortToast(editingSig ? localeCopy.copy_1c620d13e8 : localeCopy.copy_082505816e);
         this.setData({ creating: false, editingSignature: null });
         this.loadSignatures();
       } else {
-        showShortToast(res.message || '未保存，请重试');
+        showShortToast(res.message || localeCopy.copy_215e3c57da);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未保存，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_215e3c57da));
     } finally {
       this.setData({ loading: false });
     }
@@ -84,20 +89,20 @@ Page({
     const id = e.currentTarget.dataset.id;
     const that = this;
     wx.showModal({
-      title: '确认删除',
-      content: '确定删除此签名模板吗？',
+      title: localeCopy.copy_7f31eec657,
+      content: localeCopy.copy_da92c43d07,
       success: async (modalRes) => {
         if (!modalRes.confirm) return;
         try {
           const res = await callFunction({ name: 'deleteSignature', data: { id } });
           if (res.status === 'success') {
-            showShortToast('签名已删除');
+            showShortToast(localeCopy.copy_1c47adeb46);
             that.loadSignatures();
           } else {
-            showShortToast(res.message || '未删除，请重试');
+            showShortToast(res.message || localeCopy.copy_076bb5d383);
           }
         } catch (e) {
-          showShortToast(getErrorText(e, '未删除，请重试'));
+          showShortToast(getErrorText(e, localeCopy.copy_076bb5d383));
         }
       }
     });
@@ -108,13 +113,13 @@ Page({
     try {
       const res = await callFunction({ name: 'setDefaultSignature', data: { id } });
       if (res.status === 'success') {
-        showShortToast('已设为默认签名');
+        showShortToast(localeCopy.copy_ce2b164f35);
         this.loadSignatures();
       } else {
-        showShortToast(res.message || '未设置，请重试');
+        showShortToast(res.message || localeCopy.copy_78ad9dc82c);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未设置，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_78ad9dc82c));
     }
   }
 });

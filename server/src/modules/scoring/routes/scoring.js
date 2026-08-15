@@ -1,3 +1,5 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/scoring');
+const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, roundScore, makeOrgRuleKey, buildNameMap, generateId } = require('../../../utils/helpers');
@@ -147,7 +149,7 @@ router.post('/getRateTargets', async (req, res) => {
     const openid = req.openid;
     const role = safeString(req.get('X-Role')).toLowerCase();
     if (role !== 'admin' && role !== 'user') {
-      return res.json({ status: 'invalid_role', message: '请重新选择身份' });
+      return res.json({ status: 'invalid_role', message: localeCopy.copy_10d3269bb4 });
     }
 
     const lookups = await fetchOrgLookups();
@@ -155,7 +157,7 @@ router.post('/getRateTargets', async (req, res) => {
 
     if (role === 'admin') {
       const admin = await adminInfoModel.getByOpenid(openid);
-      if (!admin) return res.json({ status: 'need_bind', message: '请使用管理员身份' });
+      if (!admin) return res.json({ status: 'need_bind', message: localeCopy.copy_f048be09ae });
       scorer = {
         id: admin.id, name: admin.name, studentId: admin.student_id || '',
         departmentId: '', department: '', identityId: '', identity: '',
@@ -178,13 +180,13 @@ router.post('/getRateTargets', async (req, res) => {
     );
     const scorerRecord = await participantService.resolveActorParticipant(orgId, actorResult.actor, granularity);
     if (!scorerRecord) {
-      return res.json({ status: 'invalid_scorer', message: '当前岗位已失效，请重新选择身份' });
+      return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
     }
     scorer = normalizeHrPerson(scorerRecord, lookups);
     const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
 
     if (!scorer.departmentId || !scorer.identityId) {
-      return res.json({ status: 'invalid_scorer', message: '请联系管理员完善岗位信息' });
+      return res.json({ status: 'invalid_scorer', message: localeCopy.copy_d9159d48b5 });
     }
 
     if (!currentActivity) {
@@ -195,7 +197,7 @@ router.post('/getRateTargets', async (req, res) => {
     if (currentActivity.is_paused) {
       return res.json({
         status: 'activity_paused',
-        message: '当前评分活动已暂停',
+        message: localeCopy.copy_5b46959129,
         scorer,
         currentActivity: { id: currentActivity.id, name: currentActivity.name || '', isPaused: true },
         targets: []
@@ -210,7 +212,7 @@ router.post('/getRateTargets', async (req, res) => {
       if (today < startDate) {
         return res.json({
           status: 'activity_not_started',
-          message: '当前评分活动尚未开始',
+          message: localeCopy.copy_d6213b5668,
           scorer,
           currentActivity: { id: currentActivity.id, name: currentActivity.name || '' },
           targets: []
@@ -222,7 +224,7 @@ router.post('/getRateTargets', async (req, res) => {
       if (today > endDate) {
         return res.json({
           status: 'activity_ended',
-          message: '当前评分活动已结束',
+          message: localeCopy.copy_e4bebdb4ea,
           scorer,
           currentActivity: { id: currentActivity.id, name: currentActivity.name || '' },
           targets: []
@@ -235,7 +237,7 @@ router.post('/getRateTargets', async (req, res) => {
     const rule = await rateRuleModel.getByKey(currentActivity.id, scorerKey);
 
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: '暂无评分对象' });
+      return res.json({ status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -319,10 +321,10 @@ router.post('/getScoreFormData', async (req, res) => {
   try {
     const timezone = parseTimezone(req.body.timezone);
     const targetId = safeString(req.body.targetId);
-    if (!targetId) return res.json({ status: 'invalid_params', message: '请重新选择被评分人' });
+    if (!targetId) return res.json({ status: 'invalid_params', message: localeCopy.copy_77bf5b6009 });
 
     const activity = await scoreActivityModel.getCurrent();
-    if (!activity) return res.json({ status: 'missing_activity', message: '当前暂无评分活动' });
+    if (!activity) return res.json({ status: 'missing_activity', message: localeCopy.copy_ff48e241fb });
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
@@ -334,12 +336,12 @@ router.post('/getScoreFormData', async (req, res) => {
       participantService.resolveParticipant(orgId, targetId, granularity),
       fetchOrgLookups()
     ]);
-    if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: '当前岗位已失效，请重新选择身份' });
-    if (!targetRecord) return res.json({ status: 'target_not_found', message: '请刷新被评分人' });
+    if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
+    if (!targetRecord) return res.json({ status: 'target_not_found', message: localeCopy.copy_245da65c1c });
     const scorer = normalizeHrPerson(scorerRecord, lookups);
 
     if (activity.is_paused) {
-      return res.json({ status: 'activity_paused', message: '当前评分活动已暂停' });
+      return res.json({ status: 'activity_paused', message: localeCopy.copy_5b46959129 });
     }
 
     let now = new Date();
@@ -347,20 +349,20 @@ router.post('/getScoreFormData', async (req, res) => {
     if (activity.start_date) {
       let startDate = new Date(activity.start_date);
       if (today < startDate) {
-        return res.json({ status: 'activity_not_started', message: '当前评分活动尚未开始' });
+        return res.json({ status: 'activity_not_started', message: localeCopy.copy_d6213b5668 });
       }
     }
     if (activity.end_date) {
       let endDate = new Date(activity.end_date);
       if (today > endDate) {
-        return res.json({ status: 'activity_ended', message: '当前评分活动已结束' });
+        return res.json({ status: 'activity_ended', message: localeCopy.copy_e4bebdb4ea });
       }
     }
 
     const scorerKey = makeOrgRuleKey(scorer.departmentId, scorer.identityId);
     const rule = await rateRuleModel.getByKey(activity.id, scorerKey);
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: '暂无评分对象' });
+      return res.json({ status: 'missing_rule', message: localeCopy.copy_0bde584db1 });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -388,10 +390,10 @@ router.post('/getScoreFormData', async (req, res) => {
     }
 
     if (!matchedClauseEntries.length) {
-      return res.json({ status: 'target_not_allowed', message: '请选择可评分的成员' });
+      return res.json({ status: 'target_not_allowed', message: localeCopy.copy_89c48c7311 });
     }
     if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
-      return res.json({ status: 'target_not_allowed', message: '请选择其他成员' });
+      return res.json({ status: 'target_not_allowed', message: localeCopy.copy_c3cf0a1624 });
     }
 
     const configuredClauseEntry = matchedClauseEntries.find(item =>
@@ -399,7 +401,7 @@ router.post('/getScoreFormData', async (req, res) => {
     );
 
     if (!configuredClauseEntry) {
-      return res.json({ status: 'missing_clause_config', message: '暂无评分问题' });
+      return res.json({ status: 'missing_clause_config', message: localeCopy.copy_57a174b63c });
     }
 
     // Load templates and questions
@@ -414,7 +416,7 @@ router.post('/getScoreFormData', async (req, res) => {
       const templateDoc = templateDocs[i];
       const questions = questionsByTemplate[i];
       if (!templateDoc || !questions.length) {
-        return res.json({ status: 'missing_template', message: '暂无评分问题' });
+        return res.json({ status: 'missing_template', message: localeCopy.copy_57a174b63c });
       }
       const config = configuredClauseEntry.clause.templateConfigs[i];
       templatesById.set(templateIds[i], { ...templateDoc, questions });
@@ -523,32 +525,32 @@ router.post('/submitScoreRecord', async (req, res) => {
     const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
 
     if (!req.openid) {
-      return res.json({ status: 'auth_failed', message: '未登录' });
+      return res.json({ status: 'auth_failed', message: localeCopy.copy_0ee2356002 });
     }
     if (!targetId || !activityId || !templateConfigSignature || !answers.length) {
-      return res.json({ status: 'invalid_params', message: '请填写完整评分' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_ba0ae586e3 });
     }
 
     // Validate activity is not paused and within date range
     const activity = await scoreActivityModel.getById(activityId);
     if (!activity) {
-      return res.json({ status: 'missing_activity', message: '请刷新评分活动后重试' });
+      return res.json({ status: 'missing_activity', message: localeCopy.copy_4f0d449737 });
     }
     if (activity.is_paused) {
-      return res.json({ status: 'activity_paused', message: '评分活动已暂停' });
+      return res.json({ status: 'activity_paused', message: localeCopy.copy_d643c74b0e });
     }
     let now = new Date();
     let today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     if (activity.start_date) {
       let startDate = new Date(activity.start_date);
       if (today < startDate) {
-        return res.json({ status: 'activity_not_started', message: '评分活动尚未开始' });
+        return res.json({ status: 'activity_not_started', message: localeCopy.copy_2c6c18b79b });
       }
     }
     if (activity.end_date) {
       let endDate = new Date(activity.end_date);
       if (today > endDate) {
-        return res.json({ status: 'activity_ended', message: '评分活动已结束' });
+        return res.json({ status: 'activity_ended', message: localeCopy.copy_725b89a6cd });
       }
     }
 
@@ -564,8 +566,8 @@ router.post('/submitScoreRecord', async (req, res) => {
       fetchOrgLookups()
     ]);
 
-    if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: '当前岗位已失效，请重新选择身份' });
-    if (!targetRecord) return res.json({ status: 'target_not_found', message: '请刷新被评分人' });
+    if (!scorerRecord) return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
+    if (!targetRecord) return res.json({ status: 'target_not_found', message: localeCopy.copy_245da65c1c });
 
     const scorer = normalizeHrPerson(scorerRecord, lookups);
     const targetPerson = normalizeHrPerson(targetRecord, lookups);
@@ -575,7 +577,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     const rule = await rateRuleModel.getByKey(activityId, scorerKey);
     if (!rule || !rule.is_active) {
-      return res.json({ status: 'missing_rule', message: '请刷新评分任务后重试' });
+      return res.json({ status: 'missing_rule', message: localeCopy.copy_50b40b1390 });
     }
 
     const ruleFull = await loadRuleFull(rule.id);
@@ -605,13 +607,13 @@ router.post('/submitScoreRecord', async (req, res) => {
     }
 
     if (!targetInScope) {
-      return res.json({ status: 'target_not_allowed', message: '请选择可评分的成员' });
+      return res.json({ status: 'target_not_allowed', message: localeCopy.copy_89c48c7311 });
     }
     if (!rule.allow_self_assessment && participantService.isSameNaturalPerson(scorerRecord, targetRecord)) {
-      return res.json({ status: 'target_not_allowed', message: '请选择其他成员' });
+      return res.json({ status: 'target_not_allowed', message: localeCopy.copy_c3cf0a1624 });
     }
     if (!matchedClause) {
-      return res.json({ status: 'missing_rule', message: '评分范围已更新，请重新进入评分页' });
+      return res.json({ status: 'missing_rule', message: localeCopy.copy_bce1328642 });
     }
 
     // Build question bundle from templates (parallel)
@@ -630,7 +632,7 @@ router.post('/submitScoreRecord', async (req, res) => {
       const [templateDoc, questions] = templateResults[ti];
 
       if (!templateDoc || !questions.length) {
-        return res.json({ status: 'missing_template', message: '评分问题已更新，请重新进入评分页' });
+        return res.json({ status: 'missing_template', message: localeCopy.copy_c0797ed4eb });
       }
 
       templatesById.set(config.templateId, { ...templateDoc, questions });
@@ -647,7 +649,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     // Verify signature
     if (buildTemplateConfigSignature(matchedClause.templateConfigs, templatesById) !== safeString(templateConfigSignature)) {
-      return res.json({ status: 'template_mismatch', message: '评分问题已更新，请重新进入评分页' });
+      return res.json({ status: 'template_mismatch', message: localeCopy.copy_c0797ed4eb });
     }
 
     questionBundle.sort((a, b) => {
@@ -664,13 +666,13 @@ router.post('/submitScoreRecord', async (req, res) => {
       const score = answerMap.get(String(i + 1));
 
       if (score == null || Number.isNaN(score)) {
-        return res.json({ status: 'invalid_score', message: `第 ${i + 1} 题未填写` });
+        return res.json({ status: 'invalid_score', message: localeFormat(localeCopy.copy_57e36dc50b, [i + 1]) });
       }
       if (score < question.minValue || score > question.maxValue) {
-        return res.json({ status: 'invalid_score', message: `第 ${i + 1} 题超出分值范围` });
+        return res.json({ status: 'invalid_score', message: localeFormat(localeCopy.copy_45604d4257, [i + 1]) });
       }
       if (!isStepAligned(score, question.startValue, question.stepValue)) {
-        return res.json({ status: 'invalid_score', message: `第 ${i + 1} 题不符合起评分和步进值要求` });
+        return res.json({ status: 'invalid_score', message: localeFormat(localeCopy.copy_cc1ba72c8d, [i + 1]) });
       }
 
       normalizedAnswers.push({ questionIndex: i + 1, score });
@@ -739,7 +741,7 @@ router.post('/submitScoreRecord', async (req, res) => {
          FOR UPDATE`,
         [orgId, activityId, scorerSubjectKey, targetSubjectKey]
       );
-      if (!records.length) throw new Error('未保存评分，请重试');
+      if (!records.length) throw new Error(localeCopy.copy_af9ac03fc1);
       const recordId = records[0].id;
       await conn.query('DELETE FROM score_answers WHERE record_id = ? AND org_id = ?', [recordId, orgId]);
 
@@ -767,7 +769,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     res.json(duplicateResponse || { status: 'success', recordId: resultRecordId });
   } catch (e) {
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
-      return res.json({ status: 'invalid_params', message: '请重新提交评分' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_534935765f });
     }
     res.json({ status: 'error', message: safeString(e.message) || '评分未提交，请重试' });
   }
@@ -779,17 +781,17 @@ router.post('/getScorerTaskStatus', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     const filters = req.body.filters || {};
     const offset = Math.max(0, Math.floor(toNumber(req.body.offset, 0)));
     const scorerKey = safeString(req.body.scorerKey);
 
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请先选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
 
     const activity = await scoreActivityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到对应的评分活动' });
+    if (!activity) return res.json({ status: 'activity_not_found', message: localeCopy.copy_83aacffc9f });
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const [allMembers, allRules, allRecords, lookups] = await Promise.all([
@@ -966,16 +968,16 @@ function buildTaskExportReport(activityName, reportType, rows) {
       fileName: activityName + '_未完成评分明细',
       sheetName: '未完成评分明细',
       headers: [
-        { key: 'scorerName', label: '评分人姓名' },
-        { key: 'scorerStudentId', label: '评分人学号' },
-        { key: 'department', label: '所属部门' },
-        { key: 'identity', label: '身份' },
-        { key: 'workGroup', label: '职能组' },
-        { key: 'targetName', label: '未完成被评分人姓名' },
-        { key: 'targetStudentId', label: '未完成被评分人学号' },
-        { key: 'targetDepartment', label: '被评分人所属部门' },
-        { key: 'targetIdentity', label: '被评分人身份' },
-        { key: 'targetWorkGroup', label: '被评分人职能组' }
+        { key: 'scorerName', label: localeCopy.copy_b74f5017ad },
+        { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 },
+        { key: 'department', label: localeCopy.copy_62f8e70200 },
+        { key: 'identity', label: localeCopy.copy_474f638a6f },
+        { key: 'workGroup', label: localeCopy.copy_be736f763d },
+        { key: 'targetName', label: localeCopy.copy_e33cda7435 },
+        { key: 'targetStudentId', label: localeCopy.copy_712e06f661 },
+        { key: 'targetDepartment', label: localeCopy.copy_d6c72cfd3b },
+        { key: 'targetIdentity', label: localeCopy.copy_e95e7b70bf },
+        { key: 'targetWorkGroup', label: localeCopy.copy_5956aa0bc5 }
       ],
       rows: rows.flatMap(function (row) {
         return (row.pendingList || []).map(function (target) {
@@ -995,15 +997,15 @@ function buildTaskExportReport(activityName, reportType, rows) {
     fileName: activityName + '_未完成评分概览',
     sheetName: '未完成评分概览',
     headers: [
-      { key: 'scorerName', label: '评分人姓名' },
-      { key: 'scorerStudentId', label: '评分人学号' },
-      { key: 'department', label: '所属部门' },
-      { key: 'identity', label: '身份' },
-      { key: 'workGroup', label: '职能组' },
-      { key: 'expectedCount', label: '应评分人数' },
-      { key: 'submittedCount', label: '已评分人数' },
-      { key: 'pendingCount', label: '未评分人数' },
-      { key: 'completionRate', label: '完成率(%)' }
+      { key: 'scorerName', label: localeCopy.copy_b74f5017ad },
+      { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 },
+      { key: 'department', label: localeCopy.copy_62f8e70200 },
+      { key: 'identity', label: localeCopy.copy_474f638a6f },
+      { key: 'workGroup', label: localeCopy.copy_be736f763d },
+      { key: 'expectedCount', label: localeCopy.copy_6c33883f9b },
+      { key: 'submittedCount', label: localeCopy.copy_4430825ac4 },
+      { key: 'pendingCount', label: localeCopy.copy_41f72ed2a2 },
+      { key: 'completionRate', label: localeCopy.copy_cc6cc6ec7f }
     ],
     rows: rows
   };
@@ -1013,17 +1015,17 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activityId = safeString(req.body.activityId);
     const reportType = safeString(req.body.reportType) || 'summary';
     const format = safeString(req.body.format) || 'csv';
     const filters = req.body.filters || {};
 
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请先选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
 
     const activity = await scoreActivityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到对应的评分活动' });
+    if (!activity) return res.json({ status: 'activity_not_found', message: localeCopy.copy_83aacffc9f });
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const [allMembers, allRules, allRecords, lookups] = await Promise.all([
@@ -1167,7 +1169,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
     if (rows.length > EXPORT_MAX_ROWS) {
       return res.json({
         status: 'too_large',
-        message: `数据过多（${rows.length} 行），请缩小筛选范围`,
+        message: localeFormat(localeCopy.copy_985bc885b8, [rows.length]),
         rowCount: rows.length,
         maxAllowed: EXPORT_MAX_ROWS
       });

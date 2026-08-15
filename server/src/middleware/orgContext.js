@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/middleware/orgContext');
 /**
  * 组织上下文中间件
  *
@@ -104,7 +105,7 @@ async function orgContextMiddleware(req, res, next) {
   if (!orgId) {
     return res.status(400).json({
       status: 'org_context_required',
-      message: '请重新选择组织和身份',
+      message: localeCopy.copy_80a283f3f0,
       requestId: req.requestId || ''
     });
   }
@@ -113,7 +114,7 @@ async function orgContextMiddleware(req, res, next) {
   if (!openid) {
     return res.status(401).json({
       status: 'auth_failed',
-      message: '请先登录',
+      message: localeCopy.copy_c22a252e97,
       requestId: req.requestId || ''
     });
   }
@@ -126,7 +127,7 @@ async function orgContextMiddleware(req, res, next) {
   if (!allowed) {
     return res.status(403).json({
       status: 'org_access_denied',
-      message: '请重新选择组织',
+      message: localeCopy.copy_cc9e4b8129,
       requestId: req.requestId || ''
     });
   }

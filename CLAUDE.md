@@ -173,6 +173,7 @@ page {
 4. WXML/WXSS 修改后渲染无误
 5. 完整用户操作链无断点
 6. 小程序改动运行 `node scripts/miniprogram-compat-audit.js`，并用微信开发者工具真实编译主包及全部分包
+7. 用户可见文案只允许来自 `miniprogram/locales/zh-CN/**` 或 `server/src/locales/zh-CN/**`；运行改动范围对应的 `--strict-localization` 审计
 
 **目标：代码可直接推送到生产环境。**
 

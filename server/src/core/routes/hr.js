@@ -1,3 +1,5 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/hr');
+const { format: localeFormat } = require('../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const { safeString, generateId } = require('../../utils/helpers');
@@ -35,12 +37,12 @@ const pool = require('../../config/db');
 
 function authenticationStatus(row) {
   const accountStatus = safeString(row.account_status);
-  if (accountStatus === 'frozen') return { value: 'frozen', label: '已冻结' };
-  if (accountStatus === 'recovery_required') return { value: 'recovery_required', label: '待恢复' };
+  if (accountStatus === 'frozen') return { value: 'frozen', label: localeCopy.copy_ddaba44b59 };
+  if (accountStatus === 'recovery_required') return { value: 'recovery_required', label: localeCopy.copy_16399ef078 };
   if (accountStatus === 'verified' && Boolean(row.has_active_binding)) {
-    return { value: 'verified', label: '已认证' };
+    return { value: 'verified', label: localeCopy.copy_17d26b7956 };
   }
-  return { value: 'pending_verification', label: '待认证' };
+  return { value: 'pending_verification', label: localeCopy.copy_5342fa4b24 };
 }
 
 function tryParseDate(rawValue) {
@@ -105,7 +107,7 @@ router.post('/listHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const orgId = await getCurrentOrgId();
     const [rows] = await pool.query(
@@ -156,13 +158,13 @@ router.post('/listHrGovernance', async (req, res) => {
         'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'
       ].indexOf(key) >= 0)
     ));
-    if (!readable.length) return res.status(403).json({ status: 'permission_denied', message: '当前身份无权查看人事信息' });
+    if (!readable.length) return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_828e7e4bfb });
     const requestedOrgId = safeString(req.body && req.body.organizationId);
     const allowedIds = Array.from(new Set(readable.map((item) => safeString(item.organizationId)).filter(Boolean)));
     const organizationIds = requestedOrgId
       ? (allowedIds.indexOf(requestedOrgId) >= 0 ? [requestedOrgId] : [])
       : allowedIds;
-    if (!organizationIds.length) return res.status(403).json({ status: 'organization_forbidden', message: '当前身份无权查看该组织' });
+    if (!organizationIds.length) return res.status(403).json({ status: 'organization_forbidden', message: localeCopy.copy_b267164ab8 });
     const placeholders = organizationIds.map(() => '?').join(',');
     const [rows] = await pool.query(
       `SELECT h.id, h.org_id, h.name, h.student_id,
@@ -262,7 +264,7 @@ router.post('/listHrGovernance', async (req, res) => {
     }
     return res.status(expected ? (error.httpStatus || 403) : 500).json({
       status: expected ? error.code : 'error',
-      message: expected ? error.message : '人事信息暂时无法加载，请稍后重试'
+      message: expected ? error.message : localeCopy.copy_cea11bf163
     });
   }
 });
@@ -270,7 +272,7 @@ router.post('/listHrGovernance', async (req, res) => {
 router.post('/listMembershipAssignments', async (req, res) => {
   try {
     const legacyHrId = safeString(req.body.hrId);
-    if (!legacyHrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
+    if (!legacyHrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
     const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
     await requireAdminOrganizationPermission(req, orgId, ['hr.people']);
     const rows = await unifiedIdentityModel.listMembershipAssignments(legacyHrId, orgId);
@@ -296,7 +298,7 @@ router.post('/listMembershipAssignments', async (req, res) => {
 router.post('/listPersonIdentities', async (req, res) => {
   try {
     const legacyHrId = safeString(req.body.hrId);
-    if (!legacyHrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
+    if (!legacyHrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
     const accessList = await listAdminOrganizationAccess(req);
     const readableAccess = accessList.filter((item) => item.canReadAssignments || item.canReadAdmins);
     const readableOrganizationIds = readableAccess.map((item) => item.organizationId);
@@ -308,7 +310,7 @@ router.post('/listPersonIdentities', async (req, res) => {
       readableOrganizationIds,
       editableOrganizationIds
     );
-    if (!data) return res.json({ status: 'not_found', message: '请刷新人员列表' });
+    if (!data) return res.json({ status: 'not_found', message: localeCopy.copy_f4df6d5d73 });
 
     const accessByOrg = new Map(readableAccess.map((item) => [item.organizationId, item]));
     const assignmentsByOrg = new Map();
@@ -412,7 +414,7 @@ router.post('/listPersonIdentities', async (req, res) => {
     if (!isExpected) req.logger.error('List person identities failed', { error: error.message });
     return res.status(isExpected ? (error.httpStatus || 403) : 500).json({
       status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : '请稍后刷新身份信息'
+      message: isExpected ? error.message : localeCopy.copy_1681c6c6eb
     });
   }
 });
@@ -433,14 +435,14 @@ router.post('/saveMembershipAssignment', async (req, res) => {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
     }, (connection) => requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection));
-    return res.json({ status: 'success', id: result.id, message: '岗位已保存' });
+    return res.json({ status: 'success', id: result.id, message: localeCopy.copy_735e0a8bcf });
   } catch (error) {
     const isExpected = error instanceof AdminOrganizationAccessError
       || error instanceof unifiedIdentityModel.IdentityError;
     if (!isExpected) req.logger.error('Save membership assignment failed', { error: error.message });
     return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
       status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : '岗位未保存，请重试'
+      message: isExpected ? error.message : localeCopy.copy_e1a5d7bc94
     });
   }
 });
@@ -455,14 +457,14 @@ router.post('/deleteMembershipAssignment', async (req, res) => {
       personId: req.authAccount && req.authAccount.personId,
       contextId: req.authContext && req.authContext.contextId
     }, (connection) => requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection));
-    return res.json({ status: 'success', message: '岗位已删除' });
+    return res.json({ status: 'success', message: localeCopy.copy_63c465d5f0 });
   } catch (error) {
     const isExpected = error instanceof AdminOrganizationAccessError
       || error instanceof unifiedIdentityModel.IdentityError;
     if (!isExpected) req.logger.error('Delete membership assignment failed', { error: error.message });
     return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
       status: isExpected ? error.code : 'error',
-      message: isExpected ? error.message : '岗位未删除，请重试'
+      message: isExpected ? error.message : localeCopy.copy_f7ed2e08ad
     });
   }
 });
@@ -472,27 +474,27 @@ router.post('/saveHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const name = safeString(req.body.name);
     const studentId = safeString(req.body.studentId);
 
     if (!name || !studentId) {
-      return res.json({ status: 'invalid_params', message: '请提供姓名和学号' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_b84dcf2aa6 });
     }
 
     const existingId = safeString(req.body.id);
     if (existingId) {
       const existing = await hrInfoModel.getById(existingId);
       if (!existing) {
-        return res.json({ status: 'not_found', message: '请重新选择成员' });
+        return res.json({ status: 'not_found', message: localeCopy.copy_eb00430bd4 });
       }
       await hrInfoModel.updatePersonBasics(existingId, {
         name,
         studentId,
         updatedAt: new Date()
       });
-      return res.json({ status: 'success', id: existingId, message: '成员已保存' });
+      return res.json({ status: 'success', id: existingId, message: localeCopy.copy_339e79984b });
     }
 
     const newId = generateId();
@@ -503,7 +505,7 @@ router.post('/saveHrInfo', async (req, res) => {
       identityId: '',
       workGroupId: ''
     });
-    res.json({ status: 'success', id: newId, message: '成员已保存' });
+    res.json({ status: 'success', id: newId, message: localeCopy.copy_339e79984b });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -514,12 +516,12 @@ router.post('/deleteHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
     await hrInfoModel.remove(id);
-    res.json({ status: 'success', message: '人事信息已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_14a40dcb62 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -537,7 +539,7 @@ function firstValue(row, fields) {
 async function handleStructuredHrImport(req, res, previewOnly) {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const orgId = await getCurrentOrgId();
     const result = previewOnly
       ? await hrTableImportModel.previewHrTableImport(req.body, orgId)
@@ -573,11 +575,11 @@ router.post('/importHrCsv', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const csvContent = safeString(req.body.csvContent);
     const rows = parseCsv(csvContent);
-    if (rows.length < 2) return res.json({ status: 'invalid_params', message: '请选择包含表头和人员资料的表格' });
+    if (rows.length < 2) return res.json({ status: 'invalid_params', message: localeCopy.copy_2a53101dd0 });
 
     const headers = rows[0].map(item => safeString(item));
     const startIndex = Math.max(1, Number(req.body.startIndex || 1));
@@ -629,7 +631,7 @@ router.post('/importHrCsv', async (req, res) => {
     let template = null;
     if (extensionFields && Object.keys(extensionFields).length) {
       template = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
-      if (!template) return res.json({ status: 'missing_template', message: '请先选择人事模板' });
+      if (!template) return res.json({ status: 'missing_template', message: localeCopy.copy_ff3a771974 });
       const allFields = await profileFieldModel.getByTemplateId(template.id);
       templateFields = allFields.map(f => ({
         id: f.id, label: f.label, type: f.type, required: !!f.required,
@@ -644,7 +646,7 @@ router.post('/importHrCsv', async (req, res) => {
       const extNames = Object.entries(extensionFields).map(([csvCol, fieldName]) => fieldName);
       for (const name of extNames) {
         if (!fieldLabelSet.has(name)) {
-          return res.json({ status: 'invalid_mapping', message: `人事模板中没有资料项“${name}”` });
+          return res.json({ status: 'invalid_mapping', message: localeFormat(localeCopy.copy_b691796f85, [name]) });
         }
       }
     }
@@ -711,7 +713,7 @@ router.post('/importHrCsv', async (req, res) => {
         if (!skipInvalid) {
           return res.json({
             status: 'validation_errors',
-            message: `请修改 ${validationErrors.length} 条格式不正确的记录`,
+            message: localeFormat(localeCopy.copy_120171d734, [validationErrors.length]),
             errors: validationErrors,
             count: 0,
             nextIndex: endIndex,
@@ -825,7 +827,7 @@ router.post('/importHrCsv', async (req, res) => {
         // Store extension values via profile records
         if (Object.keys(row.extValues).length && fieldByLabel.size) {
           if (!template) {
-            throw new Error('模板已更新，请刷新后重试');
+            throw new Error(localeCopy.copy_c8029d1c2a);
           }
           let record = null;
           const [recRows] = await conn.query('SELECT * FROM hr_profile_records WHERE hr_id = ? AND org_id = ? LIMIT 1', [hrId, orgId]);
@@ -951,7 +953,7 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const [hrRows, departmentRows, identityRows, workGroupRows] = await Promise.all([
       hrInfoModel.getAll(), departmentModel.getAll(), identityModel.getAll(), workGroupModel.getAll()
@@ -1003,12 +1005,12 @@ router.post('/batchMaintainFromHrInfo', async (req, res) => {
     if (stats.missingDepartments || stats.missingIdentities || stats.missingWorkGroups || stats.wrongDepartmentWorkGroups) {
       return res.json({
         status: 'error',
-        message: `请补充组织资料：部门 ${stats.missingDepartments} 条、身份 ${stats.missingIdentities} 条、职能组 ${stats.missingWorkGroups} 条、职能组归属 ${stats.wrongDepartmentWorkGroups} 条`,
+        message: localeFormat(localeCopy.copy_9984afb98e, [stats.missingDepartments, stats.missingIdentities, stats.missingWorkGroups, stats.wrongDepartmentWorkGroups]),
         stats
       });
     }
 
-    res.json({ status: 'success', message: '组织资料完整', stats });
+    res.json({ status: 'success', message: localeCopy.copy_c2a4637e57, stats });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -1020,10 +1022,10 @@ router.post('/unbindHrWechat', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const hrId = safeString(req.body.hrId);
-    if (!hrId) return res.json({ status: 'invalid_params', message: '请重新选择成员' });
+    if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
 
     const orgId = await getCurrentOrgId();
     connection = await pool.getConnection();
@@ -1042,7 +1044,7 @@ router.post('/unbindHrWechat', async (req, res) => {
       await connection.commit();
       return res.json({
         status: 'success',
-        message: '账号已等待恢复，原微信和其他设备已退出',
+        message: localeCopy.copy_4c4f7957b4,
         recoveryRequired: true
       });
     }
@@ -1053,7 +1055,7 @@ router.post('/unbindHrWechat', async (req, res) => {
     });
     if (!result) {
       await connection.rollback();
-      return res.json({ status: 'not_found', message: '该人事记录尚未绑定微信' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_cf56435dad });
     }
 
     await connection.commit();
@@ -1065,7 +1067,7 @@ router.post('/unbindHrWechat', async (req, res) => {
 
     res.json({
       status: 'success',
-      message: '已从所有组织解绑微信',
+      message: localeCopy.copy_806092b494,
       unboundCount: result.affectedCount
     });
   } catch (e) {

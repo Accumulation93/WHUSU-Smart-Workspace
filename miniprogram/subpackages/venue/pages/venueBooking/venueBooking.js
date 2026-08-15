@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venue/pages/venueBooking/venueBooking');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const { computeDisplayStatus, prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 const { buildFlowTimeline } = require('../../utils/flowTimeline');
@@ -29,15 +30,15 @@ function formatActivityCycleLabel(type, values) {
     periodEndDate: parsed.endDate || '',
     periodEndTime: parsed.endTime || '23:59'
   };
-  if (type === 'datetime_range') return (meta.periodStartDate || '--') + ' ' + (meta.periodStartTime || '--:--') + ' 至 ' + (meta.periodEndDate || '--') + ' ' + (meta.periodEndTime || '--:--');
+  if (type === 'datetime_range') return (meta.periodStartDate || '--') + ' ' + (meta.periodStartTime || '--:--') + localeCopy.copy_c44dbba9e9 + (meta.periodEndDate || '--') + ' ' + (meta.periodEndTime || '--:--');
   if (type === 'repeat') {
-    const unit = meta.intervalUnit === 'week' ? '周' : '天';
-    return '兼容旧数据：' + (meta.periodStartDate || '--') + ' ' + (meta.periodStartTime || '--:--') + ' 至 ' + (meta.periodEndDate || '--') + ' ' + (meta.periodEndTime || '--:--') + '，共' + (Number(meta.repeatCount) || 0) + '次';
+    const unit = meta.intervalUnit === 'week' ? localeCopy.copy_b80d60c556 : localeCopy.copy_fcd3dd2cc8;
+    return localeCopy.copy_c895f6c29e + (meta.periodStartDate || '--') + ' ' + (meta.periodStartTime || '--:--') + localeCopy.copy_c44dbba9e9 + (meta.periodEndDate || '--') + ' ' + (meta.periodEndTime || '--:--') + localeCopy.copy_6d6ab79183 + (Number(meta.repeatCount) || 0) + localeCopy.copy_c5aa06059a;
   }
-  const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : '不限开始';
-  const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : '不限结束';
-  const count = Number(meta.repeatCount) > 0 ? '，共重复' + Number(meta.repeatCount) + '次' : '';
-  return '周期生效：' + start + ' 至 ' + end + count;
+  const start = meta.periodStartDate ? meta.periodStartDate + ' ' + (meta.periodStartTime || '00:00') : localeCopy.copy_f54e24d97d;
+  const end = meta.periodEndDate ? meta.periodEndDate + ' ' + (meta.periodEndTime || '23:59') : localeCopy.copy_b8c87b0fb5;
+  const count = Number(meta.repeatCount) > 0 ? localeCopy.copy_960969cd90 + Number(meta.repeatCount) + localeCopy.copy_c5aa06059a : '';
+  return localeCopy.copy_eeb5f0e78e + start + localeCopy.copy_c44dbba9e9 + end + count;
 }
 function calcBlock(ts, te) { const s=timeToMin(ts),e=timeToMin(te); return { top:Math.round((s-BASE_MIN)/60*HOUR_HEIGHT), height:Math.max(Math.round((e-s)/60*HOUR_HEIGHT),20) }; }
 function slotsToIntervals(slots) { return (slots||[]).map(s=>({start:timeToMin(s.timeStart),end:timeToMin(s.timeEnd)})); }
@@ -48,26 +49,26 @@ function minToTime(min) { if (min < 0) return '00:00'; if (min >= TOTAL_MIN) ret
 function snapMin(min) { return Math.round(min / SNAP) * SNAP; }
 
 function formatBookingWindow(window) {
-  if (!window) return { openText: '开放提交 不限', deadlineText: '截止提交 借用前' };
+  if (!window) return { openText: localeCopy.copy_584ba3052b, deadlineText: localeCopy.copy_9e824e777e };
   const formatAdvance = function(minutes) {
     const total = Math.max(0, Number(minutes) || 0);
     const hours = Math.floor(total / 60);
     const remain = total % 60;
-    if (!hours) return remain + '分钟前';
-    if (!remain) return hours + '小时前';
-    return hours + '小时' + remain + '分钟前';
+    if (!hours) return remain + localeCopy.copy_82b3c19342;
+    if (!remain) return hours + localeCopy.copy_57f8fbd947;
+    return hours + localeCopy.copy_7bbe7387fa + remain + localeCopy.copy_82b3c19342;
   };
   const formatOpen = function(mode, days, minutes) {
-    if (!mode) return '开放提交 不限';
-    if (mode === 'days') return '开放提交 ' + (Number(days) || 0) + '日前';
-    if (minutes === null || minutes === undefined) return '开放提交 不限';
-    return '开放提交 ' + formatAdvance(minutes);
+    if (!mode) return localeCopy.copy_584ba3052b;
+    if (mode === 'days') return localeCopy.copy_44ce05c859 + (Number(days) || 0) + localeCopy.copy_d08fb8244e;
+    if (minutes === null || minutes === undefined) return localeCopy.copy_584ba3052b;
+    return localeCopy.copy_44ce05c859 + formatAdvance(minutes);
   };
   const formatDeadline = function(mode, days, minutes) {
-    if (!mode) return '截止提交 借用前';
-    if (mode === 'days') return '截止提交 ' + (Number(days) || 0) + '日前';
-    if (minutes === null || minutes === undefined) return '截止提交 借用前';
-    return '截止提交 ' + formatAdvance(minutes);
+    if (!mode) return localeCopy.copy_9e824e777e;
+    if (mode === 'days') return localeCopy.copy_db4932f471 + (Number(days) || 0) + localeCopy.copy_d08fb8244e;
+    if (minutes === null || minutes === undefined) return localeCopy.copy_9e824e777e;
+    return localeCopy.copy_db4932f471 + formatAdvance(minutes);
   };
   return {
     openText: formatOpen(window.openAdvanceMode, window.openAdvanceDays, window.openAdvanceMinutes),
@@ -230,7 +231,11 @@ function isEndStillValid(startMin, endMin, openMerged, blockedMerged) {
 }
 
 Page({
+  onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
+  },
   data: {
+    localeCopy,
     activeTab: 'browse', loading: false,
     venues: [],
     scheduleVisible: false, scheduleVenueId: '', scheduleVenueName: '', scheduleWeekStart: '',
@@ -253,12 +258,12 @@ Page({
       {label:'30',value:30},{label:'40',value:40},{label:'50',value:50}
     ],
     durationChips: [
-      { label: '30分钟', minutes: 30 }, { label: '1小时', minutes: 60 },
-      { label: '1.5小时', minutes: 90 }, { label: '2小时', minutes: 120 },
-      { label: '3小时', minutes: 180 }
+      { label: localeCopy.copy_c3a847252e, minutes: 30 }, { label: localeCopy.copy_52cc321ea5, minutes: 60 },
+      { label: localeCopy.copy_c96ab61422, minutes: 90 }, { label: localeCopy.copy_015de41f7c, minutes: 120 },
+      { label: localeCopy.copy_d5973d50ff, minutes: 180 }
     ],
     purposes: [],
-    statusLabels: { pending:'待审核', approved:'已通过', rejected:'已驳回', cancelled:'已取消', inUse:'使用中', completed:'已完成' },
+    statusLabels: { pending:localeCopy.copy_8f73640107, approved:localeCopy.copy_ce171a2581, rejected:localeCopy.copy_5d5af942c5, cancelled:localeCopy.copy_fd4601c1f9, inUse:localeCopy.copy_ad310c8780, completed:localeCopy.copy_2220286f1c },
     HOUR_HEIGHT: HOUR_HEIGHT, HEADER_H: HEADER_H,
     myBookings: [], pendingApprovalCount: 0, expandedNodeKey: '',
 
@@ -278,7 +283,7 @@ Page({
     firstApproverHrId: '', firstApproverName: '',
     nextApproverPickerVisible: false, nextApproverCandidates: [], nextApproverKeyword: '',
     nextApproverHrId: '', nextApproverName: '', canDesignateNext: false,
-    heroName: '场地借用', heroIdentity: '加载中', heroSubtitle: '',
+    heroName: localeCopy.copy_592351d93c, heroIdentity: localeCopy.copy_5c8d830c46, heroSubtitle: '',
 
     // ── Custom time keyboard ──
     _kbVisible: false,
@@ -296,8 +301,8 @@ Page({
       let user = roleProfiles && roleProfiles.user;
       if (user) {
         this.setData({
-          heroName: user.name || '场地借用',
-          heroIdentity: user.identity || '未设置身份',
+          heroName: user.name || localeCopy.copy_592351d93c,
+          heroIdentity: user.identity || localeCopy.copy_ad183b164d,
           heroSubtitle: ''
         });
       }
@@ -390,8 +395,8 @@ Page({
           })
         });
       }
-      else showShortToast(res.message || '请稍后刷新');
-    } catch (e) { showShortToast(getErrorText(e, '请稍后刷新')); }
+      else showShortToast(res.message || localeCopy.copy_e52119b17e);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_e52119b17e)); }
     finally { if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false }); }
   },
 
@@ -401,7 +406,7 @@ Page({
       let res = await callFunction({ name: 'listVenueBookingPurposes', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') this.setData({ purposes: res.purposes || [] });
-      else showShortToast(res.message || '请稍后刷新');
+      else showShortToast(res.message || localeCopy.copy_e52119b17e);
     } catch (_) {}
   },
 
@@ -428,19 +433,19 @@ Page({
     let _a = this.data, scheduleVenueId = _a.scheduleVenueId, scheduleWeekStart = _a.scheduleWeekStart;
     let parts = scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2];
     let end = new Date(y,m-1,d+6), dateTo = fmtLocalDate(end);
-    wx.showLoading({title:'加载中...'});
+    wx.showLoading({title:localeCopy.copy_fc99c4cc7b});
     try {
       let res = await callFunction({name:'getVenueSchedule',data:{venueId:scheduleVenueId,dateFrom:scheduleWeekStart,dateTo}});
       if (!orgSession.isRequestCurrent(this, request)) return;
       if(res.status==='success') this._buildTimetable(res.dailySchedules||[]);
-	      else showShortToast(res.message || '请稍后刷新');
-    } catch(e) { showShortToast(getErrorText(e,'请稍后刷新')); }
+	      else showShortToast(res.message || localeCopy.copy_e52119b17e);
+    } catch(e) { showShortToast(getErrorText(e,localeCopy.copy_e52119b17e)); }
     finally { wx.hideLoading(); }
   },
 
   _buildTimetable(dailySchedules) {
     let parts = this.data.scheduleWeekStart.split('-').map(Number), y = parts[0], m = parts[1], d = parts[2];
-    let labels = ['周一','周二','周三','周四','周五','周六','周日'];
+    let labels = [localeCopy.copy_92af9d9017,localeCopy.copy_e3233a4b58,localeCopy.copy_2f48862253,localeCopy.copy_017e3df1a1,localeCopy.copy_41a9548e60,localeCopy.copy_f2c74088c9,localeCopy.copy_a814b25100];
     let columns = [];
     let venue = this.data.venues.find(function(item) { return item.id === this.data.scheduleVenueId; }.bind(this));
     this._timetableDayData = dailySchedules || [];
@@ -474,8 +479,8 @@ Page({
       for(let ai=0;ai<dayData.activitySlots.length;ai++) {
         let a = dayData.activitySlots[ai];
         let _b = calcBlock(a.timeStart,a.timeEnd), top2 = _b.top, height2 = _b.height;
-        eventBlocks.push({top:top2+HEADER_H+TEXT_OFFSET,height:height2,status:'activity',label:a.ruleName||'活动',type:'activity',activity:a.activity||{
-          id:a.ruleId,name:a.ruleName||'活动',occurrenceStart:a.fullTimeStart||(dateStr+' '+a.timeStart),occurrenceEnd:a.fullTimeEnd||(dateStr+' '+a.timeEnd),cycleType:'',cycleValues:{}
+        eventBlocks.push({top:top2+HEADER_H+TEXT_OFFSET,height:height2,status:'activity',label:a.ruleName||localeCopy.copy_acd4c5c171,type:'activity',activity:a.activity||{
+          id:a.ruleId,name:a.ruleName||localeCopy.copy_acd4c5c171,occurrenceStart:a.fullTimeStart||(dateStr+' '+a.timeStart),occurrenceEnd:a.fullTimeEnd||(dateStr+' '+a.timeEnd),cycleType:'',cycleValues:{}
         }});
       }
     }
@@ -483,7 +488,7 @@ Page({
       for(let bi=0;bi<dayData.bookedSlots.length;bi++) {
         let b = dayData.bookedSlots[bi];
         let _c = calcBlock(b.timeStart,b.timeEnd), top3 = _c.top, height3 = _c.height;
-        eventBlocks.push({top:top3+HEADER_H+TEXT_OFFSET,height:height3,status:b.status==='pending'?'pending':'booked',label:b.title||'已借用',type:'booking',
+        eventBlocks.push({top:top3+HEADER_H+TEXT_OFFSET,height:height3,status:b.status==='pending'?'pending':'booked',label:b.title||localeCopy.copy_8aa6e63e5e,type:'booking',
           booking:{id:b.id,venueId:b.venueId,venueName:b.venueName||'',venueLocation:b.venueLocation||'',title:b.title,description:b.description,visibility:b.visibility||'details',userId:b.userId,userName:b.userName,userDept:b.userDept||'',userIdentity:b.userIdentity||'',userWorkGroup:b.userWorkGroup||'',orgName:b.orgName||'',creatorType:b.creatorType,creatorName:b.creatorName,creatorLabel:b.creatorLabel,approverHrId:b.approverHrId,approvalComment:b.approvalComment||'',createdAt:b.createdAt,timeStart:b.fullTimeStart||b.timeStart,timeEnd:b.fullTimeEnd||b.timeEnd,timeStartDisplay:b.timeStart,timeEndDisplay:b.timeEnd,status:b.status,approvalProgress:b.approvalProgress||null}});
       }
     }
@@ -506,7 +511,7 @@ Page({
   openOccupiedPopup(booking) {
     const start = booking.timeStartDisplay || '';
     const end = booking.timeEndDisplay || '';
-    const timeText = (start || end) ? ((start ? start + ' 至 ' : '') + (end || '')) : '';
+    const timeText = (start || end) ? ((start ? start + localeCopy.copy_c44dbba9e9 : '') + (end || '')) : '';
     this.setData({ occupiedPopupVisible: true, occupiedPopupTime: timeText });
   },
   closeOccupiedPopup() { this.setData({ occupiedPopupVisible: false, occupiedPopupTime: '' }); },
@@ -515,11 +520,11 @@ Page({
   viewActivityScheduleDetail(activity) {
     if (!activity) return;
     this.setData({ activityDetailVisible: true, activityDetail: {
-      name: activity.name || '活动',
+      name: activity.name || localeCopy.copy_acd4c5c171,
       venueName: this.data.scheduleVenueName,
       cycleLabel: formatActivityCycleLabel(activity.cycleType, activity.cycleValues),
-      occurrenceTime: (activity.occurrenceStart || '') + ' 至 ' + (activity.occurrenceEnd || ''),
-      note: '该时间段为活动占用，借用不可与其重叠。'
+      occurrenceTime: (activity.occurrenceStart || '') + localeCopy.copy_c44dbba9e9 + (activity.occurrenceEnd || ''),
+      note: localeCopy.copy_c1ce05d451
     }});
   },
   closeActivityDetail() { this.setData({ activityDetailVisible: false, activityDetail: null }); },
@@ -581,7 +586,7 @@ Page({
     const minute = timeToMin(time);
     const dayData = this._getScheduleDayData(dateStr);
     if (this._isScheduleStartAllowed(dayData, dateStr, minute, this._getVenueBookingWindow())) return true;
-    showShortToast('该时间不在可借用时间范围内');
+    showShortToast(localeCopy.copy_6491116806);
     return false;
   },
 
@@ -661,8 +666,8 @@ Page({
           approverCandidates: res.candidates || [],
           firstApproverKeyword: ''
         });
-      } else showShortToast(res.message || '请稍后重试');
-    } catch (e) { showShortToast(getErrorText(e, '请稍后重试')); }
+      } else showShortToast(res.message || localeCopy.copy_e58fa637eb);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_e58fa637eb)); }
   },
 
   closeFirstApproverPicker() {
@@ -688,13 +693,13 @@ Page({
     options = options || {};
     let venueId = this.data.bookingVenueId;
     if (!venueId || !dateStr) return;
-    wx.showLoading({ title: '查询空闲...' });
+    wx.showLoading({ title: localeCopy.copy_96eaa4c0be });
     try {
       let res = await callFunction({ name: 'getVenueSchedule', data: { venueId: venueId, dateFrom: dateStr, dateTo: dateStr } });
       if (res.status === 'success') {
         let dayData = (res.dailySchedules || [])[0];
         if (options.rejectInvalidDate && (!dayData || !this._hasSelectableStart(dayData, dateStr))) {
-          showShortToast('该日期不在当前可借用时间范围内');
+          showShortToast(localeCopy.copy_aa510c50b5);
           if (options.previousDate) {
             this.setData({ bookingStartDate: options.previousDate, bookingStartDateDisplay: options.previousDate });
           }
@@ -715,8 +720,8 @@ Page({
           this.setData({ timelineBlocks: [], timelineSelection: null, _dayData: null });
         }
         return true;
-      } else { showShortToast(res.message || '请重新选择日期'); }
-    } catch (e) { showShortToast(getErrorText(e, '请稍后刷新')); }
+      } else { showShortToast(res.message || localeCopy.copy_ab5ebc56e8); }
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_e52119b17e)); }
     finally { wx.hideLoading(); }
     return false;
   },
@@ -785,7 +790,7 @@ Page({
       if (endMin > sm) {
         let dur = endMin - sm;
         let dh = Math.floor(dur / 60), dm = dur % 60;
-        setObj._durationText = dh > 0 ? (dh + '小时' + (dm > 0 ? dm + '分钟' : '')) : (dm + '分钟');
+        setObj._durationText = dh > 0 ? (dh + localeCopy.copy_7bbe7387fa + (dm > 0 ? dm + localeCopy.copy_9feed17479 : '')) : (dm + localeCopy.copy_9feed17479);
         setObj._activeDuration = dur;
         setObj.timelineSelection = {
           left: (sm / TOTAL_MIN * 100).toFixed(2),
@@ -880,11 +885,11 @@ Page({
     let dayData = this.data._dayData;
     const bookingWindow = this._getVenueBookingWindow(this.data.bookingVenueId);
     if (!dayData || !dayData.openSlots || !dayData.openSlots.length) {
-      if (!opts.silent) showShortToast('请先选择日期');
+      if (!opts.silent) showShortToast(localeCopy.copy_6ce770a0a6);
       return false;
     }
     if (!this._isScheduleStartAllowed(dayData, dateStr, startMin, bookingWindow)) {
-      if (!opts.silent) showShortToast('该时间不在可借用时间范围内');
+      if (!opts.silent) showShortToast(localeCopy.copy_6491116806);
       return false;
     }
     const blockedMerged = buildBlockedIntervals(dayData);
@@ -931,11 +936,11 @@ Page({
     let dayData = this.data._dayData;
 
     if (!this.data.bookingTimeStart) {
-      if (!opts.silent) showShortToast('请先选择开始时间');
+      if (!opts.silent) showShortToast(localeCopy.copy_560bd817fb);
       return false;
     }
     if (endMin <= startMin) {
-      if (!opts.silent) showShortToast('请将结束时间设在开始时间之后');
+      if (!opts.silent) showShortToast(localeCopy.copy_0b091cba77);
       return false;
     }
     if (dayData && dayData.openSlots) {
@@ -946,19 +951,19 @@ Page({
         }
       }
       if (!inOpen) {
-        if (!opts.silent) showShortToast('结束时间不在开放时段内');
+        if (!opts.silent) showShortToast(localeCopy.copy_11286a7a75);
         return false;
       }
       let openMerged = mergeIntervals(slotsToIntervals(dayData.openSlots));
       let gap = findOpenGap(startMin, endMin, openMerged);
       if (gap >= 0) {
-        if (!opts.silent) showShortToast(minToTime(gap) + ' 场地不开放');
+        if (!opts.silent) showShortToast(minToTime(gap) + localeCopy.copy_70d4911767);
         return false;
       }
       let blockedMerged = buildBlockedIntervals(dayData);
       let conflict = findBlockedOverlap(startMin, endMin, blockedMerged);
       if (conflict) {
-        if (!opts.silent) showShortToast(minToTime(conflict.start) + ' 已被占用，无法跨越');
+        if (!opts.silent) showShortToast(minToTime(conflict.start) + localeCopy.copy_21268f5ef7);
         return false;
       }
     }
@@ -969,7 +974,7 @@ Page({
     let dh2 = Math.floor(dur2 / 60), dm2 = dur2 % 60;
     let o2 = {
       bookingTimeEnd: timeStr, timeEndInput: timeStr,
-      _durationText: dh2 > 0 ? (dh2 + '小时' + (dm2 > 0 ? dm2 + '分钟' : '')) : (dm2 + '分钟'),
+      _durationText: dh2 > 0 ? (dh2 + localeCopy.copy_7bbe7387fa + (dm2 > 0 ? dm2 + localeCopy.copy_9feed17479 : '')) : (dm2 + localeCopy.copy_9feed17479),
       _activeDuration: dur2,
       timelineSelection: { left: (startMin / TOTAL_MIN * 100).toFixed(2), width: (dur2 / TOTAL_MIN * 100).toFixed(2) }
     };
@@ -1012,7 +1017,7 @@ Page({
     // Timeline selection
     let dur = endMin - startMin;
     let dh = Math.floor(dur / 60), dm = dur % 60;
-    o._durationText = dh > 0 ? (dh + '小时' + (dm > 0 ? dm + '分钟' : '')) : (dm + '分钟');
+    o._durationText = dh > 0 ? (dh + localeCopy.copy_7bbe7387fa + (dm > 0 ? dm + localeCopy.copy_9feed17479 : '')) : (dm + localeCopy.copy_9feed17479);
     o._activeDuration = dur;
     o.timelineSelection = { left: (startMin / TOTAL_MIN * 100).toFixed(2), width: (dur / TOTAL_MIN * 100).toFixed(2) };
     // Chip highlights for end
@@ -1081,7 +1086,7 @@ Page({
     if (em <= sm) { this.setData({ timelineSelection: null, _durationText: '', _activeDuration: 0 }); return; }
     let dur = em - sm;
     let h = Math.floor(dur / 60), m = dur % 60;
-    let durText = h > 0 ? (h + '小时' + (m > 0 ? m + '分钟' : '')) : (m + '分钟');
+    let durText = h > 0 ? (h + localeCopy.copy_7bbe7387fa + (m > 0 ? m + localeCopy.copy_9feed17479 : '')) : (m + localeCopy.copy_9feed17479);
     this.setData({
       timelineSelection: { left: (sm / TOTAL_MIN * 100).toFixed(2), width: ((em - sm) / TOTAL_MIN * 100).toFixed(2) },
       _durationText: durText, _activeDuration: dur
@@ -1208,7 +1213,7 @@ Page({
     if (sm < em) {
       let dur = em - sm;
       let dh = Math.floor(dur / 60), dm = dur % 60;
-      upd._durationText = dh > 0 ? (dh + '小时' + (dm > 0 ? dm + '分钟' : '')) : (dm + '分钟');
+      upd._durationText = dh > 0 ? (dh + localeCopy.copy_7bbe7387fa + (dm > 0 ? dm + localeCopy.copy_9feed17479 : '')) : (dm + localeCopy.copy_9feed17479);
       upd._activeDuration = dur;
       upd.timelineSelection = {
         left: (sm / TOTAL_MIN * 100).toFixed(2),
@@ -1315,7 +1320,7 @@ Page({
     let today = fmtLocalDate(new Date());
     const previousDate = this.data.bookingStartDate;
     if (d < today) {
-      showShortToast('请选择今天或之后的日期');
+      showShortToast(localeCopy.copy_902c3411f2);
       if (previousDate) this.setData({ bookingStartDate: previousDate, bookingStartDateDisplay: previousDate });
       return;
     }
@@ -1601,7 +1606,7 @@ Page({
   onDurationTap(e) {
     let minutes = parseInt(e.currentTarget.dataset.minutes);
     if (!minutes) return;
-    if (!this.data.bookingTimeStart) { showShortToast('请先选择开始时间'); return; }
+    if (!this.data.bookingTimeStart) { showShortToast(localeCopy.copy_560bd817fb); return; }
     let startMin = timeToMin(this.data.bookingTimeStart);
     let endMin = startMin + minutes;
     if (endMin > TOTAL_MIN) endMin = TOTAL_MIN;
@@ -1617,13 +1622,13 @@ Page({
   async submitBooking() {
     let _a = this.data, vid = _a.bookingVenueId, sd = _a.bookingStartDate,
         st = _a.bookingTimeStart, et = _a.bookingTimeEnd, title = _a.bookingTitle, desc = _a.bookingDesc, dd = _a._dayData;
-    if(!vid||!sd||!st||!et){showShortToast('请填写完整信息');return;}
-    if(!title){showShortToast('请填写借用事由');return;}
-    if (this.data.allowUserSelectFlow && !this.data.selectedFlowId) { showShortToast('请选择审批流程'); return; }
+    if(!vid||!sd||!st||!et){showShortToast(localeCopy.copy_9dc5c7d79f);return;}
+    if(!title){showShortToast(localeCopy.copy_7db68605c6);return;}
+    if (this.data.allowUserSelectFlow && !this.data.selectedFlowId) { showShortToast(localeCopy.copy_29ea17e75c); return; }
     let now = new Date(), today = fmtLocalDate(now);
-    if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast('请选择当前时间之后'); return; }
+    if (sd === today && timeToMin(st) < now.getHours() * 60 + now.getMinutes()) { showShortToast(localeCopy.copy_10df33d76e); return; }
     let ts = sd+'T'+st, te = sd+'T'+et;
-    if(ts >= te) { showShortToast('请将结束时间设在开始时间之后'); return; }
+    if(ts >= te) { showShortToast(localeCopy.copy_0b091cba77); return; }
     let err = this._validateRange(dd, sd, st, et);
     if(err) { showShortToast(err); return; }
     this.setData({loading:true});
@@ -1644,7 +1649,7 @@ Page({
         if (this.data.scheduleVisible) this.loadTimetable();
         this._emitVenueChanged('create', res.id);
       }else showShortToast(res.message);
-    } catch(e) { showShortToast(getErrorText(e,'未提交借用，请重试')); }
+    } catch(e) { showShortToast(getErrorText(e,localeCopy.copy_ccd4af477f)); }
     finally { this.setData({loading:false}); }
   },
 
@@ -1655,10 +1660,10 @@ Page({
     let rs = timeToMin(st), re = timeToMin(et);
     let mo = mergeIntervals(slotsToIntervals(openSlots));
     let gap = findOpenGap(rs, re, mo);
-    if(gap >= 0) return minToTime(gap) + ' 场地不开放';
+    if(gap >= 0) return minToTime(gap) + localeCopy.copy_70d4911767;
     let mb = mergeIntervals([].concat(slotsToIntervals(bookedSlots), slotsToIntervals(activitySlots)));
     let conflict = findBlockedOverlap(rs, re, mb);
-    if(conflict) return minToTime(conflict.start) + ' 已被占用';
+    if(conflict) return minToTime(conflict.start) + localeCopy.copy_abf766aebc;
     return null;
   },
 
@@ -1674,7 +1679,7 @@ Page({
         let bookings = (res.bookings||[]).map(function(b){ return prepareVenueBookingDetail(b); });
         this.setData({myBookings: bookings});
       }
-    } catch(e) { showShortToast(getErrorText(e,'请稍后刷新')); }
+    } catch(e) { showShortToast(getErrorText(e,localeCopy.copy_e52119b17e)); }
     finally { if (orgSession.isRequestCurrent(this, request)) this.setData({loading:false}); }
   },
 
@@ -1683,16 +1688,16 @@ Page({
     let that = this;
     let booking = this.data.myBookings.find(function(b){return b.id===id;});
     if (!booking) return;
-    if (booking.displayStatus === 'inUse') { showShortToast('请先结束使用'); return; }
-    if (booking.displayStatus === 'completed') { showShortToast('已完成的借用无需取消'); return; }
+    if (booking.displayStatus === 'inUse') { showShortToast(localeCopy.copy_a22e0c994a); return; }
+    if (booking.displayStatus === 'completed') { showShortToast(localeCopy.copy_7d2ebd6d78); return; }
     wx.showModal({
-      title: '确认取消', content: '取消此次借用？',
+      title: localeCopy.copy_10bd4c9a19, content: localeCopy.copy_ff9e9017e0,
       success: async function(r) {
         if (!r.confirm) return;
         try {
           let res = await callFunction({name:'cancelVenueBooking',data:{id:id}});
           if(res.status==='success'){
-            showShortToast(res.message || '已取消');
+            showShortToast(res.message || localeCopy.copy_fd4601c1f9);
             let bookings = that.data.myBookings.map(function(b) {
               return b.id === id ? Object.assign({}, b, { status: 'cancelled', displayStatus: 'cancelled' }) : b;
             });
@@ -1701,7 +1706,7 @@ Page({
             that.loadPendingCount();
             that._emitVenueChanged('cancel', id);
           }else showShortToast(res.message);
-        } catch(e) { showShortToast(getErrorText(e,'未取消，请重试')); }
+        } catch(e) { showShortToast(getErrorText(e,localeCopy.copy_301f0250ef)); }
       }
     });
   },
@@ -1710,18 +1715,18 @@ Page({
     let id = e.currentTarget.dataset.id;
     let that = this;
     wx.showModal({
-      title: '确认结束使用', content: '结束时间将更新为现在，是否继续？',
+      title: localeCopy.copy_1df9bf856e, content: localeCopy.copy_e7c53f5f68,
       success: async function(r) {
         if (!r.confirm) return;
         try {
           let res = await callFunction({name:'endVenueBooking',data:{id:id}});
           if(res.status==='success'){
-            showShortToast(res.message || '使用已结束');
+            showShortToast(res.message || localeCopy.copy_26f5cb7f15);
             that.loadMyBookings();
             that.loadPendingCount();
             that._emitVenueChanged('end', id);
           }else showShortToast(res.message);
-        } catch(e) { showShortToast(getErrorText(e,'未完成，请重试')); }
+        } catch(e) { showShortToast(getErrorText(e,localeCopy.copy_0531ed9e78)); }
       }
     });
   },
@@ -1775,12 +1780,12 @@ Page({
           lastUpdateTime: this._formatTime()
         });
       } else if (res.status === 'forbidden') {
-        showShortToast(res.message || '请使用普通岗位身份');
+        showShortToast(res.message || localeCopy.copy_bba7f8b8ba);
       } else {
-        showShortToast(res.message || '请稍后刷新');
+        showShortToast(res.message || localeCopy.copy_e52119b17e);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '请稍后刷新'));
+      showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -1871,8 +1876,8 @@ Page({
           nextApproverCandidates: res.candidates || [],
           nextApproverKeyword: ''
         });
-      } else showShortToast(res.message || '请稍后重试');
-    } catch (e) { showShortToast(getErrorText(e, '请稍后重试')); }
+      } else showShortToast(res.message || localeCopy.copy_e58fa637eb);
+    } catch (e) { showShortToast(getErrorText(e, localeCopy.copy_e58fa637eb)); }
   },
 
   closeNextApproverPicker() {
@@ -1902,7 +1907,7 @@ Page({
     if (!target || !action) return;
 
     let endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
-    let actionLabel = action === 'approve' ? '通过' : '驳回';
+    let actionLabel = action === 'approve' ? localeCopy.copy_8e2f75159e : localeCopy.copy_b4432643e3;
 
     this.setData({ approvalSubmitting: true });
     try {
@@ -1910,7 +1915,7 @@ Page({
       if (action === 'approve' && this.data.nextApproverHrId) data.nextApproverHrId = this.data.nextApproverHrId;
       let res = await callFunction({ name: endpoint, data: data });
       if (res.status === 'success') {
-        showShortToast(res.message || ('已' + actionLabel));
+        showShortToast(res.message || (localeCopy.copy_f658e7b4d0 + actionLabel));
         that.closeApproval();
 
         let targetId = target.id;
@@ -1957,10 +1962,10 @@ Page({
 
         setTimeout(function() { that.loadPendingData(); }, 2000);
       } else {
-        showShortToast(res.message || '未完成，请重试');
+        showShortToast(res.message || localeCopy.copy_0531ed9e78);
       }
     } catch (e) {
-      showShortToast(getErrorText(e, '未完成，请重试'));
+      showShortToast(getErrorText(e, localeCopy.copy_0531ed9e78));
     } finally {
       this.setData({ approvalSubmitting: false });
     }

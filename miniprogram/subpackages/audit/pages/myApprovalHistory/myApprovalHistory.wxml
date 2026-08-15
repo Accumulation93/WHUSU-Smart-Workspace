@@ -1,10 +1,10 @@
 <view class="page page-narrow subapp-audit-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="审核 · 我的审批记录"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_f69eaef5c5}}"></workspace-hero>
 
   <view class="section">
     <view class="card">
       <view class="section-title-row">
-        <view class="section-title">审批记录</view>
+        <view class="section-title">{{localeCopy.copy_2ad6b11547}}</view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
@@ -17,7 +17,7 @@
             <view class="audit-submission-desc-text" wx:if="{{item.description}}">{{item.description}}</view>
             <view class="audit-submission-meta">
               <view class="audit-chip {{item.status === 'approved' ? 'audit-chip-approved' : (item.status === 'rejected' ? 'audit-chip-rejected' : (item.status === 'in_progress' ? 'audit-chip-progress' : (item.status === 'draft' ? 'audit-chip-draft' : (item.status === 'withdrawn' ? 'audit-chip-withdrawn' : 'audit-chip-pending'))))}}">
-                {{item.status === 'in_progress' ? '审核中' : (item.status === 'approved' ? '已完成' : (item.status === 'rejected' ? '已驳回' : (item.status === 'withdrawn' ? '已撤回' : item.status)))}}
+                {{item.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (item.status === 'approved' ? localeCopy.copy_2220286f1c : (item.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (item.status === 'withdrawn' ? localeCopy.copy_282e15e226 : item.status)))}}
               </view>
               <text class="audit-submission-meta-text">{{item.submitterName}} · {{item.submissionNumber}}</text>
             </view>
@@ -26,8 +26,8 @@
           <view class="audit-list-arrow">›</view>
         </view>
         <view class="audit-empty-state" wx:if="{{!items.length}}">
-          <view class="audit-empty-icon"><ui-icon name="file" tone="muted" size="54" ariaLabel="暂无审批记录" /></view>
-          <view class="audit-empty-text">暂无审批记录</view>
+          <view class="audit-empty-icon"><ui-icon name="file" tone="muted" size="54" ariaLabel="{{localeCopy.copy_86accadcca}}" /></view>
+          <view class="audit-empty-text">{{localeCopy.copy_86accadcca}}</view>
         </view>
         </block>
       </scroll-view>
@@ -35,7 +35,7 @@
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view>
+    <view class="footer-org">{{localeCopy.copy_638da8ae60}}</view>
   </view>
 </view>

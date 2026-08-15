@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/adminPermissions');
 const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
@@ -36,7 +37,7 @@ function levelLabel(level) {
 router.post('/getMyAdminPermissions', async (req, res) => {
   try {
     const { operator, effective, orgId } = await resolvePermissionManager(req);
-    if (!operator) return res.status(403).json({ status: 'forbidden', message: '请重新选择管理员身份' });
+    if (!operator) return res.status(403).json({ status: 'forbidden', message: localeCopy.copy_b0eb464235 });
     res.json({
       status: 'success',
       organizationId: orgId,
@@ -47,7 +48,7 @@ router.post('/getMyAdminPermissions', async (req, res) => {
     });
   } catch (error) {
     req.logger.error('Get own permissions failed', { error: error.message });
-    res.status(500).json({ status: 'error', message: '请稍后刷新' });
+    res.status(500).json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
 
@@ -55,7 +56,7 @@ router.post('/listPermissionManagedAdmins', async (req, res) => {
   try {
     const { operator, effective, orgId } = await resolvePermissionManager(req);
     if (!operator || !effective.canAccessPermissionSystem) {
-      return res.status(403).json({ status: 'permission_denied', message: '请使用可管理权限的管理员身份' });
+      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_9980d48bf5 });
     }
     const rows = await adminPermissionModel.listTargets(orgId, ['admin']);
     const authenticationStates = await unifiedIdentityModel.listLegacyAdminAuthenticationStates(
@@ -88,7 +89,7 @@ router.post('/listPermissionManagedAdmins', async (req, res) => {
     res.json({ status: 'success', list: items, operatorLevel: operator.admin_level });
   } catch (error) {
     req.logger.error('List permission targets failed', { error: error.message });
-    res.status(500).json({ status: 'error', message: '请稍后刷新管理员' });
+    res.status(500).json({ status: 'error', message: localeCopy.copy_6026566679 });
   }
 });
 
@@ -98,7 +99,7 @@ router.post('/getAdminPermissionDetail', async (req, res) => {
     const adminId = safeString(req.body.adminId);
     const target = await adminPermissionModel.getTarget(orgId, adminId);
     if (!canConfigureAdminPermissions(operator, effective, target, orgId)) {
-      return res.status(403).json({ status: 'permission_denied', message: '请选择可管理的管理员' });
+      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_1cf137dd0d });
     }
     const targetEffective = await loadEffectivePermissions(target, orgId);
     const editableKeys = editablePermissionKeys(operator, effective, target, orgId, targetEffective);
@@ -115,7 +116,7 @@ router.post('/getAdminPermissionDetail', async (req, res) => {
     });
   } catch (error) {
     req.logger.error('Get admin permission detail failed', { error: error.message });
-    res.status(500).json({ status: 'error', message: '请稍后刷新权限' });
+    res.status(500).json({ status: 'error', message: localeCopy.copy_22c4d68f78 });
   }
 });
 
@@ -128,7 +129,7 @@ router.post('/saveAdminPermissions', async (req, res) => {
     const adminId = safeString(req.body.adminId);
     const submitted = req.body.permissions && typeof req.body.permissions === 'object' ? req.body.permissions : null;
     if (!submitted || Array.isArray(submitted)) {
-      return res.status(400).json({ status: 'invalid_params', message: '请刷新权限后重试' });
+      return res.status(400).json({ status: 'invalid_params', message: localeCopy.copy_8e40bbeebe });
     }
     connection = await pool.getConnection();
     await connection.beginTransaction();
@@ -137,7 +138,7 @@ router.post('/saveAdminPermissions', async (req, res) => {
     const target = await adminPermissionModel.getTarget(orgId, adminId, connection, true);
     if (!canConfigureAdminPermissions(operator, effective, target, orgId)) {
       await connection.rollback();
-      return res.status(403).json({ status: 'permission_denied', message: '请选择可管理的管理员' });
+      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_1cf137dd0d });
     }
 
     const targetEffective = await loadEffectivePermissions(target, orgId, connection);
@@ -147,15 +148,15 @@ router.post('/saveAdminPermissions', async (req, res) => {
     const unknownKeys = submittedKeys.filter((key) => !applicableKeys.includes(key));
     if (unknownKeys.length) {
       await connection.rollback();
-      return res.status(400).json({ status: 'invalid_params', message: '请刷新权限后重试' });
+      return res.status(400).json({ status: 'invalid_params', message: localeCopy.copy_8e40bbeebe });
     }
     if (submittedKeys.some((key) => typeof submitted[key] !== 'boolean')) {
       await connection.rollback();
-      return res.status(400).json({ status: 'invalid_params', message: '请刷新权限后重试' });
+      return res.status(400).json({ status: 'invalid_params', message: localeCopy.copy_8e40bbeebe });
     }
     if (submittedKeys.some((key) => !editableKeys.includes(key))) {
       await connection.rollback();
-      return res.status(403).json({ status: 'permission_denied', message: '请刷新权限后重试' });
+      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_8e40bbeebe });
     }
     if (submitted['system.admin_accounts.write'] === true
       && submitted['system.admin_accounts.read'] !== true
@@ -181,7 +182,7 @@ router.post('/saveAdminPermissions', async (req, res) => {
     const saved = await loadEffectivePermissions(target, orgId);
     res.json({
       status: 'success',
-      message: '权限已保存',
+      message: localeCopy.copy_f301163b57,
       permissions: saved.permissions,
       groups: serializeCatalog(
         target.admin_level,
@@ -194,7 +195,7 @@ router.post('/saveAdminPermissions', async (req, res) => {
       try { await connection.rollback(); } catch (_) {}
     }
     req.logger.error('Save admin permissions failed', { error: error.message });
-    res.status(500).json({ status: 'error', message: '未保存，请重试' });
+    res.status(500).json({ status: 'error', message: localeCopy.copy_215e3c57da });
   } finally {
     if (connection) connection.release();
   }

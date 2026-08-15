@@ -1,3 +1,5 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/models/scoreRecord');
+const { format: localeFormat } = require('../../../locales/runtime');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const CONDITION_COLUMNS = Object.freeze({
@@ -74,7 +76,7 @@ async function query(conditions = {}) {
   for (const [key, value] of Object.entries(conditions)) {
     if (value !== undefined && value !== null) {
       const dbKey = CONDITION_COLUMNS[key];
-      if (!dbKey) throw new Error(`不支持的评分记录查询条件: ${key}`);
+      if (!dbKey) throw new Error(localeFormat(localeCopy.copy_8102ba41f6, [key]));
       sql += ` AND ${dbKey} = ?`;
       params.push(value);
     }

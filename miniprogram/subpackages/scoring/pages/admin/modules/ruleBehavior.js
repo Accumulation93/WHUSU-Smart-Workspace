@@ -1,3 +1,5 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/ruleBehavior');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: rule tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -49,14 +51,14 @@ module.exports = Behavior({
         });
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status && result.status !== 'success') {
-          throw new Error(result.message || '请稍后刷新评分人类别');
+          throw new Error(result.message || localeCopy.copy_58d149dfbb);
         }
         this.setRuleListState(result.rules || [], this.data.selectedRuleIds, this.data.ruleFilters);
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         if (!silent) {
           wx.showToast({
-            title: '请稍后刷新评分人类别',
+            title: localeCopy.copy_58d149dfbb,
             icon: 'none'
           });
         }
@@ -163,7 +165,7 @@ module.exports = Behavior({
     openScorerTaskPage() {
       if (!this.data.currentActivityId) {
         wx.showToast({
-          title: '请先设置当前评分活动',
+          title: localeCopy.copy_4e36c10a9e,
           icon: 'none'
         });
         return;
@@ -285,8 +287,8 @@ module.exports = Behavior({
     onRuleFilterChange(e) {
       const { field } = e.currentTarget.dataset;
       const optionKey = field === 'identity' ? 'identities' : 'departments';
-      const options = (this.data.ruleFilterOptions || {})[optionKey] || ['全部'];
-      const value = options[Number(e.detail.value)] || '全部';
+      const options = (this.data.ruleFilterOptions || {})[optionKey] || [localeCopy.copy_31d4595959];
+      const value = options[Number(e.detail.value)] || localeCopy.copy_31d4595959;
       const nextFilters = {
         ...(this.data.ruleFilters || emptyRuleFilters()),
         [field]: value
@@ -360,7 +362,7 @@ module.exports = Behavior({
   
       if (!this.data.currentActivityId || !currentActivity) {
         wx.showToast({
-          title: '请先设置当前评分活动',
+          title: localeCopy.copy_4e36c10a9e,
           icon: 'none'
         });
         return;
@@ -368,7 +370,7 @@ module.exports = Behavior({
   
       if (!selectedRules.length) {
         wx.showToast({
-          title: '请选择类别',
+          title: localeCopy.copy_78e3986a7f,
           icon: 'none'
         });
         return;
@@ -376,14 +378,14 @@ module.exports = Behavior({
   
       if (!clauseResult.ok) {
         wx.showToast({
-          title: clauseResult.message || '请先准备好要批量应用的被评分人规则',
+          title: clauseResult.message || localeCopy.copy_30a324d851,
           icon: 'none'
         });
         return;
       }
   
       this.setLoading('batchSaveRules', true);
-      wx.showLoading({ title: '正在批量应用...', mask: true });
+      wx.showLoading({ title: localeCopy.copy_20c9187fe4, mask: true });
       try {
         const savedRules = [];
         for (const rule of selectedRules) {
@@ -400,7 +402,7 @@ module.exports = Behavior({
           if (result.status !== 'success') {
             wx.hideLoading();
             wx.showToast({
-              title: result.message || (`未设置：${rule.scorerDepartment}/${rule.scorerIdentity}`),
+              title: result.message || (localeFormat(localeCopy.copy_7acbc2acc0, [rule.scorerDepartment, rule.scorerIdentity])),
               icon: 'none'
             });
             this.setLoading('batchSaveRules', false);
@@ -422,13 +424,13 @@ module.exports = Behavior({
         await this.loadRuleList({ silent: true });
         wx.hideLoading();
         wx.showToast({
-          title: '批量更新完成',
+          title: localeCopy.copy_3bf6e80d99,
           icon: 'success'
         });
       } catch (error) {
         wx.hideLoading();
         wx.showToast({
-          title: '未设置，请重试',
+          title: localeCopy.copy_78ad9dc82c,
           icon: 'none'
         });
       } finally {
@@ -463,7 +465,7 @@ module.exports = Behavior({
   
       if (!clauseTemplateId) {
         wx.showToast({
-          title: '请先选择评分问题',
+          title: localeCopy.copy_0752b95158,
           icon: 'none'
         });
         return;
@@ -472,7 +474,7 @@ module.exports = Behavior({
       const weight = Number(clauseTemplateWeight);
       if (!Number.isFinite(weight) || weight <= 0) {
         wx.showToast({
-          title: '请输入大于 0 的评分问题权重',
+          title: localeCopy.copy_ba359df757,
           icon: 'none'
         });
         return;
@@ -499,7 +501,7 @@ module.exports = Behavior({
   
       if (exists) {
         wx.showToast({
-          title: '问题已在规则中',
+          title: localeCopy.copy_6a36edd369,
           icon: 'none'
         });
         return;
@@ -603,13 +605,13 @@ module.exports = Behavior({
       const editIndex = this.data.clauseTemplateInlineEditIndex;
   
       if (!clauseTemplateId) {
-        wx.showToast({ title: '请先选择评分问题', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_0752b95158, icon: 'none' });
         return;
       }
   
       const weight = Number(clauseTemplateWeight);
       if (!Number.isFinite(weight) || weight <= 0) {
-        wx.showToast({ title: '请输入大于 0 的评分问题权重', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_ba359df757, icon: 'none' });
         return;
       }
   
@@ -633,7 +635,7 @@ module.exports = Behavior({
       ));
   
       if (exists) {
-        wx.showToast({ title: '问题已在规则中', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_6a36edd369, icon: 'none' });
         return;
       }
   
@@ -694,7 +696,7 @@ module.exports = Behavior({
       } = this.data.ruleForm;
       if (clauseScope !== 'all_people' && !clauseTargetIdentityId && clauseScope.indexOf('_all') === -1) {
         wx.showToast({
-          title: '请填写被评分人身份',
+          title: localeCopy.copy_7151fd51a0,
           icon: 'none'
         });
         return;
@@ -718,7 +720,7 @@ module.exports = Behavior({
   
       if (exists) {
         wx.showToast({
-          title: '被评分人规则已存在',
+          title: localeCopy.copy_7aed7111ba,
           icon: 'none'
         });
         return;
@@ -878,7 +880,7 @@ module.exports = Behavior({
       const currentActivity = (this.data.activityList || []).find((item) => item.id === this.data.currentActivityId);
       if (!this.data.currentActivityId || !currentActivity) {
         wx.showToast({
-          title: '请先设置当前评分活动',
+          title: localeCopy.copy_4e36c10a9e,
           icon: 'none'
         });
         return;
@@ -886,7 +888,7 @@ module.exports = Behavior({
   
       if (!scorerDepartmentId || !scorerIdentityId) {
         wx.showToast({
-          title: '请填写完整的评分人类别',
+          title: localeCopy.copy_f6ace868f2,
           icon: 'none'
         });
         return;
@@ -894,7 +896,7 @@ module.exports = Behavior({
   
       if (!clauseResult.ok) {
         wx.showToast({
-          title: clauseResult.message || '请先添加被评分人规则',
+          title: clauseResult.message || localeCopy.copy_b9e48da987,
           icon: 'none'
         });
         return;
@@ -913,7 +915,7 @@ module.exports = Behavior({
         });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未保存，请重试',
+            title: result.message || localeCopy.copy_215e3c57da,
             icon: 'none'
           });
           return;
@@ -929,12 +931,12 @@ module.exports = Behavior({
         });
         this.setData({ ruleForm: emptyRuleForm() });
         wx.showToast({
-          title: '类别已保存',
+          title: localeCopy.copy_d2758f01a6,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未保存，请重试',
+          title: localeCopy.copy_215e3c57da,
           icon: 'none'
         });
       } finally {
@@ -945,7 +947,7 @@ module.exports = Behavior({
     async generateRuleCategories() {
       if (!this.data.currentActivityId) {
         wx.showToast({
-          title: '请先设置当前评分活动',
+          title: localeCopy.copy_4e36c10a9e,
           icon: 'none'
         });
         return;
@@ -959,7 +961,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未生成，请重试',
+            title: result.message || localeCopy.copy_9662ceba48,
             icon: 'none'
           });
           return;
@@ -967,12 +969,12 @@ module.exports = Behavior({
   
         await this.reloadRuleListWithRetry(result.ruleCount || 0);
         wx.showToast({
-          title: result.ruleCount ? '默认评分人类别已生成' : '没有可生成的评分人类别',
+          title: result.ruleCount ? localeCopy.copy_7ca6a5ec8a : localeCopy.copy_7ef5d3f1ee,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未生成，请重试',
+          title: localeCopy.copy_9662ceba48,
           icon: 'none'
         });
       } finally {
@@ -983,7 +985,7 @@ module.exports = Behavior({
     async generateRuleCategoriesSafe() {
       if (!this.data.currentActivityId) {
         wx.showToast({
-          title: '请先设置当前评分活动',
+          title: localeCopy.copy_4e36c10a9e,
           icon: 'none'
         });
         return;
@@ -998,7 +1000,7 @@ module.exports = Behavior({
   
         if (!result || result.status !== 'success') {
           wx.showToast({
-            title: (result && result.message) || '未生成，请重试',
+            title: (result && result.message) || localeCopy.copy_9662ceba48,
             icon: 'none'
           });
           return;
@@ -1018,21 +1020,21 @@ module.exports = Behavior({
         }
   
         wx.showToast({
-          title: '默认评分人类别已生成',
+          title: localeCopy.copy_7ca6a5ec8a,
           icon: 'success'
         });
         return;
       } catch (error) {
         if (result && result.status === 'success') {
           wx.showToast({
-            title: '默认评分人类别已生成',
+            title: localeCopy.copy_7ca6a5ec8a,
             icon: 'success'
           });
           return;
         }
   
         wx.showToast({
-          title: '未生成，请重试',
+          title: localeCopy.copy_9662ceba48,
           icon: 'none'
         });
       } finally {
@@ -1043,14 +1045,14 @@ module.exports = Behavior({
     async generateRuleCategoriesFinal() {
       if (!this.data.currentActivityId) {
         wx.showToast({
-          title: '请先设置当前评分活动',
+          title: localeCopy.copy_4e36c10a9e,
           icon: 'none'
         });
         return;
       }
   
       this.setLoading('generateRules', true);
-      wx.showLoading({ title: '正在生成默认类别...', mask: true });
+      wx.showLoading({ title: localeCopy.copy_bb6f1ef281, mask: true });
       let result = null;
       try {
         result = await this.callCloud('generateRateTargetRules', {
@@ -1059,7 +1061,7 @@ module.exports = Behavior({
       } catch (error) {
         wx.hideLoading();
         wx.showToast({
-          title: '未生成，请重试',
+          title: localeCopy.copy_9662ceba48,
           icon: 'none'
         });
         this.setLoading('generateRules', false);
@@ -1069,7 +1071,7 @@ module.exports = Behavior({
       if (!result || result.status !== 'success') {
         wx.hideLoading();
         wx.showToast({
-          title: (result && result.message) || '未生成，请重试',
+          title: (result && result.message) || localeCopy.copy_9662ceba48,
           icon: 'none'
         });
         this.setLoading('generateRules', false);
@@ -1093,7 +1095,7 @@ module.exports = Behavior({
       wx.hideLoading();
       this.setLoading('generateRules', false);
       wx.showToast({
-        title: `已生成 ${result.ruleCount || 0} 类评分人`,
+        title: localeFormat(localeCopy.copy_2143a01760, [result.ruleCount || 0]),
         icon: 'none',
         duration: 2000
       });
@@ -1104,14 +1106,14 @@ module.exports = Behavior({
       const currentActivity = (this.data.activityList || []).find((item) => item.id === this.data.currentActivityId);
       if (!this.data.currentActivityId || !currentActivity) {
         wx.showToast({
-          title: '请先设置当前评分活动',
+          title: localeCopy.copy_4e36c10a9e,
           icon: 'none'
         });
         return;
       }
       if (!scorerDepartmentId || !scorerIdentityId) {
         wx.showToast({
-          title: '请填写完整评分人类别',
+          title: localeCopy.copy_aee0e7df2d,
           icon: 'none'
         });
         return;
@@ -1130,7 +1132,7 @@ module.exports = Behavior({
         });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未保存，请重试',
+            title: result.message || localeCopy.copy_215e3c57da,
             icon: 'none'
           });
           return;
@@ -1139,12 +1141,12 @@ module.exports = Behavior({
         this.setData({ ruleForm: emptyRuleForm() });
         await this.loadRuleList();
         wx.showToast({
-          title: '类别已保存',
+          title: localeCopy.copy_d2758f01a6,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未保存，请重试',
+          title: localeCopy.copy_215e3c57da,
           icon: 'none'
         });
       } finally {
@@ -1155,8 +1157,8 @@ module.exports = Behavior({
     deleteRule(e) {
       const { id } = e.currentTarget.dataset;
       wx.showModal({
-        title: '删除评分人类别',
-        content: '确认删除这条评分人类别吗？',
+        title: localeCopy.copy_492761e445,
+        content: localeCopy.copy_06219d4706,
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -1165,12 +1167,12 @@ module.exports = Behavior({
             await this.callCloud('deleteRateRule', { id });
             await this.loadRuleList();
             wx.showToast({
-              title: '已删除',
+              title: localeCopy.copy_5398fec054,
               icon: 'success'
             });
           } catch (error) {
             wx.showToast({
-              title: '未删除，请重试',
+              title: localeCopy.copy_076bb5d383,
               icon: 'none'
             });
           }
@@ -1181,7 +1183,7 @@ module.exports = Behavior({
     async generateDefaultRules() {
       if (!this.data.currentActivityId) {
         wx.showToast({
-          title: '请先设置当前评分活动',
+          title: localeCopy.copy_4e36c10a9e,
           icon: 'none'
         });
         return;
@@ -1193,13 +1195,13 @@ module.exports = Behavior({
           activityId: this.data.currentActivityId
         });
         wx.showToast({
-          title: result.ruleCount ? '默认评分人类别已生成' : '没有可生成的评分人类别',
+          title: result.ruleCount ? localeCopy.copy_7ca6a5ec8a : localeCopy.copy_7ef5d3f1ee,
           icon: 'none'
         });
         await this.loadRuleList();
       } catch (error) {
         wx.showToast({
-          title: '未生成，请重试',
+          title: localeCopy.copy_9662ceba48,
           icon: 'none'
         });
       } finally {

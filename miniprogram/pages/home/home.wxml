@@ -1,5 +1,5 @@
 <view class="page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="{{heroSubtitle || '考核评分'}}"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{heroSubtitle || copy.defaultPageName}}"></workspace-hero>
 
   <view class="tabs-card" wx:if="{{hasUser && !isAdminRole}}">
     <view
@@ -16,7 +16,7 @@
   <view class="panel {{activeTab === 'scoring' ? 'panel-active' : ''}}" wx:if="{{isAdminRole || !hasUser || activeTab === 'scoring'}}">
     <view class="card activity-card {{!currentActivity ? 'activity-card-empty' : ''}}">
       <view class="info-head">
-        <view class="section-title">当前评分活动</view>
+        <view class="section-title">{{copy.currentActivity}}</view>
       </view>
 
       <view class="activity-name" wx:if="{{currentActivityText}}">
@@ -31,28 +31,28 @@
     <view class="stats-bar" wx:if="{{hasUser && !isAdminRole && activeTab === 'scoring'}}">
       <view class="stat-item">
         <view class="stat-value">{{scoringStats.total}}</view>
-        <view class="stat-label">待评人数</view>
+        <view class="stat-label">{{copy.totalTargets}}</view>
       </view>
       <view class="stat-item">
         <view class="stat-value stat-value-gold">{{scoringStats.scored}}</view>
-        <view class="stat-label">已完成</view>
+        <view class="stat-label">{{copy.completed}}</view>
       </view>
       <view class="stat-item">
         <view class="stat-value stat-value-blue">{{scoringStats.pending}}</view>
-        <view class="stat-label">待评分</view>
+        <view class="stat-label">{{copy.pendingScore}}</view>
       </view>
     </view>
 
     <view class="card targets-card {{!targetsLoading && !targetList.length ? 'targets-card-empty' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'scoring'}}">
       <view class="info-head">
-        <view class="section-title">被评分人</view>
+        <view class="section-title">{{copy.scoreTarget}}</view>
       </view>
 
       <view class="activity-status-banner paused-banner" wx:if="{{activityPaused}}">
-        <view class="status-banner-text">当前评分活动已暂停</view>
+        <view class="status-banner-text">{{copy.activityPaused}}</view>
       </view>
 
-      <view class="target-state" wx:if="{{targetsLoading}}">加载中...</view>
+      <view class="target-state" wx:if="{{targetsLoading}}">{{copy.loadingDots}}</view>
 
       <scroll-view class="target-scroll" scroll-y wx:if="{{!targetsLoading && targetGroups.length}}">
         <block wx:for="{{targetGroups}}" wx:key="identity">
@@ -87,70 +87,70 @@
 
   <view class="panel {{activeTab === 'results' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'results'}}">
     <view class="card empty-state-card" wx:if="{{!hasPublication}}">
-      <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="等待公示" /></view></view>
-      <view class="empty-title">暂无结果公示</view>
+      <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
+      <view class="empty-title">{{copy.noPublication}}</view>
     </view>
     <view class="card empty-state-card" wx:if="{{hasPublication && !publishedResults.length}}">
-      <view class="empty-illustration"><view class="empty-icon-lock"><ui-icon name="shield" tone="danger" size="46" ariaLabel="暂无权限" /></view></view>
-      <view class="empty-title">暂无可查看结果</view>
+      <view class="empty-illustration"><view class="empty-icon-lock"><ui-icon name="shield" tone="danger" size="46" ariaLabel="{{copy.noPermission}}" /></view></view>
+      <view class="empty-title">{{copy.noVisibleResults}}</view>
     </view>
     <view class="card results-panel-card" wx:if="{{hasPublication && publishedResults.length}}">
       <view class="info-head">
-        <view class="section-title">评分结果</view>
-        <view class="results-count-chip">共 {{publishedResults.length}} 人</view>
+        <view class="section-title">{{copy.scoringResults}}</view>
+        <view class="results-count-chip">{{copy.totalPrefix}} {{publishedResults.length}} {{copy.personSuffix}}</view>
       </view>
       <view class="stats-bar">
         <view class="stat-item">
           <view class="stat-value">{{filteredStatsData.count || publishedResults.length}}</view>
-          <view class="stat-label">公示人数</view>
+          <view class="stat-label">{{copy.publicationCount}}</view>
         </view>
         <view class="stat-item" wx:if="{{displayMode !== 'grade'}}">
           <view class="stat-value stat-value-gold">{{filteredStatsData.maxScore || '--'}}</view>
-          <view class="stat-label">最高分</view>
+          <view class="stat-label">{{copy.maxScore}}</view>
         </view>
         <view class="stat-item" wx:if="{{displayMode !== 'grade'}}">
           <view class="stat-value">{{filteredStatsData.avgScore || '--'}}</view>
-          <view class="stat-label">平均分</view>
+          <view class="stat-label">{{copy.averageScore}}</view>
         </view>
       </view>
       <!-- 等第模式下显示各等第人数分布（可点击筛选） -->
       <view class="grade-distribution" wx:if="{{displayMode === 'grade' && gradeDistribution.length}}">
         <view class="grade-chip {{resultFilterGrade === item.grade ? 'grade-chip-active' : ''}} ui-motion-chip" wx:for="{{gradeDistribution}}" wx:key="grade" bindtap="onResultFilterGrade" data-value="{{item.grade}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <text class="grade-chip-name">{{item.grade}}</text>
-          <text class="grade-chip-count">{{item.count}}人</text>
+          <text class="grade-chip-count">{{item.count}}{{copy.personSuffix}}</text>
         </view>
       </view>
 
       <!-- 搜索 + 筛选 -->
       <view class="result-filter-area">
         <view class="result-search-row">
-          <view class="search-icon"><ui-icon name="search" tone="muted" size="34" ariaLabel="搜索" /></view>
-          <input class="result-search-input" placeholder="搜索姓名或组织信息" value="{{resultSearchText}}" bindinput="onResultSearchInput" confirm-type="search" />
+          <view class="search-icon"><ui-icon name="search" tone="muted" size="34" ariaLabel="{{copy.search}}" /></view>
+          <input class="result-search-input" placeholder="{{copy.resultSearchPlaceholder}}" value="{{resultSearchText}}" bindinput="onResultSearchInput" confirm-type="search" />
           <view class="search-clear ui-motion-chip" wx:if="{{resultSearchText}}" bindtap="onResultSearchClear" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✕</view>
         </view>
-        <view class="filter-title">筛选</view>
+        <view class="filter-title">{{copy.filter}}</view>
         <view class="filter-row" wx:if="{{resultIdentities.length}}">
-          <view class="filter-row-label">身份</view>
+          <view class="filter-row-label">{{copy.identity}}</view>
           <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-            <view class="filter-chip {{resultFilterIdentity === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterIdentity" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部</view>
+            <view class="filter-chip {{resultFilterIdentity === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterIdentity" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.all}}</view>
             <view class="filter-chip {{resultFilterIdentity === item ? 'filter-chip-active' : ''}} ui-motion-chip" wx:for="{{resultIdentities}}" wx:key="*this" bindtap="onResultFilterIdentity" data-value="{{item}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item}}</view>
           </scroll-view>
         </view>
         <view class="filter-row" wx:if="{{resultDepartments.length}}">
-          <view class="filter-row-label">部门</view>
+          <view class="filter-row-label">{{copy.department}}</view>
           <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-            <view class="filter-chip {{resultFilterDepartment === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterDepartment" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部</view>
+            <view class="filter-chip {{resultFilterDepartment === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterDepartment" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.all}}</view>
             <view class="filter-chip {{resultFilterDepartment === item ? 'filter-chip-active' : ''}} ui-motion-chip" wx:for="{{resultDepartments}}" wx:key="*this" bindtap="onResultFilterDepartment" data-value="{{item}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item}}</view>
           </scroll-view>
         </view>
         <view class="filter-row" wx:if="{{resultWorkGroups.length}}">
-          <view class="filter-row-label">职能组</view>
+          <view class="filter-row-label">{{copy.workGroup}}</view>
           <scroll-view class="filter-row-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-            <view class="filter-chip {{resultFilterWorkGroup === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterWorkGroup" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">全部</view>
+            <view class="filter-chip {{resultFilterWorkGroup === '' ? 'filter-chip-active' : ''}} ui-motion-chip" bindtap="onResultFilterWorkGroup" data-value="" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.all}}</view>
             <view class="filter-chip filter-chip-wg {{resultFilterWorkGroup === item ? 'filter-chip-active' : ''}} ui-motion-chip" wx:for="{{resultWorkGroups}}" wx:key="*this" bindtap="onResultFilterWorkGroup" data-value="{{item}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item}}</view>
           </scroll-view>
         </view>
-        <view class="filter-clear ui-motion-chip" wx:if="{{resultFilterIdentity || resultFilterDepartment || resultFilterWorkGroup || resultFilterGrade || resultSearchText}}" bindtap="onResultFilterClear" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">清除全部筛选</view>
+        <view class="filter-clear ui-motion-chip" wx:if="{{resultFilterIdentity || resultFilterDepartment || resultFilterWorkGroup || resultFilterGrade || resultSearchText}}" bindtap="onResultFilterClear" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.clearAllFilters}}</view>
       </view>
 
       <!-- Grouped bubble cards (new per-clause mode) -->
@@ -159,10 +159,10 @@
           <view class="result-group-head ui-motion-chip" data-clause-id="{{group.clauseId}}" bindtap="toggleResultGroup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="result-group-head-left">
               <view class="result-group-label">{{group.groupLabel}}</view>
-              <view class="result-group-mode-chip {{group.displayMode === 'grade' ? 'result-group-mode-grade' : 'result-group-mode-score'}}">{{group.displayMode === 'grade' ? '等第' : '分数'}}</view>
+              <view class="result-group-mode-chip {{group.displayMode === 'grade' ? 'result-group-mode-grade' : 'result-group-mode-score'}}">{{group.displayMode === 'grade' ? copy.grade : copy.score}}</view>
             </view>
             <view class="result-group-head-right">
-              <view class="result-group-count">{{group.memberCount}}人</view>
+              <view class="result-group-count">{{group.memberCount}}{{copy.personSuffix}}</view>
               <text class="result-group-arrow">{{expandedResultGroupClauseId === group.clauseId ? '▲' : '▼'}}</text>
             </view>
           </view>
@@ -181,7 +181,7 @@
                 </view>
                 <view class="score-display">
                   <view class="score-value">{{group.displayMode === 'grade' ? (m.grade || m.finalScore) : m.finalScore}}</view>
-                  <view class="score-label">{{group.displayMode === 'grade' ? '等第' : '得分'}}</view>
+                  <view class="score-label">{{group.displayMode === 'grade' ? copy.grade : copy.earnedScore}}</view>
                 </view>
               </view>
             </view>
@@ -205,48 +205,48 @@
           </view>
           <view class="score-display">
             <view class="score-value">{{displayMode === 'grade' ? item.grade : item.finalScore}}</view>
-            <view class="score-label">{{displayMode === 'grade' ? '等第' : '得分'}}</view>
+            <view class="score-label">{{displayMode === 'grade' ? copy.grade : copy.earnedScore}}</view>
           </view>
         </view>
       </view>
       </scroll-view>
-      <view class="target-state" wx:if="{{!filteredResults.length && !filteredGroups.length && publishedResults.length}}">没有匹配结果</view>
+      <view class="target-state" wx:if="{{!filteredResults.length && !filteredGroups.length && publishedResults.length}}">{{copy.noMatchingResults}}</view>
     </view>
   </view>
 
   <view class="panel {{activeTab === 'meritList' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'meritList'}}">
     <view class="card empty-state-card" wx:if="{{!hasPublication}}">
-      <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="等待公示" /></view></view>
-      <view class="empty-title">暂无评优名单</view>
+      <view class="empty-illustration"><view class="empty-icon-clock"><ui-icon name="clock" tone="primary" size="46" ariaLabel="{{copy.waitingPublication}}" /></view></view>
+      <view class="empty-title">{{copy.noMeritList}}</view>
     </view>
     <view class="card empty-state-card" wx:if="{{hasPublication && !hasMeritPerm}}">
-      <view class="empty-illustration"><view class="empty-icon-star"><ui-icon name="star" tone="primary" size="46" ariaLabel="暂无评优名单" /></view></view>
-      <view class="empty-title">暂无评优名单</view>
+      <view class="empty-illustration"><view class="empty-icon-star"><ui-icon name="star" tone="primary" size="46" ariaLabel="{{copy.noMeritList}}" /></view></view>
+      <view class="empty-title">{{copy.noMeritList}}</view>
     </view>
     <view wx:if="{{hasPublication && hasMeritPerm}}">
       <view class="info-head">
-      <view class="section-title section-title-icon"><ui-icon name="star" tone="primary" size="26" ariaLabel="评优" /><text>评优名单</text></view>
-        <view class="results-count-chip">共 {{meritRuleGroups.length}} 个组别</view>
+      <view class="section-title section-title-icon"><ui-icon name="star" tone="primary" size="26" ariaLabel="{{copy.merit}}" /><text>{{copy.meritList}}</text></view>
+        <view class="results-count-chip">{{copy.totalPrefix}} {{meritRuleGroups.length}} {{copy.groupSuffix}}</view>
       </view>
       <view class="stats-bar">
         <view class="stat-item">
           <view class="stat-value stat-value-gold">{{meritRuleGroups.length}}</view>
-          <view class="stat-label">评优组别</view>
+          <view class="stat-label">{{copy.meritGroup}}</view>
         </view>
         <view class="stat-item">
           <view class="stat-value">{{publishedMeritList.length}}</view>
-          <view class="stat-label">已指定人数</view>
+          <view class="stat-label">{{copy.designatedCount}}</view>
         </view>
         <view class="stat-item">
           <view class="stat-value stat-value-blue">{{meritDeptCount || meritRuleGroups.length}}</view>
-          <view class="stat-label">涉及部门</view>
+          <view class="stat-label">{{copy.involvedDepartments}}</view>
         </view>
       </view>
       <view class="card targets-card" wx:for="{{meritRuleGroups}}" wx:key="targetIdentity" style="animation: glassFadeUp 0.42s {{0.08 * index}}s ease both;">
         <view class="merit-rule-head">
           <view class="target-group-label target-group-label--flush">{{item.targetIdentity}}</view>
           <view class="merit-group-count">{{item.quotaInfo}}</view>
-          <text class="merit-edit-btn ui-motion-chip" bindtap="openUserDesignation" data-identity="{{item.targetIdentity}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✎ 编辑</text>
+          <text class="merit-edit-btn ui-motion-chip" bindtap="openUserDesignation" data-identity="{{item.targetIdentity}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.edit}}</text>
         </view>
         <scroll-view class="target-scroll" scroll-y wx:if="{{item.designatedMembers.length}}">
           <view class="target-card" wx:for="{{item.designatedMembers}}" wx:key="id" wx:for-item="m" style="animation-delay: {{0.05 * index}}s;">
@@ -259,7 +259,7 @@
             <view class="target-meta">{{m.department}}{{m.workGroup ? ' · ' + m.workGroup : ''}}</view>
           </view>
         </scroll-view>
-        <view class="target-state" wx:else>暂未指定人选</view>
+        <view class="target-state" wx:else>{{copy.noDesignatedMember}}</view>
       </view>
     </view>
   </view>
@@ -267,9 +267,9 @@
   <view class="panel {{activeTab === 'profile' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'profile'}}">
     <view class="card profile-card">
       <view class="info-head">
-        <view class="section-title">人事信息</view>
+        <view class="section-title">{{copy.hr}}</view>
         <view class="mode-chip {{hrProfile.template && hrProfile.template.editMode === 'audit' ? 'mode-chip-audit' : ''}} {{hrProfile.template && hrProfile.template.editMode === 'readonly' ? 'mode-chip-readonly' : ''}}">
-          {{hrProfile.template ? hrProfile.template.modeText : '未使用模板'}}
+          {{hrProfile.template ? hrProfile.template.modeText : copy.noTemplate}}
         </view>
       </view>
 
@@ -279,38 +279,38 @@
 
       <view class="profile-status" wx:if="{{hrProfile.loaded}}">
         <view class="status-title">{{hrProfile.statusText}}</view>
-        <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'pending'}}">资料正在审核，请等待结果。</view>
-        <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'rejected' && hrProfile.rejectionReason}}">驳回原因：{{hrProfile.rejectionReason}}</view>
+        <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'pending'}}">{{copy.profilePending}}</view>
+        <view class="status-desc" wx:if="{{hrProfile.auditStatus === 'rejected' && hrProfile.rejectionReason}}">{{copy.rejectionReasonPrefix}}{{hrProfile.rejectionReason}}</view>
       </view>
 
       <view class="field-grid">
         <view class="info-block">
-          <view class="info-label">姓名</view>
+          <view class="info-label">{{copy.name}}</view>
           <view class="info-value">{{user.name}}</view>
         </view>
         <view class="info-block">
-          <view class="info-label">学号</view>
+          <view class="info-label">{{copy.studentId}}</view>
           <view class="info-value">{{user.studentId}}</view>
         </view>
         <view class="info-block info-block-full" wx:if="{{user.department}}">
-          <view class="info-label">所属部门</view>
+          <view class="info-label">{{copy.belongingDepartment}}</view>
           <view class="info-value">{{user.department}}</view>
         </view>
         <view class="info-block info-block-wide">
-          <view class="info-label">身份</view>
+          <view class="info-label">{{copy.identity}}</view>
           <view class="info-value">{{user.identity}}</view>
         </view>
         <view class="info-block info-block-wide" wx:if="{{user.workGroup}}">
-          <view class="info-label">工作分工（职能组）</view>
+          <view class="info-label">{{copy.workDivision}}</view>
           <view class="info-value">{{user.workGroup}}</view>
         </view>
       </view>
 
-      <view class="readonly-tip">基础信息由管理员维护，如需修改请联系管理员。</view>
+      <view class="readonly-tip">{{copy.profileManagedByAdmin}}</view>
 
-      <view class="target-state" wx:if="{{hrProfile.loading}}">正在加载人事信息...</view>
+      <view class="target-state" wx:if="{{hrProfile.loading}}">{{copy.loadingProfile}}</view>
       <view class="empty-card profile-empty" wx:if="{{!hrProfile.loading && hrProfile.loaded && (!hrProfile.template || !hrProfile.template.fields.length)}}">
-        <view class="empty-title">暂无补充资料</view>
+        <view class="empty-title">{{copy.noExtraProfile}}</view>
       </view>
 
       <view class="profile-form" wx:if="{{!hrProfile.loading && hrProfile.template && hrProfile.template.fields.length}}">
@@ -328,7 +328,7 @@
             bindchange="onHrProfileOptionChange"
             data-index="{{index}}"
           >
-            <view class="picker-value">{{item.value || '请选择'}}</view>
+            <view class="picker-value">{{item.value || copy.select}}</view>
           </picker>
 
           <input
@@ -338,7 +338,7 @@
             data-index="{{index}}"
             bindinput="onHrProfileInput"
             value="{{item.value}}"
-            placeholder="请输入数字"
+            placeholder="{{copy.inputNumber}}"
             disabled="{{hrProfile.template.editMode === 'readonly'}}"
           />
 
@@ -350,7 +350,7 @@
             data-index="{{index}}"
             disabled="{{hrProfile.template.editMode === 'readonly'}}"
           >
-            <view class="picker-value">{{item.value || '请选择日期'}}</view>
+            <view class="picker-value">{{item.value || copy.selectDate}}</view>
           </picker>
 
           <input
@@ -361,7 +361,7 @@
             data-index="{{index}}"
             bindinput="onHrProfileInput"
             value="{{item.value}}"
-            placeholder="请输入手机号"
+            placeholder="{{copy.inputPhone}}"
             disabled="{{hrProfile.template.editMode === 'readonly'}}"
           />
 
@@ -371,7 +371,7 @@
             data-index="{{index}}"
             bindinput="onHrProfileInput"
             value="{{item.value}}"
-            placeholder="请输入邮箱"
+            placeholder="{{copy.inputEmail}}"
             disabled="{{hrProfile.template.editMode === 'readonly'}}"
           />
 
@@ -381,7 +381,7 @@
             data-index="{{index}}"
             bindinput="onHrProfileInput"
             value="{{item.value}}"
-            placeholder="请输入{{item.label}}"
+            placeholder="{{copy.inputPrefix}}{{item.label}}"
             disabled="{{hrProfile.template.editMode === 'readonly'}}"
           />
 
@@ -395,60 +395,60 @@
           loading="{{hrProfile.saving}}"
           disabled="{{hrProfile.template.editMode === 'readonly'}}"
          hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          {{hrProfile.template.editMode === 'audit' ? '提交审核' : '保存人事信息'}}
+          {{hrProfile.template.editMode === 'audit' ? copy.submitReview : copy.saveProfile}}
         </button>
       </view>
 
       <view class="profile-account-section" id="account-and-login">
         <view class="profile-account-head">
           <view>
-            <view class="section-title">账号与登录</view>
-            <view class="profile-account-note">管理账号恢复方式和已登录设备</view>
+            <view class="section-title">{{copy.accountAndLogin}}</view>
+            <view class="profile-account-note">{{copy.accountDescription}}</view>
           </view>
-          <view class="profile-account-status" wx:if="{{accountSecurity.account}}">已认证</view>
+          <view class="profile-account-status" wx:if="{{accountSecurity.account}}">{{copy.verified}}</view>
         </view>
 
-        <view class="target-state" wx:if="{{accountSecurity.loading}}">正在加载账号信息…</view>
+        <view class="target-state" wx:if="{{accountSecurity.loading}}">{{copy.loadingAccount}}</view>
         <block wx:elif="{{accountSecurity.loaded}}">
           <view class="profile-account-summary" wx:if="{{accountSecurity.account}}">
-            <view class="info-block"><view class="info-label">姓名</view><view class="info-value">{{accountSecurity.account.name}}</view></view>
-            <view class="info-block"><view class="info-label">学号</view><view class="info-value">{{accountSecurity.account.studentId}}</view></view>
+            <view class="info-block"><view class="info-label">{{copy.name}}</view><view class="info-value">{{accountSecurity.account.name}}</view></view>
+            <view class="info-block"><view class="info-label">{{copy.studentId}}</view><view class="info-value">{{accountSecurity.account.studentId}}</view></view>
           </view>
 
-          <view class="profile-security-note" wx:if="{{!accountSecurity.allowRecoveryCode && !accountSecurity.allowPassphrase}}">如需更换微信，请联系管理员。</view>
+          <view class="profile-security-note" wx:if="{{!accountSecurity.allowRecoveryCode && !accountSecurity.allowPassphrase}}">{{copy.contactAdminForWechat}}</view>
 
           <view class="profile-account-grid" wx:if="{{accountSecurity.allowRecoveryCode || accountSecurity.allowPassphrase}}">
             <view class="profile-credential-card" wx:if="{{accountSecurity.allowRecoveryCode}}">
               <view class="profile-credential-head">
-                <view><view class="profile-credential-title">账号恢复码</view><view class="profile-credential-note">新码生成后，旧码立即失效</view></view>
-                <button class="secondary-btn profile-account-action ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="rotateAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">生成新码</button>
+                <view><view class="profile-credential-title">{{copy.recoveryCode}}</view><view class="profile-credential-note">{{copy.recoveryCodeWarning}}</view></view>
+                <button class="secondary-btn profile-account-action ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="rotateAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.generateCode}}</button>
               </view>
               <view class="profile-recovery-code" wx:if="{{accountSecurity.recoveryCode}}">
                 <view class="profile-recovery-value">{{accountSecurity.recoveryCode}}</view>
-                <view class="profile-recovery-actions"><button class="secondary-btn profile-account-action ui-motion-button" bindtap="copyAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">复制</button><button class="primary-btn profile-account-action ui-motion-button" bindtap="hideAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">已保存</button></view>
+                <view class="profile-recovery-actions"><button class="secondary-btn profile-account-action ui-motion-button" bindtap="copyAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.copy}}</button><button class="primary-btn profile-account-action ui-motion-button" bindtap="hideAccountRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.saved}}</button></view>
               </view>
             </view>
 
             <view class="profile-credential-card" wx:if="{{accountSecurity.allowPassphrase}}">
-              <view class="profile-credential-title">登录口令</view>
-              <view class="profile-credential-note">设置后可用于口令登录</view>
-              <view class="profile-passphrase-row"><input class="field-input profile-passphrase-input" password="{{true}}" value="{{accountSecurity.passphrase}}" bindinput="onAccountPassphraseInput" placeholder="输入新的登录口令" /><button class="primary-btn profile-account-action ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="saveAccountPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">保存口令</button></view>
+              <view class="profile-credential-title">{{copy.loginPassphrase}}</view>
+              <view class="profile-credential-note">{{copy.passphraseDescription}}</view>
+              <view class="profile-passphrase-row"><input class="field-input profile-passphrase-input" password="{{true}}" value="{{accountSecurity.passphrase}}" bindinput="onAccountPassphraseInput" placeholder="{{copy.passphrasePlaceholder}}" /><button class="primary-btn profile-account-action ui-motion-button" loading="{{accountSecurity.savingCredential}}" bindtap="saveAccountPassphrase" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.savePassphrase}}</button></view>
             </view>
           </view>
 
           <view class="profile-session-panel">
-            <view class="profile-session-head"><view><view class="profile-credential-title">登录设备</view><view class="profile-credential-note">可退出不再使用的设备</view></view><view class="profile-session-count">{{accountSecurity.sessions.length}} 台</view></view>
+            <view class="profile-session-head"><view><view class="profile-credential-title">{{copy.loginDevices}}</view><view class="profile-credential-note">{{copy.loginDevicesDescription}}</view></view><view class="profile-session-count">{{accountSecurity.sessions.length}} {{copy.deviceSuffix}}</view></view>
             <view class="profile-session-list">
               <view class="profile-session-row" wx:for="{{accountSecurity.sessions}}" wx:key="id">
                 <view class="profile-session-copy">
                   <view class="profile-session-title">{{item.deviceTitle}}</view>
                   <view class="profile-credential-note">{{item.deviceMeta}}</view>
-                  <view class="profile-credential-note">{{item.sessionMeta}} · 最近活动 {{item.lastSeenText}}</view>
+                  <view class="profile-credential-note">{{item.sessionMeta}} · {{copy.recentActivity}} {{item.lastSeenText}}</view>
                 </view>
-                <view class="profile-account-status" wx:if="{{item.current}}">当前</view>
-                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-id="{{item.id}}" loading="{{accountSecurity.revokingSessionId === item.id}}" bindtap="revokeAccountSession" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">退出设备</button>
+                <view class="profile-account-status" wx:if="{{item.current}}">{{copy.current}}</view>
+                <button wx:else class="secondary-btn profile-account-action ui-motion-button" data-id="{{item.id}}" loading="{{accountSecurity.revokingSessionId === item.id}}" bindtap="revokeAccountSession" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160">{{copy.signOutDevice}}</button>
               </view>
-              <view class="empty-inline" wx:if="{{!accountSecurity.sessions.length}}">暂无登录设备</view>
+              <view class="empty-inline" wx:if="{{!accountSecurity.sessions.length}}">{{copy.noDevices}}</view>
             </view>
           </view>
         </block>
@@ -459,58 +459,58 @@
   <!-- ═══ Audit Panel ═══ -->
   <view class="panel {{activeTab === 'audit' ? 'panel-active' : ''}}" wx:if="{{hasUser && !isAdminRole && activeTab === 'audit'}}">
     <view class="card">
-      <view class="section-title">审核中心</view>
+      <view class="section-title">{{copy.auditCenter}}</view>
       <view class="audit-home-cards">
         <!-- 我的审核 -->
         <view class="audit-home-card ui-motion-card" bindtap="goMySubmissions" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          <view class="audit-home-card-icon"><ui-icon name="file" tone="primary" size="42" ariaLabel="我的审核" /></view>
+          <view class="audit-home-card-icon"><ui-icon name="file" tone="primary" size="42" ariaLabel="{{copy.myAudits}}" /></view>
           <view class="audit-home-card-content">
-            <view class="audit-home-card-title">我的审核</view>
+            <view class="audit-home-card-title">{{copy.myAudits}}</view>
           </view>
           <view class="audit-home-card-badge" wx:if="{{auditMyCount > 0}}">{{auditMyCount}}</view>
-          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
+          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="{{copy.enter}}" /></view>
         </view>
         <!-- 待我审批 -->
         <view class="audit-home-card ui-motion-card" bindtap="goPendingApprovals" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          <view class="audit-home-card-icon"><ui-icon name="signature" tone="primary" size="42" ariaLabel="待我审批" /></view>
+          <view class="audit-home-card-icon"><ui-icon name="signature" tone="primary" size="42" ariaLabel="{{copy.pendingApprovals}}" /></view>
           <view class="audit-home-card-content">
-            <view class="audit-home-card-title">待我审批</view>
+            <view class="audit-home-card-title">{{copy.pendingApprovals}}</view>
           </view>
           <view class="audit-home-card-badge audit-home-card-badge-pending" wx:if="{{auditPendingCount > 0}}">{{auditPendingCount}}</view>
-          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
+          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="{{copy.enter}}" /></view>
         </view>
         <!-- 我的审批记录 -->
         <view class="audit-home-card ui-motion-card" bindtap="goMyApprovalHistory" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          <view class="audit-home-card-icon"><ui-icon name="list" tone="primary" size="42" ariaLabel="审批记录" /></view>
+          <view class="audit-home-card-icon"><ui-icon name="list" tone="primary" size="42" ariaLabel="{{copy.approvalHistory}}" /></view>
           <view class="audit-home-card-content">
-            <view class="audit-home-card-title">我的审批记录</view>
+            <view class="audit-home-card-title">{{copy.myApprovalHistory}}</view>
           </view>
-          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="进入" /></view>
+          <view class="audit-home-card-arrow"><ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="{{copy.enter}}" /></view>
         </view>
       </view>
     </view>
   </view>
 
   <view class="card empty-card" wx:if="{{!hasUser}}">
-    <view class="empty-title">暂无可用身份</view>
+    <view class="empty-title">{{copy.noIdentity}}</view>
   </view>
 
   <view class="actions">
-    <button class="secondary-btn ui-motion-button" bindtap="goPortal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">返回门户</button>
+    <button class="secondary-btn ui-motion-button" bindtap="goPortal" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.backToPortal}}</button>
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{copy.appName}}</view>
+    <view class="footer-org">{{copy.organizationName}}</view>
   </view>
 
   <viewport-portal wx:if="{{showUserDesigPopup}}">
   <view class="popup-mask ui-overlay" wx:if="{{showUserDesigPopup}}" bindtap="closeUserDesignation">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">指定评优名单</view><text class="popup-close ui-motion-chip" catchtap="closeUserDesignation" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{copy.designateMeritList}}</view><text class="popup-close ui-motion-chip" catchtap="closeUserDesignation" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.close}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
-      <view class="list-title">当前名单（{{userDesigSelectedIds.length}}人）</view>
+      <view class="list-title">{{copy.currentList}}（{{userDesigSelectedIds.length}}{{copy.personSuffix}}）</view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
         <view class="list-item desig-current-item" wx:for="{{userDesigSelectedList}}" wx:key="id">
           <view class="list-main">
@@ -518,37 +518,37 @@
             <view class="list-desc">{{item.department}} · {{item.studentId}}</view>
           </view>
           <view class="inline-actions list-actions-below">
-            <text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">移除</text>
+            <text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.remove}}</text>
           </view>
         </view>
-        <view class="empty-inline" wx:if="{{!userDesigSelectedList.length}}">暂无人选</view>
+        <view class="empty-inline" wx:if="{{!userDesigSelectedList.length}}">{{copy.noCandidate}}</view>
         <view class="scroll-tail-space"></view>
       </scroll-view>
-      <view class="list-title candidate-list-title">可选成员</view>
+      <view class="list-title candidate-list-title">{{copy.availableMembers}}</view>
       <view class="rule-filter-row">
         <view class="rule-filter-field">
-          <view class="field-label">部门</view>
+          <view class="field-label">{{copy.department}}</view>
           <picker range="{{userDesigFilterDeptOptions}}" bindchange="onUserDesigFilterChange" data-field="department">
             <view class="picker-value compact-picker-value">{{userDesigFilterDept}}</view>
           </picker>
         </view>
         <view class="rule-filter-field">
-          <view class="field-label">身份</view>
+          <view class="field-label">{{copy.identity}}</view>
           <picker range="{{userDesigFilterIdentOptions}}" bindchange="onUserDesigFilterChange" data-field="identity">
             <view class="picker-value compact-picker-value">{{userDesigFilterIdent}}</view>
           </picker>
         </view>
         <view class="rule-filter-field rule-filter-field--grow">
-          <view class="field-label">搜索</view>
-          <input class="field-input" placeholder="姓名/学号" value="{{userDesigSearchKeyword}}" bindinput="onUserDesigSearchInput"/>
+          <view class="field-label">{{copy.search}}</view>
+          <input class="field-input" placeholder="{{copy.nameOrStudentId}}" value="{{userDesigSearchKeyword}}" bindinput="onUserDesigSearchInput"/>
         </view>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
-        <view wx:if="{{!userDesigFilteredList.length}}" class="empty-inline">没有匹配的成员</view>
+        <view wx:if="{{!userDesigFilteredList.length}}" class="empty-inline">{{copy.noMatchingMembers}}</view>
         <view class="list-item ui-motion-card" wx:for="{{userDesigFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" wx:if="{{userDesigFilteredList.length}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="list-main">
             <view class="list-name">
-              <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? '已选' : '选择'}}</view>
+              <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? copy.selected : copy.choose}}</view>
               {{item.name}}
             </view>
             <view class="list-desc">{{item.studentId}} · {{item.department}}</view>
@@ -558,8 +558,8 @@
       </scroll-view>
       </scroll-view>
       <view class="button-row ui-dialog-footer">
-        <button class="secondary-btn ui-motion-button" catchtap="closeUserDesignation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="primary-btn ui-motion-button" loading="{{userDesigSaving}}" catchtap="saveUserDesignations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">保存名单（已选{{userDesigSelectedIds.length}}人）</button>
+        <button class="secondary-btn ui-motion-button" catchtap="closeUserDesignation" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button>
+        <button class="primary-btn ui-motion-button" loading="{{userDesigSaving}}" catchtap="saveUserDesignations" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.saveList}}（{{copy.selected}}{{userDesigSelectedIds.length}}{{copy.personSuffix}}）</button>
       </view>
     </view>
   </view>

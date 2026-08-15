@@ -253,3 +253,14 @@ Page({
 - ❌ 依赖未打包的 `@swc/runtime` / `@babel/runtime` helper
 - ❌ 仅用 `node --check` 代替 `node scripts/miniprogram-compat-audit.js` 和微信开发者工具编译
 - ❌ 用正则批量改写 WXML 标签或属性；`wx:if="{{a > b}}"` 中的 `>` 不是标签结束符，工具必须识别引号、Mustache 和 WXS
+
+---
+
+## 9. 语言资源硬约束
+
+- 用户可见文案只允许定义在 `miniprogram/locales/zh-CN/**`；业务 JS、WXML 和页面 JSON 不得新增中文文案常量。
+- WXML 通过页面或组件 `data` 中的语言对象读取文案；Toast、Modal、空状态、无障碍标签和动态提示同样适用。
+- 页面 JSON 的 `navigationBarTitleText` 保持空值，页面加载时从语言资源调用 `wx.setNavigationBarTitle`。
+- 动态句子必须在语言资源中定义模板或格式化函数，业务代码只传变量；路由、状态码、权限键、数据库枚举和业务标识不得伪装成语言资源。
+- 新增文案使用可读语义键；`generated/**` 的内容寻址键仅用于历史等值迁移，不得手写复制到无关页面。
+- 完成小程序修改必须运行 `node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization`。

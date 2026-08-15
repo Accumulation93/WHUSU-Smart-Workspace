@@ -1,3 +1,5 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/results');
+const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const { safeString, toNumber, roundScore, buildOrgMap, makeOrgRuleKey } = require('../../../utils/helpers');
@@ -130,7 +132,7 @@ async function fetchOrgLookups(explicitOrgId) {
 function buildActivityNotFoundPayload(dataType) {
   return {
     status: 'activity_not_found',
-    message: '未找到对应的评分活动',
+    message: localeCopy.copy_83aacffc9f,
     activity: null,
     overviewRows: [],
     calculationRows: [],
@@ -861,9 +863,9 @@ router.post('/getScoreResults', async (req, res) => {
     const departmentName = safeString(req.body.departmentName);
     const scorerKey = safeString(req.body.scorerKey);
 
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请先选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     // 活动归属必须在任何缓存读取之前验证，避免旧组织活动 ID 命中共享缓存。
     const orgId = await getCurrentOrgId();
@@ -1078,7 +1080,7 @@ router.post('/getScoreResults', async (req, res) => {
     };
 
     if (dataType === 'scorerTargets') {
-      if (!scorerKey) return res.json({ status: 'invalid_params', message: '请选择要查看的评分人' });
+      if (!scorerKey) return res.json({ status: 'invalid_params', message: localeCopy.copy_66565f7cf6 });
       const expectedTargets = new Map();
       (taskData.expectedPairs || []).forEach((pair) => {
         if (pair.scorerKey !== scorerKey) return;
@@ -1117,10 +1119,10 @@ router.post('/getScoreResults', async (req, res) => {
     }
 
     if (dataType === 'recordDetail') {
-      if (!recordId) return res.json({ status: 'invalid_params', message: '请选择要查看的评分记录' });
+      if (!recordId) return res.json({ status: 'invalid_params', message: localeCopy.copy_52a76c0da1 });
       const recordById = new Map(records.map((r) => [safeString(r.id), r]));
       const record = recordById.get(safeString(recordId));
-      if (!record) return res.json({ status: 'not_found', message: '未找到这条评分记录' });
+      if (!record) return res.json({ status: 'not_found', message: localeCopy.copy_c173b07ef3 });
       const rule = ruleById.get(safeString(record.ruleId)) || {};
       const rsk = resolveScorerKey(record);
       const expectedTask = lookupExpectedTask(record, rsk);
@@ -1217,7 +1219,7 @@ router.post('/getScoreResults', async (req, res) => {
     }
 
     if (dataType === 'targetRecords') {
-      if (!targetId) return res.json({ status: 'invalid_params', message: '请选择要查看的成员' });
+      if (!targetId) return res.json({ status: 'invalid_params', message: localeCopy.copy_aa47fc241f });
       const targetRecords = records.filter((r) => safeString(r.targetId) === safeString(targetId));
       const expectRow = { targetId, expectedScorers: [] };
       const membersByRuleKey = new Map();
@@ -1263,7 +1265,7 @@ router.post('/getScoreResults', async (req, res) => {
           ...rec,
           status: rec.excludedByRequireAll ? 'inactive' : 'completed',
           statusText: rec.excludedByRequireAll ? '评分未生效' : '已完成'
-        } : { recordId: '', targetId, scorerKey: sk, scorerId: safeString(task.scorerId), scorerName: safeString(task.scorerName), scorerStudentId: safeString(task.scorerStudentId), scorerDepartment: safeString(task.scorerDepartment), scorerIdentity: safeString(task.scorerIdentity), scorerWorkGroup: safeString(task.scorerWorkGroup), status: 'pending', statusText: '未完成', submittedAt: '', excludedByRequireAll: false });
+        } : { recordId: '', targetId, scorerKey: sk, scorerId: safeString(task.scorerId), scorerName: safeString(task.scorerName), scorerStudentId: safeString(task.scorerStudentId), scorerDepartment: safeString(task.scorerDepartment), scorerIdentity: safeString(task.scorerIdentity), scorerWorkGroup: safeString(task.scorerWorkGroup), status: 'pending', statusText: localeCopy.copy_8d112a0e5f, submittedAt: '', excludedByRequireAll: false });
       });
 
       res.json({
@@ -1457,12 +1459,12 @@ router.post('/exportScoreResults', async (req, res) => {
     const format = safeString(req.body.format) || 'csv';
     const filters = req.body.filters || {};
 
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请先选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_c5ed87fa11 });
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const activity = await activityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到评分活动' });
+    if (!activity) return res.json({ status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const [membersRaw, recordsRaw, orgLookups] = await Promise.all([
@@ -1500,10 +1502,10 @@ router.post('/exportScoreResults', async (req, res) => {
         };
       });
       fileName = activityName + '_总分速览';
-      headers = [{ key: 'name', label: '姓名' }, { key: 'studentId', label: '学号' }, { key: 'department', label: '部门' }, { key: 'identity', label: '身份' }, { key: 'workGroup', label: '职能组' }, { key: 'finalScore', label: '最终得分' }, { key: 'submittedScorerCount', label: '已评人数' }, { key: 'expectedScorerCount', label: '应评人数' }, { key: 'completionRate', label: '完成率(%)' }];
+      headers = [{ key: 'name', label: localeCopy.copy_3c946202ff }, { key: 'studentId', label: localeCopy.copy_cbb853db1b }, { key: 'department', label: localeCopy.copy_bc011e4e3b }, { key: 'identity', label: localeCopy.copy_474f638a6f }, { key: 'workGroup', label: localeCopy.copy_be736f763d }, { key: 'finalScore', label: localeCopy.copy_80528cd2d0 }, { key: 'submittedScorerCount', label: localeCopy.copy_b07e7eb09d }, { key: 'expectedScorerCount', label: localeCopy.copy_02b5a88c0f }, { key: 'completionRate', label: localeCopy.copy_cc6cc6ec7f }];
     } else if (reportType === 'detail') {
       const memberMap = new Map(members.map((m) => [m.id, m]));
-      headers = [{ key: 'scorerName', label: '评分人姓名' }, { key: 'scorerStudentId', label: '评分人学号' }, { key: 'scorerDepartment', label: '评分人部门' }, { key: 'scorerIdentity', label: '评分人身份' }, { key: 'scorerWorkGroup', label: '评分人职能组' }, { key: 'targetName', label: '被评人姓名' }, { key: 'targetStudentId', label: '被评人学号' }, { key: 'targetDepartment', label: '被评人部门' }, { key: 'targetIdentity', label: '被评人身份' }, { key: 'targetWorkGroup', label: '被评人职能组' }, { key: 'templateName', label: '评分问题' }, { key: 'question', label: '题目' }, { key: 'score', label: '得分' }, { key: 'maxValue', label: '最高分' }, { key: 'weight', label: '权重' }, { key: 'submittedAt', label: '提交时间' }];
+      headers = [{ key: 'scorerName', label: localeCopy.copy_b74f5017ad }, { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 }, { key: 'scorerDepartment', label: localeCopy.copy_1b48da3bfa }, { key: 'scorerIdentity', label: localeCopy.copy_98dbb06c03 }, { key: 'scorerWorkGroup', label: localeCopy.copy_92042b74b7 }, { key: 'targetName', label: localeCopy.copy_de4dcf6fb4 }, { key: 'targetStudentId', label: localeCopy.copy_ba70cb6582 }, { key: 'targetDepartment', label: localeCopy.copy_155d45cc30 }, { key: 'targetIdentity', label: localeCopy.copy_f15fa8cc75 }, { key: 'targetWorkGroup', label: localeCopy.copy_c5cab60297 }, { key: 'templateName', label: localeCopy.copy_fac1711a09 }, { key: 'question', label: localeCopy.copy_b66cf0dd1d }, { key: 'score', label: localeCopy.copy_011a01321b }, { key: 'maxValue', label: localeCopy.copy_8ca6566932 }, { key: 'weight', label: localeCopy.copy_e3cee0beef }, { key: 'submittedAt', label: localeCopy.copy_6a2da85cb7 }];
       records.forEach((record) => {
         const scorer = memberMap.get(safeString(record.scorerId)) || {};
         const target = memberMap.get(safeString(record.targetId)) || {};
@@ -1546,7 +1548,7 @@ router.post('/exportScoreResults', async (req, res) => {
     } else {
       rows = taskData.scorerTaskRows;
       fileName = `${activityName}_评分人完成率`;
-      headers = [{ key: 'scorerName', label: '评分人姓名' }, { key: 'scorerStudentId', label: '评分人学号' }, { key: 'department', label: '所属部门' }, { key: 'identity', label: '身份' }, { key: 'workGroup', label: '职能组' }, { key: 'expectedCount', label: '应评分人数' }, { key: 'submittedCount', label: '已评分人数' }, { key: 'pendingCount', label: '待评分人数' }, { key: 'completionRate', label: '完成率(%)' }];
+      headers = [{ key: 'scorerName', label: localeCopy.copy_b74f5017ad }, { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 }, { key: 'department', label: localeCopy.copy_62f8e70200 }, { key: 'identity', label: localeCopy.copy_474f638a6f }, { key: 'workGroup', label: localeCopy.copy_be736f763d }, { key: 'expectedCount', label: localeCopy.copy_6c33883f9b }, { key: 'submittedCount', label: localeCopy.copy_4430825ac4 }, { key: 'pendingCount', label: localeCopy.copy_4e5e7abce7 }, { key: 'completionRate', label: localeCopy.copy_cc6cc6ec7f }];
     }
 
     // Apply filters
@@ -1559,7 +1561,7 @@ router.post('/exportScoreResults', async (req, res) => {
     if (filteredRows.length > EXPORT_MAX_ROWS) {
       return res.json({
         status: 'too_large',
-        message: `数据过多（${filteredRows.length} 行），请缩小筛选范围`,
+        message: localeFormat(localeCopy.copy_985bc885b8, [filteredRows.length]),
         rowCount: filteredRows.length,
         maxAllowed: EXPORT_MAX_ROWS
       });
@@ -1581,13 +1583,13 @@ router.post('/revokeScoreRecord', async (req, res) => {
   try {
     const openid = req.openid;
     const admin = await ensureAdmin(openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
 
     const recordId = safeString(req.body.recordId);
-    if (!recordId) return res.json({ status: 'invalid_params', message: '请重新打开评分记录' });
+    if (!recordId) return res.json({ status: 'invalid_params', message: localeCopy.copy_397b800fc5 });
 
     const record = await scoreRecordModel.getById(recordId);
-    if (!record) return res.json({ status: 'not_found', message: '请刷新评分记录' });
+    if (!record) return res.json({ status: 'not_found', message: localeCopy.copy_62fff082e2 });
 
     // Delete answers and record atomically within a transaction
     const { withTransaction } = require('../../../config/db');
@@ -1598,7 +1600,7 @@ router.post('/revokeScoreRecord', async (req, res) => {
       await conn.query('DELETE FROM score_records WHERE id = ? AND org_id = ?', [recordId, orgId]);
     });
 
-    res.json({ status: 'success', message: '评分记录已撤销' });
+    res.json({ status: 'success', message: localeCopy.copy_d08849e510 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }

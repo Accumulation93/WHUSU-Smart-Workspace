@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/authPersonnelBehavior');
 const { callFunction, showShortToast, getErrorText, formatAuditTime } = require('../../../../../utils/api');
 const authContext = require('../../../../../utils/authContext');
 const orgSession = require('../../../../../utils/orgSession');
@@ -30,13 +31,13 @@ function decorateClaim(item) {
 
 function decorateAccount(item) {
   const labels = {
-    verified: '正常',
-    frozen: '已冻结',
-    recovery_required: '待恢复'
+    verified: localeCopy.copy_8e4abe3d58,
+    frozen: localeCopy.copy_ddaba44b59,
+    recovery_required: localeCopy.copy_16399ef078
   };
   return Object.assign({}, item, {
     selected: false,
-    statusLabel: labels[item.accountStatus] || '正常'
+    statusLabel: labels[item.accountStatus] || localeCopy.copy_8e4abe3d58
   });
 }
 
@@ -45,37 +46,37 @@ function decorateGovernanceRow(item, selected) {
   const auth = Object.assign({}, item && item.auth || {});
   const bindStatus = String(item && item.wxBindStatus || '');
   let accountState = 'unbound';
-  let accountStateText = '未绑定';
+  let accountStateText = localeCopy.copy_ba9b0425fd;
   let accountStateClass = 'unbound-chip';
   if (auth.status === 'frozen') {
     accountState = 'frozen';
-    accountStateText = '冻结中';
+    accountStateText = localeCopy.copy_f6eb285e87;
     accountStateClass = 'frozen-chip';
   } else if (auth.status === 'recovery_required') {
     accountState = 'recovery_required';
-    accountStateText = '待恢复';
+    accountStateText = localeCopy.copy_16399ef078;
     accountStateClass = 'pending-chip';
   } else if (bindStatus === 'bound') {
     accountState = 'bound';
-    accountStateText = '已绑定';
+    accountStateText = localeCopy.copy_171e9799a7;
     accountStateClass = 'current-chip';
   } else if (bindStatus === 'pending_activation' || auth.hasActiveBinding) {
     accountState = 'pending_activation';
-    accountStateText = '待激活';
+    accountStateText = localeCopy.copy_1ceaebed03;
     accountStateClass = 'activation-chip';
   }
   const verificationText = auth.hasActiveClaimCode || auth.hasActiveInvite
-    ? '认证码有效'
+    ? localeCopy.copy_ddd0a0c28a
     : auth.hasPendingClaim
-      ? '待生成认证码'
+      ? localeCopy.copy_2b6803bda1
       : auth.hasBindingHistory
-        ? '已完成认证'
-        : '尚未生成认证码';
+        ? localeCopy.copy_4c36a79f14
+        : localeCopy.copy_202391487f;
   const recoveryText = auth.hasRecoveryCode
-    ? '恢复码有效'
+    ? localeCopy.copy_2e5c18ad5a
     : item && item.accountId
-      ? '尚未生成恢复码'
-      : '认证后可设置恢复码';
+      ? localeCopy.copy_a2c1301ea7
+      : localeCopy.copy_2f9c8ba49c;
   return Object.assign({}, item, {
     auth,
     governanceAvailable: hasGovernance,
@@ -230,13 +231,13 @@ module.exports = Behavior({
   methods: {
     initializeAuthPersonnel() {
       const tabs = [];
-      if (this.data.canManageAuthPolicy) tabs.push({ key: 'policy', label: '认证设置' });
+      if (this.data.canManageAuthPolicy) tabs.push({ key: 'policy', label: localeCopy.copy_aef40f4a64 });
       const organizations = authContext.getOrganizations();
       const activeOrgId = wx.getStorageSync('activeOrgId') || '';
       const activeOrgName = wx.getStorageSync('activeOrgName') || '';
       const scopeOptions = this.data.isSuperAdmin
-        ? [{ id: '', name: '全部组织' }].concat(organizations)
-        : [{ id: activeOrgId, name: activeOrgName || '当前组织' }];
+        ? [{ id: '', name: localeCopy.copy_d337157f74 }].concat(organizations)
+        : [{ id: activeOrgId, name: activeOrgName || localeCopy.copy_2b8b8bf904 }];
       const currentTab = tabs.some((item) => item.key === this.data.activeAuthPersonnelTab)
         ? this.data.activeAuthPersonnelTab
         : (tabs[0] ? tabs[0].key : '');
@@ -259,7 +260,7 @@ module.exports = Behavior({
       if (!this.data.canVerifyIdentity && !this.data.canRecoverAccounts) return new Map();
       const organizationId = wx.getStorageSync('activeOrgId') || '';
       const result = await callFunction({ name: 'listHrGovernance', data: { organizationId } });
-      if (result.status !== 'success') throw new Error(result.message || '请稍后重试');
+      if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e58fa637eb);
       const selected = new Set(this.data.selectedHrMemberIds || []);
       const rows = (result.rows || []).map((item) => decorateGovernanceRow(item, selected.has(String(item.hrId || item.id || ''))));
       this._hrGovernanceRows = rows;
@@ -427,7 +428,7 @@ module.exports = Behavior({
           const result = await callFunction({ name: 'admin/auth/claims', data: {
             action: 'issue_code', claimId: row.auth.pendingClaimId
           } });
-          if (result.status !== 'success' || !result.verificationCode) throw new Error(result.message || '未生成，请重试');
+          if (result.status !== 'success' || !result.verificationCode) throw new Error(result.message || localeCopy.copy_9662ceba48);
           issued = { key: row.auth.pendingClaimId, personName: row.name, code: result.verificationCode };
           this.patchHrGovernance(row.personId, { hasActiveClaimCode: true });
         } else {
@@ -435,13 +436,13 @@ module.exports = Behavior({
             action: 'issue_invites', personIds: [row.personId], organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
           } });
           const item = result.status === 'success' && result.issued && result.issued[0];
-          if (!item || !item.code) throw new Error(result.message || '未生成，请重试');
+          if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
           issued = { key: item.inviteId || row.personId, personName: row.name, code: item.code };
           this.patchHrGovernance(row.personId, { hasActiveInvite: true });
         }
         this.setData({ authIssuedCodes: [issued], showAuthCodeDialog: true });
       } catch (error) {
-        showShortToast(getErrorText(error, '未生成，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -452,7 +453,7 @@ module.exports = Behavior({
       if (!rows.length || this.data.authActionLoadingKey) return;
       const claimRows = rows.filter((item) => item.auth && item.auth.pendingClaimId);
       const inviteRows = rows.filter((item) => item.personId && item.auth && !item.auth.pendingClaimId && !item.auth.hasBindingHistory);
-      if (!claimRows.length && !inviteRows.length) return showShortToast('所选成员无需生成认证码');
+      if (!claimRows.length && !inviteRows.length) return showShortToast(localeCopy.copy_0bc2266433);
       this.setData({ authActionLoadingKey: 'member-verify-batch' });
       try {
         const issued = [];
@@ -462,7 +463,7 @@ module.exports = Behavior({
           const result = await runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'issue_codes', idField: 'claimIds',
             ids: claimRows.map((item) => item.auth.pendingClaimId), batchSize: 50,
-            failureMessage: '部分认证码未生成'
+            failureMessage: localeCopy.copy_d7ceb7b422
           });
           flattenIssued(result).forEach((item) => {
             const row = names.get(item.claimId);
@@ -476,7 +477,7 @@ module.exports = Behavior({
           const result = await runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'issue_invites', idField: 'personIds',
             ids: inviteRows.map((item) => item.personId), batchSize: 100,
-            failureMessage: '部分认证码未生成',
+            failureMessage: localeCopy.copy_d7ceb7b422,
             extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
           });
           const rowsByPerson = new Map(inviteRows.map((item) => [String(item.personId), item]));
@@ -488,12 +489,12 @@ module.exports = Behavior({
             }
           });
         }
-        if (!issued.length) throw new Error('未生成，请重试');
+        if (!issued.length) throw new Error(localeCopy.copy_9662ceba48);
         this.patchHrGovernanceBatch(patches);
         this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedHrMemberIds: [] });
         this.refreshHrMemberSelection();
       } catch (error) {
-        showShortToast(getErrorText(error, '未生成，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -511,13 +512,13 @@ module.exports = Behavior({
         } : {
           action: 'revoke_invites', personIds: [row.personId], organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
         } });
-        if (result.status !== 'success') throw new Error(result.message || '未撤销，请重试');
+        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
         this.patchHrGovernance(row.personId, isClaimCode
           ? { hasActiveClaimCode: false }
           : { hasActiveInvite: false });
-        showShortToast('认证码已撤销', 'success');
+        showShortToast(localeCopy.copy_8832186f8b, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未撤销，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -525,7 +526,7 @@ module.exports = Behavior({
 
     async revokeSelectedHrVerificationCodes() {
       const rows = this.getSelectedHrGovernanceRows().filter((item) => item.canRevokeVerification);
-      if (!rows.length || this.data.authActionLoadingKey) return showShortToast('所选成员暂无可撤销的认证码');
+      if (!rows.length || this.data.authActionLoadingKey) return showShortToast(localeCopy.copy_f250d102a5);
       this.setData({ authActionLoadingKey: 'member-verify-revoke-batch' });
       try {
         const claimRows = rows.filter((item) => item.auth && item.auth.pendingClaimId && item.auth.hasActiveClaimCode);
@@ -536,7 +537,7 @@ module.exports = Behavior({
           const result = await runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'revoke_codes', idField: 'claimIds',
             ids: claimRows.map((item) => item.auth.pendingClaimId), batchSize: 50,
-            failureMessage: '部分认证码未撤销'
+            failureMessage: localeCopy.copy_e9798c95c0
           });
           results.push(result);
           const byClaim = new Map(claimRows.map((item) => [String(item.auth.pendingClaimId), item]));
@@ -549,7 +550,7 @@ module.exports = Behavior({
           const result = await runBatchedAuthAction({
             name: 'admin/auth/claims', action: 'revoke_invites', idField: 'personIds',
             ids: inviteRows.map((item) => item.personId), batchSize: 100,
-            failureMessage: '部分认证码未撤销',
+            failureMessage: localeCopy.copy_e9798c95c0,
             extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
           });
           results.push(result);
@@ -563,9 +564,9 @@ module.exports = Behavior({
         const failureCount = results.reduce((sum, result) => sum + result.failures.length, 0);
         this.setData({ selectedHrMemberIds: [] });
         this.refreshHrMemberSelection();
-        showShortToast(failureCount ? '部分认证码未撤销' : '认证码已撤销', failureCount ? 'none' : 'success');
+        showShortToast(failureCount ? localeCopy.copy_e9798c95c0 : localeCopy.copy_8832186f8b, failureCount ? 'none' : 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未撤销，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -581,11 +582,11 @@ module.exports = Behavior({
           action: 'issue_codes', accountIds: [row.accountId], organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
         } });
         const item = result.status === 'success' && result.issued && result.issued[0];
-        if (!item || !item.code) throw new Error(result.message || '未生成，请重试');
+        if (!item || !item.code) throw new Error(result.message || localeCopy.copy_9662ceba48);
         this.patchHrGovernance(row.personId, { hasRecoveryCode: true });
         this.setData({ authIssuedCodes: [{ key: row.accountId, personName: row.name, code: item.code }], showAuthCodeDialog: true });
       } catch (error) {
-        showShortToast(getErrorText(error, '未生成，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -595,13 +596,13 @@ module.exports = Behavior({
       const rows = this.getSelectedHrGovernanceRows().filter((item) => (
         revoke ? item.canRevokeRecovery : item.canIssueRecovery
       ));
-      if (!rows.length || this.data.authActionLoadingKey) return showShortToast('所选成员暂无可用账号');
+      if (!rows.length || this.data.authActionLoadingKey) return showShortToast(localeCopy.copy_3947b0ede8);
       this.setData({ authActionLoadingKey: revoke ? 'member-recovery-revoke' : 'member-recovery-batch' });
       try {
         const result = await runBatchedAuthAction({
           name: 'admin/auth/recoveries', action: revoke ? 'revoke_codes' : 'issue_codes', idField: 'accountIds',
           ids: rows.map((item) => item.accountId), batchSize: 100,
-          failureMessage: revoke ? '部分恢复码未撤销' : '部分恢复码未生成',
+          failureMessage: revoke ? localeCopy.copy_5254a703ec : localeCopy.copy_e5392c8b50,
           extraData: { organizationId: wx.getStorageSync('activeOrgId') || '' }
         });
         const byAccount = new Map(rows.map((item) => [String(item.accountId), item]));
@@ -611,21 +612,21 @@ module.exports = Behavior({
             const row = byAccount.get(String(id));
             if (row) patches.push({ personId: row.personId, patch: { hasRecoveryCode: false } });
           });
-          showShortToast(result.failures.length ? '部分恢复码未撤销' : '恢复码已撤销', result.failures.length ? 'none' : 'success');
+          showShortToast(result.failures.length ? localeCopy.copy_5254a703ec : localeCopy.copy_42e9898395, result.failures.length ? 'none' : 'success');
         } else {
           const issued = flattenIssued(result).map((item) => {
             const row = byAccount.get(String(item.accountId));
             if (row) patches.push({ personId: row.personId, patch: { hasRecoveryCode: true } });
-            return { key: item.accountId, personName: item.name || row && row.name || '成员', code: item.code };
+            return { key: item.accountId, personName: item.name || row && row.name || localeCopy.copy_6e1cafa10a, code: item.code };
           });
-          if (!issued.length) throw new Error('未生成，请重试');
+          if (!issued.length) throw new Error(localeCopy.copy_9662ceba48);
           this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true });
         }
         this.patchHrGovernanceBatch(patches);
         this.setData({ selectedHrMemberIds: [] });
         this.refreshHrMemberSelection();
       } catch (error) {
-        showShortToast(getErrorText(error, revoke ? '未撤销，请重试' : '未生成，请重试'));
+        showShortToast(getErrorText(error, revoke ? localeCopy.copy_8351ecc192 : localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -650,11 +651,11 @@ module.exports = Behavior({
           accountIds: [row.accountId],
           organizationId: row.organizationId || wx.getStorageSync('activeOrgId') || ''
         } });
-        if (result.status !== 'success') throw new Error(result.message || '未撤销，请重试');
+        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_8351ecc192);
         this.patchHrGovernance(row.personId, { hasRecoveryCode: false });
-        showShortToast('恢复码已撤销', 'success');
+        showShortToast(localeCopy.copy_42e9898395, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未撤销，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -736,7 +737,7 @@ module.exports = Behavior({
         this.applyAuthPersonnelFilter(this.data.authSearch);
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request)) return;
-        showShortToast(getErrorText(error, '请稍后重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_e58fa637eb));
       } finally {
         if (orgSession.isRequestCurrent(this, request)) this.setData({ authPersonnelLoading: false });
       }
@@ -751,7 +752,7 @@ module.exports = Behavior({
         } })
       ]);
       if (results[0].status !== 'success' || governanceResult.status !== 'success') {
-        throw new Error(results[0].message || '请稍后重试');
+        throw new Error(results[0].message || localeCopy.copy_e58fa637eb);
       }
       this._authPendingClaimsRaw = (results[0].list || []).map(decorateClaim);
       this._authEligiblePeopleRaw = uniquePeople((governanceResult.rows || [])
@@ -780,7 +781,7 @@ module.exports = Behavior({
         } })
       ]);
       if (results[0].status !== 'success' || results[1].status !== 'success' || governanceResult.status !== 'success') {
-        throw new Error(results[0].message || results[1].message || '请稍后重试');
+        throw new Error(results[0].message || results[1].message || localeCopy.copy_e58fa637eb);
       }
       this._authRecoveryRequestsRaw = (results[0].list || []).map(decorateClaim);
       const legacyByPerson = new Map((results[1].list || []).map((item) => [String(item.personId || ''), item]));
@@ -808,7 +809,7 @@ module.exports = Behavior({
       this.setData({ authPolicyLoading: true, authPolicyLoadFailed: false });
       try {
         const result = await callFunction({ name: 'admin/auth/policy', data: { action: 'get' } });
-        if (result.status !== 'success') throw new Error(result.message || '请稍后重试');
+        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e58fa637eb);
         this.setData({ authPolicy: mapPolicy(result.policy), authPolicyLoadFailed: false });
       } catch (error) {
         this.setData({ authPolicyLoadFailed: true });
@@ -820,7 +821,7 @@ module.exports = Behavior({
 
     retryAuthPolicy() {
       this.loadAuthPolicy().catch(() => {
-        showShortToast('认证设置暂时无法加载');
+        showShortToast(localeCopy.copy_439c4fcf37);
       });
     },
 
@@ -885,7 +886,7 @@ module.exports = Behavior({
           action: 'issue_code', claimId
         } });
         if (result.status !== 'success' || !result.verificationCode) {
-          throw new Error(result.message || '未生成，请重试');
+          throw new Error(result.message || localeCopy.copy_9662ceba48);
         }
         this._authPendingClaimsRaw = (this._authPendingClaimsRaw || []).map((item) =>
           item.id === claimId ? Object.assign({}, item, { hasActiveCode: true }) : item);
@@ -895,7 +896,7 @@ module.exports = Behavior({
         });
         this.applyAuthPersonnelFilter(this.data.authSearch);
       } catch (error) {
-        showShortToast(getErrorText(error, '未生成，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -910,11 +911,11 @@ module.exports = Behavior({
       try {
         const batchResult = await runBatchedAuthAction({
           name: 'admin/auth/claims', action: 'issue_codes', idField: 'claimIds',
-          ids, batchSize: 50, failureMessage: '未生成，请重试'
+          ids, batchSize: 50, failureMessage: localeCopy.copy_9662ceba48
         });
         const issued = flattenIssued(batchResult).map((item) => ({
           key: item.claimId,
-          personName: names[item.claimId] || '待认证人员',
+          personName: names[item.claimId] || localeCopy.copy_87e91ac4b4,
           code: item.verificationCode
         }));
         const selected = new Set(issued.map((item) => item.key));
@@ -922,9 +923,9 @@ module.exports = Behavior({
           selected.has(item.id) ? Object.assign({}, item, { hasActiveCode: true }) : item);
         this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedAuthClaimIds: [] });
         this.applyAuthPersonnelFilter(this.data.authSearch);
-        if (batchResult.failures.length) showShortToast('部分人员未生成，请重试');
+        if (batchResult.failures.length) showShortToast(localeCopy.copy_35ca909941);
       } catch (error) {
-        showShortToast(getErrorText(error, '未生成，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -937,7 +938,7 @@ module.exports = Behavior({
       try {
         const batchResult = await runBatchedAuthAction({
           name: 'admin/auth/claims', action: 'issue_invites', idField: 'personIds',
-          ids, batchSize: 100, failureMessage: '未生成，请重试',
+          ids, batchSize: 100, failureMessage: localeCopy.copy_9662ceba48,
           extraData: { organizationId: this.data.authScopeOrganizationId }
         });
         const issued = flattenIssued(batchResult).map((item) => ({
@@ -951,9 +952,9 @@ module.exports = Behavior({
           selected.has(item.personId) ? Object.assign({}, item, { hasActiveInvite: true }) : item);
         this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedAuthEligiblePersonIds: [] });
         this.applyAuthPersonnelFilter(this.data.authSearch);
-        if (batchResult.failures.length) showShortToast('部分人员未生成，请重试');
+        if (batchResult.failures.length) showShortToast(localeCopy.copy_35ca909941);
       } catch (error) {
-        showShortToast(getErrorText(error, '未生成，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -966,7 +967,7 @@ module.exports = Behavior({
       try {
         const batchResult = await runBatchedAuthAction({
           name: 'admin/auth/claims', action: 'revoke_invites', idField: 'personIds',
-          ids, batchSize: 100, failureMessage: '未撤销，请重试',
+          ids, batchSize: 100, failureMessage: localeCopy.copy_8351ecc192,
           extraData: { organizationId: this.data.authScopeOrganizationId }
         });
         const selected = new Set(batchResult.completedIds);
@@ -974,10 +975,10 @@ module.exports = Behavior({
           selected.has(item.personId) ? Object.assign({}, item, { hasActiveInvite: false }) : item);
         this.setData({ selectedAuthEligiblePersonIds: [] });
         this.applyAuthPersonnelFilter(this.data.authSearch);
-        showShortToast(batchResult.failures.length ? '部分人员未撤销，请重试' : '已撤销',
+        showShortToast(batchResult.failures.length ? localeCopy.copy_fe17a0abf0 : localeCopy.copy_4b5b472953,
           batchResult.failures.length ? 'none' : 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未撤销，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1008,7 +1009,7 @@ module.exports = Behavior({
         }
         const sessions = (result.sessions || []).map(function(item) {
           return Object.assign({}, item, {
-            lastSeenText: item.lastSeenAt ? formatAuditTime(item.lastSeenAt) : '最近使用时间未知'
+            lastSeenText: item.lastSeenAt ? formatAuditTime(item.lastSeenAt) : localeCopy.copy_cb56cac0f1
           });
         });
         this.setData({
@@ -1041,23 +1042,23 @@ module.exports = Behavior({
       const personId = String(this.data.detailHrGovernance && this.data.detailHrGovernance.personId || '');
       if (!security || !personId || this.data.authActionLoadingKey) return;
       if (!value) {
-        showShortToast('请输入新口令');
+        showShortToast(localeCopy.copy_65d888be46);
         return;
       }
       this.setData({ authActionLoadingKey: 'member-passphrase-save' });
       try {
         const result = await callFunction({ name: 'admin/auth/security/passphrase', data: { personId, value } });
         if (!result || result.status !== 'success') {
-          throw new Error((result && result.message) || '未保存，请重试');
+          throw new Error((result && result.message) || localeCopy.copy_215e3c57da);
         }
         this.setData({
           showDetailPassphraseForm: false,
           detailHrPassphraseInput: '',
           'detailHrSecurity.passphraseSet': true
         });
-        showShortToast('口令已更新', 'success');
+        showShortToast(localeCopy.copy_cd01c4669c, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未保存，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_215e3c57da));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1072,12 +1073,12 @@ module.exports = Behavior({
       this.setData({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'device-revoke',
-        authMemberConfirmActionLabel: '退出',
-        authMemberConfirmTitle: '退出设备',
-        authMemberConfirmMessage: '将退出该成员的登录设备：' + String(session && session.deviceLabel || '该设备'),
+        authMemberConfirmActionLabel: localeCopy.copy_c3f53dd501,
+        authMemberConfirmTitle: localeCopy.copy_78b51a10ec,
+        authMemberConfirmMessage: localeCopy.copy_69d8cb0e31 + String(session && session.deviceLabel || localeCopy.copy_e169da88b9),
         authMemberConfirmPersonId: String(row.personId || ''),
         authMemberConfirmHrId: String(this.data.detailHrId || ''),
-        authMemberConfirmName: String(row.name || '该成员'),
+        authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad),
         authMemberConfirmSessionId: sessionId,
         authMemberConfirmFrozen: false
       });
@@ -1089,12 +1090,12 @@ module.exports = Behavior({
       this.setData({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'passphrase-clear',
-        authMemberConfirmActionLabel: '清除',
-        authMemberConfirmTitle: '清除登录口令',
-        authMemberConfirmMessage: '清除后，该成员需要重新设置口令才能使用口令登录。',
+        authMemberConfirmActionLabel: localeCopy.copy_5cde2d7c64,
+        authMemberConfirmTitle: localeCopy.copy_f8990cda8e,
+        authMemberConfirmMessage: localeCopy.copy_6eb4c651be,
         authMemberConfirmPersonId: String(row.personId || ''),
         authMemberConfirmHrId: String(this.data.detailHrId || ''),
-        authMemberConfirmName: String(row.name || '该成员'),
+        authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad),
         authMemberConfirmSessionId: '',
         authMemberConfirmFrozen: false
       });
@@ -1111,15 +1112,15 @@ module.exports = Behavior({
           data: { personId, sessionId }
         });
         if (!result || result.status !== 'success') {
-          throw new Error((result && result.message) || '请重试');
+          throw new Error((result && result.message) || localeCopy.copy_bff49f783f);
         }
         this.setData({
           'detailHrSecurity.sessions': (this.data.detailHrSecurity.sessions || []).filter(function(item) { return item.id !== sessionId; }),
           'detailHrGovernance.auth.activeSessionCount': Math.max(Number(this.data.detailHrGovernance.auth.activeSessionCount || 0) - 1, 0)
         });
-        showShortToast('该设备已退出', 'success');
+        showShortToast(localeCopy.copy_c69999ba88, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_bff49f783f));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1133,12 +1134,12 @@ module.exports = Behavior({
       try {
         const result = await callFunction({ name: 'admin/auth/security/passphrase/revoke', data: { personId } });
         if (!result || result.status !== 'success') {
-          throw new Error((result && result.message) || '请重试');
+          throw new Error((result && result.message) || localeCopy.copy_bff49f783f);
         }
         this.setData({ 'detailHrSecurity.passphraseSet': false });
-        showShortToast('登录口令已清除', 'success');
+        showShortToast(localeCopy.copy_8986ce443d, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_bff49f783f));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1157,12 +1158,12 @@ module.exports = Behavior({
       this.setData({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'freeze',
-        authMemberConfirmActionLabel: '冻结',
-        authMemberConfirmTitle: '冻结账号',
-        authMemberConfirmMessage: '冻结后，该成员将无法继续使用工作台。',
+        authMemberConfirmActionLabel: localeCopy.copy_b88a1260e3,
+        authMemberConfirmTitle: localeCopy.copy_eb1ebe5d11,
+        authMemberConfirmMessage: localeCopy.copy_8724ac4ea3,
         authMemberConfirmPersonId: personId,
         authMemberConfirmHrId: String(e.currentTarget.dataset.hrId || ''),
-        authMemberConfirmName: String(row && row.name || '该成员'),
+        authMemberConfirmName: String(row && row.name || localeCopy.copy_b04a71edad),
         authMemberConfirmFrozen: false
       });
     },
@@ -1174,12 +1175,12 @@ module.exports = Behavior({
       this.setData({
         authMemberConfirmVisible: true,
         authMemberConfirmAction: 'unbind',
-        authMemberConfirmActionLabel: '解绑',
-        authMemberConfirmTitle: '解绑微信',
-        authMemberConfirmMessage: '解绑后，原微信和已登录设备将退出，该成员需重新恢复账号。',
+        authMemberConfirmActionLabel: localeCopy.copy_b86e259dd7,
+        authMemberConfirmTitle: localeCopy.copy_71962e6b30,
+        authMemberConfirmMessage: localeCopy.copy_4c2f44d390,
         authMemberConfirmPersonId: String(row.personId || ''),
         authMemberConfirmHrId: hrId,
-        authMemberConfirmName: String(row.name || '该成员'),
+        authMemberConfirmName: String(row.name || localeCopy.copy_b04a71edad),
         authMemberConfirmFrozen: false
       });
     },
@@ -1227,7 +1228,7 @@ module.exports = Behavior({
         const result = await callFunction({ name: 'admin/auth/recoveries', data: {
           action: 'approve', recoveryRequestId: pending.id
         } });
-        if (result.status !== 'success') throw new Error(result.message || '未完成，请重试');
+        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_0531ed9e78);
         this._authRecoveryRequestsRaw = (this._authRecoveryRequestsRaw || [])
           .filter((item) => item.id !== pending.id);
         this.patchHrGovernance(pending.personId, {
@@ -1238,9 +1239,9 @@ module.exports = Behavior({
         }, { wxBindStatus: 'bound' });
         this.setData({ showAuthRecoveryDialog: false, pendingAuthRecovery: null });
         this.applyAuthPersonnelFilter(this.data.authSearch);
-        showShortToast('已完成恢复', 'success');
+        showShortToast(localeCopy.copy_dc71c071bc, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未完成，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_0531ed9e78));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1256,7 +1257,7 @@ module.exports = Behavior({
         const result = await callFunction({ name: 'admin/auth/accounts', data: {
           action: frozen ? 'unfreeze' : 'freeze', personId
         } });
-        if (result.status !== 'success') throw new Error(result.message || '未更新，请重试');
+        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_89be75a701);
         const nextStatus = result.accountStatus || (frozen ? 'verified' : 'frozen');
         const rawIndex = (this._authAccountsRaw || []).findIndex((item) => item.personId === personId);
         const currentRow = rawIndex >= 0 ? this._authAccountsRaw[rawIndex] : null;
@@ -1275,9 +1276,9 @@ module.exports = Behavior({
         this.patchHrGovernance(personId, nextStatus === 'frozen'
           ? { status: nextStatus, activeSessionCount: 0 }
           : { status: nextStatus });
-        showShortToast(frozen ? '已解除冻结' : '账号已冻结', 'success');
+        showShortToast(frozen ? localeCopy.copy_5b583a7975 : localeCopy.copy_4defd9babd, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未更新，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_89be75a701));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1290,7 +1291,7 @@ module.exports = Behavior({
       try {
         const batchResult = await runBatchedAuthAction({
           name: 'admin/auth/recoveries', action: 'issue_codes', idField: 'accountIds',
-          ids, batchSize: 100, failureMessage: '未生成，请重试',
+          ids, batchSize: 100, failureMessage: localeCopy.copy_9662ceba48,
           extraData: { organizationId: this.data.authScopeOrganizationId }
         });
         const issued = flattenIssued(batchResult).map((item) => ({
@@ -1303,9 +1304,9 @@ module.exports = Behavior({
           selected.has(item.accountId) ? Object.assign({}, item, { hasRecoveryCode: true }) : item);
         this.setData({ authIssuedCodes: issued, showAuthCodeDialog: true, selectedAuthAccountIds: [] });
         this.applyAuthPersonnelFilter(this.data.authSearch);
-        if (batchResult.failures.length) showShortToast('部分人员未生成，请重试');
+        if (batchResult.failures.length) showShortToast(localeCopy.copy_35ca909941);
       } catch (error) {
-        showShortToast(getErrorText(error, '未生成，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_9662ceba48));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1318,7 +1319,7 @@ module.exports = Behavior({
       try {
         const batchResult = await runBatchedAuthAction({
           name: 'admin/auth/recoveries', action: 'revoke_codes', idField: 'accountIds',
-          ids, batchSize: 100, failureMessage: '未撤销，请重试',
+          ids, batchSize: 100, failureMessage: localeCopy.copy_8351ecc192,
           extraData: { organizationId: this.data.authScopeOrganizationId }
         });
         const selected = new Set(batchResult.completedIds);
@@ -1326,10 +1327,10 @@ module.exports = Behavior({
           selected.has(item.accountId) ? Object.assign({}, item, { hasRecoveryCode: false }) : item);
         this.setData({ selectedAuthAccountIds: [] });
         this.applyAuthPersonnelFilter(this.data.authSearch);
-        showShortToast(batchResult.failures.length ? '部分人员未撤销，请重试' : '已撤销',
+        showShortToast(batchResult.failures.length ? localeCopy.copy_fe17a0abf0 : localeCopy.copy_4b5b472953,
           batchResult.failures.length ? 'none' : 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未撤销，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_8351ecc192));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }
@@ -1377,11 +1378,11 @@ module.exports = Behavior({
           claimStartsAt: combinePolicyDateTime(policy.claimStartsDate, policy.claimStartsTime),
           claimEndsAt: combinePolicyDateTime(policy.claimEndsDate, policy.claimEndsTime)
         }) });
-        if (result.status !== 'success') throw new Error(result.message || '未保存，请重试');
+        if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_215e3c57da);
         this.setData({ authPolicy: mapPolicy(result.policy || policy) });
-        showShortToast('已保存', 'success');
+        showShortToast(localeCopy.copy_0aacec2714, 'success');
       } catch (error) {
-        showShortToast(getErrorText(error, '未保存，请重试'));
+        showShortToast(getErrorText(error, localeCopy.copy_215e3c57da));
       } finally {
         this.setData({ authActionLoadingKey: '' });
       }

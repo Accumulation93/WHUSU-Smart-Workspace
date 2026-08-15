@@ -6,47 +6,49 @@ const authContext = require('../../utils/authContext');
 const { shouldClearAuthenticationOnPortalExit } = require('../../utils/portalExit');
 const { activateOrganization } = require('../../utils/organizationActivation');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
+const { portal: copy } = require('../../locales/zh-CN/main');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 const NOTIFICATION_DELETE_WIDTH_PX = 72;
 const CATEGORY_LABELS = {
-  audit: '审核',
-  venue: '场地',
-  scoring: '考核',
-  hr: '人事',
-  system: '其他'
+  audit: copy.categoryLabels.audit,
+  venue: copy.categoryLabels.venue,
+  scoring: copy.categoryLabels.scoring,
+  hr: copy.categoryLabels.hr,
+  system: copy.categoryLabels.system
 };
 
 const PORTAL_CARDS_USER = [
-  { key: 'messages', label: '消息中心', iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
-  { key: 'identitySwitch', label: '组织与身份', iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
-  { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
-  { key: 'hr', label: '人事信息', iconName: 'user', url: '/pages/home/home?subApp=hr', disabled: false },
-  { key: 'audit', label: '审核', iconName: 'file', url: '/pages/home/home?subApp=audit', disabled: false },
-  { key: 'venue', label: '场地借用', iconName: 'venue', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
+  { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
+  { key: 'identitySwitch', label: copy.cards.identitySwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
+  { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/pages/home/home?subApp=hr', disabled: false },
+  { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/pages/home/home?subApp=audit', disabled: false },
+  { key: 'venue', label: copy.cards.venueBooking, iconName: 'venue', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
 ];
 
 const PORTAL_CARDS_ADMIN = [
-  { key: 'messages', label: '消息中心', iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
-  { key: 'identitySwitch', label: '组织与身份', iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
-  { key: 'scoring', label: '考核评分', iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
-  { key: 'hr', label: '人事信息', iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
-  { key: 'system', label: '基本设置', iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
-  { key: 'audit', label: '审核', iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
-  { key: 'venue', label: '场地管理', iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false },
-  { key: 'permissions', label: '权限管理', iconName: 'shield', url: '/subpackages/org/pages/adminPermissions/adminPermissions', disabled: false }
+  { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
+  { key: 'identitySwitch', label: copy.cards.identitySwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
+  { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
+  { key: 'system', label: copy.cards.system, iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
+  { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/subpackages/scoring/pages/admin/admin?subApp=audit', disabled: false },
+  { key: 'venue', label: copy.cards.venueManage, iconName: 'venue', url: '/subpackages/venue/pages/venueManage/venueManage', disabled: false },
+  { key: 'permissions', label: copy.cards.permissions, iconName: 'shield', url: '/subpackages/org/pages/adminPermissions/adminPermissions', disabled: false }
 ];
 
 function getDisplayIdentity(user, activeRole) {
-  if (!user) return '未登录';
+  if (!user) return copy.identity.signedOut;
   if (activeRole === 'admin') {
-    return user.adminLevel === 'super_admin' ? '超级管理员' : '普通管理员';
+    return user.adminLevel === 'super_admin' ? copy.identity.superAdmin : copy.identity.admin;
   }
-  return user.identity || '未设置身份';
+  return user.identity || copy.identity.unset;
 }
 
 Page({
   data: {
+    copy: copy.view,
     portalCards: [],
     heroName: '',
     heroIdentity: '',
@@ -70,7 +72,7 @@ Page({
     messagePartial: false,
     showMessageSwitchDialog: false,
     messageSwitchOrganizationName: '',
-    messageSwitchTitle: '切换组织与身份后查看',
+    messageSwitchTitle: copy.messages.switchOrganizationAndIdentity,
     messageSwitchLoading: false,
     contextNotice: '',
 
@@ -84,6 +86,10 @@ Page({
   _isPageVisible: true,
   _messageOverviewLoading: false,
   _messageOverviewQueued: false,
+
+  onLoad() {
+    wx.setNavigationBarTitle({ title: copy.navigationTitle });
+  },
 
   onShow() {
     this._isPageVisible = true;
@@ -216,8 +222,8 @@ Page({
       user: user,
       hasUser: !!user,
       isAdminRole: isAdminRole,
-      heroName: user ? (user.name || '欢迎使用') : '欢迎使用',
-      heroIdentity: user ? getDisplayIdentity(user, activeRole) : 'WHUSU智慧工作台',
+      heroName: user ? (user.name || copy.identity.welcome) : copy.identity.welcome,
+      heroIdentity: user ? getDisplayIdentity(user, activeRole) : copy.appName,
       heroInitial: user && user.name ? user.name.charAt(0) : 'R',
       userDepartment: user ? (user.department || '') : '',
       userWorkGroup: user ? (user.workGroup || '') : '',
@@ -280,7 +286,7 @@ Page({
     const card = source.find(function(c) { return c.key === key; });
     if (!card) return;
     if (card.disabled) {
-      wx.showToast({ title: card.disabledReason || '请稍后再试', icon: 'none' });
+      wx.showToast({ title: card.disabledReason || copy.messages.retryLater, icon: 'none' });
       return;
     }
     navigateToTrustedRoute(card.url);
@@ -323,7 +329,7 @@ Page({
   formatMessageItems(items, isNotification) {
     return (items || []).map(function(item) {
       const extra = {
-        categoryLabel: CATEGORY_LABELS[item.category] || (isNotification ? '通知' : '待办'),
+        categoryLabel: CATEGORY_LABELS[item.category] || (isNotification ? copy.messages.notification : copy.messages.todo),
         createdAt: formatAuditTime(item.createdAt)
       };
       if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });
@@ -426,7 +432,7 @@ Page({
           name: 'markNotificationRead',
           data: { id: id, organizationId: wx.getStorageSync('activeOrgId') || '' }
         });
-        if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
+        if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
       }
       catch (_) { failed.push(id); }
     }
@@ -475,7 +481,7 @@ Page({
           name: 'markNotificationRead',
           data: { id: id, organizationId: current.organizationId }
         });
-        if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
+        if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
       } catch (error) {
         const key = this.pendingReadStorageKey(current.organizationId);
         const queued = wx.getStorageSync(key) || [];
@@ -511,8 +517,8 @@ Page({
     const sameOrganization = item.organizationId === String(wx.getStorageSync('activeOrgId') || '');
     this.setData({
       showMessageSwitchDialog: true,
-      messageSwitchTitle: sameOrganization ? '切换身份后查看' : '切换组织与身份后查看',
-      messageSwitchOrganizationName: (item.organizationName || '目标组织')
+      messageSwitchTitle: sameOrganization ? copy.messages.switchIdentity : copy.messages.switchOrganizationAndIdentity,
+      messageSwitchOrganizationName: (item.organizationName || copy.messages.targetOrganization)
         + (item.identityName ? ' · ' + item.identityName : '')
     });
   },
@@ -544,7 +550,7 @@ Page({
             name: 'markNotificationRead',
             data: { id: item.id, organizationId: item.organizationId }
           });
-          if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
+          if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
         } catch (_) {
           const key = this.pendingReadStorageKey(item.organizationId);
           const queued = wx.getStorageSync(key) || [];
@@ -555,7 +561,7 @@ Page({
       navigateToTrustedRoute(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
-      showShortToast(denied ? '请重新选择身份' : '未切换，请重试');
+      showShortToast(denied ? copy.messages.selectIdentity : copy.messages.switchFailed);
       this.loadMessageOverview();
     }
   },
@@ -576,7 +582,7 @@ Page({
               organizationId: pending.item.organizationId
             }
           });
-          if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
+          if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
         } catch (_) {
           const key = this.pendingReadStorageKey(pending.item.organizationId);
           const queued = wx.getStorageSync(key) || [];
@@ -593,7 +599,7 @@ Page({
       navigateToTrustedRoute(pending.item.targetUrl);
     } catch (error) {
       const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
-      wx.showToast({ title: denied ? '请重新选择组织' : '未切换，请重试', icon: 'none' });
+      wx.showToast({ title: denied ? copy.messages.selectOrganization : copy.messages.switchFailed, icon: 'none' });
       this._pendingMessageNavigation = null;
       this.setData({
         showMessageSwitchDialog: false,
@@ -679,7 +685,7 @@ Page({
         name: 'deleteNotification',
         data: { id: id, organizationId: deleted && deleted.organizationId }
       });
-      if (result.status !== 'success') throw new Error(result.message || '未删除，请重试');
+      if (result.status !== 'success') throw new Error(result.message || copy.messages.deleteFailed);
     } catch (err) {
       console.error('[portal] deleteNotification failed:', err);
       this.setData({ notifications: previous });
@@ -697,12 +703,12 @@ Page({
     });
     try {
       const result = await callFunction({ name: 'markAllNotificationsRead', data: {} });
-      if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
+      if (result.status !== 'success') throw new Error(result.message || copy.messages.readFailed);
       if (result.partial) this.setData({ messagePartial: true });
     } catch (error) {
       this.setData({ notifications: previous });
       this.loadMessageOverview();
-      wx.showToast({ title: '未完成，请重试', icon: 'none' });
+      wx.showToast({ title: copy.messages.incomplete, icon: 'none' });
     }
   },
 

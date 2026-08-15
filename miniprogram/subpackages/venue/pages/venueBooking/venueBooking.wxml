@@ -13,14 +13,14 @@ module.exports = { hour: hour, min: min };
 </wxs>
 <view class="page subapp-venue-page">
   <!-- Hero -->
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}}"></workspace-hero>
 
   <!-- Tab bar -->
   <view class="tabs-card">
-    <view class="feature-tab {{activeTab === 'browse' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="browse" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">场地浏览</view>
-    <view class="feature-tab {{activeTab === 'bookings' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="bookings" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">我的借用</view>
+    <view class="feature-tab {{activeTab === 'browse' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="browse" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3ecbe06312}}</view>
+    <view class="feature-tab {{activeTab === 'bookings' ? 'feature-tab-active' : ''}} ui-motion-chip" data-tab="bookings" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b40ec83bc1}}</view>
     <view class="feature-tab {{activeTab === 'approvals' ? 'feature-tab-active' : ''}} feature-tab-approvals ui-motion-chip" data-tab="approvals" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-      待我审批
+      {{localeCopy.copy_5aaf844f1e}}
       <text class="approval-tab-badge" wx:if="{{pendingApprovalCount > 0}}">{{pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}}</text>
     </view>
   </view>
@@ -29,24 +29,24 @@ module.exports = { hour: hour, min: min };
   <view class="venue-workspace-panel" wx:if="{{activeTab === 'browse'}}">
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-      <view class="section-title">可用场地</view>
+      <view class="section-title">{{localeCopy.copy_b210c95498}}</view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
         <view class="empty-state" wx:if="{{!venues.length}}">
-          <view class="empty-text">暂无可用的场地</view>
+          <view class="empty-text">{{localeCopy.copy_a60fcec226}}</view>
         </view>
         <view class="venue-card" wx:for="{{venues}}" wx:key="id">
           <view class="venue-main">
             <view class="venue-name">{{item.name}}</view>
             <view class="venue-loc" wx:if="{{item.location}}">{{item.location}}</view>
             <view class="venue-meta">
-              <text class="venue-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? '直接通过' : '需审核'}}</text>
+              <text class="venue-tag {{item.approvalType === 'direct' ? 'direct' : 'approval'}}">{{item.approvalType === 'direct' ? localeCopy.copy_4f15bb9939 : localeCopy.copy_761b97e0d4}}</text>
               <text class="venue-tag window-open">{{item.bookingWindowLabel.openText}}</text>
               <text class="venue-tag window-deadline">{{item.bookingWindowLabel.deadlineText}}</text>
             </view>
           </view>
           <view class="venue-actions">
-            <text class="action-btn ui-motion-chip" data-id="{{item.id}}" bindtap="openSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">日程</text>
-            <text class="action-btn primary ui-motion-chip" data-id="{{item.id}}" bindtap="openBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">借用</text>
+            <text class="action-btn ui-motion-chip" data-id="{{item.id}}" bindtap="openSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</text>
+            <text class="action-btn primary ui-motion-chip" data-id="{{item.id}}" bindtap="openBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_183fdf9907}}</text>
           </view>
         </view>
       </scroll-view>
@@ -57,24 +57,24 @@ module.exports = { hour: hour, min: min };
   <view class="venue-workspace-panel" wx:if="{{activeTab === 'bookings'}}">
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
-      <view class="section-title">借用记录</view>
+      <view class="section-title">{{localeCopy.copy_decce2c059}}</view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
         <view class="empty-state" wx:if="{{!myBookings.length}}">
-          <view class="empty-text">暂无借用记录</view>
+          <view class="empty-text">{{localeCopy.copy_28981b382e}}</view>
         </view>
         <view class="booking-item ui-motion-card" wx:for="{{myBookings}}" wx:key="id" bindtap="viewMyBookingDetail" data-id="{{item.id}}" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="booking-item-head">
-            <view class="booking-item-title">{{item.title || '借用申请'}}</view>
+            <view class="booking-item-title">{{item.title || localeCopy.copy_9639901862}}</view>
             <text class="status-tag {{item.displayStatus}}">{{statusLabels[item.displayStatus] || item.status}}</text>
           </view>
-          <view class="booking-item-meta">{{item.venueName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
+          <view class="booking-item-meta">{{item.venueName}} · {{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
-          <view class="booking-item-meta" wx:if="{{item.approvalComment}}">审批意见：{{item.approvalComment}}</view>
+          <view class="booking-item-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>
           <view class="booking-item-foot" wx:if="{{item.displayStatus === 'pending' || item.displayStatus === 'approved'}}">
-            <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="cancelMyBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消借用</text>
+            <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="cancelMyBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_059dd7bc2c}}</text>
           </view>
           <view class="booking-item-foot" wx:if="{{item.displayStatus === 'inUse'}}">
-            <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="endMyBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">结束使用</text>
+            <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="endMyBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_591a108272}}</text>
           </view>
         </view>
       </scroll-view>
@@ -86,32 +86,32 @@ module.exports = { hour: hour, min: min };
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
       <view class="approval-section-head">
-        <view class="section-title">待我审批</view>
-        <text class="link ui-motion-chip" bindtap="goApprovalHistory" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">审批历史</text>
+        <view class="section-title">{{localeCopy.copy_5aaf844f1e}}</view>
+        <text class="link ui-motion-chip" bindtap="goApprovalHistory" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8650ae5bf6}}</text>
       </view>
       <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">
-        <text class="pending-update-time">更新于 {{lastUpdateTime}}</text>
-        <text class="pending-refresh-btn ui-motion-chip" bindtap="loadPendingData" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⟳ 刷新</text>
+        <text class="pending-update-time">{{localeCopy.copy_47cd44e2ed}} {{lastUpdateTime}}</text>
+        <text class="pending-refresh-btn ui-motion-chip" bindtap="loadPendingData" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">⟳ {{localeCopy.copy_545113905f}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll large-scroll" scroll-y>
         <view class="pending-item ui-motion-card" wx:for="{{pending}}" wx:key="id" data-id="{{item.id}}" bindtap="viewApprovalDetail" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="pending-item-main">
-            <view class="pending-item-name">{{item.title || '借用申请'}}</view>
+            <view class="pending-item-name">{{item.title || localeCopy.copy_9639901862}}</view>
             <view class="pending-item-meta">
-              <view class="audit-chip audit-chip-progress">待我处理</view>
-              <view class="pending-item-step">第{{item.currentStepIndex + 1}}步 · {{item.currentStepName}}</view>
-              <view class="pending-item-step" wx:if="{{item.approvalCurrentStep > 0}}">{{item.approvalCurrentStep}}/{{item.approvalTotalSteps}} 已完成</view>
+              <view class="audit-chip audit-chip-progress">{{localeCopy.copy_36be0dfa1c}}</view>
+              <view class="pending-item-step">{{localeCopy.copy_ef8b7ffa9b}}{{item.currentStepIndex + 1}}{{localeCopy.copy_9e545997b0}} · {{item.currentStepName}}</view>
+              <view class="pending-item-step" wx:if="{{item.approvalCurrentStep > 0}}">{{item.approvalCurrentStep}}/{{item.approvalTotalSteps}} {{localeCopy.copy_dc59906817}}</view>
             </view>
-            <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStart}} 至 {{item.timeEnd}}</view>
+            <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
           </view>
           <view class="pending-actions-col">
-            <text class="pending-action-link approve ui-motion-chip" data-id="{{item.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">通过</text>
-            <text class="pending-action-link reject ui-motion-chip" data-id="{{item.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">驳回</text>
+            <text class="pending-action-link approve ui-motion-chip" data-id="{{item.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1bb7eb3e1a}}</text>
+            <text class="pending-action-link reject ui-motion-chip" data-id="{{item.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</text>
           </view>
         </view>
         <view class="audit-empty-state" wx:if="{{!pending.length && !loading}}">
-          <view class="audit-empty-icon"><ui-icon name="check" tone="primary" size="54" ariaLabel="当前暂无借用记录" /></view>
-          <view class="audit-empty-text">暂无待审批事项</view>
+          <view class="audit-empty-icon"><ui-icon name="check" tone="primary" size="54" ariaLabel="{{localeCopy.copy_ff86a949be}}" /></view>
+          <view class="audit-empty-text">{{localeCopy.copy_a14c4e583b}}</view>
         </view>
       </scroll-view>
     </view>
@@ -124,17 +124,17 @@ module.exports = { hour: hour, min: min };
     <view class="popup-card timetable-popup ui-dialog-shell ui-dialog-shell--wide ui-data-grid--specialized" catchtap="noop">
       <view class="popup-header ui-dialog-header">
         <view class="popup-title">{{scheduleVenueName}}</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <text class="popup-close ui-motion-chip" catchtap="closeSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <view class="schedule-nav">
         <text class="nav-arrow ui-motion-card" catchtap="onTimetablePrevWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'‹'}}</text>
-        <text class="nav-label">{{scheduleWeekStart}} 起一周</text>
+        <text class="nav-label">{{scheduleWeekStart}} {{localeCopy.copy_59799547cb}}</text>
         <text class="nav-arrow ui-motion-card" catchtap="onTimetableNextWeek" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{'›'}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-x scroll-y class="timetable-scroll ui-dialog-body ui-dialog-content ui-dialog-content--workspace ui-dialog-scroll--both ui-data-grid--specialized">
         <view class="timetable-body">
           <view class="tt-time-col">
-            <view class="tt-time-header">时间</view>
+            <view class="tt-time-header">{{localeCopy.copy_4202a27ca6}}</view>
             <view class="tt-time-label" wx:for="{{timetableHours}}" wx:key="*this">{{item}}</view>
           </view>
           <view class="tt-col-scroll">
@@ -152,11 +152,11 @@ module.exports = { hour: hour, min: min };
         </view>
       </scroll-view>
       <view class="tt-legend">
-        <view class="tt-leg-item"><view class="tt-dot open"></view>空闲</view>
-        <view class="tt-leg-item"><view class="tt-dot booked"></view>已借用</view>
-        <view class="tt-leg-item"><view class="tt-dot pending"></view>待审核</view>
-        <view class="tt-leg-item"><view class="tt-dot activity"></view>活动</view>
-        <view class="tt-leg-item"><view class="tt-dot closed"></view>未开放</view>
+        <view class="tt-leg-item"><view class="tt-dot open"></view>{{localeCopy.copy_eb3a2a30a8}}</view>
+        <view class="tt-leg-item"><view class="tt-dot booked"></view>{{localeCopy.copy_1c5bbf664c}}</view>
+        <view class="tt-leg-item"><view class="tt-dot pending"></view>{{localeCopy.copy_310d71700e}}</view>
+        <view class="tt-leg-item"><view class="tt-dot activity"></view>{{localeCopy.copy_49eedaa56d}}</view>
+        <view class="tt-leg-item"><view class="tt-dot closed"></view>{{localeCopy.copy_6a72419c84}}</view>
       </view>
     </view>
   </view>
@@ -167,13 +167,13 @@ module.exports = { hour: hour, min: min };
   <view class="popup-mask ui-overlay" wx:if="{{occupiedPopupVisible}}" bindtap="closeOccupiedPopup">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">已占用</view><text class="popup-close ui-motion-chip" catchtap="closeOccupiedPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_a1f843d887}}</view><text class="popup-close ui-motion-chip" catchtap="closeOccupiedPopup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <view class="ui-dialog-compact-content">
-        <view class="detail-row" wx:if="{{occupiedPopupTime}}"><text class="detail-key">占用时段</text><text class="detail-val">{{occupiedPopupTime}}</text></view>
-        <view class="detail-row"><text class="detail-val">该时段已被其他组织占用，请选择其他时段</text></view>
+        <view class="detail-row" wx:if="{{occupiedPopupTime}}"><text class="detail-key">{{localeCopy.copy_789e05b4e1}}</text><text class="detail-val">{{occupiedPopupTime}}</text></view>
+        <view class="detail-row"><text class="detail-val">{{localeCopy.copy_c46b04a9c5}}</text></view>
       </view>
       <view class="button-row ui-dialog-footer">
-        <button class="primary-btn ui-motion-button" catchtap="closeOccupiedPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button>
+        <button class="primary-btn ui-motion-button" catchtap="closeOccupiedPopup" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e75039f02b}}</button>
       </view>
     </view>
   </view>
@@ -184,17 +184,17 @@ module.exports = { hour: hour, min: min };
   <view class="popup-mask ui-overlay" wx:if="{{activityDetailVisible}}" bindtap="closeActivityDetail">
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
-      <view class="popup-header ui-dialog-header"><view class="popup-title">活动占用详情</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text></view>
+      <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_c4df6642e3}}</view><text class="popup-close ui-motion-chip" catchtap="closeActivityDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
       <view class="ui-dialog-stack">
-        <view class="detail-title">{{activityDetail.name || '活动'}}</view>
-        <view class="detail-row" wx:if="{{activityDetail.venueName}}"><text class="detail-key">场地</text><text class="detail-val">{{activityDetail.venueName}}</text></view>
-        <view class="detail-row" wx:if="{{activityDetail.occurrenceTime}}"><text class="detail-key">本次占用</text><text class="detail-val">{{activityDetail.occurrenceTime}}</text></view>
-        <view class="detail-row" wx:if="{{activityDetail.cycleLabel}}"><text class="detail-key">活动规则</text><text class="detail-val">{{activityDetail.cycleLabel}}</text></view>
+        <view class="detail-title">{{activityDetail.name || localeCopy.copy_acd4c5c171}}</view>
+        <view class="detail-row" wx:if="{{activityDetail.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{activityDetail.venueName}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.occurrenceTime}}"><text class="detail-key">{{localeCopy.copy_7c25b53857}}</text><text class="detail-val">{{activityDetail.occurrenceTime}}</text></view>
+        <view class="detail-row" wx:if="{{activityDetail.cycleLabel}}"><text class="detail-key">{{localeCopy.copy_fbf78f3644}}</text><text class="detail-val">{{activityDetail.cycleLabel}}</text></view>
         <view class="detail-row"><text class="detail-val">{{activityDetail.note}}</text></view>
       </view>
       </scroll-view>
-      <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">知道了</button></view>
+      <view class="button-row ui-dialog-footer"><button class="primary-btn ui-motion-button" catchtap="closeActivityDetail" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e75039f02b}}</button></view>
     </view>
   </view>
   </viewport-portal>
@@ -205,8 +205,8 @@ module.exports = { hour: hour, min: min };
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">借用详情</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{localeCopy.copy_40d594ac66}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closeBookingDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
       <venue-booking-detail booking="{{bookingDetail}}"></venue-booking-detail>
@@ -221,35 +221,35 @@ module.exports = { hour: hour, min: min };
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card booking-form-popup ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">借用申请 · {{bookingVenueName}}</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{localeCopy.copy_2b262b7940}} · {{bookingVenueName}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closeBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="form-body ui-dialog-stack">
           <!-- Title -->
           <view class="field">
-            <view class="field-label">借用事由 <text class="required">*</text></view>
-            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="选择或输入借用事由" placeholder-class="field-placeholder"/>
+            <view class="field-label">{{localeCopy.copy_bbb0cc00c9}} <text class="required">*</text></view>
+            <input class="field-input" value="{{bookingTitle}}" data-field="bookingTitle" bindinput="onFieldInput" placeholder="{{localeCopy.copy_cb696a9796}}" placeholder-class="field-placeholder"/>
             <view class="chip-row" wx:if="{{purposes.length}}">
               <text wx:for="{{purposes}}" wx:key="id" class="chip {{bookingTitle === item.text ? 'active' : ''}} ui-motion-chip" data-text="{{item.text}}" catchtap="onSelectPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.text}}</text>
             </view>
           </view>
           <!-- Date (same-day only) -->
           <view class="field">
-            <view class="field-label">借用日期</view>
+            <view class="field-label">{{localeCopy.copy_39fcaa02ad}}</view>
             <picker mode="date" value="{{bookingStartDate}}" bindchange="onStartDateChange">
-              <view class="picker-display {{bookingStartDate ? 'picker-has-value' : ''}}">{{bookingStartDateDisplay || '请选择日期'}}</view>
+              <view class="picker-display {{bookingStartDate ? 'picker-has-value' : ''}}">{{bookingStartDateDisplay || localeCopy.copy_9d1ff80fae}}</view>
             </picker>
           </view>
           <!-- Selected summary -->
           <view wx:if="{{bookingTimeStart && bookingTimeEnd}}" class="time-summary">
-            <view class="time-summary-icon"><ui-icon name="clock" tone="primary" size="28" ariaLabel="借用时间" /></view>
+            <view class="time-summary-icon"><ui-icon name="clock" tone="primary" size="28" ariaLabel="{{localeCopy.copy_91fd6d9600}}" /></view>
             <text class="time-summary-text">{{bookingTimeStart}} → {{bookingTimeEnd}}</text>
             <text class="time-summary-dur">（{{_durationText}}）</text>
           </view>
           <!-- ★ Draggable timeline ★ -->
           <view wx:if="{{timelineBlocks.length}}" class="timeline-wrap">
-            <view class="timeline-hint">拖动圆形滑块选择时间范围</view>
+            <view class="timeline-hint">{{localeCopy.copy_b71db2ea6f}}</view>
             <view class="timeline-drag-container">
               <!-- Background blocks -->
               <view class="timeline-bar">
@@ -260,27 +260,27 @@ module.exports = { hour: hour, min: min };
               <!-- Start handle (above bar) -->
               <view class="tl-handle-wrap tl-handle-start" style="left:{{startHandleX}}px;" data-handle="start"
                     bindtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" bindtouchend="onHandleTouchEnd">
-                <view class="tl-tag tl-tag-start">{{bookingTimeStart ? bookingTimeStart + '开始' : '开始'}}</view>
+                <view class="tl-tag tl-tag-start">{{bookingTimeStart ? bookingTimeStart + localeCopy.copy_c51e10955c : localeCopy.copy_c51e10955c}}</view>
                 <text class="tl-arrow tl-arrow-down">▼</text>
               </view>
               <!-- End handle (below bar) -->
               <view class="tl-handle-wrap tl-handle-end" style="left:{{endHandleX}}px;" data-handle="end"
                     bindtouchstart="onHandleTouchStart" catchtouchmove="onHandleTouchMove" bindtouchend="onHandleTouchEnd">
                 <text class="tl-arrow tl-arrow-up">▲</text>
-                <view class="tl-tag tl-tag-end">{{bookingTimeEnd ? bookingTimeEnd + '结束' : '结束'}}</view>
+                <view class="tl-tag tl-tag-end">{{bookingTimeEnd ? bookingTimeEnd + localeCopy.copy_ed57cd26dc : localeCopy.copy_ed57cd26dc}}</view>
               </view>
             </view>
             <view class="timeline-ticks"><text>0:00</text><text>6:00</text><text>12:00</text><text>18:00</text><text>24:00</text></view>
             <view class="timeline-legend">
-              <text class="tl-leg"><view class="tl-dot free"></view>空闲</text>
-              <text class="tl-leg"><view class="tl-dot booked"></view>已占</text>
-              <text class="tl-leg"><view class="tl-dot activity"></view>活动</text>
+              <text class="tl-leg"><view class="tl-dot free"></view>{{localeCopy.copy_eb3a2a30a8}}</text>
+              <text class="tl-leg"><view class="tl-dot booked"></view>{{localeCopy.copy_a8a6082fe6}}</text>
+              <text class="tl-leg"><view class="tl-dot activity"></view>{{localeCopy.copy_49eedaa56d}}</text>
             </view>
           </view>
 
           <!-- ★ Start time ★ -->
           <view class="field">
-            <view class="field-label">开始时间 <text class="required">*</text></view>
+            <view class="field-label">{{localeCopy.copy_deb776d2af}} <text class="required">*</text></view>
             <view wx:if="{{timelineBlocks.length}}" class="time-section-new">
               <!-- Custom keyboard display -->
               <view class="time-kb-display-row">
@@ -290,12 +290,12 @@ module.exports = { hour: hour, min: min };
                 <text wx:if="{{bookingTimeStart}}" class="time-valid-badge">✓</text>
               </view>
             </view>
-            <view wx:else class="field-hint">{{bookingStartDate ? '该日期暂无可选时段' : '请先选择日期'}}</view>
+            <view wx:else class="field-hint">{{bookingStartDate ? localeCopy.copy_824768a506 : localeCopy.copy_6ce770a0a6}}</view>
           </view>
 
           <!-- ★ Quick duration chips ★ -->
           <view wx:if="{{bookingTimeStart && timelineBlocks.length}}" class="field">
-            <view class="field-label">快捷时长</view>
+            <view class="field-label">{{localeCopy.copy_552d783261}}</view>
             <view class="duration-row">
               <text class="duration-chip {{bookingTimeEnd && item.minutes === _activeDuration ? 'duration-chip-active' : ''}} ui-motion-chip" wx:for="{{durationChips}}" wx:key="label" data-minutes="{{item.minutes}}" catchtap="onDurationTap" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.label}}</text>
             </view>
@@ -303,7 +303,7 @@ module.exports = { hour: hour, min: min };
 
           <!-- ★ End time ★ -->
           <view class="field">
-            <view class="field-label">结束时间 <text class="required">*</text></view>
+            <view class="field-label">{{localeCopy.copy_2bd6adcbb9}} <text class="required">*</text></view>
             <view wx:if="{{timelineBlocks.length && bookingTimeStart}}" class="time-section-new">
               <view class="time-kb-display-row">
                 <view class="time-kb-display-box {{_kbTarget === 'endHour' && _kbVisible ? 'time-kb-display-active' : ''}} ui-motion-chip" data-target="endHour" catchtap="onKbOpen" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fmt.hour(bookingTimeEnd)}}</view>
@@ -312,27 +312,27 @@ module.exports = { hour: hour, min: min };
                 <text wx:if="{{bookingTimeEnd}}" class="time-valid-badge end-badge">✓</text>
               </view>
             </view>
-            <view wx:else class="field-hint">{{bookingTimeStart ? '' : '请先选择开始时间'}}</view>
+            <view wx:else class="field-hint">{{bookingTimeStart ? '' : localeCopy.copy_560bd817fb}}</view>
           </view>
 
           <!-- Description -->
           <view class="field">
-            <view class="field-label">备注（选填）</view>
-            <textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="补充说明"/>
+            <view class="field-label">{{localeCopy.copy_5b5ccadb74}}</view>
+            <textarea class="field-textarea" auto-height maxlength="-1" value="{{bookingDesc}}" data-field="bookingDesc" bindinput="onFieldInput" placeholder="{{localeCopy.copy_2edf3fde90}}"/>
           </view>
           <view class="field" wx:if="{{allowUserSelectFlow}}">
-            <view class="field-label">审批流程 <text class="required">*</text></view>
+            <view class="field-label">{{localeCopy.copy_3bc010171a}} <text class="required">*</text></view>
             <picker range="{{approvalFlowOptions}}" range-key="name" bindchange="onBookingFlowSelect">
-              <view class="picker-display {{selectedFlowId ? 'picker-has-value' : ''}}">{{selectedFlowId ? selectedFlowName : '请选择审批流程'}}</view>
+              <view class="picker-display {{selectedFlowId ? 'picker-has-value' : ''}}">{{selectedFlowId ? selectedFlowName : localeCopy.copy_29ea17e75c}}</view>
             </picker>
           </view>
           <view class="field" wx:if="{{allowUserSelectFlow && selectedFlowId && selectedFlowAllowDesignateFirst}}">
-            <view class="field-label">指定第一步审批人（可选）</view>
+            <view class="field-label">{{localeCopy.copy_66a92fc57e}}</view>
             <view class="pick-row" catchtap="openFirstApproverPicker">
-              <text class="picker-display {{firstApproverHrId ? 'picker-has-value' : ''}}">{{firstApproverName || '选择审批人'}}</text>
+              <text class="picker-display {{firstApproverHrId ? 'picker-has-value' : ''}}">{{firstApproverName || localeCopy.copy_6986f4a5fd}}</text>
             </view>
           </view>
-          <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">提交借用申请</button>
+          <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_02ef2f799d}}</button>
         </view>
       </scroll-view>
     </view>
@@ -342,15 +342,15 @@ module.exports = { hour: hour, min: min };
     <view class="popup-mask ui-overlay" wx:if="{{firstApproverPickerVisible}}" bindtap="closeFirstApproverPicker">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="ui-dialog-shell ui-dialog-shell--complex popup-card person-picker-card" catchtap="noop">
-        <view class="modal-header ui-dialog-header"><view class="modal-title">选择第一步审批人</view><view class="modal-close ui-motion-chip" catchtap="closeFirstApproverPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">✕</view></view>
+        <view class="modal-header ui-dialog-header"><view class="modal-title">{{localeCopy.copy_0522689efc}}</view><view class="modal-close ui-motion-chip" catchtap="closeFirstApproverPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">✕</view></view>
         <view class="ui-dialog-body ui-dialog-content">
-          <input class="field-input" value="{{firstApproverKeyword}}" bindinput="onFirstApproverKeywordInput" placeholder="搜索姓名或学号" />
+          <input class="field-input" value="{{firstApproverKeyword}}" bindinput="onFirstApproverKeywordInput" placeholder="{{localeCopy.copy_2ea2cd3a4f}}" />
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="person-picker-list ui-dialog-scroll--pane">
             <view class="person-picker-item" wx:for="{{approverCandidates}}" wx:key="id" wx:if="{{!firstApproverKeyword || item.name.indexOf(firstApproverKeyword) >= 0 || item.studentId.indexOf(firstApproverKeyword) >= 0}}" data-id="{{item.id}}" data-name="{{item.name}}" catchtap="pickFirstApprover">
               <text class="person-picker-name">{{item.name}}</text>
               <text class="person-picker-id">{{item.studentId}}</text>
             </view>
-            <view class="empty-inline" wx:if="{{!approverCandidates.length}}">暂无可用成员</view>
+            <view class="empty-inline" wx:if="{{!approverCandidates.length}}">{{localeCopy.copy_5dbaec0fcf}}</view>
             <view class="scroll-tail-space"></view>
           </scroll-view>
         </view>
@@ -364,8 +364,8 @@ module.exports = { hour: hour, min: min };
     <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
     <view class="popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header">
-        <view class="popup-title">{{approvalTarget.title || '借用详情'}}</view>
-        <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">关闭</text>
+        <view class="popup-title">{{approvalTarget.title || localeCopy.copy_48283f4043}}</view>
+        <text class="popup-close ui-motion-chip" catchtap="closeApproval" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text>
       </view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" class="popup-scroll ui-dialog-body ui-dialog-content ui-dialog-scroll--fill" scroll-y>
         <view class="detail-body ui-dialog-stack">
@@ -389,44 +389,44 @@ module.exports = { hour: hour, min: min };
                   <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                   <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
                   <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
-                  <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? '▲ 收起' : '▼ 详情'}}</view>
+                  <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
                 </view>
                 <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
-                  <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">审批人：</text>{{node.approverName}}</view>
-                  <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">审批时间：</text>{{node.approvedAt}}</view>
-                  <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">审批意见：</text>{{node.comment}}</view>
+                  <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                  <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_dcadcebf08}}</text>{{node.approvedAt}}</view>
+                  <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
                 </view>
               </view>
             </view>
           </view>
 
-          <view class="detail-row"><text class="detail-key">场地</text><text class="detail-val">{{approvalTarget.venueName}}<text wx:if="{{approvalTarget.venueLocation}}"> · {{approvalTarget.venueLocation}}</text></text></view>
-          <view class="detail-row" wx:if="{{approvalTarget.orgName}}"><text class="detail-key">组织</text><text class="detail-val">{{approvalTarget.orgName}}</text></view>
-          <view class="detail-row"><text class="detail-key">借用人</text><text class="detail-val">{{approvalTarget.userName}}</text></view>
-          <view class="detail-row"><text class="detail-key">时间</text><text class="detail-val">{{approvalTarget.timeStart}} — {{approvalTarget.timeEnd}}</text></view>
-          <view class="detail-row" wx:if="{{approvalTarget.description}}"><text class="detail-key">说明</text><text class="detail-val">{{approvalTarget.description}}</text></view>
-          <view class="detail-row"><text class="detail-key">状态</text><text class="status-tag pending">待审核</text></view>
-          <view class="detail-row" wx:if="{{approvalTarget.approvalCurrentStep >= 0}}"><text class="detail-key">当前步骤</text><text class="detail-val">第{{approvalTarget.currentStepIndex + 1}}步 · {{approvalTarget.currentStepName}}</text></view>
+          <view class="detail-row"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{approvalTarget.venueName}}<text wx:if="{{approvalTarget.venueLocation}}"> · {{approvalTarget.venueLocation}}</text></text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{approvalTarget.orgName}}</text></view>
+          <view class="detail-row"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><text class="detail-val">{{approvalTarget.userName}}</text></view>
+          <view class="detail-row"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{approvalTarget.timeStart}} — {{approvalTarget.timeEnd}}</text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.description}}"><text class="detail-key">{{localeCopy.copy_c5d9511809}}</text><text class="detail-val">{{approvalTarget.description}}</text></view>
+          <view class="detail-row"><text class="detail-key">{{localeCopy.copy_8aee737e64}}</text><text class="status-tag pending">{{localeCopy.copy_310d71700e}}</text></view>
+          <view class="detail-row" wx:if="{{approvalTarget.approvalCurrentStep >= 0}}"><text class="detail-key">{{localeCopy.copy_9e26c149ee}}</text><text class="detail-val">{{localeCopy.copy_ef8b7ffa9b}}{{approvalTarget.currentStepIndex + 1}}{{localeCopy.copy_9e545997b0}} · {{approvalTarget.currentStepName}}</text></view>
 
           <!-- Approval action area -->
           <view wx:if="{{approvalAction}}" class="approval-action-area">
             <view class="field" wx:if="{{approvalAction === 'approve' && canDesignateNext}}">
-              <view class="field-label">指定下一步审批人（可选）</view>
+              <view class="field-label">{{localeCopy.copy_3fc6899daa}}</view>
               <view class="pick-row" catchtap="openNextApproverPicker">
-                <text class="picker-display {{nextApproverHrId ? 'picker-has-value' : ''}}">{{nextApproverName || '选择审批人'}}</text>
+                <text class="picker-display {{nextApproverHrId ? 'picker-has-value' : ''}}">{{nextApproverName || localeCopy.copy_6986f4a5fd}}</text>
               </view>
             </view>
             <view class="field field--approval-comment">
-              <view class="field-label">审批意见（选填）</view>
-              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? '如：同意借用' : '如：时间冲突，请重新选择'}}"/>
+              <view class="field-label">{{localeCopy.copy_bddb855314}}</view>
+              <textarea class="field-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{approvalAction === 'approve' ? localeCopy.copy_bef4bbef62 : localeCopy.copy_a93266a8d4}}"/>
             </view>
           </view>
         </view>
       </scroll-view>
       <view class="button-row ui-dialog-footer" wx:if="{{approvalAction}}">
-        <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
+        <button class="secondary-btn ui-motion-button" catchtap="closeApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
         <button class="{{approvalAction === 'approve' ? 'primary-btn' : 'danger-btn'}} ui-motion-button" loading="{{approvalSubmitting}}" catchtap="submitApproval" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          {{approvalAction === 'approve' ? '确认通过' : '确认驳回'}}
+          {{approvalAction === 'approve' ? localeCopy.copy_49ef170f0b : localeCopy.copy_cd42af3f87}}
         </button>
       </view>
     </view>
@@ -436,15 +436,15 @@ module.exports = { hour: hour, min: min };
     <view class="popup-mask ui-overlay" wx:if="{{nextApproverPickerVisible}}" bindtap="closeNextApproverPicker">
       <view class="ui-overlay-blocker" catchtouchmove="noop"></view>
       <view class="ui-dialog-shell ui-dialog-shell--complex popup-card person-picker-card" catchtap="noop">
-        <view class="modal-header ui-dialog-header"><view class="modal-title">选择下一步审批人</view><view class="modal-close ui-motion-chip" catchtap="closeNextApproverPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">✕</view></view>
+        <view class="modal-header ui-dialog-header"><view class="modal-title">{{localeCopy.copy_1f13a570b9}}</view><view class="modal-close ui-motion-chip" catchtap="closeNextApproverPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">✕</view></view>
         <view class="ui-dialog-body ui-dialog-content">
-          <input class="field-input" value="{{nextApproverKeyword}}" bindinput="onNextApproverKeywordInput" placeholder="搜索姓名或学号" />
+          <input class="field-input" value="{{nextApproverKeyword}}" bindinput="onNextApproverKeywordInput" placeholder="{{localeCopy.copy_2ea2cd3a4f}}" />
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="person-picker-list ui-dialog-scroll--pane">
             <view class="person-picker-item" wx:for="{{nextApproverCandidates}}" wx:key="id" wx:if="{{!nextApproverKeyword || item.name.indexOf(nextApproverKeyword) >= 0 || item.studentId.indexOf(nextApproverKeyword) >= 0}}" data-id="{{item.id}}" data-name="{{item.name}}" catchtap="pickNextApprover">
               <text class="person-picker-name">{{item.name}}</text>
               <text class="person-picker-id">{{item.studentId}}</text>
             </view>
-            <view class="empty-inline" wx:if="{{!nextApproverCandidates.length}}">暂无可用成员</view>
+            <view class="empty-inline" wx:if="{{!nextApproverCandidates.length}}">{{localeCopy.copy_5dbaec0fcf}}</view>
             <view class="scroll-tail-space"></view>
           </scroll-view>
         </view>
@@ -453,8 +453,8 @@ module.exports = { hour: hour, min: min };
   </viewport-portal>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view>
+    <view class="footer-org">{{localeCopy.copy_638da8ae60}}</view>
   </view>
 
   <!-- ★ Custom time keyboard ★ (page-level fixed bottom) -->
@@ -463,7 +463,7 @@ module.exports = { hour: hour, min: min };
       <view class="time-kb-box {{_kbField === 'hour' ? 'time-kb-box-active' : ''}} {{_kbField === 'hour' && _kbSelected ? 'time-kb-box-selected' : ''}} ui-motion-chip" data-field="hour" catchtap="onKbSwitchField" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{_kbHourVal || '--'}}</view>
       <text class="time-kb-colon">:</text>
       <view class="time-kb-box {{_kbField === 'min' ? 'time-kb-box-active' : ''}} {{_kbField === 'min' && _kbSelected ? 'time-kb-box-selected' : ''}} ui-motion-chip" data-field="min" catchtap="onKbSwitchField" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{_kbMinVal || '--'}}</view>
-      <view class="time-kb-confirm ui-motion-chip" catchtap="onKbConfirm" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确认</view>
+      <view class="time-kb-confirm ui-motion-chip" catchtap="onKbConfirm" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_bd24ac5b0c}}</view>
     </view>
     <view class="time-kb-numpad">
       <view class="time-kb-row">

@@ -1,50 +1,50 @@
 <view class="page message-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="消息中心"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}"></workspace-hero>
 
   <view class="message-tabs">
     <view class="message-tab {{activeTab === 'todos' ? 'message-tab-active' : ''}} ui-motion-chip" data-tab="todos" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">
-      待办 <text wx:if="{{todoTotal}}">{{todoTotal}}</text>
+      {{copy.todos}} <text wx:if="{{todoTotal}}">{{todoTotal}}</text>
     </view>
     <view class="message-tab {{activeTab === 'notifications' ? 'message-tab-active' : ''}} ui-motion-chip" data-tab="notifications" bindtap="switchTab" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">
-      通知 <text wx:if="{{unreadCount}}">{{unreadCount > 99 ? '99+' : unreadCount}}</text>
+      {{copy.notifications}} <text wx:if="{{unreadCount}}">{{unreadCount > 99 ? '99+' : unreadCount}}</text>
     </view>
   </view>
 
   <view class="organization-picker" bindtap="openOrganizationPicker" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
     <view class="organization-filter ui-motion-card" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
-      <view class="organization-filter-label">组织范围</view>
+      <view class="organization-filter-label">{{copy.organizationScope}}</view>
       <view class="organization-filter-value">{{selectedOrganizationName}}</view>
-      <ui-icon name="chevron-right" tone="muted" size="26" ariaLabel="选择组织" />
+      <ui-icon name="chevron-right" tone="muted" size="26" ariaLabel="{{copy.selectOrganization}}" />
     </view>
   </view>
 
   <view class="partial-notice" wx:if="{{partial}}">
-    <ui-icon name="bell" tone="primary" size="28" ariaLabel="加载提示" />
-    <text>部分组织暂未加载，正在重试</text>
+    <ui-icon name="bell" tone="primary" size="28" ariaLabel="{{copy.loadingHint}}" />
+    <text>{{copy.partialOrganizationLoading}}</text>
   </view>
 
   <view class="card message-card">
     <view class="message-card-head">
-      <view class="section-title">{{activeTab === 'todos' ? '当前待办' : '全部通知'}}</view>
+      <view class="section-title">{{activeTab === 'todos' ? copy.currentTodos : copy.allNotifications}}</view>
       <view class="message-actions" wx:if="{{activeTab === 'notifications' && notificationTotal}}">
-        <view class="message-action ui-motion-chip" wx:if="{{unreadCount > 0}}" bindtap="markAllRead" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全部已读</view>
-        <view class="message-action message-action-danger ui-motion-chip" bindtap="deleteAllNotifications" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">全部清除</view>
+        <view class="message-action ui-motion-chip" wx:if="{{unreadCount > 0}}" bindtap="markAllRead" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.markAllRead}}</view>
+        <view class="message-action message-action-danger ui-motion-chip" bindtap="deleteAllNotifications" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.clearAll}}</view>
       </view>
     </view>
     <scroll-view class="message-scroll" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" bindscrolltolower="loadMore" lower-threshold="100">
-      <view class="message-empty" wx:if="{{!loading && activeTab === 'todos' && !todos.length}}">暂无待处理事项</view>
-      <view class="message-empty" wx:if="{{!loading && activeTab === 'notifications' && !notifications.length}}">暂无通知</view>
+      <view class="message-empty" wx:if="{{!loading && activeTab === 'todos' && !todos.length}}">{{copy.noTodos}}</view>
+      <view class="message-empty" wx:if="{{!loading && activeTab === 'notifications' && !notifications.length}}">{{copy.noNotifications}}</view>
 
       <view wx:if="{{activeTab === 'todos'}}" class="message-list">
         <view class="message-row ui-motion-card" wx:for="{{todos}}" wx:key="id" data-id="{{item.id}}" bindtap="onTodoTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
-          <view class="message-icon"><ui-icon name="clock" tone="primary" size="38" ariaLabel="待办" /></view>
+          <view class="message-icon"><ui-icon name="clock" tone="primary" size="38" ariaLabel="{{copy.todos}}" /></view>
           <view class="message-copy">
             <view class="message-metadata">
               <text class="message-category">{{item.categoryLabel}}</text>
               <view class="organization-meta {{item.isCurrentOrganization ? 'organization-meta-current' : ''}}">
-                <ui-icon name="home" tone="primary" size="22" ariaLabel="所属组织" />
+                <ui-icon name="home" tone="primary" size="22" ariaLabel="{{copy.organization}}" />
                 <text class="organization-meta-name">{{item.organizationName}}</text>
-                <text class="organization-current" wx:if="{{item.isCurrentOrganization}}">当前</text>
+                <text class="organization-current" wx:if="{{item.isCurrentOrganization}}">{{copy.current}}</text>
               </view>
               <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
             </view>
@@ -52,7 +52,7 @@
             <view class="message-desc">{{item.description}}</view>
             <view class="message-time">{{item.createdAt}}</view>
           </view>
-          <ui-icon name="chevron-right" tone="muted" size="28" ariaLabel="进入" />
+          <ui-icon name="chevron-right" tone="muted" size="28" ariaLabel="{{copy.enter}}" />
         </view>
       </view>
 
@@ -60,14 +60,14 @@
         <view class="message-row {{item.isRead ? 'message-row-read' : 'message-row-unread'}}" wx:for="{{notifications}}" wx:key="id">
           <view class="message-main ui-motion-card" data-id="{{item.id}}" bindtap="onNotificationTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
             <view class="unread-dot" wx:if="{{!item.isRead}}"></view>
-            <view class="message-icon"><ui-icon name="bell" tone="primary" size="38" ariaLabel="通知" /></view>
+            <view class="message-icon"><ui-icon name="bell" tone="primary" size="38" ariaLabel="{{copy.notifications}}" /></view>
             <view class="message-copy">
               <view class="message-metadata">
                 <text class="message-category">{{item.categoryLabel}}</text>
                 <view class="organization-meta {{item.isCurrentOrganization ? 'organization-meta-current' : ''}}">
-                  <ui-icon name="home" tone="primary" size="22" ariaLabel="所属组织" />
+                  <ui-icon name="home" tone="primary" size="22" ariaLabel="{{copy.organization}}" />
                   <text class="organization-meta-name">{{item.organizationName}}</text>
-                  <text class="organization-current" wx:if="{{item.isCurrentOrganization}}">当前</text>
+                  <text class="organization-current" wx:if="{{item.isCurrentOrganization}}">{{copy.current}}</text>
                 </view>
                 <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
               </view>
@@ -76,10 +76,10 @@
               <view class="message-time">{{item.createdAt}}</view>
             </view>
           </view>
-          <view class="message-delete ui-motion-chip" data-id="{{item.id}}" catchtap="deleteNotification" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><ui-icon name="trash" tone="danger" size="28" ariaLabel="删除通知" /></view>
+          <view class="message-delete ui-motion-chip" data-id="{{item.id}}" catchtap="deleteNotification" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160"><ui-icon name="trash" tone="danger" size="28" ariaLabel="{{copy.deleteNotification}}" /></view>
         </view>
       </view>
-      <view class="message-loading" wx:if="{{loading || loadingMore}}">正在加载…</view>
+      <view class="message-loading" wx:if="{{loading || loadingMore}}">{{copy.loading}}</view>
     </scroll-view>
   </view>
 
@@ -88,14 +88,14 @@
     <view class="message-switch-mask ui-overlay-blocker" bindtap="closeSwitchDialog" catchtouchmove="noop"></view>
     <view class="message-switch-dialog ui-dialog-shell ui-dialog-shell--compact">
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
-        <view class="message-switch-badge">跨组织事项</view>
+        <view class="message-switch-badge">{{copy.crossOrganizationItem}}</view>
         <view class="message-switch-title">{{switchDialogTitle}}</view>
-        <view class="message-switch-desc">切换到以下组织后查看</view>
+        <view class="message-switch-desc">{{copy.switchDescription}}</view>
         <view class="message-switch-org">{{switchOrganizationName}}</view>
       </scroll-view>
       <view class="message-switch-actions ui-dialog-footer">
-        <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeSwitchDialog" disabled="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationSwitch" loading="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">切换并查看</button>
+        <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeSwitchDialog" disabled="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button>
+        <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationSwitch" loading="{{switchingOrganization}}" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.switchAndView}}</button>
       </view>
     </view>
   </view>
@@ -106,19 +106,19 @@
     <view class="organization-picker-mask ui-overlay-blocker" bindtap="closeOrganizationPicker" catchtouchmove="noop"></view>
     <view class="organization-picker-dialog hit-area ui-dialog-shell ui-dialog-shell--compact" catchtap="noop">
       <view class="organization-picker-header ui-dialog-header">
-        <view class="organization-picker-title">选择组织范围</view>
-        <text class="organization-picker-close ui-motion-chip" catchtap="closeOrganizationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">关闭</text>
+        <view class="organization-picker-title">{{copy.selectOrganizationScope}}</view>
+        <text class="organization-picker-close ui-motion-chip" catchtap="closeOrganizationPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{copy.close}}</text>
       </view>
       <scroll-view class="organization-picker-options ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll" scroll-y enhanced="{{true}}" show-scrollbar="{{true}}" nested-scroll-enabled="{{true}}">
         <view class="organization-picker-option organization-picker-item {{pendingOrganizationIndex === index ? 'organization-picker-option-active' : ''}}" wx:for="{{organizationOptions}}" wx:key="id" data-index="{{index}}" catchtap="selectOrganizationOption">
           <text class="organization-picker-option-name">{{item.name}}</text>
-          <ui-icon wx:if="{{pendingOrganizationIndex === index}}" name="check" tone="primary" size="26" ariaLabel="已选择" />
+          <ui-icon wx:if="{{pendingOrganizationIndex === index}}" name="check" tone="primary" size="26" ariaLabel="{{copy.selected}}" />
         </view>
         <view class="scroll-tail-space"></view>
       </scroll-view>
       <view class="organization-picker-actions ui-dialog-footer">
-        <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeOrganizationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">取消</button>
-        <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">确定</button>
+        <button class="secondary-btn message-dialog-btn ui-motion-button" bindtap="closeOrganizationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.cancel}}</button>
+        <button class="primary-btn message-dialog-btn ui-motion-button" bindtap="confirmOrganizationPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.confirm}}</button>
       </view>
     </view>
   </view>

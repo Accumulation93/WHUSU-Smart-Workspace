@@ -4,14 +4,9 @@ const messageScope = require('../../utils/messageScope');
 const { activateOrganization } = require('../../utils/organizationActivation');
 const authContext = require('../../utils/authContext');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
+const { messageCenter: copy } = require('../../locales/zh-CN/main');
 
-const CATEGORY_LABELS = {
-  audit: '审核',
-  venue: '场地',
-  scoring: '考核',
-  hr: '人事',
-  system: '其他'
-};
+const CATEGORY_LABELS = copy.categoryLabels;
 
 function pendingReadStorageKey(organizationId, role) {
   return 'pendingNotificationReads:' + String(organizationId || '') + ':' + String(role || '');
@@ -28,6 +23,7 @@ function queuePendingRead(organizationId, role, id) {
 
 Page({
   data: {
+    copy: copy.view,
     activeTab: 'todos',
     todos: [],
     notifications: [],
@@ -38,20 +34,21 @@ Page({
     notificationCursor: '',
     loading: false,
     loadingMore: false,
-    organizationOptions: [{ id: '', name: '全部组织' }],
+    organizationOptions: [{ id: '', name: copy.messages.allOrganizations }],
     selectedOrganizationId: '',
-    selectedOrganizationName: '全部组织',
+    selectedOrganizationName: copy.messages.allOrganizations,
     selectedOrganizationIndex: 0,
     organizationPickerVisible: false,
     pendingOrganizationIndex: 0,
     partial: false,
     showSwitchDialog: false,
     switchOrganizationName: '',
-    switchDialogTitle: '切换组织与身份后查看',
+    switchDialogTitle: copy.messages.switchOrganizationAndIdentity,
     switchingOrganization: false
   },
 
   onLoad(options) {
+    wx.setNavigationBarTitle({ title: copy.navigationTitle });
     const scope = messageScope.getScope();
     this.setData({
       activeTab: options.tab === 'notifications' ? 'notifications' : 'todos',
@@ -100,14 +97,14 @@ Page({
   formatItems(items) {
     return (items || []).map(function(item) {
       return Object.assign({}, item, {
-        categoryLabel: CATEGORY_LABELS[item.category] || '通知',
+        categoryLabel: CATEGORY_LABELS[item.category] || copy.messages.notification,
         createdAt: formatAuditTime(item.createdAt)
       });
     });
   },
 
   buildOrganizationOptions(organizations) {
-    return [{ id: '', name: '全部组织', isCurrentOrganization: false }].concat(
+    return [{ id: '', name: copy.messages.allOrganizations, isCurrentOrganization: false }].concat(
       (organizations || []).map(function(item) {
         return {
           id: item.id,
@@ -139,15 +136,15 @@ Page({
         this._messageRevision = (this._messageRevision || 0) + 1;
         this.setData({
           selectedOrganizationId: '',
-          selectedOrganizationName: '全部组织',
+          selectedOrganizationName: copy.messages.allOrganizations,
           selectedOrganizationIndex: 0,
           loading: false
         });
-        showShortToast('请重新选择组织或身份');
+        showShortToast(copy.messages.selectOrganizationOrIdentity);
         this.loadOverview(true);
         return;
       }
-      if (result.status !== 'success') throw new Error(result.message || '请稍后刷新');
+      if (result.status !== 'success') throw new Error(result.message || copy.messages.refreshLater);
 
       const organizationOptions = this.buildOrganizationOptions(result.organizations);
       let selectedIndex = organizationOptions.findIndex((item) => (
@@ -158,11 +155,11 @@ Page({
         this._messageRevision = (this._messageRevision || 0) + 1;
         this.setData({
           selectedOrganizationId: '',
-          selectedOrganizationName: '全部组织',
+          selectedOrganizationName: copy.messages.allOrganizations,
           selectedOrganizationIndex: 0,
           loading: false
         });
-        showShortToast('请重新选择组织或身份');
+        showShortToast(copy.messages.selectOrganizationOrIdentity);
         this.loadOverview(true);
         return;
       }
@@ -186,7 +183,7 @@ Page({
         partial: !!result.partial
       });
     } catch (error) {
-      if (!(error && error.silent)) showShortToast('请稍后刷新');
+      if (!(error && error.silent)) showShortToast(copy.messages.refreshLater);
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loading: false });
     }
@@ -268,7 +265,7 @@ Page({
         });
       }
     } catch (error) {
-      if (!(error && error.silent)) showShortToast('请稍后重试');
+      if (!(error && error.silent)) showShortToast(copy.messages.retryLater);
     } finally {
       if (orgSession.isRequestCurrent(this, request)) this.setData({ loadingMore: false });
     }
@@ -303,8 +300,10 @@ Page({
     const sameOrganization = item.organizationId === String(wx.getStorageSync('activeOrgId') || '');
     this.setData({
       showSwitchDialog: true,
-      switchDialogTitle: sameOrganization ? '切换身份后查看' : '切换组织与身份后查看',
-      switchOrganizationName: (item.organizationName || '目标组织')
+      switchDialogTitle: sameOrganization
+        ? copy.messages.switchIdentity
+        : copy.messages.switchOrganizationAndIdentity,
+      switchOrganizationName: (item.organizationName || copy.messages.targetOrganization)
         + (item.identityName ? ' · ' + item.identityName : '')
     });
   },
@@ -335,7 +334,9 @@ Page({
       name: 'markNotificationRead',
       data: { id: item.id, organizationId: item.organizationId }
     });
-    if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
+    if (result.status !== 'success') {
+      throw new Error(result.message || copy.messages.notificationReadFailed);
+    }
   },
 
   async openNotification(item) {
@@ -400,7 +401,7 @@ Page({
       navigateToTrustedRoute(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
-      showShortToast(denied ? '请重新选择身份' : '未切换，请重试');
+      showShortToast(denied ? copy.messages.selectIdentity : copy.messages.switchFailed);
       this.loadOverview(true);
     }
   },
@@ -430,7 +431,7 @@ Page({
       navigateToTrustedRoute(pending.item.targetUrl);
     } catch (error) {
       const denied = error && (error.status === 'org_access_denied' || error.status === 'not_found');
-      showShortToast(denied ? '请重新选择组织' : '未切换，请重试');
+      showShortToast(denied ? copy.messages.selectOrganization : copy.messages.switchFailed);
       this._pendingNavigation = null;
       this.setData({
         showSwitchDialog: false,
@@ -456,12 +457,12 @@ Page({
         name: 'markAllNotificationsRead',
         data: this.selectedOrganizationData()
       });
-      if (result.status !== 'success') throw new Error(result.message || '未完成，请重试');
+      if (result.status !== 'success') throw new Error(result.message || copy.messages.incomplete);
       if (result.partial) this.setData({ partial: true });
     } catch (_) {
       this.setData({ notifications: previous });
       this.loadOverview(true);
-      showShortToast('未完成，请重试');
+      showShortToast(copy.messages.incomplete);
     }
   },
 
@@ -480,20 +481,20 @@ Page({
         name: 'deleteNotification',
         data: { id: item.id, organizationId: item.organizationId }
       });
-      if (result.status !== 'success') throw new Error(result.message || '未删除，请重试');
+      if (result.status !== 'success') throw new Error(result.message || copy.messages.deleteFailed);
     } catch (_) {
       this.setData({ notifications: previous });
       this.loadOverview(true);
-      showShortToast('未删除，请重试');
+      showShortToast(copy.messages.deleteFailed);
     }
   },
 
   deleteAllNotifications() {
     if (!this.data.notificationTotal) return;
     wx.showModal({
-      title: '清除全部通知',
-      content: '将清除当前可见组织范围内的全部通知，待我审批事项不受影响。',
-      confirmText: '全部清除',
+      title: copy.messages.clearTitle,
+      content: copy.messages.clearDescription,
+      confirmText: copy.messages.clearConfirm,
       confirmColor: '#dc2626',
       success: async (result) => {
         if (!result.confirm) return;
@@ -505,12 +506,14 @@ Page({
             name: 'deleteAllNotifications',
             data: this.selectedOrganizationData()
           });
-          if (response.status !== 'success') throw new Error(response.message || '未清除，请重试');
+          if (response.status !== 'success') {
+            throw new Error(response.message || copy.messages.clearFailed);
+          }
           if (response.partial) this.setData({ partial: true });
         } catch (_) {
           this.setData({ notifications: previous });
           this.loadOverview(true);
-          showShortToast('未清除，请重试');
+          showShortToast(copy.messages.clearFailed);
         }
       }
     });
@@ -529,7 +532,9 @@ Page({
           name: 'markNotificationRead',
           data: { id, organizationId: orgId }
         });
-        if (result.status !== 'success') throw new Error(result.message || '未标记已读，请重试');
+        if (result.status !== 'success') {
+          throw new Error(result.message || copy.messages.notificationReadFailed);
+        }
       } catch (_) {
         failed.push(id);
       }

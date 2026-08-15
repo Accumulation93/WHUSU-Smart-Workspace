@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/services/todoService');
 const { safeString } = require('../../../utils/helpers');
 const submissionStepModel = require('../models/auditSubmissionStep');
 const messageDataModel = require('../models/messageData');
@@ -33,7 +34,7 @@ async function listAuditItems(actor, orgId) {
       type: 'todo',
       sourceType: 'audit_approval',
       title: safeString(step.title || step.submission_number || '审核事项'),
-      description: '提交人 ' + safeString((submitter && submitter.name) || '信息已失效') +
+      description: localeCopy.copy_6438951f7d + safeString((submitter && submitter.name) || '信息已失效') +
         ' · 第' + safeString(step.sort_order) + '步',
       category: 'audit',
       targetType: 'submission',
@@ -85,7 +86,7 @@ async function listVenueItems(actor, orgId) {
       type: 'todo',
       sourceType: 'venue_approval',
       title: safeString(booking.title || '场地借用'),
-      description: '场地：' + safeString(booking.venue_name || '信息已失效') +
+      description: localeCopy.copy_d18a11f195 + safeString(booking.venue_name || '信息已失效') +
         ' · 提交人 ' + safeString((applicant && applicant.name) || '信息已失效') +
         ' · ' + safeString(currentStep.name || ('第' + (Number(booking.approval_current_step) + 1) + '步')),
       category: 'venue',
@@ -108,7 +109,7 @@ async function listScoringItems(actor) {
     type: 'todo',
     sourceType: 'scoring_task',
     title: safeString(task.activity.name || '考核评分'),
-    description: '还有 ' + task.pendingCount + ' 人待评分',
+    description: localeCopy.copy_50fc130639 + task.pendingCount + ' 人待评分',
     category: 'scoring',
     targetType: 'score_activity',
     targetId: safeString(task.activity.id),
@@ -126,7 +127,7 @@ async function listHrProfileItems(actor, orgId) {
     type: 'todo',
     sourceType: 'hr_profile_review',
     title: safeString(record.name || '人事资料变更'),
-    description: '学号 ' + safeString(record.student_id || '信息已失效') + ' · 待审核补充资料',
+    description: localeCopy.copy_5d43cbef1a + safeString(record.student_id || '信息已失效') + ' · 待审核补充资料',
     category: 'hr',
     targetType: 'hr_profile',
     targetId: safeString(record.hr_id),

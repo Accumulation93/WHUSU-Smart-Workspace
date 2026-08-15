@@ -1,3 +1,4 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/routes/auth');
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
@@ -105,7 +106,7 @@ router.post('/userLogin', async (req, res) => {
     }
 
     if (!openid) {
-      return res.json({ status: 'auth_failed', message: '请重新微信登录' });
+      return res.json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
     }
 
     const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
@@ -205,7 +206,7 @@ router.post('/userLogin', async (req, res) => {
     // 老版本只允许已有绑定继续登录；新认领必须使用统一认证，避免恢复姓名学号直绑。
     return res.status(426).json({
       status: 'client_upgrade_required',
-      message: '请更新小程序并完成身份认证'
+      message: localeCopy.copy_bfb0d21b30
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || '请重新微信登录' });
@@ -217,7 +218,7 @@ router.post('/adminLogin', async (req, res) => {
   try {
     const code = safeString(req.body.code);
     if (!code && !ALLOW_DEV_OPENID_LOGIN) {
-      return res.json({ status: 'invalid_params', message: '请重新微信登录' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_b10d64a68c });
     }
 
     let openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
@@ -236,7 +237,7 @@ router.post('/adminLogin', async (req, res) => {
     }
 
     if (!openid) {
-      return res.json({ status: 'auth_failed', message: '请重新微信登录' });
+      return res.json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
     }
 
     const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
@@ -247,7 +248,7 @@ router.post('/adminLogin', async (req, res) => {
     if (allAdminRecords.length === 0) {
       return res.status(426).json({
         status: 'client_upgrade_required',
-        message: '请更新小程序并完成身份认证'
+        message: localeCopy.copy_bfb0d21b30
       });
     }
 
@@ -318,7 +319,7 @@ router.post('/adminLogin', async (req, res) => {
     // 老版本只兼容已经绑定且组织仍有效的管理员。
     return res.status(426).json({
       status: 'client_upgrade_required',
-      message: '请更新小程序并重新选择身份'
+      message: localeCopy.copy_6a1287aed6
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || '请重新微信登录' });
@@ -395,14 +396,14 @@ router.post('/activateOrganization', async (req, res) => {
     const orgId = safeString(req.body.organizationId);
     const role = safeString(req.headers['x-role']).toLowerCase();
 
-    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
+    if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
     if (!orgId || (role !== 'user' && role !== 'admin')) {
-      return res.json({ status: 'invalid_params', message: '请重新选择组织和身份' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_80a283f3f0 });
     }
 
     const organization = await organizationModel.getById(orgId);
     if (!organization) {
-      return res.json({ status: 'not_found', message: '请重新选择组织' });
+      return res.json({ status: 'not_found', message: localeCopy.copy_cc9e4b8129 });
     }
 
     let user;
@@ -412,13 +413,13 @@ router.post('/activateOrganization', async (req, res) => {
       const orgAdmin = adminRecords.find((item) => item.org_id === orgId);
       const activeAdmin = superAdmin || orgAdmin;
       if (!activeAdmin) {
-        return res.json({ status: 'org_access_denied', message: '请使用该组织的管理员身份' });
+        return res.json({ status: 'org_access_denied', message: localeCopy.copy_6fc6c45b56 });
       }
       user = await buildAdminUser(activeAdmin, orgId);
     } else {
       const resolved = await resolveUserInOrganization(openid, orgId);
       if (!resolved) {
-        return res.json({ status: 'org_access_denied', message: '请重新选择身份' });
+        return res.json({ status: 'org_access_denied', message: localeCopy.copy_10d3269bb4 });
       }
       user = await buildUserProfileCrossOrg(resolved.hr, orgId);
     }
@@ -441,7 +442,7 @@ router.post('/activateOrganization', async (req, res) => {
     }
     const message = e && e.code === 'ORG_IDENTITY_CONFLICT'
       ? e.message
-      : '未切换，请重试';
+      : localeCopy.copy_53d5e0a0c8;
     res.json({ status: 'error', message, requestId: req.requestId || '' });
   }
 });
@@ -450,7 +451,7 @@ router.post('/activateOrganization', async (req, res) => {
 router.post('/listMyOrganizations', async (req, res) => {
   try {
     const openid = req.openid;
-    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
+    if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
 
     const availableOrgs = await buildAvailableOrgs(openid, null);
     res.json({ status: 'success', organizations: availableOrgs });
@@ -463,7 +464,7 @@ router.post('/listMyOrganizations', async (req, res) => {
 router.post('/admin/listMyOrganizations', async (req, res) => {
   try {
     const openid = req.openid;
-    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
+    if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
 
     // 获取管理员绑定记录
     const adminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
@@ -490,7 +491,7 @@ router.post('/confirmAutoBind', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const openid = req.openid;
-    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
+    if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
     await conn.beginTransaction();
     const challenge = await authChallengeModel.lock(conn, req.body.autoBindChallenge, 'auto_bind', openid);
     if (challenge.status !== 'success') {
@@ -510,7 +511,7 @@ router.post('/confirmAutoBind', async (req, res) => {
     const targetHr = targetRows[0];
     if (!sourceHr || !targetHr || safeString(sourceHr.name) !== safeString(targetHr.name) || safeString(sourceHr.student_id) !== safeString(targetHr.student_id)) {
       await conn.rollback();
-      return res.json({ status: 'conflict', message: '人事信息已更新，请重新登录' });
+      return res.json({ status: 'conflict', message: localeCopy.copy_d0ec43dfe5 });
     }
     const [sourceBindings] = await conn.query(
       'SELECT id FROM user_info WHERE openid = ? AND hr_id = ? AND org_id = ? LIMIT 1 FOR UPDATE',
@@ -518,7 +519,7 @@ router.post('/confirmAutoBind', async (req, res) => {
     );
     if (!sourceBindings.length) {
       await conn.rollback();
-      return res.json({ status: 'conflict', message: '组织信息已更新，请重新登录' });
+      return res.json({ status: 'conflict', message: localeCopy.copy_fe40320d45 });
     }
     const [conflicts] = await conn.query(
       'SELECT id FROM user_info WHERE hr_id = ? AND openid != ? AND org_id = ? LIMIT 1 FOR UPDATE',
@@ -526,7 +527,7 @@ router.post('/confirmAutoBind', async (req, res) => {
     );
     if (conflicts.length) {
       await conn.rollback();
-      return res.json({ status: 'already_bound', message: '请使用账号恢复更换微信' });
+      return res.json({ status: 'already_bound', message: localeCopy.copy_09ac775d8a });
     }
     const [existingRows] = await conn.query(
       'SELECT id FROM user_info WHERE openid = ? AND org_id = ? LIMIT 1 FOR UPDATE',
@@ -539,13 +540,13 @@ router.post('/confirmAutoBind', async (req, res) => {
     }
     if (!await authChallengeModel.consume(conn, challenge.id)) {
       await conn.rollback();
-      return res.json({ status: 'challenge_expired', message: '请重新微信登录' });
+      return res.json({ status: 'challenge_expired', message: localeCopy.copy_b10d64a68c });
     }
     await conn.commit();
     const targetOrganization = await organizationModel.getById(payload.targetOrgId);
     res.json({
       status: 'success',
-      message: '微信已绑定',
+      message: localeCopy.copy_428c455ba9,
       activeOrg: { id: payload.targetOrgId, name: targetOrganization ? targetOrganization.name : '' },
       user: await buildUserProfileCrossOrg(targetHr, payload.targetOrgId),
       availableOrgs: await buildAvailableOrgs(openid, null)
@@ -553,7 +554,7 @@ router.post('/confirmAutoBind', async (req, res) => {
   } catch (e) {
     try { await conn.rollback(); } catch (_) { /* 忽略回滚异常 */ }
     req.logger.error('confirmAutoBind failed', { error: e.message });
-    res.json({ status: 'error', message: '未完成身份认证，请重试', requestId: req.requestId || '' });
+    res.json({ status: 'error', message: localeCopy.copy_13e7aea070, requestId: req.requestId || '' });
   } finally {
     conn.release();
   }
@@ -563,7 +564,7 @@ router.post('/confirmAutoBind', async (req, res) => {
 router.post('/bindUserInfo', async (req, res) => {
   return res.status(426).json({
     status: 'client_upgrade_required',
-    message: '请更新小程序并完成身份认证'
+    message: localeCopy.copy_bfb0d21b30
   });
 });
 
@@ -571,7 +572,7 @@ router.post('/bindUserInfo', async (req, res) => {
 router.post('/bindAdminInfo', async (req, res) => {
   return res.status(426).json({
     status: 'client_upgrade_required',
-    message: '请更新小程序并使用微信登录'
+    message: localeCopy.copy_58b32c9011
   });
 });
 
@@ -580,7 +581,7 @@ router.post('/bindAdminInfo', async (req, res) => {
 router.post('/unbindRole', async (req, res) => {
   return res.status(410).json({
     status: 'recovery_required',
-    message: '请在账号安全中更换微信'
+    message: localeCopy.copy_7d3da3e6c7
   });
 });
 

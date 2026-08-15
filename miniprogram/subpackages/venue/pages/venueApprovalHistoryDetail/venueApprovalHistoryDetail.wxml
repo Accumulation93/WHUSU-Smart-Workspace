@@ -1,14 +1,14 @@
 <view class="page page-narrow subapp-venue-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="场地借用 · 审批详情"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_b55447798c}}"></workspace-hero>
 
   <view class="section">
     <view class="card detail-shell">
-      <view class="section-title">借用详情</view>
-      <view class="detail-loading" wx:if="{{loading}}"><view class="card-loading-spinner"></view><text>正在加载详情</text></view>
+      <view class="section-title">{{localeCopy.copy_40d594ac66}}</view>
+      <view class="detail-loading" wx:if="{{loading}}"><view class="card-loading-spinner"></view><text>{{localeCopy.copy_4ed1cce37c}}</text></view>
       <view class="detail-error" wx:elif="{{errorText}}">
-        <view class="detail-error-title">详情暂不可用</view>
+        <view class="detail-error-title">{{localeCopy.copy_80f4fbb3c6}}</view>
         <view class="detail-error-text">{{errorText}}</view>
-        <text class="detail-retry ui-motion-chip" bindtap="loadDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">重新加载</text>
+        <text class="detail-retry ui-motion-chip" bindtap="loadDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8b4ae14b7b}}</text>
       </view>
       <block wx:elif="{{detail}}">
         <venue-booking-detail booking="{{detail}}"></venue-booking-detail>
@@ -17,7 +17,7 @@
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view>
+    <view class="footer-org">{{localeCopy.copy_638da8ae60}}</view>
   </view>
 </view>

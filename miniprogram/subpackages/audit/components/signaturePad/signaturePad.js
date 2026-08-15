@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/components/signaturePad/signaturePad');
 /**
  * 签名板组件 — 统一视口绝对坐标模型
  *
@@ -18,6 +19,7 @@ Component({
   },
 
   data: {
+    localeCopy,
     canvasReady: false,
     hasContent: false,
     initialImageVisible: false,
@@ -68,7 +70,7 @@ Component({
           if (retryCount < MAX_RETRIES) {
             that._scheduleRetry(retryCount + 1);
           } else {
-            wx.showToast({ title: '请重新打开签名板', icon: 'none' });
+            wx.showToast({ title: localeCopy.copy_ee931979e9, icon: 'none' });
           }
           return;
         }
@@ -219,22 +221,22 @@ Component({
 
     async onConfirm() {
       if (!this._exportCanvas) {
-        wx.showToast({ title: '画板未就绪', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_e22c5edfe9, icon: 'none' });
         return;
       }
       if (!this.data.hasContent) {
-        wx.showToast({ title: '请先书写签名', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_b5a7df5844, icon: 'none' });
         return;
       }
       if (this._exporting) return;
       this._exporting = true;
-      wx.showLoading({ title: '确认签名中...' });
+      wx.showLoading({ title: localeCopy.copy_81bffbd366 });
       try {
         await this._renderExportCanvas();
         let imageData = await this.toDataURL();
         this.triggerEvent('confirm', { imageData: imageData });
       } catch (error) {
-        wx.showToast({ title: '请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_bff49f783f, icon: 'none' });
       } finally {
         this._exporting = false;
         wx.hideLoading();

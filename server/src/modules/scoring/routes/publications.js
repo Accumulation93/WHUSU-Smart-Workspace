@@ -1,3 +1,5 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/routes/publications');
+const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const notificationOutboxModel = require('../../audit/models/notificationOutbox');
@@ -84,9 +86,9 @@ async function fetchHrMembers(orgId) {
 router.post('/getResultPublication', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const publication = await publicationModel.getByActivity(activityId);
     if (!publication) {
@@ -250,13 +252,13 @@ router.post('/getResultPublication', async (req, res) => {
 router.post('/saveResultPublication', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
     const isPublished = req.body.isPublished === true || req.body.isPublished === 1;
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const activity = await activityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'not_found', message: '请刷新评分活动后重试' });
+    if (!activity) return res.json({ status: 'not_found', message: localeCopy.copy_4f0d449737 });
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     let existing = await publicationModel.getByActivity(activityId);
@@ -275,7 +277,7 @@ router.post('/saveResultPublication', async (req, res) => {
         eventKey: 'score-results-published:' + existing.id + ':' + now,
         payload: {
           type: 'score_results_published',
-          title: '考核结果已公示',
+          title: localeCopy.copy_a2fd08aa5b,
           description: '「' + safeString(activity.name || '当前考核活动') + '」的结果已向您公示。',
           category: 'scoring',
           targetType: 'result_publication',
@@ -293,25 +295,25 @@ router.post('/saveResultPublication', async (req, res) => {
 router.post('/saveResultViewPermission', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id), publicationId = safeString(req.body.publicationId);
     const granteeDeptId = safeString(req.body.granteeDepartmentId), granteeIdentId = safeString(req.body.granteeIdentityId);
     const scopeType = safeString(req.body.scopeType), targetIdentityId = safeString(req.body.targetIdentityId || '');
 
-    if (!publicationId || !granteeDeptId || !granteeIdentId) return res.json({ status: 'invalid_params', message: '请完整填写授权信息' });
-    if (!VALID_SCOPES.includes(scopeType)) return res.json({ status: 'invalid_params', message: '请选择查看范围' });
-    if (IDENTITY_REQUIRED_SCOPES.includes(scopeType) && !targetIdentityId) return res.json({ status: 'invalid_params', message: '请选择目标身份' });
+    if (!publicationId || !granteeDeptId || !granteeIdentId) return res.json({ status: 'invalid_params', message: localeCopy.copy_df60c34fc6 });
+    if (!VALID_SCOPES.includes(scopeType)) return res.json({ status: 'invalid_params', message: localeCopy.copy_7126caee7e });
+    if (IDENTITY_REQUIRED_SCOPES.includes(scopeType) && !targetIdentityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_5ece2c09c8 });
 
     const pub = await publicationModel.getById(publicationId);
-    if (!pub) return res.json({ status: 'not_found', message: '请刷新结果公示' });
+    if (!pub) return res.json({ status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
 
     if (id) {
       await viewPermModel.update(id, { granteeDepartmentId: granteeDeptId, granteeIdentityId: granteeIdentId, scopeType, targetIdentityId: targetIdentityId || null });
-      return res.json({ status: 'success', id, message: '查看权限已更新' });
+      return res.json({ status: 'success', id, message: localeCopy.copy_f60a08009f });
     }
     const newId = generateId();
     await viewPermModel.create(newId, { publicationId, granteeDepartmentId: granteeDeptId, granteeIdentityId: granteeIdentId, scopeType, targetIdentityId: targetIdentityId || null });
-    res.json({ status: 'success', id: newId, message: '查看权限已创建' });
+    res.json({ status: 'success', id: newId, message: localeCopy.copy_b713e58b64 });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -319,11 +321,11 @@ router.post('/saveResultViewPermission', async (req, res) => {
 router.post('/deleteResultViewPermission', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择查看范围' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     await viewPermModel.remove(id);
-    res.json({ status: 'success', message: '查看权限已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_a6a63b1fc4 });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -331,7 +333,7 @@ router.post('/deleteResultViewPermission', async (req, res) => {
 router.post('/saveMeritListPermission', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id), publicationId = safeString(req.body.publicationId);
     const granteeDeptId = safeString(req.body.granteeDepartmentId), granteeIdentId = safeString(req.body.granteeIdentityId);
     const targetIdentityId = safeString(req.body.targetIdentityId);
@@ -340,12 +342,12 @@ router.post('/saveMeritListPermission', async (req, res) => {
     const requireExactQuota = req.body.requireExactQuota === true || req.body.requireExactQuota === 1;
 
     if (!publicationId || !granteeDeptId || !granteeIdentId || !targetIdentityId)
-      return res.json({ status: 'invalid_params', message: '请完整填写授权信息' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_df60c34fc6 });
     if (!VALID_SCOPES.includes(scopeType))
-      return res.json({ status: 'invalid_params', message: '请重新设置指定范围' });
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_4f983cb64d });
 
     const pub = await publicationModel.getById(publicationId);
-    if (!pub) return res.json({ status: 'not_found', message: '请刷新结果公示' });
+    if (!pub) return res.json({ status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
 
     const lookups = await fetchOrgLookups();
 
@@ -358,13 +360,13 @@ router.post('/saveMeritListPermission', async (req, res) => {
       [publicationId, granteeDeptId, granteeIdentId, targetIdentityId, orgId]
     );
     if (!viewRows.length) {
-      return res.json({ status: 'no_view_permission', message: '请先授予结果查看权限' });
+      return res.json({ status: 'no_view_permission', message: localeCopy.copy_7a700bfd4b });
     }
 
     // Uniqueness check
     const existing = await meritPermModel.getByPublicationAndTarget(publicationId, targetIdentityId);
     if (existing && String(existing.id) !== id) {
-      return res.json({ status: 'duplicate_target', message: '该身份的评优权限已分配' });
+      return res.json({ status: 'duplicate_target', message: localeCopy.copy_5d7d52909c });
     }
 
     const { withTransaction } = require('../../../config/db');
@@ -387,9 +389,9 @@ router.post('/saveMeritListPermission', async (req, res) => {
       }
     });
 
-    res.json({ status: 'success', id: resultId, message: '评优名单指定权限已保存' });
+    res.json({ status: 'success', id: resultId, message: localeCopy.copy_8f467e6dad });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_target', message: '该身份的评优权限已分配' });
+    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_target', message: localeCopy.copy_5d7d52909c });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -398,9 +400,9 @@ router.post('/saveMeritListPermission', async (req, res) => {
 router.post('/deleteMeritListPermission', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择查看范围' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
 
     const { withTransaction } = require('../../../config/db');
     const orgId = await getCurrentOrgId();
@@ -411,7 +413,7 @@ router.post('/deleteMeritListPermission', async (req, res) => {
       await conn.query('DELETE FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [id, orgId]);
       await conn.query('DELETE FROM merit_list_permissions WHERE id = ? AND org_id = ?', [id, orgId]);
     });
-    res.json({ status: 'success', message: '评优指定权已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_ff90093cad });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -419,7 +421,7 @@ router.post('/deleteMeritListPermission', async (req, res) => {
 router.post('/saveMeritListDesignations', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const clauseIds = Array.isArray(req.body.clauseIds) && req.body.clauseIds.length
       ? req.body.clauseIds.map(id => safeString(id)).filter(Boolean)
       : [safeString(req.body.clauseId) || safeString(req.body.permissionId)];
@@ -430,7 +432,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       (Array.isArray(req.body.designationHrIds) ? req.body.designationHrIds.map(id => safeString(id)).filter(Boolean) : [])
     )];
 
-    if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: '请重新打开评优名单' });
+    if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_157f5cd8f8 });
 
     // Look up clause + parent merit rule from new tables (include publication_id for reliable INSERT)
     const orgId = await getCurrentOrgId();
@@ -441,7 +443,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
       [primaryClauseId, orgId, orgId, publicationId]
     );
-    if (!clause) return res.json({ status: 'not_found', message: '请刷新评优范围' });
+    if (!clause) return res.json({ status: 'not_found', message: localeCopy.copy_22d72751cb });
 
     // Admin can designate fewer than quota but NOT exceed it
     // Aggregate quota across all clauses
@@ -453,7 +455,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         [...clauseIds, clause.rule_id, orgId]
       );
       if (quotaRows.length !== clauseIds.length) {
-        return res.json({ status: 'invalid_params', message: '评优条款不属于同一授权类别' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
       }
       for (const cl of quotaRows) {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
@@ -462,7 +464,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       aggregatedQuotaLimit = clause.quota_limit || 0;
     }
     if (aggregatedQuotaLimit > 0 && designationHrIds.length > aggregatedQuotaLimit) {
-      return res.json({ status: 'quota_exceeded', message: `最多可指定 ${aggregatedQuotaLimit} 人` });
+      return res.json({ status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
     }
 
     const pubId = safeString(clause.publication_id) || publicationId;
@@ -481,7 +483,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         [...clauseIds, clause.rule_id, orgId, orgId, publicationId]
       );
       if (rows.length !== clauseIds.length) {
-        return res.json({ status: 'invalid_params', message: '评优条款不属于同一授权类别' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
       }
       allClauseScopes = rows;
     } else {
@@ -502,7 +504,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     }
     for (const hrId of designationHrIds) {
       const hr = validationHrMap.get(hrId);
-      if (!hr) return res.json({ status: 'invalid_hr', message: '请刷新人员名单' });
+      if (!hr) return res.json({ status: 'invalid_hr', message: localeCopy.copy_f3dd2d1ffc });
       let matchesAnyClause = false;
       for (const sc of allClauseScopes) {
         if (safeString(hr.identity_id) !== safeString(sc.target_identity_id)) continue;
@@ -512,7 +514,7 @@ router.post('/saveMeritListDesignations', async (req, res) => {
         if (scopeType === 'same_department_identity' || scopeType === 'same_department_all') { if (hrDept === safeString(sc.grantee_department_id)) { matchesAnyClause = true; break; } }
         else if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') { if (hrDept === safeString(sc.grantee_department_id) && safeString(hr.work_group_id) === granteeWgId) { matchesAnyClause = true; break; } }
       }
-      if (!matchesAnyClause) return res.json({ status: 'out_of_scope', message: `"${safeString(hr.name)}" 不在您的指定范围内` });
+      if (!matchesAnyClause) return res.json({ status: 'out_of_scope', message: localeFormat(localeCopy.copy_45ccfd7d80, [safeString(hr.name)]) });
     }
 
     const { withTransaction } = require('../../../config/db');
@@ -560,9 +562,9 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       const hr = hrMap.get(d.target_hr_id);
       result.push({ id: d.id, clauseId: d.clause_id || '', targetHrId: d.target_hr_id, targetName: hr ? safeString(hr.name) : '', targetStudentId: hr ? safeString(hr.student_id) : '' });
     }
-    res.json({ status: 'success', designations: result, message: `已保存 ${result.length} 条评优名单` });
+    res.json({ status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: '评优名单中有重复成员' });
+    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -571,11 +573,11 @@ router.post('/saveMeritListDesignations', async (req, res) => {
 router.post('/removeMeritListDesignation', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请重新选择评优人选' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_b2b03f8fa2 });
     await designationModel.remove(id);
-    res.json({ status: 'success', message: '评优指定已移除' });
+    res.json({ status: 'success', message: localeCopy.copy_6268aa5c49 });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -584,15 +586,15 @@ router.post('/getPublicResults', async (req, res) => {
   try {
     const openid = req.openid;
     const activityId = safeString(req.body.activityId);
-    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请选择评分活动' });
+    if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: '当前评分活动结果尚未公示' });
+    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
 
     const orgId = await getCurrentOrgId();
     const activity = await activityModel.getById(activityId);
-    if (!activity) return res.json({ status: 'activity_not_found', message: '未找到评分活动' });
+    if (!activity) return res.json({ status: 'activity_not_found', message: localeCopy.copy_939db6a08b });
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
@@ -603,7 +605,7 @@ router.post('/getPublicResults', async (req, res) => {
       participantService.listParticipants(orgId, granularity),
       fetchOrgLookups()
     ]);
-    if (!viewerRecord) return res.json({ status: 'not_bound', message: '当前岗位已失效，请重新选择身份' });
+    if (!viewerRecord) return res.json({ status: 'not_bound', message: localeCopy.copy_c20c4aad74 });
     const viewer = {
       id: safeString(viewerRecord.id),
       personId: safeString(viewerRecord.person_id),
@@ -614,7 +616,7 @@ router.post('/getPublicResults', async (req, res) => {
 
     const [viewRuleRows] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
     const matchingRules = viewRuleRows.filter(r => safeString(r.grantee_department_id) === viewer.departmentId && safeString(r.grantee_identity_id) === viewer.identityId);
-    if (!matchingRules.length) return res.json({ status: 'no_permission', message: '暂无查看评分结果的权限' });
+    if (!matchingRules.length) return res.json({ status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
 
     // Collect all matching clauses (with per-clause display_mode)
     const matchingRuleIds = matchingRules.map((rule) => rule.id);
@@ -625,7 +627,7 @@ router.post('/getPublicResults', async (req, res) => {
         ORDER BY rule_id, sort_order ASC`,
       [...matchingRuleIds, orgId]
     );
-    if (!matchingClauses.length) return res.json({ status: 'no_permission', message: '暂无查看评分结果的权限' });
+    if (!matchingClauses.length) return res.json({ status: 'no_permission', message: localeCopy.copy_f4a11b6280 });
 
     // Load per-clause grade bands in one batch
     const gradeBandsByClause = new Map();
@@ -791,11 +793,11 @@ router.post('/getPublicMeritList', async (req, res) => {
   try {
     const openid = req.openid;
     const activityId = safeString(req.body.activityId);
-    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请选择评分活动' });
+    if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: '当前评分活动结果尚未公示' });
+    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
 
     // Check if user has merit list designation permission
     let canDesignate = false;
@@ -951,13 +953,13 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       (Array.isArray(req.body.designationHrIds) ? req.body.designationHrIds.map(id => safeString(id)).filter(Boolean) : [])
     )];
 
-    if (!openid) return res.json({ status: 'auth_failed', message: '请先登录' });
-    if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: '请重新打开评优名单' });
+    if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
+    if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_157f5cd8f8 });
 
     const user = await userInfoModel.getByOpenid(openid);
-    if (!user || !safeString(user.hr_id)) return res.json({ status: 'not_bound', message: '请先绑定人事信息' });
+    if (!user || !safeString(user.hr_id)) return res.json({ status: 'not_bound', message: localeCopy.copy_162d055e98 });
     const viewerHr = await hrInfoModel.getById(safeString(user.hr_id));
-    if (!viewerHr) return res.json({ status: 'not_bound', message: '请使用普通岗位身份' });
+    if (!viewerHr) return res.json({ status: 'not_bound', message: localeCopy.copy_bba7f8b8ba });
 
     // Look up clause + parent merit rule (include publication_id for reliable lookup)
     const orgId = await getCurrentOrgId();
@@ -968,14 +970,14 @@ router.post('/submitMeritListDesignations', async (req, res) => {
         WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
       [primaryClauseId, orgId, orgId, publicationId]
     );
-    if (!clause) return res.json({ status: 'not_found', message: '请刷新评优范围' });
+    if (!clause) return res.json({ status: 'not_found', message: localeCopy.copy_22d72751cb });
     if (safeString(clause.grantee_department_id) !== safeString(viewerHr.department_id) || safeString(clause.grantee_identity_id) !== safeString(viewerHr.identity_id))
-      return res.json({ status: 'forbidden', message: '您没有该身份的评优名单指定权限' });
+      return res.json({ status: 'forbidden', message: localeCopy.copy_cfa6e136e4 });
 
     // Use merit rule's publication_id (reliable), fall back to frontend-supplied
     const pubId = safeString(clause.publication_id) || publicationId;
     const publication = await publicationModel.getById(pubId);
-    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: '当前评分活动结果尚未公示' });
+    if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
 
     // Aggregate quota across all clauses in a single query
     let aggregatedQuotaLimit = 0, hasExactQuota = false;
@@ -988,7 +990,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
         [...clauseIds, clause.rule_id, orgId]
       );
       if (quotaRows.length !== clauseIds.length) {
-        return res.json({ status: 'invalid_params', message: '评优条款不属于同一授权类别' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_7bd7eb5da6 });
       }
       for (const cl of quotaRows) {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
@@ -999,9 +1001,9 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       hasExactQuota = !!(clause.require_exact_quota);
     }
     if (hasExactQuota && aggregatedQuotaLimit > 0 && designationHrIds.length !== aggregatedQuotaLimit)
-      return res.json({ status: 'quota_mismatch', message: `要求等额指定 ${aggregatedQuotaLimit} 人` });
+      return res.json({ status: 'quota_mismatch', message: localeFormat(localeCopy.copy_b947327844, [aggregatedQuotaLimit]) });
     if (!hasExactQuota && aggregatedQuotaLimit > 0 && designationHrIds.length > aggregatedQuotaLimit)
-      return res.json({ status: 'quota_exceeded', message: `最多可指定 ${aggregatedQuotaLimit} 人` });
+      return res.json({ status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
 
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
@@ -1043,9 +1045,9 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       const hr = hrMap.get(d.target_hr_id);
       result.push({ id: d.id, clauseId: primaryClauseId, targetHrId: d.target_hr_id, targetName: hr ? safeString(hr.name) : '', targetStudentId: hr ? safeString(hr.student_id) : '' });
     }
-    res.json({ status: 'success', designations: result, message: `已保存 ${result.length} 条评优名单` });
+    res.json({ status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
-    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: '评优名单中有重复成员' });
+    if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
     res.json({ status: 'error', message: safeString(e.message) });
   }
 });
@@ -1054,13 +1056,13 @@ router.post('/submitMeritListDesignations', async (req, res) => {
 router.post('/generatePubViewRules', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return res.json({ status: 'invalid_params', message: '请重新打开结果公示' });
+    if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
 
     const orgId = await getCurrentOrgId();
     const [[pubCheck]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
-    if (!pubCheck) return res.json({ status: 'invalid_params', message: '请刷新结果公示' });
+    if (!pubCheck) return res.json({ status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
 
     // Get all HR records
     const [hrRows] = await pool.query('SELECT department_id, identity_id FROM hr_info WHERE org_id = ?', [orgId]);
@@ -1102,13 +1104,13 @@ router.post('/generatePubViewRules', async (req, res) => {
 router.post('/generatePubMeritRules', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return res.json({ status: 'invalid_params', message: '请重新打开结果公示' });
+    if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
 
     const orgId = await getCurrentOrgId();
     const [[pubCheck]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
-    if (!pubCheck) return res.json({ status: 'invalid_params', message: '请刷新结果公示' });
+    if (!pubCheck) return res.json({ status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
 
     // Get existing view rules as source
     const [viewRules] = await pool.query('SELECT grantee_department_id, grantee_identity_id FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publicationId, orgId]);
@@ -1142,17 +1144,17 @@ router.post('/generatePubMeritRules', async (req, res) => {
 router.post('/savePubViewRule', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
     const publicationId = safeString(req.body.publicationId);
     const granteeDepartmentId = safeString(req.body.granteeDepartmentId);
     const granteeIdentityId = safeString(req.body.granteeIdentityId);
     const clauses = Array.isArray(req.body.clauses) ? req.body.clauses : [];
-    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: '请填写完整授权信息' });
+    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_f076819918 });
 
     const orgId = await getCurrentOrgId();
     const [[pub]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
-    if (!pub) return res.json({ status: 'invalid_params', message: '请刷新结果公示' });
+    if (!pub) return res.json({ status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
 
     const VIEW_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
     const IDENTITY_REQUIRED = ['same_department_identity', 'same_work_group_identity'];
@@ -1160,9 +1162,9 @@ router.post('/savePubViewRule', async (req, res) => {
     const seen = new Set();
     for (const c of clauses) {
       const st = safeString(c.scopeType);
-      if (!VIEW_SCOPES.includes(st)) return res.json({ status: 'invalid_params', message: '请选择查看范围' });
+      if (!VIEW_SCOPES.includes(st)) return res.json({ status: 'invalid_params', message: localeCopy.copy_7126caee7e });
       const tid = IDENTITY_REQUIRED.includes(st) ? safeString(c.targetIdentityId) : '';
-      if (IDENTITY_REQUIRED.includes(st) && !tid) return res.json({ status: 'invalid_params', message: '请选择查看身份' });
+      if (IDENTITY_REQUIRED.includes(st) && !tid) return res.json({ status: 'invalid_params', message: localeCopy.copy_b1d535ef38 });
       const key = st + '::' + tid;
       if (seen.has(key)) continue; seen.add(key);
       // Per-clause display mode and grade bands
@@ -1170,15 +1172,15 @@ router.post('/savePubViewRule', async (req, res) => {
       const clauseGradeBands = Array.isArray(c.gradeBands) ? c.gradeBands : [];
       // Validate grade bands if clause displayMode is 'grade'
       if (clauseDisplayMode === 'grade') {
-        if (!clauseGradeBands.length) return res.json({ status: 'invalid_params', message: '请添加等第范围' });
+        if (!clauseGradeBands.length) return res.json({ status: 'invalid_params', message: localeCopy.copy_6937c46b0a });
         for (let i = 0; i < clauseGradeBands.length; i++) {
           const gb = clauseGradeBands[i];
           const minScore = Number(gb.minScore);
           const maxScore = Number(gb.maxScore);
           const gradeName = safeString(gb.gradeName || gb.grade_name);
-          if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) return res.json({ status: 'invalid_params', message: `请检查第${i + 1}个等第区间的分数` });
-          if (minScore > maxScore) return res.json({ status: 'invalid_params', message: `请调整第 ${i + 1} 个等第的分数范围` });
-          if (!gradeName) return res.json({ status: 'invalid_params', message: `请填写第 ${i + 1} 个等第名称` });
+          if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) return res.json({ status: 'invalid_params', message: localeFormat(localeCopy.copy_caaa205301, [i + 1]) });
+          if (minScore > maxScore) return res.json({ status: 'invalid_params', message: localeFormat(localeCopy.copy_36ab872bc9, [i + 1]) });
+          if (!gradeName) return res.json({ status: 'invalid_params', message: localeFormat(localeCopy.copy_35fa8f1d08, [i + 1]) });
         }
       }
       dedupedClauses.push({ scopeType: st, targetIdentityId: tid, displayMode: clauseDisplayMode, gradeBands: clauseGradeBands });
@@ -1236,9 +1238,9 @@ router.post('/savePubViewRule', async (req, res) => {
 router.post('/listPubViewRules', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return res.json({ status: 'invalid_params', message: '请重新打开结果公示' });
+    if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
     const orgId = await getCurrentOrgId();
     const [rules] = await pool.query('SELECT * FROM pub_view_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
 
@@ -1309,13 +1311,13 @@ router.post('/listPubViewRules', async (req, res) => {
 router.post('/deletePubViewRule', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleId = safeString(req.body.ruleId);
-    if (!ruleId) return res.json({ status: 'invalid_params', message: '请重新选择查看范围' });
+    if (!ruleId) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     const orgId = await getCurrentOrgId();
     await pool.query('DELETE FROM pub_view_rule_clauses WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
     await pool.query('DELETE FROM pub_view_rules WHERE id=? AND org_id=?', [ruleId, orgId]);
-    res.json({ status: 'success', message: '已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_5398fec054 });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -1323,13 +1325,13 @@ router.post('/deletePubViewRule', async (req, res) => {
 router.post('/savePubMeritRule', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const id = safeString(req.body.id);
     const publicationId = safeString(req.body.publicationId);
     const granteeDepartmentId = safeString(req.body.granteeDepartmentId);
     const granteeIdentityId = safeString(req.body.granteeIdentityId);
     const clauses = Array.isArray(req.body.clauses) ? req.body.clauses : [];
-    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: '请填写完整授权信息' });
+    if (!publicationId || !granteeDepartmentId || !granteeIdentityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_f076819918 });
 
     const orgId = await getCurrentOrgId();
 
@@ -1338,21 +1340,21 @@ router.post('/savePubMeritRule', async (req, res) => {
       'SELECT id FROM pub_view_rules WHERE publication_id=? AND grantee_department_id=? AND grantee_identity_id=? AND org_id=?',
       [publicationId, granteeDepartmentId, granteeIdentityId, orgId]
     );
-    if (!viewRule) return res.json({ status: 'no_view_rule', message: '请先创建查看权限类别' });
+    if (!viewRule) return res.json({ status: 'no_view_rule', message: localeCopy.copy_a7a80cb635 });
     const [[{cnt}]] = await pool.query(
       'SELECT COUNT(*) as cnt FROM pub_view_rule_clauses WHERE rule_id=? AND org_id=?',
       [viewRule.id, orgId]
     );
-    if (cnt === 0) return res.json({ status: 'no_view_rule', message: '请先添加查看规则' });
+    if (cnt === 0) return res.json({ status: 'no_view_rule', message: localeCopy.copy_bb9abe11b7 });
 
     const MERIT_SCOPES = ['same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people', 'identity_only'];
     const dedupedClauses = [];
     const seen = new Set();
     for (const c of clauses) {
       const st = safeString(c.scopeType) || 'all_people';
-      if (!MERIT_SCOPES.includes(st)) return res.json({ status: 'invalid_params', message: '请重新设置指定范围' });
+      if (!MERIT_SCOPES.includes(st)) return res.json({ status: 'invalid_params', message: localeCopy.copy_4f983cb64d });
       const tid = safeString(c.targetIdentityId);
-      if (!tid) return res.json({ status: 'invalid_params', message: '请选择查看身份' });
+      if (!tid) return res.json({ status: 'invalid_params', message: localeCopy.copy_b1d535ef38 });
       const quota = Math.max(0, parseInt(String(c.quotaLimit), 10) || 0);
       const exact = c.requireExactQuota === true;
       const key = st + '::' + tid;
@@ -1426,9 +1428,9 @@ router.post('/savePubMeritRule', async (req, res) => {
 router.post('/listPubMeritRules', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const publicationId = safeString(req.body.publicationId);
-    if (!publicationId) return res.json({ status: 'invalid_params', message: '请重新打开结果公示' });
+    if (!publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_db10aa8501 });
     const orgId = await getCurrentOrgId();
     const [rules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id=? AND org_id=?', [publicationId, orgId]);
     const lookups = await fetchOrgLookups();
@@ -1467,9 +1469,9 @@ router.post('/listPubMeritRules', async (req, res) => {
 router.post('/deletePubMeritRule', async (req, res) => {
   try {
     const admin = await adminInfoModel.getByOpenid(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const ruleId = safeString(req.body.ruleId);
-    if (!ruleId) return res.json({ status: 'invalid_params', message: '请重新选择查看范围' });
+    if (!ruleId) return res.json({ status: 'invalid_params', message: localeCopy.copy_6c0be05046 });
     const orgId = await getCurrentOrgId();
     const [clauses] = await pool.query(
       'SELECT id FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?',
@@ -1480,7 +1482,7 @@ router.post('/deletePubMeritRule', async (req, res) => {
     }
     await pool.query('DELETE FROM pub_merit_rule_clauses WHERE rule_id=? AND org_id=?', [ruleId, orgId]);
     await pool.query('DELETE FROM pub_merit_rules WHERE id=? AND org_id=?', [ruleId, orgId]);
-    res.json({ status: 'success', message: '已删除' });
+    res.json({ status: 'success', message: localeCopy.copy_5398fec054 });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -1488,13 +1490,13 @@ router.post('/deletePubMeritRule', async (req, res) => {
 router.post('/getMeritListSummary', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const orgId = await getCurrentOrgId();
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication) return res.json({ status: 'not_found', message: '请刷新结果公示' });
+    if (!publication) return res.json({ status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
 
     const lookups = await fetchOrgLookups();
 
@@ -1607,9 +1609,9 @@ router.post('/getMeritListSummary', async (req, res) => {
 router.post('/exportMeritListSummary', async (req, res) => {
   try {
     const admin = await ensureAdmin(req.openid);
-    if (!admin) return res.json({ status: 'forbidden', message: '请使用管理员身份' });
+    if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
     const activityId = safeString(req.body.activityId);
-    if (!activityId) return res.json({ status: 'invalid_params', message: '请选择评分活动' });
+    if (!activityId) return res.json({ status: 'invalid_params', message: localeCopy.copy_21368b3e76 });
 
     const filterDepartment = safeString(req.body.filterDepartment || '');
     const filterIdentity = safeString(req.body.filterIdentity || '');
@@ -1617,7 +1619,7 @@ router.post('/exportMeritListSummary', async (req, res) => {
 
     const orgId = await getCurrentOrgId();
     const publication = await publicationModel.getByActivity(activityId);
-    if (!publication) return res.json({ status: 'not_found', message: '请刷新结果公示' });
+    if (!publication) return res.json({ status: 'not_found', message: localeCopy.copy_c2ca4efbfa });
 
     const lookups = await fetchOrgLookups();
     const [meritRules] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
@@ -1709,7 +1711,7 @@ router.post('/exportMeritListSummary', async (req, res) => {
     if (rows.length >= EXPORT_MAX_ROWS) {
       return res.json({
         status: 'too_large',
-        message: `导出数据量达到上限（${EXPORT_MAX_ROWS} 行），请缩小筛选范围`,
+        message: localeFormat(localeCopy.copy_7188e5ac79, [EXPORT_MAX_ROWS]),
         rowCount: rows.length,
         maxAllowed: EXPORT_MAX_ROWS
       });
@@ -1717,12 +1719,12 @@ router.post('/exportMeritListSummary', async (req, res) => {
 
     // Build XLSX file (same pattern as exportScoreResults)
     const headers = [
-      { key: 'name', label: '姓名' },
-      { key: 'studentId', label: '学号' },
-      { key: 'department', label: '部门' },
-      { key: 'identity', label: '身份' },
-      { key: 'workGroup', label: '职能组' },
-      { key: 'groupLabel', label: '评优分组' }
+      { key: 'name', label: localeCopy.copy_3c946202ff },
+      { key: 'studentId', label: localeCopy.copy_cbb853db1b },
+      { key: 'department', label: localeCopy.copy_bc011e4e3b },
+      { key: 'identity', label: localeCopy.copy_474f638a6f },
+      { key: 'workGroup', label: localeCopy.copy_be736f763d },
+      { key: 'groupLabel', label: localeCopy.copy_9984065ffd }
     ];
     const headerLabels = headers.map(h => h.label);
     const dataRows = rows.map(row => headers.map(h => row[h.key]));

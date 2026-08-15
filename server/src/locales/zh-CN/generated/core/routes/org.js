@@ -1,0 +1,17 @@
+'use strict';
+
+module.exports = Object.freeze({
+  copy_1974dee798: '组织已创建',
+  copy_20ca49e5e7: '请微信登录',
+  copy_2c1bc34f7e: '请刷新组织列表',
+  copy_58a0afcb2d: '请选择组织并填写名称',
+  copy_674b57afda: '请使用其他组织名称',
+  copy_6809d8bae7: '请使用超级管理员身份',
+  copy_770ca6e54d: '组织已删除',
+  copy_9bb30f5ebb: '请先切换到其他组织',
+  copy_a032183564: '请填写组织名称',
+  copy_a05b82962e: '请先归档或清理该组织的业务资料',
+  copy_b32b720d56: '组织已更新',
+  copy_cc9e4b8129: '请重新选择组织',
+  copy_f048be09ae: '请使用管理员身份'
+});

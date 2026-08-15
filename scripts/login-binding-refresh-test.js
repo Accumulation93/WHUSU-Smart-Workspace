@@ -48,6 +48,7 @@ async function callFunction(options) {
 }
 
 global.wx = {
+  setNavigationBarTitle() {},
   getStorageSync(key) { return storage[key]; },
   setStorageSync(key, value) { storage[key] = value; },
   removeStorageSync(key) { delete storage[key]; },

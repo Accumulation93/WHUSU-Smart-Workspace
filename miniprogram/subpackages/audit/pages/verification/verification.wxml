@@ -1,92 +1,92 @@
 <view class="page page-narrow subapp-audit-page">
-  <workspace-hero class="workspace-hero-host" app-name="WHUSU智慧工作台" page-name="审核 · 文件验签"></workspace-hero>
+  <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_e68b797796}}"></workspace-hero>
 
   <view class="section">
     <view class="card">
-      <view class="section-title">查询方式</view>
+      <view class="section-title">{{localeCopy.copy_2592864779}}</view>
 
       <!-- Verification mode picker -->
       <view class="field">
-        <view class="field-label">查询方式</view>
-        <picker range="{{['按提交编号','上传文件']}}" bindchange="onVerifyModeChange">
-          <view class="picker-value">{{verifyMode === 'number' ? '按提交编号' : '上传文件'}}</view>
+        <view class="field-label">{{localeCopy.copy_2592864779}}</view>
+        <picker range="{{[localeCopy.copy_5d41fef45a,localeCopy.copy_3eb9b187ef]}}" bindchange="onVerifyModeChange">
+          <view class="picker-value">{{verifyMode === 'number' ? localeCopy.copy_5d41fef45a : localeCopy.copy_3eb9b187ef}}</view>
         </picker>
       </view>
 
       <!-- Number mode -->
       <view class="field" wx:if="{{verifyMode === 'number'}}">
-        <view class="field-label">提交编号</view>
-        <input class="field-input" value="{{submissionNumber}}" bindinput="onInputNumber" placeholder="如：SUB-20260611-001" />
+        <view class="field-label">{{localeCopy.copy_1ddd4c9b39}}</view>
+        <input class="field-input" value="{{submissionNumber}}" bindinput="onInputNumber" placeholder="{{localeCopy.copy_c0915246d1}}" />
       </view>
 
       <!-- File mode -->
       <view class="field" wx:if="{{verifyMode === 'file'}}">
-        <view class="field-label">选择文件</view>
-        <view class="picker-value ui-motion-chip" bindtap="chooseVerifyFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fileName || '选择要验签的文件'}}</view>
+        <view class="field-label">{{localeCopy.copy_98aea69c53}}</view>
+        <view class="picker-value ui-motion-chip" bindtap="chooseVerifyFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fileName || localeCopy.copy_fb4bf20470}}</view>
       </view>
 
       <view class="audit-btn-bar">
-        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="verify" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">开始验签</button>
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" bindtap="verify" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b49d7af0bd}}</button>
       </view>
     </view>
 
     <view class="card" wx:if="{{result}}">
-      <view class="section-title">验签结果</view>
+      <view class="section-title">{{localeCopy.copy_33935075c0}}</view>
 
       <!-- Overall result -->
       <view class="audit-verify-result verify-overall">
-        <view class="audit-verify-icon"><ui-icon name="{{result.valid ? 'check' : 'x'}}" tone="{{result.valid ? 'primary' : 'danger'}}" size="56" ariaLabel="{{result.valid ? '验签通过' : '验签未通过'}}" /></view>
+        <view class="audit-verify-icon"><ui-icon name="{{result.valid ? 'check' : 'x'}}" tone="{{result.valid ? 'primary' : 'danger'}}" size="56" ariaLabel="{{result.valid ? localeCopy.copy_3e081d0fa1 : localeCopy.copy_73b11affc2}}" /></view>
         <view class="audit-verify-text {{result.valid ? 'audit-verify-valid' : 'audit-verify-invalid'}}">
-          {{result.valid ? '验签通过' : '验签未通过'}}
+          {{result.valid ? localeCopy.copy_3e081d0fa1 : localeCopy.copy_73b11affc2}}
         </view>
       </view>
 
       <view class="info-grid">
         <view class="info-block">
-          <view class="info-label">签名总数</view>
+          <view class="info-label">{{localeCopy.copy_6db0cdad11}}</view>
           <view class="info-value">{{result.totalSignatures}}</view>
         </view>
         <view class="info-block" wx:if="{{result.submissionNumber}}">
-          <view class="info-label">提交编号</view>
+          <view class="info-label">{{localeCopy.copy_1ddd4c9b39}}</view>
           <view class="info-value">{{result.submissionNumber}}</view>
         </view>
       </view>
 
       <!-- Rounds -->
-      <view class="section-title verify-subsection-title" wx:if="{{result.totalSignatures > 0}}">签名记录</view>
+      <view class="section-title verify-subsection-title" wx:if="{{result.totalSignatures > 0}}">{{localeCopy.copy_07c93eae72}}</view>
       <view wx:for="{{result.rounds}}" wx:key="*this" wx:for-index="round" wx:for-item="roundData">
         <view class="audit-step-card">
           <view class="audit-step-indicator {{roundData.valid ? 'audit-step-dot-done' : 'audit-step-dot-rejected'}}">
-            <ui-icon name="{{roundData.valid ? 'check' : 'x'}}" tone="{{roundData.valid ? 'primary' : 'danger'}}" size="22" ariaLabel="{{roundData.valid ? '记录完整' : '记录有变更'}}" />
+            <ui-icon name="{{roundData.valid ? 'check' : 'x'}}" tone="{{roundData.valid ? 'primary' : 'danger'}}" size="22" ariaLabel="{{roundData.valid ? localeCopy.copy_61390dea0a : localeCopy.copy_b0ecda76b1}}" />
           </view>
           <view class="audit-step-body">
             <view class="audit-step-title {{roundData.valid ? 'verify-status-valid' : 'verify-status-invalid'}}">
-              第{{round + 1}}轮：{{roundData.valid ? '记录完整' : '记录有变更'}}（{{roundData.signatures}}个签名）
+              {{localeCopy.copy_ef8b7ffa9b}}{{round + 1}}{{localeCopy.copy_1a50073a0e}}{{roundData.valid ? localeCopy.copy_61390dea0a : localeCopy.copy_b0ecda76b1}}（{{roundData.signatures}}{{localeCopy.copy_df548b0f40}}
             </view>
           </view>
         </view>
       </view>
 
       <!-- File hash check -->
-      <view class="section-title verify-subsection-title" wx:if="{{result.files.length}}">文件内容</view>
+      <view class="section-title verify-subsection-title" wx:if="{{result.files.length}}">{{localeCopy.copy_accba28cad}}</view>
       <view wx:for="{{result.files}}" wx:key="fileId">
         <view class="file-attach-item">
           <view class="file-attach-icon verify-file-status-icon">
-            <ui-icon name="{{item.hashVerified === true ? 'check' : (item.hashVerified === false ? 'x' : 'file')}}" tone="{{item.hashVerified === true ? 'primary' : (item.hashVerified === false ? 'danger' : 'muted')}}" size="24" ariaLabel="{{item.hashVerified === true ? '文件内容一致' : (item.hashVerified === false ? '文件已变更' : '暂无法确认')}}" />
+            <ui-icon name="{{item.hashVerified === true ? 'check' : (item.hashVerified === false ? 'x' : 'file')}}" tone="{{item.hashVerified === true ? 'primary' : (item.hashVerified === false ? 'danger' : 'muted')}}" size="24" ariaLabel="{{item.hashVerified === true ? localeCopy.copy_fbf2871317 : (item.hashVerified === false ? localeCopy.copy_3f3f603e7b : localeCopy.copy_794d97df79)}}" />
           </view>
           <view class="verify-file-copy">
             <view class="file-attach-name {{item.hashVerified === true ? 'verify-status-valid' : (item.hashVerified === false ? 'verify-status-invalid' : 'verify-status-unknown')}}">
-              {{item.hashVerified === true ? '文件内容一致' : (item.hashVerified === false ? '文件已变更' : '暂无法确认文件内容')}}
+              {{item.hashVerified === true ? localeCopy.copy_fbf2871317 : (item.hashVerified === false ? localeCopy.copy_3f3f603e7b : localeCopy.copy_7bb4b58022)}}
             </view>
             <view wx:if="{{item.pdfSignature && item.pdfSignature.present}}" class="file-attach-name {{item.pdfSignature.valid ? 'verify-status-valid' : 'verify-status-invalid'}}">
-              PDF数字签名：{{item.pdfSignature.valid ? '有效' : '无效'}}
+              {{localeCopy.copy_4e1ba9317f}}{{item.pdfSignature.valid ? localeCopy.copy_5494a3274f : localeCopy.copy_3196e9e72b}}
             </view>
             <view wx:if="{{item.pdfSignature && item.pdfSignature.signatures.length}}" class="list-desc" wx:for="{{item.pdfSignature.signatures}}" wx:for-item="ps" wx:key="index">
-              <text>由 {{ps.signerName}}</text><text wx:if="{{ps.signerStudentId}}">（{{ps.signerStudentId}}）</text><text> 签署 · {{ps.ok ? '有效' : '无效'}}</text>
-              <text wx:if="{{ps.ok && ps.trustStatus === 'self_signed'}}" class="verify-status-unknown"> · 自签名证书，阅读器可能提示不可信</text>
-              <text wx:if="{{ps.ok && ps.trustStatus === 'chain_present'}}" class="verify-status-valid"> · 已携带证书链</text>
+              <text>{{localeCopy.copy_c25d1b8a38}} {{ps.signerName}}</text><text wx:if="{{ps.signerStudentId}}">（{{ps.signerStudentId}}）</text><text> {{localeCopy.copy_71234ac12a}} · {{ps.ok ? localeCopy.copy_5494a3274f : localeCopy.copy_3196e9e72b}}</text>
+              <text wx:if="{{ps.ok && ps.trustStatus === 'self_signed'}}" class="verify-status-unknown"> · {{localeCopy.copy_0ad36ee44c}}</text>
+              <text wx:if="{{ps.ok && ps.trustStatus === 'chain_present'}}" class="verify-status-valid"> · {{localeCopy.copy_fde988de1e}}</text>
             </view>
-            <view wx:if="{{item.pdfSignature && !item.pdfSignature.present}}" class="file-attach-name verify-status-unknown">PDF数字签名：未签名</view>
+            <view wx:if="{{item.pdfSignature && !item.pdfSignature.present}}" class="file-attach-name verify-status-unknown">{{localeCopy.copy_c9448bb954}}</view>
           </view>
         </view>
       </view>
@@ -94,7 +94,7 @@
   </view>
 
   <view class="page-footer">
-    <view class="footer-name">WHUSU智慧工作台</view>
-    <view class="footer-org">武汉大学学生会</view>
+    <view class="footer-name">{{localeCopy.copy_aa4f0ed6cd}}</view>
+    <view class="footer-org">{{localeCopy.copy_638da8ae60}}</view>
   </view>
 </view>

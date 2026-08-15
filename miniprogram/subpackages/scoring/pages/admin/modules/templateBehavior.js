@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/templateBehavior');
 // Behavior: template tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -19,7 +20,7 @@ module.exports = Behavior({
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
         wx.showToast({
-          title: '请稍后刷新评分问题',
+          title: localeCopy.copy_d6b9c2f034,
           icon: 'none'
         });
       } finally {
@@ -353,7 +354,7 @@ module.exports = Behavior({
       let description = String(form.description || '');
   
       if (!name) {
-        wx.showToast({ title: '请填写评分问题名称', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_9a51765619, icon: 'none' });
         return;
       }
   
@@ -374,7 +375,7 @@ module.exports = Behavior({
         };
   
         if (!q.question) {
-          validationErrors[qi] = { field: 'question', msg: '请填写问题内容' };
+          validationErrors[qi] = { field: 'question', msg: localeCopy.copy_e6653bb300 };
           if (firstInvalidIndex === -1) firstInvalidIndex = qi;
         }
         let min = parseFloat(q.minValue);
@@ -382,18 +383,18 @@ module.exports = Behavior({
         let step = parseFloat(q.stepValue);
         if (isNaN(max) || max <= 0) {
           if (!validationErrors[qi]) {
-            validationErrors[qi] = { field: 'maxValue', msg: '请输入大于 0 的最高分' };
+            validationErrors[qi] = { field: 'maxValue', msg: localeCopy.copy_17bbfdd98a };
             if (firstInvalidIndex === -1) firstInvalidIndex = qi;
           }
         } else if (isNaN(min) || min >= max) {
           if (!validationErrors[qi]) {
-            validationErrors[qi] = { field: 'minValue', msg: '请将最低分设为小于最高分' };
+            validationErrors[qi] = { field: 'minValue', msg: localeCopy.copy_232398a03b };
             if (firstInvalidIndex === -1) firstInvalidIndex = qi;
           }
         }
         if (isNaN(step) || step <= 0) {
           if (!validationErrors[qi]) {
-            validationErrors[qi] = { field: 'stepValue', msg: '请输入大于 0 的调整幅度' };
+            validationErrors[qi] = { field: 'stepValue', msg: localeCopy.copy_5746413c3a };
             if (firstInvalidIndex === -1) firstInvalidIndex = qi;
           }
         }
@@ -401,13 +402,13 @@ module.exports = Behavior({
       }
   
       if (!questions.length) {
-        wx.showToast({ title: '请填写评分问题', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_d976fb44d6, icon: 'none' });
         return;
       }
   
       if (firstInvalidIndex >= 0) {
         let err = validationErrors[firstInvalidIndex];
-        wx.showToast({ title: '第' + (firstInvalidIndex + 1) + '题：' + err.msg, icon: 'none', duration: 2500 });
+        wx.showToast({ title: localeCopy.copy_93c50c01c0 + (firstInvalidIndex + 1) + localeCopy.copy_266a08601e + err.msg, icon: 'none', duration: 2500 });
         this.setData({
           questionValidationErrors: validationErrors,
           expandedQuestionIndex: firstInvalidIndex,
@@ -426,15 +427,15 @@ module.exports = Behavior({
         });
   
         if (result.status !== 'success') {
-          wx.showToast({ title: result.message || '未保存，请重试', icon: 'none' });
+          wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
           return;
         }
   
         this.resetTemplateForm();
         await this.loadTemplateList();
-        wx.showToast({ title: '评分问题已保存', icon: 'success' });
+        wx.showToast({ title: localeCopy.copy_743b13ea1b, icon: 'success' });
       } catch (error) {
-        wx.showToast({ title: '未保存，请重试', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
       } finally {
         this.setLoading('saveTemplate', false);
       }
@@ -475,7 +476,7 @@ module.exports = Behavior({
         const result = await this.callCloud('duplicateScoreTemplate', { id });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未复制，请重试',
+            title: result.message || localeCopy.copy_b433d31323,
             icon: 'none'
           });
           return;
@@ -483,12 +484,12 @@ module.exports = Behavior({
   
         await this.loadTemplateList();
         wx.showToast({
-          title: '评分问题副本已创建',
+          title: localeCopy.copy_e1035ed73b,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未复制，请重试',
+          title: localeCopy.copy_b433d31323,
           icon: 'none'
         });
       } finally {
@@ -506,7 +507,7 @@ module.exports = Behavior({
         const headers = tableData.headers;
         const dataRows = tableData.rows;
         if (dataRows.length === 0 && headers.length <= 1) {
-          wx.showToast({ title: '表格文件为空', icon: 'none' });
+          wx.showToast({ title: localeCopy.copy_d2791c48ce, icon: 'none' });
           return;
         }
         // Auto-fill empty template name/description from file name
@@ -532,11 +533,11 @@ module.exports = Behavior({
             fieldTypeLabel: fieldDef ? fieldDef.label : '—',
             sampleValue: samples.slice(0, 3).join(', ') || '—',
             optionIndex: mapped ? TEMPLATE_CSV_FIELDS.findIndex(f => f.key === mapped) + 1 : 0,
-            optionLabel: fieldDef ? fieldDef.label : '-- 忽略 --'
+            optionLabel: fieldDef ? fieldDef.label : localeCopy.copy_26eba7c49d
           };
         });
         // Build picker labels
-        const mappingLabels = ['-- 忽略 --'].concat(TEMPLATE_CSV_FIELDS.map(f => f.label));
+        const mappingLabels = [localeCopy.copy_26eba7c49d].concat(TEMPLATE_CSV_FIELDS.map(f => f.label));
         _this.setData({
           showTemplateCsvDialog: true,
           templateCsvHeaders: headers,
@@ -549,7 +550,7 @@ module.exports = Behavior({
         });
       }).catch(function (err) {
         if (err && err.errMsg && err.errMsg.indexOf('cancel') === -1) {
-          wx.showToast({ title: '请重新选择文件', icon: 'none' });
+          wx.showToast({ title: localeCopy.copy_03d69a9d28, icon: 'none' });
         }
       });
     },
@@ -667,7 +668,7 @@ module.exports = Behavior({
         // "忽略"
         delete mapping[idx];
         rows[idx].optionIndex = 0;
-        rows[idx].optionLabel = '-- 忽略 --';
+        rows[idx].optionLabel = localeCopy.copy_26eba7c49d;
         rows[idx].fieldTypeLabel = '—';
       } else {
         const field = TEMPLATE_CSV_FIELDS[selectedIndex - 1];
@@ -695,7 +696,7 @@ module.exports = Behavior({
   
       const questionCol = fieldToCol['question'];
       if (questionCol == null) {
-        wx.showToast({ title: '请选择“问题内容”对应的表格列', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_da19b42124, icon: 'none' });
         return;
       }
   
@@ -730,7 +731,7 @@ module.exports = Behavior({
       }
   
       if (!newQuestions.length) {
-        wx.showToast({ title: '没有有效问题', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_d1f2f20702, icon: 'none' });
         return;
       }
   
@@ -757,7 +758,7 @@ module.exports = Behavior({
         questionValidationErrors: {}
       });
   
-      wx.showToast({ title: '已导入 ' + newQuestions.length + ' 个问题', icon: 'success' });
+      wx.showToast({ title: localeCopy.copy_4c8603086a + newQuestions.length + localeCopy.copy_9ff661a507, icon: 'success' });
     },
 
     cancelTemplateCsvImport() {
@@ -778,21 +779,21 @@ module.exports = Behavior({
     exportTemplate() {
       const questions = this.data.templateForm.questions || [];
       if (!questions.length) {
-        wx.showToast({ title: '当前没有问题条目可导出', icon: 'none' });
+        wx.showToast({ title: localeCopy.copy_f35362f117, icon: 'none' });
         return;
       }
       const _this = this;
       wx.showActionSheet({
-        itemList: ['CSV 格式 (.csv)', 'Excel 格式 (.xlsx)'],
+        itemList: [localeCopy.copy_7ffcbc33aa, localeCopy.copy_5503123f4c],
         success: (res) => {
           const format = res.tapIndex === 0 ? 'csv' : 'excel';
           const headers = [
-            { key: 'question', label: '问题内容' },
-            { key: 'scoreLabel', label: '分值说明' },
-            { key: 'minValue', label: '最低分' },
-            { key: 'startValue', label: '起评分' },
-            { key: 'maxValue', label: '最高分' },
-            { key: 'stepValue', label: '步进值' }
+            { key: 'question', label: localeCopy.copy_1af596e2ba },
+            { key: 'scoreLabel', label: localeCopy.copy_fd0da10351 },
+            { key: 'minValue', label: localeCopy.copy_e24b33ba5f },
+            { key: 'startValue', label: localeCopy.copy_4366ed3bb6 },
+            { key: 'maxValue', label: localeCopy.copy_8ca6566932 },
+            { key: 'stepValue', label: localeCopy.copy_4b62966880 }
           ];
           const rows = questions.map(function (q) {
             return {
@@ -805,17 +806,17 @@ module.exports = Behavior({
             };
           });
           if (format === 'excel') {
-            _this.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: '评分问题' }).then(function (result) {
+            _this.callCloud('buildTableFile', { headers: headers, rows: rows, sheetName: localeCopy.copy_fac1711a09 }).then(function (result) {
               if (result && result.status === 'success' && result.fileBase64) {
-                saveAndShareFile(result.fileBase64, '评分问题模板', 'xlsx');
+                saveAndShareFile(result.fileBase64, localeCopy.copy_44db0286b0, 'xlsx');
               } else {
-                wx.showToast({ title: '未导出，请重试', icon: 'none' });
+                wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' });
               }
             }).catch(function () {
-              wx.showToast({ title: '未导出，请重试', icon: 'none' });
+              wx.showToast({ title: localeCopy.copy_2b61466286, icon: 'none' });
             });
           } else {
-            saveAndShareFile(buildCsv(headers, rows), '评分问题模板', 'csv');
+            saveAndShareFile(buildCsv(headers, rows), localeCopy.copy_44db0286b0, 'csv');
           }
         }
       });
@@ -955,8 +956,8 @@ module.exports = Behavior({
     deleteTemplate(e) {
       const { id } = e.currentTarget.dataset;
       wx.showModal({
-        title: '删除评分问题',
-        content: '确认删除这份评分问题吗？',
+        title: localeCopy.copy_697796da96,
+        content: localeCopy.copy_4e5413a807,
         success: async (res) => {
           if (!res.confirm) {
             return;
@@ -966,7 +967,7 @@ module.exports = Behavior({
             const result = await this.callCloud('deleteScoreTemplate', { id });
             if (result.status !== 'success') {
               wx.showToast({
-                title: result.message || '未删除，请重试',
+                title: result.message || localeCopy.copy_076bb5d383,
                 icon: 'none'
               });
               return;
@@ -974,12 +975,12 @@ module.exports = Behavior({
   
             await this.loadTemplateList();
             wx.showToast({
-              title: '评分问题已删除',
+              title: localeCopy.copy_cf540b4349,
               icon: 'success'
             });
           } catch (error) {
             wx.showToast({
-              title: '未删除，请重试',
+              title: localeCopy.copy_076bb5d383,
               icon: 'none'
             });
           }

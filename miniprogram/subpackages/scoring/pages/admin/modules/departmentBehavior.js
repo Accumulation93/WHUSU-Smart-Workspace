@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/departmentBehavior');
 // Behavior: department tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -13,14 +14,14 @@ module.exports = Behavior({
         const result = await this.callCloud('listDepartments');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || '请稍后刷新部门');
+          throw new Error(result.message || localeCopy.copy_3ab009e9ad);
         }
         this.setData({
           departmentList: result.departments || []
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
-        console.error('加载部门列表失败:', error);
+        console.error(localeCopy.copy_59591bcd20, error);
         // 不再显示错误提示，因为空数据库是正常情况
         this.setData({
           departmentList: []
@@ -70,7 +71,7 @@ module.exports = Behavior({
       const form = this.data.departmentForm;
       if (!form.name) {
         wx.showToast({
-          title: '请填写部门名称',
+          title: localeCopy.copy_2531b7527d,
           icon: 'none'
         });
         return;
@@ -86,7 +87,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未保存，请重试',
+            title: result.message || localeCopy.copy_215e3c57da,
             icon: 'none'
           });
           return;
@@ -97,12 +98,12 @@ module.exports = Behavior({
         await this.loadWorkGroupList();
         this.updateHrFormOptions();
         wx.showToast({
-          title: '部门信息已保存',
+          title: localeCopy.copy_89017791b3,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未保存，请重试',
+          title: localeCopy.copy_215e3c57da,
           icon: 'none'
         });
       } finally {
@@ -118,10 +119,10 @@ module.exports = Behavior({
   
       const confirm = await new Promise((resolve) => {
         wx.showModal({
-          title: '删除部门',
-          content: '确认删除这个部门吗？',
-          confirmText: '确认删除',
-          cancelText: '取消',
+          title: localeCopy.copy_21cc5de126,
+          content: localeCopy.copy_8fe7c4c171,
+          confirmText: localeCopy.copy_7f31eec657,
+          cancelText: localeCopy.copy_4b213fd88a,
           success: (res) => resolve(!!res.confirm),
           fail: () => resolve(false)
         });
@@ -135,7 +136,7 @@ module.exports = Behavior({
         const result = await this.callCloud('deleteDepartment', { id });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未删除，请重试',
+            title: result.message || localeCopy.copy_076bb5d383,
             icon: 'none'
           });
           return;
@@ -145,12 +146,12 @@ module.exports = Behavior({
         await this.loadWorkGroupList();
         this.updateHrFormOptions();
         wx.showToast({
-          title: '部门已删除',
+          title: localeCopy.copy_e7dcd6f241,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未删除，请重试',
+          title: localeCopy.copy_076bb5d383,
           icon: 'none'
         });
       }

@@ -1,19 +1,20 @@
 const { callFunction, getErrorText, formatAuditTime } = require('../../utils/api');
 const orgSession = require('../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
+const { home: copy } = require('../../locales/zh-CN/main');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 
 function getDisplayIdentity(user, activeRole) {
   if (!user) {
-    return '未登录';
+    return copy.text.signedOut;
   }
 
   if (activeRole === 'admin') {
-    return user.adminLevel === 'super_admin' ? '超级管理员' : '普通管理员';
+    return user.adminLevel === 'super_admin' ? copy.text.superAdmin : copy.text.admin;
   }
 
-  return user.identity || '未设置身份';
+  return user.identity || copy.text.unsetIdentity;
 }
 
 function emptyHrProfileState() {
@@ -24,7 +25,7 @@ function emptyHrProfileState() {
     template: null,
     pendingValues: {},
     auditStatus: 'none',
-    statusText: '尚未提交补充资料',
+    statusText: copy.text.profileNotSubmitted,
     rejectionReason: ''
   };
 }
@@ -47,11 +48,16 @@ function emptyAccountSecurityState() {
 function decorateAccountSessions(sessions) {
   return (sessions || []).map(function(item) {
     return Object.assign({}, item, {
-      roleLabel: item.role === 'admin' ? '管理身份' : '普通岗位',
+      roleLabel: item.role === 'admin' ? copy.text.managementIdentity : copy.text.regularPosition,
       lastSeenText: formatAuditTime(String(item.lastSeenAt || '')),
-      deviceTitle: item.currentDevice || item.current ? '当前设备' : (item.recognized ? '已登录设备' : '无法识别的设备'),
-      deviceMeta: [item.platform, item.model].filter(Boolean).join(' · ') || '微信小程序',
-      sessionMeta: [item.role === 'admin' ? '管理身份' : '普通岗位', item.organizationName || ''].filter(Boolean).join(' · ')
+      deviceTitle: item.currentDevice || item.current
+        ? copy.text.currentDevice
+        : (item.recognized ? copy.text.signedInDevice : copy.text.unrecognizedDevice),
+      deviceMeta: [item.platform, item.model].filter(Boolean).join(' · ') || copy.text.miniProgram,
+      sessionMeta: [
+        item.role === 'admin' ? copy.text.managementIdentity : copy.text.regularPosition,
+        item.organizationName || ''
+      ].filter(Boolean).join(' · ')
     });
   });
 }
@@ -94,10 +100,10 @@ function emptyPublicationState() {
     userDesigPubId: '',
     userDesigLoading: false,
     userDesigSaving: false,
-    userDesigFilterDept: '全部',
-    userDesigFilterIdent: '全部',
-    userDesigFilterDeptOptions: ['全部'],
-    userDesigFilterIdentOptions: ['全部'],
+    userDesigFilterDept: copy.text.all,
+    userDesigFilterIdent: copy.text.all,
+    userDesigFilterDeptOptions: [copy.text.all],
+    userDesigFilterIdentOptions: [copy.text.all],
     userDesigSearchKeyword: ''
   };
 }
@@ -132,70 +138,70 @@ function getNumericLength(value) {
 
 function getProfileFieldTypeLabel(type) {
   if (type === 'number') {
-    return '数字';
+    return copy.text.numberType;
   }
   if (type === 'sequence') {
-    return '序列选择';
+    return copy.text.sequenceType;
   }
   if (type === 'date') {
-    return '日期';
+    return copy.text.dateType;
   }
   if (type === 'phone') {
-    return '手机号';
+    return copy.text.phoneType;
   }
   if (type === 'email') {
-    return '邮箱';
+    return copy.text.emailType;
   }
-  return '文字';
+  return copy.text.textType;
 }
 
 function buildFieldHint(field = {}) {
   if (field.type === 'text' && ((field.minLength != null && field.minLength !== '') || (field.maxLength != null && field.maxLength !== ''))) {
     const parts = [];
     if (field.minLength != null && field.minLength !== '') {
-      parts.push(`最短 ${field.minLength}`);
+      parts.push(copy.format.shortest(field.minLength));
     }
     if (field.maxLength != null && field.maxLength !== '') {
-      parts.push(`最长 ${field.maxLength}`);
+      parts.push(copy.format.longest(field.maxLength));
     }
-    return `长度限制：${parts.join('，')}`;
+    return copy.format.lengthLimit(parts);
   }
 
   if (field.type === 'number') {
-    const decimalText = field.allowDecimal === false ? '填写整数' : '可填小数';
+    const decimalText = field.allowDecimal === false ? copy.text.integerOnly : copy.text.decimalAllowed;
     if (field.numberRule === 'length_range' && ((field.minDigits != null && field.minDigits !== '') || (field.maxDigits != null && field.maxDigits !== ''))) {
       const parts = [];
       if (field.minDigits != null && field.minDigits !== '') {
-        parts.push(`最短 ${field.minDigits}`);
+        parts.push(copy.format.shortest(field.minDigits));
       }
       if (field.maxDigits != null && field.maxDigits !== '') {
-        parts.push(`最长 ${field.maxDigits}`);
+        parts.push(copy.format.longest(field.maxDigits));
       }
-      return `数字长度：${parts.join('，')}，${decimalText}`;
+      return copy.format.numberLength(parts, decimalText);
     }
     if ((field.minValue != null && field.minValue !== '') || (field.maxValue != null && field.maxValue !== '')) {
       const parts = [];
       if (field.minValue != null && field.minValue !== '') {
-        parts.push(`最小 ${field.minValue}`);
+        parts.push(copy.format.minimum(field.minValue));
       }
       if (field.maxValue != null && field.maxValue !== '') {
-        parts.push(`最大 ${field.maxValue}`);
+        parts.push(copy.format.maximum(field.maxValue));
       }
-      return `数值范围：${parts.join('，')}，${decimalText}`;
+      return copy.format.numberRange(parts, decimalText);
     }
     return decimalText;
   }
 
   if (field.type === 'date') {
-    return '格式：YYYY-MM-DD';
+    return copy.text.dateFormat;
   }
 
   if (field.type === 'phone') {
-    return '请输入 11 位手机号';
+    return copy.text.phoneHint;
   }
 
   if (field.type === 'email') {
-    return '示例：name@example.com';
+    return copy.text.emailHint;
   }
 
   return '';
@@ -221,7 +227,7 @@ function validateProfileField(field = {}, rawValue) {
   const value = rawValue == null ? '' : String(rawValue).trim();
 
   if (field.required && !value) {
-    return `请填写${field.label}`;
+    return copy.format.required(field.label);
   }
 
   if (!value) {
@@ -230,53 +236,53 @@ function validateProfileField(field = {}, rawValue) {
 
   if (field.type === 'text') {
     if (field.minLength != null && field.minLength !== '' && value.length < field.minLength) {
-      return `${field.label}请填写至少 ${field.minLength} 个字符`;
+      return copy.format.minimumCharacters(field.label, field.minLength);
     }
     if (field.maxLength != null && field.maxLength !== '' && value.length > field.maxLength) {
-      return `${field.label}请控制在 ${field.maxLength} 个字符内`;
+      return copy.format.maximumCharacters(field.label, field.maxLength);
     }
   }
 
   if (field.type === 'number') {
     if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) {
-      return `${field.label}请输入整数`;
+      return copy.format.integer(field.label);
     }
     const numberValue = Number(value);
     if (!Number.isFinite(numberValue)) {
-      return `${field.label}请输入数字`;
+      return copy.format.number(field.label);
     }
     if (field.numberRule === 'length_range') {
       const numericLength = getNumericLength(value);
       if (field.minDigits != null && field.minDigits !== '' && numericLength < field.minDigits) {
-        return `${field.label}请输入至少 ${field.minDigits} 位`;
+        return copy.format.minimumDigits(field.label, field.minDigits);
       }
       if (field.maxDigits != null && field.maxDigits !== '' && numericLength > field.maxDigits) {
-        return `${field.label}请输入不超过 ${field.maxDigits} 位`;
+        return copy.format.maximumDigits(field.label, field.maxDigits);
       }
     } else {
       if (field.minValue != null && field.minValue !== '' && numberValue < field.minValue) {
-        return `${field.label}请输入不小于 ${field.minValue} 的数值`;
+        return copy.format.minimumValue(field.label, field.minValue);
       }
       if (field.maxValue != null && field.maxValue !== '' && numberValue > field.maxValue) {
-        return `${field.label}请输入不大于 ${field.maxValue} 的数值`;
+        return copy.format.maximumValue(field.label, field.maxValue);
       }
     }
   }
 
   if (field.type === 'sequence' && Array.isArray(field.options) && field.options.length && field.options.indexOf(value) === -1) {
-    return `请选择${field.label}`;
+    return copy.format.select(field.label);
   }
 
   if (field.type === 'date' && !isValidDateString(value)) {
-    return `请选择有效的${field.label}`;
+    return copy.format.selectValid(field.label);
   }
 
   if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
-    return `请检查${field.label}`;
+    return copy.format.check(field.label);
   }
 
   if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-    return `请检查${field.label}`;
+    return copy.format.check(field.label);
   }
 
   return '';
@@ -284,25 +290,29 @@ function validateProfileField(field = {}, rawValue) {
 
 Page({
   data: {
+    copy: copy.text,
     user: null,
     activeRole: '',
     hasUser: false,
     isAdminRole: false,
-    heroName: '欢迎使用',
-    heroIdentity: '未登录',
-    heroSubtitle: '请微信登录',
+    heroName: copy.text.welcome,
+    heroIdentity: copy.text.signedOut,
+    heroSubtitle: copy.text.signInWithWechat,
     organizationName: '',
     currentActivity: null,
-    currentActivityText: '加载中...',
+    currentActivityText: copy.text.loadingDots,
     activityPaused: false,
     targetList: [],
     targetGroups: [],
     selectedTargetId: '',
     targetsLoading: false,
-    targetsEmptyText: '加载中...',
+    targetsEmptyText: copy.text.loadingDots,
     scoringStats: { total: 0, scored: 0, pending: 0 },
     // Start with only always-available tabs; results/meritList added after permission check
-    userTabs: [{ key: 'scoring', label: '考核评分' }, { key: 'profile', label: '人事信息' }],
+    userTabs: [
+      { key: 'scoring', label: copy.text.scoring },
+      { key: 'profile', label: copy.text.hr }
+    ],
     activeTab: 'scoring',
     hrProfile: emptyHrProfileState(),
     accountSecurity: emptyAccountSecurityState(),
@@ -341,10 +351,10 @@ Page({
     userDesigPubId: '',
     userDesigLoading: false,
     userDesigSaving: false,
-    userDesigFilterDept: '全部',
-    userDesigFilterIdent: '全部',
-    userDesigFilterDeptOptions: ['全部'],
-    userDesigFilterIdentOptions: ['全部'],
+    userDesigFilterDept: copy.text.all,
+    userDesigFilterIdent: copy.text.all,
+    userDesigFilterDeptOptions: [copy.text.all],
+    userDesigFilterIdentOptions: [copy.text.all],
     userDesigSearchKeyword: '',
     // Audit badge counts
     auditPendingCount: 0,
@@ -366,7 +376,7 @@ Page({
         ...emptyPublicationState(),
         activeTab: preservedTab,
         currentActivity: null,
-        currentActivityText: '加载中...',
+        currentActivityText: copy.text.loadingDots,
         activityPaused: false
       });
     }
@@ -389,10 +399,10 @@ Page({
       audit: ['audit']
     };
     this._subAppAllowedTabs = SUB_APP_USER_TABS[subApp] || SUB_APP_USER_TABS.scoring;
-    const SUB_APP_LABELS = { scoring: '考核评分', hr: '人事信息', audit: '审核' };
+    const SUB_APP_LABELS = { scoring: copy.text.scoring, hr: copy.text.hr, audit: copy.text.audit };
     this._subAppLabel = SUB_APP_LABELS[subApp] || '';
     wx.setNavigationBarTitle({
-      title: (this._subAppLabel || '考核评分') + ' - WHUSU智慧工作台'
+      title: copy.format.navigationTitle(this._subAppLabel)
     });
   },
 
@@ -400,12 +410,18 @@ Page({
     if (!this._subAppAllowedTabs) this.applySubAppFilter();
     const allowed = this._subAppAllowedTabs || ['scoring', 'results', 'meritList'];
     const tabs = [];
-    if (allowed.indexOf('scoring') !== -1) tabs.push({ key: 'scoring', label: '考核评分' });
-    if (allowed.indexOf('results') !== -1 && this.data.hasViewPerm) tabs.push({ key: 'results', label: '结果公示' });
-    if (allowed.indexOf('meritList') !== -1 && this.data.hasMeritPerm) tabs.push({ key: 'meritList', label: '评优名单' });
-    if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: '人事信息' });
+    if (allowed.indexOf('scoring') !== -1) tabs.push({ key: 'scoring', label: copy.text.scoring });
+    if (allowed.indexOf('results') !== -1 && this.data.hasViewPerm) {
+      tabs.push({ key: 'results', label: copy.text.results });
+    }
+    if (allowed.indexOf('meritList') !== -1 && this.data.hasMeritPerm) {
+      tabs.push({ key: 'meritList', label: copy.text.meritList });
+    }
+    if (allowed.indexOf('profile') !== -1) tabs.push({ key: 'profile', label: copy.text.hr });
     // Always add audit tab for users with HR info
-    if (allowed.indexOf('audit') !== -1 && this.data.hasUser) tabs.push({ key: 'audit', label: '审核' });
+    if (allowed.indexOf('audit') !== -1 && this.data.hasUser) {
+      tabs.push({ key: 'audit', label: copy.text.audit });
+    }
     const preferredTab = this._preferredOrgTab || '';
     const preferredAvailable = !!preferredTab && tabs.some((item) => item.key === preferredTab);
     const currentAvailable = tabs.some((item) => item.key === this.data.activeTab);
@@ -417,7 +433,7 @@ Page({
     }
     if (finalizeOrgFallback) {
       if (preferredTab && !preferredAvailable && activeTab !== preferredTab) {
-        showShortToast('该组织无此功能');
+        showShortToast(copy.text.noFeatureInOrganization);
       }
       this._preferredOrgTab = '';
     }
@@ -452,7 +468,7 @@ Page({
           this.setData({
             user: result.user,
             hasUser: true,
-            heroName: result.user.name || '欢迎使用',
+            heroName: result.user.name || copy.text.welcome,
             heroIdentity: getDisplayIdentity(result.user, 'user'),
             heroSubtitle: this._subAppLabel || ''
           });
@@ -486,12 +502,12 @@ Page({
       user: currentUser,
       hasUser: !!currentUser,
       isAdminRole,
-      heroName: currentUser ? currentUser.name : '欢迎使用',
+      heroName: currentUser ? currentUser.name : copy.text.welcome,
       heroIdentity: getDisplayIdentity(currentUser, activeRole),
-      heroSubtitle: currentUser ? subAppLabel : '请微信登录',
+      heroSubtitle: currentUser ? subAppLabel : copy.text.signInWithWechat,
       targetList: [],
       selectedTargetId: '',
-      targetsEmptyText: '加载中...',
+      targetsEmptyText: copy.text.loadingDots,
       targetsLoading: false,
       scoringStats: { total: 0, scored: 0, pending: 0 },
       activeTab: isAdminRole ? 'scoring' : this.data.activeTab,
@@ -544,7 +560,7 @@ Page({
         const activity = result.activity || null;
         this.setData({
           currentActivity: activity,
-          currentActivityText: activity ? activity.name : '暂无评分活动',
+          currentActivityText: activity ? activity.name : copy.text.noActivity,
           activityPaused: activity ? !!activity.isPaused : false
         });
         this.checkPublication();
@@ -553,7 +569,7 @@ Page({
         if (!orgSession.isRequestCurrent(this, request)) return;
         this.setData({
           currentActivity: null,
-          currentActivityText: '暂无评分活动',
+          currentActivityText: copy.text.noActivity,
           activityPaused: false
         });
         this.checkPublication();
@@ -591,7 +607,7 @@ Page({
       this.setData({
         targetList: [],
         targetGroups: [],
-        targetsEmptyText: result.message || '暂无符合规则的被评分人',
+        targetsEmptyText: result.message || copy.text.noTargets,
         scoringStats: { total: 0, scored: 0, pending: 0 }
       });
       return;
@@ -607,7 +623,7 @@ Page({
     const groupMap = {};
     let scoredCount = 0;
     for (let i = 0; i < targets.length; i++) {
-      const identity = targets[i].identity || '未分类';
+      const identity = targets[i].identity || copy.text.unclassified;
       if (!groupMap[identity]) { groupMap[identity] = []; }
       groupMap[identity].push(targets[i]);
       if (targets[i].scoreStatus === 'scored') scoredCount++;
@@ -623,7 +639,7 @@ Page({
       heroIdentity: getDisplayIdentity(currentUser, 'user'),
       targetList: targets,
       targetGroups: targetGroups,
-      targetsEmptyText: targets.length ? '' : '暂无符合规则的被评分人',
+      targetsEmptyText: targets.length ? '' : copy.text.noTargets,
       scoringStats: {
         total: targets.length,
         scored: scoredCount,
@@ -639,7 +655,7 @@ Page({
       targetList: [],
       targetGroups: [],
       selectedTargetId: '',
-      targetsEmptyText: '正在加载被评分人',
+      targetsEmptyText: copy.text.loadingTargets,
       scoringStats: { total: 0, scored: 0, pending: 0 }
     });
 
@@ -655,7 +671,7 @@ Page({
         this.setData({
           targetList: [],
           targetGroups: [],
-          targetsEmptyText: '请稍后刷新被评分人',
+          targetsEmptyText: copy.text.refreshTargetsLater,
           scoringStats: { total: 0, scored: 0, pending: 0 }
         });
       },
@@ -698,7 +714,7 @@ Page({
         template: nextTemplate,
         pendingValues,
         auditStatus: result.auditStatus || 'none',
-        statusText: result.statusText || '尚未提交补充资料',
+        statusText: result.statusText || copy.text.profileNotSubmitted,
         rejectionReason: result.rejectionReason || ''
       }
     });
@@ -740,7 +756,7 @@ Page({
       const result = await callFunction({ name: 'auth/security', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (!result || result.status !== 'success') {
-        throw new Error((result && result.message) || '请稍后重试');
+        throw new Error((result && result.message) || copy.text.retryLater);
       }
       const policy = result.policy || {};
       this.setData({
@@ -767,7 +783,7 @@ Page({
           loaded: true
         })
       });
-      showShortToast(getErrorText(error, '请稍后重试'));
+      showShortToast(getErrorText(error, copy.text.retryLater));
     }
   },
 
@@ -785,11 +801,11 @@ Page({
         data: { method: 'recovery_code' }
       });
       if (!result || result.status !== 'success' || !result.recoveryCode) {
-        throw new Error((result && result.message) || '未生成，请重试');
+        throw new Error((result && result.message) || copy.text.generationFailed);
       }
       this.setData({ 'accountSecurity.recoveryCode': result.recoveryCode });
     } catch (error) {
-      showShortToast(getErrorText(error, '未生成，请重试'));
+      showShortToast(getErrorText(error, copy.text.generationFailed));
     } finally {
       this.setData({ 'accountSecurity.savingCredential': false });
     }
@@ -808,7 +824,7 @@ Page({
     const security = this.data.accountSecurity;
     if (security.savingCredential) return;
     if (!security.passphrase) {
-      showShortToast('请输入登录口令');
+      showShortToast(copy.text.passphraseRequired);
       return;
     }
     this.setData({ 'accountSecurity.savingCredential': true });
@@ -818,12 +834,12 @@ Page({
         data: { method: 'passphrase', value: security.passphrase }
       });
       if (!result || result.status !== 'success') {
-        throw new Error((result && result.message) || '未保存，请重试');
+        throw new Error((result && result.message) || copy.text.saveFailed);
       }
       this.setData({ 'accountSecurity.passphrase': '' });
-      showShortToast('口令已更新', 'success');
+      showShortToast(copy.text.passphraseUpdated, 'success');
     } catch (error) {
-      showShortToast(getErrorText(error, '未保存，请重试'));
+      showShortToast(getErrorText(error, copy.text.saveFailed));
     } finally {
       this.setData({ 'accountSecurity.savingCredential': false });
     }
@@ -839,13 +855,13 @@ Page({
         data: { sessionId }
       });
       if (!result || (result.status !== 'success' && result.status !== 'not_found')) {
-        throw new Error((result && result.message) || '请重试');
+        throw new Error((result && result.message) || copy.text.retry);
       }
       const sessions = this.data.accountSecurity.sessions.filter((item) => item.id !== sessionId);
       this.setData({ 'accountSecurity.sessions': sessions });
-      showShortToast('该设备已退出', 'success');
+      showShortToast(copy.text.deviceSignedOut, 'success');
     } catch (error) {
-      showShortToast(getErrorText(error, '请重试'));
+      showShortToast(getErrorText(error, copy.text.retry));
     } finally {
       this.setData({ 'accountSecurity.revokingSessionId': '' });
     }
@@ -911,7 +927,7 @@ Page({
     const template = hrProfile.template;
     if (!template || !Array.isArray(template.fields) || !template.fields.length) {
       wx.showToast({
-        title: '暂无人事资料',
+        title: copy.text.noProfile,
         icon: 'none'
       });
       return;
@@ -919,7 +935,7 @@ Page({
 
     if (template.editMode === 'readonly') {
       wx.showToast({
-        title: '请联系管理员修改',
+        title: copy.text.contactAdminToEdit,
         icon: 'none'
       });
       return;
@@ -951,15 +967,15 @@ Page({
       success: (res) => {
         const result = res.result || {};
         if (result.status !== 'success') {
-          showShortToast('未更新，请重试');
+          showShortToast(copy.text.updateFailed);
           return;
         }
 
-        showShortToast('已更新', 'success');
+        showShortToast(copy.text.updated, 'success');
         this.loadUserHrProfile();
       },
       fail: () => {
-        showShortToast('未更新，请重试');
+        showShortToast(copy.text.updateFailed);
       },
       complete: () => {
         this.setData({
@@ -978,7 +994,7 @@ Page({
   selectTarget(e) {
     const { id, name } = e.currentTarget.dataset;
     if (this.data.activityPaused) {
-      wx.showToast({ title: '当前评分活动已暂停', icon: 'none' });
+      wx.showToast({ title: copy.text.activityPaused, icon: 'none' });
       return;
     }
     const activity = this.data.currentActivity;
@@ -988,14 +1004,14 @@ Page({
       if (activity.startDate) {
         const startDate = new Date(activity.startDate.replace(/-/g, '/'));
         if (today < startDate) {
-          wx.showToast({ title: '当前评分活动尚未开始', icon: 'none' });
+          wx.showToast({ title: copy.text.activityNotStarted, icon: 'none' });
           return;
         }
       }
       if (activity.endDate) {
         const endDate = new Date(activity.endDate.replace(/-/g, '/'));
         if (today > endDate) {
-          wx.showToast({ title: '当前评分活动已结束', icon: 'none' });
+          wx.showToast({ title: copy.text.activityEnded, icon: 'none' });
           return;
         }
       }
@@ -1003,7 +1019,7 @@ Page({
     this.setData({ selectedTargetId: id });
 
     wx.showLoading({
-      title: '进入评分页'
+      title: copy.text.enteringScorePage
     });
 
     callFunction({
@@ -1015,7 +1031,7 @@ Page({
         const result = res.result || {};
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '无法进入评分页',
+            title: result.message || copy.text.enterScorePageFailed,
             icon: 'none'
           });
           return;
@@ -1025,7 +1041,7 @@ Page({
       },
       fail: () => {
         wx.showToast({
-          title: `请重新打开${name}评分页`,
+          title: copy.format.reopenScorePage(name),
           icon: 'none'
         });
       },
@@ -1140,7 +1156,7 @@ Page({
         // Grade distribution from all members (for grade filter chips)
         const gradeCountMap = new Map();
         sorted.forEach(r => {
-          const g = r.grade || (isGrade ? '未评级' : '');
+          const g = r.grade || (isGrade ? copy.text.unrated : '');
           if (g) gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1);
         });
         const gradeDistribution = Array.from(gradeCountMap.entries())
@@ -1189,7 +1205,7 @@ Page({
         // Group by identity
         const groupMap = new Map();
         list.forEach(m => {
-          const key = m.identity || '未分类';
+          const key = m.identity || copy.text.unclassified;
           if (!groupMap.has(key)) groupMap.set(key, { identity: key, identityId: '', members: [] });
           groupMap.get(key).members.push(m);
         });
@@ -1199,7 +1215,7 @@ Page({
         const userClauses = mlRes.clauses || [];
         const ruleGroupMap = new Map();
         for (const c of userClauses) {
-          const key = c.targetIdentity || '未分类';
+          const key = c.targetIdentity || copy.text.unclassified;
           if (!ruleGroupMap.has(key)) {
             ruleGroupMap.set(key, { targetIdentity: key, targetIdentityId: c.targetIdentityId || '', clauses: [], designatedMembers: [], quotaInfo: '' });
           }
@@ -1209,13 +1225,13 @@ Page({
           const quotas = group.clauses.map(c => c.quotaLimit || 0).filter(q => q > 0);
           const hasExact = group.clauses.some(c => c.requireExactQuota);
           if (hasExact && quotas.length > 0) {
-            group.quotaInfo = `等额 ${quotas[0]} 人`;
+            group.quotaInfo = copy.format.exactQuota(quotas[0]);
           } else if (quotas.length > 0) {
-            group.quotaInfo = `最多 ${Math.max(...quotas)} 人`;
+            group.quotaInfo = copy.format.maximumQuota(Math.max(...quotas));
           } else {
-            group.quotaInfo = '不限人数';
+            group.quotaInfo = copy.text.unlimitedPeople;
           }
-          group.designatedMembers = list.filter(m => (m.identity || '未分类') === key);
+          group.designatedMembers = list.filter(m => (m.identity || copy.text.unclassified) === key);
         }
         const meritRuleGroups = Array.from(ruleGroupMap.values());
 
@@ -1262,7 +1278,7 @@ Page({
       if (idFilter && r.identity !== idFilter) return false;
       if (deptFilter && r.department !== deptFilter) return false;
       if (wgFilter && r.workGroup !== wgFilter) return false;
-      if (gradeFilter && (r.grade || '未评级') !== gradeFilter) return false;
+      if (gradeFilter && (r.grade || copy.text.unrated) !== gradeFilter) return false;
       if (searchText) {
         const s = searchText;
         if ((r.name || '').toLowerCase().indexOf(s) < 0 &&
@@ -1294,7 +1310,10 @@ Page({
     let gradeDistribution;
     if (hasAnyGrade) {
       const gradeCountMap = new Map();
-      allFiltered.forEach(r => { const g = r.grade || '未评级'; gradeCountMap.set(g, (gradeCountMap.get(g) || 0) + 1); });
+      allFiltered.forEach(r => {
+        const grade = r.grade || copy.text.unrated;
+        gradeCountMap.set(grade, (gradeCountMap.get(grade) || 0) + 1);
+      });
       gradeDistribution = Array.from(gradeCountMap.entries()).map(([grade, count]) => ({ grade, count }));
       filteredStatsData = { count: allFiltered.length, maxScore: '--', avgScore: '--' };
     } else {
@@ -1368,7 +1387,11 @@ Page({
       if (filterIdentity) {
         meritClauses = meritClauses.filter(c => c.targetIdentity === filterIdentity);
       }
-      if (!meritClauses.length) { wx.showToast({ title: '暂无评优名单', icon: 'none' }); this.setData({ userDesigLoading: false }); return; }
+      if (!meritClauses.length) {
+        wx.showToast({ title: copy.text.noMeritList, icon: 'none' });
+        this.setData({ userDesigLoading: false });
+        return;
+      }
 
       // Use pre-fetched designationCandidates from getPublicMeritList (no admin auth needed)
       const allCandidates = this.data.userDesigCandidates || [];
@@ -1400,12 +1423,16 @@ Page({
         userDesigSelectedList: selectedList,
         userDesigGroups: desigGroups,
         userDesigPubId: pubId || (this.data.currentActivity ? this.data.currentActivity.id : ''),
-        userDesigFilterDept: '全部', userDesigFilterIdent: '全部',
-        userDesigFilterDeptOptions: ['全部', ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
-        userDesigFilterIdentOptions: ['全部', ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
+        userDesigFilterDept: copy.text.all,
+        userDesigFilterIdent: copy.text.all,
+        userDesigFilterDeptOptions: [copy.text.all, ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
+        userDesigFilterIdentOptions: [copy.text.all, ...Array.from(idents).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
         userDesigSearchKeyword: ''
       });
-    } catch (e) { console.error(e); wx.showToast({ title: '请稍后刷新', icon: 'none' }); }
+    } catch (e) {
+      console.error(e);
+      wx.showToast({ title: copy.text.refreshLater, icon: 'none' });
+    }
     this.setData({ userDesigLoading: false });
   },
 
@@ -1430,8 +1457,12 @@ Page({
 
   applyUserDesigFilters(list) {
     let result = list || this.data.userDesigHrList;
-    if (this.data.userDesigFilterDept !== '全部') result = result.filter(hr => hr.department === this.data.userDesigFilterDept);
-    if (this.data.userDesigFilterIdent !== '全部') result = result.filter(hr => hr.identity === this.data.userDesigFilterIdent);
+    if (this.data.userDesigFilterDept !== copy.text.all) {
+      result = result.filter(hr => hr.department === this.data.userDesigFilterDept);
+    }
+    if (this.data.userDesigFilterIdent !== copy.text.all) {
+      result = result.filter(hr => hr.identity === this.data.userDesigFilterIdent);
+    }
     if (this.data.userDesigSearchKeyword) {
       const kw = this.data.userDesigSearchKeyword.toLowerCase();
       result = result.filter(hr => (hr.name || '').toLowerCase().includes(kw) || (hr.studentId || '').toLowerCase().includes(kw));
@@ -1450,7 +1481,7 @@ Page({
   onUserDesigFilterChange(e) {
     const field = e.currentTarget.dataset.field;
     const options = field === 'identity' ? this.data.userDesigFilterIdentOptions : this.data.userDesigFilterDeptOptions;
-    const value = options[Number(e.detail.value)] || '全部';
+    const value = options[Number(e.detail.value)] || copy.text.all;
     const patch = { userDesigFilteredList: this.applyUserDesigFilters() };
     if (field === 'department') patch.userDesigFilterDept = value;
     else patch.userDesigFilterIdent = value;
@@ -1475,13 +1506,15 @@ Page({
         success: (res) => r(res.result || {}), fail: j
       }));
       if (res.status === 'success') {
-        wx.showToast({ title: '已保存', icon: 'success' });
+        wx.showToast({ title: copy.text.saved, icon: 'success' });
         this.closeUserDesignation();
         this.checkPublication();
       } else {
-        wx.showToast({ title: res.message || '未保存，请重试', icon: 'none' });
+        wx.showToast({ title: res.message || copy.text.saveFailed, icon: 'none' });
       }
-    } catch (e) { wx.showToast({ title: '未保存，请重试', icon: 'none' }); }
+    } catch (e) {
+      wx.showToast({ title: copy.text.saveFailed, icon: 'none' });
+    }
     this.setData({ userDesigSaving: false });
   }
 });

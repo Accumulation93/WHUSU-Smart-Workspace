@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/identityBehavior');
 // Behavior: identity tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
@@ -13,14 +14,14 @@ module.exports = Behavior({
         const result = await this.callCloud('listIdentities');
         if (!orgSession.isRequestCurrent(this, request)) return;
         if (result.status !== 'success') {
-          throw new Error(result.message || '请稍后刷新身份类别');
+          throw new Error(result.message || localeCopy.copy_f878df1668);
         }
         this.setData({
           identityList: result.identities || []
         });
       } catch (error) {
         if (!orgSession.isRequestCurrent(this, request) || (error && error.silent)) return;
-        console.error('加载身份类别列表失败:', error);
+        console.error(localeCopy.copy_b538d2281a, error);
         // 不再显示错误提示，因为空数据库是正常情况
         this.setData({
           identityList: []
@@ -70,7 +71,7 @@ module.exports = Behavior({
       const form = this.data.identityForm;
       if (!form.name) {
         wx.showToast({
-          title: '请填写身份类别名称',
+          title: localeCopy.copy_f5b2fb24f1,
           icon: 'none'
         });
         return;
@@ -86,7 +87,7 @@ module.exports = Behavior({
   
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未保存，请重试',
+            title: result.message || localeCopy.copy_215e3c57da,
             icon: 'none'
           });
           return;
@@ -95,12 +96,12 @@ module.exports = Behavior({
         this.setData({ identityForm: emptyIdentityForm() });
         await this.loadIdentityList();
         wx.showToast({
-          title: '身份类别信息已保存',
+          title: localeCopy.copy_437b04668d,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未保存，请重试',
+          title: localeCopy.copy_215e3c57da,
           icon: 'none'
         });
       } finally {
@@ -116,10 +117,10 @@ module.exports = Behavior({
   
       const confirm = await new Promise((resolve) => {
         wx.showModal({
-          title: '删除身份类别',
-          content: '确认删除这个身份类别吗？',
-          confirmText: '确认删除',
-          cancelText: '取消',
+          title: localeCopy.copy_9167d1395d,
+          content: localeCopy.copy_30267845ce,
+          confirmText: localeCopy.copy_7f31eec657,
+          cancelText: localeCopy.copy_4b213fd88a,
           success: (res) => resolve(!!res.confirm),
           fail: () => resolve(false)
         });
@@ -133,7 +134,7 @@ module.exports = Behavior({
         const result = await this.callCloud('deleteIdentity', { id });
         if (result.status !== 'success') {
           wx.showToast({
-            title: result.message || '未删除，请重试',
+            title: result.message || localeCopy.copy_076bb5d383,
             icon: 'none'
           });
           return;
@@ -142,12 +143,12 @@ module.exports = Behavior({
         await this.loadIdentityList();
         this.updateHrFormOptions();
         wx.showToast({
-          title: '身份类别已删除',
+          title: localeCopy.copy_e000ed06dd,
           icon: 'success'
         });
       } catch (error) {
         wx.showToast({
-          title: '未删除，请重试',
+          title: localeCopy.copy_076bb5d383,
           icon: 'none'
         });
       }

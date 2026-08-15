@@ -1,3 +1,4 @@
+const localeCopy = require('../locales/zh-CN/generated/utils/organizationActivation');
 const { callFunction } = require('./api');
 const eventBus = require('./eventBus');
 const orgSession = require('./orgSession');
@@ -33,7 +34,7 @@ async function activateOrganization(organizationId) {
     data: { organizationId, role }
   });
   if (result.status !== 'success' || !result.activeOrg) {
-    const error = new Error(result.message || '未切换，请重试');
+    const error = new Error(result.message || localeCopy.copy_53d5e0a0c8);
     error.status = result.status || 'error';
     throw error;
   }

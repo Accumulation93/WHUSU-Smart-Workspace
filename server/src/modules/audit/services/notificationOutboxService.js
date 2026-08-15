@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/services/notificationOutboxService');
 const { generateId, safeString } = require('../../../utils/helpers');
 const { orgStorage } = require('../../../utils/orgContext');
 const notificationModel = require('../models/notification');
@@ -73,7 +74,7 @@ async function processJob(job) {
     } else if (job.recipient_type && job.recipient_id) {
       await createForRecipient(job, job.recipient_type, job.recipient_id, payload);
     } else {
-      throw new Error('通知事件缺少收件人');
+      throw new Error(localeCopy.copy_6d05068b26);
     }
   });
 }

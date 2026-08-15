@@ -1,3 +1,5 @@
+const localeCopy = require('../../locales/zh-CN/generated/core/services/hrProfileTemplateLibrary');
+const { format: localeFormat } = require('../../locales/runtime');
 const crypto = require('crypto');
 const pool = require('../../config/db');
 const { JWT_SECRET } = require('../../middleware/auth');
@@ -152,12 +154,12 @@ async function saveDefinition(data, operator) {
         'SELECT id FROM hr_profile_templates WHERE name = ? AND id <> ?',
         [name, id || '']
       );
-      if (duplicates.length) return { status: 'duplicate', message: '人事模板名称重复' };
+      if (duplicates.length) return { status: 'duplicate', message: localeCopy.copy_ee7c5a64c4 };
       const now = new Date();
       const templateId = id || generateId();
       if (id) {
         const [existing] = await connection.query('SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE', [id]);
-        if (!existing.length) return { status: 'not_found', message: '请刷新人事模板' };
+        if (!existing.length) return { status: 'not_found', message: localeCopy.copy_53d06945ab };
         await connection.query(
           'UPDATE hr_profile_templates SET name = ?, description = ?, edit_mode = ?, updated_by = ?, updated_at = ? WHERE id = ?',
           [name, description, editMode, operator.id, now, id]
@@ -174,7 +176,7 @@ async function saveDefinition(data, operator) {
       return { status: 'success', id: templateId };
     });
   } catch (errorValue) {
-    if (errorValue && errorValue.code === 'ER_DUP_ENTRY') return { status: 'duplicate', message: '人事模板名称重复' };
+    if (errorValue && errorValue.code === 'ER_DUP_ENTRY') return { status: 'duplicate', message: localeCopy.copy_ee7c5a64c4 };
     throw errorValue;
   }
 }
@@ -182,7 +184,7 @@ async function saveDefinition(data, operator) {
 async function duplicateDefinition(templateId, operator) {
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query('SELECT * FROM hr_profile_templates WHERE id = ? FOR UPDATE', [templateId]);
-    if (!rows.length) return { status: 'not_found', message: '请刷新人事模板' };
+    if (!rows.length) return { status: 'not_found', message: localeCopy.copy_53d06945ab };
     const source = rows[0];
     const [fields] = await connection.query('SELECT * FROM hr_profile_template_fields WHERE template_id = ? ORDER BY sort_order', [templateId]);
     let name = `${source.name} 副本`;
@@ -220,7 +222,7 @@ async function duplicateDefinition(templateId, operator) {
 async function deleteDefinition(templateId) {
   return pool.withTransaction(async (connection) => {
     const [rows] = await connection.query('SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE', [templateId]);
-    if (!rows.length) return { status: 'not_found', message: '请刷新人事模板' };
+    if (!rows.length) return { status: 'not_found', message: localeCopy.copy_53d06945ab };
     await connection.query('DELETE FROM hr_profile_templates WHERE id = ?', [templateId]);
     return { status: 'success' };
   });
@@ -322,8 +324,8 @@ function normalizeActions(sourceFields, targetFields, rawActions) {
   const rawMap = new Map();
   rawList.forEach((action) => {
     const sourceId = safeString(action && action.sourceSnapshotFieldId);
-    if (!sourceIds.has(sourceId)) throw new Error('已有资料有误，请重新打开页面');
-    if (rawMap.has(sourceId)) throw new Error('已有资料重复，请重新打开页面');
+    if (!sourceIds.has(sourceId)) throw new Error(localeCopy.copy_9ac8014e6a);
+    if (rawMap.has(sourceId)) throw new Error(localeCopy.copy_6258b6ce4e);
     rawMap.set(sourceId, action);
   });
   const usedTargets = new Set();
@@ -331,12 +333,12 @@ function normalizeActions(sourceFields, targetFields, rawActions) {
     const raw = rawMap.get(sourceField.id) || {};
     const action = SWITCH_ACTIONS.includes(raw.action) ? raw.action : 'hide';
     const targetTemplateFieldId = action === 'map' ? safeString(raw.targetTemplateFieldId) : '';
-    if (!sourceIds.has(sourceField.id)) throw new Error('已有资料有误，请重新打开页面');
+    if (!sourceIds.has(sourceField.id)) throw new Error(localeCopy.copy_9ac8014e6a);
     if (action === 'map') {
       const target = targetMap.get(targetTemplateFieldId);
-      if (!target) throw new Error(`请重新选择${sourceField.label}的保存位置`);
-      if (!isPotentiallyCompatible(sourceField.type, target.type)) throw new Error(`${sourceField.label}的资料类型不匹配`);
-      if (usedTargets.has(targetTemplateFieldId)) throw new Error('请为每项资料选择不同的保存位置');
+      if (!target) throw new Error(localeFormat(localeCopy.copy_b419a118ee, [sourceField.label]));
+      if (!isPotentiallyCompatible(sourceField.type, target.type)) throw new Error(localeFormat(localeCopy.copy_8fc2cd2e4d, [sourceField.label]));
+      if (usedTargets.has(targetTemplateFieldId)) throw new Error(localeCopy.copy_3888869901);
       usedTargets.add(targetTemplateFieldId);
     }
     return { sourceSnapshotFieldId: sourceField.id, action, targetTemplateFieldId };
@@ -369,19 +371,19 @@ function encodeToken(payload) {
 
 function decodeToken(token) {
   const parts = safeString(token).split('.');
-  if (parts.length !== 2) throw new Error('本次确认已失效，请重新操作');
+  if (parts.length !== 2) throw new Error(localeCopy.copy_6c2f42ca57);
   const expected = crypto.createHmac('sha256', JWT_SECRET).update(parts[0]).digest('base64url');
   const left = Buffer.from(parts[1]);
   const right = Buffer.from(expected);
-  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw new Error('本次确认已失效，请重新操作');
+  if (left.length !== right.length || !crypto.timingSafeEqual(left, right)) throw new Error(localeCopy.copy_6c2f42ca57);
   const payload = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
-  if (!payload.expiresAt || Date.now() > payload.expiresAt) throw new Error('本次确认已过期，请重新操作');
+  if (!payload.expiresAt || Date.now() > payload.expiresAt) throw new Error(localeCopy.copy_8648566da3);
   return payload;
 }
 
 async function preflightSwitch(orgId, targetTemplateId, rawActions) {
   const context = await getSwitchContext(orgId, targetTemplateId);
-  if (!context) return { status: 'not_found', message: '请刷新人事模板' };
+  if (!context) return { status: 'not_found', message: localeCopy.copy_53d06945ab };
   let actions;
   try {
     actions = normalizeActions(context.sourceFields, context.targetTemplate.fields, rawActions);
@@ -410,7 +412,7 @@ async function preflightSwitch(orgId, targetTemplateId, rawActions) {
     }, row.field_value) ? 1 : 0), 0);
     if (invalidCount) blockers.push({ sourceSnapshotFieldId: action.sourceSnapshotFieldId, targetTemplateFieldId: target.id, invalidCount });
   }
-  if (blockers.length) return { status: 'mapping_blocked', message: '请先修改不符合新模板的已有资料', blockers };
+  if (blockers.length) return { status: 'mapping_blocked', message: localeCopy.copy_8f0da4cc00, blockers };
   const sourceMap = new Map(context.sourceFields.map((field) => [field.id, field]));
   const summary = actions.reduce((result, action) => {
     const source = sourceMap.get(action.sourceSnapshotFieldId);
@@ -439,7 +441,7 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
     return { status: 'stale_switch', message: error.message };
   }
   if (tokenPayload.orgId !== orgId || tokenPayload.targetTemplateId !== targetTemplateId) {
-    return { status: 'stale_switch', message: '所选内容已变化，请重新确认' };
+    return { status: 'stale_switch', message: localeCopy.copy_c482d16146 };
   }
   return pool.withTransaction(async (connection) => {
     await connection.query('SELECT id FROM organizations WHERE id = ? FOR UPDATE', [orgId]);
@@ -447,9 +449,9 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
       'SELECT id FROM hr_profile_templates WHERE id = ? FOR UPDATE',
       [targetTemplateId]
     );
-    if (!lockedTemplates.length) return { status: 'not_found', message: '请刷新人事模板' };
+    if (!lockedTemplates.length) return { status: 'not_found', message: localeCopy.copy_53d06945ab };
     const context = await getSwitchContext(orgId, targetTemplateId, connection);
-    if (!context) return { status: 'not_found', message: '请刷新人事模板' };
+    if (!context) return { status: 'not_found', message: localeCopy.copy_53d06945ab };
     let actions;
     try {
       actions = normalizeActions(context.sourceFields, context.targetTemplate.fields, rawActions);
@@ -460,11 +462,11 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
     const activeSnapshotId = context.activeSnapshot ? context.activeSnapshot.id : '';
     if (currentUpdatedAt !== tokenPayload.targetUpdatedAt || activeSnapshotId !== tokenPayload.activeSnapshotId
       || hashActions(actions) !== tokenPayload.actionsHash) {
-      return { status: 'stale_switch', message: '页面内容已发生变化，请重新确认' };
+      return { status: 'stale_switch', message: localeCopy.copy_33e0145e41 };
     }
     const valueStateHash = await getOrgValueStateHash(orgId, connection, true);
     if (valueStateHash !== tokenPayload.valueStateHash) {
-      return { status: 'stale_switch', message: '人员资料已发生变化，请重新确认' };
+      return { status: 'stale_switch', message: localeCopy.copy_16c0a4fda5 };
     }
     const targetMap = new Map(context.targetTemplate.fields.map((field) => [field.id, field]));
     for (const action of actions.filter((item) => item.action === 'map')) {
@@ -479,13 +481,13 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
         min_digits: target.minDigits, max_digits: target.maxDigits,
         min_value: target.minValue, max_value: target.maxValue,
         options_json: JSON.stringify(target.options || [])
-      }, row.field_value))) return { status: 'mapping_blocked', message: '已有内容已发生变化，请重新确认' };
+      }, row.field_value))) return { status: 'mapping_blocked', message: localeCopy.copy_a17b78d922 };
     }
     const sourceMap = new Map(context.sourceFields.map((field) => [field.id, field]));
     const hasDelete = actions.some((action) => action.action === 'delete'
       && ((sourceMap.get(action.sourceSnapshotFieldId).currentValueCount || 0)
         + (sourceMap.get(action.sourceSnapshotFieldId).pendingValueCount || 0)) > 0);
-    if (hasDelete && confirmDelete !== true) return { status: 'delete_confirmation_required', message: '请确认删除已有资料' };
+    if (hasDelete && confirmDelete !== true) return { status: 'delete_confirmation_required', message: localeCopy.copy_6bd0dada6b };
 
     const snapshotId = activeSnapshotId || generateId();
     if (activeSnapshotId) {
@@ -573,14 +575,14 @@ async function applySwitch(orgId, targetTemplateId, rawActions, switchToken, con
 }
 
 async function saveOrgSettings(orgId, description, editMode, operator) {
-  if (!EDIT_MODES.includes(editMode)) return { status: 'invalid_params', message: '请选择有效的修改方式' };
+  if (!EDIT_MODES.includes(editMode)) return { status: 'invalid_params', message: localeCopy.copy_83bdbac847 };
   const [result] = await pool.query(
     `UPDATE org_hr_profile_template_snapshots
         SET description = ?, edit_mode = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
       WHERE org_id = ?`,
     [safeString(description).trim(), editMode, operator.id, orgId]
   );
-  if (!result.affectedRows) return { status: 'missing_template', message: '当前组织尚未选择人事模板' };
+  if (!result.affectedRows) return { status: 'missing_template', message: localeCopy.copy_26261c23fe };
   return { status: 'success' };
 }
 

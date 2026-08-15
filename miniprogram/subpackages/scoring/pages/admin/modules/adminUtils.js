@@ -1,3 +1,5 @@
+const localeCopy = require('../../../../../locales/zh-CN/generated/subpackages/scoring/pages/admin/modules/adminUtils');
+const { format: localeFormat } = require('../../../../../locales/runtime');
 // Auto-extracted pure utilities and constants from admin.js
 // These functions have NO Page 'this' context — they are pure data transforms.
 // All constants and factories used by admin.js and behaviors are here.
@@ -5,65 +7,65 @@
 const STORAGE_KEY = 'roleProfiles';
 const TAB_LIST = ['activities', 'templates', 'rules', 'results', 'hrInfo', 'hrTemplates', 'departments', 'workGroups', 'identities', 'admins', 'settings', 'publications', 'auditTemplates', 'auditStamps', 'auditSubmissions', 'auditVerification'];
 const TIMEZONE_OPTIONS = [
-  { value: -12, label: 'UTC-12 (国际日期变更线西)' },
-  { value: -11, label: 'UTC-11 (中途岛)' },
-  { value: -10, label: 'UTC-10 (夏威夷)' },
-  { value: -9, label: 'UTC-9 (阿拉斯加)' },
-  { value: -8, label: 'UTC-8 (洛杉矶)' },
-  { value: -7, label: 'UTC-7 (丹佛)' },
-  { value: -6, label: 'UTC-6 (芝加哥)' },
-  { value: -5, label: 'UTC-5 (纽约)' },
-  { value: -4, label: 'UTC-4 (圣地亚哥)' },
-  { value: -3, label: 'UTC-3 (巴西利亚)' },
-  { value: -2, label: 'UTC-2 (中大西洋)' },
-  { value: -1, label: 'UTC-1 (亚速尔)' },
-  { value: 0, label: 'UTC+0 (伦敦)' },
-  { value: 1, label: 'UTC+1 (巴黎)' },
-  { value: 2, label: 'UTC+2 (开罗)' },
-  { value: 3, label: 'UTC+3 (莫斯科)' },
-  { value: 4, label: 'UTC+4 (迪拜)' },
-  { value: 5, label: 'UTC+5 (卡拉奇)' },
-  { value: 6, label: 'UTC+6 (达卡)' },
-  { value: 7, label: 'UTC+7 (曼谷)' },
-  { value: 8, label: 'UTC+8 (北京/上海/香港)' },
-  { value: 9, label: 'UTC+9 (东京)' },
-  { value: 10, label: 'UTC+10 (悉尼)' },
-  { value: 11, label: 'UTC+11 (所罗门群岛)' },
-  { value: 12, label: 'UTC+12 (奥克兰)' }
+  { value: -12, label: localeCopy.copy_f9cadda36d },
+  { value: -11, label: localeCopy.copy_4570b42d70 },
+  { value: -10, label: localeCopy.copy_757124dc6b },
+  { value: -9, label: localeCopy.copy_7cd25c7e87 },
+  { value: -8, label: localeCopy.copy_55c5b5ff7b },
+  { value: -7, label: localeCopy.copy_ec688c2a7c },
+  { value: -6, label: localeCopy.copy_a0e4ae632c },
+  { value: -5, label: localeCopy.copy_4462cb7b00 },
+  { value: -4, label: localeCopy.copy_72c79414ae },
+  { value: -3, label: localeCopy.copy_cf2edf4e91 },
+  { value: -2, label: localeCopy.copy_657e432e78 },
+  { value: -1, label: localeCopy.copy_2952640fa0 },
+  { value: 0, label: localeCopy.copy_609094214c },
+  { value: 1, label: localeCopy.copy_d13ebf61e8 },
+  { value: 2, label: localeCopy.copy_2f4c345a3b },
+  { value: 3, label: localeCopy.copy_ab805e8327 },
+  { value: 4, label: localeCopy.copy_484de22700 },
+  { value: 5, label: localeCopy.copy_b0e703c2d3 },
+  { value: 6, label: localeCopy.copy_467bc10285 },
+  { value: 7, label: localeCopy.copy_e2418cf46c },
+  { value: 8, label: localeCopy.copy_05746fc036 },
+  { value: 9, label: localeCopy.copy_5f0a93e6d5 },
+  { value: 10, label: localeCopy.copy_9d0e9da601 },
+  { value: 11, label: localeCopy.copy_04e6a36058 },
+  { value: 12, label: localeCopy.copy_570fa0981d }
 ];
 const RULE_SCOPE_OPTIONS = [
-  { value: 'same_department_identity', label: '同一部门内的指定身份成员' },
-  { value: 'same_department_all', label: '同一部门内的所有成员' },
-  { value: 'same_work_group_identity', label: '同一部门同一职能组内的指定身份成员' },
-  { value: 'same_work_group_all', label: '同一部门同一职能组内的所有成员' },
-  { value: 'identity_only', label: '全体成员中的指定身份' },
-  { value: 'all_people', label: '全体成员' }
+  { value: 'same_department_identity', label: localeCopy.copy_e315078ee8 },
+  { value: 'same_department_all', label: localeCopy.copy_2603ee59e5 },
+  { value: 'same_work_group_identity', label: localeCopy.copy_f9444318ff },
+  { value: 'same_work_group_all', label: localeCopy.copy_12771a58c9 },
+  { value: 'identity_only', label: localeCopy.copy_22676ecf45 },
+  { value: 'all_people', label: localeCopy.copy_76d431a4dc }
 ];
 const VIEW_SCOPE_OPTIONS = [
-  { value: 'own_results', label: '查看本人评分结果' },
-  { value: 'same_work_group_identity', label: '查看同职能组内指定身份的成员结果' },
-  { value: 'same_work_group_all', label: '查看同职能组内所有成员的结果' },
-  { value: 'same_department_identity', label: '查看同部门内指定身份的成员结果' },
-  { value: 'same_department_all', label: '查看同部门内所有成员的结果' },
-  { value: 'all_people', label: '查看全部成员的结果' }
+  { value: 'own_results', label: localeCopy.copy_9a4a6e8793 },
+  { value: 'same_work_group_identity', label: localeCopy.copy_3787c80077 },
+  { value: 'same_work_group_all', label: localeCopy.copy_fd80cc149b },
+  { value: 'same_department_identity', label: localeCopy.copy_c70c40dae1 },
+  { value: 'same_department_all', label: localeCopy.copy_8e7c345003 },
+  { value: 'all_people', label: localeCopy.copy_1580e09c5c }
 ];
 const VIEW_SCOPE_LABEL_MAP = VIEW_SCOPE_OPTIONS.reduce((map, item) => { map[item.value] = item.label; return map; }, {});
 const PROFILE_EDIT_MODE_OPTIONS = [
-  { value: 'direct', label: '允许直接修改' },
-  { value: 'audit', label: '需审核修改' },
-  { value: 'readonly', label: '由管理员维护' }
+  { value: 'direct', label: localeCopy.copy_bc64256f91 },
+  { value: 'audit', label: localeCopy.copy_424e9fe3b4 },
+  { value: 'readonly', label: localeCopy.copy_a1399ed0a2 }
 ];
 const PROFILE_FIELD_TYPE_OPTIONS = [
-  { value: 'text', label: '文本' },
-  { value: 'number', label: '数字' },
-  { value: 'sequence', label: '序列' },
-  { value: 'date', label: '日期' },
-  { value: 'phone', label: '手机号' },
-  { value: 'email', label: '邮箱' }
+  { value: 'text', label: localeCopy.copy_12e5c96d1e },
+  { value: 'number', label: localeCopy.copy_dfb6c2130f },
+  { value: 'sequence', label: localeCopy.copy_f942ac6f2a },
+  { value: 'date', label: localeCopy.copy_45d46b9df2 },
+  { value: 'phone', label: localeCopy.copy_8e0c2b3066 },
+  { value: 'email', label: localeCopy.copy_138db9568c }
 ];
 const NUMBER_RULE_OPTIONS = [
-  { value: 'value_range', label: '按数值范围' },
-  { value: 'length_range', label: '按长度范围' }
+  { value: 'value_range', label: localeCopy.copy_4588759d51 },
+  { value: 'length_range', label: localeCopy.copy_97fbcb1897 }
 ];
 
 const RULE_SCOPE_LABEL_MAP = RULE_SCOPE_OPTIONS.reduce((map, item) => {
@@ -77,12 +79,12 @@ function toNumber(value, fallback = 0) {
 }
 
 const TEMPLATE_CSV_FIELDS = [
-  { key: 'question',   label: '问题内容', aliases: ['问题', '问题内容', '题目', 'question'] },
-  { key: 'scoreLabel', label: '分值说明', aliases: ['分值说明', '说明', 'scoreLabel', '分值标签', '标签'] },
-  { key: 'minValue',   label: '最低分',   aliases: ['最低分', '最小值', 'minValue', 'min', '最低'] },
-  { key: 'startValue', label: '起评分',   aliases: ['起评分', '起始分', 'startValue', 'start', '起始'] },
-  { key: 'maxValue',   label: '最高分',   aliases: ['最高分', '最大值', 'maxValue', 'max', '最高'] },
-  { key: 'stepValue',  label: '步进值',   aliases: ['步进值', '步长', 'stepValue', 'step', '步进'] }
+  { key: 'question',   label: localeCopy.copy_1af596e2ba, aliases: [localeCopy.copy_12fc5f1a33, localeCopy.copy_1af596e2ba, localeCopy.copy_b66cf0dd1d, 'question'] },
+  { key: 'scoreLabel', label: localeCopy.copy_fd0da10351, aliases: [localeCopy.copy_fd0da10351, localeCopy.copy_28d0daa28f, 'scoreLabel', localeCopy.copy_1702a69e64, localeCopy.copy_10b1158748] },
+  { key: 'minValue',   label: localeCopy.copy_e24b33ba5f,   aliases: [localeCopy.copy_e24b33ba5f, localeCopy.copy_c741409c82, 'minValue', 'min', localeCopy.copy_9a2cca25f2] },
+  { key: 'startValue', label: localeCopy.copy_4366ed3bb6,   aliases: [localeCopy.copy_4366ed3bb6, localeCopy.copy_ce2a519308, 'startValue', 'start', localeCopy.copy_62f0d4f3c1] },
+  { key: 'maxValue',   label: localeCopy.copy_8ca6566932,   aliases: [localeCopy.copy_8ca6566932, localeCopy.copy_fb031f3568, 'maxValue', 'max', localeCopy.copy_103f952a56] },
+  { key: 'stepValue',  label: localeCopy.copy_4b62966880,   aliases: [localeCopy.copy_4b62966880, localeCopy.copy_8c44208d45, 'stepValue', 'step', localeCopy.copy_13d5166c86] }
 ];
 
 function _csvEscapeField(value) {
@@ -380,7 +382,7 @@ function buildPendingTemplateConfigForSave(form = {}) {
   if (!Number.isFinite(weight) || weight <= 0) {
     return {
       status: 'invalid',
-      message: '请输入大于 0 的评分问题权重'
+      message: localeCopy.copy_ba359df757
     };
   }
 
@@ -471,7 +473,7 @@ function buildRuleClausesForSave(form = {}) {
     return {
       ok: false,
       clauses,
-      message: '请填写被评分人身份'
+      message: localeCopy.copy_7151fd51a0
     };
   }
 
@@ -512,19 +514,19 @@ function buildRuleClausesForBatchApply(form = {}) {
   return {
     ok: clauses.length > 0,
     clauses,
-    message: clauses.length ? '' : '请先准备好要批量应用的被评分人规则'
+    message: clauses.length ? '' : localeCopy.copy_30a324d851
   };
 }
 
 function buildRuleClauseText(clause = {}) {
-  const scopeText = clause.scopeLabel || getScopeLabel(clause.scopeType) || '未设置被评分范围';
-  const identityText = clause.targetIdentity ? `，被评分人身份：${clause.targetIdentity}` : '';
-  const completeText = clause.requireAllComplete ? '，要求全评后计入核算' : '，不要求全评';
+  const scopeText = clause.scopeLabel || getScopeLabel(clause.scopeType) || localeCopy.copy_f8d4dcaa31;
+  const identityText = clause.targetIdentity ? localeFormat(localeCopy.copy_2603da8ac7, [clause.targetIdentity]) : '';
+  const completeText = clause.requireAllComplete ? localeCopy.copy_a610bcb008 : localeCopy.copy_67c8d6955e;
   const questionText = (clause.templateConfigs || []).length
     ? (clause.templateConfigs || [])
-      .map((config) => `${config.templateName || '未命名评分问题'}（权重：${config.weight}，顺序：${config.sortOrder}）`)
+      .map((config) => localeFormat(localeCopy.copy_6a6e8afeff, [config.templateName || localeCopy.copy_a3c996a525, config.weight, config.sortOrder]))
       .join('、')
-    : '未选择评分问题';
+    : localeCopy.copy_52740940a5;
   return `${scopeText}${identityText}${completeText} [${questionText}]`;
 }
 
@@ -542,7 +544,7 @@ function buildRuleListItem(rule = {}) {
     ruleCount: clauses.length,
     clausesText: clauses.length
       ? clauses.map((clause) => buildRuleClauseText(clause)).join(' | ')
-      : '未设置被评分人范围'
+      : localeCopy.copy_06c9003301
   };
 }
 
@@ -566,8 +568,8 @@ function createSelectedRuleIdMap(selectedRuleIds = []) {
 
 function emptyRuleFilters() {
   return {
-    department: '全部',
-    identity: '全部'
+    department: localeCopy.copy_31d4595959,
+    identity: localeCopy.copy_31d4595959
   };
 }
 
@@ -591,14 +593,14 @@ function buildRuleFilterOptions(ruleList = []) {
   });
 
   return {
-    departments: ['全部', ...departments.sort((a, b) => a.localeCompare(b, 'zh-CN'))],
-    identities: ['全部', ...identities.sort((a, b) => a.localeCompare(b, 'zh-CN'))]
+    departments: [localeCopy.copy_31d4595959, ...departments.sort((a, b) => a.localeCompare(b, 'zh-CN'))],
+    identities: [localeCopy.copy_31d4595959, ...identities.sort((a, b) => a.localeCompare(b, 'zh-CN'))]
   };
 }
 
 function normalizeRuleFilters(filters = {}, filterOptions = buildRuleFilterOptions()) {
-  const department = (filterOptions.departments || []).includes(filters.department) ? filters.department : '全部';
-  const identity = (filterOptions.identities || []).includes(filters.identity) ? filters.identity : '全部';
+  const department = (filterOptions.departments || []).includes(filters.department) ? filters.department : localeCopy.copy_31d4595959;
+  const identity = (filterOptions.identities || []).includes(filters.identity) ? filters.identity : localeCopy.copy_31d4595959;
   return {
     department,
     identity
@@ -608,17 +610,17 @@ function normalizeRuleFilters(filters = {}, filterOptions = buildRuleFilterOptio
 function filterRuleList(ruleList = [], filters = emptyRuleFilters()) {
   return (ruleList || []).filter((item) => {
     const departmentMatched = !filters.department
-      || filters.department === '全部'
+      || filters.department === localeCopy.copy_31d4595959
       || String(item.scorerDepartment || '') === filters.department;
     const identityMatched = !filters.identity
-      || filters.identity === '全部'
+      || filters.identity === localeCopy.copy_31d4595959
       || String(item.scorerIdentity || '') === filters.identity;
     return departmentMatched && identityMatched;
   });
 }
 
 function buildResultFilterOptions(values = []) {
-  return ['全部', ...values.filter(Boolean)];
+  return [localeCopy.copy_31d4595959, ...values.filter(Boolean)];
 }
 
 function showShortToast(title, icon = 'none') {
@@ -634,23 +636,23 @@ function getErrorText(error, fallback) {
   return text || fallback;
 }
 
-const HR_PROFILE_STATUS_OPTIONS = ['全部状态', '待审核', '未提交', '已生效', '已驳回'];
+const HR_PROFILE_STATUS_OPTIONS = [localeCopy.copy_03a3d115c7, localeCopy.copy_8f73640107, localeCopy.copy_67f2697101, localeCopy.copy_f8babd0e5d, localeCopy.copy_5d5af942c5];
 
 function emptyHrProfileFilters() {
   return {
-    department: '全部部门',
-    identity: '全部身份',
-    workGroup: '无',
-    status: '全部状态',
+    department: localeCopy.copy_68f7277730,
+    identity: localeCopy.copy_55780718f9,
+    workGroup: localeCopy.copy_54e953f1bb,
+    status: localeCopy.copy_03a3d115c7,
     keyword: ''
   };
 }
 
 function emptyHrProfileFilterOptions() {
   return {
-    departments: ['全部部门'],
-    identities: ['全部身份'],
-    workGroups: ['无'],
+    departments: [localeCopy.copy_68f7277730],
+    identities: [localeCopy.copy_55780718f9],
+    workGroups: [localeCopy.copy_54e953f1bb],
     statuses: HR_PROFILE_STATUS_OPTIONS
   };
 }
@@ -680,9 +682,9 @@ function buildHrProfileFilterOptions(rows = []) {
   });
 
   return {
-    departments: ['全部部门', ...[...new Set(departments)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
-    identities: ['全部身份', ...[...new Set(identities)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
-    workGroups: ['全部工作分工', ...[...new Set(workGroups)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
+    departments: [localeCopy.copy_68f7277730, ...[...new Set(departments)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
+    identities: [localeCopy.copy_55780718f9, ...[...new Set(identities)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
+    workGroups: [localeCopy.copy_f54076411e, ...[...new Set(workGroups)].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'))],
     statuses: HR_PROFILE_STATUS_OPTIONS
   };
 }
@@ -693,16 +695,16 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
     const departments = Array.isArray(item.departments) ? item.departments : [item.department];
     const identities = Array.isArray(item.identities) ? item.identities : [item.identity];
     const workGroups = Array.isArray(item.workGroups) ? item.workGroups : [item.workGroup];
-    if (filters.department !== '全部部门' && !departments.includes(filters.department)) {
+    if (filters.department !== localeCopy.copy_68f7277730 && !departments.includes(filters.department)) {
       return false;
     }
-    if (filters.identity !== '全部身份' && !identities.includes(filters.identity)) {
+    if (filters.identity !== localeCopy.copy_55780718f9 && !identities.includes(filters.identity)) {
       return false;
     }
-    if (filters.workGroup !== '无' && filters.workGroup !== '全部职能组' && filters.workGroup !== '全部工作分工' && !workGroups.includes(filters.workGroup)) {
+    if (filters.workGroup !== localeCopy.copy_54e953f1bb && filters.workGroup !== localeCopy.copy_e986e973a2 && filters.workGroup !== localeCopy.copy_f54076411e && !workGroups.includes(filters.workGroup)) {
       return false;
     }
-    if (filters.status !== '全部状态' && item.auditStatusText !== filters.status) {
+    if (filters.status !== localeCopy.copy_03a3d115c7 && item.auditStatusText !== filters.status) {
       return false;
     }
     if (keyword) {
@@ -724,9 +726,9 @@ function applyHrProfileFilters(rows = [], filters = emptyHrProfileFilters()) {
 
 function emptyResultFilters() {
   return {
-    department: '全部',
-    identity: '全部',
-    workGroup: '全部',
+    department: localeCopy.copy_31d4595959,
+    identity: localeCopy.copy_31d4595959,
+    workGroup: localeCopy.copy_31d4595959,
     viewMode: 'overview',
     sortMode: 'score_desc'
   };
@@ -754,70 +756,70 @@ function getNumericLength(value) {
 
 function getProfileFieldTypeLabel(type) {
   if (type === 'number') {
-    return '数字';
+    return localeCopy.copy_dfb6c2130f;
   }
   if (type === 'sequence') {
-    return '序列选择';
+    return localeCopy.copy_5f0b7c7728;
   }
   if (type === 'date') {
-    return '日期';
+    return localeCopy.copy_45d46b9df2;
   }
   if (type === 'phone') {
-    return '手机号';
+    return localeCopy.copy_8e0c2b3066;
   }
   if (type === 'email') {
-    return '邮箱';
+    return localeCopy.copy_138db9568c;
   }
-  return '文字';
+  return localeCopy.copy_7dd268a8b6;
 }
 
 function buildFieldHint(field = {}) {
   if (field.type === 'text' && ((field.minLength != null && field.minLength !== '') || (field.maxLength != null && field.maxLength !== ''))) {
     const parts = [];
     if (field.minLength != null && field.minLength !== '') {
-      parts.push(`最短 ${field.minLength}`);
+      parts.push(localeFormat(localeCopy.copy_3f8754b30b, [field.minLength]));
     }
     if (field.maxLength != null && field.maxLength !== '') {
-      parts.push(`最长 ${field.maxLength}`);
+      parts.push(localeFormat(localeCopy.copy_451c378411, [field.maxLength]));
     }
-    return `长度限制：${parts.join('，')}`;
+    return localeFormat(localeCopy.copy_4be5ecab0a, [parts.join('，')]);
   }
 
   if (field.type === 'number') {
-    const decimalText = field.allowDecimal === false ? '填写整数' : '可填小数';
+    const decimalText = field.allowDecimal === false ? localeCopy.copy_a3dea6ada5 : localeCopy.copy_ad3542efbf;
     if (field.numberRule === 'length_range' && ((field.minDigits != null && field.minDigits !== '') || (field.maxDigits != null && field.maxDigits !== ''))) {
       const parts = [];
       if (field.minDigits != null && field.minDigits !== '') {
-        parts.push(`最短 ${field.minDigits}`);
+        parts.push(localeFormat(localeCopy.copy_3f8754b30b, [field.minDigits]));
       }
       if (field.maxDigits != null && field.maxDigits !== '') {
-        parts.push(`最长 ${field.maxDigits}`);
+        parts.push(localeFormat(localeCopy.copy_451c378411, [field.maxDigits]));
       }
-      return `数字长度：${parts.join('，')}，${decimalText}`;
+      return localeFormat(localeCopy.copy_d55da089ba, [parts.join('，'), decimalText]);
     }
     if ((field.minValue != null && field.minValue !== '') || (field.maxValue != null && field.maxValue !== '')) {
       const parts = [];
       if (field.minValue != null && field.minValue !== '') {
-        parts.push(`最小 ${field.minValue}`);
+        parts.push(localeFormat(localeCopy.copy_82f906c927, [field.minValue]));
       }
       if (field.maxValue != null && field.maxValue !== '') {
-        parts.push(`最大 ${field.maxValue}`);
+        parts.push(localeFormat(localeCopy.copy_5a2de860a6, [field.maxValue]));
       }
-      return `数值范围：${parts.join('，')}，${decimalText}`;
+      return localeFormat(localeCopy.copy_62b07016a8, [parts.join('，'), decimalText]);
     }
     return decimalText;
   }
 
   if (field.type === 'date') {
-    return '格式：YYYY-MM-DD';
+    return localeCopy.copy_fd57aa07b7;
   }
 
   if (field.type === 'phone') {
-    return '请输入 11 位手机号';
+    return localeCopy.copy_388528b146;
   }
 
   if (field.type === 'email') {
-    return '示例：name@example.com';
+    return localeCopy.copy_4dbdb20d7c;
   }
 
   return '';
@@ -832,53 +834,53 @@ function validateProfileField(field = {}, rawValue) {
 
   if (field.type === 'text') {
     if (field.minLength != null && field.minLength !== '' && value.length < field.minLength) {
-      return `${field.label}请填写至少 ${field.minLength} 个字符`;
+      return localeFormat(localeCopy.copy_245abb6cb3, [field.label, field.minLength]);
     }
     if (field.maxLength != null && field.maxLength !== '' && value.length > field.maxLength) {
-      return `${field.label}请控制在 ${field.maxLength} 个字符内`;
+      return localeFormat(localeCopy.copy_0d42479c01, [field.label, field.maxLength]);
     }
   }
 
   if (field.type === 'number') {
     if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) {
-      return `${field.label}请输入整数`;
+      return localeFormat(localeCopy.copy_8d49f37a37, [field.label]);
     }
     const numberValue = Number(value);
     if (!Number.isFinite(numberValue)) {
-      return `${field.label}请输入数字`;
+      return localeFormat(localeCopy.copy_952bf81d5f, [field.label]);
     }
     if (field.numberRule === 'length_range') {
       const numericLength = getNumericLength(value);
       if (field.minDigits != null && field.minDigits !== '' && numericLength < field.minDigits) {
-        return `${field.label}请输入至少 ${field.minDigits} 位`;
+        return localeFormat(localeCopy.copy_8d415deaa0, [field.label, field.minDigits]);
       }
       if (field.maxDigits != null && field.maxDigits !== '' && numericLength > field.maxDigits) {
-        return `${field.label}请输入不超过 ${field.maxDigits} 位`;
+        return localeFormat(localeCopy.copy_8ce15854f9, [field.label, field.maxDigits]);
       }
     } else {
       if (field.minValue != null && field.minValue !== '' && numberValue < field.minValue) {
-        return `${field.label}请输入不小于 ${field.minValue} 的数值`;
+        return localeFormat(localeCopy.copy_2c1cbd4cee, [field.label, field.minValue]);
       }
       if (field.maxValue != null && field.maxValue !== '' && numberValue > field.maxValue) {
-        return `${field.label}请输入不大于 ${field.maxValue} 的数值`;
+        return localeFormat(localeCopy.copy_3f2df8f2ed, [field.label, field.maxValue]);
       }
     }
   }
 
   if (field.type === 'sequence' && Array.isArray(field.options) && field.options.length && field.options.indexOf(value) === -1) {
-    return `请选择${field.label}`;
+    return localeFormat(localeCopy.copy_8a0bd4d5b9, [field.label]);
   }
 
   if (field.type === 'date' && !isValidDateString(value)) {
-    return `请选择有效的${field.label}`;
+    return localeFormat(localeCopy.copy_993602ff18, [field.label]);
   }
 
   if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) {
-    return `请检查${field.label}`;
+    return localeFormat(localeCopy.copy_9973008adb, [field.label]);
   }
 
   if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-    return `请检查${field.label}`;
+    return localeFormat(localeCopy.copy_9973008adb, [field.label]);
   }
 
   return '';
@@ -952,7 +954,7 @@ function detectFieldTypeFromValues(values) {
   return 'text';
 }
 
-let EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', '无', '空', 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
+let EMPTY_VALUE_ALIASES = ['null', 'NULL', 'Null', localeCopy.copy_54e953f1bb, localeCopy.copy_da3d159c7a, 'N/A', 'NA', 'n/a', 'na', '-', '—', 'none', 'None', '/', '\\'];
 
 function normalizeEmptyValue(value) {
   let v = String(value == null ? '' : value).trim();
@@ -964,20 +966,20 @@ function normalizeEmptyValue(value) {
 function getFieldTypeDisplayName(fieldDef) {
   let ft = (fieldDef && fieldDef.type) || 'text';
   let option = PROFILE_FIELD_TYPE_OPTIONS.find(function (item) { return item.value === ft; });
-  return option ? option.label : '文本';
+  return option ? option.label : localeCopy.copy_12e5c96d1e;
 }
 
 function getFieldTypeLabelForTarget(target, templateFields) {
   if (!target || target === 'ignore') return '—';
   if (target === 'name' || target === 'studentId' || target === 'department'
       || target === 'identity' || target === 'workGroup') {
-    return '文本';
+    return localeCopy.copy_12e5c96d1e;
   }
   let fields = templateFields || [];
   for (let i = 0; i < fields.length; i++) {
     if (fields[i].id === target) return getFieldTypeDisplayName(fields[i]);
   }
-  return '文本';
+  return localeCopy.copy_12e5c96d1e;
 }
 
 function validateCsvValueAgainstField(value, fieldDef) {
@@ -989,34 +991,34 @@ function validateCsvValueAgainstField(value, fieldDef) {
 
   if (fieldType === 'text') {
     if (fieldDef.minLength && v.length < Number(fieldDef.minLength)) {
-      return { ok: false, reason: '请填写至少' + fieldDef.minLength + '个字符', fieldType: typeLabel };
+      return { ok: false, reason: localeCopy.copy_75b9fa45e1 + fieldDef.minLength + localeCopy.copy_32f0d98c34, fieldType: typeLabel };
     }
     if (fieldDef.maxLength && v.length > Number(fieldDef.maxLength)) {
-      return { ok: false, reason: '请控制在' + fieldDef.maxLength + '个字符内', fieldType: typeLabel };
+      return { ok: false, reason: localeCopy.copy_b882dba21a + fieldDef.maxLength + localeCopy.copy_b4e32a17b0, fieldType: typeLabel };
     }
     return { ok: true };
   }
 
   if (fieldType === 'number') {
     if (fieldDef.allowDecimal === false && !/^[+-]?\d+$/.test(v)) {
-      return { ok: false, reason: '请输入整数', fieldType: typeLabel };
+      return { ok: false, reason: localeCopy.copy_007b4d4286, fieldType: typeLabel };
     }
     let num = Number(v);
-    if (!isFinite(num)) return { ok: false, reason: '不是有效数字', fieldType: typeLabel };
+    if (!isFinite(num)) return { ok: false, reason: localeCopy.copy_d208f302ad, fieldType: typeLabel };
     if (fieldDef.numberRule === 'length_range') {
       let nlen = String(v).replace(/^[+-]/, '').replace('.', '').length;
       if (fieldDef.minDigits && nlen < Number(fieldDef.minDigits)) {
-        return { ok: false, reason: '请输入至少' + fieldDef.minDigits + '位', fieldType: typeLabel };
+        return { ok: false, reason: localeCopy.copy_1f410a2c02 + fieldDef.minDigits + localeCopy.copy_b75c3b7064, fieldType: typeLabel };
       }
       if (fieldDef.maxDigits && nlen > Number(fieldDef.maxDigits)) {
-        return { ok: false, reason: '请输入不超过' + fieldDef.maxDigits + '位', fieldType: typeLabel };
+        return { ok: false, reason: localeCopy.copy_48c9426863 + fieldDef.maxDigits + localeCopy.copy_b75c3b7064, fieldType: typeLabel };
       }
     } else {
       if (fieldDef.minValue !== '' && fieldDef.minValue != null && num < Number(fieldDef.minValue)) {
-        return { ok: false, reason: '请输入不小于' + fieldDef.minValue + '的数值', fieldType: typeLabel };
+        return { ok: false, reason: localeCopy.copy_7beca82ea5 + fieldDef.minValue + localeCopy.copy_8a85cc9b8b, fieldType: typeLabel };
       }
       if (fieldDef.maxValue !== '' && fieldDef.maxValue != null && num > Number(fieldDef.maxValue)) {
-        return { ok: false, reason: '请输入不大于' + fieldDef.maxValue + '的数值', fieldType: typeLabel };
+        return { ok: false, reason: localeCopy.copy_144ee0fab3 + fieldDef.maxValue + localeCopy.copy_8a85cc9b8b, fieldType: typeLabel };
       }
     }
     return { ok: true };
@@ -1030,23 +1032,23 @@ function validateCsvValueAgainstField(value, fieldDef) {
       optionsArr = String(fieldDef.optionsText).split(/[\n,]/).map(function (s) { return s.trim(); }).filter(function (s) { return s; });
     }
     if (optionsArr.length && optionsArr.indexOf(v) === -1) {
-      return { ok: false, reason: '请选择可用选项', fieldType: typeLabel };
+      return { ok: false, reason: localeCopy.copy_821b3229b0, fieldType: typeLabel };
     }
     return { ok: true };
   }
 
   if (fieldType === 'date') {
-    if (!tryParseDateValue(v)) return { ok: false, reason: '不是有效日期（支持YYYY-MM-DD、YYYY/MM/DD、日期时间等格式）', fieldType: typeLabel };
+    if (!tryParseDateValue(v)) return { ok: false, reason: localeCopy.copy_a1eb0bc51c, fieldType: typeLabel };
     return { ok: true };
   }
 
   if (fieldType === 'phone') {
-    if (!/^1[3-9]\d{9}$/.test(v)) return { ok: false, reason: '不是有效手机号', fieldType: typeLabel };
+    if (!/^1[3-9]\d{9}$/.test(v)) return { ok: false, reason: localeCopy.copy_332cb0e0e9, fieldType: typeLabel };
     return { ok: true };
   }
 
   if (fieldType === 'email') {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { ok: false, reason: '不是有效邮箱', fieldType: typeLabel };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { ok: false, reason: localeCopy.copy_0ce7e15a71, fieldType: typeLabel };
     return { ok: true };
   }
 
@@ -1077,11 +1079,11 @@ function autoMapCsvColumn(headerName, templateFields) {
   let MIN_SIMILARITY = 0.4;
 
   let basicCandidates = [
-    { target: 'name', aliases: ['姓名', 'name'] },
-    { target: 'studentId', aliases: ['学号', 'studentid', 'student id'] },
-    { target: 'department', aliases: ['录取部门', '所属部门', '部门', '学院', 'department'] },
-    { target: 'identity', aliases: ['职位', '身份', 'identity'] },
-    { target: 'workGroup', aliases: ['工作分工', '职能组', '职能', 'workgroup', 'work group'] }
+    { target: 'name', aliases: [localeCopy.copy_3c946202ff, 'name'] },
+    { target: 'studentId', aliases: [localeCopy.copy_cbb853db1b, 'studentid', 'student id'] },
+    { target: 'department', aliases: [localeCopy.copy_027e560285, localeCopy.copy_62f8e70200, localeCopy.copy_bc011e4e3b, localeCopy.copy_a98e7f3519, 'department'] },
+    { target: 'identity', aliases: [localeCopy.copy_51b18db06b, localeCopy.copy_474f638a6f, 'identity'] },
+    { target: 'workGroup', aliases: [localeCopy.copy_6e82088dd6, localeCopy.copy_be736f763d, localeCopy.copy_7b66955494, 'workgroup', 'work group'] }
   ];
 
   function scoreCandidates(candidates, source) {
@@ -1138,11 +1140,11 @@ function autoMapCsvColumn(headerName, templateFields) {
 }
 
 function buildCsvMappingOptions(templateFields) {
-  let labels = ['— 不导入 —', '姓名', '学号', '所属部门', '身份', '工作分工（职能组）'];
+  let labels = [localeCopy.copy_d7f0ba5c5a, localeCopy.copy_3c946202ff, localeCopy.copy_cbb853db1b, localeCopy.copy_62f8e70200, localeCopy.copy_474f638a6f, localeCopy.copy_41b3f85916];
   let values = ['ignore', 'name', 'studentId', 'department', 'identity', 'workGroup'];
   let fields = templateFields || [];
   for (let i = 0; i < fields.length; i++) {
-    labels.push('→ ' + fields[i].label + '（补充资料）');
+    labels.push('→ ' + fields[i].label + localeCopy.copy_06bb0a0ac7);
     values.push(fields[i].id);
   }
   return { labels: labels, values: values };
@@ -1190,7 +1192,7 @@ function refreshCsvMappingOptions(rows, templateFields) {
       mappingLabels: labels,
       mappingValues: values,
       optionIndex: currentOptionIndex,
-      optionLabel: labels[currentOptionIndex] || labels[0] || '— 忽略 —'
+      optionLabel: labels[currentOptionIndex] || labels[0] || localeCopy.copy_e19cf95e29
     });
   }
   return nextRows;

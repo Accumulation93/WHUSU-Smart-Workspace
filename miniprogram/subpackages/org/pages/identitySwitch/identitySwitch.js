@@ -1,3 +1,4 @@
+const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/org/pages/identitySwitch/identitySwitch');
 const { getErrorText } = require('../../../../utils/api');
 const authContext = require('../../../../utils/authContext');
 const contextRouteGuard = require('../../../../utils/contextRouteGuard');
@@ -26,8 +27,8 @@ function decorateIdentities(identities, draftOrganizationId, selection) {
     return Object.assign({}, item, {
       current: selection.organizationId === draftOrganizationId
         && selection.identityId === item.identityId,
-      roleLabel: item.role === 'admin' ? '管理身份' : '组织岗位',
-      scopeLabel: item.scope === 'global' ? '全局权限' : ''
+      roleLabel: item.role === 'admin' ? localeCopy.copy_e0b24e2033 : localeCopy.copy_6db7a44985,
+      scopeLabel: item.scope === 'global' ? localeCopy.copy_e3eb24175c : ''
     });
   });
   return {
@@ -38,6 +39,7 @@ function decorateIdentities(identities, draftOrganizationId, selection) {
 
 Page({
   data: {
+    localeCopy,
     organizations: [],
     filteredOrganizations: [],
     identities: [],
@@ -61,6 +63,7 @@ Page({
   },
 
   onLoad() {
+    wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     this._active = true;
     this.applyCatalog({
       organizations: authContext.getOrganizations(),
@@ -127,7 +130,7 @@ Page({
       this.applyCatalog(catalog);
     } catch (error) {
       if (!orgSession.isRequestCurrent(this, request)) return;
-      this.setData({ errorText: getErrorText(error, '未加载，请重试') });
+      this.setData({ errorText: getErrorText(error, localeCopy.copy_05644ca9d3) });
     } finally {
       if (this._active && orgSession.isRequestCurrent(this, request)) {
         this.setData({ loading: false });
@@ -203,7 +206,7 @@ Page({
       this._active = false;
       contextRouteGuard.finishSwitch(activated);
     } catch (error) {
-      const errorText = getErrorText(error, '未切换，请重试');
+      const errorText = getErrorText(error, localeCopy.copy_53d5e0a0c8);
       this.setData({ errorText });
       if (error && ['context_forbidden', 'org_access_denied'].indexOf(error.status) >= 0) {
         await this.loadCatalog();

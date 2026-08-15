@@ -1,0 +1,29 @@
+'use strict';
+
+module.exports = Object.freeze({
+  copy_03d69a9d28: '请重新选择文件',
+  copy_10d3269bb4: '请重新选择身份',
+  copy_161855b67c: '印章已更新',
+  copy_319cc04882: '请重新选择审核类型',
+  copy_31f5d1514b: '验签权限已授予',
+  copy_4ac0ae43dd: '请至少添加一个审核步骤',
+  copy_76f2662073: '请输入印章名称',
+  copy_780fb113f1: '请刷新申请记录',
+  copy_7d1a305d97: '请选择授权人员',
+  copy_8e51c9c0df: '印章已创建',
+  copy_93c50c01c0: '第',
+  copy_9c1d248076: '请上传印章图片',
+  copy_a5d4679cf0: '印章已删除',
+  copy_c2eabcfd63: '验签权限已撤销',
+  copy_cb20eb18bc: '印章分配已更新',
+  copy_cf05c2ba56: '请输入模板名称',
+  copy_d1856227b6: '请选择身份',
+  copy_dcc2e39631: '该人员已有验签权限',
+  copy_e0aaf03f8a: '请先选择组织',
+  copy_eb6b0a83d2: '请选择第',
+  copy_efc8493bdc: '模板已删除',
+  copy_f048be09ae: '请使用管理员身份',
+  copy_f6152889c8: '该审核类型已有申请记录，可停用后保留',
+  copy_fa1dcca5ac: '请重新打开申请',
+  copy_fc971e88db: '请重新选择印章'
+});

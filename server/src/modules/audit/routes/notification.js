@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/routes/notification');
 const express = require('express');
 const router = express.Router();
 const { safeString } = require('../../../utils/helpers');
@@ -190,7 +191,7 @@ function scopeMetadata(scope, failures) {
 async function resolveScope(req, body, defaultToCurrent) {
   const openid = safeString(req.openid);
   if (!openid) {
-    return { ok: false, status: 'auth_failed', message: '请先登录' };
+    return { ok: false, status: 'auth_failed', message: localeCopy.copy_c22a252e97 };
   }
   const currentOrgId = await getCurrentOrgId();
   let role = safeString(req.headers['x-role']).toLowerCase();
@@ -233,7 +234,7 @@ async function resolveScope(req, body, defaultToCurrent) {
     }).filter((context) => context.actor.id);
   } else {
     if (role !== 'user' && role !== 'admin') {
-      return { ok: false, status: 'invalid_role', message: '请重新选择身份' };
+      return { ok: false, status: 'invalid_role', message: localeCopy.copy_10d3269bb4 };
     }
     allContexts = await listAccessibleActorContexts({ openid, role, currentOrgId });
   }
@@ -243,10 +244,10 @@ async function resolveScope(req, body, defaultToCurrent) {
     ? allContexts.filter((context) => context.organizationId === requestedOrganizationId)
     : allContexts;
   if (requestedOrganizationId && !contexts.length) {
-    return { ok: false, status: 'org_access_denied', message: '请选择可访问的组织' };
+    return { ok: false, status: 'org_access_denied', message: localeCopy.copy_a805235eb4 };
   }
   if (!allContexts.length) {
-    return { ok: false, status: 'forbidden', message: '请重新选择身份' };
+    return { ok: false, status: 'forbidden', message: localeCopy.copy_10d3269bb4 };
   }
   return {
     ok: true,
@@ -363,7 +364,7 @@ router.post('/getMessageOverview', async (req, res) => {
     ));
   } catch (error) {
     console.error('[message:overview] failed:', error);
-    res.json({ status: 'error', message: '请稍后刷新' });
+    res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
 
@@ -379,7 +380,7 @@ router.post('/listTodos', async (req, res) => {
     ));
   } catch (error) {
     console.error('[todo:list] failed:', error);
-    res.json({ status: 'error', message: '请稍后刷新' });
+    res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
 
@@ -394,7 +395,7 @@ router.post('/getTodoCount', async (req, res) => {
     ));
   } catch (error) {
     console.error('[todo:count] failed:', error);
-    res.json({ status: 'error', message: '请稍后刷新' });
+    res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
 
@@ -412,11 +413,11 @@ router.post('/listNotifications', async (req, res) => {
     if (error.code === 'INVALID_NOTIFICATION_CURSOR') {
       return res.json({
         status: 'invalid_params',
-        message: '请刷新通知'
+        message: localeCopy.copy_3d25d623ad
       });
     }
     console.error('[notification:list] failed:', error);
-    res.json({ status: 'error', message: '请稍后刷新' });
+    res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
 
@@ -431,24 +432,24 @@ router.post('/getNotificationUnreadCount', async (req, res) => {
     ));
   } catch (error) {
     console.error('[notification:count] failed:', error);
-    res.json({ status: 'error', message: '请稍后刷新' });
+    res.json({ status: 'error', message: localeCopy.copy_e52119b17e });
   }
 });
 
 router.post('/markNotificationRead', async (req, res) => {
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请刷新通知' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_3d25d623ad });
     const scope = await resolveScope(req, req.body || {}, true);
     if (!scope.ok) return respondScopeError(res, scope);
     const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.markRead(id, context.actor));
     const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
       || { found: false };
-    if (!result.found) return res.json({ status: 'not_found', message: '请刷新通知' });
+    if (!result.found) return res.json({ status: 'not_found', message: localeCopy.copy_3d25d623ad });
     res.json({ status: 'success', changed: result.changed, unreadCount: result.unreadCount });
   } catch (error) {
     console.error('[notification:markRead] failed:', error);
-    res.json({ status: 'error', message: '未标记已读，请重试' });
+    res.json({ status: 'error', message: localeCopy.copy_6c3f2c0f17 });
   }
 });
 
@@ -470,7 +471,7 @@ router.post('/markAllNotificationsRead', async (req, res) => {
     ));
   } catch (error) {
     console.error('[notification:markAllRead] failed:', error);
-    res.json({ status: 'error', message: '未标记已读，请重试' });
+    res.json({ status: 'error', message: localeCopy.copy_6c3f2c0f17 });
   }
 });
 
@@ -492,24 +493,24 @@ router.post('/deleteAllNotifications', async (req, res) => {
     ));
   } catch (error) {
     console.error('[notification:deleteAll] failed:', error);
-    res.json({ status: 'error', message: '未清除，请重试' });
+    res.json({ status: 'error', message: localeCopy.copy_d696cb9250 });
   }
 });
 
 router.post('/deleteNotification', async (req, res) => {
   try {
     const id = safeString(req.body.id);
-    if (!id) return res.json({ status: 'invalid_params', message: '请刷新通知' });
+    if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_3d25d623ad });
     const scope = await resolveScope(req, req.body || {}, true);
     if (!scope.ok) return respondScopeError(res, scope);
     const attempts = await settleWithConcurrency(scope.contexts, (context) => notificationModel.deleteById(id, context.actor));
     const result = attempts.filter((item) => item.ok).map((item) => item.value).find((item) => item.found)
       || { found: false };
-    if (!result.found) return res.json({ status: 'not_found', message: '请刷新通知' });
+    if (!result.found) return res.json({ status: 'not_found', message: localeCopy.copy_3d25d623ad });
     res.json({ status: 'success', unreadCount: result.unreadCount });
   } catch (error) {
     console.error('[notification:delete] failed:', error);
-    res.json({ status: 'error', message: '未删除，请重试' });
+    res.json({ status: 'error', message: localeCopy.copy_076bb5d383 });
   }
 });
 
