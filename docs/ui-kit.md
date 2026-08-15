@@ -15,6 +15,7 @@
 
 - 主包启动壳统一物理放在 `miniprogram/subpackages/main/pages/**`，登录页和门户页注册在 `app.json.pages` 顶层；`subpackages/main` 不得写入 `app.json.subPackages`。包归属以 `app.json` 注册位置为准，不以目录名为准。
 - 消息中心、工作台和其他业务页面统一放在 `subpackages/<模块名>/pages/**` 并注册到 `app.json.subPackages`，不得把业务页注册到顶层主包。
+- 分包只能引用自身分包或主包资源，禁止跨业务分包引用；跨模块共享 WXSS、组件和基础资源统一放在主包共享目录 `subpackages/main/styles/**` 或 `components/**`。
 - 分包迁移必须同步更新 `app.json`、门户卡片、可信导航、上下文守卫、服务端通知/待办目标和 WXSS 导入路径；旧主包业务路由不得残留在生产调用链。
 - 提示、指引、校验反馈、空状态、Toast、Modal、确认层、通知标题/描述和导出标题等用户可见常量只能来自 locale。业务代码通过语义键和格式化参数引用；CSV 列别名、状态码、路由和内部日志不属于文案。
 - locale 生成必须合并现有文件与 Git 基线资源，禁止覆盖同文件已有键；迁移后必须重跑语言审计和受影响功能测试。

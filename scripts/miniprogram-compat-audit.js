@@ -11,6 +11,12 @@ const failures = [];
 let checkedJs = 0;
 let checkedJson = 0;
 let checkedWxml = 0;
+let checkedWxss = 0;
+
+const APP_CONFIG = JSON.parse(fs.readFileSync(path.join(MINI_ROOT, 'app.json'), 'utf8'));
+const SUBPACKAGE_ROOTS = (APP_CONFIG.subPackages || APP_CONFIG.subpackages || [])
+  .map(function(item) { return String(item.root || '').replace(/\/$/, ''); })
+  .filter(Boolean);
 
 function normalize(file) {
   return path.relative(ROOT, file).replace(/\\/g, '/');
@@ -37,10 +43,36 @@ function checkUtf8Bom(file) {
   }
 }
 
-function resolveModule(fromFile, request) {
+function packageRootFor(file) {
+  const relative = path.relative(MINI_ROOT, file).replace(/\\/g, '/');
+  for (const root of SUBPACKAGE_ROOTS) {
+    if (relative === root || relative.startsWith(root + '/')) return root;
+  }
+  return '__APP__';
+}
+
+function reportCrossPackageReference(fromFile, targetFile, kind, request) {
+  const fromPackage = packageRootFor(fromFile);
+  const targetPackage = packageRootFor(targetFile);
+  if (fromPackage !== '__APP__' && targetPackage !== '__APP__' && fromPackage !== targetPackage) {
+    report(fromFile, kind + '不得跨分包引用: ' + request + '（' + fromPackage + ' → ' + targetPackage + '）');
+  }
+}
+
+function resolveModulePath(fromFile, request) {
   const base = path.resolve(path.dirname(fromFile), request);
   const candidates = [base, base + '.js', base + '.json', path.join(base, 'index.js')];
-  return candidates.some(function(candidate) { return fs.existsSync(candidate); });
+  return candidates.find(function(candidate) {
+    return fs.existsSync(candidate) && fs.statSync(candidate).isFile();
+  }) || null;
+}
+
+function resolveWxssPath(fromFile, request) {
+  const base = path.resolve(path.dirname(fromFile), request);
+  const candidates = [base, base + '.wxss'];
+  return candidates.find(function(candidate) {
+    return fs.existsSync(candidate) && fs.statSync(candidate).isFile();
+  }) || null;
 }
 
 function checkJavaScript(file) {
@@ -66,8 +98,13 @@ function checkJavaScript(file) {
     const lineStart = source.lastIndexOf('\n', match.index) + 1;
     const linePrefix = source.slice(lineStart, match.index);
     const isCommentLine = /^\s*(?:\/\/|\/\*|\*)/.test(linePrefix);
-    if (!isCommentLine && request.startsWith('.') && !resolveModule(file, request)) {
-      report(file, '本地模块不存在: ' + request);
+    if (!isCommentLine && request.startsWith('.')) {
+      const target = resolveModulePath(file, request);
+      if (!target) {
+        report(file, '本地模块不存在: ' + request);
+      } else {
+        reportCrossPackageReference(file, target, '本地模块', request);
+      }
     }
     match = requirePattern.exec(source);
   }
@@ -78,6 +115,25 @@ function componentBase(jsonFile, componentPath) {
     return path.join(MINI_ROOT, componentPath.slice(1));
   }
   return path.resolve(path.dirname(jsonFile), componentPath);
+}
+
+function checkWxss(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  checkedWxss += 1;
+  const importPattern = /@import\s+(?:url\(\s*)?["']([^"']+)["']\s*\)?\s*;/g;
+  let match = importPattern.exec(source);
+  while (match) {
+    const request = match[1];
+    if (request.startsWith('.')) {
+      const target = resolveWxssPath(file, request);
+      if (!target) {
+        report(file, '本地 WXSS 不存在: ' + request);
+      } else {
+        reportCrossPackageReference(file, target, 'WXSS', request);
+      }
+    }
+    match = importPattern.exec(source);
+  }
 }
 
 function checkJson(file) {
@@ -99,6 +155,9 @@ function checkJson(file) {
       if (!fs.existsSync(base + extension)) {
         report(file, '组件 ' + name + ' 缺少文件: ' + normalize(base + extension));
       }
+    }
+    if (fs.existsSync(base + '.js')) {
+      reportCrossPackageReference(file, base + '.js', '组件', componentPath);
     }
   }
 }
@@ -173,6 +232,19 @@ function checkWxml(file) {
     } else {
       cursor = end + 1;
     }
+
+    if (!tag.startsWith('</') && (tagName === 'import' || tagName === 'include')) {
+      const srcMatch = tag.match(/\ssrc\s*=\s*(["'])([^"']+)\1/);
+      if (srcMatch && srcMatch[2].startsWith('.')) {
+        const base = path.resolve(path.dirname(file), srcMatch[2]);
+        const target = fs.existsSync(base) ? base : (fs.existsSync(base + '.wxml') ? base + '.wxml' : null);
+        if (!target) {
+          report(file, '本地 WXML 不存在: ' + srcMatch[2]);
+        } else {
+          reportCrossPackageReference(file, target, 'WXML', srcMatch[2]);
+        }
+      }
+    }
   }
 }
 
@@ -236,6 +308,7 @@ files.filter(function(file) { return /\.(?:js|json|wxml|wxss|wxs)$/.test(file); 
 files.filter(function(file) { return file.endsWith('.js'); }).forEach(checkJavaScript);
 files.filter(function(file) { return file.endsWith('.json'); }).forEach(checkJson);
 files.filter(function(file) { return file.endsWith('.wxml'); }).forEach(checkWxml);
+files.filter(function(file) { return file.endsWith('.wxss'); }).forEach(checkWxss);
 const pageCount = checkRegisteredPages();
 checkProjectConfig();
 
@@ -244,5 +317,5 @@ if (failures.length) {
   failures.forEach(function(item) { console.error('- ' + item); });
   process.exitCode = 1;
 } else {
-  console.log('小程序编译兼容性审计通过：' + pageCount + ' 个页面，' + checkedJs + ' 个 JS，' + checkedJson + ' 个 JSON，' + checkedWxml + ' 个 WXML。');
+  console.log('小程序编译兼容性审计通过：' + pageCount + ' 个页面，' + checkedJs + ' 个 JS，' + checkedJson + ' 个 JSON，' + checkedWxml + ' 个 WXML，' + checkedWxss + ' 个 WXSS。');
 }

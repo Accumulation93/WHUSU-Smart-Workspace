@@ -1,4 +1,4 @@
-@import '../../../workspace/pages/home/home.wxss';
+@import '../../../main/styles/home.wxss';
 @import '../../styles/blue-polish.wxss';
 
 .danger-text { color:#ef4444; font-size: var(--ui-type-control); margin-top:4rpx; }

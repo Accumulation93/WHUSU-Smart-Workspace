@@ -18,7 +18,7 @@ const homeWxml = hydrateLocale(
   homeCopy,
   'copy'
 );
-const homeWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.wxss'), 'utf8');
+const homeWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/main/styles/home.wxss'), 'utf8');
 const adminWxml = hydrateLocale(
   fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8'),
   adminCopy,

@@ -1,2 +1,2 @@
-@import '../../../workspace/pages/home/home.wxss';
+@import '../../../main/styles/home.wxss';
 @import '../../styles/blue-polish.wxss';

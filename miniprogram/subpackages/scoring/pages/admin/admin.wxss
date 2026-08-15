@@ -1,4 +1,4 @@
-@import '../../../workspace/pages/home/home.wxss';
+@import '../../../main/styles/home.wxss';
 
 page {
   min-height: 100%;

@@ -20,6 +20,8 @@ paths: "miniprogram/**"
 
 **包归属以 `app.json` 注册位置为准，不以目录名为准。** `subpackages/main` 与其他分包目录并列只是物理组织方式；注册在顶层 `pages` 的登录页和门户页仍属于主包。
 
+**分包路径引用规则：** 分包只能引用自身分包或主包资源，禁止直接引用其他业务分包的 JS、JSON、WXML、WXSS 或组件。跨模块共享样式统一放在 `subpackages/main/styles/**`，业务分包通过相对路径从主包导入；兼容性审计必须同时检查路径存在性和分包边界。
+
 **关键约束：** 主包 ≤2MB，单分包 ≤2MB，全部分包 ≤20MB。用 `lazyCodeLoading: "requiredComponents"`。
 
 ### app.js 的特殊 require
@@ -37,11 +39,11 @@ require('./utils/tableFile.js');  // ⚠️ 绝对不能删除！
 | 文件 | 关键选择器 | 影响范围 |
 |------|-----------|----------|
 | `app.wxss` | popup 框架、全局 reset | 所有页面 |
-| `subpackages/workspace/pages/home/home.wxss` | `.field-input` (`display: flex`) | import 它的页面 |
+| `subpackages/main/styles/home.wxss` | `.field-input` (`display: flex`) | 业务分包通过主包共享样式导入 |
 | `subpackages/audit/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip` | audit 所有页面 |
 | `subpackages/venue/styles/blue-polish.wxss` | `.field-input`、`.card`、`.chip` | venue 所有页面 |
 
-**规则：绝不修改 `app.wxss`、`home.wxss`、`blue-polish.wxss`。** 用更具体的选择器覆盖。
+**规则：绝不修改 `app.wxss`、`subpackages/main/styles/home.wxss`、`blue-polish.wxss`。** 用更具体的选择器覆盖。
 
 ---
 
