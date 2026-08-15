@@ -172,7 +172,7 @@ router.post('/getRateTargets', async (req, res) => {
     const currentActivity = await scoreActivityModel.getCurrent();
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'need_bind', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'need_bind', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(
@@ -302,7 +302,7 @@ router.post('/getRateTargets', async (req, res) => {
       targets
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新评分任务' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_a2d8fd888c });
   }
 });
 
@@ -327,7 +327,7 @@ router.post('/getScoreFormData', async (req, res) => {
     if (!activity) return res.json({ status: 'missing_activity', message: localeCopy.copy_ff48e241fb });
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
@@ -504,7 +504,7 @@ router.post('/getScoreFormData', async (req, res) => {
       }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新评分内容' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_45de35fe1a });
   }
 });
 
@@ -556,7 +556,7 @@ router.post('/submitScoreRecord', async (req, res) => {
 
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const orgId = await getCurrentOrgId();
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
@@ -771,7 +771,7 @@ router.post('/submitScoreRecord', async (req, res) => {
     if (e && e.code === 'INVALID_CLIENT_REQUEST_ID') {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_534935765f });
     }
-    res.json({ status: 'error', message: safeString(e.message) || '评分未提交，请重试' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_fee6d129e3 });
   }
 });
 
@@ -940,7 +940,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
       pagination: { offset, nextOffset: offset + 50, total: rows.length, hasMore: offset + 50 < rows.length, returnedCount: Math.min(50, Math.max(0, rows.length - offset)) }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新评分进度' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_36a1730e53 });
   }
 });
 
@@ -965,7 +965,7 @@ async function buildExportXlsx(sheetName, headers, rows) {
 function buildTaskExportReport(activityName, reportType, rows) {
   if (reportType === 'detail') {
     return {
-      fileName: activityName + '_未完成评分明细',
+      fileName: activityName + localeCopy.copy_6edf0fb992,
       sheetName: '未完成评分明细',
       headers: [
         { key: 'scorerName', label: localeCopy.copy_b74f5017ad },
@@ -994,7 +994,7 @@ function buildTaskExportReport(activityName, reportType, rows) {
   }
 
   return {
-    fileName: activityName + '_未完成评分概览',
+    fileName: activityName + localeCopy.copy_f539673f88,
     sheetName: '未完成评分概览',
     headers: [
       { key: 'scorerName', label: localeCopy.copy_b74f5017ad },
@@ -1175,7 +1175,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
       });
     }
 
-    const activityName = safeString(activity.name) || '评分活动';
+    const activityName = safeString(activity.name) || localeCopy.copy_fc13a82b49;
     const report = buildTaskExportReport(activityName, reportType, rows);
     // All exports produce XLSX — wx.openDocument only supports Excel formats for save-to-path
     const fileContent = await buildExportXlsx(report.sheetName, report.headers, report.rows);
@@ -1183,7 +1183,7 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
 
     res.json({ status: 'success', fileContent, fileName: report.fileName, extension });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '表格未导出，请重试' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_88f78adc7a });
   }
 });
 

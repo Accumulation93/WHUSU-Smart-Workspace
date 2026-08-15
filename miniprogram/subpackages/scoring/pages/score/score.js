@@ -862,7 +862,7 @@ Page({
   },
 
   redirectHome: function () {
-    wx.redirectTo({ url: '/pages/home/home' });
+    wx.redirectTo({ url: '/subpackages/workspace/pages/home/home?subApp=scoring' });
   },
 
   getKeyboardHeightRpx: function () {

@@ -38,7 +38,7 @@ async function createForRecipient(job, recipientType, recipientId, payload) {
     recipientId,
     eventKey,
     type: payload.type || job.event_type,
-    title: payload.title || '通知',
+    title: payload.title || localeCopy.copy_0f9674b985,
     description: payload.description || '',
     category: payload.category || 'system',
     targetType: payload.targetType || '',
@@ -54,7 +54,7 @@ async function processScoringRecipients(job, payload) {
     if (!task || task.pendingCount <= 0) return;
     await createForRecipient(job, 'user', user.id, Object.assign({}, payload, {
       targetId: safeString(task.activity.id),
-      description: payload.description || ('还有 ' + task.pendingCount + ' 人待评分')
+      description: payload.description || ('还有 ' + task.pendingCount + localeCopy.copy_67a5467bc2)
     }));
   });
 }

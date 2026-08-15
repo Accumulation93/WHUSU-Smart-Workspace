@@ -159,31 +159,31 @@ function validateFieldValue(field, rawValue) {
   const value = normalizeEmptyValue(rawValue);
   if (!value) return '';
   if (field.type === 'text') {
-    if (field.minLength != null && value.length < field.minLength) return `${field.label}长度不能少于 ${field.minLength}`;
-    if (field.maxLength != null && value.length > field.maxLength) return `${field.label}长度不能超过 ${field.maxLength}`;
+    if (field.minLength != null && value.length < field.minLength) return localeFormat(localeCopy.copy_22320e55f6, [field.label, field.minLength]);
+    if (field.maxLength != null && value.length > field.maxLength) return localeFormat(localeCopy.copy_04952ae5de, [field.label, field.maxLength]);
     return '';
   }
   if (field.type === 'number') {
-    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return `${field.label}必须是整数`;
+    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return localeFormat(localeCopy.copy_fae78e93f5, [field.label]);
     const numberValue = Number(value);
-    if (!Number.isFinite(numberValue)) return `${field.label}必须是数字`;
+    if (!Number.isFinite(numberValue)) return localeFormat(localeCopy.copy_615112c675, [field.label]);
     if (field.numberRule === 'length_range') {
       const length = String(value).replace(/^[+-]/, '').replace('.', '').length;
-      if (field.minDigits != null && length < field.minDigits) return `${field.label}长度不能少于 ${field.minDigits}`;
-      if (field.maxDigits != null && length > field.maxDigits) return `${field.label}长度不能超过 ${field.maxDigits}`;
+      if (field.minDigits != null && length < field.minDigits) return localeFormat(localeCopy.copy_22320e55f6, [field.label, field.minDigits]);
+      if (field.maxDigits != null && length > field.maxDigits) return localeFormat(localeCopy.copy_04952ae5de, [field.label, field.maxDigits]);
     } else {
-      if (field.minValue != null && numberValue < field.minValue) return `${field.label}不能小于 ${field.minValue}`;
-      if (field.maxValue != null && numberValue > field.maxValue) return `${field.label}不能大于 ${field.maxValue}`;
+      if (field.minValue != null && numberValue < field.minValue) return localeFormat(localeCopy.copy_8800ed2b6c, [field.label, field.minValue]);
+      if (field.maxValue != null && numberValue > field.maxValue) return localeFormat(localeCopy.copy_75e28ff1fe, [field.label, field.maxValue]);
     }
     return '';
   }
   if (field.type === 'sequence') {
-    if (field.options.length && field.options.indexOf(value) === -1) return `${field.label}必须从预设选项中选择`;
+    if (field.options.length && field.options.indexOf(value) === -1) return localeFormat(localeCopy.copy_60f441b409, [field.label]);
     return '';
   }
-  if (field.type === 'date' && !tryParseDate(value)) return `${field.label}必须是有效日期`;
-  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return `${field.label}必须是有效手机号`;
-  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `${field.label}必须是有效邮箱`;
+  if (field.type === 'date' && !tryParseDate(value)) return localeFormat(localeCopy.copy_4a203bdbda, [field.label]);
+  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return localeFormat(localeCopy.copy_40ca1af540, [field.label]);
+  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return localeFormat(localeCopy.copy_e3215fea62, [field.label]);
   return '';
 }
 
@@ -221,7 +221,7 @@ function buildError(field, value, message, fieldType) {
     field,
     value: safeString(value),
     error: message,
-    fieldType: fieldType || '基本资料'
+    fieldType: fieldType || localeCopy.copy_6d61e35304
   };
 }
 

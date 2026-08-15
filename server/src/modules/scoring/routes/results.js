@@ -1248,7 +1248,7 @@ router.post('/getScoreResults', async (req, res) => {
           scorerStudentId: safeString(record.scorerStudentId), scorerDepartment: safeString(rule.scorerDepartment || record.scorerDepartment),
           scorerIdentity: safeString(rule.scorerIdentity || record.scorerIdentity),
           scorerWorkGroup: safeString((memberByScorerKey.get(sk) || {}).workGroup),
-          scorerCategoryLabel: [safeString(rule.scorerDepartment), safeString(rule.scorerIdentity)].filter(Boolean).join(' / ') || '未匹配评分人类别',
+          scorerCategoryLabel: [safeString(rule.scorerDepartment), safeString(rule.scorerIdentity)].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1,
           targetId: safeString(record.targetId), submittedAt: formatDate(record.submittedAt, timezone),
           excludedByRequireAll: invalidScorerClauseKeys.has(lookupClauseKey(record, sk))
         };
@@ -1323,7 +1323,7 @@ router.post('/getScoreResults', async (req, res) => {
       const scorerDepartment = scorerCurrentDept;
       const scorerIdentity = scorerCurrentIdent;
       const scorerCategoryKey = scorerCurrentKey;
-      const scorerCategoryLabel = [scorerDepartment, scorerIdentity].filter(Boolean).join(' / ') || '未匹配评分人类别';
+      const scorerCategoryLabel = [scorerDepartment, scorerIdentity].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1;
       const rsk = resolveScorerKey(record);
       const expectedTask = lookupExpectedTask(record, rsk);
       const sk = safeString((expectedTask && expectedTask.scorerKey) || rsk || record.scorerId);
@@ -1431,14 +1431,14 @@ router.post('/getScoreResults', async (req, res) => {
 
     res.json(filteredPayload);
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新评分结果' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_c59ab1ce4a });
   }
 });
 
 function buildCompletionBoard(rows, field, lean) {
   const boardMap = new Map();
   rows.filter((item) => Number(item.expectedCount || 0) > 0).forEach((item) => {
-    const key = safeString(item[field]) || '未设置';
+    const key = safeString(item[field]) || localeCopy.copy_2b4df49497;
     if (!boardMap.has(key)) boardMap.set(key, { groupName: key, memberCount: 0, completedCount: 0, pendingCount: 0, expectedTotal: 0, submittedTotal: 0, scorerRows: lean ? undefined : [] });
     const board = boardMap.get(key);
     const exp = toNumber(item.expectedCount, 0); const sub = toNumber(item.submittedCount, 0);
@@ -1501,7 +1501,7 @@ router.post('/exportScoreResults', async (req, res) => {
           completionRate: expCount ? Number(((sub.size / expCount) * 100).toFixed(2)) : 0
         };
       });
-      fileName = activityName + '_总分速览';
+      fileName = activityName + localeCopy.copy_3747a7097d;
       headers = [{ key: 'name', label: localeCopy.copy_3c946202ff }, { key: 'studentId', label: localeCopy.copy_cbb853db1b }, { key: 'department', label: localeCopy.copy_bc011e4e3b }, { key: 'identity', label: localeCopy.copy_474f638a6f }, { key: 'workGroup', label: localeCopy.copy_be736f763d }, { key: 'finalScore', label: localeCopy.copy_80528cd2d0 }, { key: 'submittedScorerCount', label: localeCopy.copy_b07e7eb09d }, { key: 'expectedScorerCount', label: localeCopy.copy_02b5a88c0f }, { key: 'completionRate', label: localeCopy.copy_cc6cc6ec7f }];
     } else if (reportType === 'detail') {
       const memberMap = new Map(members.map((m) => [m.id, m]));
@@ -1569,7 +1569,7 @@ router.post('/exportScoreResults', async (req, res) => {
 
     // All exports produce XLSX — wx.openDocument only supports Excel formats for save-to-path
     const sheetNames = { overview: '总分速览', detail: '评分明细', completion: '评分人完成率' };
-    const fileContent = await buildXlsxBase64(sheetNames[reportType] || '导出数据', headers, filteredRows);
+    const fileContent = await buildXlsxBase64(sheetNames[reportType] || localeCopy.copy_47aa0b0bde, headers, filteredRows);
     const extension = 'xlsx';
 
     res.json({ status: 'success', fileContent, fileName, extension });

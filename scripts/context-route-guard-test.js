@@ -22,12 +22,12 @@ function activated(role, permissions, adminLevel) {
 }
 
 assert.strictEqual(
-  guard.isPageSupported({ route: 'pages/home/home', _subApp: 'hr' }, activated('user')),
+  guard.isPageSupported({ route: 'subpackages/workspace/pages/home/home', _subApp: 'hr' }, activated('user')),
   true,
   '普通岗位应继续停留在普通用户子应用'
 );
 assert.strictEqual(
-  guard.isPageSupported({ route: 'pages/home/home', _subApp: 'hr' }, activated('admin', { 'hr.people': true })),
+  guard.isPageSupported({ route: 'subpackages/workspace/pages/home/home', _subApp: 'hr' }, activated('admin', { 'hr.people': true })),
   false,
   '切换到管理身份后不应留在普通用户子应用'
 );
@@ -88,7 +88,7 @@ assert.strictEqual(
   '缺少审批权限的管理员应返回门户'
 );
 assert.strictEqual(
-  guard.isPageSupported({ route: 'pages/messageCenter/messageCenter' }, activated('user')),
+  guard.isPageSupported({ route: 'subpackages/message/pages/messageCenter/messageCenter' }, activated('user')),
   true,
   '消息中心应支持所有已登录身份'
 );

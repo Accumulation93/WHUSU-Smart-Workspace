@@ -264,3 +264,9 @@ Page({
 - 动态句子必须在语言资源中定义模板或格式化函数，业务代码只传变量；路由、状态码、权限键、数据库枚举和业务标识不得伪装成语言资源。
 - 新增文案使用可读语义键；`generated/**` 的内容寻址键仅用于历史等值迁移，不得手写复制到无关页面。
 - 完成小程序修改必须运行 `node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization`。
+
+## 10. 主包与分包统一
+
+- `miniprogram/pages` 只保留登录和门户启动壳；消息中心、工作台组合页及所有业务页面必须位于 `subpackages/<模块名>/pages/**` 并在 `app.json.subPackages` 注册。
+- 页面迁移必须同步更新可信导航、上下文守卫、服务端通知/待办目标 URL、测试路径和 WXSS 导入；迁移后不得留下旧主包业务路由。
+- 提示、指引、校验反馈、空状态、Toast、Modal、确认层、通知标题/描述和导出标题等中文常量必须放进 locale；完成前运行 `node scripts/user-visible-copy-audit.js --strict-guidance`。

@@ -30,7 +30,7 @@ const TARGET_ARG = process.argv.find((arg) => arg.startsWith('--target='));
 const TARGET = TARGET_ARG ? TARGET_ARG.slice('--target='.length).replace(/\\/g, '/') : '';
 const WRITE = process.argv.includes('--write');
 const HAN = /[\u3400-\u9fff]/;
-const SERVER_MODE = TARGET.startsWith('server/src/');
+const SERVER_MODE = TARGET === 'server/src' || TARGET.startsWith('server/src/');
 const SOURCE_ROOT = SERVER_MODE ? SERVER_ROOT : MINI_ROOT;
 const LOCALE_ROOT = path.join(SOURCE_ROOT, 'locales', 'zh-CN', 'generated');
 const RUNTIME_FILE = path.join(SOURCE_ROOT, 'locales', 'runtime.js');
@@ -130,7 +130,7 @@ function addLiteral(entries, sourceLiteral) {
 function isServerVisibleNode(source, node) {
   if (!SERVER_MODE) return true;
   const context = source.slice(Math.max(0, node.start - 220), node.start).replace(/\s+/g, ' ');
-  return /(?:(?:message|label|description|title|content|placeholder|statusText)\s*:\s*|throw new Error\s*\(|new \w+Error\s*\()$/.test(context);
+  return /(?:(?:message|label|description|title|content|placeholder|statusText|reason)\s*:\s*|throw new Error\s*\(|new \w+Error\s*\(|return\s+|\|\|\s*|\+\s*)$/.test(context);
 }
 
 function transformAstNode(source, node, entries, force) {
@@ -320,13 +320,16 @@ function importPath(fromFile, targetFile) {
 }
 
 function injectJavascriptBindings(source, jsFile, localeFile, needsViewData) {
-  if (!source.includes('localeCopy') && !needsViewData) return source;
+  const hasLocaleBinding = /\bconst\s+localeCopy\s*=\s*require\s*\(/.test(source);
+  const needsLocaleBinding = !hasLocaleBinding;
   const resourcePath = importPath(jsFile, localeFile);
   const runtimePath = importPath(jsFile, RUNTIME_FILE);
-  const runtimeBinding = source.includes('localeFormat(')
+  const hasRuntimeBinding = /\bconst\s*\{\s*format\s*:\s*localeFormat\s*\}\s*=\s*require\s*\(/.test(source);
+  const runtimeBinding = source.includes('localeFormat(') && !hasRuntimeBinding
     ? `const { format: localeFormat } = require('${runtimePath}');\n`
     : '';
-  const bindings = `const localeCopy = require('${resourcePath}');\n${runtimeBinding}`;
+  if (!needsLocaleBinding && !runtimeBinding && !needsViewData) return source;
+  const bindings = `${needsLocaleBinding ? `const localeCopy = require('${resourcePath}');\n` : ''}${runtimeBinding}`;
   const directive = source.match(/^(['"]use strict['"];?\s*)/);
   const insertAt = directive ? directive[0].length : 0;
   let output = source.slice(0, insertAt) + bindings + source.slice(insertAt);
@@ -385,6 +388,35 @@ function localeSource(entries) {
   return `'use strict';\n\nmodule.exports = Object.freeze({\n${rows.join(',\n')}\n});\n`;
 }
 
+function parseLocaleModule(source) {
+  const module = { exports: {} };
+  new Function('module', 'exports', source)(module, module.exports);
+  return module.exports && typeof module.exports === 'object' ? module.exports : {};
+}
+
+function readBaselineLocaleEntries(localeFile) {
+  const relativePath = path.relative(ROOT, localeFile).replace(/\\/g, '/');
+  let source = '';
+  try {
+    source = childProcess.execFileSync('git', ['show', `HEAD:${relativePath}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+  } catch (_) {
+    return new Map();
+  }
+  return new Map(Object.entries(parseLocaleModule(source)).map(([key, value]) => [key, JSON.stringify(value)]));
+}
+
+function readExistingLocaleEntries(localeFile) {
+  const entries = readBaselineLocaleEntries(localeFile);
+  if (!fs.existsSync(localeFile)) return entries;
+  const current = parseLocaleModule(fs.readFileSync(localeFile, 'utf8'));
+  for (const [key, value] of Object.entries(current)) entries.set(key, JSON.stringify(value));
+  return entries;
+}
+
 const targetPath = path.resolve(ROOT, TARGET);
 const files = fs.statSync(targetPath).isDirectory() ? walk(targetPath) : [targetPath];
 const groups = new Map();
@@ -407,9 +439,20 @@ for (const [stem, group] of groups) {
     sources.json = transformedJson.source;
     navigationTitle = transformedJson.navigationTitle;
   }
-  if (!entries.size) continue;
   const sourceRelative = path.relative(SOURCE_ROOT, stem);
   const localeFile = path.join(LOCALE_ROOT, `${sourceRelative}.js`);
+  const existingEntries = readExistingLocaleEntries(localeFile);
+  if (!entries.size) {
+    if (!existingEntries.size) continue;
+    const source = localeSource(existingEntries);
+    const previous = fs.existsSync(localeFile) ? fs.readFileSync(localeFile, 'utf8') : '';
+    if (previous !== source && WRITE) {
+      fs.mkdirSync(path.dirname(localeFile), { recursive: true });
+      fs.writeFileSync(localeFile, source, 'utf8');
+      changedFiles += 1;
+    }
+    continue;
+  }
   if (!group.js && group.wxml) throw new Error(`缺少与 ${relative(group.wxml)} 对应的 JS 文件`);
   if (navigationTitle) sources.js = injectNavigationTitle(sources.js);
   sources.js = injectJavascriptBindings(sources.js, group.js, localeFile, Boolean(group.wxml));
@@ -418,7 +461,7 @@ for (const [stem, group] of groups) {
     { file: group.js, source: sources.js },
     ...(group.wxml ? [{ file: group.wxml, source: sources.wxml }] : []),
     ...(group.json ? [{ file: group.json, source: sources.json }] : []),
-    { file: localeFile, source: localeSource(entries) }
+    { file: localeFile, source: localeSource(new Map([...existingEntries, ...entries])) }
   ];
   for (const write of writes) {
     const previous = fs.existsSync(write.file) ? fs.readFileSync(write.file, 'utf8') : '';

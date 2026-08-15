@@ -35,7 +35,7 @@ function getAuthenticationStatusLabel(status) {
     recovery_required: '待恢复',
     pending_verification: '待认证'
   };
-  return labels[status] || '待认证';
+  return labels[status] || localeCopy.copy_5342fa4b24;
 }
 
 function hasAccountWrite(req, operator) {

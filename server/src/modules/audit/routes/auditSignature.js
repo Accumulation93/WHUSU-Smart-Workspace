@@ -82,7 +82,7 @@ router.post('/saveSignature', async (req, res) => {
       res.json({ status: 'success', message: localeCopy.copy_1c620d13e8 });
     } else {
       const newId = generateId();
-      await signatureTemplateModel.create(newId, { hrId, name: name || '我的签名', imageData, isDefault });
+      await signatureTemplateModel.create(newId, { hrId, name: name || localeCopy.copy_214c901792, imageData, isDefault });
       res.json({ status: 'success', id: newId, message: localeCopy.copy_082505816e });
     }
   } catch (e) {

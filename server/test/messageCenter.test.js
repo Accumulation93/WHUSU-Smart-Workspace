@@ -199,7 +199,7 @@ function testMigrationAndFrontendContract() {
   assert.match(portal, /if \(this\._messageOverviewLoading\)[\s\S]*this\._messageOverviewQueued = true/);
   assert.match(portal, /shouldReload && this\._isPageVisible && this\.data\.hasUser/);
   assert.strictEqual(
-    (portal.match(/key:\s*['"]messages['"],\s*label:\s*['"]消息中心['"],\s*iconName:\s*['"]bell['"],\s*url:\s*['"]\/pages\/messageCenter\/messageCenter['"]/g) || []).length,
+    (portal.match(/key:\s*['"]messages['"],\s*label:\s*['"]消息中心['"],\s*iconName:\s*['"]bell['"],\s*url:\s*['"]\/subpackages\/message\/pages\/messageCenter\/messageCenter['"]/g) || []).length,
     2,
     '普通用户端和管理端应用服务都必须包含消息中心'
   );
@@ -222,14 +222,14 @@ function testMigrationAndFrontendContract() {
     /\.message-preview-scroll[\s\S]*max-height: calc\(var\(--ui-message-preview-row, 154rpx\) \* 3 \+ var\(--ui-message-preview-gap, 8rpx\) \* 2\)/
   );
 
-  const messageCenter = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.js'), 'utf8');
+  const messageCenter = fs.readFileSync(path.join(root, '../miniprogram/subpackages/message/pages/messageCenter/messageCenter.js'), 'utf8');
   const messageCenterView = hydrateLocale(
-    fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.wxml'), 'utf8'),
+    fs.readFileSync(path.join(root, '../miniprogram/subpackages/message/pages/messageCenter/messageCenter.wxml'), 'utf8'),
     mainCopy.messageCenter.view,
     'copy',
     false
   );
-  const messageCenterStyle = fs.readFileSync(path.join(root, '../miniprogram/pages/messageCenter/messageCenter.wxss'), 'utf8');
+  const messageCenterStyle = fs.readFileSync(path.join(root, '../miniprogram/subpackages/message/pages/messageCenter/messageCenter.wxss'), 'utf8');
   assert.match(messageCenter, /messageScope/);
   assert.match(messageCenter, /organizationId/);
   assert.match(messageCenterView, /organization-filter/);

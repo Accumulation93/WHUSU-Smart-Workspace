@@ -128,6 +128,24 @@ For documentation-only work, verify file existence, link/read order consistency,
 - 通知页签在存在通知时提供“全部清除”，必须二次确认；清除范围遵循当前组织/身份上下文，可访问多个组织时按当前消息范围逐组织执行。
 - “全部清除”只删除通知记录，不得删除实时计算的待我审批事项；服务端必须按组织、收件人类型和收件人 ID 参数化删除，并返回部分组织失败状态。
 
+## 硬规范：小程序主包与业务分包统一
+
+- `miniprogram/pages` 只允许保留启动壳页面：登录页和门户页。消息中心、评分、人事、审核、场地、组织和系统设置等业务页面必须注册在 `miniprogram/subpackages/<模块名>/pages/**`，不得再把业务页直接放回主包 `pages`。
+- 每个业务分包只能有一个明确的模块归属；跨模块的公共能力只能放在 `miniprogram/utils`、`miniprogram/components` 和 `miniprogram/locales`。综合工作台壳若确实需要组合多个入口，也必须作为独立 `workspace` 分包页面，并通过可信路由进入，不能伪装成主包业务页。
+- 路由迁移必须同时更新 `app.json`、门户卡片、可信导航、上下文守卫、服务端通知/待办目标地址、兼容测试和 WXSS 相对导入；禁止留下旧主包业务地址的隐式引用。
+- 分包页面使用与当前位置匹配的相对 `require` 和 WXSS `@import` 路径，迁移后必须执行全量 `node --check`、小程序兼容性审计和微信开发者工具冷编译，确认主包与所有分包入口都能注册。
+
+## 硬规范：提示与指引文案必须进入 locale
+
+- 所有面向用户的提示、指引、校验反馈、空状态、Toast、Modal、确认文案、通知标题/描述、状态说明和导出标题，必须定义在 `miniprogram/locales/zh-CN/**` 或 `server/src/locales/zh-CN/**`；业务代码不得保留中文常量，也不得把中文句子拆成多个字符串再拼接绕过审计。
+- 业务代码只引用语言资源并传入变量；用户输入、组织名称、场地名称、字段值和状态码不是语言资源，必须作为格式化参数传入，不能直接写入 locale。
+- 完成前必须同时运行：
+  `node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization`、
+  `node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization` 和
+  `node scripts/user-visible-copy-audit.js --strict-guidance`。第三项专门拦截 `return`、异常、响应字段、通知字段和拼接表达式中的提示/指引常量。
+- `generated/**` 仅承载历史等值迁移；新增或修改文案优先使用可读语义键。状态码、路由、权限键、数据库枚举、CSV 列别名和内部日志不属于提示文案，不得为通过审计而错误移入语言资源。
+- 语言迁移脚本重跑时必须合并现有 locale 与 Git 基线资源，禁止用本次扫描结果覆盖同文件已有键；生成器或批量迁移后必须用依赖校验和相关回归测试确认历史错误文案仍可读。
+
 ## 硬规范：场地借用时间窗口
 
 - 借用开放和截止规则属于“组织 + 场地”策略，不得挂在某一条审批规则或某一个审批步骤上。两侧可以分别不设置、按天数设置或按小时/分钟设置。

@@ -8,7 +8,7 @@ const {
 
 const loginPage = { route: 'pages/login/login' };
 const portalPage = { route: 'pages/portal/portal' };
-const businessPage = { route: 'pages/home/home' };
+const businessPage = { route: 'subpackages/workspace/pages/home/home' };
 
 assert.strictEqual(
   shouldClearAuthenticationOnPortalExit([loginPage, portalPage], portalPage),

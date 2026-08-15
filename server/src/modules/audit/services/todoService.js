@@ -33,9 +33,9 @@ async function listAuditItems(actor, orgId) {
       id: 'audit:' + safeString(step.id),
       type: 'todo',
       sourceType: 'audit_approval',
-      title: safeString(step.title || step.submission_number || '审核事项'),
-      description: localeCopy.copy_6438951f7d + safeString((submitter && submitter.name) || '信息已失效') +
-        ' · 第' + safeString(step.sort_order) + '步',
+      title: safeString(step.title || step.submission_number || localeCopy.copy_ee071473de),
+      description: localeCopy.copy_6438951f7d + safeString((submitter && submitter.name) || localeCopy.copy_de00c3e48a) +
+        localeCopy.copy_80f5cda995 + safeString(step.sort_order) + localeCopy.copy_493a127a99,
       category: 'audit',
       targetType: 'submission',
       targetId: safeString(step.submission_id),
@@ -85,10 +85,10 @@ async function listVenueItems(actor, orgId) {
       id: 'venue:' + safeString(booking.id),
       type: 'todo',
       sourceType: 'venue_approval',
-      title: safeString(booking.title || '场地借用'),
-      description: localeCopy.copy_d18a11f195 + safeString(booking.venue_name || '信息已失效') +
-        ' · 提交人 ' + safeString((applicant && applicant.name) || '信息已失效') +
-        ' · ' + safeString(currentStep.name || ('第' + (Number(booking.approval_current_step) + 1) + '步')),
+      title: safeString(booking.title || localeCopy.copy_592351d93c),
+      description: localeCopy.copy_d18a11f195 + safeString(booking.venue_name || localeCopy.copy_de00c3e48a) +
+        localeCopy.copy_70c04ce8e3 + safeString((applicant && applicant.name) || localeCopy.copy_de00c3e48a) +
+        ' · ' + safeString(currentStep.name || ('第' + (Number(booking.approval_current_step) + 1) + localeCopy.copy_493a127a99)),
       category: 'venue',
       targetType: 'booking',
       targetId: safeString(booking.id),
@@ -108,12 +108,12 @@ async function listScoringItems(actor) {
     id: 'scoring:' + safeString(task.activity.id),
     type: 'todo',
     sourceType: 'scoring_task',
-    title: safeString(task.activity.name || '考核评分'),
-    description: localeCopy.copy_50fc130639 + task.pendingCount + ' 人待评分',
+    title: safeString(task.activity.name || localeCopy.copy_33a502217d),
+    description: localeCopy.copy_50fc130639 + task.pendingCount + localeCopy.copy_67a5467bc2,
     category: 'scoring',
     targetType: 'score_activity',
     targetId: safeString(task.activity.id),
-    targetUrl: '/pages/home/home?subApp=scoring',
+    targetUrl: '/subpackages/workspace/pages/home/home?subApp=scoring',
     createdAt: task.activity.created_at,
     dueAt: task.dueAt
   }];
@@ -126,8 +126,8 @@ async function listHrProfileItems(actor, orgId) {
     id: 'hr-profile:' + safeString(record.id),
     type: 'todo',
     sourceType: 'hr_profile_review',
-    title: safeString(record.name || '人事资料变更'),
-    description: localeCopy.copy_5d43cbef1a + safeString(record.student_id || '信息已失效') + ' · 待审核补充资料',
+    title: safeString(record.name || localeCopy.copy_0a1d44e805),
+    description: localeCopy.copy_5d43cbef1a + safeString(record.student_id || localeCopy.copy_de00c3e48a) + localeCopy.copy_c9fa920da1,
     category: 'hr',
     targetType: 'hr_profile',
     targetId: safeString(record.hr_id),

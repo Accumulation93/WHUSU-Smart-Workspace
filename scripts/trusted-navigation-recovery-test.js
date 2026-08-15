@@ -40,7 +40,7 @@ navigateToTrustedRoute('/pages/portal/portal');
 assert.strictEqual(toasts[toasts.length - 1].title, '页面未打开，请重试');
 
 navigateMode = 'success';
-navigateToTrustedRoute('/pages/messageCenter/messageCenter');
+navigateToTrustedRoute('/subpackages/message/pages/messageCenter/messageCenter');
 assert.strictEqual(successCount, 1, '未提供回调的正常导航不得产生额外副作用');
 
 console.log('小程序页面跳转超时恢复测试通过');

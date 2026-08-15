@@ -210,12 +210,12 @@ router.post('/duplicateScoreTemplate', async (req, res) => {
 
     const questions = await questionModel.getByTemplateId(id);
 
-    let name = `${template.name || '未命名模板'} 副本`;
+    let name = `${template.name || localeCopy.copy_222c27a765} 副本`;
     let counter = 2;
     while (true) {
       const [existing] = await pool.query('SELECT id FROM score_question_templates WHERE name = ? LIMIT 1', [name]);
       if (!existing.length) break;
-      name = `${template.name || '未命名模板'} 副本${counter}`;
+      name = `${template.name || localeCopy.copy_222c27a765} 副本${counter}`;
       counter += 1;
     }
 

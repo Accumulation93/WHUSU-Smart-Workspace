@@ -96,7 +96,7 @@ function scanCompactVisualContract() {
 
   const responsiveContracts = [
     ['miniprogram/subpackages/scoring/pages/admin/admin.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.auth-personnel-intro\s*\{[\s\S]*?padding:\s*14px 16px/],
-    ['miniprogram/pages/home/home.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.profile-security-note,[\s\S]*?padding:\s*14px 16px/],
+    ['miniprogram/subpackages/workspace/pages/home/home.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.profile-security-note,[\s\S]*?padding:\s*14px 16px/],
     ['miniprogram/subpackages/org/pages/identitySwitch/identitySwitch.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.context-panel\s*\{[\s\S]*?padding:\s*14px 16px/],
     ['miniprogram/subpackages/audit/styles/blue-polish.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.audit-submission-item,[\s\S]*?padding:\s*12px 14px/],
     ['miniprogram/subpackages/venue/styles/blue-polish.wxss', /@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?\.venue-card,[\s\S]*?padding:\s*12px 14px/],
@@ -114,7 +114,7 @@ function scanCompactVisualContract() {
       '场地快捷时长选中态必须保持蓝底白字，不能被通用白底规则覆盖'
     ],
     [
-      'miniprogram/pages/home/home.wxss',
+      'miniprogram/subpackages/workspace/pages/home/home.wxss',
       /\.audit-home-card\s*\{[\s\S]*?min-height:\s*108rpx[\s\S]*?padding:\s*22rpx 18rpx/,
       '审核首页入口卡片必须保留对称留白和足够高度'
     ]
@@ -1141,7 +1141,7 @@ const missingTabSizeSystem = !(
   /--ui-tab-sidebar-min-height:\s*40px/.test(GLOBAL_STYLE) &&
   /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
 );
-const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'pages', 'home', 'home.wxss'), 'utf8');
+const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'workspace', 'pages', 'home', 'home.wxss'), 'utf8');
 const portalStyle = fs.readFileSync(path.join(MINI_ROOT, 'pages', 'portal', 'portal.wxss'), 'utf8');
 const adminPermissionsStyle = fs.readFileSync(
   path.join(MINI_ROOT, 'subpackages', 'org', 'pages', 'adminPermissions', 'adminPermissions.wxss'),

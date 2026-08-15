@@ -1,10 +1,10 @@
-const { callFunction, formatAuditTime, showShortToast } = require('../../utils/api');
-const orgSession = require('../../utils/orgSession');
-const messageScope = require('../../utils/messageScope');
-const { activateOrganization } = require('../../utils/organizationActivation');
-const authContext = require('../../utils/authContext');
-const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
-const { messageCenter: copy } = require('../../locales/zh-CN/main');
+const { callFunction, formatAuditTime, showShortToast } = require('../../../../utils/api');
+const orgSession = require('../../../../utils/orgSession');
+const messageScope = require('../../../../utils/messageScope');
+const { activateOrganization } = require('../../../../utils/organizationActivation');
+const authContext = require('../../../../utils/authContext');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { messageCenter: copy } = require('../../../../locales/zh-CN/main');
 
 const CATEGORY_LABELS = copy.categoryLabels;
 

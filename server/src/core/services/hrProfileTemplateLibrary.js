@@ -64,21 +64,21 @@ function normalizeDefinitionField(field) {
 }
 
 function validateDefinition(name, editMode, fields) {
-  if (!safeString(name).trim()) return '请填写人事模板名称';
-  if (!EDIT_MODES.includes(editMode)) return '请选择修改方式';
-  if (!fields.length) return '请添加至少一项资料';
+  if (!safeString(name).trim()) return localeCopy.copy_b5f5bd64a7;
+  if (!EDIT_MODES.includes(editMode)) return localeCopy.copy_359c94be19;
+  if (!fields.length) return localeCopy.copy_2b0e6179da;
   const labels = new Set();
   for (const field of fields) {
-    if (!field.label) return '请填写资料项名称';
-    if (!field.type) return '请选择资料类型';
+    if (!field.label) return localeCopy.copy_b559e020b7;
+    if (!field.type) return localeCopy.copy_fd1e62ce41;
     const labelKey = field.label.toLocaleLowerCase('zh-CN');
-    if (labels.has(labelKey)) return `资料项名称重复：${field.label}`;
+    if (labels.has(labelKey)) return localeFormat(localeCopy.copy_8757e8a233, [field.label]);
     labels.add(labelKey);
-    if (field.type === 'sequence' && !field.options.length) return `请为${field.label}添加选项`;
-    if (field.minLength != null && !Number.isFinite(field.minLength)) return `请检查${field.label}的长度限制`;
-    if (field.maxLength != null && !Number.isFinite(field.maxLength)) return `请检查${field.label}的长度限制`;
-    if (field.minValue != null && !Number.isFinite(field.minValue)) return `请检查${field.label}的数值限制`;
-    if (field.maxValue != null && !Number.isFinite(field.maxValue)) return `请检查${field.label}的数值限制`;
+    if (field.type === 'sequence' && !field.options.length) return localeFormat(localeCopy.copy_c38d4ca5a6, [field.label]);
+    if (field.minLength != null && !Number.isFinite(field.minLength)) return localeFormat(localeCopy.copy_defd7b1cf3, [field.label]);
+    if (field.maxLength != null && !Number.isFinite(field.maxLength)) return localeFormat(localeCopy.copy_defd7b1cf3, [field.label]);
+    if (field.minValue != null && !Number.isFinite(field.minValue)) return localeFormat(localeCopy.copy_e4aa7ba39c, [field.label]);
+    if (field.maxValue != null && !Number.isFinite(field.maxValue)) return localeFormat(localeCopy.copy_e4aa7ba39c, [field.label]);
   }
   return '';
 }
@@ -292,21 +292,21 @@ function validateMappedValue(targetField, rawValue) {
   const value = normalizeEmptyValue(rawValue);
   if (!value) return '';
   if (targetField.type === 'text') {
-    if (targetField.min_length != null && value.length < Number(targetField.min_length)) return `请填写至少${targetField.min_length}个字`;
-    if (targetField.max_length != null && value.length > Number(targetField.max_length)) return `请控制在${targetField.max_length}个字以内`;
+    if (targetField.min_length != null && value.length < Number(targetField.min_length)) return localeFormat(localeCopy.copy_8ca7d2480d, [targetField.min_length]);
+    if (targetField.max_length != null && value.length > Number(targetField.max_length)) return localeFormat(localeCopy.copy_ff3132c386, [targetField.max_length]);
     return '';
   }
   if (targetField.type === 'number') {
-    if (!targetField.allow_decimal && !/^[+-]?\d+$/.test(value)) return '请填写整数';
+    if (!targetField.allow_decimal && !/^[+-]?\d+$/.test(value)) return localeCopy.copy_545ff439c4;
     const numberValue = Number(value);
-    if (!Number.isFinite(numberValue)) return '请填写数字';
+    if (!Number.isFinite(numberValue)) return localeCopy.copy_53fc596039;
     if (targetField.number_rule === 'length_range') {
       const length = value.replace(/^[+-]/, '').replace('.', '').length;
-      if (targetField.min_digits != null && length < Number(targetField.min_digits)) return `请填写至少${targetField.min_digits}位数字`;
-      if (targetField.max_digits != null && length > Number(targetField.max_digits)) return `请控制在${targetField.max_digits}位数字以内`;
+      if (targetField.min_digits != null && length < Number(targetField.min_digits)) return localeFormat(localeCopy.copy_a895a90413, [targetField.min_digits]);
+      if (targetField.max_digits != null && length > Number(targetField.max_digits)) return localeFormat(localeCopy.copy_7de56b7e93, [targetField.max_digits]);
     } else {
-      if (targetField.min_value != null && numberValue < Number(targetField.min_value)) return `请填写不小于${targetField.min_value}的数字`;
-      if (targetField.max_value != null && numberValue > Number(targetField.max_value)) return `请填写不大于${targetField.max_value}的数字`;
+      if (targetField.min_value != null && numberValue < Number(targetField.min_value)) return localeFormat(localeCopy.copy_912d3d3bf0, [targetField.min_value]);
+      if (targetField.max_value != null && numberValue > Number(targetField.max_value)) return localeFormat(localeCopy.copy_4ac7b5e1be, [targetField.max_value]);
     }
     return '';
   }
@@ -314,7 +314,7 @@ function validateMappedValue(targetField, rawValue) {
   if (targetField.type === 'date') return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00`).getTime()) ? '' : '请按年-月-日填写日期';
   if (targetField.type === 'phone') return /^1[3-9]\d{9}$/.test(value) ? '' : '请填写正确的手机号';
   if (targetField.type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? '' : '请填写正确的邮箱';
-  return '资料类型不匹配';
+  return localeCopy.copy_114e62ddbf;
 }
 
 function normalizeActions(sourceFields, targetFields, rawActions) {

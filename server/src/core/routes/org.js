@@ -251,7 +251,7 @@ router.post('/switchOrganization', async (req, res) => {
         : `已切换至组织「${targetOrgName}」`
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '未切换，请重试' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_53d5e0a0c8 });
   }
 });
 

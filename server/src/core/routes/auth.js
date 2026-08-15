@@ -209,7 +209,7 @@ router.post('/userLogin', async (req, res) => {
       message: localeCopy.copy_bfb0d21b30
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '请重新微信登录' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_b10d64a68c });
   }
 });
 
@@ -322,7 +322,7 @@ router.post('/adminLogin', async (req, res) => {
       message: localeCopy.copy_6a1287aed6
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '请重新微信登录' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_b10d64a68c });
   }
 });
 

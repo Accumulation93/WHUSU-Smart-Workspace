@@ -1,4 +1,4 @@
-@import '../../../../pages/home/home.wxss';
+@import '../../../workspace/pages/home/home.wxss';
 @import '../../styles/blue-polish.wxss';
 
 /* ═══ Page background (matching HR admin exactly) ═══ */

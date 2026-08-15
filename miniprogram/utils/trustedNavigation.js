@@ -2,8 +2,8 @@ const localeCopy = require('../locales/zh-CN/generated/utils/trustedNavigation')
 const TRUSTED_ROUTES = new Set([
   '/pages/login/login',
   '/pages/portal/portal',
-  '/pages/messageCenter/messageCenter',
-  '/pages/home/home',
+  '/subpackages/message/pages/messageCenter/messageCenter',
+  '/subpackages/workspace/pages/home/home',
   '/subpackages/scoring/pages/score/score',
   '/subpackages/scoring/pages/admin/admin',
   '/subpackages/scoring/pages/scorerTasks/scorerTasks',

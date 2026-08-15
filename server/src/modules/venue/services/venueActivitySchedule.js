@@ -1,3 +1,4 @@
+const localeCopy = require('../../../locales/zh-CN/generated/modules/venue/services/venueActivitySchedule');
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
@@ -107,18 +108,18 @@ function ruleValidationError(rule) {
   const cycleType = String(rule.cycleType || rule.cycle_type || 'weekly');
   if (cycleType === 'datetime_range' || cycleType === 'repeat') return null;
   const timeRange = legacyTimeRange(rule);
-  if (!timeRange) return '活动每次占用的开始时间必须早于结束时间';
+  if (!timeRange) return localeCopy.copy_afce60b5be;
   const meta = cycleMeta(rule.cycleValues !== undefined ? rule.cycleValues : rule.cycle_values);
   if (meta.periodMode === 'none') return null;
-  if (meta.periodMode === 'range' && (!meta.periodStartDate || !meta.periodEndDate)) return '按生效时间范围时必须填写开始和结束日期';
-  if (meta.periodMode === 'count' && !meta.periodStartDate) return '按重复次数时必须填写周期开始日期';
-  if (meta.periodStartDate && !parseLocalDateTime(meta.periodStartDate, meta.periodStartTime || '00:00')) return '请填写有效的周期开始日期时间';
-  if (meta.periodEndDate && !parseLocalDateTime(meta.periodEndDate, meta.periodEndTime || '23:59')) return '请填写有效的周期结束日期时间';
-  if (meta.periodStartDate && meta.periodEndDate && meta.periodStartDate > meta.periodEndDate) return '周期结束日期必须晚于或等于开始日期';
-  if (meta.periodStartDate && meta.periodEndDate && meta.periodStartDate === meta.periodEndDate && (meta.periodStartTime || '00:00') >= (meta.periodEndTime || '23:59')) return '周期结束时间必须晚于周期开始时间';
-  if (!Number.isInteger(meta.repeatCount) || meta.repeatCount < 0 || meta.repeatCount > 1000) return '重复次数必须是0至1000次';
-  if (meta.periodMode === 'count' && meta.repeatCount < 1) return '按重复次数时请输入至少1次';
-  if (cycleType === 'range' && (!meta.periodStartDate || !meta.periodEndDate)) return '旧版日期范围规则缺少起止日期';
+  if (meta.periodMode === 'range' && (!meta.periodStartDate || !meta.periodEndDate)) return localeCopy.copy_74464fad91;
+  if (meta.periodMode === 'count' && !meta.periodStartDate) return localeCopy.copy_2f310f4373;
+  if (meta.periodStartDate && !parseLocalDateTime(meta.periodStartDate, meta.periodStartTime || '00:00')) return localeCopy.copy_624f7ebece;
+  if (meta.periodEndDate && !parseLocalDateTime(meta.periodEndDate, meta.periodEndTime || '23:59')) return localeCopy.copy_6c19b0b900;
+  if (meta.periodStartDate && meta.periodEndDate && meta.periodStartDate > meta.periodEndDate) return localeCopy.copy_3b07b7ed51;
+  if (meta.periodStartDate && meta.periodEndDate && meta.periodStartDate === meta.periodEndDate && (meta.periodStartTime || '00:00') >= (meta.periodEndTime || '23:59')) return localeCopy.copy_7b58d1c1e0;
+  if (!Number.isInteger(meta.repeatCount) || meta.repeatCount < 0 || meta.repeatCount > 1000) return localeCopy.copy_5d1d0b228e;
+  if (meta.periodMode === 'count' && meta.repeatCount < 1) return localeCopy.copy_f1f2f1be6d;
+  if (cycleType === 'range' && (!meta.periodStartDate || !meta.periodEndDate)) return localeCopy.copy_8b7b092e68;
   return null;
 }
 
@@ -126,7 +127,7 @@ function buildDetail(rule, occurrenceStart, occurrenceEnd) {
   return {
     id: rule.id,
     venueId: rule.venue_id,
-    name: rule.activity_name || '活动',
+    name: rule.activity_name || localeCopy.copy_acd4c5c171,
     cycleType: rule.cycle_type || 'weekly',
     cycleValues: parseCycleValues(rule.cycle_values),
     occurrenceStart: formatDateTime(occurrenceStart),
@@ -169,7 +170,7 @@ function getActivitySlots(dateText, activityRules) {
         if (end <= start) continue;
         slots.push({
           ruleId: rule.id,
-          ruleName: rule.activity_name || '活动',
+          ruleName: rule.activity_name || localeCopy.copy_acd4c5c171,
           timeStart: formatTime(start),
           timeEnd: end.getTime() >= dayEnd.getTime() ? '24:00' : formatTime(end),
           fullTimeStart: formatDateTime(range.start),
@@ -195,7 +196,7 @@ function getActivitySlots(dateText, activityRules) {
 
     slots.push({
       ruleId: rule.id,
-      ruleName: rule.activity_name || '活动',
+      ruleName: rule.activity_name || localeCopy.copy_acd4c5c171,
       timeStart: formatTime(start),
       timeEnd: end.getTime() >= dayEnd.getTime() ? '24:00' : formatTime(end),
       fullTimeStart: formatDateTime(start),

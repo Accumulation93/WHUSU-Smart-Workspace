@@ -259,7 +259,7 @@ router.post('/toggleActivityPause', async (req, res) => {
       message: newPaused ? '活动已暂停' : '活动已恢复'
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '未完成，请重试' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_0531ed9e78 });
   }
 });
 

@@ -3,7 +3,7 @@ const adminPermissions = require('./adminPermissions');
 const PORTAL_ROUTE = '/pages/portal/portal';
 
 const USER_ONLY_ROUTES = {
-  '/pages/home/home': true,
+  '/subpackages/workspace/pages/home/home': true,
   '/subpackages/scoring/pages/score/score': true,
   '/subpackages/audit/pages/mySubmissions/mySubmissions': true,
   '/subpackages/audit/pages/pendingApprovals/pendingApprovals': true,

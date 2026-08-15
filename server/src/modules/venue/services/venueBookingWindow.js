@@ -17,21 +17,21 @@ function normalizeAdvance(label, input) {
     };
   }
   const mode = input.mode === 'days' ? 'days' : input.mode === 'duration' ? 'duration' : '';
-  if (!mode) throw new Error(label + '请选择设置方式');
+  if (!mode) throw new Error(label + localeCopy.copy_923da310d0);
   if (mode === 'days') {
     const days = integerOrNull(input.days);
     if (days === null || days < 0 || days > MAX_ADVANCE_DAYS) {
-      throw new Error(label + '请输入 0-' + MAX_ADVANCE_DAYS + ' 之间的整数天数');
+      throw new Error(label + localeCopy.copy_6e333f0ec3 + MAX_ADVANCE_DAYS + localeCopy.copy_ae3f30d77b);
     }
     return { mode, days, minutes: days * 24 * 60 };
   }
   const hours = integerOrNull(input.hours);
   const minutes = integerOrNull(input.minutes);
   if (hours === null || minutes === null || hours < 0 || hours > MAX_ADVANCE_DAYS * 24 || minutes < 0 || minutes > 59) {
-    throw new Error(label + '请输入合法的小时和分钟');
+    throw new Error(label + localeCopy.copy_a0e1d563e5);
   }
   const total = hours * 60 + minutes;
-  if (total > MAX_ADVANCE_MINUTES) throw new Error(label + '提前时长过大');
+  if (total > MAX_ADVANCE_MINUTES) throw new Error(label + localeCopy.copy_88bd0640a4);
   return { mode, days: null, minutes: total };
 }
 

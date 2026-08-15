@@ -157,7 +157,7 @@ function getOpenSlots(dateStr, openRules) {
     if (dateMatchesCycle(dateStr, rule.cycle_type, cv)) {
       slots.push({
         ruleId: rule.id,
-        ruleName: rule.name || '开放时间',
+        ruleName: rule.name || localeCopy.copy_6e6ee2b747,
         timeStart: rule.time_start && rule.time_start.length >= 5 ? rule.time_start.substring(0, 5) : '09:00',
         timeEnd: rule.time_end && rule.time_end.length >= 5 ? rule.time_end.substring(0, 5) : '18:00'
       });
@@ -356,7 +356,7 @@ router.post('/getVenueSchedule', async (req, res) => {
     const adminMap = {};
     if (adminIds.length) {
       const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
-      adminRows.forEach(item => { adminMap[item.id] = item.name || '管理员'; });
+      adminRows.forEach(item => { adminMap[item.id] = item.name || localeCopy.copy_c01a9aef59; });
     }
     if (hrIds.length) {
       try {
@@ -397,7 +397,7 @@ router.post('/getVenueSchedule', async (req, res) => {
         (hrList || []).forEach(h => {
           const org = safeString(h.org_id);
           userMap[h.id] = {
-            name: h.name || '信息已失效',
+            name: h.name || localeCopy.copy_de00c3e48a,
             department: deptMap[org + '|' + h.department_id] || '',
             identity: identMap[org + '|' + h.identity_id] || '',
             workGroup: wgMap[org + '|' + h.work_group_id] || ''
@@ -469,9 +469,9 @@ router.post('/getVenueSchedule', async (req, res) => {
           userId: b.user_hr_id,
           userHrId: b.user_hr_id,
           creatorType: b.creator_type || 'user',
-          creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
+          creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
           creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
-          userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
+          userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
           userDept: (userMap[b.user_hr_id] && userMap[b.user_hr_id].department) || '',
           userIdentity: (userMap[b.user_hr_id] && userMap[b.user_hr_id].identity) || '',
           userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || '',
@@ -516,7 +516,7 @@ router.post('/getVenueApprovalFlowOptions', async (req, res) => {
     const options = flows.map(function(flow) {
       return {
         id: flow.id,
-        name: flow.name || '场地审批流程',
+        name: flow.name || localeCopy.copy_890d7f4874,
         allowUserSelect: Number(flow.allow_user_select) === 1,
         allowDesignateFirst: Number(flow.allow_designate_first) === 1,
         allowDesignateNext: Number(flow.allow_designate_next) === 1
@@ -612,14 +612,14 @@ router.post('/createVenueBooking', async (req, res) => {
       // Check open hours — MUST have open slots covering the entire segment
       const openSlots = getOpenSlots(seg.date, openRules);
       if (!openSlots.length) {
-        return res.json({ status: 'invalid_state', message: seg.date + ' 场地全天不开放' });
+        return res.json({ status: 'invalid_state', message: seg.date + localeCopy.copy_96d1893745 });
       }
       const mergedOpen = mergeIntervals(slotsToIntervals(openSlots));
       const gap = findOpenGap(segStart, segEnd, mergedOpen);
       if (gap >= 0) {
         const hh = String(Math.floor(gap / 60)).padStart(2, '0');
         const mm = String(gap % 60).padStart(2, '0');
-        return res.json({ status: 'invalid_state', message: seg.date + ' ' + hh + ':' + mm + ' 场地不开放' });
+        return res.json({ status: 'invalid_state', message: seg.date + ' ' + hh + ':' + mm + localeCopy.copy_70d4911767 });
       }
 
       // Check activity conflicts — any overlap with activity slots is rejected
@@ -628,7 +628,7 @@ router.post('/createVenueBooking', async (req, res) => {
         const mergedActivity = mergeIntervals(slotsToIntervals(actSlots));
         const actConflict = findBlockedOverlap(segStart, segEnd, mergedActivity);
         if (actConflict) {
-          return res.json({ status: 'conflict', message: seg.date + ' ' + seg.timeStart + '-' + seg.timeEnd + ' 有活动占用' });
+          return res.json({ status: 'conflict', message: seg.date + ' ' + seg.timeStart + '-' + seg.timeEnd + localeCopy.copy_c615bb412f });
         }
       }
     }
@@ -746,7 +746,7 @@ router.post('/createVenueBooking', async (req, res) => {
     const response = {
       status: 'success', id, bookingStatus: status,
       message: autoApprove ? '借用已通过'
-        : (approvalFlowId ? ('借用申请已提交，等待 ' + approvalTotalSteps + ' 步审批') : '借用申请已提交，等待审批')
+        : (approvalFlowId ? ('借用申请已提交，等待 ' + approvalTotalSteps + localeCopy.copy_1648a1e6e4) : '借用申请已提交，等待审批')
     };
     await requestDeduplication.complete(conn, {
       ...dedupClaim,
@@ -795,7 +795,7 @@ router.post('/listMyVenueBookings', async (req, res) => {
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       title: b.title,
       description: b.description,
-      userName: b.user_name || '信息已失效',
+      userName: b.user_name || localeCopy.copy_de00c3e48a,
       userDept: b.user_department || '',
       userIdentity: b.user_identity || '',
       userWorkGroup: b.user_work_group || '',
@@ -926,7 +926,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         orgName: orgNameMap[safeString(booking.creator_org_id)] || orgNameMap[safeString(booking.approval_org_id)] || '',
         title: booking.title,
         description: booking.description,
-        userName: (applicantHrInfo && applicantHrInfo.name) || '信息已失效',
+        userName: (applicantHrInfo && applicantHrInfo.name) || localeCopy.copy_de00c3e48a,
         userDept: (applicantHrInfo && applicantHrInfo.department_id) || '',
         timeStart: fmtDatetime(new Date(booking.time_start)),
         timeEnd: fmtDatetime(new Date(booking.time_end)),
@@ -1033,7 +1033,7 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
         venueLocation: booking.venue_location,
         title: booking.title,
         description: booking.description,
-        applicantName: booking.applicant_name || '信息已失效',
+        applicantName: booking.applicant_name || localeCopy.copy_de00c3e48a,
         applicantDepartmentId: booking.applicant_department_id || '',
         timeStart: fmtDatetime(new Date(booking.time_start)),
         timeEnd: fmtDatetime(new Date(booking.time_end)),
@@ -1104,7 +1104,7 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       const stepRows = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
       flowSteps = stepRows.map((step, index) => ({
         stepIndex: index,
-        stepName: safeString(step.name) || ('第' + (index + 1) + '步')
+        stepName: safeString(step.name) || ('第' + (index + 1) + localeCopy.copy_493a127a99)
       }));
     }
 
@@ -1114,7 +1114,7 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       return {
         id: String(booking.id) + '-approval-' + index,
         stepIndex: Number.isFinite(stepIndex) ? stepIndex : 0,
-        stepName: safeString(snapshot.stepName) || (flowStep && flowStep.stepName) || '审批步骤',
+        stepName: safeString(snapshot.stepName) || (flowStep && flowStep.stepName) || localeCopy.copy_28b6b31abf,
         approverName: safeString(snapshot.approverName) || approverNameMap[safeString(snapshot.approverHrId)] || (snapshot.approverIdentityType === 'admin' ? '管理员' : '审批人'),
         approvedAt: safeString(snapshot.approvedAt),
         comment: safeString(snapshot.comment),
@@ -1142,16 +1142,16 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
       status: 'success',
       detail: {
         id: booking.id,
-        venueName: safeString(booking.venue_name) || '场地已删除',
+        venueName: safeString(booking.venue_name) || localeCopy.copy_bbcf12ed5f,
         venueLocation: safeString(booking.venue_location),
         orgName: orgNameMap[safeString(booking.creator_org_id)] || orgNameMap[safeString(booking.approval_org_id)] || '',
         title: safeString(booking.title),
         description: safeString(booking.description),
-        userName: safeString(booking.applicant_name) || '信息已失效',
+        userName: safeString(booking.applicant_name) || localeCopy.copy_de00c3e48a,
         userDept: safeString(booking.applicant_department_name),
         userIdentity: safeString(booking.applicant_identity_name),
         userWorkGroup: safeString(booking.applicant_work_group_name),
-        applicantName: safeString(booking.applicant_name) || '信息已失效',
+        applicantName: safeString(booking.applicant_name) || localeCopy.copy_de00c3e48a,
         applicantDepartmentId: safeString(booking.applicant_department_id),
         timeStart: fmtDatetime(new Date(booking.time_start)),
         timeEnd: fmtDatetime(new Date(booking.time_end)),
@@ -1184,7 +1184,7 @@ router.post('/cancelVenueBooking', async (req, res) => {
   try {
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const actor = actorResult.actor;
     const hrId = actor.id;

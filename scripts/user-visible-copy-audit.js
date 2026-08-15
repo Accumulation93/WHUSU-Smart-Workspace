@@ -169,6 +169,18 @@ function visibleJsFragments(file) {
   return { source, fragments };
 }
 
+function guidanceJsFragments(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  const isServer = file.startsWith(SERVER_ROOT);
+  const fragments = jsStringLiterals(source).filter((literal) => {
+    if (!/[\u3400-\u9fff]/.test(literal.text)) return false;
+    if (!isServer) return true;
+    const context = source.slice(Math.max(0, literal.offset - 220), literal.offset).replace(/\s+/g, ' ');
+    return /(?:(?:message|label|description|title|content|placeholder|statusText|reason)\s*:\s*|throw\s+new\s+\w*Error\s*\(|return\s+|\|\|\s*|\+\s*)$/.test(context);
+  });
+  return { source, fragments };
+}
+
 function isExempt(file, text) {
   return EXEMPTIONS.some((entry) => entry.file === file && entry.pattern.test(text));
 }
@@ -182,14 +194,16 @@ const inventoryMinLength = inventoryMinLengthArg ? Number(inventoryMinLengthArg.
 const localizationPrefixArg = process.argv.find((arg) => arg.startsWith('--localization-prefix='));
 const localizationPrefix = localizationPrefixArg ? localizationPrefixArg.slice('--localization-prefix='.length) : '';
 const localizationFindings = [];
+const guidanceFindings = [];
 const files = walk(MINI_ROOT, ['.wxml', '.js']).concat(
   walk(SERVER_ROOT, ['.js']).filter((file) => !file.includes(`${path.sep}config${path.sep}`)
     && relative(file) !== 'server/src/utils/schemaContract.js')
-);
+).concat([path.join(ROOT, 'server', 'notificationWorker.js')].filter((file) => fs.existsSync(file)));
 for (const file of files) {
   const fileName = relative(file);
   if (fileName.includes('/locales/')) continue;
   const result = file.endsWith('.wxml') ? visibleWxmlFragments(file) : visibleJsFragments(file);
+  const guidanceResult = file.endsWith('.js') ? guidanceJsFragments(file) : { source: result.source, fragments: [] };
   for (const fragment of result.fragments) {
     if (!fragment.text || isExempt(fileName, fragment.text)) continue;
     inventory.push({ file: fileName, line: lineAt(result.source, fragment.offset), text: fragment.text });
@@ -209,6 +223,15 @@ for (const file of files) {
       findings.push({ rule: 'hr-version-language', file: fileName, line: lineAt(result.source, fragment.offset), text: fragment.text });
     }
   }
+  for (const fragment of guidanceResult.fragments) {
+    if (isExempt(fileName, fragment.text)) continue;
+    guidanceFindings.push({
+      rule: 'guidance-must-use-locale',
+      file: fileName,
+      line: lineAt(guidanceResult.source, fragment.offset),
+      text: fragment.text
+    });
+  }
 }
 
 console.log(`用户可见文案审计：${files.length} 个文件，问题 ${findings.length} 个`);
@@ -223,5 +246,10 @@ if (localizationPrefix) {
   console.log(`语言资源审计：${localizationPrefix}，硬编码文案 ${localizationFindings.length} 条`);
   if (localizationFindings.length) console.table(localizationFindings);
 }
+if (process.argv.includes('--strict-guidance')) {
+  console.log(`提示/指引常量审计：${guidanceFindings.length} 条`);
+  if (guidanceFindings.length) console.table(guidanceFindings);
+}
 if (process.argv.includes('--strict') && findings.length) process.exitCode = 1;
 if (process.argv.includes('--strict-localization') && localizationFindings.length) process.exitCode = 1;
+if (process.argv.includes('--strict-guidance') && guidanceFindings.length) process.exitCode = 1;

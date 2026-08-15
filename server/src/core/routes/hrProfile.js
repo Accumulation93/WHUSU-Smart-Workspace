@@ -84,31 +84,31 @@ function tryParseDate(rawValue) {
 
 function validateFieldValue(field, rawValue, isAdmin) {
   const value = normalizeEmptyValue(rawValue);
-  if (field.required && !value && !isAdmin) return `请填写${field.label}`;
+  if (field.required && !value && !isAdmin) return localeFormat(localeCopy.copy_377d9cc43d, [field.label]);
   if (!value) return '';
   if (field.type === 'text') {
-    if (field.minLength != null && value.length < field.minLength) return `${field.label}请填写至少 ${field.minLength} 个字符`;
-    if (field.maxLength != null && value.length > field.maxLength) return `${field.label}请控制在 ${field.maxLength} 个字符内`;
+    if (field.minLength != null && value.length < field.minLength) return localeFormat(localeCopy.copy_245abb6cb3, [field.label, field.minLength]);
+    if (field.maxLength != null && value.length > field.maxLength) return localeFormat(localeCopy.copy_0d42479c01, [field.label, field.maxLength]);
     return '';
   }
   if (field.type === 'number') {
-    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return `请在${field.label}中填写整数`;
+    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return localeFormat(localeCopy.copy_25da4c9917, [field.label]);
     const num = Number(value);
-    if (!Number.isFinite(num)) return `请在${field.label}中填写数字`;
+    if (!Number.isFinite(num)) return localeFormat(localeCopy.copy_803a916bfb, [field.label]);
     if (field.numberRule === 'length_range') {
       const nlen = String(value).replace(/^[+-]/, '').replace('.', '').length;
-      if (field.minDigits != null && nlen < field.minDigits) return `${field.label}请输入至少 ${field.minDigits} 位`;
-      if (field.maxDigits != null && nlen > field.maxDigits) return `${field.label}请输入不超过 ${field.maxDigits} 位`;
+      if (field.minDigits != null && nlen < field.minDigits) return localeFormat(localeCopy.copy_8d415deaa0, [field.label, field.minDigits]);
+      if (field.maxDigits != null && nlen > field.maxDigits) return localeFormat(localeCopy.copy_8ce15854f9, [field.label, field.maxDigits]);
     } else {
-      if (field.minValue != null && num < field.minValue) return `${field.label}请输入不小于 ${field.minValue} 的数值`;
-      if (field.maxValue != null && num > field.maxValue) return `${field.label}请输入不大于 ${field.maxValue} 的数值`;
+      if (field.minValue != null && num < field.minValue) return localeFormat(localeCopy.copy_2c1cbd4cee, [field.label, field.minValue]);
+      if (field.maxValue != null && num > field.maxValue) return localeFormat(localeCopy.copy_3f2df8f2ed, [field.label, field.maxValue]);
     }
     return '';
   }
-  if (field.type === 'sequence') { if (field.options.indexOf(value) === -1) return `请重新选择${field.label}`; return ''; }
-  if (field.type === 'date' && !tryParseDate(value)) return `请重新填写${field.label}日期`;
-  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return `请重新填写${field.label}手机号`;
-  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `请重新填写${field.label}邮箱`;
+  if (field.type === 'sequence') { if (field.options.indexOf(value) === -1) return localeFormat(localeCopy.copy_02808711c5, [field.label]); return ''; }
+  if (field.type === 'date' && !tryParseDate(value)) return localeFormat(localeCopy.copy_c8aa4ca152, [field.label]);
+  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return localeFormat(localeCopy.copy_e840878ac4, [field.label]);
+  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return localeFormat(localeCopy.copy_f117197c23, [field.label]);
   return '';
 }
 
@@ -209,7 +209,7 @@ router.post('/getUserHrProfile', async (req, res) => {
       profile: await enrichHrWithOrg(hr),
       template: templateData,
       values, pendingValues, auditStatus, rejectionReason,
-      statusText: statusTextMap[auditStatus] || '尚未提交补充资料'
+      statusText: statusTextMap[auditStatus] || localeCopy.copy_ede4536b9a
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -560,12 +560,12 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         department: assignmentSummary.departments.join('、'),
         identity: assignmentSummary.identities.join('、'),
         workGroup: assignmentSummary.workGroups.join('、'),
-        currentSummary: summarizeValues(currentValues) || '暂无补充资料',
+        currentSummary: summarizeValues(currentValues) || localeCopy.copy_4049b5c6cd,
         pendingSummary: summarizeValues(pendingValues),
         currentValues,
         pendingValues,
         auditStatus,
-        auditStatusText: statusTextMap[auditStatus] || '未提交',
+        auditStatusText: statusTextMap[auditStatus] || localeCopy.copy_67f2697101,
         rejectionReason: safeString(record ? record.rejection_reason : ''),
         hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
         userInfoId: binding.userInfoId,
@@ -651,7 +651,7 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     } else {
       await profileValueModel.removeByRecordIdAndPendingFields(record.id, 1, Array.from(activeFieldIds));
       await profileRecordModel.update(record.id, {
-        audit_status: 'rejected', rejection_reason: reason || '管理员已驳回本次修改', reviewed_at: nowUtc, updated_at: nowUtc
+        audit_status: 'rejected', rejection_reason: reason || localeCopy.copy_7ba1f77c14, reviewed_at: nowUtc, updated_at: nowUtc
       });
     }
 
@@ -660,11 +660,11 @@ router.post('/reviewHrProfileChange', async (req, res) => {
       eventKey: 'hr-profile-review:' + record.id + ':' + nowUtc,
       type: action === 'approve' ? 'hr_profile_approved' : 'hr_profile_rejected',
       title: action === 'approve' ? '补充资料审核通过' : '补充资料审核未通过',
-      description: action === 'approve' ? '您提交的人事补充资料已审核通过。' : ('您提交的人事补充资料未通过审核：' + (reason || '请修改后重新提交')),
+      description: action === 'approve' ? '您提交的人事补充资料已审核通过。' : ('您提交的人事补充资料未通过审核：' + (reason || localeCopy.copy_1198118dbe)),
       category: 'hr',
       targetType: 'hr_profile',
       targetId: hrRecord.id,
-      targetUrl: '/pages/home/home?subApp=hr'
+      targetUrl: '/subpackages/workspace/pages/home/home?subApp=hr'
     });
 
     res.json({ status: 'success' });
@@ -752,7 +752,7 @@ router.post('/getHrPersonDetail', async (req, res) => {
       values,
       pendingValues,
       auditStatus,
-      auditStatusText: statusTextMap[auditStatus] || '未提交',
+      auditStatusText: statusTextMap[auditStatus] || localeCopy.copy_67f2697101,
       rejectionReason,
       hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0
     });

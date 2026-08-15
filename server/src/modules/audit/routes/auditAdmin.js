@@ -132,23 +132,23 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       const vstep = steps[vi];
       const vconditions = Array.isArray(vstep.conditions) ? vstep.conditions : [];
       if (!vconditions.length && !(vstep.approverType || vstep.approverIdentityId || vstep.approverHrId)) {
-        return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + '步至少需要一个审批条件' });
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + localeCopy.copy_287253008b });
       }
       for (let vj = 0; vj < vconditions.length; vj++) {
         const vc = vconditions[vj];
         if (vc.conditionType === 'person') {
           if (!vc.personHrIds || !vc.personHrIds.trim()) {
-            return res.json({ status: 'invalid_params', message: localeCopy.copy_eb6b0a83d2 + (vi + 1) + '步的指定人员' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_eb6b0a83d2 + (vi + 1) + localeCopy.copy_5f90e06fa0 });
           }
         } else {
           if (vc.departmentScope === 'specific' && (!vc.specificDepartmentId || !vc.specificDepartmentId.trim())) {
-            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + '步条件' + (vj + 1) + '：指定了部门范围但未选择具体部门' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + localeCopy.copy_61ae470673 + (vj + 1) + localeCopy.copy_c4dc113412 });
           }
           if (vc.workGroupScope === 'specific' && (!vc.specificWorkGroupId || !vc.specificWorkGroupId.trim())) {
-            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + '步条件' + (vj + 1) + '：指定了职能组范围但未选择具体职能组' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + localeCopy.copy_61ae470673 + (vj + 1) + localeCopy.copy_5fed9cfcc5 });
           }
           if (vc.identityScope === 'specific' && (!vc.specificIdentityId || !vc.specificIdentityId.trim())) {
-            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + '步条件' + (vj + 1) + '：指定了身份但未选择具体身份' });
+            return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + localeCopy.copy_61ae470673 + (vj + 1) + localeCopy.copy_20ef4f329b });
           }
         }
       }
@@ -452,7 +452,7 @@ router.post('/listVerificationPermissions', async (req, res) => {
     const result = perms.map((p) => ({
       id: safeString(p.id),
       granteeHrId: safeString(p.grantee_hr_id),
-      granteeName: hrMap[p.grantee_hr_id] || '未知',
+      granteeName: hrMap[p.grantee_hr_id] || localeCopy.copy_8d3451355b,
       grantedBy: safeString(p.granted_by),
       createdAt: p.created_at
     }));
@@ -533,7 +533,7 @@ router.post('/listAllAuditSubmissions', async (req, res) => {
       type: safeString(s.type),
       status: safeString(s.status),
       submittedBy: safeString(s.submitted_by),
-      submitterName: hrMap[s.submitted_by] || '未知',
+      submitterName: hrMap[s.submitted_by] || localeCopy.copy_8d3451355b,
       currentStepIndex: s.current_step_index,
       resubmitMode: safeString(s.resubmit_mode),
       createdAt: s.created_at,
@@ -572,7 +572,7 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
     if (cond.conditionType === 'person') {
       const ids = (cond.personHrIds || '').split(',').map(s => s.trim()).filter(Boolean);
       const names = ids.map(id => hrMap[id] || id).filter(Boolean);
-      part = names.length ? '由 ' + names.join('、') + ' 审批' : '由指定人员审批';
+      part = names.length ? '由 ' + names.join('、') + localeCopy.copy_7abed5378f : '由指定人员审批';
     } else {
       const scopeParts = [];
       if (cond.departmentScope === 'own') scopeParts.push('同部门');
@@ -597,7 +597,7 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
       if (cond.identityScope === 'all' && cond.departmentScope === 'all' && cond.workGroupScope === 'all') {
         part = '由全体成员审批';
       } else {
-        part = '由 ' + scopeStr + '审批';
+        part = '由 ' + scopeStr + localeCopy.copy_c9695bb971;
       }
     }
     if (part) displayParts.push(part);
@@ -707,7 +707,7 @@ router.post('/getAuditProgress', async (req, res) => {
         type: safeString(submission.type),
         status: safeString(submission.status),
         submittedBy: safeString(submission.submitted_by),
-        submitterName: hrMap[submission.submitted_by] || '未知',
+        submitterName: hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
         currentStepIndex: submission.current_step_index,
         resubmitMode: safeString(submission.resubmit_mode),
         createdAt: submission.created_at,
@@ -732,24 +732,24 @@ router.post('/getAuditProgress', async (req, res) => {
         const identName = identityMap[s.approver_identity_id] || '';
         const scopeType = (s.scope_type || '').trim();
         if (s.approver_type === 'specific_person') {
-          legacyApproverDesc = '由 ' + (hrMap[s.approver_hr_id] || '未指定') + ' 审批';
+          legacyApproverDesc = '由 ' + (hrMap[s.approver_hr_id] || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
         } else if (identName) {
           if (!scopeType || scopeType === 'all') {
-            legacyApproverDesc = '由 全体 ' + identName + ' 审批';
+            legacyApproverDesc = '由 全体 ' + identName + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'same_department') {
-            legacyApproverDesc = '由 同部门 ' + identName + ' 审批';
+            legacyApproverDesc = '由 同部门 ' + identName + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'same_work_group') {
-            legacyApproverDesc = '由 同职能组 ' + identName + ' 审批';
+            legacyApproverDesc = '由 同职能组 ' + identName + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'specific_department') {
-            const dn = deptMap[s.scope_department_id] || s.scope_department_id || '指定部门';
-            legacyApproverDesc = '由 ' + dn + ' ' + identName + ' 审批';
+            const dn = deptMap[s.scope_department_id] || s.scope_department_id || localeCopy.copy_b3604f443f;
+            legacyApproverDesc = '由 ' + dn + ' ' + identName + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'specific_work_group') {
             const dn = deptMap[s.scope_department_id] || '';
             const wn = wgMap[s.scope_work_group_id] || '';
-            const loc = [dn, wn].filter(Boolean).join('·') || '指定职能组';
-            legacyApproverDesc = '由 ' + loc + ' ' + identName + ' 审批';
+            const loc = [dn, wn].filter(Boolean).join('·') || localeCopy.copy_258347beac;
+            legacyApproverDesc = '由 ' + loc + ' ' + identName + localeCopy.copy_7abed5378f;
           } else {
-            legacyApproverDesc = '由 ' + identName + ' 审批';
+            legacyApproverDesc = '由 ' + identName + localeCopy.copy_7abed5378f;
           }
         }
         return {
@@ -757,7 +757,7 @@ router.post('/getAuditProgress', async (req, res) => {
           sortOrder: s.sort_order,
           approverType: safeString(s.approver_type),
           approverHrId: safeString(s.approver_hr_id),
-          approverName: hrMap[s.approver_hr_id] || '未指定',
+          approverName: hrMap[s.approver_hr_id] || localeCopy.copy_86bbf0d28e,
           approverIdentityId: safeString(s.approver_identity_id),
           approverIdentityName: identityMap[s.approver_identity_id] || '',
           scopeType: safeString(s.scope_type),
@@ -774,7 +774,7 @@ router.post('/getAuditProgress', async (req, res) => {
           processedAt: s.processed_at,
           stepConditionsJson: s.step_conditions_json || null,
           stepConditionsDisplay: condDisplay.displayParts,
-          approverDesc: condDisplay.approverDesc || legacyApproverDesc || '由未指定审批人审批'
+          approverDesc: condDisplay.approverDesc || legacyApproverDesc || localeCopy.copy_ae42f47cf6
         };
       }),
       files: files.map((f) => ({

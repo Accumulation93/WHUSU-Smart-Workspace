@@ -77,7 +77,7 @@ async function canReviewVenueBooking(req, booking) {
   if (!rules.length) return { ok: !!admin, admin, hrId, actor };
 
   for (const rule of rules) {
-    if (rule.rule_type === 'direct') return { ok: false, admin, hrId, actor, reason: '该场地为直接通过，无需审批' };
+    if (rule.rule_type === 'direct') return { ok: false, admin, hrId, actor, reason: localeCopy.copy_b1cd1c282b };
     if (rule.rule_type === 'admin' && admin) return { ok: true, admin, hrId, actor };
     if (await matchesBookingRule(rule, hrId)) return { ok: true, admin, hrId, actor };
   }
@@ -544,7 +544,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const adminMap = {};
     if (adminIds.length) {
       const [adminRows] = await pool.query('SELECT id, name FROM admin_info WHERE id IN (?)', [adminIds]);
-      adminRows.forEach(item => { adminMap[item.id] = item.name || '管理员'; });
+      adminRows.forEach(item => { adminMap[item.id] = item.name || localeCopy.copy_c01a9aef59; });
     }
     if (hrIds.length) {
       try {
@@ -585,7 +585,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
         (hrList || []).forEach(h => {
           const org = safeString(h.org_id);
           userMap[h.id] = {
-            name: h.name || '信息已失效',
+            name: h.name || localeCopy.copy_de00c3e48a,
             department: deptMap[org + '|' + h.department_id] || '',
             identity: identMap[org + '|' + h.identity_id] || '',
             workGroup: wgMap[org + '|' + h.work_group_id] || ''
@@ -605,9 +605,9 @@ router.post('/listAllVenueBookings', async (req, res) => {
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       userHrId: b.user_hr_id,
       creatorType: b.creator_type || 'user',
-      creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
+      creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
       creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
-      userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || '管理员') : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || '普通用户'),
+      userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
       userDept: (userMap[b.user_hr_id] && userMap[b.user_hr_id].department) || '',
       userIdentity: (userMap[b.user_hr_id] && userMap[b.user_hr_id].identity) || '',
       userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || '',
@@ -769,7 +769,7 @@ router.post('/approveVenueBooking', async (req, res) => {
     const review = await canReviewVenueBooking(req, booking);
     if (!review.ok) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: review.reason || '请使用对应的审批身份' });
+      return res.json({ status: 'forbidden', message: review.reason || localeCopy.copy_6b48c1ab98 });
     }
 
     // Flow-based approval
@@ -787,7 +787,7 @@ router.post('/approveVenueBooking', async (req, res) => {
           await venueBookingModel.updateStatus(id, 'cancelled', review.hrId, '审批时借用已结束，自动取消', conn, review.actor);
           await createVenueBookingStatusNotification(
             booking, 'booking_cancelled', '场地借用已自动取消',
-            '您申请的「' + (booking.title || '场地借用') + '」因借用时间已结束，已自动取消。', conn
+            '您申请的「' + (booking.title || localeCopy.copy_592351d93c) + localeCopy.copy_7b831c34ee, conn
           );
           await conn.commit();
           return res.json({ status: 'expired', message: localeCopy.copy_aa20a1e7b8 });
@@ -857,7 +857,7 @@ router.post('/approveVenueBooking', async (req, res) => {
         const venueName = booking.venue_name || '';
         await createVenueBookingStatusNotification(
           booking, 'booking_approved', '场地借用已通过',
-          '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过', conn
+          '您申请的「' + (booking.title || localeCopy.copy_592351d93c) + '」' + (venueName ? '（' + venueName + '）' : '') + localeCopy.copy_71ff2a4a29, conn
         );
       }
 
@@ -873,7 +873,7 @@ router.post('/approveVenueBooking', async (req, res) => {
 
       res.json({
         status: 'success',
-        message: isLastStep ? '所有步骤审批完成，借用已通过' : ('步骤 ' + (currentStep + 1) + ' 审批通过，进入下一步'),
+        message: isLastStep ? '所有步骤审批完成，借用已通过' : ('步骤 ' + (currentStep + 1) + localeCopy.copy_c4a10a56e4),
         approvalProgress: { currentStep: newStepIndex, totalSteps: booking.approval_total_steps, isApproved: isLastStep }
       });
       return;
@@ -889,7 +889,7 @@ router.post('/approveVenueBooking', async (req, res) => {
       await venueBookingModel.updateStatus(id, 'cancelled', approverId, '审批时借用已结束，自动取消', conn, review.actor);
       await createVenueBookingStatusNotification(
         booking, 'booking_cancelled', '场地借用已自动取消',
-        '您申请的「' + (booking.title || '场地借用') + '」因借用时间已结束，已自动取消。', conn
+        '您申请的「' + (booking.title || localeCopy.copy_592351d93c) + localeCopy.copy_7b831c34ee, conn
       );
       await conn.commit();
       return res.json({ status: 'expired', message: localeCopy.copy_aa20a1e7b8 });
@@ -909,7 +909,7 @@ router.post('/approveVenueBooking', async (req, res) => {
     const venueName = booking.venue_name || '';
     await createVenueBookingStatusNotification(
       booking, 'booking_approved', '场地借用已通过',
-      '您申请的「' + (booking.title || '场地借用') + '」' + (venueName ? '（' + venueName + '）' : '') + '已审批通过', conn
+      '您申请的「' + (booking.title || localeCopy.copy_592351d93c) + '」' + (venueName ? '（' + venueName + '）' : '') + localeCopy.copy_71ff2a4a29, conn
     );
     await conn.commit();
 
@@ -945,7 +945,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
     const review = await canReviewVenueBooking(req, booking);
     if (!review.ok) {
       await conn.rollback();
-      return res.json({ status: 'forbidden', message: review.reason || '请使用对应的审批身份' });
+      return res.json({ status: 'forbidden', message: review.reason || localeCopy.copy_6b48c1ab98 });
     }
 
     // Flow-based rejection: record which step was rejected
@@ -975,7 +975,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
     const venueNameRej = booking.venue_name || '';
     await createVenueBookingStatusNotification(
       booking, 'booking_rejected', '场地借用被驳回',
-      '您申请的「' + (booking.title || '场地借用') + '」' + (venueNameRej ? '（' + venueNameRej + '）' : '') + '已被驳回' +
+      '您申请的「' + (booking.title || localeCopy.copy_592351d93c) + '」' + (venueNameRej ? '（' + venueNameRej + '）' : '') + localeCopy.copy_f553985be3 +
         (comment ? '，原因：' + comment : ''), conn
     );
     await conn.commit();

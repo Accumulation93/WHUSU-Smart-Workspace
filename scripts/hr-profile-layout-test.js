@@ -14,11 +14,11 @@ function hydrateLocale(source, locale, variableName) {
 const homeCopy = require('../miniprogram/locales/zh-CN/home').text;
 const adminCopy = require('../miniprogram/locales/zh-CN/generated/subpackages/scoring/pages/admin/admin');
 const homeWxml = hydrateLocale(
-  fs.readFileSync(path.join(root, 'miniprogram/pages/home/home.wxml'), 'utf8'),
+  fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.wxml'), 'utf8'),
   homeCopy,
   'copy'
 );
-const homeWxss = fs.readFileSync(path.join(root, 'miniprogram/pages/home/home.wxss'), 'utf8');
+const homeWxss = fs.readFileSync(path.join(root, 'miniprogram/subpackages/workspace/pages/home/home.wxss'), 'utf8');
 const adminWxml = hydrateLocale(
   fs.readFileSync(path.join(root, 'miniprogram/subpackages/scoring/pages/admin/admin.wxml'), 'utf8'),
   adminCopy,

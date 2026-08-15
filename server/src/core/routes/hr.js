@@ -75,28 +75,28 @@ function validateFieldValue(field, rawValue) {
   const value = normalizeEmptyValue(rawValue);
   if (!value) return '';
   if (field.type === 'text') {
-    if (field.minLength != null && value.length < field.minLength) return `请将${field.label}填写至至少 ${field.minLength} 个字`;
-    if (field.maxLength != null && value.length > field.maxLength) return `请将${field.label}控制在 ${field.maxLength} 个字以内`;
+    if (field.minLength != null && value.length < field.minLength) return localeFormat(localeCopy.copy_bff02f531d, [field.label, field.minLength]);
+    if (field.maxLength != null && value.length > field.maxLength) return localeFormat(localeCopy.copy_1364ec67c8, [field.label, field.maxLength]);
     return '';
   }
   if (field.type === 'number') {
-    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return `请在${field.label}中填写整数`;
+    if (field.allowDecimal === false && !/^[+-]?\d+$/.test(value)) return localeFormat(localeCopy.copy_25da4c9917, [field.label]);
     const num = Number(value);
-    if (!Number.isFinite(num)) return `请在${field.label}中填写数字`;
+    if (!Number.isFinite(num)) return localeFormat(localeCopy.copy_803a916bfb, [field.label]);
     if (field.numberRule === 'length_range') {
       const nlen = String(value).replace(/^[+-]/, '').replace('.', '').length;
-      if (field.minDigits != null && nlen < field.minDigits) return `请将${field.label}填写至至少 ${field.minDigits} 位`;
-      if (field.maxDigits != null && nlen > field.maxDigits) return `请将${field.label}控制在 ${field.maxDigits} 位以内`;
+      if (field.minDigits != null && nlen < field.minDigits) return localeFormat(localeCopy.copy_2cf6664a49, [field.label, field.minDigits]);
+      if (field.maxDigits != null && nlen > field.maxDigits) return localeFormat(localeCopy.copy_503bd17961, [field.label, field.maxDigits]);
     } else {
-      if (field.minValue != null && num < field.minValue) return `请将${field.label}填写为 ${field.minValue} 或更大`;
-      if (field.maxValue != null && num > field.maxValue) return `请将${field.label}填写为 ${field.maxValue} 或更小`;
+      if (field.minValue != null && num < field.minValue) return localeFormat(localeCopy.copy_946df9f612, [field.label, field.minValue]);
+      if (field.maxValue != null && num > field.maxValue) return localeFormat(localeCopy.copy_d8d00225f1, [field.label, field.maxValue]);
     }
     return '';
   }
-  if (field.type === 'sequence') { if (field.options.length && field.options.indexOf(value) === -1) return `请重新选择${field.label}`; return ''; }
-  if (field.type === 'date' && !tryParseDate(value)) return `请重新填写${field.label}日期`;
-  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return `请重新填写${field.label}手机号`;
-  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return `请重新填写${field.label}邮箱`;
+  if (field.type === 'sequence') { if (field.options.length && field.options.indexOf(value) === -1) return localeFormat(localeCopy.copy_02808711c5, [field.label]); return ''; }
+  if (field.type === 'date' && !tryParseDate(value)) return localeFormat(localeCopy.copy_c8aa4ca152, [field.label]);
+  if (field.type === 'phone' && !/^1[3-9]\d{9}$/.test(value)) return localeFormat(localeCopy.copy_e840878ac4, [field.label]);
+  if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return localeFormat(localeCopy.copy_f117197c23, [field.label]);
   return '';
 }
 
@@ -291,7 +291,7 @@ router.post('/listMembershipAssignments', async (req, res) => {
       }))
     });
   } catch (error) {
-    return res.json({ status: 'error', message: safeString(error.message) || '请稍后刷新岗位' });
+    return res.json({ status: 'error', message: safeString(error.message) || localeCopy.copy_8c36023a05 });
   }
 });
 
@@ -944,7 +944,7 @@ router.post('/importHrCsv', async (req, res) => {
       conn.release();
     }
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '表格未导入，请重试' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_5840966982 });
   }
 });
 

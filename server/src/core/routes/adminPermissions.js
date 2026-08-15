@@ -81,7 +81,7 @@ router.post('/listPermissionManagedAdmins', async (req, res) => {
         adminLevel: row.admin_level,
         adminLevelLabel: levelLabel(row.admin_level),
         authenticationStatus,
-        bindStatusLabel: authenticationLabels[authenticationStatus] || '待认证',
+        bindStatusLabel: authenticationLabels[authenticationStatus] || localeCopy.copy_5342fa4b24,
         grantedCount,
         applicableCount
       });

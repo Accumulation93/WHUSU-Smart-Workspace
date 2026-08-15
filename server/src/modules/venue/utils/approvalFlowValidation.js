@@ -43,7 +43,7 @@ function normalizeFlowSteps(rawSteps) {
   if (rawSteps.length > MAX_FLOW_STEPS) throw new Error(localeFormat(localeCopy.copy_4d018c2e45, [MAX_FLOW_STEPS]));
   return rawSteps.map((rawStep, stepIndex) => {
     const step = rawStep && typeof rawStep === 'object' ? rawStep : {};
-    const name = safeString(step.name).trim() || `第${stepIndex + 1}步`;
+    const name = safeString(step.name).trim() || localeFormat(localeCopy.copy_6af8fcd6af, [stepIndex + 1]);
     if (name.length > 200) throw new Error(localeCopy.copy_7b57cdbae6);
     const rules = Array.isArray(step.rules) ? step.rules : [];
     if (rules.length > MAX_STEP_RULES) throw new Error(localeFormat(localeCopy.copy_66abbe2cc1, [MAX_STEP_RULES]));

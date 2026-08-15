@@ -8,6 +8,7 @@ const messageDataSource = fs.readFileSync(
   'utf8'
 );
 const workerSource = fs.readFileSync(path.join(root, 'notificationWorker.js'), 'utf8');
+const notificationCopy = require('../src/locales/zh-CN/notificationWorker');
 const backupSource = fs.readFileSync(path.join(root, 'backup.js'), 'utf8');
 const outboxServiceSource = fs.readFileSync(
   path.join(root, 'src/modules/audit/services/notificationOutboxService.js'),
@@ -26,8 +27,10 @@ assert.match(messageDataSource, /SELECT h\.id, h\.name/);
 assert.doesNotMatch(messageDataSource, /SELECT ui\.hr_id, h\.name/);
 assert.match(outboxServiceSource, /createForRecipient\(job, 'user', user\.id/);
 assert.doesNotMatch(outboxServiceSource, /createForRecipient\(job, 'user', user\.hr_id/);
-assert.match(workerSource, /新的考核评分任务/);
-assert.match(workerSource, /考核评分即将截止/);
+assert.match(workerSource, /copy\.scoreActivityStartedTitle/);
+assert.match(workerSource, /copy\.scoreDeadlineTitle/);
+assert.ok(notificationCopy.scoreActivityStartedTitle);
+assert.ok(notificationCopy.scoreDeadlineTitle);
 assert.match(workerSource, /cleanupDead\(90\)/);
 assert.match(workerSource, /cleanupOld\(pool, \{ retentionDays: 90/);
 assert.match(workerSource, /cleanupAuditTemp/);

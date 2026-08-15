@@ -17,7 +17,7 @@ router.post('/getSystemConfig', async (req, res) => {
       } : { timezone: 8, currentOrganization: null }
     });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '请稍后刷新设置' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_a7e2b86629 });
   }
 });
 
@@ -48,7 +48,7 @@ router.post('/saveSystemConfig', async (req, res) => {
 
     res.json({ status: 'success', message: localeCopy.copy_c1add6c36e });
   } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || '设置未保存，请重试' });
+    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_2b79f10002 });
   }
 });
 

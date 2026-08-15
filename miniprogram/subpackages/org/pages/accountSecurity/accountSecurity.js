@@ -6,7 +6,7 @@ Page({
   onLoad() {
     wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     wx.redirectTo({
-      url: '/pages/home/home?subApp=hr&section=account',
+      url: '/subpackages/workspace/pages/home/home?subApp=hr&section=account',
       fail: function() {
         wx.reLaunch({ url: '/pages/portal/portal' });
       }

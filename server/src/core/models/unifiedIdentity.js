@@ -72,7 +72,7 @@ function normalizeAssignmentTitle(row) {
     safeString(row.department_name),
     safeString(row.work_group_name)
   ].filter(Boolean);
-  return parts[0] || '普通岗位';
+  return parts[0] || localeCopy.copy_4331db909f;
 }
 
 function mapAssignmentContext(row) {
@@ -392,7 +392,7 @@ async function validateAssignmentReferences(connection, organizationId, data) {
       `SELECT 1 FROM ${table} WHERE id = ? AND org_id = ? LIMIT 1`,
       [safeString(id), safeString(organizationId)]
     );
-    if (!rows.length) throw new IdentityError('assignment_reference_invalid', label + '不属于当前组织', 400);
+    if (!rows.length) throw new IdentityError('assignment_reference_invalid', label + localeCopy.copy_3169026f18, 400);
   }
 }
 

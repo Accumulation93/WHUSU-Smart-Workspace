@@ -33,10 +33,10 @@ const VALID_DISPLAY_MODES = ['score', 'grade'];
  * or '未评级' if no band matches. Bands must be sorted by sort_order ascending.
  */
 function applyGradeBands(score, bands) {
-  if (!Array.isArray(bands) || !bands.length) return '未评级';
+  if (!Array.isArray(bands) || !bands.length) return localeCopy.copy_201bb379be;
   // Ensure numeric comparison (defensive: score may come as string from some paths)
   const numScore = Number(score);
-  if (!Number.isFinite(numScore)) return '未评级';
+  if (!Number.isFinite(numScore)) return localeCopy.copy_201bb379be;
   for (const band of bands) {
     const minScore = Number(band.minScore != null ? band.minScore : band.min_score);
     const maxScore = Number(band.maxScore != null ? band.maxScore : band.max_score);
@@ -47,7 +47,7 @@ function applyGradeBands(score, bands) {
   }
   // Debug: log when a score doesn't match any band (helps catch config mismatches)
   logger.debug('No grade band matched', { numScore, bandCount: bands.length });
-  return '未评级';
+  return localeCopy.copy_201bb379be;
 }
 
 async function ensureAdmin(openid) { return adminInfoModel.getByOpenid(openid); }
@@ -278,11 +278,11 @@ router.post('/saveResultPublication', async (req, res) => {
         payload: {
           type: 'score_results_published',
           title: localeCopy.copy_a2fd08aa5b,
-          description: '「' + safeString(activity.name || '当前考核活动') + '」的结果已向您公示。',
+          description: '「' + safeString(activity.name || localeCopy.copy_d8026f6068) + localeCopy.copy_9e7a5b00ee,
           category: 'scoring',
           targetType: 'result_publication',
           targetId: existing.id,
-          targetUrl: '/pages/home/home?subApp=scoring',
+          targetUrl: '/subpackages/workspace/pages/home/home?subApp=scoring',
           publicationId: existing.id
         }
       });
@@ -598,7 +598,7 @@ router.post('/getPublicResults', async (req, res) => {
     const granularity = participantService.normalizeGranularity(activity.participant_granularity);
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'not_bound', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'not_bound', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const [viewerRecord, participantRows, lookups] = await Promise.all([
       participantService.resolveActorParticipant(orgId, actorResult.actor, granularity),
@@ -732,7 +732,7 @@ router.post('/getPublicResults', async (req, res) => {
       // Build group label
       let groupLabel = scopeLabelMap[safeString(clause.scope_type)] || safeString(clause.scope_type);
       if (targetIdentityName) groupLabel = groupLabel + ' ' + targetIdentityName;
-      if (clauseDisplayMode === 'grade') groupLabel = groupLabel + '（等第）';
+      if (clauseDisplayMode === 'grade') groupLabel = groupLabel + localeCopy.copy_880ad7309d;
 
       const members = [];
       for (const targetId of targetIds) {
@@ -743,9 +743,9 @@ router.post('/getPublicResults', async (req, res) => {
 
         const entry = {
           name: member.name,
-          department: lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || '未分类',
-          identity: lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || '未分类',
-          workGroup: lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || '未分类',
+          department: lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || localeCopy.copy_25e27df7c6,
+          identity: lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || localeCopy.copy_25e27df7c6,
+          workGroup: lookups.workGroupsById.get(member.workGroupId) || safeString(member.workGroupId) || localeCopy.copy_25e27df7c6,
           sortScore: rawScore,
           finalScore: Number(rawScore).toFixed(3)
         };

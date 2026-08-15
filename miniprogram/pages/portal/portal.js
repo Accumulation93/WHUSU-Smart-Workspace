@@ -19,16 +19,16 @@ const CATEGORY_LABELS = {
 };
 
 const PORTAL_CARDS_USER = [
-  { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
+  { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
   { key: 'identitySwitch', label: copy.cards.identitySwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
-  { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/pages/home/home?subApp=scoring', disabled: false },
-  { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/pages/home/home?subApp=hr', disabled: false },
-  { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/pages/home/home?subApp=audit', disabled: false },
+  { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/workspace/pages/home/home?subApp=scoring', disabled: false },
+  { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/subpackages/workspace/pages/home/home?subApp=hr', disabled: false },
+  { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/subpackages/workspace/pages/home/home?subApp=audit', disabled: false },
   { key: 'venue', label: copy.cards.venueBooking, iconName: 'venue', url: '/subpackages/venue/pages/venueBooking/venueBooking', disabled: false }
 ];
 
 const PORTAL_CARDS_ADMIN = [
-  { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/pages/messageCenter/messageCenter', disabled: false },
+  { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
   { key: 'identitySwitch', label: copy.cards.identitySwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
   { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
@@ -413,7 +413,7 @@ Page({
 
   openMessageCenter(e) {
     const tab = e.currentTarget.dataset.tab === 'notifications' ? 'notifications' : 'todos';
-    navigateToTrustedRoute('/pages/messageCenter/messageCenter?tab=' + tab);
+    navigateToTrustedRoute('/subpackages/message/pages/messageCenter/messageCenter?tab=' + tab);
   },
 
   pendingReadStorageKey(organizationId) {

@@ -1,7 +1,7 @@
-const { callFunction, getErrorText, formatAuditTime } = require('../../utils/api');
-const orgSession = require('../../utils/orgSession');
-const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
-const { home: copy } = require('../../locales/zh-CN/main');
+const { callFunction, getErrorText, formatAuditTime } = require('../../../../utils/api');
+const orgSession = require('../../../../utils/orgSession');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { home: copy } = require('../../../../locales/zh-CN/main');
 const STORAGE_KEY = 'roleProfiles';
 const ACTIVE_ROLE_KEY = 'activeRole';
 

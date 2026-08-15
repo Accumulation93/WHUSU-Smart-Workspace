@@ -11,6 +11,14 @@
 - 业务逻辑和页面结构可以有差异，但基础字体角色、控件角色、弹窗契约和状态表达必须可预测。
 - 原生微信小程序和自有 WXSS 是当前 UI provider；不引入 React、Tailwind 或第三方组件库。
 
+## 页面组织与语言资源
+
+- `miniprogram/pages` 只保留登录和门户启动壳；消息中心、工作台和其他业务页面统一放在 `subpackages/<模块名>/pages/**`，不得把业务页直接注册到主包。
+- 分包迁移必须同步更新 `app.json`、门户卡片、可信导航、上下文守卫、服务端通知/待办目标和 WXSS 导入路径；旧主包业务路由不得残留在生产调用链。
+- 提示、指引、校验反馈、空状态、Toast、Modal、确认层、通知标题/描述和导出标题等用户可见常量只能来自 locale。业务代码通过语义键和格式化参数引用；CSV 列别名、状态码、路由和内部日志不属于文案。
+- locale 生成必须合并现有文件与 Git 基线资源，禁止覆盖同文件已有键；迁移后必须重跑语言审计和受影响功能测试。
+- 发布前必须通过 `node scripts/user-visible-copy-audit.js --localization-prefix=miniprogram/ --strict-localization`、`node scripts/user-visible-copy-audit.js --localization-prefix=server/src/ --strict-localization` 和 `node scripts/user-visible-copy-audit.js --strict-guidance`。
+
 ## 设备层级
 
 设备差异是设计的一部分，不能把所有设备压成一套尺寸。

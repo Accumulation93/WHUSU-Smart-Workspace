@@ -69,9 +69,9 @@ function buildClauseText(clause) {
   const identityText = clause.targetIdentity ? '，被评分人身份：' + clause.targetIdentity : '';
   const completeText = clause.requireAllComplete ? '，要求全评后计入核算' : '，不要求全评';
   const questionText = clause.templateConfigs.length
-    ? clause.templateConfigs.map((cfg) => (cfg.templateName || '未命名评分问题') + '（权重：' + cfg.weight + '，顺序：' + cfg.sortOrder + '）').join('、')
+    ? clause.templateConfigs.map((cfg) => (cfg.templateName || localeCopy.copy_a3c996a525) + localeCopy.copy_de6991a9f2 + cfg.weight + localeCopy.copy_97abe52b9d + cfg.sortOrder + '）').join('、')
     : '暂未选择评分问题';
-  return (clause.scopeLabel || '未设置被评分范围') + identityText + completeText + ' [' + questionText + ']';
+  return (clause.scopeLabel || localeCopy.copy_f8d4dcaa31) + identityText + completeText + ' [' + questionText + ']';
 }
 
 // listRateRules

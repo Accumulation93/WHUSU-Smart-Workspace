@@ -1,5 +1,6 @@
 require('dotenv').config();
 const pool = require('./src/config/db');
+const copy = require('./src/locales/zh-CN/notificationWorker');
 const { verifySchemaContract } = require('./src/utils/schemaContract');
 const outboxModel = require('./src/modules/audit/models/notificationOutbox');
 const notificationModel = require('./src/modules/audit/models/notification');
@@ -31,9 +32,9 @@ async function enqueueScheduledScoringEvents() {
       eventType: 'score_activity_started',
       eventKey: 'score-start:' + activityId,
       payload: {
-        type: 'score_activity_started', title: '新的考核评分任务',
-        description: '当前考核活动已开始，请及时完成评分。', category: 'scoring',
-        targetType: 'score_activity', targetId: activityId, targetUrl: '/pages/home/home?subApp=scoring',
+        type: 'score_activity_started', title: copy.scoreActivityStartedTitle,
+        description: copy.scoreActivityStartedDescription, category: 'scoring',
+        targetType: 'score_activity', targetId: activityId, targetUrl: '/subpackages/workspace/pages/home/home?subApp=scoring',
         activity
       }
     });
@@ -44,9 +45,9 @@ async function enqueueScheduledScoringEvents() {
         eventType: 'score_deadline_24h',
         eventKey: 'score-deadline-24h:' + activityId,
         payload: {
-          type: 'score_deadline_24h', title: '考核评分即将截止',
-          description: '距离评分截止不足 24 小时，请尽快完成剩余任务。', category: 'scoring',
-          targetType: 'score_activity', targetId: activityId, targetUrl: '/pages/home/home?subApp=scoring',
+          type: 'score_deadline_24h', title: copy.scoreDeadlineTitle,
+          description: copy.scoreDeadlineDescription, category: 'scoring',
+        targetType: 'score_activity', targetId: activityId, targetUrl: '/subpackages/workspace/pages/home/home?subApp=scoring',
           activity
         }
       });

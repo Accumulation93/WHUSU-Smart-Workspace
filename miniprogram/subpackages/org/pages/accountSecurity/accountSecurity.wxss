@@ -1,1 +1,1 @@
-@import '../../../../pages/home/home.wxss';
+@import '../../../workspace/pages/home/home.wxss';

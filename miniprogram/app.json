@@ -1,11 +1,23 @@
 {
   "pages": [
     "pages/login/login",
-    "pages/portal/portal",
-    "pages/messageCenter/messageCenter",
-    "pages/home/home"
+    "pages/portal/portal"
   ],
   "subPackages": [
+    {
+      "root": "subpackages/workspace",
+      "name": "workspace",
+      "pages": [
+        "pages/home/home"
+      ]
+    },
+    {
+      "root": "subpackages/message",
+      "name": "message",
+      "pages": [
+        "pages/messageCenter/messageCenter"
+      ]
+    },
     {
       "root": "subpackages/scoring",
       "name": "scoring",

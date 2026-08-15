@@ -96,9 +96,9 @@ function mapNotification(row, context) {
   const routes = {
     submission: targetId ? '/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + targetId : '',
     booking: '/subpackages/venue/pages/myVenueBookings/myVenueBookings',
-    score_activity: '/pages/home/home?subApp=scoring',
-    result_publication: '/pages/home/home?subApp=scoring',
-    hr_profile: '/pages/home/home?subApp=hr',
+    score_activity: '/subpackages/workspace/pages/home/home?subApp=scoring',
+    result_publication: '/subpackages/workspace/pages/home/home?subApp=scoring',
+    hr_profile: '/subpackages/workspace/pages/home/home?subApp=hr',
     account: '/pages/portal/portal',
     account_security: '/subpackages/org/pages/accountSecurity/accountSecurity'
   };

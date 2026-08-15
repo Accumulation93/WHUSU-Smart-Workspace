@@ -225,7 +225,7 @@ router.post('/checkPendingCount', async (req, res) => {
   try {
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const hrId = actorResult.actor.id;
 
@@ -244,7 +244,7 @@ router.post('/listPendingApprovals', async (req, res) => {
   try {
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const hrId = actorResult.actor.id;
 
@@ -264,7 +264,7 @@ router.post('/listPendingApprovals', async (req, res) => {
       submissionNumber: safeString(s.submission_number),
       title: safeString(s.title),
       submittedBy: safeString(s.submitted_by),
-      submitterName: hrMap[s.submitted_by] || '未知',
+      submitterName: hrMap[s.submitted_by] || localeCopy.copy_8d3451355b,
       sortOrder: s.sort_order,
       approverType: safeString(s.approver_type),
       approverIdentityId: safeString(s.approver_identity_id),
@@ -292,7 +292,7 @@ router.post('/startAuditSubmission', async (req, res) => {
     const openid = req.openid;
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const hrId = actorResult.actor.id;
     const orgId = await getCurrentOrgId();
@@ -794,7 +794,7 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
     if (cond.conditionType === 'person') {
       const ids = (cond.personHrIds || '').split(',').map(s => s.trim()).filter(Boolean);
       const names = ids.map(id => hrMap[id] || id).filter(Boolean);
-      part = names.length ? '由 ' + names.join('、') + ' 审批' : '由指定人员审批';
+      part = names.length ? '由 ' + names.join('、') + localeCopy.copy_7abed5378f : '由指定人员审批';
     } else {
       // identity_scope
       const scopeParts = [];
@@ -833,7 +833,7 @@ function buildStepConditionsDisplay(conditionsJson, maps) {
       if (cond.identityScope === 'all' && cond.departmentScope === 'all' && cond.workGroupScope === 'all') {
         part = '由全体成员审批';
       } else {
-        part = '由 ' + scopeStr + '审批';
+        part = '由 ' + scopeStr + localeCopy.copy_c9695bb971;
       }
     }
     if (part) displayParts.push(part);
@@ -1082,7 +1082,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         templateName,
         status: safeString(submission.status),
         submittedBy: safeString(submission.submitted_by),
-        submitterName: hrMap[submission.submitted_by] || '未知',
+        submitterName: hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
         currentStepIndex: submission.current_step_index,
         resubmitMode: safeString(submission.resubmit_mode),
         previousRejectStepIndex: submission.previous_reject_step_index,
@@ -1115,34 +1115,34 @@ router.post('/getSubmissionDetail', async (req, res) => {
             const names = hrIds.map(function(id) { return hrMap[id] || id; }).filter(Boolean);
             personNames = names.join('、');
           }
-          legacyApproverDesc = '由 ' + (personNames || '未指定') + ' 审批';
+          legacyApproverDesc = '由 ' + (personNames || localeCopy.copy_86bbf0d28e) + localeCopy.copy_7abed5378f;
         } else if (identName || scopeType) {
           // Always build from scope + identity, using fallback labels when names are missing
-          const identLabel = identName || '特定身份';
+          const identLabel = identName || localeCopy.copy_5a83091c13;
           if (!scopeType || scopeType === 'all') {
-            legacyApproverDesc = '由 全体 ' + identLabel + ' 审批';
+            legacyApproverDesc = '由 全体 ' + identLabel + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'same_department') {
-            legacyApproverDesc = '由 同部门 ' + identLabel + ' 审批';
+            legacyApproverDesc = '由 同部门 ' + identLabel + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'same_work_group') {
-            legacyApproverDesc = '由 同职能组 ' + identLabel + ' 审批';
+            legacyApproverDesc = '由 同职能组 ' + identLabel + localeCopy.copy_7abed5378f;
           } else if (scopeType === 'specific_department') {
             const dn = resolveMultiNames(s.scope_department_id, deptMap);
             if (dn) {
-              legacyApproverDesc = '由 ' + dn + ' ' + identLabel + ' 审批';
+              legacyApproverDesc = '由 ' + dn + ' ' + identLabel + localeCopy.copy_7abed5378f;
             } else {
-              legacyApproverDesc = '由 ' + identLabel + ' 审批';
+              legacyApproverDesc = '由 ' + identLabel + localeCopy.copy_7abed5378f;
             }
           } else if (scopeType === 'specific_work_group') {
             const dn = resolveMultiNames(s.scope_department_id, deptMap);
             const wn = resolveMultiNames(s.scope_work_group_id, wgMap);
             const loc = [dn, wn].filter(Boolean).join('·');
             if (loc) {
-              legacyApproverDesc = '由 ' + loc + ' ' + identLabel + ' 审批';
+              legacyApproverDesc = '由 ' + loc + ' ' + identLabel + localeCopy.copy_7abed5378f;
             } else {
-              legacyApproverDesc = '由 ' + identLabel + ' 审批';
+              legacyApproverDesc = '由 ' + identLabel + localeCopy.copy_7abed5378f;
             }
           } else {
-            legacyApproverDesc = '由 ' + identLabel + ' 审批';
+            legacyApproverDesc = '由 ' + identLabel + localeCopy.copy_7abed5378f;
           }
         }
 
@@ -1185,7 +1185,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         processedAt: s.processed_at,
         stepConditionsJson: s.step_conditions_json || null,
         stepConditionsDisplay: condDisplay.displayParts,
-        approverDesc: condDisplay.approverDesc || legacyApproverDesc || '由未指定审批人审批'
+        approverDesc: condDisplay.approverDesc || legacyApproverDesc || localeCopy.copy_ae42f47cf6
       };
     }),
       files: files.map((f) => ({
@@ -1207,7 +1207,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
         rotation: parseFloat(sig.rotation_degrees) || 0,
         page: sig.page || 1,
         signerHrId: safeString(sig.signer_hr_id),
-        signerName: hrMap[sig.signer_hr_id] || '未知',
+        signerName: hrMap[sig.signer_hr_id] || localeCopy.copy_8d3451355b,
         signerStudentId: hrStudentIdMap[sig.signer_hr_id] || '',
         round: sig.round,
         signedAt: sig.signed_at
@@ -1342,7 +1342,7 @@ router.post('/approveStep', async (req, res) => {
   try {
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const actor = actorResult.actor;
     const hrId = actor.id;
@@ -1697,7 +1697,7 @@ router.post('/approveStep', async (req, res) => {
         hrId: submission.submitted_by,
         type: 'submission_approved',
         title: localeCopy.copy_32f1119845,
-        description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + '」已通过全部审核',
+        description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + localeCopy.copy_071cea6fa1,
         category: 'audit',
         targetType: 'submission',
         targetId: submissionId,
@@ -1709,7 +1709,7 @@ router.post('/approveStep', async (req, res) => {
         hrId: submission.submitted_by,
         type: 'submission_progress',
         title: localeCopy.copy_a5bbfb41e9,
-        description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + '」已通过第' + step.sort_order + '步，进入第' + nextStep.sort_order + '步',
+        description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + localeCopy.copy_4dc0ac16b8 + step.sort_order + localeCopy.copy_b08a9cb173 + nextStep.sort_order + localeCopy.copy_493a127a99,
         category: 'audit',
         targetType: 'submission',
         targetId: submissionId,
@@ -1739,7 +1739,7 @@ router.post('/rejectStep', async (req, res) => {
   try {
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const actor = actorResult.actor;
     const hrId = actor.id;
@@ -1820,7 +1820,7 @@ router.post('/rejectStep', async (req, res) => {
       hrId: submission.submitted_by,
       type: 'submission_rejected',
       title: localeCopy.copy_d402fe10f9,
-      description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + '」在第' + step.sort_order + '步被驳回' + (rejectionReason ? '：' + rejectionReason : ''),
+      description: localeCopy.copy_dd6dd4b694 + (submission.title || submission.submission_number) + localeCopy.copy_3848dc7753 + step.sort_order + localeCopy.copy_39bf6116f7 + (rejectionReason ? '：' + rejectionReason : ''),
       category: 'audit',
       targetType: 'submission',
       targetId: submissionId,
@@ -2527,7 +2527,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
     const previewSteps = templateSteps.sort((a, b) => a.sort_order - b.sort_order).map(function(ts, idx) {
       const conds = stepConditionMap[ts.id] || [];
       const actionMap = { pass: '仅通过', sign: '签字', estamp: '盖章', both: '签字+盖章' };
-      const actionLabel = actionMap[ts.action_type] || ts.action_type || '签字';
+      const actionLabel = actionMap[ts.action_type] || ts.action_type || localeCopy.copy_49cbf30d6b;
 
       // Build condition display using shared helper
       const condJson = conds.length ? JSON.stringify(conds) : null;
@@ -2541,7 +2541,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
         actionLabel: actionLabel,
         allowApproverDesignation: Number(ts.allow_approver_designation) === 1,
         displayParts: display.displayParts,
-        approverDesc: display.approverDesc || '由全体成员审批',
+        approverDesc: display.approverDesc || localeCopy.copy_8705219d19,
         // Pass raw conditions for client-side person override logic
         conditions: conds
       };
@@ -2597,7 +2597,7 @@ router.post('/listMyStamps', async (req, res) => {
 router.post('/getUnreadCounts', async (req, res) => {
   const actorResult = await resolveCurrentActor(req);
   if (!actorResult.ok || actorResult.actor.type !== 'user') {
-    return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+    return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
   }
   const hrId = actorResult.actor.id;
 
@@ -2772,7 +2772,7 @@ router.post('/listMyApprovalHistory', async (req, res) => {
         status: safeString(s.status),
         currentStepIndex: s.current_step_index,
         submittedBy: safeString(s.submitted_by),
-        submitterName: hrMap[s.submitted_by] || '未知',
+        submitterName: hrMap[s.submitted_by] || localeCopy.copy_8d3451355b,
         createdAt: s.created_at,
         updatedAt: s.updated_at,
         mySteps: myStepsMap[s.id] || [],
@@ -2792,7 +2792,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
   try {
     const actorResult = await resolveCurrentActor(req);
     if (!actorResult.ok || actorResult.actor.type !== 'user') {
-      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || '请先选择普通岗位身份' });
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const hrId = actorResult.actor.id;
 
