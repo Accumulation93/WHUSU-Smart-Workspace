@@ -22,17 +22,16 @@
         <view class="{{node.dotClass}}">{{node.icon}}</view>
         <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
       </view>
-      <view class="flow-right-col">
-        <view class="flow-info">
-          <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
-          <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
-          <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
-          <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
-        </view>
+      <view class="flow-info">
+        <view class="flow-step-label">{{node.stepName}}</view>
+        <view class="flow-step-status-tag flow-tag-{{node.state}}">{{node.label}}</view>
+        <view class="flow-step-meta" wx:if="{{node.meta}}">{{node.meta}}</view>
+        <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
+        <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
         <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
-          <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
-          <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_dcadcebf08}}</text>{{node.approvedAt}}</view>
-          <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
+          <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+          <view wx:if="{{node.approvedAt}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAt}}</view>
+          <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
         </view>
       </view>
     </view>

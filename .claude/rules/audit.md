@@ -40,6 +40,10 @@ audit/
 2. 构建 `flowTimeline`（按 round 分组）— ⚠️ 此逻辑在 submissionDetail.js **内部**实现，与 venue 的 `utils/flowTimeline.js` 独立
 3. 两种审批路径：弹窗审批 / 内联审批（主 UX 路径）
 
+### 审批步骤卡展开规范
+
+审批步骤卡展开详情必须位于同一 `.flow-info` 卡片内部；展开时卡片切换为白色玻璃层，不能保留已通过绿色或驳回红色背景。`.flow-expand-detail` 与 `.flow-detail-processed-*`、`.flow-detail-comment` 的字体、行高、内边距、圆角和阴影是跨子应用共享契约，场地借用详情必须复用该层级与样式。
+
 ### 模板审批人重新指定契约
 
 - 模板修改时，只能在模板明确允许的情况下显示第一步“指定/修改指定”入口；服务端必须再次校验第一步开关、组织范围和模板原始审批条件。
