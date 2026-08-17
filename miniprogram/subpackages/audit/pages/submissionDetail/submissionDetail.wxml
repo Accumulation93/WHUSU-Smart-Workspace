@@ -56,29 +56,23 @@
     <view class="card" wx:if="{{createMode === 'template' && selectedTemplateId && templatePreviewSteps.length}}">
       <view class="section-title">{{localeCopy.copy_9c898a71af}}{{templatePreviewSteps.length}}{{localeCopy.copy_16d27aa59e}}</view>
       <view class="section-desc section-desc-sm">{{localeCopy.copy_34f5bab454}}</view>
-      <!-- 模板允许时：第一步审批人可指定（显眼入口，与下方步骤行共用同一状态） -->
-      <view class="tpl-first-approver" wx:if="{{templateStepOverrides.length && templateStepOverrides[0].stepIndex === 1}}">
-        <view class="tpl-first-approver-head">
-          <view class="tpl-first-approver-title">{{localeCopy.copy_55de802a51}}</view>
-          <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides[0].personHrIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
-        </view>
-        <view class="tpl-first-approver-desc">{{localeCopy.copy_8ff5c9662e}}</view>
-        <view wx:if="{{templateStepOverrides[0].personHrNames.length}}" class="tpl-step-override-persons">
-          <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
-            <text>{{pname}}</text>
-            <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-hr-id="{{templateStepOverrides[0].personHrIds[pidx]}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
-          </view>
-        </view>
-      </view>
       <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
         <view class="tpl-step-preview-main">
           <view class="tpl-step-preview-num">{{item.name || (localeCopy.copy_93c50c01c0 + (item.sortOrder || (index + 1)) + localeCopy.copy_493a127a99)}}</view>
           <view class="tpl-step-preview-desc">{{item.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
           <view class="tpl-step-preview-action">{{item.actionLabel || localeCopy.copy_c9695bb971}}</view>
+          <view class="tpl-step-preview-designation" wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation}}">
+            <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides.length && templateStepOverrides[0].personHrIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
+            <view wx:if="{{templateStepOverrides.length && templateStepOverrides[0].personHrNames.length}}" class="tpl-step-preview-persons">
+              <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
+                <text>{{pname}}</text>
+                <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-hr-id="{{templateStepOverrides[0].personHrIds[pidx]}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
+              </view>
+            </view>
+          </view>
         </view>
-        <view class="tpl-step-preview-mode">
-          <text wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">{{localeCopy.copy_db70b8527a}}</text>
-          <text wx:else class="tpl-step-fixed-mode">{{localeCopy.copy_46a814a2c4}}</text>
+        <view class="tpl-step-preview-mode" wx:if="{{!(item.stepIndex === 1 && item.allowApproverDesignation)}}">
+          <text class="tpl-step-fixed-mode">{{localeCopy.copy_46a814a2c4}}</text>
         </view>
       </view>
     </view>
@@ -481,28 +475,23 @@
         <view class="card" wx:if="{{editType === 'template' && editTemplateId && templatePreviewSteps.length}}">
           <view class="section-title">{{localeCopy.copy_5d2dc79b89}}{{templatePreviewSteps.length}}{{localeCopy.copy_16d27aa59e}}</view>
           <view class="section-desc section-desc-sm">{{localeCopy.copy_34f5bab454}}</view>
-          <view class="tpl-first-approver" wx:if="{{templateStepOverrides.length && templateStepOverrides[0].stepIndex === 1}}">
-            <view class="tpl-first-approver-head">
-              <view class="tpl-first-approver-title">{{localeCopy.copy_55de802a51}}</view>
-              <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides[0].personHrIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
-            </view>
-            <view class="tpl-first-approver-desc">{{localeCopy.copy_8ff5c9662e}}</view>
-            <view wx:if="{{templateStepOverrides[0].personHrNames.length}}" class="tpl-step-override-persons">
-              <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
-                <text>{{pname}}</text>
-                <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-hr-id="{{templateStepOverrides[0].personHrIds[pidx]}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
-              </view>
-            </view>
-          </view>
           <view class="tpl-step-preview-item" wx:for="{{templatePreviewSteps}}" wx:key="stepIndex">
             <view class="tpl-step-preview-main">
               <view class="tpl-step-preview-num">{{item.name || (localeCopy.copy_93c50c01c0 + (item.sortOrder || (index + 1)) + localeCopy.copy_493a127a99)}}</view>
               <view class="tpl-step-preview-desc">{{item.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
               <view class="tpl-step-preview-action">{{item.actionLabel || localeCopy.copy_c9695bb971}}</view>
+              <view class="tpl-step-preview-designation" wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation}}">
+                <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides.length && templateStepOverrides[0].personHrIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
+                <view wx:if="{{templateStepOverrides.length && templateStepOverrides[0].personHrNames.length}}" class="tpl-step-preview-persons">
+                  <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
+                    <text>{{pname}}</text>
+                    <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-hr-id="{{templateStepOverrides[0].personHrIds[pidx]}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
+                  </view>
+                </view>
+              </view>
             </view>
-            <view class="tpl-step-preview-mode">
-              <text wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation && templateStepOverrides.length && templateStepOverrides[0].personHrIds.length}}" class="tpl-step-fixed-mode tpl-step-designated">{{localeCopy.copy_db70b8527a}}</text>
-              <text wx:else class="tpl-step-fixed-mode">{{localeCopy.copy_46a814a2c4}}</text>
+            <view class="tpl-step-preview-mode" wx:if="{{!(item.stepIndex === 1 && item.allowApproverDesignation)}}">
+              <text class="tpl-step-fixed-mode">{{localeCopy.copy_46a814a2c4}}</text>
             </view>
           </view>
         </view>

@@ -17,34 +17,6 @@
   box-shadow: 0 12rpx 28rpx rgba(37,99,235,0.10), inset 0 1rpx 0 rgba(255,255,255,0.82);
 }
 
-/* 模板第一步审批人指定（模板允许时显示） */
-.tpl-first-approver {
-  margin-top: 16rpx;
-  padding: 16rpx 18rpx;
-  border-radius: 18rpx;
-  background: linear-gradient(135deg, rgba(239,246,255,0.92) 0%, rgba(219,234,254,0.72) 100%);
-  border: 1rpx solid rgba(147,197,253,0.55);
-  box-sizing: border-box;
-}
-.tpl-first-approver-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
-}
-.tpl-first-approver-title {
-  font-size: var(--ui-type-label);
-  font-weight: 700;
-  color: #0f172a;
-}
-.tpl-first-approver-desc {
-  margin-top: 6rpx;
-  font-size: var(--ui-type-caption);
-  color: #64748b;
-  line-height: 1.6;
-}
-.tpl-step-designated { color: #2563eb; }
-
 /* Radio dot for template selection */
 .radio-dot {
   flex-shrink: 0; width: 40rpx; height: 40rpx; border-radius: 50%;
@@ -167,6 +139,16 @@
   display: inline-flex; margin-top: 4rpx; padding: 3rpx 12rpx; border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-micro); font-weight: 600; background: rgba(219,234,254,0.6); color: #2563eb;
 }
+.tpl-step-preview-designation {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6rpx 8rpx;
+  margin-top: 8rpx; min-width: 0;
+}
+.tpl-step-preview-designation > .audit-link-btn {
+  flex: 0 0 auto;
+}
+.tpl-step-preview-persons {
+  display: flex; align-items: center; flex-wrap: wrap; min-width: 0;
+}
 .tpl-step-preview-mode { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2rpx; }
 .tpl-step-fixed-mode { color: #6b7b91; font-size: var(--ui-type-caption); line-height: 1.4; text-align: right; }
 .tpl-step-person-tag {
@@ -220,8 +202,6 @@
 .section-desc-sm { font-size: var(--ui-type-caption); color: #94a3b8; margin-bottom: 12rpx; }
 .view-desc-text { font-size: var(--ui-type-control); color: #475569; line-height: 1.6; white-space: pre-wrap; }
 .edit-cond-line { font-size: var(--ui-type-caption); color: #94a3b8; margin-top: 2rpx; }
-.tpl-step-override-persons { margin-top: 4rpx; }
-.tpl-step-override-link { font-size: var(--ui-type-caption); margin-top: 4rpx; }
 
 /* ═══ Status hint box ═══ */
 .status-hint-box {
