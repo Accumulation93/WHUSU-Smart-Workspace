@@ -1,7 +1,7 @@
 :host {
   display: block;
   width: 100%;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--ui-hero-gap, 24rpx);
 }
 
 .workspace-hero {
@@ -194,10 +194,6 @@
 }
 
 @media (min-width: 520px) {
-  :host {
-    margin-bottom: 18px;
-  }
-
   .workspace-hero {
     padding: 24px 26px 22px;
     border-radius: 26px;

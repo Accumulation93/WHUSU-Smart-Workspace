@@ -1,7 +1,7 @@
 <view class="page page-narrow subapp-audit-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_290f4e2426}}"></workspace-hero>
 
-  <view class="section">
+  <view class="section-stack">
     <view class="card" wx:if="{{creating}}">
       <view class="section-title">{{editingSignature ? localeCopy.copy_ae48afe9fc : localeCopy.copy_c103b678f0}}</view>
       <signature-pad initialImage="{{editingSignature.imageData || ''}}" bindconfirm="onSignatureDrawConfirm" />
@@ -9,7 +9,7 @@
     </view>
 
     <view class="card" wx:if="{{!creating}}">
-      <view class="audit-btn-bar">
+      <view class="audit-btn-bar signature-create-actions">
         <button class="primary-btn ui-motion-button" bindtap="startCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_d654f6c1d3}}</button>
       </view>
     </view>

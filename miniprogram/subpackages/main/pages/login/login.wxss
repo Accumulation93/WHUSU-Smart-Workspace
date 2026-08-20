@@ -44,7 +44,7 @@ page {
 .login-layout {
   width: 100%;
   max-width: 680rpx;
-  margin: 0 auto;
+  margin: 0 auto var(--ui-card-gap);
 }
 
 .login-hero {
@@ -102,7 +102,7 @@ page {
 }
 
 .sheet-note {
-  margin-bottom: 20rpx;
+  margin-bottom: var(--ui-action-gap);
   padding: 16rpx 18rpx;
   border: 1rpx solid rgba(191,219,254,0.72);
   border-radius: 16rpx;
@@ -141,7 +141,7 @@ page {
 .recovery-code-box {
   box-sizing: border-box;
   width: 100%;
-  margin: 18rpx 0;
+  margin: 0 0 var(--ui-action-gap);
   padding: 22rpx;
   border: 1rpx solid rgba(96, 165, 250, 0.42);
   border-radius: 16rpx;
@@ -153,6 +153,18 @@ page {
   letter-spacing: 2rpx;
   overflow-wrap: anywhere;
   text-align: center;
+}
+
+.recovery-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-action-gap);
+}
+
+.recovery-actions .secondary-btn,
+.recovery-actions .primary-btn {
+  width: 100%;
+  margin: 0;
 }
 
 .sheet-link {
@@ -208,7 +220,7 @@ page {
   left: 18rpx;
   right: 18rpx;
   bottom: calc(18rpx + env(safe-area-inset-bottom));
-  padding: 28rpx 26rpx 32rpx;
+  padding: var(--ui-dialog-padding);
   border-radius: 30rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(247,250,255,0.90));
   border: 1rpx solid rgba(255,255,255,0.82);
@@ -247,11 +259,7 @@ page {
   align-items: center;
   justify-content: space-between;
   gap: 18rpx;
-  margin-bottom: 22rpx;
-}
-
-.sheet-body {
-  padding: 2rpx;
+  margin-bottom: var(--ui-dialog-section-gap);
 }
 
 .sheet-title {
@@ -270,11 +278,11 @@ page {
 }
 
 .field {
-  margin-bottom: 18rpx;
+  margin-bottom: var(--ui-field-gap);
 }
 
 .field-label {
-  margin-bottom: 9rpx;
+  margin-bottom: var(--ui-label-gap);
   color: #64748b;
   font-size: var(--ui-type-label);
   font-weight: 650;
@@ -288,15 +296,10 @@ page {
 
 .sheet-panel .primary-btn {
   width: 100%;
-  margin-top: 4rpx;
+  margin-top: 0;
 }
 
 @media (max-width: 360px) {
-  .page {
-    padding-left: 20rpx;
-    padding-right: 20rpx;
-  }
-
   .login-hero {
     padding: 28rpx 24rpx 24rpx;
   }
@@ -306,13 +309,12 @@ page {
 @media (min-width: 520px) {
   .page {
     max-width: 760px;
-    padding-top: 24px;
   }
 
   .login-layout {
     width: min(100%, 640px);
     max-width: 640px;
-    margin: 0 auto;
+    margin: 0 auto var(--ui-card-gap);
   }
 
   .login-hero {
@@ -385,7 +387,6 @@ page {
   .page {
     display: block;
     max-width: 820px;
-    padding-top: 28px;
   }
 
   .login-layout {
@@ -408,8 +409,4 @@ page {
     padding: 22px 24px;
   }
 
-  .page-footer {
-    margin-top: 18px;
-    padding-top: 18px;
-  }
 }

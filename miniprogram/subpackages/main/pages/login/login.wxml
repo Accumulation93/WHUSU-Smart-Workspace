@@ -96,8 +96,10 @@
         <view wx:elif="{{stage === 'recoveryRotated'}}">
         <view class="sheet-note">{{copy.rotatedRecoveryNote}}</view>
         <view class="recovery-code-box">{{rotatedRecoveryCode}}</view>
-        <button class="secondary-btn ui-motion-button" bindtap="copyRotatedRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.copyRecoveryCode}}</button>
-        <button class="primary-btn ui-motion-button" bindtap="finishRecoveredLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.finish}}</button>
+        <view class="recovery-actions">
+          <button class="secondary-btn ui-motion-button" bindtap="copyRotatedRecoveryCode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.copyRecoveryCode}}</button>
+          <button class="primary-btn ui-motion-button" bindtap="finishRecoveredLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.finish}}</button>
+        </view>
       </view>
         <view wx:else>
           <view class="sheet-note">{{copy.recoveryPendingNote}}</view>

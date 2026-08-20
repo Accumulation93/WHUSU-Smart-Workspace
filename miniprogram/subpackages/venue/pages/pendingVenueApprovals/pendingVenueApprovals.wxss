@@ -36,8 +36,11 @@
 }
 .pending-action-link {
   display: flex; align-items: center; justify-content: center;
-  min-width: 80rpx; height: 48rpx; border-radius: var(--ui-compact-radius, 18rpx);
-  font-size: var(--ui-type-meta); font-weight: 700; line-height: 48rpx;
+  min-width: 80rpx; min-height: 48rpx; height: auto;
+  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
+  border-radius: var(--ui-compact-radius, 18rpx);
+  font-size: var(--ui-type-meta); font-weight: 700; line-height: var(--ui-leading-control, 1.35);
+  box-sizing: border-box;
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
 .pending-action-link:active { transform: scale(0.94); opacity: 0.85; }
@@ -81,7 +84,8 @@
 
 /* ── Approval action area ── */
 .approval-action-area {
-  margin-top: 8rpx; padding-top: 12rpx;
+  margin-top: var(--ui-inline-gap, 10rpx);
+  padding-top: var(--ui-inline-gap, 10rpx);
   border-top: 1rpx solid rgba(226,232,240,0.5);
 }
 
@@ -164,13 +168,13 @@
 }
 
 /* ── Button row ── */
-.button-row { display: flex; gap: 14rpx; }
+.button-row { display: flex; gap: var(--ui-inline-gap, 10rpx); }
 .button-row button {
   flex: 1;
-  min-height: 76rpx;
+  min-height: var(--ui-control-height, 82rpx);
   height: auto;
-  padding: 14rpx 20rpx;
-  line-height: 1.35;
+  padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
+  line-height: var(--ui-leading-control, 1.35);
   border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-control);
   font-weight: 700;

@@ -3,7 +3,7 @@
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{action === 'create' ? localeCopy.copy_67587e6612 : localeCopy.copy_2d40e10806}}"></workspace-hero>
 
   <!-- ═══════════ Create Mode ═══════════ -->
-  <view class="section" wx:if="{{action === 'create'}}">
+  <view class="section-stack" wx:if="{{action === 'create'}}">
     <view class="card">
       <view class="section-title">{{localeCopy.copy_3fb5aace39}}</view>
       <view class="button-row">
@@ -155,7 +155,7 @@
   </view>
 
   <!-- ═══════════ View Mode ═══════════ -->
-  <view class="section" wx:if="{{action === 'view'}}">
+  <view class="section-stack" wx:if="{{action === 'view'}}">
     <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
 
     <block wx:if="{{!loading && submission}}">
@@ -257,12 +257,16 @@
         </view>
 
         <!-- Approval comment -->
-        <view class="approval-field-label">{{localeCopy.copy_12555b2518}}</view>
+        <view class="approval-field">
+          <view class="approval-field-label">{{localeCopy.copy_12555b2518}}</view>
           <textarea class="approval-textarea" auto-height maxlength="-1" value="{{approvalComment}}" bindinput="onApprovalCommentInput" placeholder="{{localeCopy.copy_79e3568eee}}"></textarea>
+        </view>
 
         <!-- Rejection reason -->
-        <view class="approval-field-label">{{localeCopy.copy_47a12cc974}}</view>
+        <view class="approval-field">
+          <view class="approval-field-label">{{localeCopy.copy_47a12cc974}}</view>
           <textarea class="approval-textarea" auto-height maxlength="-1" value="{{rejectionReason}}" bindinput="onRejectionReasonInput" placeholder="{{localeCopy.copy_cc26adb7da}}"></textarea>
+        </view>
 
         <!-- Designate next-step approvers (optional) -->
         <view class="approval-designate-row" wx:if="{{nextStepInfo && nextStepInfo.allowApproverDesignation}}">
@@ -315,7 +319,7 @@
                 <view class="flow-dot-lifecycle-icon"><ui-icon name="{{node.iconName || 'clock'}}" tone="{{node.event === 'reject' ? 'danger' : 'primary'}}" size="20" ariaLabel="{{node.label}}" /></view>
                 <view class="flow-connector flow-connector-lifecycle"></view>
               </view>
-              <view class="flow-info flow-info-lifecycle">
+              <view class="flow-info flow-info-lifecycle {{expandedNodeKey === node._key ? 'flow-info-expanded' : ''}}">
                 <view class="flow-lifecycle-label">{{node.label}}<text class="flow-lifecycle-round" wx:if="{{node.subLabel}}"> {{node.subLabel}}</text></view>
                 <view class="flow-lifecycle-time" wx:if="{{node.time}}">{{node.time}}</view>
                 <!-- Expand indicator -->
@@ -345,7 +349,7 @@
                 </view>
                 <view class="flow-connector"></view>
               </view>
-              <view class="flow-info">
+              <view class="flow-info {{expandedNodeKey === node._key ? 'flow-info-expanded' : ''}}">
                 <!-- Collapsed: key info only -->
                 <view class="flow-step-label">{{node.stepName || (localeCopy.copy_93c50c01c0 + (node.sortOrder || '?') + localeCopy.copy_493a127a99)}} · {{node.actionLabel || localeCopy.copy_c9695bb971}}<text class="flow-round-badge" wx:if="{{node.round > 1}}">{{localeCopy.copy_ef8b7ffa9b}}{{node.round}}{{localeCopy.copy_29f6c07d3f}}</text></view>
                 <view class="flow-step-approver">{{node.approverDesc || localeCopy.copy_ae42f47cf6}}</view>

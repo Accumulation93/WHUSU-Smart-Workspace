@@ -1,7 +1,7 @@
 <view class="page page-narrow subapp-audit-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_5aaf844f1e}}"></workspace-hero>
 
-  <view class="section">
+  <view class="section-stack">
     <view class="card">
       <view class="section-title">{{localeCopy.copy_109f042664}}</view>
       <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">

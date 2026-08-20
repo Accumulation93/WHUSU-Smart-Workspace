@@ -1,7 +1,7 @@
 <view class="page page-narrow subapp-venue-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_8650ae5bf6}}"></workspace-hero>
 
-  <view class="section">
+  <view class="section-host">
     <view class="card">
         <view class="panel-head">
           <view class="panel-title-group">

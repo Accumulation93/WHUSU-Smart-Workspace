@@ -22,7 +22,7 @@ scroll-view {
 .page {
   position: relative;
   min-height: 100vh;
-  padding: 30rpx 24rpx 42rpx;
+  padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
@@ -53,9 +53,9 @@ scroll-view {
 .hero {
   position: relative;
   overflow: hidden;
-  margin-bottom: 28rpx;
-  padding: 44rpx 34rpx 40rpx;
-  border-radius: 38rpx;
+  margin-bottom: var(--ui-hero-gap);
+  padding: var(--ui-hero-padding-top) var(--ui-hero-padding-x) var(--ui-hero-padding-bottom);
+  border-radius: var(--ui-hero-radius);
   background:
     linear-gradient(135deg, rgba(37, 99, 235, 0.98) 0%, rgba(59, 130, 246, 0.95) 42%, rgba(96, 165, 250, 0.90) 100%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0));
@@ -132,9 +132,9 @@ scroll-view {
 .tabs-card,
 .card {
   position: relative;
-  margin-bottom: 24rpx;
-  padding: 28rpx 26rpx;
-  border-radius: 30rpx;
+  margin-bottom: var(--ui-card-gap);
+  padding: var(--ui-card-padding-y) var(--ui-card-padding-x);
+  border-radius: var(--ui-card-radius);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.80) 0%, rgba(248, 251, 255, 0.72) 100%);
   border: 1rpx solid rgba(255, 255, 255, 0.62);
   box-shadow:
@@ -144,10 +144,6 @@ scroll-view {
   -webkit-backdrop-filter: blur(24rpx);
   box-sizing: border-box;
   animation: glassFadeUp 0.46s ease both;
-}
-
-.card + .card {
-  margin-top: 2rpx;
 }
 
 .tabs-card {
@@ -310,7 +306,7 @@ scroll-view {
 
 .section-title {
   position: relative;
-  padding-left: 20rpx;
+  padding-left: var(--ui-section-title-inset);
   color: #0f172a;
   font-size: var(--ui-type-section, 30rpx);
   font-weight: 700;
@@ -447,15 +443,19 @@ scroll-view {
 }
 
 .profile-field {
-  margin-bottom: 22rpx;
+  margin-bottom: var(--ui-field-gap);
+}
+
+.profile-field:last-child {
+  margin-bottom: 0;
 }
 
 .profile-field-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16rpx;
-  margin-bottom: 12rpx;
+  gap: var(--ui-inline-gap);
+  margin-bottom: var(--ui-label-gap);
 }
 
 .profile-field-title {
@@ -705,16 +705,21 @@ scroll-view {
 }
 
 .actions {
-  margin-top: 14rpx;
-  padding-bottom: 12rpx;
+  display: grid;
+  gap: var(--ui-inline-gap);
+  margin: var(--ui-action-gap) 0 var(--ui-card-gap);
+  padding: 0;
 }
 
 .actions button {
   position: relative;
   overflow: hidden;
-  height: 94rpx;
-  line-height: 94rpx;
-  margin-bottom: 20rpx;
+  width: 100%;
+  min-height: var(--ui-control-height);
+  height: auto;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+  line-height: var(--ui-line-control);
+  margin: 0;
   border: none;
   border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-value);
@@ -744,13 +749,13 @@ scroll-view {
 .danger-btn {
   flex: 1 1 280rpx;
   min-width: 220rpx;
-  min-height: 84rpx;
+  min-height: var(--ui-control-height);
   height: auto;
   border-radius: var(--ui-control-radius, 28rpx);
-  line-height: 1.35;
+  line-height: var(--ui-line-control);
   font-size: var(--ui-type-control);
   font-weight: 700;
-  padding: 16rpx 32rpx;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
   letter-spacing: 0.3rpx;
   transition: box-shadow 0.24s ease, opacity 0.18s ease, filter 0.24s ease, transform 0.18s ease;
 }
@@ -788,11 +793,14 @@ scroll-view {
   filter: saturate(1.03);
 }
 
-/* 人事信息提交按钮 — 与 .actions button 保持一致的尺寸和字体 */
+/* 人事信息提交按钮只保留业务视觉；几何沿用共享按钮令牌。 */
 .profile-submit-btn {
-  margin-top: 20rpx;
-  height: 94rpx;
-  line-height: 94rpx;
+  width: 100%;
+  margin: var(--ui-action-gap) 0 0;
+  min-height: var(--ui-control-height);
+  height: auto;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+  line-height: var(--ui-line-control);
   font-size: var(--ui-type-value);
   border-radius: var(--ui-control-radius, 28rpx);
   letter-spacing: 0.5rpx;
@@ -1385,22 +1393,20 @@ scroll-view {
   max-height: 88vh;
   padding: 28rpx 28rpx 24rpx;
 }
-.desig-popup-card .button-row { margin-top: 16rpx; }
+.desig-popup-card .button-row { margin-top: 0; }
 
 .popup-header { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; margin-bottom: 18rpx; }
 .popup-title { color: #0f172a; font-size: var(--ui-type-section); font-weight: 700; }
 .popup-close { color: #2563eb; font-size: var(--ui-type-control); font-weight: 700; }
 .popup-scroll { max-height: 58vh; }
 .desig-inner-scroll { margin-bottom: 8rpx; border-radius: 20rpx; background: rgba(248,250,252,0.6); border: 1rpx solid rgba(226,232,240,0.7); padding: 8rpx; box-sizing: border-box; }
-.desig-current-scroll { height: 300rpx; }
-.desig-candidate-scroll { height: 520rpx; }
 .desig-current-item { background: rgba(255,255,255,0.85); }
 .rule-filter-row { display: flex; gap: 16rpx; margin-bottom: 6rpx; }
 .rule-filter-field { flex: 1; min-width: 0; }
 .compact-picker-value { min-height: 70rpx; padding: 0 18rpx; font-size: var(--ui-type-label); border-radius: 18rpx; }
-.field-label { color: #64748b; font-size: var(--ui-type-control); margin-bottom: 4rpx; }
+.field-label { color: #64748b; font-size: var(--ui-type-control); margin-bottom: var(--ui-label-gap); }
 .desig-popup-card .field-input { width: 100%; padding: 12rpx 16rpx; border-radius: 18rpx; background: linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(246,249,255,0.86) 100%); border: 1rpx solid rgba(219,229,241,0.96); box-shadow: 0 7rpx 16rpx rgba(15,23,42,0.032), inset 0 1rpx 0 rgba(255,255,255,0.88); font-size: var(--ui-type-control); box-sizing: border-box; }
-.inline-actions { display: flex; flex-wrap: wrap; gap: 12rpx; align-items: center; }
+.inline-actions { display: flex; flex-wrap: wrap; gap: var(--ui-inline-gap); align-items: center; }
 .list-actions-below { margin-top: 12rpx; display: flex; gap: 12rpx; }
 .list-title { position: relative; padding-left: 18rpx; margin-bottom: 10rpx; color: #0f172a; font-size: var(--ui-type-emphasis); font-weight: 700; }
 .list-title::before { content: ""; position: absolute; left: 0; top: 50%; width: 8rpx; height: 24rpx; border-radius: 999rpx; transform: translateY(-50%); background: linear-gradient(180deg, #2563eb 0%, #60a5fa 100%); box-shadow: 0 0 14rpx rgba(59,130,246,0.24); }
@@ -1780,6 +1786,7 @@ scroll-view {
 /* ── Flow node (each step row) ── */
 .flow-node {
   display: flex; gap: 14rpx;
+  transition: background 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.28s ease, box-shadow 0.3s ease, transform 0.24s ease;
 }
 .flow-node:last-child .flow-connector { display: none; }
 
@@ -2011,36 +2018,51 @@ scroll-view {
   opacity: 0.92;
   transform: scale(0.99);
 }
-.flow-node-expanded .flow-info {
-  background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(248,250,252,0.80));
-  border: 1rpx solid rgba(203,213,225,0.40);
-  box-shadow: 0 8rpx 32rpx rgba(15,23,42,0.08);
+.flow-node.flow-node-expanded > .flow-info,
+.flow-info.flow-info-expanded {
+  background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(248,250,252,0.92)) !important;
+  backdrop-filter: blur(12rpx);
+  -webkit-backdrop-filter: blur(12rpx);
+  border: 1rpx solid rgba(203,213,225,0.42) !important;
+  border-radius: 16rpx;
+  box-shadow:
+    0 8rpx 32rpx rgba(15,23,42,0.06),
+    inset 0 1rpx 0 rgba(255,255,255,0.78);
 }
 .flow-expand-hint {
-  font-size: var(--ui-type-caption);
-  color: #2563eb;
-  font-weight: 600;
-  margin-top: 4rpx;
-  letter-spacing: 0.2rpx;
+  margin-top: 2rpx;
+  color: #94a3b8;
+  font-size: var(--ui-type-micro);
+  font-weight: 500;
+  line-height: 1.5;
 }
 .flow-expand-detail {
-  margin-top: 0;
+  margin-top: 8rpx;
   margin-bottom: 8rpx;
-  padding: 14rpx 18rpx;
-  border-radius: 16rpx;
-  background: rgba(255,255,255,0.82);
-  border: 1rpx solid rgba(191,219,254,0.45);
-  box-shadow: 0 4rpx 16rpx rgba(15,23,42,0.04);
+  padding: 10rpx 12rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, rgba(255,255,255,0.90), rgba(248,251,255,0.78));
+  border: 1rpx solid rgba(226,237,247,0.90);
+  box-shadow:
+    0 10rpx 22rpx rgba(15,23,42,0.04),
+    inset 0 1rpx 0 rgba(255,255,255,0.78);
 }
-.flow-detail-text {
-  font-size: var(--ui-type-meta);
-  color: #334155;
-  line-height: 1.75;
+.flow-detail-text,
+.flow-detail-processed-text,
+.flow-detail-processed-meta,
+.flow-detail-comment {
+  font-size: var(--ui-type-caption);
+  line-height: 1.6;
 }
 .flow-detail-label {
   color: #64748b;
   font-weight: 600;
 }
+.flow-detail-text,
+.flow-detail-processed-text,
+.flow-detail-comment { color: #475569; }
+.flow-detail-processed-meta { margin-top: 2rpx; color: #94a3b8; }
+.flow-detail-comment { margin-top: 6rpx; }
 .flow-detail-comment-text {
   font-style: italic;
   color: #64748b;
@@ -2114,8 +2136,7 @@ scroll-view {
     max-width: 760px;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   }
 
   /* ── 二列信息网格：铺满可用宽度，左右边界与外层卡片对齐 ── */
@@ -2220,7 +2241,7 @@ scroll-view {
 @media (min-width: 900px) {
   .page {
     max-width: 1180px;
-    padding: 28px 32px 40px;
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   }
 
   .panel-active {

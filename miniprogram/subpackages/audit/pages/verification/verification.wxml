@@ -1,8 +1,8 @@
 <view class="page page-narrow subapp-audit-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_e68b797796}}"></workspace-hero>
 
-  <view class="section">
-    <view class="card">
+  <view class="section-stack">
+    <view class="card verification-form-card">
       <view class="section-title">{{localeCopy.copy_2592864779}}</view>
 
       <!-- Verification mode picker -->
@@ -14,13 +14,13 @@
       </view>
 
       <!-- Number mode -->
-      <view class="field" wx:if="{{verifyMode === 'number'}}">
+      <view class="field verification-submit-field" wx:if="{{verifyMode === 'number'}}">
         <view class="field-label">{{localeCopy.copy_1ddd4c9b39}}</view>
         <input class="field-input" value="{{submissionNumber}}" bindinput="onInputNumber" placeholder="{{localeCopy.copy_c0915246d1}}" />
       </view>
 
       <!-- File mode -->
-      <view class="field" wx:if="{{verifyMode === 'file'}}">
+      <view class="field verification-submit-field" wx:if="{{verifyMode === 'file'}}">
         <view class="field-label">{{localeCopy.copy_98aea69c53}}</view>
         <view class="picker-value ui-motion-chip" bindtap="chooseVerifyFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{fileName || localeCopy.copy_fb4bf20470}}</view>
       </view>

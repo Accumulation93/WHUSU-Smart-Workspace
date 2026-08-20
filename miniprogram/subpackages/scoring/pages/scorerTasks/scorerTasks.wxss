@@ -4,6 +4,23 @@
   grid-template-columns: 1fr;
 }
 
+.scorer-stats-grid + .edit-box {
+  margin-top: 0;
+}
+
+.scorer-filter-last-field {
+  margin-bottom: 0;
+}
+
+.scorer-filter-actions {
+  margin-top: var(--ui-action-gap, 20rpx);
+  margin-bottom: 0;
+}
+
+.scorer-export-actions {
+  margin: 0;
+}
+
 .stat-card-accent {
   background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(219, 234, 254, 0.88) 100%);
 }

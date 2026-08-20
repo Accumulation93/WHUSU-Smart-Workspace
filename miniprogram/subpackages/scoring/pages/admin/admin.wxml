@@ -33,7 +33,7 @@
     </view>
 
 
-    <view class="section" wx:if="{{activeTab === 'activities'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'activities'}}">
       <view class="section-title">{{localeCopy.copy_5aa4cb13ec}}</view>
       <view class="edit-box">
         <view class="list-title">{{activityForm.id ? localeCopy.copy_f6c2ad6b33 : localeCopy.copy_1d3038647e}}</view>
@@ -111,7 +111,7 @@
       </view>
     </view>
 
-    <view class="section" wx:if="{{activeTab === 'templates'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'templates'}}">
       <view class="section-title">{{localeCopy.copy_5a49161fd7}}</view>
       <view class="edit-box">
         <view class="list-title">{{templateForm.id ? localeCopy.copy_eab3f6240f : localeCopy.copy_f288d821cd}}</view>
@@ -323,7 +323,7 @@
     </view>
     </viewport-portal>
 
-    <view class="section" wx:if="{{activeTab === 'rules'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'rules'}}">
       <view class="rule-panel">
         <view class="rule-panel-head">
           <view class="rule-panel-title">{{localeCopy.copy_557a7fc9dc}}</view>
@@ -596,7 +596,7 @@
       </view>
     </view>
 
-    <view class="section" wx:if="{{activeTab === 'results'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'results'}}">
       <view class="section-title">{{localeCopy.copy_1a5cfb71ab}}</view>
       <view class="list-card">
         <view class="list-title">{{localeCopy.copy_35fabd21a9}}</view>
@@ -856,7 +856,7 @@
 
     </view>
 
-    <view class="section" wx:if="{{activeTab === 'hrInfo' || activeTab === 'hrTemplates'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'hrInfo' || activeTab === 'hrTemplates'}}">
       <view class="section-title">{{activeTab === 'hrTemplates' ? localeCopy.copy_7cab7f5321 : localeCopy.copy_eb65126cfe}}</view>
       <view class="tabs-card hr-info-mode-tabs" wx:if="{{activeTab === 'hrInfo'}}">
         <view class="feature-tab {{hrInfoMode === 'profiles' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="profiles" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_86937eac2b}}</view>
@@ -1711,7 +1711,7 @@
     </viewport-portal>
 
 
-    <view class="section" wx:if="{{activeTab === 'admins'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'admins'}}">
 
       <view class="section-title">{{localeCopy.copy_72d3c6f7c2}}</view>
       <view class="button-row compact-row" wx:if="{{canReadAdmins}}">
@@ -1831,7 +1831,7 @@
       </view>
     </viewport-portal>
 
-    <view class="section" wx:if="{{activeTab === 'departments'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'departments'}}">
       <view class="section-title">{{localeCopy.copy_c15260b37c}}</view>
       <view class="edit-box">
         <view class="list-title">{{departmentForm.id ? localeCopy.copy_c97f4e1c21 : localeCopy.copy_81888e3e1d}}</view>
@@ -1872,7 +1872,7 @@
       </view>
     </view>
 
-    <view class="section" wx:if="{{activeTab === 'workGroups'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'workGroups'}}">
       <view class="section-title">{{localeCopy.copy_303b7a8611}}</view>
       <view class="edit-box">
         <view class="list-title">{{workGroupForm.id ? localeCopy.copy_a530f9158a : localeCopy.copy_8860e9ad76}}</view>
@@ -1920,7 +1920,7 @@
       </view>
     </view>
 
-    <view class="section" wx:if="{{activeTab === 'identities'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'identities'}}">
       <view class="section-title">{{localeCopy.copy_2079e402f3}}</view>
       <view class="edit-box">
         <view class="list-title">{{identityForm.id ? localeCopy.copy_018d741992 : localeCopy.copy_7e6fe80a00}}</view>
@@ -1961,7 +1961,7 @@
       </view>
     </view>
 
-    <view class="section" wx:if="{{activeTab === 'settings'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'settings'}}">
       <view class="section-title">{{localeCopy.copy_a8792b30e7}}</view>
 
       <view class="card-loading-overlay" wx:if="{{loadingMap.settings}}">
@@ -2013,7 +2013,7 @@
       </block>
     </view>
 
-    <view class="section" wx:if="{{activeTab === 'publications'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'publications'}}">
       <view class="card-loading-overlay" wx:if="{{publicationsLoading}}">
         <view class="card-loading-spinner"></view>
       </view>
@@ -2240,7 +2240,7 @@
         </view>
       </view>
     </view>
-    <view class="section" wx:if="{{activeTab === 'auditTemplates'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'auditTemplates'}}">
       <view class="edit-box">
         <view class="list-title">{{auditTemplateForm.id ? localeCopy.copy_67f4dcc157 : localeCopy.copy_996309f45d}}</view>
         <view class="field">
@@ -2635,7 +2635,7 @@
     </view>
 
     <!-- ══════════════ Audit: Stamps ══════════════ -->
-    <view class="section" wx:if="{{activeTab === 'auditStamps'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'auditStamps'}}">
       <view class="section-title">{{localeCopy.copy_82f17ccbef}}</view>
       <view class="edit-box">
         <view class="list-title">{{stampForm.id ? localeCopy.copy_211047f590 : localeCopy.copy_a44e21b978}}</view>
@@ -2676,7 +2676,7 @@
     </view>
 
     <!-- ══════════════ Audit: Submissions ══════════════ -->
-    <view class="section" wx:if="{{activeTab === 'auditSubmissions'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'auditSubmissions'}}">
       <view class="section-title">{{localeCopy.copy_be547ba4c7}}</view>
       <view class="audit-filter-bar">
         <text class="audit-filter-label">{{localeCopy.copy_bff094c480}}</text>
@@ -2786,7 +2786,7 @@
     </view>
 
     <!-- ══════════════ Audit: Verification ══════════════ -->
-    <view class="section" wx:if="{{activeTab === 'auditVerification'}}">
+    <view class="section-stack" wx:if="{{activeTab === 'auditVerification'}}">
       <view class="section-title">{{localeCopy.copy_ecfd21fdcd}}</view>
       <view class="edit-box">
         <view class="list-title">{{localeCopy.copy_edef2184fb}}</view>

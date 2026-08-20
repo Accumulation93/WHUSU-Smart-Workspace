@@ -71,17 +71,17 @@
 
 .sigpad-actions {
   display: flex;
-  gap: 16rpx;
-  margin-top: 20rpx;
+  gap: var(--ui-inline-gap);
+  margin-top: var(--ui-action-gap);
   width: 100%;
 }
 
 .sigpad-btn {
   flex: 1;
-  min-height: 88rpx;
+  min-height: var(--ui-control-height);
   height: auto;
-  padding: 14rpx 22rpx;
-  line-height: 1.35;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+  line-height: var(--ui-line-control);
   font-size: var(--ui-type-control);
   font-weight: 700;
   border-radius: var(--ui-control-radius, 28rpx);
@@ -124,18 +124,6 @@
     border-radius: 14px;
   }
 
-  .sigpad-actions {
-    gap: 12px;
-    margin-top: 16px;
-  }
-
-  .sigpad-btn {
-    min-height: 48px;
-    padding: 12px 18px;
-    border-radius: 14px;
-    font-size: var(--ui-type-body);
-    line-height: 20px;
-  }
 }
 
 @media (min-width: 900px) {

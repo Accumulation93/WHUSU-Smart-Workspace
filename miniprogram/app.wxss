@@ -55,6 +55,13 @@ page,
   --ui-list-padding-y: 22rpx;
   --ui-list-padding-x: 20rpx;
   --ui-list-radius: 20rpx;
+  /* 内容间距按语义归属：字段组、标签、同排控件和正文到操作区分别只由一层负责。 */
+  --ui-field-gap: 16rpx;
+  --ui-label-gap: 6rpx;
+  --ui-inline-gap: 10rpx;
+  --ui-action-gap: 20rpx;
+  --ui-compact-padding-y: 6rpx;
+  --ui-compact-padding-x: 14rpx;
   --ui-control-radius: 28rpx;
   --ui-compact-radius: 18rpx;
   --ui-field-radius: 20rpx;
@@ -90,7 +97,7 @@ page,
   --ui-dialog-section-padding: 22rpx;
   --ui-dialog-section-radius: 22rpx;
   --ui-dialog-section-gap: 20rpx;
-  --ui-dialog-footer-gap: 20rpx;
+  --ui-dialog-footer-gap: var(--ui-action-gap);
   --ui-dialog-radius: 30rpx;
   --ui-message-preview-row: 154rpx;
   --ui-message-preview-gap: 8rpx;
@@ -910,7 +917,7 @@ button[disabled],
 }
 
 .ui-overlay .permission-dialog-footer {
-  gap: var(--ui-dialog-section-gap, 20rpx);
+  gap: var(--ui-inline-gap, 10rpx);
   padding: var(--ui-dialog-footer-gap, 20rpx) var(--ui-dialog-padding, 32rpx);
 }
 
@@ -1470,8 +1477,8 @@ button:active,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-top: 28rpx;
-  padding: 28rpx 24rpx;
+  margin: 0;
+  padding: 0;
   color: #94a3b8;
   font-size: var(--ui-type-caption);
   line-height: 1.7;
@@ -1540,7 +1547,7 @@ button:active,
     --ui-dialog-section-padding: 16px;
     --ui-dialog-section-radius: 12px;
     --ui-dialog-section-gap: 14px;
-    --ui-dialog-footer-gap: 14px;
+    --ui-dialog-footer-gap: var(--ui-action-gap);
     --ui-dialog-radius: 18px;
     --ui-message-preview-row: 96px;
     --ui-message-preview-gap: 6px;
@@ -1560,6 +1567,12 @@ button:active,
     --ui-list-padding-y: 12px;
     --ui-list-padding-x: 14px;
     --ui-list-radius: 12px;
+    --ui-field-gap: 10px;
+    --ui-label-gap: 4px;
+    --ui-inline-gap: 7px;
+    --ui-action-gap: 14px;
+    --ui-compact-padding-y: 5px;
+    --ui-compact-padding-x: 11px;
     --ui-control-radius: 14px;
     --ui-compact-radius: 12px;
     --ui-field-radius: 10px;
@@ -1570,7 +1583,7 @@ button:active,
     width: 100%;
     max-width: 760px;
     margin: 0 auto;
-    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) var(--ui-page-padding-bottom);
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
     font-size: var(--ui-type-body);
     line-height: var(--ui-leading-body);
   }
@@ -1925,7 +1938,7 @@ button:active,
 
   .page {
     max-width: 1180px;
-    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) var(--ui-page-padding-bottom);
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   }
 
   .hero,
@@ -1997,6 +2010,12 @@ button:active,
     --ui-list-padding-y: 10px;
     --ui-list-padding-x: 12px;
     --ui-list-radius: 10px;
+    --ui-field-gap: 8px;
+    --ui-label-gap: 4px;
+    --ui-inline-gap: 6px;
+    --ui-action-gap: 12px;
+    --ui-compact-padding-y: 4px;
+    --ui-compact-padding-x: 10px;
     --ui-control-radius: 12px;
     --ui-compact-radius: 11px;
     --ui-field-radius: 10px;
@@ -2009,7 +2028,7 @@ button:active,
     --ui-dialog-section-padding: 14px;
     --ui-dialog-section-radius: 10px;
     --ui-dialog-section-gap: 12px;
-    --ui-dialog-footer-gap: 12px;
+    --ui-dialog-footer-gap: var(--ui-action-gap);
     --ui-dialog-radius: 16px;
     --ui-message-preview-row: 88px;
     --ui-message-preview-gap: 5px;
@@ -2019,7 +2038,7 @@ button:active,
   page .page {
     width: 100% !important;
     max-width: none !important;
-    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) var(--ui-page-padding-bottom) !important;
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom)) !important;
   }
 
   /* 除门户待办/通知等明确分屏外，内容卡片和工作区都铺满横屏可用宽度。 */
@@ -2432,7 +2451,7 @@ page .hero-badge,
 page .result-group-mode-chip {
   min-height: 46rpx !important;
   height: auto !important;
-  padding: 6rpx 14rpx !important;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x) !important;
   border-radius: 18rpx !important;
   line-height: 1.35 !important;
   box-sizing: border-box;
@@ -2489,8 +2508,8 @@ page .message-card,
 page .booking-panel,
 page .results-panel-card,
 page .targets-card {
-  margin-bottom: 20rpx !important;
-  padding: 28rpx 26rpx !important;
+  margin-bottom: var(--ui-card-gap) !important;
+  padding: var(--ui-card-padding-y) var(--ui-card-padding-x) !important;
 }
 
 /* 小型筛选标签与身份标签保持同一紧凑矩形语言。 */
@@ -2501,7 +2520,7 @@ page .grade-chip,
 page .dept-tab,
 page .role-pill {
   min-height: 48rpx !important;
-  padding: 7rpx 16rpx !important;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x) !important;
   border-radius: 18rpx !important;
   line-height: 1.35 !important;
 }
@@ -2526,7 +2545,7 @@ page .role-pill {
   page .hero-badge,
   page .result-group-mode-chip {
     min-height: 28px !important;
-    padding: 5px 11px !important;
+    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x) !important;
     border-radius: 12px !important;
     line-height: 18px !important;
   }
@@ -2578,8 +2597,8 @@ page .role-pill {
   page .booking-panel,
   page .results-panel-card,
   page .targets-card {
-    margin-bottom: 14px !important;
-    padding: 18px !important;
+    margin-bottom: var(--ui-card-gap) !important;
+    padding: var(--ui-card-padding-y) var(--ui-card-padding-x) !important;
   }
 
   page .filter-chip,
@@ -2589,7 +2608,7 @@ page .role-pill {
   page .dept-tab,
   page .role-pill {
     min-height: 30px !important;
-    padding: 6px 12px !important;
+    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x) !important;
     border-radius: 12px !important;
     line-height: 18px !important;
   }
@@ -2597,6 +2616,12 @@ page .role-pill {
 
 /* 横屏页签：50px 高、整行均分；应用服务标题旁的视图切换保留自身宽度。 */
 @media (min-width: 900px) and (orientation: landscape) {
+  .task-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell,
+  .result-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell,
+  .popup-table.ui-data-grid--complex > .ui-data-row > .ui-data-cell {
+    padding: 10px 12px;
+  }
+
   page .tabs,
   page .tabs-card,
   page .message-tabs,
@@ -2654,7 +2679,7 @@ page .role-pill {
   page .hero-badge,
   page .result-group-mode-chip {
     min-height: 28px !important;
-    padding: 4px 10px !important;
+    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x) !important;
     border-radius: 11px !important;
     line-height: 18px !important;
   }
@@ -2682,7 +2707,7 @@ page .role-pill {
   page .dept-tab,
   page .role-pill {
     min-height: 30px !important;
-    padding: 5px 11px !important;
+    padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x) !important;
     border-radius: 11px !important;
     line-height: 18px !important;
   }
@@ -2718,8 +2743,8 @@ page .role-pill {
   page .booking-panel,
   page .results-panel-card,
   page .targets-card {
-    margin-bottom: 10px !important;
-    padding: 14px 16px !important;
+    margin-bottom: var(--ui-card-gap) !important;
+    padding: var(--ui-card-padding-y) var(--ui-card-padding-x) !important;
   }
 }
 

@@ -1,2 +1,6 @@
 @import '../../../main/styles/home.wxss';
 @import '../../styles/blue-polish.wxss';
+
+.signature-create-actions {
+  margin-top: 0;
+}

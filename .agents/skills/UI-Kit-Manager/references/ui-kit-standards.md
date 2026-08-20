@@ -3,6 +3,15 @@
 项目 UI 事实来源为 `docs/ui-kit.md`、`docs/ui-components.md` 和
 `docs/ui-page-templates.md`。本文件记录一旦破坏就会造成真实业务错位的硬契约。
 
+## 间距所有权契约（不可破坏）
+
+1. 每段可见空白只允许一个几何所有者。页面四边归 `.page`，玻璃卡内容边缘归卡片 padding，字段间距归字段父级或统一相邻项规则，标签到控件归标签规则，正文到操作区归 `.ui-dialog-footer`。禁止父级 padding、子级 margin、空白占位节点为同一段距离重复叠加。
+2. 运行时统一使用 `--ui-field-gap`、`--ui-label-gap`、`--ui-inline-gap`、`--ui-action-gap`、`--ui-control-padding-*`、`--ui-compact-padding-*`。手机、Pad 竖屏、Pad 横屏分别取 `app.wxss` 的设备值；页面级样式只能表达业务布局，不能重新猜测基础间距。
+3. 普通页面底部必须保留 `--ui-page-padding-bottom + safe-area-inset-bottom`，页面级禁止固定 `padding-bottom` 覆盖安全区。内容必须自然撑开，禁止普通卡片固定视口高度或添加大块尾部 padding；专业时间表、虚拟键盘等覆盖型工作区的例外必须局部命名并写明原因。
+4. 创建/编辑弹窗采用“标题 / 可滚动正文 / 独立操作区”。提交、保存、取消按钮放在滚动正文之外的直接子级 `.ui-dialog-footer`；正文不得用底部 padding 为按钮占位，按钮不得用 margin 调整上下距离。正文到按钮由 `--ui-action-gap` 控制，按钮到底边由弹窗外壳 padding 控制。
+5. 控件使用 `min-height + 对称 padding + 语义 line-height`，禁止固定 height、固定 line-height、上下 padding 三者叠加。文字到边缘必须由控件 padding 产生，长文字自然换行并增高，不能裁切或靠空格对齐。
+6. 每次间距修改必须人工阅读相邻 WXML/WXSS，分别核对首项、末项、空状态、长文案、滚动到底和底部安全区，并在手机、Pad 竖屏、Pad 横屏现场查看。脚本扫描只能作为候选定位和最终门禁，不能代替逐项语义判断。
+
 ## 签名坐标契约（不可破坏）
 
 手写签名固定使用“视口绝对坐标 + 普通视图实时笔迹”模型：
@@ -42,7 +51,8 @@ Touch.clientX/clientY（同一视口 CSS px）
 
 ## 审批步骤详情展开 UI 契约
 
-- 审批步骤卡展开态必须与审核子应用详情统一：展开详情放在同一张 `.flow-info` 卡片内部，禁止放在卡片外作为兄弟节点；展开时状态卡切换为白色玻璃层，不得继续显示通过绿色或驳回红色背景。展开详情统一使用 `.flow-expand-detail` 与 `.flow-detail-processed-*`、`.flow-detail-comment` 的字体、行高、内边距、圆角和阴影。场地借用详情必须复用主包流程卡样式与相同 WXML 层级，状态色只允许出现在收起态。
+- 审批步骤卡展开详情必须位于同一张 `.flow-info` 卡片内部，禁止放在卡片外作为兄弟节点。展开时同时给可视卡片添加 `.flow-info-expanded`；不能只给祖先添加 `.flow-node-expanded` 后依赖选择器先后顺序。`.flow-info-expanded` 的优先级必须稳定覆盖 `.flow-node-done/.flow-node-rejected .flow-info`，强制切换为白色玻璃层，状态色只允许出现在收起态。
+- 基础流程卡、展开层、提示和详情排版仅在 `subpackages/main/styles/home.wxss` 维护一份；审核与场地页面不得复制第二套 `.flow-expand-*`、`.flow-detail-*` 样式。承载流程卡的自定义组件使用 `styleIsolation: apply-shared` 接受调用页样式，组件 WXSS 禁止直接 `@import` 页面级共享文件，否则标签选择器会在组件编译域产生警告且共享规则不稳定。审批意见只在展开详情中显示。修改后必须逐一核对已通过、已驳回的收起/展开四种视觉状态，并确认标题、状态标签、处理人、处理时间和意见顺序一致。
 
 ## 审批人员选择 UI 契约
 

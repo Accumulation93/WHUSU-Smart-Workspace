@@ -64,6 +64,11 @@
 | `--ui-hero-*` | Hero 内边距、圆角和与正文的距离 |
 | `--ui-card-*` | 主要玻璃卡片内边距、圆角和卡片间距 |
 | `--ui-list-*` | 重复列表项的间距、内边距和圆角 |
+| `--ui-field-gap` | 相邻表单字段之间的垂直距离 |
+| `--ui-label-gap` | 字段标签与所属控件之间的距离 |
+| `--ui-inline-gap` | 同一行内关联控件、图标和文字之间的距离 |
+| `--ui-action-gap` | 正文或内容表面与独立操作区之间的距离 |
+| `--ui-compact-padding-*` | 标签、气泡和紧凑操作中文字到控件边缘的内距 |
 | `--ui-control-radius` | 主按钮和大控件圆角（手机 28rpx、Pad 竖屏 14px、Pad 横屏 12px） |
 | `--ui-compact-radius` | 状态标签、筛选标签和紧凑操作圆角（手机 18rpx、Pad 竖屏 12px、Pad 横屏 11px） |
 | `--ui-field-radius` | 输入、选择器和表单控件圆角 |
@@ -89,6 +94,15 @@
 
 预览列表（门户待办/通知等）使用令牌化最大高度 + 框内滚动：`--ui-message-preview-row` / `--ui-message-preview-gap` 定义单条高度与间距，盒子 `height: auto; max-height: calc(row * 3 + gap * 2)`，禁止按条目数估算高度或预留固定视口；表单底部操作区与容器底边由容器统一提供对称留白。
 
+### 间距所有权硬契约
+
+- 每一段可见空白只能有一个几何所有者。页面边缘由 `.page` 负责，卡片内容边缘由卡片 `padding` 负责，列表项间距由列表父级 `gap` 或同一套相邻项规则负责，正文到操作区由 `--ui-action-gap` / `.ui-dialog-footer` 负责。禁止父级 `padding`、子级 `margin` 和空白占位节点为同一方向重复叠加。
+- 普通页面必须使用 `--ui-page-padding-*` 并保留底部安全区；页面级 WXSS 不得再用固定 `padding-bottom` 猜测底部距离。普通内容由实际内容撑开，禁止用固定高度、`min-height` 或大块尾部 padding 制造版面留白；专业时间表、虚拟键盘等确有覆盖层的工作区必须在局部类中说明原因。
+- 表单字段之间使用 `--ui-field-gap`，标签到所属控件使用 `--ui-label-gap`，同排关联控件使用 `--ui-inline-gap`。最后一个字段若后接独立操作区，不得继续保留字段尾部 margin；控件文字到边缘分别使用 `--ui-control-padding-*` 或 `--ui-compact-padding-*`，禁止以空格字符、固定行高或额外包裹层代替内边距。
+- 弹窗创建/编辑表单固定采用“标题 / 可滚动正文 / 独立操作区”三段式。提交、保存和取消按钮必须位于滚动正文之外的直接子级 `.ui-dialog-footer`；按钮自身 `margin: 0`，正文与按钮的距离只由操作区控制，按钮到底边的距离只由弹窗外壳控制。禁止把按钮放进正文后再用正文底部 padding 伪造操作区。
+- 控件使用 `min-height + 对称 padding + 语义 line-height`；禁止同时堆叠固定 `height`、固定 `line-height` 和上下 padding。多行文案必须自然增高，不能为了视觉居中裁掉文字；上下内距和左右内距要按同一设备令牌成对核对。
+- 手机、Pad 竖屏、Pad 横屏分别使用运行时令牌中的独立值，不能把手机 `rpx` 直接放大到 Pad。每次间距修改必须逐页阅读 WXML/WXSS，说明间距归属和业务语义，并现场核对首项、末项、空状态、长文案、滚动到底和安全区；脚本只能做回归门禁，不能代替人工判断。
+
 ## 共享交互契约
 
 - `.page` 是页面外壳；页面内容必须由内容撑开，不为普通卡片预留视口高度。
@@ -108,7 +122,8 @@
 
 ### 审批步骤详情展开规范
 
-- 审批步骤卡的展开态必须与审核子应用 `submissionDetail` 统一：展开详情必须放在同一张 `.flow-info` 卡片内部，禁止作为卡片外的兄弟节点；展开时 `.flow-info` 必须切换为白色玻璃层，不能继续保留已通过/驳回的绿色或红色背景。展开详情统一使用 `.flow-expand-detail`、`.flow-detail-processed-text`、`.flow-detail-processed-meta`、`.flow-detail-comment` 的字体、行高、内边距、圆角和阴影。场地借用详情必须复用主包流程卡样式与该 WXML 层级，任何状态色只用于收起态。
+- 审批步骤卡的展开态必须与审核子应用 `submissionDetail` 统一：展开详情必须放在同一张 `.flow-info` 卡片内部，禁止作为卡片外的兄弟节点；可视卡片本身必须同步添加 `.flow-info-expanded`，不能只在祖先节点添加状态后依赖偶然的 CSS 顺序。展开时 `.flow-info-expanded` 必须以高于 `.flow-node-done/.flow-node-rejected .flow-info` 的优先级切换为白色玻璃层，不能继续保留已通过/驳回的绿色或红色背景。
+- 流程卡基础、展开层、提示和详情排版只允许在 `subpackages/main/styles/home.wxss` 维护一份。场地与审核页面统一使用 `.flow-expand-detail`、`.flow-detail-processed-text`、`.flow-detail-processed-meta`、`.flow-detail-comment`；页面或组件不得复制第二套尺寸和颜色。自定义详情组件通过 `styleIsolation: apply-shared` 接收调用页已导入的共享样式，禁止在组件 WXSS 中直接导入页面级 WXSS。审批意见只在展开详情中显示，收起态不再重复一份，以免信息顺序、字体和间距漂移。每次改动至少核对已通过、已驳回两种卡片的收起态与展开态。
 
 ### 场地借用规则编辑器
 

@@ -42,7 +42,7 @@ audit/
 
 ### 审批步骤卡展开规范
 
-审批步骤卡展开详情必须位于同一 `.flow-info` 卡片内部；展开时卡片切换为白色玻璃层，不能保留已通过绿色或驳回红色背景。`.flow-expand-detail` 与 `.flow-detail-processed-*`、`.flow-detail-comment` 的字体、行高、内边距、圆角和阴影是跨子应用共享契约，场地借用详情必须复用该层级与样式。
+审批步骤卡展开详情必须位于同一 `.flow-info` 卡片内部，并在该可视卡片上显式添加 `.flow-info-expanded`；禁止只依赖祖先状态类和 CSS 顺序。展开态必须稳定覆盖已通过绿色或驳回红色背景并切换为白色玻璃层。`.flow-expand-detail` 与 `.flow-detail-processed-*`、`.flow-detail-comment` 只在 `subpackages/main/styles/home.wxss` 维护，场地借用详情必须复用该层级与样式；修改后验收通过/驳回的收起和展开四种状态。
 
 ### 模板审批人重新指定契约
 

@@ -12,7 +12,7 @@ page {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 48rpx 32rpx;
+  padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
@@ -59,7 +59,6 @@ page {
 }
 
 @media (min-width: 520px) {
-  .redirect-page { padding: 48px; }
   .redirect-card {
     width: min(560px, calc(100vw - 96px));
     max-width: none;

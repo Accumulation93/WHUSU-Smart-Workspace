@@ -10,7 +10,7 @@ page {
 
 .page {
   min-height: 100vh;
-  padding: 30rpx 24rpx 42rpx;
+  padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
@@ -174,7 +174,7 @@ page {
 
 .section-title {
   position: relative;
-  padding-left: 20rpx;
+  padding-left: var(--ui-section-title-inset, 20rpx);
   color: #0f172a;
   font-size: var(--ui-type-section);
   font-weight: 800;
@@ -493,7 +493,6 @@ page {
   .page {
     max-width: 780px;
     margin: 0 auto;
-    padding: 28px 24px 38px;
   }
 
   .context-hero {
@@ -592,7 +591,6 @@ page {
 @media (min-width: 900px) and (orientation: landscape) {
   .page {
     max-width: none;
-    padding: 16px 16px 24px;
   }
 
   .context-hero {

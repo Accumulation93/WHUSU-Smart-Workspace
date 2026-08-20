@@ -1,7 +1,7 @@
 <view class="page page-narrow subapp-venue-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_9ba3b8c8a9}} · {{localeCopy.copy_b55447798c}}"></workspace-hero>
 
-  <view class="section">
+  <view class="section-host">
     <view class="card detail-shell">
       <view class="section-title">{{localeCopy.copy_40d594ac66}}</view>
       <view class="detail-loading" wx:if="{{loading}}"><view class="card-loading-spinner"></view><text>{{localeCopy.copy_4ed1cce37c}}</text></view>

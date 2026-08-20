@@ -95,7 +95,6 @@
 .organization-picker-dialog {
   width: 100%;
   max-width: 640rpx;
-  padding: 24rpx;
   border: 1rpx solid rgba(255,255,255,0.88);
   border-radius: 24rpx;
   background: linear-gradient(145deg, rgba(255,255,255,0.98), rgba(243,248,255,0.95));
@@ -108,7 +107,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
-  margin-bottom: 14rpx;
 }
 
 .organization-picker-title {
@@ -165,8 +163,8 @@
 
 .organization-picker-actions {
   display: flex;
-  gap: 12rpx;
-  margin-top: 16rpx;
+  gap: var(--ui-inline-gap);
+  margin: 0;
 }
 
 .partial-notice {
@@ -231,7 +229,7 @@
   display: flex;
   flex-direction: column;
   gap: 12rpx;
-  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  padding-bottom: 20rpx;
 }
 
 .message-row {
@@ -420,7 +418,6 @@
 .message-switch-dialog {
   position: relative;
   z-index: 1;
-  padding: 26rpx 28rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.9);
   border-radius: 28rpx;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(243, 248, 255, 0.95) 100%);
@@ -470,20 +467,15 @@
 
 .message-switch-actions {
   display: flex;
-  gap: 14rpx;
-  margin-top: 18rpx;
-  padding: 0;
+  gap: var(--ui-inline-gap);
+  margin: 0;
   background: transparent;
 }
 
 .message-dialog-btn {
+  min-width: 0;
   flex: 1;
-  min-height: 72rpx;
-  height: auto;
   margin: 0;
-  padding: 14rpx 18rpx;
-  border-radius: var(--ui-control-radius, 28rpx);
-  line-height: 1.35;
 }
 
 @media (min-width: 520px) {
@@ -522,15 +514,8 @@
     font-size: var(--ui-type-caption);
   }
 
-  .message-dialog-btn {
-    min-height: 44px;
-    border-radius: 14px;
-    font-size: var(--ui-type-body);
-  }
-
   .message-switch-dialog {
     border-radius: 18px;
-    padding: 24px 24px 20px;
   }
 }
 

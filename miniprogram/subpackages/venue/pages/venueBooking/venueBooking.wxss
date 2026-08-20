@@ -1,8 +1,6 @@
 @import '../../../main/styles/home.wxss';
 @import '../../styles/blue-polish.wxss';
 
-.page { padding-bottom: 60rpx; }
-
 /* ═══ Venue cards — 参考 mySubmissions 审核列表卡片样式 ═══ */
 .venue-card {
   display:flex; align-items:center; gap:18rpx;
@@ -466,7 +464,7 @@ page {
 .page {
   position: relative;
   min-height: 100vh;
-  padding: 30rpx 24rpx 54rpx;
+  padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
@@ -521,9 +519,9 @@ page {
 }
 
 .card {
-  margin-bottom: 24rpx;
-  padding: 28rpx 26rpx;
-  border-radius: 30rpx;
+  margin-bottom: var(--ui-card-gap, 24rpx);
+  padding: var(--ui-card-padding-y, 28rpx) var(--ui-card-padding-x, 26rpx);
+  border-radius: var(--ui-card-radius, 30rpx);
   background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(248,251,255,0.72) 100%);
   border: 1rpx solid rgba(255,255,255,0.66);
   box-shadow:
@@ -535,8 +533,8 @@ page {
 }
 
 .section-title {
-  margin: 0 0 20rpx;
-  padding-left: 20rpx;
+  margin: 0 0 var(--ui-field-gap, 16rpx);
+  padding-left: var(--ui-section-title-inset, 20rpx);
   color: #0f172a;
   font-size: var(--ui-type-section);
   font-weight: 800;
@@ -765,10 +763,10 @@ page {
 }
 
 .booking-form-popup .field {
-  margin-bottom: 10rpx;           /* 24→16→10 */
+  margin-bottom: var(--ui-field-gap, 16rpx);
 }
 .booking-form-popup .field-label {
-  margin-bottom: 4rpx;            /* 10→6→4 */
+  margin-bottom: var(--ui-label-gap, 6rpx);
   font-size: var(--ui-type-caption);
 }
 .booking-form-popup .field-input {
@@ -816,8 +814,15 @@ page {
 .booking-form-popup .primary-btn {
   font-size: var(--ui-type-control);
 }
-.booking-form-popup .form-body {
-  padding: var(--ui-dialog-section-padding) var(--ui-dialog-section-padding) 36rpx;
+.booking-form-popup .form-body > .field:last-child {
+  margin-bottom: 0;
+}
+.booking-form-actions {
+  gap: 0;
+}
+.booking-form-actions .primary-btn {
+  width: 100%;
+  margin: 0;
 }
 
 .approval-section-head {
@@ -829,18 +834,6 @@ page {
 }
 
 .approval-section-head .section-title { margin-bottom: 0; }
-
-@media (min-width: 520px) and (max-width: 899px) {
-  .booking-form-popup .form-body {
-    padding-bottom: 24px;
-  }
-}
-
-@media (min-width: 900px) and (orientation: landscape) {
-  .booking-form-popup .form-body {
-    padding-bottom: 22px;
-  }
-}
 
 /* ═══ Custom time keyboard ═══ */
 
@@ -1025,8 +1018,11 @@ page {
 }
 .pending-action-link {
   display: flex; align-items: center; justify-content: center;
-  min-width: 80rpx; height: 48rpx; border-radius: var(--ui-compact-radius, 18rpx);
-  font-size: var(--ui-type-meta); font-weight: 700; line-height: 48rpx;
+  min-width: 80rpx; min-height: 48rpx; height: auto;
+  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
+  border-radius: var(--ui-compact-radius, 18rpx);
+  font-size: var(--ui-type-meta); font-weight: 700; line-height: var(--ui-leading-control, 1.35);
+  box-sizing: border-box;
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
 .pending-action-link:active { transform: scale(0.94); opacity: 0.85; }
@@ -1059,18 +1055,19 @@ page {
 
 /* ── Approval action area ── */
 .approval-action-area {
-  margin-top: 8rpx; padding-top: 12rpx;
+  margin-top: var(--ui-inline-gap, 10rpx);
+  padding-top: var(--ui-inline-gap, 10rpx);
   border-top: 1rpx solid rgba(226,232,240,0.5);
 }
 
 /* ── Button row ── */
-.button-row { display: flex; gap: 14rpx; }
+.button-row { display: flex; gap: var(--ui-inline-gap, 10rpx); }
 .button-row button {
   flex: 1;
-  min-height: 76rpx;
+  min-height: var(--ui-control-height, 82rpx);
   height: auto;
-  padding: 14rpx 20rpx;
-  line-height: 1.35;
+  padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
+  line-height: var(--ui-leading-control, 1.35);
   border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-control); font-weight: 700; border: none;
   box-shadow: 0 16rpx 32rpx rgba(37,99,235,0.18);

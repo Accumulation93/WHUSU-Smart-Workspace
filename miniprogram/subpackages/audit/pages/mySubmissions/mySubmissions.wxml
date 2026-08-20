@@ -1,7 +1,7 @@
 <view class="page page-narrow subapp-audit-page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_fb0dc97a1d}}"></workspace-hero>
 
-  <view class="section">
+  <view class="section-stack">
     <view class="my-filter-box">
       <view class="field">
         <view class="field-label">{{localeCopy.copy_bff094c480}}</view>

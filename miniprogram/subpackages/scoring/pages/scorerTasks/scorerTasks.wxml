@@ -1,7 +1,7 @@
 <view class="page">
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_0c1a3a9fd9}} · {{localeCopy.copy_3a550fe14c}}"></workspace-hero>
 
-  <view class="section">
+  <view class="section-stack">
     <view class="stats-grid scorer-stats-grid">
       <view class="stat-card stat-card-accent">
         <view class="stat-label">{{localeCopy.copy_010476007d}}</view>
@@ -36,20 +36,20 @@
           </picker>
         </view>
       </view>
-      <view class="field">
+      <view class="field scorer-filter-last-field">
         <view class="field-label">{{localeCopy.copy_303b7a8611}}</view>
         <picker range="{{filterOptions.workGroups}}" bindchange="onFilterChange" data-field="workGroup">
           <view class="picker-value">{{filters.workGroup}}</view>
         </picker>
       </view>
-      <view class="button-row compact-row">
+      <view class="button-row compact-row scorer-filter-actions">
         <button class="secondary-btn ui-motion-button" loading="{{loading}}" bindtap="loadData" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_8029e5c326}}</button>
       </view>
     </view>
 
     <view class="edit-box">
       <view class="list-title">{{localeCopy.copy_b0bf25e2b8}}</view>
-      <view class="button-row">
+      <view class="button-row scorer-export-actions">
         <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.summary}}" data-report="summary" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3f8bff9fcf}}</button>
         <button class="secondary-btn ui-motion-button" loading="{{exportLoadingMap.detail}}" data-report="detail" bindtap="exportCurrentViewUnified" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e47f95e658}}</button>
       </view>

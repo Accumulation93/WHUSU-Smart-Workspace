@@ -103,7 +103,7 @@ slotsToIntervals(slots)           // slot 对象 → {start, end}
 
 ### 详情流程卡展开硬规范
 
-- 我的借用、日程和审批历史详情中的审批步骤卡必须复用审核子应用的展开结构：展开详情放在 `.flow-info` 内部，展开时状态卡切换为白色玻璃层，不能保留通过绿色或驳回红色背景；详情字体、行高、内边距、圆角和阴影统一使用 `.flow-expand-detail` 与 `.flow-detail-processed-*`、`.flow-detail-comment` 契约。状态色仅用于收起态，禁止重新在场地组件维护一套流程卡视觉规则。
+- 我的借用、日程和审批历史详情中的审批步骤卡必须复用审核子应用的展开结构：展开详情放在 `.flow-info` 内部，并在可视卡片本身显式添加 `.flow-info-expanded`；展开白色玻璃层必须稳定覆盖通过绿色或驳回红色背景，不能依赖祖先状态类的偶然覆盖顺序。详情字体、行高、内边距、圆角和阴影统一使用 `subpackages/main/styles/home.wxss` 中的 `.flow-expand-detail` 与 `.flow-detail-processed-*`、`.flow-detail-comment` 契约，审批意见只在展开层显示。承载详情的组件必须设置 `styleIsolation: apply-shared`，禁止在组件 WXSS 中导入整份页面样式。状态色仅用于收起态，禁止重新在场地组件维护一套流程卡视觉规则。
 
 ### 规则编辑器布局硬规范
 

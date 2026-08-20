@@ -163,36 +163,11 @@
   font-size: var(--ui-type-micro); color: #ef4444; margin-left: 2rpx;
 }
 
-/* ── Expandable flow nodes — glassmorphism ── */
-.flow-node {
-  transition: background 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.28s ease, box-shadow 0.3s ease, transform 0.24s ease;
-}
-
 /* Tap feedback: subtle frosted glass ripple (replaces default blue highlight) */
 .flow-node-tap {
   background: radial-gradient(circle at center, rgba(148,163,184,0.08) 0%, transparent 70%);
   border-radius: 16rpx;
   transition: none;
-}
-
-/* Expanded state: soft glass card */
-.flow-node-expanded .flow-info {
-  background: linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(248,250,252,0.64) 100%);
-  backdrop-filter: blur(12rpx);
-  -webkit-backdrop-filter: blur(12rpx);
-  border: 1rpx solid rgba(203,213,225,0.35);
-  border-radius: 16rpx;
-  box-shadow: 0 8rpx 32rpx rgba(15,23,42,0.06), inset 0 1rpx 0 rgba(255,255,255,0.6);
-  transition: background 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.28s ease, box-shadow 0.32s ease, transform 0.24s ease;
-}
-.flow-node-expanded .flow-info-lifecycle {
-  background: linear-gradient(135deg, rgba(255,255,255,0.72) 0%, rgba(248,250,252,0.64) 100%);
-  backdrop-filter: blur(12rpx);
-  -webkit-backdrop-filter: blur(12rpx);
-  border: 1rpx solid rgba(203,213,225,0.35);
-  border-radius: 16rpx;
-  box-shadow: 0 8rpx 32rpx rgba(15,23,42,0.06), inset 0 1rpx 0 rgba(255,255,255,0.6);
-  transition: background 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.28s ease, box-shadow 0.32s ease, transform 0.24s ease;
 }
 
 /* ═══ Field utility classes ═══ */
@@ -252,7 +227,8 @@
 .approval-sig-action-adjust { font-size: var(--ui-type-micro); color: #3b82f6; }
 .approval-sig-action-remove { font-size: var(--ui-type-micro); color: #ef4444; }
 .approval-warning { padding: 8rpx 12rpx; background: #fef3c7; border-radius: 8rpx; font-size: var(--ui-type-caption); color: #d97706; }
-.approval-field-label { font-size: var(--ui-type-label); font-weight: 600; color: #475569; margin-bottom: 6rpx; }
+.approval-field { margin-bottom: var(--ui-field-gap, 16rpx); }
+.approval-field-label { font-size: var(--ui-type-label); font-weight: 600; color: #475569; margin-bottom: var(--ui-label-gap, 6rpx); }
 .approval-textarea {
   width: 100%; min-height: 100rpx; padding: 12rpx; border: 1rpx solid #d1d5db;
   border-radius: 10rpx; font-size: var(--ui-type-label); box-sizing: border-box;
@@ -274,10 +250,6 @@
 
 /* ═══ Flow visualization ═══ */
 .flow-summary-text { font-size: var(--ui-type-label); font-weight: 600; color: #475569; white-space: nowrap; }
-.flow-expand-hint { font-size: var(--ui-type-micro); color: #94a3b8; margin-top: 2rpx; }
-.flow-expand-detail { margin-top: 8rpx; padding: 10rpx 12rpx; background: #f8fafc; border-radius: 8rpx; }
-.flow-detail-text { font-size: var(--ui-type-caption); color: #64748b; line-height: 1.6; }
-.flow-detail-label { font-weight: 600; }
 .flow-detail-meta { font-size: var(--ui-type-caption); color: #94a3b8; margin-top: 4rpx; }
 .flow-detail-reject { font-size: var(--ui-type-caption); color: #dc2626; margin-top: 6rpx; line-height: 1.6; }
 .flow-detail-conditions-label { font-size: var(--ui-type-caption); font-weight: 600; color: #64748b; }
@@ -296,9 +268,6 @@
   background: rgba(248, 251, 255, 0.7); border: 1rpx solid rgba(226, 232, 240, 0.45);
 }
 .flow-empty-draft-text { font-size: var(--ui-type-label); color: #64748b; }
-.flow-detail-processed-text { font-size: var(--ui-type-caption); color: #475569; line-height: 1.6; }
-.flow-detail-processed-meta { font-size: var(--ui-type-caption); color: #94a3b8; margin-top: 2rpx; }
-.flow-detail-comment { font-size: var(--ui-type-caption); color: #475569; margin-top: 6rpx; line-height: 1.6; }
 .flow-detail-conditions { margin-top: 6rpx; }
 .flow-detail-round { font-size: var(--ui-type-caption); color: #94a3b8; margin-top: 4rpx; }
 
@@ -433,7 +402,13 @@
 .placement-slider { flex: 1; margin: 0; }
 .placement-rotate-actions { display: flex; gap: 10rpx; padding-top: 4rpx; }
 .placement-mini-btn {
-  flex: 1; min-width: 0; height: 58rpx; line-height: 58rpx; margin: 0;
+  flex: 1;
+  min-width: 0;
+  min-height: 58rpx;
+  height: auto;
+  margin: 0;
+  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
+  line-height: var(--ui-leading-control, 1.35);
   border-radius: var(--ui-compact-radius, 18rpx); font-size: var(--ui-type-meta); font-weight: 700;
 }
 /* ★ 三按钮同一排，绝不换行 */
@@ -488,7 +463,6 @@
 .approval-sig-section,
 .approval-file-item,
 .approval-sig-item,
-.flow-expand-detail,
 .stamp-picker-item,
 .sig-source-item,
 .status-hint-box,
@@ -581,7 +555,7 @@
 }
 
 /* Final form motion: focus the field itself, never the surrounding section shell. */
-.section:active,
+.section-stack:active,
 .card:active,
 .detail-popup-form:active,
 .approval-card:active {
@@ -590,7 +564,7 @@
 }
 
 @media (min-width: 520px) {
-  .section {
+  .section-stack {
     min-width: 0;
   }
 }
@@ -600,18 +574,18 @@
     max-width: 1180px;
   }
 
-  .section > .field-grid,
-  .section > .info-grid,
-  .section > .audit-info-grid,
-  .section > .detail-info-grid {
+  .section-stack > .field-grid,
+  .section-stack > .info-grid,
+  .section-stack > .audit-info-grid,
+  .section-stack > .detail-info-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
   }
 
-  .section .audit-file-list,
-  .section .sign-file-list,
-  .section .approval-list {
+  .section-stack .audit-file-list,
+  .section-stack .sign-file-list,
+  .section-stack .approval-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;

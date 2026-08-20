@@ -11,18 +11,17 @@
 .page {
   position: relative;
   min-height: 100vh;
-  padding: 30rpx 24rpx 42rpx;
+  padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
 .card,
-.section,
 .edit-box,
 .list-card,
 .filter-section {
   position: relative;
-  margin-bottom: 24rpx;
-  padding: 28rpx 26rpx;
+  margin-bottom: var(--ui-card-gap, 24rpx);
+  padding: var(--ui-card-padding-y, 28rpx) var(--ui-card-padding-x, 26rpx);
   border-radius: 30rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.80) 0%, rgba(248,251,255,0.72) 100%);
   border: 1rpx solid rgba(255,255,255,0.62);
@@ -32,12 +31,24 @@
   box-sizing: border-box;
 }
 
+/* Section is a conditional/layout host. Its child card owns the visual surface and spacing. */
+.section-host {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .section-title,
 .list-title,
 .filter-label {
   position: relative;
-  padding-left: 20rpx;
-  margin-bottom: 20rpx;
+  padding-left: var(--ui-section-title-inset, 20rpx);
+  margin-bottom: var(--ui-field-gap, 16rpx);
   color: #0f172a;
   font-size: var(--ui-type-section);
   font-weight: 700;
@@ -93,11 +104,11 @@
 }
 
 .field {
-  margin-bottom: 24rpx;
+  margin-bottom: var(--ui-field-gap, 16rpx);
 }
 
 .field-label {
-  margin-bottom: 12rpx;
+  margin-bottom: var(--ui-label-gap, 6rpx);
   color: #64748b;
   font-size: var(--ui-type-label);
   font-weight: 600;
@@ -109,8 +120,8 @@
 .picker-display,
 .time-val {
   width: 100%;
-  min-height: 86rpx;
-  padding: 22rpx 22rpx;
+  min-height: var(--ui-control-height, 82rpx);
+  padding: var(--ui-control-padding-y, 16rpx) var(--ui-control-padding-x, 28rpx);
   border-radius: 22rpx;
   color: #0f172a;
   font-size: var(--ui-type-emphasis);
@@ -130,7 +141,7 @@
 .time-pick, .picker-sm {
   width: auto;
   min-height: auto;
-  padding: 10rpx 16rpx;
+  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
   border-radius: 16rpx;
   font-size: var(--ui-type-meta);
   line-height: 1.35;
@@ -149,7 +160,7 @@
 .rules-tabs {
   display: flex;
   gap: var(--ui-tab-gap, 8rpx);
-  margin-bottom: 24rpx;
+  margin-bottom: var(--ui-card-gap, 24rpx);
 }
 
 .header-nav-btn,
@@ -162,7 +173,7 @@
   align-items: center;
   justify-content: center;
   min-height: 34rpx;
-  padding: 4rpx 10rpx;
+  padding: var(--ui-compact-padding-y, 6rpx) var(--ui-compact-padding-x, 14rpx);
   border-radius: var(--ui-compact-radius, 18rpx);
   font-size: var(--ui-type-meta);
   font-weight: 700;
@@ -411,7 +422,7 @@
 }
 
 .rule-filter-row--dialog {
-  padding: 0 var(--ui-dialog-padding) var(--ui-dialog-section-gap);
+  padding: 0 0 var(--ui-dialog-section-gap);
 }
 
 .rule-filter-field--grow {
@@ -420,11 +431,19 @@
 }
 
 .compact-row--dialog {
-  padding: 0 var(--ui-dialog-padding) 8rpx;
+  padding: 0 0 var(--ui-inline-gap, 10rpx);
+}
+
+.approval-action-area .field {
+  margin-bottom: 0;
+}
+
+.approval-action-area .field + .field {
+  margin-top: var(--ui-field-gap, 16rpx);
 }
 
 .field--approval-comment {
-  margin-top: var(--ui-dialog-section-gap, 16rpx);
+  margin-top: 0;
 }
 
 .field-placeholder {
@@ -447,7 +466,7 @@
   }
 
   .compact-row--dialog {
-    padding-bottom: 6px;
+    padding-bottom: var(--ui-inline-gap, 7px);
   }
 }
 

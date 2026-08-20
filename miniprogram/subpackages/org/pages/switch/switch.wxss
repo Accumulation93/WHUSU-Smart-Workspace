@@ -8,7 +8,7 @@ page {
 
 .redirect-page {
   min-height: 100vh;
-  padding: 30rpx 24rpx;
+  padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 

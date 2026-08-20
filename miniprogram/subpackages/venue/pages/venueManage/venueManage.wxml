@@ -11,7 +11,7 @@
   </view>
 
   <!-- ═══ Venue Tab ═══ -->
-  <view class="section" wx:if="{{activeTab === 'venue'}}">
+  <view class="section-host" wx:if="{{activeTab === 'venue'}}">
     <!-- Venue list -->
     <view class="list-card">
       <view class="panel-head">
@@ -61,7 +61,7 @@
           <view class="field"><view class="field-label">{{localeCopy.copy_25e1199dc3}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{editDesc}}" data-field="editDesc" bindinput="onFieldInput" placeholder="{{localeCopy.copy_8516d4b714}}"/></view>
         </view>
       </scroll-view>
-      <view class="venue-edit-actions">
+      <view class="venue-edit-actions ui-dialog-footer">
         <button class="secondary-btn ui-motion-button" catchtap="cancelEdit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
         <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="saveVenue" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c701dd2fcc}}</button>
       </view>
@@ -70,7 +70,7 @@
   </viewport-portal>
 
   <!-- ═══ Bookings Tab ═══ -->
-  <view class="section" wx:if="{{activeTab === 'bookings'}}">
+  <view class="section-host" wx:if="{{activeTab === 'bookings'}}">
     <view class="booking-panel">
       <view class="panel-head">
         <view class="panel-title-group">
@@ -81,7 +81,7 @@
       <view class="card-loading-overlay" wx:if="{{bookingsLoading}}"><view class="card-loading-spinner"></view></view>
 
       <!-- Time filter row -->
-      <view class="filter-section">
+      <view class="filter-group">
         <view class="filter-label">{{localeCopy.copy_c18d8cf657}}</view>
         <view class="time-filter-row">
           <picker mode="date" value="{{timeFrom}}" bindchange="onTimeFromChange">
@@ -96,7 +96,7 @@
       </view>
 
       <!-- Status filter -->
-      <view class="filter-section">
+      <view class="filter-group">
         <view class="filter-label">{{localeCopy.copy_8aee737e64}}</view>
         <scroll-view scroll-x class="filter-scroll">
           <view class="filter-row">
@@ -112,7 +112,7 @@
       </view>
 
       <!-- Venue filter -->
-      <view class="filter-section">
+      <view class="filter-group">
         <view class="filter-label">{{localeCopy.copy_bbbebc1abf}}</view>
         <scroll-view scroll-x class="filter-scroll">
           <view class="filter-row">
@@ -145,7 +145,7 @@
   </view>
 
   <!-- ═══ Purposes Tab ═══ -->
-  <view class="section" wx:if="{{activeTab === 'purposes'}}">
+  <view class="section-host" wx:if="{{activeTab === 'purposes'}}">
     <view class="edit-box">
       <view class="panel-head">
         <view class="panel-title-group">
@@ -286,11 +286,11 @@
               </view>
             </view>
           </view>
-          <view class="button-row booking-setting-footer">
-            <button class="primary-btn ui-motion-button" catchtap="saveBookingWindowSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ac9827b75d}}</button>
-          </view>
         </block>
       </scroll-view>
+      <view class="button-row booking-setting-footer ui-dialog-footer" wx:if="{{rulesTab === 'bookingWindow'}}">
+        <button class="primary-btn ui-motion-button" catchtap="saveBookingWindowSettings" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ac9827b75d}}</button>
+      </view>
     </view>
   </view>
   </viewport-portal>
@@ -647,22 +647,21 @@
           <text class="audit-flow-progress-text">{{bookingDetail.approvalProgress.isRejected ? localeCopy.copy_5d5af942c5 : (bookingDetail.approvalProgress.isApproved ? localeCopy.copy_2220286f1c : (bookingDetail.approvalProgress.currentStep + '/' + bookingDetail.approvalProgress.totalSteps))}}</text>
         </view>
         <view wx:if="{{bookingDetail._flowTimeline && bookingDetail._flowTimeline.length}}" class="audit-flow audit-flow--spaced">
-          <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{bookingDetail._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{bookingDetail._flowTimeline}}" wx:key="_key" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="flow-left-col">
               <view class="{{node.dotClass}}">{{node.icon}}</view>
               <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
             </view>
             <view class="flow-right-col">
-              <view class="flow-info">
+              <view class="flow-info {{expandedNodeKey === node._key ? 'flow-info-expanded' : ''}}">
                 <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                 <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
-                <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
                 <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
-              </view>
-              <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
-                <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
-                <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_dcadcebf08}}</text>{{node.approvedAt}}</view>
-                <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
+                <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
+                  <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                  <view wx:if="{{node.approvedAt}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAt}}</view>
+                  <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
+                </view>
               </view>
             </view>
           </view>
@@ -724,9 +723,11 @@
           </view>
           <view class="field"><view class="field-label">{{localeCopy.copy_90f94d6263}}</view><textarea class="field-textarea" auto-height maxlength="-1" value="{{adminBookingDesc}}" data-field="adminBookingDesc" bindinput="onAdminFieldInput" placeholder="{{localeCopy.copy_188a745e76}}"/></view>
           <view class="field-hint">{{localeCopy.copy_b439065096}}</view>
-          <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_df031d471b}}</button>
         </view>
       </scroll-view>
+      <view class="button-row admin-booking-actions ui-dialog-footer">
+        <button class="primary-btn ui-motion-button" loading="{{loading}}" catchtap="submitAdminBooking" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_df031d471b}}</button>
+      </view>
     </view>
   </view>
   </viewport-portal>
@@ -835,22 +836,21 @@
               <text class="audit-flow-progress-text">{{approvalPopupTarget.approvalProgress.isRejected ? localeCopy.copy_5d5af942c5 : (approvalPopupTarget.approvalProgress.isApproved ? localeCopy.copy_2220286f1c : (approvalPopupTarget.approvalProgress.currentStep + '/' + approvalPopupTarget.approvalProgress.totalSteps))}}</text>
             </view>
             <view wx:if="{{approvalPopupTarget._flowTimeline && approvalPopupTarget._flowTimeline.length}}" class="audit-flow audit-flow--spaced">
-              <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{approvalPopupTarget._flowTimeline}}" wx:key="*this" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+              <view class="{{node.nodeClass}} {{expandedNodeKey === node._key ? 'flow-node-expanded' : ''}} ui-motion-chip" wx:for="{{approvalPopupTarget._flowTimeline}}" wx:key="_key" wx:for-item="node" catchtap="toggleFlowNode" data-node-key="{{node._key}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                 <view class="flow-left-col">
                   <view class="{{node.dotClass}}">{{node.icon}}</view>
                   <view class="flow-connector" wx:if="{{!node.isLast}}"></view>
                 </view>
                 <view class="flow-right-col">
-                  <view class="flow-info">
+                  <view class="flow-info {{expandedNodeKey === node._key ? 'flow-info-expanded' : ''}}">
                     <view class="flow-info-title">{{node.stepName}}<text class="flow-step-status-tag flow-step-status-tag--inline flow-tag-{{node.state}}">{{node.label}}</text></view>
                     <view class="flow-info-desc" wx:if="{{node.meta}}">{{node.meta}}</view>
-                    <view class="flow-info-desc flow-info-comment" wx:if="{{node.comment}}">{{node.comment}}</view>
                     <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
-                  </view>
-                  <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
-                    <view wx:if="{{node.approverName}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
-                    <view wx:if="{{node.approvedAt}}" class="flow-detail-text"><text class="flow-detail-label">{{localeCopy.copy_dcadcebf08}}</text>{{node.approvedAt}}</view>
-                    <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
+                    <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
+                      <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                      <view wx:if="{{node.approvedAt}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAt}}</view>
+                      <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
+                    </view>
                   </view>
                 </view>
               </view>

@@ -21,7 +21,7 @@ button, input, textarea, picker, view, text, scroll-view {
 .page {
   position: relative;
   min-height: 100vh;
-  padding: 30rpx 24rpx 42rpx;
+  padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }
 
@@ -49,9 +49,9 @@ button, input, textarea, picker, view, text, scroll-view {
 .hero {
   position: relative;
   overflow: hidden;
-  margin-bottom: 28rpx;
-  padding: 44rpx 34rpx 40rpx;
-  border-radius: 38rpx;
+  margin-bottom: var(--ui-hero-gap);
+  padding: var(--ui-hero-padding-top) var(--ui-hero-padding-x) var(--ui-hero-padding-bottom);
+  border-radius: var(--ui-hero-radius);
   background:
     linear-gradient(135deg, rgba(37, 99, 235, 0.98) 0%, rgba(59, 130, 246, 0.95) 42%, rgba(96, 165, 250, 0.90) 100%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0));
@@ -121,9 +121,9 @@ button, input, textarea, picker, view, text, scroll-view {
 /* ── 玻璃卡片 ── */
 .card {
   position: relative;
-  margin-bottom: 24rpx;
-  padding: 28rpx 26rpx;
-  border-radius: 30rpx;
+  margin-bottom: var(--ui-card-gap);
+  padding: var(--ui-card-padding-y) var(--ui-card-padding-x);
+  border-radius: var(--ui-card-radius);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.80) 0%, rgba(248, 251, 255, 0.72) 100%);
   border: 1rpx solid rgba(255, 255, 255, 0.62);
   box-shadow:
@@ -147,13 +147,13 @@ button, input, textarea, picker, view, text, scroll-view {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16rpx;
-  margin-bottom: 20rpx;
+  gap: var(--ui-inline-gap);
+  margin-bottom: var(--ui-field-gap);
 }
 
 .section-title {
   position: relative;
-  padding-left: 20rpx;
+  padding-left: var(--ui-section-title-inset);
   color: #0f172a;
   font-size: var(--ui-type-section, 30rpx);
   font-weight: 700;
@@ -200,13 +200,13 @@ button, input, textarea, picker, view, text, scroll-view {
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20rpx;
+  gap: var(--ui-field-gap);
 }
 
 .info-block {
   width: auto;
   min-width: 0;
-  padding: 24rpx 22rpx;
+  padding: var(--ui-list-padding-y) var(--ui-list-padding-x);
   border-radius: 24rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 251, 255, 0.80) 100%);
   border: 1rpx solid rgba(255, 255, 255, 0.68);
@@ -224,7 +224,7 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .info-label {
-  margin-bottom: 10rpx;
+  margin-bottom: var(--ui-label-gap);
   color: #64748b;
   font-size: var(--ui-type-label, 23rpx);
   line-height: 1.5;
@@ -313,16 +313,21 @@ button, input, textarea, picker, view, text, scroll-view {
 
 /* ── 操作区 ── */
 .actions {
-  margin-top: 14rpx;
-  padding-bottom: 12rpx;
+  display: grid;
+  gap: var(--ui-inline-gap);
+  margin: var(--ui-action-gap) 0 var(--ui-card-gap);
+  padding: 0;
 }
 
 .actions button {
   position: relative;
   overflow: hidden;
-  height: 94rpx;
-  line-height: 94rpx;
-  margin-bottom: 20rpx;
+  width: 100%;
+  min-height: var(--ui-control-height);
+  height: auto;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
+  line-height: var(--ui-line-control);
+  margin: 0;
   border: none;
   border-radius: var(--ui-control-radius, 28rpx);
   font-size: var(--ui-type-value);
@@ -346,13 +351,13 @@ button, input, textarea, picker, view, text, scroll-view {
 .primary-btn, .secondary-btn, .danger-btn {
   flex: 1 1 280rpx;
   min-width: 220rpx;
-  min-height: 84rpx;
+  min-height: var(--ui-control-height);
   height: auto;
   border-radius: var(--ui-control-radius, 28rpx);
-  line-height: 1.35;
+  line-height: var(--ui-line-control);
   font-size: var(--ui-type-control);
   font-weight: 700;
-  padding: 16rpx 32rpx;
+  padding: var(--ui-control-padding-y) var(--ui-control-padding-x);
   letter-spacing: 0.3rpx;
   transition: box-shadow 0.24s ease, opacity 0.18s ease, filter 0.24s ease, transform 0.18s ease;
 }
@@ -391,7 +396,7 @@ button, input, textarea, picker, view, text, scroll-view {
 /* ── 页脚 ── */
 .page-footer {
   text-align: center;
-  padding: 20rpx 0;
+  padding: 0;
 }
 
 .footer-name {
@@ -443,14 +448,22 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .message-preview-scroll .notification-item,
 .message-preview-scroll .notification-swipe-row {
-  margin-bottom: 8rpx;
+  margin-bottom: 0;
+}
+
+.message-preview-scroll .notification-swipe-row + .notification-swipe-row {
+  margin-top: var(--ui-message-preview-gap, 8rpx);
+}
+
+.message-preview-scroll > .notification-item + .notification-item {
+  margin-top: var(--ui-message-preview-gap, 8rpx);
 }
 
 .message-head-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12rpx;
+  gap: var(--ui-inline-gap);
   flex-wrap: wrap;
 }
 
@@ -458,7 +471,7 @@ button, input, textarea, picker, view, text, scroll-view {
   color: #2563eb;
   font-size: var(--ui-type-meta);
   font-weight: 700;
-  padding: 8rpx 10rpx;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
   border-radius: var(--ui-compact-radius, 18rpx);
 }
 
@@ -473,7 +486,7 @@ button, input, textarea, picker, view, text, scroll-view {
   display: flex;
   align-items: center;
   gap: 10rpx;
-  margin-bottom: 18rpx;
+  margin-bottom: var(--ui-card-gap);
   padding: 14rpx 18rpx;
   border: 1rpx solid rgba(56,189,248,0.42);
   border-radius: 18rpx;
@@ -664,8 +677,8 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .dialog-panel {
   position: relative;
-  padding: 28rpx 26rpx 24rpx;
-  border-radius: 28rpx;
+  padding: var(--ui-dialog-padding);
+  border-radius: var(--ui-dialog-radius);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 251, 255, 0.9) 100%);
   border: 1rpx solid rgba(255, 255, 255, 0.82);
   box-shadow: 0 22rpx 44rpx rgba(15, 23, 42, 0.14);
@@ -675,7 +688,7 @@ button, input, textarea, picker, view, text, scroll-view {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10rpx 20rpx;
+  padding: var(--ui-compact-padding-y) var(--ui-compact-padding-x);
   border-radius: var(--ui-compact-radius, 18rpx);
   background: linear-gradient(135deg, rgba(219, 234, 254, 0.94) 0%, rgba(191, 219, 254, 0.86) 100%);
   color: #2563eb;
@@ -700,23 +713,14 @@ button, input, textarea, picker, view, text, scroll-view {
 
 .dialog-actions {
   display: flex;
-  gap: 14rpx;
-  margin-top: 24rpx;
+  gap: var(--ui-inline-gap);
+  margin-top: 0;
 }
 
 .dialog-btn {
   flex: 1;
-  min-height: 84rpx !important;
-  height: auto !important;
-  padding: 16rpx 24rpx !important;
-  line-height: 1.35 !important;
+  min-width: 0;
   margin-bottom: 0 !important;
-  border-radius: var(--ui-control-radius, 28rpx) !important;
-  font-size: var(--ui-type-body) !important;
-}
-
-.message-switch-dialog {
-  padding-bottom: 24rpx;
 }
 
 .message-switch-badge {
@@ -724,8 +728,8 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .message-switch-org-name {
-  margin-top: 10rpx;
-  padding: 14rpx 16rpx;
+  margin-top: var(--ui-inline-gap);
+  padding: var(--ui-list-padding-y) var(--ui-list-padding-x);
   border: 1rpx solid rgba(147,197,253,0.58);
   border-radius: 16rpx;
   color: #2563eb;
@@ -788,7 +792,7 @@ button, input, textarea, picker, view, text, scroll-view {
   display: flex;
   align-items: center;
   gap: 12rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--ui-card-gap);
   padding: 14rpx 20rpx;
   border-radius: 20rpx;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(246, 249, 255, 0.82) 100%);
@@ -930,8 +934,7 @@ button, input, textarea, picker, view, text, scroll-view {
     max-width: 760px;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   }
 
   /* ── 二列信息网格：铺满卡片，不再二次居中限宽 ── */
@@ -1001,15 +1004,6 @@ button, input, textarea, picker, view, text, scroll-view {
     line-height: 16px !important;
   }
 
-  .dialog-btn,
-  .primary-btn {
-    min-height: 48px !important;
-    height: auto !important;
-    padding: 12px 18px !important;
-    font-size: var(--ui-type-body) !important;
-    line-height: 20px !important;
-  }
-
   .portal-message-partial {
     padding: 10px 14px;
     border-radius: 12px;
@@ -1028,9 +1022,9 @@ button, input, textarea, picker, view, text, scroll-view {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
-    gap: 20px;
+    gap: var(--ui-card-gap);
     max-width: 1180px;
-    padding: 28px 32px 40px;
+    padding: var(--ui-page-padding-top) var(--ui-page-padding-x) calc(var(--ui-page-padding-bottom) + env(safe-area-inset-bottom));
   }
 
   .page > .hero,
@@ -1134,7 +1128,7 @@ button, input, textarea, picker, view, text, scroll-view {
   display: flex;
   align-items: flex-start;
   gap: 12rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: var(--ui-card-gap);
   padding: 17rpx 19rpx;
   border: 1rpx solid rgba(147, 197, 253, 0.68);
   border-radius: 18rpx;

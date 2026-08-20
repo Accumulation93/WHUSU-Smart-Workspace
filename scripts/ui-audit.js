@@ -484,6 +484,81 @@ function scanVenueFlowVisibilityContract() {
   for (const [message, pattern] of checks) {
     if (!pattern.test(source)) findings.push({ file: relative(file), message });
   }
+
+  const venueDetailFile = path.join(MINI_ROOT, 'subpackages', 'venue', 'components', 'venueBookingDetail', 'venueBookingDetail.wxml');
+  const venueDetailJsonFile = path.join(MINI_ROOT, 'subpackages', 'venue', 'components', 'venueBookingDetail', 'venueBookingDetail.json');
+  const venueDetailStyleFile = path.join(MINI_ROOT, 'subpackages', 'venue', 'components', 'venueBookingDetail', 'venueBookingDetail.wxss');
+  const auditDetailFile = path.join(MINI_ROOT, 'subpackages', 'audit', 'pages', 'submissionDetail', 'submissionDetail.wxml');
+  const sharedStyleFile = path.join(MINI_ROOT, 'subpackages', 'main', 'styles', 'home.wxss');
+  const venueDetailSource = fs.readFileSync(venueDetailFile, 'utf8');
+  const venueDetailConfig = JSON.parse(fs.readFileSync(venueDetailJsonFile, 'utf8'));
+  const venueDetailStyle = fs.readFileSync(venueDetailStyleFile, 'utf8');
+  const auditDetailSource = fs.readFileSync(auditDetailFile, 'utf8');
+  const sharedStyleSource = fs.readFileSync(sharedStyleFile, 'utf8');
+  const expandedClassPattern = /class="[^"]*\bflow-info\b[^"]*\bflow-info-expanded\b/;
+  if (!expandedClassPattern.test(venueDetailSource)) {
+    findings.push({ file: relative(venueDetailFile), message: '场地借用详情必须把展开状态直接写到可视 flow-info 卡片' });
+  }
+  if (venueDetailConfig.styleIsolation !== 'apply-shared') {
+    findings.push({ file: relative(venueDetailJsonFile), message: '场地借用详情组件必须通过 apply-shared 接收页面级流程卡样式' });
+  }
+  if (/^\s*@import\s+['"][^'"]*(?:home|blue-polish)\.wxss['"]/m.test(venueDetailStyle)) {
+    findings.push({ file: relative(venueDetailStyleFile), message: '自定义详情组件不得导入整份页面级 WXSS，应通过 apply-shared 接收共享样式' });
+  }
+  if (!expandedClassPattern.test(auditDetailSource)) {
+    findings.push({ file: relative(auditDetailFile), message: '审核详情必须把展开状态直接写到可视 flow-info 卡片' });
+  }
+
+  const flowMarkupFiles = [
+    auditDetailFile,
+    venueDetailFile,
+    path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'pendingVenueApprovals', 'pendingVenueApprovals.wxml'),
+    path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueBooking', 'venueBooking.wxml'),
+    path.join(MINI_ROOT, 'subpackages', 'venue', 'pages', 'venueManage', 'venueManage.wxml')
+  ];
+  for (const flowFile of flowMarkupFiles) {
+    const flowSource = fs.readFileSync(flowFile, 'utf8');
+    const stack = [];
+    for (const token of tokenizeWxml(flowSource)) {
+      const raw = token.raw;
+      if (raw.startsWith('<!--')) continue;
+      const close = raw.match(/^<\/([\w-]+)/);
+      if (close) {
+        for (let index = stack.length - 1; index >= 0; index -= 1) {
+          if (stack[index].tag !== close[1]) continue;
+          stack.length = index;
+          break;
+        }
+        continue;
+      }
+      const start = raw.match(/^<([\w-]+)/);
+      if (!start) continue;
+      const classes = new Set(classList(raw));
+      if (classes.has('flow-expand-detail') && !stack.some(item => item.classes.has('flow-info'))) {
+        findings.push({
+          file: relative(flowFile),
+          line: flowSource.slice(0, token.index).split(/\r?\n/).length,
+          message: '流程卡展开详情必须位于同一张 flow-info 可视卡片内部'
+        });
+      }
+      if (!/\/\>\s*$/.test(raw)) stack.push({ tag: start[1], classes });
+    }
+    if (/class="[^"]*\bflow-info-comment\b/.test(flowSource)) {
+      findings.push({ file: relative(flowFile), message: '审批意见只能在展开详情内显示，收起态不得重复展示' });
+    }
+  }
+  if (!/\.flow-info\.flow-info-expanded\s*\{/.test(sharedStyleSource) ||
+      !/\.flow-node\.flow-node-expanded\s*>\s*\.flow-info/.test(sharedStyleSource)) {
+    findings.push({ file: relative(sharedStyleFile), message: '共享流程卡缺少稳定覆盖状态色的展开态选择器' });
+  }
+  const duplicateFlowStyles = walk(MINI_ROOT, '.wxss').filter(styleFile => {
+    if (styleFile === sharedStyleFile) return false;
+    const styleSource = fs.readFileSync(styleFile, 'utf8');
+    return /^\s*\.flow-info\.flow-info-expanded\s*\{|^\s*\.flow-expand-detail\s*\{/m.test(styleSource);
+  });
+  for (const duplicateFile of duplicateFlowStyles) {
+    findings.push({ file: relative(duplicateFile), message: '流程卡展开样式只能在 main/styles/home.wxss 维护，业务页面不得复制' });
+  }
   return findings;
 }
 
@@ -863,7 +938,23 @@ function scanWxss(file) {
       const minHeight = declarations.match(/min-height\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
       const lineHeight = declarations.match(/line-height\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
       const fixedHeight = declarations.match(/(?:^|;)\s*height\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
-      if (minHeight && lineHeight && !fixedHeight && minHeight[2] === lineHeight[2]) {
+      const paddingShorthand = declarations.match(/(?:^|;)\s*padding\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
+      const paddingTop = declarations.match(/padding-top\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
+      const paddingBottom = declarations.match(/padding-bottom\s*:\s*(\d+(?:\.\d+)?)(r?px)\b/i);
+      const hasFixedVerticalPadding = [paddingShorthand, paddingTop, paddingBottom]
+        .some(match => match && Number(match[1]) > 0);
+      if (fixedHeight && lineHeight && hasFixedVerticalPadding && fixedHeight[2] === lineHeight[2]) {
+        const height = Number(fixedHeight[1]);
+        const line = Number(lineHeight[1]);
+        if (line >= height * 0.75) {
+          stackedButtonMetrics.push({
+            file: relative(file),
+            line: lineAt(source, ruleMatch.index),
+            selector: selector.trim().replace(/\s+/g, ' '),
+            message: '文字按钮不得同时设置接近按钮高度的固定行高和非零上下内边距；文本盒会溢出或形成异常留白'
+          });
+        }
+      } else if (minHeight && lineHeight && !fixedHeight && minHeight[2] === lineHeight[2]) {
         const minimum = Number(minHeight[1]);
         const line = Number(lineHeight[1]);
         const absoluteFloor = minHeight[2] === 'px' ? 28 : 44;
