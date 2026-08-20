@@ -1623,6 +1623,18 @@ button:active,
     line-height: 1.4 !important;
   }
 
+  page .section-title::before,
+  page .list-title::before,
+  page .filter-label::before,
+  page .profile-field-title::before,
+  page .merit-group-label::before,
+  page .rule-panel-title::before {
+    width: 5px !important;
+    height: 20px !important;
+    border-radius: 3px !important;
+    box-shadow: none !important;
+  }
+
   .popup-title,
   .dialog-title,
   .message-switch-title {
