@@ -312,10 +312,14 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 /* ── 操作区 ── */
+.portal-session-footer {
+  margin-top: var(--ui-action-gap);
+}
+
 .actions {
   display: grid;
-  gap: var(--ui-inline-gap);
-  margin: var(--ui-action-gap) 0 var(--ui-card-gap);
+  gap: var(--ui-page-action-gap);
+  margin: 0;
   padding: 0;
 }
 
@@ -395,6 +399,7 @@ button, input, textarea, picker, view, text, scroll-view {
 
 /* ── 页脚 ── */
 .page-footer {
+  margin-top: var(--ui-footer-gap);
   text-align: center;
   padding: 0;
 }
@@ -499,7 +504,7 @@ button, input, textarea, picker, view, text, scroll-view {
 .notification-item {
   position: relative;
   z-index: 1;
-  display: flex; align-items: center; gap: 14rpx;
+  display: flex; align-items: flex-start; gap: 14rpx;
   padding: 18rpx 16rpx; border-radius: 16rpx;
   background: linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(246,249,255,0.72) 100%);
   border: 1rpx solid rgba(219,229,241,0.76);
@@ -578,18 +583,26 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .portal-message-metadata {
-  display: flex;
-  align-items: flex-start;
-  gap: 8rpx;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6rpx;
   margin-bottom: 7rpx;
-  flex-wrap: wrap;
+}
+
+.portal-message-context-line {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  width: 100%;
+  min-width: 0;
 }
 
 .portal-organization-meta {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6rpx;
-  max-width: 100%;
+  width: 100%;
+  min-width: 0;
   padding: 4rpx 9rpx;
   border: 1rpx solid rgba(186,210,232,0.72);
   border-radius: var(--ui-compact-radius, 18rpx);
@@ -608,6 +621,8 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .portal-identity-meta {
+  min-width: 0;
+  max-width: 100%;
   padding: 5rpx 10rpx;
   border: 1rpx solid rgba(203,213,225,0.74);
   border-radius: 12rpx;
@@ -616,6 +631,9 @@ button, input, textarea, picker, view, text, scroll-view {
   font-weight: 700;
   line-height: 1.45;
   background: rgba(248,250,252,0.74);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .portal-identity-meta-current {
@@ -625,8 +643,9 @@ button, input, textarea, picker, view, text, scroll-view {
 }
 
 .portal-organization-name {
+  flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .portal-organization-current {
@@ -634,6 +653,12 @@ button, input, textarea, picker, view, text, scroll-view {
   color: #2563eb;
   font-size: var(--ui-type-micro);
   font-weight: 800;
+  white-space: nowrap;
+}
+
+.notification-tag {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .notification-title {
@@ -1013,6 +1038,41 @@ button, input, textarea, picker, view, text, scroll-view {
     font-size: var(--ui-type-label);
   }
 
+  .notification-item {
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .notification-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+  }
+
+  .portal-message-metadata {
+    gap: 4px;
+    margin-bottom: 5px;
+  }
+
+  .portal-message-context-line {
+    gap: 6px;
+  }
+
+  .portal-organization-meta {
+    gap: 5px;
+    padding: 3px 7px;
+  }
+
+  .portal-identity-meta {
+    padding: 3px 7px;
+    border-radius: 12px;
+  }
+
+  .actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .portal-organization-meta,
   .notification-tag {
     border-radius: 12px;
@@ -1020,7 +1080,7 @@ button, input, textarea, picker, view, text, scroll-view {
   }
 }
 
-@media (min-width: 900px) {
+@media (min-width: 900px) and (orientation: landscape) {
   .page {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1035,8 +1095,7 @@ button, input, textarea, picker, view, text, scroll-view {
   .page > .portal-profile-card,
   .page > .portal-services-card,
   .page > .portal-message-partial,
-  .page > .actions,
-  .page > .page-footer,
+  .page > .portal-session-footer,
   .page > .dialog-layer {
     grid-column: 1 / -1;
   }
@@ -1044,9 +1103,23 @@ button, input, textarea, picker, view, text, scroll-view {
   .page > .card,
   .page > .hero,
   .page > .workspace-hero-host,
-  .page > .actions,
-  .page > .page-footer {
+  .page > .portal-session-footer {
     margin-bottom: 0;
+  }
+
+  .portal-session-footer {
+    margin-top: 0;
+  }
+
+  .notification-item {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .notification-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
   }
 
   .portal-services-card .app-grid {

@@ -1,6 +1,36 @@
 .ui-icon {
   display: block;
   flex-shrink: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.ui-icon-size-message-leading { width: 40rpx; height: 40rpx; }
+.ui-icon-size-message-meta { width: 22rpx; height: 22rpx; }
+.ui-icon-size-message-trailing { width: 30rpx; height: 30rpx; }
+.ui-icon-size-context-leading { width: 28rpx; height: 28rpx; }
+.ui-icon-size-context-trailing { width: 22rpx; height: 22rpx; }
+.ui-icon-size-feature-leading { width: 42rpx; height: 42rpx; }
+.ui-icon-size-row-leading { width: 34rpx; height: 34rpx; }
+
+@media (min-width: 520px) {
+  .ui-icon-size-message-leading { width: 28px; height: 28px; }
+  .ui-icon-size-message-meta { width: 15px; height: 15px; }
+  .ui-icon-size-message-trailing { width: 18px; height: 18px; }
+  .ui-icon-size-context-leading { width: 20px; height: 20px; }
+  .ui-icon-size-context-trailing { width: 16px; height: 16px; }
+  .ui-icon-size-feature-leading { width: 28px; height: 28px; }
+  .ui-icon-size-row-leading { width: 22px; height: 22px; }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .ui-icon-size-message-leading { width: 24px; height: 24px; }
+  .ui-icon-size-message-meta { width: 14px; height: 14px; }
+  .ui-icon-size-message-trailing { width: 16px; height: 16px; }
+  .ui-icon-size-context-leading { width: 18px; height: 18px; }
+  .ui-icon-size-context-trailing { width: 14px; height: 14px; }
+  .ui-icon-size-feature-leading { width: 26px; height: 26px; }
+  .ui-icon-size-row-leading { width: 20px; height: 20px; }
 }
 
 .ui-icon-primary { filter: none; }

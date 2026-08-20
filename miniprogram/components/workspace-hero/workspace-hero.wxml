@@ -22,7 +22,7 @@
       aria-label="{{localeCopy.copy_b58ff21ac7}}"
     >
       <view class="workspace-context-icon">
-        <ui-icon name="grid" tone="white" size="28" ariaLabel="{{localeCopy.copy_511b01626f}}" />
+        <ui-icon name="grid" tone="white" sizeRole="context-leading" ariaLabel="{{localeCopy.copy_511b01626f}}" />
       </view>
       <view class="workspace-context-copy">
         <view class="workspace-context-label">{{localeCopy.copy_511b01626f}}</view>
@@ -31,7 +31,7 @@
       </view>
       <view class="workspace-switch-action">
         <text>{{localeCopy.copy_c488bf29b9}}</text>
-        <ui-icon name="chevron-right" tone="white" size="22" ariaLabel="{{localeCopy.copy_b58ff21ac7}}" />
+        <ui-icon name="chevron-right" tone="white" sizeRole="context-trailing" ariaLabel="{{localeCopy.copy_b58ff21ac7}}" />
       </view>
     </view>
   </block>

@@ -1406,6 +1406,59 @@ if (!/\.ui-compact-segmented\s*\{[\s\S]*?width:\s*auto\s*!important/s.test(GLOBA
   });
 }
 const portalStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'main', 'pages', 'portal', 'portal.wxss'), 'utf8');
+const portalWxml = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'main', 'pages', 'portal', 'portal.wxml'), 'utf8');
+const messageCenterBase = path.join(MINI_ROOT, 'subpackages', 'message', 'pages', 'messageCenter', 'messageCenter');
+const messageCenterStyle = fs.readFileSync(`${messageCenterBase}.wxss`, 'utf8');
+const messageCenterWxml = fs.readFileSync(`${messageCenterBase}.wxml`, 'utf8');
+const uiIconStyle = fs.readFileSync(path.join(MINI_ROOT, 'components', 'ui-icon', 'ui-icon.wxss'), 'utf8');
+const uiIconWxml = fs.readFileSync(path.join(MINI_ROOT, 'components', 'ui-icon', 'ui-icon.wxml'), 'utf8');
+if (!/wx:if="\{\{sizeRole\}\}"/.test(uiIconWxml) ||
+    !/ui-icon-size-\{\{sizeRole\}\}/.test(uiIconWxml) ||
+    !/@media\s*\(min-width:\s*520px\)[\s\S]*?ui-icon-size-message-leading[\s\S]*?width:\s*28px/.test(uiIconStyle) ||
+    !/@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?ui-icon-size-message-leading[\s\S]*?width:\s*24px/.test(uiIconStyle) ||
+    !/max-width:\s*100%/.test(uiIconStyle) || !/max-height:\s*100%/.test(uiIconStyle)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/components/ui-icon/',
+    message: 'ui-icon 缺少手机/Pad 竖屏/Pad 横屏语义尺寸和槽位防溢出契约'
+  });
+}
+if (!/sizeRole="message-leading"/.test(portalWxml) ||
+    !/sizeRole="message-meta"/.test(portalWxml) ||
+    !/sizeRole="message-trailing"/.test(portalWxml) ||
+    !/class="portal-message-context-line"/.test(portalWxml) ||
+    !/class="portal-session-footer"/.test(portalWxml) ||
+    !/\.portal-message-metadata\s*\{[^}]*display:\s*grid/s.test(portalStyle) ||
+    /\.portal-message-metadata\s*\{[^}]*flex-wrap:/s.test(portalStyle) ||
+    !/\.portal-organization-meta\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0/s.test(portalStyle) ||
+    !/\.portal-organization-name\s*\{[^}]*flex:\s*1[^}]*min-width:\s*0/s.test(portalStyle) ||
+    !/\.actions\s*\{[^}]*gap:\s*var\(--ui-page-action-gap\)/s.test(portalStyle) ||
+    !/\.page-footer\s*\{[^}]*margin-top:\s*var\(--ui-footer-gap\)/s.test(portalStyle)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/subpackages/main/pages/portal/',
+    message: '门户媒体行、完整组织行、底部操作或品牌页脚间距契约缺失'
+  });
+}
+if (!/sizeRole="message-leading"/.test(messageCenterWxml) ||
+    !/sizeRole="message-meta"/.test(messageCenterWxml) ||
+    !/class="message-context-line"/.test(messageCenterWxml) ||
+    !/\.message-metadata\s*\{[^}]*display:\s*grid/s.test(messageCenterStyle) ||
+    /\.message-metadata\s*\{[^}]*flex-wrap:/s.test(messageCenterStyle) ||
+    !/\.organization-meta\s*\{[^}]*width:\s*100%[^}]*min-width:\s*0/s.test(messageCenterStyle) ||
+    !/\.organization-meta-name\s*\{[^}]*flex:\s*1[^}]*min-width:\s*0/s.test(messageCenterStyle)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/subpackages/message/pages/messageCenter/',
+    message: '消息中心媒体行或完整组织语义行契约缺失'
+  });
+}
+if (!/--ui-page-action-gap:\s*20rpx/.test(GLOBAL_STYLE) ||
+    !/--ui-footer-gap:\s*32rpx/.test(GLOBAL_STYLE) ||
+    !/@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-page-action-gap:\s*14px[\s\S]*?--ui-footer-gap:\s*24px/.test(GLOBAL_STYLE) ||
+    !/@media\s*\(min-width:\s*900px\)\s*and\s*\(orientation:\s*landscape\)[\s\S]*?--ui-page-action-gap:\s*12px[\s\S]*?--ui-footer-gap:\s*20px/.test(GLOBAL_STYLE)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/app.wxss',
+    message: '缺少页面主操作和品牌页脚的三设备专用间距令牌'
+  });
+}
 const adminPermissionsStyle = fs.readFileSync(
   path.join(MINI_ROOT, 'subpackages', 'org', 'pages', 'adminPermissions', 'adminPermissions.wxss'),
   'utf8'

@@ -261,6 +261,9 @@ Page({
 - ❌ 卡片小型查看/编辑/删除/移除继续使用页面私有 `list-actions` 排列；统一迁移到 `.card-actions`，禁止绝对定位到标题、状态或展开入口旁
 - ❌ 同一视觉行中的选择器、筛选、清除/重置使用不同高度或私有上下 margin；直接同行控件采用 `.ui-inline-control-row` + `.ui-inline-control`，带标签字段采用 `.ui-inline-field-row` 对齐底边，最终高度统一使用 `--ui-inline-control-height`
 - ❌ 标题旁的宫格/列表二态切换复用整行主页签高度、Pad 横屏 50px 或整行均分；必须采用 `.ui-compact-segmented` + `.ui-compact-segmented-item`
+- ❌ 固定 px 图标槽内继续使用 `ui-icon size` 的 rpx 图标，或让 Pad 横屏图标随视口机械放大；业务媒体行必须使用 `sizeRole` 的手机/Pad 竖屏/Pad 横屏语义尺寸
+- ❌ 把消息类别、组织、当前标识和身份塞进同一个 `flex-wrap` 容器；组织与当前标识必须独占完整语义行，完整名称只可按词自然换行、不得截断或拆成碎字
+- ❌ 页面底部双主操作复用 `--ui-inline-gap`，或品牌页脚依赖上一控件 margin；分别使用 `--ui-page-action-gap` 与 `--ui-footer-gap`，并由共同语义容器持有
 
 ---
 

@@ -60,6 +60,8 @@ page,
   --ui-label-gap: 6rpx;
   --ui-inline-gap: 10rpx;
   --ui-action-gap: 20rpx;
+  --ui-page-action-gap: 20rpx;
+  --ui-footer-gap: 32rpx;
   --ui-card-action-min-width: 92rpx;
   --ui-card-action-gap: 12rpx;
   --ui-card-action-divider-gap: 16rpx;
@@ -1554,6 +1556,8 @@ button:active,
     --ui-dialog-section-radius: 12px;
     --ui-dialog-section-gap: 14px;
     --ui-dialog-footer-gap: var(--ui-action-gap);
+    --ui-page-action-gap: 14px;
+    --ui-footer-gap: 24px;
     --ui-dialog-radius: 18px;
     --ui-message-preview-row: 96px;
     --ui-message-preview-gap: 6px;
@@ -2035,6 +2039,8 @@ button:active,
     --ui-label-gap: 4px;
     --ui-inline-gap: 6px;
     --ui-action-gap: 12px;
+    --ui-page-action-gap: 12px;
+    --ui-footer-gap: 20px;
     --ui-card-action-min-width: 48px;
     --ui-card-action-gap: 8px;
     --ui-card-action-divider-gap: 10px;

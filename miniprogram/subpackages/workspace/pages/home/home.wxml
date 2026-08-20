@@ -465,7 +465,7 @@
       <view class="audit-home-cards">
         <!-- 我的审核 -->
         <view class="audit-home-card ui-motion-card" bindtap="goMySubmissions" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          <view class="audit-home-card-icon"><ui-icon name="file" tone="primary" size="42" ariaLabel="{{copy.myAudits}}" /></view>
+          <view class="audit-home-card-icon"><ui-icon name="file" tone="primary" sizeRole="feature-leading" ariaLabel="{{copy.myAudits}}" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">{{copy.myAudits}}</view>
           </view>
@@ -474,7 +474,7 @@
         </view>
         <!-- 待我审批 -->
         <view class="audit-home-card ui-motion-card" bindtap="goPendingApprovals" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          <view class="audit-home-card-icon"><ui-icon name="signature" tone="primary" size="42" ariaLabel="{{copy.pendingApprovals}}" /></view>
+          <view class="audit-home-card-icon"><ui-icon name="signature" tone="primary" sizeRole="feature-leading" ariaLabel="{{copy.pendingApprovals}}" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">{{copy.pendingApprovals}}</view>
           </view>
@@ -483,7 +483,7 @@
         </view>
         <!-- 我的审批记录 -->
         <view class="audit-home-card ui-motion-card" bindtap="goMyApprovalHistory" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-          <view class="audit-home-card-icon"><ui-icon name="list" tone="primary" size="42" ariaLabel="{{copy.approvalHistory}}" /></view>
+          <view class="audit-home-card-icon"><ui-icon name="list" tone="primary" sizeRole="feature-leading" ariaLabel="{{copy.approvalHistory}}" /></view>
           <view class="audit-home-card-content">
             <view class="audit-home-card-title">{{copy.myApprovalHistory}}</view>
           </view>

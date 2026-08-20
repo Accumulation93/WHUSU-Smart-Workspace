@@ -37,22 +37,24 @@
 
       <view wx:if="{{activeTab === 'todos'}}" class="message-list">
         <view class="message-row ui-motion-card" wx:for="{{todos}}" wx:key="id" data-id="{{item.id}}" bindtap="onTodoTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
-          <view class="message-icon"><ui-icon name="clock" tone="primary" size="38" ariaLabel="{{copy.todos}}" /></view>
+          <view class="message-icon"><ui-icon name="clock" tone="primary" sizeRole="message-leading" ariaLabel="{{copy.todos}}" /></view>
           <view class="message-copy">
             <view class="message-metadata">
-              <text class="message-category">{{item.categoryLabel}}</text>
+              <view class="message-context-line">
+                <text class="message-category">{{item.categoryLabel}}</text>
+                <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
+              </view>
               <view class="organization-meta {{item.isCurrentOrganization ? 'organization-meta-current' : ''}}">
-                <ui-icon name="home" tone="primary" size="22" ariaLabel="{{copy.organization}}" />
+                <ui-icon name="home" tone="primary" sizeRole="message-meta" ariaLabel="{{copy.organization}}" />
                 <text class="organization-meta-name">{{item.organizationName}}</text>
                 <text class="organization-current" wx:if="{{item.isCurrentOrganization}}">{{copy.current}}</text>
               </view>
-              <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
             </view>
             <view class="message-title">{{item.title}}</view>
             <view class="message-desc">{{item.description}}</view>
             <view class="message-time">{{item.createdAt}}</view>
           </view>
-          <ui-icon name="chevron-right" tone="muted" size="28" ariaLabel="{{copy.enter}}" />
+          <ui-icon name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
         </view>
       </view>
 
@@ -60,16 +62,18 @@
         <view class="message-row {{item.isRead ? 'message-row-read' : 'message-row-unread'}}" wx:for="{{notifications}}" wx:key="id">
           <view class="message-main ui-motion-card" data-id="{{item.id}}" bindtap="onNotificationTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160">
             <view class="unread-dot" wx:if="{{!item.isRead}}"></view>
-            <view class="message-icon"><ui-icon name="bell" tone="primary" size="38" ariaLabel="{{copy.notifications}}" /></view>
+            <view class="message-icon"><ui-icon name="bell" tone="primary" sizeRole="message-leading" ariaLabel="{{copy.notifications}}" /></view>
             <view class="message-copy">
               <view class="message-metadata">
-                <text class="message-category">{{item.categoryLabel}}</text>
+                <view class="message-context-line">
+                  <text class="message-category">{{item.categoryLabel}}</text>
+                  <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
+                </view>
                 <view class="organization-meta {{item.isCurrentOrganization ? 'organization-meta-current' : ''}}">
-                  <ui-icon name="home" tone="primary" size="22" ariaLabel="{{copy.organization}}" />
+                  <ui-icon name="home" tone="primary" sizeRole="message-meta" ariaLabel="{{copy.organization}}" />
                   <text class="organization-meta-name">{{item.organizationName}}</text>
                   <text class="organization-current" wx:if="{{item.isCurrentOrganization}}">{{copy.current}}</text>
                 </view>
-                <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
               </view>
               <view class="message-title">{{item.title}}</view>
               <view class="message-desc">{{item.description}}</view>

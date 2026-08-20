@@ -51,7 +51,7 @@
           aria-role="button"
           aria-label="{{localeCopy.copy_9fa9026726}}{{item.name}}"
         >
-          <view class="organization-item-icon"><ui-icon name="home" tone="{{item.selected ? 'white' : 'primary'}}" size="30" ariaLabel="{{localeCopy.copy_34e2d1f8a0}}" /></view>
+          <view class="organization-item-icon"><ui-icon name="home" tone="{{item.selected ? 'white' : 'primary'}}" sizeRole="row-leading" ariaLabel="{{localeCopy.copy_34e2d1f8a0}}" /></view>
           <view class="organization-item-copy">
             <view class="organization-item-name">{{item.name}}</view>
             <view class="organization-item-meta">
@@ -91,7 +91,7 @@
           aria-role="button"
           aria-label="{{localeCopy.copy_ac7b734021}}{{item.name}}"
         >
-          <view class="identity-item-icon"><ui-icon name="user" tone="primary" size="31" ariaLabel="{{localeCopy.copy_5ccdea4fbf}}" /></view>
+          <view class="identity-item-icon"><ui-icon name="user" tone="primary" sizeRole="row-leading" ariaLabel="{{localeCopy.copy_5ccdea4fbf}}" /></view>
           <view class="identity-item-copy">
             <view class="identity-item-name">{{item.name}}</view>
             <view class="identity-item-detail" wx:if="{{item.detail}}">{{item.detail}}</view>
@@ -122,7 +122,7 @@
           aria-role="button"
           aria-label="{{localeCopy.copy_ac7b734021}}{{item.name}}"
         >
-          <view class="identity-item-icon"><ui-icon name="shield" tone="primary" size="31" ariaLabel="{{localeCopy.copy_3704f9b212}}" /></view>
+          <view class="identity-item-icon"><ui-icon name="shield" tone="primary" sizeRole="row-leading" ariaLabel="{{localeCopy.copy_3704f9b212}}" /></view>
           <view class="identity-item-copy">
             <view class="identity-title-row">
               <view class="identity-item-name">{{item.name}}</view>

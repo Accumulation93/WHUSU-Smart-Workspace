@@ -143,6 +143,14 @@ For documentation-only work, verify file existence, link/read order consistency,
 - 标题旁的宫格/列表等二态视图切换属于 `.ui-compact-segmented`，子项使用 `.ui-compact-segmented-item` 和 `--ui-compact-height`；不得复用整行主页签的 `--ui-tab-min-height`、整行均分或 Pad 横屏 `50px` 规则，避免挤压标题。
 - 全局审计发现既有同行控件时必须检查父级 `align-items`、子项最终物理高度、上下 margin 和设备覆盖顺序；不能只看源码中是否写了 `align-items:center`，还要排除共享同名选择器造成的级联偏移。
 
+## 硬规范：媒体行图标、消息元数据与品牌页脚
+
+- “左侧图标 + 多行正文 + 尾部操作”的媒体行必须使用固定图标槽、`min-width: 0` 正文和固定尾部操作。多行正文时整行 `align-items: flex-start`，图标对齐首组元数据或标题，禁止相对整卡垂直居中。
+- 业务页面不得依赖 `ui-icon` 数值 `size` 在 Pad 上继续按 `rpx` 放大。共享图标必须通过 `sizeRole` 语义档位获得手机 `rpx`、Pad 竖屏 `px`、Pad 横屏 `px` 三套尺寸；图像本体必须受图标槽 `max-width/max-height: 100%` 约束。
+- 门户和消息中心的来源信息禁止放进任意换行的 `flex-wrap` 袋。业务类别与身份放在明确的上下文行且各自不拆字；组织名称与“当前”必须独占下一整行，组织名称 `flex: 1; min-width: 0`，当前标识固定不收缩。窄屏允许组织名称只在该语义行内按词自然换行，不能截断完整名称，也不能把组织名或“当前”挤成逐字碎行。
+- 页面底部成组主操作使用 `--ui-page-action-gap`，不得复用较小的 `--ui-inline-gap`；品牌页脚自己拥有 `--ui-footer-gap`，不得依赖前一个控件的 margin。操作组与品牌区需要一个共同语义容器作为唯一间距所有者，页面 Grid 不得清零这两段间距。
+- 修改相关区域后必须同时验收门户预览、消息中心、共享 Hero 和固定 px 图标槽调用，并在手机、Pad 竖屏、Pad 横屏检查图标占位、完整组织行、按钮间距和页脚留白；`scripts/ui-audit.js --strict` 必须覆盖这些契约。
+
 ## 硬规范：场地借用审批历史与详情统一
 
 - 普通用户端必须在“待我审批”页签内提供可见的“审批历史”入口；不得把入口放在“我的借用”页或借用记录区域，也不得只对管理端提供。

@@ -25,16 +25,18 @@
       </view>
       <view class="notification-item todo-item ui-motion-card" wx:for="{{todos}}" wx:key="id"
             data-id="{{item.id}}" bindtap="onTodoTap" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
-        <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : 'clock'}}" tone="primary" size="40" ariaLabel="{{copy.todoType}}" /></view>
+        <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : 'clock'}}" tone="primary" sizeRole="message-leading" ariaLabel="{{copy.todoType}}" /></view>
         <view class="notification-body">
           <view class="portal-message-metadata">
-            <text class="notification-tag notification-tag-{{item.category}}">{{item.categoryLabel}}</text>
+            <view class="portal-message-context-line">
+              <text class="notification-tag notification-tag-{{item.category}}">{{item.categoryLabel}}</text>
+              <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.identityName}}</text>
+            </view>
             <view class="portal-organization-meta {{item.isCurrentOrganization ? 'portal-organization-meta-current' : ''}}">
-              <ui-icon name="home" tone="primary" size="21" ariaLabel="{{copy.organization}}" />
+              <ui-icon name="home" tone="primary" sizeRole="message-meta" ariaLabel="{{copy.organization}}" />
               <text class="portal-organization-name">{{item.organizationName}}</text>
               <text class="portal-organization-current" wx:if="{{item.isCurrentOrganization}}">{{copy.current}}</text>
             </view>
-            <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.identityName}}</text>
           </view>
           <view class="notification-title">
             {{item.title}}
@@ -42,7 +44,7 @@
           <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="notification-time">{{item.createdAt}}</view>
         </view>
-        <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="{{copy.enter}}" />
+        <ui-icon name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
       </view>
       <view class="message-loading-more" wx:if="{{todoLoadingMore}}">{{copy.loadingMore}}</view>
     </scroll-view>
@@ -70,16 +72,18 @@
               bindtouchmove="onNotificationTouchMove"
               bindtouchend="onNotificationTouchEnd" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
           <view class="notification-dot" wx:if="{{!item.isRead}}"></view>
-          <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : (item.category === 'scoring' ? 'grid' : 'bell')}}" tone="primary" size="40" ariaLabel="{{copy.notificationType}}" /></view>
+          <view class="notification-icon"><ui-icon name="{{item.category === 'venue' ? 'venue' : (item.category === 'scoring' ? 'grid' : 'bell')}}" tone="primary" sizeRole="message-leading" ariaLabel="{{copy.notificationType}}" /></view>
           <view class="notification-body">
             <view class="portal-message-metadata">
-              <text class="notification-tag notification-tag-{{item.category}}">{{item.categoryLabel}}</text>
+              <view class="portal-message-context-line">
+                <text class="notification-tag notification-tag-{{item.category}}">{{item.categoryLabel}}</text>
+                <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.identityName}}</text>
+              </view>
               <view class="portal-organization-meta {{item.isCurrentOrganization ? 'portal-organization-meta-current' : ''}}">
-                <ui-icon name="home" tone="primary" size="21" ariaLabel="{{copy.organization}}" />
+                <ui-icon name="home" tone="primary" sizeRole="message-meta" ariaLabel="{{copy.organization}}" />
                 <text class="portal-organization-name">{{item.organizationName}}</text>
                 <text class="portal-organization-current" wx:if="{{item.isCurrentOrganization}}">{{copy.current}}</text>
               </view>
-              <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.identityName}}</text>
             </view>
             <view class="notification-title">
               {{item.title}}
@@ -87,7 +91,7 @@
             <view class="notification-desc" wx:if="{{item.description}}">{{item.description}}</view>
             <view class="notification-time">{{item.createdAt}}</view>
           </view>
-          <ui-icon name="chevron-right" tone="muted" size="32" ariaLabel="{{copy.enter}}" />
+          <ui-icon name="chevron-right" tone="muted" sizeRole="message-trailing" ariaLabel="{{copy.enter}}" />
         </view>
         <view class="notification-delete ui-motion-chip" wx:if="{{item._showDelete}}" data-id="{{item.id}}" catchtap="deleteNotification" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.delete}}</view>
       </view>
@@ -154,7 +158,7 @@
         hover-start-time="0"
         hover-stay-time="160"
        hover-stop-propagation="{{true}}">
-        <view class="nav-row-icon"><ui-icon name="{{item.iconName}}" tone="primary" size="40" ariaLabel="{{item.label}}" /></view>
+        <view class="nav-row-icon"><ui-icon name="{{item.iconName}}" tone="primary" sizeRole="feature-leading" ariaLabel="{{item.label}}" /></view>
         <view class="nav-row-body">
           <view class="nav-row-label">{{item.label}}</view>
         </view>
@@ -164,14 +168,16 @@
     </view>
   </view>
 
-  <view class="actions">
-    <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.identitySwitch}}</button>
-    <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="logout" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.logout}}</button>
-  </view>
+  <view class="portal-session-footer">
+    <view class="actions">
+      <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.identitySwitch}}</button>
+      <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="logout" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.logout}}</button>
+    </view>
 
-  <view class="page-footer">
-    <view class="footer-name">{{copy.appName}}</view>
-    <view class="footer-org">{{copy.organizationName}}</view>
+    <view class="page-footer">
+      <view class="footer-name">{{copy.appName}}</view>
+      <view class="footer-org">{{copy.organizationName}}</view>
+    </view>
   </view>
 
   <viewport-portal wx:if="{{showMessageSwitchDialog}}">

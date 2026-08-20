@@ -8,10 +8,12 @@
 | --- | --- | --- | --- |
 | `workspace-hero` | `miniprogram/components/workspace-hero/` | 品牌、姓名、身份、组织与切换入口 | 手机换行更自然，Pad 收紧内边距，横屏压缩高度 |
 | `viewport-portal` | `miniprogram/components/viewport-portal/` | 将共享弹窗内容提升到视口层 | 三种设备都固定遮罩和弹窗位置；弹窗令牌由 portal 内的遮罩直接持有，不依赖页面变量继承 |
-| `ui-icon` | `miniprogram/components/ui-icon/` | 统一 SVG 图标加载和色调 | 图标尺寸随语义和设备令牌调整，不用 emoji |
+| `ui-icon` | `miniprogram/components/ui-icon/` | 统一 SVG 图标加载和色调 | 业务图标用 `sizeRole`；手机 rpx、Pad 竖屏/横屏 px 独立收紧；本体受槽位边界约束，不用 emoji |
 | `signaturePad` | `miniprogram/subpackages/audit/components/signaturePad/` | 审核签名输入 | 普通 View 实时笔迹；隐藏 Canvas 仅按 1:1 尺寸导出；保留专用触摸锁 |
 
 ## 全局样式原语
+
+媒体行组件采用“固定图标槽 + `min-width:0` 正文 + 固定尾部操作”。多行正文顶部对齐；门户/消息中心的上下文行与组织整行必须分层，禁止使用一个 `flex-wrap` 容器承载全部元数据。页面底部操作使用 `--ui-page-action-gap`，品牌页脚使用 `--ui-footer-gap`。
 
 | 原语 | 用途 | 典型使用位置 |
 | --- | --- | --- |

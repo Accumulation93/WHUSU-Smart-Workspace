@@ -20,6 +20,10 @@ Component({
       type: Number,
       value: 32
     },
+    sizeRole: {
+      type: String,
+      value: ''
+    },
     ariaLabel: {
       type: String,
       value: ''

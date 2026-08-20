@@ -23,6 +23,14 @@
 7. 同一视觉行中的日期/时间选择器、筛选按钮、清除/重置按钮使用 `.ui-inline-control-row` + `.ui-inline-control`，高度只能来自 `--ui-inline-control-height`；带标签的并列筛选字段使用 `.ui-inline-field-row` 对齐字段底边，并统一内部 `.compact-picker-value` / `.field-input` 的最终高度。原生 `input` 必须保持 `display:block`。所有子项上下 margin 必须归零，必须审计最终级联样式，防止共享 `.filter-clear` 等同名规则重新加入 margin。
 8. 标题旁的宫格/列表等二态切换使用 `.ui-compact-segmented` + `.ui-compact-segmented-item`，高度来自 `--ui-compact-height`，不得进入整行主页签的均分、宽度或 `--ui-tab-min-height` 规则。
 
+## 媒体行、消息元数据与品牌页脚契约（不可破坏）
+
+1. 左图标媒体行固定为“受控图标槽 + `min-width:0` 正文 + 固定尾部操作”。多行卡片必须顶部对齐，图标不可相对整张卡片垂直居中。
+2. `ui-icon` 的业务级图标必须使用 `sizeRole` 语义尺寸；手机、Pad 竖屏、Pad 横屏分别由组件给出 `rpx/px/px` 尺寸。固定 px 外框内禁止继续放随视口增长的 rpx 图标，图标本体必须有 `max-width/max-height:100%` 防溢出。
+3. 门户和消息中心的类别、组织、身份禁止混在一个自由换行容器。类别与身份处于明确上下文行；组织与当前标识独占完整下一行，名称 `flex:1; min-width:0`，当前标识不收缩且不换行。空间不足时名称只在该语义行内按词自然换行，禁止截断完整名称或拆字挤成碎行。
+4. 页面底部主操作间距使用 `--ui-page-action-gap`，品牌页脚上间距使用 `--ui-footer-gap`。操作组与品牌区由同一语义容器管理；页面 Grid、相邻卡片或页脚局部规则不得把专用间距清零，也不得以 `--ui-inline-gap` 替代。
+5. 修改后必须现场检查手机、Pad 竖屏、Pad 横屏的门户预览和消息中心，并全局复核共享 Hero、列表入口和固定 px 图标槽；严格 UI 审计必须拦截组件回退到无条件 rpx、消息元数据回退到 `flex-wrap`、操作组复用行内间距和页脚失去专用间距。
+
 ## 签名坐标契约（不可破坏）
 
 手写签名固定使用“视口绝对坐标 + 普通视图实时笔迹”模型：

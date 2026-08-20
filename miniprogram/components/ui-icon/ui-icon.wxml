@@ -1,4 +1,12 @@
 <image
+  wx:if="{{sizeRole}}"
+  class="ui-icon ui-icon-{{tone}} ui-icon-size-{{sizeRole}}"
+  src="{{src}}"
+  mode="aspectFit"
+  aria-label="{{ariaLabel}}"
+/>
+<image
+  wx:else
   class="ui-icon ui-icon-{{tone}}"
   src="{{src}}"
   mode="aspectFit"
