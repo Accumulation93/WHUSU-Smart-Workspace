@@ -12,6 +12,17 @@
 5. 控件使用 `min-height + 对称 padding + 语义 line-height`，禁止固定 height、固定 line-height、上下 padding 三者叠加。文字到边缘必须由控件 padding 产生，长文字自然换行并增高，不能裁切或靠空格对齐。
 6. 每次间距修改必须人工阅读相邻 WXML/WXSS，分别核对首项、末项、空状态、长文案、滚动到底和底部安全区，并在手机、Pad 竖屏、Pad 横屏现场查看。脚本扫描只能作为候选定位和最终门禁，不能代替逐项语义判断。
 
+## 控制表面与卡片操作契约（不可破坏）
+
+1. 页面级 `section-title`、分区二级页签和成组操作必须拥有至少一层真实可见的玻璃表面；`.page`、`.admin-workbench`、`.section-stack`、`.ui-dialog-stack` 等透明布局层不算视觉包裹。禁止标题、页签或按钮组零容器直接暴露。
+2. 同一分区的标题、页签和批量操作使用 `.section-control-card` 共同承载。不得为了形式给每个控件重复套同质卡片，也不得因增加表面改变原有滚动所有者。
+3. 重复列表卡片的小型查看、编辑、删除、移除操作统一使用 `.card-actions`：默认独立成行、顶部细分隔、右对齐、允许换行；操作控件最小宽度使用 `--ui-card-action-min-width`，间距使用 `--ui-card-action-gap`，圆角使用 `--ui-control-radius`。危险操作保留红色语义。
+4. `.card-actions--inline` 只用于已经证明不会与标题、状态、展开入口争抢空间的紧凑行。展开卡片的操作必须处于普通文档流，禁止 `position:absolute`、固定 `top/right`、负 margin 或覆盖层定位。
+5. 审核模板卡固定按“摘要与展开入口 → 编辑/删除操作行 → 展开步骤内容”排序；编辑、删除不得与展开按钮同一绝对定位区。
+6. `scripts/ui-audit.js --strict` 必须检查裸露标题/分区控件和遗留卡片操作组。修改后在手机、Pad 竖屏、Pad 横屏核对长文案、操作换行、收起和展开状态。
+7. 同一视觉行中的日期/时间选择器、筛选按钮、清除/重置按钮使用 `.ui-inline-control-row` + `.ui-inline-control`，高度只能来自 `--ui-inline-control-height`；带标签的并列筛选字段使用 `.ui-inline-field-row` 对齐字段底边，并统一内部 `.compact-picker-value` / `.field-input` 的最终高度。原生 `input` 必须保持 `display:block`。所有子项上下 margin 必须归零，必须审计最终级联样式，防止共享 `.filter-clear` 等同名规则重新加入 margin。
+8. 标题旁的宫格/列表等二态切换使用 `.ui-compact-segmented` + `.ui-compact-segmented-item`，高度来自 `--ui-compact-height`，不得进入整行主页签的均分、宽度或 `--ui-tab-min-height` 规则。
+
 ## 签名坐标契约（不可破坏）
 
 手写签名固定使用“视口绝对坐标 + 普通视图实时笔迹”模型：

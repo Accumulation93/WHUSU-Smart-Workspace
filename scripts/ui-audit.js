@@ -309,6 +309,140 @@ function scanWxml(file) {
   return controls;
 }
 
+function classTokens(className) {
+  return String(className || '').split(/\s+/).filter(Boolean);
+}
+
+function hasClass(className, target) {
+  return classTokens(className).includes(target);
+}
+
+function ownsVisualSurface(className) {
+  return classTokens(className).some(token => (
+    token === 'card' ||
+    token === 'section' ||
+    token === 'edit-box' ||
+    token === 'section-control-card' ||
+    token.endsWith('-card') ||
+    token.endsWith('-panel') ||
+    token.endsWith('-surface')
+  ));
+}
+
+function scanControlSurfaceContracts(file) {
+  const source = fs.readFileSync(file, 'utf8');
+  const stack = [];
+  const findings = [];
+  for (const token of tokenizeWxml(source)) {
+    const raw = token.raw;
+    if (raw.startsWith('<!--')) continue;
+    const close = raw.match(/^<\/([\w-]+)/);
+    if (close) {
+      for (let index = stack.length - 1; index >= 0; index -= 1) {
+        if (stack[index].tag === close[1]) {
+          stack.length = index;
+          break;
+        }
+      }
+      continue;
+    }
+
+    const start = raw.match(/^<([\w-]+)([\s\S]*?)\/?>(?:\s*)$/);
+    if (!start) continue;
+    const tag = start[1];
+    const attrs = start[2] || '';
+    const className = attrValue(attrs, 'class');
+    const parent = stack[stack.length - 1];
+    const visualAncestor = [...stack].reverse().find(item => ownsVisualSurface(item.className));
+    const inlineControlRow = [...stack].reverse().find(item => hasClass(item.className, 'ui-inline-control-row'));
+
+    if (hasClass(className, 'section-title') && !visualAncestor) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '页面级 section-title 直接暴露，必须放入至少一层明确的卡片或玻璃控制表面'
+      });
+    }
+
+    const groupedControl = ['section-title', 'tabs', 'tabs-card', 'toolbar-row', 'button-row', 'audit-filter-bar']
+      .some(target => hasClass(className, target));
+    if (parent && hasClass(parent.className, 'section-stack') && groupedControl) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: 'section-stack 的标题、页签或成组操作直接暴露，必须由 section-control-card 统一包裹'
+      });
+    }
+
+    const legacyCardActionGroup = hasClass(className, 'list-actions') ||
+      hasClass(className, 'list-actions-below') ||
+      hasClass(className, 'rule-list-inline-actions') ||
+      hasClass(className, 'hr-member-actions');
+    if (legacyCardActionGroup && !hasClass(className, 'card-actions')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '卡片小操作必须使用 card-actions 统一操作行，不得继续保留页面私有排列'
+      });
+    }
+
+    if (hasClass(className, 'time-filter-row') && !hasClass(className, 'ui-inline-control-row')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '同排日期/时间筛选必须使用 ui-inline-control-row 统一纵向基线'
+      });
+    }
+
+    if (hasClass(className, 'range-row') && !hasClass(className, 'ui-inline-control-row')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '同排日期/时间范围控件必须使用 ui-inline-control-row，禁止混用完整表单与紧凑控件高度'
+      });
+    }
+
+    if (hasClass(className, 'rule-filter-row') && !hasClass(className, 'ui-inline-field-row')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '带标签的同行筛选字段必须使用 ui-inline-field-row 对齐实际控件底边'
+      });
+    }
+
+    if (inlineControlRow &&
+        (hasClass(className, 'time-pick') || hasClass(className, 'filter-clear')) &&
+        !hasClass(className, 'ui-inline-control')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '同排选择器与清除按钮必须使用 ui-inline-control 共享物理高度，禁止页面 margin 造成错位'
+      });
+    }
+
+    if (hasClass(className, 'app-view-tabs') && !hasClass(className, 'ui-compact-segmented')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '标题行中的宫格/列表切换必须使用 ui-compact-segmented，不得占用主页签高度'
+      });
+    }
+
+    if (parent && hasClass(parent.className, 'ui-compact-segmented') &&
+        hasClass(className, 'app-view-tab') && !hasClass(className, 'ui-compact-segmented-item')) {
+      findings.push({
+        file: relative(file),
+        line: lineAt(source, token.index),
+        message: '紧凑分段切换子项必须使用 ui-compact-segmented-item 共享紧凑高度'
+      });
+    }
+
+    const selfClosing = raw.endsWith('/>') || VOID_TAGS.has(tag);
+    if (!selfClosing) stack.push({ tag, className });
+  }
+  return findings;
+}
+
 function scanVisibleInternalIds(file) {
   const source = fs.readFileSync(file, 'utf8');
   const tokens = tokenizeWxml(source);
@@ -1077,6 +1211,7 @@ function scanWxss(file) {
 
 const wxmlFiles = walk(MINI_ROOT, '.wxml');
 const controls = wxmlFiles.flatMap(scanWxml);
+const controlSurfaceIssues = wxmlFiles.flatMap(scanControlSurfaceContracts);
 const visibleInternalIds = wxmlFiles.flatMap(scanVisibleInternalIds);
 const staticInlineStyles = wxmlFiles.flatMap(scanStaticInlineStyles);
 const layoutContracts = wxmlFiles.map(scanLayoutContracts);
@@ -1233,6 +1368,43 @@ const missingTabSizeSystem = !(
   /\.message-tab\s*\{[\s\S]*?min-height:\s*var\(--ui-tab-min-height/.test(GLOBAL_STYLE)
 );
 const homeStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'main', 'styles', 'home.wxss'), 'utf8');
+if (!/\.section-control-card\s*\{[\s\S]*?background:\s*linear-gradient/.test(homeStyle)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/subpackages/main/styles/home.wxss',
+    message: '缺少 section-control-card 玻璃控制表面基准'
+  });
+}
+if (!/\.card-actions\s*\{[^}]*justify-content:\s*flex-end[^}]*border-top:/s.test(homeStyle) ||
+    !/\.card-actions\s*>\s*\.link,[\s\S]*?border-radius:\s*var\(--ui-control-radius\)/.test(homeStyle)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/subpackages/main/styles/home.wxss',
+    message: '缺少以人事成员卡片为基准的 card-actions/card action chip 统一样式'
+  });
+}
+if (/\.audit-template-actions\s*\{[^}]*position:\s*absolute/s.test(adminStyle)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/subpackages/scoring/pages/admin/admin.wxss',
+    message: '审核模板编辑/删除操作禁止绝对定位到展开按钮同一行'
+  });
+}
+if (!/--ui-inline-control-height:\s*56rpx/.test(GLOBAL_STYLE) ||
+    !/@media\s*\(min-width:\s*520px\)[\s\S]*?--ui-inline-control-height:\s*32px/.test(GLOBAL_STYLE) ||
+    !/\.ui-inline-control-row\s*\{[^}]*align-items:\s*center/s.test(GLOBAL_STYLE) ||
+    !/\.ui-inline-field-row\s*\{[^}]*align-items:\s*flex-end/s.test(GLOBAL_STYLE) ||
+    !/\.ui-inline-control\s*\{[\s\S]*?height:\s*var\(--ui-inline-control-height/s.test(GLOBAL_STYLE) ||
+    !/\.ui-inline-field-row \.compact-picker-value,[\s\S]*?\.ui-inline-field-row \.field-input\s*\{[\s\S]*?height:\s*var\(--ui-inline-control-height/s.test(GLOBAL_STYLE)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/app.wxss',
+    message: '缺少同排控件共享物理高度与垂直基线的 ui-inline-control 契约'
+  });
+}
+if (!/\.ui-compact-segmented\s*\{[\s\S]*?width:\s*auto\s*!important/s.test(GLOBAL_STYLE) ||
+    !/\.ui-compact-segmented\s*>\s*\.ui-compact-segmented-item\s*\{[\s\S]*?--ui-compact-height/s.test(GLOBAL_STYLE)) {
+  controlSurfaceIssues.push({
+    file: 'miniprogram/app.wxss',
+    message: '缺少标题行紧凑分段切换 ui-compact-segmented 契约'
+  });
+}
 const portalStyle = fs.readFileSync(path.join(MINI_ROOT, 'subpackages', 'main', 'pages', 'portal', 'portal.wxss'), 'utf8');
 const adminPermissionsStyle = fs.readFileSync(
   path.join(MINI_ROOT, 'subpackages', 'org', 'pages', 'adminPermissions', 'adminPermissions.wxss'),
@@ -1352,6 +1524,7 @@ const report = {
     compactVisualContractIssues: compactVisualContractIssues.length,
     duplicateGlobalUiContracts: duplicateGlobalUiContracts.length,
     signatureCoordinateIssues: signatureCoordinateIssues.length,
+    controlSurfaceIssues: controlSurfaceIssues.length,
     important: styles.reduce((sum, item) => sum + item.important, 0),
     missingTabletPortrait: styles.filter(item => !item.media520).length,
     missingTabletLandscape: styles.filter(item => !item.media900).length
@@ -1399,6 +1572,7 @@ const report = {
   compactVisualContractIssues,
   duplicateGlobalUiContracts,
   signatureCoordinateIssues,
+  controlSurfaceIssues,
   styles
 };
 
@@ -1409,7 +1583,7 @@ if (process.argv.includes('--json')) {
   console.table(report.summary);
   console.log('\nHighest-risk files:');
   const riskByFile = new Map();
-  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...flattenedDialogSurfaces, ...duplicateDialogWrapperSurfaces, ...redundantDialogSingleSection, ...compactVisualContractIssues, ...duplicateGlobalUiContracts]) {
+  for (const item of [...missingFeedback, ...nestedRisks, ...unclassified, ...nativeButtonRoleIssues, ...forbiddenEmojiIcons, ...workspaceShellIssues, ...pillButtonRadius, ...stackedButtonMetrics, ...forcedDialogViewport, ...miscenteredDialogShell, ...misalignedTitleAccent, ...rawFontSizes, ...oversizedDecorativeHero, ...forcedContentViewport, ...oversizedContentPadding, ...flattenedDialogSurfaces, ...duplicateDialogWrapperSurfaces, ...redundantDialogSingleSection, ...compactVisualContractIssues, ...duplicateGlobalUiContracts, ...controlSurfaceIssues]) {
     riskByFile.set(item.file, (riskByFile.get(item.file) || 0) + 1);
   }
   console.table([...riskByFile.entries()]
@@ -1430,6 +1604,6 @@ if (process.argv.includes('--strict')) {
     report.summary.dialogIssues || report.summary.dataLayoutIssues || report.summary.scrollContractIssues || report.summary.redundantDialogSingleSection || report.summary.unsafeControlEllipsis ||
     report.summary.fixedDataColumns || report.summary.pillButtonRadius || report.summary.stackedButtonMetrics || report.summary.forcedDialogViewport || report.summary.miscenteredDialogShell || report.summary.misalignedTitleAccent || report.summary.rawFontSizes || report.summary.oversizedDecorativeHero || report.summary.forcedContentViewport || report.summary.oversizedContentPadding || report.summary.flattenedDialogSurfaces || report.summary.duplicateDialogWrapperSurfaces || report.summary.missingStableDialogSystem || report.summary.missingDialogCenteringSystem || report.summary.missingDialogGestureSystem || report.summary.missingDialogScrollSystem || report.summary.missingDialogInteriorSystem || report.summary.missingDialogPortalTokenSystem ||
     report.summary.missingResponsiveDataSystem || report.summary.compactVisualContractIssues || report.summary.duplicateGlobalUiContracts ||
-    report.summary.signatureCoordinateIssues;
+    report.summary.signatureCoordinateIssues || report.summary.controlSurfaceIssues;
   process.exitCode = failed ? 1 : 0;
 }

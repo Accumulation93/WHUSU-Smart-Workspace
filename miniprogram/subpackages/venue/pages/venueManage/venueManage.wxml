@@ -30,7 +30,7 @@
               <view class="list-name">{{item.name}}</view>
               <view class="list-desc" wx:if="{{item.location}}">{{item.location}}</view>
               <view class="list-desc" wx:if="{{item.description}}">{{item.description}}</view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openRules" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_f10a13b6e1}}</text>
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="openVenueSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</text>
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEdit" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
@@ -83,15 +83,15 @@
       <!-- Time filter row -->
       <view class="filter-group">
         <view class="filter-label">{{localeCopy.copy_c18d8cf657}}</view>
-        <view class="time-filter-row">
+        <view class="time-filter-row ui-inline-control-row">
           <picker mode="date" value="{{timeFrom}}" bindchange="onTimeFromChange">
-            <view class="time-pick">{{timeFromDisplay || localeCopy.copy_31b34bfc08}}</view>
+            <view class="time-pick ui-inline-control">{{timeFromDisplay || localeCopy.copy_31b34bfc08}}</view>
           </picker>
           <text class="time-to">{{localeCopy.copy_e8d9493a44}}</text>
           <picker mode="date" value="{{timeTo}}" bindchange="onTimeToChange">
-            <view class="time-pick">{{timeToDisplay || localeCopy.copy_9bec99c980}}</view>
+            <view class="time-pick ui-inline-control">{{timeToDisplay || localeCopy.copy_9bec99c980}}</view>
           </picker>
-          <text class="filter-clear ui-motion-chip" wx:if="{{timeFrom || timeTo}}" bindtap="onClearTime" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</text>
+          <text class="filter-clear ui-inline-control ui-motion-chip" wx:if="{{timeFrom || timeTo}}" bindtap="onClearTime" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2a0e50c5f6}}</text>
         </view>
       </view>
 
@@ -162,7 +162,7 @@
         <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id">
           <view class="list-main">
             <view class="list-name">{{item.text}}</view>
-            <view class="inline-actions list-actions-below">
+            <view class="inline-actions list-actions-below card-actions">
               <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
               <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
             </view>
@@ -193,7 +193,7 @@
               <view class="list-main">
                 <view class="list-name">{{item.name || localeCopy.copy_6e6ee2b747}}</view>
                 <view class="list-desc">{{item._activitySummary || item._cycleLabel}}</view>
-                <view class="inline-actions list-actions-below">
+                <view class="inline-actions list-actions-below card-actions">
                   <text class="link ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                   <text class="link danger ui-motion-chip" data-type="open" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
@@ -209,7 +209,7 @@
               <view class="list-main">
                 <view class="list-name">{{item.activity_name || localeCopy.copy_acd4c5c171}}</view>
                 <view class="list-desc">{{item._cycleLabel}} · {{item.time_start || '09:00'}} - {{item.time_end || '18:00'}}</view>
-                <view class="inline-actions list-actions-below">
+                <view class="inline-actions list-actions-below card-actions">
                   <text class="link ui-motion-chip" data-type="activity" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                   <text class="link danger ui-motion-chip" data-type="activity" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
@@ -230,7 +230,7 @@
                   <view class="flow-switch-item"><text class="flow-switch-label">{{localeCopy.copy_c70f4ff52a}}</text><switch checked="{{item.allow_designate_first === 1 || item.allow_designate_next === 1}}" data-id="{{item.id}}" data-field="allow_designate" bindchange="toggleApprovalFlowFlag" color="#3b82f6" /></view>
                 </view>
               </view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="openApprovalFlowStepEditor">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deleteApprovalFlow">{{localeCopy.copy_acc985cabc}}</text>
               </view>
@@ -243,7 +243,7 @@
               <view class="list-main">
                 <view class="list-name">{{item._ruleTypeLabel}}</view>
                 <view wx:if="{{item.rule_type === 'flow' && item._flowSteps}}" class="list-desc">{{item._flowSteps}}{{localeCopy.copy_f600823615}}</view>
-                <view class="inline-actions list-actions-below">
+                <view class="inline-actions list-actions-below card-actions">
                   <text class="link ui-motion-chip" data-type="booking" data-id="{{item.id}}" catchtap="openRuleEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                   <text class="link danger ui-motion-chip" data-type="booking" data-id="{{item.id}}" catchtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
@@ -332,11 +332,11 @@
             </view>
             <view wx:if="{{ruleForm.cycleType === 'yearly'}}" class="chip-section">
               <view class="field-label">{{localeCopy.copy_28ed0d6bf2}}</view>
-              <view class="range-row"><text class="range-label">{{localeCopy.copy_1ede7526e5}}</text>
+              <view class="range-row ui-inline-control-row"><text class="range-label">{{localeCopy.copy_1ede7526e5}}</text>
                 <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeStartMonth - 1}}" bindchange="onYearlyRangeStartMonthChange"><view class="picker-sm">{{yearlyRangeStartMonth}}{{localeCopy.copy_c1392f7fda}}</view></picker>
                 <picker range="{{yearlyDays}}" value="{{yearlyRangeStartDay - 1}}" bindchange="onYearlyRangeStartDayChange"><view class="picker-sm">{{yearlyRangeStartDay}}{{localeCopy.copy_a957bd837e}}</view></picker>
               </view>
-              <view class="range-row"><text class="range-label">{{localeCopy.copy_d862a02c58}}</text>
+              <view class="range-row ui-inline-control-row"><text class="range-label">{{localeCopy.copy_d862a02c58}}</text>
                 <picker range="{{[1,2,3,4,5,6,7,8,9,10,11,12]}}" value="{{yearlyRangeEndMonth - 1}}" bindchange="onYearlyRangeEndMonthChange"><view class="picker-sm">{{yearlyRangeEndMonth}}{{localeCopy.copy_c1392f7fda}}</view></picker>
                 <picker range="{{yearlyDays}}" value="{{yearlyRangeEndDay - 1}}" bindchange="onYearlyRangeEndDayChange"><view class="picker-sm">{{yearlyRangeEndDay}}{{localeCopy.copy_a957bd837e}}</view></picker>
                 <text class="add-range-btn ui-motion-chip" catchtap="onAddYearlyRange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}}</text>
@@ -350,13 +350,13 @@
             <!-- Range type: date range picker -->
             <view wx:if="{{ruleForm.cycleType === 'range'}}" class="field">
               <view class="field-label">{{localeCopy.copy_4d7c82caea}}</view>
-              <view class="range-row">
+              <view class="range-row ui-inline-control-row">
                 <text class="range-label">{{localeCopy.copy_1ede7526e5}}</text>
                 <picker mode="date" value="{{ruleForm.cycleValues.startDate}}" bindchange="onRangeStartDateChange">
                   <view class="picker-display {{ruleForm.cycleValues.startDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.startDate || localeCopy.copy_31b34bfc08}}</view>
                 </picker>
               </view>
-              <view class="range-row">
+              <view class="range-row ui-inline-control-row">
                 <text class="range-label">{{localeCopy.copy_d862a02c58}}</text>
                 <picker mode="date" value="{{ruleForm.cycleValues.endDate}}" bindchange="onRangeEndDateChange">
                   <view class="picker-display {{ruleForm.cycleValues.endDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.endDate || localeCopy.copy_9bec99c980}}</view>
@@ -382,7 +382,7 @@
               <block wx:if="{{ruleForm.cycleValues.periodMode === 'range' || ruleForm.cycleValues.periodMode === 'count'}}">
                 <view class="field activity-datetime-field">
                   <view class="field-label">{{localeCopy.copy_2c3fe5c873}}</view>
-                  <view class="range-row">
+                  <view class="range-row ui-inline-control-row">
                     <picker mode="date" value="{{ruleForm.cycleValues.periodStartDate}}" data-field="periodStartDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodStartDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodStartDate || localeCopy.copy_31b34bfc08}}</view></picker>
                     <picker mode="time" value="{{ruleForm.cycleValues.periodStartTime}}" data-field="periodStartTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodStartTime || localeCopy.copy_2b4cce7bb9}}</view></picker>
                   </view>
@@ -391,7 +391,7 @@
               <block wx:if="{{ruleForm.cycleValues.periodMode === 'range'}}">
                 <view class="field activity-datetime-field">
                   <view class="field-label">{{localeCopy.copy_cd44fc09e3}}</view>
-                  <view class="range-row">
+                  <view class="range-row ui-inline-control-row">
                     <picker mode="date" value="{{ruleForm.cycleValues.periodEndDate}}" data-field="periodEndDate" bindchange="onActivityCycleDateChange"><view class="picker-display {{ruleForm.cycleValues.periodEndDate ? 'picker-has-value' : ''}}">{{ruleForm.cycleValues.periodEndDate || localeCopy.copy_9bec99c980}}</view></picker>
                     <picker mode="time" value="{{ruleForm.cycleValues.periodEndTime}}" data-field="periodEndTime" bindchange="onActivityCycleTimeChange"><view class="picker-sm">{{ruleForm.cycleValues.periodEndTime || localeCopy.copy_4aaadf87a1}}</view></picker>
                   </view>
@@ -748,7 +748,7 @@
             <view class="list-item list-item-stacked" wx:for="{{purposes}}" wx:key="id">
               <view class="list-main">
                 <view class="list-name">{{item.text}}</view>
-                <view class="inline-actions list-actions-below">
+                <view class="inline-actions list-actions-below card-actions">
                   <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="startEditPurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                   <text class="link danger ui-motion-chip" data-id="{{item.id}}" catchtap="deletePurpose" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
@@ -769,7 +769,7 @@
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{condMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeCondMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
-      <view class="rule-filter-row rule-filter-row--dialog">
+      <view class="rule-filter-row rule-filter-row--dialog ui-inline-field-row">
         <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{condMultiPickerSearch}}" bindinput="onCondMultiPickerSearch"/></view>
       </view>
       <!-- Department tabs (for work group picker with specific depts) -->

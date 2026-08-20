@@ -2404,20 +2404,7 @@ scroll-view {
 }
 
 .hr-member-actions {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  width: 100%;
-  margin-top: 18rpx;
-  padding-top: 16rpx;
-  border-top: 1rpx solid rgba(226, 237, 247, 0.92);
-}
-
-.hr-member-actions .link {
-  min-width: 92rpx;
-  border-radius: var(--ui-control-radius, 28rpx);
-  box-sizing: border-box;
+  margin-top: var(--ui-card-action-divider-gap) !important;
 }
 
 .hr-member-tools {
@@ -5256,9 +5243,12 @@ scroll-view {
 }
 
 .audit-template-actions {
-  position: absolute;
-  top: 16rpx;
-  right: 80rpx;
+  position: static;
+  order: 2;
+}
+
+.audit-template-expanded {
+  order: 3;
 }
 
 .audit-step-index {
@@ -5366,11 +5356,6 @@ scroll-view {
 
   .audit-condition-row {
     margin-top: 5px;
-  }
-
-  .audit-template-actions {
-    top: 12px;
-    right: 56px;
   }
 
   .audit-step-action,

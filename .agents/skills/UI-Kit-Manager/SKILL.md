@@ -132,6 +132,17 @@ For documentation-only work, verify file existence, link/read order consistency,
 - 页面底部安全区只由 `.page` 或明确的固定操作栏承担；普通页面不得覆盖成固定 `padding-bottom`，普通卡片不得为视口高度预留空白。专业工作区的例外必须局部命名并在代码注释中解释覆盖层关系。
 - 审计必须逐页读取 WXML/WXSS，用自然语言说明当前空白的业务语义、所有者和设备差异；脚本只能定位候选和做回归。没有现场核对首末项、长文案、滚动到底和安全区，不得宣称间距验收完成。
 
+## 硬规范：控制表面与卡片小操作
+
+- 页面级分区标题、该分区的二级页签和成组操作不得直接暴露在 `.page`、`.admin-workbench`、`.section-stack` 等纯布局容器中；必须共同归属于至少一层明确的 `.section-control-card`、`.card`、`.edit-box` 或等价玻璃表面。纯布局层不算视觉包裹，禁止“零容器”标题、页签或按钮组。
+- 同一分区的标题、二级页签和批量操作优先放入同一张 `.section-control-card`，保持标题在前、页签居中、操作在后；不得为了满足包裹要求给每个控件各套一张同质卡片，也不得引入新的滚动容器。
+- 列表卡片上的查看、编辑、删除、移除等小操作统一使用 `.card-actions`。默认独立成行、顶部细分隔、右对齐并复用人事成员卡片按钮样式；操作控件圆角取 `--ui-control-radius`，危险操作继续使用红色语义。只有经影响面核对且绝无标题/展开控件碰撞时才可附加 `.card-actions--inline`。
+- 卡片小操作禁止通过 `position:absolute`、固定 `top/right` 或负 margin 塞进标题、状态或展开按钮区域。可展开卡片必须按“摘要/展开入口 → 操作行 → 展开内容”的普通文档流排列。
+- 全局 UI 审计必须把裸露 `section-title`、`section-stack` 直属标题/页签/按钮组、未迁移的 `list-actions` 和审核模板绝对定位操作视为失败；手机、Pad 竖屏、Pad 横屏均须核对长标题、按钮换行、展开与收起。
+- 同一视觉行中的日期/时间选择器、筛选按钮、清除/重置按钮必须由 `.ui-inline-control-row` 统一 `align-items:center`，可交互子项统一使用 `.ui-inline-control` 和 `--ui-inline-control-height`。带标签的筛选字段列使用 `.ui-inline-field-row` 对齐字段底边，并让其 `.compact-picker-value` / `.field-input` 共享同一最终高度；原生 `input` 仍须 `display:block`。禁止任何子项以私有 `margin-top/bottom`、不同 `min-height` 或固定行高偏离共同基线；换行后每一行仍按同一高度对齐。
+- 标题旁的宫格/列表等二态视图切换属于 `.ui-compact-segmented`，子项使用 `.ui-compact-segmented-item` 和 `--ui-compact-height`；不得复用整行主页签的 `--ui-tab-min-height`、整行均分或 Pad 横屏 `50px` 规则，避免挤压标题。
+- 全局审计发现既有同行控件时必须检查父级 `align-items`、子项最终物理高度、上下 margin 和设备覆盖顺序；不能只看源码中是否写了 `align-items:center`，还要排除共享同名选择器造成的级联偏移。
+
 ## 硬规范：场地借用审批历史与详情统一
 
 - 普通用户端必须在“待我审批”页签内提供可见的“审批历史”入口；不得把入口放在“我的借用”页或借用记录区域，也不得只对管理端提供。

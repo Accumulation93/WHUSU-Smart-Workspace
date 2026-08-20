@@ -60,6 +60,9 @@ page,
   --ui-label-gap: 6rpx;
   --ui-inline-gap: 10rpx;
   --ui-action-gap: 20rpx;
+  --ui-card-action-min-width: 92rpx;
+  --ui-card-action-gap: 12rpx;
+  --ui-card-action-divider-gap: 16rpx;
   --ui-compact-padding-y: 6rpx;
   --ui-compact-padding-x: 14rpx;
   --ui-control-radius: 28rpx;
@@ -80,6 +83,7 @@ page,
   --ui-control-padding-y: 16rpx;
   --ui-control-padding-x: 28rpx;
   --ui-compact-height: 52rpx;
+  --ui-inline-control-height: 56rpx;
   --ui-tab-font-size: var(--ui-type-control);
   --ui-tab-min-height: 76rpx;
   --ui-tab-sidebar-min-height: 84rpx;
@@ -1532,6 +1536,7 @@ button:active,
     --ui-control-padding-y: 10px;
     --ui-control-padding-x: 16px;
     --ui-compact-height: 32px;
+    --ui-inline-control-height: 32px;
     --ui-tab-min-height: 40px;
     --ui-tab-sidebar-min-height: 40px;
     --ui-tab-padding-y: 7px;
@@ -1572,6 +1577,9 @@ button:active,
     --ui-label-gap: 4px;
     --ui-inline-gap: 7px;
     --ui-action-gap: 14px;
+    --ui-card-action-min-width: 46px;
+    --ui-card-action-gap: 8px;
+    --ui-card-action-divider-gap: 10px;
     --ui-compact-padding-y: 5px;
     --ui-compact-padding-x: 11px;
     --ui-control-radius: 14px;
@@ -2027,6 +2035,9 @@ button:active,
     --ui-label-gap: 4px;
     --ui-inline-gap: 6px;
     --ui-action-gap: 12px;
+    --ui-card-action-min-width: 48px;
+    --ui-card-action-gap: 8px;
+    --ui-card-action-divider-gap: 10px;
     --ui-compact-padding-y: 4px;
     --ui-compact-padding-x: 10px;
     --ui-control-radius: 12px;
@@ -2758,6 +2769,116 @@ page .role-pill {
   page .targets-card {
     margin-bottom: var(--ui-card-gap) !important;
     padding: var(--ui-card-padding-y) var(--ui-card-padding-x) !important;
+  }
+}
+
+/*
+ * 同排控件契约：同一视觉行中的选择器、筛选按钮与清除按钮统一使用
+ * 同一物理高度、同一垂直基线；页面私有 margin 不得把单个控件推离基线。
+ */
+.ui-inline-control-row {
+  display: flex;
+  align-items: center;
+}
+
+.ui-inline-control-row > picker {
+  display: flex;
+  align-items: stretch;
+}
+
+.ui-inline-field-row {
+  display: flex;
+  align-items: flex-end;
+}
+
+.ui-inline-control {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  height: var(--ui-inline-control-height, 56rpx);
+  min-height: var(--ui-inline-control-height, 56rpx) !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  box-sizing: border-box;
+}
+
+/* 直接同行控件与带标签的筛选字段最终都收敛到同一物理高度。 */
+.ui-inline-control-row .picker-sm,
+.ui-inline-control-row .picker-display,
+.ui-inline-control-row .add-range-btn,
+.ui-inline-field-row .compact-picker-value,
+.ui-inline-field-row .field-input {
+  height: var(--ui-inline-control-height, 56rpx) !important;
+  min-height: var(--ui-inline-control-height, 56rpx) !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  box-sizing: border-box;
+}
+
+.ui-inline-control-row .picker-sm,
+.ui-inline-control-row .add-range-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: var(--ui-leading-control) !important;
+}
+
+.ui-inline-field-row .field-input {
+  display: block !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: var(--ui-inline-control-height, 56rpx) !important;
+}
+
+@media (min-width: 520px) {
+  .ui-inline-field-row .field-input {
+    line-height: var(--ui-inline-control-height, 32px) !important;
+  }
+}
+
+/* 标题行中的二态视图切换属于紧凑分段控件，不得套用整行主页签高度。 */
+page .ui-compact-segmented {
+  display: inline-flex !important;
+  grid-template-columns: none !important;
+  align-items: center !important;
+  width: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 4rpx !important;
+  gap: 4rpx !important;
+  box-sizing: border-box;
+}
+
+page .ui-compact-segmented > .ui-compact-segmented-item {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  height: var(--ui-compact-height, 52rpx) !important;
+  min-height: var(--ui-compact-height, 52rpx) !important;
+  padding: 0 14rpx !important;
+  border-radius: var(--ui-compact-radius, 18rpx) !important;
+  font-size: var(--ui-type-meta) !important;
+  line-height: var(--ui-leading-control) !important;
+  box-sizing: border-box;
+}
+
+page .info-head > .ui-compact-segmented {
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+@media (min-width: 520px) {
+  page .ui-compact-segmented {
+    padding: 3px !important;
+    gap: 3px !important;
+  }
+
+  page .ui-compact-segmented > .ui-compact-segmented-item {
+    height: var(--ui-compact-height, 32px) !important;
+    min-height: var(--ui-compact-height, 32px) !important;
+    padding: 0 10px !important;
+    border-radius: var(--ui-compact-radius, 11px) !important;
   }
 }
 

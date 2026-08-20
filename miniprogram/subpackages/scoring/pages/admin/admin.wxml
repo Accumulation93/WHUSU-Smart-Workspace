@@ -34,7 +34,9 @@
 
 
     <view class="section-stack" wx:if="{{activeTab === 'activities'}}">
-      <view class="section-title">{{localeCopy.copy_5aa4cb13ec}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_5aa4cb13ec}}</view>
+      </view>
       <view class="edit-box">
         <view class="list-title">{{activityForm.id ? localeCopy.copy_f6c2ad6b33 : localeCopy.copy_1d3038647e}}</view>
         <view class="field">
@@ -98,7 +100,7 @@
               </view>
               <view class="list-desc">{{item.description}}</view>
               <view class="list-desc">{{item.startDate}} {{item.endDate}}</view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="setCurrentActivity" wx:if="{{!item.isCurrent}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_726cfc3525}}</text>
                 <text class="link ui-motion-chip" data-index="{{index}}" bindtap="editActivity" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="toggleActivityPause" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{item.isPaused ? localeCopy.copy_0735ccbfbd : localeCopy.copy_74e00681c9}}</text>
@@ -112,7 +114,9 @@
     </view>
 
     <view class="section-stack" wx:if="{{activeTab === 'templates'}}">
-      <view class="section-title">{{localeCopy.copy_5a49161fd7}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_5a49161fd7}}</view>
+      </view>
       <view class="edit-box">
         <view class="list-title">{{templateForm.id ? localeCopy.copy_eab3f6240f : localeCopy.copy_f288d821cd}}</view>
         <view class="field">
@@ -254,7 +258,7 @@
               <view class="list-name">{{item.name}}</view>
               <view class="list-desc">{{item.description}}</view>
               <view class="list-desc">{{localeCopy.copy_5b54c6c107}}{{item.questionCount}}</view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="duplicateTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_fbf1856932}}</text>
                 <text class="link ui-motion-chip" data-index="{{index}}" bindtap="editTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
@@ -545,7 +549,7 @@
           </view>
           <view class="rule-list-count">{{ruleListView.length}} / {{ruleList.length}}</view>
         </view>
-        <view class="rule-filter-row">
+        <view class="rule-filter-row ui-inline-field-row">
           <view class="rule-filter-field">
             <view class="field-label">{{localeCopy.copy_1a978b0d52}}</view>
             <picker range="{{ruleFilterOptions.departments}}" bindchange="onRuleFilterChange" data-field="department">
@@ -575,7 +579,7 @@
                 <view class="select-chip {{selectedRuleIdMap[item.id] ? 'select-chip-active' : ''}} ui-motion-chip" data-id="{{item.id}}" catchtap="toggleRuleSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
                   {{selectedRuleIdMap[item.id] ? localeCopy.copy_78564bdb46 : localeCopy.copy_c47f370afa}}
                 </view>
-                <view class="inline-actions rule-list-inline-actions">
+                <view class="inline-actions rule-list-inline-actions card-actions card-actions--inline">
                   <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="editRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                   <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
                 </view>
@@ -597,7 +601,9 @@
     </view>
 
     <view class="section-stack" wx:if="{{activeTab === 'results'}}">
-      <view class="section-title">{{localeCopy.copy_1a5cfb71ab}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_1a5cfb71ab}}</view>
+      </view>
       <view class="list-card">
         <view class="list-title">{{localeCopy.copy_35fabd21a9}}</view>
         <view class="result-current">{{currentActivityName || localeCopy.copy_79b2d9fea4}}</view>
@@ -857,16 +863,18 @@
     </view>
 
     <view class="section-stack" wx:if="{{activeTab === 'hrInfo' || activeTab === 'hrTemplates'}}">
-      <view class="section-title">{{activeTab === 'hrTemplates' ? localeCopy.copy_7cab7f5321 : localeCopy.copy_eb65126cfe}}</view>
-      <view class="tabs-card hr-info-mode-tabs" wx:if="{{activeTab === 'hrInfo'}}">
-        <view class="feature-tab {{hrInfoMode === 'profiles' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="profiles" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_86937eac2b}}</view>
-        <view class="feature-tab {{hrInfoMode === 'policy' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="policy" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" wx:if="{{canManageAuthPolicy}}">{{localeCopy.copy_1e4c43d5d1}}</view>
-      </view>
-      <view class="toolbar-row" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
-        <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" bindtap="startCreateHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7e9a5945ed}}</button>
-        <button class="secondary-btn ui-motion-button" wx:if="{{canImportHr}}" loading="{{loadingMap.importCsv}}" bindtap="chooseTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_47f9d64667}}</button>
-        <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" loading="{{loadingMap.batchMaintain}}" bindtap="batchMaintainFromHrInfo" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ad9efc83fe}}</button>
-        <view class="csv-tip" wx:if="{{csvName}}">{{csvName}}</view>
+      <view class="section-control-card section-control-card--stacked">
+        <view class="section-title">{{activeTab === 'hrTemplates' ? localeCopy.copy_7cab7f5321 : localeCopy.copy_eb65126cfe}}</view>
+        <view class="tabs-card hr-info-mode-tabs" wx:if="{{activeTab === 'hrInfo'}}">
+          <view class="feature-tab {{hrInfoMode === 'profiles' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="profiles" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.copy_86937eac2b}}</view>
+          <view class="feature-tab {{hrInfoMode === 'policy' ? 'feature-tab-active' : ''}} ui-motion-chip" data-mode="policy" bindtap="switchHrInfoMode" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" wx:if="{{canManageAuthPolicy}}">{{localeCopy.copy_1e4c43d5d1}}</view>
+        </view>
+        <view class="toolbar-row" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles'}}">
+          <button class="primary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" bindtap="startCreateHr" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_7e9a5945ed}}</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{canImportHr}}" loading="{{loadingMap.importCsv}}" bindtap="chooseTable" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_47f9d64667}}</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{canManageHrPeople}}" loading="{{loadingMap.batchMaintain}}" bindtap="batchMaintainFromHrInfo" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ad9efc83fe}}</button>
+          <view class="csv-tip" wx:if="{{csvName}}">{{csvName}}</view>
+        </view>
       </view>
 
       <view class="edit-box" wx:if="{{activeTab === 'hrInfo' && hrInfoMode === 'profiles' && showAddEditForm && canManageHrPeople}}">
@@ -1127,7 +1135,7 @@
               </view>
               <view class="hr-member-brief" wx:if="{{item.assignmentCount > 0}}">{{item.assignmentCount}} {{localeCopy.copy_c59d25a358}}</view>
             </view>
-            <view class="hr-member-actions" catchtap="noop">
+            <view class="hr-member-actions card-actions" catchtap="noop">
               <text class="link hr-action-chip ui-motion-chip" wx:if="{{canBrowseHrInfo}}" data-hr-id="{{item.id}}" catchtap="openHrPersonDetail" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_00cb20b85e}}</text>
               <text class="link danger hr-action-chip ui-motion-chip" wx:if="{{canManageHrPeople}}" data-id="{{item.id}}" catchtap="deleteHr" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
               <text wx:if="{{canReviewHrProfile && item.hasPending}}" class="link hr-action-chip ui-motion-chip" data-student-id="{{item.studentId}}" catchtap="approveHrProfileChange" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1bb7eb3e1a}}</text>
@@ -1713,10 +1721,12 @@
 
     <view class="section-stack" wx:if="{{activeTab === 'admins'}}">
 
-      <view class="section-title">{{localeCopy.copy_72d3c6f7c2}}</view>
-      <view class="button-row compact-row" wx:if="{{canReadAdmins}}">
-        <button class="secondary-btn ui-motion-button" wx:if="{{canWriteAdmins}}" bindtap="startCreateAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a6b6f71690}}</button>
-        <button class="secondary-btn ui-motion-button" loading="{{loadingMap.exportAdmins}}" bindtap="exportAdmins" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_49a7fb10d7}}</button>
+      <view class="section-control-card section-control-card--stacked">
+        <view class="section-title">{{localeCopy.copy_72d3c6f7c2}}</view>
+        <view class="button-row compact-row" wx:if="{{canReadAdmins}}">
+          <button class="secondary-btn ui-motion-button" wx:if="{{canWriteAdmins}}" bindtap="startCreateAdmin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_a6b6f71690}}</button>
+          <button class="secondary-btn ui-motion-button" loading="{{loadingMap.exportAdmins}}" bindtap="exportAdmins" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_49a7fb10d7}}</button>
+        </view>
       </view>
       <view class="edit-box" wx:if="{{canWriteAdmins && adminFormVisible}}">
         <view class="list-title">{{adminForm.id ? localeCopy.copy_13fbac1d6c : localeCopy.copy_632d07e81f}}</view>
@@ -1749,7 +1759,7 @@
               <view class="list-main">
                 <view class="list-name">{{item.name}} - {{item.identity}}</view>
                 <view class="list-desc">{{item.studentId}} {{item.department}} {{item.workGroup}}</view>
-                <view class="inline-actions list-actions-below">
+                <view class="inline-actions list-actions-below card-actions">
                   <text class="link ui-motion-chip" data-index="{{index}}" bindtap="pickAdminCandidate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_56eeb3e076}}</text>
                 </view>
               </view>
@@ -1773,7 +1783,7 @@
             <view class="list-main">
               <view class="list-name">{{item.name}} - {{item.adminLevelLabel}}</view>
               <view class="list-desc">{{item.studentId}} - {{item.authenticationStatusLabel}}</view>
-              <view class="inline-actions list-actions-below" wx:if="{{item.canEdit || item.canDelete}}">
+              <view class="inline-actions list-actions-below card-actions" wx:if="{{item.canEdit || item.canDelete}}">
                 <text class="link ui-motion-chip" wx:if="{{item.canEdit}}" data-index="{{index}}" bindtap="editAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger ui-motion-chip" wx:if="{{item.canDelete}}" data-id="{{item.id}}" bindtap="deleteAdmin" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
               </view>
@@ -1832,7 +1842,9 @@
     </viewport-portal>
 
     <view class="section-stack" wx:if="{{activeTab === 'departments'}}">
-      <view class="section-title">{{localeCopy.copy_c15260b37c}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_c15260b37c}}</view>
+      </view>
       <view class="edit-box">
         <view class="list-title">{{departmentForm.id ? localeCopy.copy_c97f4e1c21 : localeCopy.copy_81888e3e1d}}</view>
         <view class="field">
@@ -1860,7 +1872,7 @@
             <view class="list-main">
               <view class="list-name">{{item.name}}</view>
               <view class="list-desc">{{item.description}}</view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-index="{{index}}" bindtap="editDepartment" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteDepartment" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
               </view>
@@ -1873,7 +1885,9 @@
     </view>
 
     <view class="section-stack" wx:if="{{activeTab === 'workGroups'}}">
-      <view class="section-title">{{localeCopy.copy_303b7a8611}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_303b7a8611}}</view>
+      </view>
       <view class="edit-box">
         <view class="list-title">{{workGroupForm.id ? localeCopy.copy_a530f9158a : localeCopy.copy_8860e9ad76}}</view>
         <view class="field">
@@ -1908,7 +1922,7 @@
               <view class="list-name">{{item.name}}</view>
               <view class="list-desc">{{localeCopy.copy_405f619b06}}{{item.departmentName}}</view>
               <view class="list-desc">{{item.description}}</view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-index="{{index}}" bindtap="editWorkGroup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteWorkGroup" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
               </view>
@@ -1921,7 +1935,9 @@
     </view>
 
     <view class="section-stack" wx:if="{{activeTab === 'identities'}}">
-      <view class="section-title">{{localeCopy.copy_2079e402f3}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_2079e402f3}}</view>
+      </view>
       <view class="edit-box">
         <view class="list-title">{{identityForm.id ? localeCopy.copy_018d741992 : localeCopy.copy_7e6fe80a00}}</view>
         <view class="field">
@@ -1949,7 +1965,7 @@
             <view class="list-main">
               <view class="list-name">{{item.name}}</view>
               <view class="list-desc">{{item.description}}</view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below card-actions">
                 <text class="link ui-motion-chip" data-index="{{index}}" bindtap="editIdentity" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteIdentity" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
               </view>
@@ -1962,7 +1978,9 @@
     </view>
 
     <view class="section-stack" wx:if="{{activeTab === 'settings'}}">
-      <view class="section-title">{{localeCopy.copy_a8792b30e7}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_a8792b30e7}}</view>
+      </view>
 
       <view class="card-loading-overlay" wx:if="{{loadingMap.settings}}">
         <view class="card-loading-spinner"></view>
@@ -1987,7 +2005,7 @@
                 <view class="chip-row">
                   <view class="status-chip current-chip" wx:if="{{item.id === currentOrganizationId}}">{{localeCopy.copy_e74c96dd07}}</view>
                 </view>
-                <view class="inline-actions list-actions-below">
+                <view class="inline-actions list-actions-below card-actions">
                   <text class="link ui-motion-chip" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="switchOrganization" wx:if="{{item.id !== currentOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_fda919de66}}</text>
                   <text class="link ui-motion-chip" bindtap="openOrgForm" data-id="{{item.id}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                   <text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deleteOrganization" wx:if="{{item.id !== currentOrganizationId}}" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
@@ -2086,14 +2104,14 @@
 
         <view class="list-card rule-list-card">
           <view class="rule-list-toolbar"><view><view class="list-title">{{localeCopy.copy_17903d1b98}}</view></view><view class="rule-list-count">{{pubViewRuleListView.length}} / {{pubViewRuleList.length}}</view></view>
-          <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubViewRuleFilterOptions.departments}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubViewRuleFilterOptions.identities}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
+          <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubViewRuleFilterOptions.departments}}" bindchange="onPubViewRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubViewRuleFilterOptions.identities}}" bindchange="onPubViewRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubViewRuleFilters.identity}}</view></picker></view></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_e1d94e445d}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_cf96ec6e3a}}</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubViewRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3b7c76c871}}</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item" wx:for="{{pubViewRuleListView}}" wx:key="id">
               <view class="list-main">
                 <view class="rule-list-action-row">
                   <view class="select-chip {{pubViewRuleSelectedIds[item.id] ? 'select-chip-active' : ''}} ui-motion-chip" data-id="{{item.id}}" catchtap="togglePubViewRuleSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubViewRuleSelectedIds[item.id] ? localeCopy.copy_78564bdb46 : localeCopy.copy_c47f370afa}}</view>
-                  <view class="inline-actions rule-list-inline-actions"><text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="editPubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
+                  <view class="inline-actions rule-list-inline-actions card-actions card-actions--inline"><text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="editPubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePubViewRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
                 </view>
                 <view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} {{localeCopy.copy_fc5b4ba39e}}</text></view></view>
               </view>
@@ -2131,14 +2149,14 @@
 
         <view class="list-card rule-list-card">
           <view class="rule-list-toolbar"><view><view class="list-title">{{localeCopy.copy_09bf239b61}}</view></view><view class="rule-list-count">{{pubMeritRuleListView.length}} / {{pubMeritRuleList.length}}</view></view>
-          <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubMeritRuleFilterOptions.departments}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubMeritRuleFilterOptions.identities}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
+          <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{pubMeritRuleFilterOptions.departments}}" bindchange="onPubMeritRuleFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.department}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{pubMeritRuleFilterOptions.identities}}" bindchange="onPubMeritRuleFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{pubMeritRuleFilters.identity}}</view></picker></view></view>
           <view class="button-row compact-row"><button class="secondary-btn ui-motion-button" bindtap="toggleSelectAllPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleAllSelected ? localeCopy.copy_fb3cdc524b : localeCopy.copy_034e4a532e}}</button><button class="secondary-btn ui-motion-button" bindtap="reverseSelectPubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_ba3a4b8440}}</button><button class="secondary-btn ui-motion-button" bindtap="batchDeletePubMeritRules" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_b5c6b6df78}}</button></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" scroll-y class="target-scroll target-scroll--limited">
             <view class="list-item rule-list-item" wx:for="{{pubMeritRuleListView}}" wx:key="id">
               <view class="list-main">
                 <view class="rule-list-action-row">
                   <view class="select-chip {{pubMeritRuleSelectedIds[item.id] ? 'select-chip-active' : ''}} ui-motion-chip" data-id="{{item.id}}" catchtap="togglePubMeritRuleSelection" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{pubMeritRuleSelectedIds[item.id] ? localeCopy.copy_78564bdb46 : localeCopy.copy_c47f370afa}}</view>
-                  <view class="inline-actions rule-list-inline-actions"><text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="editPubMeritRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePubMeritRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
+                  <view class="inline-actions rule-list-inline-actions card-actions card-actions--inline"><text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="editPubMeritRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text><text class="link danger ui-motion-chip" data-id="{{item.id}}" bindtap="deletePubMeritRule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text></view>
                 </view>
                 <view class="rule-list-info"><view class="rule-list-main-line"><text class="rule-info-text">{{item.granteeDepartment}} / {{item.granteeIdentity}}</text></view><view class="rule-list-meta"><text class="rule-tag tag-scope">{{item.clauseCount || item.clauses.length || 0}} {{localeCopy.copy_219552c39c}}</text></view></view>
               </view>
@@ -2297,7 +2315,7 @@
               </block>
             </view>
           </view>
-          <view class="list-actions">
+          <view class="list-actions card-actions card-actions--inline">
             <text class="link ui-motion-chip" data-index="{{index}}" bindtap="openStarterConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
             <text class="link danger-link ui-motion-chip" data-index="{{index}}" bindtap="removeStarterCondition" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
           </view>
@@ -2348,7 +2366,7 @@
               <text wx:if="{{ci < item.conditions.length - 1}}" class="audit-or-sep">{{localeCopy.copy_d7c8fd23a8}}</text>
             </view>
           </view>
-          <view class="list-actions">
+          <view class="list-actions card-actions card-actions--inline">
             <text class="link ui-motion-chip" data-index="{{index}}" bindtap="openAuditTemplateStepEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
             <text class="link danger-link ui-motion-chip" data-index="{{index}}" bindtap="removeAuditTemplateStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
           </view>
@@ -2377,7 +2395,7 @@
                 <text>{{auditExpandedTemplateId === item.id ? localeCopy.copy_5fd0089e2a : localeCopy.copy_0addb950ff}}</text>
               </view>
             </view>
-            <view class="list-actions audit-template-actions">
+            <view class="list-actions audit-template-actions card-actions">
               <text class="link ui-motion-chip" data-id="{{item.id}}" catchtap="editAuditTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
               <text class="link danger-link ui-motion-chip" data-id="{{item.id}}" catchtap="deleteAuditFlowTemplate" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
             </view>
@@ -2471,7 +2489,7 @@
                   </block>
                 </view>
               </view>
-              <view class="list-actions">
+              <view class="list-actions card-actions card-actions--inline">
                 <text class="link ui-motion-chip" data-index="{{index}}" catchtap="openStepConditionEditor" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
                 <text class="link danger-link ui-motion-chip" data-index="{{index}}" catchtap="removeStepCondition" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
               </view>
@@ -2636,7 +2654,9 @@
 
     <!-- ══════════════ Audit: Stamps ══════════════ -->
     <view class="section-stack" wx:if="{{activeTab === 'auditStamps'}}">
-      <view class="section-title">{{localeCopy.copy_82f17ccbef}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_82f17ccbef}}</view>
+      </view>
       <view class="edit-box">
         <view class="list-title">{{stampForm.id ? localeCopy.copy_211047f590 : localeCopy.copy_a44e21b978}}</view>
         <view class="field">
@@ -2664,7 +2684,7 @@
               <view class="list-name">{{item.name}}</view>
               <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="audit-stamp-preview audit-stamp-preview--small" />
             </view>
-            <view class="list-actions">
+            <view class="list-actions card-actions card-actions--inline">
               <text class="link ui-motion-chip" data-id="{{item.id}}" bindtap="editStamp" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e040ae3016}}</text>
               <text class="link danger-link ui-motion-chip" data-id="{{item.id}}" bindtap="deleteStamp" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_acc985cabc}}</text>
             </view>
@@ -2677,12 +2697,14 @@
 
     <!-- ══════════════ Audit: Submissions ══════════════ -->
     <view class="section-stack" wx:if="{{activeTab === 'auditSubmissions'}}">
-      <view class="section-title">{{localeCopy.copy_be547ba4c7}}</view>
-      <view class="audit-filter-bar">
-        <text class="audit-filter-label">{{localeCopy.copy_bff094c480}}</text>
-        <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_f6afc42806,localeCopy.copy_57b008f8c7,localeCopy.copy_0dc99cac16,localeCopy.copy_5d5af942c5,localeCopy.copy_2220286f1c,localeCopy.copy_282e15e226]}}" bindchange="onAuditSubmissionStatusFilter">
-          <view class="picker-value compact-status-picker">{{auditSubmissionFilters.status === 'draft' ? localeCopy.copy_f6afc42806 : (auditSubmissionFilters.status === 'pending' ? localeCopy.copy_57b008f8c7 : (auditSubmissionFilters.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (auditSubmissionFilters.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (auditSubmissionFilters.status === 'approved' ? localeCopy.copy_2220286f1c : (auditSubmissionFilters.status === 'withdrawn' ? localeCopy.copy_282e15e226 : localeCopy.copy_31d4595959)))))}}</view>
-        </picker>
+      <view class="section-control-card section-control-card--stacked">
+        <view class="section-title">{{localeCopy.copy_be547ba4c7}}</view>
+        <view class="audit-filter-bar">
+          <text class="audit-filter-label">{{localeCopy.copy_bff094c480}}</text>
+          <picker range="{{[localeCopy.copy_31d4595959,localeCopy.copy_f6afc42806,localeCopy.copy_57b008f8c7,localeCopy.copy_0dc99cac16,localeCopy.copy_5d5af942c5,localeCopy.copy_2220286f1c,localeCopy.copy_282e15e226]}}" bindchange="onAuditSubmissionStatusFilter">
+            <view class="picker-value compact-status-picker">{{auditSubmissionFilters.status === 'draft' ? localeCopy.copy_f6afc42806 : (auditSubmissionFilters.status === 'pending' ? localeCopy.copy_57b008f8c7 : (auditSubmissionFilters.status === 'in_progress' ? localeCopy.copy_0dc99cac16 : (auditSubmissionFilters.status === 'rejected' ? localeCopy.copy_5d5af942c5 : (auditSubmissionFilters.status === 'approved' ? localeCopy.copy_2220286f1c : (auditSubmissionFilters.status === 'withdrawn' ? localeCopy.copy_282e15e226 : localeCopy.copy_31d4595959)))))}}</view>
+          </picker>
+        </view>
       </view>
       <view class="card">
         <view class="section-title">{{localeCopy.copy_a0f9ac898a}}</view>
@@ -2787,7 +2809,9 @@
 
     <!-- ══════════════ Audit: Verification ══════════════ -->
     <view class="section-stack" wx:if="{{activeTab === 'auditVerification'}}">
-      <view class="section-title">{{localeCopy.copy_ecfd21fdcd}}</view>
+      <view class="section-control-card">
+        <view class="section-title">{{localeCopy.copy_ecfd21fdcd}}</view>
+      </view>
       <view class="edit-box">
         <view class="list-title">{{localeCopy.copy_edef2184fb}}</view>
         <view class="field">
@@ -2806,7 +2830,7 @@
           <block wx:else>
           <view class="list-item" wx:for="{{verificationPermissions}}" wx:key="id">
             <view class="list-main"><view class="list-name">{{item.granteeName}}</view></view>
-            <view class="list-actions">
+            <view class="list-actions card-actions card-actions--inline">
               <text class="link danger-link ui-motion-chip" data-hr-id="{{item.granteeHrId}}" bindtap="revokeVerificationPermission" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_3f75d366b0}}</text>
             </view>
           </view>
@@ -2860,11 +2884,11 @@
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{auditMultiPickerTitle}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditMultiPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <!-- Search -->
-      <view class="rule-filter-row ui-dialog-filter-row">
+      <view class="rule-filter-row ui-dialog-filter-row ui-inline-field-row">
         <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_d71ef091dd}}" value="{{auditMultiPickerSearchKeyword}}" bindinput="onAuditMultiPickerSearch"/></view>
       </view>
       <!-- Filters (only for personnel picker) -->
-      <view class="rule-filter-row ui-dialog-filter-row" wx:if="{{auditMultiPickerTarget === 'personHrIds'}}">
+      <view class="rule-filter-row ui-dialog-filter-row ui-inline-field-row" wx:if="{{auditMultiPickerTarget === 'personHrIds'}}">
         <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{auditMultiPickerDeptOptions}}" bindchange="onAuditMultiPickerFilterDept"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterDept}}</view></picker></view>
         <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{auditMultiPickerIdentOptions}}" bindchange="onAuditMultiPickerFilterIdent"><view class="picker-value compact-picker-value">{{auditMultiPickerFilterIdent}}</view></picker></view>
       </view>
@@ -2914,7 +2938,7 @@
     <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
       <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_21d0297fd5}} — {{auditPersonnelPickerLabel}}</view><text class="popup-close ui-motion-chip" catchtap="closeAuditPersonnelPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
-      <view class="rule-filter-row">
+      <view class="rule-filter-row ui-inline-field-row">
         <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{auditPersonnelDeptOptions}}" bindchange="onAuditPersonnelFilterDept"><view class="picker-value compact-picker-value">{{auditPersonnelFilterDept}}</view></picker></view>
         <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{auditPersonnelIdentOptions}}" bindchange="onAuditPersonnelFilterIdent"><view class="picker-value compact-picker-value">{{auditPersonnelFilterIdent}}</view></picker></view>
         <view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_803b577438}}" value="{{auditPersonnelSearchKeyword}}" bindinput="onAuditPersonnelSearch"/></view>
@@ -2976,12 +3000,12 @@
       <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
       <view class="list-title">{{localeCopy.copy_757dfc5eab}}{{designationPickerSelectedIds.length}}{{localeCopy.copy_72dd9e6203}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
-          <view class="list-item desig-current-item" wx:for="{{designationPickerSelectedList}}" wx:key="id"><view class="list-main"><view class="list-name">{{item.name}}</view><view class="list-desc">{{item.department}} · {{item.studentId}}</view></view><view class="inline-actions list-actions-below"><text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view></view>
+          <view class="list-item desig-current-item" wx:for="{{designationPickerSelectedList}}" wx:key="id"><view class="list-main"><view class="list-name">{{item.name}}</view><view class="list-desc">{{item.department}} · {{item.studentId}}</view></view><view class="inline-actions list-actions-below card-actions"><text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view></view>
           <view class="empty-inline" wx:if="{{!designationPickerSelectedList.length}}">{{localeCopy.copy_ec9aab61b0}}</view>
           <view class="scroll-tail-space"></view>
         </scroll-view>
         <view class="list-title audit-file-section-title">{{localeCopy.copy_6d4987d954}}</view>
-        <view class="rule-filter-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{desigFilterDeptOptions}}" bindchange="onDesigFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{desigFilterDept}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{desigFilterIdentOptions}}" bindchange="onDesigFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{desigFilterIdent}}</view></picker></view><view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_803b577438}}" value="{{desigSearchKeyword}}" bindinput="onDesigSearchInput"/></view></view>
+        <view class="rule-filter-row ui-inline-field-row"><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{desigFilterDeptOptions}}" bindchange="onDesigFilterChange" data-field="department"><view class="picker-value compact-picker-value">{{desigFilterDept}}</view></picker></view><view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{desigFilterIdentOptions}}" bindchange="onDesigFilterChange" data-field="identity"><view class="picker-value compact-picker-value">{{desigFilterIdent}}</view></picker></view><view class="rule-filter-field rule-filter-field--grow"><view class="field-label">{{localeCopy.copy_cea1da7603}}</view><input class="field-input" placeholder="{{localeCopy.copy_803b577438}}" value="{{desigSearchKeyword}}" bindinput="onDesigSearchInput"/></view></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
           <view class="list-item ui-motion-card" wx:for="{{designationPickerFilteredList}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onDesignationPickerToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
             <view class="list-main">

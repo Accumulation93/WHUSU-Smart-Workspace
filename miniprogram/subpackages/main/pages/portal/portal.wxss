@@ -784,6 +784,10 @@ button, input, textarea, picker, view, text, scroll-view {
   box-shadow: 0 8rpx 16rpx rgba(37, 99, 235, 0.20), inset 0 1rpx 0 rgba(255,255,255,0.24);
 }
 
+.portal-services-card > .info-head {
+  flex-wrap: wrap;
+}
+
 /* ── 搜索栏 ── */
 .app-search-bar {
   position: relative;

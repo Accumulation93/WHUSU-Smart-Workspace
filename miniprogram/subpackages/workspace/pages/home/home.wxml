@@ -224,22 +224,24 @@
       <view class="empty-title">{{copy.noMeritList}}</view>
     </view>
     <view wx:if="{{hasPublication && hasMeritPerm}}">
-      <view class="info-head">
-      <view class="section-title section-title-icon"><ui-icon name="star" tone="primary" size="26" ariaLabel="{{copy.merit}}" /><text>{{copy.meritList}}</text></view>
-        <view class="results-count-chip">{{copy.totalPrefix}} {{meritRuleGroups.length}} {{copy.groupSuffix}}</view>
-      </view>
-      <view class="stats-bar">
-        <view class="stat-item">
-          <view class="stat-value stat-value-gold">{{meritRuleGroups.length}}</view>
-          <view class="stat-label">{{copy.meritGroup}}</view>
+      <view class="section-control-card section-control-card--stacked">
+        <view class="info-head">
+          <view class="section-title section-title-icon"><ui-icon name="star" tone="primary" size="26" ariaLabel="{{copy.merit}}" /><text>{{copy.meritList}}</text></view>
+          <view class="results-count-chip">{{copy.totalPrefix}} {{meritRuleGroups.length}} {{copy.groupSuffix}}</view>
         </view>
-        <view class="stat-item">
-          <view class="stat-value">{{publishedMeritList.length}}</view>
-          <view class="stat-label">{{copy.designatedCount}}</view>
-        </view>
-        <view class="stat-item">
-          <view class="stat-value stat-value-blue">{{meritDeptCount || meritRuleGroups.length}}</view>
-          <view class="stat-label">{{copy.involvedDepartments}}</view>
+        <view class="stats-bar">
+          <view class="stat-item">
+            <view class="stat-value stat-value-gold">{{meritRuleGroups.length}}</view>
+            <view class="stat-label">{{copy.meritGroup}}</view>
+          </view>
+          <view class="stat-item">
+            <view class="stat-value">{{publishedMeritList.length}}</view>
+            <view class="stat-label">{{copy.designatedCount}}</view>
+          </view>
+          <view class="stat-item">
+            <view class="stat-value stat-value-blue">{{meritDeptCount || meritRuleGroups.length}}</view>
+            <view class="stat-label">{{copy.involvedDepartments}}</view>
+          </view>
         </view>
       </view>
       <view class="card targets-card" wx:for="{{meritRuleGroups}}" wx:key="targetIdentity" style="animation: glassFadeUp 0.42s {{0.08 * index}}s ease both;">
@@ -517,7 +519,7 @@
             <view class="list-name">{{item.name}}</view>
             <view class="list-desc">{{item.department}} · {{item.studentId}}</view>
           </view>
-          <view class="inline-actions list-actions-below">
+          <view class="inline-actions list-actions-below card-actions">
             <text class="link danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onUserDesigToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.remove}}</text>
           </view>
         </view>
@@ -525,7 +527,7 @@
         <view class="scroll-tail-space"></view>
       </scroll-view>
       <view class="list-title candidate-list-title">{{copy.availableMembers}}</view>
-      <view class="rule-filter-row">
+      <view class="rule-filter-row ui-inline-field-row">
         <view class="rule-filter-field">
           <view class="field-label">{{copy.department}}</view>
           <picker range="{{userDesigFilterDeptOptions}}" bindchange="onUserDesigFilterChange" data-field="department">

@@ -11,6 +11,17 @@
 - 业务逻辑和页面结构可以有差异，但基础字体角色、控件角色、弹窗契约和状态表达必须可预测。
 - 原生微信小程序和自有 WXSS 是当前 UI provider；不引入 React、Tailwind 或第三方组件库。
 
+## 控制表面与卡片操作
+
+- 页面分区标题、二级页签和成组操作必须归属于至少一层真实可见的玻璃表面。`.page`、`.admin-workbench`、`.section-stack` 等透明布局容器不算包裹；禁止标题、页签或按钮组直接裸露在页面背景上。
+- 同一分区优先用 `.section-control-card` 共同承载标题、二级页签和批量操作，保持信息层级连续。不得给每个控件分别重复套卡，也不得为包裹新增滚动容器。
+- 列表卡片上的查看、编辑、删除、移除等小操作使用 `.card-actions`。默认独立成行、顶部细分隔、右对齐、可换行，并复用人事成员卡片操作样式；最小宽度、间距和分隔留白分别使用 `--ui-card-action-min-width`、`--ui-card-action-gap`、`--ui-card-action-divider-gap`，圆角使用 `--ui-control-radius`。
+- 危险操作保持红色语义；`.card-actions--inline` 仅用于已确认不会与标题、状态或展开入口冲突的紧凑行。禁止用绝对定位、固定 `top/right`、负 margin 把操作塞进卡片头部。
+- 可展开卡片按“摘要与展开入口 → 操作行 → 展开内容”的普通文档流排列。审核模板卡的编辑、删除必须另起操作行，不能与展开按钮重叠。
+- 同一视觉行的日期/时间选择器、筛选按钮和清除/重置按钮使用 `.ui-inline-control-row` + `.ui-inline-control`，共同高度由 `--ui-inline-control-height` 提供。带标签的并列筛选字段使用 `.ui-inline-field-row` 对齐实际控件底边，并统一 `.compact-picker-value` / `.field-input` 高度；原生输入保持 block。子项上下 margin 必须为零，禁止同名共享样式把某一个按钮单独向下推移。
+- 标题右侧的宫格/列表等二态切换使用 `.ui-compact-segmented` + `.ui-compact-segmented-item`，高度取 `--ui-compact-height`，宽度按内容收缩；它不是主页签，不得复用整行均分和 `--ui-tab-min-height`。
+- `scripts/ui-audit.js --strict` 将裸露标题/分区控件、未迁移的 `list-actions` 和审核模板绝对定位操作视为发布失败。
+
 ## 页面组织与语言资源
 
 - 主包启动壳统一物理放在 `miniprogram/subpackages/main/pages/**`，登录页和门户页注册在 `app.json.pages` 顶层；`subpackages/main` 不得写入 `app.json.subPackages`。包归属以 `app.json` 注册位置为准，不以目录名为准。
@@ -73,6 +84,7 @@
 | `--ui-compact-radius` | 状态标签、筛选标签和紧凑操作圆角（手机 18rpx、Pad 竖屏 12px、Pad 横屏 11px） |
 | `--ui-field-radius` | 输入、选择器和表单控件圆角 |
 | `--ui-tab-*` | 页签字号、高度、内边距和圆角（手机 24rpx、Pad 竖屏与横屏 12px） |
+| `--ui-inline-control-height` | 同排日期/时间选择器、筛选与清除操作的统一物理高度（手机 56rpx、Pad 32px） |
 | `--ui-section-title-inset` | 标题蓝色竖线与标题文字的距离 |
 | `--ui-dialog-edge` | 弹窗与物理视口的安全边距 |
 | `--ui-dialog-width-inset` | 弹窗横向两侧安全边距之和，供兼容性良好的 `calc()` 使用 |

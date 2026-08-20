@@ -38,7 +38,7 @@
           <view class="ad-hoc-step-title">{{item.name || (localeCopy.copy_93c50c01c0 + (index + 1) + localeCopy.copy_493a127a99)}}：{{item.approverType === 'specific_person' ? (item.approverHrName || localeCopy.copy_5fff626dd6) : (item.approverIdentityName || localeCopy.copy_c76fae0e08) + '（' + (item.scopeType === 'same_department' ? localeCopy.copy_37ad645951 : (item.scopeType === 'same_work_group' ? localeCopy.copy_2c67faf1c7 : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || localeCopy.copy_b3604f443f) : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : localeCopy.copy_9b3c1f7a01)))) + '）'}} — {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
           <view class="ad-hoc-step-desc">{{item.approverType === 'identity' ? localeCopy.copy_fc2ce54999 : localeCopy.copy_e31ec452dd}}</view>
         </view>
-        <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeAdHocStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
+        <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeAdHocStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
       </view>
       <view class="audit-empty-state" wx:if="{{!adHocSteps.length}}">
         <view class="audit-empty-text">{{localeCopy.copy_84e125402d}}</view>
@@ -92,7 +92,7 @@
       <view class="file-attach-item" wx:for="{{uploadedFiles}}" wx:key="fileId">
         <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
         <view class="file-attach-name">{{item.fileName}}</view>
-        <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeUploadedFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
+        <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeUploadedFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
       </view>
       <view class="button-row compact-row">
         <button class="secondary-btn ui-motion-button" bindtap="chooseImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_53ce695b90}}</button>
@@ -510,7 +510,7 @@
               <!-- Show individual condition lines for OR logic -->
               <view wx:for="{{item.stepConditionsDisplay}}" wx:for-item="cond" wx:key="*this" wx:if="{{item.stepConditionsDisplay.length > 1}}" class="edit-cond-line">{{cond}}</view>
             </view>
-            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
+            <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
           </view>
           <view class="audit-empty-state" wx:if="{{!editSteps.length}}">
             <view class="audit-empty-text">{{localeCopy.copy_84e125402d}}</view>
@@ -533,13 +533,13 @@
           <view class="file-attach-item" wx:for="{{editFiles}}" wx:key="id">
             <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
             <view class="file-attach-name">{{item.fileName}}</view>
-            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
+            <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
           </view>
           <view class="section-title field-mt-16" wx:if="{{editNewFiles.length}}">{{localeCopy.copy_165509f937}} ({{editNewFiles.length}}{{localeCopy.copy_f34e9d1f5c}}</view>
           <view class="file-attach-item" wx:for="{{editNewFiles}}" wx:key="fileId">
             <view class="file-attach-icon"><ui-icon name="file" tone="primary" size="24" ariaLabel="{{localeCopy.copy_d036aa723a}}" /></view>
             <view class="file-attach-name">{{item.fileName}}</view>
-            <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditNewFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
+            <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeEditNewFile" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
           </view>
           <view class="button-row compact-row">
             <button class="secondary-btn ui-motion-button" bindtap="editChooseImage" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_53ce695b90}}</button>
@@ -619,7 +619,7 @@
                 <view class="audit-person-name">{{item.name}}</view>
                 <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
               </view>
-              <view class="inline-actions list-actions-below">
+              <view class="inline-actions list-actions-below card-actions">
                 <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
               </view>
             </view>
@@ -627,7 +627,7 @@
             <view class="scroll-tail-space"></view>
           </scroll-view>
           <view class="list-title field-mt-8">{{localeCopy.copy_8b1a42b718}}</view>
-          <view class="rule-filter-row">
+          <view class="rule-filter-row ui-inline-field-row">
             <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_02419589be}}</view><picker range="{{personPickerDeptOpts}}" bindchange="onEditPersonPickerDeptChange"><view class="picker-value compact-picker-value">{{editPersonPickerDept}}</view></picker></view>
             <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_c1965e0690}}</view><picker range="{{personPickerIdentOpts}}" bindchange="onEditPersonPickerIdentChange"><view class="picker-value compact-picker-value">{{editPersonPickerIdent}}</view></picker></view>
             <view class="rule-filter-field"><view class="field-label">{{localeCopy.copy_303b7a8611}}</view><picker range="{{personPickerWgOpts}}" bindchange="onEditPersonPickerWgChange"><view class="picker-value compact-picker-value">{{editPersonPickerWg}}</view></picker></view>
@@ -816,7 +816,7 @@
                 <view class="sign-file-name">{{localeCopy.copy_76dac19a0a}}{{index + 1}}</view>
                 <image wx:if="{{item.imageData}}" src="{{item.imageData}}" mode="widthFix" class="sign-file-preview" />
               </view>
-              <view class="list-actions"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" catchtap="removePendingSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
+              <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" catchtap="removePendingSignature" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
             </view>
             <view class="button-row compact-row">
               <button class="secondary-btn ui-motion-button" wx:for="{{files}}" wx:key="id" data-file-id="{{item.id}}" catchtap="openSignaturePad" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_e012d6739e}} {{item.fileName}}</button>
@@ -941,7 +941,7 @@
               <view class="audit-person-name">{{item.name}}</view>
               <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
             </view>
-            <view class="inline-actions list-actions-below">
+            <view class="inline-actions list-actions-below card-actions">
               <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
             </view>
           </view>
@@ -951,7 +951,7 @@
 
         <!-- Filters -->
         <view class="list-title field-mt-8">{{localeCopy.copy_8b1a42b718}}</view>
-        <view class="rule-filter-row">
+        <view class="rule-filter-row ui-inline-field-row">
           <view class="rule-filter-field">
             <view class="field-label">{{localeCopy.copy_02419589be}}</view>
             <picker range="{{personPickerDeptOpts}}" bindchange="onPersonPickerDeptChange">

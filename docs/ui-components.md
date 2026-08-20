@@ -18,9 +18,13 @@
 | `.page` | 页面安全边距和背景 | 所有注册页面 |
 | `.hero` / `.hero-admin` | 用户端/管理端头部 | 门户、评分、人事、权限、场地 |
 | `.card` / `.section` / `.edit-box` | 主要玻璃表面 | 列表、表单、统计、详情 |
+| `.section-control-card` / `.section-control-card--stacked` | 页面分区控制表面 | 共同承载分区标题、二级页签和批量操作，禁止零容器暴露 |
 | `.list-item` / `.booking-item` / `.audit-submission-item` | 重复列表行 | 三个子应用的列表页 |
 | `.tabs` / `.tabs-card` / `.tab` / `.feature-tab` | 分段页签 | 评分、审核、场地、消息、人事中的账号与认证 |
 | `.primary-btn` / `.secondary-btn` / `.danger-btn` | 三种主操作角色 | 保存、取消、删除和提交 |
+| `.card-actions` / `.card-actions--inline` | 卡片小操作行 | 查看、编辑、删除、移除；默认独立分隔行，内联仅用于无碰撞场景 |
+| `.ui-inline-control-row` / `.ui-inline-control` / `.ui-inline-field-row` | 同排控件基线 | 日期/时间选择器、筛选、清除与重置共享最终物理高度；带标签字段对齐底边 |
+| `.ui-compact-segmented` / `.ui-compact-segmented-item` | 标题行紧凑二态切换 | 宫格/列表等视图切换，不使用主页签高度 |
 | `.field-input` / `.field-textarea` / `.picker-value` | 表单控件 | 人事、认证、场地、权限 |
 | `.ui-overlay` / `.ui-dialog-shell` | 弹窗遮罩和壳 | 详情、选择、确认、编辑弹窗 |
 | `.ui-overlay-blocker` | 背景触摸拦截层 | 所有居中弹窗，位于弹窗壳下方 |
@@ -44,6 +48,10 @@
 - 灰蓝：不可用、历史状态、弱化元数据。
 
 状态标签是元数据，不使用原生按钮语义；只有真正可操作的元素才接受点击反馈。
+
+`.card-actions` 以人事成员卡片操作行为统一基准：默认使用顶部细分隔、右对齐和自然换行，子级文本操作统一使用 `--ui-control-radius`；危险操作沿用红色语义。可展开卡片禁止将此操作行绝对定位到标题或展开入口旁。
+
+`.ui-inline-control-row` 只负责直接同行控件的共同基线，子项使用 `.ui-inline-control` 把最终高度锁定到 `--ui-inline-control-height`，并清除上下 margin。带标签的字段列使用 `.ui-inline-field-row` 对齐底边，内部紧凑 picker 与原生 input 使用同一高度，且 input 仍保持 block。`.ui-compact-segmented` 仅用于标题旁的二态/少量视图切换，子项取 `--ui-compact-height`；不要把它并入整行主页签规则。
 
 按钮、页签、选择项和状态气泡统一使用柔和圆角矩形，圆角由
 `--ui-control-radius` 与 `--ui-compact-radius` 按设备控制：手机主按钮

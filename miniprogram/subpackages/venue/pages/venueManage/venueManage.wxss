@@ -683,8 +683,10 @@ page {
 .filter-clear {
   display: inline-flex;
   align-items: center; justify-content: center;
-  min-height: 40rpx;
-  padding: 6rpx 16rpx;
+  height: var(--ui-inline-control-height, 56rpx);
+  min-height: var(--ui-inline-control-height, 56rpx);
+  margin: 0;
+  padding: 0 16rpx;
   border-radius: 999rpx;
   color: #dc2626;
   font-size: var(--ui-type-caption); font-weight: 600;
@@ -694,8 +696,10 @@ page {
 
 /* ═══ Time picker ═══ */
 .time-pick {
-  min-height: 56rpx; width: auto;
-  padding: 10rpx 16rpx;
+  height: var(--ui-inline-control-height, 56rpx);
+  min-height: var(--ui-inline-control-height, 56rpx);
+  width: auto;
+  padding: 0 16rpx;
   font-size: var(--ui-type-meta);
 }
 
