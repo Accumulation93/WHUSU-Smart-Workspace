@@ -76,6 +76,27 @@ BEGIN
   ALTER TABLE tmp_incomplete_active_assignments ADD PRIMARY KEY (id);
   INSERT IGNORE INTO personnel_migration_audit
     (id, migration_key, record_type, record_id, org_id, detail_json)
+  SELECT CONCAT('pdi_group_ref_', SUBSTRING(SHA2(ma.id, 256), 1, 50)),
+         '20260822120000', 'work_group_reference_invalid', ma.id, ma.org_id,
+         JSON_OBJECT(
+           'departmentId', ma.department_id,
+           'workGroupId', ma.work_group_id,
+           'workGroupOrgId', wg.org_id,
+           'reason', IF(wg.id IS NULL, 'missing', 'cross_org'),
+           'action', 'cleared'
+         )
+    FROM membership_assignments ma
+    LEFT JOIN work_groups wg ON wg.id = ma.work_group_id
+   WHERE ma.work_group_id IS NOT NULL
+     AND (wg.id IS NULL OR wg.org_id <> ma.org_id);
+  UPDATE membership_assignments ma
+  LEFT JOIN work_groups wg ON wg.id = ma.work_group_id
+     SET ma.work_group_id = NULL, ma.updated_at = NOW()
+   WHERE ma.work_group_id IS NOT NULL
+     AND (wg.id IS NULL OR wg.org_id <> ma.org_id);
+
+  INSERT IGNORE INTO personnel_migration_audit
+    (id, migration_key, record_type, record_id, org_id, detail_json)
   SELECT CONCAT('pdi_empty_', SUBSTRING(SHA2(invalid_assignment.id, 256), 1, 54)),
          '20260822120000', 'incomplete_active_assignment', invalid_assignment.id,
          invalid_assignment.org_id,
@@ -122,7 +143,49 @@ BEGIN
   JOIN work_groups wg ON wg.id = ma.work_group_id AND wg.org_id = ma.org_id
      SET ma.work_group_id = NULL, ma.updated_at = NOW()
    WHERE ma.work_group_id IS NOT NULL
-     AND COALESCE(ma.department_id, '') <> COALESCE(wg.department_id, '');
+      AND COALESCE(ma.department_id, '') <> COALESCE(wg.department_id, '');
+
+  -- 历史 own_results 等范围并不读取 target_identity_id，旧字典删除留下的值可安全清空。
+  -- 真正依赖身份类别的悬空条件不能扩权，记录审计后删除该条件，使无剩余条件的规则拒绝访问。
+  INSERT IGNORE INTO personnel_migration_audit
+    (id, migration_key, record_type, record_id, org_id, detail_json)
+  SELECT CONCAT('pdi_view_identity_', SUBSTRING(SHA2(clause_row.id, 256), 1, 46)),
+         '20260822120000', 'publication_view_identity_invalid', clause_row.id,
+         clause_row.org_id,
+         JSON_OBJECT(
+           'ruleId', clause_row.rule_id,
+           'scopeType', clause_row.scope_type,
+           'targetIdentityCategoryId', clause_row.target_identity_id,
+           'action', IF(
+             clause_row.scope_type IN ('own_results', 'all_people', 'same_department_all', 'same_work_group_all'),
+             'cleared_irrelevant_reference',
+             'removed_condition'
+           )
+         )
+    FROM pub_view_rule_clauses clause_row
+    LEFT JOIN identities identity_row
+      ON identity_row.id = clause_row.target_identity_id
+     AND identity_row.org_id = clause_row.org_id
+   WHERE clause_row.target_identity_id IS NOT NULL
+     AND identity_row.id IS NULL;
+  DELETE clause_row
+    FROM pub_view_rule_clauses clause_row
+    LEFT JOIN identities identity_row
+      ON identity_row.id = clause_row.target_identity_id
+     AND identity_row.org_id = clause_row.org_id
+   WHERE clause_row.target_identity_id IS NOT NULL
+     AND identity_row.id IS NULL
+     AND clause_row.scope_type NOT IN (
+       'own_results', 'all_people', 'same_department_all', 'same_work_group_all'
+     );
+  UPDATE pub_view_rule_clauses clause_row
+  LEFT JOIN identities identity_row
+    ON identity_row.id = clause_row.target_identity_id
+   AND identity_row.org_id = clause_row.org_id
+     SET clause_row.target_identity_id = NULL,
+         clause_row.updated_at = NOW()
+   WHERE clause_row.target_identity_id IS NOT NULL
+     AND identity_row.id IS NULL;
 
   SELECT COUNT(*) INTO constraint_exists FROM information_schema.table_constraints
    WHERE constraint_schema = DATABASE() AND table_name = 'membership_assignments'

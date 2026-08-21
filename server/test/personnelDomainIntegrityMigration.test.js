@@ -42,6 +42,8 @@ function databaseConfig(database) {
 async function createDirtyLegacyFixture(connection) {
   await connection.query(`
     ALTER TABLE membership_assignments DROP CHECK chk_assignment_active_dimensions;
+    ALTER TABLE membership_assignments DROP FOREIGN KEY fk_ma_work_group;
+    ALTER TABLE pub_view_rule_clauses DROP FOREIGN KEY fk_pvrc_target_identity;
     ALTER TABLE hr_profile_records DROP INDEX uk_hr_profile_record_member_org;
     INSERT INTO organizations (id, name) VALUES ('org-personnel-migration', '人事迁移测试组织');
     INSERT INTO departments (id, name, org_id) VALUES
@@ -73,7 +75,10 @@ async function createDirtyLegacyFixture(connection) {
        'staff', '旧自由文本岗位', NULL, 'identity-personnel', NULL, 'active'),
       ('assignment-mismatch', 'membership-personnel', 'org-personnel-migration',
        'staff', '应被清理的岗位名称', 'dept-personnel-a', 'identity-personnel',
-       'group-personnel-b', 'active');
+       'group-personnel-b', 'active'),
+      ('assignment-missing-group', 'membership-personnel', 'org-personnel-migration',
+       'staff', NULL, 'dept-personnel-a', 'identity-personnel',
+       'group-personnel-missing', 'revoked');
     INSERT INTO accounts (id, person_id, status, token_version)
     VALUES ('account-personnel', 'person-personnel', 'verified', 1);
     INSERT INTO auth_sessions
@@ -101,6 +106,23 @@ async function createDirtyLegacyFixture(connection) {
        'hr-personnel', NULL, 'all', NULL, 'org-personnel-migration'),
       ('condition-personnel-identities', 'template-step-personnel', 2, 'identity_scope',
        NULL, NULL, 'specific', 'identity-personnel', 'org-personnel-migration');
+
+    INSERT INTO score_activities (id, name, org_id)
+    VALUES ('activity-personnel', '人事迁移评分活动', 'org-personnel-migration');
+    INSERT INTO result_publications (id, activity_id, org_id)
+    VALUES ('publication-personnel', 'activity-personnel', 'org-personnel-migration');
+    INSERT INTO pub_view_rules
+      (id, publication_id, grantee_department_id, grantee_identity_id, org_id)
+    VALUES
+      ('view-rule-personnel', 'publication-personnel', 'dept-personnel-a',
+       'identity-personnel', 'org-personnel-migration');
+    INSERT INTO pub_view_rule_clauses
+      (id, rule_id, scope_type, target_identity_id, org_id)
+    VALUES
+      ('view-clause-own', 'view-rule-personnel', 'own_results',
+       'identity-personnel-missing', 'org-personnel-migration'),
+      ('view-clause-specific', 'view-rule-personnel', 'same_department_identity',
+       'identity-personnel-missing', 'org-personnel-migration');
 
     INSERT INTO org_hr_profile_template_snapshots
       (id, org_id, description, edit_mode)
@@ -157,14 +179,28 @@ async function assertMigrated(connection) {
       (SELECT status FROM membership_assignments WHERE id = 'assignment-incomplete') AS incomplete_status,
       (SELECT title FROM membership_assignments WHERE id = 'assignment-mismatch') AS cleaned_title,
       (SELECT work_group_id FROM membership_assignments WHERE id = 'assignment-mismatch') AS cleaned_group,
+      (SELECT work_group_id FROM membership_assignments WHERE id = 'assignment-missing-group') AS cleaned_missing_group,
       (SELECT status FROM auth_sessions WHERE id = 'session-incomplete') AS session_status
   `);
   assert.deepStrictEqual(assignmentState, {
     incomplete_status: 'revoked',
     cleaned_title: null,
     cleaned_group: null,
+    cleaned_missing_group: null,
     session_status: 'revoked'
   });
+
+  const [[publicationCleanup]] = await connection.query(`
+    SELECT
+      (SELECT target_identity_id FROM pub_view_rule_clauses
+        WHERE id = 'view-clause-own') AS own_target_identity,
+      (SELECT COUNT(*) FROM pub_view_rule_clauses
+        WHERE id = 'view-clause-specific') AS specific_clause_count
+  `);
+  assert.deepStrictEqual(
+    [publicationCleanup.own_target_identity, Number(publicationCleanup.specific_clause_count)],
+    [null, 0]
+  );
 
   const [[profileState]] = await connection.query(`
     SELECT
@@ -198,14 +234,17 @@ async function assertMigrated(connection) {
       SUM(record_type = 'incomplete_active_assignment') AS incomplete_count,
       SUM(record_type = 'legacy_assignment_title') AS title_count,
       SUM(record_type = 'work_group_department_mismatch') AS mismatch_count,
+      SUM(record_type = 'work_group_reference_invalid') AS invalid_group_count,
+      SUM(record_type = 'publication_view_identity_invalid') AS invalid_view_identity_count,
       SUM(record_type = 'duplicate_profile_record') AS duplicate_count
       FROM personnel_migration_audit
      WHERE migration_key = '20260822120000'
   `);
   assert.deepStrictEqual(
     [auditState.incomplete_count, auditState.title_count, auditState.mismatch_count,
+      auditState.invalid_group_count, auditState.invalid_view_identity_count,
       auditState.duplicate_count].map(Number),
-    [1, 2, 1, 1]
+    [1, 2, 1, 1, 2, 1]
   );
 
   const [[conditionState]] = await connection.query(`
