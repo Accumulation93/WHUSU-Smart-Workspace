@@ -5,6 +5,12 @@ const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const {
+  decoratePendingBooking,
+  decorateApproverCandidates,
+  activeUserHasAssignment,
+  showWorkContextModal
+} = require('../../utils/workContextPresentation');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64;
@@ -236,6 +242,7 @@ Page({
   },
   data: {
     localeCopy,
+    hasActiveAssignment: false,
     activeTab: 'browse', loading: false,
     venues: [],
     scheduleVisible: false, scheduleVenueId: '', scheduleVenueName: '', scheduleWeekStart: '',
@@ -280,9 +287,9 @@ Page({
     approvalFlowOptions: [], allowUserSelectFlow: false, selectedFlowId: '', selectedFlowName: '',
     selectedFlowAllowDesignateFirst: false,
     firstApproverPickerVisible: false, approverCandidates: [], firstApproverKeyword: '',
-    firstApproverHrId: '', firstApproverName: '',
+    firstApproverAssignmentId: '', firstApproverName: '',
     nextApproverPickerVisible: false, nextApproverCandidates: [], nextApproverKeyword: '',
-    nextApproverHrId: '', nextApproverName: '', canDesignateNext: false,
+    nextApproverAssignmentId: '', nextApproverName: '', canDesignateNext: false,
     heroName: localeCopy.copy_592351d93c, heroIdentity: localeCopy.copy_5c8d830c46, heroSubtitle: '',
 
     // ── Custom time keyboard ──
@@ -324,6 +331,7 @@ Page({
       });
     }
     this._loadUserInfo();
+    this._loadWorkContextState();
     this._initWeekStart();
     this.loadVenues();
     this.loadPurposes();
@@ -458,6 +466,35 @@ Page({
     this.setData({timetableColumns:columns});
   },
 
+  _loadWorkContextState() {
+    this.setData({ hasActiveAssignment: activeUserHasAssignment() });
+  },
+
+  goWorkContextSwitch() {
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
+  },
+
+  _guardActiveAssignment() {
+    if (this.data.hasActiveAssignment) return true;
+    showWorkContextModal({
+      content: localeCopy.noActiveAssignment,
+      onConfirm: this.goWorkContextSwitch.bind(this)
+    });
+    return false;
+  },
+
+  _guardApprovalContext(item) {
+    if (item && item.canProcessInCurrentContext !== false) return true;
+    const required = item && item._requiredContextText;
+    showWorkContextModal({
+      content: required
+        ? localeCopy.requiredContextPrefix + required
+        : localeCopy.requiredContextGeneric,
+      onConfirm: this.goWorkContextSwitch.bind(this)
+    });
+    return false;
+  },
+
   _buildDayColumn(dayData,dateStr,label,dateDisplay,bookingWindow) {
     let openBlocks=[], eventBlocks=[], timeTargets=[];
     if(dayData&&dayData.openSlots) {
@@ -489,7 +526,7 @@ Page({
         let b = dayData.bookedSlots[bi];
         let _c = calcBlock(b.timeStart,b.timeEnd), top3 = _c.top, height3 = _c.height;
         eventBlocks.push({top:top3+HEADER_H+TEXT_OFFSET,height:height3,status:b.status==='pending'?'pending':'booked',label:b.title||localeCopy.copy_8aa6e63e5e,type:'booking',
-          booking:{id:b.id,venueId:b.venueId,venueName:b.venueName||'',venueLocation:b.venueLocation||'',title:b.title,description:b.description,visibility:b.visibility||'details',userId:b.userId,userName:b.userName,userDept:b.userDept||'',userIdentity:b.userIdentity||'',userWorkGroup:b.userWorkGroup||'',orgName:b.orgName||'',creatorType:b.creatorType,creatorName:b.creatorName,creatorLabel:b.creatorLabel,approverHrId:b.approverHrId,approvalComment:b.approvalComment||'',createdAt:b.createdAt,timeStart:b.fullTimeStart||b.timeStart,timeEnd:b.fullTimeEnd||b.timeEnd,timeStartDisplay:b.timeStart,timeEndDisplay:b.timeEnd,status:b.status,approvalProgress:b.approvalProgress||null}});
+          booking:{id:b.id,venueId:b.venueId,venueName:b.venueName||'',venueLocation:b.venueLocation||'',title:b.title,description:b.description,visibility:b.visibility||'details',userId:b.userId,userName:b.userName,userDept:b.userDept||'',userIdentity:b.userIdentity||'',userWorkGroup:b.userWorkGroup||'',orgName:b.orgName||'',creatorType:b.creatorType,creatorName:b.creatorName,creatorLabel:b.creatorLabel,creatorAssignmentId:b.creatorAssignmentId||'',creatorAssignmentLabel:b.creatorAssignmentLabel||'',approverHrId:b.approverHrId,approvalComment:b.approvalComment||'',createdAt:b.createdAt,timeStart:b.fullTimeStart||b.timeStart,timeEnd:b.fullTimeEnd||b.timeEnd,timeStartDisplay:b.timeStart,timeEndDisplay:b.timeEnd,status:b.status,approvalProgress:b.approvalProgress||null}});
       }
     }
     return {date:dateStr,label:label,dateDisplay:dateDisplay,openBlocks:openBlocks,eventBlocks:eventBlocks,timeTargets:timeTargets};
@@ -591,6 +628,7 @@ Page({
   },
 
   _openBookingForm(date, presetTime) {
+    if (!this._guardActiveAssignment()) return;
     this.setData({
       bookingVisible: true, bookingVenueId: this.data.scheduleVenueId, bookingVenueName: this.data.scheduleVenueName,
       bookingStartDate: date, bookingStartDateDisplay: date, bookingEndDate: date, bookingEndDateDisplay: date,
@@ -600,13 +638,14 @@ Page({
       startHours: [], endHours: [], startMinIdx: -1, endMinIdx: -1,
       _dayData: null,
       selectedFlowId: '', selectedFlowName: '', selectedFlowAllowDesignateFirst: false,
-      firstApproverHrId: '', firstApproverName: ''
+      firstApproverAssignmentId: '', firstApproverName: ''
     });
     this.loadApprovalFlowOptions(this.data.scheduleVenueId);
     this._loadScheduleForDate(date, presetTime);
   },
 
   openBooking(e) {
+    if (!this._guardActiveAssignment()) return;
     let id = e.currentTarget.dataset.id;
     let v = this.data.venues.find(function(x){return x.id===id;});
     let today = this.data.bookingStartDate;
@@ -619,7 +658,7 @@ Page({
       startHours: [], endHours: [], startMinIdx: -1, endMinIdx: -1,
       _dayData: null,
       selectedFlowId: '', selectedFlowName: '', selectedFlowAllowDesignateFirst: false,
-      firstApproverHrId: '', firstApproverName: ''
+      firstApproverAssignmentId: '', firstApproverName: ''
     });
     this.loadApprovalFlowOptions(id);
     this._loadScheduleForDate(today);
@@ -637,7 +676,7 @@ Page({
           selectedFlowId: '',
           selectedFlowName: '',
           selectedFlowAllowDesignateFirst: false,
-          firstApproverHrId: '',
+          firstApproverAssignmentId: '',
           firstApproverName: ''
         });
       }
@@ -652,7 +691,7 @@ Page({
       selectedFlowId: option.id,
       selectedFlowName: option.name || '',
       selectedFlowAllowDesignateFirst: Boolean(option.allowDesignateFirst),
-      firstApproverHrId: '',
+      firstApproverAssignmentId: '',
       firstApproverName: ''
     });
   },
@@ -663,7 +702,7 @@ Page({
       if (res.status === 'success') {
         this.setData({
           firstApproverPickerVisible: true,
-          approverCandidates: res.candidates || [],
+          approverCandidates: decorateApproverCandidates(res.candidates),
           firstApproverKeyword: ''
         });
       } else showShortToast(res.message || localeCopy.copy_e58fa637eb);
@@ -679,11 +718,11 @@ Page({
   },
 
   pickFirstApprover(e) {
-    const id = e.currentTarget.dataset.id;
+    const assignmentId = e.currentTarget.dataset.assignmentId;
     const name = e.currentTarget.dataset.name;
-    if (!id) return;
+    if (!assignmentId) return;
     this.setData({
-      firstApproverHrId: id,
+      firstApproverAssignmentId: assignmentId,
       firstApproverName: name || '',
       firstApproverPickerVisible: false
     });
@@ -1620,6 +1659,7 @@ Page({
   onFieldInput(e) { this.setData({[e.currentTarget.dataset.field]:e.detail.value}); },
 
   async submitBooking() {
+    if (!this._guardActiveAssignment()) return;
     let _a = this.data, vid = _a.bookingVenueId, sd = _a.bookingStartDate,
         st = _a.bookingTimeStart, et = _a.bookingTimeEnd, title = _a.bookingTitle, desc = _a.bookingDesc, dd = _a._dayData;
     if(!vid||!sd||!st||!et){showShortToast(localeCopy.copy_9dc5c7d79f);return;}
@@ -1638,7 +1678,7 @@ Page({
         data: {
           venueId: vid, title: title, description: desc, timeStart: ts, timeEnd: te,
           flowId: this.data.selectedFlowId || '',
-          firstApproverHrId: this.data.firstApproverHrId || ''
+          firstApproverAssignmentId: this.data.firstApproverAssignmentId || ''
         }
       });
       if(res.status==='success'){
@@ -1648,7 +1688,12 @@ Page({
         if (this.data.activeTab === 'bookings') this.loadMyBookings();
         if (this.data.scheduleVisible) this.loadTimetable();
         this._emitVenueChanged('create', res.id);
-      }else showShortToast(res.message);
+      } else if (res.status === 'forbidden') {
+        showWorkContextModal({
+          content: res.message || localeCopy.noActiveAssignment,
+          onConfirm: this.goWorkContextSwitch.bind(this)
+        });
+      } else showShortToast(res.message);
     } catch(e) { showShortToast(getErrorText(e,localeCopy.copy_ccd4af477f)); }
     finally { this.setData({loading:false}); }
   },
@@ -1755,7 +1800,8 @@ Page({
       let res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
-        let pending = (res.pending || []).map(function(item) {
+        let pending = (res.pending || []).map(function(rawItem) {
+          const item = decoratePendingBooking(rawItem);
           if (item.approvalTotalSteps > 0) {
             item._approvalPercent = Math.round(item.approvalCurrentStep / item.approvalTotalSteps * 100);
           } else {
@@ -1841,6 +1887,7 @@ Page({
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
+    if (!this._guardApprovalContext(item)) return;
     const flows = item.flowSummary || [];
     const canDesignateNext = flows.length === 1
       && flows[0].allowDesignateNext
@@ -1848,7 +1895,7 @@ Page({
     this.setData({
       approvalVisible: true, approvalTarget: item, approvalAction: 'approve', approvalComment: '',
       canDesignateNext: Boolean(canDesignateNext),
-      nextApproverHrId: '', nextApproverName: ''
+      nextApproverAssignmentId: '', nextApproverName: ''
     });
   },
 
@@ -1856,6 +1903,7 @@ Page({
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
+    if (!this._guardApprovalContext(item)) return;
     this.setData({ approvalVisible: true, approvalTarget: item, approvalAction: 'reject', approvalComment: '' });
   },
 
@@ -1873,7 +1921,7 @@ Page({
       if (res.status === 'success') {
         this.setData({
           nextApproverPickerVisible: true,
-          nextApproverCandidates: res.candidates || [],
+          nextApproverCandidates: decorateApproverCandidates(res.candidates),
           nextApproverKeyword: ''
         });
       } else showShortToast(res.message || localeCopy.copy_e58fa637eb);
@@ -1889,11 +1937,11 @@ Page({
   },
 
   pickNextApprover(e) {
-    const id = e.currentTarget.dataset.id;
+    const assignmentId = e.currentTarget.dataset.assignmentId;
     const name = e.currentTarget.dataset.name;
-    if (!id) return;
+    if (!assignmentId) return;
     this.setData({
-      nextApproverHrId: id,
+      nextApproverAssignmentId: assignmentId,
       nextApproverName: name || '',
       nextApproverPickerVisible: false
     });
@@ -1904,7 +1952,7 @@ Page({
     let target = this.data.approvalTarget;
     let action = this.data.approvalAction;
     let comment = this.data.approvalComment;
-    if (!target || !action) return;
+    if (!target || !action || !this._guardApprovalContext(target)) return;
 
     let endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
     let actionLabel = action === 'approve' ? localeCopy.copy_8e2f75159e : localeCopy.copy_b4432643e3;
@@ -1912,7 +1960,7 @@ Page({
     this.setData({ approvalSubmitting: true });
     try {
       let data = { id: target.id, comment: comment };
-      if (action === 'approve' && this.data.nextApproverHrId) data.nextApproverHrId = this.data.nextApproverHrId;
+      if (action === 'approve' && this.data.nextApproverAssignmentId) data.nextApproverAssignmentId = this.data.nextApproverAssignmentId;
       let res = await callFunction({ name: endpoint, data: data });
       if (res.status === 'success') {
         showShortToast(res.message || (localeCopy.copy_f658e7b4d0 + actionLabel));
@@ -1961,6 +2009,11 @@ Page({
         that._emitVenueChanged(action, targetId);
 
         setTimeout(function() { that.loadPendingData(); }, 2000);
+      } else if (res.status === 'forbidden') {
+        showWorkContextModal({
+          content: res.message || localeCopy.requiredContextGeneric,
+          onConfirm: this.goWorkContextSwitch.bind(this)
+        });
       } else {
         showShortToast(res.message || localeCopy.copy_0531ed9e78);
       }

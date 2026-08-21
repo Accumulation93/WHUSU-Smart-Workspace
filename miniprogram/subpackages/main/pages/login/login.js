@@ -119,6 +119,7 @@ Page({
           devicePlatform: device.platform,
           deviceModel: device.model,
           preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
+          preferredContextId: wx.getStorageSync('lastContextId') || '',
           preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
         }
       });
@@ -193,6 +194,7 @@ Page({
               devicePlatform: device.platform,
               deviceModel: device.model,
               preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
+              preferredContextId: wx.getStorageSync('lastContextId') || '',
               preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
             }
           });

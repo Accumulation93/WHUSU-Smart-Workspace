@@ -62,13 +62,17 @@ function evaluateVenueApprovalStep({ booking, actor, steps, applicantHrInfo }) {
   if (!actor || actor.type !== 'user') {
     return { ok: false, reason: REASONS.USER_ROLE_REQUIRED, step };
   }
-  if (!actor.profile || safeString(actor.profile.id) !== safeString(actor.id)) {
+  const actorAssignment = actor.assignment || actor.profile;
+  const actorAssignmentId = safeString(actor.assignmentId);
+  if (!actorAssignmentId
+    || !actorAssignment
+    || safeString(actorAssignment.assignment_id || actorAssignment.assignmentId) !== actorAssignmentId) {
     return { ok: false, reason: REASONS.INVALID_HR, step };
   }
   if (!Array.isArray(step.rules) || !step.rules.length) {
     return { ok: false, reason: REASONS.NO_RULES, step };
   }
-  if (!matchesAnyRule(step.rules, actor.profile, applicantHrInfo || null)) {
+  if (!matchesAnyRule(step.rules, actorAssignment, applicantHrInfo || null)) {
     return { ok: false, reason: REASONS.RULE_MISMATCH, step };
   }
 

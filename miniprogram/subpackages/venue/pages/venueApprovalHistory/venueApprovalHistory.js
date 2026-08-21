@@ -2,6 +2,7 @@ const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venu
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { formatAssignmentLabel } = require('../../utils/workContextPresentation');
 
 const STATUS_LABELS = {
   pending: localeCopy.copy_8f73640107,
@@ -29,16 +30,16 @@ Page({
     const profiles = wx.getStorageSync('roleProfiles') || {};
     const profile = profiles[role] || {};
     const organizationName = wx.getStorageSync('activeOrgName') || localeCopy.copy_2b8b8bf904;
-    const identityName = profile.identityName || profile.identity || localeCopy.copy_5825b0b531;
+    const workContextName = profile.assignmentLabel || localeCopy.copy_5825b0b531;
     if (organizationState.changed) {
       orgSession.invalidateRequests(this);
       this.setData({
         history: [],
         loading: false,
-        currentContextText: organizationName + ' · ' + identityName
+        currentContextText: organizationName + ' · ' + workContextName
       });
     } else {
-      this.setData({ currentContextText: organizationName + ' · ' + identityName });
+      this.setData({ currentContextText: organizationName + ' · ' + workContextName });
     }
     this.loadData();
   },
@@ -58,7 +59,11 @@ Page({
           const displayStatus = item.displayStatus || item.status || '';
           return Object.assign({}, item, {
             _statusLabel: STATUS_LABELS[displayStatus] || displayStatus,
-            _statusClass: displayStatus
+            _statusClass: displayStatus,
+            _applicantAssignmentText: formatAssignmentLabel({
+              assignmentId: item.applicantAssignmentId,
+              assignmentLabel: item.applicantAssignmentLabel
+            }, '')
           });
         });
         this.setData({ history: history });

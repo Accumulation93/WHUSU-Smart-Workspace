@@ -3,6 +3,7 @@ const { format: localeFormat } = require('../../../../../locales/runtime');
 // Behavior: hrInfo tab — auto-extracted from admin.js
 // Zero functional changes. All methods preserved exactly.
 const utils = require('./adminUtils');
+const personnelViewModel = require('./personnelViewModel');
 const { PROFILE_EDIT_MODE_OPTIONS, PROFILE_FIELD_TYPE_OPTIONS, NUMBER_RULE_OPTIONS, emptyHrForm, emptyHrProfileTemplateForm, emptyHrProfileFilters, createEmptyProfileField, normalizeHrProfileFieldForForm, applyHrProfileFilters, buildCsvColumnMapping, refreshCsvMappingOptions, showShortToast, buildHrProfileFilterOptions, validateProfileField, buildFieldHint } = utils;
 const { chooseTableFile, buildCsv, saveAndShareFile } = require('../../../../../utils/tableFile');
 const orgSession = require('../../../../../utils/orgSession');
@@ -34,7 +35,8 @@ function toHrProfileListRow(item) {
     canIssueRecovery: Boolean(item.canIssueRecovery),
     canRevokeRecovery: Boolean(item.canRevokeRecovery),
     canUnbindWechat: Boolean(item.canUnbindWechat),
-    canSelectForAuth: Boolean(item.canSelectForAuth)
+    canSelectForAuth: Boolean(item.canSelectForAuth),
+    hasAssignments: Number(item.assignmentCount || 0) > 0
   };
 }
 
@@ -66,9 +68,8 @@ module.exports = Behavior({
         const result = await this.callCloud('batchMaintainFromHrInfo');
         
         if (result.status !== 'success') {
-          console.error(localeCopy.copy_c76384305a, result.message);
           wx.showToast({
-            title: result.message || localeCopy.copy_0531ed9e78,
+            title: result.message || localeCopy.integrityCheckFailed,
             icon: 'none'
           });
           return;
@@ -79,22 +80,63 @@ module.exports = Behavior({
         await this.loadIdentityList();
         this.updateHrFormOptions();
         
-        const stats = result.stats || {};
-        const changedCount = ['departmentsCreated', 'identitiesCreated', 'workGroupsCreated']
-          .reduce((sum, key) => sum + Number(stats[key] || 0), 0);
         wx.showToast({
-          title: changedCount ? localeFormat(localeCopy.copy_5fbd09dc2e, [changedCount]) : localeCopy.copy_b702b25b77,
+          title: localeCopy.integrityCheckCompleted,
           icon: 'success'
         });
       } catch (error) {
-        console.error(localeCopy.copy_c76384305a, error);
         wx.showToast({
-          title: localeCopy.copy_0531ed9e78,
+          title: localeCopy.integrityCheckFailed,
           icon: 'none'
         });
       } finally {
         this.setLoading('batchMaintain', false);
       }
+    },
+
+    async loadFormerHrMembers() {
+      if (!this.data.canManageHrPeople || this.data.loadingFormerHrMembers) return;
+      this.setData({ loadingFormerHrMembers: true });
+      try {
+        const result = await this.callCloud('listFormerHrMembers', {
+          organizationId: this.data.currentOrganizationId || wx.getStorageSync('activeOrgId') || ''
+        });
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: result && result.message || localeCopy.formerMembersLoadFailed, icon: 'none' });
+          return;
+        }
+        this.setData({ formerHrMembers: result.list || [] });
+      } catch (error) {
+        wx.showToast({ title: localeCopy.formerMembersLoadFailed, icon: 'none' });
+      } finally {
+        this.setData({ loadingFormerHrMembers: false });
+      }
+    },
+
+    async reactivateHrMembership(e) {
+      const hrId = String(e.currentTarget.dataset.hrId || '');
+      if (!hrId || !this.data.canManageHrPeople) return;
+      this.setData({ reactivatingHrId: hrId });
+      try {
+        const result = await this.callCloud('reactivateHrMembership', {
+          hrId,
+          organizationId: this.data.currentOrganizationId || wx.getStorageSync('activeOrgId') || ''
+        });
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: result && result.message || localeCopy.membershipReactivateFailed, icon: 'none' });
+          return;
+        }
+        await Promise.all([this.loadFormerHrMembers(), this.loadHrList(), this.loadHrProfileAdminData()]);
+        wx.showToast({ title: localeCopy.membershipReactivated, icon: 'success' });
+      } catch (error) {
+        wx.showToast({ title: localeCopy.membershipReactivateFailed, icon: 'none' });
+      } finally {
+        this.setData({ reactivatingHrId: '' });
+      }
+    },
+
+    checkHrDictionaryIntegrity() {
+      return this.batchMaintainFromHrInfo();
     },
 
     async loadHrProfileAdminData() {
@@ -103,7 +145,7 @@ module.exports = Behavior({
       try {
         // 账号治理信息是成员资料的增强数据，不能因其暂时不可用而清空整个人事目录。
         // 两个请求仍并行发起，但分别结算，避免认证服务故障被误报为“模板加载失败”。
-        const governanceLoad = this.data.canVerifyIdentity || this.data.canRecoverAccounts
+        const governanceLoad = this.data.canVerifyIdentity || this.data.canRecoverAccounts || this.data.canGlobalAccountManage
           ? this.loadHrGovernanceRows().then((value) => ({ ok: true, value }), (error) => ({ ok: false, error }))
           : Promise.resolve({ ok: true, value: new Map() });
         const result = await this.callCloud('listHrProfileAdminData');
@@ -782,7 +824,7 @@ module.exports = Behavior({
         detailHrGovernance: governance,
         loadingDetailHr: true
       });
-      if (this.data.canRecoverAccounts && governance && governance.personId && governance.accountId) {
+      if (this.data.canGlobalAccountManage && governance && governance.personId && governance.accountId) {
         this.loadDetailHrSecurity(governance.personId);
       } else {
         this.setData({ detailHrSecurity: null });
@@ -825,11 +867,18 @@ module.exports = Behavior({
               })
             : []
         } : null;
+        const pendingValues = result.pendingValues || {};
         this.setData({
           detailHrProfile: profile,
           detailHrTemplate,
           detailHrValues: vals,
-          detailHrPendingValues: result.pendingValues || {},
+          detailHrPendingValues: pendingValues,
+          detailHrComparisonRows: personnelViewModel.buildProfileComparisonRows(
+            detailHrTemplate && detailHrTemplate.fields || [],
+            vals,
+            pendingValues,
+            this.data.localeCopy.hrProfileNoValue
+          ),
           detailHrAuditStatus: result.auditStatus || 'none',
           detailHrAuditStatusText: result.auditStatusText || localeCopy.copy_67f2697101,
           detailHrRejectionReason: result.rejectionReason || '',
@@ -853,7 +902,10 @@ module.exports = Behavior({
           return;
         }
         this.setData({
-          personIdentityOrganizations: result.organizations || [],
+          personIdentityOrganizations: personnelViewModel.normalizeAssignments(
+            result.organizations || [],
+            this.data.localeCopy.hrNoPosition
+          ),
           globalAdminIdentities: result.globalAdminIdentities || [],
           identityManagementOrganizationId: result.managementOrganizationId || '',
           canAddGlobalSuperAdmin: result.canAddGlobalSuperAdmin === true
@@ -878,7 +930,6 @@ module.exports = Behavior({
           id: '',
           assignmentKind: 'staff',
           assignmentKindIndex: 0,
-          title: '',
           departmentId: '',
           department: '',
           identityId: '',
@@ -914,6 +965,8 @@ module.exports = Behavior({
         membershipAssignmentFormVisible: true,
         membershipAssignmentForm: {
           ...item,
+          identityId: item.identityCategoryId || item.identityId || '',
+          identity: item.identityCategoryName || item.identity || '',
           organizationId: organization.organizationId,
           hrId: organization.hrId,
           assignmentKindIndex: Math.max(0, (this.data.assignmentKindValues || []).indexOf(item.assignmentKind))
@@ -1007,7 +1060,11 @@ module.exports = Behavior({
       this.setLoading('saveMembershipAssignment', true);
       try {
         const result = await this.callCloud('saveMembershipAssignment', {
-          ...form,
+          id: form.id || '',
+          assignmentKind: form.assignmentKind || 'staff',
+          departmentId: form.departmentId,
+          identityId: form.identityId,
+          workGroupId: form.workGroupId || '',
           hrId: form.hrId || this.data.detailHrId,
           organizationId: form.organizationId
         });
@@ -1163,16 +1220,26 @@ module.exports = Behavior({
         membershipAssignmentForm: {},
         assignmentDepartmentOptions: [],
         assignmentIdentityOptions: [],
-        detailScrollTarget: ''
+        detailScrollTarget: '',
+        detailHrComparisonRows: [],
+        profileRejectVisible: false,
+        profileRejectStudentId: '',
+        profileRejectReason: '',
+        personCorrectionVisible: false,
+        personCorrectionPreview: null,
+        personCorrectionConfirmed: false,
+        personCorrectionProfileValues: {}
       });
     },
 
     onDetailBasicFieldInput(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const field = String(e.currentTarget.dataset.field || '');
       this.setData({ ['detailHrValues.' + field]: e.detail.value });
     },
 
     onDetailProfileFieldInput(e) {
+      if (!this.data.canManageHrPeople) return;
       const field = String(e.currentTarget.dataset.field || '');
       let value = e.detail.value;
   
@@ -1199,6 +1266,7 @@ module.exports = Behavior({
     },
 
     async saveHrPersonDetail() {
+      if (!this.data.canManageHrPeople) return;
       const vals = this.data.detailHrValues || {};
       const hrId = this.data.detailHrId;
       if (!hrId) return;
@@ -1230,11 +1298,54 @@ module.exports = Behavior({
         }
       }
   
+      if (personnelViewModel.hasBasicIdentityChange(this.data.detailHrProfile, vals)) {
+        if (!this.data.canGlobalAccountManage) return;
+        this.setData({ savingDetailHr: true });
+        try {
+          const previewResult = await this.callCloud('previewPersonIdentityCorrection', {
+            hrId,
+            organizationId: this.data.currentOrganizationId || wx.getStorageSync('activeOrgId') || '',
+            name,
+            studentId
+          });
+          if (!previewResult || previewResult.status !== 'success' || !previewResult.preview) {
+            wx.showToast({
+              title: previewResult && previewResult.message || localeCopy.personCorrectionPreviewFailed,
+              icon: 'none'
+            });
+            return;
+          }
+          this.setData({
+            personCorrectionVisible: true,
+            personCorrectionPreview: personnelViewModel.decorateCorrectionPreview(previewResult.preview, {
+              active: this.data.localeCopy.hrMembershipActive,
+              left: this.data.localeCopy.hrMembershipLeft,
+              merged: this.data.localeCopy.hrMembershipMerged,
+              account: {
+                verified: this.data.localeCopy.hrAccountVerified,
+                frozen: this.data.localeCopy.hrAccountFrozen,
+                recovery_required: this.data.localeCopy.hrAccountRecoveryRequired,
+                unbound: this.data.localeCopy.hrAccountUnbound
+              }
+            }),
+            personCorrectionConfirmed: false,
+            personCorrectionProfileValues: profileValues
+          });
+        } catch (error) {
+          wx.showToast({ title: localeCopy.personCorrectionPreviewFailed, icon: 'none' });
+        } finally {
+          this.setData({ savingDetailHr: false });
+        }
+        return;
+      }
+
+      await this._saveHrPersonProfile({ hrId, name, studentId, profileValues });
+    },
+
+    async _saveHrPersonProfile(payload) {
       this.setData({ savingDetailHr: true });
       try {
-        const result = await this.callCloud('saveHrPersonFull', {
-          hrId, name, studentId, profileValues
-        });
+        const result = await this.callCloud('saveHrPersonFull', payload);
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_215e3c57da, icon: 'none' });
           return;
@@ -1250,7 +1361,106 @@ module.exports = Behavior({
       }
     },
 
+    async _saveCorrectionProfileBeforeMerge(preview) {
+      const profileValues = this.data.personCorrectionProfileValues || {};
+      if (!Object.keys(profileValues).length) return true;
+      const current = preview && preview.current || {};
+      const profile = this.data.detailHrProfile || {};
+      try {
+        const result = await this.callCloud('saveHrPersonFull', {
+          hrId: this.data.detailHrId,
+          name: current.name || profile.name || '',
+          studentId: current.studentId || profile.studentId || '',
+          profileValues
+        });
+        if (!result || result.status !== 'success') {
+          wx.showToast({ title: result && result.message || localeCopy.copy_215e3c57da, icon: 'none' });
+          return false;
+        }
+        return true;
+      } catch (error) {
+        wx.showToast({ title: localeCopy.copy_215e3c57da, icon: 'none' });
+        return false;
+      }
+    },
+
+    closePersonCorrection() {
+      if (this.data.savingDetailHr) return;
+      this.setData({
+        personCorrectionVisible: false,
+        personCorrectionPreview: null,
+        personCorrectionConfirmed: false,
+        personCorrectionProfileValues: {}
+      });
+    },
+
+    onPersonCorrectionConfirmChange(e) {
+      this.setData({ personCorrectionConfirmed: Array.isArray(e.detail.value) && e.detail.value.length > 0 });
+    },
+
+    async confirmPersonCorrection() {
+      const preview = this.data.personCorrectionPreview;
+      if (!preview || !this.data.personCorrectionConfirmed || this.data.savingDetailHr) {
+        if (!this.data.personCorrectionConfirmed) {
+          wx.showToast({ title: this.data.localeCopy.hrCorrectionConfirmRequired, icon: 'none' });
+        }
+        return;
+      }
+      this.setData({ savingDetailHr: true });
+      try {
+        const organizationId = this.data.currentOrganizationId || wx.getStorageSync('activeOrgId') || '';
+        if (preview.mergeRequired) {
+          const profileSaved = await this._saveCorrectionProfileBeforeMerge(preview);
+          if (!profileSaved) return;
+          const mergeResult = await this.callCloud('mergePersons', {
+            sourcePersonId: preview.personId,
+            targetPersonId: preview.conflictPerson && preview.conflictPerson.personId,
+            sourceVersion: preview.version,
+            targetVersion: preview.conflictPerson && preview.conflictPerson.version,
+            organizationId,
+            confirmed: true
+          });
+          if (!mergeResult || mergeResult.status !== 'success') {
+            wx.showToast({ title: mergeResult && mergeResult.message || localeCopy.personMergeFailed, icon: 'none' });
+            return;
+          }
+          this.closePersonCorrection();
+          this.closeHrPersonDetail();
+          await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
+          wx.showToast({ title: this.data.localeCopy.hrCorrectionMerged, icon: 'success' });
+          return;
+        }
+        const correctionResult = await this.callCloud('applyPersonIdentityCorrection', {
+          hrId: this.data.detailHrId,
+          organizationId,
+          name: preview.proposed && preview.proposed.name,
+          studentId: preview.proposed && preview.proposed.studentId,
+          version: preview.version
+        });
+        if (!correctionResult || correctionResult.status !== 'success') {
+          wx.showToast({ title: correctionResult && correctionResult.message || localeCopy.personCorrectionApplyFailed, icon: 'none' });
+          return;
+        }
+        const profileValues = this.data.personCorrectionProfileValues || {};
+        this.setData({ personCorrectionVisible: false, personCorrectionPreview: null, personCorrectionConfirmed: false });
+        await this._saveHrPersonProfile({
+          hrId: this.data.detailHrId,
+          name: preview.proposed.name,
+          studentId: preview.proposed.studentId,
+          profileValues
+        });
+      } catch (error) {
+        wx.showToast({
+          title: preview.mergeRequired ? localeCopy.personMergeFailed : localeCopy.personCorrectionApplyFailed,
+          icon: 'none'
+        });
+      } finally {
+        this.setData({ savingDetailHr: false });
+      }
+    },
+
     async approveDetailHrProfile() {
+      if (!this.data.canReviewHrProfile) return;
       const profile = this.data.detailHrProfile || {};
       const studentId = profile.studentId || '';
       if (!studentId) return;
@@ -1268,21 +1478,54 @@ module.exports = Behavior({
       }
     },
 
-    async rejectDetailHrProfile() {
+    rejectDetailHrProfile() {
       const profile = this.data.detailHrProfile || {};
       const studentId = profile.studentId || '';
       if (!studentId) return;
+      this.openProfileRejectDialog(studentId);
+    },
+
+    openProfileRejectDialog(studentId) {
+      if (!this.data.canReviewHrProfile) return;
+      this.setData({
+        profileRejectVisible: true,
+        profileRejectStudentId: String(studentId || '').trim(),
+        profileRejectReason: ''
+      });
+    },
+
+    closeProfileRejectDialog() {
+      if (this.data.loadingMap.reviewHrProfile) return;
+      this.setData({ profileRejectVisible: false, profileRejectStudentId: '', profileRejectReason: '' });
+    },
+
+    onProfileRejectReasonInput(e) {
+      this.setData({ profileRejectReason: e.detail.value });
+    },
+
+    async confirmProfileRejection() {
+      if (!this.data.canReviewHrProfile) return;
+      const studentId = String(this.data.profileRejectStudentId || '').trim();
+      const reason = String(this.data.profileRejectReason || '').trim();
+      if (!studentId || !reason) {
+        wx.showToast({ title: localeCopy.rejectionReasonRequired, icon: 'none' });
+        return;
+      }
+      this.setLoading('reviewHrProfile', true);
       try {
-        const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'reject' });
+        const result = await this.callCloud('reviewHrProfileChange', { studentId, action: 'reject', reason });
         if (result.status !== 'success') {
           wx.showToast({ title: result.message || localeCopy.copy_0531ed9e78, icon: 'none' });
           return;
         }
         wx.showToast({ title: localeCopy.copy_5d5af942c5, icon: 'success' });
-        this.closeHrPersonDetail();
-        this.loadHrProfileAdminData();
+        this.setData({ profileRejectVisible: false, profileRejectStudentId: '', profileRejectReason: '' });
+        if (this.data.showHrPersonDetail) this.closeHrPersonDetail();
+        await this.loadHrProfileAdminData();
       } catch (err) {
         wx.showToast({ title: localeCopy.copy_0531ed9e78, icon: 'none' });
+      } finally {
+        this.setLoading('reviewHrProfile', false);
       }
     },
 
@@ -1578,43 +1821,7 @@ module.exports = Behavior({
 
     rejectHrProfileChange(e) {
       const studentId = String(e.currentTarget.dataset.studentId || '').trim();
-      if (!studentId) {
-        return;
-      }
-  
-      wx.showModal({
-        title: localeCopy.copy_af444f2b01,
-        content: localeCopy.copy_0f62b98983,
-        success: async (res) => {
-          if (!res.confirm) {
-            return;
-          }
-  
-          try {
-            const result = await this.callCloud('reviewHrProfileChange', {
-              studentId,
-              action: 'reject'
-            });
-            if (result.status !== 'success') {
-              wx.showToast({
-                title: result.message || localeCopy.copy_6dbd8065fb,
-                icon: 'none'
-              });
-              return;
-            }
-            await this.loadHrProfileAdminData();
-            wx.showToast({
-              title: localeCopy.copy_4f261c7609,
-              icon: 'success'
-            });
-          } catch (error) {
-            wx.showToast({
-              title: localeCopy.copy_6dbd8065fb,
-              icon: 'none'
-            });
-          }
-        }
-      });
+      if (studentId) this.openProfileRejectDialog(studentId);
     },
 
     onHrFieldInput(e) {
@@ -1685,18 +1892,22 @@ module.exports = Behavior({
     deleteHr(e) {
       const { id } = e.currentTarget.dataset;
       wx.showModal({
-        title: localeCopy.copy_99f5426801,
-        content: localeCopy.copy_393f20aba2,
+        title: localeCopy.leaveOrganizationTitle,
+        content: localeCopy.leaveOrganizationMessage,
+        confirmColor: '#ef4444',
         success: async (res) => {
           if (!res.confirm) {
             return;
           }
           try {
-            await this.callCloud('deleteHrInfo', { id });
-            await this.loadHrList();
-            await this.loadHrProfileAdminData(); // refresh unified list
+            const result = await this.callCloud('deleteHrInfo', { id });
+            if (!result || result.status !== 'success') {
+              wx.showToast({ title: result && result.message || localeCopy.copy_076bb5d383, icon: 'none' });
+              return;
+            }
+            await Promise.all([this.loadHrList(), this.loadHrProfileAdminData()]);
             wx.showToast({
-              title: localeCopy.copy_5398fec054,
+              title: localeCopy.membershipLeft,
               icon: 'success'
             });
           } catch (error) {
@@ -1710,6 +1921,7 @@ module.exports = Behavior({
     },
 
     async unbindHrWechat(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const hrId = String(e.currentTarget.dataset.hrId || '');
       if (!hrId) return;
       const row = this.getHrGovernanceRow(hrId);

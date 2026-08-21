@@ -75,16 +75,22 @@ assert(routeSource.includes('hasHistoricalApprovalEvent')
   '审批历史打开详情必须允许实际处理过审批事件的操作者查看');
 
 // A first-step override must narrow only step 1; later steps keep their own rules.
-const overrides = [{ stepIndex: 1, personHrIds: ['hr-first'] }];
+const overrides = [{ stepIndex: 1, personHrIds: ['hr-first'], assignmentIds: ['assignment-first'] }];
 const stepConditions = [
-  [{ conditionType: 'person', personHrIds: 'hr-first' }],
+  [{ conditionType: 'person', personHrIds: 'hr-first', assignmentIds: 'assignment-first' }],
   [{ conditionType: 'identity_scope', departmentScope: 'all', workGroupScope: 'all', identityScope: 'specific', specificIdentityId: 'identity-next' }]
 ];
 for (let i = 0; i < stepConditions.length; i += 1) {
   const override = overrides.find((item) => Number(item.stepIndex) === i + 1);
-  if (override) stepConditions[i] = override.personHrIds.map((id) => ({ conditionType: 'person', personHrIds: id }));
+  if (override) stepConditions[i] = [{
+    conditionType: 'person',
+    personHrIds: override.personHrIds.join(','),
+    assignmentIds: override.assignmentIds.join(',')
+  }];
 }
-assert.deepStrictEqual(stepConditions[0], [{ conditionType: 'person', personHrIds: 'hr-first' }]);
+assert.deepStrictEqual(stepConditions[0], [{
+  conditionType: 'person', personHrIds: 'hr-first', assignmentIds: 'assignment-first'
+}]);
 assert.deepStrictEqual(stepConditions[1], [{
   conditionType: 'identity_scope', departmentScope: 'all', workGroupScope: 'all',
   identityScope: 'specific', specificIdentityId: 'identity-next'
@@ -94,6 +100,13 @@ assert(behaviorSource.includes("_auditConditionTarget: 'step'"),
   '打开步骤条件编辑器必须明确写入步骤表单，不能沿用发起条件表单');
 assert(behaviorSource.includes('auditMultiPickerSelectedCount: Object.keys(selectedIds).length'),
   '选择器打开时必须同步已选数量');
+assert(behaviorSource.includes("cond.assignmentIds = c.assignmentIds")
+  && behaviorSource.includes('_auditAssignmentOptions()')
+  && behaviorSource.includes("updateObj[formPrefix + '.assignmentIds']"),
+  '模板指定人员必须按具体岗位选择并同时提交人员与岗位 ID');
+assert(adminWxmlSource.includes('auditStepConditionForm.assignmentNames')
+  && adminWxmlSource.includes('auditStarterConditionForm.assignmentNames'),
+  '步骤与发起条件编辑器必须显示具体岗位，而不是只显示人员姓名');
 assert(adminRouteSource.includes("const orgId = await getCurrentOrgId();")
   && /message:\s*['"]请先选择组织['"]/.test(adminRouteSource),
   '保存审批流程前必须校验当前组织');

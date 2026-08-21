@@ -308,6 +308,10 @@ async function run() {
     assert.strictEqual(assignments.some((item) => Object.prototype.hasOwnProperty.call(item, 'is_primary')), false);
     const summaries = await identityModel.listMembershipAssignmentSummaries(['hr-a1'], 'org-a');
     assert.strictEqual(summaries.get('hr-a1').count, 2);
+    assert.strictEqual(summaries.get('hr-a1').assignments.length, 2);
+    assert(summaries.get('hr-a1').assignments.every((item) => (
+      item.assignmentId && item.assignmentLabel && item.identityCategoryId
+    )));
     await identityModel.revokeMembershipAssignment({
       id: assignments[0].id,
       organizationId: 'org-a'

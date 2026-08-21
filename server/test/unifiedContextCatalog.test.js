@@ -30,6 +30,9 @@ const contexts = [
     organizationId: 'org-a',
     organizationName: '组织甲',
     role: 'user',
+    assignmentId: 'assignment-a',
+    assignmentNature: 'staff',
+    identityCategoryId: 'identity-a',
     department: '主席团',
     identity: '主席团成员',
     workGroup: ''
@@ -43,6 +46,9 @@ const contexts = [
     organizationId: 'org-b',
     organizationName: '组织乙',
     role: 'user',
+    assignmentId: 'assignment-b',
+    assignmentNature: 'liaison',
+    identityCategoryId: 'identity-b',
     department: '办公室',
     identity: '学院对接人员',
     workGroup: ''
@@ -85,11 +91,16 @@ const contexts = [
 const catalog = unifiedAuth.buildContextCatalog(contexts, contexts[4]);
 assert.strictEqual(catalog.organizations.length, 2);
 assert.strictEqual(catalog.identities.length, 4);
+assert.strictEqual(catalog.workContexts.length, 5);
 assert.deepStrictEqual(catalog.selection, {
   organizationId: 'org-b',
-  identityId: 'idn-super',
-  contextId: 'ctx-super-b'
+  contextId: 'ctx-super-b',
+  assignmentId: '',
+  identityCategoryId: '',
+  identityId: 'idn-super'
 });
+assert.strictEqual(catalog.workContexts.find((item) => item.contextId === 'ctx-super-b').isCurrent, true);
+assert.strictEqual(catalog.workContexts.find((item) => item.contextId === 'ctx-assignment-a').assignmentId, 'assignment-a');
 
 const globalIdentities = catalog.identities.filter((item) => item.scope === 'global');
 assert.strictEqual(globalIdentities.length, 1);

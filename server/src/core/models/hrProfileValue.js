@@ -10,18 +10,26 @@ async function getByRecordId(recordId) {
   return rows;
 }
 
-async function getByRecordIdAndPending(recordId, isPending = 0) {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT * FROM hr_profile_record_values WHERE record_id = ? AND is_pending = ? AND org_id = ? ORDER BY field_id',
+async function getByRecordIdAndPending(
+  recordId,
+  isPending = 0,
+  connection = pool,
+  organizationId = '',
+  lock = false
+) {
+  const orgId = organizationId || await getCurrentOrgId();
+  const [rows] = await connection.query(
+    `SELECT * FROM hr_profile_record_values
+      WHERE record_id = ? AND is_pending = ? AND org_id = ?
+      ORDER BY field_id${lock ? ' FOR UPDATE' : ''}`,
     [recordId, isPending ? 1 : 0, orgId]
   );
   return rows;
 }
 
-async function create(id, recordId, isPending, fieldId, fieldValue) {
-  const orgId = await getCurrentOrgId();
-  await pool.query(
+async function create(id, recordId, isPending, fieldId, fieldValue, connection = pool, organizationId = '') {
+  const orgId = organizationId || await getCurrentOrgId();
+  await connection.query(
     `INSERT INTO hr_profile_record_values (id, record_id, is_pending, field_id, field_value, org_id)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [id, recordId, isPending ? 1 : 0, fieldId, fieldValue == null ? '' : String(fieldValue), orgId]
@@ -41,11 +49,11 @@ async function removeByRecordIdAndPending(recordId, isPending) {
   );
 }
 
-async function removeByRecordIdAndPendingFields(recordId, isPending, fieldIds) {
+async function removeByRecordIdAndPendingFields(recordId, isPending, fieldIds, connection = pool, organizationId = '') {
   if (!fieldIds.length) return;
-  const orgId = await getCurrentOrgId();
+  const orgId = organizationId || await getCurrentOrgId();
   const placeholders = fieldIds.map(() => '?').join(',');
-  await pool.query(
+  await connection.query(
     `DELETE FROM hr_profile_record_values
       WHERE record_id = ? AND is_pending = ? AND org_id = ? AND field_id IN (${placeholders})`,
     [recordId, isPending ? 1 : 0, orgId, ...fieldIds]

@@ -149,6 +149,9 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
 
   // Build lookup maps
   const hrById = new Map(hrRows.map(h => [safeString(h.id), h]));
+  const resolveRecordParticipantId = typeof participantService.createRecordParticipantResolver === 'function'
+    ? participantService.createRecordParticipantResolver(hrRows)
+    : (record, side) => participantService.participantRecordId(record, side, granularity);
   const samePerson = function (leftId, rightId) {
     return participantService.isSameNaturalPerson(hrById.get(leftId), hrById.get(rightId));
   };
@@ -313,14 +316,18 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
           // O(targets): per-target count = N_scorers_in_WG (minus self if applicable)
           wgTargetIds.forEach(function (tid) {
             let cnt = scorerN;
-            if (!allowSelf && wgScorerIds.some(function (sid) { return samePerson(sid, tid); })) cnt--;
+            if (!allowSelf) {
+              cnt -= wgScorerIds.filter(function (sid) { return samePerson(sid, tid); }).length;
+            }
             expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
           });
 
           // O(scorers): per-scorer count = N_targets_in_WG (minus self if applicable)
           wgScorerIds.forEach(function (sid) {
             let cnt = targetN;
-            if (!allowSelf && wgTargetIds.some(function (tid) { return samePerson(sid, tid); })) cnt--;
+            if (!allowSelf) {
+              cnt -= wgTargetIds.filter(function (tid) { return samePerson(sid, tid); }).length;
+            }
             scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
           });
         });
@@ -359,14 +366,18 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
       // O(targets): per-target count = N_scorers (minus self if applicable)
       targetIds.forEach(function (tid) {
         let cnt = scorerN;
-        if (!allowSelf && scorerIds.some(function (sid) { return samePerson(sid, tid); })) cnt--;
+        if (!allowSelf) {
+          cnt -= scorerIds.filter(function (sid) { return samePerson(sid, tid); }).length;
+        }
         expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
       });
 
       // O(scorers): per-scorer count = N_targets (minus self if applicable)
       scorerIds.forEach(function (sid) {
         let cnt = targetN;
-        if (!allowSelf && targetIds.some(function (tid) { return samePerson(sid, tid); })) cnt--;
+        if (!allowSelf) {
+          cnt -= targetIds.filter(function (tid) { return samePerson(sid, tid); }).length;
+        }
         scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
       });
     });
@@ -413,14 +424,14 @@ async function computeValidScoreMap(activityId, orgId, options = {}) {
   // First pass: validate and collect
   for (const record of recordRows) {
     diag_total++;
-    const targetId = participantService.participantRecordId(record, 'target', granularity);
-    const scorerParticipantId = participantService.participantRecordId(record, 'scorer', granularity);
+    const targetId = resolveRecordParticipantId(record, 'target');
+    const scorerParticipantId = resolveRecordParticipantId(record, 'scorer');
     const ruleId = safeString(record.rule_id);
 
     // Optionally filter by visible targets (user view)
     if (visibleTargetIds && !visibleTargetIds.has(targetId)) { diag_skipped_visible++; continue; }
 
-    // (a) Scorer's CURRENT hr_info must exist
+    // (a) 评分记录必须仍能对应当前组织中的有效岗位
     const scorerHr = hrById.get(scorerParticipantId);
     if (!scorerHr) { diag_skipped_noHr++; continue; } // scorer no longer exists — exclude record
 

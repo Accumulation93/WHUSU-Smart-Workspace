@@ -32,5 +32,6 @@ module.exports = Object.freeze({
   copy_d6c748ac95: '确认撤销',
   copy_e52119b17e: '请稍后刷新',
   copy_f54076411e: '全部工作分工',
-  copy_f6a9d3621a: '请稍后刷新被评分人'
+  copy_f6a9d3621a: '请稍后刷新被评分人',
+  historicalAssignmentUnavailable: '历史岗位未记录'
 });

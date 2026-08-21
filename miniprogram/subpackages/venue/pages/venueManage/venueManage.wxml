@@ -132,6 +132,7 @@
           </view>
           <view class="booking-item-meta">{{item.venueName}}<text wx:if="{{item.venueLocation}}"> · {{item.venueLocation}}</text></view>
           <view class="booking-item-meta">{{item.creatorName || item.userName}} · {{item.creatorLabel || localeCopy.copy_8b191a40d9}}<text wx:if="{{item.userDept}}"> · {{item.userDept}}</text></view>
+          <view class="booking-assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.bookingAssignment}} · {{item._creatorAssignmentText}}</view>
           <view class="booking-item-meta">{{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
           <view class="booking-item-meta" wx:if="{{item.description}}">{{item.description}}</view>
           <view class="booking-item-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>
@@ -633,6 +634,7 @@
         <view class="detail-row" wx:if="{{bookingDetail.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{bookingDetail.venueName}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{bookingDetail.orgName}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.userName}}"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><text class="detail-val">{{bookingDetail.userName}}</text></view>
+        <view class="detail-row" wx:if="{{bookingDetail._creatorAssignmentText}}"><text class="detail-key">{{localeCopy.bookingAssignment}}</text><text class="detail-val"><text class="booking-assignment-chip">{{bookingDetail._creatorAssignmentText}}</text></text></view>
         <view class="detail-row" wx:if="{{bookingDetail.userDept}}"><text class="detail-key">{{localeCopy.copy_02419589be}}</text><text class="detail-val">{{bookingDetail.userDept}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.userIdentity}}"><text class="detail-key">{{localeCopy.copy_c1965e0690}}</text><text class="detail-val">{{bookingDetail.userIdentity}}</text></view>
         <view class="detail-row" wx:if="{{bookingDetail.timeStart}}"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{bookingDetail.timeStart}} {{localeCopy.copy_e8d9493a44}} {{bookingDetail.timeEnd}}</text></view>
@@ -659,6 +661,7 @@
                 <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
                 <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
                   <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                  <view wx:if="{{node.approverAssignmentText}}" class="flow-detail-processed-meta"><text class="flow-detail-label">{{localeCopy.approverAssignment}}</text>{{node.approverAssignmentText}}</view>
                   <view wx:if="{{node.approvedAt}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAt}}</view>
                   <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
                 </view>
@@ -827,6 +830,7 @@
             <view class="detail-row"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{approvalPopupTarget.venueName}}</text></view>
             <view class="detail-row" wx:if="{{approvalPopupTarget.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{approvalPopupTarget.orgName}}</text></view>
             <view class="detail-row"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><text class="detail-val">{{approvalPopupTarget.userName}}<text wx:if="{{approvalPopupTarget.userDept}}"> · {{approvalPopupTarget.userDept}}</text></text></view>
+            <view class="detail-row" wx:if="{{approvalPopupTarget._creatorAssignmentText}}"><text class="detail-key">{{localeCopy.bookingAssignment}}</text><text class="detail-val"><text class="booking-assignment-chip">{{approvalPopupTarget._creatorAssignmentText}}</text></text></view>
             <view class="detail-row"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{approvalPopupTarget.timeStart}} — {{approvalPopupTarget.timeEnd}}</text></view>
             <!-- Flow progress bar -->
             <view wx:if="{{approvalPopupTarget.approvalProgress}}" class="audit-flow-summary audit-flow-summary--spaced">
@@ -848,6 +852,7 @@
                     <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
                     <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
                       <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                      <view wx:if="{{node.approverAssignmentText}}" class="flow-detail-processed-meta"><text class="flow-detail-label">{{localeCopy.approverAssignment}}</text>{{node.approverAssignmentText}}</view>
                       <view wx:if="{{node.approvedAt}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAt}}</view>
                       <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
                     </view>

@@ -10,12 +10,17 @@ function testMigrationDiscoveryAndLedger() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'whusu-smart-workspace-migrations-'));
   fs.writeFileSync(path.join(directory, '20260717010101_add_table.sql'), 'CREATE TABLE IF NOT EXISTS demo (id INT);\n');
   fs.writeFileSync(path.join(directory, '20260717010202_drop_table.sql'), 'DROP TABLE IF EXISTS legacy_demo;\n');
+  fs.writeFileSync(
+    path.join(directory, '20260717010303_rewrite_data.sql'),
+    '-- @destructive 需要备份的数据修复\nUPDATE demo SET id = id + 1;\n'
+  );
   const migrations = migrationTools.discoverMigrations(directory);
-  assert.strictEqual(migrations.length, 2);
+  assert.strictEqual(migrations.length, 3);
   assert.strictEqual(migrations[0].destructive, false);
   assert.strictEqual(migrations[1].destructive, true);
+  assert.strictEqual(migrations[2].destructive, true);
   const plan = migrationTools.buildPlan(migrations, new Map([[migrations[0].name, migrations[0].checksum]]));
-  assert.strictEqual(plan.pendingCount, 1);
+  assert.strictEqual(plan.pendingCount, 2);
   assert.strictEqual(plan.destructive, true);
   assert.throws(
     () => migrationTools.buildPlan(migrations, new Map([[migrations[0].name, '0'.repeat(64)]])),

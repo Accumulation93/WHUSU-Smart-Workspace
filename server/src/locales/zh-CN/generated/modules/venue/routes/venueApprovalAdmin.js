@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
+  copy_legacyApproverSelection: "审批人必须按具体岗位重新选择",
   copy_00853d1d28: "请刷新审批流程后重试",
   copy_3458928c55: "请重新选择场地",
   copy_3508043e2a: "请刷新借用记录",

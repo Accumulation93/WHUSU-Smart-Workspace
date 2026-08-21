@@ -16,6 +16,20 @@ async function getDefinitionFields(templateId, connection = pool) {
   return rows;
 }
 
+async function getByIds(fieldIds, organizationId, connection = pool) {
+  const ids = Array.from(new Set((fieldIds || []).filter(Boolean)));
+  if (!ids.length) return [];
+  const [rows] = await connection.query(
+    `SELECT field.*
+       FROM org_hr_profile_template_snapshot_fields field
+       JOIN org_hr_profile_template_snapshots snapshot ON snapshot.id = field.snapshot_id
+      WHERE field.id IN (?) AND snapshot.org_id = ?
+      ORDER BY field.sort_order`,
+    [ids, organizationId]
+  );
+  return rows;
+}
+
 async function create(id, templateId, sortOrder, data, connection = pool) {
   const { label, type, required, minLength, maxLength, numberRule, allowDecimal,
     minDigits, maxDigits, minValue, maxValue, optionsJson } = data;
@@ -34,4 +48,4 @@ async function removeByTemplateId(templateId, connection = pool) {
   await connection.query('DELETE FROM hr_profile_template_fields WHERE template_id = ?', [templateId]);
 }
 
-module.exports = { getByTemplateId, getDefinitionFields, create, removeByTemplateId };
+module.exports = { getByTemplateId, getByIds, getDefinitionFields, create, removeByTemplateId };

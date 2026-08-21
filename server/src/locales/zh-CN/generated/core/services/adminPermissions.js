@@ -58,8 +58,8 @@ module.exports = Object.freeze({
   copy_c809ebc5da: "人员导入",
   copy_cd2429bc0e: "管理结果公示和评优",
   copy_ceffdfcdd7: "场地管理",
-  copy_d2d3397a14: "账号恢复",
-  copy_e5dc008226: "审核他人的微信账号恢复申请",
+  copy_d2d3397a14: "组织账号状态",
+  copy_e5dc008226: "查看当前组织成员的账号状态和本组织登录会话",
   copy_e637e8ebce: "结果导出",
   copy_eb65126cfe: "人事信息",
   copy_ebb6d5ebfb: "查看管理员",
@@ -69,5 +69,5 @@ module.exports = Object.freeze({
   copy_f82fa46dc7: "活动管理",
   copy_fa3f577b48: "管理管理员",
   copy_fac1711a09: "评分问题",
-  copy_fc760da0ff: "管理印章和可使用身份"
+  copy_fc760da0ff: "管理印章和可使用身份类别"
 });

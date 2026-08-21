@@ -77,6 +77,7 @@
             </view>
             <view class="target-meta">{{target.department}}</view>
             <view class="target-meta" wx:if="{{target.workGroup}}">{{target.workGroup}}</view>
+            <view class="target-assignment-chip" wx:if="{{target._showAssignmentChip}}">{{target._assignmentChipText}}</view>
           </view>
         </block>
       </scroll-view>

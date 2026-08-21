@@ -62,6 +62,29 @@ function decorateAccountSessions(sessions) {
   });
 }
 
+function assignmentNatureText(value) {
+  if (value === 'staff') return copy.text.assignmentNatureStaff;
+  if (value === 'liaison') return copy.text.assignmentNatureLiaison;
+  if (value === 'other') return copy.text.assignmentNatureOther;
+  return String(value || '').trim();
+}
+
+function decorateScoringTarget(item) {
+  const target = Object.assign({}, item || {});
+  const label = target.assignmentLabel && typeof target.assignmentLabel === 'object'
+    ? target.assignmentLabel
+    : {};
+  const parts = [
+    assignmentNatureText(label.assignmentNature || target.assignmentNature || target.assignmentKind),
+    label.department || target.department,
+    label.identityCategory || target.identityCategory || target.identity,
+    label.workGroup || target.workGroup
+  ].filter(Boolean);
+  target._showAssignmentChip = Boolean(target.needsAssignmentDisambiguation && target.assignmentId);
+  target._assignmentChipText = target._showAssignmentChip ? parts.join(' · ') : '';
+  return target;
+}
+
 function emptyPublicationState() {
   return {
     publishedResults: [],
@@ -619,7 +642,7 @@ Page({
 
     const currentUser = result.scorer || this.data.user;
 
-    const targets = result.targets || [];
+    const targets = (result.targets || []).map(decorateScoringTarget);
     const groupMap = {};
     let scoredCount = 0;
     for (let i = 0; i < targets.length; i++) {
@@ -1412,17 +1435,18 @@ Page({
       const depts = new Set(hrList.map(hr => hr.department).filter(Boolean));
       const idents = new Set(hrList.map(hr => hr.identity).filter(Boolean));
       const selectedList = hrList.filter(hr => hr.isSelected);
-      const selectedHrIds = [...new Set(selectedList.map(hr => hr.id))];
-      const pubId = this.data.publicationForm ? this.data.publicationForm.id : '';
+      const selectedAssignmentIds = [...new Set(selectedList.map(hr => hr.id))];
+      const pubId = this.data.userDesigPubId
+        || (this.data.publicationForm ? this.data.publicationForm.id : '');
       this.setData({
         showUserDesigPopup: true,
         userDesigClauses: meritClauses,
         userDesigHrList: hrList,
         userDesigFilteredList: hrList,
-        userDesigSelectedIds: selectedHrIds,
+        userDesigSelectedIds: selectedAssignmentIds,
         userDesigSelectedList: selectedList,
         userDesigGroups: desigGroups,
-        userDesigPubId: pubId || (this.data.currentActivity ? this.data.currentActivity.id : ''),
+        userDesigPubId: pubId,
         userDesigFilterDept: copy.text.all,
         userDesigFilterIdent: copy.text.all,
         userDesigFilterDeptOptions: [copy.text.all, ...Array.from(depts).sort((a,b) => a.localeCompare(b, 'zh-CN'))],
@@ -1496,13 +1520,19 @@ Page({
     const clauses = this.data.userDesigClauses || [];
     if (!clauses.length) return;
     const clauseIds = clauses.map(c => c.id);
-    // Dedup: ensure no duplicate HR IDs in the request
-    const uniqueHrIds = [...new Set(this.data.userDesigSelectedIds)];
+    // 评优指定始终提交岗位 ID；旧参数同值保留一轮服务端兼容。
+    const uniqueAssignmentIds = [...new Set(this.data.userDesigSelectedIds)];
     this.setData({ userDesigSaving: true });
     try {
       const res = await new Promise((r, j) => callFunction({
         name: 'submitMeritListDesignations',
-        data: { clauseIds, clauseId: clauseIds[0], publicationId: this.data.userDesigPubId, designationHrIds: uniqueHrIds },
+        data: {
+          clauseIds,
+          clauseId: clauseIds[0],
+          publicationId: this.data.userDesigPubId,
+          designationAssignmentIds: uniqueAssignmentIds,
+          designationHrIds: uniqueAssignmentIds
+        },
         success: (res) => r(res.result || {}), fail: j
       }));
       if (res.status === 'success') {

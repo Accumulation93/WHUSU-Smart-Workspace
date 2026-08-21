@@ -1,6 +1,8 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/pendingApprovals/pendingApprovals');
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const authContext = require('../../../../utils/authContext');
+const workContextView = require('../../utils/workContextView');
 
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
@@ -13,7 +15,9 @@ Page({
     pending: [],
     loading: false,
     lastUpdateTime: '',
-    lastPendingCount: 0
+    lastPendingCount: 0,
+    activeWorkContext: null,
+    hasActiveAssignment: false
   },
 
   _pollTimer: null,
@@ -26,8 +30,14 @@ Page({
       orgSession.invalidateRequests(this);
       this.setData({ pending: [], lastPendingCount: 0, lastUpdateTime: '', loading: false });
     }
-    this.loadData();
-    this.startPolling();
+    this.refreshActiveWorkContext();
+    if (this.data.hasActiveAssignment) {
+      this.loadData();
+      this.startPolling();
+    } else {
+      this.setData({ pending: [], loading: false, lastPendingCount: 0, lastUpdateTime: '' });
+      this.stopPolling();
+    }
   },
 
   onHide() {
@@ -85,20 +95,24 @@ Page({
   },
 
   async loadData() {
+    if (!this.data.hasActiveAssignment) return;
     const request = orgSession.beginRequest(this, 'pendingApprovals');
     this.setData({ loading: true });
     try {
       let res = await callFunction({ name: 'listPendingApprovals', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
-        let pending = res.pending || [];
+        const current = this.data.activeWorkContext || {};
+        let pending = (res.pending || []).map(function(item) {
+          return workContextView.normalizePendingItem(item, current);
+        });
         this.setData({
           pending: pending,
           lastPendingCount: pending.length,
           lastUpdateTime: this._formatTime()
         });
       } else if (res.status === 'forbidden') {
-        showShortToast(res.message || localeCopy.copy_bba7f8b8ba);
+        this.showWorkContextGuide(localeCopy.workContextRequiredDescription);
       } else {
         showShortToast(res.message || localeCopy.copy_e52119b17e);
       }
@@ -115,7 +129,44 @@ Page({
     return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
   },
 
+  refreshActiveWorkContext() {
+    const snapshot = orgSession.getSnapshot();
+    const profiles = wx.getStorageSync('roleProfiles') || {};
+    const current = workContextView.normalizeCurrentWorkContext(
+      authContext.getWorkContexts(),
+      authContext.getSelection(),
+      profiles[snapshot.role] || profiles.user || {}
+    );
+    this.setData({ activeWorkContext: current, hasActiveAssignment: current.hasAssignment });
+  },
+
+  showWorkContextGuide(message) {
+    wx.showModal({
+      title: localeCopy.workContextRequiredTitle,
+      content: message || localeCopy.workContextRequiredDescription,
+      confirmText: localeCopy.switchWorkContext,
+      cancelText: localeCopy.cancel,
+      success(result) {
+        if (result.confirm) navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
+      }
+    });
+  },
+
+  openWorkContextGuide() {
+    this.showWorkContextGuide(localeCopy.noAssignmentActionDescription);
+  },
+
   viewDetail(e) {
+    const item = (this.data.pending || []).find(function(row) {
+      return row.submissionId === e.currentTarget.dataset.submissionId;
+    });
+    if (item && item.requiresContextSwitch) {
+      const contextText = item.eligibleContextLabels.length
+        ? localeCopy.eligibleAssignmentsPrefix + item.eligibleContextLabels.join(localeCopy.assignmentSeparator)
+        : localeCopy.workContextMismatchDescription;
+      this.showWorkContextGuide(contextText);
+      return;
+    }
     let submissionId = e.currentTarget.dataset.submissionId;
     navigateToTrustedRoute('/subpackages/audit/pages/submissionDetail/submissionDetail?id=' + submissionId);
   }

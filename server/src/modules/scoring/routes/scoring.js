@@ -2,9 +2,7 @@ const localeCopy = require('../../../locales/zh-CN/generated/modules/scoring/rou
 const { format: localeFormat } = require('../../../locales/runtime');
 const express = require('express');
 const router = express.Router();
-const { safeString, toNumber, roundScore, makeOrgRuleKey, buildNameMap, generateId } = require('../../../utils/helpers');
-const userInfoModel = require('../../../core/models/userInfo');
-const hrInfoModel = require('../../../core/models/hrInfo');
+const { safeString, toNumber, makeOrgRuleKey, buildNameMap, generateId } = require('../../../utils/helpers');
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
@@ -21,7 +19,6 @@ const adminInfoModel = require('../../../core/models/adminInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const participantService = require('../services/participants');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
-const pool = require('../../../config/db');
 
 // ──────────────────────────── helpers ────────────────────────────
 
@@ -65,9 +62,19 @@ function normalizeHrPerson(record, lookups) {
     personId: safeString(record.person_id),
     membershipId: safeString(record.membership_id),
     assignmentId: safeString(record.assignment_id),
-    assignmentTitle: safeString(record.assignment_title),
-    departmentId, identityId, workGroupId,
+    assignmentNature: safeString(record.assignment_kind),
+    assignmentLabel: participantService.buildAssignmentLabel({
+      ...record,
+      department: lookups.departmentsById.get(departmentId) || '',
+      identityCategory: lookups.identitiesById.get(identityId) || '',
+      workGroup: lookups.workGroupsById.get(workGroupId) || ''
+    }),
+    departmentId,
+    identityCategoryId: identityId,
+    identityId,
+    workGroupId,
     department: lookups.departmentsById.get(departmentId) || '',
+    identityCategory: lookups.identitiesById.get(identityId) || '',
     identity: lookups.identitiesById.get(identityId) || '',
     workGroup: lookups.workGroupsById.get(workGroupId) || ''
   };
@@ -183,7 +190,6 @@ router.post('/getRateTargets', async (req, res) => {
       return res.json({ status: 'invalid_scorer', message: localeCopy.copy_c20c4aad74 });
     }
     scorer = normalizeHrPerson(scorerRecord, lookups);
-    const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
 
     if (!scorer.departmentId || !scorer.identityId) {
       return res.json({ status: 'invalid_scorer', message: localeCopy.copy_d9159d48b5 });
@@ -243,10 +249,7 @@ router.post('/getRateTargets', async (req, res) => {
     const ruleFull = await loadRuleFull(rule.id);
 
     // Get scored targets
-    const scoredRecords = await scoreRecordModel.getByScorerSubject(scorerSubjectKey, currentActivity.id);
-    const scoredTargetIdSet = new Set(
-      scoredRecords.map((record) => participantService.participantRecordId(record, 'target', granularity)).filter(Boolean)
-    );
+    const scoredRecords = await scoreRecordModel.getByScorerParticipant(scorerRecord, currentActivity.id);
 
     // Collect targets from all clauses — load only scoped HR records
     const targetMap = new Map();
@@ -254,6 +257,12 @@ router.post('/getRateTargets', async (req, res) => {
     const allHrInfo = clauseScopes.length
       ? await participantService.listParticipants(orgId, granularity)
       : [];
+    const resolveRecordParticipantId = typeof participantService.createRecordParticipantResolver === 'function'
+      ? participantService.createRecordParticipantResolver(allHrInfo)
+      : (record, side) => participantService.participantRecordId(record, side, granularity);
+    const scoredTargetIdSet = new Set(
+      scoredRecords.map((record) => resolveRecordParticipantId(record, 'target')).filter(Boolean)
+    );
 
     for (const clause of ruleFull.clauses) {
       if ((clause.scopeType === 'same_work_group_identity' || clause.scopeType === 'same_work_group_all') && !scorer.workGroupId) {
@@ -286,10 +295,11 @@ router.post('/getRateTargets', async (req, res) => {
       });
     }
 
-    const targets = Array.from(targetMap.values()).sort((a, b) => {
+    const sortedTargets = Array.from(targetMap.values()).sort((a, b) => {
       if (a.isScored !== b.isScored) return a.isScored ? 1 : -1;
       return a.name.localeCompare(b.name, 'zh-CN');
     });
+    const targetPresentation = participantService.decorateAssignmentDisambiguation(sortedTargets);
 
     res.json({
       status: 'success', scorer,
@@ -299,7 +309,8 @@ router.post('/getRateTargets', async (req, res) => {
         name: currentActivity.name,
         participantGranularity: granularity
       },
-      targets
+      targets: targetPresentation.rows,
+      needsAssignmentDisambiguation: targetPresentation.needsAssignmentDisambiguation
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_a2d8fd888c });
@@ -451,13 +462,7 @@ router.post('/getScoreFormData', async (req, res) => {
     );
 
     // Check existing records
-    const scorerSubjectKey = participantService.participantSubjectKey(scorerRecord, granularity);
-    const targetSubjectKey = participantService.participantSubjectKey(targetRecord, granularity);
-    const existingRecords = await scoreRecordModel.getBySubjects(
-      scorerSubjectKey,
-      targetSubjectKey,
-      activity.id
-    );
+    const existingRecords = await scoreRecordModel.getByParticipantPair(scorerRecord, targetRecord, activity.id);
     let existingRecord = null;
     for (const record of existingRecords) {
       if (safeString(record.template_config_signature) === templateConfigSignature) {
@@ -704,17 +709,19 @@ router.post('/submitScoreRecord', async (req, res) => {
       await conn.query(
         `INSERT INTO score_records
           (id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
-           scorer_subject_key, target_id, target_person_id, target_assignment_id,
-           target_subject_key, template_config_signature, submitted_at, org_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           scorer_context_snapshot, scorer_subject_key, target_id, target_person_id, target_assignment_id,
+           target_context_snapshot, target_subject_key, template_config_signature, submitted_at, org_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
           rule_id = VALUES(rule_id),
           scorer_id = VALUES(scorer_id),
-          scorer_person_id = VALUES(scorer_person_id),
-          scorer_assignment_id = VALUES(scorer_assignment_id),
+           scorer_person_id = VALUES(scorer_person_id),
+           scorer_assignment_id = VALUES(scorer_assignment_id),
+           scorer_context_snapshot = VALUES(scorer_context_snapshot),
           target_id = VALUES(target_id),
-          target_person_id = VALUES(target_person_id),
-          target_assignment_id = VALUES(target_assignment_id),
+           target_person_id = VALUES(target_person_id),
+           target_assignment_id = VALUES(target_assignment_id),
+           target_context_snapshot = VALUES(target_context_snapshot),
           template_config_signature = VALUES(template_config_signature),
           submitted_at = VALUES(submitted_at)`,
         [
@@ -724,10 +731,14 @@ router.post('/submitScoreRecord', async (req, res) => {
           safeString(scorerRecord.legacy_hr_id || scorerRecord.id),
           safeString(scorerRecord.person_id) || null,
           safeString(scorerRecord.assignment_id) || null,
+          JSON.stringify(participantService.buildAssignmentSnapshot(scorerRecord, {
+            contextId: actorResult.actor.contextId
+          })),
           scorerSubjectKey,
           safeString(targetRecord.legacy_hr_id || targetRecord.id),
           safeString(targetRecord.person_id) || null,
           safeString(targetRecord.assignment_id) || null,
+          JSON.stringify(participantService.buildAssignmentSnapshot(targetRecord)),
           targetSubjectKey,
           templateConfigSignature,
           nowUtc,
@@ -851,6 +862,8 @@ router.post('/getScorerTaskStatus', async (req, res) => {
           if (!scorerMap.has(sk)) {
             scorerMap.set(sk, {
               scorerKey: sk, scorerId: sc.id, scorerName: sc.name, scorerStudentId: sc.studentId,
+              personId: sc.personId, assignmentId: sc.assignmentId, assignmentKind: sc.assignmentKind,
+              departmentId: sc.departmentId, identityId: sc.identityId, workGroupId: sc.workGroupId,
               department: sc.department, identity: sc.identity, workGroup: sc.workGroup,
               expectedTargets: new Map(), submittedTargetIds: new Set()
             });
@@ -872,10 +885,14 @@ router.post('/getScorerTaskStatus', async (req, res) => {
       });
     });
 
+    const resolveRecordParticipantId = typeof participantService.createRecordParticipantResolver === 'function'
+      ? participantService.createRecordParticipantResolver(members)
+      : (record, side) => participantService.participantRecordId(record, side, granularity);
+
     // Mark submitted
     allRecords.forEach(record => {
-      const sk = participantService.participantRecordId(record, 'scorer', granularity);
-      const targetParticipantId = participantService.participantRecordId(record, 'target', granularity);
+      const sk = resolveRecordParticipantId(record, 'scorer');
+      const targetParticipantId = resolveRecordParticipantId(record, 'target');
       const sr = scorerMap.get(sk);
       if (sr && sr.expectedTargets.has(targetParticipantId)) {
         sr.submittedTargetIds.add(targetParticipantId);
@@ -890,6 +907,8 @@ router.post('/getScorerTaskStatus', async (req, res) => {
         return {
           scorerKey: item.scorerKey, scorerId: item.scorerId, scorerName: item.scorerName,
           scorerStudentId: item.scorerStudentId, department: item.department,
+          personId: item.personId, assignmentId: item.assignmentId, assignmentKind: item.assignmentKind,
+          departmentId: item.departmentId, identityId: item.identityId, workGroupId: item.workGroupId,
           identity: item.identity, workGroup: item.workGroup,
           expectedCount, submittedCount, pendingCount: Math.max(expectedCount - submittedCount, 0),
           completionRate: expectedCount ? Number(((submittedCount / expectedCount) * 100).toFixed(2)) : 100
@@ -899,6 +918,8 @@ router.post('/getScorerTaskStatus', async (req, res) => {
         if (scorerKey) return item.scorerKey === scorerKey;
         return item.pendingCount > 0;
       });
+    const scorerPresentation = participantService.decorateAssignmentDisambiguation(rows);
+    rows = scorerPresentation.rows;
 
     // Apply filters
     const deptFilter = safeString(filters.department);
@@ -937,6 +958,7 @@ router.post('/getScorerTaskStatus', async (req, res) => {
         workGroups: [...new Set(rows.map(r => r.workGroup).filter(Boolean))].sort()
       },
       scorers: rows.slice(offset, offset + 50),
+      needsAssignmentDisambiguation: scorerPresentation.needsAssignmentDisambiguation,
       pagination: { offset, nextOffset: offset + 50, total: rows.length, hasMore: offset + 50 < rows.length, returnedCount: Math.min(50, Math.max(0, rows.length - offset)) }
     });
   } catch (e) {
@@ -1085,6 +1107,8 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
           if (!scorerMap.has(sk)) {
             scorerMap.set(sk, {
               scorerKey: sk, scorerId: sc.id, scorerName: sc.name, scorerStudentId: sc.studentId,
+              personId: sc.personId, assignmentId: sc.assignmentId, assignmentKind: sc.assignmentKind,
+              departmentId: sc.departmentId, identityId: sc.identityId, workGroupId: sc.workGroupId,
               department: sc.department, identity: sc.identity, workGroup: sc.workGroup,
               expectedTargets: new Map(), submittedTargetIds: new Set()
             });
@@ -1106,9 +1130,12 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
       });
     });
 
+    const resolveRecordParticipantId = typeof participantService.createRecordParticipantResolver === 'function'
+      ? participantService.createRecordParticipantResolver(members)
+      : (record, side) => participantService.participantRecordId(record, side, granularity);
     allRecords.forEach(record => {
-      const sk = participantService.participantRecordId(record, 'scorer', granularity);
-      const targetParticipantId = participantService.participantRecordId(record, 'target', granularity);
+      const sk = resolveRecordParticipantId(record, 'scorer');
+      const targetParticipantId = resolveRecordParticipantId(record, 'target');
       const sr = scorerMap.get(sk);
       if (sr && sr.expectedTargets.has(targetParticipantId)) {
         sr.submittedTargetIds.add(targetParticipantId);
@@ -1130,6 +1157,8 @@ router.post('/exportScorerTaskStatus', async (req, res) => {
         return {
           scorerKey: item.scorerKey, scorerId: item.scorerId, scorerName: item.scorerName,
           scorerStudentId: item.scorerStudentId, department: item.department,
+          personId: item.personId, assignmentId: item.assignmentId, assignmentKind: item.assignmentKind,
+          departmentId: item.departmentId, identityId: item.identityId, workGroupId: item.workGroupId,
           identity: item.identity, workGroup: item.workGroup,
           expectedCount, submittedCount, pendingCount: Math.max(expectedCount - submittedCount, 0),
           completionRate: expectedCount ? Number(((submittedCount / expectedCount) * 100).toFixed(2)) : 100,

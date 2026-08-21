@@ -6,8 +6,8 @@ const { safeString } = require('../../../utils/helpers');
  *
  * - isSuperAdmin：任意活跃超级管理员身份（admin_info 或 admin_grants）即为全局可见；
  * - globalOrgAccess：存在 org_id='' 的活跃管理员授权，视为属于所有组织；
- * - orgs：查看者所属组织集合（user_info 活跃绑定 + admin_info 活跃行 + admin_grants 活跃授权）；
- * - hrIds：本人普通岗位 hr_info id 集合（跨组织）；
+ * - orgs：查看者所属组织集合（组织成员关系 + admin_info 活跃行 + admin_grants 活跃授权）；
+ * - hrIds：本人组织成员的兼容 hr id 集合（仅用于识别旧借用记录）；
  * - adminIds：本人管理员 id 集合（跨组织）。
  */
 async function resolveVenueViewerScope(openid, personId) {
@@ -18,19 +18,34 @@ async function resolveVenueViewerScope(openid, personId) {
   let globalOrgAccess = false;
 
   if (!openid) {
-    return { isSuperAdmin, globalOrgAccess, orgs, hrIds, adminIds };
+    return { isSuperAdmin, globalOrgAccess, personId: safeString(personId), orgs, hrIds, adminIds };
   }
 
-  // 普通用户绑定（user_info 无 bind_status，行即绑定）
-  const [userRows] = await pool.query(
-    'SELECT DISTINCT org_id, hr_id FROM user_info WHERE openid = ?',
-    [openid]
-  );
-  for (const row of userRows) {
-    const org = safeString(row.org_id);
-    if (org) orgs.add(org);
-    const hrId = safeString(row.hr_id);
-    if (hrId) hrIds.add(hrId);
+  if (safeString(personId)) {
+    const [membershipRows] = await pool.query(
+      `SELECT DISTINCT om.org_id, om.legacy_hr_id
+         FROM organization_memberships om
+        WHERE om.person_id = ? AND om.status = 'active'`,
+      [safeString(personId)]
+    );
+    for (const row of membershipRows) {
+      const org = safeString(row.org_id);
+      if (org) orgs.add(org);
+      const hrId = safeString(row.legacy_hr_id);
+      if (hrId) hrIds.add(hrId);
+    }
+  } else {
+    // 旧令牌没有 person_id 时保留只读兼容，不参与岗位规则判权。
+    const [userRows] = await pool.query(
+      'SELECT DISTINCT org_id, hr_id FROM user_info WHERE openid = ?',
+      [openid]
+    );
+    for (const row of userRows) {
+      const org = safeString(row.org_id);
+      if (org) orgs.add(org);
+      const hrId = safeString(row.hr_id);
+      if (hrId) hrIds.add(hrId);
+    }
   }
 
   // 管理员活跃行
@@ -77,7 +92,7 @@ async function resolveVenueViewerScope(openid, personId) {
     }
   }
 
-  return { isSuperAdmin, globalOrgAccess, orgs, hrIds, adminIds };
+  return { isSuperAdmin, globalOrgAccess, personId: safeString(personId), orgs, hrIds, adminIds };
 }
 
 /**
@@ -91,6 +106,8 @@ function canViewBookingDetails(booking, scope) {
   const approvalOrg = safeString(booking.approval_org_id);
   if (scope.globalOrgAccess && (creatorOrg || approvalOrg)) return true;
   if (scope.orgs.has(creatorOrg) || scope.orgs.has(approvalOrg)) return true;
+  const creatorPersonId = safeString(booking.creator_person_id);
+  if (creatorPersonId && creatorPersonId === safeString(scope.personId)) return true;
   const userHrId = safeString(booking.user_hr_id);
   if (userHrId && scope.hrIds.has(userHrId)) return true;
   const creatorAdminId = safeString(booking.creator_admin_id);

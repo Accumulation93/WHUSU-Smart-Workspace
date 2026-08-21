@@ -1,6 +1,7 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audit/pages/myApprovalHistory/myApprovalHistory');
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const workContextView = require('../../utils/workContextView');
 
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
@@ -32,12 +33,21 @@ Page({
         data: { limit: 100, offset: 0 }
       });
       if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
-        const items = (res.items || []).map(item => ({
-          ...item,
-          createdAt: formatAuditTime(item.createdAt),
-          updatedAt: formatAuditTime(item.updatedAt),
-          myLastActionAt: formatAuditTime(item.myLastActionAt)
-        }));
+        const items = (res.items || []).map(function(item) {
+          const views = (item.mySteps || []).map(function(step) {
+            return workContextView.normalizeSnapshot(step.operatorContextSnapshot);
+          });
+          const labels = Array.from(new Set(views.filter(function(view) {
+            return view.hasSnapshot;
+          }).map(function(view) { return view.assignmentLabel; })));
+          return Object.assign({}, item, {
+            createdAt: formatAuditTime(item.createdAt),
+            updatedAt: formatAuditTime(item.updatedAt),
+            myLastActionAt: formatAuditTime(item.myLastActionAt),
+            handledAssignmentLabels: labels,
+            hasLegacyAssignmentSnapshot: Boolean((item.mySteps || []).length && !labels.length)
+          });
+        });
         this.setData({ items });
       } else {
         showShortToast(res.message || localeCopy.copy_e52119b17e);

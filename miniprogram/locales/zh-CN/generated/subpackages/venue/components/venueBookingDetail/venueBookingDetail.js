@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
+  applicantAssignment: '借用岗位',
+  approverAssignment: '处理岗位：',
   copy_02419589be: "部门",
   copy_303b7a8611: "职能组",
   copy_34e2d1f8a0: "组织",
@@ -13,7 +15,7 @@ module.exports = Object.freeze({
   copy_8aee737e64: "状态",
   copy_baec508307: '▼ 详情',
   copy_bbbebc1abf: "场地",
-  copy_c1965e0690: "身份",
+  copy_c1965e0690: "身份类别",
   copy_c5d9511809: "说明",
   copy_ce30bda5a2: "借用人",
   copy_dcadcebf08: "审批时间：",

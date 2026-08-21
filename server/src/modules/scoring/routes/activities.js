@@ -45,7 +45,7 @@ router.post('/listScoreActivities', async (req, res) => {
       startDate: fmtDate(item.start_date),
       endDate: fmtDate(item.end_date),
       isCurrent: !!item.is_current,
-      participantGranularity: item.participant_granularity || 'person',
+      participantGranularity: 'assignment',
       isPaused: !!item.is_paused,
       updatedAt: item.updated_at || null
     })).sort((a, b) => {
@@ -77,12 +77,9 @@ router.post('/saveScoreActivity', async (req, res) => {
     const endDate = safeString(req.body.endDate);
     const hasPausedValue = Object.prototype.hasOwnProperty.call(req.body, 'isPaused');
     const requestedPaused = req.body.isPaused === true || req.body.isPaused === 1 ? 1 : 0;
-    const participantGranularity = safeString(req.body.participantGranularity || 'person');
+    const participantGranularity = 'assignment';
 
     if (!name) return res.json({ status: 'invalid_params', message: localeCopy.copy_e394895492 });
-    if (!['person', 'assignment'].includes(participantGranularity)) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_61d3d82d79 });
-    }
     if (startDate && endDate && startDate > endDate) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_0b091cba77 });
     }
@@ -193,7 +190,7 @@ router.post('/setCurrentScoreActivity', async (req, res) => {
       startDate: target.start_date,
       endDate: target.end_date,
       isCurrent: true,
-      participantGranularity: target.participant_granularity || 'person',
+      participantGranularity: 'assignment',
       updatedBy: admin.id, updatedAt: nowUtc
     });
     res.json({ status: 'success' });
@@ -229,7 +226,7 @@ router.post('/getCurrentScoreActivity', async (req, res) => {
         startDate: fmtDate(item.start_date),
         endDate: fmtDate(item.end_date),
         isPaused: !!item.is_paused,
-        participantGranularity: item.participant_granularity || 'person'
+        participantGranularity: 'assignment'
       }
     });
   } catch (e) {

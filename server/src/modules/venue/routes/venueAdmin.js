@@ -5,7 +5,6 @@ const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
 const adminInfoModel = require('../../../core/models/adminInfo');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const { resolveVenueViewerScope, canViewBookingDetails, resolveVenueOrgNames } = require('../services/venueViewerScope');
 const venueModel = require('../models/venue');
@@ -16,8 +15,7 @@ const venueBookingPolicyModel = require('../models/venueBookingPolicy');
 const venueBookingModel = require('../models/venueBooking');
 const venueBookingPurposeModel = require('../models/venueBookingPurpose');
 const venueApprovalFlowModel = require('../models/venueApprovalFlow');
-const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
-const { createVenueApprovalNotifications, createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
+const { createVenueBookingStatusNotification } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const {
@@ -26,35 +24,28 @@ const {
 const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
 const { normalizeBookingWindow, fromRow } = require('../services/venueBookingWindow');
 const { getActivitySlots: buildActivitySlots, ruleValidationError } = require('../services/venueActivitySchedule');
+const { evaluateBookingRules } = require('../services/venueBookingRuleAuthorization');
+const {
+  toRuleProfile,
+  resolveCurrentActorAssignment,
+  resolveBookingApplicantAssignment,
+  resolveBookingApplicantAssignments
+} = require('../services/venueAssignmentContext');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
 }
 
-async function resolveHrId(openid) {
-  if (!openid) return null;
-  const orgId = await getCurrentOrgId();
-  // Only resolve from user_info — admin and regular user identities are strictly separate
-  const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [openid, orgId]);
-  return (userRows[0] && userRows[0].hr_id) || null;
-}
-
-async function matchesBookingRule(rule, hrId) {
-  if (!hrId) return false;
-  if (rule.rule_type === 'person') return safeString(rule.approver_hr_id) === hrId;
-  if (rule.rule_type !== 'identity') return false;
-
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-    [hrId, orgId]
-  );
-  const hr = rows[0];
-  if (!hr) return false;
-  if (rule.approver_identity_id && safeString(hr.identity_id) !== safeString(rule.approver_identity_id)) return false;
-  if (rule.scope_department_id && safeString(hr.department_id) !== safeString(rule.scope_department_id)) return false;
-  if (rule.scope_work_group_id && safeString(hr.work_group_id) !== safeString(rule.scope_work_group_id)) return false;
-  return !!rule.approver_identity_id;
+function assignmentDisplay(assignment) {
+  const hasHistoricalSnapshot = Boolean(assignment && assignment.historicalSnapshotComplete);
+  return {
+    name: safeString(assignment && assignment.personName),
+    department: hasHistoricalSnapshot ? safeString(assignment.departmentName) : '',
+    identity: hasHistoricalSnapshot ? safeString(assignment.identityCategoryName) : '',
+    workGroup: hasHistoricalSnapshot ? safeString(assignment.workGroupName) : '',
+    assignmentId: safeString(assignment && assignment.assignmentId),
+    assignmentLabel: hasHistoricalSnapshot ? safeString(assignment.assignmentLabel) : ''
+  };
 }
 
 async function canReviewVenueBooking(req, booking) {
@@ -65,23 +56,44 @@ async function canReviewVenueBooking(req, booking) {
   const actor = actorResult.actor;
   const admin = actor.type === 'admin' ? actor.profile : null;
   const hrId = actor.type === 'user' ? actor.id : null;
+  if (actor.type === 'user') {
+    const assignment = await resolveCurrentActorAssignment(actor, booking.approval_org_id);
+    if (!assignment) return { ok: false, admin, hrId, actor, reason: localeCopy.copy_6b48c1ab98 };
+    actor.assignment = assignment;
+    actor.profile = toRuleProfile(assignment);
+  }
 
   // 流程审批统一使用共享授权器，确保查询、待办和写操作结论一致。
   if (booking.approval_flow_id && booking.approval_total_steps > 0) {
     const authorization = await authorizeCurrentVenueApproval(booking, actor);
-    return { ...authorization, admin, hrId, actor };
+    return { ...authorization, admin, hrId, actor: authorization.actor || actor };
   }
 
   // Legacy rule-based approval
-  const rules = await venueBookingRuleModel.getByVenueId(booking.venue_id);
-  if (!rules.length) return { ok: !!admin, admin, hrId, actor };
-
-  for (const rule of rules) {
-    if (rule.rule_type === 'direct') return { ok: false, admin, hrId, actor, reason: localeCopy.copy_b1cd1c282b };
-    if (rule.rule_type === 'admin' && admin) return { ok: true, admin, hrId, actor };
-    if (await matchesBookingRule(rule, hrId)) return { ok: true, admin, hrId, actor };
+  const applicantAssignment = await resolveBookingApplicantAssignment(booking);
+  if (!applicantAssignment) {
+    return { ok: false, admin, hrId, actor, reason: localeCopy.historicalAssignmentMissing };
   }
-  return { ok: false, admin, hrId, actor };
+  const rules = await venueBookingRuleModel.getByVenueId(booking.venue_id);
+  const hasDirect = rules.some(function(rule) { return rule.rule_type === 'direct'; });
+  if (hasDirect) return { ok: false, admin, hrId, actor, reason: localeCopy.copy_b1cd1c282b };
+  return { ok: evaluateBookingRules(rules, actor), admin, hrId, actor };
+}
+
+function isFlowManagedBooking(booking) {
+  return Boolean(
+    safeString(booking && booking.approval_flow_id)
+    || safeString(booking && booking.approval_flow_state_json)
+    || Number(booking && booking.approval_total_steps) > 0
+  );
+}
+
+function rejectLegacyFlowEndpoint(req, res) {
+  return res.status(410).json({
+    status: 'client_upgrade_required',
+    message: localeCopy.copy_b71a0c7ed7,
+    requestId: req.requestId
+  });
 }
 
 function fmtLocalDate(d) {
@@ -534,6 +546,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope);
     // 跨组织记录不在管理端借用列表出现，只在日程图中显示占用
     const detailBookings = bookings.filter(canViewDetails);
+    const applicantAssignments = await resolveBookingApplicantAssignments(detailBookings);
     const orgNameMap = await resolveVenueOrgNames(
       detailBookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
     );
@@ -594,6 +607,7 @@ router.post('/listAllVenueBookings', async (req, res) => {
       } catch (_) {}
     }
     const list = detailBookings.map(b => {
+      const applicant = assignmentDisplay(applicantAssignments.get(safeString(b.id)));
       return {
       id: b.id,
       venueId: b.venue_id,
@@ -605,12 +619,16 @@ router.post('/listAllVenueBookings', async (req, res) => {
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
       userHrId: b.user_hr_id,
       creatorType: b.creator_type || 'user',
-      creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
+      creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : (applicant.name || (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
       creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
-      userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
-      userDept: (userMap[b.user_hr_id] && userMap[b.user_hr_id].department) || '',
-      userIdentity: (userMap[b.user_hr_id] && userMap[b.user_hr_id].identity) || '',
-      userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || '',
+      userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : (applicant.name || (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
+      userDept: applicant.department,
+      userIdentity: applicant.identity,
+      userWorkGroup: applicant.workGroup,
+      creatorAssignmentId: applicant.assignmentId,
+      creatorAssignmentLabel: b.creator_type === 'admin'
+        ? ''
+        : (applicant.assignmentLabel || localeCopy.historicalAssignmentMissing),
       title: b.title,
       description: b.description,
       timeStart: fmtDatetime(new Date(b.time_start)),
@@ -712,6 +730,10 @@ router.post('/listAllVenueBookings', async (req, res) => {
     const adminActor = {
       type: 'admin',
       id: safeString(admin.id),
+      personId: safeString(req.authContext && req.authContext.personId),
+      adminGrantId: safeString(req.authContext && req.authContext.adminGrantId),
+      contextId: safeString(req.authContext && req.authContext.contextId),
+      organizationId: orgId,
       name: safeString(admin.name),
       profile: admin
     };
@@ -733,12 +755,18 @@ router.post('/listAllVenueBookings', async (req, res) => {
       listBooking.userCanApprove = authorization.ok;
     }
 
-    // For non-flow pending bookings, admin can always approve (legacy behavior)
+    // 旧规则待办也复用写接口授权，避免列表显示可审批但提交时被拒绝。
     for (const lb of list) {
       if (lb.status === 'pending' && lb.userCanApprove === undefined
         && lb.visibility === 'details'
         && !(lb.approvalProgress && lb.approvalProgress.flowId)) {
-        lb.userCanApprove = safeString(lb.approvalOrgId) === orgId;
+        const booking = bookingMap.get(lb.id);
+        if (!booking || safeString(lb.approvalOrgId) !== orgId) {
+          lb.userCanApprove = false;
+        } else {
+          const authorization = await canReviewVenueBooking(req, booking);
+          lb.userCanApprove = Boolean(authorization.ok);
+        }
       }
     }
 
@@ -766,117 +794,16 @@ router.post('/approveVenueBooking', async (req, res) => {
       return res.json({ status: 'success', message: localeCopy.copy_3b95420d79, bookingStatus: booking.status, idempotent: true });
     }
 
+    // 流程型借用只能由多流程端点处理。旧端点缺少分支状态，禁止继续按全局步数推进。
+    if (isFlowManagedBooking(booking)) {
+      await conn.rollback();
+      return rejectLegacyFlowEndpoint(req, res);
+    }
+
     const review = await canReviewVenueBooking(req, booking);
     if (!review.ok) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: review.reason || localeCopy.copy_6b48c1ab98 });
-    }
-
-    // Flow-based approval
-    if (booking.approval_flow_id && booking.approval_total_steps > 0) {
-      const currentStep = booking.approval_current_step;
-      const newStepIndex = currentStep + 1;
-      const isLastStep = newStepIndex >= booking.approval_total_steps;
-
-      if (isLastStep) {
-        const approvedAt = new Date();
-        const bookingTimeEnd = new Date(booking.time_end);
-
-        // If approved after booking end, cancel instead
-        if (approvedAt > bookingTimeEnd) {
-          await venueBookingModel.updateStatus(id, 'cancelled', review.hrId, '审批时借用已结束，自动取消', conn, review.actor);
-          await createVenueBookingStatusNotification(
-            booking, 'booking_cancelled', '场地借用已自动取消',
-            '您申请的「' + (booking.title || localeCopy.copy_592351d93c) + localeCopy.copy_7b831c34ee, conn
-          );
-          await conn.commit();
-          return res.json({ status: 'expired', message: localeCopy.copy_aa20a1e7b8 });
-        }
-
-        // Approval within booking window - adjust start time to approval moment
-        await venueBookingModel.updateTimeStart(id, fmtDatetime(approvedAt), conn);
-
-        const timeStart = fmtDatetime(approvedAt);
-        const timeEnd = fmtDatetime(new Date(booking.time_end));
-        const conflict = await venueBookingModel.findConflict(booking.venue_id, timeStart, timeEnd, id, conn, true);
-        if (conflict) {
-          await conn.rollback();
-          return res.json({ status: 'conflict', message: localeCopy.copy_dcd1184a46 });
-        }
-      }
-
-      // Build approval snapshot
-      let snapshots = [];
-      try { snapshots = booking.approval_snapshots_json ? JSON.parse(booking.approval_snapshots_json) : []; } catch (_) {}
-      const steps = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
-      const stepName = (steps[currentStep] && steps[currentStep].name) || ('步骤' + (currentStep + 1));
-      // Resolve approver name
-      let snapApproverName = '';
-      try {
-        const approverHrInfoForSnap = await hrInfoModel.getById(review.hrId);
-        snapApproverName = approverHrInfoForSnap ? (approverHrInfoForSnap.name || '') : '';
-      } catch (_) {}
-
-      snapshots.push({
-        stepIndex: currentStep,
-        stepName,
-        approverHrId: review.hrId,
-        approverPersonId: review.actor && review.actor.personId || '',
-        approverAssignmentId: review.actor && review.actor.assignmentId || '',
-        approverAdminGrantId: review.actor && review.actor.adminGrantId || '',
-        approverContextId: review.actor && review.actor.contextId || '',
-        approverName: snapApproverName,
-        comment: comment || '',
-        approvedAt: fmtDatetime(new Date())
-      });
-
-      const newStatus = isLastStep ? 'approved' : 'pending';
-      const approvalContextSnapshot = JSON.stringify({
-        contextId: review.actor && review.actor.contextId || '',
-        role: review.actor && review.actor.type || '',
-        identityName: review.actor && review.actor.name || '',
-        adminLevel: review.actor && review.actor.adminLevel || ''
-      });
-      const [updateResult] = await conn.query(
-        `UPDATE venue_bookings
-            SET approval_current_step = ?, approval_snapshots_json = ?, status = ?,
-                approver_hr_id = ?, approver_person_id = ?, approver_assignment_id = ?,
-                approver_admin_grant_id = ?, approver_context_snapshot = ?, approval_comment = ?
-          WHERE id = ?`,
-        [newStepIndex, JSON.stringify(snapshots), newStatus, review.hrId || (review.admin && review.admin.id),
-         review.actor && review.actor.personId || null,
-         review.actor && review.actor.assignmentId || null,
-         review.actor && review.actor.adminGrantId || null,
-         approvalContextSnapshot,
-         isLastStep ? (comment || booking.approval_comment) : booking.approval_comment,
-         id]
-      );
-      if (updateResult.affectedRows !== 1) throw new Error(localeCopy.copy_cba470e634);
-
-      if (isLastStep) {
-        const venueName = booking.venue_name || '';
-        await createVenueBookingStatusNotification(
-          booking, 'booking_approved', '场地借用已通过',
-          '您申请的「' + (booking.title || localeCopy.copy_592351d93c) + '」' + (venueName ? '（' + venueName + '）' : '') + localeCopy.copy_71ff2a4a29, conn
-        );
-      }
-
-      await conn.commit();
-
-      // Clear old pending_approval notifications for this booking (true DELETE)
-      await notificationModel.deleteByTarget('booking', id);
-
-      // 下一步骤待办由业务状态实时计算。
-      if (!isLastStep) {
-        await createVenueApprovalNotifications(id, newStepIndex);
-      }
-
-      res.json({
-        status: 'success',
-        message: isLastStep ? '所有步骤审批完成，借用已通过' : ('步骤 ' + (currentStep + 1) + localeCopy.copy_c4a10a56e4),
-        approvalProgress: { currentStep: newStepIndex, totalSteps: booking.approval_total_steps, isApproved: isLastStep }
-      });
-      return;
     }
 
     // Legacy approval
@@ -942,36 +869,26 @@ router.post('/rejectVenueBooking', async (req, res) => {
       return res.json({ status: 'success', message: localeCopy.copy_3b95420d79, bookingStatus: booking.status, idempotent: true });
     }
 
+    // 流程型借用只能由多流程端点处理，避免旧驳回接口绕过当前分支与岗位授权。
+    if (isFlowManagedBooking(booking)) {
+      await conn.rollback();
+      return rejectLegacyFlowEndpoint(req, res);
+    }
+
     const review = await canReviewVenueBooking(req, booking);
     if (!review.ok) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: review.reason || localeCopy.copy_6b48c1ab98 });
     }
 
-    // Flow-based rejection: record which step was rejected
-    if (booking.approval_flow_id && booking.approval_total_steps > 0) {
-      await venueBookingModel.updateStatus(
-        id,
-        'rejected',
-        review.hrId || (review.admin && review.admin.id),
-        comment,
-        conn,
-        review.actor
-      );
-      await conn.query(
-        'UPDATE venue_bookings SET approval_current_step = -1, approval_reject_step = ? WHERE id = ?',
-        [booking.approval_current_step, id]
-      );
-    } else {
-      await venueBookingModel.updateStatus(
-        id,
-        'rejected',
-        review.hrId || (review.admin && review.admin.id),
-        comment,
-        conn,
-        review.actor
-      );
-    }
+    await venueBookingModel.updateStatus(
+      id,
+      'rejected',
+      review.hrId || (review.admin && review.admin.id),
+      comment,
+      conn,
+      review.actor
+    );
     const venueNameRej = booking.venue_name || '';
     await createVenueBookingStatusNotification(
       booking, 'booking_rejected', '场地借用被驳回',
@@ -993,11 +910,7 @@ router.post('/rejectVenueBooking', async (req, res) => {
 
 // 旧的管理员直通端点会绕过流程权限，保留明确的升级响应而不再执行写入。
 router.post(['/approveVenueBookingAdmin', '/rejectVenueBookingAdmin'], (req, res) => {
-  res.status(410).json({
-    status: 'client_upgrade_required',
-    message: localeCopy.copy_b71a0c7ed7,
-    requestId: req.requestId
-  });
+  return rejectLegacyFlowEndpoint(req, res);
 });
 
 // ═══════════════════════════════════════════════════

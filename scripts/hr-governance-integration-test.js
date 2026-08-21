@@ -93,13 +93,28 @@ const recoveryOnlyRows = context.mergeHrGovernanceRows([
   { id: 'hr-1', name: '甲', studentId: '001' },
   { id: 'hr-2', name: '乙', studentId: '002' }
 ], governance);
-assert.strictEqual(recoveryOnlyRows[0].canSelectForAuth, true);
+assert.strictEqual(recoveryOnlyRows[0].canSelectForAuth, false);
 assert.strictEqual(recoveryOnlyRows[1].canSelectForAuth, false);
+assert.strictEqual(recoveryOnlyRows[0].canIssueRecovery, true);
+context.data.canGlobalAccountManage = false;
+const organizationAdminRows = context.mergeHrGovernanceRows([
+  { id: 'hr-1', name: '甲', studentId: '001' }
+], governance);
+assert.strictEqual(organizationAdminRows[0].canSelectForAuth, false);
+context.data.canGlobalAccountManage = true;
+const globalAccountRows = context.mergeHrGovernanceRows([
+  { id: 'hr-1', name: '甲', studentId: '001' }
+], governance);
+assert.strictEqual(globalAccountRows[0].canSelectForAuth, true);
 context.data.canVerifyIdentity = true;
 
-context._hrProfileRawRows = merged;
-context._hrProfileFilteredRows = merged;
-context.data.hrProfileRows = merged;
+const interactiveRows = context.mergeHrGovernanceRows([
+  { id: 'hr-1', name: '甲', studentId: '001' },
+  { id: 'hr-2', name: '乙', studentId: '002' }
+], governance);
+context._hrProfileRawRows = interactiveRows;
+context._hrProfileFilteredRows = interactiveRows;
+context.data.hrProfileRows = interactiveRows;
 context.toggleHrMemberSelection({ currentTarget: { dataset: { hrId: 'hr-2' } } });
 assert.deepStrictEqual(context.data.selectedHrMemberIds, ['hr-2']);
 assert.strictEqual(context.data.hrProfileRows[1].selected, true);

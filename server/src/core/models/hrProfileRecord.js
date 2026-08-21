@@ -1,18 +1,21 @@
 const pool = require('../../config/db');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 
-async function getByHrId(hrId) {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT * FROM hr_profile_records WHERE hr_id = ? AND org_id = ? LIMIT 1',
+async function getByHrId(hrId, connection = pool, organizationId = '', lock = false) {
+  const orgId = organizationId || await getCurrentOrgId();
+  const [rows] = await connection.query(
+    `SELECT * FROM hr_profile_records WHERE hr_id = ? AND org_id = ? LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
     [hrId, orgId]
   );
   return rows[0] || null;
 }
 
-async function getById(id) {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query('SELECT * FROM hr_profile_records WHERE id = ? AND org_id = ?', [id, orgId]);
+async function getById(id, connection = pool, organizationId = '', lock = false) {
+  const orgId = organizationId || await getCurrentOrgId();
+  const [rows] = await connection.query(
+    `SELECT * FROM hr_profile_records WHERE id = ? AND org_id = ?${lock ? ' FOR UPDATE' : ''}`,
+    [id, orgId]
+  );
   return rows[0] || null;
 }
 
@@ -22,11 +25,11 @@ async function getAll() {
   return rows;
 }
 
-async function create(id, data) {
+async function create(id, data, connection = pool, organizationId = '') {
   const { hrId, name, openid, templateSnapshotId, auditStatus,
     rejectionReason, requestedAt, reviewedAt } = data;
-  const orgId = await getCurrentOrgId();
-  await pool.query(
+  const orgId = organizationId || await getCurrentOrgId();
+  await connection.query(
     `INSERT INTO hr_profile_records
      (id, hr_id, name, openid, template_snapshot_id, audit_status,
       rejection_reason, requested_at, reviewed_at, org_id)
@@ -36,7 +39,7 @@ async function create(id, data) {
   );
 }
 
-async function update(id, data) {
+async function update(id, data, connection = pool, organizationId = '') {
   const fields = [];
   const values = [];
   const allowedFields = ['hr_id', 'name', 'openid', 'template_snapshot_id',
@@ -52,10 +55,10 @@ async function update(id, data) {
 
   if (fields.length === 0) return;
 
-  const orgId = await getCurrentOrgId();
+  const orgId = organizationId || await getCurrentOrgId();
   values.push(id, orgId);
 
-  await pool.query(`UPDATE hr_profile_records SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, values);
+  await connection.query(`UPDATE hr_profile_records SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, values);
 }
 
 async function remove(id) {

@@ -44,7 +44,7 @@ module.exports = Object.freeze({
   copy_bba7f8b8ba: "请使用普通岗位身份",
   copy_bc011e4e3b: "部门",
   copy_be736f763d: "职能组",
-  copy_c20c4aad74: "当前岗位已失效，请重新选择身份",
+  copy_c20c4aad74: "当前岗位已失效，请重新选择工作上下文",
   copy_c22a252e97: "请先登录",
   copy_c2ca4efbfa: "请刷新结果公示",
   copy_c390fbf5b7: "当前评分活动结果尚未公示",

@@ -6,6 +6,7 @@ const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
 const { buildBookingRuleDisplayList } = require('../../utils/venueRuleDisplay');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 
 const HOURS = ['00:00','01:00','02:00','03:00','04:00','05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00','24:00'];
 const HOUR_HEIGHT = 64; // rpx per hour
@@ -1296,22 +1297,7 @@ Page({
       let merged = [...pendingList, ...nonPending];
 
       // Compute display status and approval percent for each booking
-      let bookings = merged.map(b => {
-        let item = Object.assign({}, b, { displayStatus: computeDisplayStatus(b) });
-        if (item.approvalProgress) {
-          if (item.approvalProgress.isRejected) {
-            item._approvalPercent = 0;
-            item._approvalBarColor = 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);';
-          } else if (item.approvalProgress.isApproved) {
-            item._approvalPercent = 100;
-          } else {
-            item._approvalPercent = Math.round(item.approvalProgress.currentStep / item.approvalProgress.totalSteps * 100);
-          }
-          // Pre-compute full flow timeline for WXML
-          item._flowTimeline = buildFlowTimeline(item.approvalProgress);
-        }
-        return item;
-      });
+      let bookings = merged.map(prepareVenueBookingDetail);
 
       // Client-side filter for computed statuses (inUse / completed)
       if (computedStatuses.includes(filterStatus)) {
@@ -1549,6 +1535,7 @@ Page({
             userDept: b.userDept || '', userIdentity: b.userIdentity || '', userWorkGroup: b.userWorkGroup || '',
             orgName: b.orgName || '',
             creatorType: b.creatorType, creatorName: b.creatorName, creatorLabel: b.creatorLabel,
+            creatorAssignmentId: b.creatorAssignmentId || '', creatorAssignmentLabel: b.creatorAssignmentLabel || '',
             approverHrId: b.approverHrId, approvalComment: b.approvalComment || '', createdAt: b.createdAt,
             timeStart: b.fullTimeStart || b.timeStart,
             timeEnd: b.fullTimeEnd || b.timeEnd,
@@ -1589,18 +1576,7 @@ Page({
       return;
     }
     // 与借用记录列表一致的详情组装：状态与审批进度时间轴
-    const detail = Object.assign({}, block.booking, { displayStatus: computeDisplayStatus(block.booking) });
-    if (detail.approvalProgress) {
-      if (detail.approvalProgress.isRejected) {
-        detail._approvalPercent = 0;
-        detail._approvalBarColor = 'background:linear-gradient(90deg,#ef4444 0%,#f87171 100%);';
-      } else if (detail.approvalProgress.isApproved) {
-        detail._approvalPercent = 100;
-      } else {
-        detail._approvalPercent = Math.round(detail.approvalProgress.currentStep / detail.approvalProgress.totalSteps * 100);
-      }
-      detail._flowTimeline = buildFlowTimeline(detail.approvalProgress);
-    }
+    const detail = prepareVenueBookingDetail(block.booking);
     this.setData({ bookingDetailVisible: true, bookingDetail: detail, expandedNodeKey: '' });
   },
 

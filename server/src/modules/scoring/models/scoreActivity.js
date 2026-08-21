@@ -28,7 +28,7 @@ async function create(id, data) {
         is_paused, created_by, org_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, name || '', description || '', startDate || null, endDate || null, isCurrent ? 1 : 0,
-     participantGranularity || 'person', isPaused ? 1 : 0, createdBy || '', orgId]
+     participantGranularity || 'assignment', isPaused ? 1 : 0, createdBy || '', orgId]
   );
 }
 
@@ -40,14 +40,14 @@ async function update(id, data) {
       `UPDATE score_activities SET name = ?, description = ?, start_date = ?, end_date = ?,
        is_current = ?, participant_granularity = ?, is_paused = ?, updated_by = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
       [name || '', description || '', startDate || null, endDate || null,
-       isCurrent ? 1 : 0, participantGranularity || 'person', isPaused ? 1 : 0, updatedBy || '', updatedAt || null, id, orgId]
+       isCurrent ? 1 : 0, participantGranularity || 'assignment', isPaused ? 1 : 0, updatedBy || '', updatedAt || null, id, orgId]
     );
   } else {
     await pool.query(
       `UPDATE score_activities SET name = ?, description = ?, start_date = ?, end_date = ?,
        is_current = ?, participant_granularity = ?, updated_by = ?, updated_at = ? WHERE id = ? AND org_id = ?`,
       [name || '', description || '', startDate || null, endDate || null,
-       isCurrent ? 1 : 0, participantGranularity || 'person', updatedBy || '', updatedAt || null, id, orgId]
+       isCurrent ? 1 : 0, participantGranularity || 'assignment', updatedBy || '', updatedAt || null, id, orgId]
     );
   }
 }

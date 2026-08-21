@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
-  copy_10d3269bb4: "请重新选择身份",
+  copy_10d3269bb4: "请重新选择工作上下文",
   copy_20bec31d0c: "请先调整使用该身份的评分范围",
   copy_20ca49e5e7: "请微信登录",
   copy_268f818f6f: "请输入身份名称",

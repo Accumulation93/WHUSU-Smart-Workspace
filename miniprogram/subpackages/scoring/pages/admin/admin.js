@@ -56,6 +56,7 @@ Page({
     canSelectHrProfileTemplate: false,
     canVerifyIdentity: false,
     canRecoverAccounts: false,
+    canGlobalAccountManage: false,
     canManageAuthPolicy: false,
     canReadAdmins: false,
     canWriteAdmins: false,
@@ -77,7 +78,6 @@ Page({
     adminLevelOptions: [localeCopy.copy_fd31650797],
     adminLevelValues: ['admin'],
     participantGranularityOptions: [
-      { value: 'person', label: localeCopy.copy_e4a84c9a86 },
       { value: 'assignment', label: localeCopy.copy_9fc4793280 }
     ],
     adminCandidateKeyword: '',
@@ -228,6 +228,7 @@ Page({
     detailHrAuditStatusText: '',
     detailHrRejectionReason: '',
     detailHrHasPending: false,
+    detailHrComparisonRows: [],
     loadingDetailHr: false,
     savingDetailHr: false,
     membershipAssignmentList: [],
@@ -250,6 +251,16 @@ Page({
     assignmentIdentityIndex: 0,
     assignmentWorkGroupIndex: 0,
     assignmentWorkGroupOptions: [],
+    formerHrMembers: [],
+    loadingFormerHrMembers: false,
+    reactivatingHrId: '',
+    profileRejectVisible: false,
+    profileRejectStudentId: '',
+    profileRejectReason: '',
+    personCorrectionVisible: false,
+    personCorrectionPreview: null,
+    personCorrectionConfirmed: false,
+    personCorrectionProfileValues: {},
     showAddEditForm: false,
     showTemplateConfig: false,
     hrForm: emptyHrForm(),
@@ -408,6 +419,8 @@ Page({
         meritSummaryLoaded: false,
         meritSummaryLoadFailed: false,
         hrList: [],
+        formerHrMembers: [],
+        reactivatingHrId: '',
         hrProfileRows: [],
         hrProfileFields: [],
         hrProfileTemplateList: [],
@@ -436,6 +449,13 @@ Page({
         scorerTargetPopupVisible: false,
         showAddEditForm: false,
         showHrPersonDetail: false,
+        profileRejectVisible: false,
+        profileRejectStudentId: '',
+        profileRejectReason: '',
+        personCorrectionVisible: false,
+        personCorrectionPreview: null,
+        personCorrectionConfirmed: false,
+        personCorrectionProfileValues: {},
         showCsvMappingDialog: false,
         showHrImportPreview: false,
         csvHeaders: [],
@@ -659,6 +679,7 @@ Page({
       canSelectHrProfileTemplate: adminPermissions.hasAny(adminProfile, ['hr.profile_templates.select']),
       canVerifyIdentity: adminPermissions.hasAny(adminProfile, ['auth.identity.verify']),
       canRecoverAccounts: adminPermissions.hasAny(adminProfile, ['auth.accounts.recover']),
+      canGlobalAccountManage: adminPermissions.hasAny(adminProfile, ['auth.accounts.global_manage']),
       canManageAuthPolicy: adminPermissions.hasAny(adminProfile, ['auth.policy.manage']),
       currentOrganizationName: activeOrgName || this.data.currentOrganizationName,
       resultViewOptions: [
@@ -699,7 +720,7 @@ Page({
       if (this._subApp === 'hr') {
         const needsHrDirectory = visibleTabs.indexOf('hrInfo') >= 0;
         const canBrowseHr = adminPermissions.hasAny(adminProfile, ['hr.people', 'hr.profile_review']);
-        const canGovernHr = adminPermissions.hasAny(adminProfile, ['auth.identity.verify', 'auth.accounts.recover']);
+        const canGovernHr = adminPermissions.hasAny(adminProfile, ['auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage']);
         if (needsHrDirectory && canBrowseHr) {
           await Promise.all([this.loadDepartmentList(), this.loadIdentityList()]);
           await this.loadWorkGroupList();
@@ -768,6 +789,8 @@ Page({
       this.loadAuthPolicy().catch(() => {
         utils.showShortToast(localeCopy.copy_439c4fcf37);
       });
+    } else if (mode === 'former') {
+      if (this.data.canManageHrPeople) this.loadFormerHrMembers();
     } else if (this.data.canBrowseHrInfo) {
       this.loadHrList();
       this.loadHrProfileAdminData();
@@ -803,11 +826,13 @@ Page({
         this.loadAuthPolicy().catch(() => {
           utils.showShortToast(localeCopy.copy_439c4fcf37);
         });
+      } else if (this.data.hrInfoMode === 'former') {
+        if (this.data.canManageHrPeople) this.loadFormerHrMembers();
       } else {
         if (this.data.canBrowseHrInfo && !this._csvImportActive && !this.data.showCsvMappingDialog && !this.data.showHrImportPreview) {
           this.loadHrProfileAdminData();
           this.loadHrList();
-        } else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts) {
+        } else if (this.data.canVerifyIdentity || this.data.canRecoverAccounts || this.data.canGlobalAccountManage) {
           this.loadHrGovernanceDirectory();
         }
       }

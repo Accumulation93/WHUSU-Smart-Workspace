@@ -1,6 +1,12 @@
 'use strict';
 
 module.exports = Object.freeze({
+  applicantAssignment: '借用岗位',
+  approverAssignment: '处理岗位：',
+  contextSwitchRequired: '需切换工作上下文后处理',
+  requiredContextPrefix: '此事项需要以下岗位之一：',
+  requiredContextGeneric: '请先切换到可处理此事项的组织和岗位',
+  switchWorkContext: '切换岗位',
   copy_0531ed9e78: '未完成，请重试',
   copy_06dbb49961: "取消",
   copy_09614cef6c: "关闭",
@@ -9,7 +15,7 @@ module.exports = Object.freeze({
   copy_1264209cb6: '更新于 ',
   copy_1bb7eb3e1a: "通过",
   copy_1f13a570b9: "选择下一步审批人",
-  copy_1fc8f9baba: '当前身份的待审批事项',
+  copy_1fc8f9baba: '当前工作上下文的待审批事项',
   copy_2ea2cd3a4f: "搜索姓名或学号",
   copy_310d71700e: "待审核",
   copy_34e2d1f8a0: "组织",
@@ -38,7 +44,7 @@ module.exports = Object.freeze({
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
   copy_b4432643e3: '驳回',
   copy_baec508307: '▼ 详情',
-  copy_bba7f8b8ba: '请使用普通岗位身份',
+  copy_bba7f8b8ba: '请使用普通用户岗位',
   copy_bbbebc1abf: "场地",
   copy_bddb855314: "审批意见（选填）",
   copy_bef4bbef62: '如：同意借用',

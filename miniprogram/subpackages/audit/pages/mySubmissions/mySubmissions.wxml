@@ -3,6 +3,13 @@
 
   <view class="section-stack">
     <view class="my-filter-box">
+      <view class="submission-context-row">
+        <view class="submission-context-copy">
+          <view class="field-label">{{localeCopy.currentWorkContext}}</view>
+          <view class="submission-context-value">{{hasActiveAssignment ? activeWorkContext.assignmentLabel : localeCopy.noAssignmentTitle}}</view>
+        </view>
+        <view class="audit-chip {{hasActiveAssignment ? 'audit-chip-approved' : 'audit-chip-draft'}}">{{hasActiveAssignment ? localeCopy.positionAvailable : localeCopy.positionUnavailable}}</view>
+      </view>
       <view class="field">
         <view class="field-label">{{localeCopy.copy_bff094c480}}</view>
         <picker range="{{statusOptions}}" bindchange="onStatusFilterChange">
@@ -10,7 +17,8 @@
         </picker>
       </view>
       <view class="audit-btn-bar">
-        <button class="primary-btn ui-motion-button" bindtap="goCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c64e979552}}</button>
+        <button class="primary-btn ui-motion-button" wx:if="{{hasActiveAssignment}}" bindtap="goCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c64e979552}}</button>
+        <button class="secondary-btn ui-motion-button" wx:else bindtap="goCreate" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.switchWorkContext}}</button>
       </view>
     </view>
 

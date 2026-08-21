@@ -257,7 +257,7 @@ module.exports = Behavior({
     },
 
     async loadHrGovernanceRows() {
-      if (!this.data.canVerifyIdentity && !this.data.canRecoverAccounts) return new Map();
+      if (!this.data.canVerifyIdentity && !this.data.canRecoverAccounts && !this.data.canGlobalAccountManage) return new Map();
       const organizationId = wx.getStorageSync('activeOrgId') || '';
       const result = await callFunction({ name: 'listHrGovernance', data: { organizationId } });
       if (result.status !== 'success') throw new Error(result.message || localeCopy.copy_e58fa637eb);
@@ -287,7 +287,7 @@ module.exports = Behavior({
     applyHrGovernancePermissions(row) {
       const canSelect = Boolean(row && (
         (this.data.canVerifyIdentity && (row.canIssueVerification || row.canRevokeVerification))
-        || (this.data.canRecoverAccounts && (row.canIssueRecovery || row.canRevokeRecovery))
+        || (this.data.canGlobalAccountManage && (row.canIssueRecovery || row.canRevokeRecovery))
       ));
       return Object.assign({}, row, { canSelectForAuth: canSelect });
     },
@@ -573,6 +573,7 @@ module.exports = Behavior({
     },
 
     async issueHrMemberRecoveryCode(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const hrId = String(e.currentTarget.dataset.hrId || '');
       const row = (this._hrProfileRawRows || []).find((item) => String(item.id || '') === hrId);
       if (!row || !row.accountId || this.data.authActionLoadingKey) return;
@@ -593,6 +594,7 @@ module.exports = Behavior({
     },
 
     async changeSelectedHrRecoveryCodes(revoke) {
+      if (!this.data.canGlobalAccountManage) return;
       const rows = this.getSelectedHrGovernanceRows().filter((item) => (
         revoke ? item.canRevokeRecovery : item.canIssueRecovery
       ));
@@ -641,6 +643,7 @@ module.exports = Behavior({
     },
 
     async revokeHrMemberRecoveryCode(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const hrId = String(e.currentTarget.dataset.hrId || '');
       const row = (this._hrProfileRawRows || []).find((item) => String(item.id || '') === hrId);
       if (!row || !row.accountId || this.data.authActionLoadingKey) return;
@@ -985,6 +988,7 @@ module.exports = Behavior({
     },
 
     openAuthRecoveryDialog(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const id = String(e.currentTarget.dataset.id || '');
       const pending = (this._authRecoveryRequestsRaw || []).find((item) => item.id === id)
         || (() => {
@@ -1000,6 +1004,7 @@ module.exports = Behavior({
     },
 
     async loadDetailHrSecurity(personId) {
+      if (!this.data.canGlobalAccountManage) return;
       if (!personId || this.data.authActionLoadingKey) return;
       try {
         const result = await callFunction({ name: 'admin/auth/security', data: { personId } });
@@ -1026,6 +1031,7 @@ module.exports = Behavior({
     },
 
     toggleDetailPassphraseForm() {
+      if (!this.data.canGlobalAccountManage) return;
       this.setData({
         showDetailPassphraseForm: !this.data.showDetailPassphraseForm,
         detailHrPassphraseInput: ''
@@ -1033,10 +1039,12 @@ module.exports = Behavior({
     },
 
     onDetailPassphraseInput(e) {
+      if (!this.data.canGlobalAccountManage) return;
       this.setData({ detailHrPassphraseInput: String(e.detail.value || '') });
     },
 
     async saveDetailMemberPassphrase() {
+      if (!this.data.canGlobalAccountManage) return;
       const security = this.data.detailHrSecurity;
       const value = this.data.detailHrPassphraseInput;
       const personId = String(this.data.detailHrGovernance && this.data.detailHrGovernance.personId || '');
@@ -1065,6 +1073,7 @@ module.exports = Behavior({
     },
 
     requestMemberDeviceRevoke(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const sessionId = String(e.currentTarget.dataset.sessionId || '');
       const security = this.data.detailHrSecurity;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
@@ -1085,6 +1094,7 @@ module.exports = Behavior({
     },
 
     requestMemberPassphraseClear() {
+      if (!this.data.canGlobalAccountManage) return;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
       if (!row || !this.data.detailHrSecurity || this.data.authActionLoadingKey) return;
       this.setData({
@@ -1102,6 +1112,7 @@ module.exports = Behavior({
     },
 
     async revokeMemberDevice(sessionId) {
+      if (!this.data.canGlobalAccountManage) return;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
       const personId = String(row && row.personId || '');
       if (!sessionId || !personId || this.data.authActionLoadingKey) return;
@@ -1127,6 +1138,7 @@ module.exports = Behavior({
     },
 
     async clearMemberPassphrase() {
+      if (!this.data.canGlobalAccountManage) return;
       const row = this.getHrGovernanceRow(this.data.detailHrId);
       const personId = String(row && row.personId || '');
       if (!personId || this.data.authActionLoadingKey) return;
@@ -1146,6 +1158,7 @@ module.exports = Behavior({
     },
 
     requestAuthAccountFreeze(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const personId = String(e.currentTarget.dataset.id || '');
       const frozen = e.currentTarget.dataset.frozen === true
         || e.currentTarget.dataset.frozen === 'true';
@@ -1169,6 +1182,7 @@ module.exports = Behavior({
     },
 
     requestHrWechatUnbind(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const hrId = String(e.currentTarget.dataset.hrId || this.data.detailHrId || '');
       const row = this.getHrGovernanceRow(hrId);
       if (!row || !row.canUnbindWechat || this.data.authActionLoadingKey) return;
@@ -1221,6 +1235,7 @@ module.exports = Behavior({
     },
 
     async approveAuthRecovery() {
+      if (!this.data.canGlobalAccountManage) return;
       const pending = this.data.pendingAuthRecovery;
       if (!pending || this.data.authActionLoadingKey) return;
       this.setData({ authActionLoadingKey: 'recovery-' + pending.id });
@@ -1248,6 +1263,7 @@ module.exports = Behavior({
     },
 
     async toggleAuthAccountFrozen(e) {
+      if (!this.data.canGlobalAccountManage) return;
       const personId = String(e.currentTarget.dataset.id || '');
       const frozen = e.currentTarget.dataset.frozen === true
         || e.currentTarget.dataset.frozen === 'true';
@@ -1285,6 +1301,7 @@ module.exports = Behavior({
     },
 
     async issueSelectedRecoveryCodes() {
+      if (!this.data.canGlobalAccountManage) return;
       const ids = this.data.selectedAuthAccountIds || [];
       if (!ids.length || this.data.authActionLoadingKey) return;
       this.setData({ authActionLoadingKey: 'recovery-code' });
@@ -1313,6 +1330,7 @@ module.exports = Behavior({
     },
 
     async revokeSelectedRecoveryCodes() {
+      if (!this.data.canGlobalAccountManage) return;
       const ids = this.data.selectedAuthAccountIds || [];
       if (!ids.length || this.data.authActionLoadingKey) return;
       this.setData({ authActionLoadingKey: 'recovery-code-revoke' });

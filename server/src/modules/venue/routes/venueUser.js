@@ -4,7 +4,6 @@ const router = express.Router();
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pool = require('../../../config/db');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const { resolveVenueViewerScope, canViewBookingDetails, resolveVenueOrgNames } = require('../services/venueViewerScope');
 const venueModel = require('../models/venue');
@@ -18,20 +17,34 @@ const venueApprovalFlowStepModel = require('../models/venueApprovalFlowStep');
 const { createVenueApprovalNotifications } = require('../utils/venueNotificationHelper');
 const notificationModel = require('../../audit/models/notification');
 const requestDeduplication = require('../../../utils/requestDeduplication');
-const { evaluateVenueApprovalStep } = require('../services/venueApprovalPolicy');
 const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
+const {
+  toRuleProfile,
+  toAssignmentSnapshot,
+  resolveCurrentActorAssignment,
+  resolveBookingApplicantAssignment,
+  resolveBookingApplicantAssignments,
+  listAccountWorkActors,
+  listApproverCandidates
+} = require('../services/venueAssignmentContext');
 const { fromRow, validateBookingWindow } = require('../services/venueBookingWindow');
 const { findMyVenueApproval, matchesApprovalContext } = require('../services/venueApprovalHistory');
 const { getActivitySlots: buildActivitySlots } = require('../services/venueActivitySchedule');
+const { evaluateBookingRuleWorkContexts } = require('../services/venueBookingRuleAuthorization');
 
-async function resolveHrId(openid) {
-  if (!openid) return null;
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
-    'SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?',
-    [openid, orgId]
-  );
-  return rows[0] ? rows[0].hr_id : null;
+function assignmentDisplay(assignment) {
+  const hasHistoricalSnapshot = Boolean(assignment && assignment.historicalSnapshotComplete);
+  return {
+    name: safeString(assignment && assignment.personName),
+    department: hasHistoricalSnapshot ? safeString(assignment.departmentName) : '',
+    identity: hasHistoricalSnapshot ? safeString(assignment.identityCategoryName) : '',
+    workGroup: hasHistoricalSnapshot ? safeString(assignment.workGroupName) : '',
+    departmentId: hasHistoricalSnapshot ? safeString(assignment.departmentId) : '',
+    identityCategoryId: hasHistoricalSnapshot ? safeString(assignment.identityCategoryId) : '',
+    workGroupId: hasHistoricalSnapshot ? safeString(assignment.workGroupId) : '',
+    assignmentId: safeString(assignment && assignment.assignmentId),
+    assignmentLabel: hasHistoricalSnapshot ? safeString(assignment.assignmentLabel) : ''
+  };
 }
 
 /** Format a Date to "YYYY-MM-DD" in local time */
@@ -305,6 +318,7 @@ router.post('/getVenueSchedule', async (req, res) => {
     );
     const canViewDetails = (booking) => canViewBookingDetails(booking, viewerScope);
     const detailBookings = activeBookings.filter(canViewDetails);
+    const applicantAssignments = await resolveBookingApplicantAssignments(detailBookings);
     const orgNameMap = await resolveVenueOrgNames(
       detailBookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
     );
@@ -452,6 +466,7 @@ router.post('/getVenueSchedule', async (req, res) => {
             userName: '其他组织借用'
           };
         }
+        const applicant = assignmentDisplay(applicantAssignments.get(safeString(b.id)));
         return {
           id: b.id,
           visibility: 'details',
@@ -469,12 +484,16 @@ router.post('/getVenueSchedule', async (req, res) => {
           userId: b.user_hr_id,
           userHrId: b.user_hr_id,
           creatorType: b.creator_type || 'user',
-          creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
+          creatorName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : (applicant.name || (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
           creatorLabel: b.creator_type === 'admin' ? '管理员创建' : '用户申请',
-          userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : ((userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
-          userDept: (userMap[b.user_hr_id] && userMap[b.user_hr_id].department) || '',
-          userIdentity: (userMap[b.user_hr_id] && userMap[b.user_hr_id].identity) || '',
-          userWorkGroup: (userMap[b.user_hr_id] && userMap[b.user_hr_id].workGroup) || '',
+          userName: b.creator_type === 'admin' ? (adminMap[b.creator_admin_id] || localeCopy.copy_c01a9aef59) : (applicant.name || (userMap[b.user_hr_id] && userMap[b.user_hr_id].name) || localeCopy.copy_e075eae47d),
+          userDept: applicant.department,
+          userIdentity: applicant.identity,
+          userWorkGroup: applicant.workGroup,
+          creatorAssignmentId: applicant.assignmentId,
+          creatorAssignmentLabel: b.creator_type === 'admin'
+            ? ''
+            : (applicant.assignmentLabel || localeCopy.historicalAssignmentMissing),
           approverHrId: b.approver_hr_id,
           approvalComment: b.approval_comment,
           createdAt: b.created_at,
@@ -533,15 +552,10 @@ router.post('/getVenueApprovalFlowOptions', async (req, res) => {
 router.post('/listVenueApproverCandidates', async (req, res) => {
   try {
     const orgId = await getCurrentOrgId();
-    const [rows] = await pool.query(
-      'SELECT id, name, student_id FROM hr_info WHERE org_id = ? AND id != ? ORDER BY name',
-      [orgId, safeString(req.body.excludeHrId || '')]
-    );
+    const candidates = await listApproverCandidates(orgId, req.body.excludeHrId);
     res.json({
       status: 'success',
-      candidates: rows.map(function(row) {
-        return { id: row.id, name: row.name || '', studentId: row.student_id || '' };
-      })
+      candidates
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -555,8 +569,16 @@ router.post('/listVenueApproverCandidates', async (req, res) => {
 router.post('/createVenueBooking', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_bba7f8b8ba });
+    }
+    const orgId = await getCurrentOrgId();
+    const applicantAssignment = await resolveCurrentActorAssignment(actorResult.actor, orgId);
+    if (!applicantAssignment) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    }
+    const hrId = applicantAssignment.legacyHrId;
 
     const venueId = safeString(req.body.venueId);
     const title = safeString(req.body.title);
@@ -636,7 +658,6 @@ router.post('/createVenueBooking', async (req, res) => {
     await conn.beginTransaction();
 
     const id = generateId();
-    const orgId = await getCurrentOrgId();
     const dedupClaim = await requestDeduplication.claim(conn, {
       orgId,
       actorKey: 'user:' + hrId,
@@ -691,27 +712,31 @@ router.post('/createVenueBooking', async (req, res) => {
         }
         const stepsByFlow = {};
         for (const flow of approvalFlows) {
-          stepsByFlow[flow.id] = await venueApprovalFlowStepModel.getByFlowId(flow.id);
+          stepsByFlow[flow.id] = await venueApprovalFlowStepModel.getByFlowId(flow.id, flow.org_id || orgId);
         }
         const activeFlows = approvalFlows.filter(function(flow) {
           return (stepsByFlow[flow.id] || []).length > 0;
         });
         if (activeFlows.length) {
-          const applicantHrInfo = await hrInfoModel.getById(hrId);
+          const applicantHrInfo = toRuleProfile(applicantAssignment);
           const singleSelected = selectedFlowId
             ? approvalFlows.find(function(flow) { return String(flow.id) === selectedFlowId; })
             : (activeFlows.length === 1 ? activeFlows[0] : null);
           let firstDesignation = null;
           if (singleSelected && Number(singleSelected.allow_designate_first) === 1) {
             const firstStep = (stepsByFlow[singleSelected.id] || [])[0];
-            if (firstStep && safeString(firstStep.approval_mode) !== 'admin_any' && req.body.firstApproverHrId) {
-              await venueApprovalMultiFlow.validateDesignation(
+            if (req.body.firstApproverHrId && !req.body.firstApproverAssignmentId) {
+              await conn.rollback();
+              return res.json({ status: 'invalid_params', message: localeCopy.copy_legacyApproverSelection });
+            }
+            if (firstStep && safeString(firstStep.approval_mode) !== 'admin_any' && req.body.firstApproverAssignmentId) {
+              const validatedDesignation = await venueApprovalMultiFlow.validateDesignation(
                 orgId,
-                req.body.firstApproverHrId,
+                req.body.firstApproverAssignmentId,
                 firstStep,
                 applicantHrInfo
               );
-              firstDesignation = { hrId: safeString(req.body.firstApproverHrId) };
+              firstDesignation = validatedDesignation;
             }
           }
           approvalFlowState = venueApprovalMultiFlow.buildInitialFlowState(activeFlows, selectedFlowId, firstDesignation);
@@ -727,17 +752,13 @@ router.post('/createVenueBooking', async (req, res) => {
 
     await venueBookingModel.create(id, {
       venueId, userHrId: hrId, title, description,
-      creatorPersonId: req.authContext && req.authContext.personId,
-      creatorAssignmentId: req.authContext && req.authContext.assignmentId,
-      creatorContextSnapshot: req.authContext ? {
-        contextId: req.authContext.contextId,
-        organizationId: req.authContext.organizationId,
-        role: req.authContext.role,
-        identityName: req.authContext.identityName,
-        department: req.authContext.department,
-        identity: req.authContext.identity,
-        workGroup: req.authContext.workGroup
-      } : null,
+      creatorPersonId: applicantAssignment.personId,
+      creatorAssignmentId: applicantAssignment.assignmentId,
+      creatorContextSnapshot: Object.assign({ role: 'user' }, toAssignmentSnapshot(Object.assign(
+        {},
+        applicantAssignment,
+        { contextId: actorResult.actor.contextId }
+      ))),
       creatorOrgId: orgId, approvalOrgId: orgId,
       timeStart: dbTimeStart, timeEnd: dbTimeEnd, status,
       approvalFlowId, approvalFlowState, approvalTotalSteps
@@ -781,24 +802,36 @@ router.post('/createVenueBooking', async (req, res) => {
 
 router.post('/listMyVenueBookings', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_bba7f8b8ba });
+    }
+    const orgId = await getCurrentOrgId();
+    const currentAssignment = await resolveCurrentActorAssignment(actorResult.actor, orgId);
+    if (!currentAssignment) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    const hrId = currentAssignment.legacyHrId;
     const bookings = await venueBookingModel.getByUserId(hrId);
+    const applicantAssignments = await resolveBookingApplicantAssignments(bookings);
     const orgNameMap = await resolveVenueOrgNames(
       bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
     );
-    const list = bookings.map(b => ({
+    const list = bookings.map(b => {
+      const display = assignmentDisplay(applicantAssignments.get(safeString(b.id)));
+      return {
       id: b.id,
       venueId: b.venue_id,
       venueName: b.venue_name,
       venueLocation: b.venue_location,
       orgName: orgNameMap[safeString(b.creator_org_id)] || orgNameMap[safeString(b.approval_org_id)] || '',
+      approvalOrgId: safeString(b.approval_org_id),
       title: b.title,
       description: b.description,
-      userName: b.user_name || localeCopy.copy_de00c3e48a,
-      userDept: b.user_department || '',
-      userIdentity: b.user_identity || '',
-      userWorkGroup: b.user_work_group || '',
+      userName: display.name || b.user_name || localeCopy.copy_de00c3e48a,
+      userDept: display.department,
+      userIdentity: display.identity,
+      userWorkGroup: display.workGroup,
+      creatorAssignmentId: display.assignmentId,
+      creatorAssignmentLabel: display.assignmentLabel || localeCopy.historicalAssignmentMissing,
       timeStart: fmtDatetime(new Date(b.time_start)),
       timeEnd: fmtDatetime(new Date(b.time_end)),
       status: b.status,
@@ -816,7 +849,8 @@ router.post('/listMyVenueBookings', async (req, res) => {
           catch (_) { return []; }
         })()
       } : null
-    }));
+    };
+    });
     // ── Batch-resolve approver names from snapshots ──
     const approverHrIdSet = new Set();
     for (const item of list) {
@@ -850,20 +884,26 @@ router.post('/listMyVenueBookings', async (req, res) => {
     try {
       const flowBookings = list.filter(b => b.approvalProgress && b.approvalProgress.flowId);
       if (flowBookings.length) {
-        const flowIds = [...new Set(flowBookings.map(b => b.approvalProgress.flowId))];
+        const flowKeys = [...new Set(flowBookings.map(function(booking) {
+          return booking.approvalProgress.flowId + '|' + booking.approvalOrgId;
+        }))];
         const flowStepsMap = {};
-        for (const flowId of flowIds) {
+        for (const flowKey of flowKeys) {
+          const separator = flowKey.indexOf('|');
+          const flowId = flowKey.slice(0, separator);
+          const flowOrgId = flowKey.slice(separator + 1);
           try {
-            const steps = await venueApprovalFlowStepModel.getByFlowId(flowId);
-            flowStepsMap[flowId] = steps.map(s => ({
+            const steps = await venueApprovalFlowStepModel.getByFlowId(flowId, flowOrgId);
+            flowStepsMap[flowKey] = steps.map(s => ({
               sortOrder: s.sort_order,
               name: s.name,
               actionType: s.action_type
             }));
-          } catch (_) { flowStepsMap[flowId] = []; }
+          } catch (_) { flowStepsMap[flowKey] = []; }
         }
         for (const b of flowBookings) {
-          b.approvalProgress.flowSteps = flowStepsMap[b.approvalProgress.flowId] || [];
+          const flowKey = b.approvalProgress.flowId + '|' + b.approvalOrgId;
+          b.approvalProgress.flowSteps = flowStepsMap[flowKey] || [];
         }
       }
     } catch (_) { /* silently ignore — flow timeline won't render full step names */ }
@@ -884,21 +924,44 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     if (!actorResult.ok) {
       return res.json({ status: actorResult.status, message: actorResult.message });
     }
-    const actor = actorResult.actor;
-
+    let actor = actorResult.actor;
     const orgId = await getCurrentOrgId();
+    if (actor.type === 'user') {
+      const assignment = await resolveCurrentActorAssignment(actor, orgId);
+      if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+      actor = Object.assign({}, actor, { assignment, profile: toRuleProfile(assignment) });
+    }
+    let workActors = req.authAccount && req.authAccount.id
+      ? await listAccountWorkActors(req.authAccount.id)
+      : [];
+    if (!workActors.length) {
+      if (actor.type === 'user') {
+        const assignment = await resolveCurrentActorAssignment(actor, orgId);
+        workActors = [Object.assign({}, actor, {
+          organizationId: orgId,
+          assignment,
+          profile: assignment ? toRuleProfile(assignment) : null
+        })];
+      } else {
+        workActors = [Object.assign({}, actor, { organizationId: orgId })];
+      }
+    }
+    const approvalOrgIds = [...new Set(workActors.map(function(item) {
+      return safeString(item.organizationId);
+    }).filter(Boolean))];
+    if (!approvalOrgIds.length) {
+      return res.json({ status: 'success', pending: [] });
+    }
 
-    // 仅加载当前审批组织的待办；其他组织只能在排期中看到匿名占用。
+    // 待办跨组织聚合；实际审批写接口仍强制当前服务端上下文命中目标组织和岗位。
     const [bookings] = await pool.query(
       `SELECT b.*, v.name AS venue_name, v.location AS venue_location
        FROM venue_bookings b
        JOIN venues v ON v.id = b.venue_id
        WHERE b.status = 'pending'
-         AND b.approval_org_id = ?
-         AND (b.approval_flow_id IS NOT NULL OR b.approval_flow_state_json IS NOT NULL)
-         AND b.approval_total_steps > 0
+         AND b.approval_org_id IN (?)
        ORDER BY b.created_at DESC`,
-      [orgId]
+      [approvalOrgIds]
     );
 
     if (!bookings.length) {
@@ -908,13 +971,47 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
       bookings.map(b => safeString(b.creator_org_id) || safeString(b.approval_org_id))
     );
 
-    // For each booking, check if the current step's rules match the approver
     const pending = [];
     for (const booking of bookings) {
-      const eligibility = await venueApprovalMultiFlow.evaluateActorEligibility(booking, actor, orgId);
-      if (!eligibility.ok) continue;
-      const applicantHrInfo = eligibility.applicantHrInfo;
-      const summary = eligibility.summary;
+      const targetOrgId = safeString(booking.approval_org_id);
+      const isFlowBooking = Boolean(
+        (booking.approval_flow_id || booking.approval_flow_state_json)
+        && Number(booking.approval_total_steps) > 0
+      );
+      let canProcessInCurrentContext = false;
+      let eligibleActors = [];
+      let applicantHrInfo = null;
+      let summary = { activeFlowIds: [], flowSummary: [] };
+      let candidateMissing = false;
+      if (isFlowBooking) {
+        const contextEligibility = await venueApprovalMultiFlow.evaluateWorkContextEligibility(
+          booking,
+          workActors,
+          actor.contextId,
+          orgId
+        );
+        if (!contextEligibility.visible) continue;
+        canProcessInCurrentContext = contextEligibility.canProcessInCurrentContext;
+        eligibleActors = contextEligibility.eligible.map(function(item) { return item.actor; });
+        applicantHrInfo = contextEligibility.selected.eligibility.applicantHrInfo;
+        summary = contextEligibility.selected.eligibility.summary;
+        candidateMissing = Boolean(contextEligibility.selected.eligibility.candidateMissing);
+      } else {
+        const applicantAssignment = await resolveBookingApplicantAssignment(booking);
+        if (!applicantAssignment) continue;
+        const rules = await venueBookingRuleModel.getByVenueIdForOrg(booking.venue_id, targetOrgId);
+        const ruleEligibility = evaluateBookingRuleWorkContexts(
+          rules,
+          workActors,
+          targetOrgId,
+          actor.contextId,
+          orgId
+        );
+        if (!ruleEligibility.visible) continue;
+        canProcessInCurrentContext = ruleEligibility.canProcessInCurrentContext;
+        eligibleActors = ruleEligibility.eligible;
+        applicantHrInfo = applicantAssignment ? toRuleProfile(applicantAssignment) : null;
+      }
       const snapshots = venueApprovalMultiFlow.parseSnapshots(booking.approval_snapshots_json);
       const firstActive = summary.flowSummary.find(function(item) { return item.active && !item.completed; });
 
@@ -924,10 +1021,25 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         venueName: booking.venue_name,
         venueLocation: booking.venue_location,
         orgName: orgNameMap[safeString(booking.creator_org_id)] || orgNameMap[safeString(booking.approval_org_id)] || '',
+        approvalOrgId: targetOrgId,
+        canProcessInCurrentContext,
+        requiredWorkContexts: eligibleActors.map(function(workActor) {
+          return {
+            contextId: safeString(workActor.contextId),
+            organizationId: safeString(workActor.organizationId),
+            role: safeString(workActor.type),
+            assignmentId: safeString(workActor.assignmentId),
+            assignmentLabel: safeString(workActor.assignment && workActor.assignment.assignmentLabel)
+          };
+        }),
         title: booking.title,
         description: booking.description,
         userName: (applicantHrInfo && applicantHrInfo.name) || localeCopy.copy_de00c3e48a,
-        userDept: (applicantHrInfo && applicantHrInfo.department_id) || '',
+        userDept: (applicantHrInfo && applicantHrInfo.department_name) || '',
+        userIdentity: (applicantHrInfo && applicantHrInfo.identity_name) || '',
+        userWorkGroup: (applicantHrInfo && applicantHrInfo.work_group_name) || '',
+        creatorAssignmentId: (applicantHrInfo && applicantHrInfo.assignment_id) || '',
+        creatorAssignmentLabel: (applicantHrInfo && applicantHrInfo.assignment_label) || '',
         timeStart: fmtDatetime(new Date(booking.time_start)),
         timeEnd: fmtDatetime(new Date(booking.time_end)),
         status: booking.status,
@@ -946,7 +1058,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
         }),
         activeFlowCount: summary.activeFlowIds.length,
         flowSummary: summary.flowSummary,
-        candidateMissing: Boolean(eligibility.candidateMissing),
+        candidateMissing,
         snapshots: snapshots,
         createdAt: booking.created_at
       });
@@ -984,7 +1096,7 @@ router.post('/listPendingVenueApprovals', async (req, res) => {
     // Self-healing: ensure notifications exist for found pending bookings (fire-and-forget)
     const notificationRecipientId = actor.type === 'user' ? actor.id : '';
     for (const p of pending) {
-      if (!notificationRecipientId) continue;
+      if (!notificationRecipientId || !p.canProcessInCurrentContext) continue;
       notificationModel.hasPendingApprovalNotification('booking', p.id, notificationRecipientId).then(has => {
         if (!has) {
           createVenueApprovalNotifications(p.id, p.currentStepIndex).catch(e =>
@@ -1009,8 +1121,13 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
     if (!actorResult.ok) {
       return res.json({ status: actorResult.status, message: actorResult.message });
     }
-    const actor = actorResult.actor;
+    let actor = actorResult.actor;
     const orgId = await getCurrentOrgId();
+    if (actor.type === 'user') {
+      const assignment = await resolveCurrentActorAssignment(actor, orgId);
+      if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+      actor = Object.assign({}, actor, { assignment, profile: toRuleProfile(assignment) });
+    }
     const [bookings] = await pool.query(
       `SELECT b.*, v.name AS venue_name, v.location AS venue_location,
               h.name AS applicant_name, h.department_id AS applicant_department_id
@@ -1021,11 +1138,13 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
         ORDER BY b.updated_at DESC`,
       [orgId]
     );
+    const applicantAssignments = await resolveBookingApplicantAssignments(bookings);
 
     const history = [];
     for (const booking of bookings) {
       const approval = findMyVenueApproval(booking, actor, fmtDatetime);
       if (!approval) continue;
+      const applicant = assignmentDisplay(applicantAssignments.get(safeString(booking.id)));
       history.push({
         id: booking.id,
         venueId: booking.venue_id,
@@ -1033,8 +1152,10 @@ router.post('/listVenueApprovalHistory', async (req, res) => {
         venueLocation: booking.venue_location,
         title: booking.title,
         description: booking.description,
-        applicantName: booking.applicant_name || localeCopy.copy_de00c3e48a,
-        applicantDepartmentId: booking.applicant_department_id || '',
+        applicantName: applicant.name || booking.applicant_name || localeCopy.copy_de00c3e48a,
+        applicantDepartmentId: applicant.departmentId,
+        applicantAssignmentId: applicant.assignmentId,
+        applicantAssignmentLabel: applicant.assignmentLabel || localeCopy.historicalAssignmentMissing,
         timeStart: fmtDatetime(new Date(booking.time_start)),
         timeEnd: fmtDatetime(new Date(booking.time_end)),
         status: booking.status,
@@ -1062,8 +1183,13 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
     if (!actorResult.ok) {
       return res.json({ status: actorResult.status, message: actorResult.message });
     }
-    const actor = actorResult.actor;
+    let actor = actorResult.actor;
     const orgId = await getCurrentOrgId();
+    if (actor.type === 'user') {
+      const assignment = await resolveCurrentActorAssignment(actor, orgId);
+      if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+      actor = Object.assign({}, actor, { assignment, profile: toRuleProfile(assignment) });
+    }
     const bookingId = safeString(req.body.id);
     if (!bookingId) return res.json({ status: 'invalid_params', message: localeCopy.copy_754113ad21 });
 
@@ -1084,6 +1210,8 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
     );
     const booking = rows[0];
     if (!booking) return res.json({ status: 'not_found', message: localeCopy.copy_80886b8642 });
+    const applicantAssignment = await resolveBookingApplicantAssignment(booking);
+    const applicant = assignmentDisplay(applicantAssignment);
 
     const approval = findMyVenueApproval(booking, actor, fmtDatetime);
     if (!approval) return res.json({ status: 'forbidden', message: localeCopy.copy_c4a87d8e1c });
@@ -1101,7 +1229,7 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
 
     let flowSteps = [];
     if (booking.approval_flow_id) {
-      const stepRows = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id);
+      const stepRows = await venueApprovalFlowStepModel.getByFlowId(booking.approval_flow_id, orgId);
       flowSteps = stepRows.map((step, index) => ({
         stepIndex: index,
         stepName: safeString(step.name) || ('第' + (index + 1) + localeCopy.copy_493a127a99)
@@ -1118,7 +1246,10 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
         approverName: safeString(snapshot.approverName) || approverNameMap[safeString(snapshot.approverHrId)] || (snapshot.approverIdentityType === 'admin' ? '管理员' : '审批人'),
         approvedAt: safeString(snapshot.approvedAt),
         comment: safeString(snapshot.comment),
-        isMine: Boolean(matchesApprovalContext(snapshot, actor))
+        isMine: Boolean(matchesApprovalContext(snapshot, actor)),
+        approverAssignmentId: safeString(snapshot.approverAssignmentId),
+        approverAssignmentLabel: safeString(snapshot.approverAssignmentSnapshot && snapshot.approverAssignmentSnapshot.assignmentLabel)
+          || (snapshot.approverIdentityType === 'user' ? localeCopy.historicalAssignmentMissing : '')
       };
     });
 
@@ -1147,12 +1278,14 @@ router.post('/getVenueApprovalHistoryDetail', async (req, res) => {
         orgName: orgNameMap[safeString(booking.creator_org_id)] || orgNameMap[safeString(booking.approval_org_id)] || '',
         title: safeString(booking.title),
         description: safeString(booking.description),
-        userName: safeString(booking.applicant_name) || localeCopy.copy_de00c3e48a,
-        userDept: safeString(booking.applicant_department_name),
-        userIdentity: safeString(booking.applicant_identity_name),
-        userWorkGroup: safeString(booking.applicant_work_group_name),
-        applicantName: safeString(booking.applicant_name) || localeCopy.copy_de00c3e48a,
-        applicantDepartmentId: safeString(booking.applicant_department_id),
+        userName: applicant.name || safeString(booking.applicant_name) || localeCopy.copy_de00c3e48a,
+        userDept: applicant.department,
+        userIdentity: applicant.identity,
+        userWorkGroup: applicant.workGroup,
+        applicantName: applicant.name || safeString(booking.applicant_name) || localeCopy.copy_de00c3e48a,
+        applicantDepartmentId: applicant.departmentId,
+        applicantAssignmentId: applicant.assignmentId,
+        applicantAssignmentLabel: applicant.assignmentLabel || localeCopy.historicalAssignmentMissing,
         timeStart: fmtDatetime(new Date(booking.time_start)),
         timeEnd: fmtDatetime(new Date(booking.time_end)),
         status: safeString(booking.status),
@@ -1187,13 +1320,20 @@ router.post('/cancelVenueBooking', async (req, res) => {
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
     const actor = actorResult.actor;
-    const hrId = actor.id;
+    const currentOrgId = await getCurrentOrgId();
+    const assignment = await resolveCurrentActorAssignment(actor, currentOrgId);
+    if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
+    actor.assignment = assignment;
+    actor.profile = toRuleProfile(assignment);
+    const hrId = assignment.legacyHrId;
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_62d2cac4df });
     const booking = await venueBookingModel.getById(id);
     if (!booking) return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
-    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_31c8162e6d });
-    const currentOrgId = await getCurrentOrgId();
+    const isOwner = safeString(booking.creator_person_id)
+      ? safeString(booking.creator_person_id) === safeString(actor.personId)
+      : safeString(booking.user_hr_id) === hrId;
+    if (!isOwner) return res.json({ status: 'forbidden', message: localeCopy.copy_31c8162e6d });
     if (safeString(booking.creator_org_id) !== currentOrgId && safeString(booking.approval_org_id) !== currentOrgId) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_d76adefd6d });
     }
@@ -1221,14 +1361,23 @@ router.post('/cancelVenueBooking', async (req, res) => {
 
 router.post('/endVenueBooking', async (req, res) => {
   try {
-    const hrId = await resolveHrId(req.openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_bba7f8b8ba });
+    }
+    const actor = actorResult.actor;
+    const currentOrgId = await getCurrentOrgId();
+    const assignment = await resolveCurrentActorAssignment(actor, currentOrgId);
+    if (!assignment) return res.json({ status: 'forbidden', message: localeCopy.copy_bba7f8b8ba });
+    const hrId = assignment.legacyHrId;
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_62d2cac4df });
     const booking = await venueBookingModel.getById(id);
     if (!booking) return res.json({ status: 'not_found', message: localeCopy.copy_3508043e2a });
-    if (booking.user_hr_id !== hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_31c8162e6d });
-    const currentOrgId = await getCurrentOrgId();
+    const isOwner = safeString(booking.creator_person_id)
+      ? safeString(booking.creator_person_id) === safeString(actor.personId)
+      : safeString(booking.user_hr_id) === hrId;
+    if (!isOwner) return res.json({ status: 'forbidden', message: localeCopy.copy_31c8162e6d });
     if (safeString(booking.creator_org_id) !== currentOrgId && safeString(booking.approval_org_id) !== currentOrgId) {
       return res.json({ status: 'forbidden', message: localeCopy.copy_d76adefd6d });
     }

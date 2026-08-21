@@ -6,7 +6,8 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 const workGroupModel = require('../models/workGroup');
 const departmentModel = require('../models/department');
 const adminInfoModel = require('../models/adminInfo');
-const pool = require('../../config/db');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
+const dictionaryUsage = require('../services/dictionaryUsage');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -59,23 +60,32 @@ router.post('/saveWorkGroup', async (req, res) => {
     }
 
     const orgId = await getCurrentOrgId();
-    const [dups] = await pool.query(
-      'SELECT id FROM work_groups WHERE department_id = ? AND name = ? AND org_id = ?',
-      [departmentId, name, orgId]
-    );
-    if (dups.some((r) => String(r.id) !== id)) {
+    const newId = id ? '' : generateId();
+    const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const saved = await dictionaryUsage.saveWorkGroupDefinition({
+      id,
+      name,
+      departmentId,
+      description,
+      organizationId: orgId,
+      updatedAt: nowUtc,
+      newId
+    });
+    if (saved.status === 'invalid_department') {
+      return res.json({ status: 'invalid_department', message: personnelCopy.workGroupDepartmentInvalid });
+    }
+    if (saved.status === 'duplicate') {
       return res.json({ status: 'duplicate', message: localeCopy.copy_a7a8b23213 });
     }
-
-    if (id) {
-      const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-      await workGroupModel.update(id, name, departmentId, description, nowUtc);
-      res.json({ status: 'success', message: localeCopy.copy_4fdb08add2 });
-    } else {
-      const newId = generateId();
-      await workGroupModel.create(newId, name, departmentId, description);
-      res.json({ status: 'success', id: newId, message: localeCopy.copy_312debb693 });
+    if (saved.status === 'in_use') {
+      return res.json({ status: 'in_use', message: personnelCopy.dictionaryInUse, usages: saved.usages });
     }
+    if (saved.status !== 'success') {
+      return res.json({ status: saved.status, message: localeCopy.copy_c4f6a0088b });
+    }
+    res.json(id
+      ? { status: 'success', message: localeCopy.copy_4fdb08add2 }
+      : { status: 'success', id: saved.id, message: localeCopy.copy_312debb693 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -91,12 +101,14 @@ router.post('/deleteWorkGroup', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_c4f6a0088b });
 
-    // Check references before deletion
     const orgId = await getCurrentOrgId();
-    const [hrRef] = await pool.query('SELECT id FROM hr_info WHERE work_group_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
-    if (hrRef.length) return res.json({ status: 'in_use', message: localeCopy.copy_6664216a6e });
-
-    await workGroupModel.remove(id);
+    const deletion = await dictionaryUsage.deleteUnused('work_group', id, orgId);
+    if (deletion.status === 'in_use') {
+      return res.json({ status: 'in_use', message: personnelCopy.dictionaryInUse, usages: deletion.usages });
+    }
+    if (deletion.status !== 'success') {
+      return res.json({ status: deletion.status, message: localeCopy.copy_c4f6a0088b });
+    }
     res.json({ status: 'success', message: localeCopy.copy_1d828c61a6 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

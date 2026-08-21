@@ -267,7 +267,10 @@ async function loadTodos(scope, body) {
   const limit = parseLimit(body.limit);
   const offset = getOffset(body);
   const results = await settleWithConcurrency(scope.contexts, async (context) => {
-    const items = await todoService.listAll(context.actor, context.organizationId);
+    const items = await orgStorage.run(
+      context.organizationId,
+      () => todoService.listAll(context.actor, context.organizationId)
+    );
     return items.map((item) => Object.assign({}, item, organizationMetadata(context)));
   });
   const allItems = results

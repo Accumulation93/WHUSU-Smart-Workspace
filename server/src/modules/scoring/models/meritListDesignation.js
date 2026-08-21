@@ -31,9 +31,24 @@ async function getById(id) {
 async function create(id, data) {
   const orgId = await getCurrentOrgId();
   await pool.query(
-    `INSERT INTO merit_list_designations (id, publication_id, clause_id, target_hr_id, designated_by, org_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, data.publicationId, data.clauseId || data.permissionId, data.targetHrId, data.designatedBy, orgId]
+    `INSERT INTO merit_list_designations
+      (id, publication_id, clause_id, target_hr_id, target_assignment_id, target_context_snapshot,
+       designated_by, designated_by_person_id, designated_by_assignment_id,
+       designated_by_context_snapshot, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      data.publicationId,
+      data.clauseId || data.permissionId,
+      data.targetHrId,
+      data.targetAssignmentId,
+      data.targetContextSnapshot ? JSON.stringify(data.targetContextSnapshot) : null,
+      data.designatedBy,
+      data.designatedByPersonId || null,
+      data.designatedByAssignmentId || null,
+      data.designatedByContextSnapshot ? JSON.stringify(data.designatedByContextSnapshot) : null,
+      orgId
+    ]
   );
 }
 

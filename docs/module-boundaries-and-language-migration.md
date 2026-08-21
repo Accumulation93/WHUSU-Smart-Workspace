@@ -39,7 +39,7 @@
 - `subpackages/scoring`：用户评分首页、评分表、评分任务、考核活动/模板/规则/结果/公示管理。
 - `subpackages/audit`：用户审核首页、申请、待批、审批历史、签名、验签，以及审核模板/印章/申请/验签权限管理。
 - `subpackages/venue`：场地借用、审批历史、日程和场地管理，保持现有边界。
-- `subpackages/org`：组织与身份切换、权限管理和组织级身份上下文。
+- `subpackages/org`：组织与工作上下文切换、权限管理和组织级岗位上下文。
 - 人事、系统和审核管理页当前仍由 `subpackages/scoring/pages/admin` 承载；`subpackages/hr`、`subpackages/system` 只是未来拆分目标，当前不可作为生产路由或文件路径使用。
 
 公共逻辑和公共语言资源放在 `miniprogram/utils`、`miniprogram/components`、`miniprogram/locales`；公共 WXSS 放在 `miniprogram/subpackages/main/styles/**`。`miniprogram/subpackages/workspace/pages/home/home.wxss` 只是兼容桥接文件，不是共享样式源。功能专用组件、工具和语言资源必须留在所属分包。业务分包只能引用自身分包或主包资源，禁止跨业务分包引用 JS、JSON、WXML、WXSS 或组件。

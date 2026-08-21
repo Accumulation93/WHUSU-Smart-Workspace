@@ -1,8 +1,14 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/unifiedAuth');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const express = require('express');
 const { safeString } = require('../../utils/helpers');
+const pool = require('../../config/db');
 const identityModel = require('../models/unifiedIdentity');
 const unifiedAuth = require('../services/unifiedAuth');
+const {
+  hasGrantedPermission,
+  scopeAccountSessions
+} = require('../services/adminPermissions');
 
 const router = express.Router();
 
@@ -161,6 +167,7 @@ router.post('/auth/password/session', async (req, res) => {
     await identityModel.appendAuditEvent({ eventType: 'password_session_created', targetPersonId: account.person_id,
       accountId: account.id, requestId: req.requestId, ip: req.ip });
     return res.json(await unifiedAuth.createAuthenticatedSession(account, {
+      contextId: req.body && req.body.preferredContextId,
       organizationId: req.body && req.body.preferredOrganizationId,
       identityId: req.body && req.body.preferredIdentityId
     }, metadata(req)));
@@ -182,6 +189,7 @@ router.get('/auth/contexts', async (req, res) => {
       status: 'success',
       currentContextId: req.authContext.contextId,
       contexts,
+      workContexts: catalog.workContexts,
       selection: catalog.selection,
       organizations: catalog.organizations,
       identities: catalog.identities
@@ -204,6 +212,7 @@ router.post('/auth/contexts', async (req, res) => {
       status: 'success',
       currentContextId: req.authContext.contextId,
       contexts,
+      workContexts: catalog.workContexts,
       selection: catalog.selection,
       organizations: catalog.organizations,
       identities: catalog.identities
@@ -216,11 +225,11 @@ router.post('/auth/contexts', async (req, res) => {
 router.post('/auth/contexts/activate', async (req, res) => {
   try {
     requireUnifiedSession(req);
-    const requestedContextId = safeString(req.body && req.body.contextId);
+    const requestedContextId = safeString(req.body && (req.body.contextId || req.body.workContextId));
     const requestedOrganizationId = safeString(req.body && req.body.organizationId);
     const requestedIdentityId = safeString(req.body && req.body.identityId);
     if (!requestedContextId && (!requestedOrganizationId || !requestedIdentityId)) {
-      throw new identityModel.IdentityError('invalid_params', '请选择组织和身份', 400);
+      throw new identityModel.IdentityError('invalid_params', personnelCopy.organizationSelectionExpired, 400);
     }
     const previousContext = req.authContext;
     const context = await identityModel.activateSelection(
@@ -233,6 +242,10 @@ router.post('/auth/contexts/activate', async (req, res) => {
       }
     );
     const decorated = await unifiedAuth.decorateContext(context);
+    const contexts = await unifiedAuth.decorateContexts(
+      await identityModel.listContexts(req.authAccount.id)
+    );
+    const catalog = unifiedAuth.buildContextCatalog(contexts, decorated);
     await identityModel.appendAuditEvent({
       eventType: 'auth_context_activated',
       actorPersonId: req.authAccount.personId,
@@ -262,11 +275,11 @@ router.post('/auth/contexts/activate', async (req, res) => {
         }
       ),
       context: decorated,
-      selection: {
-        organizationId: decorated.organizationId,
-        identityId: decorated.authIdentityId,
-        contextId: decorated.contextId
-      },
+      contexts,
+      workContexts: catalog.workContexts,
+      selection: catalog.selection,
+      organizations: catalog.organizations,
+      identities: catalog.identities,
       user: unifiedAuth.profileFromContext(decorated),
       activeRole: decorated.role,
       activeOrg: { id: decorated.organizationId, name: decorated.organizationName }
@@ -365,16 +378,22 @@ router.post('/auth/security/sessions/revoke', async (req, res) => {
 
 router.post('/admin/auth/security', async (req, res) => {
   try {
-    await requireAdminPermission(req, 'auth.accounts.recover');
+    const actor = await requireAdminPermission(req, 'auth.accounts.recover');
     const account = await resolveMemberAccount(req, req.body && req.body.personId);
-    const [sessions, passphraseSet] = await Promise.all([
-      identityModel.listSessions(account.account_id),
-      identityModel.getPassphraseStatus(account.account_id)
-    ]);
+    const canGlobalManage = hasGrantedPermission(actor, 'auth.accounts.global_manage');
+    const sessions = scopeAccountSessions(
+      await identityModel.listSessions(account.account_id),
+      actor.organizationId,
+      canGlobalManage
+    );
+    const passphraseSet = canGlobalManage
+      ? await identityModel.getPassphraseStatus(account.account_id)
+      : null;
     return res.json({
       status: 'success',
       account: { name: account.name, studentId: account.student_id },
       bindingStatus: safeString(account.account_status),
+      canGlobalManage,
       passphraseSet,
       sessions: sessions.map(mapSecuritySession)
     });
@@ -385,27 +404,33 @@ router.post('/admin/auth/security', async (req, res) => {
 
 router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
   try {
-    await requireAdminPermission(req, 'auth.accounts.recover');
+    await requireAdminPermission(req, 'auth.accounts.global_manage');
     const account = await resolveMemberAccount(req, req.body && req.body.personId);
     const sessionId = safeString(req.body && req.body.sessionId);
     if (!sessionId) {
       throw new identityModel.IdentityError('invalid_params', '请选择要退出的设备', 400);
     }
-    const revoked = await identityModel.revokeSession(
-      account.account_id,
-      sessionId,
-      req.authSession.id
-    );
-    await identityModel.appendAuditEvent({
-      eventType: 'admin_session_revoked',
-      actorPersonId: req.authAccount.personId,
-      targetPersonId: account.person_id,
-      accountId: account.account_id,
-      organizationId: req.authContext.organizationId,
-      contextId: req.authContext.contextId,
-      requestId: req.requestId,
-      ip: req.ip,
-      detail: { sessionId }
+    const revoked = await pool.withTransaction(async (connection) => {
+      const changed = await identityModel.revokeSession(
+        account.account_id,
+        sessionId,
+        req.authSession.id,
+        connection
+      );
+      await identityModel.appendAuditEvent({
+        connection,
+        eventType: 'admin_session_revoked',
+        actorPersonId: req.authAccount.personId,
+        targetPersonId: account.person_id,
+        accountId: account.account_id,
+        organizationId: req.authContext.organizationId,
+        contextId: req.authContext.contextId,
+        requestId: req.requestId,
+        ip: req.ip,
+        outcome: changed ? 'success' : 'not_found',
+        detail: { sessionId }
+      });
+      return changed;
     });
     return res.json({ status: revoked ? 'success' : 'not_found', message: localeCopy.copy_c69999ba88 });
   } catch (error) {
@@ -415,23 +440,27 @@ router.post('/admin/auth/security/sessions/revoke', async (req, res) => {
 
 router.post('/admin/auth/security/passphrase', async (req, res) => {
   try {
-    await requireAdminPermission(req, 'auth.accounts.recover');
+    await requireAdminPermission(req, 'auth.accounts.global_manage');
     const account = await resolveMemberAccount(req, req.body && req.body.personId);
-    await identityModel.configureRecoveryCredential(
-      account.account_id,
-      'passphrase',
-      req.body && req.body.value
-    );
-    await identityModel.appendAuditEvent({
-      eventType: 'admin_passphrase_configured',
-      actorPersonId: req.authAccount.personId,
-      targetPersonId: account.person_id,
-      accountId: account.account_id,
-      organizationId: req.authContext.organizationId,
-      contextId: req.authContext.contextId,
-      requestId: req.requestId,
-      ip: req.ip,
-      detail: { method: 'passphrase' }
+    await pool.withTransaction(async (connection) => {
+      await identityModel.configureRecoveryCredential(
+        account.account_id,
+        'passphrase',
+        req.body && req.body.value,
+        connection
+      );
+      await identityModel.appendAuditEvent({
+        connection,
+        eventType: 'admin_passphrase_configured',
+        actorPersonId: req.authAccount.personId,
+        targetPersonId: account.person_id,
+        accountId: account.account_id,
+        organizationId: req.authContext.organizationId,
+        contextId: req.authContext.contextId,
+        requestId: req.requestId,
+        ip: req.ip,
+        detail: { method: 'passphrase' }
+      });
     });
     return res.json({ status: 'success' });
   } catch (error) {
@@ -441,21 +470,30 @@ router.post('/admin/auth/security/passphrase', async (req, res) => {
 
 router.post('/admin/auth/security/passphrase/revoke', async (req, res) => {
   try {
-    await requireAdminPermission(req, 'auth.accounts.recover');
+    await requireAdminPermission(req, 'auth.accounts.global_manage');
     const account = await resolveMemberAccount(req, req.body && req.body.personId);
-    await identityModel.revokeRecoveryCredential(account.account_id, 'passphrase');
-    await identityModel.appendAuditEvent({
-      eventType: 'admin_passphrase_revoked',
-      actorPersonId: req.authAccount.personId,
-      targetPersonId: account.person_id,
-      accountId: account.account_id,
-      organizationId: req.authContext.organizationId,
-      contextId: req.authContext.contextId,
-      requestId: req.requestId,
-      ip: req.ip,
-      detail: { method: 'passphrase' }
+    const revoked = await pool.withTransaction(async (connection) => {
+      const changed = await identityModel.revokeRecoveryCredential(
+        account.account_id,
+        'passphrase',
+        connection
+      );
+      await identityModel.appendAuditEvent({
+        connection,
+        eventType: 'admin_passphrase_revoked',
+        actorPersonId: req.authAccount.personId,
+        targetPersonId: account.person_id,
+        accountId: account.account_id,
+        organizationId: req.authContext.organizationId,
+        contextId: req.authContext.contextId,
+        requestId: req.requestId,
+        ip: req.ip,
+        outcome: changed ? 'success' : 'not_found',
+        detail: { method: 'passphrase' }
+      });
+      return changed;
     });
-    return res.json({ status: 'success' });
+    return res.json({ status: revoked ? 'success' : 'not_found' });
   } catch (error) {
     return sendError(req, res, error);
   }
@@ -628,23 +666,36 @@ router.post('/admin/auth/recoveries', async (req, res) => {
       })) });
     }
     if (action === 'issue_codes') {
-      const orgId = actor.adminLevel === 'super_admin'
+      const globalActor = await requireAdminPermission(req, 'auth.accounts.global_manage');
+      const orgId = globalActor.adminLevel === 'super_admin'
         ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
-      const results = await identityModel.issueAdminRecoveryCodes(req.body && req.body.accountIds, orgId, actor, metadata(req));
+        : globalActor.organizationId;
+      const results = await identityModel.issueAdminRecoveryCodes(
+        req.body && req.body.accountIds,
+        orgId,
+        globalActor,
+        metadata(req)
+      );
       return res.json({ status: 'success', issued: results, message: localeCopy.copy_2e445c9710 });
     }
     if (action === 'revoke_codes') {
-      const orgId = actor.adminLevel === 'super_admin'
+      const globalActor = await requireAdminPermission(req, 'auth.accounts.global_manage');
+      const orgId = globalActor.adminLevel === 'super_admin'
         ? safeString(req.body && req.body.organizationId)
-        : actor.organizationId;
-      const result = await identityModel.revokeAdminRecoveryCodes(req.body && req.body.accountIds, orgId, actor, metadata(req));
+        : globalActor.organizationId;
+      const result = await identityModel.revokeAdminRecoveryCodes(
+        req.body && req.body.accountIds,
+        orgId,
+        globalActor,
+        metadata(req)
+      );
       return res.json({ status: 'success', revoked: result.revoked });
     }
     if (action === 'approve') {
+      const globalActor = await requireAdminPermission(req, 'auth.accounts.global_manage');
       await identityModel.approveRecovery(
         req.body && req.body.recoveryRequestId,
-        actor,
+        globalActor,
         metadata(req)
       );
       return res.json({ status: 'success', message: localeCopy.copy_cbea0ead4a });
@@ -681,16 +732,17 @@ router.post('/admin/auth/accounts', async (req, res) => {
       });
     }
     if (action === 'freeze' || action === 'unfreeze') {
+      const globalActor = await requireAdminPermission(req, 'auth.accounts.global_manage');
       const result = await identityModel.setAccountFrozen(
         req.body && req.body.personId,
         action === 'freeze',
-        actor,
+        globalActor,
         metadata(req)
       );
       return res.json({
         status: 'success',
         accountStatus: result.status,
-        message: action === 'freeze' ? '账号已冻结，其他设备已退出' : '账号已解除冻结'
+        message: action === 'freeze' ? personnelCopy.accountFrozen : personnelCopy.accountUnfrozen
       });
     }
     throw new identityModel.IdentityError('invalid_action', '请重新打开页面后再试', 400);

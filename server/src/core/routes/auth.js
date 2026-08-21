@@ -1,9 +1,6 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/auth');
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
-const jwt = require('jsonwebtoken');
-const { JWT_SECRET } = require('../../middleware/auth');
 const { safeString, generateId } = require('../../utils/helpers');
 const { getCurrentOrgId } = require('../../utils/orgContext');
 const userInfoModel = require('../models/userInfo');
@@ -15,38 +12,6 @@ const pool = require('../../config/db');
 const { clearOrgAccessCache } = require('../../middleware/orgContext');
 const { loadEffectivePermissions } = require('../services/adminPermissions');
 const { listAvailableOrganizations } = require('../services/accessibleOrganizations');
-
-const WECHAT_APPID = process.env.WECHAT_APPID;
-const WECHAT_SECRET = process.env.WECHAT_SECRET;
-if (!WECHAT_APPID || !WECHAT_SECRET) {
-  throw new Error('WECHAT_APPID and WECHAT_SECRET environment variables are required');
-}
-
-const ALLOW_DEV_OPENID_LOGIN = process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEV_OPENID_LOGIN === '1';
-
-// 构建用户 profile（当前组织内）
-async function buildUserProfile(hrRecord) {
-  const departmentModel = require('../models/department');
-  const identityModel = require('../models/identity');
-  const workGroupModel = require('../models/workGroup');
-  const [deptRecord, identRecord, wgRecord] = await Promise.all([
-    hrRecord.department_id ? departmentModel.getById(safeString(hrRecord.department_id)) : null,
-    hrRecord.identity_id ? identityModel.getById(safeString(hrRecord.identity_id)) : null,
-    hrRecord.work_group_id ? workGroupModel.getById(safeString(hrRecord.work_group_id)) : null
-  ]);
-  return {
-    id: safeString(hrRecord.id),
-    hrId: safeString(hrRecord.id),
-    name: safeString(hrRecord.name),
-    studentId: safeString(hrRecord.student_id),
-    departmentId: safeString(hrRecord.department_id),
-    department: deptRecord ? safeString(deptRecord.name) : '',
-    identityId: safeString(hrRecord.identity_id),
-    identity: identRecord ? safeString(identRecord.name) : '',
-    workGroupId: safeString(hrRecord.work_group_id),
-    workGroup: wgRecord ? safeString(wgRecord.name) : ''
-  };
-}
 
 // 构建用户 profile（跨组织 — 使用指定 orgId 查询关联表）
 async function buildUserProfileCrossOrg(hrRecord, orgId) {
@@ -86,244 +51,20 @@ async function buildAvailableOrgs(openid, adminRecords) {
   return listAvailableOrganizations(openid, adminRecords === null ? 'user' : 'admin');
 }
 
-// userLogin - 微信登录（普通用户）— 4 层 fallback 智能组织匹配
-router.post('/userLogin', async (req, res) => {
-  try {
-    const code = safeString(req.body.code);
-    let openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
-    if (!openid && code) {
-      try {
-        const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
-          params: { appid: WECHAT_APPID, secret: WECHAT_SECRET, js_code: code, grant_type: 'authorization_code' },
-          timeout: 3000
-        });
-        if (wxRes.data && wxRes.data.openid) {
-          openid = safeString(wxRes.data.openid);
-        }
-      } catch (e) {
-        req.logger.warn('WeChat API failed in userLogin', { error: e.message });
-      }
-    }
-
-    if (!openid) {
-      return res.json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
-    }
-
-    const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
-
-    const systemDefaultOrgId = await getSystemDefaultOrgId();
-
-    // ====== 第 1 层：系统默认组织（最高优先级，直接读 system_config，不受 X-Active-Org 影响） ======
-    if (systemDefaultOrgId) {
-      const userRecord = await userInfoModel.getByOpenidInOrg(openid, systemDefaultOrgId);
-      if (userRecord && safeString(userRecord.hr_id)) {
-        const hrRecord = await hrInfoModel.getByIdInOrg(userRecord.hr_id, systemDefaultOrgId);
-        if (hrRecord) {
-          const availableOrgs = await buildAvailableOrgs(openid, null);
-          const activeOrg = availableOrgs.find((org) => org.id === systemDefaultOrgId) || null;
-          return res.json({
-            status: 'login_success',
-            token,
-            user: await buildUserProfileCrossOrg(hrRecord, systemDefaultOrgId),
-            availableOrgs,
-            activeOrg
-          });
-        }
-      }
-    }
-
-    // ====== 第 2 层：全组织扫描（按 created_at DESC，跳过系统默认） ======
-    const allOrgs = await organizationModel.getAll();
-    for (const org of allOrgs) {
-      if (org.id === systemDefaultOrgId) continue; // 第 1 层已检查
-      const record = await userInfoModel.getByOpenidInOrg(openid, org.id);
-      if (record && safeString(record.hr_id)) {
-        const hrRecord = await hrInfoModel.getByIdInOrg(record.hr_id, org.id);
-        if (hrRecord) {
-          const availableOrgs = await buildAvailableOrgs(openid, null);
-          const activeOrg = availableOrgs.find((item) => item.id === org.id) || null;
-          return res.json({
-            status: 'login_success',
-            token,
-            user: await buildUserProfileCrossOrg(hrRecord, org.id),
-            availableOrgs,
-            activeOrg
-          });
-        }
-      }
-    }
-
-    // ====== 第 3 层：跨组织自动绑定检测（目标：系统默认组织） ======
-    const globalRecords = await userInfoModel.getByOpenidGlobal(openid);
-    if (globalRecords.length > 0) {
-      for (const record of globalRecords) {
-        if (!safeString(record.hr_id)) continue;
-        const sourceOrgId = record.org_id;
-        const sourceHr = await hrInfoModel.getByIdInOrg(record.hr_id, sourceOrgId);
-        if (!sourceHr) continue;
-
-        const studentId = safeString(sourceHr.student_id);
-        const name = safeString(sourceHr.name);
-        if (!studentId || !name) continue;
-
-        // 检查系统默认组织中是否有相同学号+姓名的人事记录
-        if (!systemDefaultOrgId || systemDefaultOrgId === sourceOrgId) continue;
-
-        const targetHr = await hrInfoModel.getByStudentIdInOrg(studentId, systemDefaultOrgId);
-        if (targetHr && safeString(targetHr.name) === name) {
-          const sourceOrgName = (allOrgs.find(o => o.id === sourceOrgId) || {}).name || sourceOrgId;
-          const targetOrgName = (allOrgs.find(o => o.id === systemDefaultOrgId) || {}).name || systemDefaultOrgId;
-          const autoBindChallenge = await authChallengeModel.create('auto_bind', openid, {
-            sourceOrgId,
-            sourceHrId: sourceHr.id,
-            targetOrgId: systemDefaultOrgId,
-            targetHrId: targetHr.id,
-            name,
-            studentId
-          });
-          return res.json({
-            status: 'auto_bind_available',
-            token,
-            autoBindChallenge,
-            sourceOrg: { id: sourceOrgId, name: sourceOrgName },
-            targetOrg: { id: systemDefaultOrgId, name: targetOrgName },
-            sourceUser: {
-              id: sourceHr.id,
-              hrId: sourceHr.id,
-              name: sourceHr.name,
-              studentId: sourceHr.student_id
-            },
-            candidateHrInfo: {
-              name: targetHr.name,
-              studentId: targetHr.student_id
-            },
-            availableOrgs: await buildAvailableOrgs(openid, null)
-          });
-        }
-      }
-    }
-
-    // 老版本只允许已有绑定继续登录；新认领必须使用统一认证，避免恢复姓名学号直绑。
-    return res.status(426).json({
-      status: 'client_upgrade_required',
-      message: localeCopy.copy_bfb0d21b30
-    });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_b10d64a68c });
-  }
+// 旧普通用户登录协议无法绑定服务端工作上下文，统一要求客户端升级。
+router.post('/userLogin', (req, res) => {
+  return res.status(426).json({
+    status: 'client_upgrade_required',
+    message: localeCopy.copy_bfb0d21b30
+  });
 });
 
-// adminLogin - 管理员登录（智能组织匹配）
-router.post('/adminLogin', async (req, res) => {
-  try {
-    const code = safeString(req.body.code);
-    if (!code && !ALLOW_DEV_OPENID_LOGIN) {
-      return res.json({ status: 'invalid_params', message: localeCopy.copy_b10d64a68c });
-    }
-
-    let openid = ALLOW_DEV_OPENID_LOGIN ? safeString(req.body.openid) : '';
-    if (!openid && code) {
-      try {
-        const wxRes = await axios.get('https://api.weixin.qq.com/sns/jscode2session', {
-          params: { appid: WECHAT_APPID, secret: WECHAT_SECRET, js_code: code, grant_type: 'authorization_code' },
-          timeout: 3000
-        });
-        if (wxRes.data && wxRes.data.openid) {
-          openid = safeString(wxRes.data.openid);
-        }
-      } catch (e) {
-        req.logger.warn('WeChat API failed in adminLogin', { error: e.message });
-      }
-    }
-
-    if (!openid) {
-      return res.json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
-    }
-
-    const token = jwt.sign({ openid }, JWT_SECRET, { expiresIn: '7d' });
-
-    // 获取全局管理员绑定（不受 org 限制）
-    const allAdminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
-
-    if (allAdminRecords.length === 0) {
-      return res.status(426).json({
-        status: 'client_upgrade_required',
-        message: localeCopy.copy_bfb0d21b30
-      });
-    }
-
-    // 全局超级管理员直接登录（默认组织按 system_config 优先级）
-    const superAdmin = allAdminRecords.find(r => r.admin_level === 'super_admin' && r.org_id === '');
-    if (superAdmin) {
-      const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
-      // system_config 组织排在第一位，确保前端默认选中
-      const systemDefaultOrgId = await getSystemDefaultOrgId();
-      if (systemDefaultOrgId) {
-        availableOrgs.sort((a, b) => {
-          if (a.id === systemDefaultOrgId) return -1;
-          if (b.id === systemDefaultOrgId) return 1;
-          return 0;
-        });
-      }
-      return res.json({
-        status: 'login_success',
-        token,
-        user: await buildAdminUser(superAdmin, availableOrgs[0] ? availableOrgs[0].id : ''),
-        availableOrgs,
-        activeOrg: availableOrgs[0] || null
-      });
-    }
-
-    // 普通管理员优先匹配系统默认组织（直接读 system_config）
-    const systemDefaultOrgId = await getSystemDefaultOrgId();
-    if (systemDefaultOrgId) {
-      const matchInDefaultOrg = allAdminRecords.find(r => r.org_id === systemDefaultOrgId);
-      if (matchInDefaultOrg) {
-        const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
-        // system_config 组织排在第一位
-        if (systemDefaultOrgId) {
-          availableOrgs.sort((a, b) => {
-            if (a.id === systemDefaultOrgId) return -1;
-            if (b.id === systemDefaultOrgId) return 1;
-            return 0;
-          });
-        }
-        return res.json({
-          status: 'login_success',
-          token,
-          user: await buildAdminUser(matchInDefaultOrg, systemDefaultOrgId),
-          availableOrgs,
-          activeOrg: availableOrgs[0] || null
-        });
-      }
-    }
-
-    // 系统默认不匹配 → 扫描其他组织（按 created_at DESC）
-    const allOrgs = await organizationModel.getAll();
-    for (const org of allOrgs) {
-      if (org.id === systemDefaultOrgId) continue;
-      const match = allAdminRecords.find(r => r.org_id === org.id);
-      if (match) {
-        const availableOrgs = await buildAvailableOrgs(openid, allAdminRecords);
-        const activeOrg = availableOrgs.find((item) => item.id === org.id) || null;
-        return res.json({
-          status: 'login_success',
-          token,
-          user: await buildAdminUser(match, org.id),
-          availableOrgs,
-          activeOrg
-        });
-      }
-    }
-
-    // 老版本只兼容已经绑定且组织仍有效的管理员。
-    return res.status(426).json({
-      status: 'client_upgrade_required',
-      message: localeCopy.copy_6a1287aed6
-    });
-  } catch (e) {
-    res.json({ status: 'error', message: safeString(e.message) || localeCopy.copy_b10d64a68c });
-  }
+// 旧管理员登录协议同样不得签发仅含 openid 的令牌。
+router.post('/adminLogin', (req, res) => {
+  return res.status(426).json({
+    status: 'client_upgrade_required',
+    message: localeCopy.copy_bfb0d21b30
+  });
 });
 
 // 构建管理员 user 对象
@@ -408,7 +149,7 @@ router.post('/activateOrganization', async (req, res) => {
 
     let user;
     if (role === 'admin') {
-      const adminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
+      const adminRecords = await adminInfoModel.getAuthorizedByOpenidAcrossOrgs(openid);
       const superAdmin = adminRecords.find((item) => item.admin_level === 'super_admin' && item.org_id === '');
       const orgAdmin = adminRecords.find((item) => item.org_id === orgId);
       const activeAdmin = superAdmin || orgAdmin;
@@ -467,7 +208,7 @@ router.post('/admin/listMyOrganizations', async (req, res) => {
     if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
 
     // 获取管理员绑定记录
-    const adminRecords = await adminInfoModel.getByOpenidAcrossOrgs(openid);
+    const adminRecords = await adminInfoModel.getAuthorizedByOpenidAcrossOrgs(openid);
     const availableOrgs = await buildAvailableOrgs(openid, adminRecords);
 
     // system_config 组织排在第一位

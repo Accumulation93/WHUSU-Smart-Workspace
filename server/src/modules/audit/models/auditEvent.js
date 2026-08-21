@@ -63,4 +63,31 @@ async function getBySubmissionId(submissionId) {
   return rows;
 }
 
-module.exports = { create, getBySubmissionId };
+async function hasStepActionByActor(data, conn) {
+  const orgId = await getCurrentOrgId();
+  const db = conn || pool;
+  const [rows] = await db.query(
+    `SELECT id FROM audit_events
+      WHERE submission_id = ? AND step_index = ? AND round = ? AND event_type = ? AND org_id = ?
+        AND COALESCE(
+          NULLIF(operator_assignment_id, ''),
+          CASE
+            WHEN JSON_VALID(operator_context_snapshot) THEN
+              NULLIF(JSON_UNQUOTE(JSON_EXTRACT(operator_context_snapshot, '$.assignmentId')), '')
+            ELSE NULL
+          END
+        ) = ?
+      LIMIT 1`,
+    [
+      data.submissionId,
+      data.stepIndex,
+      data.round || 1,
+      data.eventType,
+      orgId,
+      data.assignmentId
+    ]
+  );
+  return rows.length > 0;
+}
+
+module.exports = { create, getBySubmissionId, hasStepActionByActor };

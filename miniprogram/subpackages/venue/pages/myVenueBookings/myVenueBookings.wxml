@@ -18,6 +18,7 @@
         </view>
         <view class="booking-meta">{{item.venueName}} · {{item.venueLocation || '-'}}</view>
         <view class="booking-meta">{{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
+        <view class="booking-assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.bookingAssignment}} · {{item._creatorAssignmentText}}</view>
         <view class="booking-meta" wx:if="{{item.description}}">{{item.description}}</view>
         <view class="booking-meta" wx:if="{{item.approvalComment}}">{{localeCopy.copy_3b3b392755}}{{item.approvalComment}}</view>
         <text wx:if="{{item.status === 'pending' || item.status === 'approved'}}" class="cancel-btn ui-motion-chip" data-id="{{item.id}}" bindtap="cancelBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_059dd7bc2c}}</text>

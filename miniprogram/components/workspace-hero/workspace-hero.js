@@ -2,12 +2,23 @@ const localeCopy = require('../../locales/zh-CN/generated/components/workspace-h
 const eventBus = require('../../utils/eventBus');
 const { navigateToTrustedRoute } = require('../../utils/trustedNavigation');
 
-function getIdentityName(profile, role) {
+function getActiveWorkContext() {
+  const activeContextId = String(wx.getStorageSync('activeContextId') || '');
+  const workContexts = wx.getStorageSync('authWorkContexts');
+  if (!activeContextId || !Array.isArray(workContexts)) return {};
+  return workContexts.find(function(item) {
+    return String(item && item.contextId || '') === activeContextId;
+  }) || {};
+}
+
+function getWorkContextName(profile, role, workContext) {
   if (!profile) return '';
+  const context = workContext || {};
   if (role === 'admin') {
-    return profile.adminLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_c01a9aef59;
+    return context.name
+      || (profile.adminLevel === 'super_admin' ? localeCopy.copy_ccd219e5f1 : localeCopy.copy_c01a9aef59);
   }
-  return profile.identity || '';
+  return profile.assignmentLabel || context.assignmentLabel || context.name || '';
 }
 
 function getProfile() {
@@ -15,12 +26,11 @@ function getProfile() {
   const profiles = wx.getStorageSync('roleProfiles') || {};
   const account = wx.getStorageSync('accountProfile') || {};
   const profile = profiles[role] || {};
+  const workContext = getActiveWorkContext();
   return {
     role: role,
     name: profile.name || account.name || '',
-    identityName: getIdentityName(profile, role),
-    department: profile.department || '',
-    workGroup: profile.workGroup || '',
+    workContextName: getWorkContextName(profile, role, workContext),
     organizationName: String(wx.getStorageSync('activeOrgName') || '')
   };
 }
@@ -77,13 +87,10 @@ Component({
   methods: {
     refresh: function () {
       const profile = getProfile();
-      const detailParts = [];
-      if (profile.department) detailParts.push(profile.department);
-      if (profile.workGroup) detailParts.push(profile.workGroup);
       this.setData({
         personName: profile.name,
-        identityName: profile.identityName || localeCopy.copy_0c1ba11af0,
-        identityDetail: detailParts.join(' · '),
+        identityName: profile.workContextName || localeCopy.copy_0c1ba11af0,
+        identityDetail: '',
         organizationName: profile.organizationName || localeCopy.copy_6d7a32c169,
         signedIn: Boolean(profile.name)
       });

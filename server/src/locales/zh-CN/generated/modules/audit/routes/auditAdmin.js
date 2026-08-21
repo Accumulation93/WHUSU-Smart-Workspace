@@ -2,7 +2,7 @@
 
 module.exports = Object.freeze({
   copy_03d69a9d28: "请重新选择文件",
-  copy_10d3269bb4: "请重新选择身份",
+  copy_10d3269bb4: "请重新选择工作上下文",
   copy_161855b67c: "印章已更新",
   copy_20ef4f329b: "：指定了身份但未选择具体身份",
   copy_258347beac: "指定职能组",
@@ -30,7 +30,7 @@ module.exports = Object.freeze({
   copy_c9695bb971: "审批",
   copy_cb20eb18bc: "印章分配已更新",
   copy_cf05c2ba56: "请输入模板名称",
-  copy_d1856227b6: "请选择身份",
+  copy_d1856227b6: "请选择身份类别",
   copy_dcc2e39631: "该人员已有验签权限",
   copy_e0aaf03f8a: "请先选择组织",
   copy_eb6b0a83d2: "请选择第",

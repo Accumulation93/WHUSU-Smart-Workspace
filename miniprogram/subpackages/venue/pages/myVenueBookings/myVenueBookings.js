@@ -2,6 +2,7 @@ const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/venu
 const { callFunction, getErrorText, showShortToast } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
+const { prepareVenueBookingDetail } = require('../../utils/venueBookingDetail');
 
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
 
@@ -48,7 +49,9 @@ Page({
     this.setData({ loading: true });
     try {
       const res = await callFunction({ name: 'listMyVenueBookings', data: {} });
-      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') this.setData({ bookings: res.bookings || [] });
+      if (orgSession.isRequestCurrent(this, request) && res.status === 'success') {
+        this.setData({ bookings: (res.bookings || []).map(prepareVenueBookingDetail) });
+      }
     } catch (e) {
       showShortToast(getErrorText(e, localeCopy.copy_e52119b17e));
     } finally {

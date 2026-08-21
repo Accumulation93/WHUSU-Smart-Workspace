@@ -9,6 +9,11 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const DEFAULT_DIRECTORY = path.resolve(__dirname, '../db/deploy');
 const MIGRATION_NAME_PATTERN = /^\d{14}_[a-z0-9_]+\.sql$/;
 const DESTRUCTIVE_PATTERN = /\b(DROP\s+(TABLE|DATABASE|COLUMN|INDEX)|TRUNCATE\s+TABLE|DELETE\s+FROM|RENAME\s+(TABLE|COLUMN)|ALTER\s+TABLE[\s\S]*?\b(MODIFY|CHANGE)\b)\b/i;
+const DESTRUCTIVE_DIRECTIVE_PATTERN = /^\s*--\s*@destructive\b/im;
+
+function isDestructiveMigration(content) {
+  return DESTRUCTIVE_DIRECTIVE_PATTERN.test(content) || DESTRUCTIVE_PATTERN.test(content);
+}
 
 function checksum(content) {
   return crypto.createHash('sha256').update(content).digest('hex');
@@ -28,7 +33,7 @@ function discoverMigrations(directory = DEFAULT_DIRECTORY) {
         name,
         path: filePath,
         checksum: checksum(content),
-        destructive: DESTRUCTIVE_PATTERN.test(content.toString('utf8'))
+        destructive: isDestructiveMigration(content.toString('utf8'))
       };
     })
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -175,6 +180,7 @@ if (require.main === module) {
 
 module.exports = {
   MIGRATION_NAME_PATTERN,
+  isDestructiveMigration,
   checksum,
   discoverMigrations,
   buildPlan,

@@ -18,6 +18,9 @@ const submissionSignatureModel = require('../models/auditSubmissionSignature');
 const auditEventModel = require('../models/auditEvent');
 const verificationPermModel = require('../models/verificationPermission');
 const { verifySignatureChain } = require('../utils/hashChain');
+const {
+  resolveAndValidateBindings
+} = require('../services/auditPersonAssignmentCondition');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -57,6 +60,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
         starterConditions: starterConditions.map(function(c) { return {
           conditionType: safeString(c.conditionType),
           personHrIds: safeString(c.personHrIds),
+          assignmentIds: safeString(c.assignmentIds),
           departmentScope: safeString(c.departmentScope),
           specificDepartmentId: safeString(c.specificDepartmentId),
           workGroupScope: safeString(c.workGroupScope),
@@ -83,6 +87,7 @@ router.post('/listAuditFlowTemplates', async (req, res) => {
             sortOrder: c.sort_order,
             conditionType: safeString(c.condition_type),
             personHrIds: safeString(c.person_hr_ids),
+            assignmentIds: safeString(c.assignment_ids),
             departmentScope: safeString(c.department_scope),
             specificDepartmentId: safeString(c.specific_department_id),
             workGroupScope: safeString(c.work_group_scope),
@@ -126,6 +131,24 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     if (!steps.length) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_4ac0ae43dd });
     }
+    if (starterType === 'specific_person') {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
+    }
+
+    for (let si = 0; si < starterConditions.length; si++) {
+      const starterCondition = starterConditions[si];
+      if (starterCondition.conditionType !== 'person') continue;
+      const binding = await resolveAndValidateBindings(starterCondition, orgId);
+      if (!binding.ok) {
+        return res.json({
+          status: 'invalid_params',
+          reason: binding.reason,
+          message: localeCopy.copy_10d3269bb4
+        });
+      }
+      starterCondition.personHrIds = binding.condition.personHrIds;
+      starterCondition.assignmentIds = binding.condition.assignmentIds;
+    }
 
     // Validate each step has at least one valid condition with proper IDs
     for (let vi = 0; vi < steps.length; vi++) {
@@ -134,12 +157,30 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
       if (!vconditions.length && !(vstep.approverType || vstep.approverIdentityId || vstep.approverHrId)) {
         return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + localeCopy.copy_287253008b });
       }
+      if (!vconditions.length && safeString(vstep.approverType) === 'specific_person') {
+        const legacyBinding = await resolveAndValidateBindings({
+          personHrIds: vstep.approverHrId,
+          assignmentIds: vstep.approverAssignmentIds || vstep.assignmentIds
+        }, orgId);
+        if (!legacyBinding.ok) {
+          return res.json({
+            status: 'invalid_params',
+            reason: legacyBinding.reason,
+            message: localeCopy.copy_eb6b0a83d2 + (vi + 1) + localeCopy.copy_5f90e06fa0
+          });
+        }
+        vstep.approverHrId = legacyBinding.condition.personHrIds;
+        vstep.approverAssignmentIds = legacyBinding.condition.assignmentIds;
+      }
       for (let vj = 0; vj < vconditions.length; vj++) {
         const vc = vconditions[vj];
         if (vc.conditionType === 'person') {
-          if (!vc.personHrIds || !vc.personHrIds.trim()) {
+          const binding = await resolveAndValidateBindings(vc, orgId);
+          if (!binding.ok) {
             return res.json({ status: 'invalid_params', message: localeCopy.copy_eb6b0a83d2 + (vi + 1) + localeCopy.copy_5f90e06fa0 });
           }
+          vc.personHrIds = binding.condition.personHrIds;
+          vc.assignmentIds = binding.condition.assignmentIds;
         } else {
           if (vc.departmentScope === 'specific' && (!vc.specificDepartmentId || !vc.specificDepartmentId.trim())) {
             return res.json({ status: 'invalid_params', message: localeCopy.copy_93c50c01c0 + (vi + 1) + localeCopy.copy_61ae470673 + (vj + 1) + localeCopy.copy_c4dc113412 });
@@ -161,6 +202,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
         let cond = { conditionType: c.conditionType };
         if (c.conditionType === 'person') {
           cond.personHrIds = c.personHrIds || '';
+          cond.assignmentIds = c.assignmentIds || '';
         } else {
           cond.departmentScope = c.departmentScope || 'all';
           cond.specificDepartmentId = c.specificDepartmentId || null;
@@ -221,12 +263,22 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           const legacyCondId = generateId();
           const legacyType = safeString(step.approverType) || 'identity';
           if (legacyType === 'specific_person' && step.approverHrId) {
+            const legacyBinding = await resolveAndValidateBindings({
+              personHrIds: step.approverHrId,
+              assignmentIds: step.approverAssignmentIds || step.assignmentIds
+            }, orgId, conn);
+            if (!legacyBinding.ok) {
+              const bindingError = new Error(localeCopy.copy_eb6b0a83d2 + (i + 1) + localeCopy.copy_5f90e06fa0);
+              bindingError.code = legacyBinding.reason;
+              throw bindingError;
+            }
             await flowTemplateStepConditionModel.create(legacyCondId, {
               templateStepId: stepId,
               sortOrder: 1,
               conditionType: 'person',
-              personHrIds: safeString(step.approverHrId)
-            });
+              personHrIds: legacyBinding.condition.personHrIds,
+              assignmentIds: legacyBinding.condition.assignmentIds
+            }, conn);
           } else if (legacyType === 'identity' && step.approverIdentityId) {
             await flowTemplateStepConditionModel.create(legacyCondId, {
               templateStepId: stepId,
@@ -234,7 +286,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
               conditionType: 'identity_scope',
               identityScope: 'specific',
               specificIdentityId: safeString(step.approverIdentityId)
-            });
+            }, conn);
           }
         } else {
           for (let j = 0; j < conditions.length; j++) {
@@ -245,13 +297,14 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
               sortOrder: j + 1,
               conditionType: safeString(cond.conditionType) || 'identity_scope',
               personHrIds: safeString(cond.personHrIds) || null,
+              assignmentIds: safeString(cond.assignmentIds) || null,
               departmentScope: safeString(cond.departmentScope) || 'all',
               specificDepartmentId: safeString(cond.specificDepartmentId) || null,
               workGroupScope: safeString(cond.workGroupScope) || 'all',
               specificWorkGroupId: safeString(cond.specificWorkGroupId) || null,
               identityScope: safeString(cond.identityScope) || 'all',
               specificIdentityId: safeString(cond.specificIdentityId) || null
-            });
+            }, conn);
           }
         }
       }

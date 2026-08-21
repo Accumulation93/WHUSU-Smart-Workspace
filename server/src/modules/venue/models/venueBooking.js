@@ -1,4 +1,5 @@
 const pool = require('../../../config/db');
+const { toAssignmentSnapshot } = require('../services/venueAssignmentContext');
 
 // 借用记录已解绑组织 — 全局可见，跨组织冲突检测
 /**
@@ -141,7 +142,9 @@ async function updateStatus(id, status, approverHrId, approvalComment, conn, act
     contextId: actor.contextId,
     role: actor.type,
     identityName: actor.name || '',
-    adminLevel: actor.adminLevel || ''
+    adminLevel: actor.adminLevel || '',
+    assignmentId: actor.assignmentId || '',
+    assignmentSnapshot: actor.assignment ? toAssignmentSnapshot(actor.assignment) : null
   }) : null;
   await db.query(
     `UPDATE venue_bookings

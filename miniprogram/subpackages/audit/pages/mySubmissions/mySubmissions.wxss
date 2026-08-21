@@ -20,6 +20,36 @@
 .my-filter-box > .field { margin-bottom: 0; }
 .my-filter-box > .audit-btn-bar { margin-top: var(--ui-action-gap, 20rpx); }
 
+.submission-context-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-inline-gap, 10rpx);
+  padding: 18rpx 20rpx;
+  margin-bottom: var(--ui-field-gap, 16rpx);
+  border-radius: var(--ui-field-radius, 20rpx);
+  background: rgba(239, 246, 255, 0.72);
+  border: 1rpx solid rgba(147, 197, 253, 0.32);
+}
+
+.submission-context-copy { min-width: 0; }
+.submission-context-copy .field-label { margin-bottom: 4rpx; }
+.submission-context-value {
+  color: #1e3a5f;
+  font-size: var(--ui-type-meta);
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 520px) and (max-width: 899px) {
+  .submission-context-row { gap: 10px; padding: 14px 16px; margin-bottom: 12px; }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .submission-context-row { gap: 10px; padding: 12px 14px; margin-bottom: 12px; }
+}
+
 /* ── Submission list items ── */
 .audit-submission-item {
   display: flex; align-items: center; gap: var(--ui-inline-gap, 10rpx);

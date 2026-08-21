@@ -29,7 +29,7 @@ module.exports = Behavior({
     },
     auditTemplateStepForm: {
       name: '',
-      conditions: [],          // [{ conditionType, personHrIds, personHrNames, departmentScope, ... }]
+      conditions: [],          // 指定人员条件同时保存 personHrIds 与 assignmentIds
       actionType: 'sign',
       allowApproverDesignation: false,
       editingIndex: -1
@@ -45,7 +45,7 @@ module.exports = Behavior({
       workGroupScope: 'all', specificWorkGroupId: '', specificWorkGroupName: '',
       identityScope: 'all', specificIdentityId: '', specificIdentityName: '',
       // person fields
-      personHrIds: '', personHrNames: ''
+      personHrIds: '', personHrNames: '', assignmentIds: '', assignmentNames: ''
     },
     auditStepConditionEditingIndex: -1, // -1 = new, >=0 = editing existing
     _auditConditionTarget: 'step',       // 'step' | 'starter' — which conditions array is being edited
@@ -57,7 +57,7 @@ module.exports = Behavior({
       departmentScope: 'all', specificDepartmentId: '', specificDepartmentName: '',
       workGroupScope: 'all', specificWorkGroupId: '', specificWorkGroupName: '',
       identityScope: 'all', specificIdentityId: '', specificIdentityName: '',
-      personHrIds: '', personHrNames: ''
+      personHrIds: '', personHrNames: '', assignmentIds: '', assignmentNames: ''
     },
     auditStarterConditionEditingIndex: -1,
 
@@ -148,6 +148,35 @@ module.exports = Behavior({
         return String(item.id) === String(id);
       });
       return found ? found.name : '';
+    },
+
+    /** 指定人员条件按具体在职岗位选择，禁止退化为人员级授权。 */
+    _auditAssignmentOptions() {
+      const options = [];
+      (this.data.hrList || []).forEach(function (person) {
+        (person.assignments || []).forEach(function (assignment) {
+          const assignmentId = String(assignment.assignmentId || '').trim();
+          if (!assignmentId) return;
+          const label = String(assignment.assignmentLabel || '').trim();
+          options.push({
+            id: assignmentId,
+            hrId: String(person.id || ''),
+            name: person.name || '',
+            assignmentLabel: label,
+            extra: [person.studentId, label].filter(Boolean).join(' · '),
+            deptId: String(assignment.departmentId || ''),
+            identId: String(assignment.identityCategoryId || assignment.identityId || '')
+          });
+        });
+      });
+      return options;
+    },
+
+    _auditAssignmentName(id) {
+      const found = this._auditAssignmentOptions().find(function (item) {
+        return String(item.id) === String(id);
+      });
+      return found ? [found.name, found.assignmentLabel].filter(Boolean).join(' · ') : '';
     },
 
     /** Derive display name from departmentList by id — NEVER returns raw ID */
@@ -407,7 +436,9 @@ module.exports = Behavior({
             specificIdentityId: cond.specificIdentityId || '',
             specificIdentityName: cond._identName || cond.specificIdentityName || this._auditIdentityName(cond.specificIdentityId),
             personHrIds: cond.personHrIds || '',
-            personHrNames: cond.personHrNames || (cond._personNames ? cond._personNames.join('、') : '')
+            personHrNames: cond.personHrNames || (cond._personNames ? cond._personNames.join('、') : ''),
+            assignmentIds: cond.assignmentIds || '',
+            assignmentNames: cond.assignmentNames || (cond._assignmentNames ? cond._assignmentNames.join('、') : '')
           },
           auditStepConditionEditingIndex: index,
           auditStepConditionEditorVisible: true,
@@ -420,7 +451,7 @@ module.exports = Behavior({
             departmentScope: 'all', specificDepartmentId: '', specificDepartmentName: '',
             workGroupScope: 'all', specificWorkGroupId: '', specificWorkGroupName: '',
             identityScope: 'all', specificIdentityId: '', specificIdentityName: '',
-            personHrIds: '', personHrNames: ''
+            personHrIds: '', personHrNames: '', assignmentIds: '', assignmentNames: ''
           },
           auditStepConditionEditingIndex: -1,
           auditStepConditionEditorVisible: true,
@@ -452,15 +483,17 @@ module.exports = Behavior({
       };
 
       if (cond.conditionType === 'person') {
-        if (!cond.personHrIds) {
+        if (!cond.personHrIds || !cond.assignmentIds) {
           showShortToast(localeCopy.copy_e5d78a79f7);
           return;
         }
         newCond.personHrIds = cond.personHrIds;
-        // Resolve names from master hrList
-        let ids = cond.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-        newCond.personHrNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this)).join('、');
-        newCond._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this));
+        newCond.assignmentIds = cond.assignmentIds;
+        let assignmentIds = cond.assignmentIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        newCond._assignmentNames = assignmentIds.map(function (id) { return this._auditAssignmentName(id); }.bind(this)).filter(Boolean);
+        newCond.assignmentNames = newCond._assignmentNames.join('、');
+        newCond.personHrNames = newCond.assignmentNames;
+        newCond._personNames = newCond._assignmentNames.slice();
       } else {
         // identity_scope — always resolve names from master lists, handling comma-separated IDs
         newCond.departmentScope = cond.departmentScope;
@@ -512,9 +545,9 @@ module.exports = Behavior({
     _auditConditionSummary(c) {
       if (!c) return localeCopy.copy_2dcf2e1cdf;
       if (c.conditionType === 'person') {
-        if (c.personHrIds) {
-          let names = c.personHrIds.split(',').map(function (hid) {
-            return this._auditHrName(hid.trim());
+        if (c.assignmentIds) {
+          let names = c.assignmentIds.split(',').map(function (id) {
+            return this._auditAssignmentName(id.trim());
           }.bind(this)).filter(function (n) { return n; });
           return names.length ? names.join('、') : localeCopy.copy_572c4dbb58;
         }
@@ -549,10 +582,12 @@ module.exports = Behavior({
     _auditResolveCondition(c) {
       let r = Object.assign({}, c);
       if (c.conditionType === 'person') {
-        if (c.personHrIds) {
-          let ids = c.personHrIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-          r._personNames = ids.map(function (hid) { return this._auditHrName(hid); }.bind(this)).filter(Boolean);
+        if (c.assignmentIds) {
+          let ids = c.assignmentIds.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+          r._assignmentNames = ids.map(function (id) { return this._auditAssignmentName(id); }.bind(this)).filter(Boolean);
+          r._personNames = r._assignmentNames.slice();
         } else {
+          r._assignmentNames = [];
           r._personNames = [];
         }
       } else {
@@ -605,7 +640,7 @@ module.exports = Behavior({
           list = (this.data.identityList || []).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
           break;
         case 'personHrIds':
-          list = (this.data.hrList || []).map(function(h) { return { id: h.id, name: h.name, extra: (h.studentId || '') + ' · ' + (h.department || '') }; });
+          list = this._auditAssignmentOptions();
           break;
       }
 
@@ -632,7 +667,9 @@ module.exports = Behavior({
 
       // Pre-populate selected IDs
       let selectedIds = {};
-      let currentVal = this.data.auditStepConditionForm[target] || '';
+      let currentVal = target === 'personHrIds'
+        ? (this.data.auditStepConditionForm.assignmentIds || '')
+        : (this.data.auditStepConditionForm[target] || '');
       if (currentVal) {
         currentVal.split(',').forEach(function(id) {
           let trimmed = id.trim();
@@ -708,18 +745,13 @@ module.exports = Behavior({
 
       // Department/identity filters only apply to personnel picker
       if (target === 'personHrIds') {
-        let hrList = this.data.hrList || [];
         if (filterDept !== localeCopy.copy_31d4595959) {
           let deptId = this._auditDeptIdByName(filterDept);
-          let filteredIds = {};
-          hrList.filter(function(h) { return String(h.departmentId || '') === String(deptId || ''); }).forEach(function(h) { filteredIds[h.id] = true; });
-          items = items.filter(function(item) { return filteredIds[item.id]; });
+          items = items.filter(function(item) { return String(item.deptId || '') === String(deptId || ''); });
         }
         if (filterIdent !== localeCopy.copy_31d4595959) {
           let identId = this._auditIdentIdByName(filterIdent);
-          let filteredIds2 = {};
-          hrList.filter(function(h) { return String(h.identityId || '') === String(identId || ''); }).forEach(function(h) { filteredIds2[h.id] = true; });
-          items = items.filter(function(item) { return filteredIds2[item.id]; });
+          items = items.filter(function(item) { return String(item.identId || '') === String(identId || ''); });
         }
       }
 
@@ -861,14 +893,28 @@ module.exports = Behavior({
         }
       }
 
-      let names = ids.map(function(id) {
+      let selectedItems = ids.map(function(id) {
         let found = items.find(function(item) { return String(item.id) === String(id); });
-        return found ? found.name : '';
+        return found || null;
+      }).filter(Boolean);
+      let names = selectedItems.map(function(item) {
+        return target === 'personHrIds'
+          ? [item.name, item.assignmentLabel].filter(Boolean).join(' · ')
+          : item.name;
       }).filter(Boolean).join('、');
 
       let updateObj = {};
-      updateObj[formPrefix + '.' + target] = ids.join(',');
-      updateObj[formPrefix + '.' + target.replace('Id', 'Name')] = names;
+      if (target === 'personHrIds') {
+        updateObj[formPrefix + '.personHrIds'] = Array.from(new Set(selectedItems.map(function(item) {
+          return String(item.hrId || '');
+        }).filter(Boolean))).join(',');
+        updateObj[formPrefix + '.personHrNames'] = names;
+        updateObj[formPrefix + '.assignmentIds'] = ids.join(',');
+        updateObj[formPrefix + '.assignmentNames'] = names;
+      } else {
+        updateObj[formPrefix + '.' + target] = ids.join(',');
+        updateObj[formPrefix + '.' + target.replace('Id', 'Name')] = names;
+      }
       this.setData(updateObj);
       this.closeAuditMultiPicker();
     },
@@ -879,6 +925,10 @@ module.exports = Behavior({
       let update = {};
       update['auditStepConditionForm.' + field] = '';
       update['auditStepConditionForm.' + field.replace('Id', 'Name')] = '';
+      if (field === 'personHrIds') {
+        update['auditStepConditionForm.assignmentIds'] = '';
+        update['auditStepConditionForm.assignmentNames'] = '';
+      }
       this.setData(update);
     },
 
@@ -911,7 +961,9 @@ module.exports = Behavior({
             specificIdentityId: c.specificIdentityId || '',
             specificIdentityName: c._identName || c.specificIdentityName || this._auditIdentityName(c.specificIdentityId),
             personHrIds: c.personHrIds || '',
-            personHrNames: c.personHrNames || (c._personNames ? c._personNames.join('、') : '')
+            personHrNames: c.personHrNames || (c._personNames ? c._personNames.join('、') : ''),
+            assignmentIds: c.assignmentIds || '',
+            assignmentNames: c.assignmentNames || (c._assignmentNames ? c._assignmentNames.join('、') : '')
           },
           auditStarterConditionEditingIndex: index,
           auditStarterConditionEditorVisible: true
@@ -923,7 +975,7 @@ module.exports = Behavior({
             departmentScope: 'all', specificDepartmentId: '', specificDepartmentName: '',
             workGroupScope: 'all', specificWorkGroupId: '', specificWorkGroupName: '',
             identityScope: 'all', specificIdentityId: '', specificIdentityName: '',
-            personHrIds: '', personHrNames: ''
+            personHrIds: '', personHrNames: '', assignmentIds: '', assignmentNames: ''
           },
           auditStarterConditionEditingIndex: -1,
           auditStarterConditionEditorVisible: true
@@ -952,11 +1004,14 @@ module.exports = Behavior({
       let newCond = { conditionType: cond.conditionType };
 
       if (cond.conditionType === 'person') {
-        if (!cond.personHrIds) { showShortToast(localeCopy.copy_e5d78a79f7); return; }
+        if (!cond.personHrIds || !cond.assignmentIds) { showShortToast(localeCopy.copy_e5d78a79f7); return; }
         newCond.personHrIds = cond.personHrIds;
-        let ids = cond.personHrIds.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-        newCond.personHrNames = ids.map(function(hid) { return this._auditHrName(hid); }.bind(this)).join('、');
-        newCond._personNames = ids.map(function(hid) { return this._auditHrName(hid); }.bind(this));
+        newCond.assignmentIds = cond.assignmentIds;
+        let assignmentIds = cond.assignmentIds.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        newCond._assignmentNames = assignmentIds.map(function(id) { return this._auditAssignmentName(id); }.bind(this)).filter(Boolean);
+        newCond.assignmentNames = newCond._assignmentNames.join('、');
+        newCond.personHrNames = newCond.assignmentNames;
+        newCond._personNames = newCond._assignmentNames.slice();
       } else {
         newCond.departmentScope = cond.departmentScope;
         newCond.specificDepartmentId = cond.departmentScope === 'specific' ? cond.specificDepartmentId : '';
@@ -1019,7 +1074,7 @@ module.exports = Behavior({
           list = (this.data.identityList || []).map(function(i) { return { id: i.id, name: i.name, extra: i.description || '' }; });
           break;
         case 'personHrIds':
-          list = (this.data.hrList || []).map(function(h) { return { id: h.id, name: h.name, extra: (h.studentId || '') + ' · ' + (h.department || '') }; });
+          list = this._auditAssignmentOptions();
           break;
       }
 
@@ -1045,7 +1100,9 @@ module.exports = Behavior({
       }
 
       let selectedIds = {};
-      let currentVal = this.data.auditStarterConditionForm[target] || '';
+      let currentVal = target === 'personHrIds'
+        ? (this.data.auditStarterConditionForm.assignmentIds || '')
+        : (this.data.auditStarterConditionForm[target] || '');
       if (currentVal) {
         currentVal.split(',').forEach(function(id) {
           let trimmed = id.trim();
@@ -1086,6 +1143,10 @@ module.exports = Behavior({
       let update = {};
       update['auditStarterConditionForm.' + field] = '';
       update['auditStarterConditionForm.' + field.replace('Id', 'Name')] = '';
+      if (field === 'personHrIds') {
+        update['auditStarterConditionForm.assignmentIds'] = '';
+        update['auditStarterConditionForm.assignmentNames'] = '';
+      }
       this.setData(update);
     },
 
@@ -1117,6 +1178,7 @@ module.exports = Behavior({
               let cond = { conditionType: c.conditionType };
               if (c.conditionType === 'person') {
                 cond.personHrIds = c.personHrIds;
+                cond.assignmentIds = c.assignmentIds;
               } else {
                 cond.departmentScope = c.departmentScope || 'all';
                 cond.specificDepartmentId = c.specificDepartmentId || '';
@@ -1136,6 +1198,7 @@ module.exports = Behavior({
           let cond = { conditionType: c.conditionType };
           if (c.conditionType === 'person') {
             cond.personHrIds = c.personHrIds;
+            cond.assignmentIds = c.assignmentIds;
           } else {
             cond.departmentScope = c.departmentScope || 'all';
             cond.specificDepartmentId = c.specificDepartmentId || '';

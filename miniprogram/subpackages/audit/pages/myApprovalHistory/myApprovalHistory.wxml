@@ -22,6 +22,10 @@
               <text class="audit-submission-meta-text">{{item.submitterName}} · {{item.submissionNumber}}</text>
             </view>
             <view class="audit-submission-date">{{item.myLastActionAt || item.updatedAt || item.createdAt}}</view>
+            <view class="history-assignment-list" wx:if="{{item.handledAssignmentLabels.length}}">
+              <view class="audit-chip audit-chip-approved" wx:for="{{item.handledAssignmentLabels}}" wx:for-item="assignmentLabel" wx:key="*this">{{localeCopy.processedAssignmentPrefix}}{{assignmentLabel}}</view>
+            </view>
+            <view class="history-assignment-neutral" wx:if="{{item.hasLegacyAssignmentSnapshot}}">{{localeCopy.legacyAssignmentSnapshotUnavailable}}</view>
           </view>
           <view class="audit-list-arrow">›</view>
         </view>

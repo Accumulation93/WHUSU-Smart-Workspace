@@ -37,8 +37,25 @@ const forge = require('node-forge');
 const { createNotification } = require('../utils/notificationHelper');
 const requestDeduplication = require('../../../utils/requestDeduplication');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const {
+  assignmentSnapshot,
+  listActiveAssignments,
+  resolveActorAssignment,
+  getSubmissionSubmitterAssignments,
+  groupEligibleCandidates,
+  parseSnapshot
+} = require('../services/auditAssignmentContext');
+const {
+  validateBindings,
+  resolveAndValidateBindings
+} = require('../services/auditPersonAssignmentCondition');
+const {
+  eventMatchesAssignment,
+  submissionMatchesSubmitterAssignment,
+  assignmentSqlExpression
+} = require('../services/auditHistoryScope');
 
-const { matchesAnyCondition, matchesIdentityScopeCondition, matchesScope } = submissionStepModel;
+const { matchesAnyCondition, matchesScope } = submissionStepModel;
 
 /**
  * Helper: check if a value exists in a comma-separated list.
@@ -77,41 +94,71 @@ function normalizeStepOverrides(rawOverrides) {
     override.personHrIds = Array.isArray(override.personHrIds)
       ? [...new Set(override.personHrIds.map(function(id) { return safeString(id); }).filter(Boolean))]
       : [];
+    override.assignmentIds = Array.isArray(override.assignmentIds)
+      ? [...new Set(override.assignmentIds.map(function(id) { return safeString(id); }).filter(Boolean))]
+      : [];
     return override;
   });
 }
 
-async function narrowTemplateStepConditions(conditions, personHrIds, submitterInfo, orgId) {
+async function narrowTemplateStepConditions(conditions, personHrIds, assignmentIds, submitterInfo, orgId, db) {
   const requestedIds = [...new Set((Array.isArray(personHrIds) ? personHrIds : [])
     .map(function(id) { return safeString(id); }).filter(Boolean))];
-  if (!requestedIds.length) return conditions;
-
-  const validPersonIds = [];
-  for (let i = 0; i < requestedIds.length; i++) {
-    const [personRows] = await pool.query(
-      'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-      [requestedIds[i], orgId]
-    );
-    const person = personRows[0];
-    if (person && (!conditions.length || matchesAnyCondition(conditions, person, submitterInfo))) {
-      validPersonIds.push(requestedIds[i]);
-    }
+  const requestedAssignmentIds = [...new Set((Array.isArray(assignmentIds) ? assignmentIds : [])
+    .map(function(id) { return safeString(id); }).filter(Boolean))];
+  if (!requestedIds.length && !requestedAssignmentIds.length) return conditions;
+  if (!requestedIds.length || !requestedAssignmentIds.length) {
+    const missingBindingError = new Error(localeCopy.copy_db47f6c08b);
+    missingBindingError.code = 'assignment_binding_required';
+    throw missingBindingError;
   }
-  if (validPersonIds.length !== requestedIds.length) {
+
+  const assignments = await listActiveAssignments(orgId, { hrIds: requestedIds }, db);
+  const binding = validateBindings({
+    personHrIds: requestedIds,
+    assignmentIds: requestedAssignmentIds
+  }, assignments);
+  if (!binding.ok) {
+    const invalidBindingError = new Error(localeCopy.copy_db47f6c08b);
+    invalidBindingError.code = binding.reason;
+    throw invalidBindingError;
+  }
+
+  const selectedAssignmentSet = new Set(requestedAssignmentIds);
+  const selectedAssignments = assignments.filter(function(assignment) {
+    return selectedAssignmentSet.has(safeString(assignment.assignment_id));
+  });
+  const eligibleAssignments = selectedAssignments.filter(function(assignment) {
+    return !conditions.length || matchesAnyCondition(conditions, assignment, submitterInfo);
+  });
+  if (eligibleAssignments.length !== requestedAssignmentIds.length) {
     throw new Error(localeCopy.copy_db47f6c08b);
   }
-  return validPersonIds.map(function(id) {
-    return {
+
+  const assignmentsByHrId = new Map();
+  eligibleAssignments.forEach(function(assignment) {
+    const hrId = safeString(assignment.hr_id);
+    if (!assignmentsByHrId.has(hrId)) assignmentsByHrId.set(hrId, []);
+    assignmentsByHrId.get(hrId).push(safeString(assignment.assignment_id));
+  });
+
+  const narrowedConditions = [];
+  for (let i = 0; i < requestedIds.length; i++) {
+    const selectedPersonAssignments = assignmentsByHrId.get(requestedIds[i]) || [];
+    if (!selectedPersonAssignments.length) throw new Error(localeCopy.copy_db47f6c08b);
+    narrowedConditions.push({
       conditionType: 'person',
-      personHrIds: id,
+      personHrIds: requestedIds[i],
+      assignmentIds: selectedPersonAssignments.join(','),
       departmentScope: null,
       specificDepartmentId: null,
       workGroupScope: null,
       specificWorkGroupId: null,
       identityScope: null,
       specificIdentityId: null
-    };
-  });
+    });
+  }
+  return narrowedConditions;
 }
 
 function buildTemplateConditionMap(allConditions) {
@@ -122,6 +169,7 @@ function buildTemplateConditionMap(allConditions) {
     map[stepId].push({
       conditionType: condition.condition_type,
       personHrIds: condition.person_hr_ids,
+      assignmentIds: condition.assignment_ids,
       departmentScope: condition.department_scope,
       specificDepartmentId: condition.specific_department_id,
       workGroupScope: condition.work_group_scope,
@@ -143,24 +191,67 @@ function parseConditionsJson(raw) {
   }
 }
 
-function buildAuditOperatorContext(req) {
+async function normalizePersonConditionsForPersistence(conditions, orgId, db) {
+  const normalized = [];
+  for (const condition of Array.isArray(conditions) ? conditions : []) {
+    if (!condition || condition.conditionType !== 'person') {
+      normalized.push(Object.assign({}, condition));
+      continue;
+    }
+    const binding = await resolveAndValidateBindings(condition, orgId, db);
+    if (!binding.ok) {
+      const error = new Error(localeCopy.copy_db47f6c08b);
+      error.code = binding.reason;
+      throw error;
+    }
+    normalized.push(Object.assign({}, condition, {
+      personHrIds: binding.condition.personHrIds,
+      assignmentIds: binding.condition.assignmentIds
+    }));
+  }
+  return normalized;
+}
+
+function buildAuditOperatorContext(req, assignment) {
   const context = req.authContext || {};
   return {
-    operatorPersonId: safeString(context.personId),
-    operatorAssignmentId: safeString(context.assignmentId),
+    operatorPersonId: safeString(assignment && assignment.person_id) || safeString(context.personId),
+    operatorAssignmentId: safeString(assignment && assignment.assignment_id) || safeString(context.assignmentId),
     operatorAdminGrantId: safeString(context.adminGrantId),
-    operatorContextSnapshot: context.contextId ? {
-      contextId: safeString(context.contextId),
-      organizationId: safeString(context.organizationId),
-      role: safeString(context.role),
-      identityType: safeString(context.identityType),
-      identityName: safeString(context.identityName),
-      department: safeString(context.department),
-      identity: safeString(context.identity),
-      workGroup: safeString(context.workGroup),
-      adminLevel: safeString(context.adminLevel)
-    } : null
+    operatorContextSnapshot: assignment
+      ? assignmentSnapshot(assignment, context)
+      : (context.contextId ? {
+        contextId: safeString(context.contextId),
+        organizationId: safeString(context.organizationId),
+        role: safeString(context.role),
+        adminGrantId: safeString(context.adminGrantId),
+        adminLevel: safeString(context.adminLevel)
+      } : null)
   };
+}
+
+async function resolveAuditAssignmentActor(req, db) {
+  const actorResult = await resolveCurrentActor(req);
+  if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    return { ok: false, actorResult };
+  }
+  const orgId = await getCurrentOrgId();
+  const assignment = await resolveActorAssignment(actorResult.actor, orgId, db);
+  if (!assignment) return { ok: false, actorResult };
+  return { ok: true, actor: actorResult.actor, assignment, orgId };
+}
+
+function matchesStarter(template, starterConditions, assignment) {
+  if (starterConditions.length) {
+    return matchesAnyCondition(starterConditions, assignment, assignment);
+  }
+  if (template.starter_type === 'identity' && template.starter_identity_id) {
+    return inCsv(template.starter_identity_id, assignment.identity_id);
+  }
+  if (template.starter_type === 'specific_person' && template.starter_hr_id) {
+    return false;
+  }
+  return template.starter_type === 'self' || !safeString(template.starter_type);
 }
 
 // ═══════════════════════════════════════════════════
@@ -223,13 +314,12 @@ router.post('/listMySubmissions', async (req, res) => {
 // Used by the mini-program for periodic background refresh without loading full list
 router.post('/checkPendingCount', async (req, res) => {
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const hrId = actorResult.actor.id;
-
-    const steps = await submissionStepModel.getPendingByApprover(hrId, actorResult.actor.profile);
+    const steps = await submissionStepModel.getPendingByApprover(actorContext.actor, actorContext.assignment);
     const count = steps.length;
     const latestAt = count > 0 ? steps[0].created_at : null; // Already sorted DESC in model
 
@@ -242,13 +332,12 @@ router.post('/checkPendingCount', async (req, res) => {
 // listPendingApprovals — Submissions waiting for the current user to approve
 router.post('/listPendingApprovals', async (req, res) => {
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const hrId = actorResult.actor.id;
-
-    const steps = await submissionStepModel.getPendingByApprover(hrId, actorResult.actor.profile);
+    const steps = await submissionStepModel.getPendingByApprover(actorContext.actor, actorContext.assignment);
 
     // Load submitter names
     const submitterIds = [...new Set(steps.map((s) => s.submitted_by))];
@@ -290,31 +379,23 @@ router.post('/startAuditSubmission', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const openid = req.openid;
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const actorContext = await resolveAuditAssignmentActor(req, conn);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const hrId = actorResult.actor.id;
+    const submitterFull = actorContext.assignment;
+    const hrId = submitterFull.hr_id;
     const orgId = await getCurrentOrgId();
+    if (orgId !== actorContext.orgId) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_4e84385ce1 });
+    }
 
     const templateId = safeString(req.body.templateId);
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
     const uploadedFiles = Array.isArray(req.body.files) ? req.body.files : [];
-    const rawStepOverrides = Array.isArray(req.body.stepOverrides) ? req.body.stepOverrides : [];
-    // Public step numbers are one-based. Normalize the old zero-based client
-    // payload when it is still encountered during the compatibility window.
-    const legacyZeroBasedOverrides = rawStepOverrides.some(function(o) {
-      return Number(o && o.stepIndex) === 0;
-    });
-    const stepOverrides = rawStepOverrides.map(function(o) {
-      const normalized = Object.assign({}, o);
-      const rawIndex = Number(normalized.stepIndex);
-      normalized.stepIndex = legacyZeroBasedOverrides && Number.isInteger(rawIndex)
-        ? rawIndex + 1
-        : rawIndex;
-      return normalized;
-    });
+    const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
 
     if (!templateId) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_0172f60994 });
@@ -335,20 +416,6 @@ router.post('/startAuditSubmission', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_479f3dbce7 });
     }
 
-    // Check starter eligibility
-    // Load submitter info for scope resolution
-    const [submitterRows] = await pool.query(
-      'SELECT h.*, d.name as department_name, wg.name as work_group_name, i.name as identity_name FROM hr_info h LEFT JOIN departments d ON h.department_id = d.id LEFT JOIN work_groups wg ON h.work_group_id = wg.id LEFT JOIN identities i ON h.identity_id = i.id WHERE h.id = ?',
-      [hrId]
-    );
-    const submitterInfo = submitterRows[0] || null;
-    const submitterFull = submitterInfo ? {
-      hrId: hrId,
-      department_id: submitterInfo.department_id || '',
-      work_group_id: submitterInfo.work_group_id || '',
-      identity_id: submitterInfo.identity_id || ''
-    } : null;
-
     // Parse starter conditions
     let starterConditions = [];
     if (template.starter_conditions_json) {
@@ -356,43 +423,9 @@ router.post('/startAuditSubmission', async (req, res) => {
     }
     if (!Array.isArray(starterConditions)) starterConditions = [];
 
-    if (starterConditions.length) {
-      if (!submitterFull) {
-        conn.release();
-        return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-      }
-      // Multi-condition check: user must match at least one condition
-      let starterMatch = false;
-      for (const cond of starterConditions) {
-        if (cond.conditionType === 'person') {
-          const personIds = (cond.personHrIds || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-          if (personIds.includes(hrId)) { starterMatch = true; break; }
-        } else {
-          if (matchesIdentityScopeCondition(cond, submitterFull, submitterFull)) {
-            starterMatch = true; break;
-          }
-        }
-      }
-      if (!starterMatch) {
-        conn.release();
-        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
-      }
-    } else if (template.starter_type === 'identity' && template.starter_identity_id && submitterFull) {
-      // Legacy identity check
-      const identIds = template.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-      if (!identIds.includes(submitterFull.identity_id)) {
-        conn.release();
-        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
-      }
-    } else if (template.starter_type === 'specific_person' && template.starter_hr_id && submitterFull) {
-      // Legacy specific person check
-      const personIds = template.starter_hr_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-      if (!personIds.includes(hrId)) {
-        conn.release();
-        return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
-      }
+    if (!matchesStarter(template, starterConditions, submitterFull)) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
     }
-    // starter_type === 'self' means anyone can start — no check needed
 
     const templateSteps = await flowTemplateStepModel.getByTemplateId(templateId);
     if (!templateSteps.length) {
@@ -400,8 +433,13 @@ router.post('/startAuditSubmission', async (req, res) => {
     }
 
     const requestedOverrides = stepOverrides.filter(function(o) {
-      return Array.isArray(o.personHrIds) && o.personHrIds.length > 0;
+      return o.personHrIds.length > 0 || o.assignmentIds.length > 0;
     });
+    if (requestedOverrides.some(function(o) {
+      return !o.personHrIds.length || !o.assignmentIds.length;
+    })) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_db47f6c08b });
+    }
     if (requestedOverrides.some(function(o) { return Number(o.stepIndex) !== 1; })) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_2f878cb2da });
     }
@@ -433,6 +471,9 @@ router.post('/startAuditSubmission', async (req, res) => {
     await submissionModel.create(submissionId, {
       submissionNumber,
       submittedBy: hrId,
+      submittedPersonId: submitterFull.person_id,
+      submittedAssignmentId: submitterFull.assignment_id,
+      submittedContextSnapshot: assignmentSnapshot(submitterFull, req.authContext),
       type: 'template',
       templateId,
       title,
@@ -456,6 +497,7 @@ router.post('/startAuditSubmission', async (req, res) => {
         sortOrder: c.sort_order,
         conditionType: c.condition_type,
         personHrIds: c.person_hr_ids,
+        assignmentIds: c.assignment_ids,
         departmentScope: c.department_scope,
         specificDepartmentId: c.specific_department_id,
         workGroupScope: c.work_group_scope,
@@ -471,7 +513,9 @@ router.post('/startAuditSubmission', async (req, res) => {
       const stepId = generateId();
 
       // Build resolved conditions JSON from template step conditions
-      const conditions = stepConditionMap[ts.id] || [];
+      let conditions = (stepConditionMap[ts.id] || []).map(function(condition) {
+        return Object.assign({}, condition);
+      });
 
       // Apply person overrides from submitter (specific person selection).
       // NARROW the scope: only designated persons can approve this step,
@@ -480,44 +524,16 @@ router.post('/startAuditSubmission', async (req, res) => {
         return i === 0 && Number(ts.allow_approver_designation) === 1 && Number(o.stepIndex) === 1;
       });
       if (stepOverride && stepOverride.personHrIds && stepOverride.personHrIds.length) {
-        // Validate each designated person against original conditions
-        const validPersonIds = [];
-        for (let pi = 0; pi < stepOverride.personHrIds.length; pi++) {
-          const pid = String(stepOverride.personHrIds[pi]);
-          // If no original conditions (fully open), anyone is eligible
-          if (!conditions.length) {
-            validPersonIds.push(pid);
-            continue;
-          }
-          // Check eligibility against original conditions
-          const [personRows] = await pool.query(
-            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-            [pid, orgId]
-          );
-          const person = personRows[0];
-          if (person && matchesAnyCondition(conditions, person, submitterFull)) {
-            validPersonIds.push(pid);
-          }
-        }
-        if (validPersonIds.length !== stepOverride.personHrIds.length) {
-          throw new Error(localeCopy.copy_3fff5a4097);
-        }
-        // Replace original conditions with person-only conditions (narrow scope)
-        if (validPersonIds.length > 0) {
-          conditions.length = 0; // clear existing identity conditions
-          for (let vpi = 0; vpi < validPersonIds.length; vpi++) {
-            conditions.push({
-              conditionType: 'person',
-              personHrIds: validPersonIds[vpi],
-              departmentScope: null,
-              specificDepartmentId: null,
-              workGroupScope: null,
-              specificWorkGroupId: null,
-              identityScope: null,
-              specificIdentityId: null
-            });
-          }
-        }
+        const narrowed = await narrowTemplateStepConditions(
+          conditions,
+          stepOverride.personHrIds,
+          stepOverride.assignmentIds,
+          submitterFull,
+          orgId,
+          conn
+        );
+        conditions.length = 0;
+        narrowed.forEach(function(condition) { conditions.push(condition); });
       }
 
       // Fallback: if no conditions resolved from template step, use template starter conditions
@@ -526,6 +542,12 @@ router.post('/startAuditSubmission', async (req, res) => {
         for (let sci = 0; sci < starterConditions.length; sci++) {
           conditions.push(Object.assign({}, starterConditions[sci]));
         }
+      }
+
+      conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
+
+      if (!conditions.length && ts.approver_type === 'specific_person') {
+        throw new Error(localeCopy.copy_db47f6c08b);
       }
 
       let stepConditionsJson = null;
@@ -559,9 +581,9 @@ router.post('/startAuditSubmission', async (req, res) => {
     }
 
     // Insert submit event
-    const submitterName = submitterInfo ? submitterInfo.name : '';
+    const submitterName = submitterFull.name;
     await auditEventModel.create(generateId(), {
-      ...buildAuditOperatorContext(req),
+      ...buildAuditOperatorContext(req, submitterFull),
       submissionId,
       eventType: 'submit',
       stepIndex: null,
@@ -605,10 +627,14 @@ router.post('/startAdHocAudit', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-
-    const orgId = await getCurrentOrgId();
+    const actorContext = await resolveAuditAssignmentActor(req, conn);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const submitterAssignment = actorContext.assignment;
+    const hrId = submitterAssignment.hr_id;
+    const orgId = actorContext.orgId;
 
     const title = safeString(req.body.title);
     const description = safeString(req.body.description);
@@ -640,6 +666,9 @@ router.post('/startAdHocAudit', async (req, res) => {
     await submissionModel.create(submissionId, {
       submissionNumber,
       submittedBy: hrId,
+      submittedPersonId: submitterAssignment.person_id,
+      submittedAssignmentId: submitterAssignment.assignment_id,
+      submittedContextSnapshot: assignmentSnapshot(submitterAssignment, req.authContext),
       type: 'ad_hoc',
       templateId: null,
       title,
@@ -688,6 +717,12 @@ router.post('/startAdHocAudit', async (req, res) => {
         }
       }
 
+      conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
+
+      if (!conditions.length && safeString(s.approverHrId)) {
+        throw new Error(localeCopy.copy_db47f6c08b);
+      }
+
       let stepConditionsJson = null;
       if (conditions.length > 0) {
         stepConditionsJson = JSON.stringify(conditions);
@@ -714,16 +749,14 @@ router.post('/startAdHocAudit', async (req, res) => {
     }
 
     // Insert submit event for ad-hoc audit
-    const [adHocNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
-    const adHocSubmitterName = adHocNameRows[0] ? adHocNameRows[0].name : '';
     await auditEventModel.create(generateId(), {
-      ...buildAuditOperatorContext(req),
+      ...buildAuditOperatorContext(req, submitterAssignment),
       submissionId,
       eventType: 'submit',
       stepIndex: null,
       round: 1,
       operatorHrId: hrId,
-      operatorName: adHocSubmitterName,
+      operatorName: submitterAssignment.name,
       comment: null
     }, conn);
 
@@ -855,7 +888,12 @@ router.post('/getSubmissionDetail', async (req, res) => {
     const hrId = detailActor ? detailActor.id : null;
     const admin = selectedRole === 'admin' ? await adminInfoModel.getByOpenid(openid) : null;
     const orgId = await getCurrentOrgId();
-    if (!hrId && !admin) return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
+    const detailAssignment = detailActor
+      ? await resolveActorAssignment(detailActor, orgId)
+      : null;
+    if ((!hrId || !detailAssignment) && !admin) {
+      return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
+    }
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
@@ -869,36 +907,24 @@ router.post('/getSubmissionDetail', async (req, res) => {
     // 只检查 pending step 会把本人已经处理过的记录错误拦截为“没有查看权限”。
     const events = await auditEventModel.getBySubmissionId(submissionId);
     const hasHistoricalApprovalEvent = events.some(function(event) {
-      const eventPersonId = safeString(event.operator_person_id);
-      if (detailActor && detailActor.personId && eventPersonId) {
-        return eventPersonId === safeString(detailActor.personId);
-      }
-      return safeString(event.operator_hr_id) === safeString(hrId);
+      return event.event_type === 'approve' || event.event_type === 'reject'
+        ? eventMatchesAssignment(event, steps, detailAssignment && detailAssignment.assignment_id)
+        : false;
     });
 
     // Check access: submitter, approver in any step, or admin
-    const isSubmitter = submission.submitted_by === hrId;
-    let isApprover = hasHistoricalApprovalEvent
-      || steps.some((s) => s.approver_hr_id && inCsv(s.approver_hr_id, hrId));
+    const isSubmitter = Boolean(detailAssignment) && submissionMatchesSubmitterAssignment(
+      submission,
+      detailAssignment.assignment_id
+    );
+    let isApprover = hasHistoricalApprovalEvent;
 
     // Check identity-based matching — always run so submitter-as-approver is detected
     // Also runs for admins so they get properly identified as approvers when their identity matches
-    if (!isApprover && hrId) {
-      const orgId = await getCurrentOrgId();
-      // Load approver HR info for identity/scope matching
-      const approverInfo = detailActor ? {
-        id: hrId,
-        department_id: safeString(detailActor.profile.department_id),
-        identity_id: safeString(detailActor.profile.identity_id),
-        work_group_id: safeString(detailActor.profile.work_group_id)
-      } : null;
+    if (!isApprover && detailAssignment) {
+      const approverInfo = detailAssignment;
       if (approverInfo) {
-        // Load submitter info
-        const [subRows] = await pool.query(
-          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [submission.submitted_by, orgId]
-        );
-        const submitterInfo = subRows[0] || null;
+        const submitterInfo = await getSubmissionSubmitterAssignments(submission, orgId);
         // Batch-load template step conditions for fallback
         const tplStepIds = [...new Set(steps.map(s => s.template_step_id).filter(Boolean))];
         const templateConditionMap = {};
@@ -914,6 +940,7 @@ router.post('/getSubmissionDetail', async (req, res) => {
             templateConditionMap[tc.template_step_id].push({
               conditionType: tc.condition_type,
               personHrIds: tc.person_hr_ids,
+              assignmentIds: tc.assignment_ids,
               departmentScope: tc.department_scope,
               specificDepartmentId: tc.specific_department_id,
               workGroupScope: tc.work_group_scope,
@@ -1068,7 +1095,10 @@ router.post('/getSubmissionDetail', async (req, res) => {
         eventType: safeString(e.event_type),
         stepIndex: e.step_index,
         round: e.round || 1,
-        operatorName: hrMap[e.operator_hr_id] || e.operator_name || '',
+        operatorName: e.operator_name || hrMap[e.operator_hr_id] || '',
+        operatorPersonId: safeString(e.operator_person_id),
+        operatorAssignmentId: safeString(e.operator_assignment_id),
+        operatorContextSnapshot: parseSnapshot(e.operator_context_snapshot),
         comment: safeString(e.comment),
         createdAt: e.created_at
       })),
@@ -1082,6 +1112,9 @@ router.post('/getSubmissionDetail', async (req, res) => {
         templateName,
         status: safeString(submission.status),
         submittedBy: safeString(submission.submitted_by),
+        submittedPersonId: safeString(submission.submitted_person_id),
+        submittedAssignmentId: safeString(submission.submitted_assignment_id),
+        submittedContextSnapshot: parseSnapshot(submission.submitted_context_snapshot),
         submitterName: hrMap[submission.submitted_by] || localeCopy.copy_8d3451355b,
         currentStepIndex: submission.current_step_index,
         resubmitMode: safeString(submission.resubmit_mode),
@@ -1183,6 +1216,9 @@ router.post('/getSubmissionDetail', async (req, res) => {
         rejectionReason: safeString(s.rejection_reason),
         round: s.round,
         processedAt: s.processed_at,
+        processedPersonId: safeString(s.processed_person_id),
+        processedAssignmentId: safeString(s.processed_assignment_id),
+        processedContextSnapshot: parseSnapshot(s.processed_context_snapshot),
         stepConditionsJson: s.step_conditions_json || null,
         stepConditionsDisplay: condDisplay.displayParts,
         approverDesc: condDisplay.approverDesc || legacyApproverDesc || localeCopy.copy_ae42f47cf6
@@ -1227,14 +1263,11 @@ router.post('/getSubmissionDetail', async (req, res) => {
  * Checks: 1) step_conditions_json, 2) template step conditions fallback, 3) legacy flat fields.
  * @returns {boolean} authorized
  */
-async function checkStepAuthorization(step, submission, hrId, approverOverride) {
+async function checkStepAuthorization(step, submission, approverAssignment, db) {
   const orgId = await getCurrentOrgId();
-  const currentApprover = approverOverride ? {
-    id: hrId,
-    department_id: safeString(approverOverride.department_id),
-    identity_id: safeString(approverOverride.identity_id),
-    work_group_id: safeString(approverOverride.work_group_id)
-  } : null;
+  if (!approverAssignment) return false;
+  const currentApprover = approverAssignment;
+  const submitters = await getSubmissionSubmitterAssignments(submission, orgId, db);
 
   let hasExplicitConditions = false;
 
@@ -1243,18 +1276,7 @@ async function checkStepAuthorization(step, submission, hrId, approverOverride) 
     hasExplicitConditions = true;
     try {
       const conditions = JSON.parse(step.step_conditions_json);
-      const approver = currentApprover || (await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [hrId, orgId]
-      ))[0][0];
-      if (approver) {
-        const [subRows] = await pool.query(
-          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [submission.submitted_by, orgId]
-        );
-        const submitter = subRows[0] || null;
-        if (matchesAnyCondition(conditions, approver, submitter)) return true;
-      }
+      if (matchesAnyCondition(conditions, currentApprover, submitters)) return true;
     } catch (_) {
       // Corrupt explicit conditions fail closed; template and legacy fields
       // may be broader and must not become an authorization fallback.
@@ -1268,41 +1290,16 @@ async function checkStepAuthorization(step, submission, hrId, approverOverride) 
   if (!hasExplicitConditions && step.template_step_id) {
     try {
       const tplConds = await submissionStepModel.getTemplateStepConditions(step.template_step_id);
-      if (tplConds) {
-        const approver = currentApprover || (await pool.query(
-          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [hrId, orgId]
-        ))[0][0];
-        if (approver) {
-          const [subRows] = await pool.query(
-            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-            [submission.submitted_by, orgId]
-          );
-          const submitter = subRows[0] || null;
-          if (matchesAnyCondition(tplConds, approver, submitter)) return true;
-        }
-      }
+      if (tplConds && matchesAnyCondition(tplConds, currentApprover, submitters)) return true;
     } catch (_) { /* fall through */ }
   }
 
   // 3. Legacy check — uses inCsv() to handle comma-separated multi-ID fields.
   //    Only when NO explicit conditions exist (legacy fields may be stale).
   if (!hasExplicitConditions) {
-    if (step.approver_type === 'specific_person' && step.approver_hr_id) {
-      if (inCsv(step.approver_hr_id, hrId)) return true;
-    } else if (step.approver_type === 'identity' && step.approver_identity_id) {
-      const approver = currentApprover || (await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [hrId, orgId]
-      ))[0][0];
-      if (approver && inCsv(step.approver_identity_id, approver.identity_id)) {
-        let submitter = null;
-        const [subRows] = await pool.query(
-          'SELECT id, department_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [submission.submitted_by, orgId]
-        );
-        submitter = subRows[0] || null;
-        if (matchesScope(step, approver, submitter)) return true;
+    if (step.approver_type === 'identity' && step.approver_identity_id) {
+      if (inCsv(step.approver_identity_id, currentApprover.identity_id)) {
+        if (matchesScope(step, currentApprover, submitters)) return true;
       }
     }
     // 4. 无条件步骤不授予隐式审批权；管理员身份也不能替代普通用户人事身份审批。
@@ -1340,14 +1337,14 @@ router.post('/approveStep', async (req, res) => {
   const conn = await pool.getConnection();
   const signedFileBackups = [];
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const actorContext = await resolveAuditAssignmentActor(req, conn);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const actor = actorResult.actor;
-    const hrId = actor.id;
-
-    const orgId = await getCurrentOrgId();
+    const approverAssignment = actorContext.assignment;
+    const hrId = approverAssignment.hr_id;
+    const orgId = actorContext.orgId;
 
     const submissionId = safeString(req.body.submissionId);
     const stepId = safeString(req.body.stepId);
@@ -1364,19 +1361,32 @@ router.post('/approveStep', async (req, res) => {
       await conn.rollback();
       return res.json({ status: 'not_found', message: localeCopy.copy_780fb113f1 });
     }
-    if (submission.status !== 'in_progress') {
-      await conn.rollback();
-      return res.json({ status: 'success', message: localeCopy.copy_a530b3e599, submissionStatus: submission.status, idempotent: true });
-    }
 
     const step = await submissionStepModel.getByIdForUpdate(stepId, conn);
     if (!step) {
       await conn.rollback();
       return res.json({ status: 'not_found', message: localeCopy.copy_7913354ccb });
     }
-    if (step.status !== 'pending') {
+    if (submission.status !== 'in_progress' || step.status !== 'pending') {
+      const isOwnReplay = await auditEventModel.hasStepActionByActor({
+        submissionId,
+        stepIndex: step.sort_order,
+        round: step.round,
+        eventType: 'approve',
+        assignmentId: approverAssignment.assignment_id,
+        hrId
+      }, conn);
       await conn.rollback();
-      return res.json({ status: 'success', message: localeCopy.copy_786e39e479, stepStatus: step.status, idempotent: true });
+      if (isOwnReplay) {
+        return res.json({
+          status: 'success',
+          message: submission.status !== 'in_progress' ? localeCopy.copy_a530b3e599 : localeCopy.copy_786e39e479,
+          submissionStatus: submission.status,
+          stepStatus: step.status,
+          idempotent: true
+        });
+      }
+      return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
     }
 
     // Check authorization — shared helper
@@ -1386,7 +1396,7 @@ router.post('/approveStep', async (req, res) => {
       return res.json({ status: stepState.status, message: stepState.message });
     }
 
-    const authorized = await checkStepAuthorization(step, submission, hrId, actor.profile);
+    const authorized = await checkStepAuthorization(step, submission, approverAssignment, conn);
     if (!authorized) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
@@ -1398,12 +1408,20 @@ router.post('/approveStep', async (req, res) => {
     const designatedNextPersonIds = Array.isArray(req.body.designatedNextPersonIds)
       ? [...new Set(req.body.designatedNextPersonIds.map(function(id) { return safeString(id); }).filter(Boolean))]
       : [];
+    const designatedNextAssignmentIds = Array.isArray(req.body.designatedNextAssignmentIds)
+      ? [...new Set(req.body.designatedNextAssignmentIds.map(function(id) { return safeString(id); }).filter(Boolean))]
+      : [];
     const allSteps = await submissionStepModel.getBySubmissionId(submissionId, conn);
     const currentSteps = allSteps
       .filter((s) => s.round === currentRound)
       .sort((a, b) => a.sort_order - b.sort_order);
     const nextStep = currentSteps.find((s) => s.sort_order === step.sort_order + 1);
-    if (designatedNextPersonIds.length && (!nextStep || Number(nextStep.allow_approver_designation) !== 1)) {
+    const hasNextDesignation = designatedNextPersonIds.length > 0 || designatedNextAssignmentIds.length > 0;
+    if (hasNextDesignation && (!designatedNextPersonIds.length || !designatedNextAssignmentIds.length)) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_93c41f359c });
+    }
+    if (hasNextDesignation && (!nextStep || Number(nextStep.allow_approver_designation) !== 1)) {
       await conn.rollback();
       return res.json({ status: 'invalid_params', message: nextStep ? '下一步按审批条件确定审批人' : '已是最后一步' });
     }
@@ -1412,7 +1430,10 @@ router.post('/approveStep', async (req, res) => {
     await submissionStepModel.updateStatus(stepId, {
       status: 'approved',
       comment,
-      processedAt: nowISO
+      processedAt: nowISO,
+      processedPersonId: approverAssignment.person_id,
+      processedAssignmentId: approverAssignment.assignment_id,
+      processedContextSnapshot: assignmentSnapshot(approverAssignment, req.authContext)
     }, conn);
 
     // Record signatures/stamps and persist them onto the target files.
@@ -1461,12 +1482,8 @@ router.post('/approveStep', async (req, res) => {
       // 最终步骤：PDF 文件追加符合 PDF 规范的 PKCS#7 数字签名（私钥仅在服务端），
       // 签名覆盖整份最终文档，Acrobat 等软件可识别“由 姓名（学号）签署”。
       if (finalBuffer && finalMimeType === 'application/pdf' && !nextStep) {
-        const [signerRows] = await pool.query(
-          'SELECT name, student_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [hrId, orgId]
-        );
-        const signerName = signerRows[0] ? safeString(signerRows[0].name) : '未知';
-        const studentId = signerRows[0] ? safeString(signerRows[0].student_id) : '';
+        const signerName = safeString(approverAssignment.name);
+        const studentId = safeString(approverAssignment.student_id);
         const [orgRows] = await pool.query('SELECT name FROM organizations WHERE id = ?', [orgId]);
         const orgName = orgRows[0] ? safeString(orgRows[0].name) : '';
 
@@ -1601,14 +1618,15 @@ router.post('/approveStep', async (req, res) => {
       // If the approver designated specific people for the next step,
       // NARROW the scope: only designated persons can approve, BUT they
       // must also be eligible under the original step conditions (can't expand scope).
-      if (designatedNextPersonIds.length > 0) {
-        // Parse original next-step conditions (before modification)
+      if (hasNextDesignation) {
         let originalConds = [];
         if (nextStep.step_conditions_json) {
           try {
             originalConds = JSON.parse(nextStep.step_conditions_json);
-            if (!Array.isArray(originalConds)) originalConds = [];
-          } catch (_) { originalConds = []; }
+            if (!Array.isArray(originalConds)) throw new Error();
+          } catch (_) {
+            throw new Error(localeCopy.copy_93c41f359c);
+          }
         }
         // Fallback: load from template
         if (!originalConds.length && nextStep.template_step_id) {
@@ -1618,51 +1636,18 @@ router.post('/approveStep', async (req, res) => {
           } catch (_) {}
         }
 
-        // Validate each designated person against original conditions (cannot expand scope)
-        const [subRows2] = await pool.query(
-          'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-          [submission.submitted_by, orgId]
+        const submitterAssignments = await getSubmissionSubmitterAssignments(submission, orgId, conn);
+        const newConds = await narrowTemplateStepConditions(
+          originalConds,
+          designatedNextPersonIds,
+          designatedNextAssignmentIds,
+          submitterAssignments,
+          orgId,
+          conn
         );
-        const submitter2 = subRows2[0] || null;
 
-        const validPersonIds = [];
-        for (let dni = 0; dni < designatedNextPersonIds.length; dni++) {
-          const pid = designatedNextPersonIds[dni];
-          // If no original conditions (fully open scope), anyone is eligible
-          if (!originalConds.length) {
-            validPersonIds.push(pid);
-            continue;
-          }
-          // Check this person against original conditions
-          const [personRows] = await pool.query(
-            'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-            [pid, orgId]
-          );
-          const person = personRows[0];
-          if (person && matchesAnyCondition(originalConds, person, submitter2)) {
-            validPersonIds.push(pid);
-          }
-        }
-
-        if (validPersonIds.length !== designatedNextPersonIds.length) {
-          throw new Error(localeCopy.copy_93c41f359c);
-        }
-
-        if (validPersonIds.length > 0) {
-          // Replace conditions entirely: ONLY designated (and eligible) persons can approve
-          let newConds = validPersonIds.map(function(pid) {
-            return {
-              conditionType: 'person',
-              personHrIds: pid,
-              departmentScope: null,
-              specificDepartmentId: null,
-              workGroupScope: null,
-              specificWorkGroupId: null,
-              identityScope: null,
-              specificIdentityId: null
-            };
-          });
-          let newCondsJson = JSON.stringify(newConds);
+        if (newConds.length > 0) {
+          const newCondsJson = JSON.stringify(newConds);
           await conn.query(
             'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
             [newCondsJson, nextStep.id, orgId]
@@ -1677,16 +1662,14 @@ router.post('/approveStep', async (req, res) => {
     }
 
     // Insert approve event
-    const [approverNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
-    const approverEventName = approverNameRows[0] ? approverNameRows[0].name : '';
     await auditEventModel.create(generateId(), {
-      ...buildAuditOperatorContext(req),
+      ...buildAuditOperatorContext(req, approverAssignment),
       submissionId,
       eventType: 'approve',
       stepIndex: step.sort_order,
       round: currentRound,
       operatorHrId: hrId,
-      operatorName: approverEventName,
+      operatorName: approverAssignment.name,
       comment: comment || null
     }, conn);
 
@@ -1737,14 +1720,14 @@ router.post('/approveStep', async (req, res) => {
 router.post('/rejectStep', async (req, res) => {
   const conn = await pool.getConnection();
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const actorContext = await resolveAuditAssignmentActor(req, conn);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const actor = actorResult.actor;
-    const hrId = actor.id;
-
-    const orgId = await getCurrentOrgId();
+    const rejecterAssignment = actorContext.assignment;
+    const hrId = rejecterAssignment.hr_id;
+    const orgId = actorContext.orgId;
 
     const submissionId = safeString(req.body.submissionId);
     const stepId = safeString(req.body.stepId);
@@ -1770,8 +1753,19 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: 'not_found', message: localeCopy.copy_7913354ccb });
     }
     if (step.status !== 'pending') {
+      const isOwnReplay = await auditEventModel.hasStepActionByActor({
+        submissionId,
+        stepIndex: step.sort_order,
+        round: step.round,
+        eventType: 'reject',
+        assignmentId: rejecterAssignment.assignment_id,
+        hrId
+      }, conn);
       await conn.rollback();
-      return res.json({ status: 'success', message: localeCopy.copy_786e39e479, stepStatus: step.status, idempotent: true });
+      if (isOwnReplay) {
+        return res.json({ status: 'success', message: localeCopy.copy_786e39e479, stepStatus: step.status, idempotent: true });
+      }
+      return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
     }
 
     // Check authorization — shared helper
@@ -1781,7 +1775,7 @@ router.post('/rejectStep', async (req, res) => {
       return res.json({ status: stepState.status, message: stepState.message });
     }
 
-    const authorized = await checkStepAuthorization(step, submission, hrId, actor.profile);
+    const authorized = await checkStepAuthorization(step, submission, rejecterAssignment, conn);
     if (!authorized) {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: localeCopy.copy_511125fe12 });
@@ -1793,7 +1787,10 @@ router.post('/rejectStep', async (req, res) => {
     await submissionStepModel.updateStatus(stepId, {
       status: 'rejected',
       rejectionReason,
-      processedAt: nowISO
+      processedAt: nowISO,
+      processedPersonId: rejecterAssignment.person_id,
+      processedAssignmentId: rejecterAssignment.assignment_id,
+      processedContextSnapshot: assignmentSnapshot(rejecterAssignment, req.authContext)
     }, conn);
 
     // Set submission to rejected, record which step rejected
@@ -1803,16 +1800,14 @@ router.post('/rejectStep', async (req, res) => {
     }, conn);
 
     // Insert reject event
-    const [rejecterNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
-    const rejecterEventName = rejecterNameRows[0] ? rejecterNameRows[0].name : '';
     await auditEventModel.create(generateId(), {
-      ...buildAuditOperatorContext(req),
+      ...buildAuditOperatorContext(req, rejecterAssignment),
       submissionId,
       eventType: 'reject',
       stepIndex: step.sort_order,
       round: step.round,
       operatorHrId: hrId,
-      operatorName: rejecterEventName,
+      operatorName: rejecterAssignment.name,
       comment: rejectionReason || null
     }, conn);
 
@@ -1841,10 +1836,14 @@ router.post('/updateAuditSubmission', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-
-    const orgId = await getCurrentOrgId();
+    const actorContext = await resolveAuditAssignmentActor(req, conn);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const editorAssignment = actorContext.assignment;
+    const hrId = editorAssignment.hr_id;
+    const orgId = actorContext.orgId;
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
@@ -1872,8 +1871,13 @@ router.post('/updateAuditSubmission', async (req, res) => {
     if (!title) return res.json({ status: 'invalid_params', message: localeCopy.copy_b99e01d38c });
 
     const requestedOverrides = stepOverrides.filter(function(item) {
-      return item.personHrIds.length > 0;
+      return item.personHrIds.length > 0 || item.assignmentIds.length > 0;
     });
+    if (requestedOverrides.some(function(item) {
+      return !item.personHrIds.length || !item.assignmentIds.length;
+    })) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_db47f6c08b });
+    }
     if (newType !== 'template' && requestedOverrides.length) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_5835a49f03 });
     }
@@ -1894,11 +1898,7 @@ router.post('/updateAuditSubmission', async (req, res) => {
       if (requestedOverrides.length && Number(templateStepsForEdit[0].allow_approver_designation) !== 1) {
         return res.json({ status: 'invalid_params', message: localeCopy.copy_670f4a48f1 });
       }
-      const [submitterRows] = await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [submission.submitted_by, orgId]
-      );
-      submitterForEdit = submitterRows[0] || null;
+      submitterForEdit = editorAssignment;
     }
 
     await conn.beginTransaction();
@@ -1939,8 +1939,10 @@ router.post('/updateAuditSubmission', async (req, res) => {
         stepsToCreate[0].conditions = await narrowTemplateStepConditions(
           stepsToCreate[0].conditions,
           firstOverride.personHrIds,
+          firstOverride.assignmentIds,
           submitterForEdit,
-          orgId
+          orgId,
+          conn
         );
       }
     } else if (newSteps && newSteps.length) {
@@ -1990,7 +1992,15 @@ router.post('/updateAuditSubmission', async (req, res) => {
       for (let i = 0; i < stepsToCreate.length; i++) {
         const s = stepsToCreate[i];
         const stepId = generateId();
-        let stepConditionsJson = s.conditions && s.conditions.length > 0 ? JSON.stringify(s.conditions) : null;
+        const normalizedConditions = await normalizePersonConditionsForPersistence(
+          s.conditions,
+          orgId,
+          conn
+        );
+        if (!normalizedConditions.length && safeString(s.approverHrId)) {
+          throw new Error(localeCopy.copy_db47f6c08b);
+        }
+        let stepConditionsJson = normalizedConditions.length > 0 ? JSON.stringify(normalizedConditions) : null;
         await submissionStepModel.create(stepId, {
           submissionId,
           templateStepId: s.templateStepId || null,
@@ -2025,16 +2035,14 @@ router.post('/updateAuditSubmission', async (req, res) => {
     }
 
     // Insert edit event
-    const [editorNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
-    const editorName = editorNameRows[0] ? editorNameRows[0].name : '';
     await auditEventModel.create(generateId(), {
-      ...buildAuditOperatorContext(req),
+      ...buildAuditOperatorContext(req, editorAssignment),
       submissionId,
       eventType: 'edit',
       stepIndex: null,
       round: editEventRound,
       operatorHrId: hrId,
-      operatorName: editorName,
+      operatorName: editorAssignment.name,
       comment: null
     }, conn);
 
@@ -2053,10 +2061,14 @@ router.post('/resubmitAudit', async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-
-    const orgId = await getCurrentOrgId();
+    const actorContext = await resolveAuditAssignmentActor(req, conn);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const resubmitterAssignment = actorContext.assignment;
+    const hrId = resubmitterAssignment.hr_id;
+    const orgId = actorContext.orgId;
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
@@ -2072,8 +2084,13 @@ router.post('/resubmitAudit', async (req, res) => {
 
     const stepOverrides = normalizeStepOverrides(req.body.stepOverrides);
     const requestedOverrides = stepOverrides.filter(function(item) {
-      return item.personHrIds.length > 0;
+      return item.personHrIds.length > 0 || item.assignmentIds.length > 0;
     });
+    if (requestedOverrides.some(function(item) {
+      return !item.personHrIds.length || !item.assignmentIds.length;
+    })) {
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_db47f6c08b });
+    }
     if (submission.type !== 'template' && requestedOverrides.length) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_5835a49f03 });
     }
@@ -2095,12 +2112,10 @@ router.post('/resubmitAudit', async (req, res) => {
         Number(resubmitTemplateSteps[0].allow_approver_designation) !== 1)) {
         return res.json({ status: 'invalid_params', message: localeCopy.copy_670f4a48f1 });
       }
-      const [submitterRows] = await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [submission.submitted_by, orgId]
-      );
-      resubmitSubmitter = submitterRows[0] || null;
+      resubmitSubmitter = resubmitterAssignment;
     }
+
+    await conn.beginTransaction();
 
     // Optional updates during resubmission
     const newTitle = safeString(req.body.title);
@@ -2114,8 +2129,6 @@ router.post('/resubmitAudit', async (req, res) => {
 
     const isWithdrawn = submission.status === 'withdrawn';
     const isPending = submission.status === 'pending';
-
-    await conn.beginTransaction();
 
     // Clean up: mark all old-round pending steps as 'superseded' so they
     // don't pollute authorization queries that should only see the latest round.
@@ -2140,8 +2153,10 @@ router.post('/resubmitAudit', async (req, res) => {
           const narrowed = await narrowTemplateStepConditions(
             firstConditions,
             requestedOverrides[0].personHrIds,
+            requestedOverrides[0].assignmentIds,
             resubmitSubmitter,
-            orgId
+            orgId,
+            conn
           );
           await conn.query(
             'UPDATE audit_submission_steps SET step_conditions_json = ? WHERE id = ? AND org_id = ?',
@@ -2151,18 +2166,20 @@ router.post('/resubmitAudit', async (req, res) => {
       }
       await submissionModel.update(submissionId, {
         status: 'in_progress',
-        currentStepIndex: 1
+        currentStepIndex: 1,
+        submittedPersonId: resubmitterAssignment.person_id,
+        submittedAssignmentId: resubmitterAssignment.assignment_id,
+        submittedContextSnapshot: assignmentSnapshot(resubmitterAssignment, req.authContext)
       }, conn);
       // Insert submit event (first submit from pending state)
-      const [resubNameRows1] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
       await auditEventModel.create(generateId(), {
-        ...buildAuditOperatorContext(req),
+        ...buildAuditOperatorContext(req, resubmitterAssignment),
         submissionId,
         eventType: 'submit',
         stepIndex: null,
         round: 1,
         operatorHrId: hrId,
-        operatorName: resubNameRows1[0] ? resubNameRows1[0].name : '',
+        operatorName: resubmitterAssignment.name,
         comment: null
       }, conn);
 
@@ -2216,10 +2233,13 @@ router.post('/resubmitAudit', async (req, res) => {
           conditions = await narrowTemplateStepConditions(
             conditions,
             requestedOverrides[0].personHrIds,
+            requestedOverrides[0].assignmentIds,
             resubmitSubmitter,
-            orgId
+            orgId,
+            conn
           );
         }
+        conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
         await submissionStepModel.create(stepId, {
           submissionId,
           templateStepId: safeString(rs.template_step_id),
@@ -2246,10 +2266,13 @@ router.post('/resubmitAudit', async (req, res) => {
           conditions = await narrowTemplateStepConditions(
             conditions,
             requestedOverrides[0].personHrIds,
+            requestedOverrides[0].assignmentIds,
             resubmitSubmitter,
-            orgId
+            orgId,
+            conn
           );
         }
+        conditions = await normalizePersonConditionsForPersistence(conditions, orgId, conn);
         await submissionStepModel.create(stepId, {
           submissionId,
           templateStepId: safeString(ts.template_step_id),
@@ -2270,19 +2293,21 @@ router.post('/resubmitAudit', async (req, res) => {
     const startStepIndex = resubmitMode === 'from_rejector' ? rejectStepIndex : 1;
     await submissionModel.update(submissionId, {
       status: 'in_progress',
-      currentStepIndex: startStepIndex
+      currentStepIndex: startStepIndex,
+      submittedPersonId: resubmitterAssignment.person_id,
+      submittedAssignmentId: resubmitterAssignment.assignment_id,
+      submittedContextSnapshot: assignmentSnapshot(resubmitterAssignment, req.authContext)
     }, conn);
 
     // Insert resubmit event
-    const [resubNameRows2] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     await auditEventModel.create(generateId(), {
-      ...buildAuditOperatorContext(req),
+      ...buildAuditOperatorContext(req, resubmitterAssignment),
       submissionId,
       eventType: 'resubmit',
       stepIndex: null,
       round: newRound,
       operatorHrId: hrId,
-      operatorName: resubNameRows2[0] ? resubNameRows2[0].name : '',
+      operatorName: resubmitterAssignment.name,
       comment: null
     }, conn);
 
@@ -2307,11 +2332,13 @@ router.post('/resubmitAudit', async (req, res) => {
 // withdrawSubmission — Withdraw own submission
 router.post('/withdrawSubmission', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-
-    const orgId = await getCurrentOrgId();
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const withdrawerAssignment = actorContext.assignment;
+    const hrId = withdrawerAssignment.hr_id;
 
     const submissionId = safeString(req.body.submissionId);
     if (!submissionId) return res.json({ status: 'invalid_params', message: localeCopy.copy_fa1dcca5ac });
@@ -2342,15 +2369,14 @@ router.post('/withdrawSubmission', async (req, res) => {
     for (let wi = 0; wi < allSteps.length; wi++) {
       currentRound = Math.max(currentRound, allSteps[wi].round || 1);
     }
-    const [withdrawNameRows] = await pool.query('SELECT name FROM hr_info WHERE id = ? AND org_id = ?', [hrId, orgId]);
     await auditEventModel.create(generateId(), {
-      ...buildAuditOperatorContext(req),
+      ...buildAuditOperatorContext(req, withdrawerAssignment),
       submissionId,
       eventType: 'withdraw',
       stepIndex: null,
       round: currentRound,
       operatorHrId: hrId,
-      operatorName: withdrawNameRows[0] ? withdrawNameRows[0].name : '',
+      operatorName: withdrawerAssignment.name,
       comment: null
     });
 
@@ -2363,40 +2389,18 @@ router.post('/withdrawSubmission', async (req, res) => {
 // listAvailableFlowTemplates — User-facing: list active templates the current user is eligible to start
 router.post('/listAvailableFlowTemplates', async (req, res) => {
   try {
-    const openid = req.openid;
-    if (!openid) return res.json({ status: 'forbidden', message: localeCopy.copy_c22a252e97 });
-
-    // Resolve submitter info for starter-condition matching
-    const hrId = await resolveHrId(openid);
-    let submitterFull = null;
-    if (hrId) {
-      const [submitterRows] = await pool.query(
-        `SELECT h.*, d.name as department_name, wg.name as work_group_name, i.name as identity_name
-         FROM hr_info h
-         LEFT JOIN departments d ON h.department_id = d.id
-         LEFT JOIN work_groups wg ON h.work_group_id = wg.id
-         LEFT JOIN identities i ON h.identity_id = i.id
-         WHERE h.id = ?`,
-        [hrId]
-      );
-      const info = submitterRows[0] || null;
-      if (info) {
-        submitterFull = {
-          hrId: hrId,
-          department_id: info.department_id || '',
-          work_group_id: info.work_group_id || '',
-          identity_id: info.identity_id || ''
-        };
-      }
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
+    const submitterFull = actorContext.assignment;
 
     const templates = await flowTemplateModel.getActive();
     const result = [];
 
     for (const t of templates) {
       // Check if user is eligible to start this template
-      let eligible = false;
-
       // Parse starter conditions
       let starterConditions = [];
       if (t.starter_conditions_json) {
@@ -2404,37 +2408,7 @@ router.post('/listAvailableFlowTemplates', async (req, res) => {
       }
       if (!Array.isArray(starterConditions)) starterConditions = [];
 
-      if (starterConditions.length) {
-        // Must have HR binding to verify starter conditions
-        if (!submitterFull) {
-          eligible = false;
-        } else {
-          // Multi-condition OR match
-          for (const cond of starterConditions) {
-            if (cond.conditionType === 'person') {
-              const personIds = (cond.personHrIds || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-              if (personIds.includes(hrId)) { eligible = true; break; }
-            } else {
-              if (matchesIdentityScopeCondition(cond, submitterFull, submitterFull)) {
-                eligible = true; break;
-              }
-            }
-          }
-        }
-      } else if (t.starter_type === 'identity' && t.starter_identity_id && submitterFull) {
-        // Legacy identity check
-        const identIds = t.starter_identity_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-        if (identIds.includes(submitterFull.identity_id)) eligible = true;
-      } else if (t.starter_type === 'specific_person' && t.starter_hr_id) {
-        // Legacy specific person check
-        const personIds = t.starter_hr_id.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-        if (hrId && personIds.includes(hrId)) eligible = true;
-      } else {
-        // starter_type === 'self' or no conditions — anyone can start
-        eligible = true;
-      }
-
-      if (!eligible) continue;
+      if (!matchesStarter(t, starterConditions, submitterFull)) continue;
 
       const steps = await flowTemplateStepModel.getByTemplateId(t.id);
       result.push({
@@ -2474,6 +2448,7 @@ router.post('/previewTemplateSteps', async (req, res) => {
       stepConditionMap[sid].push({
         conditionType: c.condition_type,
         personHrIds: c.person_hr_ids,
+        assignmentIds: c.assignment_ids,
         departmentScope: c.department_scope,
         specificDepartmentId: c.specific_department_id,
         workGroupScope: c.work_group_scope,
@@ -2556,16 +2531,13 @@ router.post('/previewTemplateSteps', async (req, res) => {
 // listMyStamps — Get stamps available for the current user's identity
 router.post('/listMyStamps', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
-
-    const orgId = await getCurrentOrgId();
-    const [hrRows] = await pool.query(
-      'SELECT identity_id FROM hr_info WHERE id = ? AND org_id = ?',
-      [hrId, orgId]
-    );
-    const identityId = hrRows[0] ? hrRows[0].identity_id : null;
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const orgId = actorContext.orgId;
+    const identityId = actorContext.assignment.identity_id;
     if (!identityId) return res.json({ status: 'success', stamps: [] });
 
     const assignments = await stampAssignmentModel.getByIdentityId(identityId);
@@ -2595,11 +2567,12 @@ router.post('/listMyStamps', async (req, res) => {
 // getUnreadCounts — returns unread counts for my submissions + pending count
 // Each section is independently fault-tolerant: one failure won't zero out the others
 router.post('/getUnreadCounts', async (req, res) => {
-  const actorResult = await resolveCurrentActor(req);
-  if (!actorResult.ok || actorResult.actor.type !== 'user') {
+  const actorContext = await resolveAuditAssignmentActor(req);
+  if (!actorContext.ok) {
+    const actorResult = actorContext.actorResult;
     return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
   }
-  const hrId = actorResult.actor.id;
+  const hrId = actorContext.assignment.hr_id;
 
   let pendingCount = 0;
   let mySubmissionsUnread = 0;
@@ -2608,7 +2581,7 @@ router.post('/getUnreadCounts', async (req, res) => {
 
   // ── Pending count (items needing my action) ──
   try {
-    const pendingSteps = await submissionStepModel.getPendingByApprover(hrId, actorResult.actor.profile);
+    const pendingSteps = await submissionStepModel.getPendingByApprover(actorContext.actor, actorContext.assignment);
     pendingCount = pendingSteps.length;
   } catch (e) {
     console.error('[getUnreadCounts] pendingCount failed:', e.message);
@@ -2703,27 +2676,37 @@ router.post('/markAllSubmissionsRead', async (req, res) => {
 // st.approver_hr_id = ? query missed.
 router.post('/listMyApprovalHistory', async (req, res) => {
   try {
-    const openid = req.openid;
-    const hrId = await resolveHrId(openid);
-    if (!hrId) return res.json({ status: 'forbidden', message: localeCopy.copy_162d055e98 });
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
+      return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const assignmentId = safeString(actorContext.assignment.assignment_id);
 
     const limit = Math.min(100, Math.max(1, parseInt(req.body.limit, 10) || 50));
     const offset = Math.max(0, parseInt(req.body.offset, 10) || 0);
-    const orgId = await getCurrentOrgId();
+    const orgId = actorContext.orgId;
+    const historyAssignmentSql = assignmentSqlExpression('e', 'handled_step');
 
-    // Get submissions where user has approve/reject events
+    // 普通用户审批历史严格绑定当前岗位。事件岗位优先，其次使用事件快照；
+    // 仅在事件没有岗位信息时才读取同一步骤的处理岗位/快照。
     const [rows] = await pool.query(
       `SELECT s.*, MAX(e.created_at) AS my_last_action_at
        FROM audit_submissions s
        JOIN audit_events e ON s.id = e.submission_id
-       WHERE e.operator_hr_id = ?
+       LEFT JOIN audit_submission_steps handled_step
+         ON handled_step.submission_id = e.submission_id
+        AND handled_step.sort_order = e.step_index
+        AND handled_step.round = COALESCE(e.round, 1)
+        AND handled_step.org_id = e.org_id
+       WHERE ${historyAssignmentSql} = ?
          AND s.org_id = ?
          AND e.org_id = ?
          AND e.event_type IN ('approve', 'reject')
        GROUP BY s.id
        ORDER BY my_last_action_at DESC
        LIMIT ? OFFSET ?`,
-      [hrId, orgId, orgId, limit, offset]
+      [assignmentId, orgId, orgId, limit, offset]
     );
 
     // Get the steps I handled for each submission (from audit_events)
@@ -2732,14 +2715,20 @@ router.post('/listMyApprovalHistory', async (req, res) => {
     if (submissionIds.length) {
       const [mySteps] = await pool.query(
         `SELECT e.submission_id, e.step_index AS sort_order,
-           e.event_type, e.created_at AS processed_at, e.comment
+           e.event_type, e.created_at AS processed_at, e.comment,
+           e.operator_person_id, e.operator_assignment_id, e.operator_context_snapshot
          FROM audit_events e
+         LEFT JOIN audit_submission_steps handled_step
+           ON handled_step.submission_id = e.submission_id
+          AND handled_step.sort_order = e.step_index
+          AND handled_step.round = COALESCE(e.round, 1)
+          AND handled_step.org_id = e.org_id
          WHERE e.submission_id IN (?)
-           AND e.operator_hr_id = ?
+           AND ${historyAssignmentSql} = ?
            AND e.org_id = ?
            AND e.event_type IN ('approve', 'reject')
          ORDER BY e.created_at DESC`,
-        [submissionIds, hrId, orgId]
+        [submissionIds, assignmentId, orgId]
       );
       mySteps.forEach((st, stIdx) => {
         if (!myStepsMap[st.submission_id]) myStepsMap[st.submission_id] = [];
@@ -2748,7 +2737,10 @@ router.post('/listMyApprovalHistory', async (req, res) => {
           sortOrder: st.sort_order,
           status: st.event_type === 'approve' ? 'approved' : 'rejected',
           processedAt: st.processed_at,
-          comment: safeString(st.comment || '')
+          comment: safeString(st.comment || ''),
+          operatorPersonId: safeString(st.operator_person_id),
+          operatorAssignmentId: safeString(st.operator_assignment_id),
+          operatorContextSnapshot: parseSnapshot(st.operator_context_snapshot)
         });
       });
     }
@@ -2790,13 +2782,14 @@ router.post('/listMyApprovalHistory', async (req, res) => {
 // Used by both Create mode (template step preview) and View mode (designate next approver)
 router.post('/listEligibleApprovers', async (req, res) => {
   try {
-    const actorResult = await resolveCurrentActor(req);
-    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+    const actorContext = await resolveAuditAssignmentActor(req);
+    if (!actorContext.ok) {
+      const actorResult = actorContext.actorResult;
       return res.json({ status: actorResult.status || 'forbidden', message: actorResult.message || localeCopy.copy_4e84385ce1 });
     }
-    const hrId = actorResult.actor.id;
+    const hrId = actorContext.assignment.hr_id;
 
-    const orgId = await getCurrentOrgId();
+    const orgId = actorContext.orgId;
     const submissionId = safeString(req.body.submissionId);
     const editSubmissionId = safeString(req.body.editSubmissionId);
     const templateId = safeString(req.body.templateId);
@@ -2804,6 +2797,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
 
     let conditions = [];
     let submitterInfo = null;
+    let hasUnboundLegacyPersonCondition = false;
 
     if (editSubmissionId) {
       const editSubmission = await submissionModel.getById(editSubmissionId);
@@ -2825,11 +2819,9 @@ router.post('/listEligibleApprovers', async (req, res) => {
       }
       const editConditions = await submissionStepModel.getTemplateStepConditions(editTargetStep.id);
       conditions = Array.isArray(editConditions) ? editConditions : [];
-      const [subRows] = await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [editSubmission.submitted_by, orgId]
-      );
-      submitterInfo = subRows[0] || null;
+      hasUnboundLegacyPersonCondition = editTargetStep.approver_type === 'specific_person'
+        && !conditions.length;
+      submitterInfo = actorContext.assignment;
     } else if (submissionId) {
       // View mode: resolve next step's conditions from the submission
       const submission = await submissionModel.getById(submissionId);
@@ -2844,7 +2836,7 @@ router.post('/listEligibleApprovers', async (req, res) => {
       const currentStep = currentRoundSteps.find(function(s) { return s.sort_order === currentIdx; });
       const nextStep = currentRoundSteps.find(function(s) { return s.sort_order === currentIdx + 1; });
 
-      if (!currentStep || !(await checkStepAuthorization(currentStep, submission, hrId, actorResult.actor.profile))) {
+      if (!currentStep || !(await checkStepAuthorization(currentStep, submission, actorContext.assignment))) {
         return res.json({ status: 'forbidden', message: localeCopy.copy_4d7982666d });
       }
       if (!nextStep) {
@@ -2856,8 +2848,12 @@ router.post('/listEligibleApprovers', async (req, res) => {
 
       // Parse next step's conditions
       if (nextStep.step_conditions_json) {
-        try { conditions = JSON.parse(nextStep.step_conditions_json); } catch (_) {}
-        if (!Array.isArray(conditions)) conditions = [];
+        try {
+          conditions = JSON.parse(nextStep.step_conditions_json);
+          if (!Array.isArray(conditions)) throw new Error();
+        } catch (_) {
+          return res.json({ status: 'forbidden', message: localeCopy.copy_4d7982666d });
+        }
       }
 
       // Fallback: template step conditions
@@ -2865,13 +2861,11 @@ router.post('/listEligibleApprovers', async (req, res) => {
         const tplConds = await submissionStepModel.getTemplateStepConditions(nextStep.template_step_id);
         if (tplConds) conditions = tplConds;
       }
+      hasUnboundLegacyPersonCondition = nextStep.approver_type === 'specific_person'
+        && !conditions.length;
 
       // Load submitter for 'own' scope resolution
-      const [subRows] = await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [submission.submitted_by, orgId]
-      );
-      submitterInfo = subRows[0] || null;
+      submitterInfo = await getSubmissionSubmitterAssignments(submission, orgId);
     } else if (templateId && stepIndex > 0) {
       // Create mode: resolve template step conditions
       if (stepIndex !== 1) {
@@ -2892,31 +2886,17 @@ router.post('/listEligibleApprovers', async (req, res) => {
 
       const tplConds = await submissionStepModel.getTemplateStepConditions(targetStep.id);
       if (tplConds) conditions = tplConds;
+      hasUnboundLegacyPersonCondition = targetStep.approver_type === 'specific_person'
+        && !conditions.length;
 
       // For Create mode, use the current user as submitter (for 'own' scope)
-      const [subRows] = await pool.query(
-        'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-        [hrId, orgId]
-      );
-      submitterInfo = subRows[0] || null;
+      submitterInfo = actorContext.assignment;
       let starterConditions = [];
       if (template.starter_conditions_json) {
         try { starterConditions = JSON.parse(template.starter_conditions_json); } catch (_) { starterConditions = []; }
       }
-      if (starterConditions.length && (!submitterInfo || !matchesAnyCondition(starterConditions, submitterInfo, submitterInfo))) {
+      if (!matchesStarter(template, starterConditions, actorContext.assignment)) {
         return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
-      }
-      if (!starterConditions.length && template.starter_type === 'identity' && template.starter_identity_id) {
-        const identityIds = String(template.starter_identity_id).split(',').map(function(id) { return id.trim(); }).filter(Boolean);
-        if (!submitterInfo || !identityIds.includes(String(submitterInfo.identity_id))) {
-          return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
-        }
-      }
-      if (!starterConditions.length && template.starter_type === 'specific_person' && template.starter_hr_id) {
-        const personIds = String(template.starter_hr_id).split(',').map(function(id) { return id.trim(); }).filter(Boolean);
-        if (!personIds.includes(String(hrId))) {
-          return res.json({ status: 'forbidden', message: localeCopy.copy_bc75efaa89 });
-        }
       }
     } else if (!(req.body && req.body.all === true)) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_d537fa2510 });
@@ -2925,25 +2905,18 @@ router.post('/listEligibleApprovers', async (req, res) => {
     // 自定义流程的“指定人员添加”需要完整目录；目录仍严格限制在当前组织，
     // 不复用管理员专用的 listHrInfo 接口。
     if (req.body && req.body.all === true && !submissionId && !templateId) {
-      const allHr = await hrInfoModel.getAllWithDirectory();
-      return res.json({ status: 'success', approvers: allHr });
+      const allAssignments = await listActiveAssignments(orgId);
+      return res.json({ status: 'success', approvers: groupEligibleCandidates(allAssignments) });
     }
 
-    // If no conditions or all conditions are "all" scope, return all HR
+    if (hasUnboundLegacyPersonCondition) {
+      return res.json({ status: 'success', approvers: [] });
+    }
+
+    // 候选范围始终从当前组织的有效岗位目录计算。
     if (!conditions.length) {
-      const [allHr] = await pool.query(
-        `SELECT h.id, h.name, h.student_id AS studentId,
-                h.department_id AS departmentId, d.name AS department,
-                h.identity_id AS identityId, i.name AS identity,
-                h.work_group_id AS workGroupId, wg.name AS workGroup
-         FROM hr_info h
-         LEFT JOIN departments d ON h.department_id = d.id
-         LEFT JOIN identities i ON h.identity_id = i.id
-         LEFT JOIN work_groups wg ON h.work_group_id = wg.id
-         WHERE h.org_id = ? ORDER BY h.name`,
-        [orgId]
-      );
-      return res.json({ status: 'success', approvers: allHr });
+      const allAssignments = await listActiveAssignments(orgId);
+      return res.json({ status: 'success', approvers: groupEligibleCandidates(allAssignments) });
     }
 
     // Check if all conditions are effectively "all" (identity_scope with all scopes = 'all')
@@ -2954,46 +2927,16 @@ router.post('/listEligibleApprovers', async (req, res) => {
              (c.identityScope || 'all') === 'all';
     });
     if (allAreOpen) {
-      const [allHr] = await pool.query(
-        `SELECT h.id, h.name, h.student_id AS studentId,
-                h.department_id AS departmentId, d.name AS department,
-                h.identity_id AS identityId, i.name AS identity,
-                h.work_group_id AS workGroupId, wg.name AS workGroup
-         FROM hr_info h
-         LEFT JOIN departments d ON h.department_id = d.id
-         LEFT JOIN identities i ON h.identity_id = i.id
-         LEFT JOIN work_groups wg ON h.work_group_id = wg.id
-         WHERE h.org_id = ? ORDER BY h.name`,
-        [orgId]
-      );
-      return res.json({ status: 'success', approvers: allHr });
+      const allAssignments = await listActiveAssignments(orgId);
+      return res.json({ status: 'success', approvers: groupEligibleCandidates(allAssignments) });
     }
 
-    // Load all HR records and filter in JS with matchesAnyCondition
-    const [allHr] = await pool.query(
-      `SELECT h.id, h.name, h.student_id AS studentId,
-              h.department_id AS departmentId, d.name AS department,
-              h.identity_id AS identityId, i.name AS identity,
-              h.work_group_id AS workGroupId, wg.name AS workGroup
-       FROM hr_info h
-       LEFT JOIN departments d ON h.department_id = d.id
-       LEFT JOIN identities i ON h.identity_id = i.id
-       LEFT JOIN work_groups wg ON h.work_group_id = wg.id
-       WHERE h.org_id = ? ORDER BY h.name`,
-      [orgId]
-    );
-
-    const eligible = allHr.filter(function(hr) {
-      const approver = {
-        id: hr.id,
-        department_id: hr.departmentId || '',
-        identity_id: hr.identityId || '',
-        work_group_id: hr.workGroupId || ''
-      };
-      return matchesAnyCondition(conditions, approver, submitterInfo);
+    const allAssignments = await listActiveAssignments(orgId);
+    const eligibleAssignments = allAssignments.filter(function(assignment) {
+      return matchesAnyCondition(conditions, assignment, submitterInfo);
     });
 
-    res.json({ status: 'success', approvers: eligible });
+    res.json({ status: 'success', approvers: groupEligibleCandidates(eligibleAssignments) });
   } catch (e) {
     console.error('[audit:listEligibleApprovers] error:', e);
     res.json({ status: 'error', message: safeString(e.message) });

@@ -69,14 +69,14 @@ async function loadMiddleware(contextId) {
   return middleware;
 }
 
-async function invoke(middleware) {
+async function invoke(middleware, token = signed) {
   let statusCode = 200;
   let body = null;
   let nextCalled = false;
   await middleware(
     {
       path: '/api/auth/contexts',
-      headers: { authorization: 'Bearer ' + signed },
+      headers: { authorization: 'Bearer ' + token },
       requestId: 'request-1'
     },
     {
@@ -103,7 +103,13 @@ async function invoke(middleware) {
   const current = await invoke(await loadMiddleware('ctx-current'));
   assert.strictEqual(current.nextCalled, true);
 
-  console.log('统一访问令牌上下文绑定与切换后旧令牌失效测试通过');
+  const legacy = jwt.sign({ openid: 'openid-1' }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  const rejectedLegacy = await invoke(await loadMiddleware('ctx-current'), legacy);
+  assert.strictEqual(rejectedLegacy.statusCode, 401);
+  assert.strictEqual(rejectedLegacy.body.status, 'auth_failed');
+  assert.strictEqual(rejectedLegacy.nextCalled, false);
+
+  console.log('统一访问令牌上下文绑定、切换失效与旧令牌拒绝测试通过');
 })().catch((error) => {
   console.error(error);
   process.exit(1);

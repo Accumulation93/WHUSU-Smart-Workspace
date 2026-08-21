@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS system_config (
 -- Seed data
 INSERT IGNORE INTO system_config (id, timezone) VALUES ('default', 8);
 
+CREATE TABLE IF NOT EXISTS organization_dictionary_locks (
+  org_id VARCHAR(64) NOT NULL PRIMARY KEY,
+  touched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================
 -- 2. 组织架构表 (org-scoped)
 -- ============================================================
@@ -62,7 +67,9 @@ CREATE TABLE IF NOT EXISTS work_groups (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_wg_department (department_id),
   INDEX idx_wg_org (org_id),
-  UNIQUE INDEX idx_wg_dept_name (department_id, name, org_id)
+  UNIQUE INDEX idx_wg_dept_name (department_id, name, org_id),
+  CONSTRAINT fk_wg_department FOREIGN KEY (department_id)
+    REFERENCES departments(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -175,7 +182,7 @@ CREATE TABLE IF NOT EXISTS score_activities (
   start_date DATE DEFAULT NULL,
   end_date DATE DEFAULT NULL,
   is_current TINYINT(1) NOT NULL DEFAULT 0,
-  participant_granularity VARCHAR(16) NOT NULL DEFAULT 'person',
+  participant_granularity VARCHAR(16) NOT NULL DEFAULT 'assignment',
   is_paused TINYINT(1) NOT NULL DEFAULT 0,
   created_by VARCHAR(64) DEFAULT NULL,
   updated_by VARCHAR(64) DEFAULT NULL,
@@ -234,7 +241,11 @@ CREATE TABLE IF NOT EXISTS rate_target_rules (
   INDEX idx_rtr_active (is_active),
   INDEX idx_rtr_org (org_id),
   CONSTRAINT fk_rtr_activity FOREIGN KEY (activity_id)
-    REFERENCES score_activities(id) ON DELETE CASCADE
+    REFERENCES score_activities(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rtr_scorer_department FOREIGN KEY (scorer_department_id)
+    REFERENCES departments(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_rtr_scorer_identity FOREIGN KEY (scorer_identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 从 rules.clauses JSON 拆出
@@ -248,7 +259,9 @@ CREATE TABLE IF NOT EXISTS rate_rule_clauses (
   INDEX idx_rrc_rule (rule_id),
   INDEX idx_rrc_org (org_id),
   CONSTRAINT fk_rrc_rule FOREIGN KEY (rule_id)
-    REFERENCES rate_target_rules(id) ON DELETE CASCADE
+    REFERENCES rate_target_rules(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rrc_target_identity FOREIGN KEY (target_identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 从 clauses[].templateConfigs 拆出，有顺序
@@ -291,10 +304,12 @@ CREATE TABLE IF NOT EXISTS score_records (
   scorer_id VARCHAR(64) NOT NULL,
   scorer_person_id VARCHAR(64) DEFAULT NULL,
   scorer_assignment_id VARCHAR(64) DEFAULT NULL,
+  scorer_context_snapshot JSON DEFAULT NULL,
   scorer_subject_key VARCHAR(96) NOT NULL,
   target_id VARCHAR(64) NOT NULL,
   target_person_id VARCHAR(64) DEFAULT NULL,
   target_assignment_id VARCHAR(64) DEFAULT NULL,
+  target_context_snapshot JSON DEFAULT NULL,
   target_subject_key VARCHAR(96) NOT NULL,
   template_config_signature TEXT,
   submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -450,6 +465,7 @@ CREATE TABLE IF NOT EXISTS hr_profile_records (
   INDEX idx_hpr_status (audit_status),
   INDEX idx_hpr_org (org_id),
   INDEX idx_hpr_snapshot (template_snapshot_id),
+  UNIQUE INDEX uk_hr_profile_record_member_org (hr_id, org_id),
   CONSTRAINT fk_hpr_snapshot FOREIGN KEY (template_snapshot_id)
     REFERENCES org_hr_profile_template_snapshots(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -503,7 +519,11 @@ CREATE TABLE IF NOT EXISTS pub_view_rules (
   INDEX idx_pvr_org (org_id),
   UNIQUE INDEX idx_pvr_pub_dept_ident_org (publication_id, grantee_department_id, grantee_identity_id, org_id),
   CONSTRAINT fk_pvr_publication FOREIGN KEY (publication_id)
-    REFERENCES result_publications(id) ON DELETE CASCADE
+    REFERENCES result_publications(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pvr_grantee_department FOREIGN KEY (grantee_department_id)
+    REFERENCES departments(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_pvr_grantee_identity FOREIGN KEY (grantee_identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS pub_view_rule_clauses (
@@ -519,7 +539,9 @@ CREATE TABLE IF NOT EXISTS pub_view_rule_clauses (
   INDEX idx_pvrc_rule (rule_id),
   INDEX idx_pvrc_org (org_id),
   CONSTRAINT fk_pvrc_rule FOREIGN KEY (rule_id)
-    REFERENCES pub_view_rules(id) ON DELETE CASCADE
+    REFERENCES pub_view_rules(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pvrc_target_identity FOREIGN KEY (target_identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS pub_grade_bands (
@@ -550,7 +572,11 @@ CREATE TABLE IF NOT EXISTS pub_merit_rules (
   INDEX idx_pmr_org (org_id),
   UNIQUE INDEX idx_pmr_pub_dept_ident_org (publication_id, grantee_department_id, grantee_identity_id, org_id),
   CONSTRAINT fk_pmr_publication FOREIGN KEY (publication_id)
-    REFERENCES result_publications(id) ON DELETE CASCADE
+    REFERENCES result_publications(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pmr_grantee_department FOREIGN KEY (grantee_department_id)
+    REFERENCES departments(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_pmr_grantee_identity FOREIGN KEY (grantee_identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS pub_merit_rule_clauses (
@@ -567,7 +593,9 @@ CREATE TABLE IF NOT EXISTS pub_merit_rule_clauses (
   INDEX idx_pmrc_rule (rule_id),
   INDEX idx_pmrc_org (org_id),
   CONSTRAINT fk_pmrc_rule FOREIGN KEY (rule_id)
-    REFERENCES pub_merit_rules(id) ON DELETE CASCADE
+    REFERENCES pub_merit_rules(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pmrc_target_identity FOREIGN KEY (target_identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS merit_list_designations (
@@ -575,13 +603,19 @@ CREATE TABLE IF NOT EXISTS merit_list_designations (
   publication_id VARCHAR(64) NOT NULL,
   clause_id VARCHAR(64) NOT NULL,
   target_hr_id VARCHAR(64) NOT NULL,
+  target_assignment_id VARCHAR(64) DEFAULT NULL,
+  target_context_snapshot JSON DEFAULT NULL,
   designated_by VARCHAR(64) NOT NULL,
+  designated_by_person_id VARCHAR(64) DEFAULT NULL,
+  designated_by_assignment_id VARCHAR(64) DEFAULT NULL,
+  designated_by_context_snapshot JSON DEFAULT NULL,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_mld_publication (publication_id),
   INDEX idx_mld_clause (clause_id),
   INDEX idx_mld_org (org_id),
-  UNIQUE INDEX idx_mld_pub_hr (publication_id, target_hr_id, org_id),
+  INDEX idx_mld_target_hr (publication_id, target_hr_id, org_id),
+  UNIQUE INDEX idx_mld_pub_assignment (publication_id, target_assignment_id, org_id),
   CONSTRAINT fk_mld_publication FOREIGN KEY (publication_id)
     REFERENCES result_publications(id) ON DELETE CASCADE,
   CONSTRAINT fk_mld_clause FOREIGN KEY (clause_id)
@@ -599,6 +633,7 @@ CREATE TABLE IF NOT EXISTS audit_flow_templates (
   starter_type VARCHAR(20) NOT NULL DEFAULT 'self',
   starter_identity_id VARCHAR(64) DEFAULT NULL,
   starter_hr_id VARCHAR(64) DEFAULT NULL,
+  starter_conditions_json TEXT DEFAULT NULL COMMENT '发起条件 JSON 数组',
   resubmit_mode VARCHAR(20) NOT NULL DEFAULT 'fresh',
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
@@ -606,7 +641,9 @@ CREATE TABLE IF NOT EXISTS audit_flow_templates (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_aft_org (org_id),
-  INDEX idx_aft_active (is_active)
+  INDEX idx_aft_active (is_active),
+  CONSTRAINT fk_aft_starter_identity FOREIGN KEY (starter_identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS audit_flow_template_steps (
@@ -626,7 +663,9 @@ CREATE TABLE IF NOT EXISTS audit_flow_template_steps (
   INDEX idx_afts_template (template_id),
   INDEX idx_afts_org (org_id),
   CONSTRAINT fk_afts_template FOREIGN KEY (template_id)
-    REFERENCES audit_flow_templates(id) ON DELETE CASCADE
+    REFERENCES audit_flow_templates(id) ON DELETE CASCADE,
+  CONSTRAINT fk_afts_approver_identity FOREIGN KEY (approver_identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS signature_templates (
@@ -666,13 +705,16 @@ CREATE TABLE IF NOT EXISTS identity_stamp_assignments (
   CONSTRAINT fk_isa_stamp FOREIGN KEY (stamp_id)
     REFERENCES stamps(id) ON DELETE CASCADE,
   CONSTRAINT fk_isa_identity FOREIGN KEY (identity_id)
-    REFERENCES identities(id) ON DELETE CASCADE
+    REFERENCES identities(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS audit_submissions (
   id VARCHAR(64) NOT NULL PRIMARY KEY,
   submission_number VARCHAR(32) NOT NULL,
   submitted_by VARCHAR(64) NOT NULL,
+  submitted_person_id VARCHAR(64) DEFAULT NULL,
+  submitted_assignment_id VARCHAR(64) DEFAULT NULL,
+  submitted_context_snapshot JSON DEFAULT NULL,
   type VARCHAR(16) NOT NULL DEFAULT 'template',
   template_id VARCHAR(64) DEFAULT NULL,
   title VARCHAR(200) DEFAULT NULL,
@@ -684,6 +726,7 @@ CREATE TABLE IF NOT EXISTS audit_submissions (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_as_submitter (submitted_by),
+  INDEX idx_audit_submission_assignment (submitted_assignment_id, org_id),
   INDEX idx_as_status (status),
   INDEX idx_as_template (template_id),
   INDEX idx_as_org (org_id),
@@ -725,6 +768,7 @@ CREATE TABLE IF NOT EXISTS audit_submission_steps (
   scope_type VARCHAR(32) DEFAULT NULL COMMENT 'all | same_department | same_work_group | specific_department | specific_work_group',
   scope_department_id VARCHAR(64) DEFAULT NULL,
   scope_work_group_id VARCHAR(64) DEFAULT NULL,
+  step_conditions_json TEXT DEFAULT NULL COMMENT '步骤审批条件 JSON 数组',
   action_type VARCHAR(20) NOT NULL DEFAULT 'sign',
   allow_approver_designation TINYINT(1) NOT NULL DEFAULT 0 COMMENT '允许进入本步骤前指定审批人',
   step_name VARCHAR(128) DEFAULT '' COMMENT '步骤名称',
@@ -733,6 +777,9 @@ CREATE TABLE IF NOT EXISTS audit_submission_steps (
   rejection_reason TEXT,
   round INT NOT NULL DEFAULT 1,
   processed_at DATETIME DEFAULT NULL,
+  processed_person_id VARCHAR(64) DEFAULT NULL,
+  processed_assignment_id VARCHAR(64) DEFAULT NULL,
+  processed_context_snapshot JSON DEFAULT NULL,
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -740,6 +787,7 @@ CREATE TABLE IF NOT EXISTS audit_submission_steps (
   INDEX idx_ass_step_approver (approver_hr_id),
   INDEX idx_ass_step_status (status),
   INDEX idx_ass_step_round (round),
+  INDEX idx_audit_step_assignment (processed_assignment_id, org_id),
   INDEX idx_ass_step_org (org_id),
   CONSTRAINT fk_ass_step_submission FOREIGN KEY (submission_id)
     REFERENCES audit_submissions(id) ON DELETE CASCADE
@@ -855,6 +903,23 @@ CREATE TABLE IF NOT EXISTS venue_booking_rules (
   INDEX idx_vbr_org (org_id),
   INDEX idx_vbr_active (is_active),
   CONSTRAINT fk_vbr_venue FOREIGN KEY (venue_id) REFERENCES venues(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS hr_profile_review_events (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  record_id VARCHAR(64) NOT NULL,
+  action VARCHAR(24) NOT NULL,
+  reason TEXT DEFAULT NULL,
+  reviewer_person_id VARCHAR(64) DEFAULT NULL,
+  reviewer_context_id VARCHAR(160) DEFAULT NULL,
+  effective_values_snapshot JSON DEFAULT NULL,
+  pending_values_snapshot JSON DEFAULT NULL,
+  org_id VARCHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_profile_review_record (record_id, created_at),
+  INDEX idx_profile_review_org (org_id, created_at),
+  CONSTRAINT fk_profile_review_record FOREIGN KEY (record_id)
+    REFERENCES hr_profile_records(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS venue_booking_policies (
@@ -982,12 +1047,13 @@ CREATE TABLE IF NOT EXISTS audit_flow_template_step_conditions (
   sort_order INT NOT NULL DEFAULT 1,
   condition_type VARCHAR(20) NOT NULL DEFAULT 'identity_scope',
   person_hr_ids TEXT DEFAULT NULL,
+  assignment_ids TEXT DEFAULT NULL COMMENT '指定人员对应的岗位 ID，逗号分隔；授权必须同时匹配人员与岗位',
   department_scope VARCHAR(16) DEFAULT 'all',
-  specific_department_id VARCHAR(64) DEFAULT NULL,
+  specific_department_id VARCHAR(1000) DEFAULT NULL COMMENT '指定部门 ID 集合，逗号分隔',
   work_group_scope VARCHAR(16) DEFAULT 'all',
-  specific_work_group_id VARCHAR(64) DEFAULT NULL,
+  specific_work_group_id VARCHAR(1000) DEFAULT NULL COMMENT '指定职能组 ID 集合，逗号分隔',
   identity_scope VARCHAR(16) DEFAULT 'all',
-  specific_identity_id VARCHAR(64) DEFAULT NULL,
+  specific_identity_id VARCHAR(1000) DEFAULT NULL COMMENT '指定身份类别 ID 集合，逗号分隔',
   org_id VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1119,10 +1185,14 @@ CREATE TABLE IF NOT EXISTS persons (
   student_id VARCHAR(32) NOT NULL,
   normalized_student_id VARCHAR(32) NOT NULL,
   status VARCHAR(24) NOT NULL DEFAULT 'active',
+  merged_into_person_id VARCHAR(64) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX uk_person_student (normalized_student_id),
-  INDEX idx_person_status (status)
+  INDEX idx_person_status (status),
+  INDEX idx_person_merged_into (merged_into_person_id),
+  CONSTRAINT fk_person_merged_into FOREIGN KEY (merged_into_person_id)
+    REFERENCES persons(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS organization_memberships (
@@ -1154,8 +1224,21 @@ CREATE TABLE IF NOT EXISTS membership_assignments (
   INDEX idx_assignment_membership (membership_id, status),
   INDEX idx_assignment_org (org_id, status),
   INDEX idx_assignment_rule (org_id, department_id, identity_id, work_group_id),
+  CONSTRAINT chk_assignment_active_dimensions CHECK (
+    status <> 'active'
+    OR (
+      NULLIF(TRIM(COALESCE(department_id, '')), '') IS NOT NULL
+      AND NULLIF(TRIM(COALESCE(identity_id, '')), '') IS NOT NULL
+    )
+  ),
   CONSTRAINT fk_assignment_membership FOREIGN KEY (membership_id)
-    REFERENCES organization_memberships(id) ON DELETE CASCADE
+    REFERENCES organization_memberships(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ma_department FOREIGN KEY (department_id)
+    REFERENCES departments(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_ma_identity FOREIGN KEY (identity_id)
+    REFERENCES identities(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_ma_work_group FOREIGN KEY (work_group_id)
+    REFERENCES work_groups(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS accounts (

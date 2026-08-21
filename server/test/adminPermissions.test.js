@@ -7,6 +7,8 @@ const {
   canConfigureAdminPermissions,
   editablePermissionKeys,
   loadEffectivePermissions,
+  hasGrantedPermission,
+  scopeAccountSessions,
   serializeCatalog
 } = require('../src/core/services/adminPermissions');
 
@@ -20,6 +22,8 @@ const {
   assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('system.admin_accounts.read')), false);
   assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('hr.profile_templates.manage')), false);
   assert.strictEqual(defaultGranted('admin', PERMISSION_DEFINITIONS.get('hr.profile_templates.select')), false);
+  assert.strictEqual(isApplicable('auth.accounts.global_manage', 'admin'), false);
+  assert.strictEqual(isApplicable('auth.accounts.global_manage', 'super_admin'), true);
 
   assert(ROUTE_RULES.get('/listAdmins').anyOf.includes('system.admin_accounts.read'));
   assert(ROUTE_RULES.get('/saveAdmin').anyOf.includes('system.admin_accounts.write'));
@@ -53,6 +57,23 @@ const {
   assert.deepStrictEqual(ROUTE_RULES.get('/listUserBindings').anyOf, ['system.admin_accounts.read']);
   assert.strictEqual(ROUTE_RULES.get('/getSubmissionDetail').allowUserRole, true);
   assert.strictEqual(ROUTE_RULES.get('/verifySignatureChain').allowUserRole, true);
+  assert.deepStrictEqual(ROUTE_RULES.get('/unbindHrWechat').anyOf, ['auth.accounts.global_manage']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/previewPersonIdentityCorrection').anyOf, ['auth.accounts.global_manage']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/applyPersonIdentityCorrection').anyOf, ['auth.accounts.global_manage']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/mergePersons').anyOf, ['auth.accounts.global_manage']);
+  assert.deepStrictEqual(ROUTE_RULES.get('/admin/auth/security').anyOf, ['auth.accounts.recover']);
+  assert.deepStrictEqual(
+    ROUTE_RULES.get('/admin/auth/security/sessions/revoke').anyOf,
+    ['auth.accounts.global_manage']
+  );
+  assert.deepStrictEqual(
+    ROUTE_RULES.get('/admin/auth/security/passphrase').anyOf,
+    ['auth.accounts.global_manage']
+  );
+  assert.deepStrictEqual(
+    ROUTE_RULES.get('/admin/auth/security/passphrase/revoke').anyOf,
+    ['auth.accounts.global_manage']
+  );
   ROUTE_RULES.forEach((rule) => {
     assert(rule.anyOf.length > 0);
     rule.anyOf.forEach((key) => assert(PERMISSION_DEFINITIONS.has(key), '路由引用了未知权限: ' + key));
@@ -68,6 +89,23 @@ const {
     permissions: { 'hr.people': true, 'permissions.manage_regular_admins': true }
   };
   const disabledManager = { canAccessPermissionSystem: false, permissions: {} };
+
+  assert.strictEqual(hasGrantedPermission({ permissions: ['auth.accounts.recover'] }, 'auth.accounts.global_manage'), false);
+  assert.strictEqual(hasGrantedPermission({ permissions: ['*'] }, 'auth.accounts.global_manage'), true);
+  assert.strictEqual(hasGrantedPermission({ permissions: { 'auth.accounts.global_manage': true } }, 'auth.accounts.global_manage'), true);
+  const accountSessions = [
+    { id: 'same-org', organization_id: orgId },
+    { id: 'other-org', organization_id: 'org-43' },
+    { id: 'no-org', organization_id: '' }
+  ];
+  assert.deepStrictEqual(
+    scopeAccountSessions(accountSessions, orgId, false).map((item) => item.id),
+    ['same-org']
+  );
+  assert.deepStrictEqual(
+    scopeAccountSessions(accountSessions, orgId, true).map((item) => item.id),
+    ['same-org', 'other-org', 'no-org']
+  );
 
   assert.strictEqual(canConfigureAdminPermissions(superAdmin, {}, regularAdmin, orgId), true);
   assert.strictEqual(canConfigureAdminPermissions(superAdmin, {}, superAdmin, orgId), false);

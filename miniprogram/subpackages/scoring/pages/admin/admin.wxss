@@ -2535,7 +2535,9 @@ scroll-view {
 
 .detail-body {
   width: 100%;
-  height: 60vh;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
   max-height: calc(100vh - 250rpx - env(safe-area-inset-bottom));
   padding: var(--ui-dialog-body-padding);
   box-sizing: border-box;
@@ -4163,8 +4165,8 @@ scroll-view {
 
 .popup-close::before,
 .modal-close::before { display: none !important; content: none !important; }
-.popup-close::after { content: "×" !important; color: #2563eb !important; font-size: var(--ui-type-value) !important; font-weight: 800 !important; line-height: 1 !important; }
-.modal-close::before { content: "关闭" !important; display: inline !important; color: #475569 !important; }
+.popup-close::after,
+.modal-close::after { content: "×" !important; color: #2563eb !important; font-size: var(--ui-type-value) !important; font-weight: 800 !important; line-height: 1 !important; }
 
 @media (min-width: 520px) {
   .rule-panel-title,
@@ -4200,7 +4202,8 @@ scroll-view {
     line-height: 20px !important;
   }
 
-  .popup-close::after {
+  .popup-close::after,
+  .modal-close::after {
     font-size: var(--ui-type-section) !important;
   }
 
@@ -5939,4 +5942,231 @@ scroll-view {
   .auth-policy-save {
     grid-column: 1 / -1;
   }
+}
+
+/* 人事领域模型：离任、岗位、资料审核与自然人纠错 */
+.hr-former-panel {
+  position: relative;
+  min-height: 180rpx;
+}
+
+.former-member-list,
+.profile-comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.former-member-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+  padding: 20rpx;
+  border: 1rpx solid rgba(148, 163, 184, 0.24);
+  border-radius: 18rpx;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(241, 247, 255, 0.84));
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.88);
+}
+
+.former-member-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.former-member-meta {
+  margin-top: 6rpx;
+  color: #64748b;
+  font-size: var(--ui-type-caption);
+  line-height: 1.45;
+}
+
+.no-position-chip {
+  width: fit-content;
+  border-color: rgba(148, 163, 184, 0.38);
+  background: rgba(241, 245, 249, 0.92);
+  color: #64748b;
+}
+
+.no-position-state {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-top: 14rpx;
+  padding: 16rpx;
+  border: 1rpx dashed rgba(148, 163, 184, 0.34);
+  border-radius: 16rpx;
+  background: rgba(248, 250, 252, 0.72);
+}
+
+.hr-global-account-hint {
+  margin-top: 14rpx;
+  padding: 12rpx 14rpx;
+  border: 1rpx solid rgba(148, 163, 184, 0.24);
+  border-radius: 14rpx;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.profile-comparison-card {
+  padding: 16rpx;
+  border: 1rpx solid rgba(148, 163, 184, 0.22);
+  border-radius: 16rpx;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.profile-comparison-card.is-changed {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: linear-gradient(135deg, rgba(255, 251, 235, 0.94), rgba(255, 255, 255, 0.84));
+}
+
+.profile-comparison-label,
+.correction-person-name,
+.correction-org-name {
+  color: #172033;
+  font-size: var(--ui-type-label);
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.profile-comparison-grid,
+.correction-comparison-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10rpx;
+  margin-top: 12rpx;
+}
+
+.profile-comparison-value,
+.correction-person-card,
+.correction-org-card {
+  min-width: 0;
+  padding: 14rpx;
+  border: 1rpx solid rgba(203, 213, 225, 0.62);
+  border-radius: 14rpx;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.correction-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
+  color: #64748b;
+  font-size: var(--ui-type-meta);
+}
+
+.profile-comparison-value--pending,
+.correction-person-card.is-proposed {
+  border-color: rgba(59, 130, 246, 0.30);
+  background: rgba(239, 246, 255, 0.88);
+}
+
+.profile-comparison-caption {
+  color: #64748b;
+  font-size: var(--ui-type-caption);
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.profile-comparison-text,
+.correction-person-id,
+.correction-org-meta {
+  margin-top: 5rpx;
+  color: #334155;
+  font-size: var(--ui-type-value);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.hr-review-dialog,
+.person-correction-dialog {
+  width: min(92vw, 720rpx);
+  max-height: calc(100vh - 48rpx - env(safe-area-inset-bottom));
+}
+
+.hr-review-dialog-body {
+  max-height: 360rpx;
+}
+
+.person-correction-body {
+  min-height: 0;
+  max-height: calc(100vh - 300rpx - env(safe-area-inset-bottom));
+}
+
+.correction-callout {
+  padding: 16rpx;
+  border: 1rpx solid rgba(59, 130, 246, 0.28);
+  border-radius: 16rpx;
+  background: rgba(239, 246, 255, 0.86);
+  color: #2563eb;
+  font-size: var(--ui-type-meta);
+  line-height: 1.6;
+}
+
+.correction-callout.is-danger {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(254, 242, 242, 0.90);
+  color: #991b1b;
+}
+
+.correction-section {
+  margin-top: 20rpx;
+}
+
+.correction-person-card.is-target {
+  margin-top: 10rpx;
+  border-color: rgba(139, 92, 246, 0.30);
+  background: rgba(245, 243, 255, 0.86);
+}
+
+.correction-org-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
+  margin-top: 10rpx;
+}
+
+.correction-org-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.correction-confirm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-top: 22rpx;
+  padding: 16rpx;
+  border: 1rpx solid rgba(148, 163, 184, 0.26);
+  border-radius: 16rpx;
+  background: rgba(248, 250, 252, 0.82);
+  color: #334155;
+  font-size: var(--ui-type-meta);
+  line-height: 1.55;
+}
+
+@media (min-width: 520px) {
+  .former-member-list,
+  .profile-comparison-list { gap: 10px; }
+  .former-member-card { gap: 14px; padding: 14px 16px; border-radius: 12px; }
+  .profile-comparison-grid,
+  .correction-comparison-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .profile-comparison-card,
+  .profile-comparison-value,
+  .correction-person-card,
+  .correction-org-card { border-radius: 11px; }
+  .person-correction-dialog { width: min(720px, calc(100vw - 36px)); }
+  .person-correction-body { max-height: calc(100vh - 164px); }
+  .hr-review-dialog { width: min(520px, calc(100vw - 36px)); }
+  .hr-review-dialog-body { max-height: min(280px, calc(100vh - 156px)); }
+}
+
+@media (min-width: 900px) {
+  .person-correction-dialog { width: min(760px, calc(100vw - 48px)); }
+  .person-correction-body { max-height: calc(100vh - 148px); }
+  .hr-review-dialog { width: min(560px, calc(100vw - 48px)); }
 }

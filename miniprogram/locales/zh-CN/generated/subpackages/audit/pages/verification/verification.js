@@ -34,7 +34,7 @@ module.exports = Object.freeze({
   copy_c25d1b8a38: "由",
   copy_c9448bb954: "PDF数字签名：未签名",
   copy_cbf65b3559: '请选择要验签的文件',
-  copy_d1cbed9945: '请切换到可验签的身份',
+  copy_d1cbed9945: '请切换到可验签的岗位',
   copy_df548b0f40: "个签名）",
   copy_e68b797796: "文件验签",
   copy_ef8b7ffa9b: "第",

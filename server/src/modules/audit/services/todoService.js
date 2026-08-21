@@ -23,7 +23,7 @@ function buildHrMap(rows) {
 
 async function listAuditItems(actor, orgId) {
   if (actor.type !== 'user') return [];
-  const steps = await submissionStepModel.getPendingByApprover(actor.id, actor.profile);
+  const steps = await submissionStepModel.getPendingByApprover(actor);
   const submitterIds = [...new Set(steps.map((item) => item.submitted_by).filter(Boolean))];
   const submitters = await messageDataModel.getHrPeople(submitterIds, orgId);
   const submitterMap = buildHrMap(submitters);

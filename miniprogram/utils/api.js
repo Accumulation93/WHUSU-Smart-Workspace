@@ -128,6 +128,7 @@ function requestWechatSession(code) {
         devicePlatform: device.platform,
         deviceModel: device.model,
         preferredOrganizationId: wx.getStorageSync('lastOrganizationId') || '',
+        preferredContextId: wx.getStorageSync('lastContextId') || '',
         preferredIdentityId: wx.getStorageSync('lastIdentityId') || ''
       },
       success: function(res) {

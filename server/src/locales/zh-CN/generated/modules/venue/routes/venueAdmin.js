@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
+  historicalAssignmentMissing: "历史岗位未记录，不能按岗位规则处理该借用",
   copy_04ab0b03d0: "请选择其他场地",
   copy_09f81fd1db: "请使用其他事由内容",
   copy_0a29a31b8e: "请重新选择借用规则",
@@ -19,7 +20,7 @@ module.exports = Object.freeze({
   copy_5a1d00f140: "选择“直接通过”时，请清除其他规则",
   copy_62d2cac4df: "请重新打开借用记录",
   copy_67f5f44b1e: "规则已删除",
-  copy_6b48c1ab98: "请使用对应的审批身份",
+  copy_6b48c1ab98: "请切换到符合规则的审批岗位",
   copy_6fb89690d9: "请重新提交借用",
   copy_71ff2a4a29: "已审批通过",
   copy_7b831c34ee: "」因借用时间已结束，已自动取消。",

@@ -4,7 +4,16 @@ const unifiedIdentityModel = require('./unifiedIdentity');
 
 async function getAll() {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query('SELECT * FROM hr_info WHERE org_id = ? ORDER BY name', [orgId]);
+  const [rows] = await pool.query(
+    `SELECT h.* FROM hr_info h
+      WHERE h.org_id = ?
+        AND EXISTS (
+          SELECT 1 FROM organization_memberships om
+           WHERE om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
+        )
+      ORDER BY h.name`,
+    [orgId]
+  );
   return rows;
 }
 
@@ -20,6 +29,10 @@ async function getAllWithDirectory() {
        LEFT JOIN identities i ON h.identity_id = i.id AND i.org_id = ?
        LEFT JOIN work_groups wg ON h.work_group_id = wg.id AND wg.org_id = ?
       WHERE h.org_id = ?
+        AND EXISTS (
+          SELECT 1 FROM organization_memberships om
+           WHERE om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
+        )
       ORDER BY h.name`,
     [orgId, orgId, orgId, orgId]
   );
@@ -28,13 +41,29 @@ async function getAllWithDirectory() {
 
 async function getById(id) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query('SELECT * FROM hr_info WHERE id = ? AND org_id = ?', [id, orgId]);
+  const [rows] = await pool.query(
+    `SELECT h.* FROM hr_info h
+      WHERE h.id = ? AND h.org_id = ?
+        AND EXISTS (
+          SELECT 1 FROM organization_memberships om
+           WHERE om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
+        )`,
+    [id, orgId]
+  );
   return rows[0] || null;
 }
 
 async function getByStudentId(studentId) {
   const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query('SELECT * FROM hr_info WHERE student_id = ? AND org_id = ?', [studentId, orgId]);
+  const [rows] = await pool.query(
+    `SELECT h.* FROM hr_info h
+      WHERE h.student_id = ? AND h.org_id = ?
+        AND EXISTS (
+          SELECT 1 FROM organization_memberships om
+           WHERE om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
+        )`,
+    [studentId, orgId]
+  );
   return rows[0] || null;
 }
 
@@ -80,10 +109,9 @@ async function updatePersonBasics(id, data) {
 
 async function remove(id) {
   const orgId = await getCurrentOrgId();
-  await pool.withTransaction(async (connection) => {
-    await unifiedIdentityModel.removeLegacyHrRecord(connection, id, orgId);
-    await connection.query('DELETE FROM hr_info WHERE id = ? AND org_id = ?', [id, orgId]);
-  });
+  return pool.withTransaction(async (connection) => (
+    unifiedIdentityModel.removeLegacyHrRecord(connection, id, orgId)
+  ));
 }
 
 async function getByIds(ids) {
@@ -91,7 +119,13 @@ async function getByIds(ids) {
   const orgId = await getCurrentOrgId();
   const placeholders = ids.map(() => '?').join(',');
   const [rows] = await pool.query(
-    `SELECT * FROM hr_info WHERE id IN (${placeholders}) AND org_id = ? ORDER BY name`,
+    `SELECT h.* FROM hr_info h
+      WHERE h.id IN (${placeholders}) AND h.org_id = ?
+        AND EXISTS (
+          SELECT 1 FROM organization_memberships om
+           WHERE om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
+        )
+      ORDER BY h.name`,
     [...ids, orgId]
   );
   return rows;
@@ -104,7 +138,16 @@ async function getByScopes(scopes) {
   const params = [];
   for (const s of scopes) {
     if (s.scopeType === 'all_people') {
-      const [rows] = await pool.query('SELECT * FROM hr_info WHERE org_id = ? ORDER BY name', [orgId]);
+      const [rows] = await pool.query(
+        `SELECT h.* FROM hr_info h
+          WHERE h.org_id = ?
+            AND EXISTS (
+              SELECT 1 FROM organization_memberships om
+               WHERE om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
+            )
+          ORDER BY h.name`,
+        [orgId]
+      );
       return rows;
     }
     const parts = [];
@@ -116,7 +159,13 @@ async function getByScopes(scopes) {
   if (!conditions.length) return [];
   params.push(orgId);
   const [rows] = await pool.query(
-    `SELECT * FROM hr_info WHERE (${conditions.join(' OR ')}) AND org_id = ? ORDER BY name`,
+    `SELECT h.* FROM hr_info h
+      WHERE (${conditions.join(' OR ')}) AND h.org_id = ?
+        AND EXISTS (
+          SELECT 1 FROM organization_memberships om
+           WHERE om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
+        )
+      ORDER BY h.name`,
     params
   );
   return rows;

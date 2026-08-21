@@ -2,6 +2,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 
+process.env.AUTH_IDENTITY_SECRET = process.env.AUTH_IDENTITY_SECRET || 'message-center-test-secret';
+
 const root = path.join(__dirname, '..');
 
 function flattenLocale(locale, prefix, output) {

@@ -3,6 +3,7 @@
   <view class="detail-row" wx:if="{{booking.venueName}}"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{booking.venueName}}</text></view>
   <view class="detail-row" wx:if="{{booking.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{booking.orgName}}</text></view>
   <view class="detail-row" wx:if="{{booking.userName}}"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><text class="detail-val">{{booking.userName}}</text></view>
+  <view class="detail-row" wx:if="{{booking._creatorAssignmentText}}"><text class="detail-key">{{localeCopy.applicantAssignment}}</text><text class="detail-val"><text class="assignment-chip">{{booking._creatorAssignmentText}}</text></text></view>
   <view class="detail-row" wx:if="{{booking.userDept}}"><text class="detail-key">{{localeCopy.copy_02419589be}}</text><text class="detail-val">{{booking.userDept}}</text></view>
   <view class="detail-row" wx:if="{{booking.userIdentity}}"><text class="detail-key">{{localeCopy.copy_c1965e0690}}</text><text class="detail-val">{{booking.userIdentity}}</text></view>
   <view class="detail-row" wx:if="{{booking.userWorkGroup}}"><text class="detail-key">{{localeCopy.copy_303b7a8611}}</text><text class="detail-val">{{booking.userWorkGroup}}</text></view>
@@ -29,6 +30,7 @@
         <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
         <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
           <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+          <view wx:if="{{node.approverAssignmentText}}" class="flow-detail-assignment"><text class="flow-detail-label">{{localeCopy.approverAssignment}}</text><text class="assignment-chip assignment-chip--compact">{{node.approverAssignmentText}}</text></view>
           <view wx:if="{{node.approvedAt}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAt}}</view>
           <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
         </view>

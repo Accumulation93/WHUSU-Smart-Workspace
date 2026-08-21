@@ -4,6 +4,11 @@ const { buildFlowTimeline } = require('../../utils/flowTimeline');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const {
+  decoratePendingBooking,
+  decorateApproverCandidates,
+  showWorkContextModal
+} = require('../../utils/workContextPresentation');
 
 Page({
   onLoad() {
@@ -28,7 +33,7 @@ Page({
     nextApproverPickerVisible: false,
     nextApproverCandidates: [],
     nextApproverKeyword: '',
-    nextApproverHrId: '',
+    nextApproverAssignmentId: '',
     nextApproverName: '',
 
     // ── Expandable flow ──
@@ -141,7 +146,8 @@ Page({
       let res = await callFunction({ name: 'listPendingVenueApprovals', data: {} });
       if (!orgSession.isRequestCurrent(this, request)) return;
       if (res.status === 'success') {
-        let pending = (res.pending || []).map(function(item) {
+        let pending = (res.pending || []).map(function(rawItem) {
+          const item = decoratePendingBooking(rawItem);
           if (item.approvalTotalSteps > 0) {
             item._approvalPercent = Math.round(item.approvalCurrentStep / item.approvalTotalSteps * 100);
           } else {
@@ -190,6 +196,7 @@ Page({
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
+    if (!this._guardApprovalContext(item)) return;
     const flows = item.flowSummary || [];
     const canDesignateNext = flows.length === 1
       && flows[0].allowDesignateNext
@@ -200,7 +207,7 @@ Page({
       approvalAction: 'approve',
       approvalComment: '',
       canDesignateNext: Boolean(canDesignateNext),
-      nextApproverHrId: '',
+      nextApproverAssignmentId: '',
       nextApproverName: ''
     });
   },
@@ -213,6 +220,7 @@ Page({
     let id = e.currentTarget.dataset.id;
     let item = this.data.pending.find(function(p) { return p.id === id; });
     if (!item) return;
+    if (!this._guardApprovalContext(item)) return;
     this.setData({
       approvalVisible: true,
       approvalTarget: item,
@@ -235,7 +243,7 @@ Page({
       if (res.status === 'success') {
         this.setData({
           nextApproverPickerVisible: true,
-          nextApproverCandidates: res.candidates || [],
+          nextApproverCandidates: decorateApproverCandidates(res.candidates),
           nextApproverKeyword: ''
         });
       } else showShortToast(res.message || localeCopy.copy_e58fa637eb);
@@ -251,11 +259,11 @@ Page({
   },
 
   pickNextApprover(e) {
-    const id = e.currentTarget.dataset.id;
+    const assignmentId = e.currentTarget.dataset.assignmentId;
     const name = e.currentTarget.dataset.name;
-    if (!id) return;
+    if (!assignmentId) return;
     this.setData({
-      nextApproverHrId: id,
+      nextApproverAssignmentId: assignmentId,
       nextApproverName: name || '',
       nextApproverPickerVisible: false
     });
@@ -267,7 +275,7 @@ Page({
     let action = this.data.approvalAction;
     let comment = this.data.approvalComment;
 
-    if (!target || !action) return;
+    if (!target || !action || !this._guardApprovalContext(target)) return;
 
     let endpoint = action === 'approve' ? 'approveVenueBookingStep' : 'rejectVenueBookingStep';
     let actionLabel = action === 'approve' ? localeCopy.copy_8e2f75159e : localeCopy.copy_b4432643e3;
@@ -279,7 +287,7 @@ Page({
         data: {
           id: target.id,
           comment: comment,
-          nextApproverHrId: action === 'approve' ? this.data.nextApproverHrId : ''
+          nextApproverAssignmentId: action === 'approve' ? this.data.nextApproverAssignmentId : ''
         }
       });
       if (res.status === 'success') {
@@ -335,6 +343,11 @@ Page({
 
         // Background sync to ensure consistency
         setTimeout(function() { that.loadData(); }, 2000);
+      } else if (res.status === 'forbidden') {
+        showWorkContextModal({
+          content: res.message || localeCopy.requiredContextGeneric,
+          onConfirm: this.goWorkContextSwitch.bind(this)
+        });
       } else {
         showShortToast(res.message || localeCopy.copy_0531ed9e78);
       }
@@ -358,6 +371,22 @@ Page({
         approvalComment: ''
       });
     }
+  },
+
+  _guardApprovalContext(item) {
+    if (item && item.canProcessInCurrentContext !== false) return true;
+    const required = item && item._requiredContextText;
+    showWorkContextModal({
+      content: required
+        ? localeCopy.requiredContextPrefix + required
+        : localeCopy.requiredContextGeneric,
+      onConfirm: this.goWorkContextSwitch.bind(this)
+    });
+    return false;
+  },
+
+  goWorkContextSwitch() {
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
   },
 
   // ── Expandable flow ──

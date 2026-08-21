@@ -12,5 +12,7 @@ module.exports = Object.freeze({
   copy_aa4f0ed6cd: "WHUSU智慧工作台",
   copy_e52119b17e: '请稍后刷新',
   copy_f69eaef5c5: "我的审批记录",
+  processedAssignmentPrefix: '处理岗位：',
+  legacyAssignmentSnapshotUnavailable: '历史记录未保存岗位快照',
   navigationTitle: "审核 - WHUSU智慧工作台"
 });

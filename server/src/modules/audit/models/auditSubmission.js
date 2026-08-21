@@ -1,6 +1,7 @@
 const localeCopy = require('../../../locales/zh-CN/generated/modules/audit/models/auditSubmission');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const { getColumns } = require('../services/auditSchemaCapabilities');
 
 async function getBySubmitter(hrId) {
   const orgId = await getCurrentOrgId();
@@ -102,20 +103,66 @@ async function generateSubmissionNumber(conn) {
 }
 
 async function create(id, data, conn) {
-  const { submissionNumber, submittedBy, type, templateId, title, description, status, resubmitMode, currentStepIndex } = data;
+  const {
+    submissionNumber,
+    submittedBy,
+    submittedPersonId,
+    submittedAssignmentId,
+    submittedContextSnapshot,
+    type,
+    templateId,
+    title,
+    description,
+    status,
+    resubmitMode,
+    currentStepIndex
+  } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
+  const columns = [
+    'id', 'submission_number', 'submitted_by', 'type', 'template_id', 'title', 'description',
+    'status', 'current_step_index', 'resubmit_mode'
+  ];
+  const values = [
+    id, submissionNumber, submittedBy, type || 'template', templateId || null, title || '', description || null,
+    status || 'draft', currentStepIndex !== undefined ? currentStepIndex : 0, resubmitMode || 'fresh'
+  ];
+  const availableColumns = await getColumns('audit_submissions', db);
+  if (availableColumns.has('submitted_person_id')) {
+    columns.push('submitted_person_id');
+    values.push(submittedPersonId || null);
+  }
+  if (availableColumns.has('submitted_assignment_id')) {
+    columns.push('submitted_assignment_id');
+    values.push(submittedAssignmentId || null);
+  }
+  if (availableColumns.has('submitted_context_snapshot')) {
+    columns.push('submitted_context_snapshot');
+    values.push(submittedContextSnapshot && typeof submittedContextSnapshot === 'object'
+      ? JSON.stringify(submittedContextSnapshot)
+      : submittedContextSnapshot || null);
+  }
+  const placeholders = columns.map(function() { return '?'; }).join(', ');
   await db.query(
-    `INSERT INTO audit_submissions (id, submission_number, submitted_by, type, template_id, title, description, status, current_step_index, resubmit_mode, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, submissionNumber, submittedBy, type || 'template', templateId || null, title || '', description || null, status || 'draft',
-     currentStepIndex !== undefined ? currentStepIndex : 0,
-     resubmitMode || 'fresh', orgId]
+    `INSERT INTO audit_submissions (${columns.join(', ')}, org_id) VALUES (${placeholders}, ?)`,
+    values.concat(orgId)
   );
 }
 
 async function update(id, data, conn) {
-  const { title, description, type, templateId, resubmitMode, status, currentStepIndex, previousRejectStepIndex } = data;
+  const {
+    title,
+    description,
+    type,
+    templateId,
+    resubmitMode,
+    status,
+    currentStepIndex,
+    previousRejectStepIndex,
+    submittedPersonId,
+    submittedAssignmentId,
+    submittedContextSnapshot
+  } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   const fields = [];
@@ -129,6 +176,24 @@ async function update(id, data, conn) {
   if (status !== undefined) { fields.push('status = ?'); params.push(status); }
   if (currentStepIndex !== undefined) { fields.push('current_step_index = ?'); params.push(currentStepIndex); }
   if (previousRejectStepIndex !== undefined) { fields.push('previous_reject_step_index = ?'); params.push(previousRejectStepIndex); }
+
+  if (submittedPersonId !== undefined || submittedAssignmentId !== undefined || submittedContextSnapshot !== undefined) {
+    const availableColumns = await getColumns('audit_submissions', db);
+    if (submittedPersonId !== undefined && availableColumns.has('submitted_person_id')) {
+      fields.push('submitted_person_id = ?');
+      params.push(submittedPersonId || null);
+    }
+    if (submittedAssignmentId !== undefined && availableColumns.has('submitted_assignment_id')) {
+      fields.push('submitted_assignment_id = ?');
+      params.push(submittedAssignmentId || null);
+    }
+    if (submittedContextSnapshot !== undefined && availableColumns.has('submitted_context_snapshot')) {
+      fields.push('submitted_context_snapshot = ?');
+      params.push(submittedContextSnapshot && typeof submittedContextSnapshot === 'object'
+        ? JSON.stringify(submittedContextSnapshot)
+        : submittedContextSnapshot || null);
+    }
+  }
 
   if (fields.length === 0) return;
   params.push(id, orgId);

@@ -2,6 +2,9 @@ const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/audi
 const { callFunction, getErrorText, showShortToast, formatAuditTime } = require('../../../../utils/api');
 const { openAuditFile } = require('../../../../utils/filePreview');
 const orgSession = require('../../../../utils/orgSession');
+const authContext = require('../../../../utils/authContext');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+const workContextView = require('../../utils/workContextView');
 
 const AUDIT_ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const AUDIT_MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -51,7 +54,7 @@ Page({
 
     // Template step preview (for overrides)
     templatePreviewSteps: [],
-    templateStepOverrides: [],    // [{ stepIndex, personHrIds: [], personHrNames: [] }] — 有人员即指定，无人员即不单独指定
+    templateStepOverrides: [],    // [{ stepIndex, personHrIds: [], assignmentIds: [], assignmentViews: [] }]
     templateOverrideStepIndex: -1, // which step index is being edited in person picker
 
     // Approver picker — person mode (multi-select)
@@ -154,6 +157,8 @@ Page({
     userIsSubmitter: false,
     userIsApprover: false,
     userIsAdmin: false,
+    activeWorkContext: null,
+    hasActiveAssignment: false,
 
     // Flow node expansion
     expandedNodeKey: '',
@@ -165,14 +170,63 @@ Page({
   // Empty handler for catchtap to prevent event bubbling through popups
   noop() {},
 
+  refreshActiveWorkContext() {
+    const snapshot = orgSession.getSnapshot();
+    const profiles = wx.getStorageSync('roleProfiles') || {};
+    const profile = profiles[snapshot.role] || profiles.user || {};
+    const current = workContextView.normalizeCurrentWorkContext(
+      authContext.getWorkContexts(),
+      authContext.getSelection(),
+      profile
+    );
+    this.setData({
+      activeWorkContext: current,
+      hasActiveAssignment: current.hasAssignment
+    });
+    return current;
+  },
+
+  goWorkContextSwitch() {
+    navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
+  },
+
+  showWorkContextGuide(message) {
+    const that = this;
+    wx.showModal({
+      title: localeCopy.workContextRequiredTitle,
+      content: message || localeCopy.workContextRequiredDescription,
+      confirmText: localeCopy.switchWorkContext,
+      cancelText: localeCopy.copy_06dbb49961,
+      success(result) {
+        if (result.confirm) that.goWorkContextSwitch();
+      }
+    });
+  },
+
+  ensureActiveAssignment() {
+    const current = this.refreshActiveWorkContext();
+    if (current.hasAssignment) return true;
+    this.showWorkContextGuide(localeCopy.noAssignmentActionDescription);
+    return false;
+  },
+
+  handleWorkContextFailure(result) {
+    if (!workContextView.isContextFailure(result)) return false;
+    this.showWorkContextGuide(localeCopy.workContextMismatchDescription);
+    return true;
+  },
+
   onLoad(options) {
     wx.setNavigationBarTitle({ title: localeCopy.navigationTitle });
     this._pageActive = true;
     orgSession.consume(this);
+    this.refreshActiveWorkContext();
     if (options.action === 'create') {
       this.setData({ action: 'create' });
-      this.loadFlowTemplates();
-      this.loadReferenceData();
+      if (this.data.hasActiveAssignment) {
+        this.loadFlowTemplates();
+        this.loadReferenceData();
+      }
     } else if (options.id) {
       this.setData({ submissionId: options.id, action: 'view' });
       this.loadDetail();
@@ -182,7 +236,10 @@ Page({
 
   onShow() {
     this._pageActive = true;
-    if (!orgSession.consume(this).changed) return;
+    if (!orgSession.consume(this).changed) {
+      this.refreshActiveWorkContext();
+      return;
+    }
     orgSession.invalidateRequests(this);
     showShortToast(localeCopy.copy_d86124b728);
     wx.navigateBack({ fail: () => wx.reLaunch({ url: '/subpackages/main/pages/portal/portal' }) });
@@ -245,30 +302,37 @@ Page({
   },
 
   _normalizeApproverList(list) {
-    const deptMap = {};
-    const identMap = {};
-    const wgMap = {};
-    (this.data.allDepartments || []).forEach(d => { deptMap[d.id] = d.name; });
-    (this.data.allIdentities || []).forEach(i => { identMap[i.id] = i.name; });
-    (this.data.allWorkGroups || []).forEach(w => { wgMap[w.id] = w.name; });
-    return (Array.isArray(list) ? list : []).map(p => ({
-      ...p,
-      id: String(p.id || ''),
-      department: deptMap[p.departmentId] || p.department || '',
-      identity: identMap[p.identityId] || p.identity || '',
-      workGroup: wgMap[p.workGroupId] || p.workGroup || '',
-      studentId: p.studentId || ''
-    })).filter(p => p.id);
+    const activeAssignmentId = this.data.activeWorkContext
+      ? this.data.activeWorkContext.assignmentId
+      : '';
+    return (Array.isArray(list) ? list : []).map(function(person) {
+      return workContextView.normalizeCandidate(person, activeAssignmentId);
+    }).filter(function(person) { return person.id; });
+  },
+
+  _selectedAssignmentViews(persons, selectedAssignmentIds) {
+    return workContextView.selectedAssignmentViews(
+      persons,
+      selectedAssignmentIds,
+      localeCopy.assignmentLabelUnavailable
+    );
+  },
+
+  _decorateAssignmentSelection(persons, selectedAssignmentIds) {
+    return workContextView.decorateAssignmentSelection(persons, selectedAssignmentIds);
   },
 
   _updatePersonPickerOptions(list) {
     const persons = Array.isArray(list) ? list : [];
-    const departments = (this.data.allDepartments || []).map(d => d.name)
-      .concat(persons.map(p => p.department));
-    const identities = (this.data.allIdentities || []).map(i => i.name)
-      .concat(persons.map(p => p.identity));
-    const workGroups = (this.data.allWorkGroups || []).map(w => w.name)
-      .concat(persons.map(p => p.workGroup));
+    const departments = persons.reduce(function(values, person) {
+      return values.concat(person.eligibleDepartments || []);
+    }, []);
+    const identities = persons.reduce(function(values, person) {
+      return values.concat(person.eligibleIdentityCategories || []);
+    }, []);
+    const workGroups = persons.reduce(function(values, person) {
+      return values.concat(person.eligibleWorkGroups || []);
+    }, []);
     const unique = values => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
     this.setData({
       personPickerDeptOpts: [localeCopy.copy_31d4595959, ...unique(departments)],
@@ -323,7 +387,9 @@ Page({
           return {
             stepIndex: s.stepIndex,
             personHrIds: previous && Array.isArray(previous.personHrIds) ? previous.personHrIds.slice() : [],
-            personHrNames: previous && Array.isArray(previous.personHrNames) ? previous.personHrNames.slice() : []
+            personHrNames: previous && Array.isArray(previous.personHrNames) ? previous.personHrNames.slice() : [],
+            assignmentIds: previous && Array.isArray(previous.assignmentIds) ? previous.assignmentIds.slice() : [],
+            assignmentViews: previous && Array.isArray(previous.assignmentViews) ? previous.assignmentViews.slice() : []
           };
         });
         this.setData({
@@ -339,6 +405,7 @@ Page({
 
   // Open person picker for a specific template step override
   async openTemplateStepPersonPicker(e) {
+    if (!this.ensureActiveAssignment()) return;
     let stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
     let targetStep = (this.data.templatePreviewSteps || []).find(function(s) {
       return Number(s.stepIndex) === stepIndex;
@@ -376,21 +443,21 @@ Page({
       });
       if (res.status === 'success') {
         eligibleList = this._normalizeApproverList(res.approvers || []);
+      } else {
+        this.handleWorkContextFailure(res);
       }
     } catch (err) {
       console.error('[audit] listEligibleApprovers (template) failed:', err);
     }
     this._updatePersonPickerOptions(eligibleList);
 
-    // Pre-populate selected persons from existing override
+    // 预填必须使用岗位 ID；人员 ID 只作为岗位归属校验的伴随字段。
     let entry = (this.data.templateStepOverrides || []).find(function(o) { return o.stepIndex === stepIndex; });
     let preSelectedIds = [];
     let preSelectedList = [];
-    if (entry && entry.personHrIds && entry.personHrIds.length) {
-      preSelectedIds = entry.personHrIds.slice();
-      preSelectedList = eligibleList.filter(function(p) {
-        return preSelectedIds.indexOf(p.id) >= 0;
-      });
+    if (entry && entry.assignmentIds && entry.assignmentIds.length) {
+      preSelectedIds = entry.assignmentIds.slice();
+      preSelectedList = this._selectedAssignmentViews(eligibleList, preSelectedIds);
     }
     this.setData({
       personPickerEligibleList: eligibleList,
@@ -417,11 +484,13 @@ Page({
     let overrides = [...this.data.templateStepOverrides];
     let entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
     if (!entry) {
-      entry = { stepIndex: stepIndex, personHrIds: [], personHrNames: [] };
+      entry = { stepIndex: stepIndex, personHrIds: [], personHrNames: [], assignmentIds: [], assignmentViews: [] };
       overrides.push(entry);
     }
-    entry.personHrIds = selected.map(function(p) { return p.id; });
+    entry.personHrIds = [...new Set(selected.map(function(p) { return p.id; }))];
     entry.personHrNames = selected.map(function(p) { return p.name; });
+    entry.assignmentIds = selected.map(function(p) { return p.assignmentId; });
+    entry.assignmentViews = selected.slice();
     this.setData({
       templateStepOverrides: overrides,
       personPickerVisible: false,
@@ -434,14 +503,16 @@ Page({
   // Remove a person from a template step override
   removeTemplateStepOverridePerson(e) {
     let stepIndex = parseInt(e.currentTarget.dataset.stepIndex);
-    let hrId = e.currentTarget.dataset.hrId;
+    let assignmentId = e.currentTarget.dataset.assignmentId;
     let overrides = [...this.data.templateStepOverrides];
     let entry = overrides.find(function(o) { return o.stepIndex === stepIndex; });
     if (entry) {
-      let idx = entry.personHrIds.indexOf(hrId);
+      let idx = (entry.assignmentIds || []).indexOf(assignmentId);
       if (idx >= 0) {
-        entry.personHrIds.splice(idx, 1);
+        entry.assignmentIds.splice(idx, 1);
         entry.personHrNames.splice(idx, 1);
+        entry.assignmentViews.splice(idx, 1);
+        entry.personHrIds = [...new Set(entry.assignmentViews.map(function(item) { return item.id; }))];
       }
     }
     this.setData({ templateStepOverrides: overrides });
@@ -526,6 +597,7 @@ Page({
   // ── Person picker popup (multi-select) ──
 
   async openPersonPicker() {
+    if (!this.ensureActiveAssignment()) return;
     // 先打开弹窗，再异步加载当前组织内可指定的完整人员目录。
     this.setData({
       personPickerVisible: true,
@@ -544,13 +616,13 @@ Page({
     let eligibleList = [];
     try {
       const res = await callFunction({ name: 'listEligibleApprovers', data: { all: true } });
-      if (res.status === 'success') eligibleList = this._normalizeApproverList(res.approvers || []);
+      if (res.status === 'success') {
+        eligibleList = this._normalizeApproverList(res.approvers || []);
+      } else {
+        this.handleWorkContextFailure(res);
+      }
     } catch (error) {
       console.error('[audit] listEligibleApprovers (ad hoc) failed:', error);
-      eligibleList = this._normalizeApproverList(this.data.allHrPersons || []);
-    }
-    if (!eligibleList.length && (this.data.allHrPersons || []).length) {
-      eligibleList = this._normalizeApproverList(this.data.allHrPersons);
     }
     this._updatePersonPickerOptions(eligibleList);
     this.setData({
@@ -594,21 +666,18 @@ Page({
     const wg = this.data.personPickerWg;
     const kw = (this.data.personPickerKeyword || '').trim().toLowerCase();
 
-    if (dept !== localeCopy.copy_31d4595959) list = list.filter(p => p.department === dept);
-    if (ident !== localeCopy.copy_31d4595959) list = list.filter(p => p.identity === ident);
-    if (wg !== localeCopy.copy_31d4595959) list = list.filter(p => p.workGroup === wg);
-    if (kw) list = list.filter(p =>
-      (p.name || '').toLowerCase().includes(kw) ||
-      (p.studentId || '').toLowerCase().includes(kw)
-    );
+    list = list.filter(function(person) {
+      return workContextView.candidateMatches(person, {
+        department: dept === localeCopy.copy_31d4595959 ? '' : dept,
+        identityCategory: ident === localeCopy.copy_31d4595959 ? '' : ident,
+        workGroup: wg === localeCopy.copy_31d4595959 ? '' : wg,
+        keyword: kw
+      });
+    });
 
     const selectedIds = this.data.personPickerSelectedIds;
-    const candidates = list.map(p => ({
-      ...p,
-      isSelected: selectedIds.includes(p.id)
-    }));
-
-    const selectedList = this.data.personPickerEligibleList.filter(p => selectedIds.includes(p.id));
+    const candidates = this._decorateAssignmentSelection(list, selectedIds);
+    const selectedList = this._selectedAssignmentViews(this.data.personPickerEligibleList, selectedIds);
 
     this.setData({
       personPickerCandidates: candidates,
@@ -617,10 +686,11 @@ Page({
   },
 
   onPersonToggle(e) {
-    const hrId = e.currentTarget.dataset.hrId;
+    const assignmentId = String(e.currentTarget.dataset.assignmentId || '');
+    if (!assignmentId) return;
     let sel = [...this.data.personPickerSelectedIds];
-    const idx = sel.indexOf(hrId);
-    if (idx >= 0) sel.splice(idx, 1); else sel.push(hrId);
+    const idx = sel.indexOf(assignmentId);
+    if (idx >= 0) sel.splice(idx, 1); else sel.push(assignmentId);
     this.setData({ personPickerSelectedIds: sel });
     this.applyPersonPickerFilters();
   },
@@ -640,7 +710,7 @@ Page({
     if (this.data.personPickerMode === 'designateNext') {
       let designatedList = this.data.personPickerSelectedList;
       this.setData({
-        designatedNextPersons: designatedList.map(function(p) { return { id: p.id, name: p.name }; }),
+        designatedNextPersons: designatedList.slice(),
         personPickerVisible: false,
         personPickerMode: ''
       });
@@ -661,9 +731,17 @@ Page({
         approverType: 'specific_person',
         approverHrId: p.id,
         approverHrName: p.name,
+        approverAssignmentId: p.assignmentId,
+        approverAssignmentLabel: p.assignmentLabel,
+        approverDesc: p.name + ' · ' + p.assignmentLabel,
         approverIdentityId: '',
         approverIdentityName: '',
-        actionType
+        actionType,
+        conditions: [{
+          conditionType: 'person',
+          personHrIds: p.id,
+          assignmentIds: p.assignmentId
+        }]
       });
     }
 
@@ -920,6 +998,7 @@ Page({
   },
 
   async submitAudit() {
+    if (!this.ensureActiveAssignment()) return;
     const { createMode, selectedTemplateId, createTitle, uploadedFiles, adHocSteps, resubmitMode } = this.data;
 
     if (!createTitle) { showShortToast(localeCopy.copy_b99e01d38c); return; }
@@ -962,8 +1041,10 @@ Page({
         if (!selectedTemplateId) { showShortToast(localeCopy.copy_0172f60994); this.setData({ loading: false }); return; }
         // Collect step overrides from template step preview
         let stepOverrides = (this.data.templateStepOverrides || [])
-          .filter(function(o) { return o.personHrIds && o.personHrIds.length; })
-          .map(function(o) { return { stepIndex: o.stepIndex, personHrIds: o.personHrIds }; });
+          .filter(function(o) { return o.personHrIds && o.personHrIds.length && o.assignmentIds && o.assignmentIds.length; })
+          .map(function(o) {
+            return { stepIndex: o.stepIndex, personHrIds: o.personHrIds, assignmentIds: o.assignmentIds };
+          });
         res = await callFunction({
           name: 'startAuditSubmission',
           data: { templateId: selectedTemplateId, title: createTitle, description: this.data.createDesc, files: serverFiles, stepOverrides: stepOverrides }
@@ -976,10 +1057,12 @@ Page({
           approverType: s.approverType,
           approverIdentityId: s.approverIdentityId || '',
           approverHrId: s.approverHrId || '',
+          approverAssignmentId: s.approverAssignmentId || '',
           actionType: s.actionType || 'pass',
           scopeType: s.scopeType || 'all',
           scopeDepartmentId: s.scopeDepartmentId || '',
-          scopeWorkGroupId: s.scopeWorkGroupId || ''
+          scopeWorkGroupId: s.scopeWorkGroupId || '',
+          conditions: Array.isArray(s.conditions) ? s.conditions : []
         }));
         res = await callFunction({
           name: 'startAdHocAudit',
@@ -991,10 +1074,14 @@ Page({
         showShortToast(localeCopy.copy_69df1816f0);
         wx.redirectTo({ url: `/subpackages/audit/pages/submissionDetail/submissionDetail?id=${res.id}` });
       } else {
-        showShortToast(res.message || localeCopy.copy_8831c65b75);
+        if (!this.handleWorkContextFailure(res)) {
+          showShortToast(res.message || localeCopy.copy_8831c65b75);
+        }
       }
     } catch (e) {
-      showShortToast(getErrorText(e, localeCopy.copy_8831c65b75));
+      if (!this.handleWorkContextFailure(e)) {
+        showShortToast(getErrorText(e, localeCopy.copy_8831c65b75));
+      }
     } finally {
       this.setData({ loading: false });
     }
@@ -1012,8 +1099,11 @@ Page({
         data: { submissionId: this.data.submissionId }
       });
       if (res.status === 'success') {
-        const submissionStatus = res.submission.status;
-        const currentStepIndex = res.submission.currentStepIndex || 0;
+        const submissionView = Object.assign({}, res.submission, {
+          submittedAssignmentView: workContextView.normalizeSnapshot(res.submission.submittedContextSnapshot)
+        });
+        const submissionStatus = submissionView.status;
+        const currentStepIndex = submissionView.currentStepIndex || 0;
 
         // Build flow timeline from server events + steps
         let serverEvents = res.events || [];
@@ -1034,7 +1124,8 @@ Page({
             eventOperatorMap[eoKey] = {
               operatorName: eo.operatorName || '',
               comment: eo.comment || '',
-              time: formatAuditTime(eo.createdAt)
+              time: formatAuditTime(eo.createdAt),
+              assignmentView: workContextView.normalizeSnapshot(eo.operatorContextSnapshot)
             };
           }
         }
@@ -1070,6 +1161,7 @@ Page({
             time: formatAuditTime(initialSubmit.createdAt),
             iconName: 'file',
             operatorName: initialSubmit.operatorName || '',
+            operatorAssignmentView: workContextView.normalizeSnapshot(initialSubmit.operatorContextSnapshot),
             comment: ''
           });
         }
@@ -1115,7 +1207,8 @@ Page({
                 time: formatAuditTime(interEvt.createdAt),
                 iconName: interIconMap[interEvt.eventType] || 'clock',
                 comment: interEvt.comment || '',
-                operatorName: interEvt.operatorName || ''
+                operatorName: interEvt.operatorName || '',
+                operatorAssignmentView: workContextView.normalizeSnapshot(interEvt.operatorContextSnapshot)
               });
             }
 
@@ -1130,6 +1223,7 @@ Page({
                 time: formatAuditTime(resubmitEvt.createdAt),
                 iconName: 'edit',
                 operatorName: resubmitEvt.operatorName || '',
+                operatorAssignmentView: workContextView.normalizeSnapshot(resubmitEvt.operatorContextSnapshot),
                 comment: ''
               });
               nextEventIdx = resubmitEvtIdx + 1;
@@ -1291,6 +1385,9 @@ Page({
               rejectionReason: step.status === 'rejected' ? (eventInfo.comment || step.rejectionReason || '') : step.rejectionReason,
               round: step.round,
               processedAt: actualProcessedAt,
+              processedAssignmentView: eventInfo.assignmentView && eventInfo.assignmentView.hasSnapshot
+                ? eventInfo.assignmentView
+                : workContextView.normalizeSnapshot(step.processedContextSnapshot),
               flowNodeClass: flowNodeClass,
               flowDotClass: flowDotClass,
               flowIcon: flowIcon,
@@ -1344,6 +1441,7 @@ Page({
             time: formatAuditTime(lateEvt.createdAt),
             iconName: lateIconMap[lateEvt.eventType] || 'clock',
             operatorName: lateEvt.operatorName || '',
+            operatorAssignmentView: workContextView.normalizeSnapshot(lateEvt.operatorContextSnapshot),
             comment: lateEvt.comment || ''
           });
         }
@@ -1365,6 +1463,7 @@ Page({
             time: lastApproveEvt ? formatAuditTime(lastApproveEvt.createdAt) : '',
             iconName: 'check',
             operatorName: lastApproveEvt ? (lastApproveEvt.operatorName || '') : '',
+            operatorAssignmentView: workContextView.normalizeSnapshot(lastApproveEvt && lastApproveEvt.operatorContextSnapshot),
             comment: lastApproveEvt ? (lastApproveEvt.comment || '') : ''
           });
         }
@@ -1446,10 +1545,13 @@ Page({
               activeApprovalStep = {
                 id: rawStep.id,
                 sortOrder: rawStep.sortOrder,
+                stepName: rawStep.stepName || rawStep.name || '',
+                actionType: rawStep.actionType,
                 actionLabel: actionMap2[rawStep.actionType] || rawStep.actionType || localeCopy.copy_8e2f75159e,
                 approverDesc: rawStep.approverDesc || localeCopy.copy_ae42f47cf6,
                 round: rawStep.round || 1,
-                conditionsDisplay: rawStep.stepConditionsDisplay || []
+                conditionsDisplay: rawStep.stepConditionsDisplay || [],
+                processedAssignmentView: workContextView.normalizeSnapshot(rawStep.processedContextSnapshot)
               };
               computedActiveStepId = rawStep.id;
               break;
@@ -1474,7 +1576,7 @@ Page({
         }
 
         this.setData({
-          submission: res.submission,
+          submission: submissionView,
           flowTimeline: flowTimeline,
           rawStepCount: rawSteps.length,
           steps: rawSteps,
@@ -1494,7 +1596,7 @@ Page({
           approvalWarning: '',
           // User role flags for conditional UI
           userIsSubmitter: res.userIsSubmitter || false,
-          userIsApprover: res.userIsApprover || false,
+          userIsApprover: Boolean(res.userIsApprover && this.data.hasActiveAssignment),
           userIsAdmin: res.userIsAdmin || false,
           expandedNodeKey: ''
         });
@@ -1847,6 +1949,7 @@ Page({
   },
 
   async confirmApproval() {
+    if (!this.ensureActiveAssignment()) return;
     const { approvalAction, approvalStepId, approvalComment, rejectionReason, pendingSignatures, submissionId } = this.data;
 
     if (approvalAction === 'reject' && !rejectionReason) {
@@ -1915,10 +2018,14 @@ Page({
           }, 800);
         }
       } else {
-        showShortToast(res.message || localeCopy.copy_0531ed9e78);
+        if (!this.handleWorkContextFailure(res)) {
+          showShortToast(res.message || localeCopy.copy_0531ed9e78);
+        }
       }
     } catch (e) {
-      showShortToast(getErrorText(e, localeCopy.copy_0531ed9e78));
+      if (!this.handleWorkContextFailure(e)) {
+        showShortToast(getErrorText(e, localeCopy.copy_0531ed9e78));
+      }
     } finally {
       this.setData({ loading: false });
     }
@@ -1927,6 +2034,7 @@ Page({
   // ── Next-step person designation ──
 
   async openDesignateNextPersonPicker() {
+    if (!this.ensureActiveAssignment()) return;
     if (!this.data.nextStepInfo || this.data.nextStepInfo.allowApproverDesignation !== true) {
       showShortToast(localeCopy.copy_97d569974c);
       return;
@@ -1950,6 +2058,8 @@ Page({
       let res = await callFunction({ name: 'listEligibleApprovers', data: { submissionId: this.data.submissionId } });
       if (res.status === 'success') {
         eligibleList = this._normalizeApproverList(res.approvers || []);
+      } else {
+        this.handleWorkContextFailure(res);
       }
     } catch (err) {
       console.error('[audit] listEligibleApprovers (submission) failed:', err);
@@ -1957,10 +2067,8 @@ Page({
     this._updatePersonPickerOptions(eligibleList);
 
     // Pre-populate with current designation
-    let preIds = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
-    let preList = eligibleList.filter(function(p) {
-      return preIds.indexOf(p.id) >= 0;
-    });
+    let preIds = (this.data.designatedNextPersons || []).map(function(p) { return p.assignmentId; }).filter(Boolean);
+    let preList = this._selectedAssignmentViews(eligibleList, preIds);
     this.setData({
       personPickerEligibleList: eligibleList,
       personPickerLoading: false,
@@ -1978,8 +2086,8 @@ Page({
   },
 
   removeDesignatedNextPerson(e) {
-    let hrId = e.currentTarget.dataset.hrId;
-    let list = (this.data.designatedNextPersons || []).filter(function(p) { return p.id !== hrId; });
+    let assignmentId = e.currentTarget.dataset.assignmentId;
+    let list = (this.data.designatedNextPersons || []).filter(function(p) { return p.assignmentId !== assignmentId; });
     this.setData({ designatedNextPersons: list });
   },
 
@@ -2445,6 +2553,7 @@ Page({
 
   // Direct approval from the inline approval card (no popup)
   async confirmApprovalDirect(e) {
+    if (!this.ensureActiveAssignment()) return;
     let action = e.currentTarget.dataset.action;
     let stepId = this.data.activeApprovalStepId;
     let comment = this.data.approvalComment;
@@ -2500,7 +2609,8 @@ Page({
     try {
       let res;
       if (action === 'approve') {
-        let designatedPersons = (this.data.designatedNextPersons || []).map(function(p) { return p.id; });
+        let designatedPersons = [...new Set((this.data.designatedNextPersons || []).map(function(p) { return p.id; }))];
+        let designatedAssignments = (this.data.designatedNextPersons || []).map(function(p) { return p.assignmentId; });
         let sigs = (this.data.pendingSignatures || []).map(function(s) {
           return {
             fileId: s.fileId,
@@ -2520,7 +2630,8 @@ Page({
             stepId: stepId,
             comment: comment,
             signatures: sigs,
-            designatedNextPersonIds: designatedPersons
+            designatedNextPersonIds: designatedPersons,
+            designatedNextAssignmentIds: designatedAssignments
           }
         });
       } else {
@@ -2536,10 +2647,14 @@ Page({
         require('../../../../utils/eventBus').emit('approval:done');
         this.loadDetail();
       } else {
-        showShortToast(res.message || localeCopy.copy_0531ed9e78);
+        if (!this.handleWorkContextFailure(res)) {
+          showShortToast(res.message || localeCopy.copy_0531ed9e78);
+        }
       }
     } catch (err) {
-      showShortToast(getErrorText(err, localeCopy.copy_0531ed9e78));
+      if (!this.handleWorkContextFailure(err)) {
+        showShortToast(getErrorText(err, localeCopy.copy_0531ed9e78));
+      }
     } finally {
       this.setData({ loading: false });
     }
@@ -2574,17 +2689,28 @@ Page({
     if (!Array.isArray(conditions) || !conditions.length || !conditions.every(function(condition) {
       return condition && condition.conditionType === 'person';
     })) {
-      return [{ stepIndex: 1, personHrIds: [], personHrNames: [] }];
+      return [{ stepIndex: 1, personHrIds: [], personHrNames: [], assignmentIds: [], assignmentViews: [] }];
     }
 
     const personHrIds = [];
+    const assignmentIds = [];
     conditions.forEach(function(condition) {
       String(condition.personHrIds || '').split(',').map(function(id) { return id.trim(); })
         .filter(Boolean).forEach(function(id) {
           if (personHrIds.indexOf(id) < 0) personHrIds.push(id);
         });
+      String(condition.assignmentIds || '').split(',').map(function(id) { return id.trim(); })
+        .filter(Boolean).forEach(function(id) {
+          if (assignmentIds.indexOf(id) < 0) assignmentIds.push(id);
+        });
     });
-    return [{ stepIndex: 1, personHrIds: personHrIds, personHrNames: [] }];
+    return [{
+      stepIndex: 1,
+      personHrIds: personHrIds,
+      personHrNames: [],
+      assignmentIds: assignmentIds,
+      assignmentViews: []
+    }];
   },
 
   enterEditMode() {
@@ -2620,6 +2746,8 @@ Page({
           approverType: s.approverType || 'identity',
           approverHrId: s.approverHrId || '',
           approverHrName: s.approverName || '',
+          approverAssignmentId: s.approverAssignmentId || '',
+          approverAssignmentLabel: s.approverAssignmentLabel || '',
           approverIdentityId: s.approverIdentityId || '',
           approverIdentityName: s.approverIdentityName || '',
           actionType: s.actionType || 'pass',
@@ -2774,6 +2902,7 @@ Page({
   // ── Edit: Person picker ──
 
   async openEditPersonPicker() {
+    if (!this.ensureActiveAssignment()) return;
     this.setData({
       editPersonPickerVisible: true,
       editPersonPickerLoading: true,
@@ -2788,11 +2917,14 @@ Page({
     let persons = [];
     try {
       const res = await callFunction({ name: 'listEligibleApprovers', data: { all: true } });
-      if (res.status === 'success') persons = this._normalizeApproverList(res.approvers || []);
+      if (res.status === 'success') {
+        persons = this._normalizeApproverList(res.approvers || []);
+      } else {
+        this.handleWorkContextFailure(res);
+      }
     } catch (error) {
       console.error('[audit] listEligibleApprovers (edit) failed:', error);
     }
-    if (!persons.length) persons = this._normalizeApproverList(this.data.allHrPersons || []);
     this._updatePersonPickerOptions(persons);
     this.setData({ allHrPersons: persons, editPersonPickerLoading: false });
     this.applyEditPersonPickerFilters();
@@ -2830,27 +2962,28 @@ Page({
     let wg = this.data.editPersonPickerWg;
     let kw = (this.data.editPersonPickerKeyword || '').trim().toLowerCase();
 
-    if (dept !== localeCopy.copy_31d4595959) list = list.filter(function(p) { return p.department === dept; });
-    if (ident !== localeCopy.copy_31d4595959) list = list.filter(function(p) { return p.identity === ident; });
-    if (wg !== localeCopy.copy_31d4595959) list = list.filter(function(p) { return p.workGroup === wg; });
-    if (kw) list = list.filter(function(p) {
-      return (p.name || '').toLowerCase().includes(kw) || (p.studentId || '').toLowerCase().includes(kw);
+    list = list.filter(function(person) {
+      return workContextView.candidateMatches(person, {
+        department: dept === localeCopy.copy_31d4595959 ? '' : dept,
+        identityCategory: ident === localeCopy.copy_31d4595959 ? '' : ident,
+        workGroup: wg === localeCopy.copy_31d4595959 ? '' : wg,
+        keyword: kw
+      });
     });
 
     let selectedIds = this.data.editPersonPickerSelectedIds;
-    let candidates = list.map(function(p) { return { ...p, isSelected: selectedIds.indexOf(p.id) >= 0 }; });
-    let selectedList = this.data.allHrPersons.filter(function(p) {
-      return selectedIds.indexOf(String(p.id)) >= 0;
-    });
+    let candidates = this._decorateAssignmentSelection(list, selectedIds);
+    let selectedList = this._selectedAssignmentViews(this.data.allHrPersons, selectedIds);
 
     this.setData({ editPersonPickerCandidates: candidates, editPersonPickerSelectedList: selectedList });
   },
 
   onEditPersonToggle(e) {
-    let hrId = e.currentTarget.dataset.hrId;
+    let assignmentId = String(e.currentTarget.dataset.assignmentId || '');
+    if (!assignmentId) return;
     let sel = [...this.data.editPersonPickerSelectedIds];
-    let idx = sel.indexOf(hrId);
-    if (idx >= 0) sel.splice(idx, 1); else sel.push(hrId);
+    let idx = sel.indexOf(assignmentId);
+    if (idx >= 0) sel.splice(idx, 1); else sel.push(assignmentId);
     this.setData({ editPersonPickerSelectedIds: sel });
     this.applyEditPersonPickerFilters();
   },
@@ -2871,9 +3004,17 @@ Page({
         approverType: 'specific_person',
         approverHrId: p.id,
         approverHrName: p.name,
+        approverAssignmentId: p.assignmentId,
+        approverAssignmentLabel: p.assignmentLabel,
+        approverDesc: p.name + ' · ' + p.assignmentLabel,
         approverIdentityId: '',
         approverIdentityName: '',
-        actionType: actionType
+        actionType: actionType,
+        conditions: [{
+          conditionType: 'person',
+          personHrIds: p.id,
+          assignmentIds: p.assignmentId
+        }]
       });
     }
     this.setData({ editSteps: steps, editPersonPickerVisible: false });
@@ -2963,6 +3104,7 @@ Page({
   },
 
   async saveEdit() {
+    if (!this.ensureActiveAssignment()) return;
     let _editTitle = this.data.editTitle;
     if (!_editTitle) { showShortToast(localeCopy.copy_b99e01d38c); return; }
 
@@ -2994,15 +3136,24 @@ Page({
       let stepsData = null;
       if (this.data.editType === 'ad_hoc' && this.data.editSteps.length) {
         stepsData = this.data.editSteps.map(function(s) {
+          let conditions = Array.isArray(s.conditions) ? s.conditions : [];
+          if (!conditions.length && s.stepConditionsJson) {
+            try {
+              const parsed = JSON.parse(s.stepConditionsJson);
+              if (Array.isArray(parsed)) conditions = parsed;
+            } catch (_) {}
+          }
           return {
             name: s.name || '',
             approverType: s.approverType,
             approverIdentityId: s.approverIdentityId || '',
             approverHrId: s.approverHrId || '',
+            approverAssignmentId: s.approverAssignmentId || '',
             actionType: s.actionType || 'pass',
             scopeType: s.scopeType || 'all',
             scopeDepartmentId: s.scopeDepartmentId || '',
-            scopeWorkGroupId: s.scopeWorkGroupId || ''
+            scopeWorkGroupId: s.scopeWorkGroupId || '',
+            conditions: conditions
           };
         });
       }
@@ -3011,9 +3162,10 @@ Page({
       let allFiles = serverNewFiles.length > 0 ? serverNewFiles : null;
       const stepOverrides = this.data.editType === 'template'
         ? (this.data.templateStepOverrides || []).filter(function(item) {
-          return Array.isArray(item.personHrIds) && item.personHrIds.length;
+          return Array.isArray(item.personHrIds) && item.personHrIds.length
+            && Array.isArray(item.assignmentIds) && item.assignmentIds.length;
         }).map(function(item) {
-          return { stepIndex: item.stepIndex, personHrIds: item.personHrIds };
+          return { stepIndex: item.stepIndex, personHrIds: item.personHrIds, assignmentIds: item.assignmentIds };
         })
         : [];
 
@@ -3037,10 +3189,14 @@ Page({
         this.setData({ editMode: false });
         this.loadDetail();
       } else {
-        showShortToast(res.message || localeCopy.copy_215e3c57da);
+        if (!this.handleWorkContextFailure(res)) {
+          showShortToast(res.message || localeCopy.copy_215e3c57da);
+        }
       }
     } catch (e) {
-      showShortToast(getErrorText(e, localeCopy.copy_215e3c57da));
+      if (!this.handleWorkContextFailure(e)) {
+        showShortToast(getErrorText(e, localeCopy.copy_215e3c57da));
+      }
     } finally {
       this.setData({ loading: false });
     }
@@ -3048,13 +3204,15 @@ Page({
 
   // Resubmit after rejection
   async resubmit() {
+    if (!this.ensureActiveAssignment()) return;
     this.setData({ loading: true });
     try {
       const stepOverrides = this.data.submission && this.data.submission.type === 'template'
         ? (this.data.templateStepOverrides || []).filter(function(item) {
-          return Array.isArray(item.personHrIds) && item.personHrIds.length;
+          return Array.isArray(item.personHrIds) && item.personHrIds.length
+            && Array.isArray(item.assignmentIds) && item.assignmentIds.length;
         }).map(function(item) {
-          return { stepIndex: item.stepIndex, personHrIds: item.personHrIds };
+          return { stepIndex: item.stepIndex, personHrIds: item.personHrIds, assignmentIds: item.assignmentIds };
         })
         : [];
       const res = await callFunction({
@@ -3065,10 +3223,14 @@ Page({
         showShortToast(res.message || localeCopy.copy_e3f95790ae);
         this.loadDetail();
       } else {
-        showShortToast(res.message || localeCopy.copy_e6f444764d);
+        if (!this.handleWorkContextFailure(res)) {
+          showShortToast(res.message || localeCopy.copy_e6f444764d);
+        }
       }
     } catch (e) {
-      showShortToast(getErrorText(e, localeCopy.copy_e6f444764d));
+      if (!this.handleWorkContextFailure(e)) {
+        showShortToast(getErrorText(e, localeCopy.copy_e6f444764d));
+      }
     } finally {
       this.setData({ loading: false });
     }
@@ -3084,6 +3246,7 @@ Page({
 
   // Withdraw
   async withdraw() {
+    if (!this.ensureActiveAssignment()) return;
     const that = this;
     wx.showModal({
       title: localeCopy.copy_9a766011a1,
@@ -3099,10 +3262,14 @@ Page({
             showShortToast(localeCopy.copy_282e15e226);
             wx.navigateBack();
           } else {
-            showShortToast(res.message || localeCopy.copy_14ebfed982);
+            if (!that.handleWorkContextFailure(res)) {
+              showShortToast(res.message || localeCopy.copy_14ebfed982);
+            }
           }
         } catch (e) {
-          showShortToast(getErrorText(e, localeCopy.copy_14ebfed982));
+          if (!that.handleWorkContextFailure(e)) {
+            showShortToast(getErrorText(e, localeCopy.copy_14ebfed982));
+          }
         }
       }
     });

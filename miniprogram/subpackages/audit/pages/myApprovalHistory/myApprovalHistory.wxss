@@ -47,6 +47,27 @@
 .audit-submission-meta-text { color: #94a3b8; font-size: var(--ui-type-caption); font-weight: 500; }
 .audit-submission-date { color: #94a3b8; font-size: var(--ui-type-meta); }
 
+.history-assignment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 4rpx;
+}
+
+.history-assignment-neutral {
+  color: #94a3b8;
+  font-size: var(--ui-type-meta);
+  line-height: 1.45;
+}
+
+@media (min-width: 520px) and (max-width: 899px) {
+  .history-assignment-list { gap: 6px; margin-top: 4px; }
+}
+
+@media (min-width: 900px) and (orientation: landscape) {
+  .history-assignment-list { gap: 6px; margin-top: 4px; }
+}
+
 .audit-submission-desc-text {
   font-size: var(--ui-type-meta); color: #94a3b8; margin-top: 0; line-height: 1.4;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

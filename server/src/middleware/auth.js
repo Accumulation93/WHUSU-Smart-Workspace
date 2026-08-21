@@ -91,11 +91,11 @@ async function authMiddleware(req, res, next) {
       req.headers['x-active-org'] = loaded.context.organizationId;
       req.headers['x-role'] = loaded.context.role;
     } else {
-      req.openid = decoded.openid || '';
-      if (!req.openid) {
-        logger.warn('Empty openid in token', { requestId: req.requestId, path: req.path });
-        return res.status(401).json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
-      }
+      logger.warn('Legacy auth token rejected', {
+        requestId: req.requestId,
+        path: req.path
+      });
+      return res.status(401).json({ status: 'auth_failed', message: localeCopy.copy_b10d64a68c });
     }
   } catch (e) {
     req.openid = '';

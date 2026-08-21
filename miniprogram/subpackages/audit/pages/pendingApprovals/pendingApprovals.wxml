@@ -2,6 +2,13 @@
   <workspace-hero class="workspace-hero-host" app-name="{{localeCopy.copy_aa4f0ed6cd}}" page-name="{{localeCopy.copy_56d416c578}} · {{localeCopy.copy_5aaf844f1e}}"></workspace-hero>
 
   <view class="section-stack">
+    <view class="card pending-context-card">
+      <view class="pending-context-main">
+        <view class="field-label">{{localeCopy.currentWorkContext}}</view>
+        <view class="pending-context-value">{{hasActiveAssignment ? activeWorkContext.assignmentLabel : localeCopy.noAssignmentTitle}}</view>
+      </view>
+      <button class="secondary-btn pending-context-action ui-motion-button" wx:if="{{!hasActiveAssignment}}" bindtap="openWorkContextGuide" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.switchWorkContext}}</button>
+    </view>
     <view class="card">
       <view class="section-title">{{localeCopy.copy_109f042664}}</view>
       <view class="pending-header" wx:if="{{pending.length && lastUpdateTime}}">
@@ -19,6 +26,12 @@
               <view class="pending-item-step">{{localeCopy.copy_ef8b7ffa9b}}{{item.sortOrder}}{{localeCopy.copy_9e545997b0}} · {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}} · {{localeCopy.copy_ef8b7ffa9b}}{{item.round}}{{localeCopy.copy_29f6c07d3f}}</view>
             </view>
             <view class="pending-item-info">{{localeCopy.copy_322d34ce9c}}{{item.submitterName}} · {{item.submissionNumber}}</view>
+            <view class="pending-required-context" wx:if="{{item.requiredOrganizationName || item.eligibleContextLabels.length}}">
+              <view class="audit-chip audit-chip-draft" wx:if="{{item.requiredOrganizationName}}">{{localeCopy.requiredOrganizationPrefix}}{{item.requiredOrganizationName}}</view>
+              <view class="eligible-context-list" wx:if="{{item.eligibleContextLabels.length}}">
+                <view class="audit-chip {{item.requiresContextSwitch ? 'audit-chip-pending' : 'audit-chip-approved'}}" wx:for="{{item.eligibleContextLabels}}" wx:for-item="label" wx:key="*this">{{localeCopy.requiredAssignmentPrefix}}{{label}}</view>
+              </view>
+            </view>
           </view>
           <view class="pending-list-arrow">›</view>
         </view>

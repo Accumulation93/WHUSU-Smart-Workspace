@@ -8,10 +8,10 @@ const rateRuleClauseModel = require('../models/rateRuleClause');
 const clauseTemplateConfigModel = require('../models/clauseTemplateConfig');
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const activityModel = require('../models/scoreActivity');
 const templateModel = require('../models/scoreTemplate');
 const questionModel = require('../models/scoreQuestion');
+const participantService = require('../services/participants');
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 
@@ -349,15 +349,19 @@ router.post('/generateRateTargetRules', async (req, res) => {
     const activity = await activityModel.getById(activityId);
     if (!activity) return res.json({ status: 'invalid_params', message: localeCopy.copy_4f0d449737 });
 
-    const [hrRows, existingRules, departments, identities] = await Promise.all([
-      hrInfoModel.getAll(), rateRuleModel.getByActivity(activityId), departmentModel.getAll(), identityModel.getAll()
+    const orgId = await getCurrentOrgId();
+    const [assignmentRows, existingRules, departments, identities] = await Promise.all([
+      participantService.listParticipants(orgId, 'assignment'),
+      rateRuleModel.getByActivity(activityId),
+      departmentModel.getAll(),
+      identityModel.getAll()
     ]);
 
     const deptMap = buildNameMap(departments);
     const identityMap = buildNameMap(identities);
 
     const categories = new Map();
-    hrRows.forEach((item) => {
+    assignmentRows.forEach((item) => {
       const depId = safeString(item.department_id);
       const idId = safeString(item.identity_id);
       if (!depId || !idId) return;

@@ -61,7 +61,7 @@ module.exports = Behavior({
     onActivityGranularityChange(e) {
       const options = this.data.participantGranularityOptions || [];
       const index = Math.max(0, Number(e.detail.value) || 0);
-      const selected = options[index] || options[0] || { value: 'person' };
+      const selected = options[index] || options[0] || { value: 'assignment' };
       this.setData({
         activityForm: {
           ...this.data.activityForm,
@@ -91,8 +91,8 @@ module.exports = Behavior({
           description: item.description || '',
           startDate: item.startDate || '',
           endDate: item.endDate || '',
-          participantGranularity: item.participantGranularity === 'assignment' ? 'assignment' : 'person',
-          participantGranularityIndex: item.participantGranularity === 'assignment' ? 1 : 0
+          participantGranularity: 'assignment',
+          participantGranularityIndex: 0
         },
         activeTab: 'activities'
       });

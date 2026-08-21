@@ -22,7 +22,7 @@ module.exports = Object.freeze({
   copy_31f5d1514b: '验签权限已授予',
   copy_361de3f050: '剩余 ',
   copy_37ad645951: '同部门',
-  copy_43c26e4c16: '选择身份',
+  copy_43c26e4c16: '选择身份类别',
   copy_44ce43b050: '任何人',
   copy_49cbf30d6b: '签字',
   copy_4b405169cb: '自己所在',
@@ -74,7 +74,7 @@ module.exports = Object.freeze({
   copy_e0922834ac: '请先选择一名人员',
   copy_e32406217a: '删除后不可恢复，确定删除此审核流程吗？',
   copy_e52119b17e: '请稍后刷新',
-  copy_e5d78a79f7: '请选择人员',
+  copy_e5d78a79f7: '请选择具体人员岗位',
   copy_efc8493bdc: '模板已删除',
   copy_f262abee38: '选择人员',
   copy_fc98ff863c: '由 同部门 '

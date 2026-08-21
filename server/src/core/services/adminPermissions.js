@@ -1,4 +1,5 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/services/adminPermissions');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const PERMISSION_GROUPS = [
   {
     key: 'authentication',
@@ -7,6 +8,7 @@ const PERMISSION_GROUPS = [
     permissions: [
       { key: 'auth.identity.verify', label: localeCopy.copy_3d91f89e36, description: localeCopy.copy_0b8c4db3d7 },
       { key: 'auth.accounts.recover', label: localeCopy.copy_d2d3397a14, description: localeCopy.copy_e5dc008226 },
+      { key: 'auth.accounts.global_manage', label: personnelCopy.globalAccountPermissionLabel, description: personnelCopy.globalAccountPermissionDescription, targetLevels: ['super_admin'], defaultLevels: ['super_admin'] },
       // 保留权限键和服务端审计能力以兼容既有授权，但不再把内部安全日志展示为管理界面功能。
       { key: 'auth.accounts.audit', label: localeCopy.copy_aa74d1acc1, description: '', hidden: true },
       { key: 'auth.policy.manage', label: localeCopy.copy_aef40f4a64, description: localeCopy.copy_514de1fe35, targetLevels: ['admin'], defaultLevels: [] }
@@ -134,21 +136,23 @@ mapRoutes('scoring.publications', [
 mapAny(['/listHrInfo', '/listHrGovernance'], [
   'hr.people', 'hr.import', 'hr.profile_review', 'venue.resources',
   'audit.templates', 'audit.stamps', 'audit.submissions', 'audit.verification',
-  'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'
+  'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'
 ]);
 mapRoutes('hr.people', [
   '/saveHrInfo',
   '/deleteHrInfo',
   '/batchMaintainFromHrInfo',
-  '/unbindHrWechat',
   '/listMembershipAssignments',
   '/saveMembershipAssignment',
-  '/deleteMembershipAssignment'
+  '/deleteMembershipAssignment',
+  '/listFormerHrMembers',
+  '/reactivateHrMembership'
 ]);
 mapAny(['/listPersonIdentities'], ['hr.people', 'system.admin_accounts.read', 'system.admin_accounts.write']);
 mapRoutes('hr.import', ['/previewHrTableImport', '/importHrTable', '/importHrCsv']);
 mapAny(['/listHrProfileAdminData'], ['hr.people', 'hr.profile_review']);
-mapAny(['/getHrPersonDetail', '/saveHrPersonFull'], ['hr.people', 'hr.profile_review']);
+mapAny(['/getHrPersonDetail'], ['hr.people', 'hr.profile_review']);
+mapRoutes('hr.people', ['/saveHrPersonFull']);
 mapRoutes('hr.profile_review', ['/reviewHrProfileChange']);
 mapAny(['/listHrProfileTemplates'], ['hr.profile_templates.manage', 'hr.profile_templates.select']);
 mapRoutes('hr.profile_templates.manage', [
@@ -197,12 +201,20 @@ mapRoutes('venue.purposes', ['/saveVenueBookingPurpose', '/deleteVenueBookingPur
 mapRoutes('system.admin_accounts.read', ['/listAdmins', '/exportAdmins', '/listUserBindings']);
 mapAny(['/saveAdmin', '/deleteAdmin'], ['system.admin_accounts.write', 'hr.people']);
 mapRoutes('system.admin_accounts.write', [
-  '/createAdminInvite', '/generateAdminInviteCode', '/adminUnbindUser'
+  '/createAdminInvite', '/generateAdminInviteCode'
 ]);
 mapRoutes('system.settings', ['/getSystemConfig', '/saveSystemConfig', '/listOrganizations', '/admin/health']);
 mapRoutes('system.organizations', ['/saveOrganization', '/deleteOrganization', '/switchOrganization']);
 mapRoutes('auth.identity.verify', ['/admin/auth/claims']);
-mapRoutes('auth.accounts.recover', ['/admin/auth/recoveries', '/admin/auth/accounts']);
+mapRoutes('auth.accounts.recover', [
+  '/admin/auth/recoveries', '/admin/auth/accounts', '/admin/auth/security'
+]);
+mapRoutes('auth.accounts.global_manage', [
+  '/unbindHrWechat', '/adminUnbindUser',
+  '/previewPersonIdentityCorrection', '/applyPersonIdentityCorrection', '/mergePersons',
+  '/admin/auth/security/sessions/revoke',
+  '/admin/auth/security/passphrase', '/admin/auth/security/passphrase/revoke'
+]);
 mapRoutes('auth.accounts.audit', ['/admin/auth/audit']);
 mapRoutes('auth.policy.manage', ['/admin/auth/policy']);
 mapAny(['/parseTableFile', '/buildTableFile'], [
@@ -283,6 +295,23 @@ function hasAnyPermission(effective, keys) {
   return (keys || []).some((key) => effective.permissions && effective.permissions[key]);
 }
 
+function hasGrantedPermission(source, permissionKey) {
+  if (!source || !permissionKey) return false;
+  if (source.isSuper) return true;
+  if (Array.isArray(source.permissions)) {
+    return source.permissions.includes('*') || source.permissions.includes(permissionKey);
+  }
+  return Boolean(source.permissions && source.permissions[permissionKey]);
+}
+
+function scopeAccountSessions(sessions, organizationId, canGlobalManage) {
+  const list = Array.isArray(sessions) ? sessions : [];
+  if (canGlobalManage) return list.slice();
+  const scopedOrganizationId = String(organizationId || '').trim();
+  if (!scopedOrganizationId) return [];
+  return list.filter((session) => String(session && session.organization_id || '').trim() === scopedOrganizationId);
+}
+
 function serializeCatalog(targetLevel, effectivePermissions, editableKeys) {
   const editableSet = new Set(editableKeys || []);
   return PERMISSION_GROUPS.map((group) => ({
@@ -312,5 +341,7 @@ module.exports = {
   editablePermissionKeys,
   loadEffectivePermissions,
   hasAnyPermission,
+  hasGrantedPermission,
+  scopeAccountSessions,
   serializeCatalog
 };

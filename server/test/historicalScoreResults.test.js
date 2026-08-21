@@ -82,7 +82,16 @@ const mocks = {
   '../services/participants': {
     normalizeGranularity(value) { return value === 'assignment' ? 'assignment' : 'person'; },
     async listParticipants() { return members; },
-    participantRecordId(record, side) { return record[side + '_id']; }
+    buildAssignmentLabel() { return ''; },
+    participantRecordId(record, side) { return record[side + '_id']; },
+    resolveHistoricalParticipant(record, side) {
+      return {
+        assignmentId: record[side + '_assignment_id'] || '',
+        legacyHrId: record[side + '_id'] || '',
+        historicalAssignmentUnavailable: true,
+        contextSnapshot: {}
+      };
+    }
   },
   '../../../core/models/systemConfig': {},
   '../../../config/db': {
@@ -134,6 +143,9 @@ async function run() {
   assert.strictEqual(recordList.activity.name, activity.name);
   assert.strictEqual(recordList.recordRows.length, 1);
   assert.strictEqual(recordList.recordRows[0].activityName, activity.name);
+  assert.strictEqual(recordList.recordRows[0].historicalAssignmentUnavailable, true);
+  assert.strictEqual(recordList.recordRows[0].scorerHistoricalAssignmentUnavailable, true);
+  assert.strictEqual(recordList.recordRows[0].department, '', '缺快照时不得使用当前人员岗位展示历史结果');
 
   console.log('历史组织评分结果活动变量回归测试通过');
 }

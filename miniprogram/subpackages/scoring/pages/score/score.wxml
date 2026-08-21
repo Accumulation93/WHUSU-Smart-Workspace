@@ -34,6 +34,7 @@
         <view class="info-block">
           <view class="info-label">{{localeCopy.copy_b9b9929aee}}</view>
           <view class="info-value">{{scorer.name}}</view>
+          <view class="assignment-chip" wx:if="{{scorer._showAssignmentChip}}">{{scorer._assignmentChipText}}</view>
           <view class="info-subvalue">
             <view wx:if="{{scorer.department}}">{{scorer.department}}</view>
             <view wx:if="{{scorer.identity}}">{{scorer.identity}}</view>
@@ -43,6 +44,7 @@
         <view class="info-block target-block">
           <view class="info-label">{{localeCopy.copy_12cd162fda}}</view>
           <view class="info-value target-name-anchor">{{target.name}}</view>
+          <view class="assignment-chip" wx:if="{{target._showAssignmentChip}}">{{target._assignmentChipText}}</view>
           <view class="info-subvalue">
             <view wx:if="{{target.department}}">{{target.department}}</view>
             <view wx:if="{{target.identity}}">{{target.identity}}</view>

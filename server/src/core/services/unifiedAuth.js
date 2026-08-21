@@ -126,10 +126,30 @@ function buildAvailableOrganizations(contexts, currentContext) {
 function buildContextCatalog(contexts, currentContext) {
   const organizations = buildAvailableOrganizations(contexts, currentContext);
   const identityMap = new Map();
+  const workContexts = [];
   contexts.forEach((context) => {
+    const isGlobal = context.identityScope === 'global';
+    workContexts.push({
+      contextId: safeString(context.contextId),
+      type: safeString(context.identityType),
+      label: safeString(context.assignmentLabel || context.identityName),
+      scope: isGlobal ? 'global' : 'organization',
+      organizationId: isGlobal ? null : safeString(context.organizationId),
+      organizationName: safeString(context.organizationName),
+      role: safeString(context.role),
+      assignmentId: safeString(context.assignmentId),
+      assignmentNature: safeString(context.assignmentNature),
+      assignmentLabel: safeString(context.assignmentLabel),
+      identityCategoryId: safeString(context.identityCategoryId || context.identityId),
+      identityCategoryName: safeString(context.identityCategoryName || context.identity),
+      departmentId: safeString(context.departmentId),
+      department: safeString(context.department),
+      workGroupId: safeString(context.workGroupId),
+      workGroup: safeString(context.workGroup),
+      isCurrent: Boolean(currentContext && currentContext.contextId === context.contextId)
+    });
     const identityId = safeString(context.authIdentityId);
     if (!identityId || identityMap.has(identityId)) return;
-    const isGlobal = context.identityScope === 'global';
     identityMap.set(identityId, {
       identityId,
       type: context.identityType,
@@ -149,10 +169,13 @@ function buildContextCatalog(contexts, currentContext) {
   return {
     selection: currentContext ? {
       organizationId: currentContext.organizationId,
-      identityId: currentContext.authIdentityId,
-      contextId: currentContext.contextId
+      contextId: currentContext.contextId,
+      assignmentId: safeString(currentContext.assignmentId),
+      identityCategoryId: safeString(currentContext.identityCategoryId || currentContext.identityId),
+      identityId: currentContext.authIdentityId
     } : null,
     organizations,
+    workContexts,
     identities: Array.from(identityMap.values())
   };
 }
@@ -177,15 +200,20 @@ function profileFromContext(context) {
     personId: context.personId,
     membershipId: context.membershipId,
     assignmentId: context.assignmentId,
+    assignmentNature: safeString(context.assignmentNature),
+    assignmentLabel: safeString(context.assignmentLabel),
     name: context.name,
     studentId: context.studentId,
     departmentId: context.departmentId,
     department: context.department,
     identityId: context.identityId,
     identity: context.identity,
+    identityCategoryId: safeString(context.identityCategoryId || context.identityId),
+    identityCategoryName: safeString(context.identityCategoryName || context.identity),
     workGroupId: context.workGroupId,
     workGroup: context.workGroup,
-    assignmentName: context.identityName
+    assignmentName: context.assignmentLabel || context.identityName,
+    hasAssignment: Boolean(context.assignmentId)
   };
 }
 
@@ -212,11 +240,12 @@ async function buildAuthenticatedPayload(account, session) {
     },
     context: currentContext,
     contexts,
+    workContexts: catalog.workContexts,
     selection: catalog.selection,
     organizations: catalog.organizations,
     identities: catalog.identities,
     selectionNotice: session.selectionFallback
-      ? '身份已更新，请确认当前组织和身份'
+      ? localeCopy.selectionUpdated
       : '',
     user: profileFromContext(currentContext),
     activeRole: currentContext.role,
@@ -241,7 +270,7 @@ async function startWechatSession(data, metadata) {
   }
   if (account) {
     return createAuthenticatedSession(account, {
-      contextId: data.contextId,
+      contextId: data.preferredContextId || data.contextId,
       organizationId: data.preferredOrganizationId || data.organizationId,
       identityId: data.preferredIdentityId || data.identityId
     }, metadata);

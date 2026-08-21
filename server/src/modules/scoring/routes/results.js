@@ -5,7 +5,6 @@ const router = express.Router();
 const { safeString, toNumber, roundScore, buildOrgMap, makeOrgRuleKey } = require('../../../utils/helpers');
 const adminInfoModel = require('../../../core/models/adminInfo');
 const activityModel = require('../models/scoreActivity');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
@@ -26,6 +25,13 @@ const participantService = require('../services/participants');
 const DEFAULT_WORK_GROUP = '';
 const RESPONSE_SAFE_LIMIT = 850 * 1024;
 const EXPORT_MAX_ROWS = 50000; // Safety cap to prevent OOM from excessive export data
+
+function decorateAssignmentRows(rows) {
+  if (typeof participantService.decorateAssignmentDisambiguation === 'function') {
+    return participantService.decorateAssignmentDisambiguation(rows);
+  }
+  return { rows: Array.isArray(rows) ? rows : [], needsAssignmentDisambiguation: false };
+}
 
 function parseTimezone(value) {
   const tz = Number(value);
@@ -218,7 +224,13 @@ function normalizeMember(record, orgLookups) {
     legacyHrId: safeString(record.legacy_hr_id || record.id),
     personId: safeString(record.person_id),
     assignmentId: safeString(record.assignment_id),
-    assignmentTitle: safeString(record.assignment_title),
+    assignmentNature: safeString(record.assignment_kind),
+    assignmentLabel: participantService.buildAssignmentLabel({
+      ...record,
+      department: getLookupName(orgLookups.departmentsById, departmentId),
+      identityCategory: getLookupName(orgLookups.identitiesById, identityId),
+      workGroup: getLookupName(orgLookups.workGroupsById, workGroupId)
+    }),
     name: safeString(record.name),
     studentId: safeString(record.student_id),
     departmentId, department: getLookupName(orgLookups.departmentsById, departmentId),
@@ -380,7 +392,7 @@ function buildTaskData(members, rules, records) {
         }
 
         candidates.forEach((target) => {
-          if (!rule.allowSelfAssessment && scorer.id === target.id) return;
+          if (!rule.allowSelfAssessment && participantService.isSameNaturalPerson(scorer, target)) return;
           const taskKey = `${safeString(rule._id)}::${clauseIndex}::${scorerKey}::${target.id}`;
           expectedPairs.set(taskKey, {
             taskKey, pairKey: `${scorerKey}::${target.id}`,
@@ -388,6 +400,10 @@ function buildTaskData(members, rules, records) {
             requireAllComplete: clause.requireAllComplete === true,
             scorerKey, scorerId: scorer.id, scorerName: scorer.name,
             scorerStudentId: scorer.studentId,
+            scorerPersonId: scorer.personId, scorerAssignmentId: scorer.assignmentId,
+            scorerAssignmentKind: scorer.assignmentKind,
+            scorerDepartmentId: scorer.departmentId, scorerIdentityId: scorer.identityId,
+            scorerWorkGroupId: scorer.workGroupId,
             scorerDepartment: scorer.department, scorerIdentity: scorer.identity,
             scorerWorkGroup: scorer.workGroup || DEFAULT_WORK_GROUP,
             targetId: target.id, targetName: target.name, targetStudentId: target.studentId,
@@ -405,6 +421,10 @@ function buildTaskData(members, rules, records) {
       scorerTaskMap.set(task.scorerKey, {
         scorerKey: task.scorerKey, scorerId: task.scorerId,
         scorerName: task.scorerName, scorerStudentId: task.scorerStudentId,
+        personId: task.scorerPersonId, assignmentId: task.scorerAssignmentId,
+        assignmentKind: task.scorerAssignmentKind,
+        departmentId: task.scorerDepartmentId, identityId: task.scorerIdentityId,
+        workGroupId: task.scorerWorkGroupId,
         department: task.scorerDepartment, identity: task.scorerIdentity,
         workGroup: task.scorerWorkGroup,
         expectedTaskKeys: new Set(), submittedTaskKeys: new Set()
@@ -450,7 +470,10 @@ function buildTaskData(members, rules, records) {
 
   const scorerTaskRows = Array.from(scorerTaskMap.values()).map((item) => ({
     scorerKey: item.scorerKey, scorerId: item.scorerId, scorerName: item.scorerName,
-    scorerStudentId: item.scorerStudentId, department: item.department,
+    scorerStudentId: item.scorerStudentId,
+    personId: item.personId, assignmentId: item.assignmentId, assignmentKind: item.assignmentKind,
+    departmentId: item.departmentId, identityId: item.identityId, workGroupId: item.workGroupId,
+    department: item.department,
     identity: item.identity, workGroup: item.workGroup,
     expectedCount: item.expectedTaskKeys.size, submittedCount: item.submittedTaskKeys.size,
     pendingCount: Math.max(item.expectedTaskKeys.size - item.submittedTaskKeys.size, 0),
@@ -511,7 +534,6 @@ function computeScorerCompletionData(members, rules, records) {
     let ruleKey = makeOrgRuleKey(rule.scorerDepartmentId, rule.scorerIdentityId);
     let scorerIds = membersByRuleKey.get(ruleKey) || [];
     if (!scorerIds.length) return;
-    let scorerIdSet = new Set(scorerIds);
     let allowSelf = rule.allowSelfAssessment;
 
     rule.clauses.forEach(function (clause) {
@@ -540,19 +562,27 @@ function computeScorerCompletionData(members, rules, records) {
           }
           if (!wgTargetIds.length) return;
 
-          let wgScorerSet = new Set(wgScorerIds);
-          let wgTargetSet = new Set(wgTargetIds);
           let scorerN = wgScorerIds.length;
           let targetN = wgTargetIds.length;
 
           wgTargetIds.forEach(function (tid) {
             let cnt = scorerN;
-            if (!allowSelf && wgScorerSet.has(tid)) cnt--;
+            if (!allowSelf) {
+              const target = memberById.get(tid);
+              cnt -= wgScorerIds.filter((sid) =>
+                participantService.isSameNaturalPerson(memberById.get(sid), target)
+              ).length;
+            }
             expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
           });
           wgScorerIds.forEach(function (sid) {
             let cnt = targetN;
-            if (!allowSelf && wgTargetSet.has(sid)) cnt--;
+            if (!allowSelf) {
+              const scorer = memberById.get(sid);
+              cnt -= wgTargetIds.filter((tid) =>
+                participantService.isSameNaturalPerson(scorer, memberById.get(tid))
+              ).length;
+            }
             scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
           });
         });
@@ -589,21 +619,30 @@ function computeScorerCompletionData(members, rules, records) {
 
       if (!targetIds.length) return;
 
-      let targetIdSet = new Set(targetIds);
       let scorerN = scorerIds.length;
       let targetN = targetIds.length;
 
       // O(targets): per-target count = N_scorers (minus self)
       targetIds.forEach(function (tid) {
         let cnt = scorerN;
-        if (!allowSelf && scorerIdSet.has(tid)) cnt--;
+        if (!allowSelf) {
+          const target = memberById.get(tid);
+          cnt -= scorerIds.filter((sid) =>
+            participantService.isSameNaturalPerson(memberById.get(sid), target)
+          ).length;
+        }
         expectedByCount.set(tid, (expectedByCount.get(tid) || 0) + cnt);
       });
 
       // O(scorers): per-scorer count = N_targets (minus self)
       scorerIds.forEach(function (sid) {
         let cnt = targetN;
-        if (!allowSelf && targetIdSet.has(sid)) cnt--;
+        if (!allowSelf) {
+          const scorer = memberById.get(sid);
+          cnt -= targetIds.filter((tid) =>
+            participantService.isSameNaturalPerson(scorer, memberById.get(tid))
+          ).length;
+        }
         scorerExpectedCount.set(sid, (scorerExpectedCount.get(sid) || 0) + cnt);
       });
     });
@@ -636,6 +675,12 @@ function computeScorerCompletionData(members, rules, records) {
       scorerId: member.id,
       scorerName: member.name,
       scorerStudentId: member.studentId,
+      personId: member.personId,
+      assignmentId: member.assignmentId,
+      assignmentKind: member.assignmentKind,
+      departmentId: member.departmentId,
+      identityId: member.identityId,
+      workGroupId: member.workGroupId,
       department: member.department,
       identity: member.identity,
       workGroup: member.workGroup || DEFAULT_WORK_GROUP,
@@ -754,24 +799,51 @@ async function enrichRecordsWithAnswers(records) {
 }
 
 function enrichScoreRecords(records, members, granularity) {
-  const memberById = new Map(members.map((m) => [safeString(m.id), m]));
   return records.map((record) => {
-    const scorerId = participantService.participantRecordId(record, 'scorer', granularity);
-    const targetId = participantService.participantRecordId(record, 'target', granularity);
-    const scorer = memberById.get(scorerId) || {};
-    const target = memberById.get(targetId) || {};
+    const scorer = participantService.resolveHistoricalParticipant(record, 'scorer', members);
+    const target = participantService.resolveHistoricalParticipant(record, 'target', members);
+    const scorerId = safeString(scorer.assignmentId) || participantService.participantRecordId(record, 'scorer', granularity);
+    const targetId = safeString(target.assignmentId) || participantService.participantRecordId(record, 'target', granularity);
+    const scorerSnapshot = scorer.contextSnapshot || {};
+    const targetSnapshot = target.contextSnapshot || {};
     return {
       ...record,
       scorerId,
       targetId,
       ruleId: safeString(record.rule_id),
       submittedAt: record.submitted_at,
-      scorerName: safeString(scorer.name), scorerStudentId: safeString(scorer.studentId),
-      scorerDepartment: safeString(scorer.department), scorerIdentity: safeString(scorer.identity),
-      scorerWorkGroup: safeString(scorer.workGroup),
-      targetName: safeString(target.name), targetStudentId: safeString(target.studentId),
-      targetDepartment: safeString(target.department), targetIdentity: safeString(target.identity),
-      targetWorkGroup: safeString(target.workGroup),
+      scorerName: scorer.name,
+      scorerStudentId: scorer.studentId,
+      scorerPersonId: scorer.personId,
+      scorerAssignmentId: scorer.assignmentId,
+      scorerAssignmentNature: scorer.assignmentNature,
+      scorerAssignmentLabel: scorer.assignmentLabel,
+      scorerHistoricalAssignmentUnavailable: scorer.historicalAssignmentUnavailable,
+      scorerDepartmentId: scorer.departmentId,
+      scorerIdentityCategoryId: scorer.identityCategoryId,
+      scorerIdentityId: scorer.identityCategoryId,
+      scorerWorkGroupId: scorer.workGroupId,
+      scorerDepartment: scorer.department,
+      scorerIdentityCategory: scorer.identityCategory,
+      scorerIdentity: scorer.identityCategory,
+      scorerWorkGroup: scorer.workGroup,
+      scorerContextSnapshot: scorerSnapshot,
+      targetName: target.name,
+      targetStudentId: target.studentId,
+      targetPersonId: target.personId,
+      targetAssignmentId: target.assignmentId,
+      targetAssignmentNature: target.assignmentNature,
+      targetAssignmentLabel: target.assignmentLabel,
+      targetHistoricalAssignmentUnavailable: target.historicalAssignmentUnavailable,
+      targetDepartmentId: target.departmentId,
+      targetIdentityCategoryId: target.identityCategoryId,
+      targetIdentityId: target.identityCategoryId,
+      targetWorkGroupId: target.workGroupId,
+      targetDepartment: target.department,
+      targetIdentityCategory: target.identityCategory,
+      targetIdentity: target.identityCategory,
+      targetWorkGroup: target.workGroup,
+      targetContextSnapshot: targetSnapshot,
       templateConfigSignature: safeString(record.template_config_signature),
       templateConfigs: []
     };
@@ -882,6 +954,7 @@ router.post('/getScoreResults', async (req, res) => {
           status: 'success',
           activity: cached.activity,
           overviewRows: cached.overviewRows,
+          needsAssignmentDisambiguation: cached.needsAssignmentDisambiguation === true,
           stats: cached.stats,
           filterOptions: cached.filterOptions,
           pagination: { total: cached.overviewRows.length }
@@ -910,6 +983,10 @@ router.post('/getScoreResults', async (req, res) => {
         expCount = Math.max(expCount, submittedCount);
         return {
           id: member.id, targetId: member.id,
+          personId: member.personId, assignmentId: member.assignmentId,
+          assignmentKind: member.assignmentKind,
+          departmentId: member.departmentId, identityId: member.identityId,
+          workGroupId: member.workGroupId,
           name: member.name, studentId: member.studentId,
           department: member.department, identity: member.identity,
           workGroup: member.workGroup || DEFAULT_WORK_GROUP,
@@ -920,6 +997,7 @@ router.post('/getScoreResults', async (req, res) => {
           completionRate: expCount ? Number(((submittedCount / expCount) * 100).toFixed(2)) : 0
         };
       });
+      const overviewPresentation = decorateAssignmentRows(overviewRows);
 
       // Apply filters
       let deptFv = safeString(filters.department);
@@ -932,7 +1010,7 @@ router.post('/getScoreResults', async (req, res) => {
         return true;
       };
 
-      let filteredRows = overviewRows.filter(matchFv);
+      let filteredRows = overviewPresentation.rows.filter(matchFv);
 
       // Filter options
       let filterOpts = {
@@ -975,6 +1053,7 @@ router.post('/getScoreResults', async (req, res) => {
       // Cache and return
       await setCachedOverview(cacheKey, {
         overviewRows: filteredRows,
+        needsAssignmentDisambiguation: overviewPresentation.needsAssignmentDisambiguation,
         stats: overviewStats,
         filterOptions: filterOpts,
         activity: actBrief
@@ -984,6 +1063,7 @@ router.post('/getScoreResults', async (req, res) => {
         status: 'success',
         activity: actBrief,
         overviewRows: filteredRows,
+        needsAssignmentDisambiguation: overviewPresentation.needsAssignmentDisambiguation,
         stats: overviewStats,
         filterOptions: filterOpts,
         pagination: { total: filteredRows.length }
@@ -1123,7 +1203,8 @@ router.post('/getScoreResults', async (req, res) => {
       const recordById = new Map(records.map((r) => [safeString(r.id), r]));
       const record = recordById.get(safeString(recordId));
       if (!record) return res.json({ status: 'not_found', message: localeCopy.copy_c173b07ef3 });
-      const rule = ruleById.get(safeString(record.ruleId)) || {};
+      const currentRule = ruleById.get(safeString(record.ruleId)) || null;
+      const rule = currentRule || { _id: safeString(record.ruleId), clauses: [] };
       const rsk = resolveScorerKey(record);
       const expectedTask = lookupExpectedTask(record, rsk);
       const templates = getRecordTemplateScores(record, rule, expectedTask, orgLookups).map((tpl) => ({
@@ -1166,14 +1247,20 @@ router.post('/getScoreResults', async (req, res) => {
           scorer: { id: safeString(record.scorerId), name: safeString(record.scorerName), studentId: safeString(record.scorerStudentId), identity: safeString(record.scorerIdentity) },
           target: { id: safeString(record.targetId), name: safeString(record.targetName), studentId: safeString(record.targetStudentId), identity: safeString(record.targetIdentity) },
           submittedAt: formatDate(record.submittedAt, timezone),
-          templates: answerGroups
+          templates: answerGroups,
+          rawAnswers: ansArr.map((item, index) => ({
+            questionIndex: item.questionIndex != null ? item.questionIndex : index + 1,
+            score: toNumber(item.score, 0)
+          })),
+          historicalRuleUnavailable: !currentRule
         }
       });
     }
 
     if (dataType === 'completion') {
       // Use completionData.scorerTaskRows directly (already pre-mapped member→row, no .find() needed)
-      const allScorerRows = completionData.scorerTaskRows;
+      const scorerPresentation = decorateAssignmentRows(completionData.scorerTaskRows);
+      const allScorerRows = scorerPresentation.rows;
       const filteredRows = filterScorerRows(allScorerRows, filters);
 
       // Filter-aware stats (same dimension logic as overview: scoredMembers/recordCount by TARGET,
@@ -1207,11 +1294,15 @@ router.post('/getScoreResults', async (req, res) => {
       };
       if (departmentName) {
         const deptRows = filteredRows.filter((r) => safeString(r.department) === departmentName).sort((a, b) => { if (a.pendingCount !== b.pendingCount) return b.pendingCount - a.pendingCount; return String(a.scorerName).localeCompare(String(b.scorerName), 'zh-CN'); });
-        return res.json({ status: 'success', activity: activityBrief, scorerCompletionRows: deptRows, stats, filterOptions });
+        return res.json({
+          status: 'success', activity: activityBrief, scorerCompletionRows: deptRows, stats, filterOptions,
+          needsAssignmentDisambiguation: scorerPresentation.needsAssignmentDisambiguation
+        });
       }
       return res.json({
         status: 'success', activity: activityBrief,
         scorerCompletionRows: filteredRows,
+        needsAssignmentDisambiguation: scorerPresentation.needsAssignmentDisambiguation,
         completionBoards: { departments: buildCompletionBoard(filteredRows, 'department', true) },
         stats,
         filterOptions
@@ -1231,7 +1322,7 @@ router.post('/getScoreResults', async (req, res) => {
           scorers.forEach((scorer) => {
             const target = memberById.get(safeString(targetId));
             if (!target || !matchesClauseTarget(target, scorer, clause)) return;
-            if (!rule.allowSelfAssessment && scorer.id === target.id) return;
+            if (!rule.allowSelfAssessment && participantService.isSameNaturalPerson(scorer, target)) return;
             expectRow.expectedScorers.push({ ruleId: safeString(rule._id), clauseIndex: ci, requireAllComplete: clause.requireAllComplete === true, scorerKey: getScorerUniqueKey(scorer), scorerId: scorer.id, scorerName: scorer.name, scorerStudentId: scorer.studentId, scorerDepartment: scorer.department, scorerIdentity: scorer.identity, scorerWorkGroup: scorer.workGroup || DEFAULT_WORK_GROUP });
           });
         });
@@ -1245,10 +1336,14 @@ router.post('/getScoreResults', async (req, res) => {
         return {
           recordId: safeString(record.id), activityId, activityName: activityBrief.name,
           scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName),
-          scorerStudentId: safeString(record.scorerStudentId), scorerDepartment: safeString(rule.scorerDepartment || record.scorerDepartment),
-          scorerIdentity: safeString(rule.scorerIdentity || record.scorerIdentity),
-          scorerWorkGroup: safeString((memberByScorerKey.get(sk) || {}).workGroup),
-          scorerCategoryLabel: [safeString(rule.scorerDepartment), safeString(rule.scorerIdentity)].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1,
+          scorerStudentId: safeString(record.scorerStudentId), scorerDepartment: safeString(record.scorerDepartment),
+          scorerIdentity: safeString(record.scorerIdentityCategory || record.scorerIdentity),
+          scorerWorkGroup: safeString(record.scorerWorkGroup),
+          scorerAssignmentLabel: safeString(record.scorerAssignmentLabel),
+          scorerHistoricalAssignmentUnavailable: record.scorerHistoricalAssignmentUnavailable === true,
+          scorerCategoryLabel: record.scorerHistoricalAssignmentUnavailable
+            ? ''
+            : ([safeString(record.scorerDepartment), safeString(record.scorerIdentityCategory || record.scorerIdentity)].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1),
           targetId: safeString(record.targetId), submittedAt: formatDate(record.submittedAt, timezone),
           excludedByRequireAll: invalidScorerClauseKeys.has(lookupClauseKey(record, sk))
         };
@@ -1266,6 +1361,16 @@ router.post('/getScoreResults', async (req, res) => {
           status: rec.excludedByRequireAll ? 'inactive' : 'completed',
           statusText: rec.excludedByRequireAll ? '评分未生效' : '已完成'
         } : { recordId: '', targetId, scorerKey: sk, scorerId: safeString(task.scorerId), scorerName: safeString(task.scorerName), scorerStudentId: safeString(task.scorerStudentId), scorerDepartment: safeString(task.scorerDepartment), scorerIdentity: safeString(task.scorerIdentity), scorerWorkGroup: safeString(task.scorerWorkGroup), status: 'pending', statusText: localeCopy.copy_8d112a0e5f, submittedAt: '', excludedByRequireAll: false });
+      });
+      // 当前规则变化或审批人离任后，已发生的评分事实仍须出现在历史中。
+      recordMapByKey.forEach((recordRow, sk) => {
+        if (expectedByKey.has(sk)) return;
+        targetRecordRows.push({
+          ...recordRow,
+          status: 'completed',
+          statusText: '已完成',
+          historicalOnly: true
+        });
       });
 
       res.json({
@@ -1301,17 +1406,30 @@ router.post('/getScoreResults', async (req, res) => {
     const recordRows = [];
 
     records.forEach((record) => {
-      const targetBase = { targetId: safeString(record.targetId), name: safeString(record.targetName), studentId: safeString(record.targetStudentId), department: safeString(record.targetDepartment), identity: safeString(record.targetIdentity), workGroup: safeString(record.targetWorkGroup || DEFAULT_WORK_GROUP) };
+      const targetBase = {
+        targetId: safeString(record.targetId), assignmentId: safeString(record.targetAssignmentId),
+        personId: safeString(record.targetPersonId), assignmentNature: safeString(record.targetAssignmentNature),
+        assignmentLabel: safeString(record.targetAssignmentLabel),
+        historicalAssignmentUnavailable: record.targetHistoricalAssignmentUnavailable === true,
+        departmentId: safeString(record.targetDepartmentId),
+        identityCategoryId: safeString(record.targetIdentityCategoryId || record.targetIdentityId),
+        identityId: safeString(record.targetIdentityCategoryId || record.targetIdentityId),
+        workGroupId: safeString(record.targetWorkGroupId),
+        name: safeString(record.targetName), studentId: safeString(record.targetStudentId),
+        department: safeString(record.targetDepartment),
+        identityCategory: safeString(record.targetIdentityCategory || record.targetIdentity),
+        identity: safeString(record.targetIdentityCategory || record.targetIdentity),
+        workGroup: record.targetHistoricalAssignmentUnavailable ? '' : safeString(record.targetWorkGroup || DEFAULT_WORK_GROUP)
+      };
 
-      // ── Identity validation: scorer's CURRENT identity must match a current rule ──
-      const scorerHr = hrMap.get(safeString(record.scorerId));
-      const scorerCurrentDept = safeString(scorerHr.departmentId);
-      const scorerCurrentIdent = safeString(scorerHr.identityId);
-      const scorerCurrentKey = `${scorerCurrentDept}::${scorerCurrentIdent}`;
-
-      // O(1) Map lookup instead of O(R) for...of rules loop
-      const rule = ruleByScorerKey.get(scorerCurrentKey) || null;
-      if (!rule) return; // Scorer no longer matches any current rule — skip record
+      // 历史记录只使用写入时的岗位快照和原规则引用，调岗、离任或字典改名
+      // 都不得重写或隐藏已经发生的评分事实。
+      const scorerDepartmentId = safeString(record.scorerDepartmentId);
+      const scorerIdentityId = safeString(record.scorerIdentityId);
+      const scorerCategoryKey = `${scorerDepartmentId}::${scorerIdentityId}`;
+      const currentRule = ruleById.get(safeString(record.ruleId)) || null;
+      const rule = currentRule || { _id: safeString(record.ruleId), clauses: [] };
+      const historicalRuleUnavailable = !currentRule;
 
       // ── Template signature validation: compare structure (question count), not full parameters ──
       const ruleSigs = currentSignaturesByRule.get(safeString(rule._id));
@@ -1320,10 +1438,15 @@ router.post('/getScoreResults', async (req, res) => {
       const recordSigNormalized = normalizeSignatureToStructure(recordSigRaw) || recordSigRaw;
       const sigStale = ruleSigs && ruleSigs.size > 0 && !ruleSigs.has(recordSigNormalized);
 
-      const scorerDepartment = scorerCurrentDept;
-      const scorerIdentity = scorerCurrentIdent;
-      const scorerCategoryKey = scorerCurrentKey;
-      const scorerCategoryLabel = [scorerDepartment, scorerIdentity].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1;
+      const scorerDepartment = safeString(record.scorerDepartment);
+      const scorerIdentity = safeString(record.scorerIdentityCategory || record.scorerIdentity);
+      const scorerCategoryLabel = record.scorerHistoricalAssignmentUnavailable
+        ? ''
+        : ([scorerDepartment, scorerIdentity].filter(Boolean).join(' / ') || localeCopy.copy_4c1e73aff1);
+      const scorerHistoricalFields = {
+        scorerAssignmentLabel: safeString(record.scorerAssignmentLabel),
+        scorerHistoricalAssignmentUnavailable: record.scorerHistoricalAssignmentUnavailable === true
+      };
       const rsk = resolveScorerKey(record);
       const expectedTask = lookupExpectedTask(record, rsk);
       const sk = safeString((expectedTask && expectedTask.scorerKey) || rsk || record.scorerId);
@@ -1335,11 +1458,34 @@ router.post('/getScoreResults', async (req, res) => {
           const cfg = findCurrentTemplateConfig(rule, expectedTask && expectedTask.clauseIndex, item.templateId, item);
           return `${safeString(cfg.templateName || item.templateName)} × ${getCurrentTemplateWeight(rule, expectedTask && expectedTask.clauseIndex, item.templateId, item)}`;
         }).filter(Boolean).join('；');
-        recordRows.push({ recordId: safeString(record.id), activityId, activityName: activityBrief.name, scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerWorkGroup: safeString(scorerHr.workGroup || ''), scorerCategoryLabel, targetId: targetBase.targetId, name: targetBase.name, studentId: targetBase.studentId, department: targetBase.department, identity: targetBase.identity, workGroup: targetBase.workGroup, templateSummary: tplSummary, submittedAt: formatDate(record.submittedAt, timezone), excludedByRequireAll, signatureStale: false });
+        recordRows.push({ recordId: safeString(record.id), activityId, activityName: activityBrief.name, scorerKey: sk, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerWorkGroup: safeString(record.scorerWorkGroup || ''), scorerCategoryLabel, ...scorerHistoricalFields, ...targetBase, templateSummary: tplSummary, submittedAt: formatDate(record.submittedAt, timezone), excludedByRequireAll, signatureStale: false, historicalRuleUnavailable });
         return;
       }
 
       const tplScores = getRecordTemplateScores(record, rule, expectedTask, orgLookups);
+      if (needsDetail && !tplScores.length) {
+        detailRows.push({
+          ...targetBase,
+          scorerId: safeString(record.scorerId),
+          scorerName: safeString(record.scorerName),
+          scorerStudentId: safeString(record.scorerStudentId),
+          scorerDepartment,
+          scorerIdentity,
+          scorerCategoryLabel,
+          ...scorerHistoricalFields,
+          ruleId: safeString(record.ruleId),
+          recordId: safeString(record.id),
+          templateId: '',
+          templateName: '',
+          weight: null,
+          templateScore: null,
+          weightedScore: null,
+          submittedAt: formatDate(record.submittedAt, timezone),
+          excludedByRequireAll,
+          signatureStale: true,
+          historicalRuleUnavailable: true
+        });
+      }
       tplScores.forEach((tplItem) => {
         const cfg = findCurrentTemplateConfig(rule, expectedTask && expectedTask.clauseIndex, tplItem.templateId, tplItem);
         const tplName = safeString(cfg.templateName || tplItem.templateName);
@@ -1352,13 +1498,13 @@ router.post('/getScoreResults', async (req, res) => {
             const calcMethod = safeString(cfg.calculationMethod || cfg.calculation_method) || 'weighted_average';
             const trimH = Number(cfg.trimHighCount || cfg.trim_high_count || 0);
             const trimL = Number(cfg.trimLowCount || cfg.trim_low_count || 0);
-            calculationMap.set(gKey, { targetId: targetBase.targetId, name: targetBase.name, studentId: targetBase.studentId, department: targetBase.department, identity: targetBase.identity, workGroup: targetBase.workGroup, scorerDepartment, scorerIdentity, scorerCategoryKey, scorerCategoryLabel, templateId: tplItem.templateId, templateName: tplName, weight, method: calcMethod, trimHigh: trimH, trimLow: trimL, scores: [] });
+            calculationMap.set(gKey, { ...targetBase, scorerDepartment, scorerIdentity, scorerCategoryKey, scorerCategoryLabel, ...scorerHistoricalFields, templateId: tplItem.templateId, templateName: tplName, weight, method: calcMethod, trimHigh: trimH, trimLow: trimL, scores: [] });
           }
           if (!excludedByRequireAll) { calculationMap.get(gKey).scores.push(tplScore); }
         }
 
         if (needsDetail) {
-          detailRows.push({ ...targetBase, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerCategoryLabel, ruleId: safeString(record.ruleId), recordId: safeString(record.id), templateId: tplItem.templateId, templateName: tplName, weight, templateScore: tplScore, weightedScore: roundScore(tplScore * weight), submittedAt: formatDate(record.submittedAt, timezone), excludedByRequireAll, signatureStale });
+          detailRows.push({ ...targetBase, scorerId: safeString(record.scorerId), scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId), scorerDepartment, scorerIdentity, scorerCategoryLabel, ...scorerHistoricalFields, ruleId: safeString(record.ruleId), recordId: safeString(record.id), templateId: tplItem.templateId, templateName: tplName, weight, templateScore: tplScore, weightedScore: roundScore(tplScore * weight), submittedAt: formatDate(record.submittedAt, timezone), excludedByRequireAll, signatureStale, historicalRuleUnavailable });
         }
       });
     });
@@ -1372,6 +1518,8 @@ router.post('/getScoreResults', async (req, res) => {
       : [];
 
     let sourceForFilters = needsRecords ? recordRows : needsDetail ? detailRows : calculationRows;
+    const targetPresentation = decorateAssignmentRows(sourceForFilters);
+    sourceForFilters = targetPresentation.rows;
 
     // Use unified activity-level stats computed before dataType branches
     const scoredMembers = baseStats.scoredMembers;
@@ -1399,7 +1547,7 @@ router.post('/getScoreResults', async (req, res) => {
     const filterOptions = buildFilterOptions(sourceRows);
 
     // ── Non-overview dataTypes: use existing size‑based slicing (backward compatible) ──
-    const basePayload = { status: 'success', activity: activityBrief, overviewRows: [], calculationRows, detailRows: needsDetail ? detailRows : [], recordRows: needsRecords ? recordRows : [], scorerCompletionRows: [], scorerTaskRows: taskData.scorerTaskRows, completionBoards: { departments: [] }, stats: { totalMembers: sourceRows.length, scoredMembers, recordCount, calculationItemCount: needsCalculation ? calculationRows.length : 0, completedMembers }, filterOptions, pagination: { offset, nextOffset: offset, total: 0, hasMore: false, returnedCount: 0 } };
+    const basePayload = { status: 'success', activity: activityBrief, overviewRows: [], calculationRows, detailRows: needsDetail ? detailRows : [], recordRows: needsRecords ? recordRows : [], scorerCompletionRows: [], scorerTaskRows: taskData.scorerTaskRows, needsAssignmentDisambiguation: targetPresentation.needsAssignmentDisambiguation, completionBoards: { departments: [] }, stats: { totalMembers: sourceRows.length, scoredMembers, recordCount, calculationItemCount: needsCalculation ? calculationRows.length : 0, completedMembers }, filterOptions, pagination: { offset, nextOffset: offset, total: 0, hasMore: false, returnedCount: 0 } };
 
     const filteredPayload = { ...basePayload };
     const rowField = needsRecords ? 'recordRows' : needsDetail ? 'detailRows' : needsCalculation ? 'calculationRows' : 'overviewRows';
@@ -1504,11 +1652,8 @@ router.post('/exportScoreResults', async (req, res) => {
       fileName = activityName + localeCopy.copy_3747a7097d;
       headers = [{ key: 'name', label: localeCopy.copy_3c946202ff }, { key: 'studentId', label: localeCopy.copy_cbb853db1b }, { key: 'department', label: localeCopy.copy_bc011e4e3b }, { key: 'identity', label: localeCopy.copy_474f638a6f }, { key: 'workGroup', label: localeCopy.copy_be736f763d }, { key: 'finalScore', label: localeCopy.copy_80528cd2d0 }, { key: 'submittedScorerCount', label: localeCopy.copy_b07e7eb09d }, { key: 'expectedScorerCount', label: localeCopy.copy_02b5a88c0f }, { key: 'completionRate', label: localeCopy.copy_cc6cc6ec7f }];
     } else if (reportType === 'detail') {
-      const memberMap = new Map(members.map((m) => [m.id, m]));
       headers = [{ key: 'scorerName', label: localeCopy.copy_b74f5017ad }, { key: 'scorerStudentId', label: localeCopy.copy_1a9dbccd72 }, { key: 'scorerDepartment', label: localeCopy.copy_1b48da3bfa }, { key: 'scorerIdentity', label: localeCopy.copy_98dbb06c03 }, { key: 'scorerWorkGroup', label: localeCopy.copy_92042b74b7 }, { key: 'targetName', label: localeCopy.copy_de4dcf6fb4 }, { key: 'targetStudentId', label: localeCopy.copy_ba70cb6582 }, { key: 'targetDepartment', label: localeCopy.copy_155d45cc30 }, { key: 'targetIdentity', label: localeCopy.copy_f15fa8cc75 }, { key: 'targetWorkGroup', label: localeCopy.copy_c5cab60297 }, { key: 'templateName', label: localeCopy.copy_fac1711a09 }, { key: 'question', label: localeCopy.copy_b66cf0dd1d }, { key: 'score', label: localeCopy.copy_011a01321b }, { key: 'maxValue', label: localeCopy.copy_8ca6566932 }, { key: 'weight', label: localeCopy.copy_e3cee0beef }, { key: 'submittedAt', label: localeCopy.copy_6a2da85cb7 }];
       records.forEach((record) => {
-        const scorer = memberMap.get(safeString(record.scorerId)) || {};
-        const target = memberMap.get(safeString(record.targetId)) || {};
         const rule = rules.find((r) => safeString(r._id) === safeString(record.ruleId)) || {};
         const configs = [];
         (Array.isArray(rule.clauses) ? rule.clauses : []).forEach((c) => { configs.push(...(Array.isArray(c.templateConfigs) ? c.templateConfigs : [])); });
@@ -1521,6 +1666,7 @@ router.post('/exportScoreResults', async (req, res) => {
         });
         let cursor = 0;
         const seen = new Set();
+        let appended = false;
         configs.filter((c) => safeString(c.templateId)).forEach((config) => {
           const tid = safeString(config.templateId);
           if (seen.has(tid)) return; seen.add(tid);
@@ -1528,13 +1674,14 @@ router.post('/exportScoreResults', async (req, res) => {
           const qs = tpl ? (Array.isArray(tpl.questions) ? tpl.questions : []) : [];
           const weight = toNumber(config.weight, 0);
           qs.forEach((q, qi) => {
+            appended = true;
             rows.push({
-              scorerName: safeString(scorer.name), scorerStudentId: safeString(scorer.studentId),
-              scorerDepartment: safeString(scorer.department), scorerIdentity: safeString(scorer.identity),
-              scorerWorkGroup: safeString(scorer.workGroup || ''),
-              targetName: safeString(target.name), targetStudentId: safeString(target.studentId),
-              targetDepartment: safeString(target.department), targetIdentity: safeString(target.identity),
-              targetWorkGroup: safeString(target.workGroup || ''),
+              scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId),
+              scorerDepartment: safeString(record.scorerDepartment), scorerIdentity: safeString(record.scorerIdentity),
+              scorerWorkGroup: safeString(record.scorerWorkGroup || ''),
+              targetName: safeString(record.targetName), targetStudentId: safeString(record.targetStudentId),
+              targetDepartment: safeString(record.targetDepartment), targetIdentity: safeString(record.targetIdentity),
+              targetWorkGroup: safeString(record.targetWorkGroup || ''),
               templateName: safeString(config.templateName) || safeString(tpl && tpl.name),
               question: safeString(q.question), score: toNumber(answerMap.get(String(cursor + qi + 1)), 0),
               maxValue: toNumber(q.maxValue, 0), weight,
@@ -1543,6 +1690,18 @@ router.post('/exportScoreResults', async (req, res) => {
           });
           cursor += qs.length;
         });
+        if (!appended) {
+          rows.push({
+            scorerName: safeString(record.scorerName), scorerStudentId: safeString(record.scorerStudentId),
+            scorerDepartment: safeString(record.scorerDepartment), scorerIdentity: safeString(record.scorerIdentity),
+            scorerWorkGroup: safeString(record.scorerWorkGroup || ''),
+            targetName: safeString(record.targetName), targetStudentId: safeString(record.targetStudentId),
+            targetDepartment: safeString(record.targetDepartment), targetIdentity: safeString(record.targetIdentity),
+            targetWorkGroup: safeString(record.targetWorkGroup || ''),
+            templateName: '', question: '', score: '', maxValue: '', weight: '',
+            submittedAt: formatDate(record.submittedAt, timezone)
+          });
+        }
       });
       fileName = `${activityName}_评分明细`;
     } else {

@@ -6,6 +6,8 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 const departmentModel = require('../models/department');
 const adminInfoModel = require('../models/adminInfo');
 const pool = require('../../config/db');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
+const dictionaryUsage = require('../services/dictionaryUsage');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -75,16 +77,14 @@ router.post('/deleteDepartment', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_9f09d6a2b3 });
 
-    // Check references before deletion
     const orgId = await getCurrentOrgId();
-    const [hrRef] = await pool.query('SELECT id FROM hr_info WHERE department_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
-    if (hrRef.length) return res.json({ status: 'in_use', message: localeCopy.copy_40bf61128c });
-    const [wgRef] = await pool.query('SELECT id FROM work_groups WHERE department_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
-    if (wgRef.length) return res.json({ status: 'in_use', message: localeCopy.copy_c209f2986b });
-    const [ruleRef] = await pool.query('SELECT id FROM rate_target_rules WHERE scorer_department_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
-    if (ruleRef.length) return res.json({ status: 'in_use', message: localeCopy.copy_77b4594829 });
-
-    await departmentModel.remove(id);
+    const deletion = await dictionaryUsage.deleteUnused('department', id, orgId);
+    if (deletion.status === 'in_use') {
+      return res.json({ status: 'in_use', message: personnelCopy.dictionaryInUse, usages: deletion.usages });
+    }
+    if (deletion.status !== 'success') {
+      return res.json({ status: deletion.status, message: localeCopy.copy_9f09d6a2b3 });
+    }
     res.json({ status: 'success', message: localeCopy.copy_e7dcd6f241 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

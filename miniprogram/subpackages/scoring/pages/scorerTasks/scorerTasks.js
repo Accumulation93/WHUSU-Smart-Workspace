@@ -21,6 +21,25 @@ function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function assignmentNatureText(value) {
+  if (value === 'staff') return localeCopy.assignmentNatureStaff;
+  if (value === 'liaison') return localeCopy.assignmentNatureLiaison;
+  if (value === 'other') return localeCopy.assignmentNatureOther;
+  return String(value || '').trim();
+}
+
+function buildAssignmentChip(row) {
+  const item = row || {};
+  if (item.historicalAssignmentUnavailable) return localeCopy.historicalAssignmentUnavailable;
+  const assignmentLabel = typeof item.assignmentLabel === 'string'
+    ? item.assignmentLabel.trim()
+    : '';
+  return [
+    assignmentNatureText(item.assignmentNature),
+    assignmentLabel
+  ].filter(Boolean).join(' · ');
+}
+
 // ── Progress bar colour: 0–100 HSL lookup (red → orange → yellow → green, always bright) ──
 function getProgressColor(ratePercent) {
   const t = clampNumber(toNumber(ratePercent, 0), 0, 100) / 100;
@@ -57,6 +76,11 @@ function normalizeScorerRows(rows = []) {
 
     return {
       ...row,
+      assignmentId: row.assignmentId || '',
+      _showAssignmentChip: Boolean(row.historicalAssignmentUnavailable || (row.needsAssignmentDisambiguation && row.assignmentId)),
+      _assignmentChipText: row.historicalAssignmentUnavailable || (row.needsAssignmentDisambiguation && row.assignmentId)
+        ? buildAssignmentChip(row)
+        : '',
       expectedCount: expected,
       submittedCount: safeSubmitted,
       progressText: `${safeSubmitted}/${expected}`,
@@ -263,7 +287,8 @@ Page({
     try {
       const result = await this.callCloud('getScorerTaskStatus', {
         activityId: this.data.activityId,
-        scorerKey: row.scorerKey
+        scorerKey: row.assignmentId || row.scorerKey,
+        assignmentId: row.assignmentId || ''
       });
 
       if (!orgSession.isRequestCurrent(this, request)) {

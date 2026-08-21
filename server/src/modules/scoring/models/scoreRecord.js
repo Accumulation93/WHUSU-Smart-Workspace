@@ -69,6 +69,45 @@ async function getByScorerSubject(scorerSubjectKey, activityId) {
   return rows;
 }
 
+async function getByScorerParticipant(participant, activityId) {
+  const orgId = await getCurrentOrgId();
+  const assignmentId = String(participant && (participant.assignment_id || participant.assignmentId || participant.id) || '');
+  const legacyHrId = String(participant && (participant.legacy_hr_id || participant.legacyHrId) || '');
+  if (!assignmentId) return getByScorer(legacyHrId, activityId);
+  const [rows] = await pool.query(
+    `SELECT * FROM score_records
+      WHERE org_id = ? AND activity_id = ?
+        AND (scorer_assignment_id = ? OR scorer_subject_key = ?)
+      ORDER BY submitted_at DESC`,
+    [orgId, activityId, assignmentId, 'assignment:' + assignmentId]
+  );
+  return rows;
+}
+
+async function getByParticipantPair(scorer, target, activityId) {
+  const orgId = await getCurrentOrgId();
+  const scorerAssignmentId = String(scorer && (scorer.assignment_id || scorer.assignmentId || scorer.id) || '');
+  const targetAssignmentId = String(target && (target.assignment_id || target.assignmentId || target.id) || '');
+  const scorerLegacyHrId = String(scorer && (scorer.legacy_hr_id || scorer.legacyHrId) || '');
+  const targetLegacyHrId = String(target && (target.legacy_hr_id || target.legacyHrId) || '');
+  if (!scorerAssignmentId || !targetAssignmentId) {
+    return getByScorerTarget(scorerLegacyHrId, targetLegacyHrId, activityId);
+  }
+  const [rows] = await pool.query(
+    `SELECT * FROM score_records
+      WHERE org_id = ? AND activity_id = ?
+        AND (scorer_assignment_id = ? OR scorer_subject_key = ?)
+        AND (target_assignment_id = ? OR target_subject_key = ?)
+      ORDER BY submitted_at DESC`,
+    [
+      orgId, activityId,
+      scorerAssignmentId, 'assignment:' + scorerAssignmentId,
+      targetAssignmentId, 'assignment:' + targetAssignmentId
+    ]
+  );
+  return rows;
+}
+
 async function query(conditions = {}) {
   const orgId = await getCurrentOrgId();
   let sql = 'SELECT * FROM score_records WHERE 1=1 AND org_id = ?';
@@ -87,20 +126,22 @@ async function query(conditions = {}) {
 
 async function create(id, data) {
   const {
-    activityId, ruleId, scorerId, scorerPersonId, scorerAssignmentId, scorerSubjectKey,
-    targetId, targetPersonId, targetAssignmentId, targetSubjectKey,
+    activityId, ruleId, scorerId, scorerPersonId, scorerAssignmentId, scorerContextSnapshot, scorerSubjectKey,
+    targetId, targetPersonId, targetAssignmentId, targetContextSnapshot, targetSubjectKey,
     templateConfigSignature, submittedAt
   } = data;
   const orgId = await getCurrentOrgId();
   await pool.query(
     `INSERT INTO score_records
        (id, activity_id, rule_id, scorer_id, scorer_person_id, scorer_assignment_id,
-        scorer_subject_key, target_id, target_person_id, target_assignment_id,
-        target_subject_key, template_config_signature, submitted_at, org_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        scorer_context_snapshot, scorer_subject_key, target_id, target_person_id, target_assignment_id,
+        target_context_snapshot, target_subject_key, template_config_signature, submitted_at, org_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id, activityId, ruleId, scorerId, scorerPersonId || null, scorerAssignmentId || null,
+      scorerContextSnapshot ? JSON.stringify(scorerContextSnapshot) : null,
       scorerSubjectKey, targetId, targetPersonId || null, targetAssignmentId || null,
+      targetContextSnapshot ? JSON.stringify(targetContextSnapshot) : null,
       targetSubjectKey, templateConfigSignature || '', submittedAt || null, orgId
     ]
   );
@@ -129,6 +170,8 @@ module.exports = {
   getBySubjects,
   getByScorer,
   getByScorerSubject,
+  getByScorerParticipant,
+  getByParticipantPair,
   query,
   create,
   update,

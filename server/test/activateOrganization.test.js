@@ -27,7 +27,7 @@ const mocks = {
   },
   '../models/userInfo': {},
   '../models/adminInfo': {
-    async getByOpenidAcrossOrgs() {
+    async getAuthorizedByOpenidAcrossOrgs() {
       return scenario.adminRecords || [];
     }
   },

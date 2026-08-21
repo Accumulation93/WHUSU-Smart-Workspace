@@ -3,7 +3,7 @@
 module.exports = Object.freeze({
   copy_0bde584db1: "暂无评分对象",
   copy_0ee2356002: "未登录",
-  copy_10d3269bb4: "请重新选择身份",
+  copy_10d3269bb4: "请重新选择工作上下文",
   copy_1a9dbccd72: "评分人学号",
   copy_245da65c1c: "请刷新被评分人",
   copy_2c6c18b79b: "评分活动尚未开始",
@@ -38,7 +38,7 @@ module.exports = Object.freeze({
   copy_bce1328642: "评分范围已更新，请重新进入评分页",
   copy_be736f763d: "职能组",
   copy_c0797ed4eb: "评分问题已更新，请重新进入评分页",
-  copy_c20c4aad74: "当前岗位已失效，请重新选择身份",
+  copy_c20c4aad74: "当前岗位已失效，请重新选择工作上下文",
   copy_c3cf0a1624: "请选择其他成员",
   copy_c5ed87fa11: "请先选择评分活动",
   copy_cc1ba72c8d: "第 {0} 题不符合起评分和步进值要求",

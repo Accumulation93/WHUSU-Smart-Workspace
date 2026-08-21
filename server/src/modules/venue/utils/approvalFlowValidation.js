@@ -30,11 +30,11 @@ function normalizeRule(rawRule) {
   const identityScope = normalizeScope(raw.identityScope);
   return {
     departmentScope,
-    specificDepartmentId: normalizeSpecificIds(departmentScope, raw.specificDepartmentId, '部门'),
+    specificDepartmentId: normalizeSpecificIds(departmentScope, raw.specificDepartmentId, localeCopy.department),
     workGroupScope,
-    specificWorkGroupId: normalizeSpecificIds(workGroupScope, raw.specificWorkGroupId, '职能组'),
+    specificWorkGroupId: normalizeSpecificIds(workGroupScope, raw.specificWorkGroupId, localeCopy.workGroup),
     identityScope,
-    specificIdentityId: normalizeSpecificIds(identityScope, raw.specificIdentityId, '身份')
+    specificIdentityId: normalizeSpecificIds(identityScope, raw.specificIdentityId, localeCopy.identityCategory)
   };
 }
 

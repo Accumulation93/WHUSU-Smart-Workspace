@@ -1,6 +1,14 @@
 'use strict';
 
 module.exports = Object.freeze({
+  applicantAssignment: '借用岗位',
+  approverAssignment: '处理岗位：',
+  contextSwitchRequired: '需切换工作上下文后处理',
+  noActiveAssignment: '当前工作上下文没有有效岗位，不能提交场地借用',
+  noActiveAssignmentNotice: '当前为无岗位成员上下文，可查看场地与借用记录；提交借用和审批前需要切换到有效岗位。',
+  requiredContextPrefix: '此事项需要以下岗位之一：',
+  requiredContextGeneric: '请先切换到可处理此事项的组织和岗位',
+  switchWorkContext: '切换岗位',
   copy_015de41f7c: '2小时',
   copy_017e3df1a1: '周四',
   copy_02ef2f799d: "提交借用申请",
@@ -110,7 +118,7 @@ module.exports = Object.freeze({
   copy_ab5ebc56e8: '请重新选择日期',
   copy_abf766aebc: ' 已被占用',
   copy_acd4c5c171: '活动',
-  copy_ad183b164d: '未设置身份',
+  copy_ad183b164d: '未设置岗位',
   copy_ad310c8780: '使用中',
   copy_b210c95498: "可用场地",
   copy_b40ec83bc1: "我的借用",
@@ -119,7 +127,7 @@ module.exports = Object.freeze({
   copy_b80d60c556: '周',
   copy_b8c87b0fb5: '不限结束',
   copy_baec508307: '▼ 详情',
-  copy_bba7f8b8ba: '请使用普通岗位身份',
+  copy_bba7f8b8ba: '请使用普通用户岗位',
   copy_bbb0cc00c9: "借用事由",
   copy_bbbebc1abf: "场地",
   copy_bd24ac5b0c: "确认",

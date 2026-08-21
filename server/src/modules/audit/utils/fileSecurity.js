@@ -5,9 +5,11 @@ const crypto = require('crypto');
 const pool = require('../../../config/db');
 const { safeString, generateId } = require('../../../utils/helpers');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
-const adminInfoModel = require('../../../core/models/adminInfo');
 const verificationPermModel = require('../models/verificationPermission');
 const submissionFileModel = require('../models/auditSubmissionFile');
+const submissionStepModel = require('../models/auditSubmissionStep');
+const { resolveCurrentActor } = require('../../../core/services/currentActor');
+const { resolveActorAssignment } = require('../services/auditAssignmentContext');
 const { JWT_SECRET } = require('../../../middleware/auth');
 const { hashFile } = require('./hashChain');
 
@@ -183,18 +185,7 @@ async function attachUploadedFiles({ uploadedFiles, submissionId, openid, conn }
   }
 }
 
-function csvContainsExactId(value, expectedId) {
-  return safeString(value).split(',').map((item) => item.trim()).filter(Boolean).includes(expectedId);
-}
-
-function jsonContainsExactId(value, expectedId) {
-  if (typeof value === 'string') return value === expectedId;
-  if (Array.isArray(value)) return value.some((item) => jsonContainsExactId(item, expectedId));
-  if (!value || typeof value !== 'object') return false;
-  return Object.keys(value).some((key) => jsonContainsExactId(value[key], expectedId));
-}
-
-async function getAuthorizedAuditFile(fileId, openid) {
+async function getAuthorizedAuditFile(fileId, req) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
     `SELECT f.*, s.submitted_by
@@ -206,33 +197,28 @@ async function getAuthorizedAuditFile(fileId, openid) {
   const file = rows[0];
   if (!file) return { status: 'not_found', message: localeCopy.copy_03d69a9d28 };
 
-  const admin = await adminInfoModel.getByOpenid(openid);
-  if (admin) return { status: 'success', file };
+  const actorResult = await resolveCurrentActor(req);
+  if (!actorResult.ok) return { status: 'forbidden', message: localeCopy.copy_162d055e98 };
+  if (actorResult.actor.type === 'admin') return { status: 'success', file };
 
-  const [userRows] = await pool.query('SELECT hr_id FROM user_info WHERE openid = ? AND org_id = ?', [openid, orgId]);
-  const hrId = userRows[0] ? userRows[0].hr_id : '';
-  if (!hrId) return { status: 'forbidden', message: localeCopy.copy_162d055e98 };
+  const actor = actorResult.actor;
+  const assignment = await resolveActorAssignment(actor, orgId);
+  if (!assignment) return { status: 'forbidden', message: localeCopy.copy_162d055e98 };
+  const hrId = assignment.hr_id;
   if (file.submitted_by === hrId) return { status: 'success', file };
 
-  const [stepRows] = await pool.query(
-    `SELECT approver_hr_id, step_conditions_json
-       FROM audit_submission_steps
-      WHERE submission_id = ? AND org_id = ?`,
-    [file.submission_id, orgId]
-  );
-  const isStepParticipant = stepRows.some((step) => {
-    if (csvContainsExactId(step.approver_hr_id, hrId)) return true;
-    try {
-      return jsonContainsExactId(JSON.parse(step.step_conditions_json || '{}'), hrId);
-    } catch (_) {
-      return false;
-    }
-  });
-  if (isStepParticipant) return { status: 'success', file };
+  const pendingSteps = await submissionStepModel.getPendingByApprover(actor, assignment);
+  if (pendingSteps.some(function(step) { return step.submission_id === file.submission_id; })) {
+    return { status: 'success', file };
+  }
 
   const [eventRows] = await pool.query(
-    'SELECT id FROM audit_events WHERE submission_id = ? AND operator_hr_id = ? AND org_id = ? LIMIT 1',
-    [file.submission_id, hrId, orgId]
+    `SELECT id FROM audit_events
+      WHERE submission_id = ? AND org_id = ?
+        AND ((? <> '' AND operator_person_id = ?)
+          OR ((operator_person_id IS NULL OR operator_person_id = '') AND operator_hr_id = ?))
+      LIMIT 1`,
+    [file.submission_id, orgId, safeString(actor.personId), safeString(actor.personId), hrId]
   );
   if (eventRows.length) return { status: 'success', file };
 

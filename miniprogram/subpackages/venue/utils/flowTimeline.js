@@ -1,4 +1,5 @@
 const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/flowTimeline');
+const { formatAssignmentLabel } = require('./workContextPresentation');
 /**
  * Shared utility: builds a full flow timeline array for rendering in WXML.
  * Pre-computes all state classes, icons, labels, expandable detail fields
@@ -53,6 +54,21 @@ function buildFlowTimeline(prog) {
     let comment = (snap && snap.comment) || '';
     let approverName = (snap && snap.approverName) || '';
     let approvedAt = (snap && snap.approvedAt) || '';
+    let approverAssignmentText = '';
+    if (snap) {
+      const assignmentSnapshot = snap.approverAssignmentSnapshot || null;
+      const hasImmutableSnapshot = Boolean(
+        assignmentSnapshot
+        && assignmentSnapshot.assignmentId
+        && assignmentSnapshot.departmentId
+        && assignmentSnapshot.identityCategoryId
+      );
+      if (hasImmutableSnapshot) {
+        approverAssignmentText = formatAssignmentLabel(assignmentSnapshot, localeCopy.historyAssignmentMissing);
+      } else if (snap.approverIdentityType === 'user' || snap.approverAssignmentId) {
+        approverAssignmentText = localeCopy.historyAssignmentMissing;
+      }
+    }
 
     timeline.push({
       _key: 'step-' + si,   // unique key for expand toggle tracking
@@ -65,6 +81,7 @@ function buildFlowTimeline(prog) {
       meta: meta,
       comment: comment,
       approverName: approverName,
+      approverAssignmentText: approverAssignmentText,
       approvedAt: approvedAt,
       isLast: si === totalSteps - 1
     });

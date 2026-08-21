@@ -32,6 +32,17 @@ function snapshotContextId(snapshot) {
   );
 }
 
+function snapshotAssignmentId(snapshot) {
+  return safeString(
+    snapshot && (
+      snapshot.approverAssignmentId
+      || snapshot.assignmentId
+      || snapshot.approver_assignment_id
+      || (snapshot.approverAssignmentSnapshot && snapshot.approverAssignmentSnapshot.assignmentId)
+    )
+  );
+}
+
 function matchesApprovalIdentity(record, actor) {
   if (!record || !actor) return false;
   const actorId = safeString(actor.id);
@@ -57,9 +68,14 @@ function matchesApprovalContext(snapshot, actor) {
   const savedRole = snapshotRole(snapshot);
   if (savedRole && savedRole !== safeString(actor.type)) return false;
 
+  const savedAssignmentId = snapshotAssignmentId(snapshot);
+  // 普通用户审批历史必须有不可变岗位引用；旧的仅人员记录不得归入任意当前岗位。
+  if (safeString(actor.type) === 'user' && !savedAssignmentId) return false;
+  if (savedAssignmentId && savedAssignmentId !== safeString(actor.assignmentId)) return false;
+
   const savedContextId = snapshotContextId(snapshot);
   const actorContextId = safeString(actor.contextId);
-  // 新记录必须匹配完整上下文；旧快照没有上下文时按稳定身份回退，避免历史记录因迁移前格式而丢失。
+  // 岗位已经精确匹配后，再校验工作上下文；岗位缺失已在上方失败关闭。
   if (savedContextId && savedContextId !== actorContextId) return false;
   return true;
 }
@@ -76,7 +92,9 @@ function findMyVenueApproval(booking, actor, formatDateTime) {
       approvedAt: safeString(matched.approvedAt),
       comment: safeString(matched.comment),
       stepName: safeString(matched.stepName),
-      stepIndex: Number(matched.stepIndex) || 0
+      stepIndex: Number(matched.stepIndex) || 0,
+      assignmentId: snapshotAssignmentId(matched),
+      assignmentSnapshot: parseContextSnapshot(matched.approverAssignmentSnapshot)
     };
   }
 
@@ -84,12 +102,14 @@ function findMyVenueApproval(booking, actor, formatDateTime) {
   if (!matchesApprovalIdentity({
     approverHrId: booking && booking.approver_hr_id,
     approverPersonId: booking && booking.approver_person_id,
-    approverAdminGrantId: booking && booking.approver_admin_grant_id
+    approverAdminGrantId: booking && booking.approver_admin_grant_id,
+    approverAssignmentId: booking && booking.approver_assignment_id
   }, actor)) return null;
   if (!matchesApprovalContext({
     approverHrId: booking && booking.approver_hr_id,
     approverPersonId: booking && booking.approver_person_id,
     approverAdminGrantId: booking && booking.approver_admin_grant_id,
+    approverAssignmentId: booking && booking.approver_assignment_id,
     approverContextId: approverContext.contextId,
     role: approverContext.role
   }, actor)) return null;
@@ -103,13 +123,16 @@ function findMyVenueApproval(booking, actor, formatDateTime) {
       : '',
     comment: safeString(booking && booking.approval_comment),
     stepName: '',
-    stepIndex: Number(booking && booking.approval_reject_step) || 0
+    stepIndex: Number(booking && booking.approval_reject_step) || 0,
+    assignmentId: safeString(booking && booking.approver_assignment_id),
+    assignmentSnapshot: parseContextSnapshot(approverContext.assignmentSnapshot)
   };
 }
 
 module.exports = {
   parseContextSnapshot,
   parseSnapshots,
+  snapshotAssignmentId,
   matchesApprovalIdentity,
   matchesApprovalContext,
   findMyVenueApproval

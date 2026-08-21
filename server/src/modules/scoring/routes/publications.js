@@ -6,13 +6,11 @@ const notificationOutboxModel = require('../../audit/models/notificationOutbox')
 const { safeString, toNumber, roundScore, generateId, buildNameMap } = require('../../../utils/helpers');
 const { logger } = require('../../../utils/logger');
 const adminInfoModel = require('../../../core/models/adminInfo');
-const userInfoModel = require('../../../core/models/userInfo');
 const publicationModel = require('../models/resultPublication');
 const viewPermModel = require('../models/resultViewPermission');
 const meritPermModel = require('../models/meritListPermission');
 const designationModel = require('../models/meritListDesignation');
 const pubGradeBandModel = require('../models/pubGradeBand');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const departmentModel = require('../../../core/models/department');
 const identityModel = require('../../../core/models/identity');
 const workGroupModel = require('../../../core/models/workGroup');
@@ -23,6 +21,7 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 const pubCache = require('../utils/pubCache');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const participantService = require('../services/participants');
+const publicationAssignments = require('../services/publicationAssignments');
 
 const VALID_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
 const IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity'];
@@ -69,17 +68,37 @@ async function fetchOrgLookups() {
   return value;
 }
 
-// Cached HR member list per org (HR data is stable during publication)
-const _hrCache = new Map();
-const HR_CACHE_TTL = 60000; // 60 seconds
+function getDesignationTargetIds(body) {
+  const source = Array.isArray(body && body.designationAssignmentIds)
+    ? body.designationAssignmentIds
+    : (Array.isArray(body && body.designationHrIds) ? body.designationHrIds : []);
+  return [...new Set(source.map(safeString).filter(Boolean))];
+}
 
-async function fetchHrMembers(orgId) {
-  const cached = _hrCache.get(orgId);
-  const now = Date.now();
-  if (cached && (now - cached.timestamp) < HR_CACHE_TTL) return cached.rows;
-  const [rows] = await pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
-  _hrCache.set(orgId, { rows, timestamp: now });
-  return rows;
+function buildDesignationPresentations(designations, lookups) {
+  const rows = Array.isArray(designations) ? designations : [];
+  return rows.map((designation) => publicationAssignments.buildDesignationPresentation(
+    designation,
+    lookups
+  ));
+}
+
+function buildDesignatorSnapshot(req, actor, assignment) {
+  const actorData = actor || {};
+  const contextId = safeString(actorData.contextId || req.authContext && req.authContext.contextId);
+  if (assignment) {
+    return Object.assign(
+      { role: safeString(actorData.type) || 'user' },
+      participantService.buildAssignmentSnapshot(assignment, { contextId })
+    );
+  }
+  return {
+    contextId,
+    role: safeString(actorData.type) || 'admin',
+    personId: safeString(actorData.personId || req.authContext && req.authContext.personId),
+    assignmentId: safeString(actorData.assignmentId || req.authContext && req.authContext.assignmentId),
+    name: safeString(actorData.name)
+  };
 }
 
 // ─── getResultPublication ───
@@ -213,32 +232,15 @@ router.post('/getResultPublication', async (req, res) => {
       };
     });
 
-    // Batch-load all designated HR members
-    const designatedHrIds = [...new Set(designationRows.map(d => d.target_hr_id).filter(Boolean))];
-    const hrByIdMap = new Map();
-    if (designatedHrIds.length) {
-      const hrPh = designatedHrIds.map(() => '?').join(',');
-      const [hrRows] = await pool.query(
-        `SELECT * FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
-        [...designatedHrIds, orgId]
-      );
-      hrRows.forEach(hr => hrByIdMap.set(safeString(hr.id), hr));
-    }
-
-    // Enrich designations
-    const enrichedDesignations = [];
-    for (const d of designationRows) {
-      const hr = hrByIdMap.get(d.target_hr_id);
-      if (!hr) {
-        try { await pool.query('DELETE FROM merit_list_designations WHERE id = ?', [d.id]); } catch (e) {}
-        continue;
-      }
-      enrichedDesignations.push({
-        id: d.id, publicationId: d.publication_id, clauseId: d.clause_id || '',
-        targetHrId: d.target_hr_id, targetName: safeString(hr.name),
-        targetStudentId: safeString(hr.student_id), designatedBy: d.designated_by
-      });
-    }
+    // 指定记录优先使用写入时岗位快照；离任、调岗后仍保留历史展示。
+    const designationPresentations = buildDesignationPresentations(designationRows, lookups);
+    const enrichedDesignations = designationPresentations.map((item, index) => ({
+      ...item,
+      publicationId: designationRows[index].publication_id,
+      targetName: item.name,
+      targetStudentId: item.studentId,
+      designatedBy: designationRows[index].designated_by
+    }));
 
     res.json({
       status: 'success',
@@ -427,17 +429,15 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       : [safeString(req.body.clauseId) || safeString(req.body.permissionId)];
     const primaryClauseId = clauseIds[0];
     const publicationId = safeString(req.body.publicationId);
-    // Dedup HR IDs to prevent duplicates
-    const designationHrIds = [...new Set(
-      (Array.isArray(req.body.designationHrIds) ? req.body.designationHrIds.map(id => safeString(id)).filter(Boolean) : [])
-    )];
+    // 新客户端提交岗位 ID；旧 HR ID 仅在该人员当前只有一个岗位时兼容。
+    const designationTargetIds = getDesignationTargetIds(req.body);
 
     if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_157f5cd8f8 });
 
     // Look up clause + parent merit rule from new tables (include publication_id for reliable INSERT)
     const orgId = await getCurrentOrgId();
     const [[clause]] = await pool.query(
-      `SELECT pmrc.*, pmr.grantee_department_id, pmr.publication_id
+      `SELECT pmrc.*, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
          FROM pub_merit_rule_clauses pmrc
          JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
         WHERE pmrc.id = ? AND pmrc.org_id = ? AND pmr.org_id = ? AND pmr.publication_id = ?`,
@@ -463,10 +463,6 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     } else {
       aggregatedQuotaLimit = clause.quota_limit || 0;
     }
-    if (aggregatedQuotaLimit > 0 && designationHrIds.length > aggregatedQuotaLimit) {
-      return res.json({ status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
-    }
-
     const pubId = safeString(clause.publication_id) || publicationId;
 
     // Validate all designated HR members are within the ALL clauses' combined scope
@@ -475,7 +471,8 @@ router.post('/saveMeritListDesignations', async (req, res) => {
     if (clauseIds.length > 1) {
       const ph = clauseIds.map(() => '?').join(',');
       const [rows] = await pool.query(
-        `SELECT pmrc.scope_type, pmrc.target_identity_id, pmr.grantee_department_id
+        `SELECT pmrc.scope_type, pmrc.target_identity_id,
+                pmr.grantee_department_id, pmr.grantee_identity_id
            FROM pub_merit_rule_clauses pmrc
            JOIN pub_merit_rules pmr ON pmr.id = pmrc.rule_id
           WHERE pmrc.id IN (${ph}) AND pmrc.rule_id = ?
@@ -487,55 +484,87 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       }
       allClauseScopes = rows;
     } else {
-      allClauseScopes = [{ scope_type: clause.scope_type, target_identity_id: clause.target_identity_id, grantee_department_id: clause.grantee_department_id }];
+      allClauseScopes = [{
+        scope_type: clause.scope_type,
+        target_identity_id: clause.target_identity_id,
+        grantee_department_id: clause.grantee_department_id,
+        grantee_identity_id: clause.grantee_identity_id
+      }];
     }
-    const [granteeRows] = await pool.query('SELECT id, work_group_id FROM hr_info WHERE department_id = ? AND org_id = ? LIMIT 1', [safeString(clause.grantee_department_id), orgId]);
-    const granteeWgId = safeString((granteeRows[0] || {}).work_group_id);
-
-    // Batch-load all designated HR members for validation
-    const validationHrMap = new Map();
-    if (designationHrIds.length) {
-      const hrPh = designationHrIds.map(() => '?').join(',');
-      const [hrRows] = await pool.query(
-        `SELECT * FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
-        [...designationHrIds, orgId]
-      );
-      hrRows.forEach(hr => validationHrMap.set(safeString(hr.id), hr));
+    const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
+    const resolvedTargets = publicationAssignments.resolveRequestedAssignments(designationTargetIds, activeAssignments);
+    if (!resolvedTargets.ok) {
+      return res.json({ status: 'invalid_hr', reason: resolvedTargets.status, message: localeCopy.copy_f3dd2d1ffc });
     }
-    for (const hrId of designationHrIds) {
-      const hr = validationHrMap.get(hrId);
-      if (!hr) return res.json({ status: 'invalid_hr', message: localeCopy.copy_f3dd2d1ffc });
+    const designationTargets = resolvedTargets.targets;
+    if (aggregatedQuotaLimit > 0 && designationTargets.length > aggregatedQuotaLimit) {
+      return res.json({ status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
+    }
+    for (const targetAssignment of designationTargets) {
       let matchesAnyClause = false;
       for (const sc of allClauseScopes) {
-        if (safeString(hr.identity_id) !== safeString(sc.target_identity_id)) continue;
-        const scopeType = safeString(sc.scope_type || 'all_people');
-        if (scopeType === 'all_people' || scopeType === 'identity_only') { matchesAnyClause = true; break; }
-        const hrDept = safeString(hr.department_id);
-        if (scopeType === 'same_department_identity' || scopeType === 'same_department_all') { if (hrDept === safeString(sc.grantee_department_id)) { matchesAnyClause = true; break; } }
-        else if (scopeType === 'same_work_group_identity' || scopeType === 'same_work_group_all') { if (hrDept === safeString(sc.grantee_department_id) && safeString(hr.work_group_id) === granteeWgId) { matchesAnyClause = true; break; } }
+        const granteeAssignments = activeAssignments.filter((assignment) => (
+          safeString(assignment.department_id) === safeString(sc.grantee_department_id)
+          && safeString(assignment.identity_id) === safeString(sc.grantee_identity_id)
+        ));
+        matchesAnyClause = granteeAssignments.some((granteeAssignment) => (
+          publicationAssignments.matchesMeritClause(targetAssignment, sc, granteeAssignment)
+        ));
+        if (matchesAnyClause) break;
       }
-      if (!matchesAnyClause) return res.json({ status: 'out_of_scope', message: localeFormat(localeCopy.copy_45ccfd7d80, [safeString(hr.name)]) });
+      if (!matchesAnyClause) {
+        const displayName = safeString(targetAssignment.name) || publicationAssignments.assignmentIdOf(targetAssignment);
+        return res.json({ status: 'out_of_scope', message: localeFormat(localeCopy.copy_45ccfd7d80, [displayName]) });
+      }
     }
+
+    const designatorSnapshot = buildDesignatorSnapshot(req, {
+      type: 'admin',
+      personId: req.authContext && req.authContext.personId,
+      assignmentId: req.authContext && req.authContext.assignmentId,
+      contextId: req.authContext && req.authContext.contextId,
+      name: admin.name
+    });
 
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
       // Delete all designations for ALL clauses in this identity group
       const delPh = clauseIds.map(() => '?').join(',');
       await conn.query(`DELETE FROM merit_list_designations WHERE clause_id IN (${delPh}) AND org_id = ?`, [...clauseIds, orgId]);
-      // Also remove these HRs from any other clauses in this publication
-      // to avoid unique constraint violation (one person can only appear once)
-      if (designationHrIds.length > 0) {
-        const hrPh = designationHrIds.map(() => '?').join(',');
+      // 同一岗位在同一公示中只允许出现一次；同时清理能唯一归属的旧 HR 记录。
+      if (designationTargets.length > 0) {
+        const assignmentIds = designationTargets.map(publicationAssignments.assignmentIdOf);
+        const legacyHrIds = [...new Set(designationTargets.map(publicationAssignments.legacyHrIdOf).filter(Boolean))];
+        const assignmentPh = assignmentIds.map(() => '?').join(',');
+        const legacyCondition = legacyHrIds.length
+          ? ` OR (target_assignment_id IS NULL AND target_hr_id IN (${legacyHrIds.map(() => '?').join(',')}))`
+          : '';
         await conn.query(
-          `DELETE FROM merit_list_designations WHERE publication_id = ? AND target_hr_id IN (${hrPh}) AND org_id = ?`,
-          [pubId, ...designationHrIds, orgId]
+          `DELETE FROM merit_list_designations
+            WHERE publication_id = ? AND org_id = ?
+              AND (target_assignment_id IN (${assignmentPh})
+                ${legacyCondition})`,
+          [pubId, orgId, ...assignmentIds, ...legacyHrIds]
         );
       }
       // Insert all under the primary clause (dedup already done above)
-      for (const hrId of designationHrIds) {
+      for (const targetAssignment of designationTargets) {
+        const targetSnapshot = participantService.buildAssignmentSnapshot(targetAssignment);
         await conn.query(
-          'INSERT INTO merit_list_designations (id, publication_id, clause_id, target_hr_id, designated_by, org_id) VALUES (?, ?, ?, ?, ?, ?)',
-          [generateId(), pubId, primaryClauseId, hrId, admin.id, orgId]
+          `INSERT INTO merit_list_designations
+            (id, publication_id, clause_id, target_hr_id, target_assignment_id, target_context_snapshot,
+             designated_by, designated_by_person_id, designated_by_assignment_id,
+             designated_by_context_snapshot, org_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            generateId(), pubId, primaryClauseId,
+            publicationAssignments.legacyHrIdOf(targetAssignment),
+            publicationAssignments.assignmentIdOf(targetAssignment),
+            JSON.stringify(targetSnapshot), admin.id,
+            safeString(designatorSnapshot.personId) || null,
+            safeString(designatorSnapshot.assignmentId) || null,
+            JSON.stringify(designatorSnapshot), orgId
+          ]
         );
       }
     });
@@ -546,22 +575,12 @@ router.post('/saveMeritListDesignations', async (req, res) => {
       `SELECT * FROM merit_list_designations WHERE clause_id IN (${clausesPh}) AND org_id = ?`,
       [...clauseIds, orgId]
     );
-    // Batch-load all referenced HR members
-    const hrIds = [...new Set(designations.map(d => d.target_hr_id).filter(Boolean))];
-    const hrMap = new Map();
-    if (hrIds.length) {
-      const hrPh = hrIds.map(() => '?').join(',');
-      const [hrRows] = await pool.query(
-        `SELECT id, name, student_id FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
-        [...hrIds, orgId]
-      );
-      hrRows.forEach(hr => hrMap.set(safeString(hr.id), hr));
-    }
-    const result = [];
-    for (const d of designations) {
-      const hr = hrMap.get(d.target_hr_id);
-      result.push({ id: d.id, clauseId: d.clause_id || '', targetHrId: d.target_hr_id, targetName: hr ? safeString(hr.name) : '', targetStudentId: hr ? safeString(hr.student_id) : '' });
-    }
+    const presentations = buildDesignationPresentations(designations, await fetchOrgLookups());
+    const result = presentations.map((item) => ({
+      ...item,
+      targetName: item.name,
+      targetStudentId: item.studentId
+    }));
     res.json({ status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
     if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
@@ -653,11 +672,17 @@ router.post('/getPublicResults', async (req, res) => {
       }
     }
 
-    const allMembers = participantRows.map(m => ({
-      id: safeString(m.id), name: safeString(m.name), studentId: safeString(m.student_id),
+    const normalizedMembers = participantRows.map(m => ({
+      id: safeString(m.id), assignmentId: safeString(m.assignment_id || m.id),
+      assignmentKind: safeString(m.assignment_kind), name: safeString(m.name), studentId: safeString(m.student_id),
       personId: safeString(m.person_id),
-      departmentId: safeString(m.department_id), identityId: safeString(m.identity_id), workGroupId: safeString(m.work_group_id)
+      departmentId: safeString(m.department_id), identityId: safeString(m.identity_id), workGroupId: safeString(m.work_group_id),
+      department: lookups.departmentsById.get(safeString(m.department_id)) || '',
+      identity: lookups.identitiesById.get(safeString(m.identity_id)) || '',
+      workGroup: lookups.workGroupsById.get(safeString(m.work_group_id)) || ''
     }));
+    const memberPresentation = participantService.decorateAssignmentDisambiguation(normalizedMembers);
+    const allMembers = memberPresentation.rows;
 
     function matchScope(target, clause) {
       const st = safeString(clause.scope_type);
@@ -742,6 +767,8 @@ router.post('/getPublicResults', async (req, res) => {
         const rawScore = (scoreData && typeof scoreData.finalScore === 'number') ? scoreData.finalScore : 0;
 
         const entry = {
+          assignmentId: member.assignmentId,
+          personId: member.personId,
           name: member.name,
           department: lookups.departmentsById.get(member.departmentId) || safeString(member.departmentId) || localeCopy.copy_25e27df7c6,
           identity: lookups.identitiesById.get(member.identityId) || safeString(member.identityId) || localeCopy.copy_25e27df7c6,
@@ -749,6 +776,10 @@ router.post('/getPublicResults', async (req, res) => {
           sortScore: rawScore,
           finalScore: Number(rawScore).toFixed(3)
         };
+        if (member.needsAssignmentDisambiguation) {
+          entry.needsAssignmentDisambiguation = true;
+          entry.assignmentLabel = member.assignmentLabel;
+        }
 
         // Always map grade when in grade mode (fallback to '未评级' if no bands or no match)
         if (clauseDisplayMode === 'grade') {
@@ -783,6 +814,7 @@ router.post('/getPublicResults', async (req, res) => {
 
     res.json({
       status: 'success',
+      needsAssignmentDisambiguation: memberPresentation.needsAssignmentDisambiguation,
       groups
     });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
@@ -799,33 +831,36 @@ router.post('/getPublicMeritList', async (req, res) => {
     const publication = await publicationModel.getByActivity(activityId);
     if (!publication || !publication.is_published) return res.json({ status: 'not_published', message: localeCopy.copy_c390fbf5b7 });
 
-    // Check if user has merit list designation permission
+    // 当前评优权限只认请求中明确选择的活动岗位，不得从 hr_info 猜测岗位。
     let canDesignate = false;
     let matchingRules = [];
     let matchingMeritClauses = [];
-    let viewerHr = null;
     const orgId = await getCurrentOrgId();
-    const user = await userInfoModel.getByOpenid(openid);
-    if (user && safeString(user.hr_id)) {
-      viewerHr = await hrInfoModel.getById(safeString(user.hr_id));
-      if (viewerHr) {
-        const [meritRuleRows] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
-        matchingRules = meritRuleRows.filter(r =>
-          safeString(r.grantee_department_id) === safeString(viewerHr.department_id) &&
-          safeString(r.grantee_identity_id) === safeString(viewerHr.identity_id)
-        );
-        if (matchingRules.length > 0) {
-          const ruleIds = matchingRules.map(r => r.id);
-          const ph = ruleIds.map(() => '?').join(',');
-          [matchingMeritClauses] = await pool.query(
-            `SELECT * FROM pub_merit_rule_clauses
-              WHERE rule_id IN (${ph}) AND org_id = ?
-              ORDER BY rule_id, sort_order`,
-            [...ruleIds, orgId]
-          );
-          canDesignate = matchingMeritClauses.length > 0;
-        }
-      }
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'work_context_required', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
+    const viewerAssignment = activeAssignments.find((assignment) => (
+      publicationAssignments.assignmentIdOf(assignment) === safeString(actorResult.actor.assignmentId)
+      && (!safeString(actorResult.actor.personId) || safeString(assignment.person_id) === safeString(actorResult.actor.personId))
+      && (!safeString(actorResult.actor.membershipId) || safeString(assignment.membership_id) === safeString(actorResult.actor.membershipId))
+    ));
+    if (!viewerAssignment) {
+      return res.json({ status: 'work_context_required', message: localeCopy.copy_c20c4aad74 });
+    }
+    const [meritRuleRows] = await pool.query('SELECT * FROM pub_merit_rules WHERE publication_id = ? AND org_id = ?', [publication.id, orgId]);
+    matchingRules = meritRuleRows.filter((rule) => publicationAssignments.matchesRuleGrantee(viewerAssignment, rule));
+    if (matchingRules.length > 0) {
+      const ruleIds = matchingRules.map(r => r.id);
+      const ph = ruleIds.map(() => '?').join(',');
+      [matchingMeritClauses] = await pool.query(
+        `SELECT * FROM pub_merit_rule_clauses
+          WHERE rule_id IN (${ph}) AND org_id = ?
+          ORDER BY rule_id, sort_order`,
+        [...ruleIds, orgId]
+      );
+      canDesignate = matchingMeritClauses.length > 0;
     }
 
     const designations = await designationModel.getByPublication(publication.id);
@@ -835,53 +870,40 @@ router.post('/getPublicMeritList', async (req, res) => {
     matchingMeritClauses.forEach((clause) => viewerClauseIds.add(clause.id));
     const lookups = await fetchOrgLookups();
     const result = [];
-    // Batch-load all designated HRs in a single query instead of N+1
-    let designatedHrMap = new Map(); // hrId -> hr row
-    const designatedHrIds = designations
-      .filter(d => d.clause_id && viewerClauseIds.has(d.clause_id))
-      .map(d => d.target_hr_id);
-    if (designatedHrIds.length > 0) {
-      const ph = designatedHrIds.map(() => '?').join(',');
-      const [designatedHrRows] = await pool.query(
-        `SELECT * FROM hr_info WHERE id IN (${ph}) AND org_id = ?`,
-        [...designatedHrIds, orgId]
-      );
-      designatedHrRows.forEach(hr => designatedHrMap.set(safeString(hr.id), hr));
-    }
-    for (const d of designations) {
+    const visibleDesignations = designations.filter((item) => (
+      item.clause_id && viewerClauseIds.has(item.clause_id)
+    ));
+    const designationPresentations = buildDesignationPresentations(visibleDesignations, lookups);
+    for (let index = 0; index < visibleDesignations.length; index += 1) {
+      const d = visibleDesignations[index];
       const cid = d.clause_id || '';
       // Only show designations that belong to the viewer's own merit rule clauses
       if (!cid || !viewerClauseIds.has(cid)) continue;
-      const hr = designatedHrMap.get(d.target_hr_id);
-      if (!hr) continue;
+      const presentation = designationPresentations[index];
       result.push({
-        id: d.id, targetHrId: d.target_hr_id, name: safeString(hr.name),
-        department: lookups.departmentsById.get(safeString(hr.department_id)) || '',
-        identity: lookups.identitiesById.get(safeString(hr.identity_id)) || '',
-        workGroup: lookups.workGroupsById.get(safeString(hr.work_group_id)) || ''
+        id: d.id,
+        targetHrId: presentation.targetHrId,
+        targetAssignmentId: presentation.targetAssignmentId,
+        assignmentId: presentation.targetAssignmentId,
+        personId: presentation.personId,
+        name: presentation.name,
+        studentId: presentation.studentId,
+        department: presentation.department,
+        identity: presentation.identity,
+        workGroup: presentation.workGroup,
+        assignmentNature: presentation.assignmentNature,
+        assignmentLabel: presentation.assignmentLabel,
+        historicalAssignmentUnavailable: presentation.historicalAssignmentUnavailable
       });
     }
     // Collect user's own merit clauses for the designation picker
     const userClauses = [];
     // Build scoped designation candidates (so frontend does NOT need admin-only listHrInfo)
-    const designationCandidates = [];
-    const seenCandidateIds = new Set();
+    let designationCandidates = [];
+    let needsAssignmentDisambiguation = false;
     if (canDesignate) {
-      // Reuse viewerHr from permission check above (no duplicate query)
-      const viewerDepartmentId = safeString(viewerHr.department_id);
-      const viewerWg = safeString(viewerHr.work_group_id);
-
-      // Pre-index HR by identity_id for O(1) candidate lookup per clause
-      const [allHrMembers] = await pool.query('SELECT * FROM hr_info WHERE org_id = ?', [orgId]);
-      const hrByIdentity = new Map();
-      allHrMembers.forEach(hr => {
-        const iid = safeString(hr.identity_id);
-        if (!hrByIdentity.has(iid)) hrByIdentity.set(iid, []);
-        hrByIdentity.get(iid).push(hr);
-      });
-
-      // Pre-build Set of already-designated HR IDs for O(1) lookup
-      const designatedIdSet = new Set(result.map(d => d.targetHrId));
+      // 新记录按岗位 ID 回显；旧 HR 记录仅在唯一岗位可解析时进入该集合。
+      const designatedIdSet = new Set(result.map(d => d.targetAssignmentId).filter(Boolean));
 
       const clausesByRule = new Map();
       matchingMeritClauses.forEach((clause) => {
@@ -903,39 +925,27 @@ router.post('/getPublicMeritList', async (req, res) => {
             granteeIdentityId: safeString(rule.grantee_identity_id)
           });
 
-          // Build designation candidates for this clause
-          const st = safeString(c.scope_type) || 'all_people';
-          const tid = safeString(c.target_identity_id);
-          const candidatesForIdentity = hrByIdentity.get(tid) || [];
-          for (const hr of candidatesForIdentity) {
-            if (seenCandidateIds.has(hr.id)) continue;
-            let match = false;
-            if (st === 'all_people' || st === 'identity_only') match = true;
-            else if (st === 'same_department_identity') match = safeString(hr.department_id) === viewerDepartmentId;
-            else if (st === 'same_department_all') match = safeString(hr.department_id) === viewerDepartmentId;
-            else if (st === 'same_work_group_identity') match = safeString(hr.department_id) === viewerDepartmentId && safeString(hr.work_group_id) === viewerWg;
-            else if (st === 'same_work_group_all') match = safeString(hr.department_id) === viewerDepartmentId && safeString(hr.work_group_id) === viewerWg;
-            if (match) {
-              seenCandidateIds.add(hr.id);
-              designationCandidates.push({
-                id: hr.id,
-                name: safeString(hr.name),
-                departmentId: safeString(hr.department_id),
-                department: lookups.departmentsById.get(safeString(hr.department_id)) || '',
-                identityId: safeString(hr.identity_id),
-                identity: lookups.identitiesById.get(safeString(hr.identity_id)) || '',
-                workGroupId: safeString(hr.work_group_id),
-                workGroup: lookups.workGroupsById.get(safeString(hr.work_group_id)) || '',
-                isSelected: designatedIdSet.has(hr.id),
-                targetIdentityId: tid,
-                targetIdentity: targetIdentityName
-              });
-            }
-          }
         }
       }
+      const candidatePresentation = publicationAssignments.buildDesignationCandidates(
+        activeAssignments,
+        matchingMeritClauses,
+        viewerAssignment,
+        lookups,
+        designatedIdSet
+      );
+      designationCandidates = candidatePresentation.rows;
+      needsAssignmentDisambiguation = candidatePresentation.needsAssignmentDisambiguation;
     }
-    res.json({ status: 'success', meritList: result, canDesignate, clauses: userClauses, designationCandidates, publicationId: publication.id });
+    res.json({
+      status: 'success',
+      meritList: result,
+      canDesignate,
+      clauses: userClauses,
+      designationCandidates,
+      needsAssignmentDisambiguation,
+      publicationId: publication.id
+    });
   } catch (e) { res.json({ status: 'error', message: safeString(e.message) }); }
 });
 
@@ -948,21 +958,26 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       ? req.body.clauseIds.map(id => safeString(id)).filter(Boolean)
       : [safeString(req.body.clauseId) || safeString(req.body.permissionId)];
     const primaryClauseId = clauseIds[0];
-    // Dedup HR IDs to prevent duplicates
-    const designationHrIds = [...new Set(
-      (Array.isArray(req.body.designationHrIds) ? req.body.designationHrIds.map(id => safeString(id)).filter(Boolean) : [])
-    )];
+    const designationTargetIds = getDesignationTargetIds(req.body);
 
     if (!openid) return res.json({ status: 'auth_failed', message: localeCopy.copy_c22a252e97 });
     if (!primaryClauseId || !publicationId) return res.json({ status: 'invalid_params', message: localeCopy.copy_157f5cd8f8 });
 
-    const user = await userInfoModel.getByOpenid(openid);
-    if (!user || !safeString(user.hr_id)) return res.json({ status: 'not_bound', message: localeCopy.copy_162d055e98 });
-    const viewerHr = await hrInfoModel.getById(safeString(user.hr_id));
-    if (!viewerHr) return res.json({ status: 'not_bound', message: localeCopy.copy_bba7f8b8ba });
-
     // Look up clause + parent merit rule (include publication_id for reliable lookup)
     const orgId = await getCurrentOrgId();
+    const actorResult = await resolveCurrentActor(req);
+    if (!actorResult.ok || actorResult.actor.type !== 'user') {
+      return res.json({ status: actorResult.status || 'work_context_required', message: actorResult.message || localeCopy.copy_4e84385ce1 });
+    }
+    const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
+    const viewerAssignment = activeAssignments.find((assignment) => (
+      publicationAssignments.assignmentIdOf(assignment) === safeString(actorResult.actor.assignmentId)
+      && (!safeString(actorResult.actor.personId) || safeString(assignment.person_id) === safeString(actorResult.actor.personId))
+      && (!safeString(actorResult.actor.membershipId) || safeString(assignment.membership_id) === safeString(actorResult.actor.membershipId))
+    ));
+    if (!viewerAssignment) {
+      return res.json({ status: 'work_context_required', message: localeCopy.copy_c20c4aad74 });
+    }
     const [[clause]] = await pool.query(
       `SELECT pmrc.*, pmr.grantee_department_id, pmr.grantee_identity_id, pmr.publication_id
          FROM pub_merit_rule_clauses pmrc
@@ -971,7 +986,7 @@ router.post('/submitMeritListDesignations', async (req, res) => {
       [primaryClauseId, orgId, orgId, publicationId]
     );
     if (!clause) return res.json({ status: 'not_found', message: localeCopy.copy_22d72751cb });
-    if (safeString(clause.grantee_department_id) !== safeString(viewerHr.department_id) || safeString(clause.grantee_identity_id) !== safeString(viewerHr.identity_id))
+    if (!publicationAssignments.matchesRuleGrantee(viewerAssignment, clause))
       return res.json({ status: 'forbidden', message: localeCopy.copy_cfa6e136e4 });
 
     // Use merit rule's publication_id (reliable), fall back to frontend-supplied
@@ -981,10 +996,11 @@ router.post('/submitMeritListDesignations', async (req, res) => {
 
     // Aggregate quota across all clauses in a single query
     let aggregatedQuotaLimit = 0, hasExactQuota = false;
+    let selectedClauses = [];
     if (clauseIds.length > 1) {
       const placeholders = clauseIds.map(() => '?').join(',');
       const [quotaRows] = await pool.query(
-        `SELECT quota_limit, require_exact_quota
+        `SELECT id, scope_type, target_identity_id, quota_limit, require_exact_quota
            FROM pub_merit_rule_clauses
           WHERE id IN (${placeholders}) AND rule_id = ? AND org_id = ?`,
         [...clauseIds, clause.rule_id, orgId]
@@ -996,55 +1012,86 @@ router.post('/submitMeritListDesignations', async (req, res) => {
         aggregatedQuotaLimit = Math.max(aggregatedQuotaLimit, cl.quota_limit || 0);
         if (cl.require_exact_quota) hasExactQuota = true;
       }
+      selectedClauses = quotaRows;
     } else {
       aggregatedQuotaLimit = clause.quota_limit || 0;
       hasExactQuota = !!(clause.require_exact_quota);
+      selectedClauses = [clause];
     }
-    if (hasExactQuota && aggregatedQuotaLimit > 0 && designationHrIds.length !== aggregatedQuotaLimit)
+    const targetValidation = publicationAssignments.validateDesignationTargets(
+      designationTargetIds,
+      activeAssignments,
+      selectedClauses,
+      viewerAssignment
+    );
+    if (!targetValidation.ok) {
+      if (targetValidation.status === 'invalid_assignment' || targetValidation.status === 'ambiguous_assignment') {
+        return res.json({ status: 'invalid_hr', reason: targetValidation.status, message: localeCopy.copy_f3dd2d1ffc });
+      }
+      return res.json({
+        status: 'out_of_scope',
+        message: localeFormat(localeCopy.copy_45ccfd7d80, [targetValidation.targetId])
+      });
+    }
+    const designationTargets = targetValidation.targets;
+    if (hasExactQuota && aggregatedQuotaLimit > 0 && designationTargets.length !== aggregatedQuotaLimit)
       return res.json({ status: 'quota_mismatch', message: localeFormat(localeCopy.copy_b947327844, [aggregatedQuotaLimit]) });
-    if (!hasExactQuota && aggregatedQuotaLimit > 0 && designationHrIds.length > aggregatedQuotaLimit)
+    if (!hasExactQuota && aggregatedQuotaLimit > 0 && designationTargets.length > aggregatedQuotaLimit)
       return res.json({ status: 'quota_exceeded', message: localeFormat(localeCopy.copy_7010de3cee, [aggregatedQuotaLimit]) });
+
+    const designatorSnapshot = buildDesignatorSnapshot(req, actorResult.actor, viewerAssignment);
 
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
       // Delete all designations for ALL clauses in this identity group
       const delPh = clauseIds.map(() => '?').join(',');
       await conn.query(`DELETE FROM merit_list_designations WHERE clause_id IN (${delPh}) AND org_id = ?`, [...clauseIds, orgId]);
-      // Also remove these HRs from any other clauses in this publication
-      // to avoid unique constraint violation (one person can only appear once)
-      if (designationHrIds.length > 0) {
-        const hrPh = designationHrIds.map(() => '?').join(',');
+      // 同一岗位在同一公示中只允许出现一次；旧 HR 记录仅作为兼容清理。
+      if (designationTargets.length > 0) {
+        const assignmentIds = designationTargets.map(publicationAssignments.assignmentIdOf);
+        const legacyHrIds = [...new Set(designationTargets.map(publicationAssignments.legacyHrIdOf).filter(Boolean))];
+        const assignmentPh = assignmentIds.map(() => '?').join(',');
+        const legacyCondition = legacyHrIds.length
+          ? ` OR (target_assignment_id IS NULL AND target_hr_id IN (${legacyHrIds.map(() => '?').join(',')}))`
+          : '';
         await conn.query(
-          `DELETE FROM merit_list_designations WHERE publication_id = ? AND target_hr_id IN (${hrPh}) AND org_id = ?`,
-          [pubId, ...designationHrIds, orgId]
+          `DELETE FROM merit_list_designations
+            WHERE publication_id = ? AND org_id = ?
+              AND (target_assignment_id IN (${assignmentPh})
+                ${legacyCondition})`,
+          [pubId, orgId, ...assignmentIds, ...legacyHrIds]
         );
       }
       // Insert all under the primary clause (dedup already done above)
-      for (const hrId of designationHrIds) {
+      for (const targetAssignment of designationTargets) {
+        const targetSnapshot = participantService.buildAssignmentSnapshot(targetAssignment);
         await conn.query(
-          'INSERT INTO merit_list_designations (id, publication_id, clause_id, target_hr_id, designated_by, org_id) VALUES (?, ?, ?, ?, ?, ?)',
-          [generateId(), pubId, primaryClauseId, hrId, openid, orgId]
+          `INSERT INTO merit_list_designations
+            (id, publication_id, clause_id, target_hr_id, target_assignment_id, target_context_snapshot,
+             designated_by, designated_by_person_id, designated_by_assignment_id,
+             designated_by_context_snapshot, org_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            generateId(), pubId, primaryClauseId,
+            publicationAssignments.legacyHrIdOf(targetAssignment),
+            publicationAssignments.assignmentIdOf(targetAssignment),
+            JSON.stringify(targetSnapshot), openid,
+            safeString(actorResult.actor.personId) || null,
+            safeString(actorResult.actor.assignmentId) || null,
+            JSON.stringify(designatorSnapshot), orgId
+          ]
         );
       }
     });
 
     const [designations] = await pool.query('SELECT * FROM merit_list_designations WHERE clause_id = ? AND org_id = ?', [primaryClauseId, orgId]);
-    // Batch-load all referenced HR members
-    const hrIds = [...new Set(designations.map(d => d.target_hr_id).filter(Boolean))];
-    const hrMap = new Map();
-    if (hrIds.length) {
-      const hrPh = hrIds.map(() => '?').join(',');
-      const [hrRows] = await pool.query(
-        `SELECT id, name, student_id FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
-        [...hrIds, orgId]
-      );
-      hrRows.forEach(hr => hrMap.set(safeString(hr.id), hr));
-    }
-    const result = [];
-    for (const d of designations) {
-      const hr = hrMap.get(d.target_hr_id);
-      result.push({ id: d.id, clauseId: primaryClauseId, targetHrId: d.target_hr_id, targetName: hr ? safeString(hr.name) : '', targetStudentId: hr ? safeString(hr.student_id) : '' });
-    }
+    const presentations = buildDesignationPresentations(designations, await fetchOrgLookups());
+    const result = presentations.map((item) => ({
+      ...item,
+      clauseId: primaryClauseId,
+      targetName: item.name,
+      targetStudentId: item.studentId
+    }));
     res.json({ status: 'success', designations: result, message: localeFormat(localeCopy.copy_02f1651e0a, [result.length]) });
   } catch (e) {
     if (e.code === 'ER_DUP_ENTRY') return res.json({ status: 'duplicate_hr', message: localeCopy.copy_6f354dd08e });
@@ -1064,22 +1111,15 @@ router.post('/generatePubViewRules', async (req, res) => {
     const [[pubCheck]] = await pool.query('SELECT id FROM result_publications WHERE id = ? AND org_id = ?', [publicationId, orgId]);
     if (!pubCheck) return res.json({ status: 'invalid_params', message: localeCopy.copy_c2ca4efbfa });
 
-    // Get all HR records
-    const [hrRows] = await pool.query('SELECT department_id, identity_id FROM hr_info WHERE org_id = ?', [orgId]);
+    // 自动规则只从当前在职成员的活动岗位生成，禁止读取 hr_info 兼容快照。
+    const activeAssignments = await participantService.listParticipants(orgId, 'assignment');
     // Get existing view rules
     const [existingRules] = await pool.query('SELECT grantee_department_id, grantee_identity_id FROM pub_view_rules WHERE publication_id = ? AND org_id = ?', [publicationId, orgId]);
 
     const existingKeys = new Set();
     existingRules.forEach(r => existingKeys.add(safeString(r.grantee_department_id) + '::' + safeString(r.grantee_identity_id)));
 
-    const categories = new Map();
-    hrRows.forEach(item => {
-      const deptId = safeString(item.department_id);
-      const identId = safeString(item.identity_id);
-      if (!deptId || !identId) return;
-      const key = deptId + '::' + identId;
-      if (!categories.has(key)) categories.set(key, { deptId, identId });
-    });
+    const categories = publicationAssignments.collectRuleCategories(activeAssignments);
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
     let createdCount = 0;
@@ -1535,17 +1575,8 @@ router.post('/getMeritListSummary', async (req, res) => {
       designationsByClause.get(d.clause_id).push(d);
     });
 
-    // Batch-load all designated HR members
-    const designatedHrIds = [...new Set(allDesignations.map(d => d.target_hr_id).filter(Boolean))];
-    const hrById = new Map();
-    if (designatedHrIds.length) {
-      const hrPh = designatedHrIds.map(() => '?').join(',');
-      const [hrRows] = await pool.query(
-        `SELECT * FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
-        [...designatedHrIds, orgId]
-      );
-      hrRows.forEach(hr => hrById.set(safeString(hr.id), hr));
-    }
+    const designationPresentations = buildDesignationPresentations(allDesignations, lookups);
+    const presentationById = new Map(designationPresentations.map((item) => [item.id, item]));
 
     const groups = [];
     for (const rule of meritRules) {
@@ -1554,18 +1585,24 @@ router.post('/getMeritListSummary', async (req, res) => {
         const designations = designationsByClause.get(clause.id) || [];
         const members = [];
         for (const d of designations) {
-          const hr = hrById.get(d.target_hr_id);
-          if (!hr) continue;
+          const member = presentationById.get(safeString(d.id));
+          if (!member) continue;
           members.push({
-            id: safeString(hr.id),
-            name: safeString(hr.name),
-            studentId: safeString(hr.student_id),
-            departmentId: safeString(hr.department_id),
-            department: lookups.departmentsById.get(safeString(hr.department_id)) || '',
-            identityId: safeString(hr.identity_id),
-            identity: lookups.identitiesById.get(safeString(hr.identity_id)) || '',
-            workGroupId: safeString(hr.work_group_id),
-            workGroup: lookups.workGroupsById.get(safeString(hr.work_group_id)) || ''
+            id: member.targetAssignmentId || member.targetHrId,
+            targetAssignmentId: member.targetAssignmentId,
+            targetHrId: member.targetHrId,
+            personId: member.personId,
+            name: member.name,
+            studentId: member.studentId,
+            departmentId: member.departmentId,
+            department: member.department,
+            identityId: member.identityId,
+            identity: member.identity,
+            workGroupId: member.workGroupId,
+            workGroup: member.workGroup,
+            assignmentNature: member.assignmentNature,
+            assignmentLabel: member.assignmentLabel,
+            historicalAssignmentUnavailable: member.historicalAssignmentUnavailable
           });
         }
         const targetIdentityName = lookups.identitiesById.get(safeString(clause.target_identity_id)) || '';
@@ -1656,17 +1693,8 @@ router.post('/exportMeritListSummary', async (req, res) => {
       designationsByClause.get(d.clause_id).push(d);
     });
 
-    // Batch-load ALL designated HR members in a single query
-    const designatedHrIds = [...new Set(allDesignations.map(d => d.target_hr_id).filter(Boolean))];
-    let hrById = new Map();
-    if (designatedHrIds.length) {
-      const hrPh = designatedHrIds.map(() => '?').join(',');
-      const [hrRows] = await pool.query(
-        `SELECT * FROM hr_info WHERE id IN (${hrPh}) AND org_id = ?`,
-        [...designatedHrIds, orgId]
-      );
-      hrRows.forEach(hr => hrById.set(safeString(hr.id), hr));
-    }
+    const designationPresentations = buildDesignationPresentations(allDesignations, lookups);
+    const presentationById = new Map(designationPresentations.map((item) => [item.id, item]));
 
     const rows = [];
     const EXPORT_MAX_ROWS = 50000;
@@ -1680,11 +1708,11 @@ router.post('/exportMeritListSummary', async (req, res) => {
         const granteeIdentityName = lookups.identitiesById.get(safeString(rule.grantee_identity_id)) || '';
         const groupLabel = `${granteeDepartmentName} ${granteeIdentityName} → ${targetIdentityName}`;
         for (const d of designations) {
-          const hr = hrById.get(d.target_hr_id);
-          if (!hr) continue;
-          const dept = lookups.departmentsById.get(safeString(hr.department_id)) || '';
-          const ident = lookups.identitiesById.get(safeString(hr.identity_id)) || '';
-          const wg = lookups.workGroupsById.get(safeString(hr.work_group_id)) || '';
+          const member = presentationById.get(safeString(d.id));
+          if (!member) continue;
+          const dept = member.department;
+          const ident = member.identity;
+          const wg = member.workGroup;
 
           // Apply filters
           if (filterDepartment && dept !== filterDepartment) continue;
@@ -1695,8 +1723,8 @@ router.post('/exportMeritListSummary', async (req, res) => {
           if (rows.length >= EXPORT_MAX_ROWS) break;
 
           rows.push({
-            name: safeString(hr.name),
-            studentId: safeString(hr.student_id),
+            name: member.name,
+            studentId: member.studentId,
             department: dept,
             identity: ident,
             workGroup: wg,

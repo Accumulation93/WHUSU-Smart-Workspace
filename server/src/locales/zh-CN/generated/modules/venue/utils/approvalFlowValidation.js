@@ -9,5 +9,8 @@ module.exports = Object.freeze({
   copy_71536f7f02: "请重新选择审批范围",
   copy_7b57cdbae6: "请缩短审批步骤名称",
   copy_9167c33257: "请添加审批步骤",
-  copy_a68c875488: "请添加人事审批规则"
+  copy_a68c875488: "请添加人事审批规则",
+  department: '部门',
+  identityCategory: '身份类别',
+  workGroup: '职能组'
 });

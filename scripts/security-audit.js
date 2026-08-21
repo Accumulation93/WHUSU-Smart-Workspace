@@ -111,7 +111,13 @@ function requireSourceContract(relativeFile, checks) {
 }
 
 requireSourceContract('server/src/middleware/orgContext.js', [
-  { rule: 'org-header-required', test: source => source.includes("status: 'org_context_required'") },
+  {
+    rule: 'org-session-context-required',
+    test: source => source.includes('const authContext = req.authContext')
+      && source.includes('authContext.organizationId')
+      && source.includes("req.headers['x-active-org'] = orgId")
+      && !source.includes('async function _userCanAccessOrg')
+  },
   { rule: 'org-no-default-fallback', test: source => !/current_organization|systemConfigModel/.test(source) }
 ]);
 requireSourceContract('server/src/core/services/adminAuthorization.js', [

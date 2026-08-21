@@ -1,6 +1,36 @@
 const localeCopy = require('../../../../locales/zh-CN/generated/subpackages/scoring/pages/score/score');
 const { callFunction, showShortToast } = require('../../../../utils/api');
 const orgSession = require('../../../../utils/orgSession');
+const { navigateToTrustedRoute } = require('../../../../utils/trustedNavigation');
+
+function assignmentNatureText(value) {
+  if (value === 'staff') return localeCopy.assignmentNatureStaff;
+  if (value === 'liaison') return localeCopy.assignmentNatureLiaison;
+  if (value === 'other') return localeCopy.assignmentNatureOther;
+  return String(value || '').trim();
+}
+
+function decorateParticipant(item) {
+  const row = Object.assign({}, item || {});
+  const assignmentLabel = typeof row.assignmentLabel === 'string'
+    ? row.assignmentLabel.trim()
+    : '';
+  const parts = [
+    assignmentNatureText(row.assignmentNature),
+    assignmentLabel
+  ].filter(Boolean);
+  row._showAssignmentChip = Boolean(row.historicalAssignmentUnavailable || (row.needsAssignmentDisambiguation && row.assignmentId));
+  row._assignmentChipText = row.historicalAssignmentUnavailable
+    ? localeCopy.historicalAssignmentUnavailable
+    : (row._showAssignmentChip ? parts.join(' · ') : '');
+  return row;
+}
+
+function hasActiveAssignment() {
+  const profiles = wx.getStorageSync('roleProfiles') || {};
+  const role = wx.getStorageSync('activeRole') || 'user';
+  return role === 'user' && Boolean(String((profiles[role] && profiles[role].assignmentId) || '').trim());
+}
 
 function isStepAligned(value, startValue, stepValue) {
   if (!Number.isFinite(stepValue) || stepValue <= 0) {
@@ -314,6 +344,11 @@ Page({
     this._shiftDown = false;
     this._keydownSupported = false;
     this.targetId = String((options && options.targetId) || '').trim();
+    if (!hasActiveAssignment()) {
+      this.setData({ loading: false, loadFailed: true });
+      this._promptWorkContext(localeCopy.currentAssignmentRequired);
+      return;
+    }
     this.loadScoreForm();
   },
 
@@ -360,6 +395,29 @@ Page({
     return timer;
   },
 
+  _promptWorkContext: function (message) {
+    wx.showModal({
+      title: localeCopy.workContextTitle,
+      content: message || localeCopy.currentAssignmentRequired,
+      confirmText: localeCopy.switchWorkContext,
+      cancelText: localeCopy.cancelSwitch,
+      success: function (result) {
+        if (result.confirm) navigateToTrustedRoute('/subpackages/org/pages/identitySwitch/identitySwitch');
+      }
+    });
+  },
+
+  _isWorkContextError: function (status) {
+    return [
+      'invalid_scorer',
+      'context_mismatch',
+      'organization_mismatch',
+      'assignment_mismatch',
+      'wrong_organization',
+      'wrong_assignment'
+    ].indexOf(String(status || '')) >= 0;
+  },
+
   onReady: function () {
     if (this._physicalKeyboardEnabled) {
       this.setData({ physicalInputFocus: true });
@@ -401,6 +459,11 @@ Page({
       success: function (res) {
         let result = res.result || {};
         if (result.status !== 'success') {
+          if (self._isWorkContextError(result.status)) {
+            self.setData({ loading: false, loadFailed: true });
+            self._promptWorkContext(result.message);
+            return;
+          }
           wx.showToast({ title: result.message || localeCopy.copy_5a607382b0, icon: 'none' });
           self.setData({ loading: false, loadFailed: true });
           self._schedule(function () { self.redirectHome(); }, 1200);
@@ -434,8 +497,8 @@ Page({
         }
 
         self.setData({
-          scorer: result.scorer,
-          target: result.target,
+          scorer: decorateParticipant(result.scorer),
+          target: decorateParticipant(result.target),
           currentActivity: result.currentActivity || null,
           currentActivityText: result.currentActivity ? result.currentActivity.name : localeCopy.copy_400aa44fd7,
           questionList: questionList,
@@ -812,11 +875,13 @@ Page({
     self.setData({ submitting: true });
 
     let scorer = self.data.scorer || {};
+    let target = self.data.target || {};
     callFunction({
       name: 'submitScoreRecord',
       data: {
         scorerId: scorer.id || '',
-        targetId: self.targetId,
+        scorerAssignmentId: scorer.assignmentId || '',
+        targetId: target.assignmentId || self.targetId,
         activityId: self.activityId,
         activityName: self.activityName,
         templateConfigSignature: self.templateConfigSignature,
@@ -825,6 +890,11 @@ Page({
       success: function (res) {
         let result = res.result || {};
         if (result.status !== 'success') {
+          if (self._isWorkContextError(result.status)) {
+            self.setData({ submitting: false });
+            self._promptWorkContext(result.message);
+            return;
+          }
           wx.showToast({ title: result.message || localeCopy.copy_8831c65b75, icon: 'none' });
           self.setData({ submitting: false });
           return;

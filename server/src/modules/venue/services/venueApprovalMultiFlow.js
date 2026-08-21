@@ -1,9 +1,17 @@
 const pool = require('../../../config/db');
 const { safeString } = require('../../../utils/helpers');
-const hrInfoModel = require('../../../core/models/hrInfo');
 const flowModel = require('../models/venueApprovalFlow');
 const stepModel = require('../models/venueApprovalFlowStep');
 const { matchesAnyRule } = require('../utils/venueApprovalRuleMatcher');
+const {
+  toRuleProfile,
+  toAssignmentSnapshot,
+  loadAssignmentById,
+  listActiveAssignmentsByOrg,
+  resolveCurrentActorAssignment,
+  resolveBookingApplicantAssignment,
+  actorMatchesDesignation
+} = require('./venueAssignmentContext');
 
 const REASONS = Object.freeze({
   NO_FLOW: '该借用未设置审批流程',
@@ -58,6 +66,7 @@ function parseFlowState(booking) {
         stepIndex: Number(item.stepIndex),
         approverHrId: safeString(item.approverHrId),
         approverPersonId: safeString(item.approverPersonId),
+        approverAssignmentId: safeString(item.approverAssignmentId),
         approverAdminGrantId: safeString(item.approverAdminGrantId),
         approverType: safeString(item.approverIdentityType)
       };
@@ -101,8 +110,13 @@ function buildInitialFlowState(flows, selectedFlowId, firstDesignation) {
       designated: {}
     };
   }
-  if (selected && firstDesignation && firstDesignation.hrId) {
-    state.flows[String(selected.id)].designated['0'] = String(firstDesignation.hrId);
+  if (selected && firstDesignation && firstDesignation.assignmentId) {
+    state.flows[String(selected.id)].designated['0'] = {
+      personId: safeString(firstDesignation.personId),
+      legacyHrId: safeString(firstDesignation.legacyHrId || firstDesignation.hrId),
+      assignmentId: safeString(firstDesignation.assignmentId),
+      assignmentSnapshot: firstDesignation.assignmentSnapshot || null
+    };
   }
   return state;
 }
@@ -117,15 +131,15 @@ async function loadFlowsWithSteps(flowIds, orgId) {
     );
     const flow = flowRows[0];
     if (!flow) continue;
-    const steps = await stepModel.getByFlowId(flow.id);
+    const steps = await stepModel.getByFlowId(flow.id, orgId);
     map[flow.id] = Object.assign({}, flow, { steps });
   }
   return map;
 }
 
 async function getApplicantHrInfo(booking) {
-  if (!booking || !booking.user_hr_id) return null;
-  return hrInfoModel.getById(booking.user_hr_id);
+  const assignment = await resolveBookingApplicantAssignment(booking);
+  return assignment ? toRuleProfile(assignment) : null;
 }
 
 async function isAdminStillValid(approval, orgId) {
@@ -158,11 +172,13 @@ async function isApproverStillValid(step, approval, applicantHrInfo, orgId) {
   if (mode === 'admin_any') {
     return safeString(approval.approverType) === 'admin' && await isAdminStillValid(approval, orgId);
   }
-  const hrId = safeString(approval.approverHrId);
-  if (!hrId) return false;
-  const hrInfo = await hrInfoModel.getById(hrId);
-  if (!hrInfo || safeString(hrInfo.org_id) !== orgId) return false;
-  return matchesAnyRule(step.rules || [], hrInfo, applicantHrInfo || null);
+  const assignmentId = safeString(approval.approverAssignmentId);
+  if (assignmentId) {
+    const assignment = await loadAssignmentById(assignmentId, orgId, true);
+    return Boolean(assignment && matchesAnyRule(step.rules || [], toRuleProfile(assignment), applicantHrInfo || null));
+  }
+  // 旧审批事件没有岗位引用，不能用审批人的当前岗位重新解释历史步骤。
+  return false;
 }
 
 async function recomputeActiveFlows(state, flowsMap, applicantHrInfo, orgId) {
@@ -182,7 +198,11 @@ async function recomputeActiveFlows(state, flowsMap, applicantHrInfo, orgId) {
         break;
       }
       const designated = st.designated && st.designated[String(ap.stepIndex)];
-      if (designated && safeString(ap.approverHrId) !== String(designated)) {
+      if (designated && !actorMatchesDesignation({
+        id: ap.approverHrId,
+        personId: ap.approverPersonId,
+        assignmentId: ap.approverAssignmentId
+      }, designated)) {
         valid = false;
         break;
       }
@@ -191,18 +211,24 @@ async function recomputeActiveFlows(state, flowsMap, applicantHrInfo, orgId) {
   }
 }
 
-async function validateDesignation(orgId, hrId, step, applicantHrInfo) {
+async function validateDesignation(orgId, assignmentId, step, applicantHrInfo) {
   if (!step || safeString(step.approval_mode) === 'admin_any') {
     throw new Error(REASONS.DESIGNATE_INVALID);
   }
-  const hrInfo = await hrInfoModel.getById(safeString(hrId));
-  if (!hrInfo || safeString(hrInfo.org_id) !== orgId) {
+  const assignment = await loadAssignmentById(safeString(assignmentId), orgId, true);
+  if (!assignment) {
     throw new Error(REASONS.DESIGNATE_INVALID);
   }
-  if (!matchesAnyRule(step.rules || [], hrInfo, applicantHrInfo || null)) {
+  if (!matchesAnyRule(step.rules || [], toRuleProfile(assignment), applicantHrInfo || null)) {
     throw new Error(REASONS.DESIGNATE_INVALID);
   }
-  return hrInfo;
+  return {
+    personId: assignment.personId,
+    hrId: assignment.legacyHrId,
+    legacyHrId: assignment.legacyHrId,
+    assignmentId: assignment.assignmentId,
+    assignmentSnapshot: toAssignmentSnapshot(assignment)
+  };
 }
 
 async function actorMatchesStep(actor, flow, st, applicantHrInfo, orgId) {
@@ -210,18 +236,18 @@ async function actorMatchesStep(actor, flow, st, applicantHrInfo, orgId) {
   if (!step) return false;
   const designated = st.designated && st.designated[String(st.stepIndex)];
   if (designated) {
-    if (!actor || actor.type !== 'user' || safeString(actor.id) !== String(designated)) return false;
-    if (!actor.profile || safeString(actor.profile.id) !== safeString(actor.id)) return false;
-    return matchesAnyRule(step.rules || [], actor.profile, applicantHrInfo || null);
+    if (!actor || actor.type !== 'user' || !actorMatchesDesignation(actor, designated)) return false;
+    if (!actor.assignment) return false;
+    return matchesAnyRule(step.rules || [], toRuleProfile(actor.assignment), applicantHrInfo || null);
   }
   const mode = safeString(step.approval_mode) || ((step.rules || []).length ? 'hr_rule' : 'admin_any');
   if (mode === 'admin_any') {
     return Boolean(actor && actor.type === 'admin');
   }
   if (!actor || actor.type !== 'user') return false;
-  if (!actor.profile || safeString(actor.profile.id) !== safeString(actor.id)) return false;
+  if (!actor.assignment) return false;
   if (!Array.isArray(step.rules) || !step.rules.length) return false;
-  return matchesAnyRule(step.rules, actor.profile, applicantHrInfo || null);
+  return matchesAnyRule(step.rules, toRuleProfile(actor.assignment), applicantHrInfo || null);
 }
 
 async function countStepCandidates(flow, st, applicantHrInfo, orgId) {
@@ -229,9 +255,14 @@ async function countStepCandidates(flow, st, applicantHrInfo, orgId) {
   if (!step) return 0;
   const designated = st.designated && st.designated[String(st.stepIndex)];
   if (designated) {
-    const hrInfo = await hrInfoModel.getById(String(designated));
-    if (!hrInfo || safeString(hrInfo.org_id) !== orgId) return 0;
-    return matchesAnyRule(step.rules || [], hrInfo, applicantHrInfo || null) ? 1 : 0;
+    const assignment = await loadAssignmentById(designated.assignmentId, orgId, true);
+    if (!assignment) return 0;
+    if (!actorMatchesDesignation({
+      id: assignment.legacyHrId,
+      personId: assignment.personId,
+      assignmentId: assignment.assignmentId
+    }, designated)) return 0;
+    return matchesAnyRule(step.rules || [], toRuleProfile(assignment), applicantHrInfo || null) ? 1 : 0;
   }
   const mode = safeString(step.approval_mode) || ((step.rules || []).length ? 'hr_rule' : 'admin_any');
   if (mode === 'admin_any') {
@@ -244,15 +275,14 @@ async function countStepCandidates(flow, st, applicantHrInfo, orgId) {
     );
     return Number(rows[0] && rows[0].total) || 0;
   }
-  const [rows] = await pool.query(
-    'SELECT id, department_id, work_group_id, identity_id FROM hr_info WHERE org_id = ?',
-    [orgId]
-  );
-  let count = 0;
-  for (const row of rows) {
-    if (matchesAnyRule(step.rules || [], row, applicantHrInfo || null)) count += 1;
+  const assignments = await listActiveAssignmentsByOrg(orgId);
+  const people = new Set();
+  for (const assignment of assignments) {
+    if (matchesAnyRule(step.rules || [], toRuleProfile(assignment), applicantHrInfo || null)) {
+      people.add(assignment.personId || assignment.legacyHrId);
+    }
   }
-  return count;
+  return people.size;
 }
 
 function summarizeState(state, flowsMap) {
@@ -290,13 +320,38 @@ function summarizeState(state, flowsMap) {
 }
 
 async function evaluateActorEligibility(booking, actor, orgId) {
+  let effectiveActor = actor;
+  if (actor && actor.type === 'user') {
+    const assignment = actor.assignment
+      && safeString(actor.assignment.organizationId) === safeString(orgId)
+      && safeString(actor.assignment.assignmentId) === safeString(actor.assignmentId)
+      ? actor.assignment
+      : await resolveCurrentActorAssignment(actor, orgId);
+    effectiveActor = Object.assign({}, actor, {
+      assignment: assignment || null,
+      profile: assignment ? toRuleProfile(assignment) : null
+    });
+  }
   const state = parseFlowState(booking);
   const flowsMap = await loadFlowsWithSteps(Object.keys(state.flows), orgId);
   const applicantHrInfo = await getApplicantHrInfo(booking);
+  if (!applicantHrInfo) {
+    return {
+      ok: false,
+      reason: REASONS.INVALID_HR,
+      matchedFlows: [],
+      state,
+      flowsMap,
+      applicantHrInfo: null,
+      actor: effectiveActor,
+      candidateMissing: true,
+      summary: summarizeState(state, flowsMap)
+    };
+  }
   await recomputeActiveFlows(state, flowsMap, applicantHrInfo, orgId);
 
-  const actorPersonId = safeString(actor && actor.personId);
-  const actorLegacyId = safeString(actor && actor.id);
+  const actorPersonId = safeString(effectiveActor && effectiveActor.personId);
+  const actorLegacyId = safeString(effectiveActor && effectiveActor.id);
   const snapshots = parseSnapshots(booking && booking.approval_snapshots_json);
   const alreadyApproved = snapshots.some(function(snapshot) {
     const snapshotPersonId = safeString(snapshot.approverPersonId);
@@ -313,7 +368,7 @@ async function evaluateActorEligibility(booking, actor, orgId) {
     if (!st || !st.active || st.completed) continue;
     const flow = flowsMap[flowId];
     if (!flow) continue;
-    if (await actorMatchesStep(actor, flow, st, applicantHrInfo, orgId)) {
+    if (await actorMatchesStep(effectiveActor, flow, st, applicantHrInfo, orgId)) {
       matchedFlows.push({ flowId, flow, st, step: flow.steps[Number(st.stepIndex)] });
     }
   }
@@ -325,6 +380,7 @@ async function evaluateActorEligibility(booking, actor, orgId) {
     state,
     flowsMap,
     applicantHrInfo,
+    actor: effectiveActor,
     candidateMissing: summary.activeFlowIds.length > 0 && summary.activeFlowIds.every(function(flowId) {
       const st = state.flows[flowId];
       const flow = flowsMap[flowId];
@@ -343,6 +399,7 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
   const applicantHrInfo = eligibility.applicantHrInfo;
   const matched = eligibility.matchedFlows;
   const snapshots = parseSnapshots(booking.approval_snapshots_json);
+  const effectiveActor = eligibility.actor || actor;
   const now = fmtDatetime(new Date());
 
   const singleFlow = isSingleFlowState(state);
@@ -356,22 +413,24 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
       flowId: item.flowId,
       stepIndex: Number(st.stepIndex),
       stepName: step.name || '',
-      approverHrId: safeString(actor.id),
-      approverPersonId: safeString(actor.personId),
-      approverAssignmentId: safeString(actor.assignmentId),
-      approverAdminGrantId: safeString(actor.adminGrantId),
-      approverContextId: safeString(actor.contextId),
-      approverIdentityType: safeString(actor.type),
-      approverName: actor.name || (actor.type === 'admin' ? '管理员' : ''),
+      approverHrId: safeString(effectiveActor.id),
+      approverPersonId: safeString(effectiveActor.personId),
+      approverAssignmentId: safeString(effectiveActor.assignmentId),
+      approverAssignmentSnapshot: effectiveActor.assignment ? toAssignmentSnapshot(effectiveActor.assignment) : null,
+      approverAdminGrantId: safeString(effectiveActor.adminGrantId),
+      approverContextId: safeString(effectiveActor.contextId),
+      approverIdentityType: safeString(effectiveActor.type),
+      approverName: effectiveActor.name || (effectiveActor.type === 'admin' ? '管理员' : ''),
       comment: comment || '',
       approvedAt: now
     });
     st.approvedSteps.push({
       stepIndex: Number(st.stepIndex),
-      approverHrId: safeString(actor.id),
-      approverPersonId: safeString(actor.personId),
-      approverAdminGrantId: safeString(actor.adminGrantId),
-      approverType: safeString(actor.type)
+      approverHrId: safeString(effectiveActor.id),
+      approverPersonId: safeString(effectiveActor.personId),
+      approverAssignmentId: safeString(effectiveActor.assignmentId),
+      approverAdminGrantId: safeString(effectiveActor.adminGrantId),
+      approverType: safeString(effectiveActor.type)
     });
     delete st.designated[String(st.stepIndex)];
     st.stepIndex = Number(st.stepIndex) + 1;
@@ -385,9 +444,9 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
     const nextStep = flow.steps[Number(st.stepIndex)];
     if (singleFlow && (Number(flow.allow_designate_first) === 1 || Number(flow.allow_designate_next) === 1)
       && nextStep && safeString(nextStep.approval_mode) !== 'admin_any'
-      && nextDesignation && nextDesignation.hrId) {
-      await validateDesignation(orgId, nextDesignation.hrId, nextStep, applicantHrInfo);
-      st.designated[String(st.stepIndex)] = String(nextDesignation.hrId);
+      && nextDesignation && nextDesignation.assignmentId) {
+      const designation = await validateDesignation(orgId, nextDesignation.assignmentId, nextStep, applicantHrInfo);
+      st.designated[String(st.stepIndex)] = designation;
     }
   }
 
@@ -405,6 +464,7 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
       completedFlowId,
       state,
       snapshots,
+      actor: effectiveActor,
       totalSteps: completedFlow ? completedFlow.steps.length : Number(booking.approval_total_steps || 0),
       summary: summarizeState(state, flowsMap)
     };
@@ -437,9 +497,30 @@ async function prepareApproval(booking, actor, comment, nextDesignation, orgId) 
     completedFlowId: null,
     state,
     snapshots,
+    actor: effectiveActor,
     totalSteps: flowLengths.length ? Math.max.apply(null, flowLengths) : Number(booking.approval_total_steps || 0),
     candidateMissing,
     summary: summarizeState(state, flowsMap)
+  };
+}
+
+async function evaluateWorkContextEligibility(booking, workActors, currentContextId, currentOrgId) {
+  const targetOrgId = safeString(booking && booking.approval_org_id);
+  const eligible = [];
+  for (const actor of (workActors || [])) {
+    if (safeString(actor && actor.organizationId) !== targetOrgId) continue;
+    const eligibility = await evaluateActorEligibility(booking, actor, targetOrgId);
+    if (eligibility.ok) eligible.push({ actor, eligibility });
+  }
+  const current = eligible.find(function(item) {
+    return safeString(item.actor.contextId) === safeString(currentContextId)
+      && targetOrgId === safeString(currentOrgId);
+  }) || null;
+  return {
+    visible: eligible.length > 0,
+    canProcessInCurrentContext: Boolean(current),
+    eligible,
+    selected: current || eligible[0] || null
   };
 }
 
@@ -469,6 +550,7 @@ module.exports = {
   loadFlowsWithSteps,
   validateDesignation,
   evaluateActorEligibility,
+  evaluateWorkContextEligibility,
   prepareApproval,
   legacyColumnsFromState,
   countStepCandidates,

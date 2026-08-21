@@ -1,4 +1,5 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/hr');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const { format: localeFormat } = require('../../locales/runtime');
 const express = require('express');
 const router = express.Router();
@@ -10,6 +11,7 @@ const { unbindUserAcrossOrganizations } = require('../services/userBindingUnbind
 const { clearOrgAccessCache } = require('../../middleware/orgContext');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
+const personGovernanceModel = require('../models/personGovernance');
 const {
   AdminOrganizationAccessError,
   listAdminOrganizationAccess,
@@ -32,6 +34,7 @@ const workGroupModel = require('../models/workGroup');
 const adminInfoModel = require('../models/adminInfo');
 const profileTemplateModel = require('../models/hrProfileTemplate');
 const profileFieldModel = require('../models/hrProfileField');
+const personProfileValueModel = require('../models/personProfileValue');
 const hrTableImportModel = require('../models/hrTableImport');
 const pool = require('../../config/db');
 
@@ -117,15 +120,26 @@ router.post('/listHrInfo', async (req, res) => {
        LEFT JOIN identities i ON h.identity_id = i.id AND i.org_id = ?
        LEFT JOIN work_groups wg ON h.work_group_id = wg.id AND wg.org_id = ?
        WHERE h.org_id = ?
+         AND EXISTS (
+           SELECT 1 FROM organization_memberships om
+            WHERE om.legacy_hr_id = h.id AND om.org_id = h.org_id AND om.status = 'active'
+         )
        ORDER BY h.name`,
       [orgId, orgId, orgId, orgId]
     );
-    const bindingStates = await resolveHrBindingStates(rows, orgId);
+    const [bindingStates, assignmentSummaries] = await Promise.all([
+      resolveHrBindingStates(rows, orgId),
+      unifiedIdentityModel.listMembershipAssignmentSummaries(rows.map((item) => item.id), orgId)
+    ]);
     const list = rows.map((item) => {
       const binding = bindingStates.get(safeString(item.id)) || {
         status: 'unbound',
         userInfoId: '',
         boundOpenid: ''
+      };
+      const assignmentSummary = assignmentSummaries.get(safeString(item.id)) || {
+        count: 0,
+        assignments: []
       };
       return {
         id: item.id,
@@ -137,6 +151,8 @@ router.post('/listHrInfo', async (req, res) => {
         identity: safeString(item.identity_name),
         workGroupId: safeString(item.work_group_id),
         workGroup: safeString(item.work_group_name),
+        assignmentCount: assignmentSummary.count,
+        assignments: assignmentSummary.assignments,
         userInfoId: binding.userInfoId,
         boundOpenid: binding.boundOpenid ? safeString(binding.boundOpenid).slice(0, 8) + '***' : '',
         bindStatus: binding.status
@@ -154,8 +170,8 @@ router.post('/listHrGovernance', async (req, res) => {
     const accessList = await listAdminOrganizationAccess(req);
     const readable = accessList.filter((item) => (
       item.canReadAssignments || item.canReadPeople
-      || item.permissionKeys && item.permissionKeys.some((key) => [
-        'auth.identity.verify', 'auth.accounts.recover', 'auth.policy.manage'
+       || item.permissionKeys && item.permissionKeys.some((key) => [
+         'auth.identity.verify', 'auth.accounts.recover', 'auth.accounts.global_manage', 'auth.policy.manage'
       ].indexOf(key) >= 0)
     ));
     if (!readable.length) return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_828e7e4bfb });
@@ -227,6 +243,7 @@ router.post('/listHrGovernance', async (req, res) => {
         studentId: safeString(item.student_id),
         department: safeString(item.department_name),
         identity: safeString(item.identity_name),
+        identityCategory: safeString(item.identity_name),
         workGroup: safeString(item.work_group_name),
         accountId: safeString(item.account_id),
         auth: {
@@ -246,7 +263,10 @@ router.post('/listHrGovernance', async (req, res) => {
         }
       };
     });
-    return res.json({ status: 'success', rows: list, totals: {
+    const canGlobalAccountManage = accessList.some((item) => (
+      Array.isArray(item.permissionKeys) && item.permissionKeys.indexOf('auth.accounts.global_manage') >= 0
+    ));
+    return res.json({ status: 'success', rows: list, capabilities: { canGlobalAccountManage }, totals: {
       total: list.length,
       verified: countByStatus.verified,
       pendingVerification: countByStatus.pending_verification,
@@ -281,11 +301,15 @@ router.post('/listMembershipAssignments', async (req, res) => {
       list: rows.map((item) => ({
         id: safeString(item.id),
         assignmentKind: safeString(item.assignment_kind),
-        title: safeString(item.title),
+        assignmentNature: safeString(item.assignment_kind),
+        assignmentLabel: unifiedIdentityModel.buildAssignmentLabel(item),
+        title: '',
         departmentId: safeString(item.department_id),
         department: safeString(item.department_name),
         identityId: safeString(item.identity_id),
         identity: safeString(item.identity_name),
+        identityCategoryId: safeString(item.identity_id),
+        identityCategoryName: safeString(item.identity_name),
         workGroupId: safeString(item.work_group_id),
         workGroup: safeString(item.work_group_name)
       }))
@@ -320,11 +344,15 @@ router.post('/listPersonIdentities', async (req, res) => {
       rows.push({
         id: safeString(item.id),
         assignmentKind: safeString(item.assignment_kind),
-        title: safeString(item.title),
+        assignmentNature: safeString(item.assignment_kind),
+        assignmentLabel: unifiedIdentityModel.buildAssignmentLabel(item),
+        title: '',
         departmentId: safeString(item.department_id),
         department: safeString(item.department_name),
         identityId: safeString(item.identity_id),
         identity: safeString(item.identity_name),
+        identityCategoryId: safeString(item.identity_id),
+        identityCategoryName: safeString(item.identity_name),
         workGroupId: safeString(item.work_group_id),
         workGroup: safeString(item.work_group_name)
       });
@@ -339,7 +367,7 @@ router.post('/listPersonIdentities', async (req, res) => {
         id: safeString(item.legacy_admin_id),
         grantId: safeString(item.id),
         adminLevel: safeString(item.admin_level),
-        adminLevelLabel: '普通管理员',
+        adminLevelLabel: personnelCopy.regularAdministrator,
         authenticationStatus: auth.value,
         authenticationStatusLabel: auth.label
       });
@@ -379,7 +407,9 @@ router.post('/listPersonIdentities', async (req, res) => {
         assignments: access.canReadAssignments ? (assignmentsByOrg.get(orgId) || []) : [],
         adminIdentities,
         canAddAdmin: Boolean(access.canEditAdmins && !adminIdentities.length),
-        dictionaries
+        dictionaries: Object.assign({}, dictionaries, {
+          identityCategories: dictionaries.identities
+        })
       };
     });
     const operatorIsSuperAdmin = accessList.some((item) => item.isSuperAdmin);
@@ -394,7 +424,7 @@ router.post('/listPersonIdentities', async (req, res) => {
             id: safeString(item.legacy_admin_id),
             grantId: safeString(item.id),
             adminLevel: 'super_admin',
-            adminLevelLabel: '超级管理员',
+            adminLevelLabel: personnelCopy.superAdministrator,
             authenticationStatus: auth.value,
             authenticationStatusLabel: auth.label,
             canDelete: safeString(item.person_id) !== operatorPersonId
@@ -426,10 +456,9 @@ router.post('/saveMembershipAssignment', async (req, res) => {
       id: safeString(req.body.id),
       legacyHrId: safeString(req.body.hrId),
       organizationId: orgId,
-      assignmentKind: safeString(req.body.assignmentKind),
-      title: safeString(req.body.title),
+      assignmentKind: safeString(req.body.assignmentNature || req.body.assignmentKind),
       departmentId: safeString(req.body.departmentId),
-      identityId: safeString(req.body.identityId),
+      identityId: safeString(req.body.identityCategoryId || req.body.identityId),
       workGroupId: safeString(req.body.workGroupId)
     }, {
       personId: req.authAccount && req.authAccount.personId,
@@ -489,11 +518,12 @@ router.post('/saveHrInfo', async (req, res) => {
       if (!existing) {
         return res.json({ status: 'not_found', message: localeCopy.copy_eb00430bd4 });
       }
-      await hrInfoModel.updatePersonBasics(existingId, {
-        name,
-        studentId,
-        updatedAt: new Date()
-      });
+      if (name !== safeString(existing.name) || studentId !== safeString(existing.student_id)) {
+        return res.json({
+          status: 'person_correction_required',
+          message: personnelCopy.personCorrectionRequired
+        });
+      }
       return res.json({ status: 'success', id: existingId, message: localeCopy.copy_339e79984b });
     }
 
@@ -520,10 +550,133 @@ router.post('/deleteHrInfo', async (req, res) => {
 
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });
-    await hrInfoModel.remove(id);
-    res.json({ status: 'success', message: localeCopy.copy_14a40dcb62 });
+    const result = await hrInfoModel.remove(id);
+    if (!result || !result.left) {
+      return res.json({ status: 'not_found', message: personnelCopy.formerMemberNotFound });
+    }
+    res.json({ status: 'success', left: true, message: personnelCopy.memberLeftOrganization });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
+  }
+});
+
+router.post('/listFormerHrMembers', async (req, res) => {
+  try {
+    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
+    await requireAdminOrganizationPermission(req, orgId, ['hr.people']);
+    const rows = await unifiedIdentityModel.listFormerMemberships(orgId);
+    return res.json({
+      status: 'success',
+      list: rows.map((row) => ({
+        membershipId: safeString(row.membership_id),
+        personId: safeString(row.person_id),
+        hrId: safeString(row.legacy_hr_id),
+        name: safeString(row.name),
+        studentId: safeString(row.student_id),
+        leftAt: row.left_at
+      }))
+    });
+  } catch (error) {
+    const isExpected = error instanceof AdminOrganizationAccessError;
+    return res.status(isExpected ? (error.httpStatus || 403) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : safeString(error.message)
+    });
+  }
+});
+
+router.post('/reactivateHrMembership', async (req, res) => {
+  try {
+    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
+    const result = await unifiedIdentityModel.reactivateMembership({
+      organizationId: orgId,
+      legacyHrId: safeString(req.body.hrId)
+    }, {
+      personId: req.authAccount && req.authAccount.personId,
+      contextId: req.authContext && req.authContext.contextId
+    }, (connection) => requireAdminOrganizationPermission(req, orgId, ['hr.people'], connection));
+    return res.json({
+      status: 'success',
+      reactivated: Boolean(result.reactivated),
+      message: result.reactivated
+        ? personnelCopy.membershipReactivated
+        : personnelCopy.memberAlreadyActive
+    });
+  } catch (error) {
+    const isExpected = error instanceof AdminOrganizationAccessError
+      || error instanceof unifiedIdentityModel.IdentityError;
+    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : safeString(error.message)
+    });
+  }
+});
+
+router.post('/previewPersonIdentityCorrection', async (req, res) => {
+  try {
+    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
+    const result = await personGovernanceModel.previewCorrection({
+      legacyHrId: safeString(req.body.hrId),
+      organizationId: orgId,
+      name: safeString(req.body.name),
+      studentId: safeString(req.body.studentId)
+    });
+    if (!result) return res.status(404).json({ status: 'not_found', message: personnelCopy.formerMemberNotFound });
+    return res.json({ status: 'success', preview: result });
+  } catch (error) {
+    const isExpected = error instanceof unifiedIdentityModel.IdentityError;
+    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: safeString(error.message)
+    });
+  }
+});
+
+router.post('/applyPersonIdentityCorrection', async (req, res) => {
+  try {
+    const orgId = safeString(req.body.organizationId) || await getCurrentOrgId();
+    const result = await personGovernanceModel.applyCorrection({
+      legacyHrId: safeString(req.body.hrId),
+      organizationId: orgId,
+      name: safeString(req.body.name),
+      studentId: safeString(req.body.studentId),
+      version: safeString(req.body.version)
+    }, {
+      personId: req.authAccount && req.authAccount.personId,
+      contextId: req.authContext && req.authContext.contextId
+    });
+    return res.json({ status: 'success', result, message: personnelCopy.personCorrectionChanged });
+  } catch (error) {
+    const isExpected = error instanceof unifiedIdentityModel.IdentityError;
+    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : safeString(error.message)
+    });
+  }
+});
+
+router.post('/mergePersons', async (req, res) => {
+  try {
+    if (req.body.confirmed !== true) {
+      return res.status(400).json({ status: 'confirmation_required', message: personnelCopy.personMergeConfirmationRequired });
+    }
+    const result = await personGovernanceModel.mergePersons({
+      sourcePersonId: safeString(req.body.sourcePersonId),
+      targetPersonId: safeString(req.body.targetPersonId),
+      sourceVersion: safeString(req.body.sourceVersion),
+      targetVersion: safeString(req.body.targetVersion),
+      organizationId: safeString(req.body.organizationId) || await getCurrentOrgId()
+    }, {
+      personId: req.authAccount && req.authAccount.personId,
+      contextId: req.authContext && req.authContext.contextId
+    });
+    return res.json({ status: 'success', result, message: personnelCopy.personMergeCompleted });
+  } catch (error) {
+    const isExpected = error instanceof unifiedIdentityModel.IdentityError;
+    return res.status(isExpected ? (error.httpStatus || 400) : 500).json({
+      status: isExpected ? error.code : 'error',
+      message: isExpected ? error.message : safeString(error.message)
+    });
   }
 });
 
@@ -782,6 +935,7 @@ router.post('/importHrCsv', async (req, res) => {
       }
 
       const fieldByLabel = templateFields.length ? new Map(templateFields.map(f => [f.label, f])) : new Map();
+      const effectiveProfileUpdates = [];
 
       // Normalize date values before storage
       for (const row of parsedRows) {
@@ -830,10 +984,12 @@ router.post('/importHrCsv', async (req, res) => {
             throw new Error(localeCopy.copy_c8029d1c2a);
           }
           let record = null;
+          let effectiveRecordId = '';
           const [recRows] = await conn.query('SELECT * FROM hr_profile_records WHERE hr_id = ? AND org_id = ? LIMIT 1', [hrId, orgId]);
           if (recRows.length) record = recRows[0];
 
           if (record) {
+            effectiveRecordId = record.id;
             // Remove existing approved values for fields we're setting, then rewrite
             const fieldIds = [];
             for (const [fieldName] of Object.entries(row.extValues)) {
@@ -852,28 +1008,13 @@ router.post('/importHrCsv', async (req, res) => {
                 [generateId(), record.id, fieldDef.id, fieldValue, orgId]
               );
             }
-            let recordStatus = 'approved';
-            const requiredFields = templateFields.filter(f => f.required);
-            if (requiredFields.length > 0) {
-              const [allValues] = await conn.query(
-                'SELECT field_id, field_value FROM hr_profile_record_values WHERE record_id = ? AND org_id = ?',
-                [record.id, orgId]
-              );
-              const valueMap = new Map(allValues.map(v => [v.field_id, v.field_value]));
-              for (const rf of requiredFields) {
-                const val = valueMap.get(rf.id);
-                if (!val || !String(val).trim()) {
-                  recordStatus = 'pending';
-                  break;
-                }
-              }
-            }
             await conn.query(
               'UPDATE hr_profile_records SET audit_status = ?, reviewed_at = ?, updated_at = ? WHERE id = ? AND org_id = ?',
-              [recordStatus, nowUtc, nowUtc, record.id, orgId]
+              ['approved', nowUtc, nowUtc, record.id, orgId]
             );
           } else {
             const recordId = generateId();
+            effectiveRecordId = recordId;
             // Insert with 'pending' initially; update after values are written
             await conn.query(
               `INSERT INTO hr_profile_records (id, hr_id, name, openid, template_snapshot_id, audit_status, reviewed_at, org_id, created_at, updated_at)
@@ -888,35 +1029,17 @@ router.post('/importHrCsv', async (req, res) => {
                 [generateId(), recordId, fieldDef.id, fieldValue, orgId]
               );
             }
-            // Determine correct audit_status for new record
-            const requiredFieldsNew = templateFields.filter(f => f.required);
-            if (requiredFieldsNew.length > 0) {
-              const [allValuesNew] = await conn.query(
-                'SELECT field_id, field_value FROM hr_profile_record_values WHERE record_id = ? AND org_id = ?',
-                [recordId, orgId]
-              );
-              const valueMapNew = new Map(allValuesNew.map(v => [v.field_id, v.field_value]));
-              let allFilled = true;
-              for (const rf of requiredFieldsNew) {
-                const val = valueMapNew.get(rf.id);
-                if (!val || !String(val).trim()) {
-                  allFilled = false;
-                  break;
-                }
-              }
-              if (allFilled) {
-                await conn.query(
-                  'UPDATE hr_profile_records SET audit_status = ? WHERE id = ? AND org_id = ?',
-                  ['approved', recordId, orgId]
-                );
-              }
-            } else {
-              await conn.query(
-                'UPDATE hr_profile_records SET audit_status = ? WHERE id = ? AND org_id = ?',
-                ['approved', recordId, orgId]
-              );
-            }
+            await conn.query(
+              'UPDATE hr_profile_records SET audit_status = ? WHERE id = ? AND org_id = ?',
+              ['approved', recordId, orgId]
+            );
           }
+          const normalizedValues = {};
+          for (const [fieldName, fieldValue] of Object.entries(row.extValues)) {
+            const fieldDef = fieldByLabel.get(fieldName);
+            if (fieldDef) normalizedValues[fieldDef.id] = fieldValue;
+          }
+          effectiveProfileUpdates.push({ hrId, recordId: effectiveRecordId, values: normalizedValues });
         }
       }
 
@@ -924,6 +1047,23 @@ router.post('/importHrCsv', async (req, res) => {
         conn,
         parsedRows.map((row) => hrInfoMap.get(row.studentId)).filter(Boolean)
       );
+      for (const update of effectiveProfileUpdates) {
+        const [personRows] = await conn.query(
+          `SELECT person_id FROM organization_memberships
+            WHERE legacy_hr_id = ? AND org_id = ? AND status = 'active' LIMIT 1`,
+          [update.hrId, orgId]
+        );
+        if (!personRows.length) continue;
+        await personProfileValueModel.upsertEffectiveValues(
+          personRows[0].person_id,
+          orgId,
+          update.recordId,
+          templateFields,
+          update.values,
+          nowUtc,
+          conn
+        );
+      }
       await conn.commit();
       const result = {
         status: 'success',
@@ -1023,6 +1163,15 @@ router.post('/unbindHrWechat', async (req, res) => {
     const openid = req.openid;
     const admin = await adminInfoModel.getByOpenid(openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
+    const canGlobalAccountManage = Boolean(req.adminPermissions
+      && req.adminPermissions.permissions
+      && req.adminPermissions.permissions['auth.accounts.global_manage']);
+    if (admin.admin_level !== 'super_admin' && !canGlobalAccountManage) {
+      return res.status(403).json({
+        status: 'permission_denied',
+        message: personnelCopy.globalAccountManageRequired
+      });
+    }
 
     const hrId = safeString(req.body.hrId);
     if (!hrId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });

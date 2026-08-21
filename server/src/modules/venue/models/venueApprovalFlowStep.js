@@ -2,16 +2,17 @@ const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
 const ruleModel = require('./venueApprovalFlowStepRule');
 
-async function getByFlowId(flowId) {
-  const orgId = await getCurrentOrgId();
-  const [rows] = await pool.query(
+async function getByFlowId(flowId, orgIdOverride, conn) {
+  const orgId = String(orgIdOverride || '').trim() || await getCurrentOrgId();
+  const db = conn || pool;
+  const [rows] = await db.query(
     'SELECT * FROM venue_approval_flow_steps WHERE flow_id = ? AND org_id = ? ORDER BY sort_order',
     [flowId, orgId]
   );
   // Batch-load rules for all steps
   if (rows.length > 0) {
     const stepIds = rows.map(r => r.id);
-    const [allRules] = await pool.query(
+    const [allRules] = await db.query(
       'SELECT * FROM venue_approval_flow_step_rules WHERE step_id IN (?) AND org_id = ? ORDER BY sort_order',
       [stepIds, orgId]
     );

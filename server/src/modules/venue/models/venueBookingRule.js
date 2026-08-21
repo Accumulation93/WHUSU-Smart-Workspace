@@ -3,6 +3,10 @@ const { getCurrentOrgId } = require('../../../utils/orgContext');
 
 async function getByVenueId(venueId) {
   const orgId = await getCurrentOrgId();
+  return getByVenueIdForOrg(venueId, orgId);
+}
+
+async function getByVenueIdForOrg(venueId, orgId) {
   const [rows] = await pool.query(
     'SELECT * FROM venue_booking_rules WHERE venue_id = ? AND org_id = ? AND is_active = 1 ORDER BY sort_order',
     [venueId, orgId]
@@ -55,4 +59,4 @@ async function remove(id, conn) {
   await db.query('DELETE FROM venue_booking_rules WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
-module.exports = { getByVenueId, getById, create, update, remove };
+module.exports = { getByVenueId, getByVenueIdForOrg, getById, create, update, remove };

@@ -1,15 +1,49 @@
 const pool = require('../../config/db');
 const { getCurrentOrgId } = require('../../utils/orgContext');
+const { hmac, legacyHash } = require('../services/identityCrypto');
+
+const APP_ID = 'whusu-smart-workspace';
+
+function unifiedAuthorizationClause(alias) {
+  return `AND (
+    NOT EXISTS (
+      SELECT 1 FROM admin_grants legacy_grant
+       WHERE legacy_grant.legacy_admin_id = ${alias}.id
+         AND legacy_grant.org_id = ${alias}.org_id
+    )
+    OR EXISTS (
+      SELECT 1
+        FROM admin_grants active_grant
+        JOIN persons person
+          ON person.id = active_grant.person_id AND person.status = 'active'
+        JOIN accounts account
+          ON account.person_id = person.id AND account.status = 'verified'
+        JOIN account_wechat_bindings binding
+          ON binding.account_id = account.id
+         AND binding.app_id = ?
+         AND binding.status = 'active'
+       WHERE active_grant.legacy_admin_id = ${alias}.id
+         AND active_grant.org_id = ${alias}.org_id
+         AND active_grant.status = 'active'
+         AND (binding.openid_hash IN (?, ?) OR binding.legacy_openid = ?)
+    )
+  )`;
+}
+
+function unifiedAuthorizationParams(openid) {
+  return [APP_ID, hmac(openid), legacyHash(openid), openid];
+}
 
 async function getByOpenid(openid) {
   const orgId = await getCurrentOrgId();
   const [rows] = await pool.query(
-    `SELECT * FROM admin_info
-     WHERE openid = ? AND bind_status = ?
-       AND (org_id = ? OR (admin_level = 'super_admin' AND org_id = ''))
-     ORDER BY admin_level = 'super_admin' DESC
+    `SELECT ai.* FROM admin_info ai
+     WHERE ai.openid = ? AND ai.bind_status = ?
+       AND (ai.org_id = ? OR (ai.admin_level = 'super_admin' AND ai.org_id = ''))
+       ${unifiedAuthorizationClause('ai')}
+     ORDER BY ai.admin_level = 'super_admin' DESC
      LIMIT 1`,
-    [openid, 'active', orgId]
+    [openid, 'active', orgId].concat(unifiedAuthorizationParams(openid))
   );
   return rows[0] || null;
 }
@@ -22,8 +56,11 @@ async function getByOpenidAny(openid) {
 // 跨组织全局管理员查询 — 场地等全局模块使用，不限制 org_id
 async function getByOpenidGlobal(openid) {
   const [rows] = await pool.query(
-    'SELECT * FROM admin_info WHERE openid = ? AND bind_status = ? LIMIT 1',
-    [openid, 'active']
+    `SELECT ai.* FROM admin_info ai
+      WHERE ai.openid = ? AND ai.bind_status = ?
+        ${unifiedAuthorizationClause('ai')}
+      LIMIT 1`,
+    [openid, 'active'].concat(unifiedAuthorizationParams(openid))
   );
   return rows[0] || null;
 }
@@ -73,13 +110,14 @@ async function getAll(operator) {
 async function getByOpenidForOrganization(openid, orgId, connection, lock) {
   const db = connection || pool;
   const [rows] = await db.query(
-    `SELECT * FROM admin_info
-      WHERE openid = ? AND bind_status = 'active'
-        AND ((admin_level = 'super_admin' AND org_id = '')
-          OR (admin_level = 'admin' AND org_id = ?))
-      ORDER BY admin_level = 'super_admin' DESC
+    `SELECT ai.* FROM admin_info ai
+      WHERE ai.openid = ? AND ai.bind_status = 'active'
+        AND ((ai.admin_level = 'super_admin' AND ai.org_id = '')
+          OR (ai.admin_level = 'admin' AND ai.org_id = ?))
+        ${unifiedAuthorizationClause('ai')}
+      ORDER BY ai.admin_level = 'super_admin' DESC
       LIMIT 1${lock ? ' FOR UPDATE' : ''}`,
-    [openid, orgId]
+    [openid, orgId].concat(unifiedAuthorizationParams(openid))
   );
   return rows[0] || null;
 }
@@ -223,15 +261,21 @@ async function getByAdminLevel(level) {
 // 跨组织全局管理员查询 — 返回所有组织中该 openid 的活跃管理员记录（用于智能登录）
 async function getByOpenidAcrossOrgs(openid) {
   const [rows] = await pool.query(
-    'SELECT * FROM admin_info WHERE openid = ? AND bind_status = ?',
-    [openid, 'active']
+    `SELECT ai.* FROM admin_info ai
+      WHERE ai.openid = ? AND ai.bind_status = ?
+        ${unifiedAuthorizationClause('ai')}`,
+    [openid, 'active'].concat(unifiedAuthorizationParams(openid))
   );
   return rows;
 }
 
+async function getAuthorizedByOpenidAcrossOrgs(openid) {
+  return getByOpenidAcrossOrgs(openid);
+}
+
 module.exports = {
   getByOpenid, getByOpenidAny, getByOpenidGlobal, getByOpenidForOrganization,
-  getByOpenidAcrossOrgs, getById, getByIdGlobal,
+  getByOpenidAcrossOrgs, getAuthorizedByOpenidAcrossOrgs, getById, getByIdGlobal,
   listVisible, getAll, listByIdsInOrg, create, update, remove, studentExists, updateProfile, updateInvite, removeExact,
   lockSuperAdmins, getByInviteCode, getSuperAdmin, getByAdminLevel
 };

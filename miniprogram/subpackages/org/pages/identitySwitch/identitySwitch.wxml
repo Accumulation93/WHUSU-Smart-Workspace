@@ -75,15 +75,15 @@
       </view>
     </view>
 
-    <view class="identity-group" wx:if="{{assignmentIdentities.length}}">
+    <view class="identity-group" wx:if="{{assignmentContexts.length}}">
       <view class="identity-group-title">{{localeCopy.copy_5ccdea4fbf}}</view>
       <view class="identity-list">
         <view
-          class="identity-item {{item.current ? 'identity-item-current' : ''}} {{switchingIdentityId === item.identityId ? 'identity-item-switching' : ''}}"
-          wx:for="{{assignmentIdentities}}"
-          wx:key="identityId"
-          data-id="{{item.identityId}}"
-          catchtap="onIdentityTap"
+          class="identity-item {{item.current ? 'identity-item-current' : ''}} {{switchingContextId === item.contextId ? 'identity-item-switching' : ''}}"
+          wx:for="{{assignmentContexts}}"
+          wx:key="contextId"
+          data-id="{{item.contextId}}"
+          catchtap="onContextTap"
           hover-class="context-item-pressing"
           hover-start-time="0"
           hover-stay-time="160"
@@ -98,7 +98,7 @@
             <view class="identity-current-label" wx:if="{{item.current}}">{{localeCopy.copy_58063dc31f}}</view>
           </view>
           <view class="identity-item-end">
-            <view class="switching-dot" wx:if="{{switchingIdentityId === item.identityId}}"></view>
+            <view class="switching-dot" wx:if="{{switchingContextId === item.contextId}}"></view>
             <ui-icon wx:elif="{{item.current}}" name="check" tone="white" size="23" ariaLabel="{{localeCopy.copy_58063dc31f}}" />
             <ui-icon wx:else name="chevron-right" tone="muted" size="26" ariaLabel="{{localeCopy.copy_ee42a0dcb0}}" />
           </view>
@@ -106,15 +106,15 @@
       </view>
     </view>
 
-    <view class="identity-group" wx:if="{{adminIdentities.length}}">
+    <view class="identity-group" wx:if="{{adminContexts.length}}">
       <view class="identity-group-title">{{localeCopy.copy_3704f9b212}}</view>
       <view class="identity-list">
         <view
-          class="identity-item {{item.current ? 'identity-item-current' : ''}} {{switchingIdentityId === item.identityId ? 'identity-item-switching' : ''}}"
-          wx:for="{{adminIdentities}}"
-          wx:key="identityId"
-          data-id="{{item.identityId}}"
-          catchtap="onIdentityTap"
+          class="identity-item {{item.current ? 'identity-item-current' : ''}} {{switchingContextId === item.contextId ? 'identity-item-switching' : ''}}"
+          wx:for="{{adminContexts}}"
+          wx:key="contextId"
+          data-id="{{item.contextId}}"
+          catchtap="onContextTap"
           hover-class="context-item-pressing"
           hover-start-time="0"
           hover-stay-time="160"
@@ -132,7 +132,7 @@
             <view class="identity-current-label" wx:if="{{item.current}}">{{localeCopy.copy_58063dc31f}}</view>
           </view>
           <view class="identity-item-end">
-            <view class="switching-dot" wx:if="{{switchingIdentityId === item.identityId}}"></view>
+            <view class="switching-dot" wx:if="{{switchingContextId === item.contextId}}"></view>
             <ui-icon wx:elif="{{item.current}}" name="check" tone="white" size="23" ariaLabel="{{localeCopy.copy_58063dc31f}}" />
             <ui-icon wx:else name="chevron-right" tone="muted" size="26" ariaLabel="{{localeCopy.copy_ee42a0dcb0}}" />
           </view>
@@ -140,7 +140,7 @@
       </view>
     </view>
 
-    <view class="empty-state identity-empty" wx:if="{{!assignmentIdentities.length && !adminIdentities.length}}">
+    <view class="empty-state identity-empty" wx:if="{{!assignmentContexts.length && !adminContexts.length}}">
       <view class="empty-title">{{localeCopy.copy_da8326b294}}</view>
       <view class="empty-desc">{{localeCopy.copy_7c36a9a835}}</view>
     </view>

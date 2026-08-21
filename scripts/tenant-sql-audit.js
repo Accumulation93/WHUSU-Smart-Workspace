@@ -26,6 +26,7 @@ for (const match of initSql.matchAll(/CREATE TABLE IF NOT EXISTS\s+`?(\w+)`?\s*\
 // Each one is limited by an authenticated openid, a one-time invite, or a global-admin check.
 const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info WHERE openid = \?/i, reason: '跨组织管理员身份发现' },
+  { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info ai\s+WHERE ai\.openid = \? AND ai\.bind_status = \?[\s\S]*unifiedAuthorizationClause/i, reason: '由微信绑定与统一账号状态共同限定的跨组织管理员上下文发现' },
   { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info WHERE id = \? AND admin_level IN/i, reason: '权限管理精确主键锁定' },
   { file: 'server/src/core/models/adminInfo.js', sql: /FROM admin_info\s+WHERE invite_code = \?/i, reason: '一次性邀请码查找' },
   { file: 'server/src/core/models/hrInfo.js', sql: /FROM hr_info WHERE student_id = \?/i, reason: '登录时跨组织身份匹配' },
@@ -46,6 +47,7 @@ const CROSS_ORG_ALLOWLIST = [
   { file: 'server/src/utils/requestDeduplication.js', sql: /DELETE FROM request_deduplication/i, reason: '后台全局幂等记录保留期清理' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM organization_memberships WHERE legacy_hr_id = \?/i, reason: '由已授权的旧人员主键解析统一成员关系' },
   { file: 'server/src/core/models/personIdentityOverview.js', sql: /FROM organization_memberships om[\s\S]*WHERE om\.legacy_hr_id = \?/i, reason: '由当前人事列表已授权的旧人员主键解析自然人，后续结果仍按服务端可访问组织过滤' },
+  { file: 'server/src/core/models/personGovernance.js', sql: /DELETE FROM user_info WHERE openid = \?/i, reason: '自然人合并事务按已锁定源账号微信标识清除全部旧组织兼容绑定' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /FROM membership_assignments\s+WHERE membership_id = \?/i, reason: '在已授权成员关系内解析岗位' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET assignment_kind = \?/i, reason: '按已授权岗位主键更新岗位' },
   { file: 'server/src/core/models/unifiedIdentity.js', sql: /UPDATE membership_assignments\s+SET status = 'revoked'[\s\S]*WHERE id = \?/i, reason: '按已授权岗位主键撤销岗位' },

@@ -6,6 +6,8 @@ const { getCurrentOrgId } = require('../../utils/orgContext');
 const identityModel = require('../models/identity');
 const adminInfoModel = require('../models/adminInfo');
 const pool = require('../../config/db');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
+const dictionaryUsage = require('../services/dictionaryUsage');
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -24,7 +26,7 @@ router.post('/listIdentities', async (req, res) => {
       name: safeString(item.name),
       description: safeString(item.description)
     })).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
-    res.json({ status: 'success', identities });
+    res.json({ status: 'success', identityCategories: identities, identities });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
   }
@@ -75,16 +77,14 @@ router.post('/deleteIdentity', async (req, res) => {
     const id = safeString(req.body.id);
     if (!id) return res.json({ status: 'invalid_params', message: localeCopy.copy_10d3269bb4 });
 
-    // Check references before deletion
     const orgId = await getCurrentOrgId();
-    const [hrRef] = await pool.query('SELECT id FROM hr_info WHERE identity_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
-    if (hrRef.length) return res.json({ status: 'in_use', message: localeCopy.copy_49f1c93054 });
-    const [scorerRef] = await pool.query('SELECT id FROM rate_target_rules WHERE scorer_identity_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
-    if (scorerRef.length) return res.json({ status: 'in_use', message: localeCopy.copy_7d27c30831 });
-    const [targetRef] = await pool.query('SELECT id FROM rate_rule_clauses WHERE target_identity_id = ? AND org_id = ? LIMIT 1', [id, orgId]);
-    if (targetRef.length) return res.json({ status: 'in_use', message: localeCopy.copy_20bec31d0c });
-
-    await identityModel.remove(id);
+    const deletion = await dictionaryUsage.deleteUnused('identity', id, orgId);
+    if (deletion.status === 'in_use') {
+      return res.json({ status: 'in_use', message: personnelCopy.dictionaryInUse, usages: deletion.usages });
+    }
+    if (deletion.status !== 'success') {
+      return res.json({ status: deletion.status, message: localeCopy.copy_10d3269bb4 });
+    }
     res.json({ status: 'success', message: localeCopy.copy_c2fabccf92 });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });

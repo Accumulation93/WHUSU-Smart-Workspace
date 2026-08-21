@@ -6,6 +6,7 @@ const {
 
 const chairman = {
   id: 'hr-chairman',
+  assignment_id: 'assignment-chairman',
   department_id: 'department-chairman',
   work_group_id: '',
   identity_id: 'identity-chairman'
@@ -47,7 +48,10 @@ function userActor(profile = chairman) {
   return {
     type: 'user',
     id: profile.id,
+    personId: 'person-chairman',
+    assignmentId: profile.assignment_id,
     name: '陈逸凡',
+    assignment: profile,
     profile
   };
 }
@@ -88,7 +92,7 @@ assert.strictEqual(userCannotApproveAdminStep.reason, REASONS.ADMIN_REQUIRED);
 
 const mismatchedIdentity = evaluateVenueApprovalStep({
   booking: booking(),
-  actor: userActor({ ...chairman, identity_id: 'identity-member' }),
+  actor: userActor({ ...chairman, assignment_id: 'assignment-member', identity_id: 'identity-member' }),
   steps: [hrStep],
   applicantHrInfo: applicant
 });
@@ -108,7 +112,7 @@ assert.strictEqual(alreadyApproved.reason, REASONS.ALREADY_APPROVED);
 
 const invalidBinding = evaluateVenueApprovalStep({
   booking: booking(),
-  actor: { type: 'user', id: chairman.id, profile: null },
+  actor: { type: 'user', id: chairman.id, assignmentId: 'missing-assignment', assignment: null, profile: null },
   steps: [hrStep],
   applicantHrInfo: applicant
 });

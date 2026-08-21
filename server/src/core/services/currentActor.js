@@ -1,8 +1,7 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/services/currentActor');
 const { safeString } = require('../../utils/helpers');
-const userInfoModel = require('../models/userInfo');
-const adminInfoModel = require('../models/adminInfo');
 const hrInfoModel = require('../models/hrInfo');
+const adminInfoModel = require('../models/adminInfo');
 
 const ACTIVE_ROLES = new Set(['user', 'admin']);
 
@@ -60,57 +59,10 @@ async function resolveCurrentActor(req) {
     };
   }
 
-  const activeRole = safeString(req.headers['x-role']).toLowerCase();
-  if (!ACTIVE_ROLES.has(activeRole)) {
-    return {
-      ok: false,
-      status: 'invalid_role',
-      message: localeCopy.copy_10d3269bb4
-    };
-  }
-
-  const openid = safeString(req.openid);
-  if (!openid) {
-    return { ok: false, status: 'auth_failed', message: localeCopy.copy_c22a252e97 };
-  }
-
-  if (activeRole === 'admin') {
-    const admin = await adminInfoModel.getByOpenid(openid);
-    if (!admin) {
-      return { ok: false, status: 'forbidden', message: localeCopy.copy_8dd829b03b };
-    }
-    return {
-      ok: true,
-      actor: {
-        type: 'admin',
-        id: safeString(admin.id),
-        openid,
-        adminLevel: safeString(admin.admin_level),
-        name: safeString(admin.name),
-        profile: admin
-      }
-    };
-  }
-
-  const user = await userInfoModel.getByOpenid(openid);
-  const hrId = safeString(user && user.hr_id);
-  if (!user || !hrId) {
-    return { ok: false, status: 'forbidden', message: localeCopy.copy_c99b2ee9e2 };
-  }
-  const hr = await hrInfoModel.getById(hrId);
-  if (!hr) {
-    return { ok: false, status: 'forbidden', message: localeCopy.copy_12799b0f7a };
-  }
   return {
-    ok: true,
-    actor: {
-      type: 'user',
-      id: hrId,
-      openid,
-      name: safeString(hr.name),
-      userInfoId: safeString(user.id),
-      profile: hr
-    }
+    ok: false,
+    status: 'work_context_required',
+    message: localeCopy.copy_10d3269bb4
   };
 }
 

@@ -242,7 +242,7 @@ router.post('/getAuditFile', async (req, res) => {
     const fileId = safeString(req.body.fileId);
     if (!fileId) return res.json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
 
-    const auth = await getAuthorizedAuditFile(fileId, req.openid);
+    const auth = await getAuthorizedAuditFile(fileId, req);
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 
@@ -271,7 +271,7 @@ router.get('/downloadAuditFile', async (req, res) => {
     const fileId = safeString(req.query.fileId);
     if (!fileId) return res.status(400).json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
 
-    const auth = await getAuthorizedAuditFile(fileId, req.openid);
+    const auth = await getAuthorizedAuditFile(fileId, req);
     if (auth.status !== 'success') {
       const code = auth.status === 'forbidden' ? 403 : 404;
       return res.status(code).json(auth);
@@ -309,7 +309,7 @@ router.post('/getAuditFilePreview', async (req, res) => {
     const page = parseInt(req.body.page) || 1;
     if (!fileId) return res.json({ status: 'invalid_params', message: localeCopy.copy_03d69a9d28 });
 
-    const auth = await getAuthorizedAuditFile(fileId, req.openid);
+    const auth = await getAuthorizedAuditFile(fileId, req);
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 
@@ -398,7 +398,7 @@ router.post('/mergeSignaturesIntoFile', async (req, res) => {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_f66ff9f7b5 });
     }
 
-    const auth = await getAuthorizedAuditFile(fileId, req.openid);
+    const auth = await getAuthorizedAuditFile(fileId, req);
     if (auth.status !== 'success') return res.json(auth);
     const file = auth.file;
 

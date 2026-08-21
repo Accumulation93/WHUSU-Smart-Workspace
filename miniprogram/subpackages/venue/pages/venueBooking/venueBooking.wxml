@@ -30,6 +30,10 @@ module.exports = { hour: hour, min: min };
     <view class="card">
       <view class="card-loading-overlay" wx:if="{{loading}}"><view class="card-loading-spinner"></view></view>
       <view class="section-title">{{localeCopy.copy_b210c95498}}</view>
+      <view class="work-context-notice" wx:if="{{!hasActiveAssignment}}">
+        <view class="work-context-notice-text">{{localeCopy.noActiveAssignmentNotice}}</view>
+        <text class="work-context-notice-action ui-motion-chip" bindtap="goWorkContextSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.switchWorkContext}}</text>
+      </view>
       <scroll-view show-scrollbar="{{true}}" bounces="{{true}}" class="inner-scroll" scroll-y>
         <view class="empty-state" wx:if="{{!venues.length}}">
           <view class="empty-text">{{localeCopy.copy_a60fcec226}}</view>
@@ -46,7 +50,7 @@ module.exports = { hour: hour, min: min };
           </view>
           <view class="venue-actions">
             <text class="action-btn ui-motion-chip" data-id="{{item.id}}" bindtap="openSchedule" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_391b522838}}</text>
-            <text class="action-btn primary ui-motion-chip" data-id="{{item.id}}" bindtap="openBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_183fdf9907}}</text>
+            <text class="action-btn primary {{!hasActiveAssignment ? 'action-btn-disabled' : ''}} ui-motion-chip" data-id="{{item.id}}" bindtap="openBooking" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_183fdf9907}}</text>
           </view>
         </view>
       </scroll-view>
@@ -103,8 +107,13 @@ module.exports = { hour: hour, min: min };
               <view class="pending-item-step" wx:if="{{item.approvalCurrentStep > 0}}">{{item.approvalCurrentStep}}/{{item.approvalTotalSteps}} {{localeCopy.copy_dc59906817}}</view>
             </view>
             <view class="pending-item-info">{{item.venueName}} · {{item.userName}} · {{item.timeStart}} {{localeCopy.copy_e8d9493a44}} {{item.timeEnd}}</view>
+            <view class="assignment-chip" wx:if="{{item._creatorAssignmentText}}">{{localeCopy.applicantAssignment}} · {{item._creatorAssignmentText}}</view>
+            <view class="context-switch-notice" wx:if="{{item._requiresContextSwitch}}">
+              <view class="context-switch-title">{{localeCopy.contextSwitchRequired}}</view>
+              <view class="context-switch-detail" wx:if="{{item._requiredContextText}}">{{item._requiredContextText}}</view>
+            </view>
           </view>
-          <view class="pending-actions-col">
+          <view class="pending-actions-col" wx:if="{{!item._requiresContextSwitch}}">
             <text class="pending-action-link approve ui-motion-chip" data-id="{{item.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_1bb7eb3e1a}}</text>
             <text class="pending-action-link reject ui-motion-chip" data-id="{{item.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0c90eb0204}}</text>
           </view>
@@ -329,7 +338,7 @@ module.exports = { hour: hour, min: min };
           <view class="field" wx:if="{{allowUserSelectFlow && selectedFlowId && selectedFlowAllowDesignateFirst}}">
             <view class="field-label">{{localeCopy.copy_66a92fc57e}}</view>
             <view class="pick-row" catchtap="openFirstApproverPicker">
-              <text class="picker-display {{firstApproverHrId ? 'picker-has-value' : ''}}">{{firstApproverName || localeCopy.copy_6986f4a5fd}}</text>
+              <text class="picker-display {{firstApproverAssignmentId ? 'picker-has-value' : ''}}">{{firstApproverName || localeCopy.copy_6986f4a5fd}}</text>
             </view>
           </view>
         </view>
@@ -348,9 +357,9 @@ module.exports = { hour: hour, min: min };
         <view class="ui-dialog-body ui-dialog-content">
           <input class="field-input" value="{{firstApproverKeyword}}" bindinput="onFirstApproverKeywordInput" placeholder="{{localeCopy.copy_2ea2cd3a4f}}" />
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="person-picker-list ui-dialog-scroll--pane">
-            <view class="person-picker-item" wx:for="{{approverCandidates}}" wx:key="id" wx:if="{{!firstApproverKeyword || item.name.indexOf(firstApproverKeyword) >= 0 || item.studentId.indexOf(firstApproverKeyword) >= 0}}" data-id="{{item.id}}" data-name="{{item.name}}" catchtap="pickFirstApprover">
-              <text class="person-picker-name">{{item.name}}</text>
-              <text class="person-picker-id">{{item.studentId}}</text>
+            <view class="person-picker-item" wx:for="{{approverCandidates}}" wx:key="assignmentId" wx:if="{{!firstApproverKeyword || item._searchText.indexOf(firstApproverKeyword) >= 0}}" data-assignment-id="{{item.assignmentId}}" data-name="{{item._selectionText}}" catchtap="pickFirstApprover">
+              <view class="person-picker-main"><text class="person-picker-name">{{item.name}}</text><text class="person-picker-id">{{item.studentId}}</text></view>
+              <text class="person-picker-assignment" wx:if="{{item._eligibleAssignmentText}}">{{item._eligibleAssignmentText}}</text>
             </view>
             <view class="empty-inline" wx:if="{{!approverCandidates.length}}">{{localeCopy.copy_5dbaec0fcf}}</view>
             <view class="scroll-tail-space"></view>
@@ -393,6 +402,7 @@ module.exports = { hour: hour, min: min };
                   <view wx:if="{{node.state === 'done' || node.state === 'rejected'}}" class="flow-expand-hint">{{expandedNodeKey === node._key ? localeCopy.copy_4edcf754ff : localeCopy.copy_baec508307}}</view>
                   <view wx:if="{{expandedNodeKey === node._key && (node.state === 'done' || node.state === 'rejected')}}" class="flow-expand-detail">
                     <view wx:if="{{node.approverName}}" class="flow-detail-processed-text"><text class="flow-detail-label">{{localeCopy.copy_866290fa02}}</text>{{node.approverName}}</view>
+                    <view wx:if="{{node.approverAssignmentText}}" class="flow-detail-processed-meta"><text class="flow-detail-label">{{localeCopy.approverAssignment}}</text>{{node.approverAssignmentText}}</view>
                     <view wx:if="{{node.approvedAt}}" class="flow-detail-processed-meta">{{localeCopy.copy_dcadcebf08}}{{node.approvedAt}}</view>
                     <view wx:if="{{node.comment}}" class="flow-detail-comment"><text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}</view>
                   </view>
@@ -404,6 +414,12 @@ module.exports = { hour: hour, min: min };
           <view class="detail-row"><text class="detail-key">{{localeCopy.copy_bbbebc1abf}}</text><text class="detail-val">{{approvalTarget.venueName}}<text wx:if="{{approvalTarget.venueLocation}}"> · {{approvalTarget.venueLocation}}</text></text></view>
           <view class="detail-row" wx:if="{{approvalTarget.orgName}}"><text class="detail-key">{{localeCopy.copy_34e2d1f8a0}}</text><text class="detail-val">{{approvalTarget.orgName}}</text></view>
           <view class="detail-row"><text class="detail-key">{{localeCopy.copy_ce30bda5a2}}</text><text class="detail-val">{{approvalTarget.userName}}</text></view>
+          <view class="detail-row" wx:if="{{approvalTarget._creatorAssignmentText}}"><text class="detail-key">{{localeCopy.applicantAssignment}}</text><text class="detail-val"><text class="assignment-chip">{{approvalTarget._creatorAssignmentText}}</text></text></view>
+          <view class="context-switch-notice context-switch-notice--detail" wx:if="{{approvalTarget._requiresContextSwitch}}">
+            <view class="context-switch-title">{{localeCopy.contextSwitchRequired}}</view>
+            <view class="context-switch-detail" wx:if="{{approvalTarget._requiredContextText}}">{{approvalTarget._requiredContextText}}</view>
+            <text class="context-switch-action ui-motion-chip" catchtap="goWorkContextSwitch" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160">{{localeCopy.switchWorkContext}}</text>
+          </view>
           <view class="detail-row"><text class="detail-key">{{localeCopy.copy_4202a27ca6}}</text><text class="detail-val">{{approvalTarget.timeStart}} — {{approvalTarget.timeEnd}}</text></view>
           <view class="detail-row" wx:if="{{approvalTarget.description}}"><text class="detail-key">{{localeCopy.copy_c5d9511809}}</text><text class="detail-val">{{approvalTarget.description}}</text></view>
           <view class="detail-row"><text class="detail-key">{{localeCopy.copy_8aee737e64}}</text><text class="status-tag pending">{{localeCopy.copy_310d71700e}}</text></view>
@@ -414,7 +430,7 @@ module.exports = { hour: hour, min: min };
             <view class="field" wx:if="{{approvalAction === 'approve' && canDesignateNext}}">
               <view class="field-label">{{localeCopy.copy_3fc6899daa}}</view>
               <view class="pick-row" catchtap="openNextApproverPicker">
-                <text class="picker-display {{nextApproverHrId ? 'picker-has-value' : ''}}">{{nextApproverName || localeCopy.copy_6986f4a5fd}}</text>
+                <text class="picker-display {{nextApproverAssignmentId ? 'picker-has-value' : ''}}">{{nextApproverName || localeCopy.copy_6986f4a5fd}}</text>
               </view>
             </view>
             <view class="field field--approval-comment">
@@ -441,9 +457,9 @@ module.exports = { hour: hour, min: min };
         <view class="ui-dialog-body ui-dialog-content">
           <input class="field-input" value="{{nextApproverKeyword}}" bindinput="onNextApproverKeywordInput" placeholder="{{localeCopy.copy_2ea2cd3a4f}}" />
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="person-picker-list ui-dialog-scroll--pane">
-            <view class="person-picker-item" wx:for="{{nextApproverCandidates}}" wx:key="id" wx:if="{{!nextApproverKeyword || item.name.indexOf(nextApproverKeyword) >= 0 || item.studentId.indexOf(nextApproverKeyword) >= 0}}" data-id="{{item.id}}" data-name="{{item.name}}" catchtap="pickNextApprover">
-              <text class="person-picker-name">{{item.name}}</text>
-              <text class="person-picker-id">{{item.studentId}}</text>
+            <view class="person-picker-item" wx:for="{{nextApproverCandidates}}" wx:key="assignmentId" wx:if="{{!nextApproverKeyword || item._searchText.indexOf(nextApproverKeyword) >= 0}}" data-assignment-id="{{item.assignmentId}}" data-name="{{item._selectionText}}" catchtap="pickNextApprover">
+              <view class="person-picker-main"><text class="person-picker-name">{{item.name}}</text><text class="person-picker-id">{{item.studentId}}</text></view>
+              <text class="person-picker-assignment" wx:if="{{item._eligibleAssignmentText}}">{{item._eligibleAssignmentText}}</text>
             </view>
             <view class="empty-inline" wx:if="{{!nextApproverCandidates.length}}">{{localeCopy.copy_5dbaec0fcf}}</view>
             <view class="scroll-tail-space"></view>

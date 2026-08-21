@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { AsyncLocalStorage } = require('async_hooks');
 
 const orgContextPath = require.resolve('../src/utils/orgContext');
 const accessiblePath = require.resolve('../src/core/services/accessibleOrganizations');
@@ -26,6 +27,7 @@ let failTodoOrgId = '';
 const todoCalls = [];
 const notificationCalls = [];
 const markAllCalls = [];
+const testOrgStorage = new AsyncLocalStorage();
 
 const todoService = {
   compareTodo(left, right) {
@@ -35,7 +37,7 @@ const todoService = {
     return String(left.id).localeCompare(String(right.id));
   },
   async listAll(actor, orgId) {
-    todoCalls.push({ actorId: actor.id, orgId });
+    todoCalls.push({ actorId: actor.id, orgId, activeOrgId: testOrgStorage.getStore() });
     if (orgId === failTodoOrgId) throw new Error('模拟组织查询失败');
     return [{
       id: 'todo-' + orgId,
@@ -83,7 +85,7 @@ require.cache[orgContextPath] = {
   loaded: true,
   exports: {
     getCurrentOrgId: async function() { return 'org-a'; },
-    orgStorage: { run: function(_orgId, callback) { return callback(); } }
+    orgStorage: testOrgStorage
   }
 };
 require.cache[accessiblePath] = {
@@ -154,13 +156,14 @@ async function testGlobalTodoAggregationAndMetadata() {
   );
   assert.strictEqual(result.items[1].isCurrentOrganization, true);
   assert.strictEqual(result.organizations.length, 2);
+  assert.ok(todoCalls.every((call) => call.orgId === call.activeOrgId), '每个跨组织待办查询必须进入对应 ALS 组织上下文');
 }
 
 async function testOrganizationFilterAndDenial() {
   todoCalls.length = 0;
   const filtered = await invoke('/listTodos', { limit: 20, organizationId: 'org-b' });
   assert.strictEqual(filtered.status, 'success');
-  assert.deepStrictEqual(todoCalls, [{ actorId: 'hr-b', orgId: 'org-b' }]);
+  assert.deepStrictEqual(todoCalls, [{ actorId: 'hr-b', orgId: 'org-b', activeOrgId: 'org-b' }]);
   const denied = await invoke('/listTodos', { organizationId: 'org-x' });
   assert.strictEqual(denied.status, 'org_access_denied');
   assert.strictEqual(todoCalls.length, 1, '越权筛选不得执行待办查询');

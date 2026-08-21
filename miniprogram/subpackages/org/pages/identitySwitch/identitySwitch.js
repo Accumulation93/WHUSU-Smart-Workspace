@@ -20,13 +20,13 @@ function decorateOrganizations(organizations, currentOrganizationId, draftOrgani
   });
 }
 
-function decorateIdentities(identities, draftOrganizationId, selection) {
-  const applicable = (identities || []).filter(function(item) {
-    return item.scope === 'global' || item.organizationId === draftOrganizationId;
+function decorateWorkContexts(workContexts, draftOrganizationId, selection) {
+  const applicable = (workContexts || []).filter(function(item) {
+    return normalizeText(item.organizationId) === normalizeText(draftOrganizationId);
   }).map(function(item) {
     return Object.assign({}, item, {
       current: selection.organizationId === draftOrganizationId
-        && selection.identityId === item.identityId,
+        && selection.contextId === item.contextId,
       roleLabel: item.role === 'admin' ? localeCopy.copy_e0b24e2033 : localeCopy.copy_6db7a44985,
       scopeLabel: item.scope === 'global' ? localeCopy.copy_e3eb24175c : ''
     });
@@ -42,22 +42,21 @@ Page({
     localeCopy,
     organizations: [],
     filteredOrganizations: [],
-    identities: [],
-    assignmentIdentities: [],
-    adminIdentities: [],
+    workContexts: [],
+    assignmentContexts: [],
+    adminContexts: [],
     selection: {
       organizationId: '',
-      identityId: '',
       contextId: ''
     },
     currentOrganizationName: '',
-    currentIdentityName: '',
+    currentContextName: '',
     draftOrganizationId: '',
     draftOrganizationName: '',
     organizationKeyword: '',
     showOrganizationSearch: false,
     loading: true,
-    switchingIdentityId: '',
+    switchingContextId: '',
     errorText: '',
     skeletonRows: [1, 2, 3]
   },
@@ -67,7 +66,7 @@ Page({
     this._active = true;
     this.applyCatalog({
       organizations: authContext.getOrganizations(),
-      identities: authContext.getIdentities(),
+      workContexts: authContext.getWorkContexts(),
       selection: authContext.getSelection()
     });
   },
@@ -85,13 +84,13 @@ Page({
 
   applyCatalog(catalog) {
     const organizations = Array.isArray(catalog.organizations) ? catalog.organizations : [];
-    const identities = Array.isArray(catalog.identities) ? catalog.identities : [];
+    const workContexts = Array.isArray(catalog.workContexts) ? catalog.workContexts : [];
     const selection = catalog.selection || authContext.getSelection();
     const currentOrganization = organizations.find(function(item) {
       return item.id === selection.organizationId;
     }) || null;
-    const currentIdentity = identities.find(function(item) {
-      return item.identityId === selection.identityId;
+    const currentContext = workContexts.find(function(item) {
+      return item.contextId === selection.contextId;
     }) || null;
     const previousDraft = this.data.draftOrganizationId;
     const draftOrganizationId = organizations.some(function(item) {
@@ -100,7 +99,7 @@ Page({
     const draftOrganization = organizations.find(function(item) {
       return item.id === draftOrganizationId;
     }) || null;
-    const groups = decorateIdentities(identities, draftOrganizationId, selection);
+    const groups = decorateWorkContexts(workContexts, draftOrganizationId, selection);
     this.setData({
       organizations,
       filteredOrganizations: decorateOrganizations(
@@ -109,12 +108,12 @@ Page({
         draftOrganizationId,
         this.data.organizationKeyword
       ),
-      identities,
-      assignmentIdentities: groups.assignments,
-      adminIdentities: groups.admins,
+      workContexts,
+      assignmentContexts: groups.assignments,
+      adminContexts: groups.admins,
       selection,
       currentOrganizationName: currentOrganization ? currentOrganization.name : '',
-      currentIdentityName: currentIdentity ? currentIdentity.name : '',
+      currentContextName: currentContext ? currentContext.name : '',
       draftOrganizationId,
       draftOrganizationName: draftOrganization ? draftOrganization.name : '',
       showOrganizationSearch: organizations.length > 6
@@ -164,14 +163,14 @@ Page({
   },
 
   onOrganizationTap(e) {
-    if (this.data.switchingIdentityId) return;
+    if (this.data.switchingContextId) return;
     const organizationId = normalizeText(e.currentTarget.dataset.id);
     const organization = this.data.organizations.find(function(item) {
       return item.id === organizationId;
     });
     if (!organization) return;
-    const groups = decorateIdentities(
-      this.data.identities,
+    const groups = decorateWorkContexts(
+      this.data.workContexts,
       organizationId,
       this.data.selection
     );
@@ -184,24 +183,32 @@ Page({
         organizationId,
         this.data.organizationKeyword
       ),
-      assignmentIdentities: groups.assignments,
-      adminIdentities: groups.admins,
+      assignmentContexts: groups.assignments,
+      adminContexts: groups.admins,
       errorText: ''
     });
   },
 
-  async onIdentityTap(e) {
-    if (this.data.switchingIdentityId) return;
-    const identityId = normalizeText(e.currentTarget.dataset.id);
-    if (!identityId || !this.data.draftOrganizationId) return;
+  async onContextTap(e) {
+    if (this.data.switchingContextId) return;
+    const contextId = normalizeText(e.currentTarget.dataset.id);
+    if (!contextId || !this.data.draftOrganizationId) return;
+    const targetContext = this.data.workContexts.find(function(item) {
+      return normalizeText(item.contextId) === contextId;
+    });
+    if (!targetContext
+      || normalizeText(targetContext.organizationId) !== normalizeText(this.data.draftOrganizationId)) {
+      this.setData({ errorText: localeCopy.copy_53d5e0a0c8 });
+      return;
+    }
     if (this.data.selection.organizationId === this.data.draftOrganizationId
-      && this.data.selection.identityId === identityId) {
+      && this.data.selection.contextId === contextId) {
       wx.navigateBack();
       return;
     }
-    this.setData({ switchingIdentityId: identityId, errorText: '' });
+    this.setData({ switchingContextId: contextId, errorText: '' });
     try {
-      const activated = await authContext.activateSelection(this.data.draftOrganizationId, identityId);
+      const activated = await authContext.activateContext(contextId);
       orgSession.invalidateRequests(this);
       this._active = false;
       contextRouteGuard.finishSwitch(activated);
@@ -212,7 +219,7 @@ Page({
         await this.loadCatalog();
       }
     } finally {
-      if (this._active) this.setData({ switchingIdentityId: '' });
+      if (this._active) this.setData({ switchingContextId: '' });
     }
   }
 });

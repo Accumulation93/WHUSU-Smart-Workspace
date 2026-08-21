@@ -8,6 +8,7 @@ const userInfoModel = require('../models/userInfo');
 const pool = require('../../config/db');
 const unifiedIdentityModel = require('../models/unifiedIdentity');
 const personIdentityOverviewModel = require('../models/personIdentityOverview');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
 const {
   AdminOrganizationAccessError,
   requireAdminOrganizationPermission
@@ -48,6 +49,12 @@ function hasAccountRead(req, operator) {
   return hasAccountWrite(req, operator) || Boolean(req.adminPermissions
     && req.adminPermissions.permissions
     && req.adminPermissions.permissions['system.admin_accounts.read']);
+}
+
+function hasGlobalAccountManage(req, operator) {
+  return isSuperAdmin(operator) || Boolean(req.adminPermissions
+    && req.adminPermissions.permissions
+    && req.adminPermissions.permissions['auth.accounts.global_manage']);
 }
 
 function creatableLevels(operator, canWrite) {
@@ -299,8 +306,11 @@ router.post('/bootstrapSuperAdmin', async (req, res) => {
 router.post('/adminUnbindUser', async (req, res) => {
   try {
     const operator = await ensureAdmin(req);
-    if (!operator || !hasAccountWrite(req, operator)) {
-      return res.status(403).json({ status: 'permission_denied', message: localeCopy.copy_a8944fafcc });
+    if (!operator || !hasGlobalAccountManage(req, operator)) {
+      return res.status(403).json({
+        status: 'permission_denied',
+        message: personnelCopy.globalAccountManageRequired
+      });
     }
     const userId = safeString(req.body.userId);
     if (!userId) return res.json({ status: 'invalid_params', message: localeCopy.copy_eb00430bd4 });

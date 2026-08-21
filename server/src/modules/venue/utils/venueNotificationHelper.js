@@ -1,5 +1,6 @@
 const notificationModel = require('../../audit/models/notification');
 const { createNotification } = require('../../audit/utils/notificationHelper');
+const { resolveBookingApplicantAssignment } = require('../services/venueAssignmentContext');
 
 /**
  * 待办改为实时按业务状态计算，不再为每个审批人持久化 pending_approval 通知。
@@ -10,9 +11,11 @@ async function createVenueApprovalNotifications(bookingId) {
 }
 
 async function createVenueBookingStatusNotification(booking, type, title, description, conn) {
-  if (!booking.user_hr_id) return { created: false };
+  const applicant = await resolveBookingApplicantAssignment(booking);
+  const recipientHrId = applicant && applicant.legacyHrId || booking.user_hr_id;
+  if (!recipientHrId) return { created: false };
   return createNotification({
-    hrId: booking.user_hr_id,
+    hrId: recipientHrId,
     eventKey: [type, booking.id, booking.status || 'status'].join(':'),
     type,
     title,

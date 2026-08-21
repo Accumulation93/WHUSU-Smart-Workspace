@@ -1,6 +1,13 @@
 'use strict';
 
 module.exports = Object.freeze({
+  assignmentNatureStaff: '本会岗位',
+  assignmentNatureLiaison: '学院对接岗位',
+  assignmentNatureOther: '其他岗位',
+  cancelSwitch: '暂不切换',
+  currentAssignmentRequired: '当前工作上下文没有有效岗位，不能进行评分',
+  switchWorkContext: '切换岗位',
+  workContextTitle: '需要切换工作上下文',
   copy_0c1a3a9fd9: "考核评分",
   copy_0e293b9410: '超出评分范围',
   copy_0e686e89bb: "起评分：",
@@ -44,5 +51,6 @@ module.exports = Object.freeze({
   copy_ef8b7ffa9b: "第",
   copy_f35088610d: '请填写分值',
   copy_fa906e8178: "展开键盘",
+  historicalAssignmentUnavailable: '历史岗位未记录',
   navigationTitle: "考核评分 - WHUSU智慧工作台"
 });

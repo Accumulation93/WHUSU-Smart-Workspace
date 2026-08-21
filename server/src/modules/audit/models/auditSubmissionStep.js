@@ -1,5 +1,10 @@
 const pool = require('../../../config/db');
 const { getCurrentOrgId } = require('../../../utils/orgContext');
+const { getColumns } = require('../services/auditSchemaCapabilities');
+const {
+  resolveActorAssignment,
+  getSubmissionSubmitterAssignments
+} = require('../services/auditAssignmentContext');
 
 async function getBySubmissionId(submissionId, conn) {
   const orgId = await getCurrentOrgId();
@@ -55,6 +60,7 @@ async function getTemplateStepConditions(templateStepId) {
   return condRows.map(c => ({
     conditionType: c.condition_type,
     personHrIds: c.person_hr_ids,
+    assignmentIds: c.assignment_ids,
     departmentScope: c.department_scope,
     specificDepartmentId: c.specific_department_id,
     workGroupScope: c.work_group_scope,
@@ -84,6 +90,7 @@ async function _batchLoadTemplateConditions(templateStepIds) {
     map[tc.template_step_id].push({
       conditionType: tc.condition_type,
       personHrIds: tc.person_hr_ids,
+      assignmentIds: tc.assignment_ids,
       departmentScope: tc.department_scope,
       specificDepartmentId: tc.specific_department_id,
       workGroupScope: tc.work_group_scope,
@@ -100,50 +107,14 @@ async function _batchLoadTemplateConditions(templateStepIds) {
  * Supports both legacy flat fields and new step_conditions_json multi-condition OR logic.
  * Also falls back to template step conditions for legacy submissions.
  */
-async function getPendingByApprover(hrId, approverOverride) {
+async function getPendingByApprover(actor, approverOverride) {
   const orgId = await getCurrentOrgId();
-
-  // Get the approver's HR info for identity/scope matching
-  let approver = null;
-  if (approverOverride) {
-    approver = {
-      id: hrId,
-      department_id: String(approverOverride.department_id || ''),
-      identity_id: String(approverOverride.identity_id || ''),
-      work_group_id: String(approverOverride.work_group_id || '')
-    };
-  } else {
-    const [hrRows] = await pool.query(
-      'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id = ? AND org_id = ?',
-      [hrId, orgId]
-    );
-    approver = hrRows[0] || null;
-  }
+  const approver = approverOverride || await resolveActorAssignment(actor, orgId);
   if (!approver) return [];
-
-  // Direct matches: specific_person steps assigned to this hrId (legacy field)
-  // Only include steps that are the CURRENT step of in_progress submissions
-  // AND only from the MAX round per (submission_id, sort_order)
-  const [directRows] = await pool.query(
-    `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
-     FROM audit_submission_steps ass
-     JOIN audit_submissions asub ON asub.id = ass.submission_id
-     JOIN (
-       SELECT submission_id, sort_order, MAX(round) as max_round
-       FROM audit_submission_steps WHERE org_id = ?
-       GROUP BY submission_id, sort_order
-     ) mr ON mr.submission_id = ass.submission_id AND mr.sort_order = ass.sort_order AND mr.max_round = ass.round
-     WHERE ass.approver_hr_id = ? AND ass.status = 'pending' AND asub.status = 'in_progress'
-       AND ass.sort_order = asub.current_step_index AND ass.org_id = ?
-     ORDER BY ass.created_at DESC`,
-    [orgId, hrId, orgId]
-  );
-
-  // Identity-based matches: steps with approver_type='identity' or step_conditions_json
-  let rows = [...directRows];
-
-  const [identityRows] = await pool.query(
-    `SELECT ass.*, asub.submission_number, asub.title, asub.submitted_by, asub.status AS submission_status, asub.type AS submission_type
+  const [pendingRows] = await pool.query(
+    `SELECT asub.*, ass.*, ass.id AS id, ass.submission_id AS submission_id,
+            asub.submission_number, asub.title, asub.submitted_by,
+            asub.status AS submission_status, asub.type AS submission_type
      FROM audit_submission_steps ass
      JOIN audit_submissions asub ON asub.id = ass.submission_id
      JOIN (
@@ -157,35 +128,19 @@ async function getPendingByApprover(hrId, approverOverride) {
     [orgId, orgId]
   );
 
-  // Deduplicate by step ID (a step might match via multiple paths)
-  const seenIds = new Set(directRows.map((r) => r.id));
-
-  // Load submitter info for all identity rows (needed for scope resolution)
-  const submitterIds = [...new Set(identityRows.map((r) => r.submitted_by).filter(Boolean))];
-  const submitterMap = {};
-  if (submitterIds.length) {
-    const [subRows] = await pool.query(
-      'SELECT id, department_id, identity_id, work_group_id FROM hr_info WHERE id IN (?) AND org_id = ?',
-      [submitterIds, orgId]
-    );
-    for (const s of subRows) submitterMap[s.id] = s;
-  }
-
-  // Batch-load template step conditions for fallback matching
-  const tplStepIds = [...new Set(identityRows.map((r) => r.template_step_id).filter(Boolean))];
+  const tplStepIds = [...new Set(pendingRows.map((r) => r.template_step_id).filter(Boolean))];
   const templateConditionMap = await _batchLoadTemplateConditions(tplStepIds);
+  const submitterMap = new Map();
+  const rows = [];
 
-  for (const row of identityRows) {
-    if (seenIds.has(row.id)) continue;
-
-    // If already directly matched via approver_hr_id, skip
-    // Use inCsv to handle comma-separated multi-person IDs in legacy steps
-    if (row.approver_hr_id && inCsv(row.approver_hr_id, hrId)) {
-      seenIds.add(row.id);
-      continue;
+  for (const row of pendingRows) {
+    if (!submitterMap.has(row.submission_id)) {
+      submitterMap.set(
+        row.submission_id,
+        await getSubmissionSubmitterAssignments(row, orgId)
+      );
     }
-
-    const submitter = submitterMap[row.submitted_by] || null;
+    const submitters = submitterMap.get(row.submission_id);
 
     let hasExplicitConditions = false;
 
@@ -194,10 +149,9 @@ async function getPendingByApprover(hrId, approverOverride) {
       hasExplicitConditions = true;
       try {
         const conditions = JSON.parse(row.step_conditions_json);
-        const matched = matchesAnyCondition(conditions, approver, submitter);
+        const matched = matchesAnyCondition(conditions, approver, submitters);
         if (matched) {
           rows.push(row);
-          seenIds.add(row.id);
           continue;
         }
       } catch (e) {
@@ -212,10 +166,9 @@ async function getPendingByApprover(hrId, approverOverride) {
     // sole authority (e.g., narrowed person list from designated approvers).
     if (!hasExplicitConditions && row.template_step_id && templateConditionMap[row.template_step_id]) {
       const tplConds = templateConditionMap[row.template_step_id];
-      const tplMatched = matchesAnyCondition(tplConds, approver, submitter);
+      const tplMatched = matchesAnyCondition(tplConds, approver, submitters);
       if (tplMatched) {
         rows.push(row);
-        seenIds.add(row.id);
         continue;
       }
     }
@@ -225,12 +178,14 @@ async function getPendingByApprover(hrId, approverOverride) {
     // present, it is the sole authority (legacy fields may be stale).
     if (!hasExplicitConditions && row.approver_type === 'identity' && row.approver_identity_id) {
       const identMatch = inCsv(row.approver_identity_id, approver.identity_id);
-      const scopeMatch = identMatch ? matchesScope(row, approver, submitter) : false;
+      const scopeMatch = identMatch ? matchesScope(row, approver, submitters) : false;
       if (identMatch && scopeMatch) {
         rows.push(row);
-        seenIds.add(row.id);
+        continue;
       }
     }
+
+    // 旧 specific_person 仅保存自然人，没有岗位约束，必须失败关闭。
   }
 
   // Deduplicate by submission_id: keep only the MAX round per submission.
@@ -295,7 +250,13 @@ function matchesAnyCondition(conditions, approver, submitter) {
       // Person condition: approver must be in the personHrIds list
       let personIds = (cond.personHrIds || '').toString().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
       let personMatch = personIds.includes(String(approver.id));
-      if (personMatch) return true;
+      const assignmentIds = (cond.assignmentIds || cond.personAssignmentIds || '').toString()
+        .split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      // 人员条件必须同时绑定明确岗位。旧条件没有 assignmentIds 时失败关闭，
+      // 禁止同一自然人切换到另一个岗位后继承原岗位的审批权限。
+      const assignmentMatch = assignmentIds.length > 0 &&
+        assignmentIds.includes(String(approver.assignment_id || ''));
+      if (personMatch && assignmentMatch) return true;
     } else if (!hasPersonCondition) {
       // Only check identity_scope when scope has NOT been narrowed
       let identMatch = matchesIdentityScopeCondition(cond, approver, submitter);
@@ -316,13 +277,16 @@ function matchesAnyCondition(conditions, approver, submitter) {
  * @returns {boolean}
  */
 function matchesIdentityScopeCondition(cond, approver, submitter) {
+  const submitters = Array.isArray(submitter) ? submitter.filter(Boolean) : (submitter ? [submitter] : []);
   // Department check
   let deptScope = cond.departmentScope || 'all';
   if (deptScope === 'specific') {
     let specificDeptId = (cond.specificDepartmentId || '').trim();
     if (!specificDeptId || !inCsv(specificDeptId, approver.department_id)) return false;
   } else if (deptScope === 'own') {
-    let deptOwnMatch = submitter && String(approver.department_id) === String(submitter.department_id);
+    let deptOwnMatch = submitters.some(function(item) {
+      return String(approver.department_id) === String(item.department_id);
+    });
     if (!deptOwnMatch) return false;
   }
 
@@ -332,7 +296,9 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
     let specificWgId = (cond.specificWorkGroupId || '').trim();
     if (!specificWgId || !inCsv(specificWgId, approver.work_group_id)) return false;
   } else if (wgScope === 'own') {
-    let wgOwnMatch = submitter && String(approver.work_group_id) === String(submitter.work_group_id);
+    let wgOwnMatch = submitters.some(function(item) {
+      return String(approver.work_group_id) === String(item.work_group_id);
+    });
     if (!wgOwnMatch) return false;
   }
   // Identity check
@@ -341,7 +307,9 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
     let specificIdentId = (cond.specificIdentityId || '').trim();
     if (!specificIdentId || !inCsv(specificIdentId, approver.identity_id)) return false;
   } else if (identScope === 'own') {
-    let identOwnMatch = submitter && String(approver.identity_id) === String(submitter.identity_id);
+    let identOwnMatch = submitters.some(function(item) {
+      return String(approver.identity_id) === String(item.identity_id);
+    });
     if (!identOwnMatch) return false;
   }
   return true;
@@ -354,17 +322,20 @@ function matchesIdentityScopeCondition(cond, approver, submitter) {
  * @param {object} submitter - The submission submitter's HR info
  */
 function matchesScope(step, approver, submitter) {
+  const submitters = Array.isArray(submitter) ? submitter.filter(Boolean) : (submitter ? [submitter] : []);
   const scopeType = (step.scope_type || '').trim();
   if (!scopeType || scopeType === 'all') return true;
 
   if (scopeType === 'same_department') {
-    if (!submitter) return false;
-    return String(approver.department_id) === String(submitter.department_id);
+    return submitters.some(function(item) {
+      return String(approver.department_id) === String(item.department_id);
+    });
   }
 
   if (scopeType === 'same_work_group') {
-    if (!submitter) return false;
-    return String(approver.work_group_id) === String(submitter.work_group_id);
+    return submitters.some(function(item) {
+      return String(approver.work_group_id) === String(item.work_group_id);
+    });
   }
 
   if (scopeType === 'specific_department') {
@@ -410,7 +381,15 @@ async function create(id, data, conn) {
 }
 
 async function updateStatus(id, data, conn) {
-  const { status, comment, rejectionReason, processedAt } = data;
+  const {
+    status,
+    comment,
+    rejectionReason,
+    processedAt,
+    processedPersonId,
+    processedAssignmentId,
+    processedContextSnapshot
+  } = data;
   const orgId = await getCurrentOrgId();
   const db = conn || pool;
   const fields = ['status = ?'];
@@ -419,6 +398,22 @@ async function updateStatus(id, data, conn) {
   if (comment !== undefined) { fields.push('comment = ?'); params.push(comment); }
   if (rejectionReason !== undefined) { fields.push('rejection_reason = ?'); params.push(rejectionReason); }
   if (processedAt !== undefined) { fields.push('processed_at = ?'); params.push(processedAt); }
+
+  const availableColumns = await getColumns('audit_submission_steps', db);
+  if (availableColumns.has('processed_person_id')) {
+    fields.push('processed_person_id = ?');
+    params.push(processedPersonId || null);
+  }
+  if (availableColumns.has('processed_assignment_id')) {
+    fields.push('processed_assignment_id = ?');
+    params.push(processedAssignmentId || null);
+  }
+  if (availableColumns.has('processed_context_snapshot')) {
+    fields.push('processed_context_snapshot = ?');
+    params.push(processedContextSnapshot && typeof processedContextSnapshot === 'object'
+      ? JSON.stringify(processedContextSnapshot)
+      : processedContextSnapshot || null);
+  }
 
   params.push(id, orgId);
   await db.query(`UPDATE audit_submission_steps SET ${fields.join(', ')} WHERE id = ? AND org_id = ?`, params);

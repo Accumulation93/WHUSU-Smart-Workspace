@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = Object.freeze({
+  bookingAssignment: '提交岗位',
   copy_059dd7bc2c: "取消借用",
   copy_10bd4c9a19: '确认取消',
   copy_28981b382e: "暂无借用记录",

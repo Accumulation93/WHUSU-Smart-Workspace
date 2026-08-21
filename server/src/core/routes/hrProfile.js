@@ -1,4 +1,6 @@
 const localeCopy = require('../../locales/zh-CN/generated/core/routes/hrProfile');
+const personnelCopy = require('../../locales/zh-CN/core/personnel');
+const { format: localeFormat } = require('../../locales/runtime');
 const express = require('express');
 const router = express.Router();
 const { createNotification } = require('../../modules/audit/utils/notificationHelper');
@@ -14,6 +16,7 @@ const profileTemplateModel = require('../models/hrProfileTemplate');
 const profileFieldModel = require('../models/hrProfileField');
 const profileRecordModel = require('../models/hrProfileRecord');
 const profileValueModel = require('../models/hrProfileValue');
+const profileReviewEventModel = require('../models/hrProfileReviewEvent');
 const personProfileValueModel = require('../models/personProfileValue');
 const templateLibrary = require('../services/hrProfileTemplateLibrary');
 const { loadEffectivePermissions, hasAnyPermission } = require('../services/adminPermissions');
@@ -23,7 +26,16 @@ const personIdentityOverviewModel = require('../models/personIdentityOverview');
 const pool = require('../../config/db');
 
 const TEMPLATE_KEY = 'default_hr_profile_template';
-const MODE_TEXT_MAP = { direct: '允许直接修改', audit: '需审核后生效', readonly: '不允许自行修改' };
+const MODE_TEXT_MAP = {
+  direct: personnelCopy.profileModeDirect,
+  audit: personnelCopy.profileModeAudit,
+  readonly: personnelCopy.profileModeReadonly
+};
+const PROFILE_STATUS_TEXT = {
+  pending: personnelCopy.profileStatusPending,
+  rejected: personnelCopy.profileStatusRejected,
+  approved: personnelCopy.profileStatusApproved
+};
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -112,6 +124,20 @@ function validateFieldValue(field, rawValue, isAdmin) {
   return '';
 }
 
+function profileCompleteness(fields, effectiveValues, pendingValues, auditStatus) {
+  const source = auditStatus === 'pending' && Object.keys(pendingValues || {}).length
+    ? pendingValues
+    : effectiveValues;
+  const missingRequiredFieldIds = (fields || [])
+    .filter((field) => field.required)
+    .filter((field) => !safeString(source && source[field.id]))
+    .map((field) => field.id);
+  return {
+    isComplete: missingRequiredFieldIds.length === 0,
+    missingRequiredFieldIds
+  };
+}
+
 async function getUserWithOrg(openid) {
   const users = await userInfoModel.getAll();
   const user = users.find((u) => u.openid === openid);
@@ -185,31 +211,20 @@ router.post('/getUserHrProfile', async (req, res) => {
       });
     }
 
-    let auditStatus = record ? (record.audit_status || 'none') : 'none';
+    const auditStatus = record ? (record.audit_status || 'none') : 'none';
     const rejectionReason = record ? (record.rejection_reason || '') : '';
-
-    // Override status to 'none' if any required field is empty
-    if (templateData && templateData.fields && auditStatus !== 'none') {
-      const requiredFields = templateData.fields.filter((f) => f.required);
-      if (requiredFields.length > 0) {
-        const hasEmptyRequired = requiredFields.some((f) => {
-          const val = values[f.id];
-          return !val || !String(val).trim();
-        });
-        if (hasEmptyRequired) {
-          auditStatus = 'none';
-        }
-      }
-    }
-
-    const statusTextMap = { pending: '已提交待审核', rejected: '上次申请未通过', approved: '资料已保存' };
+    const completeness = profileCompleteness(
+      templateData ? templateData.fields : [], values, pendingValues, auditStatus
+    );
 
     res.json({
       status: 'success',
       profile: await enrichHrWithOrg(hr),
       template: templateData,
       values, pendingValues, auditStatus, rejectionReason,
-      statusText: statusTextMap[auditStatus] || localeCopy.copy_ede4536b9a
+      isComplete: completeness.isComplete,
+      missingRequiredFieldIds: completeness.missingRequiredFieldIds,
+      statusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_ede4536b9a
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -255,70 +270,58 @@ router.post('/submitUserHrProfile', async (req, res) => {
     }
 
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    const existing = await profileRecordModel.getByHrId(hr.id);
-    let effectiveRecordId = existing ? existing.id : '';
-
-    if (existing) {
-      const currentVals = await profileValueModel.getByRecordIdAndPending(existing.id, 0);
-      const currentValues = {};
-      currentVals.forEach((v) => { currentValues[v.field_id] = v.field_value; });
-
-      if (editMode === 'audit') {
+    const orgId = await getCurrentOrgId();
+    await pool.withTransaction(async (connection) => {
+      const existing = await profileRecordModel.getByHrId(hr.id, connection, orgId);
+      const recordId = existing ? existing.id : generateId();
+      if (existing) {
         await profileRecordModel.update(existing.id, {
           template_snapshot_id: template.id,
-          audit_status: 'pending', rejection_reason: '', requested_at: nowUtc, updated_at: nowUtc
-        });
-        await profileValueModel.removeByRecordIdAndPendingFields(existing.id, 1, activeFieldIds);
-        for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
-          await profileValueModel.create(generateId(), existing.id, 1, fieldId, fieldValue);
-        }
-      } else {
-        await profileRecordModel.update(existing.id, {
-          template_snapshot_id: template.id,
-          audit_status: 'approved', rejection_reason: '', reviewed_at: nowUtc, updated_at: nowUtc
-        });
-        await profileValueModel.removeByRecordIdAndPendingFields(existing.id, 0, activeFieldIds);
-        await profileValueModel.removeByRecordIdAndPendingFields(existing.id, 1, activeFieldIds);
-        for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
-          await profileValueModel.create(generateId(), existing.id, 0, fieldId, fieldValue);
-        }
-      }
-    } else {
-      const recordId = generateId();
-      effectiveRecordId = recordId;
-      if (editMode === 'audit') {
-        await profileRecordModel.create(recordId, {
-          hrId: hr.id, name: hr.name || '', openid, templateSnapshotId: template.id,
-          auditStatus: 'pending', requestedAt: nowUtc
-        });
-        for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
-          await profileValueModel.create(generateId(), recordId, 1, fieldId, fieldValue);
-        }
+          audit_status: editMode === 'audit' ? 'pending' : 'approved',
+          rejection_reason: '',
+          requested_at: editMode === 'audit' ? nowUtc : existing.requested_at,
+          reviewed_at: editMode === 'audit' ? existing.reviewed_at : nowUtc,
+          updated_at: nowUtc
+        }, connection, orgId);
       } else {
         await profileRecordModel.create(recordId, {
-          hrId: hr.id, name: hr.name || '', openid, templateSnapshotId: template.id,
-          auditStatus: 'approved', reviewedAt: nowUtc
-        });
-        for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
-          await profileValueModel.create(generateId(), recordId, 0, fieldId, fieldValue);
-        }
+          hrId: hr.id,
+          name: hr.name || '',
+          openid,
+          templateSnapshotId: template.id,
+          auditStatus: editMode === 'audit' ? 'pending' : 'approved',
+          requestedAt: editMode === 'audit' ? nowUtc : null,
+          reviewedAt: editMode === 'audit' ? null : nowUtc
+        }, connection, orgId);
       }
-    }
-
-    if (editMode !== 'audit') {
-      const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hr.id);
-      if (person && effectiveRecordId) {
-        await personProfileValueModel.upsertEffectiveValues(
-          person.id, await getCurrentOrgId(), effectiveRecordId, normalizedFields,
-          normalizedValues, nowUtc
+      const targetPending = editMode === 'audit' ? 1 : 0;
+      await profileValueModel.removeByRecordIdAndPendingFields(
+        recordId, targetPending, activeFieldIds, connection, orgId
+      );
+      if (editMode !== 'audit') {
+        await profileValueModel.removeByRecordIdAndPendingFields(
+          recordId, 1, activeFieldIds, connection, orgId
         );
       }
-    }
+      for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
+        await profileValueModel.create(
+          generateId(), recordId, targetPending, fieldId, fieldValue, connection, orgId
+        );
+      }
+      if (editMode !== 'audit') {
+        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hr.id, connection);
+        if (person) {
+          await personProfileValueModel.upsertEffectiveValues(
+            person.id, orgId, recordId, normalizedFields, normalizedValues, nowUtc, connection
+          );
+        }
+      }
+    });
 
     res.json({
       status: 'success',
       mode: editMode,
-      message: editMode === 'audit' ? '已提交审核，管理员通过后生效' : '人事信息已保存'
+      message: editMode === 'audit' ? personnelCopy.profileSubmitted : personnelCopy.profileSaved
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -503,8 +506,6 @@ router.post('/listHrProfileAdminData', async (req, res) => {
       .map((f) => { const v = valsMap[f.id]; return v ? `${f.label}：${v}` : ''; })
       .filter(Boolean).join('；');
 
-    const requiredFields = fieldObjs.filter((f) => f.required);
-
     const rows = [];
     for (const item of hrRows) {
       const record = recordMap.get(item.id);
@@ -523,20 +524,9 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         if (activeFieldIds.has(fieldId)) result[fieldId] = pendingRaw[fieldId];
         return result;
       }, {});
-      let auditStatus = safeString(record ? record.audit_status || 'none' : 'none') || 'none';
+      const auditStatus = safeString(record ? record.audit_status || 'none' : 'none') || 'none';
+      const completeness = profileCompleteness(fieldObjs, currentValues, pendingValues, auditStatus);
 
-      // Override status to 'none' if any required field is empty
-      if (requiredFields.length > 0 && auditStatus !== 'none') {
-        const hasEmptyRequired = requiredFields.some((f) => {
-          const val = currentValues[f.id];
-          return !val || !String(val).trim();
-        });
-        if (hasEmptyRequired) {
-          auditStatus = 'none';
-        }
-      }
-
-      const statusTextMap = { pending: '待审核', approved: '已生效', rejected: '已驳回' };
       const binding = bindingStates.get(safeString(item.id)) || {
         status: 'unbound',
         userInfoId: '',
@@ -565,7 +555,9 @@ router.post('/listHrProfileAdminData', async (req, res) => {
         currentValues,
         pendingValues,
         auditStatus,
-        auditStatusText: statusTextMap[auditStatus] || localeCopy.copy_67f2697101,
+        auditStatusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_67f2697101,
+        isComplete: completeness.isComplete,
+        missingRequiredFieldIds: completeness.missingRequiredFieldIds,
         rejectionReason: safeString(record ? record.rejection_reason : ''),
         hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
         userInfoId: binding.userInfoId,
@@ -588,7 +580,12 @@ router.post('/listHrProfileAdminData', async (req, res) => {
           options: f.options_json ? JSON.parse(f.options_json) : []
         }))
       } : null,
-      rows
+      rows,
+      capabilities: {
+        canManagePeople: hasAnyPermission(req.adminPermissions, ['hr.people']),
+        canReviewProfiles: hasAnyPermission(req.adminPermissions, ['hr.profile_review']),
+        canGlobalAccountManage: hasAnyPermission(req.adminPermissions, ['auth.accounts.global_manage'])
+      }
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -609,63 +606,105 @@ router.post('/reviewHrProfileChange', async (req, res) => {
     if (!studentId || ['approve', 'reject'].indexOf(action) === -1) {
       return res.json({ status: 'invalid_params', message: localeCopy.copy_2941385e2b });
     }
+    if (action === 'reject' && !reason) {
+      return res.json({ status: 'invalid_params', message: personnelCopy.rejectReasonRequired });
+    }
 
     const hrRecord = await hrInfoModel.getByStudentId(studentId);
     if (!hrRecord) return res.json({ status: 'not_found', message: localeCopy.copy_8709282967 });
 
-    const record = await profileRecordModel.getByHrId(hrRecord.id);
-    if (!record) return res.json({ status: 'not_found', message: localeCopy.copy_8709282967 });
-
-    const activeTemplate = await profileTemplateModel.getByTemplateKey(TEMPLATE_KEY);
-    const activeFields = activeTemplate ? await profileFieldModel.getByTemplateId(activeTemplate.id) : [];
-    const activeFieldIds = new Set(activeFields.map((field) => field.id));
-    const pendingVals = record.id
-      ? (await profileValueModel.getByRecordIdAndPending(record.id, 1)).filter((value) => activeFieldIds.has(value.field_id))
-      : [];
-    if (!pendingVals.length) return res.json({ status: 'invalid_operation', message: localeCopy.copy_0095182bd4 });
-
+    const orgId = await getCurrentOrgId();
     const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    if (action === 'approve') {
-      // Move pending values to active
-      await profileValueModel.removeByRecordIdAndPendingFields(record.id, 0, Array.from(activeFieldIds));
-      for (const v of pendingVals) {
-        await profileValueModel.create(generateId(), record.id, 0, v.field_id, v.field_value);
+    const reviewResult = await pool.withTransaction(async (connection) => {
+      const record = await profileRecordModel.getByHrId(hrRecord.id, connection, orgId, true);
+      if (!record) return { status: 'not_found' };
+      const effectiveVals = await profileValueModel.getByRecordIdAndPending(
+        record.id, 0, connection, orgId, true
+      );
+      const pendingVals = await profileValueModel.getByRecordIdAndPending(
+        record.id, 1, connection, orgId, true
+      );
+      if (!pendingVals.length || safeString(record.audit_status) !== 'pending') {
+        return { status: 'invalid_operation' };
       }
-      await profileValueModel.removeByRecordIdAndPendingFields(record.id, 1, Array.from(activeFieldIds));
-      await profileRecordModel.update(record.id, {
-        audit_status: 'approved', rejection_reason: '', reviewed_at: nowUtc, updated_at: nowUtc
-      });
-      const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrRecord.id);
-      if (person) {
-        const pendingByField = {};
-        pendingVals.forEach((value) => { pendingByField[value.field_id] = value.field_value; });
-        await personProfileValueModel.upsertEffectiveValues(
-          person.id, await getCurrentOrgId(), record.id,
-          activeFields.map((field) => ({
-            id: field.id,
-            label: field.label,
-            type: field.type
-          })), pendingByField, nowUtc
+      const pendingFieldIds = Array.from(new Set(pendingVals.map((value) => value.field_id)));
+      const submittedFields = await profileFieldModel.getByIds(pendingFieldIds, orgId, connection);
+      if (submittedFields.length !== pendingFieldIds.length) return { status: 'invalid_operation' };
+      const effectiveSnapshot = {};
+      const pendingSnapshot = {};
+      effectiveVals.forEach((value) => { effectiveSnapshot[value.field_id] = value.field_value; });
+      pendingVals.forEach((value) => { pendingSnapshot[value.field_id] = value.field_value; });
+      if (action === 'approve') {
+        await profileValueModel.removeByRecordIdAndPendingFields(
+          record.id, 0, pendingFieldIds, connection, orgId
         );
+        for (const value of pendingVals) {
+          await profileValueModel.create(
+            generateId(), record.id, 0, value.field_id, value.field_value, connection, orgId
+          );
+        }
+        await profileValueModel.removeByRecordIdAndPendingFields(
+          record.id, 1, pendingFieldIds, connection, orgId
+        );
+        await profileRecordModel.update(record.id, {
+          audit_status: 'approved', rejection_reason: '', reviewed_at: nowUtc, updated_at: nowUtc
+        }, connection, orgId);
+        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrRecord.id, connection);
+        if (person) {
+          await personProfileValueModel.upsertEffectiveValues(
+            person.id, orgId, record.id,
+            submittedFields.map((field) => ({ id: field.id, label: field.label, type: field.type })),
+            pendingSnapshot, nowUtc, connection
+          );
+        }
+      } else {
+        await profileValueModel.removeByRecordIdAndPendingFields(
+          record.id, 1, pendingFieldIds, connection, orgId
+        );
+        await profileRecordModel.update(record.id, {
+          audit_status: 'rejected', rejection_reason: reason, reviewed_at: nowUtc, updated_at: nowUtc
+        }, connection, orgId);
       }
-    } else {
-      await profileValueModel.removeByRecordIdAndPendingFields(record.id, 1, Array.from(activeFieldIds));
-      await profileRecordModel.update(record.id, {
-        audit_status: 'rejected', rejection_reason: reason || localeCopy.copy_7ba1f77c14, reviewed_at: nowUtc, updated_at: nowUtc
-      });
+      await profileReviewEventModel.create({
+        recordId: record.id,
+        action,
+        reason,
+        reviewerPersonId: req.authAccount && req.authAccount.personId,
+        reviewerContextId: req.authContext && req.authContext.contextId,
+        effectiveValues: effectiveSnapshot,
+        pendingValues: pendingSnapshot,
+        organizationId: orgId
+      }, connection);
+      return { status: 'success', recordId: record.id };
+    });
+
+    if (reviewResult.status === 'not_found') {
+      return res.json({ status: 'not_found', message: localeCopy.copy_8709282967 });
+    }
+    if (reviewResult.status === 'invalid_operation') {
+      return res.json({ status: 'invalid_operation', message: localeCopy.copy_0095182bd4 });
     }
 
-    await createNotification({
-      hrId: hrRecord.id,
-      eventKey: 'hr-profile-review:' + record.id + ':' + nowUtc,
-      type: action === 'approve' ? 'hr_profile_approved' : 'hr_profile_rejected',
-      title: action === 'approve' ? '补充资料审核通过' : '补充资料审核未通过',
-      description: action === 'approve' ? '您提交的人事补充资料已审核通过。' : ('您提交的人事补充资料未通过审核：' + (reason || localeCopy.copy_1198118dbe)),
-      category: 'hr',
-      targetType: 'hr_profile',
-      targetId: hrRecord.id,
-      targetUrl: '/subpackages/workspace/pages/home/home?subApp=hr'
-    });
+    try {
+      await createNotification({
+        hrId: hrRecord.id,
+        eventKey: 'hr-profile-review:' + reviewResult.recordId + ':' + nowUtc,
+        type: action === 'approve' ? 'hr_profile_approved' : 'hr_profile_rejected',
+        title: action === 'approve' ? personnelCopy.profileApproved : personnelCopy.profileRejected,
+        description: action === 'approve'
+          ? personnelCopy.profileApprovedNotice
+          : localeFormat(personnelCopy.profileRejectedNotice, [reason]),
+        category: 'hr',
+        targetType: 'hr_profile',
+        targetId: hrRecord.id,
+        targetUrl: '/subpackages/workspace/pages/home/home?subApp=hr'
+      });
+    } catch (notificationError) {
+      req.logger.error('HR profile review notification failed', {
+        error: safeString(notificationError.message),
+        recordId: reviewResult.recordId
+      });
+    }
 
     res.json({ status: 'success' });
   } catch (e) {
@@ -726,24 +765,15 @@ router.post('/getHrPersonDetail', async (req, res) => {
       });
     }
 
-    let auditStatus = record ? (record.audit_status || 'none') : 'none';
+    const auditStatus = record ? (record.audit_status || 'none') : 'none';
     const rejectionReason = record ? (record.rejection_reason || '') : '';
+    const completeness = profileCompleteness(
+      templateData ? templateData.fields : [], values, pendingValues, auditStatus
+    );
 
-    // Override status to 'none' if any required field is empty
-    if (templateData && templateData.fields && auditStatus !== 'none') {
-      const requiredFields = templateData.fields.filter((f) => f.required);
-      if (requiredFields.length > 0) {
-        const hasEmptyRequired = requiredFields.some((f) => {
-          const val = values[f.id];
-          return !val || !String(val).trim();
-        });
-        if (hasEmptyRequired) {
-          auditStatus = 'none';
-        }
-      }
-    }
-
-    const statusTextMap = { pending: '已提交待审核', rejected: '上次申请未通过', approved: '资料已保存' };
+    const reviewHistory = record
+      ? await profileReviewEventModel.listByRecordId(record.id, await getCurrentOrgId())
+      : [];
 
     res.json({
       status: 'success',
@@ -752,9 +782,19 @@ router.post('/getHrPersonDetail', async (req, res) => {
       values,
       pendingValues,
       auditStatus,
-      auditStatusText: statusTextMap[auditStatus] || localeCopy.copy_67f2697101,
+      auditStatusText: PROFILE_STATUS_TEXT[auditStatus] || localeCopy.copy_67f2697101,
+      isComplete: completeness.isComplete,
+      missingRequiredFieldIds: completeness.missingRequiredFieldIds,
       rejectionReason,
-      hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0
+      hasPending: auditStatus === 'pending' && Object.keys(pendingValues).length > 0,
+      reviewHistory: reviewHistory.map((item) => ({
+        id: safeString(item.id),
+        action: safeString(item.action),
+        reason: safeString(item.reason),
+        reviewerPersonId: safeString(item.reviewer_person_id),
+        reviewerContextId: safeString(item.reviewer_context_id),
+        createdAt: item.created_at
+      }))
     });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -785,18 +825,14 @@ router.post('/saveHrPersonFull', async (req, res) => {
       || req.adminPermissions['hr.people']
     ));
     if (!canManagePeople) {
-      const basicInfoChanged = name !== safeString(hr.name)
-        || studentId !== safeString(hr.student_id);
-      if (basicInfoChanged) {
-        return res.json({ status: 'permission_denied', message: localeCopy.copy_b0fe1df7fb });
-      }
+      return res.json({ status: 'permission_denied', message: localeCopy.copy_b0fe1df7fb });
     }
 
     const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    if (canManagePeople) {
-      await hrInfoModel.updatePersonBasics(hrId, {
-        name, studentId,
-        updatedAt: now
+    if (name !== safeString(hr.name) || studentId !== safeString(hr.student_id)) {
+      return res.json({
+        status: 'person_correction_required',
+        message: personnelCopy.personCorrectionRequired
       });
     }
 
@@ -828,44 +864,58 @@ router.post('/saveHrPersonFull', async (req, res) => {
         }
       }
 
-      const existing = await profileRecordModel.getByHrId(hrId);
-
-      if (existing) {
-        await profileValueModel.removeByRecordIdAndPendingFields(
-          existing.id, 0, normalizedFields.map((field) => field.id)
-        );
-        await profileValueModel.removeByRecordIdAndPendingFields(
-          existing.id, 1, normalizedFields.map((field) => field.id)
-        );
-        for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
-          await profileValueModel.create(generateId(), existing.id, 0, fieldId, fieldValue);
-        }
-        await profileRecordModel.update(existing.id, {
-          templateSnapshotId: template.id,
-          auditStatus: 'approved', rejectionReason: '', reviewedAt: now, updatedAt: now
+      const orgId = await getCurrentOrgId();
+      await pool.withTransaction(async (connection) => {
+        const existing = await profileRecordModel.getByHrId(hrId, connection, orgId, true);
+        const recordId = existing ? existing.id : generateId();
+        const pendingRows = existing
+          ? await profileValueModel.getByRecordIdAndPending(existing.id, 1, connection, orgId, true)
+          : [];
+        const pendingSnapshot = {};
+        pendingRows.forEach((row) => {
+          if (fieldMap.has(row.field_id)) pendingSnapshot[row.field_id] = row.field_value;
         });
-        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId);
+        const preservePending = Boolean(
+          existing
+          && safeString(existing.audit_status) === 'pending'
+          && Object.keys(pendingSnapshot).length
+        );
+        if (existing) {
+          await profileValueModel.removeByRecordIdAndPendingFields(
+            existing.id, 0, normalizedFields.map((field) => field.id), connection, orgId
+          );
+          await profileRecordModel.update(existing.id, {
+            templateSnapshotId: template.id,
+            auditStatus: preservePending ? 'pending' : 'approved',
+            rejectionReason: preservePending ? safeString(existing.rejection_reason) : '',
+            reviewedAt: preservePending ? existing.reviewed_at : now,
+            updatedAt: now
+          }, connection, orgId);
+        } else {
+          await profileRecordModel.create(recordId, {
+            hrId, name, openid, templateSnapshotId: template.id,
+            auditStatus: 'approved', reviewedAt: now
+          }, connection, orgId);
+        }
+        for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
+          await profileValueModel.create(generateId(), recordId, 0, fieldId, fieldValue, connection, orgId);
+        }
+        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId, connection);
         if (person) {
           await personProfileValueModel.upsertEffectiveValues(
-            person.id, await getCurrentOrgId(), existing.id, normalizedFields, normalizedValues, now
+            person.id, orgId, recordId, normalizedFields, normalizedValues, now, connection
           );
         }
-      } else {
-        const recordId = generateId();
-        await profileRecordModel.create(recordId, {
-          hrId, name, openid, templateSnapshotId: template.id,
-          auditStatus: 'approved', reviewedAt: now
-        });
-        for (const [fieldId, fieldValue] of Object.entries(normalizedValues)) {
-          await profileValueModel.create(generateId(), recordId, 0, fieldId, fieldValue);
-        }
-        const person = await personIdentityOverviewModel.resolvePersonByLegacyHrId(hrId);
-        if (person) {
-          await personProfileValueModel.upsertEffectiveValues(
-            person.id, await getCurrentOrgId(), recordId, normalizedFields, normalizedValues, now
-          );
-        }
-      }
+        await profileReviewEventModel.create({
+          recordId,
+          action: 'maintained',
+          reviewerPersonId: req.authAccount && req.authAccount.personId,
+          reviewerContextId: req.authContext && req.authContext.contextId,
+          effectiveValues: normalizedValues,
+          pendingValues: pendingSnapshot,
+          organizationId: orgId
+        }, connection);
+      });
     }
 
     res.json({ status: 'success', message: localeCopy.copy_3c00278e45 });

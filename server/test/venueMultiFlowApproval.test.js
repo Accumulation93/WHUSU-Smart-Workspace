@@ -1,14 +1,29 @@
 const assert = require('assert');
 const Module = require('module');
+const fs = require('fs');
+const path = require('path');
 
 const ORG = 'org-1';
-const hrRows = {
-  'hr-app': { id: 'hr-app', org_id: ORG, department_id: 'D1', work_group_id: '', identity_id: 'member' },
-  'hr-head': { id: 'hr-head', org_id: ORG, department_id: 'D1', work_group_id: '', identity_id: 'dept_head' },
-  'hr-head2': { id: 'hr-head2', org_id: ORG, department_id: 'D1', work_group_id: '', identity_id: 'dept_head' },
-  'hr-chair': { id: 'hr-chair', org_id: ORG, department_id: 'D1', work_group_id: '', identity_id: 'chairman' },
-  'hr-other': { id: 'hr-other', org_id: ORG, department_id: 'D2', work_group_id: '', identity_id: 'member' }
+const assignments = {
+  'a-app': { assignmentId: 'a-app', legacyHrId: 'hr-app', personId: 'p-app', organizationId: ORG, departmentId: 'D1', workGroupId: '', identityCategoryId: 'member' },
+  'a-head': { assignmentId: 'a-head', legacyHrId: 'hr-head', personId: 'p-head', organizationId: ORG, departmentId: 'D1', workGroupId: '', identityCategoryId: 'dept_head' },
+  'a-head-member': { assignmentId: 'a-head-member', legacyHrId: 'hr-head', personId: 'p-head', organizationId: ORG, departmentId: 'D1', workGroupId: '', identityCategoryId: 'member' },
+  'a-head2': { assignmentId: 'a-head2', legacyHrId: 'hr-head2', personId: 'p-head2', organizationId: ORG, departmentId: 'D1', workGroupId: '', identityCategoryId: 'dept_head' },
+  'a-chair': { assignmentId: 'a-chair', legacyHrId: 'hr-chair', personId: 'p-chair', organizationId: ORG, departmentId: 'D1', workGroupId: '', identityCategoryId: 'chairman' },
+  'a-other': { assignmentId: 'a-other', legacyHrId: 'hr-other', personId: 'p-other', organizationId: ORG, departmentId: 'D2', workGroupId: '', identityCategoryId: 'member' }
 };
+
+function toRuleProfile(assignment) {
+  return {
+    id: assignment.legacyHrId,
+    assignment_id: assignment.assignmentId,
+    person_id: assignment.personId,
+    org_id: assignment.organizationId,
+    department_id: assignment.departmentId,
+    work_group_id: assignment.workGroupId,
+    identity_id: assignment.identityCategoryId
+  };
+}
 
 const flowDept = {
   id: 'flow-dept',
@@ -76,9 +91,6 @@ const pool = {
     if (sql.indexOf('FROM admin_info WHERE org_id') >= 0 && sql.indexOf('bind_status') >= 0) {
       return [[{ total: 1 }]];
     }
-    if (sql.indexOf('FROM hr_info WHERE org_id') >= 0) {
-      return [[Object.values(hrRows)]];
-    }
     if (sql.indexOf('admin_info') >= 0 && sql.indexOf('bind_status = \'active\'') >= 0) {
       return [[{ ok: 1 }]];
     }
@@ -86,14 +98,44 @@ const pool = {
   }
 };
 
-const hrInfoModel = {
-  async getById(id) {
-    return hrRows[id] || null;
+const assignmentContext = {
+  toRuleProfile,
+  toAssignmentSnapshot: function(assignment) { return Object.assign({}, assignment); },
+  async loadAssignmentById(id, orgId) {
+    const assignment = assignments[id];
+    return assignment && assignment.organizationId === orgId ? assignment : null;
+  },
+  async listActiveAssignmentsByPerson(personId, orgId) {
+    return Object.values(assignments).filter(function(item) {
+      return item.personId === personId && item.organizationId === orgId;
+    });
+  },
+  async listActiveAssignmentsByLegacyHrId(hrId, orgId) {
+    return Object.values(assignments).filter(function(item) {
+      return item.legacyHrId === String(hrId) && item.organizationId === orgId;
+    });
+  },
+  async listActiveAssignmentsByOrg(orgId) {
+    return Object.values(assignments).filter(function(item) { return item.organizationId === orgId; });
+  },
+  async resolveCurrentActorAssignment(actor, orgId) {
+    const assignment = assignments[actor.assignmentId];
+    return assignment && assignment.organizationId === orgId ? assignment : null;
+  },
+  async resolveBookingApplicantAssignment(booking) {
+    return booking && booking.id === 'legacy-no-assignment' ? null : assignments['a-app'];
+  },
+  actorMatchesDesignation: function(actor, designation) {
+    return Boolean(designation && designation.assignmentId
+      && actor.assignmentId === designation.assignmentId
+      && actor.personId === designation.personId
+      && actor.id === designation.legacyHrId);
   }
 };
 
 const stepModel = {
-  async getByFlowId(flowId) {
+  async getByFlowId(flowId, orgId) {
+    assert.strictEqual(orgId, ORG, '跨组织待办加载步骤时必须显式使用借用审批组织');
     return [flowDept, flowAdmin, noChairFlow].find(function(flow) { return flow.id === flowId; }).steps;
   }
 };
@@ -101,7 +143,8 @@ const stepModel = {
 const originalLoad = Module._load;
 Module._load = function(request, parent, isMain) {
   if (request === '../../../config/db') return pool;
-  if (request === '../../../core/models/hrInfo') return hrInfoModel;
+  if (request === './venueAssignmentContext') return assignmentContext;
+  if (request === '../../../core/models/unifiedIdentity') return { listContexts: async function() { return []; } };
   if (request === '../models/venueApprovalFlowStep') return stepModel;
   if (request === '../../../utils/orgContext') {
     return { getCurrentOrgId: function() { return ORG; } };
@@ -111,12 +154,21 @@ Module._load = function(request, parent, isMain) {
 const engine = require('../src/modules/venue/services/venueApprovalMultiFlow');
 Module._load = originalLoad;
 
-function userActor(hrId, personId) {
+function userActor(hrId, personId, assignmentId) {
+  const assignment = assignments[assignmentId]
+    || Object.values(assignments).find(function(item) {
+      return item.legacyHrId === hrId && item.identityCategoryId !== 'member';
+    })
+    || Object.values(assignments).find(function(item) { return item.legacyHrId === hrId; });
   return {
     id: hrId,
-    personId: personId || 'p-' + hrId,
+    personId: personId || assignment.personId,
     type: 'user',
-    profile: hrRows[hrId]
+    assignmentId: assignment.assignmentId,
+    contextId: 'ctx-' + assignment.assignmentId,
+    organizationId: assignment.organizationId,
+    assignment,
+    profile: toRuleProfile(assignment)
   };
 }
 
@@ -135,6 +187,16 @@ function makeBooking(flowState) {
 }
 
 async function run() {
+  const legacyWithoutAssignment = makeBooking(engine.buildInitialFlowState([flowDept], null, null));
+  legacyWithoutAssignment.id = 'legacy-no-assignment';
+  const legacyEligibility = await engine.evaluateActorEligibility(
+    legacyWithoutAssignment,
+    userActor('hr-head'),
+    ORG
+  );
+  assert.strictEqual(legacyEligibility.ok, false, '无申请岗位引用或快照的旧借用必须失败关闭');
+  assert.strictEqual(legacyEligibility.reason, engine.REASONS.INVALID_HR);
+
   // 1) 并行两流程：管理员与同部门负责人同时可见
   const parallelState = engine.buildInitialFlowState([flowDept, flowAdmin], null, null);
   const booking = makeBooking(parallelState);
@@ -142,10 +204,28 @@ async function run() {
   assert.strictEqual(adminEligible.ok, true, '管理员应满足管理员流程');
   const headEligible = await engine.evaluateActorEligibility(booking, userActor('hr-head'), ORG);
   assert.strictEqual(headEligible.ok, true, '同部门负责人应满足负责人流程');
+  const wrongHeadAssignment = await engine.evaluateActorEligibility(
+    booking,
+    userActor('hr-head', 'p-head', 'a-head-member'),
+    ORG
+  );
+  assert.strictEqual(wrongHeadAssignment.ok, false, '同一人员切到不符合规则的岗位后不得审批');
   const chairmanBefore = await engine.evaluateActorEligibility(booking, userActor('hr-chair'), ORG);
   assert.strictEqual(chairmanBefore.ok, false, '第1步主席团不应可见');
   const otherEligible = await engine.evaluateActorEligibility(booking, userActor('hr-other'), ORG);
   assert.strictEqual(otherEligible.ok, false, '异部门普通成员不可见');
+
+  const crossOrgVisibility = await engine.evaluateWorkContextEligibility(
+    booking,
+    [
+      userActor('hr-head'),
+      { type: 'admin', id: 'adm-org-2', personId: 'p-head', contextId: 'ctx-org-2', organizationId: 'org-2' }
+    ],
+    'ctx-org-2',
+    'org-2'
+  );
+  assert.strictEqual(crossOrgVisibility.visible, true, '其他组织的可审批岗位应让待办跨组织可见');
+  assert.strictEqual(crossOrgVisibility.canProcessInCurrentContext, false, '未切到目标组织岗位时不得直接处理');
 
   // 2) 管理员审批 → 直接通过，且绝不推进负责人流程（防串步）
   const adminApproval = await engine.prepareApproval(booking, { id: 'adm-1', personId: 'p-adm', type: 'admin', adminGrantId: 'g-adm', name: '管理员' }, '同意', null, ORG);
@@ -164,6 +244,8 @@ async function run() {
   assert.strictEqual(headApproval.state.flows['flow-dept'].stepIndex, 1, '负责人流程应推进到主席团');
   assert.strictEqual(headApproval.state.flows['flow-admin'].stepIndex, 0, '管理员流程不受影响');
   assert.strictEqual(headApproval.candidateMissing, false, '主席团有人，不应标记候选人缺失');
+  assert.strictEqual(headApproval.snapshots[0].approverAssignmentId, 'a-head');
+  assert.strictEqual(headApproval.snapshots[0].approverAssignmentSnapshot.identityCategoryId, 'dept_head', '审批快照必须固化实际岗位');
 
   // 推进后主席团可见，管理员仍可见
   const advancedBooking = Object.assign({}, freshBooking, {
@@ -176,20 +258,37 @@ async function run() {
   assert.strictEqual(adminAfter.ok, true, '管理员流程仍应可见');
 
   // 4) 严格重匹配：负责人审批人身份事后不再满足该步条件 → 负责人流程停止推送
-  hrRows['hr-head'].identity_id = 'member';
+  assignments['a-head'].identityCategoryId = 'member';
   const rematch = await engine.evaluateActorEligibility(advancedBooking, userActor('hr-chair'), ORG);
   assert.strictEqual(rematch.ok, false, '历史步骤审批人不再满足条件时，流程应停止推送');
   const adminStill = await engine.evaluateActorEligibility(advancedBooking, { id: 'adm-1', personId: 'p-adm', type: 'admin', adminGrantId: 'g-adm', name: '管理员' }, ORG);
   assert.strictEqual(adminStill.ok, true, '其他流程不受影响');
-  hrRows['hr-head'].identity_id = 'dept_head';
+  assignments['a-head'].identityCategoryId = 'dept_head';
 
   // 5) 指定第一步审批人：只有被指定者可见
-  const designatedState = engine.buildInitialFlowState([flowDept], 'flow-dept', { hrId: 'hr-head' });
+  const designatedState = engine.buildInitialFlowState([flowDept], 'flow-dept', {
+    hrId: 'hr-head', legacyHrId: 'hr-head', personId: 'p-head', assignmentId: 'a-head'
+  });
   const designatedBooking = makeBooking(designatedState);
   const designatedOk = await engine.evaluateActorEligibility(designatedBooking, userActor('hr-head'), ORG);
   assert.strictEqual(designatedOk.ok, true, '被指定负责人应可见');
   const designatedOther = await engine.evaluateActorEligibility(designatedBooking, userActor('hr-head2'), ORG);
   assert.strictEqual(designatedOther.ok, false, '其他负责人不可见（仅指定人）');
+  const designatedWrongAssignment = await engine.evaluateActorEligibility(
+    designatedBooking,
+    userActor('hr-head', 'p-head', 'a-head-member'),
+    ORG
+  );
+  assert.strictEqual(designatedWrongAssignment.ok, false, '被指定人员切到其他岗位也不得审批');
+
+  const validated = await engine.validateDesignation(ORG, 'a-head', flowDept.steps[0], toRuleProfile(assignments['a-app']));
+  assert.strictEqual(validated.assignmentId, 'a-head');
+  assert.strictEqual(validated.personId, 'p-head');
+  await assert.rejects(
+    engine.validateDesignation(ORG, 'a-head-member', flowDept.steps[0], toRuleProfile(assignments['a-app'])),
+    /请选择符合条件的审批人/,
+    '指定岗位本身必须满足目标步骤规则'
+  );
 
   // 6) 候选人缺失：下一步无人匹配 → candidateMissing 标记且不自动完成
   const missingBooking = makeBooking(engine.buildInitialFlowState([noChairFlow], null, null));
@@ -203,6 +302,18 @@ async function run() {
   assert.strictEqual(legacyPending.currentStep, 0);
   const legacyApproved = engine.legacyColumnsFromState(adminApproval.state, adminApproval.totalSteps, 'approved');
   assert.strictEqual(legacyApproved.currentStep, adminApproval.totalSteps);
+
+  const approvalRouteSource = fs.readFileSync(
+    path.resolve(__dirname, '../src/modules/venue/routes/venueApprovalAdmin.js'),
+    'utf8'
+  );
+  const pendingPageSource = fs.readFileSync(
+    path.resolve(__dirname, '../../miniprogram/subpackages/venue/pages/pendingVenueApprovals/pendingVenueApprovals.js'),
+    'utf8'
+  );
+  assert.match(approvalRouteSource, /req\.body\.nextApproverAssignmentId/);
+  assert.match(pendingPageSource, /nextApproverAssignmentId:\s*action === 'approve'/);
+  assert.doesNotMatch(pendingPageSource, /nextApproverHrId/, '前端不得再提交仅人员级的下一审批人');
 
   console.log('场地多审批流引擎测试通过');
 }

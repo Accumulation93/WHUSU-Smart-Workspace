@@ -1,5 +1,6 @@
 const localeCopy = require('../../../locales/zh-CN/generated/subpackages/venue/utils/venueBookingDetail');
 const { buildFlowTimeline } = require('./flowTimeline');
+const { formatAssignmentLabel } = require('./workContextPresentation');
 
 const STATUS_LABELS = {
   pending: localeCopy.copy_8f73640107,
@@ -35,6 +36,14 @@ function getSnapshotCompletedSteps(progress) {
 
 function prepareVenueBookingDetail(item) {
   const detail = Object.assign({}, item || {});
+  detail._creatorAssignmentText = formatAssignmentLabel({
+    assignmentId: detail.creatorAssignmentId || detail.applicantAssignmentId,
+    assignmentLabel: detail.creatorAssignmentLabel || detail.applicantAssignmentLabel,
+    assignmentNature: detail.creatorAssignmentNature || detail.applicantAssignmentNature,
+    department: detail.userDept,
+    identityCategory: detail.userIdentity,
+    workGroup: detail.userWorkGroup
+  }, '');
   detail.displayStatus = detail.displayStatus || computeDisplayStatus(detail);
   detail._statusLabel = STATUS_LABELS[detail.displayStatus] || detail.displayStatus || localeCopy.copy_4cfdf3f638;
 

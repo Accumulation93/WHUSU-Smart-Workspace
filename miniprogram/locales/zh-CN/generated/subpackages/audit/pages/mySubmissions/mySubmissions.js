@@ -21,5 +21,12 @@ module.exports = Object.freeze({
   copy_e52119b17e: '请稍后刷新',
   copy_f6afc42806: '草稿',
   copy_fb0dc97a1d: "我的申请",
+  currentWorkContext: '当前工作上下文',
+  noAssignmentTitle: '当前没有可用岗位',
+  noAssignmentActionDescription: '无岗位成员可以查看申请记录，但不能发起岗位规则驱动的审核。',
+  switchWorkContext: '切换工作上下文',
+  cancel: '取消',
+  positionAvailable: '可发起',
+  positionUnavailable: '仅查看',
   navigationTitle: "审核 - WHUSU智慧工作台"
 });

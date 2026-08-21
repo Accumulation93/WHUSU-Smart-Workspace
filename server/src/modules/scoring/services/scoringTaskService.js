@@ -82,13 +82,13 @@ function targetMatchesClause(target, clause, scorer) {
 }
 
 async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actorOverride) {
-  if (!hrRecord || !hrRecord.id || !hrRecord.department_id || !hrRecord.identity_id) return null;
+  if (!hrRecord || !hrRecord.id || !actorOverride || !safeString(actorOverride.assignmentId)) return null;
   const now = nowOverride || new Date();
   const activity = activityOverride || await scoreActivityModel.getCurrent();
   if (!isActivityActionable(activity, now)) return null;
   const orgId = await getCurrentOrgId();
   const granularity = participantService.normalizeGranularity(activity.participant_granularity);
-  const actor = actorOverride || { id: safeString(hrRecord.id) };
+  const actor = actorOverride;
   const scorer = await participantService.resolveActorParticipant(orgId, actor, granularity);
   if (!scorer) return null;
 
@@ -106,13 +106,13 @@ async function getUserScoringTask(hrRecord, activityOverride, nowOverride, actor
 
   const [targets, records] = await Promise.all([
     participantService.listParticipants(orgId, granularity),
-    scoreRecordModel.getByScorerSubject(
-      participantService.participantSubjectKey(scorer, granularity),
-      activity.id
-    )
+    scoreRecordModel.getByScorerParticipant(scorer, activity.id)
   ]);
+  const resolveRecordParticipantId = typeof participantService.createRecordParticipantResolver === 'function'
+    ? participantService.createRecordParticipantResolver(targets)
+    : (record, side) => participantService.participantRecordId(record, side, granularity);
   const scoredIds = new Set(
-    records.map((item) => participantService.participantRecordId(item, 'target', granularity)).filter(Boolean)
+    records.map((item) => resolveRecordParticipantId(item, 'target')).filter(Boolean)
   );
   const expectedIds = new Set();
   for (const target of targets) {

@@ -491,6 +491,24 @@ page {
   padding: 0;
 }
 
+.assignment-chip {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 8rpx;
+  padding: 6rpx 14rpx;
+  border: 1rpx solid rgba(147, 197, 253, 0.58);
+  border-radius: var(--ui-compact-radius, 18rpx);
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.96), rgba(219, 234, 254, 0.82));
+  color: #2563eb;
+  font-size: var(--ui-type-caption);
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
+}
+
 .page-submit-btn {
   width: 100%;
   min-height: var(--ui-control-height, 82rpx);
@@ -1230,6 +1248,12 @@ page {
   page {
     --score-keyboard-toolbar-reserve: 0px;
     --score-keyboard-content-reserve: 0px;
+  }
+
+  .assignment-chip {
+    margin-top: 6px;
+    padding: 4px 10px;
+    border-radius: 12px;
   }
 
   .page.page-with-keyboard {

@@ -302,9 +302,7 @@ function applyAuthenticatedResult(result) {
   const selection = normalizeSelection(result.selection || catalog.selection, context);
   if (selection.organizationId) wx.setStorageSync('lastOrganizationId', selection.organizationId);
   if (selection.contextId) wx.setStorageSync('lastContextId', selection.contextId);
-  if (result.selection && result.selection.identityId) {
-    wx.setStorageSync('lastIdentityId', result.selection.identityId);
-  }
+  wx.removeStorageSync('lastIdentityId');
   if (result.selectionNotice) wx.setStorageSync('authSelectionNotice', result.selectionNotice);
   const committed = orgSession.commitContext({
     token: result.token,
@@ -343,9 +341,7 @@ function applyActivatedResult(result) {
   wx.setStorageSync(SELECTION_KEY, selection);
   wx.setStorageSync('lastOrganizationId', selection.organizationId || '');
   wx.setStorageSync('lastContextId', selection.contextId || '');
-  if (result.selection && result.selection.identityId) {
-    wx.setStorageSync('lastIdentityId', result.selection.identityId);
-  }
+  wx.removeStorageSync('lastIdentityId');
   const committed = orgSession.commitContext({
     token: result.token,
     contextId: context.contextId || selection.contextId || context.id || '',

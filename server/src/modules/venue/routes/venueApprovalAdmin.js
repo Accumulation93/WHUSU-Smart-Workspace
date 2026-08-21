@@ -45,7 +45,7 @@ router.post('/getVenueApprovalFlow', async (req, res) => {
     const flow = await flowModel.getByVenueId(venueId);
     if (!flow) return res.json({ status: 'success', flow: null, steps: [] });
 
-    const steps = await stepModel.getByFlowId(flow.id);
+    const steps = await stepModel.getByFlowId(flow.id, flow.org_id);
     res.json({ status: 'success', flow, steps });
   } catch (e) {
     res.json({ status: 'error', message: safeString(e.message) });
@@ -62,7 +62,7 @@ router.post('/listVenueApprovalFlows', async (req, res) => {
     const flows = await flowModel.listByVenueId(venueId);
     const result = [];
     for (const flow of flows) {
-      const steps = await stepModel.getByFlowId(flow.id);
+      const steps = await stepModel.getByFlowId(flow.id, flow.org_id);
       result.push(Object.assign({}, flow, { steps }));
     }
     res.json({ status: 'success', flows: result });
@@ -401,8 +401,12 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       return res.json({ status: 'invalid_state', message: localeCopy.copy_a56890077c });
     }
 
-    const nextDesignation = req.body.nextApproverHrId
-      ? { hrId: safeString(req.body.nextApproverHrId) }
+    if (req.body.nextApproverHrId && !req.body.nextApproverAssignmentId) {
+      await conn.rollback();
+      return res.json({ status: 'invalid_params', message: localeCopy.copy_legacyApproverSelection });
+    }
+    const nextDesignation = req.body.nextApproverAssignmentId
+      ? { assignmentId: safeString(req.body.nextApproverAssignmentId) }
       : null;
     let prepared;
     try {
@@ -425,6 +429,8 @@ router.post('/approveVenueBookingStep', async (req, res) => {
     const snapshots = prepared.snapshots;
     const state = prepared.state;
     const totalSteps = prepared.totalSteps;
+    const approvalActor = prepared.actor || actor;
+    const approverActorId = approvalActor.id;
 
     // Check time conflict + adjust time_start based on approval time (only for final approval)
     if (completed) {
@@ -469,7 +475,7 @@ router.post('/approveVenueBookingStep', async (req, res) => {
       actor.id,
       completed ? (comment || booking.approval_comment) : booking.approval_comment,
       conn,
-      actor
+      approvalActor
     );
     await venueBookingModel.updateApprovalFlowState(id, {
       approvalFlowState: state,
@@ -552,7 +558,8 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
       await conn.rollback();
       return res.json({ status: 'forbidden', message: eligibility.reason });
     }
-    const approverActorId = actor.id;
+    const approvalActor = eligibility.actor || actor;
+    const approverActorId = approvalActor.id;
     const totalSteps = Number(booking.approval_total_steps) || 0;
     const rejectStepItem = eligibility.summary.flowSummary.find(function(item) { return item.active && !item.completed; });
     const rejectStep = rejectStepItem ? Number(rejectStepItem.stepIndex) : Number(booking.approval_current_step) || 0;
@@ -564,7 +571,7 @@ router.post('/rejectVenueBookingStep', async (req, res) => {
       approverActorId,
       comment || localeCopy.copy_b4432643e3,
       conn,
-      actor
+      approvalActor
     );
 
     // Update approval tracking (same transaction)

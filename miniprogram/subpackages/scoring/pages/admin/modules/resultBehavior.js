@@ -363,9 +363,15 @@ module.exports = Behavior({
             ...normalizedItem,
             status: recordStatus,
             canViewDetail: (recordStatus === 'completed' || recordStatus === 'inactive') && !!normalizedItem.recordId,
-            departmentText: normalizedItem.scorerDepartment || localeCopy.copy_0fe86822a1,
-            identityText: normalizedItem.scorerIdentity || localeCopy.copy_ad183b164d,
-            workGroupText: normalizedItem.scorerWorkGroup || normalizedItem.workGroup || '',
+            departmentText: normalizedItem.scorerHistoricalAssignmentUnavailable
+              ? localeCopy.historicalAssignmentUnavailable
+              : (normalizedItem.scorerDepartment || localeCopy.copy_0fe86822a1),
+            identityText: normalizedItem.scorerHistoricalAssignmentUnavailable
+              ? ''
+              : (normalizedItem.scorerIdentityCategory || normalizedItem.scorerIdentity || localeCopy.copy_ad183b164d),
+            workGroupText: normalizedItem.scorerHistoricalAssignmentUnavailable
+              ? ''
+              : (normalizedItem.scorerWorkGroup || normalizedItem.workGroup || ''),
             statusClass: recordStatus === 'completed'
               ? 'status-completed'
               : (recordStatus === 'inactive' ? 'status-inactive' : 'status-pending'),
@@ -790,7 +796,9 @@ module.exports = Behavior({
   
         const rows = (result.scorerTargetRows || []).map((item) => ({
           ...item,
-          detailText: [item.targetDepartment, item.targetIdentity, item.targetWorkGroup].filter(Boolean).join(' / ') || localeCopy.copy_2b4df49497
+          detailText: item.targetHistoricalAssignmentUnavailable
+            ? localeCopy.historicalAssignmentUnavailable
+            : ([item.targetDepartment, item.targetIdentityCategory || item.targetIdentity, item.targetWorkGroup].filter(Boolean).join(' / ') || localeCopy.copy_2b4df49497)
         }));
   
         this.setData({

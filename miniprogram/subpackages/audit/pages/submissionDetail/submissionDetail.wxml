@@ -4,6 +4,20 @@
 
   <!-- ═══════════ Create Mode ═══════════ -->
   <view class="section-stack" wx:if="{{action === 'create'}}">
+    <view class="card work-context-guard" wx:if="{{!hasActiveAssignment}}">
+      <view class="work-context-guard-icon"><ui-icon name="user" tone="muted" size="34" ariaLabel="{{localeCopy.workContextRequiredTitle}}" /></view>
+      <view class="work-context-guard-copy">
+        <view class="section-title">{{localeCopy.noAssignmentTitle}}</view>
+        <view class="section-desc">{{localeCopy.noAssignmentActionDescription}}</view>
+      </view>
+      <button class="primary-btn ui-motion-button" bindtap="goWorkContextSwitch" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.switchWorkContext}}</button>
+    </view>
+    <block wx:if="{{hasActiveAssignment}}">
+    <view class="card active-context-card">
+      <view class="info-label">{{localeCopy.currentWorkContext}}</view>
+      <view class="active-context-label">{{activeWorkContext.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view>
+      <view class="active-context-org" wx:if="{{activeWorkContext.organizationName}}">{{activeWorkContext.organizationName}}</view>
+    </view>
     <view class="card">
       <view class="section-title">{{localeCopy.copy_3fb5aace39}}</view>
       <view class="button-row">
@@ -35,7 +49,7 @@
       <view class="section-title">{{localeCopy.copy_265568fe85}} ({{adHocSteps.length}}{{localeCopy.copy_ef0bb32ca6}}</view>
       <view class="ad-hoc-step-item" wx:for="{{adHocSteps}}" wx:key="index">
         <view class="ad-hoc-step-main">
-          <view class="ad-hoc-step-title">{{item.name || (localeCopy.copy_93c50c01c0 + (index + 1) + localeCopy.copy_493a127a99)}}：{{item.approverType === 'specific_person' ? (item.approverHrName || localeCopy.copy_5fff626dd6) : (item.approverIdentityName || localeCopy.copy_c76fae0e08) + '（' + (item.scopeType === 'same_department' ? localeCopy.copy_37ad645951 : (item.scopeType === 'same_work_group' ? localeCopy.copy_2c67faf1c7 : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || localeCopy.copy_b3604f443f) : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : localeCopy.copy_9b3c1f7a01)))) + '）'}} — {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
+          <view class="ad-hoc-step-title">{{item.name || (localeCopy.copy_93c50c01c0 + (index + 1) + localeCopy.copy_493a127a99)}}：{{item.approverType === 'specific_person' ? ((item.approverHrName || localeCopy.copy_5fff626dd6) + (item.approverAssignmentLabel ? ' · ' + item.approverAssignmentLabel : '')) : (item.approverIdentityName || localeCopy.copy_c76fae0e08) + '（' + (item.scopeType === 'same_department' ? localeCopy.copy_37ad645951 : (item.scopeType === 'same_work_group' ? localeCopy.copy_2c67faf1c7 : (item.scopeType === 'specific_department' ? (item.scopeDepartmentName || localeCopy.copy_b3604f443f) : (item.scopeType === 'specific_work_group' ? (item.scopeDepartmentName || '') + (item.scopeWorkGroupName ? '·' + item.scopeWorkGroupName : '') : localeCopy.copy_9b3c1f7a01)))) + '）'}} — {{item.actionType === 'pass' ? localeCopy.copy_8e2f75159e : (item.actionType === 'sign' ? localeCopy.copy_49cbf30d6b : (item.actionType === 'estamp' ? localeCopy.copy_7e6630535d : localeCopy.copy_a63d02480e))}}</view>
           <view class="ad-hoc-step-desc">{{item.approverType === 'identity' ? localeCopy.copy_fc2ce54999 : localeCopy.copy_e31ec452dd}}</view>
         </view>
         <view class="list-actions card-actions card-actions--inline"><text class="audit-link-btn audit-link-danger ui-motion-chip" data-index="{{index}}" bindtap="removeAdHocStep" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text></view>
@@ -62,11 +76,11 @@
           <view class="tpl-step-preview-desc">{{item.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
           <view class="tpl-step-preview-action">{{item.actionLabel || localeCopy.copy_c9695bb971}}</view>
           <view class="tpl-step-preview-designation" wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation}}">
-            <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides.length && templateStepOverrides[0].personHrIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
-            <view wx:if="{{templateStepOverrides.length && templateStepOverrides[0].personHrNames.length}}" class="tpl-step-preview-persons">
-              <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
-                <text>{{pname}}</text>
-                <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-hr-id="{{templateStepOverrides[0].personHrIds[pidx]}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
+            <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides.length && templateStepOverrides[0].assignmentIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
+            <view wx:if="{{templateStepOverrides.length && templateStepOverrides[0].assignmentViews.length}}" class="tpl-step-preview-persons">
+              <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].assignmentViews}}" wx:for-item="assignmentView" wx:key="assignmentId">
+                <text>{{assignmentView.name}} · {{assignmentView.assignmentLabel}}</text>
+                <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-assignment-id="{{assignmentView.assignmentId}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
               </view>
             </view>
           </view>
@@ -152,6 +166,7 @@
     </view>
     </viewport-portal>
 
+    </block>
   </view>
 
   <!-- ═══════════ View Mode ═══════════ -->
@@ -178,6 +193,12 @@
             <view class="info-label">{{localeCopy.copy_e1b8f22129}}</view>
             <view class="info-value">{{submission.templateName}}</view>
           </view>
+          <view class="info-block info-block-full">
+            <view class="info-label">{{localeCopy.submittedAssignment}}</view>
+            <view class="info-value assignment-snapshot-value {{submission.submittedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
+              {{submission.submittedAssignmentView.hasSnapshot ? submission.submittedAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
+            </view>
+          </view>
         </view>
         <!-- Status context hint — 6 states clearly explained -->
         <view class="status-hint-box">
@@ -201,7 +222,7 @@
       </view>
 
       <!-- ═══════════ Active Approval Card (shown when current user can approve) ═══════════ -->
-      <view class="card approval-card" wx:if="{{!editMode && submission.status === 'in_progress' && activeApprovalStepId && userIsApprover}}">
+      <view class="card approval-card" wx:if="{{!editMode && hasActiveAssignment && submission.status === 'in_progress' && activeApprovalStepId && userIsApprover}}">
         <view class="section-title approval-card-title">{{localeCopy.copy_7bc6908a17}}</view>
         <view class="approval-step-info">
           {{activeApprovalStep.stepName || (localeCopy.copy_93c50c01c0 + activeApprovalStep.sortOrder + localeCopy.copy_493a127a99)}} · {{activeApprovalStep.actionLabel}}
@@ -275,9 +296,9 @@
             <text class="audit-link-btn approval-designate-link ui-motion-chip" bindtap="openDesignateNextPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{designatedNextPersons.length ? localeCopy.copy_00e277a673 : localeCopy.copy_c47f370afa}}</text>
           </view>
           <view wx:if="{{!designatedNextPersons.length}}" class="approval-designate-empty">{{localeCopy.copy_0b9e83ebb1}}</view>
-          <view wx:for="{{designatedNextPersons}}" wx:key="id" class="approval-designate-tag">
-            {{item.name}}
-            <text data-hr-id="{{item.id}}" bindtap="removeDesignatedNextPerson" class="approval-designate-remove ui-motion-chip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
+          <view wx:for="{{designatedNextPersons}}" wx:key="assignmentId" class="approval-designate-tag">
+            {{item.name}} · {{item.assignmentLabel}}
+            <text data-assignment-id="{{item.assignmentId}}" bindtap="removeDesignatedNextPerson" class="approval-designate-remove ui-motion-chip" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
           </view>
           <view wx:if="{{nextStepInfo}}" class="approval-next-step-info">{{localeCopy.copy_d5b151752b}}{{nextStepInfo.sortOrder}}{{localeCopy.copy_9e545997b0}} · {{nextStepInfo.approverDesc}}</view>
         </view>
@@ -329,6 +350,9 @@
                   <view class="flow-detail-text">
                     <text class="flow-detail-label">{{localeCopy.copy_253aca0bd3}}</text>{{node.operatorName || localeCopy.copy_b121b80801}}
                   </view>
+                  <view class="flow-assignment-snapshot {{node.operatorAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
+                    <text class="flow-detail-label">{{localeCopy.operationAssignment}}</text>{{node.operatorAssignmentView.hasSnapshot ? node.operatorAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
+                  </view>
                   <view wx:if="{{node.comment}}" class="flow-detail-text flow-detail-comment-text">
                     <text class="flow-detail-label">{{node.event === 'approve' ? localeCopy.copy_4161e513f6 : (node.event === 'reject' ? localeCopy.copy_5564430f9c : localeCopy.copy_b141bec1f6)}}</text>{{node.comment}}
                   </view>
@@ -370,6 +394,9 @@
                   <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-detail-processed-meta">
                     {{localeCopy.copy_aa5c293ca5}}{{node.processedAt || ''}}
                   </view>
+                  <view wx:if="{{node.flowIcon === 'check' || node.flowIcon === 'cross'}}" class="flow-assignment-snapshot {{node.processedAssignmentView.hasSnapshot ? '' : 'assignment-snapshot-neutral'}}">
+                    <text class="flow-detail-label">{{localeCopy.processedAssignment}}</text>{{node.processedAssignmentView.hasSnapshot ? node.processedAssignmentView.assignmentLabel : localeCopy.legacyAssignmentSnapshotUnavailable}}
+                  </view>
                   <!-- Approval comment -->
                   <view wx:if="{{node.comment && node.flowIcon === 'check'}}" class="flow-detail-comment">
                     <text class="flow-detail-label">{{localeCopy.copy_3b3b392755}}</text>{{node.comment}}
@@ -388,7 +415,7 @@
                 </view>
 
                 <!-- Approval action buttons (only for active step + authorized user) -->
-                <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active' && userIsApprover}}">
+                <view class="flow-actions" wx:if="{{node.flowNodeClass === 'flow-node-active' && hasActiveAssignment && userIsApprover}}">
                   <text class="flow-action-btn ui-motion-chip" data-step-id="{{node.id}}" catchtap="openApprove" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✓ {{localeCopy.copy_1bb7eb3e1a}}</text>
                   <text class="flow-action-btn flow-action-danger ui-motion-chip" data-step-id="{{node.id}}" catchtap="openReject" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">✗ {{localeCopy.copy_0c90eb0204}}</text>
                 </view>
@@ -442,9 +469,9 @@
       <view class="card" wx:if="{{userIsSubmitter}}">
         <view class="section-title" wx:if="{{activeApprovalStepId}}">{{localeCopy.copy_e4a2b8faee}}</view>
         <view class="audit-btn-bar">
-          <button class="secondary-btn ui-motion-button" wx:if="{{submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2415963f64}}</button>
-          <button class="primary-btn ui-motion-button" wx:if="{{submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn'}}" bindtap="resubmit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0a01cb3a51}}</button>
-          <button class="secondary-btn danger-btn ui-motion-button" wx:if="{{submission.status === 'in_progress' || submission.status === 'rejected'}}" bindtap="withdraw" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_60dd7897d1}}</button>
+          <button class="secondary-btn ui-motion-button" wx:if="{{hasActiveAssignment && (submission.status === 'draft' || submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn')}}" bindtap="enterEditMode" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_2415963f64}}</button>
+          <button class="primary-btn ui-motion-button" wx:if="{{hasActiveAssignment && (submission.status === 'pending' || submission.status === 'rejected' || submission.status === 'withdrawn')}}" bindtap="resubmit" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_0a01cb3a51}}</button>
+          <button class="secondary-btn danger-btn ui-motion-button" wx:if="{{hasActiveAssignment && (submission.status === 'in_progress' || submission.status === 'rejected')}}" bindtap="withdraw" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_60dd7897d1}}</button>
         </view>
       </view>
 
@@ -485,11 +512,11 @@
               <view class="tpl-step-preview-desc">{{item.approverDesc || localeCopy.copy_ae42f47cf6}}</view>
               <view class="tpl-step-preview-action">{{item.actionLabel || localeCopy.copy_c9695bb971}}</view>
               <view class="tpl-step-preview-designation" wx:if="{{item.stepIndex === 1 && item.allowApproverDesignation}}">
-                <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides.length && templateStepOverrides[0].personHrIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
-                <view wx:if="{{templateStepOverrides.length && templateStepOverrides[0].personHrNames.length}}" class="tpl-step-preview-persons">
-                  <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].personHrNames}}" wx:for-item="pname" wx:for-index="pidx" wx:key="pname">
-                    <text>{{pname}}</text>
-                    <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-hr-id="{{templateStepOverrides[0].personHrIds[pidx]}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
+                <text class="audit-link-btn ui-motion-chip" catchtap="openTemplateStepPersonPicker" data-step-index="1" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{templateStepOverrides.length && templateStepOverrides[0].assignmentIds.length ? localeCopy.copy_d5fa17c99b : localeCopy.copy_2aad29e5cf}}</text>
+                <view wx:if="{{templateStepOverrides.length && templateStepOverrides[0].assignmentViews.length}}" class="tpl-step-preview-persons">
+                  <view class="tpl-step-person-tag" wx:for="{{templateStepOverrides[0].assignmentViews}}" wx:for-item="assignmentView" wx:key="assignmentId">
+                    <text>{{assignmentView.name}} · {{assignmentView.assignmentLabel}}</text>
+                    <text class="tpl-step-person-remove ui-motion-chip" data-step-index="1" data-assignment-id="{{assignmentView.assignmentId}}" catchtap="removeTemplateStepOverridePerson" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">×</text>
                   </view>
                 </view>
               </view>
@@ -611,16 +638,21 @@
         <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
           <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_759682a69b}}</view><text class="popup-close ui-motion-chip" catchtap="closeEditPersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
-          <view class="list-title">{{localeCopy.copy_b45ad4069d}}{{editPersonPickerSelectedIds.length}}{{localeCopy.copy_72dd9e6203}}</view>
+          <view class="picker-context-card">
+            <view class="picker-context-label">{{localeCopy.currentWorkContext}}</view>
+            <view class="picker-context-value">{{activeWorkContext.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view>
+          </view>
+          <view class="list-title">{{localeCopy.selectedAssignmentsTitle}}{{editPersonPickerSelectedIds.length}}{{localeCopy.selectedAssignmentsUnit}}</view>
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
-            <view class="audit-person-item" wx:for="{{editPersonPickerSelectedList}}" wx:key="id">
+            <view class="audit-person-item" wx:for="{{editPersonPickerSelectedList}}" wx:key="selectionKey">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
               <view class="audit-person-info">
                 <view class="audit-person-name">{{item.name}}</view>
-                <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
+                <view class="audit-person-detail">{{item.studentId}}</view>
+                <view class="eligible-assignment-list"><view class="eligible-assignment-chip eligible-assignment-chip-current">{{item.assignmentLabel}}</view></view>
               </view>
               <view class="inline-actions list-actions-below card-actions">
-                <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
+                <text class="audit-link-btn audit-link-danger ui-motion-chip" data-assignment-id="{{item.assignmentId}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
               </view>
             </view>
             <view class="empty-inline" wx:if="{{!editPersonPickerSelectedList.length}}">{{localeCopy.copy_45ef5ac49b}}</view>
@@ -636,11 +668,14 @@
           <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
             <view wx:if="{{editPersonPickerLoading}}" class="empty-inline">{{localeCopy.copy_213b890c07}}</view>
             <view wx:elif="{{!editPersonPickerCandidates.length}}" class="empty-inline">{{localeCopy.copy_3f9ec35c15}}</view>
-            <view wx:if="{{!editPersonPickerLoading}}" class="audit-person-item ui-motion-card" wx:for="{{editPersonPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onEditPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+            <view wx:if="{{!editPersonPickerLoading}}" class="audit-person-item" wx:for="{{editPersonPickerCandidates}}" wx:key="id">
               <view class="audit-person-avatar">{{item.name[0]}}</view>
               <view class="audit-person-info">
-                <view class="audit-person-name"><view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? localeCopy.copy_78564bdb46 : localeCopy.copy_c47f370afa}}</view>{{item.name}}</view>
-                <view class="audit-person-detail">{{item.studentId}} · {{item.department}} · {{item.identity}}<text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
+                <view class="audit-person-name">{{item.name}}</view>
+                <view class="audit-person-detail">{{item.studentId}}</view>
+                <view class="eligible-assignment-list">
+                  <view class="eligible-assignment-chip ui-motion-chip {{assignment.isSelected ? 'eligible-assignment-chip-selected' : (assignment.isCurrent ? 'eligible-assignment-chip-current' : '')}}" wx:for="{{item.eligibleAssignments}}" wx:for-item="assignment" wx:key="assignmentId" data-assignment-id="{{assignment.assignmentId}}" catchtap="onEditPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{assignment.isSelected ? localeCopy.selectedAssignmentPrefix : ''}}{{assignment.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view>
+                </view>
               </view>
             </view>
             <view class="scroll-tail-space"></view>
@@ -654,7 +689,7 @@
           </scroll-view>
           <view class="button-row ui-dialog-footer">
             <button class="secondary-btn ui-motion-button" catchtap="closeEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-            <button class="primary-btn ui-motion-button" catchtap="confirmEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}} {{editPersonPickerSelectedIds.length}} {{localeCopy.copy_2370e6144f}}</button>
+            <button class="primary-btn ui-motion-button" catchtap="confirmEditPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}} {{editPersonPickerSelectedIds.length}} {{localeCopy.assignmentUnit}}</button>
           </view>
         </view>
       </view>
@@ -931,18 +966,23 @@
       <view class="popup-card desig-popup-card ui-dialog-shell ui-dialog-shell--complex" catchtap="noop">
         <view class="popup-header ui-dialog-header"><view class="popup-title">{{localeCopy.copy_759682a69b}}</view><text class="popup-close ui-motion-chip" catchtap="closePersonPicker" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_09614cef6c}}</text></view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="ui-dialog-body ui-dialog-content ui-dialog-scroll--fill ui-dialog-stack-scroll">
+        <view class="picker-context-card">
+          <view class="picker-context-label">{{localeCopy.currentWorkContext}}</view>
+          <view class="picker-context-value">{{activeWorkContext.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view>
+        </view>
 
         <!-- Selected persons -->
-        <view class="list-title">{{localeCopy.copy_b45ad4069d}}{{personPickerSelectedIds.length}}{{localeCopy.copy_72dd9e6203}}</view>
+        <view class="list-title">{{localeCopy.selectedAssignmentsTitle}}{{personPickerSelectedIds.length}}{{localeCopy.selectedAssignmentsUnit}}</view>
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-current-scroll ui-dialog-scroll--pane ui-dialog-selection-current">
-          <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="id">
+          <view class="audit-person-item" wx:for="{{personPickerSelectedList}}" wx:key="selectionKey">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
             <view class="audit-person-info">
               <view class="audit-person-name">{{item.name}}</view>
-              <view class="audit-person-detail">{{item.department}} · {{item.identity}} · {{item.studentId}}</view>
+              <view class="audit-person-detail">{{item.studentId}}</view>
+              <view class="eligible-assignment-list"><view class="eligible-assignment-chip eligible-assignment-chip-current">{{item.assignmentLabel}}</view></view>
             </view>
             <view class="inline-actions list-actions-below card-actions">
-              <text class="audit-link-btn audit-link-danger ui-motion-chip" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
+              <text class="audit-link-btn audit-link-danger ui-motion-chip" data-assignment-id="{{item.assignmentId}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_c3e182f0c6}}</text>
             </view>
           </view>
           <view class="empty-inline" wx:if="{{!personPickerSelectedList.length}}">{{localeCopy.copy_45ef5ac49b}}</view>
@@ -979,14 +1019,14 @@
         <scroll-view enhanced="{{true}}" show-scrollbar="{{true}}" bounces="{{true}}" nested-scroll-enabled="{{true}}" scroll-y class="desig-inner-scroll desig-candidate-scroll ui-dialog-scroll--pane ui-dialog-selection-options">
           <view wx:if="{{personPickerLoading}}" class="empty-inline">{{localeCopy.copy_213b890c07}}</view>
           <view wx:elif="{{!personPickerCandidates.length}}" class="empty-inline">{{localeCopy.copy_3f9ec35c15}}</view>
-          <view wx:if="{{!personPickerLoading}}" class="audit-person-item ui-motion-card" wx:for="{{personPickerCandidates}}" wx:key="id" data-hr-id="{{item.id}}" catchtap="onPersonToggle" hover-class="ui-press-card" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">
+          <view wx:if="{{!personPickerLoading}}" class="audit-person-item" wx:for="{{personPickerCandidates}}" wx:key="id">
             <view class="audit-person-avatar">{{item.name[0]}}</view>
             <view class="audit-person-info">
-              <view class="audit-person-name">
-                <view class="select-chip select-chip-inline {{item.isSelected ? 'select-chip-active' : ''}}">{{item.isSelected ? localeCopy.copy_78564bdb46 : localeCopy.copy_c47f370afa}}</view>
-                {{item.name}}
+              <view class="audit-person-name">{{item.name}}</view>
+              <view class="audit-person-detail">{{item.studentId}}</view>
+              <view class="eligible-assignment-list">
+                <view class="eligible-assignment-chip ui-motion-chip {{assignment.isSelected ? 'eligible-assignment-chip-selected' : (assignment.isCurrent ? 'eligible-assignment-chip-current' : '')}}" wx:for="{{item.eligibleAssignments}}" wx:for-item="assignment" wx:key="assignmentId" data-assignment-id="{{assignment.assignmentId}}" catchtap="onPersonToggle" hover-class="ui-press-chip" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{assignment.isSelected ? localeCopy.selectedAssignmentPrefix : ''}}{{assignment.assignmentLabel || localeCopy.assignmentLabelUnavailable}}</view>
               </view>
-              <view class="audit-person-detail">{{item.studentId}} · {{item.department}} · {{item.identity}}<text wx:if="{{item.workGroup}}"> · {{item.workGroup}}</text></view>
             </view>
           </view>
           <view class="scroll-tail-space"></view>
@@ -1003,7 +1043,7 @@
 
         <view class="button-row ui-dialog-footer">
           <button class="secondary-btn ui-motion-button" catchtap="closePersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_06dbb49961}}</button>
-          <button class="primary-btn ui-motion-button" catchtap="confirmPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}} {{personPickerSelectedIds.length}} {{localeCopy.copy_2370e6144f}}</button>
+          <button class="primary-btn ui-motion-button" catchtap="confirmPersonPicker" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{localeCopy.copy_9aa3c3673c}} {{personPickerSelectedIds.length}} {{localeCopy.assignmentUnit}}</button>
         </view>
       </view>
     </view>

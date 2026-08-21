@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports = Object.freeze({
+  historicalAssignmentMissing: "历史岗位未记录",
+  copy_legacyApproverSelection: "审批人必须按具体岗位重新选择",
   copy_02339c7f77: "借用申请已提交",
   copy_04ab0b03d0: "请选择其他场地",
   copy_0b091cba77: "请将结束时间设在开始时间之后",
@@ -18,7 +20,7 @@ module.exports = Object.freeze({
   copy_3508043e2a: "请刷新借用记录",
   copy_38b3e3a11c: "请在使用中结束借用",
   copy_493a127a99: "步",
-  copy_4e84385ce1: "请先选择普通岗位身份",
+  copy_4e84385ce1: "请先选择普通用户岗位",
   copy_62d2cac4df: "请重新打开借用记录",
   copy_6e6ee2b747: "开放时间",
   copy_6fb89690d9: "请重新提交借用",
@@ -32,7 +34,7 @@ module.exports = Object.freeze({
   copy_9aa2375ba5: "借用尚未开始，请取消借用",
   copy_9dc5c7d79f: "请填写完整信息",
   copy_ab5ebc56e8: "请重新选择日期",
-  copy_bba7f8b8ba: "请使用普通岗位身份",
+  copy_bba7f8b8ba: "请使用普通用户岗位",
   copy_bbcf12ed5f: "场地已删除",
   copy_c01a9aef59: "管理员",
   copy_c16837c5f9: "已驳回的借用无需取消",
