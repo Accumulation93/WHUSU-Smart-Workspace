@@ -20,6 +20,16 @@ const {
   authorizeCurrentVenueApproval
 } = require('../services/venueApprovalAuthorization');
 const venueApprovalMultiFlow = require('../services/venueApprovalMultiFlow');
+const dictionaryUsage = require('../../../core/services/dictionaryUsage');
+
+function collectRuleDictionaryReferences(rule) {
+  const item = rule || {};
+  return {
+    departmentIds: [item.specificDepartmentId],
+    identityCategoryIds: [item.specificIdentityId],
+    workGroupIds: [item.specificWorkGroupId]
+  };
+}
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -200,6 +210,16 @@ router.post('/saveVenueApprovalWholeFlow', async (req, res) => {
     if (!venueId) return res.json({ status: 'invalid_params', message: localeCopy.copy_3458928c55 });
 
     await conn.beginTransaction();
+    const orgId = await getCurrentOrgId();
+    await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
+    for (const step of stepsData) {
+      for (const rule of step.rules) {
+        await dictionaryUsage.assertDictionaryReferences(Object.assign({
+          organizationId: orgId,
+          connection: conn
+        }, collectRuleDictionaryReferences(rule)));
+      }
+    }
 
     // Clean up conflicting 'direct' booking rules when saving a flow
     // (user is explicitly choosing flow-based approval over direct)
@@ -307,6 +327,7 @@ router.post('/deleteVenueApprovalStep', async (req, res) => {
 
 // saveVenueApprovalStepRule
 router.post('/saveVenueApprovalStepRule', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
     const admin = await ensureAdmin(req.openid);
     if (!admin) return res.json({ status: 'forbidden', message: localeCopy.copy_f048be09ae });
@@ -322,17 +343,30 @@ router.post('/saveVenueApprovalStepRule', async (req, res) => {
       sortOrder: parseInt(req.body.sortOrder) || 1,
       ...normalized
     };
+    const orgId = await getCurrentOrgId();
+    await conn.beginTransaction();
+    await dictionaryUsage.assertDictionaryReferences(Object.assign({
+      organizationId: orgId,
+      connection: conn
+    }, collectRuleDictionaryReferences(data)));
 
     const existing = await ruleModel.getById(id);
     if (existing) {
-      if (existing.step_id !== stepId) return res.json({ status: 'invalid_params', message: localeCopy.copy_b069f9d0fd });
-      await ruleModel.update(id, data);
+      if (existing.step_id !== stepId) {
+        await conn.rollback();
+        return res.json({ status: 'invalid_params', message: localeCopy.copy_b069f9d0fd });
+      }
+      await ruleModel.update(id, data, conn);
     } else {
-      await ruleModel.create(id, data);
+      await ruleModel.create(id, data, conn);
     }
+    await conn.commit();
     res.json({ status: 'success', id, message: existing ? '规则已更新' : '规则已创建' });
   } catch (e) {
+    await conn.rollback();
     res.json({ status: 'error', message: safeString(e.message) });
+  } finally {
+    conn.release();
   }
 });
 

@@ -158,6 +158,48 @@ async function testReferencedDictionaryRollsBackWithoutDeleting() {
   }
 }
 
+async function testRuleWritesLockAndValidateDictionaryReferences() {
+  const sqlLog = [];
+  const connection = createConnection(async (sql) => {
+    sqlLog.push(sql);
+    if (sql.startsWith('INSERT IGNORE INTO organization_dictionary_locks')) return [{ affectedRows: 1 }];
+    if (sql.startsWith('SELECT org_id FROM organization_dictionary_locks')) return [[{ org_id: 'org-1' }]];
+    if (sql.startsWith('SELECT id FROM departments')) return [[{ id: 'department-1' }]];
+    if (sql.startsWith('SELECT id FROM identities')) return [[{ id: 'identity-1' }]];
+    if (sql.startsWith('SELECT id, department_id FROM work_groups')) {
+      return [[{ id: 'group-1', department_id: 'department-1' }]];
+    }
+    throw new Error(`未处理 SQL: ${sql}`);
+  });
+  await dictionaryUsage.assertDictionaryReferences({
+    organizationId: 'org-1',
+    departmentIds: ['department-1'],
+    identityCategoryIds: ['identity-1'],
+    workGroupIds: ['group-1'],
+    connection
+  });
+  assert.ok(sqlLog[1].includes('FOR UPDATE'), '规则写入必须先取得组织级字典锁');
+
+  const mismatchConnection = createConnection(async (sql) => {
+    if (sql.startsWith('INSERT IGNORE INTO organization_dictionary_locks')) return [{ affectedRows: 1 }];
+    if (sql.startsWith('SELECT org_id FROM organization_dictionary_locks')) return [[{ org_id: 'org-1' }]];
+    if (sql.startsWith('SELECT id FROM departments')) return [[{ id: 'department-1' }]];
+    if (sql.startsWith('SELECT id, department_id FROM work_groups')) {
+      return [[{ id: 'group-1', department_id: 'department-2' }]];
+    }
+    return [[]];
+  });
+  await assert.rejects(
+    dictionaryUsage.assertDictionaryReferences({
+      organizationId: 'org-1',
+      departmentIds: ['department-1'],
+      workGroupIds: ['group-1'],
+      connection: mismatchConnection
+    }),
+    /work_group_department_mismatch/
+  );
+}
+
 function testPersonnelMigrationContract() {
   const migrationPath = path.resolve(__dirname, '../db/deploy/20260822120000_personnel_domain_integrity.sql');
   const migration = fs.readFileSync(migrationPath, 'utf8');
@@ -172,6 +214,7 @@ function testPersonnelMigrationContract() {
   assert.match(migration, /UPDATE person_profile_values[\s\S]*source_record_id = record_map\.keeper_id/);
   assert.match(migration, /UPDATE person_profile_value_history[\s\S]*source_record_id = record_map\.keeper_id/);
   assert.match(migration, /UPDATE hr_profile_review_events[\s\S]*record_id = record_map\.keeper_id/);
+  assert.doesNotMatch(migration, /CREATE TRIGGER/);
   assert.match(initSql, /CONSTRAINT chk_assignment_active_dimensions CHECK/);
 }
 
@@ -181,6 +224,7 @@ async function run() {
   await testReferencedWorkGroupCannotChangeDepartment();
   await testDictionaryDeleteLocksAndDeletesInOneTransaction();
   await testReferencedDictionaryRollsBackWithoutDeleting();
+  await testRuleWritesLockAndValidateDictionaryReferences();
   testPersonnelMigrationContract();
   console.log('字典事务锁、职能组部门完整性与人事迁移契约测试通过');
 }

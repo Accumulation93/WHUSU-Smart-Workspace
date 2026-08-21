@@ -28,29 +28,32 @@ async function getActive() {
   return rows;
 }
 
-async function create(id, data) {
+async function create(id, data, conn) {
   const { name, description, starterType, starterIdentityId, starterHrId, resubmitMode, createdBy, starterConditionsJson } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const db = conn || pool;
+  await db.query(
     `INSERT INTO audit_flow_templates (id, name, description, starter_type, starter_identity_id, starter_hr_id, resubmit_mode, starter_conditions_json, org_id, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, name || '', description || '', starterType || 'conditions', starterIdentityId || null, starterHrId || null, resubmitMode || 'fresh', starterConditionsJson || null, orgId, createdBy || null]
   );
 }
 
-async function update(id, data) {
+async function update(id, data, conn) {
   const { name, description, starterType, starterIdentityId, starterHrId, resubmitMode, isActive, starterConditionsJson } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const db = conn || pool;
+  await db.query(
     `UPDATE audit_flow_templates SET name = ?, description = ?, starter_type = ?, starter_identity_id = ?,
      starter_hr_id = ?, starter_conditions_json = ?, resubmit_mode = ?, is_active = ? WHERE id = ? AND org_id = ?`,
     [name || '', description || '', starterType || 'conditions', starterIdentityId || null, starterHrId || null, starterConditionsJson !== undefined ? starterConditionsJson : null, resubmitMode || 'fresh', isActive != null ? (isActive ? 1 : 0) : 1, id, orgId]
   );
 }
 
-async function remove(id) {
+async function remove(id, conn) {
   const orgId = await getCurrentOrgId();
-  await pool.query('DELETE FROM audit_flow_templates WHERE id = ? AND org_id = ?', [id, orgId]);
+  const db = conn || pool;
+  await db.query('DELETE FROM audit_flow_templates WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
 module.exports = { getAll, getById, getActive, create, update, remove };

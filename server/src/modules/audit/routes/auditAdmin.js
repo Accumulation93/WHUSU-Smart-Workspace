@@ -21,6 +21,16 @@ const { verifySignatureChain } = require('../utils/hashChain');
 const {
   resolveAndValidateBindings
 } = require('../services/auditPersonAssignmentCondition');
+const dictionaryUsage = require('../../../core/services/dictionaryUsage');
+
+function collectDictionaryReferences(condition) {
+  const item = condition || {};
+  return {
+    departmentIds: [item.specificDepartmentId, item.specificDepartmentIds],
+    identityCategoryIds: [item.specificIdentityId, item.specificIdentityIds],
+    workGroupIds: [item.specificWorkGroupId, item.specificWorkGroupIds]
+  };
+}
 
 async function ensureAdmin(openid) {
   return adminInfoModel.getByOpenid(openid);
@@ -218,6 +228,21 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
+      const allConditions = starterConditions.slice();
+      for (const step of steps) {
+        const stepConditions = Array.isArray(step.conditions) ? step.conditions : [];
+        allConditions.push(...stepConditions);
+        if (!stepConditions.length && step.approverIdentityId) {
+          allConditions.push({ specificIdentityId: step.approverIdentityId });
+        }
+      }
+      await dictionaryUsage.lockOrganizationDictionaryWrites(orgId, conn);
+      for (const condition of allConditions) {
+        await dictionaryUsage.assertDictionaryReferences(Object.assign({
+          organizationId: orgId,
+          connection: conn
+        }, collectDictionaryReferences(condition)));
+      }
 
       let templateId;
       if (id) {
@@ -229,9 +254,9 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           starterConditionsJson,
           resubmitMode,
           isActive: true
-        });
+        }, conn);
         // Remove old steps, re-insert
-        await flowTemplateStepModel.removeByTemplateId(id);
+        await flowTemplateStepModel.removeByTemplateId(id, conn);
       } else {
         templateId = generateId();
         await flowTemplateModel.create(templateId, {
@@ -241,7 +266,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           starterConditionsJson,
           resubmitMode,
           createdBy: admin.id
-        });
+        }, conn);
       }
 
       // Insert steps with conditions
@@ -254,7 +279,7 @@ router.post('/saveAuditFlowTemplate', async (req, res) => {
           actionType: safeString(step.actionType) || 'sign',
           allowApproverDesignation: step.allowApproverDesignation === true,
           name: safeString(step.name) || ''
-        });
+        }, conn);
 
         // Create conditions for this step
         const conditions = Array.isArray(step.conditions) ? step.conditions : [];

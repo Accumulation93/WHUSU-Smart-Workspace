@@ -43,10 +43,11 @@ async function getById(id) {
   return rows[0] || null;
 }
 
-async function create(id, data) {
+async function create(id, data, conn) {
   const { templateId, sortOrder, actionType, name, allowApproverDesignation } = data;
   const orgId = await getCurrentOrgId();
-  await pool.query(
+  const db = conn || pool;
+  await db.query(
     `INSERT INTO audit_flow_template_steps
      (id, template_id, sort_order, action_type, allow_approver_designation, name, org_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -54,17 +55,19 @@ async function create(id, data) {
   );
 }
 
-async function removeByTemplateId(templateId) {
+async function removeByTemplateId(templateId, conn) {
   const orgId = await getCurrentOrgId();
+  const db = conn || pool;
   // FK CASCADE handles condition cleanup, but be explicit
-  await conditionModel.removeByTemplateId(templateId);
-  await pool.query('DELETE FROM audit_flow_template_steps WHERE template_id = ? AND org_id = ?', [templateId, orgId]);
+  await conditionModel.removeByTemplateId(templateId, db);
+  await db.query('DELETE FROM audit_flow_template_steps WHERE template_id = ? AND org_id = ?', [templateId, orgId]);
 }
 
-async function remove(id) {
+async function remove(id, conn) {
   const orgId = await getCurrentOrgId();
-  await conditionModel.removeByTemplateStepId(id);
-  await pool.query('DELETE FROM audit_flow_template_steps WHERE id = ? AND org_id = ?', [id, orgId]);
+  const db = conn || pool;
+  await conditionModel.removeByTemplateStepId(id, db);
+  await db.query('DELETE FROM audit_flow_template_steps WHERE id = ? AND org_id = ?', [id, orgId]);
 }
 
 module.exports = { getByTemplateId, getById, create, removeByTemplateId, remove };

@@ -22,6 +22,7 @@ const pubCache = require('../utils/pubCache');
 const { resolveCurrentActor } = require('../../../core/services/currentActor');
 const participantService = require('../services/participants');
 const publicationAssignments = require('../services/publicationAssignments');
+const dictionaryUsage = require('../../../core/services/dictionaryUsage');
 
 const VALID_SCOPES = ['own_results', 'same_department_identity', 'same_department_all', 'same_work_group_identity', 'same_work_group_all', 'all_people'];
 const IDENTITY_REQUIRED_SCOPES = ['same_department_identity', 'same_work_group_identity'];
@@ -1230,6 +1231,15 @@ router.post('/savePubViewRule', async (req, res) => {
     let ruleId = id;
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
+      await dictionaryUsage.assertDictionaryReferences({
+        organizationId: orgId,
+        departmentIds: [granteeDepartmentId],
+        identityCategoryIds: [granteeIdentityId].concat(
+          dedupedClauses.map((clause) => clause.targetIdentityId)
+        ),
+        workGroupIds: [],
+        connection: conn
+      });
       if (id) {
         await conn.query('UPDATE pub_view_rules SET grantee_department_id=?, grantee_identity_id=?, updated_at=? WHERE id=? AND org_id=?', [granteeDepartmentId, granteeIdentityId, now, id, orgId]);
         ruleId = id;
@@ -1406,6 +1416,15 @@ router.post('/savePubMeritRule', async (req, res) => {
     let ruleId = id;
     const { withTransaction } = require('../../../config/db');
     await withTransaction(async (conn) => {
+      await dictionaryUsage.assertDictionaryReferences({
+        organizationId: orgId,
+        departmentIds: [granteeDepartmentId],
+        identityCategoryIds: [granteeIdentityId].concat(
+          dedupedClauses.map((clause) => clause.targetIdentityId)
+        ),
+        workGroupIds: [],
+        connection: conn
+      });
       if (id) {
         await conn.query('UPDATE pub_merit_rules SET grantee_department_id=?, grantee_identity_id=?, updated_at=? WHERE id=? AND org_id=?', [granteeDepartmentId, granteeIdentityId, now, id, orgId]);
         ruleId = id;

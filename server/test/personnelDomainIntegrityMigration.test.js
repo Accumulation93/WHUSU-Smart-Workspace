@@ -296,69 +296,13 @@ async function assertMigrated(connection) {
     `),
     /Check constraint/
   );
-  await assert.rejects(
-    connection.query(`
-      INSERT INTO audit_flow_template_step_conditions
-        (id, template_step_id, sort_order, condition_type, identity_scope,
-         specific_identity_id, org_id)
-      VALUES
-        ('condition-invalid-after', 'template-step-personnel', 3, 'identity_scope',
-         'specific', 'identity-personnel,identity-missing', 'org-personnel-migration')
-    `),
-    /invalid_identity_reference/
-  );
-}
-
-async function assertDictionaryWriteDeleteRaceIsClosed() {
-  const deleter = await mysql.createConnection(databaseConfig(databaseName));
-  const writer = await mysql.createConnection(databaseConfig(databaseName));
-  try {
-    await deleter.query(
-      `INSERT INTO departments (id, name, org_id)
-       VALUES ('dept-dictionary-race', '并发字典测试部门', 'org-personnel-migration')`
-    );
-    await deleter.beginTransaction();
-    await deleter.query(
-      `SELECT org_id FROM organization_dictionary_locks
-        WHERE org_id = 'org-personnel-migration' FOR UPDATE`
-    );
-    await deleter.query(
-      `DELETE FROM departments
-        WHERE id = 'dept-dictionary-race' AND org_id = 'org-personnel-migration'`
-    );
-
-    const writeRejected = assert.rejects(
-      writer.query(
-        `INSERT INTO audit_flow_templates
-          (id, name, starter_type, starter_conditions_json, org_id)
-         VALUES (?, ?, 'conditions', ?, ?)`,
-        [
-          'template-dictionary-race',
-          '并发字典测试模板',
-          JSON.stringify([{
-            conditionType: 'person',
-            departmentScope: 'specific',
-            specificDepartmentId: 'dept-dictionary-race'
-          }]),
-          'org-personnel-migration'
-        ]
-      ),
-      /invalid_department_reference/
-    );
-
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await deleter.commit();
-    await writeRejected;
-    const [[result]] = await writer.query(
-      `SELECT COUNT(*) AS total FROM audit_flow_templates
-        WHERE id = 'template-dictionary-race'`
-    );
-    assert.strictEqual(Number(result.total), 0, '并发删除后不得写入悬空 JSON 字典引用');
-  } finally {
-    try { await deleter.rollback(); } catch (_) {}
-    await deleter.end();
-    await writer.end();
-  }
+  const [[triggerState]] = await connection.query(`
+    SELECT COUNT(*) AS total
+      FROM information_schema.TRIGGERS
+     WHERE TRIGGER_SCHEMA = DATABASE()
+       AND TRIGGER_NAME LIKE 'trg_dict_%'
+  `);
+  assert.strictEqual(Number(triggerState.total), 0, '迁移不得依赖生产账号无权创建的字典触发器');
 }
 
 async function run() {
@@ -388,7 +332,6 @@ async function run() {
       deployedSha: '7'.repeat(40)
     });
     await assertMigrated(connection);
-    await assertDictionaryWriteDeleteRaceIsClosed();
     console.log('人事领域脏数据清理、引用重定向、约束恢复与幂等迁移测试通过');
   } finally {
     if (connection) await connection.end();

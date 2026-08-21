@@ -225,6 +225,70 @@ async function lockOrganizationDictionaryWrites(organizationId, connection) {
   );
 }
 
+function normalizeReferenceIds(values) {
+  const queue = Array.isArray(values) ? values : [values];
+  const result = [];
+  for (const value of queue) {
+    if (Array.isArray(value)) {
+      result.push(...normalizeReferenceIds(value));
+      continue;
+    }
+    safeString(value).split(',').forEach((item) => {
+      const id = safeString(item);
+      if (id && !result.includes(id)) result.push(id);
+    });
+  }
+  return result;
+}
+
+async function assertDictionaryReferences({
+  organizationId,
+  departmentIds,
+  identityCategoryIds,
+  workGroupIds,
+  connection
+}) {
+  const orgId = safeString(organizationId);
+  const departments = normalizeReferenceIds(departmentIds);
+  const identities = normalizeReferenceIds(identityCategoryIds);
+  const workGroups = normalizeReferenceIds(workGroupIds);
+  await lockOrganizationDictionaryWrites(orgId, connection);
+
+  async function loadReferences(table, ids, columns) {
+    if (!ids.length) return [];
+    const [rows] = await connection.query(
+      `SELECT ${columns} FROM ${table} WHERE id IN (?) AND org_id = ? FOR UPDATE`,
+      [ids, orgId]
+    );
+    return rows;
+  }
+
+  const departmentRows = await loadReferences('departments', departments, 'id');
+  if (departmentRows.length !== departments.length) {
+    const error = new Error('invalid_department_reference');
+    error.code = 'invalid_department_reference';
+    throw error;
+  }
+  const identityRows = await loadReferences('identities', identities, 'id');
+  if (identityRows.length !== identities.length) {
+    const error = new Error('invalid_identity_reference');
+    error.code = 'invalid_identity_reference';
+    throw error;
+  }
+  const workGroupRows = await loadReferences('work_groups', workGroups, 'id, department_id');
+  if (workGroupRows.length !== workGroups.length) {
+    const error = new Error('invalid_work_group_reference');
+    error.code = 'invalid_work_group_reference';
+    throw error;
+  }
+  if (departments.length && workGroupRows.some((row) => !departments.includes(safeString(row.department_id)))) {
+    const error = new Error('work_group_department_mismatch');
+    error.code = 'work_group_department_mismatch';
+    throw error;
+  }
+  return true;
+}
+
 async function deleteUnused(kind, id, organizationId) {
   const normalizedKind = safeString(kind);
   const normalizedId = safeString(id);
@@ -338,6 +402,8 @@ module.exports = {
   containsJsonReference,
   countUsage,
   deleteUnused,
+  assertDictionaryReferences,
   lockDictionaryTarget,
+  lockOrganizationDictionaryWrites,
   saveWorkGroupDefinition
 };
