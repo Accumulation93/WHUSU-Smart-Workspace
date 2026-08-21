@@ -9,6 +9,14 @@ const AUTH_CONTEXTS_KEY = 'authContexts';
 const AUTH_SELECTION_KEY = 'authSelection';
 const messageScope = require('./messageScope');
 
+function removeStorageValue(key) {
+  if (typeof wx.removeStorageSync === 'function') {
+    wx.removeStorageSync(key);
+    return;
+  }
+  if (typeof wx.setStorageSync === 'function') wx.setStorageSync(key, '');
+}
+
 function resolveLegacyContextId(legacyIdentityId, orgId, role) {
   const legacyId = String(legacyIdentityId || '');
   if (!legacyId) return '';
@@ -29,7 +37,7 @@ function resolveLegacyContextId(legacyIdentityId, orgId, role) {
 function getStoredContextId(orgId, role) {
   const current = String(wx.getStorageSync(CONTEXT_KEY) || '');
   if (current) {
-    wx.removeStorageSync(LEGACY_IDENTITY_KEY);
+    removeStorageValue(LEGACY_IDENTITY_KEY);
     return current;
   }
 
@@ -41,7 +49,7 @@ function getStoredContextId(orgId, role) {
   const migratedContextId = selectedContextId
     || resolveLegacyContextId(legacyIdentityId, orgId, role);
   if (migratedContextId) wx.setStorageSync(CONTEXT_KEY, migratedContextId);
-  wx.removeStorageSync(LEGACY_IDENTITY_KEY);
+  removeStorageValue(LEGACY_IDENTITY_KEY);
   return migratedContextId;
 }
 
@@ -81,7 +89,7 @@ function isSameSnapshot(left, right) {
 function writeStorageValue(key, value) {
   const normalized = String(value || '');
   if (normalized) wx.setStorageSync(key, normalized);
-  else wx.removeStorageSync(key);
+  else removeStorageValue(key);
 }
 
 function commitContext(context) {
@@ -93,11 +101,11 @@ function commitContext(context) {
   if (has.call(next, 'role')) writeStorageValue(ROLE_KEY, next.role);
   if (has.call(next, 'contextId')) {
     writeStorageValue(CONTEXT_KEY, next.contextId);
-    if (!next.contextId) wx.removeStorageSync(AUTH_SELECTION_KEY);
+    if (!next.contextId) removeStorageValue(AUTH_SELECTION_KEY);
   }
   if (has.call(next, 'orgId')) writeStorageValue(ORG_KEY, next.orgId);
   if (has.call(next, 'orgName')) writeStorageValue(ORG_NAME_KEY, next.orgName);
-  wx.removeStorageSync(LEGACY_IDENTITY_KEY);
+  removeStorageValue(LEGACY_IDENTITY_KEY);
 
   const afterWrite = getSnapshot();
   const changed = before.orgId !== afterWrite.orgId
