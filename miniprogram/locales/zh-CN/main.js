@@ -24,7 +24,7 @@ const login = Object.freeze({
     appName: common.brandName,
     organizationName: common.organizationName,
     wechatLogin: '微信登录',
-    loginSubtitle: '登录后选择组织与身份',
+    loginSubtitle: '登录后选择组织与岗位',
     loginHint: '登录提示',
     loginTitle: '登录',
     useOwnWechat: '请使用本人微信登录',
@@ -80,7 +80,7 @@ const portal = Object.freeze({
   categoryLabels: Object.freeze({ audit: '审核', venue: '场地', scoring: '考核', hr: '人事', system: '其他' }),
   cards: Object.freeze({
     messages: '消息中心',
-    identitySwitch: '组织与身份',
+    workContextSwitch: '组织与岗位',
     scoring: '考核评分',
     hr: '人事信息',
     audit: '审核',
@@ -89,11 +89,11 @@ const portal = Object.freeze({
     venueManage: '场地管理',
     permissions: '权限管理'
   }),
-  identity: Object.freeze({
+  workContext: Object.freeze({
     signedOut: '未登录',
     superAdmin: '超级管理员',
     admin: '普通管理员',
-    unset: '未设置身份',
+    unset: '未设置岗位',
     welcome: '欢迎使用'
   }),
   messages: Object.freeze({
@@ -103,10 +103,10 @@ const portal = Object.freeze({
     deleteFailed: '未删除，请重试',
     incomplete: '未完成，请重试',
     retryLater: common.actions.retryLater,
-    switchIdentity: '切换身份后查看',
-    switchOrganizationAndIdentity: '切换组织与身份后查看',
+    switchWorkContext: '切换岗位后查看',
+    switchOrganizationAndWorkContext: '切换组织与岗位后查看',
     targetOrganization: '目标组织',
-    selectIdentity: '请重新选择身份',
+    selectWorkContext: '请重新选择岗位',
     selectOrganization: '请重新选择组织',
     switchFailed: '未切换，请重试'
   }),
@@ -114,7 +114,7 @@ const portal = Object.freeze({
     appName: common.brandName,
     pageName: '应用服务',
     organizationName: common.organizationName,
-    identityHint: '身份提示',
+    workContextHint: '工作上下文提示',
     loadingHint: '加载提示',
     partialOrganizationLoading: '部分组织暂未加载，正在重试',
     todoTitle: '待办事项',
@@ -141,7 +141,7 @@ const portal = Object.freeze({
     noMatchingApps: '没有匹配的应用',
     noApps: '暂无应用',
     developing: '开发中',
-    identitySwitch: '组织与身份',
+    workContextSwitch: '组织与岗位',
     logout: '退出登录',
     crossOrganization: '跨组织事项',
     switchDescription: '切换到以下组织后查看',
@@ -162,14 +162,14 @@ const messageCenter = Object.freeze({
   messages: Object.freeze({
     notification: '通知',
     allOrganizations: '全部组织',
-    selectOrganizationOrIdentity: '请重新选择组织或身份',
+    selectOrganizationOrWorkContext: '请重新选择组织或岗位',
     refreshLater: '请稍后刷新',
     retryLater: '请稍后重试',
-    switchIdentity: '切换身份后查看',
-    switchOrganizationAndIdentity: '切换组织与身份后查看',
+    switchWorkContext: '切换岗位后查看',
+    switchOrganizationAndWorkContext: '切换组织与岗位后查看',
     targetOrganization: '目标组织',
     notificationReadFailed: '未标记已读，请重试',
-    selectIdentity: '请重新选择身份',
+    selectWorkContext: '请重新选择岗位',
     selectOrganization: '请重新选择组织',
     switchFailed: '未切换，请重试',
     incomplete: '未完成，请重试',
@@ -210,4 +210,11 @@ const messageCenter = Object.freeze({
   })
 });
 
-module.exports = Object.freeze({ login, portal, messageCenter, home });
+const authContext = Object.freeze({
+  switchFailed: '未切换，请重试',
+  reopenWorkContext: '请重新打开组织与岗位',
+  selectAccessibleOrganization: '请选择可访问的组织',
+  relogin: '请重新微信登录'
+});
+
+module.exports = Object.freeze({ login, portal, messageCenter, home, authContext });

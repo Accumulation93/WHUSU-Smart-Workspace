@@ -43,7 +43,7 @@ Page({
     partial: false,
     showSwitchDialog: false,
     switchOrganizationName: '',
-    switchDialogTitle: copy.messages.switchOrganizationAndIdentity,
+    switchDialogTitle: copy.messages.switchOrganizationAndWorkContext,
     switchingOrganization: false
   },
 
@@ -98,7 +98,8 @@ Page({
     return (items || []).map(function(item) {
       return Object.assign({}, item, {
         categoryLabel: CATEGORY_LABELS[item.category] || copy.messages.notification,
-        createdAt: formatAuditTime(item.createdAt)
+        createdAt: formatAuditTime(item.createdAt),
+        workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       });
     });
   },
@@ -140,7 +141,7 @@ Page({
           selectedOrganizationIndex: 0,
           loading: false
         });
-        showShortToast(copy.messages.selectOrganizationOrIdentity);
+        showShortToast(copy.messages.selectOrganizationOrWorkContext);
         this.loadOverview(true);
         return;
       }
@@ -159,7 +160,7 @@ Page({
           selectedOrganizationIndex: 0,
           loading: false
         });
-        showShortToast(copy.messages.selectOrganizationOrIdentity);
+        showShortToast(copy.messages.selectOrganizationOrWorkContext);
         this.loadOverview(true);
         return;
       }
@@ -282,16 +283,16 @@ Page({
       && item.organizationId !== String(wx.getStorageSync('activeOrgId') || '')) {
       return 'organization';
     }
-    if (item.identityId) {
-      return item.identityId !== String(wx.getStorageSync('activeIdentityId') || '')
-        ? 'identity'
+    const targetContextId = String(item.contextId || '') || authContext.resolveContextId(
+      item.identityId,
+      item.organizationId
+    );
+    if (targetContextId) {
+      return targetContextId !== orgSession.getSnapshot().contextId
+        ? 'context'
         : '';
     }
-    if (item.contextId) {
-      return item.contextId !== String(wx.getStorageSync('activeContextId') || '')
-        ? 'identity'
-        : '';
-    }
+    if (item.contextId || item.identityId) return 'context';
     return '';
   },
 
@@ -301,10 +302,10 @@ Page({
     this.setData({
       showSwitchDialog: true,
       switchDialogTitle: sameOrganization
-        ? copy.messages.switchIdentity
-        : copy.messages.switchOrganizationAndIdentity,
+        ? copy.messages.switchWorkContext
+        : copy.messages.switchOrganizationAndWorkContext,
       switchOrganizationName: (item.organizationName || copy.messages.targetOrganization)
-        + (item.identityName ? ' · ' + item.identityName : '')
+        + (item.workContextName ? ' · ' + item.workContextName : '')
     });
   },
 
@@ -322,7 +323,7 @@ Page({
       this.openSwitchDialog(item, 'todo');
       return;
     }
-    if (switchKind === 'identity') {
+    if (switchKind === 'context') {
       await this.activateAndOpen(item, 'todo');
       return;
     }
@@ -368,7 +369,7 @@ Page({
       this.openSwitchDialog(item, 'notification');
       return;
     }
-    if (switchKind === 'identity') {
+    if (switchKind === 'context') {
       await this.activateAndOpen(item, 'notification');
       return;
     }
@@ -376,10 +377,10 @@ Page({
   },
 
   async activateItemContext(item) {
+    if (item.contextId) return authContext.activateContext(item.contextId);
     if (item.organizationId && item.identityId) {
       return authContext.activateSelection(item.organizationId, item.identityId);
     }
-    if (item.contextId) return authContext.activateContext(item.contextId);
     return activateOrganization(item.organizationId);
   },
 
@@ -393,7 +394,7 @@ Page({
         } catch (_) {
           queuePendingRead(
             item.organizationId,
-            (activated.selection && activated.selection.identityId) || activated.role || '',
+            (activated.context && activated.context.role) || orgSession.getSnapshot().role,
             item.id
           );
         }
@@ -401,7 +402,7 @@ Page({
       navigateToTrustedRoute(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
-      showShortToast(denied ? copy.messages.selectIdentity : copy.messages.switchFailed);
+      showShortToast(denied ? copy.messages.selectWorkContext : copy.messages.switchFailed);
       this.loadOverview(true);
     }
   },
@@ -420,9 +421,7 @@ Page({
         } catch (_) {
           queuePendingRead(
             pending.item.organizationId,
-            (activated.selection && activated.selection.identityId)
-              || (activated.context && activated.context.contextId)
-              || activated.role,
+            (activated.context && activated.context.role) || orgSession.getSnapshot().role,
             pending.item.id
           );
         }

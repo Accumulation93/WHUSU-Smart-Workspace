@@ -2,7 +2,7 @@
   <workspace-hero class="workspace-hero-host" app-name="{{copy.appName}}" page-name="{{copy.pageName}}"></workspace-hero>
 
   <view class="portal-context-notice" wx:if="{{contextNotice}}">
-    <ui-icon name="shield" tone="primary" size="27" ariaLabel="{{copy.identityHint}}" />
+    <ui-icon name="shield" tone="primary" size="27" ariaLabel="{{copy.workContextHint}}" />
     <text>{{contextNotice}}</text>
   </view>
 
@@ -30,7 +30,7 @@
           <view class="portal-message-metadata">
             <view class="portal-message-context-line">
               <text class="notification-tag notification-tag-{{item.category}}">{{item.categoryLabel}}</text>
-              <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.identityName}}</text>
+              <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.workContextName}}</text>
             </view>
             <view class="portal-organization-meta {{item.isCurrentOrganization ? 'portal-organization-meta-current' : ''}}">
               <ui-icon name="home" tone="primary" sizeRole="message-meta" ariaLabel="{{copy.organization}}" />
@@ -77,7 +77,7 @@
             <view class="portal-message-metadata">
               <view class="portal-message-context-line">
                 <text class="notification-tag notification-tag-{{item.category}}">{{item.categoryLabel}}</text>
-                <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.identityName}}</text>
+                <text class="portal-identity-meta {{item.isCurrentContext ? 'portal-identity-meta-current' : ''}}">{{item.workContextName}}</text>
               </view>
               <view class="portal-organization-meta {{item.isCurrentOrganization ? 'portal-organization-meta-current' : ''}}">
                 <ui-icon name="home" tone="primary" sizeRole="message-meta" ariaLabel="{{copy.organization}}" />
@@ -170,7 +170,7 @@
 
   <view class="portal-session-footer">
     <view class="actions">
-      <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.identitySwitch}}</button>
+      <button class="secondary-btn ui-motion-button" bindtap="goLogin" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.workContextSwitch}}</button>
       <button class="danger-btn ui-motion-button" wx:if="{{hasUser}}" bindtap="logout" hover-class="ui-press-button" hover-start-time="0" hover-stay-time="160" hover-stop-propagation="{{true}}">{{copy.logout}}</button>
     </view>
 

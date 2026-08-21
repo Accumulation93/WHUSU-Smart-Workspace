@@ -1,4 +1,4 @@
-const { callFunction, formatAuditTime } = require('../../../../utils/api');
+const { callFunction, formatAuditTime, showShortToast } = require('../../../../utils/api');
 const eventBus = require('../../../../utils/eventBus');
 const orgSession = require('../../../../utils/orgSession');
 const adminPermissions = require('../../../../utils/adminPermissions');
@@ -20,7 +20,7 @@ const CATEGORY_LABELS = {
 
 const PORTAL_CARDS_USER = [
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
-  { key: 'identitySwitch', label: copy.cards.identitySwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/workspace/pages/home/home?subApp=scoring', disabled: false },
   { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/subpackages/workspace/pages/home/home?subApp=hr', disabled: false },
   { key: 'audit', label: copy.cards.audit, iconName: 'file', url: '/subpackages/workspace/pages/home/home?subApp=audit', disabled: false },
@@ -29,7 +29,7 @@ const PORTAL_CARDS_USER = [
 
 const PORTAL_CARDS_ADMIN = [
   { key: 'messages', label: copy.cards.messages, iconName: 'bell', url: '/subpackages/message/pages/messageCenter/messageCenter', disabled: false },
-  { key: 'identitySwitch', label: copy.cards.identitySwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
+  { key: 'identitySwitch', label: copy.cards.workContextSwitch, iconName: 'user', url: '/subpackages/org/pages/identitySwitch/identitySwitch', disabled: false },
   { key: 'scoring', label: copy.cards.scoring, iconName: 'grid', url: '/subpackages/scoring/pages/admin/admin?subApp=scoring', disabled: false },
   { key: 'hr', label: copy.cards.hr, iconName: 'user', url: '/subpackages/scoring/pages/admin/admin?subApp=hr', disabled: false },
   { key: 'system', label: copy.cards.system, iconName: 'shield', url: '/subpackages/scoring/pages/admin/admin?subApp=system', disabled: false },
@@ -38,12 +38,12 @@ const PORTAL_CARDS_ADMIN = [
   { key: 'permissions', label: copy.cards.permissions, iconName: 'shield', url: '/subpackages/org/pages/adminPermissions/adminPermissions', disabled: false }
 ];
 
-function getDisplayIdentity(user, activeRole) {
-  if (!user) return copy.identity.signedOut;
+function getDisplayWorkContext(user, activeRole) {
+  if (!user) return copy.workContext.signedOut;
   if (activeRole === 'admin') {
-    return user.adminLevel === 'super_admin' ? copy.identity.superAdmin : copy.identity.admin;
+    return user.adminLevel === 'super_admin' ? copy.workContext.superAdmin : copy.workContext.admin;
   }
-  return user.identity || copy.identity.unset;
+  return user.assignmentLabel || user.identity || copy.workContext.unset;
 }
 
 Page({
@@ -51,7 +51,7 @@ Page({
     copy: copy.view,
     portalCards: [],
     heroName: '',
-    heroIdentity: '',
+    heroWorkContext: '',
     heroInitial: '',
     userDepartment: '',
     userWorkGroup: '',
@@ -72,7 +72,7 @@ Page({
     messagePartial: false,
     showMessageSwitchDialog: false,
     messageSwitchOrganizationName: '',
-    messageSwitchTitle: copy.messages.switchOrganizationAndIdentity,
+    messageSwitchTitle: copy.messages.switchOrganizationAndWorkContext,
     messageSwitchLoading: false,
     contextNotice: '',
 
@@ -222,8 +222,8 @@ Page({
       user: user,
       hasUser: !!user,
       isAdminRole: isAdminRole,
-      heroName: user ? (user.name || copy.identity.welcome) : copy.identity.welcome,
-      heroIdentity: user ? getDisplayIdentity(user, activeRole) : copy.appName,
+      heroName: user ? (user.name || copy.workContext.welcome) : copy.workContext.welcome,
+      heroWorkContext: user ? getDisplayWorkContext(user, activeRole) : copy.appName,
       heroInitial: user && user.name ? user.name.charAt(0) : 'R',
       userDepartment: user ? (user.department || '') : '',
       userWorkGroup: user ? (user.workGroup || '') : '',
@@ -330,7 +330,8 @@ Page({
     return (items || []).map(function(item) {
       const extra = {
         categoryLabel: CATEGORY_LABELS[item.category] || (isNotification ? copy.messages.notification : copy.messages.todo),
-        createdAt: formatAuditTime(item.createdAt)
+        createdAt: formatAuditTime(item.createdAt),
+        workContextName: item.workContextName || item.contextLabel || item.assignmentLabel || item.identityName || ''
       };
       if (isNotification) Object.assign(extra, { _showDelete: false, _swipeX: 0 });
       return Object.assign({}, item, extra);
@@ -448,7 +449,7 @@ Page({
       this.openMessageSwitchDialog(item, 'todo');
       return;
     }
-    if (switchKind === 'identity') {
+    if (switchKind === 'context') {
       await this.activateMessageTarget(item, 'todo');
       return;
     }
@@ -465,7 +466,7 @@ Page({
       this.openMessageSwitchDialog(current, 'notification');
       return;
     }
-    if (switchKind === 'identity') {
+    if (switchKind === 'context') {
       await this.activateMessageTarget(current, 'notification');
       return;
     }
@@ -499,16 +500,16 @@ Page({
       && item.organizationId !== String(wx.getStorageSync('activeOrgId') || '')) {
       return 'organization';
     }
-    if (item.identityId) {
-      return item.identityId !== String(wx.getStorageSync('activeIdentityId') || '')
-        ? 'identity'
+    const targetContextId = String(item.contextId || '') || authContext.resolveContextId(
+      item.identityId,
+      item.organizationId
+    );
+    if (targetContextId) {
+      return targetContextId !== orgSession.getSnapshot().contextId
+        ? 'context'
         : '';
     }
-    if (item.contextId) {
-      return item.contextId !== String(wx.getStorageSync('activeContextId') || '')
-        ? 'identity'
-        : '';
-    }
+    if (item.contextId || item.identityId) return 'context';
     return '';
   },
 
@@ -517,9 +518,9 @@ Page({
     const sameOrganization = item.organizationId === String(wx.getStorageSync('activeOrgId') || '');
     this.setData({
       showMessageSwitchDialog: true,
-      messageSwitchTitle: sameOrganization ? copy.messages.switchIdentity : copy.messages.switchOrganizationAndIdentity,
+      messageSwitchTitle: sameOrganization ? copy.messages.switchWorkContext : copy.messages.switchOrganizationAndWorkContext,
       messageSwitchOrganizationName: (item.organizationName || copy.messages.targetOrganization)
-        + (item.identityName ? ' · ' + item.identityName : '')
+        + (item.workContextName ? ' · ' + item.workContextName : '')
     });
   },
 
@@ -533,10 +534,10 @@ Page({
   },
 
   async activateMessageContext(item) {
+    if (item.contextId) return authContext.activateContext(item.contextId);
     if (item.organizationId && item.identityId) {
       return authContext.activateSelection(item.organizationId, item.identityId);
     }
-    if (item.contextId) return authContext.activateContext(item.contextId);
     return activateOrganization(item.organizationId);
   },
 
@@ -561,7 +562,7 @@ Page({
       navigateToTrustedRoute(item.targetUrl);
     } catch (error) {
       const denied = error && ['org_access_denied', 'context_forbidden', 'not_found'].indexOf(error.status) >= 0;
-      showShortToast(denied ? copy.messages.selectIdentity : copy.messages.switchFailed);
+      showShortToast(denied ? copy.messages.selectWorkContext : copy.messages.switchFailed);
       this.loadMessageOverview();
     }
   },

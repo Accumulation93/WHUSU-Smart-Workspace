@@ -1,4 +1,4 @@
-const localeCopy = require('../locales/zh-CN/generated/utils/authContext');
+const { authContext: localeCopy } = require('../locales/zh-CN/main');
 const {
   callFunction,
   markAuthenticationReady,
@@ -9,11 +9,27 @@ const eventBus = require('./eventBus');
 const orgSession = require('./orgSession');
 
 const CONTEXTS_KEY = 'authContexts';
+const WORK_CONTEXTS_KEY = 'authWorkContexts';
 const ORGANIZATIONS_KEY = 'authOrganizations';
 const IDENTITIES_KEY = 'authIdentities';
 const SELECTION_KEY = 'authSelection';
 const ACCOUNT_KEY = 'accountProfile';
 const PROFILE_KEY = 'roleProfiles';
+
+function stringValue(value) {
+  return value === undefined || value === null ? '' : String(value);
+}
+
+function buildAssignmentLabel(source) {
+  if (!source) return '';
+  if (source.assignmentLabel) return stringValue(source.assignmentLabel);
+  if (source.assignmentName) return stringValue(source.assignmentName);
+  return [
+    source.identityCategoryName || source.identity,
+    source.department,
+    source.workGroup
+  ].filter(Boolean).join(' · ');
+}
 
 function normalizeProfile(user) {
   const source = user || {};
@@ -27,6 +43,8 @@ function normalizeProfile(user) {
       permissions[key] = Boolean(source.permissions[key]);
     });
   }
+  const identityCategoryId = source.identityCategoryId || source.identityId || '';
+  const identityCategoryName = source.identityCategoryName || source.identity || '';
   return {
     id: source.id || source.hrId || '',
     hrId: source.hrId || '',
@@ -38,15 +56,93 @@ function normalizeProfile(user) {
     studentId: source.studentId || '',
     departmentId: source.departmentId || '',
     department: source.department || '',
-    identityId: source.identityId || '',
-    identity: source.identity || source.assignmentName || '',
+    identityCategoryId,
+    identityCategoryName,
+    identityId: identityCategoryId,
+    identity: identityCategoryName,
     workGroupId: source.workGroupId || '',
     workGroup: source.workGroup || '',
+    assignmentNature: source.assignmentNature || source.assignmentKind || '',
+    assignmentLabel: buildAssignmentLabel(source),
     adminLevel: source.adminLevel || '',
     permissions: permissions,
     permissionKeys: permissionKeys,
     canAccessPermissionSystem: Boolean(source.canAccessPermissionSystem)
   };
+}
+
+function normalizeSelection(selection, fallbackContext) {
+  const source = selection && typeof selection === 'object' ? selection : {};
+  const context = fallbackContext || {};
+  const organizationId = stringValue(source.organizationId || context.organizationId);
+  const directContextId = stringValue(source.contextId || context.contextId);
+  const legacyReference = stringValue(source.identityId || context.authIdentityId);
+  const matched = directContextId
+    ? null
+    : findContextByReference(getContexts(), legacyReference, organizationId);
+  return {
+    organizationId,
+    contextId: directContextId || stringValue(matched && matched.contextId)
+  };
+}
+
+function withLegacySelectionAlias(selection) {
+  const canonical = normalizeSelection(selection);
+  const context = findContextByReference(
+    getContexts(),
+    canonical.contextId,
+    canonical.organizationId
+  ) || {};
+  return Object.assign({}, canonical, {
+    // 仅供尚未迁移的组织选择页读取；不会写入 authSelection 或 activeIdentityId。
+    identityId: stringValue(context.authIdentityId)
+  });
+}
+
+function findContextByReference(contexts, reference, organizationId) {
+  const ref = stringValue(reference);
+  const orgId = stringValue(organizationId);
+  if (!ref) return null;
+  return (contexts || []).find(function(item) {
+    if (!item) return false;
+    if (orgId && stringValue(item.organizationId) !== orgId) return false;
+    return stringValue(item.contextId) === ref
+      || stringValue(item.authIdentityId) === ref;
+  }) || null;
+}
+
+function normalizeWorkContexts(values, contexts) {
+  const source = Array.isArray(values) ? values : [];
+  return source.map(function(item) {
+    const row = item || {};
+    const matched = findContextByReference(
+      contexts,
+      row.contextId || row.identityId,
+      row.organizationId
+    ) || {};
+    const contextId = stringValue(row.contextId || matched.contextId);
+    return {
+      contextId,
+      organizationId: stringValue(row.organizationId || matched.organizationId),
+      organizationName: stringValue(row.organizationName || matched.organizationName),
+      role: stringValue(row.role || matched.role),
+      type: stringValue(row.type || row.identityType || matched.identityType),
+      scope: stringValue(row.scope || row.identityScope || matched.identityScope),
+      name: stringValue(row.assignmentLabel || row.workContextName || row.label || row.name || matched.assignmentLabel || matched.identityName),
+      detail: stringValue(row.detail || matched.detail),
+      assignmentId: stringValue(row.assignmentId || matched.assignmentId),
+      assignmentNature: stringValue(row.assignmentNature || row.assignmentKind || matched.assignmentNature || matched.assignmentKind),
+      assignmentLabel: stringValue(row.assignmentLabel || matched.assignmentLabel || buildAssignmentLabel(matched)),
+      identityCategoryId: stringValue(row.identityCategoryId || matched.identityCategoryId || matched.identityId),
+      identityCategoryName: stringValue(row.identityCategoryName || matched.identityCategoryName || matched.identity),
+      departmentId: stringValue(row.departmentId || matched.departmentId),
+      department: stringValue(row.department || matched.department),
+      workGroupId: stringValue(row.workGroupId || matched.workGroupId),
+      workGroup: stringValue(row.workGroup || matched.workGroup),
+      isCurrent: Boolean(row.isCurrent || matched.isCurrent),
+      legacyIdentityId: stringValue(row.identityId || matched.authIdentityId)
+    };
+  }).filter(function(item) { return item.contextId; });
 }
 
 function saveContexts(contexts) {
@@ -62,14 +158,22 @@ function getContexts() {
 
 function saveCatalog(result) {
   const source = result || {};
-  const contexts = saveContexts(source.contexts || getContexts());
+  const contextValues = Array.isArray(source.contexts)
+    ? source.contexts
+    : (Array.isArray(source.workContexts) ? source.workContexts : getContexts());
+  const contexts = saveContexts(contextValues);
   const organizations = Array.isArray(source.organizations) && source.organizations.length
     ? source.organizations
     : organizationsFromContexts(contexts);
-  const identities = Array.isArray(source.identities) ? source.identities : [];
-  const selection = source.selection || {};
+  const legacyIdentities = Array.isArray(source.identities) ? source.identities : [];
+  const workContextValues = Array.isArray(source.workContexts) && source.workContexts.length
+    ? source.workContexts
+    : (legacyIdentities.length ? legacyIdentities : contexts);
+  const workContexts = normalizeWorkContexts(workContextValues, contexts);
+  const selection = normalizeSelection(source.selection, source.context);
   wx.setStorageSync(ORGANIZATIONS_KEY, organizations);
-  wx.setStorageSync(IDENTITIES_KEY, identities);
+  wx.setStorageSync(WORK_CONTEXTS_KEY, workContexts);
+  wx.setStorageSync(IDENTITIES_KEY, legacyIdentities);
   wx.setStorageSync(SELECTION_KEY, selection);
   wx.setStorageSync('availableOrgs', organizations);
   wx.setStorageSync('availableOrgs:user', organizations.filter(function(item) {
@@ -78,7 +182,13 @@ function saveCatalog(result) {
   wx.setStorageSync('availableOrgs:admin', organizations.filter(function(item) {
     return !item.roles || item.roles.indexOf('admin') >= 0;
   }));
-  return { contexts, organizations, identities, selection };
+  return {
+    contexts,
+    organizations,
+    workContexts,
+    identities: legacyIdentities.length ? legacyIdentities : getIdentities(),
+    selection: withLegacySelectionAlias(selection)
+  };
 }
 
 function getOrganizations() {
@@ -88,17 +198,55 @@ function getOrganizations() {
 
 function getIdentities() {
   const values = wx.getStorageSync(IDENTITIES_KEY);
-  return Array.isArray(values) ? values : [];
+  if (Array.isArray(values) && values.length) return values;
+  return getWorkContexts().map(function(item) {
+    return {
+      identityId: item.legacyIdentityId || item.contextId,
+      contextId: item.contextId,
+      organizationId: item.organizationId,
+      name: item.name,
+      detail: item.detail,
+      role: item.role,
+      type: item.type,
+      scope: item.scope,
+      isCurrent: item.isCurrent
+    };
+  });
+}
+
+function getWorkContexts() {
+  const values = wx.getStorageSync(WORK_CONTEXTS_KEY);
+  if (Array.isArray(values)) return values;
+  const legacyValues = wx.getStorageSync(IDENTITIES_KEY);
+  return normalizeWorkContexts(Array.isArray(legacyValues) ? legacyValues : [], getContexts());
 }
 
 function getSelection() {
   const value = wx.getStorageSync(SELECTION_KEY);
-  if (value && typeof value === 'object') return value;
-  return {
-    organizationId: wx.getStorageSync('activeOrgId') || '',
-    identityId: wx.getStorageSync('activeIdentityId') || '',
-    contextId: wx.getStorageSync('activeContextId') || ''
-  };
+  if (value && typeof value === 'object') return withLegacySelectionAlias(value);
+  const snapshot = orgSession.getSnapshot();
+  return withLegacySelectionAlias({
+    organizationId: snapshot.orgId,
+    contextId: snapshot.contextId
+  });
+}
+
+function resolveContextId(reference, organizationId) {
+  const direct = reference && typeof reference === 'object'
+    ? stringValue(reference.contextId)
+    : stringValue(reference);
+  if (!direct) return '';
+  const orgId = stringValue(
+    organizationId
+    || (reference && typeof reference === 'object' ? reference.organizationId : '')
+  );
+  const context = findContextByReference(getContexts(), direct, orgId);
+  if (context) return stringValue(context.contextId);
+  const workContext = getWorkContexts().find(function(item) {
+    if (orgId && item.organizationId !== orgId) return false;
+    return item.contextId === direct || item.legacyIdentityId === direct;
+  });
+  return workContext ? workContext.contextId : '';
 }
 
 function organizationsFromContexts(contexts) {
@@ -134,7 +282,7 @@ function saveOrganizationsFromContexts(contexts) {
 
 function applyAuthenticatedResult(result) {
   const context = result && result.context ? result.context : null;
-  if (!context || !result.token) throw new Error(localeCopy.copy_b10d64a68c);
+  if (!context || !result.token) throw new Error(localeCopy.relogin);
   const catalog = saveCatalog(result);
   if (result.account) wx.setStorageSync(ACCOUNT_KEY, result.account);
   const profile = normalizeProfile(Object.assign({}, result.account || {}, context || {}, result.user || {}));
@@ -151,14 +299,16 @@ function applyAuthenticatedResult(result) {
   wx.setStorageSync('availableOrgs:admin', organizations.filter(function(item) {
     return !item.roles || item.roles.indexOf('admin') >= 0;
   }));
-  const selection = result.selection || catalog.selection || {};
+  const selection = normalizeSelection(result.selection || catalog.selection, context);
   if (selection.organizationId) wx.setStorageSync('lastOrganizationId', selection.organizationId);
-  if (selection.identityId) wx.setStorageSync('lastIdentityId', selection.identityId);
+  if (selection.contextId) wx.setStorageSync('lastContextId', selection.contextId);
+  if (result.selection && result.selection.identityId) {
+    wx.setStorageSync('lastIdentityId', result.selection.identityId);
+  }
   if (result.selectionNotice) wx.setStorageSync('authSelectionNotice', result.selectionNotice);
   const committed = orgSession.commitContext({
     token: result.token,
     contextId: context.contextId || selection.contextId || context.id || '',
-    identityId: selection.identityId || context.authIdentityId || '',
     role: context.role,
     orgId: context.organizationId,
     orgName: context.organizationName
@@ -170,7 +320,7 @@ function applyAuthenticatedResult(result) {
 async function refreshCatalog() {
   const result = await callFunction({ name: 'auth/contexts', data: {} });
   if (!result || result.status !== 'success') {
-    const error = new Error((result && result.message) || localeCopy.copy_97169e852e);
+    const error = new Error((result && result.message) || localeCopy.reopenWorkContext);
     error.status = result && result.status;
     throw error;
   }
@@ -184,11 +334,7 @@ async function refreshContexts() {
 
 function applyActivatedResult(result) {
   const context = result.context;
-  const selection = result.selection || {
-    organizationId: context.organizationId,
-    identityId: context.authIdentityId || '',
-    contextId: context.contextId
-  };
+  const selection = normalizeSelection(result.selection, context);
   const before = orgSession.getSnapshot();
   const profile = normalizeProfile(Object.assign({}, result.account || {}, context || {}, result.user || {}));
   const roleProfiles = wx.getStorageSync(PROFILE_KEY) || {};
@@ -196,11 +342,13 @@ function applyActivatedResult(result) {
   wx.setStorageSync(PROFILE_KEY, roleProfiles);
   wx.setStorageSync(SELECTION_KEY, selection);
   wx.setStorageSync('lastOrganizationId', selection.organizationId || '');
-  wx.setStorageSync('lastIdentityId', selection.identityId || '');
+  wx.setStorageSync('lastContextId', selection.contextId || '');
+  if (result.selection && result.selection.identityId) {
+    wx.setStorageSync('lastIdentityId', result.selection.identityId);
+  }
   const committed = orgSession.commitContext({
     token: result.token,
     contextId: context.contextId || selection.contextId || context.id || '',
-    identityId: selection.identityId,
     role: context.role,
     orgId: context.organizationId,
     orgName: context.organizationName
@@ -208,7 +356,8 @@ function applyActivatedResult(result) {
   const payload = {
     organizationId: context.organizationId,
     organizationName: context.organizationName,
-    identityId: selection.identityId,
+    contextId: selection.contextId,
+    workContext: context,
     context: context,
     user: profile,
     version: committed.version
@@ -225,7 +374,6 @@ function applyActivatedResult(result) {
       orgName: context.organizationName,
       role: context.role,
       contextId: context.contextId,
-      identityId: selection.identityId,
       orgVersion: committed.version,
       user: profile
     });
@@ -241,7 +389,7 @@ async function activateContext(contextId) {
       data: { contextId: contextId }
     });
     if (!result || result.status !== 'success' || !result.context) {
-      const error = new Error((result && result.message) || localeCopy.copy_53d5e0a0c8);
+      const error = new Error((result && result.message) || localeCopy.switchFailed);
       error.status = result && result.status;
       throw error;
     }
@@ -251,18 +399,20 @@ async function activateContext(contextId) {
   }
 }
 
-async function activateSelection(organizationId, identityId) {
+async function activateSelection(organizationId, contextReference) {
+  const contextId = resolveContextId(contextReference, organizationId);
+  if (contextId) return activateContext(contextId);
   beginContextActivation();
   try {
     const result = await callFunction({
       name: 'auth/contexts/activate',
       data: {
         organizationId: organizationId,
-        identityId: identityId
+        identityId: contextReference
       }
     });
     if (!result || result.status !== 'success' || !result.context) {
-      const error = new Error((result && result.message) || localeCopy.copy_53d5e0a0c8);
+      const error = new Error((result && result.message) || localeCopy.switchFailed);
       error.status = result && result.status;
       throw error;
     }
@@ -281,7 +431,7 @@ async function activateOrganizationContext(organizationId, preferredRole) {
     return item.organizationId === organizationId;
   });
   if (!target) {
-    const error = new Error(localeCopy.copy_a805235eb4);
+    const error = new Error(localeCopy.selectAccessibleOrganization);
     error.status = 'org_access_denied';
     throw error;
   }
@@ -290,6 +440,7 @@ async function activateOrganizationContext(organizationId, preferredRole) {
 
 function clearUnifiedAuthentication() {
   wx.removeStorageSync(CONTEXTS_KEY);
+  wx.removeStorageSync(WORK_CONTEXTS_KEY);
   wx.removeStorageSync(ORGANIZATIONS_KEY);
   wx.removeStorageSync(IDENTITIES_KEY);
   wx.removeStorageSync(SELECTION_KEY);
@@ -307,8 +458,10 @@ module.exports = {
   saveContexts,
   getContexts,
   getOrganizations,
+  getWorkContexts,
   getIdentities,
   getSelection,
+  resolveContextId,
   organizationsFromContexts,
   applyAuthenticatedResult,
   refreshCatalog,

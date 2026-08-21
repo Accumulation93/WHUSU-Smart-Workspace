@@ -42,7 +42,7 @@
             <view class="message-metadata">
               <view class="message-context-line">
                 <text class="message-category">{{item.categoryLabel}}</text>
-                <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
+                <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.workContextName}}</text>
               </view>
               <view class="organization-meta {{item.isCurrentOrganization ? 'organization-meta-current' : ''}}">
                 <ui-icon name="home" tone="primary" sizeRole="message-meta" ariaLabel="{{copy.organization}}" />
@@ -67,7 +67,7 @@
               <view class="message-metadata">
                 <view class="message-context-line">
                   <text class="message-category">{{item.categoryLabel}}</text>
-                  <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.identityName}}</text>
+                  <text class="identity-meta {{item.isCurrentContext ? 'identity-meta-current' : ''}}">{{item.workContextName}}</text>
                 </view>
                 <view class="organization-meta {{item.isCurrentOrganization ? 'organization-meta-current' : ''}}">
                   <ui-icon name="home" tone="primary" sizeRole="message-meta" ariaLabel="{{copy.organization}}" />
