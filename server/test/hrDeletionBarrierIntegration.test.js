@@ -18,17 +18,19 @@ process.env.DB_USER = process.env.DEPLOY_TEST_DB_USER || 'root';
 process.env.DB_PASSWORD = process.env.DEPLOY_TEST_DB_PASSWORD || '';
 process.env.DB_NAME = databaseName;
 
-function loadUnifiedIdentity() {
+function loadModelWithInjectedDb(modulePath) {
   const originalLoad = Module._load;
   Module._load = function load(request, parent, isMain) {
     if (request === '../../config/db') return {};
     return originalLoad.call(this, request, parent, isMain);
   };
-  const modulePath = require.resolve('../src/core/models/unifiedIdentity');
-  delete require.cache[modulePath];
-  const model = require(modulePath);
-  Module._load = originalLoad;
-  return model;
+  const resolvedPath = require.resolve(modulePath);
+  delete require.cache[resolvedPath];
+  try {
+    return require(resolvedPath);
+  } finally {
+    Module._load = originalLoad;
+  }
 }
 
 function config(database) {
@@ -78,9 +80,10 @@ async function run() {
       await first.query('SET SESSION innodb_lock_wait_timeout = 1');
       await second.query('SET SESSION innodb_lock_wait_timeout = 1');
 
-      const unifiedIdentity = loadUnifiedIdentity();
+      const unifiedIdentity = loadModelWithInjectedDb('../src/core/models/unifiedIdentity');
       const deletionModel = require('../src/core/models/hrMemberDeletion');
-      const hrTableImport = require('../src/core/models/hrTableImport');
+      // 本测试只验证显式传入连接的行锁函数，不应加载或依赖应用全局连接池。
+      const hrTableImport = loadModelWithInjectedDb('../src/core/models/hrTableImport');
 
       await first.beginTransaction();
       await unifiedIdentity.lockActiveBusinessSubjects(first, [{
