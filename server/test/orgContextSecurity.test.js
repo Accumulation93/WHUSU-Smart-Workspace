@@ -57,6 +57,9 @@ async function run() {
   result = await invoke({ path: '/api/auth/claims/redeem' });
   assert.strictEqual(result.nextCalled, true, '初始化认证码认领应绕过组织上下文');
 
+  result = await invoke({ path: '/api/getTimeConfig' });
+  assert.strictEqual(result.nextCalled, true, '公开时区配置应在无登录上下文时可用');
+
   result = await invoke({
     authContext: {
       contextId: 'assignment:assignment-1:org-44',

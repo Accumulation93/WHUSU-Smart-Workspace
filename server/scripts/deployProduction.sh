@@ -104,16 +104,30 @@ wait_for_health() {
 }
 
 reload_release() {
-  if [[ ! -f "$NEW_RELEASE/server/ecosystem.config.js" ]]; then
-    log "新版本进程配置尚未创建，保留现有进程继续运行"
-    return 0
+  local process_release="${1:-$NEW_RELEASE}"
+  if [[ ! -f "$process_release/server/ecosystem.config.js" ]]; then
+    log "版本进程配置不存在，拒绝重载：$process_release"
+    return 1
   fi
-  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-api --update-env
-  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-notification-worker --update-env
+  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$process_release/server/ecosystem.config.js" --only whusu-smart-workspace-api --update-env
+  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 startOrReload "$process_release/server/ecosystem.config.js" --only whusu-smart-workspace-notification-worker --update-env
   # PM2 startOrReload keeps the old cwd for an existing fork process. Recreate
   # only the backup process so it always follows the atomically switched release.
   pm2 delete whusu-smart-workspace-backup >/dev/null 2>&1 || true
-  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 start "$NEW_RELEASE/server/ecosystem.config.js" --only whusu-smart-workspace-backup --update-env
+  WHUSU_SMART_WORKSPACE_SERVER_ROOT="$CURRENT_LINK/server" pm2 start "$process_release/server/ecosystem.config.js" --only whusu-smart-workspace-backup --update-env
+}
+
+resolve_rollback_tool_release() {
+  local candidate
+  for candidate in "$OLD_RELEASE" "$NEW_RELEASE"; do
+    if [[ -n "$candidate"
+      && -f "$candidate/server/scripts/deploymentDatabase.js"
+      && -f "$candidate/server/scripts/migrateAuditUploads.js" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  done
+  return 1
 }
 
 stop_process_group() {
@@ -156,17 +170,39 @@ rollback() {
       touch "$MAINTENANCE_FLAG"
       exit 1
     fi
+    local rollback_tool_release=""
+    if ! rollback_tool_release="$(resolve_rollback_tool_release)"; then
+      log "旧版本和失败版本均缺少数据库恢复工具，保留维护状态并停止回滚"
+      touch "$MAINTENANCE_FLAG"
+      exit 1
+    fi
+    log "使用稳定版本恢复工具：$rollback_tool_release"
     log "恢复部署前数据库快照"
-    node "$NEW_RELEASE/server/scripts/deploymentDatabase.js" restore "$SNAPSHOT"
-    AUDIT_UPLOAD_DIR="$SHARED_DIR/uploads/audit" \
+    if ! node "$rollback_tool_release/server/scripts/deploymentDatabase.js" restore "$SNAPSHOT"; then
+      log "数据库快照恢复失败，保留维护状态并停止回滚"
+      touch "$MAINTENANCE_FLAG"
+      exit 1
+    fi
+    if ! AUDIT_UPLOAD_DIR="$SHARED_DIR/uploads/audit" \
       AUDIT_UPLOAD_LEGACY_ROOTS="$REPO_DIR/server/uploads:$SHARED_DIR/uploads/audit:/home/ubuntu/redsu_scoring/server/uploads" \
-      node "$NEW_RELEASE/server/scripts/migrateAuditUploads.js" \
-      || log "数据库回滚后附件路径恢复失败，保留维护状态供人工处理"
+      node "$rollback_tool_release/server/scripts/migrateAuditUploads.js"; then
+      log "数据库回滚后附件路径恢复失败，保留维护状态并停止回滚"
+      touch "$MAINTENANCE_FLAG"
+      exit 1
+    fi
   fi
   if [[ -n "$OLD_RELEASE" && -d "$OLD_RELEASE" ]]; then
     log "切回旧版本 $OLD_SHA"
-    atomic_link "$OLD_RELEASE"
-    reload_release
+    if ! atomic_link "$OLD_RELEASE"; then
+      log "旧版本链接切换失败，保留维护状态"
+      touch "$MAINTENANCE_FLAG"
+      exit 1
+    fi
+    if ! reload_release "$OLD_RELEASE"; then
+      log "旧版本进程重载失败，保留维护状态"
+      touch "$MAINTENANCE_FLAG"
+      exit 1
+    fi
     local port
     port="$(read_port)"
     if wait_for_health "$port"; then
@@ -287,7 +323,7 @@ fi
 log "原子切换服务版本"
 atomic_link "$NEW_RELEASE"
 RELEASE_SWITCHED=1
-reload_release
+reload_release "$NEW_RELEASE"
 PORT="$(read_port)"
 wait_for_health "$PORT"
 curl --fail --silent --show-error --max-time 8 "$PUBLIC_HEALTH_URL" >/dev/null

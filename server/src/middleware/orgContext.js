@@ -16,6 +16,7 @@ const ORG_CONTEXT_BYPASS_PATHS = new Set([
   '/api/activateOrganization',
   '/api/userLogin',
   '/api/adminLogin',
+  '/api/getTimeConfig',
   '/api/auth/wechat/session',
   '/api/auth/claims',
   '/api/auth/claims/verify',
