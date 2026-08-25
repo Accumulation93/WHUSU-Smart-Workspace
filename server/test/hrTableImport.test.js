@@ -112,6 +112,7 @@ async function main() {
       CREATE TABLE organization_memberships (
         id VARCHAR(64) PRIMARY KEY, person_id VARCHAR(64) NOT NULL, org_id VARCHAR(64) NOT NULL,
         legacy_hr_id VARCHAR(64) NOT NULL UNIQUE, status VARCHAR(24) NOT NULL DEFAULT 'active',
+        departure_batch_id VARCHAR(64),
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uk_membership_person_org (person_id, org_id)
@@ -120,7 +121,7 @@ async function main() {
         id VARCHAR(64) PRIMARY KEY, membership_id VARCHAR(64) NOT NULL, org_id VARCHAR(64) NOT NULL,
         assignment_kind VARCHAR(32) NOT NULL DEFAULT 'staff', title VARCHAR(200),
         department_id VARCHAR(64), identity_id VARCHAR(64), work_group_id VARCHAR(64),
-        status VARCHAR(24) NOT NULL DEFAULT 'active',
+        status VARCHAR(24) NOT NULL DEFAULT 'active', revoked_by_departure_id VARCHAR(64),
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
