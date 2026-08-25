@@ -1,6 +1,9 @@
 'use strict';
 
 const crypto = require('crypto');
+const path = require('path');
+
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 function text(value) {
   return value === null || value === undefined ? '' : String(value).trim();

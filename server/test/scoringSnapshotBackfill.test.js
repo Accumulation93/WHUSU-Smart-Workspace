@@ -245,6 +245,8 @@ const scriptSource = fs.readFileSync(
   path.join(root, 'scripts/backfillScoreCalculationSnapshots.js'),
   'utf8'
 );
+assert(scriptSource.includes("require('dotenv').config({ path: path.resolve(__dirname, '../.env') })"),
+  '评分快照独立 CLI 必须加载 release 内的共享生产环境文件');
 assert(scriptSource.indexOf('if (apply && !analysis.canBackfillAll)')
   < scriptSource.indexOf('await persistAnalysis(connection, analysis)'),
 'apply 必须在任何持久化之前拒绝存在 isolated 活动的数据集');
